@@ -26,7 +26,7 @@
         "processingMs": 20000
       }
     ],
-    "electronPid": 33648,
+    "electronPid": 61234,
     "originalFrame": {
       "id": "clip-frame",
       "at": 90,
@@ -174,6 +174,7 @@
       "rows": [],
       "cancel": false,
       "candidates": [],
+      "panelWidth": 406,
       "failed": [],
       "player": null,
       "adopt": null,
@@ -262,19 +263,19 @@
       },
       "submits": [
         {
+          "model": "fal:kling-v3-standard-i2v",
+          "auth": true,
+          "atMs": 1790497314489
+        },
+        {
           "model": "fal:seedance-2.0-i2v",
           "auth": true,
-          "atMs": 1790496664549
+          "atMs": 1790497314566
         },
         {
           "model": "fal:h3-i2v",
           "auth": true,
-          "atMs": 1790496664564
-        },
-        {
-          "model": "fal:kling-v3-standard-i2v",
-          "auth": true,
-          "atMs": 1790496664582
+          "atMs": 1790497314614
         }
       ],
       "states": {
@@ -286,13 +287,8 @@
           },
           {
             "state": "running",
-            "text": "◌ MiniMax H3（画像から） · 生成中 · 6 秒",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
             "spinner": "akari-still-spin"
-          },
-          {
-            "state": "waiting",
-            "text": "◌ MiniMax H3（画像から） · 待ち",
-            "spinner": "none"
           },
           {
             "state": "done",
@@ -329,11 +325,6 @@
             "spinner": "akari-still-spin"
           },
           {
-            "state": "waiting",
-            "text": "◌ Seedance 2.0（画像から） · 待ち",
-            "spinner": "none"
-          },
-          {
             "state": "done",
             "text": "✓ Seedance 2.0（画像から） · 完了",
             "spinner": "none"
@@ -345,61 +336,51 @@
           {
             "state": "waiting",
             "text": "◌ MiniMax H3（画像から） · 待ち",
-            "atMs": 1790496663223
+            "atMs": 1790497313442
           },
           {
             "state": "running",
             "text": "◌ MiniMax H3（画像から） · 生成中 · 6 秒",
-            "atMs": 1790496668724
-          },
-          {
-            "state": "waiting",
-            "text": "◌ MiniMax H3（画像から） · 待ち",
-            "atMs": 1790496676723
+            "atMs": 1790497318949
           },
           {
             "state": "done",
             "text": "✓ MiniMax H3（画像から） · 完了",
-            "atMs": 1790496677025
+            "atMs": 1790497327553
           }
         ],
         "fal:kling-v3-standard-i2v": [
           {
             "state": "waiting",
             "text": "◌ Kling Video v3 Standard（画像から） · 待ち",
-            "atMs": 1790496663223
+            "atMs": 1790497313442
           },
           {
             "state": "running",
             "text": "◌ Kling Video v3 Standard（画像から） · 生成中 · 7 秒",
-            "atMs": 1790496670623
+            "atMs": 1790497320842
           },
           {
             "state": "done",
             "text": "✓ Kling Video v3 Standard（画像から） · 完了",
-            "atMs": 1790496680823
+            "atMs": 1790497331042
           }
         ],
         "fal:seedance-2.0-i2v": [
           {
             "state": "waiting",
             "text": "◌ Seedance 2.0（画像から） · 待ち",
-            "atMs": 1790496663223
+            "atMs": 1790497313442
           },
           {
             "state": "running",
             "text": "◌ Seedance 2.0（画像から） · 生成中 · 9 秒",
-            "atMs": 1790496672629
-          },
-          {
-            "state": "waiting",
-            "text": "◌ Seedance 2.0（画像から） · 待ち",
-            "atMs": 1790496684923
+            "atMs": 1790497322741
           },
           {
             "state": "done",
             "text": "✓ Seedance 2.0（画像から） · 完了",
-            "atMs": 1790496685333
+            "atMs": 1790497335074
           }
         ]
       },
@@ -407,149 +388,149 @@
         "ok": true,
         "gaps": [],
         "maxGapMs": 0,
-        "rpcCount": 23,
-        "rpcMaxMs": 160,
-        "rpcMedianMs": 10,
+        "rpcCount": 21,
+        "rpcMaxMs": 457,
+        "rpcMedianMs": 40,
         "rpc": [
           {
-            "atMs": 1790496663122,
-            "ms": 6
-          },
-          {
-            "atMs": 1790496664129,
-            "ms": 8
-          },
-          {
-            "atMs": 1790496665139,
-            "ms": 9
-          },
-          {
-            "atMs": 1790496666149,
+            "atMs": 1790497313341,
             "ms": 2
           },
           {
-            "atMs": 1790496667152,
-            "ms": 17
-          },
-          {
-            "atMs": 1790496668171,
-            "ms": 10
-          },
-          {
-            "atMs": 1790496669183,
-            "ms": 2
-          },
-          {
-            "atMs": 1790496670186,
-            "ms": 5
-          },
-          {
-            "atMs": 1790496671193,
-            "ms": 32
-          },
-          {
-            "atMs": 1790496672225,
-            "ms": 3
-          },
-          {
-            "atMs": 1790496673229,
-            "ms": 13
-          },
-          {
-            "atMs": 1790496674243,
-            "ms": 73
-          },
-          {
-            "atMs": 1790496675317,
-            "ms": 10
-          },
-          {
-            "atMs": 1790496676328,
-            "ms": 34
-          },
-          {
-            "atMs": 1790496677368,
-            "ms": 90
-          },
-          {
-            "atMs": 1790496678458,
-            "ms": 14
-          },
-          {
-            "atMs": 1790496679473,
+            "atMs": 1790497314343,
             "ms": 4
           },
           {
-            "atMs": 1790496680478,
-            "ms": 5
+            "atMs": 1790497315385,
+            "ms": 142
           },
           {
-            "atMs": 1790496681484,
-            "ms": 25
+            "atMs": 1790497316529,
+            "ms": 2
           },
           {
-            "atMs": 1790496682511,
+            "atMs": 1790497317532,
+            "ms": 2
+          },
+          {
+            "atMs": 1790497318535,
             "ms": 6
           },
           {
-            "atMs": 1790496683518,
-            "ms": 160
+            "atMs": 1790497319542,
+            "ms": 12
           },
           {
-            "atMs": 1790496684678,
-            "ms": 87
+            "atMs": 1790497320554,
+            "ms": 5
           },
           {
-            "atMs": 1790496685765,
-            "ms": 8
+            "atMs": 1790497321561,
+            "ms": 4
+          },
+          {
+            "atMs": 1790497322566,
+            "ms": 93
+          },
+          {
+            "atMs": 1790497323660,
+            "ms": 217
+          },
+          {
+            "atMs": 1790497324879,
+            "ms": 345
+          },
+          {
+            "atMs": 1790497326225,
+            "ms": 270
+          },
+          {
+            "atMs": 1790497327523,
+            "ms": 457
+          },
+          {
+            "atMs": 1790497328981,
+            "ms": 166
+          },
+          {
+            "atMs": 1790497330148,
+            "ms": 63
+          },
+          {
+            "atMs": 1790497331217,
+            "ms": 26
+          },
+          {
+            "atMs": 1790497332244,
+            "ms": 40
+          },
+          {
+            "atMs": 1790497333285,
+            "ms": 92
+          },
+          {
+            "atMs": 1790497334380,
+            "ms": 80
+          },
+          {
+            "atMs": 1790497335463,
+            "ms": 4
           }
         ]
       },
       "metaQueue": {
-        "fal:h3-i2v": [
-          {
-            "q": "generating/IN_QUEUE",
-            "atMs": 1790496664728
-          },
-          {
-            "q": "generating/IN_PROGRESS",
-            "atMs": 1790496668733
-          },
-          {
-            "q": "done/COMPLETED",
-            "atMs": 1790496676893
-          }
-        ],
         "fal:kling-v3-standard-i2v": [
           {
             "q": "generating/IN_QUEUE",
-            "atMs": 1790496664729
+            "atMs": 1790497314542
           },
           {
             "q": "generating/IN_PROGRESS",
-            "atMs": 1790496671296
+            "atMs": 1790497321326
+          },
+          {
+            "q": "generating/COMPLETED",
+            "atMs": 1790497330592
           },
           {
             "q": "done/COMPLETED",
-            "atMs": 1790496680899
+            "atMs": 1790497330978
+          }
+        ],
+        "fal:h3-i2v": [
+          {
+            "q": "generating/IN_QUEUE",
+            "atMs": 1790497314863
+          },
+          {
+            "q": "generating/IN_PROGRESS",
+            "atMs": 1790497318900
+          },
+          {
+            "q": "generating/COMPLETED",
+            "atMs": 1790497326734
+          },
+          {
+            "q": "done/COMPLETED",
+            "atMs": 1790497327379
           }
         ],
         "fal:seedance-2.0-i2v": [
           {
             "q": "generating/IN_QUEUE",
-            "atMs": 1790496664729
+            "atMs": 1790497314913
           },
           {
             "q": "generating/IN_PROGRESS",
-            "atMs": 1790496672826
+            "atMs": 1790497322646
           },
           {
             "q": "generating/COMPLETED",
-            "atMs": 1790496684717
+            "atMs": 1790497334891
           },
           {
             "q": "done/COMPLETED",
-            "atMs": 1790496685429
+            "atMs": 1790497335217
           }
         ]
       },
@@ -778,36 +759,61 @@
         "cancel": false,
         "candidates": [
           {
-            "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790496664485.mp4",
+            "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
             "selected": "false",
-            "text": "BSeedance 2.0（画像から） · 21 秒 · 4 秒 · 640×360 · $1.21",
+            "text": "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 16 秒 · 640×360 · 料金 未確認",
             "thumb": {
               "complete": true,
               "width": 160,
-              "src": "data:image/jpeg;base64"
+              "src": "data:image/jpeg;base64",
+              "boxWidth": 160,
+              "boxHeight": 90
+            },
+            "box": {
+              "top": 772,
+              "bottom": 872,
+              "width": 402,
+              "height": 100
             }
           },
           {
-            "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496664506.mp4",
+            "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790497314436.mp4",
             "selected": "false",
-            "text": "MiniMax H3（画像から） · 12 秒 · 2 秒 · 640×360 · $0.30",
+            "text": "BSeedance 2.0（画像から） · 尺 4 秒 · 作成 20 秒 · 640×360 · $1.21",
             "thumb": {
               "complete": true,
               "width": 160,
-              "src": "data:image/jpeg;base64"
+              "src": "data:image/jpeg;base64",
+              "boxWidth": 160,
+              "boxHeight": 90
+            },
+            "box": {
+              "top": 882,
+              "bottom": 982,
+              "width": 402,
+              "height": 100
             }
           },
           {
-            "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+            "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790497314467.mp4",
             "selected": "false",
-            "text": "Kling Video v3 Standard（画像から） · 16 秒 · 3 秒 · 640×360 · 料金 未確認",
+            "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 13 秒 · 640×360 · $0.30",
             "thumb": {
               "complete": true,
               "width": 160,
-              "src": "data:image/jpeg;base64"
+              "src": "data:image/jpeg;base64",
+              "boxWidth": 160,
+              "boxHeight": 90
+            },
+            "box": {
+              "top": 992,
+              "bottom": 1092,
+              "width": 402,
+              "height": 100
             }
           }
         ],
+        "panelWidth": 406,
         "failed": [],
         "player": null,
         "adopt": "この案を使う",
@@ -816,18 +822,49 @@
         "error": null,
         "modelSelect": false
       },
-      "progressAllModelsRunning": true
+      "progressAllModelsRunning": true,
+      "finishingSeen": false,
+      "waitingAfterRunning": {
+        "fal:h3-i2v": false,
+        "fal:kling-v3-standard-i2v": false,
+        "fal:seedance-2.0-i2v": false
+      }
+    },
+    "compactRows": {
+      "panelWidth": 406,
+      "thumbs": [
+        {
+          "w": 160,
+          "h": 90
+        },
+        {
+          "w": 160,
+          "h": 90
+        },
+        {
+          "w": 160,
+          "h": 90
+        }
+      ],
+      "rowHeights": [
+        100,
+        100,
+        100
+      ],
+      "rowsSpan": 320
     },
     "play": {
-      "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+      "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
       "player": {
-        "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+        "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
         "readyState": 4,
         "videoWidth": 640,
         "videoHeight": 360,
         "duration": 3,
-        "currentTime": 0.550605,
-        "paused": false
+        "currentTime": 0.550704,
+        "paused": false,
+        "afterRow": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
+        "boxWidth": 402
       },
       "pixel": {
         "rgb": [
@@ -835,7 +872,7 @@
           128,
           1
         ],
-        "currentTime": 0.546751,
+        "currentTime": 0.549088,
         "paused": false
       }
     },
@@ -858,7 +895,7 @@
       },
       "source": {
         "id": "gen-clip-frame-video",
-        "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4"
+        "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4"
       },
       "candidateFilesExist": [
         true,
@@ -903,19 +940,19 @@
     "runFail": {
       "submits": [
         {
+          "model": "fal:seedance-2.0-i2v",
+          "auth": true,
+          "atMs": 1790497343275
+        },
+        {
           "model": "fal:kling-v3-standard-i2v",
           "auth": true,
-          "atMs": 1790496693916
+          "atMs": 1790497343276
         },
         {
           "model": "fal:h3-i2v",
           "auth": true,
-          "atMs": 1790496693935
-        },
-        {
-          "model": "fal:seedance-2.0-i2v",
-          "auth": true,
-          "atMs": 1790496693973
+          "atMs": 1790497343294
         }
       ],
       "states": {
@@ -929,11 +966,6 @@
             "state": "running",
             "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
             "spinner": "akari-still-spin"
-          },
-          {
-            "state": "waiting",
-            "text": "◌ MiniMax H3（画像から） · 待ち",
-            "spinner": "none"
           },
           {
             "state": "done",
@@ -968,11 +1000,6 @@
             "state": "running",
             "text": "◌ Seedance 2.0（画像から） · 生成中 · 9 秒",
             "spinner": "akari-still-spin"
-          },
-          {
-            "state": "waiting",
-            "text": "◌ Seedance 2.0（画像から） · 待ち",
-            "spinner": "none"
           },
           {
             "state": "done",
@@ -1017,7 +1044,7 @@
         {
           "model": "fal:h3-i2v",
           "auth": true,
-          "atMs": 1790496718680
+          "atMs": 1790497366795
         }
       ],
       "states": {
@@ -1029,7 +1056,7 @@
           },
           {
             "state": "running",
-            "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 4 秒",
             "spinner": "akari-still-spin"
           },
           {
@@ -1057,11 +1084,15 @@
       },
       "source": {
         "id": "gen-clip-frame-video",
-        "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496718646.mp4"
+        "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790497366766.mp4"
       }
     },
     "stubEvents": [
       {
+        "model": "fal:kling-v3-standard-i2v",
+        "auth": true
+      },
+      {
         "model": "fal:seedance-2.0-i2v",
         "auth": true
       },
@@ -1070,7 +1101,7 @@
         "auth": true
       },
       {
-        "model": "fal:kling-v3-standard-i2v",
+        "model": "fal:seedance-2.0-i2v",
         "auth": true
       },
       {
@@ -1079,10 +1110,6 @@
       },
       {
         "model": "fal:h3-i2v",
-        "auth": true
-      },
-      {
-        "model": "fal:seedance-2.0-i2v",
         "auth": true
       },
       {
@@ -1221,11 +1248,11 @@
       "pass": true,
       "detail": {
         "submits": [
+          "fal:kling-v3-standard-i2v",
           "fal:seedance-2.0-i2v",
-          "fal:h3-i2v",
-          "fal:kling-v3-standard-i2v"
+          "fal:h3-i2v"
         ],
-        "spreadMs": 33
+        "spreadMs": 125
       }
     },
     {
@@ -1240,13 +1267,8 @@
           },
           {
             "state": "running",
-            "text": "◌ MiniMax H3（画像から） · 生成中 · 6 秒",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
             "spinner": "akari-still-spin"
-          },
-          {
-            "state": "waiting",
-            "text": "◌ MiniMax H3（画像から） · 待ち",
-            "spinner": "none"
           },
           {
             "state": "done",
@@ -1281,11 +1303,6 @@
             "state": "running",
             "text": "◌ Seedance 2.0（画像から） · 生成中 · 9 秒",
             "spinner": "akari-still-spin"
-          },
-          {
-            "state": "waiting",
-            "text": "◌ Seedance 2.0（画像から） · 待ち",
-            "spinner": "none"
           },
           {
             "state": "done",
@@ -1328,35 +1345,95 @@
       "pass": true,
       "detail": [
         {
-          "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790496664485.mp4",
+          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
           "selected": "false",
-          "text": "BSeedance 2.0（画像から） · 21 秒 · 4 秒 · 640×360 · $1.21",
+          "text": "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 16 秒 · 640×360 · 料金 未確認",
           "thumb": {
             "complete": true,
             "width": 160,
-            "src": "data:image/jpeg;base64"
+            "src": "data:image/jpeg;base64",
+            "boxWidth": 160,
+            "boxHeight": 90
+          },
+          "box": {
+            "top": 772,
+            "bottom": 872,
+            "width": 402,
+            "height": 100
           }
         },
         {
-          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496664506.mp4",
+          "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790497314436.mp4",
           "selected": "false",
-          "text": "MiniMax H3（画像から） · 12 秒 · 2 秒 · 640×360 · $0.30",
+          "text": "BSeedance 2.0（画像から） · 尺 4 秒 · 作成 20 秒 · 640×360 · $1.21",
           "thumb": {
             "complete": true,
             "width": 160,
-            "src": "data:image/jpeg;base64"
+            "src": "data:image/jpeg;base64",
+            "boxWidth": 160,
+            "boxHeight": 90
+          },
+          "box": {
+            "top": 882,
+            "bottom": 982,
+            "width": 402,
+            "height": 100
           }
         },
         {
-          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790497314467.mp4",
           "selected": "false",
-          "text": "Kling Video v3 Standard（画像から） · 16 秒 · 3 秒 · 640×360 · 料金 未確認",
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 13 秒 · 640×360 · $0.30",
           "thumb": {
             "complete": true,
             "width": 160,
-            "src": "data:image/jpeg;base64"
+            "src": "data:image/jpeg;base64",
+            "boxWidth": 160,
+            "boxHeight": 90
+          },
+          "box": {
+            "top": 992,
+            "bottom": 1092,
+            "width": 402,
+            "height": 100
           }
         }
+      ]
+    },
+    {
+      "name": "(iv r1) 候補のサムネイルは幅 160px 前後でパネル幅に広がらない・3 行が 900px 以内に収まる",
+      "pass": true,
+      "detail": {
+        "panelWidth": 406,
+        "thumbs": [
+          {
+            "w": 160,
+            "h": 90
+          },
+          {
+            "w": 160,
+            "h": 90
+          },
+          {
+            "w": 160,
+            "h": 90
+          }
+        ],
+        "rowHeights": [
+          100,
+          100,
+          100
+        ],
+        "rowsSpan": 320
+      }
+    },
+    {
+      "name": "(iv r1) 候補の行の札「尺 N 秒 · 作成 N 秒」",
+      "pass": true,
+      "detail": [
+        "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 16 秒 · 640×360 · 料金 未確認",
+        "BSeedance 2.0（画像から） · 尺 4 秒 · 作成 20 秒 · 640×360 · $1.21",
+        "MiniMax H3（画像から） · 尺 2 秒 · 作成 13 秒 · 640×360 · $0.30"
       ]
     },
     {
@@ -1371,15 +1448,17 @@
       "name": "(v) 候補を押すと編集パネルの中で再生（緑の候補の画素）",
       "pass": true,
       "detail": {
-        "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+        "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
         "player": {
-          "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+          "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
           "readyState": 4,
           "videoWidth": 640,
           "videoHeight": 360,
           "duration": 3,
-          "currentTime": 0.550605,
-          "paused": false
+          "currentTime": 0.550704,
+          "paused": false,
+          "afterRow": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
+          "boxWidth": 402
         },
         "pixel": {
           "rgb": [
@@ -1387,9 +1466,27 @@
             128,
             1
           ],
-          "currentTime": 0.546751,
+          "currentTime": 0.549088,
           "paused": false
         }
+      }
+    },
+    {
+      "name": "(v r1) プレイヤーは選んだ候補の行の直後にだけパネル幅で出る",
+      "pass": true,
+      "detail": {
+        "player": {
+          "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
+          "readyState": 4,
+          "videoWidth": 640,
+          "videoHeight": 360,
+          "duration": 3,
+          "currentTime": 0.550704,
+          "paused": false,
+          "afterRow": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4",
+          "boxWidth": 402
+        },
+        "panelWidth": 406
       }
     },
     {
@@ -1414,7 +1511,7 @@
         },
         "source": {
           "id": "gen-clip-frame-video",
-          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4"
+          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790497314378.mp4"
         },
         "candidateFilesExist": [
           true,
@@ -1526,7 +1623,7 @@
           {
             "model": "fal:h3-i2v",
             "auth": true,
-            "atMs": 1790496718680
+            "atMs": 1790497366795
           }
         ],
         "states": {
@@ -1538,7 +1635,7 @@
             },
             {
               "state": "running",
-              "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
+              "text": "◌ MiniMax H3（画像から） · 生成中 · 4 秒",
               "spinner": "akari-still-spin"
             },
             {
@@ -1566,7 +1663,7 @@
         },
         "source": {
           "id": "gen-clip-frame-video",
-          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496718646.mp4"
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790497366766.mp4"
         }
       }
     },
@@ -1585,66 +1682,66 @@
             "out": 4
           }
         },
-        "waitedMs": 204
+        "waitedMs": 202
       }
     }
   ],
   "screenshots": [
     {
       "name": "01-after-default-checks.png",
-      "bytes": 388945
+      "bytes": 388869
     },
     {
       "name": "01b-after-other-models-greyed.png",
-      "bytes": 448714
+      "bytes": 448663
     },
     {
       "name": "02-after-three-checked.png",
-      "bytes": 413295
+      "bytes": 413171
     },
     {
       "name": "03-after-total-approval-dialog.png",
-      "bytes": 424527
+      "bytes": 424364
     },
     {
       "name": "04-after-deny-nothing-sent.png",
-      "bytes": 470861
+      "bytes": 469581
     },
     {
       "name": "05-a-waiting.png",
-      "bytes": 462420
+      "bytes": 462414
     },
     {
       "name": "05-b-running.png",
-      "bytes": 476465
+      "bytes": 486362
     },
     {
       "name": "06-after-three-candidates.png",
-      "bytes": 326822
+      "bytes": 390725
     },
     {
       "name": "07-after-play-candidate-in-panel.png",
-      "bytes": 331322
+      "bytes": 353618
     },
     {
       "name": "08-after-adopt.png",
-      "bytes": 261977
+      "bytes": 314391
     },
     {
       "name": "09-after-one-undo.png",
-      "bytes": 342960
+      "bytes": 396940
     },
     {
       "name": "10-after-one-model-failed.png",
-      "bytes": 325976
+      "bytes": 383508
     },
     {
       "name": "11-after-single-auto-adopt.png",
-      "bytes": 260148
+      "bytes": 324503
     },
     {
       "name": "12-after-single-undo.png",
-      "bytes": 325241
+      "bytes": 437811
     }
   ]
 }

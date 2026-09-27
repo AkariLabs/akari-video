@@ -3372,6 +3372,10 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-candidate { display: grid; gap: 5px; padding: 5px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; text-align: left; cursor: pointer; font-size: 11px; }
 .akari-inspector-ai-still-candidate[data-akari-inspector-ai-candidate-selected="true"] { border: 2px solid var(--akari-accent); }
 .akari-inspector-ai-still-candidate-thumbnail { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 3px; }
+.akari-inspector-ai-video-candidate { display: grid; grid-template-columns: 160px minmax(0, 1fr); align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 5px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; text-align: left; cursor: pointer; font-size: 11px; }
+.akari-inspector-ai-video-candidate[data-akari-inspector-video-candidate-selected="true"] { border: 2px solid var(--akari-accent); }
+.akari-inspector-ai-video-candidate-thumbnail { display: block; width: 160px; max-width: 160px; height: auto; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 3px; }
+.akari-inspector-ai-video-candidate-detail { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; line-height: 1.4; overflow-wrap: anywhere; }
 .akari-inspector-ai-still-route-name { font-size: 12px; }
 .akari-inspector-ai-still-badge { display: inline-block; padding: 2px 7px; border: 1px solid var(--akari-line); border-radius: 20px; font-size: 11px; white-space: nowrap; }
 .akari-inspector-ai-still-badge[data-akari-inspector-ai-route-state="ready"] { color: var(--akari-accent); border-color: var(--akari-accent); }

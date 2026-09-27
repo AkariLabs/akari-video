@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { withInspectorDom } from './helpers/inspector-dom.mjs';
-import { appendAiVideoCandidatesPanel, replaceVideoInEdit, videoApprovalMessage,
+import { appendAiVideoCandidatesPanel, replaceVideoInEdit, videoApprovalMessage, videoCandidateDetail,
   videoModelGroups, videoModelName, videoProgress, videoProgressCandidate, videoProgressLayoutKey,
   videoSelectionEstimate } from '../lib/browser/inspector/ai-video-candidates-panel.js';
 
@@ -57,9 +57,13 @@ test('ボタンの合計・料金未確認と費用承認のモデル別内訳',
 }));
 
 test('待ち・生成中の秒数・失敗の理由と再試行行', () => withInspectorDom(({ document }) => {
-  assert.equal(videoProgress({ route: 'a', ok: false, status: 'generating', queueStatus: 'IN_QUEUE' }, 5).label, '待ち');
-  assert.equal(videoProgress({ route: 'a', ok: false, status: 'generating', queueStatus: 'IN_PROGRESS' }, 5).label, '生成中 · 5 秒');
-  assert.equal(videoProgress({ route: 'a', ok: false, status: 'failed', reason: 'stub failure' }, 5).label, '失敗 · stub failure');
+  for (const [candidate, state, label] of [
+    [{ route: 'a', ok: false, status: 'generating', queueStatus: 'IN_QUEUE' }, 'waiting', '待ち'],
+    [{ route: 'a', ok: false, status: 'generating', queueStatus: 'IN_PROGRESS' }, 'running', '生成中 · 5 秒'],
+    [{ route: 'a', ok: false, status: 'generating', queueStatus: 'COMPLETED' }, 'running', '仕上げ中'],
+    [{ route: 'a', ok: true, status: 'done', queueStatus: 'COMPLETED' }, 'done', '完了'],
+    [{ route: 'a', ok: false, status: 'failed', reason: 'stub failure' }, 'failed', '失敗 · stub failure']
+  ]) assert.deepEqual(videoProgress(candidate, 5), { state, label });
   const state = { selected: new Set(['fal:h3-i2v']), preferred, estimate, thumbnails: new Map(), running: false,
     batch: { routes: ['fal:h3-i2v'], completed: 1, running: false, results: [], candidates: [
       { route: 'fal:h3-i2v', ok: false, status: 'failed', reason: 'stub failure' }
@@ -69,6 +73,26 @@ test('待ち・生成中の秒数・失敗の理由と再試行行', () => withI
   assert.match(attr(document.body, 'data-akari-inspector-video-failed-model', 'fal:h3-i2v').textContent, /stub failure/u);
   assert.ok(attr(document.body, 'data-akari-inspector-video-retry-model', 'fal:h3-i2v'));
 }));
+
+test('動画候補は 160px のサムネイルと 2 列のコンパクトな行を使う', () => {
+  const css = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const row = css.match(/\.akari-inspector-ai-video-candidate\s*\{([^}]*)\}/u)?.[1];
+  const thumbnail = css.match(/\.akari-inspector-ai-video-candidate-thumbnail\s*\{([^}]*)\}/u)?.[1];
+  assert.match(row, /display:\s*grid/u);
+  assert.match(row, /grid-template-columns:\s*160px\s+minmax\(0,\s*1fr\)/u);
+  assert.match(thumbnail, /width:\s*160px/u);
+  assert.doesNotMatch(thumbnail, /width:\s*100%/u);
+  assert.match(thumbnail, /object-fit:\s*contain/u);
+});
+
+test('候補の尺・作成秒を札付きで示し、未取得の値は省く', () => {
+  assert.equal(videoCandidateDetail({ durationSeconds: 4, elapsedSeconds: 20.6,
+    width: 640, height: 360, costUsd: 1.21 }, 'Seedance 2.0'),
+  'Seedance 2.0 · 尺 4 秒 · 作成 21 秒 · 640×360 · $1.21');
+  assert.equal(videoCandidateDetail({ durationSeconds: 4.25, elapsedSeconds: 1.4, costUsd: null }, 'H3'),
+    'H3 · 尺 4.3 秒 · 作成 1 秒 · 料金 未確認');
+  assert.equal(videoCandidateDetail({}, 'H3'), 'H3');
+});
 
 test('同名モデルはカタログの入力種別をモデル行・進捗・候補・承認に共通表示する', () => withInspectorDom(({ document }) => {
   const h3 = catalog.find(row => row.id === 'fal:h3-i2v');
@@ -116,6 +140,27 @@ test('候補行と選択した候補の編集パネル内プレイヤーを表�
   assert.equal(attr(document.body, 'data-akari-inspector-video-player', candidate.relativePath).src, 'blob:local');
   assert.equal(attr(document.body, 'data-akari-inspector-video-adopt', 'true').disabled, false);
   assert.ok(attr(document.body, 'data-akari-inspector-video-candidates-remain', 'true'));
+}));
+
+test('選択した候補の直後だけにプレイヤーを置き、画角を候補の寸法に合わせる', () => withInspectorDom(({ document }) => {
+  const candidates = [
+    { route: 'fal:h3-i2v', ok: true, status: 'done', relativePath: 'a.mp4', width: 640, height: 360 },
+    { route: 'fal:kling', ok: true, status: 'done', relativePath: 'b.mp4', width: 640, height: 480 },
+    { route: 'fal:veo', ok: true, status: 'done', relativePath: 'c.mp4' }
+  ];
+  const state = { selected: new Set(['fal:h3-i2v']), preferred, estimate, thumbnails: new Map(), running: false,
+    picked: 'b.mp4', playerUrl: 'blob:middle',
+    batch: { routes: candidates.map(row => row.route), completed: 3, running: false, candidates, results: candidates } };
+  appendAiVideoCandidatesPanel(document.body, state, models,
+    { select() {}, generate() {}, cancel() {}, pick() {}, adopt() {}, thumbnail() {} });
+  const panel = attr(document.body, 'data-akari-inspector-video-panel', 'true');
+  const middle = attr(panel, 'data-akari-inspector-video-candidate', 'b.mp4');
+  const last = attr(panel, 'data-akari-inspector-video-candidate', 'c.mp4');
+  const player = attr(panel, 'data-akari-inspector-video-player', 'b.mp4');
+  assert.equal(panel.children[panel.children.indexOf(middle) + 1], player);
+  assert.ok(panel.children.indexOf(player) < panel.children.indexOf(last));
+  assert.equal(attr(middle, 'data-akari-inspector-video-candidate-thumbnail', 'b.mp4').style.aspectRatio, '640 / 480');
+  assert.equal(attr(last, 'data-akari-inspector-video-candidate-thumbnail', 'c.mp4').style.aspectRatio, '16 / 9');
 }));
 
 test('再描画でも同じ video 要素と再生位置を保持する', () => withInspectorDom(({ document }) => {

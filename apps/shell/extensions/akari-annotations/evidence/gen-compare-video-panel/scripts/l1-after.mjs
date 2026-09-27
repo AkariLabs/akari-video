@@ -40,11 +40,15 @@ const panelState = `(()=>{const p=document.querySelector(${S(PANEL)});if(!p)retu
     cancel:!!p.querySelector('[data-akari-inspector-video-cancel]'),
     candidates:[...p.querySelectorAll('[data-akari-inspector-video-candidate]')].map(c=>({path:c.getAttribute('data-akari-inspector-video-candidate'),
       selected:c.getAttribute('data-akari-inspector-video-candidate-selected'),text:t(c),
-      thumb:(()=>{const i=c.querySelector('img');return i?{complete:i.complete,width:i.naturalWidth,src:(i.getAttribute('src')||'').slice(0,22)}:null})()})),
+      thumb:(()=>{const i=c.querySelector('img');if(!i)return null;const b=i.getBoundingClientRect();return{complete:i.complete,width:i.naturalWidth,src:(i.getAttribute('src')||'').slice(0,22),
+        boxWidth:Math.round(b.width),boxHeight:Math.round(b.height)}})(),
+      box:(()=>{const b=c.getBoundingClientRect();return{top:Math.round(b.top),bottom:Math.round(b.bottom),width:Math.round(b.width),height:Math.round(b.height)}})()})),
+    panelWidth:Math.round(p.getBoundingClientRect().width),
     failed:[...p.querySelectorAll('[data-akari-inspector-video-failed-model]')].map(f=>({model:f.getAttribute('data-akari-inspector-video-failed-model'),text:t(f),
       retry:!!f.querySelector('[data-akari-inspector-video-retry-model]')})),
     player:(()=>{const v=p.querySelector('[data-akari-inspector-video-player]');return v?{picked:v.getAttribute('data-akari-inspector-video-player'),
-      readyState:v.readyState,videoWidth:v.videoWidth,videoHeight:v.videoHeight,duration:v.duration,currentTime:v.currentTime,paused:v.paused}:null})(),
+      readyState:v.readyState,videoWidth:v.videoWidth,videoHeight:v.videoHeight,duration:v.duration,currentTime:v.currentTime,paused:v.paused,
+      afterRow:v.previousElementSibling?.getAttribute('data-akari-inspector-video-candidate')??null,boxWidth:Math.round(v.getBoundingClientRect().width)}:null})(),
     adopt:t(p.querySelector('[data-akari-inspector-video-adopt]')),adoptDisabled:!!p.querySelector('[data-akari-inspector-video-adopt]')?.disabled,
     remain:t(p.querySelector('[data-akari-inspector-video-candidates-remain]')),
     error:t(p.querySelector('.akari-inspector-ai-still-error:not([data-akari-inspector-video-failed-model])')),
@@ -244,10 +248,22 @@ try {
   }) && Object.values(run3.seen.states).flat().some(x => x.state === 'running') && Object.values(run3.seen.states).flat().some(x => /生成中 · \d+ 秒/.test(x.text)) && Object.values(run3.seen.states).flat().some(x => /待ち/.test(x.text)), run3.seen.states);
   await h.check('(iii) タイムラインの札「3 案作成中 · k/3」→「候補 3」', run3.seen.chips.some(c => /3 案作成中 · [0-2]\/3/.test(c)) && /候補 3/.test(run3.seen.chips.at(-1) ?? ''), run3.seen.chips);
   await h.check('(iv) 候補 3 つ（サムネイル・会社・所要秒・尺・寸法・料金）', run3.final.candidates.length === 3
-    && run3.final.candidates.every(c => c.thumb?.complete && c.thumb.width > 0 && /秒 · [\d.]+ 秒 · \d+×\d+ · (\$|料金)/.test(c.text)), run3.final.candidates);
+    && run3.final.candidates.every(c => c.thumb?.complete && c.thumb.width > 0 && /尺 [\d.]+ 秒 · 作成 \d+ 秒 · \d+×\d+ · (\$|料金)/.test(c.text)), run3.final.candidates);
+  // r1: 候補の行はコンパクト（サムネイル 160px 前後・パネル幅に広がらない）で、3 つが 1 画面（高さ 900px 前後）に収まる
+  const rowsSpan = run3.final.candidates.length ? Math.max(...run3.final.candidates.map(c => c.box.bottom)) - Math.min(...run3.final.candidates.map(c => c.box.top)) : null;
+  results.observations.compactRows = { panelWidth: run3.final.panelWidth, thumbs: run3.final.candidates.map(c => ({ w: c.thumb?.boxWidth, h: c.thumb?.boxHeight })),
+    rowHeights: run3.final.candidates.map(c => c.box.height), rowsSpan };
+  await h.check('(iv r1) 候補のサムネイルは幅 160px 前後でパネル幅に広がらない・3 行が 900px 以内に収まる',
+    run3.final.candidates.every(c => c.thumb?.boxWidth >= 150 && c.thumb.boxWidth <= 170 && c.thumb.boxWidth < run3.final.panelWidth * 0.6) && rowsSpan <= 900, results.observations.compactRows);
+  await h.check('(iv r1) 候補の行の札「尺 N 秒 · 作成 N 秒」', run3.final.candidates.every(c => /尺 [\d.]+ 秒 · 作成 \d+ 秒/.test(c.text)), run3.final.candidates.map(c => c.text));
+  results.observations.runThree.finishingSeen = Object.values(run3.seen.states).flat().some(x => /仕上げ中/.test(x.text));
+  results.observations.runThree.waitingAfterRunning = Object.fromEntries(Object.entries(run3.seen.states).map(([m, xs]) => {
+    const i = xs.findIndex(x => x.state === 'running'); return [m, i >= 0 && xs.slice(i + 1).some(x => x.state === 'waiting')];
+  }));
   const afterThreeSha = await editSha();
   await h.check('(iv) 候補の時点で edit.json は変わらない', afterThreeSha === originalSha, { before: originalSha, after: afterThreeSha });
-  await scrollTo(`${PANEL} [data-akari-inspector-video-candidate]`);
+  await evalOn(cdp, `(()=>{document.querySelector(${S(`${PANEL} [data-akari-inspector-video-candidate]`)})?.scrollIntoView({block:'start',behavior:'instant'});return true})()`);
+  await sleep(250);
   await h.shot('06-after-three-candidates.png');
 
   // (v) 候補をパネルで再生
@@ -264,6 +280,8 @@ try {
   results.observations.play = { picked: green.path, player: played.player, pixel };
   await h.check('(v) 候補を押すと編集パネルの中で再生（緑の候補の画素）', played.player?.picked === green.path && pixel.rgb[1] > 90 && pixel.rgb[0] < 80 && pixel.currentTime > 0,
     results.observations.play);
+  await h.check('(v r1) プレイヤーは選んだ候補の行の直後にだけパネル幅で出る', played.player?.afterRow === green.path
+    && played.player.boxWidth > (played.candidates.find(c => c.path === green.path)?.thumb?.boxWidth ?? 0), { player: played.player, panelWidth: played.panelWidth });
   const previewUnchanged = (await editSha()) === originalSha;
   await scrollTo(`${PANEL} [data-akari-inspector-video-player]`);
   await h.shot('07-after-play-candidate-in-panel.png');

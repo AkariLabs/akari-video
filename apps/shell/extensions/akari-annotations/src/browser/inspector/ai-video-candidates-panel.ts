@@ -80,7 +80,24 @@ export function videoProgress(candidate: VideoCandidate | undefined, elapsed: nu
         return { state: 'failed', label: `失敗 · ${candidate.reason ?? '生成できませんでした。'}` };
     if (candidate?.status === 'done' || candidate?.ok) return { state: 'done', label: '完了' };
     if (candidate?.queueStatus === 'IN_PROGRESS') return { state: 'running', label: `生成中 · ${Math.round(elapsed)} 秒` };
+    if (candidate?.status === 'generating' && candidate.queueStatus === 'COMPLETED') {
+        return { state: 'running', label: '仕上げ中' };
+    }
     return { state: 'waiting', label: '待ち' };
+}
+
+export function videoCandidateDetail(candidate: VideoCandidate, name: string): string {
+    const parts = [name];
+    if (Number.isFinite(candidate.durationSeconds)) {
+        const duration = candidate.durationSeconds!;
+        parts.push(`尺 ${Number.isInteger(duration) ? duration : duration.toFixed(1)} 秒`);
+    }
+    if (Number.isFinite(candidate.elapsedSeconds)) parts.push(`作成 ${Math.round(candidate.elapsedSeconds!)} 秒`);
+    if (Number.isFinite(candidate.width) && Number.isFinite(candidate.height)) {
+        parts.push(`${candidate.width}×${candidate.height}`);
+    }
+    if (candidate.costUsd !== undefined) parts.push(videoPrice(candidate.costUsd));
+    return parts.join(' · ');
 }
 
 /** Live result rows are terminal; generating sidecars carry the queue state before those rows exist. */
@@ -221,26 +238,29 @@ export function appendAiVideoCandidatesPanel(parent: HTMLElement, state: AiVideo
                 retry.addEventListener('click', () => actions.generate([candidate.route]));
                 failed.appendChild(retry); panel.appendChild(failed); continue;
             }
-            const button = make('button', 'akari-inspector-ai-still-candidate');
+            const button = make('button', 'akari-inspector-ai-video-candidate');
             button.type = 'button'; button.setAttribute('data-akari-inspector-video-candidate', candidate.relativePath);
             button.setAttribute('data-akari-inspector-video-candidate-selected', String(state.picked === candidate.relativePath));
             button.setAttribute('aria-pressed', String(state.picked === candidate.relativePath));
-            const image = make('img', 'akari-inspector-ai-still-candidate-thumbnail');
+            const image = make('img', 'akari-inspector-ai-video-candidate-thumbnail');
             image.alt = `${name} の候補`; image.setAttribute('data-akari-inspector-video-candidate-thumbnail', candidate.relativePath);
+            image.style.aspectRatio = Number.isFinite(candidate.width) && Number.isFinite(candidate.height)
+                && candidate.width! > 0 && candidate.height! > 0 ? `${candidate.width} / ${candidate.height}` : '16 / 9';
             actions.thumbnail(candidate, image);
-            const detail = `${name} · ${Math.round(candidate.elapsedSeconds ?? 0)} 秒 · ${candidate.durationSeconds ?? '?'} 秒 · ${candidate.width ?? '?'}×${candidate.height ?? '?'} · ${videoPrice(candidate.costUsd)}`;
-            button.append(image, stillMakerBadge(videoMakerId(candidate.route)), make('span', '', detail));
+            const detail = make('span', 'akari-inspector-ai-video-candidate-detail');
+            detail.append(stillMakerBadge(videoMakerId(candidate.route)), make('span', '', videoCandidateDetail(candidate, name)));
+            button.append(image, detail);
             button.addEventListener('click', () => actions.pick(candidate)); panel.appendChild(button);
-        }
-        if (state.picked && state.playerUrl) {
-            const player = state.playerElement ?? make('video', 'akari-inspector-ai-video-player');
-            if (!state.playerElement) {
-                player.controls = true; player.playsInline = true; player.src = state.playerUrl;
-                player.style.cssText = 'display:block;width:100%;max-height:220px;margin:10px 0';
-                state.playerElement = player;
+            if (state.picked === candidate.relativePath && state.playerUrl) {
+                const player = state.playerElement ?? make('video', 'akari-inspector-ai-video-player');
+                if (!state.playerElement) {
+                    player.controls = true; player.playsInline = true; player.src = state.playerUrl;
+                    player.style.cssText = 'display:block;width:100%;max-height:220px;margin:10px 0';
+                    state.playerElement = player;
+                }
+                player.setAttribute('data-akari-inspector-video-player', state.picked);
+                panel.appendChild(player);
             }
-            player.setAttribute('data-akari-inspector-video-player', state.picked);
-            panel.appendChild(player);
         }
         const adopt = make('button', 'akari-inspector-ai-still-primary', 'この案を使う');
         adopt.type = 'button'; adopt.disabled = !state.picked || state.running || !!state.adopting;
