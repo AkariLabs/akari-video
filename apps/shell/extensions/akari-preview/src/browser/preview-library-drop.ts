@@ -68,6 +68,8 @@ export class PreviewLibraryDrop {
     private readonly pendingGeometryRequests = new Set<{ dispose(): void }>();
     private lastGeometryRequestAt = 0;
     private lastPointer?: { x: number; y: number };
+    /** 診断: dragover がレイヤーまで届いたかを 1 回だけ記録する。 */
+    private sawDragOver = false;
     private outside = false;
     private dragSerial = 0;
     private requestId = 0;
@@ -91,6 +93,8 @@ export class PreviewLibraryDrop {
                 ? readMaterialPayload((event as CustomEvent<unknown>).detail)
                 : readPayload((event as CustomEvent<unknown>).detail);
             this.dragSession = this.active;
+            const node = this.widget.node;
+            const rect = node.getBoundingClientRect();
             if (!this.active || !this.canShow()) return;
             this.show();
             this.loadThumbnailAspect(this.active);
@@ -151,9 +155,26 @@ export class PreviewLibraryDrop {
         };
         const followSample = (event: DragEvent): void => this.followSample(event);
         const removeSample = (): void => PreviewLibraryDrop.removeDragSample();
+        /*
+         * プレビューは webview（iframe）なので、その上に重ねた透明レイヤーには dragover /
+         * drop が届かない（iframe がドラッグイベントを取ってしまう）。レイヤー側の
+         * リスナーだけでは反応しないため、window の capture で拾って座標で振り分ける。
+         * プレビューの矩形の中に居るときだけ処理するので、タイムラインなど他の落とし先の
+         * 邪魔はしない。
+         */
+        const insidePreview = (event: DragEvent): boolean => {
+            if (!this.layer || this.fullscreen()) return false;
+            const rect = this.widget.node.getBoundingClientRect();
+            return event.clientX >= rect.left && event.clientX <= rect.right
+                && event.clientY >= rect.top && event.clientY <= rect.bottom;
+        };
+        const windowDragOver = (event: DragEvent): void => { if (insidePreview(event)) this.over(event); };
+        const windowDrop = (event: DragEvent): void => { if (insidePreview(event)) void this.drop(event); };
         window.addEventListener('dragstart', useSampleDragImage);
         window.addEventListener('dragover', followSample, true);
         window.addEventListener('drag', followSample, true);
+        window.addEventListener('dragover', windowDragOver, true);
+        window.addEventListener('drop', windowDrop, true);
         window.addEventListener('drop', removeSample, true);
         window.addEventListener(START, start);
         window.addEventListener(END, clear);
@@ -167,6 +188,8 @@ export class PreviewLibraryDrop {
             window.removeEventListener('dragstart', useSampleDragImage);
             window.removeEventListener('dragover', followSample, true);
             window.removeEventListener('drag', followSample, true);
+            window.removeEventListener('dragover', windowDragOver, true);
+            window.removeEventListener('drop', windowDrop, true);
             window.removeEventListener('drop', removeSample, true);
             window.removeEventListener(START, start);
             window.removeEventListener(END, clear);
@@ -274,10 +297,17 @@ export class PreviewLibraryDrop {
             cursor: APPLY_KINDS.has(this.active?.kind ?? '') && !PLACE_KINDS.has(this.active?.kind ?? '')
                 ? 'not-allowed' : 'copy' });
         const ghost = document.createElement('div');
+        /*
+         * 置いたときの見た目をそのまま見せる。以前は暗い板に名前と秒数を書いていたが、
+         * 中身が見えないので「置く前に確かめる」用を成していなかった（オーナー指摘）。
+         * 背景は透けさせ、素材のサムネイルを実際に置かれる大きさで描く。
+         */
         Object.assign(ghost.style, { position: 'absolute', display: 'none', pointerEvents: 'none',
-            boxSizing: 'border-box', border: '2px dashed var(--theia-focusBorder, #d49a5b)',
-            borderRadius: 'var(--theia-borderRadius, 6px)', background: 'var(--theia-editorHoverWidget-background, rgba(30,30,30,.8))',
-            color: 'var(--theia-foreground, #fff)', fontSize: '13px', textAlign: 'center', padding: '8px' });
+            boxSizing: 'border-box', border: '1px solid var(--theia-focusBorder, #d49a5b)',
+            borderRadius: '2px', background: 'transparent',
+            backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+            color: 'var(--theia-foreground, #fff)', fontSize: '12px', textAlign: 'center',
+            overflow: 'hidden' });
         layer.appendChild(ghost);
         layer.addEventListener('dragover', event => this.over(event));
         layer.addEventListener('drop', event => { void this.drop(event); });
@@ -291,6 +321,21 @@ export class PreviewLibraryDrop {
         this.widget.node.appendChild(layer);
         this.layer = layer;
         this.ghost = ghost;
+        /*
+         * プレビューの中身は iframe（Theia の webview）。マウスが iframe に入ると
+         * イベントはその中で完結し、重ねたレイヤーにも window にも dragover が来ない。
+         * ドラッグの間だけ iframe を透過させて、レイヤーが受け取れるようにする。
+         * 表示はそのまま、戻すのは clear()。
+         */
+        this.setFrameInteractive(false);
+        const host = this.widget.node;
+        const rect = layer.getBoundingClientRect();
+    }
+
+    /** ドラッグ中だけ iframe をマウス透過にする（イベントを奪わせない）。 */
+    private setFrameInteractive(interactive: boolean): void {
+        const frames = Array.from(this.widget.node.querySelectorAll('iframe')) as HTMLIFrameElement[];
+        for (const frame of frames) frame.style.pointerEvents = interactive ? '' : 'none';
     }
 
     private queryHit(point: { x: number; y: number }, geometry: Geometry, payload: Payload,
@@ -332,6 +377,9 @@ export class PreviewLibraryDrop {
     }
 
     private over(event: DragEvent): void {
+        if (!this.sawDragOver) {
+            this.sawDragOver = true;
+        }
         event.preventDefault();
         event.stopPropagation();
         // 空所でも drop を受け、置けるカードは配置へ、適用専用カードは案内へ進める。
@@ -393,16 +441,51 @@ export class PreviewLibraryDrop {
         ghost.style.left = `${centerX - left - width / 2}px`;
         ghost.style.top = `${centerY - top - height / 2}px`;
         ghost.replaceChildren();
-        if (audio) {
-            const note = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            note.setAttribute('width', '18'); note.setAttribute('height', '18'); note.setAttribute('viewBox', '0 0 24 24');
-            note.innerHTML = '<path d="M9 18V5l11-2v13M9 18c0 3-6 4-6 1s6-4 6-1Zm11-2c0 3-6 4-6 1s6-4 6-1Z" fill="none" stroke="currentColor" stroke-width="2"/>';
-            ghost.append(note, document.createTextNode(' 時刻に置く'));
-        } else ghost.append(document.createTextNode(applying
-            ? (payload.kind === 'lut' ? '画面に当てます' : '文字に当てます')
-            : transition ? 'カットの境目に置いてください' : text ? 'テキストを置く'
-                : shape ? shape.name ?? '図形' : payload.title ?? payload.name ?? '素材'));
-        if (!transition && !applying) {
+        /*
+         * 画像・動画・図形は中身をそのまま見せる（置いた結果がそのまま見えるように）。
+         * 音・テキスト・適用系のように絵が無いものだけ、短い言葉を出す。
+         */
+        const shapeArt = shape?.d && shape.vb ? shape : undefined;
+        const artwork = !audio && !text && !transition && !applying && !shapeArt ? payload.thumb : undefined;
+        ghost.style.backgroundImage = artwork ? `url(${JSON.stringify(artwork)})` : '';
+        const asArt = !!artwork || !!shapeArt;
+        ghost.style.backgroundColor = asArt ? 'transparent'
+            : 'var(--theia-editorHoverWidget-background, rgba(30,30,30,.8))';
+        ghost.style.border = asArt ? '1px solid var(--theia-focusBorder, #d49a5b)'
+            : '2px dashed var(--theia-focusBorder, #d49a5b)';
+        ghost.style.padding = asArt ? '0' : '8px';
+        if (shapeArt) {
+            // 図形はその形のまま、置かれる大きさで描く（枠だけでは何が入るか分からない）
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', `0 0 ${shapeArt.vb![0]} ${shapeArt.vb![1]}`);
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.style.display = 'block';
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', shapeArt.d!);
+            path.setAttribute('fill', 'var(--theia-focusBorder, #d49a5b)');
+            path.setAttribute('fill-opacity', '0.85');
+            if (shapeArt.rule) path.setAttribute('fill-rule', shapeArt.rule);
+            svg.appendChild(path);
+            ghost.appendChild(svg);
+        }
+        if (!asArt) {
+            if (audio) {
+                const note = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                note.setAttribute('width', '18'); note.setAttribute('height', '18'); note.setAttribute('viewBox', '0 0 24 24');
+                note.innerHTML = '<path d="M9 18V5l11-2v13M9 18c0 3-6 4-6 1s6-4 6-1Zm11-2c0 3-6 4-6 1s6-4 6-1Z" fill="none" stroke="currentColor" stroke-width="2"/>';
+                ghost.append(note, document.createTextNode(' 時刻に置く'));
+            } else ghost.append(document.createTextNode(applying
+                ? (payload.kind === 'lut' ? '画面に当てます' : '文字に当てます')
+                : transition ? 'カットの境目に置いてください' : text ? 'テキストを置く'
+                    : shape ? shape.name ?? '図形' : payload.title ?? payload.name ?? '素材'));
+        }
+        /*
+         * 秒数と行き先の但し書きは、絵が出ているときは出さない（オーナー指示）。
+         * 見たいのは「その図形・写真がそのサイズで入るか」であって、時刻の計算ではない。
+         * 絵が無いもの（音・テキスト）はこれが唯一の手がかりなので残す。
+         */
+        if (!transition && !applying && !asArt) {
             const duration = audio || payload.category === 'broll'
                 || (payload.source === 'material' || payload.source === 'explorer') && payload.kind === 'video'
                 ? payload.durationSeconds
@@ -501,6 +584,33 @@ export class PreviewLibraryDrop {
             });
             return;
         }
+        /*
+         * カタログ（ライブラリ）の画像・動画・音声。プロジェクト内の素材（source='material'）と
+         * 違ってまだ手元に無いことがあるので、まず resolve で取り寄せてから同じ経路に流す。
+         * ここが無かったため、ライブラリからプレビューへ落としても何も起きなかった。
+         */
+        if (payload.kind === 'asset') {
+            const startedAt = Date.now();
+            const material = await this.commands.executeCommand<{ relativePath: string; kind: string } | undefined>(
+                'akari.catalog.resolveMaterial', payload.key
+            ).catch(() => undefined);
+            if (!material?.relativePath) {
+                this.messages.warn('この素材は取り寄せできませんでした。');
+                return;
+            }
+            await this.commands.executeCommand('akari.timeline.addMaterialAtOutputPoint', {
+                relativePath: material.relativePath, kind: material.kind, t: geometry.time,
+                ...(material.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
+                // カタログは解像度を知っている。渡すと probe を省けて速く、原寸で置かれる事故も防げる。
+                ...(typeof payload.width === 'number' ? { sourceWidth: payload.width } : {}),
+                editUri, outsideCanvas: event.altKey,
+                ...(!event.altKey ? { canvasAware: true } : {})
+            });
+            await this.commands.executeCommand('akari.preview.seekOutput', {
+                editUri, time: geometry.time, waitForReady: true
+            });
+            return;
+        }
         const overlayKind = previewOverlayKind(payload);
         if (overlayKind === 'scene3d') {
             if (!claimScene3dDrop(dragSession)) return;
@@ -581,6 +691,7 @@ export class PreviewLibraryDrop {
         }
         this.dragSerial++;
         for (const pending of [...this.pendingGeometryRequests]) pending.dispose();
+        this.setFrameInteractive(true);
         this.layer?.remove();
         this.layer = undefined;
         this.ghost = undefined;

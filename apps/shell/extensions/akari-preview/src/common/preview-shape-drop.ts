@@ -3,6 +3,9 @@ export interface PreviewShapePayload {
     preset: string;
     name?: string;
     vb?: readonly [number, number];
+    /** 下書きを実物の形で描くためのパス。置く形の正本ではない。 */
+    d?: string;
+    rule?: 'nonzero' | 'evenodd';
 }
 
 export function previewShapePayload(value: unknown): PreviewShapePayload | undefined {
@@ -12,6 +15,9 @@ export function previewShapePayload(value: unknown): PreviewShapePayload | undef
     const vb = candidate.vb;
     return { kind: 'shape', preset: candidate.preset,
         ...(typeof candidate.name === 'string' ? { name: candidate.name } : {}),
+        // d / rule は下書きを実物の形で描くためだけに使う（置く形の正本はコマンド側）
+        ...(typeof candidate.d === 'string' && candidate.d.trim() ? { d: candidate.d } : {}),
+        ...(candidate.rule === 'nonzero' || candidate.rule === 'evenodd' ? { rule: candidate.rule } : {}),
         ...(Array.isArray(vb) && vb.length === 2 && vb.every(part => typeof part === 'number' && Number.isFinite(part) && part > 0)
             ? { vb: [vb[0], vb[1]] as [number, number] } : {}) };
 }

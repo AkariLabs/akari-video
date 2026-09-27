@@ -201,8 +201,15 @@ export interface ShapeShelfDragPayload {
     readonly name: string;
     /** 仮枠の縦横比のため。 */
     readonly vb: readonly [number, number];
+    /**
+     * ドラッグ中の下書きを実物の形で見せるためのパス。**見た目のためだけ**に使い、
+     * 実際に置く形は受け側が preset から引き直す（払い出す形の正本は常にコマンド側）。
+     */
+    readonly d: string;
+    readonly rule?: 'nonzero' | 'evenodd';
 }
 
 export function shapeShelfDragPayload(preset: ShapeShelfPreset): ShapeShelfDragPayload {
-    return { kind: 'shape', preset: preset.id, name: preset.name, vb: [preset.vb[0], preset.vb[1]] };
+    return { kind: 'shape', preset: preset.id, name: preset.name, vb: [preset.vb[0], preset.vb[1]],
+        d: preset.d, ...(preset.rule ? { rule: preset.rule } : {}) };
 }

@@ -6555,8 +6555,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.placeMaterialAtTarget(payload, target, clientX);
     }
 
+    /**
+     * 素材の原寸をレンダラ側で読む。画像は decode、動画は loadedmetadata までで、
+     * どちらもヘッダだけ読めば分かるので速い。読めなければ undefined を返して
+     * 既存の probe に譲る。2 秒で打ち切るのは、待たせてまで得る価値が無いため
+     * （取れなければ既定の大きさで置けばよく、後から直せる）。
+     */
+    protected async readMediaSizeInRenderer(relativePath: string, kind: string): Promise<{ width: number; height: number } | undefined> {
+        if (kind !== 'image' && kind !== 'video') return undefined;
+        const editUri = this.location?.editUri;
+        if (!editUri) return undefined;
+        let element: HTMLImageElement | HTMLVideoElement | undefined;
+        try {
+            await this.refreshReferenceMediaUris(undefined, [relativePath]);
+            const source = this.resolveEditMediaUri(relativePath, editUri).toString();
+            const size = await new Promise<{ width: number; height: number } | undefined>(resolve => {
+                const timer = window.setTimeout(() => resolve(undefined), 2000);
+                const settle = (value?: { width: number; height: number }): void => {
+                    window.clearTimeout(timer);
+                    resolve(value && value.width > 0 && value.height > 0 ? value : undefined);
+                };
+                if (kind === 'image') {
+                    const image = new Image();
+                    element = image;
+                    image.onload = () => settle({ width: image.naturalWidth, height: image.naturalHeight });
+                    image.onerror = () => settle(undefined);
+                    image.src = source;
+                    return;
+                }
+                const video = document.createElement('video');
+                element = video;
+                video.preload = 'metadata';
+                video.muted = true;
+                video.onloadedmetadata = () => settle({ width: video.videoWidth, height: video.videoHeight });
+                video.onerror = () => settle(undefined);
+                video.src = source;
+            });
+            return size;
+        } catch {
+            return undefined;
+        } finally {
+            // 参照を切ってデコード済みの絵を抱えたままにしない
+            if (element) { element.removeAttribute('src'); if (element instanceof HTMLVideoElement) element.load(); }
+        }
+    }
+
+    /**
+     * `sourceWidth` を渡せると、実体を調べに行く probe を省ける。カタログ素材のように
+     * 呼び出し側が既に解像度を知っている場合はそちらを使う。probe は取り寄せ直後だと
+     * 失敗しやすく、失敗すると scale=1（原寸）で置かれて画面からはみ出していた。
+     */
     async addMaterialAtOutputPoint(relativePath: string, kind: string, t: number,
-        transform?: { x: number; y: number }, outsideCanvas = false, canvasAware = false): Promise<void> {
+        transform?: { x: number; y: number }, outsideCanvas = false, canvasAware = false,
+        knownSourceWidth?: number): Promise<void> {
         if (!Number.isFinite(t)) {
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
             return;
@@ -6572,14 +6623,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
             return;
         }
-        const dimensions = this.location?.editUri ? await probePreviewMediaDimensions({
+        const known = Number.isFinite(knownSourceWidth) && (knownSourceWidth ?? 0) > 0 ? knownSourceWidth : undefined;
+        const probeStartedAt = Date.now();
+        // 呼び出し側が知らないときは、まずレンダラで読む（ヘッダだけで済むので数十 ms）。
+        // バックエンドの probe は実測 15 秒かかったうえ undefined を返しており、
+        // その失敗が scale=1（原寸）での配置に化けて画面からはみ出していた。
+        const fromDom = known ? undefined : await this.readMediaSizeInRenderer(relativePath, kind);
+        const dimensions = known || fromDom || !this.location?.editUri ? undefined : await probePreviewMediaDimensions({
             resolveUri: async () => {
                 await this.refreshReferenceMediaUris(undefined, [relativePath]);
                 return this.resolveEditMediaUri(relativePath, this.location!.editUri!).toString();
             },
             probe: uri => this.annotationsService.probeSourceDimensions({ path: uri })
-        }) : undefined;
-        const sourceWidth = dimensions?.width;
+        });
+        const sourceWidth = known ?? fromDom?.width ?? dimensions?.width;
         if (!(sourceWidth && sourceWidth > 0)) {
             await this.addMaterialAt(relativePath, kind, t, 0, {
                 transform: { ...transform, scale: 1 }, placeOnTop: true,
