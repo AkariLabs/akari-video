@@ -62,6 +62,9 @@ function fixture(tracks = [track('v1', 'visual', [item('base-clip')]), track('v2
         isAttached: true, isVisible: true,
         location: { root: { resolve: () => uri, toString: () => 'file:///project', path: uri.path }, editUri: uri }, fps: 30, playheadT: 3,
         refreshReferenceMediaUris: async () => {},
+        // レンダラ側の寸法読みは Image / video 要素が要るので node には無い。
+        // ここで見たいのは配置の段・尺・履歴なので、読めなかった体でバックエンド probe に流す。
+        readMediaSizeInRenderer: async () => undefined,
         frameAt: t => Math.round(t * 30), resolveEditMediaUri: () => uri,
         fileService: { readFile: async () => ({ value: { toString: () => text } }) },
         writeTimelineSnapshots: async next => { text = next; writes.push(next); },

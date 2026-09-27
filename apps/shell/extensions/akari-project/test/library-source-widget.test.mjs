@@ -18,6 +18,8 @@ function method(name) {
 const Widget = new Function('React', 'library_source_view_1', 'library_home_view_1', 'akari_surface_tokens_1', 'edit_store_1',
     'library_filter_1', 'library_card_view_1',
     `return class { ${['renderRecentLibraryStrip', 'openRecentLibraryEntry',
+        // 検索欄は非制御なので、絞り込みを触る処理は必ず入力欄へ書き戻す（IME のため）。
+        'syncSearchInput',
         'isSiteSubscription', 'libraryFilter', 'applyLibraryFilter', 'presetPassesLibraryFilter', 'toggleLibraryFilterOption',
         'clearLibraryFilter', 'toggleLibraryFilterPopover',
         'libraryCategoryDefinition', 'selectLibraryCategory', 'showLibraryHome', 'filteredCatalogItems',

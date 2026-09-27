@@ -7,7 +7,9 @@ const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const methods = ['handleDrop', 'pickLibraryImport', 'storeMaterialInLibrary', 'finishLibraryImport', 'reportLibraryImportResult'];
+const methods = ['handleDrop', 'pickLibraryImport', 'storeMaterialInLibrary', 'finishLibraryImport', 'reportLibraryImportResult',
+    // 検索欄は非制御なので、絞り込みを触る処理は必ず入力欄へ書き戻す（IME のため）。
+    'syncSearchInput'];
 const code = ts.transpileModule(`class Handler { ${methods.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Handler = new Function('URI', 'isOsFileDropInput', 'requestAnimationFrame', `${code}; return Handler;`)(URI, types => types.includes('Files') || types.includes('text/uri-list'), fn => fn());
 const sheetSource = ts.createSourceFile('sheet.tsx', readFileSync(new URL('../src/browser/library-import-sheet.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

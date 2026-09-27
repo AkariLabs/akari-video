@@ -53,6 +53,7 @@ function element(document) {
         append(...children) { this.children.push(...children); },
         replaceChildren() { this.children = []; },
         remove() { this.removed = true; },
+        querySelectorAll() { return []; },
         getBoundingClientRect() { return { x: 0, y: 0, left: 0, top: 0, width: 800, height: 500 }; }
     };
 }
@@ -67,8 +68,13 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
     const document = { body: { children: [], appendChild(node) { this.children.push(node); } },
         createElement() { return element(document); }, createElementNS() { const node = element(document); node.setAttribute = () => {}; return node; },
         createTextNode(text) { return { textContent: text }; } };
-    const window = { addEventListener(type, listener) { listeners.set(type, listener); },
-        removeEventListener(type) { listeners.delete(type); }, setTimeout, clearTimeout };
+    // 同じ type に複数のリスナーが付く（followSample と windowDragOver）ので、1 本しか
+    // 覚えない Map では後から付いた方だけが動いてしまう。実物どおり全部に配る。
+    const window = { addEventListener(type, listener) {
+        if (!listeners.has(type)) listeners.set(type, new Set());
+        listeners.get(type).add(listener);
+    }, removeEventListener(type, listener) { listeners.get(type)?.delete(listener); }, setTimeout, clearTimeout };
+    const emit = (type, event) => { for (const listener of [...listeners.get(type) ?? []]) listener(event); };
     globalThis.document = document;
     globalThis.window = window;
     globalThis.requestAnimationFrame = callback => { callback(); };
@@ -100,18 +106,18 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
         for (const kind of ['video', 'image', 'audio']) {
             const data = JSON.stringify({ relativePath: `assets/${kind}.${kind === 'audio' ? 'm4a' : kind === 'image' ? 'png' : 'mp4'}`,
                 kind, name: kind });
-            listeners.get('akari.material.dragStart')({ type: 'akari.material.dragStart', detail: data });
+            emit('akari.material.dragStart', { type: 'akari.material.dragStart', detail: data });
             assert.equal(node.children.at(-1).dataset.akariPreviewLibraryDrop, 'true');
             const drag = transfer('application/x-akari-material', data);
-            listeners.get('dragstart')({ clientX: 900, clientY: 250, dataTransfer: drag });
+            emit('dragstart', { clientX: 900, clientY: 250, dataTransfer: drag });
             assert.equal(drag.image.width, 1);
             assert.equal(drag.image.height, 1);
             assert.equal(drag.image.removed, true, '透明のネイティブ画像だけ片付ける');
             assert.equal(sample().dataset.akariDragSample, 'true');
             assert.equal(sample().style.display, 'flex', 'widget 外では見本を出す');
-            listeners.get('dragover')({ clientX: 50, clientY: 250 });
+            emit('dragover', { clientX: 50, clientY: 250 });
             assert.equal(sample().style.display, 'none', 'widget 上では仮枠だけにする');
-            listeners.get('drag')({ clientX: 850, clientY: 300 });
+            emit('drag', { clientX: 850, clientY: 300 });
             assert.equal(sample().style.display, 'flex');
             assert.equal(sample().style.left, '864px');
             assert.equal(sample().style.top, '314px');
@@ -136,7 +142,7 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
             assert.equal(commands.at(-1)[0], 'akari.preview.seekOutput');
         }
         const withThumb = { relativePath: 'assets/four-three.png', kind: 'image', thumb: 'four-three.png' };
-        listeners.get('akari.material.dragStart')({ type: 'akari.material.dragStart', detail: withThumb });
+        emit('akari.material.dragStart', { type: 'akari.material.dragStart', detail: withThumb });
         await new Promise(resolve => setImmediate(resolve));
         const ratioLayer = node.children.at(-1);
         ratioLayer.listeners.get('dragover')(event(transfer('application/x-akari-material', JSON.stringify(withThumb))));
@@ -149,10 +155,10 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
         thumbnail.onload();
         assert.ok(Number.parseFloat(ratioGhost.style.height) > defaultHeight);
         assert.ok(Math.abs(Number.parseFloat(ratioGhost.style.height) - (320 / (4 / 3)) * 338 / 720) < 0.01);
-        listeners.get('akari.material.dragEnd')();
-        listeners.get('akari.material.dragStart')({ type: 'akari.material.dragStart', detail: withThumb });
+        emit('akari.material.dragEnd');
+        emit('akari.material.dragStart', { type: 'akari.material.dragStart', detail: withThumb });
         const staleThumbnail = thumbnails.at(-1);
-        listeners.get('akari.material.dragStart')({ type: 'akari.material.dragStart', detail: {
+        emit('akari.material.dragStart', { type: 'akari.material.dragStart', detail: {
             relativePath: 'assets/next.png', kind: 'image'
         } });
         await new Promise(resolve => setImmediate(resolve));
@@ -163,15 +169,15 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
         staleThumbnail.naturalHeight = 600;
         staleThumbnail.onload();
         assert.equal(nextLayer.children[0].style.height, nextHeight, '古い thumb の読み込みは次の仮枠を変えない');
-        listeners.get('akari.material.dragEnd')();
-        listeners.get('akari.library.dragStart')({ type: 'akari.library.dragStart', detail: {
+        emit('akari.material.dragEnd');
+        emit('akari.library.dragStart', { type: 'akari.library.dragStart', detail: {
             kind: 'asset', key: 'still/photo', category: 'still', title: '写真', thumb: 'preview.png'
         } });
         const libraryDrag = transfer('application/x-akari-library-item', '');
-        listeners.get('dragstart')({ clientX: 850, clientY: 250, dataTransfer: libraryDrag });
+        emit('dragstart', { clientX: 850, clientY: 250, dataTransfer: libraryDrag });
         assert.equal(libraryDrag.image.width, 1);
         assert.equal(sample().children[0].src, 'preview.png', 'MIME が読めない dragstart でも見本を表示する');
-        listeners.get('akari.library.dragEnd')();
+        emit('akari.library.dragEnd');
         assert.equal(sample(), undefined);
         for (const [mime, uri, relativePath, kind] of [
             ['tree-node', 'file:///tmp/demo/project/assets/from-tree.mp4', 'assets/from-tree.mp4', 'video'],
@@ -179,7 +185,7 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
             ['text/uri-list', 'file:///tmp/demo/project/assets/audio.wav', 'assets/audio.wav', 'audio']
         ]) {
             const explorer = transfer(mime, uri);
-            listeners.get('dragstart')({ dataTransfer: explorer });
+            emit('dragstart', { dataTransfer: explorer });
             assert.equal(node.children.at(-1).dataset.akariPreviewLibraryDrop, 'true');
             await new Promise(resolve => setImmediate(resolve));
             node.children.at(-1).listeners.get('drop')(event(explorer));
@@ -188,15 +194,15 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
             assert.equal(commands.at(-2)[1].kind, kind);
         }
         const external = transfer('text/uri-list', 'file:///tmp/demo/assets/clip.mp4');
-        listeners.get('dragstart')({ dataTransfer: external });
+        emit('dragstart', { dataTransfer: external });
         await new Promise(resolve => setImmediate(resolve));
         const before = commands.length;
         node.children.at(-1).listeners.get('drop')(event(external));
         await new Promise(resolve => setImmediate(resolve));
         assert.equal(commands.length, before);
         assert.deepEqual(warnings, ['プロジェクトの中のファイルだけ置けます']);
-        listeners.get('akari.library.dragStart')({ type: 'akari.library.dragStart', detail: { kind: 'text' } });
-        listeners.get('dragstart')({ clientX: 850, clientY: 200,
+        emit('akari.library.dragStart', { type: 'akari.library.dragStart', detail: { kind: 'text' } });
+        emit('dragstart', { clientX: 850, clientY: 200,
             dataTransfer: transfer('application/x-akari-library-item', '') });
         assert.ok(sample());
         assert.equal(sample().children.at(-1).textContent, 'テキスト');

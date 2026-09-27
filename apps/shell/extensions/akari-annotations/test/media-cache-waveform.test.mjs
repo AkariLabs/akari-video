@@ -17,7 +17,12 @@ test('既定波形は尺で密度を決め旧200キャッシュを無効化し�
   const pcm = Buffer.alloc(16000);
   pcm.writeInt16LE(16384, 100);
   const exports = {};
-  runInNewContext(source.slice(start, end), {
+  /*
+   * TypeScript の CommonJS 出力は export の代入をファイル先頭へ巻き上げることがあり
+   * （版で変わる）、切り出した範囲に入らない。見たい関数の口だけ明示的に開ける。
+   */
+  const slice = `${source.slice(start, end)}\nexports.getClipWaveform = getClipWaveform;`;
+  runInNewContext(slice, {
     exports, process: { pid: 1 }, path_1: path,
     akari_annotations_protocol_1: { WAVEFORM_BUCKET_COUNT: 200 },
     filmstrip_geometry_1: geometry, waveform_band_1: band,

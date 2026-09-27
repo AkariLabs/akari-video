@@ -14,6 +14,7 @@ function element(ownerDocument) {
         append(...children) { this.children.push(...children); },
         replaceChildren() { this.children = []; },
         remove() { this.removed = true; },
+        querySelectorAll() { return []; },
         getBoundingClientRect() { return { x: 283, y: 39, width: 780, height: 358.5 }; }
     };
 }

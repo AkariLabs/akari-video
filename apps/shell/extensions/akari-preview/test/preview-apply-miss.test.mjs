@@ -12,7 +12,7 @@ function harness() {
         addEventListener(type, listener) { this.listeners.set(type, listener); },
         appendChild(child) { this.children.push(child); }, append(...children) { this.children.push(...children); },
         replaceChildren() { this.children = []; }, remove() { this.removed = true; },
-        contains() { return false; },
+        contains() { return false; }, querySelectorAll() { return []; },
         getBoundingClientRect() { return { x: 0, y: 0, width: 1000, height: 600 }; } });
     const body = makeElement();
     const document = { body, createElement: makeElement, createTextNode: textContent => ({ textContent }),

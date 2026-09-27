@@ -109,7 +109,11 @@ test('ライブラリの検索欄から図形の名前で当たり、押すと�
     assert.equal(tile.status, 'live');
 });
 
-test('ドラッグの payload は kind: shape + preset（仮枠用に名前と vb）', () => {
+test('ドラッグの payload は kind: shape + preset（仮枠用に名前と vb・実物の形の d）', () => {
     const star = presets.find(preset => preset.id === 'star-5');
-    assert.deepEqual(shapeShelfDragPayload(star), { kind: 'shape', preset: 'star-5', name: '5 点の星', vb: [100, 95] });
+    const payload = shapeShelfDragPayload(star);
+    // d は下書きを実物の形で描くためだけのもの。置く形の正本はコマンド側なので比較から外す。
+    const { d, ...rest } = payload;
+    assert.deepEqual(rest, { kind: 'shape', preset: 'star-5', name: '5 点の星', vb: [100, 95] });
+    assert.equal(d, star.d);
 });
