@@ -643,6 +643,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogLoading = false;
     protected libraryImportRequest?: { paths: string[] };
     protected catalogQuery = '';
+    /** 検索欄が日本語入力の変換中かどうか。変換が終わるまで絞り込みを走らせない。 */
+    protected searchComposing = false;
+    /** 検索欄の実体。非制御なので、外から値を変えるときはここを直接合わせる。 */
+    protected searchInput?: HTMLInputElement;
     /** 出どころ（フィルターの 1 節目）。他の 3 節は libraryFilterRest。 */
     protected librarySourceFilter: LibrarySourceFilter = 'all';
     protected libraryFilterRest: Omit<LibraryFilterState, 'source'> = { price: [], license: [], status: [] };
@@ -1456,6 +1460,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.librarySourceFilter = 'all';
         this.libraryFolderFilter = undefined;
         this.catalogQuery = '';
+        this.syncSearchInput();
         this.catalogCategory = 'all';
         await this.loadAssetCatalogView();
         this.update();
@@ -2294,13 +2299,35 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             .filter(item => this.presetPassesLibraryFilter(`${kind}/${item.id}`));
     }
 
+    /**
+     * 検索欄の入力を受ける。値は常に控えるが、再描画は `rerender` が真のときだけ行う。
+     * 日本語入力の変換中に再描画すると、value が確定前の文字列で上書きされて変換が壊れる
+     * （`update()` が非同期なため、打ち進めた分が巻き戻る）。値自体は毎回控えるので、
+     * 変換が中断されて compositionend が来なくても入力不能にはならない。
+     */
+    protected applySearchQuery(value: string, rerender: boolean): void {
+        if (this.topView === 'materials') this.materialQuery = value;
+        else this.catalogQuery = value;
+        if (rerender) this.update();
+    }
+
+    /** 非制御の検索欄に、外から変えた値を書き戻す（タブ切り替え・クリア・履歴からの指定）。 */
+    protected syncSearchInput(): void {
+        const input = this.searchInput;
+        if (!input) return;
+        const value = this.topView === 'materials' ? this.materialQuery : this.catalogQuery;
+        if (input.value !== value) input.value = value;
+    }
+
     protected setCatalogQuery(query: string): void {
         this.catalogQuery = query;
+        this.syncSearchInput();
         this.update();
     }
 
     protected setMaterialQuery(query: string): void {
         this.materialQuery = query;
+        this.syncSearchInput();
         this.update();
     }
 
@@ -3192,10 +3219,32 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'stretch' }}>
                     <input
                         type='search'
-                        value={query}
-                        onChange={event => this.topView === 'materials'
-                            ? this.setMaterialQuery(event.target.value)
-                            : this.setCatalogQuery(event.target.value)}
+                        /*
+                         * 非制御（defaultValue + ref）にしている。制御にすると、ライブラリの
+                         * サムネイル読み込みなど「検索と無関係な再描画」のたびに value が
+                         * state の値で上書きされ、日本語入力の変換が 1 文字ごとに巻き戻る。
+                         * 外から空にする場合は syncSearchInput() で DOM 側も合わせる。
+                         */
+                        ref={element => { this.searchInput = element ?? undefined; }}
+                        defaultValue={query}
+                        /*
+                         * 日本語入力の変換中（composition）は state を動かさない。動かすと
+                         * update() で再描画が走り、value が確定前の文字列で上書きされて
+                         * 変換が途中で壊れる（「にほんご」と打てない）。確定時にまとめて拾う。
+                         */
+                        onCompositionStart={() => { this.searchComposing = true; }}
+                        onCompositionEnd={event => {
+                            this.searchComposing = false;
+                            this.applySearchQuery(event.currentTarget.value, true);
+                        }}
+                        /* 変換が中断されて compositionend が来なくても入力不能にならないよう、
+                           フォーカスが外れたら必ず解除する。 */
+                        onBlur={event => {
+                            if (!this.searchComposing) return;
+                            this.searchComposing = false;
+                            this.applySearchQuery(event.currentTarget.value, true);
+                        }}
+                        onChange={event => this.applySearchQuery(event.target.value, !this.searchComposing)}
                         onClick={event => event.stopPropagation()}
                         placeholder={this.topView === 'materials' ? 'プロジェクト内を検索' : 'ライブラリを検索'}
                         aria-label={this.topView === 'materials' ? 'プロジェクト内の素材を検索' : 'ライブラリを検索'}
@@ -3551,6 +3600,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected openRecentLibraryEntry(entry: RecentLibraryEntry): void {
         this.catalogQuery = '';
+        this.syncSearchInput();
         this.selectLibraryCategory(entry.category);
         this.libraryFolderFilter = entry.folder;
         this.update();
@@ -4610,6 +4660,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 onCreator={model.creatorSource ? () => {
                     this.librarySourceFilter = model.creatorSource!;
                     this.catalogQuery = '';
+                    this.syncSearchInput();
                     this.closeLibraryInfo();
                 } : undefined}
                 onClose={this.closeLibraryInfo} />}
