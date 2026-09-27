@@ -488,6 +488,13 @@ const MINIMUM_ITEM_DURATION = 0.15;
 const MINIMUM_SFX_TRIM_DURATION = 0.1;
 /** 素材追加コマンドで実尺（getAudioDuration）が取れない video のフォールバック尺（司令塔裁定4）。 */
 const MATERIAL_INSERT_FALLBACK_DURATION_SECONDS = 3;
+/**
+ * 原寸をレンダラで読む試行回数と間隔。置いた直後は参照台帳の反映待ちで 1 回目だけ
+ * 読めないことがあり、そこで諦めるとバックエンドの probe（ffprobe 依存・無い環境では
+ * 15 秒待って失敗）に落ちて原寸で置かれてしまう。
+ */
+const RENDERER_SIZE_READ_ATTEMPTS = 4;
+const RENDERER_SIZE_READ_RETRY_MS = 180;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
 const TRACK_INSERT_LINE_COLOR = '#22c55e';
@@ -6560,12 +6567,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /**
      * 素材の原寸をレンダラ側で読む。画像は decode、動画は loadedmetadata までで、
-     * どちらもヘッダだけ読めば分かるので速い。読めなければ undefined を返して
-     * 既存の probe に譲る。2 秒で打ち切るのは、待たせてまで得る価値が無いため
-     * （取れなければ既定の大きさで置けばよく、後から直せる）。
+     * どちらもヘッダだけ読めば分かるので速い。
+     *
+     * 1 回で諦めないのは、置いた直後は参照台帳の反映が追いつかず、初回だけ
+     * 読めないことがあるため（2 枚目以降は同じ素材でも読める）。ここで諦めると
+     * バックエンドの probe に落ち、ffprobe が無い環境では 15 秒待って失敗し、
+     * その失敗が scale=1（原寸）での配置に化けて画面からはみ出していた。
+     * 読めない実体（壊れたファイル）は毎回すぐ onerror になるので、数回試しても
+     * 待ち時間はほとんど増えない。
      */
     protected async readMediaSizeInRenderer(relativePath: string, kind: string): Promise<{ width: number; height: number } | undefined> {
         if (kind !== 'image' && kind !== 'video') return undefined;
+        for (let attempt = 0; attempt < RENDERER_SIZE_READ_ATTEMPTS; attempt++) {
+            if (attempt > 0) await new Promise<void>(resolve => window.setTimeout(resolve, RENDERER_SIZE_READ_RETRY_MS));
+            const size = await this.readMediaSizeInRendererOnce(relativePath, kind);
+            if (size) return size;
+            if (this.isDisposed) return undefined;
+        }
+        return undefined;
+    }
+
+    /** 1 回ぶんの読み取り。2 秒で打ち切るのは、待たせてまで得る価値が無いため。 */
+    protected async readMediaSizeInRendererOnce(relativePath: string, kind: string): Promise<{ width: number; height: number } | undefined> {
         const editUri = this.location?.editUri;
         if (!editUri) return undefined;
         let element: HTMLImageElement | HTMLVideoElement | undefined;
@@ -6638,7 +6661,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 await this.refreshReferenceMediaUris(undefined, [relativePath]);
                 return this.resolveEditMediaUri(relativePath, this.location!.editUri!).toString();
             },
-            probe: uri => this.annotationsService.probeSourceDimensions({ path: uri })
+            probe: uri => this.annotationsService.probeSourceDimensions({ path: uri }),
+            // レンダラ読みが 4 回失敗した後の最後の砦。ffprobe が無い環境では絶対に
+            // 返らないので、既定の 15 秒まで待たせない（待っても原寸で置くしかない）。
+            maxWaitMs: 5000
         });
         const sourceWidth = known ?? fromDom?.width ?? dimensions?.width;
         if (!(sourceWidth && sourceWidth > 0)) {

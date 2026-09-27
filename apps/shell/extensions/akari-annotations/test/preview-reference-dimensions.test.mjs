@@ -11,14 +11,19 @@ const URI = require('@theia/core/lib/common/uri').default;
 const source = ts.createSourceFile('widget.ts', readFileSync(
     new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const names = ['addMaterialAtOutputPoint', 'refreshReferenceMediaUris', 'resolveEditMediaUri'];
+const names = ['addMaterialAtOutputPoint', 'refreshReferenceMediaUris', 'resolveEditMediaUri',
+    // 再試行の本体は実物を回す（1 回ぶんの読み取りだけ差し替える）。
+    'readMediaSizeInRenderer'];
 const methods = names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source));
 const code = ts.transpileModule(`class Handler { ${methods.join('\n')} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
+// 再試行の待ちは即座に消化する（待ち時間そのものはここでは見ない）。
+globalThis.window = { setTimeout: callback => { callback(); return 0; }, clearTimeout() {} };
 const Handler = new Function('URI', 'probePreviewMediaDimensions', 'pendingAssetFetches',
+    'RENDERER_SIZE_READ_ATTEMPTS', 'RENDERER_SIZE_READ_RETRY_MS',
     `${code}\nreturn Handler;`)(URI,
-    options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }), pendingAssetFetches);
+    options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }), pendingAssetFetches, 4, 0);
 
 function fixture(relativePath, sourceWidth) {
     const handler = new Handler();
@@ -49,9 +54,12 @@ function fixture(relativePath, sourceWidth) {
      * 読めなかった体で差し替える（読めたときの経路は下の専用テストで見る）。
      */
     let rendererReads = 0;
-    handler.readMediaSizeInRenderer = async () => { rendererReads++; return undefined; };
+    handler.readMediaSizeInRendererOnce = async () => { rendererReads++; return undefined; };
     return { handler, calls, notices, libraryUri, rendererReads: () => rendererReads,
-        setRendererSize: size => { handler.readMediaSizeInRenderer = async () => { rendererReads++; return size; }; } };
+        setRendererSize: size => { handler.readMediaSizeInRendererOnce = async () => { rendererReads++; return size; }; },
+        setRendererSizeAfter: (failures, size) => {
+            handler.readMediaSizeInRendererOnce = async () => { rendererReads++; return rendererReads > failures ? size : undefined; };
+        } };
 }
 
 for (const [kind, path, width] of [
@@ -65,7 +73,7 @@ for (const [kind, path, width] of [
         assert.equal(calls[1][0], path);
         assert.deepEqual(calls[1][4], { transform: { x: 50, y: -20, scale: 1280 / (4 * width) }, placeOnTop: true });
         assert.deepEqual(notices, []);
-        assert.equal(rendererReads(), 1, 'まずレンダラで読み、読めなければ probe へ委譲する');
+        assert.equal(rendererReads(), 4, 'まずレンダラで数回読み、読めなければ probe へ委譲する');
     });
 
     test(`参照 ${kind} はレンダラで寸法が読めれば probe を省く`, async () => {
@@ -91,6 +99,26 @@ for (const [kind, path, width] of [
         assert.equal(calls[0][0], path);
         assert.deepEqual(calls[0][4], { transform: { x: 0, y: 0, scale: 1 }, placeOnTop: true });
         assert.match(notices[0], /既定の大きさ/);
+    });
+
+    test(`参照 ${kind} は初回だけ読めなくても引き直して正しい幅で置く`, async () => {
+        // 置いた直後は参照台帳の反映が追いつかず 1 回目だけ読めないことがある。
+        // ここで諦めると ffprobe 依存の probe に落ち、無い環境では原寸で置かれてしまう。
+        const { handler, calls, notices, setRendererSizeAfter, rendererReads } = fixture(path, width);
+        setRendererSizeAfter(2, { width: 800, height: 450 });
+        await handler.addMaterialAtOutputPoint(path, kind, 3, { x: 0, y: 0 });
+        assert.equal(rendererReads(), 3);
+        assert.equal(calls[0][0], path, 'probe に出ていない');
+        assert.deepEqual(calls[0][4], { transform: { x: 0, y: 0, scale: 1280 / (4 * 800) }, placeOnTop: true });
+        assert.deepEqual(notices, []);
+    });
+
+    test(`参照 ${kind} は 4 回読めなければ probe へ落ちる`, async () => {
+        const { handler, calls, rendererReads } = fixture(path, width);
+        await handler.addMaterialAtOutputPoint(path, kind, 3, { x: 0, y: 0 });
+        assert.equal(rendererReads(), 4);
+        assert.deepEqual(calls[0], { path: fixture(path, width).libraryUri });
+        assert.deepEqual(calls[1][4], { transform: { x: 0, y: 0, scale: 1280 / (4 * width) }, placeOnTop: true });
     });
 
     test(`参照 ${kind} は呼び出し側が幅を知っていれば読みも probe もしない`, async () => {
