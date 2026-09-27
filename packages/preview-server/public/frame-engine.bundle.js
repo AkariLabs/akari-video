@@ -2509,6 +2509,13 @@ var require_caption_store = __commonJS({
       } else {
         delete merged.stroke;
       }
+      for (const key of ["strokeInner", "fillGradient", "extrude"]) {
+        const value = mergeNestedStyle(defaultStyle?.[key], captionStyle?.[key]);
+        if (value && Object.keys(value).length > 0)
+          merged[key] = value;
+        else
+          delete merged[key];
+      }
       const background = mergeNestedStyle(defaultStyle?.background, captionStyle?.background);
       if (background && Object.keys(background).length > 0) {
         merged.background = background;
@@ -2765,6 +2772,20 @@ var require_caption_store = __commonJS({
         textStyle = updateOptionalStyleProperty(textStyle, "font_family", updates.fontFamily, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        for (const [key, value] of [
+          ["stroke_inner", updates.strokeInner],
+          ["fill_gradient", updates.fillGradient],
+          ["extrude", updates.extrude]
+        ]) {
+          if (value === void 0)
+            continue;
+          const json = value === null ? null : richStyleToJson(key, value);
+          const existingRich = locateTopLevelProperty(textStyle, key);
+          textStyle = json === null ? existingRich ? removeObjectProperty(textStyle, key) : textStyle : existingRich ? (() => {
+            const object = locateTopLevelObjectProperty(textStyle, key, key);
+            return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
+          })() : appendJsonProperty(textStyle, key, json);
+        }
         textStyle = updateOptionalStyleProperty(textStyle, "zone", updates.zone, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateNestedStyleObject(textStyle, "stroke", {
           color: updates.stroke?.color,
@@ -3383,7 +3404,10 @@ var require_caption_store = __commonJS({
       "stroke",
       "background",
       "zone",
-      "layout"
+      "layout",
+      "stroke_inner",
+      "fill_gradient",
+      "extrude"
     ]);
     var TEXT_TRANSFORM_VALUES = /* @__PURE__ */ new Set(["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"]);
     var TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
@@ -3486,6 +3510,26 @@ var require_caption_store = __commonJS({
         if (Object.keys(stroke).length > 0) {
           style.stroke = stroke;
         }
+      }
+      if (isRecord2(value.stroke_inner)) {
+        const inner = {};
+        if (isHexColor(value.stroke_inner.color))
+          inner.color = value.stroke_inner.color;
+        if (isFiniteNonNegative(value.stroke_inner.width_px))
+          inner.widthPx = value.stroke_inner.width_px;
+        if (Object.keys(inner).length > 0)
+          style.strokeInner = inner;
+      }
+      if (isRecord2(value.fill_gradient) && Array.isArray(value.fill_gradient.colors) && value.fill_gradient.colors.length >= 2 && value.fill_gradient.colors.length <= 3 && value.fill_gradient.colors.every(isHexColor) && isFiniteNumber(value.fill_gradient.angle_deg)) {
+        style.fillGradient = { colors: value.fill_gradient.colors, angleDeg: value.fill_gradient.angle_deg };
+      }
+      if (isRecord2(value.extrude) && Number.isInteger(value.extrude.depth_px) && value.extrude.depth_px >= 1 && value.extrude.depth_px <= 32 && isHexColor(value.extrude.color) && isFiniteNumber(value.extrude.angle_deg) && (value.extrude.color_end === void 0 || isHexColor(value.extrude.color_end))) {
+        style.extrude = {
+          depthPx: value.extrude.depth_px,
+          color: value.extrude.color,
+          ...value.extrude.color_end ? { colorEnd: value.extrude.color_end } : {},
+          angleDeg: value.extrude.angle_deg
+        };
       }
       if (isRecord2(value.background)) {
         const background = {};
@@ -3699,6 +3743,9 @@ var require_caption_store = __commonJS({
             ...style.stroke.widthPx !== void 0 ? { width_px: style.stroke.widthPx } : {}
           }
         } : {},
+        ...style.strokeInner !== void 0 ? { stroke_inner: richStyleToJson("stroke_inner", style.strokeInner) } : {},
+        ...style.fillGradient !== void 0 ? { fill_gradient: richStyleToJson("fill_gradient", style.fillGradient) } : {},
+        ...style.extrude !== void 0 ? { extrude: richStyleToJson("extrude", style.extrude) } : {},
         ...style.background !== void 0 ? {
           background: {
             ...style.background.color !== void 0 ? { color: style.background.color } : {},
@@ -3746,7 +3793,7 @@ var require_caption_store = __commonJS({
       return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
     }
     function validateTextStylePatch(updates) {
-      const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.wrapWidthPct !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
+      const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.wrapWidthPct !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.strokeInner !== void 0 || updates.fillGradient !== void 0 || updates.extrude !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
       if (!hasUpdate) {
         throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
@@ -3754,6 +3801,15 @@ var require_caption_store = __commonJS({
         if (color !== void 0 && color !== null && !isHexColor(color)) {
           throw new Error("\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u8272\u306F #RGB / #RRGGBB / #RRGGBBAA \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
+      }
+      if (updates.strokeInner !== void 0 && updates.strokeInner !== null && (updates.strokeInner.color !== void 0 && !isHexColor(updates.strokeInner.color) || updates.strokeInner.widthPx !== void 0 && !isFiniteNonNegative(updates.strokeInner.widthPx))) {
+        throw new Error("stroke_inner \u306E\u8272\u304B\u592A\u3055\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.fillGradient !== void 0 && updates.fillGradient !== null && (!Array.isArray(updates.fillGradient.colors) || updates.fillGradient.colors.length < 2 || updates.fillGradient.colors.length > 3 || !updates.fillGradient.colors.every(isHexColor) || !isFiniteNumber(updates.fillGradient.angleDeg))) {
+        throw new Error("fill_gradient \u306E\u8272\u304B\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.extrude !== void 0 && updates.extrude !== null && (!Number.isInteger(updates.extrude.depthPx) || updates.extrude.depthPx < 1 || updates.extrude.depthPx > 32 || !isHexColor(updates.extrude.color) || updates.extrude.colorEnd !== void 0 && !isHexColor(updates.extrude.colorEnd) || !isFiniteNumber(updates.extrude.angleDeg))) {
+        throw new Error("extrude \u306E\u5965\u884C\u304D\u30FB\u8272\u30FB\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
       }
       if (updates.sizePx !== void 0 && updates.sizePx !== null && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
         throw new Error("\u5B57\u5E55\u30B5\u30A4\u30BA\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
@@ -3865,6 +3921,9 @@ var require_caption_store = __commonJS({
         ...updates.fontFamily !== void 0 && updates.fontFamily !== null ? { font_family: updates.fontFamily } : {},
         ...updates.shadow ? { shadow: shadowPatchToJson(updates.shadow) } : {},
         ...updates.glow ? { glow: glowPatchToJson(updates.glow) } : {},
+        ...updates.strokeInner ? { stroke_inner: richStyleToJson("stroke_inner", updates.strokeInner) } : {},
+        ...updates.fillGradient ? { fill_gradient: richStyleToJson("fill_gradient", updates.fillGradient) } : {},
+        ...updates.extrude ? { extrude: richStyleToJson("extrude", updates.extrude) } : {},
         ...updates.stroke && Object.values(updates.stroke).some((value) => value !== void 0 && value !== null) ? {
           stroke: {
             ...updates.stroke.color !== void 0 && updates.stroke.color !== null ? { color: updates.stroke.color } : {},
@@ -3897,6 +3956,26 @@ var require_caption_store = __commonJS({
         ...shadow.blurPx !== void 0 ? { blur_px: shadow.blurPx } : {},
         ...shadow.distancePx !== void 0 ? { distance_px: shadow.distancePx } : {},
         ...shadow.angleDeg !== void 0 ? { angle_deg: shadow.angleDeg } : {}
+      };
+    }
+    function richStyleToJson(key, value) {
+      if (key === "stroke_inner") {
+        const inner = value;
+        return {
+          ...inner.color !== void 0 ? { color: inner.color } : {},
+          ...inner.widthPx !== void 0 ? { width_px: inner.widthPx } : {}
+        };
+      }
+      if (key === "fill_gradient") {
+        const gradient = value;
+        return { colors: gradient.colors, angle_deg: gradient.angleDeg };
+      }
+      const extrude = value;
+      return {
+        depth_px: extrude.depthPx,
+        color: extrude.color,
+        ...extrude.colorEnd !== void 0 ? { color_end: extrude.colorEnd } : {},
+        angle_deg: extrude.angleDeg
       };
     }
     function glowPatchToJson(glow) {
@@ -4630,7 +4709,10 @@ var require_caption_display = __commonJS({
       "shadow",
       "glow",
       "animation",
-      "reference_height_px"
+      "reference_height_px",
+      "stroke_inner",
+      "fill_gradient",
+      "extrude"
     ]);
     var CAPTION_STROKE_KEYS = /* @__PURE__ */ new Set(["method", "color", "width_px"]);
     var CAPTION_BACKGROUND_KEYS = /* @__PURE__ */ new Set([
@@ -5173,6 +5255,43 @@ var require_caption_display = __commonJS({
       validateTextStyleV0(value, label);
       if (Object.prototype.hasOwnProperty.call(value, "stroke"))
         validateCaptionStroke(value.stroke, `${label}.stroke`);
+      if (Object.prototype.hasOwnProperty.call(value, "stroke_inner")) {
+        const inner = value.stroke_inner;
+        if (!isRecord2(inner))
+          fail("INVALID_TEXT_STYLE", `${label}.stroke_inner must be an object`);
+        rejectStyleUnknown(inner, /* @__PURE__ */ new Set(["color", "width_px"]), `${label}.stroke_inner`);
+        if (inner.color !== void 0)
+          validateHexColor(inner.color, `${label}.stroke_inner.color`);
+        if (inner.width_px !== void 0 && !finiteNonNegative2(inner.width_px)) {
+          fail("INVALID_TEXT_STYLE", `${label}.stroke_inner.width_px must be non-negative`);
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "fill_gradient")) {
+        const gradient = value.fill_gradient;
+        if (!isRecord2(gradient))
+          fail("INVALID_TEXT_STYLE", `${label}.fill_gradient must be an object`);
+        rejectStyleUnknown(gradient, /* @__PURE__ */ new Set(["colors", "angle_deg"]), `${label}.fill_gradient`);
+        if (!Array.isArray(gradient.colors) || gradient.colors.length < 2 || gradient.colors.length > 3) {
+          fail("INVALID_TEXT_STYLE", `${label}.fill_gradient.colors must contain 2 or 3 colors`);
+        }
+        gradient.colors.forEach((color, index) => validateHexColor(color, `${label}.fill_gradient.colors[${index}]`));
+        if (!finiteNumber(gradient.angle_deg))
+          fail("INVALID_TEXT_STYLE", `${label}.fill_gradient.angle_deg must be finite`);
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "extrude")) {
+        const extrude = value.extrude;
+        if (!isRecord2(extrude))
+          fail("INVALID_TEXT_STYLE", `${label}.extrude must be an object`);
+        rejectStyleUnknown(extrude, /* @__PURE__ */ new Set(["depth_px", "color", "color_end", "angle_deg"]), `${label}.extrude`);
+        if (!Number.isInteger(extrude.depth_px) || extrude.depth_px < 1 || extrude.depth_px > 32) {
+          fail("INVALID_TEXT_STYLE", `${label}.extrude.depth_px must be within [1, 32]`);
+        }
+        validateHexColor(extrude.color, `${label}.extrude.color`);
+        if (extrude.color_end !== void 0)
+          validateHexColor(extrude.color_end, `${label}.extrude.color_end`);
+        if (!finiteNumber(extrude.angle_deg))
+          fail("INVALID_TEXT_STYLE", `${label}.extrude.angle_deg must be finite`);
+      }
       if (Object.prototype.hasOwnProperty.call(value, "background"))
         validateCaptionBackground(value.background, `${label}.background`);
       if (Object.prototype.hasOwnProperty.call(value, "zone") && !CAPTION_ZONES.has(value.zone)) {
@@ -5879,7 +5998,7 @@ var require_caption_display = __commonJS({
       const left = isRecord2(base) ? base : {};
       const right = isRecord2(override) ? override : {};
       const merged = { ...left, ...right };
-      for (const key of ["stroke", "background", "layout"]) {
+      for (const key of ["stroke", "stroke_inner", "fill_gradient", "extrude", "background", "layout"]) {
         if (isRecord2(left[key]) || isRecord2(right[key]))
           merged[key] = { ...isRecord2(left[key]) ? left[key] : {}, ...isRecord2(right[key]) ? right[key] : {} };
       }
@@ -5958,6 +6077,20 @@ var require_caption_display = __commonJS({
           ...typeof value.stroke.color === "string" ? { color: value.stroke.color } : {},
           ...finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {}
         } } : {},
+        ...isRecord2(value.stroke_inner) ? { stroke_inner: {
+          ...typeof value.stroke_inner.color === "string" ? { color: value.stroke_inner.color } : {},
+          ...finiteNumber(value.stroke_inner.width_px) ? { width_px: value.stroke_inner.width_px } : {}
+        } } : {},
+        ...isRecord2(value.fill_gradient) ? { fill_gradient: {
+          colors: value.fill_gradient.colors,
+          angle_deg: value.fill_gradient.angle_deg
+        } } : {},
+        ...isRecord2(value.extrude) ? { extrude: {
+          depth_px: value.extrude.depth_px,
+          color: value.extrude.color,
+          ...value.extrude.color_end !== void 0 ? { color_end: value.extrude.color_end } : {},
+          angle_deg: value.extrude.angle_deg
+        } } : {},
         ...isRecord2(value.background) ? { background: {
           ...typeof value.background.color === "string" ? { color: value.background.color } : {},
           ...finiteNumber(value.background.opacity) ? { opacity: value.background.opacity } : {},
@@ -5977,7 +6110,7 @@ var require_caption_display = __commonJS({
       const left = normalizeCaptionLineTextStyle(base);
       const right = normalizeCaptionLineTextStyle(override);
       const merged = { ...left, ...right };
-      for (const key of ["stroke", "background", "shadow", "glow", "position", "animation"]) {
+      for (const key of ["stroke", "stroke_inner", "fill_gradient", "extrude", "background", "shadow", "glow", "position", "animation"]) {
         if (isRecord2(left[key]) || isRecord2(right[key])) {
           merged[key] = { ...isRecord2(left[key]) ? left[key] : {}, ...isRecord2(right[key]) ? right[key] : {} };
           if (Object.keys(merged[key]).length === 0)
@@ -6094,6 +6227,14 @@ var require_caption_display = __commonJS({
         const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.9)";
         vars["--caption-stroke"] = `${width * 2}px ${color}`;
       }
+      if (isRecord2(style.stroke_inner) && !isRecord2(style.stroke))
+        vars["--caption-stroke"] = "0 transparent";
+      if (isRecord2(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color) => typeof color === "string" && HEX_COLOR.test(color)) && finiteNumber(style.fill_gradient.angle_deg)) {
+        vars["--caption-fill-gradient"] = `linear-gradient(${style.fill_gradient.angle_deg}deg, ${style.fill_gradient.colors.join(", ")})`;
+        vars["--caption-fill-clip"] = "text";
+        vars["--caption-fill-color"] = "transparent";
+        vars["--caption-fill-filter"] = captionGradientFilterValue(style, scale);
+      }
       if (isRecord2(style.background) && (typeof style.background.color === "string" || finiteNumber(style.background.opacity))) {
         const name = style.background.mode === "block" ? "--plate-block-bg" : extendedBackground ? "--plate-ext-bg" : "--plate-bg";
         vars[name] = colorWithOpacity(typeof style.background.color === "string" ? style.background.color : "#000000", finiteNumber(style.background.opacity) ? style.background.opacity : void 0);
@@ -6147,7 +6288,7 @@ var require_caption_display = __commonJS({
         vars["--plate-pad-y"] = `${px(style.background.padding_px)}px`;
         vars["--plate-pad-x"] = `${px(style.background.padding_px)}px`;
       }
-      const textShadow = captionTextShadowValue(style.shadow, style.glow, scale);
+      const textShadow = captionRichTextShadowValue(style, scale);
       if (textShadow !== null)
         vars["--caption-text-shadow"] = textShadow;
       Object.assign(vars, captionZoneVars(style.zone));
@@ -6199,7 +6340,7 @@ var require_caption_display = __commonJS({
       const vars = resolveCaptionLineStyleVarsAtScale(style, scale);
       Object.assign(vars, captionVerticalHeightVars(style, output));
       vars["--caption-paint-order"] = "stroke fill";
-      if (!isRecord2(style.shadow) && !isRecord2(style.glow))
+      if (!isRecord2(style.shadow) && !isRecord2(style.glow) && !isRecord2(style.stroke_inner) && !isRecord2(style.extrude))
         vars["--caption-text-shadow"] = "none";
       if (isRecord2(style.stroke)) {
         const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
@@ -6207,6 +6348,8 @@ var require_caption_display = __commonJS({
         vars["--caption-webkit-text-stroke"] = `${formatCssNumber(width * 2)}px ${color}`;
         vars["--caption-paint-order"] = "stroke fill";
       }
+      if (isRecord2(style.stroke_inner) && !isRecord2(style.stroke))
+        vars["--caption-webkit-text-stroke"] = "0 transparent";
       if (isRecord2(style.background) && finiteNonNegative2(style.background.radius_px)) {
         vars["--plate-block-radius"] = `${formatCssNumber(style.background.radius_px * scale)}px`;
       }
@@ -6300,6 +6443,87 @@ var require_caption_display = __commonJS({
         parts.push(`${offsetX}px ${offsetY}px ${spread}px ${colorWithOpacity(glow.color, alpha)}`, `${offsetX}px ${offsetY}px ${spread * 2}px ${colorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`);
       }
       return parts.length > 0 ? parts.join(", ") : null;
+    }
+    function captionRichTextShadowValue(style, scale) {
+      const parts = [];
+      if (isRecord2(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
+        const radius = scaleCaptionPx(style.stroke_inner.width_px, scale);
+        const color = typeof style.stroke_inner.color === "string" && HEX_COLOR.test(style.stroke_inner.color) ? style.stroke_inner.color : "#ffffff";
+        for (let index = 0; index < 16; index++) {
+          const angle = 2 * Math.PI * index / 16;
+          parts.push(`${formatCssNumber(Math.cos(angle) * radius)}px ${formatCssNumber(Math.sin(angle) * radius)}px 0 ${color}`);
+        }
+      }
+      if (isRecord2(style.extrude) && Number.isInteger(style.extrude.depth_px) && style.extrude.depth_px >= 1 && style.extrude.depth_px <= 32 && typeof style.extrude.color === "string" && HEX_COLOR.test(style.extrude.color) && finiteNumber(style.extrude.angle_deg)) {
+        const depth = Math.ceil(scaleCaptionPx(style.extrude.depth_px, scale));
+        const angle = style.extrude.angle_deg * Math.PI / 180;
+        for (let layer = 1; layer <= depth; layer++) {
+          const distance = Math.min(layer, scaleCaptionPx(style.extrude.depth_px, scale));
+          const color = typeof style.extrude.color_end === "string" && HEX_COLOR.test(style.extrude.color_end) ? interpolateCaptionHex(style.extrude.color, style.extrude.color_end, layer / depth) : style.extrude.color;
+          parts.push(`${formatCssNumber(Math.sin(angle) * distance)}px ${formatCssNumber(-Math.cos(angle) * distance)}px 0 ${color}`);
+        }
+      }
+      const original = captionTextShadowValue(style.shadow, style.glow, scale);
+      if (original)
+        parts.push(original);
+      return parts.length ? parts.join(", ") : null;
+    }
+    function captionGradientFilterValue(style, scale) {
+      const parts = [];
+      const grow = (radius, color) => {
+        let remaining = radius;
+        let power = 1;
+        while (remaining > 1e-4) {
+          const step = Math.min(power, remaining);
+          for (const [x3, y2] of [[step, 0], [0, step], [-step, 0], [0, -step]]) {
+            parts.push(`drop-shadow(${formatCssNumber(x3)}px ${formatCssNumber(y2)}px 0 ${color})`);
+          }
+          remaining -= step;
+          power *= 2;
+        }
+      };
+      const stroke = isRecord2(style.stroke) ? style.stroke : null;
+      const inner = isRecord2(style.stroke_inner) ? style.stroke_inner : null;
+      const outerRadius = stroke && finiteNonNegative2(stroke.width_px) ? scaleCaptionPx(stroke.width_px, scale) : 0;
+      const innerRadius = inner && finiteNonNegative2(inner.width_px) ? scaleCaptionPx(inner.width_px, scale) : 0;
+      if (innerRadius > 0)
+        grow(innerRadius, typeof inner?.color === "string" && HEX_COLOR.test(inner.color) ? inner.color : "#ffffff");
+      if (outerRadius > 0)
+        grow(Math.max(0, outerRadius - innerRadius), typeof stroke?.color === "string" && HEX_COLOR.test(stroke.color) ? stroke.color : "#000000");
+      if (isRecord2(style.extrude) && Number.isInteger(style.extrude.depth_px) && style.extrude.depth_px >= 1 && style.extrude.depth_px <= 32 && typeof style.extrude.color === "string" && HEX_COLOR.test(style.extrude.color) && finiteNumber(style.extrude.angle_deg)) {
+        const depth = Math.ceil(scaleCaptionPx(style.extrude.depth_px, scale));
+        const angle = style.extrude.angle_deg * Math.PI / 180;
+        for (let layer = 1; layer <= depth; layer++) {
+          const color = typeof style.extrude.color_end === "string" && HEX_COLOR.test(style.extrude.color_end) ? interpolateCaptionHex(style.extrude.color, style.extrude.color_end, layer / depth) : style.extrude.color;
+          parts.push(`drop-shadow(${formatCssNumber(Math.sin(angle))}px ${formatCssNumber(-Math.cos(angle))}px 0 ${color})`);
+        }
+      }
+      if (isRecord2(style.shadow) && typeof style.shadow.color === "string" && HEX_COLOR.test(style.shadow.color)) {
+        const angle = (finiteNumber(style.shadow.angle_deg) ? style.shadow.angle_deg : 90) * Math.PI / 180;
+        const distance = scaleCaptionPx(finiteNonNegative2(style.shadow.distance_px) ? style.shadow.distance_px : 0, scale);
+        const blur = scaleCaptionPx(finiteNonNegative2(style.shadow.blur_px) ? style.shadow.blur_px : 0, scale);
+        parts.push(`drop-shadow(${formatCssNumber(Math.cos(angle) * distance)}px ${formatCssNumber(Math.sin(angle) * distance)}px ${formatCssNumber(blur)}px ${colorWithOpacity(style.shadow.color, style.shadow.opacity)})`);
+      }
+      if (isRecord2(style.glow) && typeof style.glow.color === "string" && HEX_COLOR.test(style.glow.color)) {
+        const spread = scaleCaptionPx(finiteNonNegative2(style.glow.spread) ? style.glow.spread : 40, scale);
+        const alpha = Math.min(1, (finiteNonNegative2(style.glow.density) ? style.glow.density : 50) / 60);
+        const x3 = scaleCaptionPx(finiteNumber(style.glow.offset_x) ? style.glow.offset_x : 0, scale);
+        const y2 = scaleCaptionPx(finiteNumber(style.glow.offset_y) ? style.glow.offset_y : 0, scale);
+        parts.push(`drop-shadow(${formatCssNumber(x3)}px ${formatCssNumber(y2)}px ${formatCssNumber(spread)}px ${colorWithOpacity(style.glow.color, alpha)})`);
+        parts.push(`drop-shadow(${formatCssNumber(x3)}px ${formatCssNumber(y2)}px ${formatCssNumber(spread * 2)}px ${colorWithOpacity(style.glow.color, Number((alpha * 0.7).toFixed(4)))})`);
+      }
+      return parts.join(" ") || "none";
+    }
+    function interpolateCaptionHex(start, end, fraction) {
+      const rgba = (value) => {
+        const hex = value.slice(1);
+        const full = hex.length === 3 ? hex.split("").map((digit) => digit + digit).join("") : hex;
+        return [0, 2, 4, 6].map((index) => index === 6 && full.length === 6 ? 255 : parseInt(full.slice(index, index + 2), 16));
+      };
+      const from = rgba(start);
+      const to = rgba(end);
+      const channels = start.length === 9 || end.length === 9 ? 4 : 3;
+      return "#" + from.slice(0, channels).map((value, index) => Math.round(value + ((to[index] ?? value) - value) * fraction).toString(16).padStart(2, "0")).join("");
     }
     function colorWithOpacity(color, explicitOpacity) {
       const raw = color.slice(1);
