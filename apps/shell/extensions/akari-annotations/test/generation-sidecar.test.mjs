@@ -46,8 +46,10 @@ test('progress が無い generating は不定バー用に undefined を返す', 
 });
 
 test('候補の札は進捗と完了数を示す', () => {
-  assert.equal(describeGenerationChip('generating', { job: { routes: ['codex', 'grok', 'fal'], completed: 1 } }).badge,
+  assert.equal(describeGenerationChip('generating', { job: { provider: 'compare', routes: ['codex', 'grok', 'fal'], completed: 1 } }).badge,
     '3 案作成中 · 1/3');
+  assert.match(describeGenerationChip('generating', { job: { provider: 'fal', routes: ['a', 'b'],
+    started_at: '2026-09-13T00:00:00.000Z' } }, startedAt + 1000).badge, /生成中 · 1 秒/u);
   assert.equal(describeGenerationChip('planned', { job: { routes: ['codex', 'grok', 'fal'], candidates: 2 } }).badge,
     '候補 2');
 });

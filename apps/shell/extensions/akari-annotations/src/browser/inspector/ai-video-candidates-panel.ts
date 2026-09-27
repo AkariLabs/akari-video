@@ -37,6 +37,43 @@ export interface AiVideoState {
     adopting?: boolean;
 }
 
+/** validate-inputs の duration 丸め規則と同じ値を、表示用に求める。 */
+export function videoRoundedDuration(row: GenerationCatalogRow, requested: number): number | undefined {
+    if (!Number.isFinite(requested) || requested <= 0) return undefined;
+    const duration = row.duration;
+    if (duration?.kind === 'enum') {
+        const values = [...(duration.values ?? [])].filter(Number.isFinite).sort((a, b) => a - b);
+        return values.find(value => value >= requested) ?? values[values.length - 1];
+    }
+    if (duration?.kind === 'range' && Number.isFinite(duration.min) && Number.isFinite(duration.max)) {
+        const clamped = Math.min(duration.max!, Math.max(duration.min!, requested));
+        const step = (duration as typeof duration & { step?: number }).step;
+        if (typeof step !== 'number' || !Number.isFinite(step) || step <= 0) return clamped;
+        const steps = (clamped - duration.min!) / step;
+        const nearest = Math.abs(steps - Math.floor(steps) - 0.5) <= 1e-9 ? Math.floor(steps) : Math.round(steps);
+        return Math.min(duration.max!, Math.max(duration.min!, duration.min! + nearest * step));
+    }
+    return requested;
+}
+
+export function videoOverhangSeconds(frameSeconds: number, generatedSeconds: number): number {
+    return Number.isFinite(frameSeconds) && frameSeconds > 0 && Number.isFinite(generatedSeconds)
+        && generatedSeconds > frameSeconds ? generatedSeconds - frameSeconds : 0;
+}
+
+export const videoSecondsLabel = (seconds: number): string =>
+    Number.isInteger(seconds) ? String(seconds) : String(Number(seconds.toFixed(1)));
+
+/** 見積キーには現在の draft が入る。生成開始後は承認時の batchDraft も使える。 */
+export function videoRequestedDuration(state: AiVideoState): number | undefined {
+    let value: unknown;
+    try { value = (JSON.parse(state.estimateKey ?? 'null') as unknown[])?.[2] as GenerationDraft | undefined;
+    } catch { /* 見積前や旧キーは batchDraft を使う。 */ }
+    const requested = Number((value as GenerationDraft | undefined)?.output?.duration_s
+        ?? state.batchDraft?.output?.duration_s);
+    return Number.isFinite(requested) && requested > 0 ? Number(requested.toFixed(3)) : undefined;
+}
+
 export function videoModelName(row: GenerationCatalogRow): string {
     const name = row.family ?? row.id;
     if (!row.inputs) return name;
@@ -180,9 +217,22 @@ export function appendAiVideoCandidatesPanel(parent: HTMLElement, state: AiVideo
             const check = make('input', ''); check.type = 'checkbox'; check.checked = state.selected.has(model.id);
             check.disabled = disabled || state.running;
             check.setAttribute('data-akari-inspector-video-model-check', model.id);
-            check.addEventListener('change', () => actions.select(model.id, check.checked));
+            check.addEventListener('change', () => {
+                actions.select(model.id, check.checked);
+                window.dispatchEvent(new Event('akari.videoModelsChanged'));
+            });
             const name = make('span', 'akari-inspector-ai-still-route-name');
             name.append(stillMakerBadge(videoMakerId(model.id)), make('span', '', videoModelName(model)));
+            const requested = videoRequestedDuration(state);
+            const seconds = videoRoundedDuration(model, requested ?? NaN);
+            if (seconds !== undefined) {
+                const duration = make('span', 'akari-inspector-ai-video-model-duration', `${videoSecondsLabel(seconds)} 秒で作ります`);
+                duration.setAttribute('data-akari-inspector-video-model-duration', model.id);
+                duration.style.display = 'block';
+                duration.style.fontSize = '10px';
+                duration.style.opacity = '0.78';
+                name.appendChild(duration);
+            }
             label.append(check, name, make('span', 'akari-inspector-ai-still-route-price',
                 estimate ? videoPrice(estimate.estimateUsd) : '見積もりを確認中'));
             if (estimate?.error) {
@@ -195,6 +245,16 @@ export function appendAiVideoCandidatesPanel(parent: HTMLElement, state: AiVideo
         panel.appendChild(section);
     }
     const summary = videoSelectionEstimate(state.estimate, state.selected);
+    const requested = videoRequestedDuration(state);
+    const longest = Math.max(0, ...catalog.filter(row => state.selected.has(row.id))
+        .map(row => videoRoundedDuration(row, requested ?? NaN) ?? 0));
+    if (requested !== undefined && videoOverhangSeconds(requested, longest) > 0) {
+        const note = make('div', 'akari-inspector-ai-video-duration-note',
+            `枠 ${videoSecondsLabel(requested)} 秒 → ${videoSecondsLabel(longest)} 秒の動画を作ります（枠に入るのは ${videoSecondsLabel(requested)} 秒ぶん。残りはタイムラインに点線で出ます）`);
+        note.setAttribute('data-akari-inspector-video-duration-note', 'true');
+        note.style.cssText = 'font-size:11px;line-height:1.4;opacity:.82;margin:6px 0';
+        panel.appendChild(note);
+    }
     const submit = make('button', 'akari-inspector-ai-still-primary', summary.label);
     submit.type = 'button'; submit.disabled = summary.invalid || state.running;
     submit.setAttribute('data-akari-inspector-video-create', 'true');

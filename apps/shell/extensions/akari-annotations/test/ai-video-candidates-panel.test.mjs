@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { withInspectorDom } from './helpers/inspector-dom.mjs';
 import { appendAiVideoCandidatesPanel, replaceVideoInEdit, videoApprovalMessage, videoCandidateDetail,
   videoModelGroups, videoModelName, videoProgress, videoProgressCandidate, videoProgressLayoutKey,
-  videoSelectionEstimate } from '../lib/browser/inspector/ai-video-candidates-panel.js';
+  videoSelectionEstimate, videoRoundedDuration, videoOverhangSeconds, videoRequestedDuration } from '../lib/browser/inspector/ai-video-candidates-panel.js';
 
 const catalog = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8')).models;
 
@@ -23,6 +23,32 @@ const estimate = { models: [
 ], totalUsd: 0.36, needs_explicit_confirm: true };
 const descendants = node => [node, ...node.children.flatMap(descendants)];
 const attr = (node, name, value) => descendants(node).find(row => row.attributes.get(name) === value);
+
+test('モデル別の丸め尺・最長の点線・枠超過の注意を示す', () => withInspectorDom(({ document }) => {
+  const h3 = catalog.find(row => row.id === 'fal:h3-i2v');
+  const kling = catalog.find(row => row.id === 'fal:kling-v3-standard-i2v');
+  const veo = catalog.find(row => row.id === 'fal:veo-3.1-flf');
+  assert.equal(videoRoundedDuration(h3, 0.8), 5);
+  assert.equal(videoRoundedDuration(kling, 0.8), 3);
+  assert.equal(videoRoundedDuration(veo, 5), 6);
+  assert.equal(videoOverhangSeconds(0.8, 5), 4.2);
+  assert.equal(videoOverhangSeconds(5, 5), 0);
+  const state = { selected: new Set([h3.id, kling.id]),
+    preferred: { defaultModelId: h3.id, favorites: [kling.id] }, thumbnails: new Map(), running: false,
+    estimateKey: JSON.stringify(['project', 'clip-frame', { output: { duration_s: 0.7999999999999998 } }, [h3.id, kling.id]]) };
+  assert.equal(videoRequestedDuration(state), 0.8);
+  appendAiVideoCandidatesPanel(document.body, state,
+  [h3, kling], { select() {}, generate() {}, cancel() {}, pick() {}, adopt() {}, thumbnail() {} });
+  assert.equal(attr(document.body, 'data-akari-inspector-video-model-duration', h3.id).textContent, '5 秒で作ります');
+  assert.equal(attr(document.body, 'data-akari-inspector-video-model-duration', kling.id).textContent, '3 秒で作ります');
+  assert.match(attr(document.body, 'data-akari-inspector-video-duration-note', 'true').textContent,
+    /枠 0\.8 秒 → 5 秒の動画を作ります.*残りはタイムラインに点線で出ます/u);
+}));
+
+test('見積キーがまだ無くても承認時の batchDraft から要求尺を読む', () => {
+  assert.equal(videoRequestedDuration({ batchDraft: { output: { duration_s: 0.8 } } }), 0.8);
+  assert.equal(videoRequestedDuration({}), undefined);
+});
 
 test('いつものだけを選び、★ は未選択・呼べないモデルは非表示・使えないモデルは理由付き', () => withInspectorDom(({ document }) => {
   const groups = videoModelGroups(models, preferred);

@@ -29,6 +29,12 @@ import { timelineTabCaption } from '../common/timeline-tab-caption';
 import {
     describeGenerationChip, GenerationBindingView, GenerationSidecarMeta, GenerationState, resolveGenerationState
 } from '../common/generation-sidecar';
+import { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } from './inspector/ai-video-candidates-panel';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generationVideoCatalog = require('../../../../../../packages/schemas/gen-models.json') as {
+    models: Array<import('./inspector/generation-fields').GenerationCatalogRow>;
+};
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
@@ -1439,6 +1445,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        const onVideoModelsChanged = (): void => { if (this.location) this.renderStrip(); };
+        window.addEventListener('akari.videoModelsChanged', onVideoModelsChanged);
+        this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.videoModelsChanged', onVideoModelsChanged)));
         const openMyStyleSave = (event: Event): void => {
             const id = (event as CustomEvent<{ captionId?: string }>).detail?.captionId;
             void this.openMyStyleSaveDialog(id);
@@ -9407,28 +9416,73 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.editSources.flatMap(source => typeof source.path === 'string' ? [source.path] : []),
             ...directMediaPaths
         ])];
-        try {
-            const result = await this.annotationsService.readGenerationSidecars({
-                projectRootUri: location.root.toString(), sourcePaths
-            });
-            if (generation !== this.generationSidecarReload) return;
-            this.generationSidecars = new Map(result.entries.map(entry => [
-                entry.sourcePath, { meta: entry.meta, binding: entry.binding ?? null }
-            ]));
-        } catch {
-            if (generation !== this.generationSidecarReload) return;
-            this.generationSidecars.clear();
+        // compare の長い RPC が backend を占めていても、FileService から枠 meta を先に読む。
+        const direct = await Promise.all(sourcePaths.filter(path => /^assets\/(?!.*\.\.)/u.test(path)).map(async sourcePath => {
+            try {
+                const content = (await this.fileService.readFile(location.root.resolve(`${sourcePath}.meta.json`))).value.toString();
+                return { sourcePath, meta: JSON.parse(content) as GenerationSidecarMeta };
+            } catch { return undefined; }
+        }));
+        if (generation !== this.generationSidecarReload) return;
+        const fast = sourcePaths.some(path => /^assets\/generated\/candidates\/[^/]+\/[^/]+\.mp4$/u.test(path))
+            || direct.some(entry => entry?.meta.job?.provider === 'compare');
+        if (fast) {
+            for (const entry of direct) if (entry && (entry.meta.job?.provider === 'compare'
+                || /^assets\/generated\/candidates\/[^/]+\/[^/]+\.mp4$/u.test(entry.sourcePath))) {
+                this.generationSidecars.set(entry.sourcePath, {
+                    meta: entry.meta, binding: this.generationSidecars.get(entry.sourcePath)?.binding ?? null
+                });
+            }
+            if (render) this.renderStrip();
         }
-        if (render) this.renderStrip();
+        const readBackend = async (): Promise<void> => {
+            try {
+                const result = await this.annotationsService.readGenerationSidecars({
+                    projectRootUri: location.root.toString(), sourcePaths
+                });
+                if (generation !== this.generationSidecarReload) return;
+                this.generationSidecars = new Map(result.entries.map(entry => {
+                    const current = this.generationSidecars.get(entry.sourcePath);
+                    const currentCompleted = Number(current?.meta.job?.completed ?? -1);
+                    const readCompleted = Number(entry.meta.job?.completed ?? -1);
+                    const meta = current?.meta.job?.provider === 'compare' && entry.meta.job?.provider === 'compare'
+                        && currentCompleted > readCompleted ? current.meta : entry.meta;
+                    return [entry.sourcePath, { meta, binding: entry.binding ?? current?.binding ?? null }] as const;
+                }));
+            } catch {
+                if (generation !== this.generationSidecarReload) return;
+                if (!fast) this.generationSidecars.clear();
+            }
+            if (render || fast) this.renderStrip();
+        };
+        if (fast) { void readBackend(); return; }
+        await readBackend();
+    }
+
+    /** compare の完了数だけは FileService で直接追い、RPC 待ちの札を更新する。 */
+    protected async refreshCompareSidecar(path: string): Promise<void> {
+        if (!this.location || !/^assets\/(?!.*\.\.)/u.test(path)) return;
+        let meta: GenerationSidecarMeta;
+        try {
+            meta = JSON.parse((await this.fileService.readFile(this.location.root.resolve(`${path}.meta.json`))).value.toString());
+        } catch { return; }
+        const previous = this.generationSidecars.get(path);
+        if (meta.job?.provider !== 'compare' || JSON.stringify(previous?.meta) === JSON.stringify(meta)) return;
+        this.generationSidecars.set(path, { meta, binding: previous?.binding ?? null });
+        this.renderStrip();
     }
 
     protected generationForPath(path: string | undefined): {
         state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
     } | undefined {
         if (!path) return undefined;
-        const sidecar = selectGenerationSidecarForSource(path, [...this.generationSidecars].map(
-            ([sourcePath, entry]) => ({ sourcePath, meta: entry.meta, binding: entry.binding })
-        ), Date.now());
+        const normalize = (value: string): string => value.trim().replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
+        const direct = [...this.generationSidecars].find(([sourcePath]) => normalize(sourcePath) === normalize(path))?.[1];
+        // compare 中と候補確定後は枠自身の meta が正本。候補 mp4 の first_frame 逆引きより先に読む。
+        const sidecar = direct?.meta.job?.provider === 'compare' ? direct
+            : selectGenerationSidecarForSource(path, [...this.generationSidecars].map(
+                ([sourcePath, entry]) => ({ sourcePath, meta: entry.meta, binding: entry.binding })
+            ), Date.now());
         const meta = sidecar?.meta;
         const binding = sidecar?.binding;
         const isStill = /\.(?:png|jpe?g|webp)$/iu.test(path);
@@ -9483,6 +9537,60 @@ export class AkariAnnotationsWidget extends BaseWidget {
         badge.title = `${pending.title ?? '素材'}をダウンロード中`;
     }
 
+    /** 枠外の生成尺は表示だけ。item の矩形、スナップ、書き出しには加えない。 */
+    protected applyGenerationOverhang(element: HTMLElement, cut: EditCut, segment: OutputSegment, clipWidth: number,
+        generation: { state: GenerationState; meta?: GenerationSidecarMeta } | undefined, itemId: string): void {
+        const frameSeconds = cut.out - cut.in;
+        let generatedSeconds: number | undefined;
+        let finished = false;
+        if (generation?.state === 'done' && generation.meta?.kind === 'video') {
+            const actual = Number(generation.meta.result?.duration_s_actual);
+            if (Number.isFinite(actual) && actual > 0) generatedSeconds = actual;
+            else {
+                const videoUri = this.cutVideoUri(cut);
+                const probed = this.videoDurationCache.get(videoUri);
+                if (typeof probed === 'number') generatedSeconds = probed;
+                else if (videoUri && probed !== 'unavailable') void this.ensureVideoDurationFetch(videoUri);
+            }
+            finished = generatedSeconds !== undefined;
+        } else if (generation && ['planned-video', 'generating'].includes(generation.state)
+            && generation.meta?.next?.kind === 'video') {
+            const requested = Number(generation.meta.next.output?.duration_s ?? frameSeconds);
+            const selected = this.selectionModel?.snapshot;
+            const checked = selected?.kind === 'cut' && selected.itemId === itemId
+                ? Array.from(document.querySelectorAll<HTMLInputElement>('[data-akari-inspector-video-model-check]:checked'))
+                    .map(input => input.getAttribute('data-akari-inspector-video-model-check')).filter((id): id is string => !!id)
+                : [];
+            const models = checked.length ? checked : [generation.meta.next.model?.id].filter((id): id is string => !!id);
+            generatedSeconds = Math.max(0, ...models.map(id => {
+                const row = generationVideoCatalog.models.find(model => model.id === id);
+                return row ? videoRoundedDuration(row, requested) ?? 0 : 0;
+            }));
+        }
+        const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const excess = reduceMotion || segment.tlEnd <= segment.tlStart
+            ? 0 : videoOverhangSeconds(frameSeconds, generatedSeconds ?? 0);
+        if (!excess) return;
+        const { element: overhang, created } = this.keyedNode('strip', `generation-overhang:${itemId}`,
+            JSON.stringify([segment.tlEnd, element.style.top, element.style.height, clipWidth, generatedSeconds, finished]),
+            () => document.createElement('span'));
+        if (created) {
+            overhang.setAttribute('data-akari-generation-overhang', 'true');
+            overhang.setAttribute('aria-hidden', 'true');
+        }
+        overhang.textContent = finished ? `動画は ${videoSecondsLabel(generatedSeconds!)} 秒`
+            : `${videoSecondsLabel(generatedSeconds!)} 秒で作ります`;
+        Object.assign(overhang.style, {
+            position: 'absolute', left: `${this.layoutPercent(segment.tlEnd)}%`,
+            top: element.style.top, height: element.style.height,
+            width: `${clipWidth * excess / (segment.tlEnd - segment.tlStart)}px`,
+            border: '1px dashed rgba(210, 220, 225, .55)', borderRadius: '4px', boxSizing: 'border-box',
+            background: 'transparent', color: 'rgba(235, 240, 242, .75)',
+            fontSize: '10px', lineHeight: '14px', padding: '28px 4px 2px', whiteSpace: 'nowrap',
+            overflow: 'hidden', pointerEvents: 'none', zIndex: '3'
+        });
+    }
+
     protected applyGenerationChip(
         element: HTMLElement, generation: {
             state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
@@ -9530,8 +9638,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.appendChild(badge);
         }
         badge.className = 'akari-generation-badge';
-        badge.textContent = narrow ? '▶' : description.badge;
+        badge.textContent = narrow && description.badge === '▶ 動画予定' ? '▶' : description.badge;
         badge.title = description.title;
+        const fullCompareOrCandidates = generation.meta?.job?.provider === 'compare'
+            && (generation.state === 'generating' || Number(generation.meta.job.candidates) > 0);
+        badge.style.maxWidth = fullCompareOrCandidates ? 'none' : '';
+        badge.style.overflow = fullCompareOrCandidates ? 'visible' : '';
+        badge.style.zIndex = fullCompareOrCandidates ? '8' : '';
+        if (header) header.style.overflow = fullCompareOrCandidates ? 'visible' : '';
         if (generation.state !== 'planned-video') {
             element.classList.add('akari-generation-chip-layout');
             // One flex row: badge, optional future retry action, name, duration. No reserved button width.
@@ -9550,13 +9664,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         delete element.dataset.akariGenerationElapsedTimer;
                         return;
                     }
-                    const current = describeGenerationChip('generating', generation.meta);
+                    const itemId = element.dataset.akariItemId ?? '';
+                    const itemIndex = this.cutItemIds?.indexOf(itemId) ?? -1;
+                    const cut = this.cuts[itemIndex >= 0 ? itemIndex : /^\d+$/u.test(itemId) ? Number(itemId) : -1];
+                    const path = cut && (this.sourceMap.get(cut.src)?.path ?? cut.src);
+                    const live = path ? this.generationForPath(path) : generation;
+                    if (live?.state !== 'generating') {
+                        window.clearInterval(timer);
+                        delete element.dataset.akariGenerationElapsedTimer;
+                        this.renderStrip();
+                        return;
+                    }
+                    const current = describeGenerationChip(live.state, live.meta);
                     label.textContent = current.badge;
                     badge!.title = `${current.badge} — ${current.title}`;
+                    if (path && (live?.meta?.job?.provider === 'compare' || generation.meta?.job?.provider === 'compare')) {
+                        void this.refreshCompareSidecar(path);
+                    }
                 }, 1000);
                 element.dataset.akariGenerationElapsedTimer = String(timer);
             }
-            badge.dataset.akariGenerationCompact = Array.from(description.badge)[0];
+            badge.dataset.akariGenerationCompact = fullCompareOrCandidates ? '' : Array.from(description.badge)[0];
+            if (fullCompareOrCandidates) {
+                label.style.display = 'inline';
+                badge.style.flex = 'none';
+            } else badge.style.flex = '';
             badge.title = `${description.badge} — ${description.title}`;
             const name = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-label');
             const duration = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-duration');
@@ -11647,6 +11779,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             this.applyGenerationChip(element, cutGeneration);
+            this.applyGenerationOverhang(element, cut, segment, clipWidth, cutGeneration, cutItemId);
             this.applyMaterialFetchBadge(element, this.sourceMap.get(cut.src)?.path ?? cut.src);
             if (created && unsupportedDeclaredTransitions.has(segment.index)) {
                 const warning = document.createElement('button');

@@ -10,6 +10,7 @@ import postcss from 'postcss';
 
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { describeGenerationChip, resolveGenerationState } from '../lib/common/generation-sidecar.js';
+import { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } from '../lib/browser/inspector/ai-video-candidates-panel.js';
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
 import { assertChipLayout, selectClipsByLabel, layoutCapturePlan } from '../evidence/generation-states/scripts/cdp-lib.mjs';
 
@@ -67,6 +68,7 @@ class DummyElement {
   setAttribute(name, value) { this[name] = value; }
   getBoundingClientRect() { return { width: this.width ?? 180, height: this.height ?? 48 }; }
   querySelector(selector) {
+    if (selector.includes('data-akari-generation-overhang')) return this.children.find(child => child['data-akari-generation-overhang']);
     const frame = selector.match(/data-akari-generation-frame="(.*?)"/);
     if (frame) return this.children.find(child => child.dataset.akariGenerationFrame === frame[1]);
     const cls = selector.match(/\.([a-z-]+)/);
@@ -87,8 +89,161 @@ const applyGenerationChip = widgetMethod('applyGenerationChip', { describeGenera
 const generationForPath = widgetMethod('generationForPath', {
   resolveGenerationState, selectGenerationSidecarForSource
 });
+const generationVideoCatalog = JSON.parse(await readFile(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8'));
+const applyGenerationOverhang = widgetMethod('applyGenerationOverhang', {
+  videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel, generationVideoCatalog, document
+});
+const reloadGenerationSidecars = widgetMethod('reloadGenerationSidecars', {});
+const refreshCompareSidecar = widgetMethod('refreshCompareSidecar', {});
+
+test('生成尺の点線は表示だけで、次の item に重なる幅と実尺へ更新できる', () => {
+  const element = new DummyElement();
+  const cut = { in: 0, out: 0.8 };
+  const segment = { tlStart: 3, tlEnd: 3.8 };
+  const planned = { state: 'planned-video', meta: { next: { kind: 'video', model: { id: 'fal:h3-i2v' },
+    output: { duration_s: 0.8 } } } };
+  const overlays = new Map();
+  const context = { selectionModel: { snapshot: { kind: 'cut', itemId: 'clip-frame' } },
+    layoutPercent: seconds => seconds * 10,
+    keyedNode: (_scope, key, _signature, create) => {
+      const existing = overlays.get(key);
+      if (existing) return { element: existing, created: false };
+      const made = create(); overlays.set(key, made); return { element: made, created: true };
+    } };
+  document.querySelectorAll = () => [{ getAttribute: () => 'fal:h3-i2v' }, { getAttribute: () => 'fal:kling-v3-standard-i2v' }];
+  applyGenerationOverhang.call(context, element, cut, segment, 25.2, planned, 'clip-frame');
+  const dashed = overlays.get('generation-overhang:clip-frame');
+  assert.ok(dashed);
+  assert.equal(element.children.includes(dashed), false, '点線は cut の子でなく表示レイヤーに置く');
+  assert.equal(dashed.textContent, '5 秒で作ります');
+  assert.ok(Number.parseFloat(dashed.style.width) > 90, '次の item 94.6px の範囲へ重なる');
+  assert.equal(dashed.style.pointerEvents, 'none');
+  assert.equal(dashed.style.background, 'transparent');
+  assert.equal(cut.out, 0.8);
+  applyGenerationOverhang.call(context, element, cut, segment, 25.2,
+    { state: 'done', meta: { kind: 'video', result: { duration_s_actual: 5.2 } } }, 'clip-frame');
+  assert.equal(dashed.textContent, '動画は 5.2 秒');
+  applyGenerationOverhang.call(context, element, cut, segment, 25.2,
+    { state: 'done', meta: { kind: 'video', result: { duration_s_actual: 0.7 } } }, 'clip-frame');
+  const count = overlays.size;
+  const previousWindow = globalThis.window;
+  globalThis.window = { matchMedia: () => ({ matches: true }) };
+  try {
+    applyGenerationOverhang.call(context, element, cut, segment, 25.2, planned, 'clip-frame');
+    assert.equal(overlays.size, count, '動きを減らす設定では点線を登録しない');
+  } finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
+});
 const uri = path => pathToFileURL(path).toString();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+test('秒タイマーは文字列 item id を引き、compare meta の更新を直接読みに行く', () => {
+  const previousWindow = globalThis.window;
+  let tick;
+  let starts = 0;
+  globalThis.window = { setInterval: callback => { tick = callback; starts++; return 17; }, clearInterval() {} };
+  try {
+    const element = new DummyElement();
+    element.isConnected = true;
+    element.dataset.akariItemId = 'clip-frame';
+    const compare = { job: { provider: 'compare', routes: ['h3', 'kling', 'seedance'], completed: 1,
+      started_at: '2026-09-28T00:00:00.000Z' } };
+    const refreshed = [];
+    const context = { cuts: [{ src: 'other' }, { src: 'frame' }], cutItemIds: ['other', 'clip-frame'], sourceMap: new Map(),
+      generationForPath: () => ({ state: 'generating', meta: compare }), refreshCompareSidecar: path => { refreshed.push(path); } };
+    applyGenerationChip.call(context, element, { state: 'generating', meta: compare });
+    assert.equal(starts, 1);
+    tick();
+    assert.match(element.textContent, /3 案作成中 · 1\/3/u);
+    assert.deepEqual(refreshed, ['frame']);
+  } finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
+});
+
+test('候補 mp4 の first_frame が枠を指しても compare 枠の k/N と候補 3 を優先する', () => {
+  const framePath = 'assets/stills/start.png';
+  const candidatePath = 'assets/generated/candidates/clip-frame/h3.mp4';
+  const started_at = new Date().toISOString();
+  const next = { kind: 'video', status: 'planned', model: { id: 'fal:h3-i2v' },
+    inputs: {}, output: { duration_s: 0.8 } };
+  const frameMeta = { kind: 'still', status: 'generating', next, job: {
+    provider: 'compare', started_at, routes: ['h3', 'kling', 'seedance'], completed: 1, candidates: 1 } };
+  const candidateMeta = { kind: 'video', status: 'generating',
+    inputs: { first_frame: { path: framePath } }, job: { provider: 'fal', started_at } };
+  let rendered = 0;
+  const context = { generationSidecars: new Map([
+    [framePath, { meta: frameMeta, binding: null }],
+    [candidatePath, { meta: candidateMeta, binding: null }]
+  ]), cuts: [{ src: 'src-frame' }], cutItemIds: ['clip-frame'],
+  sourceMap: new Map([['src-frame', { path: framePath }]]),
+  generationForPath(path) { return generationForPath.call(this, path); },
+  refreshCompareSidecar() {}, renderStrip() { rendered++; }, renderPlannedVideoMedia: () => true };
+  const selected = context.generationForPath(framePath);
+  assert.equal(selected.meta, frameMeta, '枠自身の compare meta を選ぶ');
+  assert.equal(describeGenerationChip(selected.state, selected.meta).badge, '3 案作成中 · 1/3');
+  const element = new DummyElement();
+  element.isConnected = true;
+  element.dataset.akariItemKind = 'cut';
+  element.dataset.akariItemId = 'clip-frame';
+  const previousWindow = globalThis.window;
+  let tick;
+  globalThis.window = { setInterval: callback => { tick = callback; return 19; }, clearInterval() {} };
+  try {
+    applyGenerationChip.call(context, element, selected);
+    tick();
+    assert.match(element.textContent, /3 案作成中 · 1\/3/u);
+    assert.doesNotMatch(element.textContent, /生成中 · \d+ 秒/u);
+    const completed = { ...frameMeta, status: 'planned', job: { ...frameMeta.job, completed: 3, candidates: 3 } };
+    context.generationSidecars.set(framePath, { meta: completed, binding: null });
+    assert.equal(context.generationForPath(framePath).meta, completed, '残った候補の generating meta を選ばない');
+    tick();
+    assert.equal(rendered, 1, '状態が変わればタイマーから再描画する');
+    applyGenerationChip.call(context, element, context.generationForPath(framePath));
+    assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '候補 3');
+  } finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
+});
+
+test('0.8 秒の狭い動画予定でも候補 3 と compare の進捗を省略しない', () => {
+  const element = new DummyElement();
+  element.dataset.akariItemKind = 'cut';
+  const context = { renderPlannedVideoMedia: () => true };
+  applyGenerationChip.call(context, element, { state: 'planned-video', meta: {
+    job: { provider: 'compare', candidates: 3 }, next: { kind: 'video' } } });
+  const badge = element.querySelector('[data-akari-generation-badge]');
+  assert.equal(badge.textContent, '候補 3');
+  assert.equal(badge.style.maxWidth, 'none');
+  applyGenerationChip.call(context, element, { state: 'generating', meta: {
+    job: { provider: 'compare', routes: ['h3', 'kling', 'seedance'], completed: 2 } } });
+  assert.match(badge.textContent, /3 案作成中 · 2\/3/u);
+  assert.equal(badge.dataset.akariGenerationCompact, '');
+});
+
+test('compare の backend RPC が待機中でも FileService の完了数を即座に描き、採用後の動画 meta も先読みする', async () => {
+  const files = new Map();
+  const sidecar = 'assets/stills/start.png.meta.json';
+  files.set(sidecar, { kind: 'still', status: 'generating', job: {
+    provider: 'compare', routes: ['h3', 'kling', 'seedance'], completed: 0 } });
+  let renders = 0;
+  const context = { location: { root: { toString: () => 'project', resolve: path => path } },
+    editDocument: { tracks: [] }, editSources: [{ path: 'assets/stills/start.png' }],
+    generationSidecars: new Map(), generationSidecarReload: 0,
+    fileService: { readFile: async path => {
+      if (!files.has(path)) throw new Error('missing');
+      return { value: { toString: () => JSON.stringify(files.get(path)) } };
+    } },
+    annotationsService: { readGenerationSidecars: () => new Promise(() => {}) },
+    renderStrip: () => { renders++; } };
+  await Promise.race([reloadGenerationSidecars.call(context), sleep(100).then(() => { throw new Error('RPC で停止した'); })]);
+  assert.equal(renders, 1);
+  assert.equal(context.generationSidecars.get('assets/stills/start.png').meta.job.completed, 0);
+  files.get(sidecar).job.completed = 2;
+  await refreshCompareSidecar.call(context, 'assets/stills/start.png');
+  assert.equal(context.generationSidecars.get('assets/stills/start.png').meta.job.completed, 2);
+  assert.equal(renders, 2);
+  const adopted = 'assets/generated/candidates/clip-frame/fal-h3.mp4';
+  files.set(`${adopted}.meta.json`, { kind: 'video', status: 'done', result: { duration_s_actual: 5 } });
+  context.editSources = [{ path: adopted }];
+  await Promise.race([reloadGenerationSidecars.call(context, false), sleep(100).then(() => { throw new Error('採用後の RPC で停止した'); })]);
+  assert.equal(context.generationSidecars.get(adopted).meta.result.duration_s_actual, 5);
+});
 
 async function waitFor(predicate, timeoutMs) {
   const started = performance.now();
@@ -237,7 +392,7 @@ test('generation chip 更新は再描画で class を復元し、2 回適用し�
   assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);/);
   // 取り寄せ中の「ダウンロード中」も同じ位置で当て直す（generation chip と同居する）。
   assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && transitionWarning\)/);
-  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && unsupportedDeclaredTransitions/);
+  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*this\.applyGenerationOverhang\(element, cut, segment, clipWidth, cutGeneration, cutItemId\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && unsupportedDeclaredTransitions/);
   const ordinaryLayer = new DummyElement();
   ordinaryLayer.className = 'akari-annotations-strip-layer akari-annotations-strip-layer-still';
   const noGeneration = { state: 'none' };

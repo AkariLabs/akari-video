@@ -417,7 +417,7 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     });
     if (catalogRow.audio_out === 'always') fields.push({
         name: 'generation-audio-always', label: '音声', disabled: true,
-        getValue: () => '常に付く・既定は消音'
+        getValue: () => '常に付く'
     });
 
     const estimate = validation?.cost?.estimate_usd;

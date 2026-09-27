@@ -1,0 +1,658 @@
+{
+  "phase": "before",
+  "status": "pass",
+  "step": "preview audio",
+  "observations": {
+    "stubModels": [
+      {
+        "model": "fal:h3-i2v",
+        "durationSec": 5,
+        "audio": "aac 440Hz",
+        "queueMs": 3000,
+        "processingMs": 12000
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "durationSec": 5,
+        "audio": "aac 440Hz",
+        "queueMs": 4000,
+        "processingMs": 24000
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "durationSec": 5,
+        "audio": "aac 440Hz",
+        "queueMs": 5000,
+        "processingMs": 36000
+      }
+    ],
+    "electronPid": 58147,
+    "originalFrame": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 24,
+      "source": {
+        "kind": "media",
+        "src": "src-start",
+        "in": 0,
+        "out": 0.8
+      }
+    },
+    "panelBeforeGenerate": {
+      "models": [
+        {
+          "id": "fal:h3-i2v",
+          "checked": true,
+          "text": "MiniMax H3（画像から）$0.30"
+        },
+        {
+          "id": "fal:kling-v3-standard-i2v",
+          "checked": true,
+          "text": "Kling Video v3 Standard（画像から）料金 未確認"
+        },
+        {
+          "id": "fal:seedance-2.0-i2v",
+          "checked": true,
+          "text": "BSeedance 2.0（画像から）$1.21"
+        },
+        {
+          "id": "fal:h3-ref",
+          "checked": false,
+          "text": "MiniMax H3（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+        },
+        {
+          "id": "fal:kling-v3-pro-i2v",
+          "checked": false,
+          "text": "Kling Video v3 Pro（画像から）$0.50"
+        },
+        {
+          "id": "fal:veo-3.1-flf",
+          "checked": false,
+          "text": "Veo 3.1（最初と最後）料金 未確認このモデルは最後のフレームが必要です"
+        },
+        {
+          "id": "fal:veo-3.1-ref",
+          "checked": false,
+          "text": "Veo 3.1（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+        },
+        {
+          "id": "fal:seedance-2.0-ref",
+          "checked": false,
+          "text": "BSeedance 2.0（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+        },
+        {
+          "id": "fal:seedance-2.5-i2v",
+          "checked": false,
+          "text": "BSeedance 2.5（画像から）$0.88"
+        },
+        {
+          "id": "fal:wan-2.7-i2v",
+          "checked": false,
+          "text": "Wan 2.7（画像から）料金 未確認"
+        },
+        {
+          "id": "fal:grok-imagine-i2v",
+          "checked": false,
+          "text": "Grok Imagine Video（画像から）料金 未確認"
+        },
+        {
+          "id": "fal:vidu-q3-i2v",
+          "checked": false,
+          "text": "Vidu Q3（画像から）料金 未確認"
+        }
+      ],
+      "create": "3 案を作る · 見積 $1.51 + 未確認 1",
+      "candidates": [],
+      "running": false,
+      "text": "いつものMiniMax H3（画像から）$0.30★ お気に入りKling Video v3 Standard（画像から）料金 未確認BSeedance 2.0（画像から）$1.21ほかのモデルMiniMax H3（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてくださいKling Video v3 Pro（画像から）$0.50Veo 3.1（最初と最後）料金 未確認このモデルは最後のフレームが必要ですVeo 3.1（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてくださいBSeedance 2.0（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてくださいBSeedance 2.5（画像から）$0.88Wan 2.7（画像から）料金 未確認Grok Imagine Video（画像から）料金 未確認Vidu Q3（画像から）料金 未確認3 案を作る · 見積 $1.51 + 未確認 1"
+    },
+    "sectionBeforeGenerate": "生成指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵差し替えこのクリップの絵外す最後の絵画像を選ぶ空なら入れなくてよい種類画像から送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ0.7999999999999998 秒 → 5 秒解像度480P768P2K4K下書き（安い・$0.05/秒）· あとで本番の画質にできる音声常に付く・既定は消音注記尺 0.8 秒 → 5 秒に丸めました（MiniMax H3 は 5〜15 秒）。差 4.2 秒詳細シード（seed）隣から取る",
+    "timelineBeforeGenerate": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "start.png00:00:24画像最初色の板がゆっくり動く▶",
+      "chip": "▶",
+      "overhang": []
+    },
+    "timelineWhileGenerating": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "生成中 · 4 秒start.png00:00:24画像",
+      "chip": "生成中 · 4 秒",
+      "overhang": []
+    },
+    "chipSequence": [
+      {
+        "text": "▶",
+        "atMs": 1790534602874
+      },
+      {
+        "text": "3 案作成中 · 0/3",
+        "atMs": 1790534603374
+      },
+      {
+        "text": "生成中 · 0 秒",
+        "atMs": 1790534604595
+      },
+      {
+        "text": "生成中 · 1 秒",
+        "atMs": 1790534604973
+      },
+      {
+        "text": "生成中 · 2 秒",
+        "atMs": 1790534605973
+      },
+      {
+        "text": "生成中 · 3 秒",
+        "atMs": 1790534607173
+      },
+      {
+        "text": "生成中 · 4 秒",
+        "atMs": 1790534607974
+      },
+      {
+        "text": "生成中 · 5 秒",
+        "atMs": 1790534609075
+      },
+      {
+        "text": "生成中 · 6 秒",
+        "atMs": 1790534609973
+      },
+      {
+        "text": "生成中 · 7 秒",
+        "atMs": 1790534610974
+      },
+      {
+        "text": "生成中 · 8 秒",
+        "atMs": 1790534611974
+      },
+      {
+        "text": "生成中 · 9 秒",
+        "atMs": 1790534613179
+      },
+      {
+        "text": "生成中 · 10 秒",
+        "atMs": 1790534613974
+      },
+      {
+        "text": "生成中 · 11 秒",
+        "atMs": 1790534614976
+      },
+      {
+        "text": "生成中 · 12 秒",
+        "atMs": 1790534615978
+      },
+      {
+        "text": "生成中 · 13 秒",
+        "atMs": 1790534617173
+      },
+      {
+        "text": "生成中 · 14 秒",
+        "atMs": 1790534618074
+      },
+      {
+        "text": "生成中 · 15 秒",
+        "atMs": 1790534619472
+      },
+      {
+        "text": "生成中 · 16 秒",
+        "atMs": 1790534620173
+      },
+      {
+        "text": "生成中 · 17 秒",
+        "atMs": 1790534620983
+      },
+      {
+        "text": "生成中 · 18 秒",
+        "atMs": 1790534622274
+      },
+      {
+        "text": "生成中 · 19 秒",
+        "atMs": 1790534623173
+      },
+      {
+        "text": "生成中 · 20 秒",
+        "atMs": 1790534624173
+      },
+      {
+        "text": "生成中 · 21 秒",
+        "atMs": 1790534624974
+      },
+      {
+        "text": "生成中 · 22 秒",
+        "atMs": 1790534626174
+      },
+      {
+        "text": "生成中 · 23 秒",
+        "atMs": 1790534627174
+      },
+      {
+        "text": "生成中 · 24 秒",
+        "atMs": 1790534628373
+      },
+      {
+        "text": "生成中 · 25 秒",
+        "atMs": 1790534629373
+      },
+      {
+        "text": "生成中 · 26 秒",
+        "atMs": 1790534629973
+      },
+      {
+        "text": "生成中 · 27 秒",
+        "atMs": 1790534631273
+      },
+      {
+        "text": "生成中 · 28 秒",
+        "atMs": 1790534631879
+      },
+      {
+        "text": "生成中 · 29 秒",
+        "atMs": 1790534632894
+      },
+      {
+        "text": "生成中 · 30 秒",
+        "atMs": 1790534634173
+      },
+      {
+        "text": "生成中 · 31 秒",
+        "atMs": 1790534635072
+      },
+      {
+        "text": "生成中 · 32 秒",
+        "atMs": 1790534636073
+      },
+      {
+        "text": "生成中 · 33 秒",
+        "atMs": 1790534637073
+      },
+      {
+        "text": "生成中 · 34 秒",
+        "atMs": 1790534638473
+      },
+      {
+        "text": "生成中 · 35 秒",
+        "atMs": 1790534639274
+      },
+      {
+        "text": "生成中 · 36 秒",
+        "atMs": 1790534639934
+      },
+      {
+        "text": "生成中 · 37 秒",
+        "atMs": 1790534641273
+      },
+      {
+        "text": "生成中 · 38 秒",
+        "atMs": 1790534642273
+      },
+      {
+        "text": "生成中 · 39 秒",
+        "atMs": 1790534643873
+      },
+      {
+        "text": "生成中 · 40 秒",
+        "atMs": 1790534644874
+      },
+      {
+        "text": "生成中 · 41 秒",
+        "atMs": 1790534645873
+      },
+      {
+        "text": "生成中 · 42 秒",
+        "atMs": 1790534646873
+      },
+      {
+        "text": "生成中 · 43 秒",
+        "atMs": 1790534647877
+      },
+      {
+        "text": "生成中 · 44 秒",
+        "atMs": 1790534648274
+      },
+      {
+        "text": "生成中 · 45 秒",
+        "atMs": 1790534649275
+      },
+      {
+        "text": "▶",
+        "atMs": 1790534649829
+      }
+    ],
+    "submits": [
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:h3-i2v",
+        "auth": true
+      }
+    ],
+    "adoptedFrame": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 24,
+      "source": {
+        "kind": "media",
+        "src": "gen-clip-frame-video",
+        "in": 0,
+        "out": 0.8,
+        "freeze": null,
+        "mute": true
+      }
+    },
+    "nextItem": {
+      "id": "clip-next",
+      "at": 114,
+      "duration": 90,
+      "source": {
+        "kind": "media",
+        "src": "src-clip",
+        "in": 0,
+        "out": 3
+      }
+    },
+    "adoptedSource": {
+      "id": "gen-clip-frame-video",
+      "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790534603872.mp4"
+    },
+    "timelineAfterAdopt": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "生成fal-h3-i2v-1790534603872.mp400:00:24動画",
+      "chip": "生成",
+      "overhang": []
+    },
+    "previewAudio": {
+      "frames": 80,
+      "playingFrames": 78,
+      "window": [
+        3,
+        3.8
+      ],
+      "inWindowFrames": 21,
+      "inWindowMaxPeak": 0,
+      "inWindowMaxRms": 0,
+      "outsideMaxPeak": 0,
+      "tRange": [
+        2.6,
+        5.733333
+      ],
+      "engine": "frame-engine",
+      "samples": [
+        {
+          "t": 3.033333,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.066667,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.133333,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.366667,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.433333,
+          "peak": 0,
+          "rms": 0,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        }
+      ]
+    }
+  },
+  "checks": [
+    {
+      "name": "BEFORE: チェックした手段の行に「N 秒で作ります」が無い",
+      "pass": true,
+      "detail": [
+        "MiniMax H3（画像から）$0.30",
+        "Kling Video v3 Standard（画像から）料金 未確認",
+        "BSeedance 2.0（画像から）$1.21"
+      ]
+    },
+    {
+      "name": "BEFORE: 作る前のタイムラインに枠の右の点線が無い",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "BEFORE: 同時生成の札が k/3（k>0）に進まない（「生成中 · N 秒」に隠れる）",
+      "pass": true,
+      "detail": [
+        "▶",
+        "3 案作成中 · 0/3",
+        "生成中 · 0 秒",
+        "生成中 · 1 秒",
+        "生成中 · 2 秒",
+        "生成中 · 3 秒",
+        "生成中 · 4 秒",
+        "生成中 · 5 秒",
+        "生成中 · 6 秒",
+        "生成中 · 7 秒",
+        "生成中 · 8 秒",
+        "生成中 · 9 秒",
+        "生成中 · 10 秒",
+        "生成中 · 11 秒",
+        "生成中 · 12 秒",
+        "生成中 · 13 秒",
+        "生成中 · 14 秒",
+        "生成中 · 15 秒",
+        "生成中 · 16 秒",
+        "生成中 · 17 秒",
+        "生成中 · 18 秒",
+        "生成中 · 19 秒",
+        "生成中 · 20 秒",
+        "生成中 · 21 秒",
+        "生成中 · 22 秒",
+        "生成中 · 23 秒",
+        "生成中 · 24 秒",
+        "生成中 · 25 秒",
+        "生成中 · 26 秒",
+        "生成中 · 27 秒",
+        "生成中 · 28 秒",
+        "生成中 · 29 秒",
+        "生成中 · 30 秒",
+        "生成中 · 31 秒",
+        "生成中 · 32 秒",
+        "生成中 · 33 秒",
+        "生成中 · 34 秒",
+        "生成中 · 35 秒",
+        "生成中 · 36 秒",
+        "生成中 · 37 秒",
+        "生成中 · 38 秒",
+        "生成中 · 39 秒",
+        "生成中 · 40 秒",
+        "生成中 · 41 秒",
+        "生成中 · 42 秒",
+        "生成中 · 43 秒",
+        "生成中 · 44 秒",
+        "生成中 · 45 秒",
+        "▶"
+      ]
+    },
+    {
+      "name": "BEFORE: 採用した item が mute: true（音が鳴らない）",
+      "pass": true,
+      "detail": {
+        "kind": "media",
+        "src": "gen-clip-frame-video",
+        "in": 0,
+        "out": 0.8,
+        "freeze": null,
+        "mute": true
+      }
+    },
+    {
+      "name": "BEFORE: 採用後もタイムラインに本当の長さ（5 秒）の点線が無い",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "BEFORE: プレビューで枠の区間（3.0〜3.8 秒）の音声メーターが 0（消音）",
+      "pass": true,
+      "detail": {
+        "frames": 21,
+        "maxPeak": 0
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "00-before-panel-three-checked.png",
+      "bytes": 394412
+    },
+    {
+      "name": "01-before-chip-while-generating.png",
+      "bytes": 439046
+    },
+    {
+      "name": "02-before-adopted-timeline.png",
+      "bytes": 341227
+    },
+    {
+      "name": "03-before-preview-after-play.png",
+      "bytes": 354513
+    }
+  ]
+}

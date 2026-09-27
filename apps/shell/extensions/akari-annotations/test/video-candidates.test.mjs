@@ -113,6 +113,7 @@ test('採用後 item は edit-replace.mjs と長尺・短尺で一致する', ()
     const plan = planReplacement({ item, sourceEntry: project.edit.sources[0], actualDurationS: actual, cutsDurationS: 6 });
     applyReplacement(project, { itemId: 'clip-a', mp4RelativePath: 'candidate.mp4', plan });
     assert.deepEqual(replaceVideoCandidateItem(item, actual), project.edit.tracks[0].items[0]);
+    assert.equal(project.edit.tracks[0].items[0].source.mute, false);
   }
 });
 

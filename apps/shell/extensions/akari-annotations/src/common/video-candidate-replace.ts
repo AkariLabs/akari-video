@@ -13,5 +13,5 @@ export function replaceVideoCandidateItem<T extends { id: string; source: { kind
         src: `gen-${item.id}-video`, in: 0,
         out: round(shorter ? actualDurationSeconds : cutsDurationSeconds),
         freeze: shorter ? { at_sec: round(actualDurationSeconds), duration_sec: round(cutsDurationSeconds - actualDurationSeconds) } : null,
-        mute: true } };
+        mute: false } };
 }

@@ -130,7 +130,7 @@ test("正常系: queue 完了後に meta done と item 差し替えを 1 snapsho
   assert.equal(after.tracks[0].items[0].at, before.tracks[0].items[0].at);
   assert.equal(after.tracks[0].items[0].duration, before.tracks[0].items[0].duration);
   assert.equal(after.tracks[0].items[0].source.src, "gen-clip-a-video");
-  assert.equal(after.tracks[0].items[0].source.mute, true);
+  assert.equal(after.tracks[0].items[0].source.mute, false);
   assert.deepEqual(after.tracks[0].items[0].source.framing, before.tracks[0].items[0].source.framing);
   assert.deepEqual(after.tracks[0].items[0].source.transition_out, before.tracks[0].items[0].source.transition_out);
   assert.deepEqual(after.tracks[0].items[0].source.fx, before.tracks[0].items[0].source.fx);

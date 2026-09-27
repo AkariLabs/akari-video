@@ -1,0 +1,1177 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "step": "preview audio",
+  "observations": {
+    "stubModels": [
+      {
+        "model": "fal:h3-i2v",
+        "durationSec": 5,
+        "audio": "aac 440Hz",
+        "queueMs": 3000,
+        "processingMs": 12000
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "durationSec": 5,
+        "audio": "aac 440Hz",
+        "queueMs": 4000,
+        "processingMs": 24000
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "durationSec": 5,
+        "audio": "aac 440Hz",
+        "queueMs": 5000,
+        "processingMs": 36000
+      }
+    ],
+    "electronPid": 4472,
+    "originalFrame": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 24,
+      "source": {
+        "kind": "media",
+        "src": "src-start",
+        "in": 0,
+        "out": 0.8
+      }
+    },
+    "panelBeforeGenerate": {
+      "models": [
+        {
+          "id": "fal:h3-i2v",
+          "checked": true,
+          "text": "MiniMax H3（画像から）5 秒で作ります$0.30",
+          "duration": "5 秒で作ります",
+          "durationAttr": "fal:h3-i2v"
+        },
+        {
+          "id": "fal:kling-v3-standard-i2v",
+          "checked": true,
+          "text": "Kling Video v3 Standard（画像から）3 秒で作ります料金 未確認",
+          "duration": "3 秒で作ります",
+          "durationAttr": "fal:kling-v3-standard-i2v"
+        },
+        {
+          "id": "fal:seedance-2.0-i2v",
+          "checked": true,
+          "text": "BSeedance 2.0（画像から）4 秒で作ります$1.21",
+          "duration": "4 秒で作ります",
+          "durationAttr": "fal:seedance-2.0-i2v"
+        },
+        {
+          "id": "fal:h3-ref",
+          "checked": false,
+          "text": "MiniMax H3（参照から）5 秒で作ります料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+          "duration": "5 秒で作ります",
+          "durationAttr": "fal:h3-ref"
+        },
+        {
+          "id": "fal:kling-v3-pro-i2v",
+          "checked": false,
+          "text": "Kling Video v3 Pro（画像から）3 秒で作ります$0.50",
+          "duration": "3 秒で作ります",
+          "durationAttr": "fal:kling-v3-pro-i2v"
+        },
+        {
+          "id": "fal:veo-3.1-flf",
+          "checked": false,
+          "text": "Veo 3.1（最初と最後）4 秒で作ります料金 未確認このモデルは最後のフレームが必要です",
+          "duration": "4 秒で作ります",
+          "durationAttr": "fal:veo-3.1-flf"
+        },
+        {
+          "id": "fal:veo-3.1-ref",
+          "checked": false,
+          "text": "Veo 3.1（参照から）8 秒で作ります料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+          "duration": "8 秒で作ります",
+          "durationAttr": "fal:veo-3.1-ref"
+        },
+        {
+          "id": "fal:seedance-2.0-ref",
+          "checked": false,
+          "text": "BSeedance 2.0（参照から）4 秒で作ります料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+          "duration": "4 秒で作ります",
+          "durationAttr": "fal:seedance-2.0-ref"
+        },
+        {
+          "id": "fal:seedance-2.5-i2v",
+          "checked": false,
+          "text": "BSeedance 2.5（画像から）4 秒で作ります$0.88",
+          "duration": "4 秒で作ります",
+          "durationAttr": "fal:seedance-2.5-i2v"
+        },
+        {
+          "id": "fal:wan-2.7-i2v",
+          "checked": false,
+          "text": "Wan 2.7（画像から）2 秒で作ります料金 未確認",
+          "duration": "2 秒で作ります",
+          "durationAttr": "fal:wan-2.7-i2v"
+        },
+        {
+          "id": "fal:grok-imagine-i2v",
+          "checked": false,
+          "text": "Grok Imagine Video（画像から）1 秒で作ります料金 未確認",
+          "duration": "1 秒で作ります",
+          "durationAttr": "fal:grok-imagine-i2v"
+        },
+        {
+          "id": "fal:vidu-q3-i2v",
+          "checked": false,
+          "text": "Vidu Q3（画像から）1 秒で作ります料金 未確認",
+          "duration": "1 秒で作ります",
+          "durationAttr": "fal:vidu-q3-i2v"
+        }
+      ],
+      "durationNote": "枠 0.8 秒 → 5 秒の動画を作ります（枠に入るのは 0.8 秒ぶん。残りはタイムラインに点線で出ます）",
+      "create": "3 案を作る · 見積 $1.51 + 未確認 1",
+      "candidates": [],
+      "running": false,
+      "text": "いつものMiniMax H3（画像から）5 秒で作ります$0.30★ お気に入りKling Video v3 Standard（画像から）3 秒で作ります料金 未確認BSeedance 2.0（画像から）4 秒で作ります$1.21ほかのモデルMiniMax H3（参照から）5 秒で作ります料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてくださいKling Video v3 Pro（画像から）3 秒で作ります$0.50Veo 3.1（最初と最後）4 秒で作ります料金 未確認このモデルは最後のフレームが必要ですVeo 3.1（参照から）8 秒で作ります料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてくださいBSeedance 2.0（参照から）4 秒で作ります料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてくださいBSeedance 2.5（画像から）4 秒で作ります$0.88Wan 2.7（画像から）2 秒で作ります料金 未確認Grok Imagine Video（画像から）1 秒で作ります料金 未確認Vidu Q3（画像から）1 秒で作ります料金 未確認枠 0.8 秒 → 5 秒の動画を作ります（枠に入るのは 0.8 秒ぶん。残りはタイムラインに点線で出ます）3 案を作る · 見積 $1.51 + 未確認 1"
+    },
+    "sectionBeforeGenerate": "生成指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵差し替えこのクリップの絵外す最後の絵画像を選ぶ空なら入れなくてよい種類画像から送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ0.7999999999999998 秒 → 5 秒解像度480P768P2K4K下書き（安い・$0.05/秒）· あとで本番の画質にできる音声常に付く注記尺 0.8 秒 → 5 秒に丸めました（MiniMax H3 は 5〜15 秒）。差 4.2 秒詳細シード（seed）隣から取る",
+    "timelineBeforeGenerate": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "start.png00:00:24画像最初色の板がゆっくり動く▶",
+      "chip": "▶",
+      "overhang": [
+        {
+          "attr": "true",
+          "cls": "",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "text": "5 秒で作ります",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ]
+    },
+    "runtimeBeforeGenerate": {
+      "drag": false,
+      "renderPending": false,
+      "cutIndex": 1,
+      "cutSrc": "src-start",
+      "sourcePath": "assets/stills/start.png",
+      "metaStatus": "planned",
+      "metaKind": "still",
+      "jobProvider": "codex",
+      "jobCompleted": null,
+      "jobCandidates": null,
+      "selectedState": "planned-video",
+      "selectedProvider": "codex",
+      "frameCount": 1
+    },
+    "timeline1Of3": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "3 案作成中 · 0/3start.png00:00:24画像",
+      "chip": "3 案作成中 · 0/3",
+      "overhang": [
+        {
+          "attr": "true",
+          "cls": "",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "text": "5 秒で作ります",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ]
+    },
+    "runtime1Of3": {
+      "drag": false,
+      "renderPending": false,
+      "cutIndex": 1,
+      "cutSrc": "src-start",
+      "sourcePath": "assets/stills/start.png",
+      "metaStatus": "generating",
+      "metaKind": "still",
+      "jobProvider": "compare",
+      "jobCompleted": 0,
+      "jobCandidates": 0,
+      "selectedState": "generating",
+      "selectedProvider": "compare",
+      "frameCount": 1
+    },
+    "timeline2Of3": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "3 案作成中 · 1/3start.png00:00:24画像",
+      "chip": "3 案作成中 · 1/3",
+      "overhang": [
+        {
+          "attr": "true",
+          "cls": "",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "text": "5 秒で作ります",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ]
+    },
+    "runtime2Of3": {
+      "drag": false,
+      "renderPending": false,
+      "cutIndex": 1,
+      "cutSrc": "src-start",
+      "sourcePath": "assets/stills/start.png",
+      "metaStatus": "generating",
+      "metaKind": "still",
+      "jobProvider": "compare",
+      "jobCompleted": 1,
+      "jobCandidates": 1,
+      "selectedState": "generating",
+      "selectedProvider": "compare",
+      "frameCount": 1
+    },
+    "timeline3Of3": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "3 案作成中 · 2/3start.png00:00:24画像",
+      "chip": "3 案作成中 · 2/3",
+      "overhang": [
+        {
+          "attr": "true",
+          "cls": "",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "text": "5 秒で作ります",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ]
+    },
+    "runtime3Of3": {
+      "drag": false,
+      "renderPending": false,
+      "cutIndex": 1,
+      "cutSrc": "src-start",
+      "sourcePath": "assets/stills/start.png",
+      "metaStatus": "generating",
+      "metaKind": "still",
+      "jobProvider": "compare",
+      "jobCompleted": 2,
+      "jobCandidates": 2,
+      "selectedState": "generating",
+      "selectedProvider": "compare",
+      "frameCount": 1
+    },
+    "chipSequence": [
+      {
+        "text": "▶",
+        "atMs": 1790539143047
+      },
+      {
+        "text": "3 案作成中 · 0/3",
+        "atMs": 1790539144146
+      },
+      {
+        "text": "3 案作成中 · 1/3",
+        "atMs": 1790539188446
+      },
+      {
+        "text": "3 案作成中 · 2/3",
+        "atMs": 1790539196747
+      },
+      {
+        "text": "3 案作成中 · 3/3",
+        "atMs": 1790539207749
+      },
+      {
+        "text": "候補 3",
+        "atMs": 1790539211249
+      }
+    ],
+    "submits": [
+      {
+        "model": "fal:h3-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "auth": true
+      }
+    ],
+    "timelineCandidatesComplete": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "start.png00:00:24画像最初色の板がゆっくり動く候補 3",
+      "chip": "候補 3",
+      "overhang": [
+        {
+          "attr": "true",
+          "cls": "",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "text": "5 秒で作ります",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ]
+    },
+    "runtimeCandidatesComplete": {
+      "drag": false,
+      "renderPending": false,
+      "cutIndex": 1,
+      "cutSrc": "src-start",
+      "sourcePath": "assets/stills/start.png",
+      "metaStatus": "planned",
+      "metaKind": "still",
+      "jobProvider": "compare",
+      "jobCompleted": 3,
+      "jobCandidates": 3,
+      "selectedState": "planned-video",
+      "selectedProvider": "compare",
+      "frameCount": 1
+    },
+    "frameBeforeAdopt": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 24,
+      "source": {
+        "kind": "media",
+        "src": "src-start",
+        "in": 0,
+        "out": 0.8
+      }
+    },
+    "adoptReflectMs": 15255,
+    "adoptedFrame": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 24,
+      "source": {
+        "kind": "media",
+        "src": "gen-clip-frame-video",
+        "in": 0,
+        "out": 0.8,
+        "freeze": null,
+        "mute": false
+      }
+    },
+    "nextItem": {
+      "id": "clip-next",
+      "at": 114,
+      "duration": 90,
+      "source": {
+        "kind": "media",
+        "src": "src-clip",
+        "in": 0,
+        "out": 3
+      }
+    },
+    "adoptedSource": {
+      "id": "gen-clip-frame-video",
+      "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790539151986.mp4"
+    },
+    "timelineAfterAdopt": {
+      "frame": {
+        "left": 459.5,
+        "right": 484.8,
+        "top": 520,
+        "bottom": 568,
+        "width": 25.2
+      },
+      "prev": {
+        "left": 364.9,
+        "right": 459.5,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "next": {
+        "left": 484.8,
+        "right": 579.4,
+        "top": 520,
+        "bottom": 568,
+        "width": 94.6
+      },
+      "frameText": "生成fal-h3-i2v-1790539151986.mp400:00:24動画",
+      "chip": "生成",
+      "overhang": [
+        {
+          "attr": "true",
+          "cls": "",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "text": "動画は 5 秒",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ]
+    },
+    "runtimeAfterAdopt": {
+      "drag": false,
+      "renderPending": false,
+      "cutIndex": 1,
+      "cutSrc": "gen-clip-frame-video",
+      "sourcePath": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790539151986.mp4",
+      "metaStatus": "done",
+      "metaKind": "video",
+      "jobProvider": "fal",
+      "jobCompleted": null,
+      "jobCandidates": null,
+      "selectedState": "done",
+      "selectedProvider": "fal",
+      "frameCount": 1
+    },
+    "previewAudio": {
+      "frames": 78,
+      "playingFrames": 75,
+      "window": [
+        3,
+        3.8
+      ],
+      "inWindowFrames": 19,
+      "inWindowMaxPeak": 0.15277934074401855,
+      "inWindowMaxRms": 0.08936644356083974,
+      "outsideMaxPeak": 0.1250169277191162,
+      "tRange": [
+        2.6,
+        5.533333
+      ],
+      "engine": "frame-engine",
+      "samples": [
+        {
+          "t": 3,
+          "peak": 0.15277934074401855,
+          "rms": 0.08930911446201745,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.033333,
+          "peak": 0.12698662281036377,
+          "rms": 0.08681125787809352,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.1,
+          "peak": 0.1278548240661621,
+          "rms": 0.08877299698836238,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.133333,
+          "peak": 0.1276916265487671,
+          "rms": 0.08853342331149011,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.166667,
+          "peak": 0.12673258781433105,
+          "rms": 0.08785519389950495,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.2,
+          "peak": 0.12819039821624756,
+          "rms": 0.08936644356083974,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.266667,
+          "peak": 0.12641620635986328,
+          "rms": 0.08693862431202352,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.3,
+          "peak": 0.1280074119567871,
+          "rms": 0.08846080230084558,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.333333,
+          "peak": 0.1281677484512329,
+          "rms": 0.0885826843652701,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.366667,
+          "peak": 0.12579476833343506,
+          "rms": 0.08737136059475599,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.433333,
+          "peak": 0.12724924087524414,
+          "rms": 0.08877202338210376,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        },
+        {
+          "t": 3.466667,
+          "peak": 0.12663400173187256,
+          "rms": 0.08779562568963016,
+          "playing": true,
+          "engine": "frame-engine",
+          "kind": "output"
+        }
+      ]
+    }
+  },
+  "checks": [
+    {
+      "name": "AFTER (i): 手段の行にモデル別の「N 秒で作ります」",
+      "pass": true,
+      "detail": [
+        {
+          "id": "fal:h3-i2v",
+          "checked": true,
+          "text": "MiniMax H3（画像から）5 秒で作ります$0.30",
+          "duration": "5 秒で作ります",
+          "durationAttr": "fal:h3-i2v"
+        },
+        {
+          "id": "fal:kling-v3-standard-i2v",
+          "checked": true,
+          "text": "Kling Video v3 Standard（画像から）3 秒で作ります料金 未確認",
+          "duration": "3 秒で作ります",
+          "durationAttr": "fal:kling-v3-standard-i2v"
+        },
+        {
+          "id": "fal:seedance-2.0-i2v",
+          "checked": true,
+          "text": "BSeedance 2.0（画像から）4 秒で作ります$1.21",
+          "duration": "4 秒で作ります",
+          "durationAttr": "fal:seedance-2.0-i2v"
+        }
+      ]
+    },
+    {
+      "name": "AFTER (i): 枠 0.8 秒から最長 5 秒の注意がボタンの上にある",
+      "pass": true,
+      "detail": "枠 0.8 秒 → 5 秒の動画を作ります（枠に入るのは 0.8 秒ぶん。残りはタイムラインに点線で出ます）"
+    },
+    {
+      "name": "AFTER (i): 作る前の点線は枠の右から次の item に重なり、表示専用",
+      "pass": true,
+      "detail": {
+        "frame": {
+          "left": 459.5,
+          "right": 484.8,
+          "top": 520,
+          "bottom": 568,
+          "width": 25.2
+        },
+        "prev": {
+          "left": 364.9,
+          "right": 459.5,
+          "top": 520,
+          "bottom": 568,
+          "width": 94.6
+        },
+        "next": {
+          "left": 484.8,
+          "right": 579.4,
+          "top": 520,
+          "bottom": 568,
+          "width": 94.6
+        },
+        "frameText": "start.png00:00:24画像最初色の板がゆっくり動く▶",
+        "chip": "▶",
+        "overhang": [
+          {
+            "attr": "true",
+            "cls": "",
+            "rect": {
+              "left": 484.8,
+              "right": 617.2,
+              "top": 520,
+              "bottom": 568,
+              "width": 132.5
+            },
+            "text": "5 秒で作ります",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "background": "rgba(0, 0, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AFTER (ii): 同時生成の札が 0/3 → 1/3 → 2/3 → 候補 3",
+      "pass": true,
+      "detail": [
+        "▶",
+        "3 案作成中 · 0/3",
+        "3 案作成中 · 1/3",
+        "3 案作成中 · 2/3",
+        "3 案作成中 · 3/3",
+        "候補 3"
+      ]
+    },
+    {
+      "name": "AFTER (ii): 生成中に秒数の札へ戻らない",
+      "pass": true,
+      "detail": [
+        "▶",
+        "3 案作成中 · 0/3",
+        "3 案作成中 · 1/3",
+        "3 案作成中 · 2/3",
+        "3 案作成中 · 3/3",
+        "候補 3"
+      ]
+    },
+    {
+      "name": "AFTER (ii): 3 段階のスクリーンショットとスタブ受信",
+      "pass": true,
+      "detail": {
+        "seen": [
+          "3 案作成中 · 0/3",
+          "3 案作成中 · 1/3",
+          "3 案作成中 · 2/3"
+        ],
+        "submits": [
+          {
+            "model": "fal:h3-i2v",
+            "auth": true
+          },
+          {
+            "model": "fal:seedance-2.0-i2v",
+            "auth": true
+          },
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "auth": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "AFTER (i)(ii): 生成中も 5 秒の点線を維持",
+      "pass": true,
+      "detail": [
+        {
+          "frame": {
+            "left": 459.5,
+            "right": 484.8,
+            "top": 520,
+            "bottom": 568,
+            "width": 25.2
+          },
+          "prev": {
+            "left": 364.9,
+            "right": 459.5,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "next": {
+            "left": 484.8,
+            "right": 579.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "frameText": "3 案作成中 · 0/3start.png00:00:24画像",
+          "chip": "3 案作成中 · 0/3",
+          "overhang": [
+            {
+              "attr": "true",
+              "cls": "",
+              "rect": {
+                "left": 484.8,
+                "right": 617.2,
+                "top": 520,
+                "bottom": 568,
+                "width": 132.5
+              },
+              "text": "5 秒で作ります",
+              "pointerEvents": "none",
+              "border": "dashed",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          ]
+        },
+        {
+          "frame": {
+            "left": 459.5,
+            "right": 484.8,
+            "top": 520,
+            "bottom": 568,
+            "width": 25.2
+          },
+          "prev": {
+            "left": 364.9,
+            "right": 459.5,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "next": {
+            "left": 484.8,
+            "right": 579.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "frameText": "3 案作成中 · 1/3start.png00:00:24画像",
+          "chip": "3 案作成中 · 1/3",
+          "overhang": [
+            {
+              "attr": "true",
+              "cls": "",
+              "rect": {
+                "left": 484.8,
+                "right": 617.2,
+                "top": 520,
+                "bottom": 568,
+                "width": 132.5
+              },
+              "text": "5 秒で作ります",
+              "pointerEvents": "none",
+              "border": "dashed",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          ]
+        },
+        {
+          "frame": {
+            "left": 459.5,
+            "right": 484.8,
+            "top": 520,
+            "bottom": 568,
+            "width": 25.2
+          },
+          "prev": {
+            "left": 364.9,
+            "right": 459.5,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "next": {
+            "left": 484.8,
+            "right": 579.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "frameText": "3 案作成中 · 2/3start.png00:00:24画像",
+          "chip": "3 案作成中 · 2/3",
+          "overhang": [
+            {
+              "attr": "true",
+              "cls": "",
+              "rect": {
+                "left": 484.8,
+                "right": 617.2,
+                "top": 520,
+                "bottom": 568,
+                "width": 132.5
+              },
+              "text": "5 秒で作ります",
+              "pointerEvents": "none",
+              "border": "dashed",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AFTER (ii): 生成中も枠の edit.json は不変",
+      "pass": true,
+      "detail": {
+        "id": "clip-frame",
+        "at": 90,
+        "duration": 24,
+        "source": {
+          "kind": "media",
+          "src": "src-start",
+          "in": 0,
+          "out": 0.8
+        }
+      }
+    },
+    {
+      "name": "AFTER (iii): 採用後は実尺 5 秒の点線が次の item に重なる",
+      "pass": true,
+      "detail": {
+        "frame": {
+          "left": 459.5,
+          "right": 484.8,
+          "top": 520,
+          "bottom": 568,
+          "width": 25.2
+        },
+        "prev": {
+          "left": 364.9,
+          "right": 459.5,
+          "top": 520,
+          "bottom": 568,
+          "width": 94.6
+        },
+        "next": {
+          "left": 484.8,
+          "right": 579.4,
+          "top": 520,
+          "bottom": 568,
+          "width": 94.6
+        },
+        "frameText": "生成fal-h3-i2v-1790539151986.mp400:00:24動画",
+        "chip": "生成",
+        "overhang": [
+          {
+            "attr": "true",
+            "cls": "",
+            "rect": {
+              "left": 484.8,
+              "right": 617.2,
+              "top": 520,
+              "bottom": 568,
+              "width": 132.5
+            },
+            "text": "動画は 5 秒",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "background": "rgba(0, 0, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AFTER (iii): 枠と次の item の edit.json は不変",
+      "pass": true,
+      "detail": {
+        "frame": {
+          "id": "clip-frame",
+          "at": 90,
+          "duration": 24,
+          "source": {
+            "kind": "media",
+            "src": "gen-clip-frame-video",
+            "in": 0,
+            "out": 0.8,
+            "freeze": null,
+            "mute": false
+          }
+        },
+        "next": {
+          "id": "clip-next",
+          "at": 114,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "src-clip",
+            "in": 0,
+            "out": 3
+          }
+        }
+      }
+    },
+    {
+      "name": "AFTER (iv): 採用した item は消音ではない",
+      "pass": true,
+      "detail": {
+        "kind": "media",
+        "src": "gen-clip-frame-video",
+        "in": 0,
+        "out": 0.8,
+        "freeze": null,
+        "mute": false
+      }
+    },
+    {
+      "name": "AFTER (iv): プレビューで枠の区間（3.0〜3.8 秒）の音声メーターが正",
+      "pass": true,
+      "detail": {
+        "frames": 19,
+        "maxPeak": 0.15277934074401855
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "00-after-panel-three-checked.png",
+      "bytes": 408484
+    },
+    {
+      "name": "01-after-chip-0-of-3.png",
+      "bytes": 410373
+    },
+    {
+      "name": "02-after-chip-1-of-3.png",
+      "bytes": 433579
+    },
+    {
+      "name": "03-after-chip-2-of-3.png",
+      "bytes": 399898
+    },
+    {
+      "name": "04-after-candidates-complete.png",
+      "bytes": 415580
+    },
+    {
+      "name": "05-after-adopted-timeline.png",
+      "bytes": 356957
+    },
+    {
+      "name": "06-after-preview-after-play.png",
+      "bytes": 317649
+    }
+  ],
+  "consoleErrors": [
+    {
+      "kind": "warning",
+      "atMs": 1790539122828,
+      "text": "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539124971,
+      "text": "2026-09-27T19:58:44.964Z root WARN Frontend Yb.configure took longer than the expected maximum 100 milliseconds: 1081.9 ms [2.943 s since frontend page start]"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539125339,
+      "text": "2026-09-27T19:58:45.334Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539125339,
+      "text": "2026-09-27T19:58:45.334Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539125375,
+      "text": "2026-09-27T19:58:45.373Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 381.4 ms [3.345 s since frontend page start]"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539125706,
+      "text": "2026-09-27T19:58:45.706Z root WARN Frontend Cmt.onStart took longer than the expected maximum 100 milliseconds: 290.0 ms [3.685 s since frontend page start]"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539128503,
+      "text": "2026-09-27T19:58:48.501Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at $Tc (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17204:13192)\n    at async t5n.reloadResolvedCaptionDisplay (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17833:9223)\n    at async GTc (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17204:12050)\n    at async t5n.reloadCaptionsFromSource (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17833:8747)\n    at async t5n.reloadCaptions (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17833:7865)\n    at async Promise.all (index 2)\n    at async t5n.reloadAll (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17830:6789)\n    at async t5n.configure (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17830:526)\n    at async Wy.attachAt (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:18931:3005)\n    at async Wy.openOrCreateTimeline (file://<HOME>/…"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539131844,
+      "text": "2026-09-27T19:58:51.810Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539140089,
+      "text": "2026-09-27T19:59:00.088Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.01dc284adf870acadd7023c128bba014bc2823f6.flac.4484.1790539136699.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539140096,
+      "text": "2026-09-27T19:59:00.093Z root WARN [akari-preview] speech sidecar clip-frame-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.e39c3c0528cd1f77fbb858b711e8cf6ad569af9a.flac.4484.1790539136954.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539140101,
+      "text": "2026-09-27T19:59:00.097Z root WARN [akari-preview] speech sidecar clip-next-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.01dc284adf870acadd7023c128bba014bc2823f6.flac.4484.1790539136699.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539141887,
+      "text": "2026-09-27T19:59:01.868Z root WARN [webview: akari-output-preview-1u0u0s3] [frame-engine] src-clip:base: 最大キーフレーム間隔が 3.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539141966,
+      "text": "2026-09-27T19:59:01.963Z root WARN [webview: akari-output-preview-1u0u0s3] [frame-engine] src-clip:base: 最大キーフレーム間隔が 3.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539141968,
+      "text": "2026-09-27T19:59:01.965Z root WARN [webview: akari-output-preview-1u0u0s3] [frame-engine] warmup cut-2: clip src-clip:cut-2 is unavailable"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539254530,
+      "text": "2026-09-27T20:00:54.518Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.01dc284adf870acadd7023c128bba014bc2823f6.flac.4484.1790539136699.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539256423,
+      "text": "2026-09-27T20:00:56.421Z root WARN [akari-preview] speech sidecar clip-next-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.01dc284adf870acadd7023c128bba014bc2823f6.flac.4484.1790539136699.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539258728,
+      "text": "2026-09-27T20:00:58.726Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.01dc284adf870acadd7023c128bba014bc2823f6.flac.4484.1790539136699.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539258749,
+      "text": "2026-09-27T20:00:58.735Z root WARN [akari-preview] speech sidecar clip-next-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.01dc284adf870acadd7023c128bba014bc2823f6.flac.4484.1790539136699.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539259207,
+      "text": "2026-09-27T20:00:59.206Z root WARN [webview: akari-output-preview-1u0u0s3] [frame-engine] gen-clip-frame-video:base: 最大キーフレーム間隔が 5.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790539259679,
+      "text": "2026-09-27T20:00:59.667Z root WARN [webview: akari-output-preview-1u0u0s3] [frame-engine] src-clip:base: 最大キーフレーム間隔が 3.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    }
+  ]
+}

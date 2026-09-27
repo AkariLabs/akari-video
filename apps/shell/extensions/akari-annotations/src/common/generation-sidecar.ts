@@ -65,7 +65,7 @@ export function describeGenerationChip(
     const routes = Array.isArray(meta?.job?.routes) ? meta.job.routes.filter((route): route is string => typeof route === 'string') : [];
     const completed = typeof meta?.job?.completed === 'number' ? meta.job.completed : 0;
     const candidates = typeof meta?.job?.candidates === 'number' ? meta.job.candidates : 0;
-    if (state === 'generating' && routes.length) {
+    if (state === 'generating' && meta?.job?.provider === 'compare' && routes.length) {
         const badge = `${routes.length} 案作成中 · ${completed}/${routes.length}`;
         return { badge, progress, className: 'akari-generation-generating', title: badge };
     }

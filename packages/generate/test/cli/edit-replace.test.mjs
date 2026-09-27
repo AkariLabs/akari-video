@@ -35,7 +35,7 @@ test("applyReplacement は対象 source だけを付け替え、演出属性を�
     source: {
       kind: "media", src: "gen-clip-a-video", in: 0, out: 5.7,
       framing: { fit: "cover" }, transition_out: { type: "fade" }, fx: [],
-      freeze: { at_sec: 5.7, duration_sec: 0.3 }, mute: true,
+      freeze: { at_sec: 5.7, duration_sec: 0.3 }, mute: false,
     },
   });
 });

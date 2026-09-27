@@ -57,7 +57,7 @@ export function applyReplacement(project, { itemId, mp4RelativePath, plan }) {
     in: plan.in,
     out: plan.out,
     freeze: plan.freeze,
-    mute: true,
+    mute: false,
   };
   return { item, sourceId };
 }
