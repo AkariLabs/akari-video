@@ -594,7 +594,8 @@ export class AkariHomeWidget extends ReactWidget {
                 await this.commands.executeCommand('akari.preview.seekOutput', { editUri, time, waitForReady: true });
             },
             async () => { await this.openProjectLauncher(); },
-            async () => { await this.commands.executeCommand('akari.settings.open', { section: 'start' }); }
+            async () => { await this.commands.executeCommand('akari.settings.open', { section: 'start' }); },
+            () => this.guideAnnouncementToast.showClosed()
         );
         await this.firstVideoGuide.open(state);
     };

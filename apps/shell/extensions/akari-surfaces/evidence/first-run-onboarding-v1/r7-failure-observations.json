@@ -1,0 +1,13 @@
+{
+  "mode": "failure",
+  "startedAt": "2026-09-27T03:52:47.328Z",
+  "shots": [
+    "r7-01-failure-recovery",
+    "r7-01-retry-advanced"
+  ],
+  "projectCreated": true,
+  "injected": "edit.json に改行を追加し resetTourExample の一致検査を失敗させた",
+  "recovered": true,
+  "retryAdvanced": true,
+  "finishedAt": "2026-09-27T03:53:16.532Z"
+}

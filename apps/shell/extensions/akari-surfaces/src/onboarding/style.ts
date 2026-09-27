@@ -173,6 +173,17 @@ body.akari-onboarding-chat-active [data-akari-onboarding-target="partner"] { vis
 #akari-onboarding-v1 .ao-hint svg { position:absolute; inset:0; overflow:visible; }
 #akari-onboarding-v1 .ao-hint-path { animation:ao-dash .5s linear infinite; }
 #akari-onboarding-v1 .ao-hint-label { fill:#fb923c; font:bold 15px system-ui; }
+#akari-onboarding-v1 .ao-recovery-host,#akari-onboarding-v1 .ao-close-host { position:absolute; inset:0; pointer-events:none; }
+#akari-onboarding-v1 .ao-recovery-host { z-index:20; }
+#akari-onboarding-v1 .ao-recovery-host:not(:empty) { background:#0009; pointer-events:auto; }
+#akari-onboarding-v1 .ao-close-host { z-index:21; }
+#akari-onboarding-v1 .ao-idle-close { position:absolute; top:17px; right:18px; padding:7px 11px; border:1px solid #aa8b68; border-radius:7px; background:#201b17e8; color:#eee; font-size:12px; pointer-events:auto; animation:ao-rise .45s ease both; }
+#akari-onboarding-v1 .ao-transition-error { position:absolute; left:50%; top:50%; width:min(390px,calc(100vw - 32px)); padding:22px; transform:translate(-50%,-50%); border:1px solid #f97316; border-radius:12px; background:#1d1916; box-shadow:0 18px 55px #000c; color:#f3eee9; pointer-events:auto; }
+#akari-onboarding-v1 .ao-transition-error p { margin:0; line-height:1.7; font-size:14px; }
+#akari-onboarding-v1 .ao-transition-error .ao-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:17px; }
+#akari-onboarding-v1 .ao-transition-error button { padding:8px 13px; border:1px solid #73665a; border-radius:7px; background:#302a25; color:#eee; }
+#akari-onboarding-v1 .ao-transition-error button.primary { border-color:#f97316; background:#f97316; color:#231103; font-weight:700; }
+#akari-onboarding-v1 .ao-transition-error button:disabled { opacity:.45; cursor:default; }
 @keyframes ao-rise { from { opacity:0; transform:translateY(12px); filter:blur(8px); } to { opacity:1; transform:none; filter:none; } }
 @keyframes ao-hero-in { from { opacity:0; transform:scale(1.03); filter:blur(10px); } }
 @keyframes ao-coach-in { from { opacity:0; transform:translateY(10px) scale(.98); filter:blur(4px); } }

@@ -1,0 +1,11 @@
+{
+  "mode": "fallback",
+  "startedAt": "2026-09-27T03:46:22.405Z",
+  "shots": [
+    "r7-02-fallback-next",
+    "r7-03-fallback-advanced"
+  ],
+  "projectCreated": true,
+  "fallbackAdvanced": true,
+  "finishedAt": "2026-09-27T03:46:53.428Z"
+}

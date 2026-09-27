@@ -1,0 +1,12 @@
+{
+  "mode": "close",
+  "startedAt": "2026-09-27T03:51:36.902Z",
+  "shots": [
+    "r7-04-idle-close",
+    "r7-05-closed-project-remains"
+  ],
+  "projectCreated": true,
+  "projectRemained": true,
+  "markedSeen": true,
+  "finishedAt": "2026-09-27T03:52:25.958Z"
+}

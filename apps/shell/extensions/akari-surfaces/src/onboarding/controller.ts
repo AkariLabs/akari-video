@@ -4,6 +4,7 @@ import { AiAnswer, INITIAL_ONBOARDING_STATE, nextOnboardingState, OnboardingStat
     onboardingCount, onboardingRevisit, previousOnboardingStep } from './model';
 import { AkariOnboardingService, SampleInformation } from './protocol';
 import { ONBOARDING_CSS } from './style';
+import { automaticGuideTransition, guideRecoveryView } from './recovery-model';
 
 interface CoachSpec {
     key?: string;
@@ -70,6 +71,13 @@ export class OnboardingController {
     protected sourceExample = false;
     protected helpTimers: number[] = [];
     protected helpKey = '';
+    protected transitionBusy = false;
+    protected transitionFailure?: { retry: () => Promise<void> };
+    protected recoveryTimers: number[] = [];
+    protected stepEnteredAt = 0;
+    protected lastInteractionAt = 0;
+    protected idleCloseTimer?: number;
+    protected stepSerial = 0;
 
     constructor(
         protected readonly service: AkariOnboardingService,
@@ -79,7 +87,8 @@ export class OnboardingController {
         protected readonly showAssets: () => Promise<void>,
         protected readonly seekOutput: (uri: string, time: number) => Promise<void>,
         protected readonly startOwnVideo: () => Promise<void>,
-        protected readonly openGuideSettings: () => Promise<void>
+        protected readonly openGuideSettings: () => Promise<void>,
+        protected readonly showClosedNotice: () => void
     ) {}
 
     async open(initial?: OnboardingState): Promise<void> {
@@ -89,7 +98,7 @@ export class OnboardingController {
         this.root = document.createElement('div');
         this.root.id = 'akari-onboarding-v1';
         this.root.setAttribute('data-akari-onboarding-step', this.state.step);
-        this.root.innerHTML = `<style>${ONBOARDING_CSS}</style><div class="ao-example-host"></div><div class="ao-chat-host"></div><div class="ao-dim"></div><div class="ao-holes"></div><div class="ao-rings"></div><div class="ao-hint"></div><div class="ao-takeover-host"></div><div class="ao-finder-host"></div><div class="ao-coach-host"></div>`;
+        this.root.innerHTML = `<style>${ONBOARDING_CSS}</style><div class="ao-example-host"></div><div class="ao-chat-host"></div><div class="ao-dim"></div><div class="ao-holes"></div><div class="ao-rings"></div><div class="ao-hint"></div><div class="ao-takeover-host"></div><div class="ao-finder-host"></div><div class="ao-coach-host"></div><div class="ao-recovery-host"></div><div class="ao-close-host"></div>`;
         this.root.addEventListener('click', event => void this.handleClick(event));
         this.root.addEventListener('dragstart', event => {
             if ((event.target as Element).closest('[data-ao-file]')) {
@@ -132,6 +141,13 @@ export class OnboardingController {
     }
 
     protected closeVisual(): void {
+        for (const timer of this.recoveryTimers) window.clearTimeout(timer);
+        this.recoveryTimers = [];
+        if (this.idleCloseTimer) window.clearTimeout(this.idleCloseTimer);
+        this.idleCloseTimer = undefined;
+        this.stepSerial++;
+        this.transitionFailure = undefined;
+        this.transitionBusy = false;
         for (const timer of this.timers) window.clearTimeout(timer);
         this.timers = [];
         if (this.exportPoll) window.clearInterval(this.exportPoll);
@@ -159,11 +175,36 @@ export class OnboardingController {
     }
 
     async close(): Promise<void> {
-        await this.service.markSeen();
+        if (!this.root) return;
         this.closeVisual();
+        this.showClosedNotice();
+        try { await this.service.markSeen(); }
+        catch (error) { console.error('[akari-onboarding] close marker could not be saved:', error); }
     }
 
     protected async go(step: OnboardingStep, sub = 0): Promise<void> {
+        await this.runTransition(() => this.goUnchecked(step, sub), () => this.go(step, sub));
+    }
+
+    protected async runTransition(operation: () => Promise<void>, retry: () => Promise<void>): Promise<void> {
+        if (!this.root || this.transitionBusy) return;
+        this.transitionBusy = true;
+        this.transitionFailure = undefined;
+        this.renderRecovery();
+        try { await operation(); }
+        catch (error) {
+            if (!this.root) return;
+            console.error('[akari-onboarding] transition failed:', error);
+            if (this.tourTimer) window.clearTimeout(this.tourTimer);
+            this.clearHelp();
+            this.transitionFailure = { retry };
+        } finally {
+            this.transitionBusy = false;
+            this.renderRecovery();
+        }
+    }
+
+    protected async goUnchecked(step: OnboardingStep, sub = 0): Promise<void> {
         this.clearHelp();
         if (this.dragHintTimer) window.clearTimeout(this.dragHintTimer);
         this.hideDragHint();
@@ -172,16 +213,20 @@ export class OnboardingController {
         if (old !== step) window.dispatchEvent(new Event('akari.onboarding.clearPreviewSelection'));
         if (step === 'drag' && this.state.exampleActive && !this.state.workCompleted && this.state.projectUri && this.sample) {
             await this.service.resetTourExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments);
+            if (!this.root) return;
             this.state = { ...this.state, exampleActive: false };
             window.dispatchEvent(new Event('akari.onboarding.refreshProject'));
             window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
             await new Promise<void>(resolve => window.setTimeout(resolve, 450));
+            if (!this.root) return;
         } else if (step.startsWith('tour') && !old.startsWith('tour') && !this.state.exampleActive
             && !this.state.workCompleted && this.state.projectUri && this.sample) {
             if (!this.state.imported) await this.service.importSample(this.state.projectUri, this.sample.sourcePath);
+            if (!this.root) return;
             this.state = { ...this.state, exampleActive: true };
             await this.service.save(this.state);
             await this.service.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments, this.sample.segments.length, true);
+            if (!this.root) return;
             window.dispatchEvent(new Event('akari.onboarding.refreshProject'));
             window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
         }
@@ -189,15 +234,18 @@ export class OnboardingController {
             const take = this.root?.querySelector<HTMLElement>('.ao-takeover');
             take?.querySelector('.ao-text')?.classList.add('out');
             await new Promise<void>(resolve => window.setTimeout(resolve, 250));
+            if (!this.root) return;
             if (step === 'tour0') {
                 take?.classList.add('out');
                 await new Promise<void>(resolve => window.setTimeout(resolve, 380));
+                if (!this.root) return;
             }
         }
         if (step === 'matpreview' && this.state.materialOpened) sub = 1;
         if (step === 'play' && this.state.played) sub = 1;
         this.state = nextOnboardingState(this.state, step, sub);
         await this.service.save(this.state);
+        if (!this.root) return;
         this.render();
         this.enterStep();
         if (old === 'matpreview' && (step === 'drag' || step === 'ask') && this.state.projectUri)
@@ -211,24 +259,92 @@ export class OnboardingController {
     }
 
     protected async setSub(sub: number): Promise<void> {
+        await this.runTransition(() => this.setSubUnchecked(sub), () => this.setSub(sub));
+    }
+
+    protected async setSubUnchecked(sub: number): Promise<void> {
         this.clearHelp();
-        this.state = { ...this.state, sub };
-        await this.service.save(this.state);
+        const next = { ...this.state, sub };
+        await this.service.save(next);
+        if (!this.root) return;
+        this.state = next;
         this.render();
         this.enterStep();
     }
 
     protected enterStep(): void {
+        for (const timer of this.recoveryTimers) window.clearTimeout(timer);
+        this.recoveryTimers = [];
+        this.stepEnteredAt = performance.now();
+        this.lastInteractionAt = this.stepEnteredAt;
+        const serial = ++this.stepSerial;
         this.scheduleHelp();
         if (this.tourTimer) window.clearTimeout(this.tourTimer);
-        if (this.state.step === 'tour0' && this.state.sub === 0)
-            this.tourTimer = window.setTimeout(() => { if (this.state.step === 'tour0') void this.setSub(1); }, 2200);
-        if (this.state.step === 'tour2' && this.state.sub === 0)
-            this.tourTimer = window.setTimeout(() => { if (this.state.step === 'tour2') void this.setSub(1); }, 2800);
-        if (this.state.step === 'tour3' && this.state.sub === 1)
-            this.tourTimer = window.setTimeout(() => { if (this.state.step === 'tour3') void this.go('drag'); }, 2300);
+        const automatic = automaticGuideTransition(this.state.step, this.state.sub);
+        if (automatic) {
+            this.tourTimer = window.setTimeout(() => {
+                if (this.root && serial === this.stepSerial) void this.advanceAutomatically();
+            }, automatic.delayMs);
+            this.recoveryTimers.push(window.setTimeout(() => {
+                if (this.root && serial === this.stepSerial) this.renderRecovery();
+            }, automatic.delayMs + 3000));
+        }
+        this.scheduleIdleClose(serial);
+        this.renderRecovery();
         if (this.state.step === 'drag' && !this.state.imported) this.scheduleDragHint();
         if (this.state.step === 'done') this.celebrate();
+    }
+
+    protected scheduleIdleClose(serial: number): void {
+        if (this.idleCloseTimer) window.clearTimeout(this.idleCloseTimer);
+        this.idleCloseTimer = undefined;
+        if (this.state.step === 'done') return;
+        this.idleCloseTimer = window.setTimeout(() => {
+            if (this.root && serial === this.stepSerial) this.renderRecovery();
+        }, 10000);
+    }
+
+    protected noteInteraction(): void {
+        this.lastInteractionAt = performance.now();
+        this.scheduleIdleClose(this.stepSerial);
+        this.renderRecovery();
+    }
+
+    protected async advanceAutomatically(): Promise<void> {
+        const transition = automaticGuideTransition(this.state.step, this.state.sub);
+        if (!transition) return;
+        if (transition.kind === 'sub') await this.setSub(transition.target as number);
+        else await this.go(transition.target as OnboardingStep);
+    }
+
+    protected renderRecovery(): void {
+        if (!this.root) return;
+        const spec = this.coach();
+        const view = guideRecoveryView({
+            step: this.state.step, sub: this.state.sub,
+            elapsedMs: Math.max(0, performance.now() - this.stepEnteredAt),
+            idleMs: Math.max(0, performance.now() - this.lastInteractionAt),
+            hasVisibleAction: !!(spec?.buttons?.length || spec?.choices?.length || spec?.link),
+            transitioning: this.transitionBusy, failed: !!this.transitionFailure
+        });
+        const coach = this.root.querySelector<HTMLElement>('.ao-coach');
+        const fallback = coach?.querySelector('[data-ao="fallback-next"]');
+        if (view.showFallbackNext && coach && !fallback) {
+            let actions = coach.querySelector<HTMLElement>('.ao-actions');
+            if (!actions) { actions = document.createElement('div'); actions.className = 'ao-actions'; coach.appendChild(actions); }
+            actions.insertAdjacentHTML('beforeend', '<button class="primary" data-ao="fallback-next">次へ →</button>');
+            this.lastRects = '';
+            this.placeCoach();
+        } else if (!view.showFallbackNext) fallback?.remove();
+        const closeHost = this.root.querySelector<HTMLElement>('.ao-close-host')!;
+        if (view.showIdleClose && !closeHost.firstElementChild)
+            closeHost.innerHTML = '<button class="ao-idle-close" data-ao="idle-close">ガイドを閉じる ×</button>';
+        else if (!view.showIdleClose) closeHost.replaceChildren();
+        const recoveryHost = this.root.querySelector<HTMLElement>('.ao-recovery-host')!;
+        if (view.showError && !recoveryHost.firstElementChild) recoveryHost.innerHTML =
+            '<div class="ao-transition-error" role="alert"><p>先へ進めませんでした。もう一度お試しください。</p><div class="ao-actions"><button class="primary" data-ao="retry-transition">もう一度</button><button data-ao="close-guide">ガイドを閉じる</button></div></div>';
+        else if (!view.showError) recoveryHost.replaceChildren();
+        recoveryHost.querySelector<HTMLButtonElement>('[data-ao="retry-transition"]')?.toggleAttribute('disabled', !view.showRetry);
     }
 
     protected clearHelp(): void {
@@ -704,6 +820,14 @@ export class OnboardingController {
         const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-ao]') : null;
         if (!element) return;
         const action = element.dataset.ao;
+        if (action !== 'idle-close' && action !== 'close-guide') this.noteInteraction();
+        if (action === 'idle-close' || action === 'close-guide') return this.close();
+        if (action === 'retry-transition') {
+            const retry = this.transitionFailure?.retry;
+            if (retry) await retry();
+            return;
+        }
+        if (action === 'fallback-next') return this.advanceAutomatically();
         if (action === 'next') {
             const step = this.state.step;
             if (step === 'welcome') return this.go('first');
@@ -764,6 +888,7 @@ export class OnboardingController {
             await this.service.importSample(prepared.projectUri, prepared.sample.sourcePath);
             await this.service.writeExample(prepared.projectUri, prepared.sample.sourcePath, prepared.sample.segments, prepared.sample.segments.length, true);
             await this.go('tour0');
+            if (this.transitionFailure) { this.busy = false; return; }
             await this.openProject(prepared.projectUri);
             await this.showOutput(prepared.projectUri);
         } catch (error) {
@@ -804,6 +929,7 @@ export class OnboardingController {
 
     protected handleExternalClick = (event: MouseEvent): void => {
         if (!this.root || this.root.contains(event.target as Node)) return;
+        this.noteInteraction();
         const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-akari-onboarding-target]') : null;
         const name = target?.dataset.akariOnboardingTarget;
         if (this.state.step === 'matpreview' && name === 'sample-card' && this.state.sub === 0) {
@@ -835,6 +961,7 @@ export class OnboardingController {
 
     protected handleKeyDown = (event: KeyboardEvent): void => {
         if (event.key === 'Escape' && this.root) { event.stopImmediatePropagation(); void this.close(); }
+        else if (this.root) this.noteInteraction();
     };
 
     protected handleInput = (event: Event): void => {

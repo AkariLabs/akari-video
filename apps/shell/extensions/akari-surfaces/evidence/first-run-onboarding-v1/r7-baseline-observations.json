@@ -1,0 +1,11 @@
+{
+  "mode": "baseline",
+  "startedAt": "2026-09-27T03:37:49.796Z",
+  "shots": [
+    "r7-00-baseline-stuck"
+  ],
+  "projectCreated": true,
+  "injected": "edit.json に改行を追加し resetTourExample の一致検査を失敗させた",
+  "stuck": true,
+  "finishedAt": "2026-09-27T03:38:21.908Z"
+}
