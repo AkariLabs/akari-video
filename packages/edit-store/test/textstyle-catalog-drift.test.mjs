@@ -20,7 +20,7 @@ test('index と個別 JSON の style・id・format が一致する', async () =>
     .split(/\r?\n/u)
     .filter(line => line.trim())
     .map(line => JSON.parse(line));
-  assert.equal(entries.length, 12);
+  assert.equal(entries.length, 36);
   for (const entry of entries) {
     assert.match(entry.id, /^[a-z0-9][a-z0-9-]*$/u);
     const preset = JSON.parse(await readFile(join(catalogRoot, `${entry.id}.json`), 'utf8'));
