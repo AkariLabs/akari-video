@@ -195,7 +195,7 @@ fieldtest / 検収に receipt が 1 件も無く、一度も動いていない�
 
 v0.1.27 からの挙動: `resolveOsrLauncher`（製品入口）はインストール済みアプリを既定で候補から外す
 （`allowInstalledDesktop: false`）。`AKARI_OSR_ELECTRON` の明示指定は従来どおり tier 1。npm Electron（tier 2）が無い
-パッケージ版では tier 3 = legacy へ警告付きで落ち、provenance に `engine_fallback` と理由が残る（`auto` / `osr` とも）。
+当時のパッケージ版では tier 3 = legacy へ警告付きで落ちていた。現在は legacy へフォールバックせず、OSR の Electron が見つからない場合は書き出しを拒否する。
 根本修正 = `--render` を Theia より前に捕捉する書き出し専用の Electron 入口（別票）。入口が入ったら既定を戻す。
 
 **2026-08-29 追記（根治）**: 書き出し専用の入口 `apps/shell/electron-entry.js` が合流した（§6 / §11.4）。`resolveOsrLauncher` の既定を戻し、インストール済みアプリを再び tier 1 の候補にする（v0.1.28〜）。`allowInstalledDesktop: false` は明示の opt-out として残す。

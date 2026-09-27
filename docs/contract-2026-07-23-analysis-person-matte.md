@@ -279,7 +279,7 @@ frame-engine を使う消費側は、VP9 alpha WebM または alpha pixel format
 明示 `mask` がある場合も color / mask の取り込みは行い、frame-engine のマスク入力には明示参照を優先する。
 
 変換失敗は非致命警告とし、該当 layer だけを frame-engine から外す。旧 `<video>` プレビューは
-元素材の `src` を維持し、legacy 書き出しの alpha filtergraph もこの取り込み変換を使わない。
+元素材の `src` を維持する。旧 legacy 書き出しの alpha filtergraph はこの取り込み変換を使わなかった（現在は廃止）。
 
 ## 9. 既知の追随事項（本契約が作る宿題）
 

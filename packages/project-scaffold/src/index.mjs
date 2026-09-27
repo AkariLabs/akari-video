@@ -101,7 +101,7 @@ const FALLBACK_WORKFLOW = {
 // 素材投入前の空 sources / tracks も editV2 schema をそのまま満たす。
 const FALLBACK_EDIT_JSON = {
     version: 2,
-    output: { width: 1920, height: 1080, fps: 30 },
+    output: { width: 1920, height: 1080, fps: 30, geometry: 'source' },
     sources: [],
     tracks: []
 };
