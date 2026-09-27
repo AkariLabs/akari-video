@@ -185,8 +185,8 @@ test('entire normalized rows are stable across all kinds and a standalone route'
       "released": null,
       "license": {
         "badge": "conditional",
-        "note": "提供経路の表示と利用規約に相違がある。",
-        "source_url": "https://hailuoai.video/doc/terms-of-service.html"
+        "note": "fal では商用可と表示。MiniMax は消費者向けと開発者向けで規約が分かれ、後者の本文は未確認。",
+        "source_url": "https://www.minimax.io/terms-of-service-v2.html"
       },
       "verified": "documented",
       "measured_ref": null,
@@ -264,9 +264,9 @@ test('entire normalized rows are stable across all kinds and a standalone route'
       "main": true,
       "released": null,
       "license": {
-        "badge": "unknown",
-        "note": "文字起こし用途の商用条件は未確認。",
-        "source_url": null
+        "badge": "commercial-ok",
+        "note": "whisper.cpp 本体と Whisper モデルはともに MIT。ローカル実行のため API 規約は対象外。",
+        "source_url": "https://github.com/openai/whisper/blob/main/LICENSE"
       },
       "verified": "documented",
       "measured_ref": null,
@@ -313,9 +313,9 @@ test('entire normalized rows are stable across all kinds and a standalone route'
       "main": true,
       "released": null,
       "license": {
-        "badge": "conditional",
-        "note": "権利侵害の補償と帰属表示の条件に注意。",
-        "source_url": "https://x.ai/legal/terms-of-service"
+        "badge": "credit-required",
+        "note": "帰属表示が必須。知的財産権の侵害に対する補償なし。",
+        "source_url": "https://x.ai/legal/brand-guidelines"
       },
       "verified": "measured",
       "measured_ref": "2026-09-26-still-aspect-verify",
@@ -391,4 +391,25 @@ test('unavailable new rows never enter the existing generation catalog', async (
   const generationIds = new Set(catalog.models.filter(row => row.kind === 'video').map(row => row.id));
   assert.deepEqual(rows.filter(row => row.kind === 'video' && !row.callable && generationIds.has(row.id)), []);
   assert.equal(generationIds.size, 12);
+});
+
+test('rechecked license badges and source URLs stay fixed', async () => {
+  const { models } = JSON.parse(await readFile(sourcePath, 'utf8'));
+  const expectedBadges = {
+    'fal:gpt-image-2.5-flare': 'commercial-ok',
+    'fal:gpt-image-2.5-sunburst': 'commercial-ok',
+    'transcribe:whisper-cpp': 'commercial-ok',
+    'still:grok': 'credit-required',
+    'fal:grok-imagine-i2v': 'credit-required',
+    'fal:grok-imagine-image': 'credit-required',
+    'still:antigravity': 'conditional',
+    'fal:minimax-image-01': 'conditional',
+    'fal:qwen-image-2': 'conditional'
+  };
+  assert.deepEqual(Object.fromEntries(models
+    .filter(model => Object.hasOwn(expectedBadges, model.id))
+    .map(model => [model.id, model.license.badge])), expectedBadges);
+  for (const model of models) {
+    assert.ok(model.license.source_url === null || model.license.source_url.startsWith('https://'), model.id);
+  }
 });
