@@ -8779,10 +8779,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 void commit();
             });
             input.addEventListener('keydown', event => {
-                const key = (event as KeyboardEvent).key;
+                const keyboard = event as KeyboardEvent;
+                if (keyboard.isComposing || keyboard.keyCode === 229) return;
+                const key = keyboard.key;
                 if (field.inputKind === 'caption-text') {
-                    const keyboard = event as KeyboardEvent;
-                    if (keyboard.isComposing || keyboard.keyCode === 229) return;
                     if (key === 'Enter' && (navigator.platform.includes('Mac') ? keyboard.metaKey : keyboard.ctrlKey)) {
                         event.preventDefault();
                         input.blur();
@@ -8928,6 +8928,7 @@ export class AkariInspectorWidget extends BaseWidget {
             void commitValue(textInput.value, revert);
         });
         textInput.addEventListener('keydown', event => {
+            if (event.isComposing || event.keyCode === 229) return;
             if (event.key === 'Enter') {
                 event.preventDefault();
                 textInput.blur();
