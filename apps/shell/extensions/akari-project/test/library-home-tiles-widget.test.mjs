@@ -7,7 +7,7 @@ import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../lib/common/librar
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const methods = ['readLibraryDetailsOpen', 'toggleLibraryDetails', 'placeLibraryText', 'renderLibraryTilePlate', 'renderLibraryPrimaryTile', 'renderLibraryHome', 'handleLibraryTransitionDragEnd'];
+const methods = ['readLibraryDetailsOpen', 'toggleLibraryDetails', 'placeLibraryText', 'renderLibraryTilePlate', 'renderLibraryPrimaryTile', 'renderLibraryHome', 'handleLibraryTransitionDragEnd', 'showLibraryHome', 'renderTextLookPage', 'handleGenerationPickKey'];
 const code = ts.transpileModule(`class Handler { ${methods.map(name => {
     const member = widget.members.find(candidate => candidate.name?.getText(source) === name);
     assert.ok(member, `${name} が存在する`);
@@ -23,9 +23,10 @@ class CustomEvent {
     constructor(type, init) { this.type = type; this.detail = init?.detail; }
 }
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }) };
-const LibraryTextLookRow = props => React.createElement('button', { 'data-akari-library-text-look-row': true, ...props });
-const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'LibraryTextLookRow', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK', 'LIBRARY_TILE_ART', 'LIBRARY_TILE_SHARED_DEFS',
-    `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS, LibraryTextLookRow,
+const LibraryTextLookPage = props => React.createElement('text-page', props);
+const LibraryTextFontRow = props => React.createElement('font-row', props);
+const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'LibraryTextLookPage', 'LibraryTextFontRow', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK', 'LIBRARY_TILE_ART', 'LIBRARY_TILE_SHARED_DEFS',
+    `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS, LibraryTextLookPage, LibraryTextFontRow,
     'akari.library.detailsOpen',
     { panel: 6 }, { card: '#111', raised: '#222' }, { ghost: '1px solid #333' }, '#fff',
     LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS);
@@ -36,6 +37,13 @@ function fixture() {
     const errors = [];
     handler.catalogQuery = '';
     handler.libraryDetailsOpen = false;
+    handler.libraryTextLookOpen = false;
+    handler.libraryTextTab = 'style';
+    handler.node = { tabIndex: 0, focus() {}, contains: () => true };
+    handler.topView = 'catalog';
+    handler.generationPick = { request: undefined };
+    handler.libraryStyleFontFaces = new Map([['font', 'Loaded Font']]);
+    handler.ensureLibraryStyleFonts = () => {};
     // 本体ではクラスフィールド（`protected tilePlateSeq = 0`）。
     // この harness はメソッドだけを抜き出すので、ここで初期値を置く。
     handler.tilePlateSeq = 0;
@@ -49,6 +57,13 @@ function fixture() {
     handler.renderLibraryMyCategory = category => React.createElement('span', { category: category.key });
     handler.renderLibraryCategoryRow = category => React.createElement('span', { category: category.key });
     handler.selectLibraryCategory = key => calls.push(['select', key]);
+    handler.filteredPresetShowcaseItems = kind => kind === 'textstyle' ? [{ id: 'style' }] : [{ id: 'motion' }];
+    handler.filteredCatalogItems = () => [{ id: 'font', category: 'font' }];
+    handler.renderPresetShowcaseCard = item => React.createElement('preset-card', { id: item.id });
+    handler.renderMyStyles = () => React.createElement('my-styles');
+    handler.renderCatalogItem = item => React.createElement('font-card', { id: item.id,
+        onApply: () => calls.push(['font-apply', item.id]), onDragStart: () => calls.push(['font-drag', item.id]) });
+    handler.stopCatalogAudio = () => {};
     return { handler, calls, errors };
 }
 
@@ -145,11 +160,34 @@ test('最近使った帯は 3×3 の後、詳細の開閉ボタンの前に描�
     }
 });
 
-test('テキストは引数なし placeText、選ぶタイルはカテゴリ一覧へ進み、近日は押せない', async () => {
+test('テキストタイルは配置せずページへ入り、ページの配置ボタンだけが placeText を呼ぶ', async () => {
     const { handler, calls, errors } = fixture();
     handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[0]).props.onClick({ stopPropagation() {} });
     await Promise.resolve();
+    assert.deepEqual(calls, []);
+    assert.equal(handler.libraryTextLookOpen, true);
+    const page = handler.renderTextLookPage();
+    assert.equal(page.props.tab, 'style');
+    assert.equal(page.props.fonts.length, 1);
+    assert.equal(page.props.fonts[0].type, LibraryTextFontRow);
+    assert.equal(page.props.fonts[0].props.faceFamily, 'Loaded Font');
+    page.props.fonts[0].props.card.props.onApply();
+    page.props.fonts[0].props.card.props.onDragStart();
+    assert.deepEqual(calls, [['font-apply', 'font'], ['font-drag', 'font']]);
+    calls.length = 0;
+    page.props.onPlace();
+    await Promise.resolve();
     assert.deepEqual(calls, [['akari.caption.placeText']]);
+    page.props.onTabChange('font');
+    assert.equal(handler.renderTextLookPage().props.tab, 'font');
+    page.props.onBack();
+    assert.equal(handler.libraryTextLookOpen, false);
+    handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[0]).props.onClick({ stopPropagation() {} });
+    assert.equal(handler.renderTextLookPage().props.tab, 'font', 'ページを出入りしても切り替えを保つ');
+    let prevented = false;
+    handler.handleGenerationPickKey({ key: 'Escape', target: {}, preventDefault() { prevented = true; }, stopPropagation() {} });
+    assert.equal(prevented, true);
+    assert.equal(handler.libraryTextLookOpen, false);
     handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[5]).props.onClick({ stopPropagation() {} });
     assert.deepEqual(calls[1], ['select', 'bgm']);
     handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[1]).props.onClick({ stopPropagation() {} });
@@ -174,10 +212,8 @@ test('詳細の開閉を localStorage に記憶し、次のインスタンスで
     const details = nodes(openHome, node => node.props['data-akari-library-details'] !== undefined)[0];
     assert.ok(details);
     assert.deepEqual(nodes(details, node => node.props.category).map(node => node.props.category),
-        LIBRARY_DETAIL_GROUPS.filter(group => group.label !== '文字の見た目').flatMap(group => group.categories.map(category => category.key)));
-    const textRows = nodes(details, node => node.type === LibraryTextLookRow);
-    assert.equal(textRows.length, 1);
-    assert.deepEqual(textRows[0].props.counts, [12, 47, 31]);
+        LIBRARY_DETAIL_GROUPS.flatMap(group => group.categories.map(category => category.key)));
+    assert.equal(nodes(details, node => node.props['data-akari-library-text-look-row']).length, 0);
     const { handler: restored } = fixture();
     restored.libraryDetailsOpen = restored.readLibraryDetailsOpen();
     assert.equal(restored.libraryDetailsOpen, true);

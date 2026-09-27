@@ -1,0 +1,1032 @@
+{
+  "phase": "after",
+  "base": "4fcfc9d3a",
+  "checks": {
+    "details-no-text-look": {
+      "pass": true,
+      "detail": {
+        "toggle": "▾ 詳細をたたむ",
+        "body": "マイ / ★ / お気に入り / 近日 / ◈ / ブランドキット / 近日",
+        "textLookRow": false
+      }
+    },
+    "a-t-enters-page-no-place": {
+      "pass": true,
+      "detail": {
+        "open": true,
+        "tab": "style",
+        "header": "テキスト",
+        "back": true,
+        "placeButton": "＋ 文字を置く",
+        "tabs": [
+          {
+            "label": "スタイル",
+            "selected": "true"
+          },
+          {
+            "label": "フォント",
+            "selected": "false"
+          }
+        ],
+        "sections": [
+          "style"
+        ],
+        "headings": [
+          "テキストスタイル — 置く / かける",
+          "テキストアニメ — かける・ホバーで再生"
+        ],
+        "switchRadius": "8px",
+        "styleCards": 12,
+        "textanimCardsInStyle": 47,
+        "myStyleCards": 1,
+        "fontSpecimens": 0,
+        "motionSection": false,
+        "captionsUnchanged": true,
+        "editUnchanged": true
+      }
+    },
+    "a-switch-style-font": {
+      "pass": true,
+      "detail": [
+        {
+          "label": "スタイル",
+          "selected": "true"
+        },
+        {
+          "label": "フォント",
+          "selected": "false"
+        }
+      ]
+    },
+    "a-textanim-in-style-no-motion-section": {
+      "pass": true,
+      "detail": {
+        "anim": 47,
+        "sections": [
+          "style"
+        ],
+        "headings": [
+          "テキストスタイル — 置く / かける",
+          "テキストアニメ — かける・ホバーで再生"
+        ]
+      }
+    },
+    "a-style-cards": {
+      "pass": true,
+      "detail": {
+        "style": 12,
+        "my": 1
+      }
+    },
+    "b-one-row-per-font-no-dup-name": {
+      "pass": true,
+      "detail": {
+        "rows": 31,
+        "widths": [
+          191
+        ],
+        "dup": []
+      }
+    },
+    "b-unloaded-fonts-show-preview-image": {
+      "pass": false,
+      "detail": {
+        "loaded": 9,
+        "image": 15,
+        "neither": [
+          "ab-kirigirisu",
+          "isego",
+          "ruika",
+          "togebara",
+          "wanpaku-ruika",
+          "zen-kaku-gothic-new",
+          "zero-gothic"
+        ]
+      }
+    },
+    "b-font-side": {
+      "pass": true,
+      "detail": {
+        "specimens": 31,
+        "tabs": [
+          {
+            "label": "スタイル",
+            "selected": "false"
+          },
+          {
+            "label": "フォント",
+            "selected": "true"
+          }
+        ]
+      }
+    },
+    "b-font-names-in-own-face": {
+      "pass": true,
+      "detail": {
+        "loaded": 9,
+        "total": 31,
+        "sample": [
+          {
+            "id": "851-chikara-dzuyoku",
+            "display": "851チカラヅヨク",
+            "english": null,
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": true,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "851-chikara-yowaku",
+            "display": "851チカラヨワク",
+            "english": null,
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": true,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "ab-kirigirisu",
+            "display": "AB-kirigirisu（ABキリギリス）",
+            "english": "AB-kirigirisu",
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": false,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "biz-udgothic",
+            "display": "BIZ UDゴシック",
+            "english": "BIZ UDGothic",
+            "family": "BIZ UDGothic",
+            "faces": [
+              "loaded",
+              "unloaded"
+            ],
+            "previewImage": false,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "check-and-oudan",
+            "display": "チェックアンド横断フォント",
+            "english": null,
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": true,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "corporate-logo-rounded",
+            "display": "コーポレート・ロゴ（ラウンド）ver3",
+            "english": null,
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": true,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "dela-gothic-one",
+            "display": "Dela Gothic One あ字",
+            "english": "Dela Gothic One",
+            "family": "Dela Gothic One",
+            "faces": [
+              "loaded"
+            ],
+            "previewImage": false,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "dotgothic16",
+            "display": "ドットゴシック16",
+            "english": "DotGothic16",
+            "family": "DotGothic16",
+            "faces": [
+              "loaded"
+            ],
+            "previewImage": false,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "isego",
+            "display": "異世ゴ",
+            "english": null,
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": false,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "klee-one",
+            "display": "クレー One",
+            "english": "Klee One",
+            "family": "Klee One",
+            "faces": [
+              "loaded"
+            ],
+            "previewImage": false,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "kso-kokuryuso",
+            "display": "KSO黒龍爽（昭和書体）",
+            "english": "KSO黒龍爽",
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": true,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          },
+          {
+            "id": "mgen-plus",
+            "display": "Mgen+（ムゲンプラス）",
+            "english": "Mgen+",
+            "family": "-apple-system",
+            "faces": [],
+            "previewImage": true,
+            "draggable": "true",
+            "w": 191,
+            "nameRepeats": 1
+          }
+        ]
+      }
+    },
+    "ab-back-keeps-tab-esc-returns": {
+      "pass": true,
+      "detail": {
+        "home1": {
+          "open": false,
+          "home": true
+        },
+        "backTab": "font",
+        "esc": {
+          "open": false,
+          "home": true
+        }
+      }
+    },
+    "c-card-press-applies-to-selected": {
+      "pass": true,
+      "detail": {
+        "card": "textstyle/subtitle-news",
+        "styleBefore": null,
+        "presetAfter": null,
+        "styleAfter": {
+          "color": "#ffffff",
+          "size_px": 56,
+          "weight": 700,
+          "background": {
+            "color": "#c62828",
+            "opacity": 1,
+            "padding_px": 16,
+            "radius_px": 0
+          }
+        }
+      }
+    },
+    "d-card-drag-to-preview-places": {
+      "pass": true,
+      "detail": {
+        "mime": [
+          "application/x-akari-library-item"
+        ],
+        "newCaptions": [
+          {
+            "id": "c-0006",
+            "text": "テキストを入力",
+            "start": 3,
+            "style_preset": "subtitle-news",
+            "position": {
+              "x": 0.33428819444444446,
+              "y": 0.25506172839506175
+            }
+          }
+        ]
+      }
+    },
+    "e-place-button-places-plain-text": {
+      "pass": true,
+      "detail": [
+        {
+          "id": "c-0007",
+          "text": "テキストを入力",
+          "start": 3,
+          "style_preset": null
+        }
+      ]
+    },
+    "f-font-row-placed-text": {
+      "pass": true,
+      "detail": {
+        "rows": [
+          "caption-font-family",
+          "caption-color",
+          "caption-size",
+          "caption-wrap-width",
+          "caption-font-weight",
+          "caption-line-height",
+          "caption-letter-spacing"
+        ],
+        "rowText": "フォント Noto Sans JP ›",
+        "buttonFont": "\"AKARI Noto Sans JP\", sans-serif",
+        "faces": [
+          "loaded",
+          "loaded"
+        ]
+      }
+    },
+    "e-t-tile-drag-places": {
+      "pass": true,
+      "detail": {
+        "mime": [
+          "application/x-akari-library-item"
+        ],
+        "newCaptions": [
+          {
+            "id": "c-0008",
+            "text": "テキストを入力",
+            "start": 3,
+            "style_preset": null
+          }
+        ]
+      }
+    },
+    "f-font-row-caption": {
+      "pass": true,
+      "detail": {
+        "rows": [
+          "caption-font-family",
+          "caption-color",
+          "caption-size",
+          "caption-wrap-width",
+          "caption-font-weight",
+          "caption-line-height",
+          "caption-letter-spacing"
+        ],
+        "rowText": "フォント Noto Sans JP ›",
+        "buttonFont": "\"AKARI Noto Sans JP\", sans-serif",
+        "faces": [
+          "loaded",
+          "loaded"
+        ]
+      }
+    },
+    "f-font-row-in-own-face": {
+      "pass": true,
+      "detail": {
+        "buttonFont": "\"AKARI Noto Sans JP\", sans-serif",
+        "faces": [
+          "loaded",
+          "loaded"
+        ]
+      }
+    },
+    "f-font-row-opens-font-panel": {
+      "pass": true,
+      "detail": {
+        "panel": {
+          "open": true,
+          "switch": "font",
+          "text": "← 戻る × フォント スタイル ☰ 最近使ったフォント フォント一覧（9件） ＋ BIZ UDゴシック BIZ UDGothic Aa Bb 123 · 同梱 Dela Gothic One あ字 Dela Gothic One Aa B"
+        },
+        "events": [
+          {
+            "panel": "font"
+          }
+        ]
+      }
+    }
+  },
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "tileHint": "テキスト — 押すと一覧・ドラッグで置く",
+  "details": {
+    "toggle": "▾ 詳細をたたむ",
+    "body": "マイ / ★ / お気に入り / 近日 / ◈ / ブランドキット / 近日",
+    "textLookRow": false
+  },
+  "shots": [
+    "after-00-library-home-details.png",
+    "after-a-text-page-style.png",
+    "after-b-text-page-font.png",
+    "after-c-card-applied.png",
+    "after-d-card-dropped-on-preview.png",
+    "after-e-place-text.png",
+    "after-e2-t-tile-dragged.png",
+    "after-f1-inspector-font-row.png",
+    "after-f2-font-panel.png"
+  ],
+  "a": {
+    "open": true,
+    "tab": "style",
+    "header": "テキスト",
+    "back": true,
+    "placeButton": "＋ 文字を置く",
+    "tabs": [
+      {
+        "label": "スタイル",
+        "selected": "true"
+      },
+      {
+        "label": "フォント",
+        "selected": "false"
+      }
+    ],
+    "sections": [
+      "style"
+    ],
+    "headings": [
+      "テキストスタイル — 置く / かける",
+      "テキストアニメ — かける・ホバーで再生"
+    ],
+    "switchRadius": "8px",
+    "styleCards": 12,
+    "textanimCardsInStyle": 47,
+    "myStyleCards": 1,
+    "fontSpecimens": 0,
+    "motionSection": false,
+    "captionsUnchanged": true,
+    "editUnchanged": true
+  },
+  "b": {
+    "open": true,
+    "tab": "font",
+    "header": "テキスト",
+    "back": true,
+    "placeButton": "＋ 文字を置く",
+    "tabs": [
+      {
+        "label": "スタイル",
+        "selected": "false"
+      },
+      {
+        "label": "フォント",
+        "selected": "true"
+      }
+    ],
+    "sections": [
+      "font"
+    ],
+    "headings": [
+      "フォント — 置く / かける"
+    ],
+    "switchRadius": "8px",
+    "styleCards": 0,
+    "textanimCardsInStyle": 0,
+    "myStyleCards": 0,
+    "fontSpecimens": 31,
+    "motionSection": false,
+    "fonts": [
+      {
+        "id": "851-chikara-dzuyoku",
+        "display": "851チカラヅヨク",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "851-chikara-yowaku",
+        "display": "851チカラヨワク",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "ab-kirigirisu",
+        "display": "AB-kirigirisu（ABキリギリス）",
+        "english": "AB-kirigirisu",
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "biz-udgothic",
+        "display": "BIZ UDゴシック",
+        "english": "BIZ UDGothic",
+        "family": "BIZ UDGothic",
+        "faces": [
+          "loaded",
+          "unloaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "check-and-oudan",
+        "display": "チェックアンド横断フォント",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "corporate-logo-rounded",
+        "display": "コーポレート・ロゴ（ラウンド）ver3",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "dela-gothic-one",
+        "display": "Dela Gothic One あ字",
+        "english": "Dela Gothic One",
+        "family": "Dela Gothic One",
+        "faces": [
+          "loaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "dotgothic16",
+        "display": "ドットゴシック16",
+        "english": "DotGothic16",
+        "family": "DotGothic16",
+        "faces": [
+          "loaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "isego",
+        "display": "異世ゴ",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "klee-one",
+        "display": "クレー One",
+        "english": "Klee One",
+        "family": "Klee One",
+        "faces": [
+          "loaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "kso-kokuryuso",
+        "display": "KSO黒龍爽（昭和書体）",
+        "english": "KSO黒龍爽",
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "mgen-plus",
+        "display": "Mgen+（ムゲンプラス）",
+        "english": "Mgen+",
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "mplus-1p",
+        "display": "M PLUS 1p",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "mplus-rounded-1c",
+        "display": "M PLUS Rounded 1c あ字",
+        "english": "M PLUS Rounded 1c",
+        "family": "M PLUS Rounded 1c",
+        "faces": [
+          "loaded",
+          "unloaded",
+          "unloaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "noto-sans-jp",
+        "display": "Noto Sans JP あ字",
+        "english": "Noto Sans JP",
+        "family": "AKARI Noto Sans JP",
+        "faces": [
+          "loaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "noto-serif-jp",
+        "display": "Noto Serif JP あ字",
+        "english": "Noto Serif JP",
+        "family": "Noto Serif JP",
+        "faces": [
+          "loaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "ranobe-pop",
+        "display": "07ラノベPOP",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "reggae-one",
+        "display": "Reggae One",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "rocknroll-one",
+        "display": "RocknRoll One",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "ruika",
+        "display": "ルイカ（無料お試し版）",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "shippori-mincho",
+        "display": "しっぽり明朝",
+        "english": "Shippori Mincho",
+        "family": "Shippori Mincho",
+        "faces": [
+          "loaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "ta-engeifude",
+        "display": "TA演芸筆",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "ta-f1-blockline",
+        "display": "TA-F1ブロックライン",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "ta-fugafude",
+        "display": "TA風雅筆",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "togebara",
+        "display": "棘薔薇フォント",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "vdl-logojr-black",
+        "display": "VDL ロゴJr ブラック",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "vdl-v7-mincho",
+        "display": "VDL V7明朝",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": true,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "wanpaku-ruika",
+        "display": "わんぱくルイカ（無料お試し版）",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "zen-kaku-gothic-new",
+        "display": "Zen Kaku Gothic New",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "zen-maru-gothic",
+        "display": "Zen丸ゴシック",
+        "english": "Zen Maru Gothic",
+        "family": "Zen Maru Gothic",
+        "faces": [
+          "loaded",
+          "unloaded"
+        ],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      },
+      {
+        "id": "zero-gothic",
+        "display": "零ゴシック",
+        "english": null,
+        "family": "-apple-system",
+        "faces": [],
+        "previewImage": false,
+        "draggable": "true",
+        "w": 191,
+        "nameRepeats": 1
+      }
+    ],
+    "widths": [
+      191
+    ],
+    "loadedCount": 9
+  },
+  "c": {
+    "card": "textstyle/subtitle-news",
+    "changed": true,
+    "before": {
+      "id": "c-0002",
+      "start": 3,
+      "end": 5.5,
+      "text": "まずはコーヒーを淹れるところから",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a"
+    },
+    "after": {
+      "id": "c-0002",
+      "start": 3,
+      "end": 5.5,
+      "text": "まずはコーヒーを淹れるところから",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "text_style": {
+        "color": "#ffffff",
+        "size_px": 56,
+        "weight": 700,
+        "background": {
+          "color": "#c62828",
+          "opacity": 1,
+          "padding_px": 16,
+          "radius_px": 0
+        }
+      }
+    },
+    "othersUnchanged": true,
+    "captionCount": [
+      5,
+      5
+    ]
+  },
+  "d": {
+    "card": {
+      "x": 104,
+      "y": 280
+    },
+    "drop": {
+      "x": 544,
+      "y": 208
+    },
+    "intercepted": true,
+    "mimeTypes": [
+      "application/x-akari-library-item"
+    ],
+    "preview": {
+      "x": 544,
+      "y": 208,
+      "w": 522,
+      "h": 482
+    },
+    "changed": true,
+    "newCaptions": [
+      {
+        "id": "c-0006",
+        "text": "テキストを入力",
+        "start": 3,
+        "style_preset": "subtitle-news",
+        "position": {
+          "x": 0.33428819444444446,
+          "y": 0.25506172839506175
+        }
+      }
+    ]
+  },
+  "e": {
+    "changed": true,
+    "newCaptions": [
+      {
+        "id": "c-0007",
+        "text": "テキストを入力",
+        "start": 3,
+        "style_preset": null
+      }
+    ],
+    "stillOnPage": true
+  },
+  "f0": {
+    "rows": [
+      "caption-font-family",
+      "caption-color",
+      "caption-size",
+      "caption-wrap-width",
+      "caption-font-weight",
+      "caption-line-height",
+      "caption-letter-spacing"
+    ],
+    "rowText": "フォント Noto Sans JP ›",
+    "buttonFont": "\"AKARI Noto Sans JP\", sans-serif",
+    "faces": [
+      "loaded",
+      "loaded"
+    ]
+  },
+  "e2": {
+    "card": {
+      "x": 87,
+      "y": 126
+    },
+    "drop": {
+      "x": 544,
+      "y": 248
+    },
+    "intercepted": true,
+    "mimeTypes": [
+      "application/x-akari-library-item"
+    ],
+    "changed": true,
+    "newCaptions": [
+      {
+        "id": "c-0008",
+        "text": "テキストを入力",
+        "start": 3,
+        "style_preset": null
+      }
+    ]
+  },
+  "f1": {
+    "rows": [
+      "caption-font-family",
+      "caption-color",
+      "caption-size",
+      "caption-wrap-width",
+      "caption-font-weight",
+      "caption-line-height",
+      "caption-letter-spacing"
+    ],
+    "rowText": "フォント Noto Sans JP ›",
+    "buttonFont": "\"AKARI Noto Sans JP\", sans-serif",
+    "faces": [
+      "loaded",
+      "loaded"
+    ]
+  },
+  "f2": {
+    "panel": {
+      "open": true,
+      "switch": "font",
+      "text": "← 戻る × フォント スタイル ☰ 最近使ったフォント フォント一覧（9件） ＋ BIZ UDゴシック BIZ UDGothic Aa Bb 123 · 同梱 Dela Gothic One あ字 Dela Gothic One Aa B"
+    },
+    "events": [
+      {
+        "panel": "font"
+      }
+    ]
+  },
+  "git": [
+    " M captions.json",
+    "?? .akari/"
+  ],
+  "status": "ok",
+  "seconds": 113,
+  "summary": "17/18 pass"
+}

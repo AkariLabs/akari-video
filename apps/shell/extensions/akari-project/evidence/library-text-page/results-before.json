@@ -1,0 +1,88 @@
+{
+  "phase": "before",
+  "base": "4fcfc9d3a",
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "homeTiles": [
+    "text | テキスト",
+    "shapes | 図形",
+    "stamps | イラスト",
+    "image | 画像",
+    "broll | 動画",
+    "bgm | BGM",
+    "sfx | SFX",
+    "overlay | オーバーレイ",
+    "scene3d | 3D・アバター",
+    "lut | LUT",
+    "transition | トランジション",
+    "fx | エフェクト",
+    "motion | モーション",
+    "mypresets | マイスタイル",
+    "template | ひな形",
+    "pack | セット"
+  ],
+  "shots": [
+    "before-00-library-home.png",
+    "before-01-after-t-press.png",
+    "before-02-library-details.png",
+    "before-03-text-look-page.png",
+    "before-04-inspector-text-section.png"
+  ],
+  "tPress": {
+    "before": {
+      "edit": "5012997e2b6bb487",
+      "captions": "e0720b5bd3b99659"
+    },
+    "after": {
+      "edit": "5012997e2b6bb487",
+      "captions": "70c553dded1614c2"
+    },
+    "editChanged": false,
+    "captionsChanged": true,
+    "addedItems": [],
+    "libraryView": {
+      "home": true,
+      "textLookPage": false
+    }
+  },
+  "details": "文字の見た目 / A / スタイル・動き・フォント / 選んだ文字に当てる / 13·47·31 / マイ / ★ / お気に入り / 近日 / ◈ / ブランドキット / 近日",
+  "textLookPage": {
+    "sections": [
+      {
+        "key": "style",
+        "top": 86,
+        "cards": 26
+      },
+      {
+        "key": "motion",
+        "top": 763,
+        "cards": 94
+      },
+      {
+        "key": "font",
+        "top": 2859,
+        "cards": 62
+      }
+    ],
+    "hasSwitch": false,
+    "header": "← ライブラリ 文字の見た目"
+  },
+  "inspectorTextSection": {
+    "sections": [
+      "時間",
+      "内容",
+      "文字",
+      "縁取り",
+      "座布団",
+      "効果",
+      "位置",
+      "タイミング"
+    ],
+    "text": "文字 / 色 / 大きさ / px / 折り返し幅 / % / 太さ / 普通 / 太字 / 極太 / 行間 / （既定） / 字間 / em / （既定）",
+    "hasFontRow": false
+  },
+  "status": "ok"
+}

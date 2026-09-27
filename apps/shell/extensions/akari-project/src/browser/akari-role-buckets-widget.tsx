@@ -104,7 +104,7 @@ import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/m
 import { libraryTextStyleSample } from '../common/library-shelf-visuals';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
-import { LibraryTextLookPage, LibraryTextLookRow } from './library-text-look-view';
+import { LibraryTextFontRow, LibraryTextLookPage, type LibraryTextTab } from './library-text-look-view';
 import { LibraryShapeShelf } from './library-shape-shelf-view';
 import { ShapeShelfService } from './shape-shelf-service';
 import { shapeShelfDragPayload, ShapeShelfPreset } from '../common/shape-shelf';
@@ -458,6 +458,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     };
 
     protected readonly handleGenerationPickKey = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape' && this.topView === 'catalog' && this.libraryTextLookOpen
+            && !this.generationPick.request && this.node.contains(event.target as Node)) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.showLibraryHome();
+            return;
+        }
         if (event.key === 'Escape' && this.generationPick.request) {
             event.preventDefault();
             event.stopImmediatePropagation();
@@ -660,6 +667,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
     protected libraryCategory?: LibraryCategoryKey;
     protected libraryTextLookOpen = false;
+    protected libraryTextTab: LibraryTextTab = 'style';
     protected libraryDetailsOpen = false;
     protected catalogCategory = 'all';
     protected catalogViewMode: CatalogViewMode = 'grid';
@@ -3671,7 +3679,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised,
                         color: AKARI_INK, border: AKARI_BORDER.ghost, fontSize: '0.75em'
                     }}>
-                    {this.libraryDetailsOpen ? '▾ 詳細をたたむ' : '▸ 詳細（文字の見た目・仕上げ・パック・マイ）'}
+                    {this.libraryDetailsOpen ? '▾ 詳細をたたむ' : '▸ 詳細（マイ）'}
                 </button>
                 {this.libraryDetailsOpen && <div data-akari-library-details>
                 {LIBRARY_DETAIL_GROUPS.map(group => (
@@ -3687,14 +3695,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
                                 {group.categories.map(category => this.renderLibraryMyCategory(category))}
                             </div>
-                            : group.label === '文字の見た目'
-                                ? <LibraryTextLookRow counts={[this.presetShowcase.textstyle.length + this.myStyles.length,
-                                    this.presetShowcase.textanim.length, this.assetCatalogItems.filter(item => item.category === 'font').length]}
-                                    onOpen={() => { this.libraryCategory = undefined; this.catalogCategory = 'all';
-                                        this.libraryTextLookOpen = true; this.update(); }} />
-                                : <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    {group.categories.map(category => this.renderLibraryCategoryRow(category))}
-                                </div>}
+                            : <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {group.categories.map(category => this.renderLibraryCategoryRow(category))}
+                            </div>}
                     </section>
                 ))}
                 </div>}
@@ -3787,7 +3790,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 title={`${tile.label} — ${tile.hint}`}
                 onClick={soon ? undefined : event => {
                     event.stopPropagation();
-                    if (tile.key === 'text') void this.placeLibraryText();
+                    if (tile.key === 'text') {
+                        this.libraryCategory = undefined;
+                        this.catalogCategory = 'all';
+                        this.libraryTextLookOpen = true;
+                        this.node.tabIndex = -1;
+                        this.node.focus();
+                        this.update();
+                    }
                     else this.selectLibraryCategory(tile.key);
                 }}>
                 <span className='akari-library-tile-art' draggable={false}>
@@ -3855,14 +3865,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderTextLookPage(): React.ReactNode {
+        this.ensureLibraryStyleFonts();
         const styleItems = this.filteredPresetShowcaseItems('textstyle');
         const motionItems = this.filteredPresetShowcaseItems('textanim');
         const fontItems = this.filteredCatalogItems().filter(item => item.category === 'font');
-        return <LibraryTextLookPage onBack={() => this.showLibraryHome()}
+        return <LibraryTextLookPage onBack={() => this.showLibraryHome()} onPlace={() => { void this.placeLibraryText(); }}
+            tab={this.libraryTextTab} onTabChange={tab => { this.libraryTextTab = tab; this.update(); }}
             styles={styleItems.map(item => this.renderPresetShowcaseCard(item))}
             myStyles={this.renderMyStyles()}
             motions={motionItems.map(item => this.renderPresetShowcaseCard(item))}
-            fonts={fontItems.map(item => this.renderCatalogItem(item))} />;
+            fonts={fontItems.map(item => this.generationPick.request ? this.renderCatalogItem(item)
+                : <LibraryTextFontRow key={item.key} item={item} faceFamily={this.libraryStyleFontFaces.get(item.id)}
+                    card={this.renderCatalogItem(item) as React.ReactElement<React.ComponentProps<typeof FontShelfCard>>} />)} />;
     }
 
     protected renderLibraryCategoryPage(key: LibraryCategoryKey): React.ReactNode {
@@ -4673,11 +4687,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected libraryStyleFontsRequested = false;
+    protected libraryStyleFontFaces = new Map<string, string>();
 
     protected ensureLibraryStyleFonts(): void {
         if (this.libraryStyleFontsRequested || !this.materialPreviewService) return;
         this.libraryStyleFontsRequested = true;
         void this.materialPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
+            this.libraryStyleFontFaces = new Map([...assets.bundledCaptionFontFaces,
+                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY }].map(face => [face.id, face.family]));
             const style = document.createElement('style');
             style.setAttribute('data-akari-library-style-fonts', '');
             style.textContent = [...assets.bundledCaptionFontFaces,
