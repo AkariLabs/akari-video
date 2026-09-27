@@ -24899,6 +24899,9 @@ var CachedStillImageSource = class {
         const value2 = { bitmap, width: bitmap.width, height: bitmap.height };
         this.values.set(mode, value2);
         return value2;
+      }, (error) => {
+        if (this.pending.get(mode) === pending) this.pending.delete(mode);
+        throw error;
       });
       this.pending.set(mode, pending);
     }
@@ -32036,6 +32039,7 @@ var ScrubController = class {
   executing = false;
   requestScrub(frameNumber) {
     this.pendingFrame = frameNumber;
+    if (this.executing) this.generation += 1;
     this.schedule();
   }
   isStale(generation) {

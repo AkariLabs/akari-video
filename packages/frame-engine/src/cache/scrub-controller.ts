@@ -15,6 +15,9 @@ export class ScrubController {
 
   requestScrub(frameNumber: number): void {
     this.pendingFrame = frameNumber;
+    // 実行中の描画はもう最新ではない。executor が isStale() で提示前に打ち切れるよう世代を進める
+    // （打ち切らないと古い時刻の絵をいったん出してから最新へ進み、時刻外の素材が残って見える）。
+    if (this.executing) this.generation += 1;
     this.schedule();
   }
 

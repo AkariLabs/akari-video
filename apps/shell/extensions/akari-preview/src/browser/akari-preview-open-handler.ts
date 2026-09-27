@@ -11237,10 +11237,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 const withPreviewPositionFn = (${withPreviewPosition.toString()});
                 const upperPlanes = new Map();
                 let upperCompositor = null;
+                // シーク中の描画は素材の準備（静止画の読み込みなど）を待つ間に古くなることがある。
+                // 合成に入る前に打ち切れば、どの band も描き替えずに次の最新フレームへ進める。
+                let activeRenderStale = null;
+                const staleRenderAbort = new Error('stale preview frame');
                 const compositor = {
                     kind: 'webgl2',
                     get uploadPath() { return upperCompositor?.uploadPath === 'copyTo' ? 'copyTo' : baseCompositor.uploadPath; },
                     async compose(baseFrames, layerFrames, outputSpec, metricsRecorder, plan) {
+                        if (activeRenderStale && activeRenderStale()) throw staleRenderAbort;
                         const bands = partitionMediaPlanes(plan, engineSummary);
                         const used = new Set(bands.filter(band => band.key > 0).map(band => band.key));
                         for (const [key, plane] of upperPlanes) {
@@ -11358,7 +11363,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     idleScaleAt = reason === 'seek' && !playing ? performance.now() + 250 : null;
                     armRenderScaleTimer();
                 };
-                const renderFrame = async (seconds, reason, requestedAt = performance.now(), scaleOnly = false) => {
+                const renderFrame = async (seconds, reason, requestedAt = performance.now(), scaleOnly = false, isStale = null) => {
                     if (disposed) return;
                     if (!scaleOnly) {
                         noteRenderScaleActivity(reason);
@@ -11373,9 +11378,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     currentAccesses = accesses;
                     const started = performance.now();
                     let frame;
+                    activeRenderStale = isStale;
                     try {
                         frame = await engine.evaluateFrame(plan, { compositor, metrics: frameMetrics });
+                    } catch (reason) {
+                        // 打ち切った古いフレームは提示していないので、提示時刻・計測・エラー面を動かさない。
+                        if (reason === staleRenderAbort) {
+                            if (currentAccesses === accesses) currentAccesses = null;
+                            return;
+                        }
+                        throw reason;
                     } finally {
+                        activeRenderStale = null;
                         if (frame) frame.close();
                     }
                     const late = performance.now() - started > 1000 / fps;
@@ -11415,7 +11429,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     const started = performance.now();
                     await waitForRender();
                     if (scrub.isStale(generation) || disposed) return;
-                    const operation = renderFrame(frameNumber / fps, 'seek', started)
+                    const operation = renderFrame(frameNumber / fps, 'seek', started, false, () => scrub.isStale(generation))
                         .catch(reason => showError(reason, true));
                     rendering = operation;
                     try {
@@ -11554,7 +11568,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         return queueEngineSummaryUpdate(current => current, false);
                     },
                     applyTransformPreview(target, transform, playheadSeconds) {
-                        return queueEngineSummaryUpdate(current => {
+                        const key = 'transform:' + liveTargetKey(target) + ':' + Object.keys(transform).sort().join(',');
+                        return queueLiveEngineSummaryUpdate(key, current => {
                             if (Number.isFinite(playheadSeconds) && Object.keys(transform).length > 0
                                 && Object.keys(transform).every(key => key === 'x' || key === 'y')) {
                                 return withPreviewPositionFn(current, target, transform, playheadSeconds);
@@ -11575,16 +11590,20 @@ body { display: grid; place-items: center; padding: 32px; }
                             }
                             return Object.entries(transform).reduce(
                                 (next, [field, value]) => summaryWithLivePreview(next, { target, field, value }), current);
-                        }, false);
+                        });
                     },
                     applyLivePreview(message) {
-                        return queueEngineSummaryUpdate(
-                            current => summaryWithLivePreview(current, message),
-                            false
-                        );
+                        if (message?.clear || typeof message?.field !== 'string') {
+                            return queueEngineSummaryUpdate(
+                                current => summaryWithLivePreview(current, message),
+                                false
+                            );
+                        }
+                        return queueLiveEngineSummaryUpdate('live:' + liveTargetKey(message.target) + ':' + message.field,
+                            current => summaryWithLivePreview(current, message));
                     },
                     applyCropPreview(target, crop, transform) {
-                        return queueEngineSummaryUpdate(current => {
+                        return queueLiveEngineSummaryUpdate('crop:' + liveTargetKey(target), current => {
                             const collection = target.kind === 'cut' ? 'cuts' : 'layers';
                             const entries = Array.isArray(current[collection]) ? current[collection] : [];
                             const index = target.kind === 'cut' ? target.index
@@ -11593,7 +11612,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const next = [...entries];
                             next[index] = { ...next[index], crop: { ...crop }, transform: { ...transform } };
                             return { ...current, [collection]: next };
-                        }, false);
+                        });
                     }
                 };
 
@@ -11814,13 +11833,36 @@ body { display: grid; place-items: center; padding: 32px; }
                         runtimeUpdating = false;
                     }
                 };
+                let openLiveSlot = null;
                 const queueEngineSummaryUpdate = (resolveNext, rebuildServices) => {
+                    // 後から来たライブ更新が、これより前に積んだ合流枠へ入って順序が入れ替わらないよう閉じる。
+                    openLiveSlot = null;
                     const apply = () => applyEngineSummary(resolveNext(engineSummary), rebuildServices);
                     modelUpdateTail = modelUpdateTail.then(apply, apply).catch(reason => {
                         showError(reason, false);
                     });
                     return modelUpdateTail;
                 };
+                // ドラッグ・つまみのライブ更新は 1 回ごとに timeline の組み直しと全 band の再描画を伴う。
+                // 重い案件では 1 回が 1 フレームより長く、RAF ごとの更新が直列キューへ積み上がって
+                // 選択枠（DOM は即時）と画像（このキュー）の世代がずれ、離した後も遅れが残っていた。
+                // まだ始まっていない合流枠へは同じ対象の最新値だけを上書きで入れる（値はどれも絶対値）。
+                const queueLiveEngineSummaryUpdate = (key, resolveNext) => {
+                    if (openLiveSlot) {
+                        openLiveSlot.resolvers.set(key, resolveNext);
+                        return openLiveSlot.promise;
+                    }
+                    const slot = { resolvers: new Map([[key, resolveNext]]), promise: null };
+                    slot.promise = queueEngineSummaryUpdate(current => {
+                        if (openLiveSlot === slot) openLiveSlot = null;
+                        let next = current;
+                        for (const resolve of slot.resolvers.values()) next = resolve(next);
+                        return next;
+                    }, false);
+                    openLiveSlot = slot;
+                    return slot.promise;
+                };
+                const liveTargetKey = target => String(target?.kind) + ':' + String(target?.kind === 'cut' ? target.index : target?.id);
                 window.akari = window.akari || {};
                 window.akari.frameEngineClock = clock;
 
