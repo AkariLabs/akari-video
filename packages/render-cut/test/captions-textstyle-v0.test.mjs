@@ -49,7 +49,7 @@ test("新語彙が CSS 変数へ変換される", () => {
   assert.equal(vars["--caption-letter-spacing"], "0.08em");
   assert.equal(vars["--caption-line-height"], "1.6");
   assert.equal(vars["--caption-text-transform"], "uppercase");
-  assert.equal(vars["--caption-line-max-width"], "80%");
+  assert.equal(vars["--caption-line-max-width"], undefined, "縦書きでは幅指定を列の高さへ読み替える");
   assert.equal(vars["--caption-writing-mode"], "vertical-rl");
   assert.equal(vars["--plate-pad-x"], "12px");
   assert.equal(vars["--plate-pad-y"], "12px");
@@ -61,7 +61,7 @@ test("新語彙が CSS 変数へ変換される", () => {
 test("align / text_anchor / position が配置変数になる", () => {
   const aligned = captionTextStyleVars({ align: "left" });
   assert.equal(aligned["--caption-text-align"], "left");
-  assert.equal(aligned["--caption-align-items"], "flex-start");
+  assert.equal(aligned["--caption-align-items"], undefined, "行内の配置は字幕の箱を動かさない");
 
   const anchored = captionTextStyleVars({ text_anchor: "tr" });
   assert.equal(anchored["--caption-top"], "7%");

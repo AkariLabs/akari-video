@@ -1,0 +1,178 @@
+{
+  "label": "before",
+  "engines": {
+    "osr": {
+      "status": 0,
+      "seconds": 50.7,
+      "tail": [
+        "PROGRESS frame=300 total=300",
+        "PROGRESS timing name=encoder_flush ms=295",
+        "PROGRESS timing name=osr_ffprobe ms=1796",
+        "PROGRESS timing name=window_destroy ms=12",
+        "PROGRESS timing name=child_run_json ms=7",
+        "PROGRESS timing name=window_destroy_to_exit ms=9",
+        "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+        "PASS: exports/osr.mp4"
+      ],
+      "provenance": {
+        "engine": "osr",
+        "osrTier": null,
+        "gpuTier": null,
+        "keys": [
+          "audio",
+          "sources",
+          "proxy_used",
+          "render_tmp_dir",
+          "rasterizer",
+          "environment",
+          "engine_requested",
+          "engine",
+          "codec",
+          "osr"
+        ]
+      },
+      "frames": [
+        {
+          "id": "c-0001",
+          "t": 0.5,
+          "file": "before-osr-c-0001.png"
+        },
+        {
+          "id": "c-0002",
+          "t": 1.5,
+          "file": "before-osr-c-0002.png"
+        },
+        {
+          "id": "c-0003",
+          "t": 2.5,
+          "file": "before-osr-c-0003.png"
+        },
+        {
+          "id": "c-0004",
+          "t": 3.5,
+          "file": "before-osr-c-0004.png"
+        },
+        {
+          "id": "c-0005",
+          "t": 4.5,
+          "file": "before-osr-c-0005.png"
+        },
+        {
+          "id": "c-0006",
+          "t": 5.5,
+          "file": "before-osr-c-0006.png"
+        },
+        {
+          "id": "c-0007",
+          "t": 6.5,
+          "file": "before-osr-c-0007.png"
+        },
+        {
+          "id": "c-0008",
+          "t": 7.5,
+          "file": "before-osr-c-0008.png"
+        },
+        {
+          "id": "c-0009",
+          "t": 8.5,
+          "file": "before-osr-c-0009.png"
+        },
+        {
+          "id": "c-0010",
+          "t": 9.5,
+          "file": "before-osr-c-0010.png"
+        }
+      ]
+    },
+    "gpu": {
+      "status": 0,
+      "seconds": 6.6,
+      "tail": [
+        "PROGRESS preview=240 path=<path>",
+        "PROGRESS frame=270 total=300",
+        "PROGRESS preview=270 path=<path>",
+        "PROGRESS frame=300 total=300",
+        "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+        "PASS: exports/gpu.mp4",
+        "[OpenH264] this = 0x0x11405369900, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.",
+        "sysctlbyname for kern.hv_vmm_present failed with status -1"
+      ],
+      "provenance": {
+        "engine": "gpu",
+        "osrTier": null,
+        "gpuTier": 2,
+        "keys": [
+          "audio",
+          "sources",
+          "proxy_used",
+          "render_tmp_dir",
+          "rasterizer",
+          "environment",
+          "engine_requested",
+          "engine",
+          "codec",
+          "gpu"
+        ]
+      },
+      "frames": [
+        {
+          "id": "c-0001",
+          "t": 0.5,
+          "file": "before-gpu-c-0001.png"
+        },
+        {
+          "id": "c-0002",
+          "t": 1.5,
+          "file": "before-gpu-c-0002.png"
+        },
+        {
+          "id": "c-0003",
+          "t": 2.5,
+          "file": "before-gpu-c-0003.png"
+        },
+        {
+          "id": "c-0004",
+          "t": 3.5,
+          "file": "before-gpu-c-0004.png"
+        },
+        {
+          "id": "c-0005",
+          "t": 4.5,
+          "file": "before-gpu-c-0005.png"
+        },
+        {
+          "id": "c-0006",
+          "t": 5.5,
+          "file": "before-gpu-c-0006.png"
+        },
+        {
+          "id": "c-0007",
+          "t": 6.5,
+          "file": "before-gpu-c-0007.png"
+        },
+        {
+          "id": "c-0008",
+          "t": 7.5,
+          "file": "before-gpu-c-0008.png"
+        },
+        {
+          "id": "c-0009",
+          "t": 8.5,
+          "file": "before-gpu-c-0009.png"
+        },
+        {
+          "id": "c-0010",
+          "t": 9.5,
+          "file": "before-gpu-c-0010.png"
+        }
+      ]
+    }
+  },
+  "lint": {
+    "status": 0,
+    "tail": [
+      "PASS: <path> (1 findings, 5 skipped)",
+      "- [warning] geometry.fit-compat: fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます (edit.json#output.geometry)"
+    ]
+  }
+}

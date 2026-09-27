@@ -173,7 +173,11 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
   const signature = summary => JSON.stringify(Array.isArray(summary?.overlays) ? summary.overlays : []);
   let mountedSignature;
   let remounting = null;
-  const snapshotPresentation = () => new Map([...document.querySelectorAll('[data-overlay-id]')].map(element => [
+  // 対象は overlay-stage 直下の器だけ。ホバー枠（interaction.js の preview-hover-frame）も同じ
+  // data-overlay-id を持って body に居るため、document 全体を拾うと Map が枠の値（z-index: 90・
+  // track なし・選択なし）で上書きされ、remount 後の器へ書き戻されて最前面に張り付く。
+  const presentationTargets = () => document.querySelectorAll('#overlay-stage > [data-overlay-id]');
+  const snapshotPresentation = () => new Map([...presentationTargets()].map(element => [
     element.getAttribute('data-overlay-id') || '',
     {
       track: element.getAttribute('data-akari-track'),
@@ -183,7 +187,7 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
     }
   ]));
   const restorePresentation = snapshot => {
-    for (const element of document.querySelectorAll('[data-overlay-id]')) {
+    for (const element of presentationTargets()) {
       const state = snapshot.get(element.getAttribute('data-overlay-id') || '');
       if (!state) continue;
       if (state.track === null) element.removeAttribute('data-akari-track');

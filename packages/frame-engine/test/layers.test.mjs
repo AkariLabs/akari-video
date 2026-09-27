@@ -94,6 +94,15 @@ test('layer window uses render-cut half-open frame quantization', () => {
   assert.equal(isLayerActiveAt(layer, 6 / 30 * 1e6, 30), false);
 });
 
+test('layer window survives integer microsecond rounding at its first frame', () => {
+  // 364/30 秒を整数 µs へ丸めると 12133333 µs（= 363.99999 フレーム）になる。先頭フレームで見えること。
+  for (const startFrame of [364, 415, 929, 654]) {
+    const layer = { t: startFrame / 30, duration: 5 };
+    assert.equal(isLayerActiveAt(layer, Math.round(startFrame / 30 * 1e6), 30), true, `frame ${startFrame}`);
+    assert.equal(isLayerActiveAt(layer, Math.round((startFrame - 1) / 30 * 1e6), 30), false, `frame ${startFrame - 1}`);
+  }
+});
+
 test('layer keyframes numerically match the Web preview reference', () => {
   for (const seconds of [-1, 0, .5, 1, 1.5, 2, 3]) {
     const actual = computeLayerKeyframesVisual(keyframes, seconds);

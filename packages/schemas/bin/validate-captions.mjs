@@ -360,7 +360,7 @@ function validateTextStyle(value, label) {
   // 正本は captions.schema.json の $defs/textStyle。
   const allowedKeys = new Set([
     "color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout",
-    "font_family", "weight", "italic", "underline", "letter_spacing_em", "align",
+    "font_family", "weight", "italic", "underline", "strikethrough", "list", "opacity", "letter_spacing_em", "align",
     "vertical_align", "vertical", "text_transform", "max_width_pct", "wrap_width_pct", "max_characters", "text_anchor",
     "position", "scale", "rotate", "shadow", "glow", "animation", "reference_height_px",
   ]);
@@ -410,6 +410,16 @@ function validateTextStyleV0(value, label) {
   }
   for (const key of ["italic", "underline", "vertical"]) {
     if (hasOwn(value, key) && typeof value[key] !== "boolean") fail(`${label}.${key} は boolean である必要があります`);
+  }
+  if (hasOwn(value, "strikethrough") && typeof value.strikethrough !== "boolean") {
+    fail(`${label}.strikethrough は boolean である必要があります`);
+  }
+  if (hasOwn(value, "list") && value.list !== "bullet" && value.list !== null) {
+    fail(`${label}.list は bullet または null である必要があります`);
+  }
+  if (hasOwn(value, "opacity")
+    && (!isFiniteNumber(value.opacity) || value.opacity < 0 || value.opacity > 1)) {
+    fail(`${label}.opacity は 0 から 1 の範囲の有限数である必要があります`);
   }
   if (hasOwn(value, "letter_spacing_em") && !isFiniteNumber(value.letter_spacing_em)) {
     fail(`${label}.letter_spacing_em は有限数である必要があります`);

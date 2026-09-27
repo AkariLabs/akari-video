@@ -1,0 +1,106 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "base",
+      "path": "assets/base.mp4"
+    },
+    {
+      "id": "photo",
+      "path": "assets/photo.png"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 0,
+            "out": 10
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-photo",
+      "lane": "visual",
+      "name": "photo",
+      "items": [
+        {
+          "id": "photo-1",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": -520,
+            "y": -260,
+            "scale": 0.35
+          },
+          "source": {
+            "kind": "media",
+            "src": "photo",
+            "in": 0,
+            "out": 10
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-shape-a",
+      "lane": "visual",
+      "name": "shape-a",
+      "items": [
+        {
+          "id": "shape-a",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 1300,
+            "y": 150
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 300,
+              "height": 200,
+              "fill": "#3b82f6",
+              "stroke": "#111827",
+              "strokeWidth": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-text",
+      "lane": "visual",
+      "name": "text",
+      "items": [
+        {
+          "id": "captions",
+          "name": "字幕",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "captions",
+            "path": "captions.json"
+          },
+          "items": []
+        }
+      ]
+    }
+  ]
+}

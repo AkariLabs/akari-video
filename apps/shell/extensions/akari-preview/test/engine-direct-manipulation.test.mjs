@@ -47,19 +47,45 @@ test('frame-engine live cut pose updates the playhead point for rendering',()=>{
  const match=source.match(/applyTransformPreview\(target, transform, playheadSeconds\) \{([\s\S]*?)\n\s*\},\n\s*applyLivePreview/u);
  assert.ok(match);
  const current={output:{fps:30},cuts:[{at:0,keyframes:[{t:0,transform:{x:0}},{t:3,transform:{x:30}}]}]};
- const run=new Function('queueEngineSummaryUpdate','summaryWithLivePreview',
+ const run=new Function('queueLiveEngineSummaryUpdate','liveTargetKey','summaryWithLivePreview',
    `return function(target,transform,playheadSeconds){${match[1]}}`)
-   (fn=>fn(current),()=>assert.fail('static path used'));
+   ((key,fn)=>fn(current),target=>String(target.kind),()=>assert.fail('static path used'));
  const result=run({kind:'cut',index:0},{x:50,y:10,scale:1.2,rotate:15},1);
  assert.equal(result.cuts[0].keyframes.find(point=>point.t===1).transform.x,50);
  assert.equal(result.cuts[0].keyframes.length,3);
  assert.equal(current.cuts[0].keyframes.length,2);
  const staticSummary={output:{fps:30},cuts:[{at:0,transform:{x:0}}]};
  let staticFields=0;
- const staticRun=new Function('queueEngineSummaryUpdate','summaryWithLivePreview',
+ const staticRun=new Function('queueLiveEngineSummaryUpdate','liveTargetKey','summaryWithLivePreview',
    `return function(target,transform,playheadSeconds){${match[1]}}`)
-   (fn=>fn(staticSummary),(value,message)=>{staticFields++;return {...value,cuts:[{...value.cuts[0],transform:{...value.cuts[0].transform,[message.field]:message.value}}]};});
+   ((key,fn)=>fn(staticSummary),target=>String(target.kind),(value,message)=>{staticFields++;return {...value,cuts:[{...value.cuts[0],transform:{...value.cuts[0].transform,[message.field]:message.value}}]};});
  assert.equal(staticRun({kind:'cut',index:0},{x:50,y:10,scale:1.2,rotate:15},1).cuts[0].transform.x,50);
  assert.equal(staticFields,4);
 });
 test('engine cut visibility follows the timeline, not the intentionally hidden legacy video',()=>{const code=fragment('            const cutInteractionVisible =','            // frame-engine 面では本編');const run=new Function('frameEngineMediaIdle','segments','allTracksHiddenByScope','hiddenTracksByScope',`const video={style:{visibility:'hidden'}},stillImage={style:{display:'none'}},activeSegmentIndex=0;const cutInteractionSegment=()=>segments[activeSegmentIndex];${code};return cutInteractionVisible();`);assert.equal(run(true,[{kind:'src',track:0}],{cuts:false},{cuts:new Set()}),true);assert.equal(run(true,[{kind:'gap'}],{cuts:false},{cuts:new Set()}),false);assert.equal(run(true,[{kind:'src',track:0}],{cuts:true},{cuts:new Set()}),false);assert.equal(run(false,[],{cuts:false},{cuts:new Set()}),false)});
+test('live transform previews queued behind a render coalesce into one rebuild with the latest value',async()=>{
+ const start=source.indexOf('                let openLiveSlot = null;');
+ const end=source.indexOf('                window.akari = window.akari || {};',start);
+ assert.ok(start>0&&end>start);
+ const applied=[];let release;const gate=new Promise(resolve=>{release=resolve;});
+ const harness=new Function('applyEngineSummary','showError',
+  `let engineSummary={x:0};let modelUpdateTail=Promise.resolve();${source.slice(start,end)}
+   return {queueEngineSummaryUpdate,queueLiveEngineSummaryUpdate,liveTargetKey,setSummary:s=>{engineSummary=s;}};`);
+ let api;
+ api=harness(async(next)=>{applied.push(next);api.setSummary(next);if(applied.length===1)await gate;},error=>{throw error;});
+ // 1 回目は描画中（gate で止める）。その間に届いた 10 回分は 1 回の組み直しへ合流し、最後の値が残る。
+ const first=api.queueLiveEngineSummaryUpdate('transform:layer:a:x,y',s=>({...s,x:1}));
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(applied.length,1);
+ for(let i=2;i<=11;i++) api.queueLiveEngineSummaryUpdate('transform:layer:a:x,y',s=>({...s,x:i}));
+ release();await first;
+ await api.queueLiveEngineSummaryUpdate('transform:layer:a:x,y',s=>s);
+ assert.deepEqual(applied.map(value=>value.x),[1,11,11]);
+ // 通常の更新を挟んだら、その後のライブ更新は前の合流枠へ入らない（順序を守る）。
+ applied.length=0;
+ const a=api.queueLiveEngineSummaryUpdate('live:layer:a:opacity',s=>({...s,o:1}));
+ api.queueEngineSummaryUpdate(s=>({...s,committed:true}),true);
+ api.queueLiveEngineSummaryUpdate('live:layer:a:opacity',s=>({...s,o:2}));
+ await a;await new Promise(resolve=>setTimeout(resolve,0));await new Promise(resolve=>setTimeout(resolve,0));
+ assert.deepEqual(applied.map(value=>[value.o,Boolean(value.committed)]),[[1,false],[1,true],[2,true]]);
+});

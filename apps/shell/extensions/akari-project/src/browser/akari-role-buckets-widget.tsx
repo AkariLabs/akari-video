@@ -8,6 +8,7 @@ import {
     GenerationPickRequest, GenerationPickResult, GenerationPickTimelineSelection, generationPickSelectionChanged
 } from '../common/generation-pick';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
+import { CAPTION_FONT_FAMILY, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
 import { MaterialCardHoverPreview } from './material-card-hover-preview';
 import type { TranscriptState } from '../common/akari-project-protocol';
 import * as React from '@theia/core/shared/react';
@@ -99,7 +100,8 @@ import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
-import { defaultMyStyleParts, myStylePartLabel, myStyleSamplePresentation, type MyStyle } from '../common/my-style';
+import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
+import { libraryTextStyleSample } from '../common/library-shelf-visuals';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryTextLookPage, LibraryTextLookRow } from './library-text-look-view';
@@ -4645,7 +4647,29 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             : this.renderPresetShowcaseCard(item);
     }
 
+    protected libraryStyleFontsRequested = false;
+
+    protected ensureLibraryStyleFonts(): void {
+        if (this.libraryStyleFontsRequested || !this.materialPreviewService) return;
+        this.libraryStyleFontsRequested = true;
+        void this.materialPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
+            const style = document.createElement('style');
+            style.setAttribute('data-akari-library-style-fonts', '');
+            style.textContent = [...assets.bundledCaptionFontFaces,
+                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', url: assets.captionFontUrl }]
+                .filter(face => face.id !== 'noto-sans-jp')
+                .map(face => `@font-face{font-family:${JSON.stringify(face.family)};`
+                    + `src:url(${JSON.stringify(face.url)}) format('truetype');`
+                    + `font-weight:${face.id === 'noto-serif-jp' ? '200 900' : face.weight};font-display:swap}`)
+                .join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
+            document.head.append(style);
+            this.toDispose.push({ dispose: () => style.remove() });
+            void document.fonts.ready.then(() => this.update());
+        }).catch(() => { this.libraryStyleFontsRequested = false; });
+    }
+
     protected renderMyStyles(): React.ReactNode {
+        this.ensureLibraryStyleFonts();
         const query = this.catalogQuery.trim().toLocaleLowerCase();
         const styles = this.myStyles.filter(style => (!query || `${style.name} ${style.when_to_use}`.toLocaleLowerCase().includes(query))
             && this.presetPassesLibraryFilter(`mystyle/${style.id}`, 'own'));
@@ -4654,7 +4678,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             {styles.length === 0 && <p style={{ opacity: 0.7, padding: '8px 10px', fontSize: '0.78em' }}>保存したスタイルはまだありません。</p>}
             <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '8px 10px' }}>
                 {styles.map(style => {
-                    const sampleStyle = myStyleSamplePresentation(style) as React.CSSProperties;
+                    const look = style.parts.find(part => part.kind === 'look')?.text_style;
+                    const sampleStyle = libraryTextStyleSample(
+                        look && typeof look === 'object' && !Array.isArray(look) ? look as Record<string, unknown> : {}
+                    ) as React.CSSProperties;
                     const key = `mystyle/${style.id}`;
                     const target: LibraryMenuTarget = { kind: 'mystyle', key };
                     const info = this.libraryInfo?.target;
@@ -4662,7 +4689,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         title={`${style.name} — ${style.when_to_use}`}
                         favorite={this.libraryFavorites.has(key)}
                         infoOpen={info?.kind === 'mystyle' && info.key === key}
-                        attributes={{ 'data-akari-my-style-card': style.id }}
+                        attributes={{ 'data-akari-my-style-card': style.id, 'data-akari-style-card': `mystyle/${style.id}` }}
                         draggable
                         onMouseEnter={event => this.playMyStyleSample(event.currentTarget as HTMLDivElement, style)}
                         onMouseLeave={event => event.currentTarget.querySelector('[data-akari-my-style-preview]')?.getAnimations().forEach(animation => animation.cancel())}
@@ -4675,8 +4702,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                         onContextMenu={event => this.openLibraryMenuAt(event, target)}
                         onInfo={anchor => this.openLibraryInfo(target, anchor)}
-                        face={<span data-akari-my-style-preview style={{ ...sampleStyle, maxWidth: '86%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {style.sample_text || style.name}
+                        face={<span data-akari-my-style-preview style={{ ...sampleStyle, maxWidth: '94%',
+                            maxHeight: '100%', overflow: 'hidden', textAlign: 'center', fontSize: 12, lineHeight: 1.2 }}>
+                            Abc あいう 漢字
                         </span>} />;
                 })}
             </div>
@@ -4843,6 +4871,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** プリセットのカード = 見本 + 名前 + ⋯（タグ・説明・＋は情報カードと右クリックへ）。 */
     protected renderPresetLibraryCard(item: PresetShowcaseItem, layout: 'grid' | 'list'): React.ReactNode {
+        if (item.kind === 'textstyle') this.ensureLibraryStyleFonts();
         const key = `${item.kind}/${item.id}`;
         const target: LibraryMenuTarget = { kind: item.kind, key };
         const textstyle = item.kind === 'textstyle';
@@ -4854,6 +4883,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             attributes={{
                 'data-akari-catalog-preset-item': key,
                 'data-akari-catalog-item': textstyle ? `textstyle/${item.id}` : undefined,
+                'data-akari-style-card': textstyle ? item.id : undefined,
                 'data-akari-catalog-preset-list-row': layout === 'list' ? true : undefined
             }}
             draggable
@@ -4866,6 +4896,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             onInfo={anchor => this.openLibraryInfo(target, anchor)}
             face={item.kind === 'lut'
                 ? <LutPreview url={item.previewUrl} />
+                : textstyle
+                ? <span draggable={false} data-akari-preset-sample-text
+                    style={{ ...libraryTextStyleSample(item.style ?? {}) as React.CSSProperties,
+                        maxWidth: '94%', maxHeight: '100%', overflow: 'hidden', textAlign: 'center',
+                        fontSize: layout === 'list' ? 11 : 12, lineHeight: 1.2 }}>Abc あいう 漢字</span>
                 : item.sampleText
                 ? <span draggable={false} data-akari-preset-sample-text data-akari-textanim-sample={item.kind === 'textanim' ? true : undefined}
                     style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

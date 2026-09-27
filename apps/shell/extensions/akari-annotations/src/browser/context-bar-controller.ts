@@ -7,7 +7,7 @@ import {
     resizeShapeTo, serializeItemClipboard, setCornerRadius, setItemLocked, StyleClip, styleClipOf, swapLineEnds
 } from '../common/context-bar-edit';
 import type { EditV2Document } from '../common/edit-v2-mutations';
-import { runCaptionStyleWrite } from '../common/caption-context-edit';
+import { applyCaptionContextField, runCaptionStyleWrite } from '../common/caption-context-edit';
 import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 import type { AkariAnnotationsWidget } from './akari-annotations-widget';
 import type { TimelineSelectionModel } from './timeline-selection-model';
@@ -237,6 +237,29 @@ export class ContextBarController implements Disposable {
                     return await runCaptionStyleWrite(id, request.field, request.value,
                         targetIds.length > 0 ? targetIds : [id], operation => write(operation as never)) as Result
                         ?? { ok: false };
+                }
+                case 'captionField': {
+                    if (!source.caption || id !== source.caption.id || !request.field) return { ok: false };
+                    const access = widget as unknown as {
+                        location?: { captionsUri?: { toString(): string }; editUri?: { toString(): string }; root: { toString(): string } };
+                        fileService: { readFile(uri: unknown): Promise<{ value: { toString(): string } }> };
+                        annotationsService: { writeEditSnapshot(value: Record<string, unknown>): Promise<unknown> };
+                        pushHistory(entry: { label: string; undo(): Promise<void>; redo(): Promise<void> }): void;
+                        reloadCaptions(): Promise<void>;
+                    };
+                    const location = access.location;
+                    if (!location?.captionsUri || !location.editUri) return { ok: false };
+                    const captionsUri = location.captionsUri.toString();
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    return applyCaptionContextField(id, request.field, request.value,
+                        this.deps.selectionModel.selectedCaptionIds, {
+                            readSource: async () => (await access.fileService.readFile(location.captionsUri)).value.toString(),
+                            writeSource: async captionsSource => { await access.annotationsService.writeEditSnapshot({
+                                editUri, projectRootUri, captionsUri, captionsSource }); },
+                            recordHistory: entry => access.pushHistory(entry),
+                            reload: () => access.reloadCaptions()
+                        });
                 }
                 case 'captionPreset': {
                     if (!source.caption || id !== source.caption.id || typeof request.value !== 'string') return { ok: false };

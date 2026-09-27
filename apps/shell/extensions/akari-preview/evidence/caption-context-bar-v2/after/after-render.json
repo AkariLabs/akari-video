@@ -1,0 +1,178 @@
+{
+  "label": "after",
+  "engines": {
+    "osr": {
+      "status": 0,
+      "seconds": 16.9,
+      "tail": [
+        "PROGRESS frame=300 total=300",
+        "PROGRESS timing name=encoder_flush ms=78",
+        "PROGRESS timing name=osr_ffprobe ms=307",
+        "PROGRESS timing name=window_destroy ms=11",
+        "PROGRESS timing name=child_run_json ms=5",
+        "PROGRESS timing name=window_destroy_to_exit ms=6",
+        "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+        "PASS: exports/osr.mp4"
+      ],
+      "provenance": {
+        "engine": "osr",
+        "osrTier": 2,
+        "gpuTier": null,
+        "keys": [
+          "audio",
+          "sources",
+          "proxy_used",
+          "render_tmp_dir",
+          "rasterizer",
+          "environment",
+          "engine_requested",
+          "engine",
+          "codec",
+          "osr"
+        ]
+      },
+      "frames": [
+        {
+          "id": "c-0101",
+          "t": 0.5,
+          "file": "after-osr-c-0101.png"
+        },
+        {
+          "id": "c-0102",
+          "t": 1.5,
+          "file": "after-osr-c-0102.png"
+        },
+        {
+          "id": "c-0103",
+          "t": 2.5,
+          "file": "after-osr-c-0103.png"
+        },
+        {
+          "id": "c-0104",
+          "t": 3.5,
+          "file": "after-osr-c-0104.png"
+        },
+        {
+          "id": "c-0105",
+          "t": 4.5,
+          "file": "after-osr-c-0105.png"
+        },
+        {
+          "id": "c-0106",
+          "t": 5.5,
+          "file": "after-osr-c-0106.png"
+        },
+        {
+          "id": "c-0107",
+          "t": 6.5,
+          "file": "after-osr-c-0107.png"
+        },
+        {
+          "id": "c-0108",
+          "t": 7.5,
+          "file": "after-osr-c-0108.png"
+        },
+        {
+          "id": "c-0109",
+          "t": 8.5,
+          "file": "after-osr-c-0109.png"
+        },
+        {
+          "id": "c-0110",
+          "t": 9.5,
+          "file": "after-osr-c-0110.png"
+        }
+      ]
+    },
+    "gpu": {
+      "status": 0,
+      "seconds": 6.7,
+      "tail": [
+        "PROGRESS preview=240 path=<path>",
+        "PROGRESS frame=270 total=300",
+        "PROGRESS preview=270 path=<path>",
+        "PROGRESS frame=300 total=300",
+        "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+        "PASS: exports/gpu.mp4",
+        "[OpenH264] this = 0x0x11400b07320, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.",
+        "sysctlbyname for kern.hv_vmm_present failed with status -1"
+      ],
+      "provenance": {
+        "engine": "gpu",
+        "osrTier": null,
+        "gpuTier": 2,
+        "keys": [
+          "audio",
+          "sources",
+          "proxy_used",
+          "render_tmp_dir",
+          "rasterizer",
+          "environment",
+          "engine_requested",
+          "engine",
+          "codec",
+          "gpu"
+        ]
+      },
+      "frames": [
+        {
+          "id": "c-0101",
+          "t": 0.5,
+          "file": "after-gpu-c-0101.png"
+        },
+        {
+          "id": "c-0102",
+          "t": 1.5,
+          "file": "after-gpu-c-0102.png"
+        },
+        {
+          "id": "c-0103",
+          "t": 2.5,
+          "file": "after-gpu-c-0103.png"
+        },
+        {
+          "id": "c-0104",
+          "t": 3.5,
+          "file": "after-gpu-c-0104.png"
+        },
+        {
+          "id": "c-0105",
+          "t": 4.5,
+          "file": "after-gpu-c-0105.png"
+        },
+        {
+          "id": "c-0106",
+          "t": 5.5,
+          "file": "after-gpu-c-0106.png"
+        },
+        {
+          "id": "c-0107",
+          "t": 6.5,
+          "file": "after-gpu-c-0107.png"
+        },
+        {
+          "id": "c-0108",
+          "t": 7.5,
+          "file": "after-gpu-c-0108.png"
+        },
+        {
+          "id": "c-0109",
+          "t": 8.5,
+          "file": "after-gpu-c-0109.png"
+        },
+        {
+          "id": "c-0110",
+          "t": 9.5,
+          "file": "after-gpu-c-0110.png"
+        }
+      ]
+    }
+  },
+  "lint": {
+    "status": 0,
+    "tail": [
+      "PASS: <path> (1 findings, 5 skipped)",
+      "- [warning] geometry.fit-compat: fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます (edit.json#output.geometry)"
+    ]
+  }
+}

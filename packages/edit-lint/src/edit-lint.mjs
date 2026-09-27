@@ -2596,7 +2596,8 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       });
     }
     if (!isNonEmptyString(overlay.html)) continue;
-    const htmlPath = resolveReference(paths.editPath, overlay.html, paths);
+    const htmlBinding = resolveReferenceBinding(paths.editPath, overlay.html, paths);
+    const htmlPath = htmlBinding.path;
     const isHtmlFile = await isRegularFile(htmlPath);
     // overlay.html は file 参照（相対パス）とインライン HTML の両方をとりうる。参照でなければ
     // フィールドの値そのものを断片本文として扱う（inspectHtmlFragment 以降のルート要素検証は
@@ -2626,9 +2627,16 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       });
       continue;
     }
+    // 共有ライブラリ参照（.akari/asset-references.json 経由で原本を読む）の断片は、ライブラリが
+    // data-start="0" data-duration="<素材の長さ>" で配っていて、プロジェクト側からは書き換えられない。
+    // 置いた時刻・長さの写しを作る取り込み（placedFragmentCopy）も参照では走らないため、ここで
+    // 検査すると置いた時点で必ず不一致になり書き出しが止まる。ランタイムは edit.json から作る
+    // .akari-overlay-container の値だけを使うので、原本ルートの値は検査しない。
+    const libraryFragment = htmlBinding.scope === "library";
     if (
-      Object.hasOwn(fragment.rootAttributes, "data-start")
-      || Object.hasOwn(fragment.rootAttributes, "data-duration")
+      !libraryFragment
+      && (Object.hasOwn(fragment.rootAttributes, "data-start")
+        || Object.hasOwn(fragment.rootAttributes, "data-duration"))
     ) {
       addFinding(findings, {
         severity: "warning",
@@ -2659,7 +2667,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       }
     }
 
-    for (const [attribute, expected] of [
+    for (const [attribute, expected] of libraryFragment ? [] : [
       ["data-start", overlay.start],
       ["data-duration", overlay.duration],
     ]) {

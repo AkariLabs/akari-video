@@ -1,0 +1,581 @@
+{
+  "phase": "before",
+  "base": "83afc351c",
+  "obs": {
+    "2-font-names": {
+      "rows": [
+        {
+          "id": "biz-udgothic",
+          "text": "BIZ UDGothic Aa Bb 123 · 同梱",
+          "name": "BIZ UDGothic",
+          "nameFont": "BIZ UDGothic",
+          "nameSize": "19px"
+        },
+        {
+          "id": "dela-gothic-one",
+          "text": "Dela Gothic One Aa Bb 123 · 同梱",
+          "name": "Dela Gothic One",
+          "nameFont": "Dela Gothic One",
+          "nameSize": "19px"
+        },
+        {
+          "id": "dotgothic16",
+          "text": "DotGothic16 Aa Bb 123 · 同梱",
+          "name": "DotGothic16",
+          "nameFont": "DotGothic16",
+          "nameSize": "19px"
+        },
+        {
+          "id": "klee-one",
+          "text": "Klee One Aa Bb 123 · 同梱",
+          "name": "Klee One",
+          "nameFont": "Klee One",
+          "nameSize": "19px"
+        },
+        {
+          "id": "mplus-rounded-1c",
+          "text": "M PLUS Rounded 1c Aa Bb 123 · 同梱",
+          "name": "M PLUS Rounded 1c",
+          "nameFont": "M PLUS Rounded 1c",
+          "nameSize": "19px"
+        },
+        {
+          "id": "noto-sans-jp",
+          "text": "Noto Sans JP Aa Bb 123 · 同梱",
+          "name": "Noto Sans JP",
+          "nameFont": "AKARI Noto Sans JP",
+          "nameSize": "19px"
+        },
+        {
+          "id": "noto-serif-jp",
+          "text": "Noto Serif JP Aa Bb 123 · 同梱",
+          "name": "Noto Serif JP",
+          "nameFont": "Noto Serif JP",
+          "nameSize": "19px"
+        },
+        {
+          "id": "shippori-mincho",
+          "text": "Shippori Mincho Aa Bb 123 · 同梱",
+          "name": "Shippori Mincho",
+          "nameFont": "Shippori Mincho",
+          "nameSize": "19px"
+        },
+        {
+          "id": "zen-maru-gothic",
+          "text": "Zen Maru Gothic Aa Bb 123 · 同梱",
+          "name": "Zen Maru Gothic",
+          "nameFont": "Zen Maru Gothic",
+          "nameSize": "19px"
+        }
+      ],
+      "search": {
+        "明朝": [],
+        "しっぽり": [],
+        "Shippori": [
+          "shippori-mincho"
+        ],
+        "ゴシック": []
+      },
+      "shot": "before-2-font-names.png"
+    },
+    "1-hover-font": {
+      "events": [
+        {
+          "captionId": "c-0001",
+          "textStyle": {
+            "fontFamily": "Dela Gothic One"
+          }
+        }
+      ],
+      "plateInitial": {
+        "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "weight": "900",
+        "color": "rgb(255, 212, 0)",
+        "stroke": "10px rgb(209, 43, 43)",
+        "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+        "bg": "rgba(30, 58, 138, 0.85)"
+      },
+      "plateDuringHover": {
+        "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "weight": "900",
+        "color": "rgb(255, 212, 0)",
+        "stroke": "10px rgb(209, 43, 43)",
+        "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+        "bg": "rgba(30, 58, 138, 0.85)"
+      },
+      "plateChanged": false,
+      "captionsUnchanged": true,
+      "shot": "before-1-hover-font.png"
+    },
+    "1-hover-style": {
+      "events": [
+        {
+          "captionId": "c-0001",
+          "textStyle": {
+            "color": "#ffffff",
+            "sizePx": 56,
+            "weight": 700,
+            "stroke": {},
+            "background": {
+              "color": "#c62828",
+              "opacity": 1,
+              "paddingPx": 16,
+              "radiusPx": 0,
+              "mode": "per-line"
+            }
+          }
+        }
+      ],
+      "plateDuringHover": {
+        "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "weight": "900",
+        "color": "rgb(255, 212, 0)",
+        "stroke": "10px rgb(209, 43, 43)",
+        "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+        "bg": "rgba(30, 58, 138, 0.85)"
+      },
+      "shot": "before-1-hover-style.png",
+      "plateChanged": false
+    },
+    "3-overflow": {
+      "barKeys": [
+        "captionFont",
+        "captionSize",
+        "captionSizeDec",
+        "captionSizeInc",
+        "captionTextColor",
+        "captionBold",
+        "captionItalic",
+        "captionUnderline",
+        "captionStrike",
+        "captionCase",
+        "captionAlign",
+        "captionStyle",
+        "overflow"
+      ],
+      "more": {
+        "rect": {
+          "w": 160,
+          "h": 194
+        },
+        "items": [
+          {
+            "key": "captionBullet",
+            "visibleText": "•☰",
+            "aria": "箇条書き",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": null
+          },
+          {
+            "key": "captionSpacing",
+            "visibleText": "↔",
+            "aria": "間隔",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": null
+          },
+          {
+            "key": "captionVertical",
+            "visibleText": "縦書",
+            "aria": "縦書き",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": null
+          },
+          {
+            "key": "captionOpacity",
+            "visibleText": "",
+            "aria": "透明度",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": null
+          },
+          {
+            "key": "captionEffect",
+            "visibleText": "エフェクト",
+            "aria": "エフェクト",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": null
+          },
+          {
+            "key": "captionAnimation",
+            "visibleText": "アニメーション",
+            "aria": "アニメーション",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": null
+          }
+        ]
+      },
+      "shot": "before-3-overflow-open.png"
+    },
+    "4-effect": {
+      "via": "overflow",
+      "before": {
+        "panel": null,
+        "tab": "tab:inspector-text",
+        "visible": [
+          "time",
+          "content",
+          "style",
+          "style:stroke",
+          "style:background"
+        ]
+      },
+      "soon": {
+        "flash": [
+          "section:inspector-style"
+        ]
+      },
+      "after": {
+        "panel": null,
+        "tab": "tab:inspector-text",
+        "sections": [
+          {
+            "id": "time",
+            "open": true,
+            "top": 124,
+            "h": 95,
+            "visiblePx": 95
+          },
+          {
+            "id": "content",
+            "open": true,
+            "top": 224,
+            "h": 145,
+            "visiblePx": 145
+          },
+          {
+            "id": "style",
+            "open": true,
+            "top": 375,
+            "h": 232,
+            "visiblePx": 232
+          },
+          {
+            "id": "style:stroke",
+            "open": true,
+            "top": 613,
+            "h": 107,
+            "visiblePx": 107
+          },
+          {
+            "id": "style:background",
+            "open": true,
+            "top": 725,
+            "h": 264,
+            "visiblePx": 78
+          },
+          {
+            "id": "style:effect",
+            "open": true,
+            "top": 995,
+            "h": 206,
+            "visiblePx": 0
+          },
+          {
+            "id": "style:position",
+            "open": true,
+            "top": 1206,
+            "h": 164,
+            "visiblePx": 0
+          },
+          {
+            "id": "timing",
+            "open": true,
+            "top": 1376,
+            "h": 141,
+            "visiblePx": 0
+          }
+        ],
+        "flash": [
+          "section:inspector-style"
+        ],
+        "scrollers": [],
+        "log": [
+          {
+            "cls": "akari-inspector-focus-pulse akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          },
+          {
+            "cls": "akari-inspector-focus-pulse akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          },
+          {
+            "cls": "akari-inspector-focus-pulse",
+            "ui": "section:inspector-style"
+          }
+        ]
+      },
+      "shot": "before-4-effect.png"
+    },
+    "4-effect-with-font-panel": {
+      "via": "overflow",
+      "before": {
+        "panel": "font",
+        "tab": null,
+        "visible": []
+      },
+      "soon": {
+        "flash": []
+      },
+      "after": {
+        "panel": "font",
+        "tab": null,
+        "sections": [],
+        "flash": [],
+        "scrollers": [],
+        "log": []
+      },
+      "shot": "before-4-effect-with-font-panel.png"
+    },
+    "4-animation": {
+      "via": "overflow",
+      "before": {
+        "panel": null,
+        "tab": "tab:inspector-text",
+        "visible": [
+          "time",
+          "content",
+          "style",
+          "style:stroke",
+          "style:background"
+        ]
+      },
+      "soon": {
+        "flash": [
+          "section:inspector-style"
+        ]
+      },
+      "after": {
+        "panel": null,
+        "tab": "tab:inspector-text",
+        "sections": [
+          {
+            "id": "time",
+            "open": true,
+            "top": 124,
+            "h": 95,
+            "visiblePx": 95
+          },
+          {
+            "id": "content",
+            "open": true,
+            "top": 224,
+            "h": 145,
+            "visiblePx": 145
+          },
+          {
+            "id": "style",
+            "open": true,
+            "top": 375,
+            "h": 232,
+            "visiblePx": 232
+          },
+          {
+            "id": "style:stroke",
+            "open": true,
+            "top": 613,
+            "h": 107,
+            "visiblePx": 107
+          },
+          {
+            "id": "style:background",
+            "open": true,
+            "top": 725,
+            "h": 264,
+            "visiblePx": 78
+          },
+          {
+            "id": "style:effect",
+            "open": true,
+            "top": 995,
+            "h": 206,
+            "visiblePx": 0
+          },
+          {
+            "id": "style:position",
+            "open": true,
+            "top": 1206,
+            "h": 164,
+            "visiblePx": 0
+          },
+          {
+            "id": "timing",
+            "open": true,
+            "top": 1376,
+            "h": 141,
+            "visiblePx": 0
+          }
+        ],
+        "flash": [
+          "section:inspector-style"
+        ],
+        "scrollers": [],
+        "log": [
+          {
+            "cls": "akari-inspector-focus-pulse akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          },
+          {
+            "cls": "akari-inspector-focus-pulse akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          },
+          {
+            "cls": "akari-inspector-focus-pulse",
+            "ui": "section:inspector-style"
+          }
+        ]
+      },
+      "shot": "before-4-animation.png"
+    },
+    "4-animation-with-font-panel": {
+      "via": "overflow",
+      "before": {
+        "panel": "font",
+        "tab": null,
+        "visible": []
+      },
+      "soon": {
+        "flash": []
+      },
+      "after": {
+        "panel": "font",
+        "tab": null,
+        "sections": [],
+        "flash": [],
+        "scrollers": [],
+        "log": []
+      },
+      "shot": "before-4-animation-with-font-panel.png"
+    },
+    "4-more-settings": {
+      "via": "spacing-window",
+      "before": {
+        "panel": null,
+        "tab": "tab:inspector-text",
+        "visible": [
+          "time",
+          "content",
+          "style",
+          "style:stroke",
+          "style:background"
+        ]
+      },
+      "soon": {
+        "flash": [
+          "section:inspector-style"
+        ]
+      },
+      "after": {
+        "panel": null,
+        "tab": "tab:inspector-text",
+        "sections": [
+          {
+            "id": "time",
+            "open": true,
+            "top": 124,
+            "h": 95,
+            "visiblePx": 95
+          },
+          {
+            "id": "content",
+            "open": true,
+            "top": 224,
+            "h": 145,
+            "visiblePx": 145
+          },
+          {
+            "id": "style",
+            "open": true,
+            "top": 375,
+            "h": 232,
+            "visiblePx": 232
+          },
+          {
+            "id": "style:stroke",
+            "open": true,
+            "top": 613,
+            "h": 107,
+            "visiblePx": 107
+          },
+          {
+            "id": "style:background",
+            "open": true,
+            "top": 725,
+            "h": 264,
+            "visiblePx": 78
+          },
+          {
+            "id": "style:effect",
+            "open": true,
+            "top": 995,
+            "h": 206,
+            "visiblePx": 0
+          },
+          {
+            "id": "style:position",
+            "open": true,
+            "top": 1206,
+            "h": 164,
+            "visiblePx": 0
+          },
+          {
+            "id": "timing",
+            "open": true,
+            "top": 1376,
+            "h": 141,
+            "visiblePx": 0
+          }
+        ],
+        "flash": [
+          "section:inspector-style"
+        ],
+        "scrollers": [],
+        "log": [
+          {
+            "cls": "akari-inspector-focus-pulse akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          },
+          {
+            "cls": "akari-inspector-focus-pulse akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          },
+          {
+            "cls": "akari-inspector-focus-pulse",
+            "ui": "section:inspector-style"
+          }
+        ]
+      },
+      "shot": "before-4-more-settings.png"
+    }
+  },
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "plateInitial": {
+    "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+    "weight": "900",
+    "color": "rgb(255, 212, 0)",
+    "stroke": "10px rgb(209, 43, 43)",
+    "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+    "bg": "rgba(30, 58, 138, 0.85)"
+  },
+  "status": "recorded"
+}

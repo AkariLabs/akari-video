@@ -3361,6 +3361,9 @@ var require_caption_store = __commonJS({
       "weight",
       "italic",
       "underline",
+      "strikethrough",
+      "list",
+      "opacity",
       "letter_spacing_em",
       "line_height",
       "align",
@@ -3417,6 +3420,12 @@ var require_caption_store = __commonJS({
       if (typeof value.underline === "boolean") {
         style.underline = value.underline;
       }
+      if (typeof value.strikethrough === "boolean")
+        style.strikethrough = value.strikethrough;
+      if (value.list === "bullet" || value.list === null)
+        style.list = value.list;
+      if (isFiniteNumber(value.opacity) && value.opacity >= 0 && value.opacity <= 1)
+        style.opacity = value.opacity;
       if (isFiniteNumber(value.letter_spacing_em)) {
         style.letterSpacingEm = value.letter_spacing_em;
       }
@@ -3639,6 +3648,9 @@ var require_caption_store = __commonJS({
         ...style.weight !== void 0 ? { weight: style.weight } : {},
         ...style.italic !== void 0 ? { italic: style.italic } : {},
         ...style.underline !== void 0 ? { underline: style.underline } : {},
+        ...style.strikethrough !== void 0 ? { strikethrough: style.strikethrough } : {},
+        ...style.list !== void 0 ? { list: style.list } : {},
+        ...style.opacity !== void 0 ? { opacity: style.opacity } : {},
         ...style.letterSpacingEm !== void 0 ? { letter_spacing_em: style.letterSpacingEm } : {},
         ...style.lineHeight !== void 0 ? { line_height: style.lineHeight } : {},
         ...style.align !== void 0 ? { align: style.align } : {},
@@ -4600,6 +4612,9 @@ var require_caption_display = __commonJS({
       "weight",
       "italic",
       "underline",
+      "strikethrough",
+      "list",
+      "opacity",
       "letter_spacing_em",
       "align",
       "vertical_align",
@@ -5249,6 +5264,9 @@ var require_caption_display = __commonJS({
       failIf(has("weight") && (!Number.isInteger(value.weight) || value.weight < 100 || value.weight > 900), "weight must be an integer within [100, 900]");
       failIf(has("italic") && typeof value.italic !== "boolean", "italic must be a boolean");
       failIf(has("underline") && typeof value.underline !== "boolean", "underline must be a boolean");
+      failIf(has("strikethrough") && typeof value.strikethrough !== "boolean", "strikethrough must be a boolean");
+      failIf(has("list") && value.list !== "bullet" && value.list !== null, "list must be bullet or null");
+      failIf(has("opacity") && (!finiteNumber(value.opacity) || value.opacity < 0 || value.opacity > 1), "opacity must be within [0, 1]");
       failIf(has("letter_spacing_em") && !finiteNumber(value.letter_spacing_em), "letter_spacing_em must be a finite number");
       failIf(has("align") && !CAPTION_ALIGN_VALUES.has(value.align), "align must be one of left, center, right");
       failIf(has("vertical_align") && !CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align), "vertical_align must be one of top, middle, bottom");
@@ -5898,13 +5916,16 @@ var require_caption_display = __commonJS({
         ...positiveInteger(value.reference_height_px) ? { reference_height_px: value.reference_height_px } : {},
         ...typeof value.font_family === "string" && value.font_family !== "" ? { font_family: value.font_family } : {},
         ...finiteNumber(value.weight) && value.weight >= 100 && value.weight <= 900 ? { weight: value.weight } : Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1e3 ? { weight: value.font_weight } : {},
-        ...value.italic === true ? { italic: true } : {},
-        ...value.underline === true ? { underline: true } : {},
+        ...typeof value.italic === "boolean" ? { italic: value.italic } : {},
+        ...typeof value.underline === "boolean" ? { underline: value.underline } : {},
+        ...typeof value.strikethrough === "boolean" ? { strikethrough: value.strikethrough } : {},
+        ...value.list === "bullet" || value.list === null ? { list: value.list } : {},
+        ...finiteNumber(value.opacity) && value.opacity >= 0 && value.opacity <= 1 ? { opacity: value.opacity } : {},
         ...finiteNumber(value.letter_spacing_em) ? { letter_spacing_em: value.letter_spacing_em } : {},
         ...finitePositive3(value.line_height) ? { line_height: value.line_height } : {},
         ...CAPTION_ALIGN_VALUES.has(value.align) ? { align: value.align } : {},
         ...CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align) ? { vertical_align: value.vertical_align } : {},
-        ...value.vertical === true ? { vertical: true } : {},
+        ...typeof value.vertical === "boolean" ? { vertical: value.vertical } : {},
         ...CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] ? { text_transform: CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] } : {},
         ...finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100 ? { max_width_pct: value.max_width_pct } : {},
         ...finiteNumber(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100 ? { wrap_width_pct: value.wrap_width_pct } : {},
@@ -6051,6 +6072,11 @@ var require_caption_display = __commonJS({
       }
       return vars;
     }
+    function cssCaptionFontFamily(value) {
+      if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim()))
+        return value;
+      return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    }
     function resolveCaptionLineStyleVarsAtScale(style, scale) {
       const vars = {};
       const px = (value) => scaleCaptionPx(value, scale);
@@ -6077,15 +6103,19 @@ var require_caption_display = __commonJS({
         vars[name] = `${px(style.background.radius_px)}px`;
       }
       if (typeof style.font_family === "string")
-        vars["--caption-font-family"] = style.font_family;
+        vars["--caption-font-family"] = cssCaptionFontFamily(style.font_family);
       if (finiteNumber(style.weight))
         vars["--caption-font-weight"] = String(style.weight);
       else if (Number.isInteger(style.font_weight))
         vars["--caption-font-weight"] = String(style.font_weight);
       if (style.italic)
         vars["--caption-font-style"] = "italic";
-      if (style.underline)
-        vars["--caption-text-decoration"] = "underline";
+      if (style.underline || style.strikethrough)
+        vars["--caption-text-decoration"] = [style.underline ? "underline" : "", style.strikethrough ? "line-through" : ""].filter(Boolean).join(" ");
+      if (style.list === "bullet")
+        vars["--caption-list-display"] = "list-item";
+      if (finiteNumber(style.opacity))
+        vars["--caption-opacity"] = String(style.opacity);
       if (finiteNumber(style.letter_spacing_em))
         vars["--caption-letter-spacing"] = `${style.letter_spacing_em}em`;
       if (finiteNumber(style.line_height))
@@ -6097,8 +6127,13 @@ var require_caption_display = __commonJS({
         vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
       if (finiteNumber(style.wrap_width_pct))
         vars["--caption-wrap-width"] = `${style.wrap_width_pct}%`;
-      if (style.vertical)
+      if (style.vertical) {
         vars["--caption-writing-mode"] = "vertical-rl";
+        vars["--caption-text-orientation"] = "upright";
+        vars["--caption-width"] = "max-content";
+        delete vars["--caption-line-max-width"];
+        delete vars["--caption-wrap-width"];
+      }
       if (extendedBackground && isRecord2(style.background)) {
         if (style.background.fit !== "frame") {
           vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
@@ -6116,17 +6151,36 @@ var require_caption_display = __commonJS({
       if (textShadow !== null)
         vars["--caption-text-shadow"] = textShadow;
       Object.assign(vars, captionZoneVars(style.zone));
-      Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
+      Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical ? void 0 : style.vertical_align));
+      if (style.vertical && style.vertical_align && !(isRecord2(style.position) && finiteNumber(style.position.x))) {
+        vars["--caption-left"] = style.vertical_align === "top" ? "auto" : style.vertical_align === "middle" ? "50%" : "4%";
+        vars["--caption-right"] = style.vertical_align === "top" ? "4%" : "auto";
+        vars["--caption-align-items"] = style.vertical_align === "top" ? "flex-end" : style.vertical_align === "middle" ? "center" : "flex-start";
+        if (style.vertical_align === "middle")
+          vars["--caption-translate"] = "-50% 0";
+      } else if (style.vertical && !style.vertical_align && !style.text_anchor && (!style.zone || style.zone === "bottom") && !(isRecord2(style.position) && finiteNumber(style.position.x))) {
+        vars["--caption-left"] = "50%";
+        vars["--caption-right"] = "auto";
+        vars["--caption-align-items"] = "center";
+        vars["--caption-translate"] = "-50% 0";
+      }
       if (style.align) {
         vars["--caption-text-align"] = style.align;
-        vars["--caption-align-items"] = style.align === "left" ? "flex-start" : style.align === "right" ? "flex-end" : "center";
       }
       return vars;
     }
     function resolveCaptionLineStyleVars(style, output) {
       if (!isRecord2(style))
         return {};
-      return resolveCaptionLineStyleVarsAtScale(style, resolveCaptionReferenceScale(style, output));
+      const vars = resolveCaptionLineStyleVarsAtScale(style, resolveCaptionReferenceScale(style, output));
+      Object.assign(vars, captionVerticalHeightVars(style, output));
+      return vars;
+    }
+    function captionVerticalHeightVars(style, output) {
+      if (style.vertical !== true || !output || !finitePositive3(output.height))
+        return {};
+      const pct = finitePositive3(style.wrap_width_pct) ? style.wrap_width_pct : finitePositive3(style.max_width_pct) ? style.max_width_pct : 90;
+      return { "--caption-vertical-max-height": `${formatCssNumber(output.height * pct / 100)}px` };
     }
     function resolveCaptionStyleForOutput(style, output) {
       let layout;
@@ -6143,6 +6197,7 @@ var require_caption_display = __commonJS({
         scale = resolveCaptionReferenceScale(style, output);
       }
       const vars = resolveCaptionLineStyleVarsAtScale(style, scale);
+      Object.assign(vars, captionVerticalHeightVars(style, output));
       vars["--caption-paint-order"] = "stroke fill";
       if (!isRecord2(style.shadow) && !isRecord2(style.glow))
         vars["--caption-text-shadow"] = "none";
@@ -6185,7 +6240,7 @@ var require_caption_display = __commonJS({
       if (finitePositive3(style.size_px))
         vars["--caption-tok-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
       if (typeof style.font_family === "string" && style.font_family.length > 0) {
-        vars["--caption-tok-font-family"] = style.font_family;
+        vars["--caption-tok-font-family"] = cssCaptionFontFamily(style.font_family);
       }
       if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
         vars["--caption-tok-font-weight"] = String(style.weight);
@@ -24899,6 +24954,9 @@ var CachedStillImageSource = class {
         const value2 = { bitmap, width: bitmap.width, height: bitmap.height };
         this.values.set(mode, value2);
         return value2;
+      }, (error) => {
+        if (this.pending.get(mode) === pending) this.pending.delete(mode);
+        throw error;
       });
       this.pending.set(mode, pending);
     }
@@ -25869,7 +25927,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
   };
 }
 function isLayerActiveAt(layer, timeUs, fps) {
-  const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
+  const frame = Math.floor(timeUs / 1e6 * fps + fps * 1e-6);
   const startFrame = Math.max(0, Math.ceil(finite3(layer.t, 0) * fps - 1e-6));
   const endFrame = Math.max(startFrame, Math.ceil((finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))) * fps - 1e-6));
   return frame >= startFrame && frame < endFrame;
@@ -32036,6 +32094,7 @@ var ScrubController = class {
   executing = false;
   requestScrub(frameNumber) {
     this.pendingFrame = frameNumber;
+    if (this.executing) this.generation += 1;
     this.schedule();
   }
   isStale(generation) {
