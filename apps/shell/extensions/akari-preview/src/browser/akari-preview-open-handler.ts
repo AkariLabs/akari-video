@@ -4049,6 +4049,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.onboarding.clearPreviewSelection', clearOnboardingSelection);
         disposables.push({ dispose: () => window.removeEventListener('akari.onboarding.clearPreviewSelection', clearOnboardingSelection) });
+        const assistOnboardingCaption = (): void => {
+            if (kind === 'output' && !widget.isDisposed) widget.sendMessage({ type: 'akari-preview-onboarding-select-caption' });
+        };
+        window.addEventListener('akari.onboarding.assistCaptionSelection', assistOnboardingCaption);
+        disposables.push({ dispose: () => window.removeEventListener('akari.onboarding.assistCaptionSelection', assistOnboardingCaption) });
         for (const root of await this.workspaceService.roots) {
             disposables.push(await this.fileService.watch(root.resource, { recursive: true, excludes: [] }));
         }
@@ -21039,6 +21044,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     deselectCaption();
                     captionPalette.hidden = true;
                     captionRunMenu.hidden = true;
+                    return;
+                }
+                if (message && message.type === 'akari-preview-onboarding-select-caption') {
+                    const visible = [...captionRows.values()].find(row => row.plate && !row.plate.hidden
+                        && row.caption.sourceCueId !== 'c-title');
+                    if (visible) selectCaption(visible.caption.sourceCueId || visible.caption.id);
                     return;
                 }
                 if (message && message.type === 'akari-preview-select-caption-run') {

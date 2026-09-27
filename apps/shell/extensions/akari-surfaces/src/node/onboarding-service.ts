@@ -1,5 +1,5 @@
 import { injectable, inject } from '@theia/core/shared/inversify';
-import { promises as fs } from 'fs';
+import { promises as fs, constants as fsConstants } from 'fs';
 import { basename, dirname, join, relative, resolve, sep } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -7,7 +7,7 @@ import { createHash } from 'crypto';
 import { runEditLint, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { AkariNewProjectService } from '../common/akari-new-project-protocol';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
-import { createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions, OnboardingState, parseOnboardingState, TranscriptSegment } from '../onboarding/model';
+import { createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions, OnboardingState, parseOnboardingState, splitOnboardingTokens, TranscriptSegment, TranscriptToken } from '../onboarding/model';
 import { AkariOnboardingService, SampleInformation } from '../onboarding/protocol';
 
 const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
@@ -15,6 +15,7 @@ const SAMPLE_ID = 'talkinghead-desk-ja-01';
 const SAMPLE_NAME = 'サンプル動画.mp4';
 const STATE_FILE = 'onboarding-v1.json';
 const WELCOME_IMAGE = 'extensions/akari-surfaces/src/onboarding/welcome.webp';
+const BUNDLED_SAMPLE = 'onboarding-sample/talkinghead-desk-ja-01';
 
 @injectable()
 export class AkariOnboardingServiceImpl implements AkariOnboardingService {
@@ -73,6 +74,26 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         throw new Error(`${name} が見つかりません`);
     }
 
+    protected async ensureSample(rootPath: string): Promise<string> {
+        const destination = join(rootPath, 'library', 'broll', SAMPLE_ID);
+        const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+        const packaged = resources && join(resources, BUNDLED_SAMPLE);
+        const bundled = packaged && await fs.stat(join(packaged, 'clip.mp4')).then(stat => stat.isFile(), () => false)
+            ? packaged : dirname(await this.findUpwardFile(`apps/shell/resources/${BUNDLED_SAMPLE}/clip.mp4`).catch(() => ''));
+        if (bundled && await fs.stat(join(bundled, 'clip.mp4')).then(stat => stat.isFile(), () => false)) {
+            await fs.mkdir(destination, { recursive: true });
+            for (const name of ['clip.mp4', 'transcript.json', 'meta.json', 'preview.png']) {
+                try { await fs.copyFile(join(bundled, name), join(destination, name), fsConstants.COPYFILE_EXCL); }
+                catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+            }
+            return destination;
+        }
+        // Older development builds can still use the Lab resolver.
+        const resolver = await importEsm<{ resolve: (id: string, options: { env: NodeJS.ProcessEnv }) => Promise<{ dir: string }> }>(
+            pathToFileURL(await this.findUpwardFile('packages/asset-resolver/src/resolve.mjs')).toString());
+        return (await resolver.resolve(SAMPLE_ID, { env: process.env })).dir;
+    }
+
     async prepare(): Promise<{ projectUri: string; sample: SampleInformation }> {
         const rootUri = await this.projects.ensureCreatorRoot();
         const rootPath = fileURLToPath(rootUri);
@@ -91,15 +112,13 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             await writeProjectFilesGuarded(projectPath, { 'edit.json': `${JSON.stringify(createEmptyOnboardingEdit(), null, 2)}\n` });
             await this.save({ schema: 1, step: 'invite', sub: 0, projectUri: pathToFileURL(projectPath).toString() });
         }
-        const resolver = await importEsm<{ resolve: (id: string, options: { env: NodeJS.ProcessEnv }) => Promise<{ dir: string }> }>(
-            pathToFileURL(await this.findUpwardFile('packages/asset-resolver/src/resolve.mjs')).toString());
-        const asset = await resolver.resolve(SAMPLE_ID, { env: process.env });
-        const transcript = JSON.parse(await fs.readFile(join(asset.dir, 'transcript.json'), 'utf8')) as {
-            segments?: { items?: TranscriptSegment[] }
+        const assetDir = await this.ensureSample(rootPath);
+        const transcript = JSON.parse(await fs.readFile(join(assetDir, 'transcript.json'), 'utf8')) as {
+            tokens?: { items?: TranscriptToken[] }
         };
-        const segments = transcript.segments?.items;
-        if (!Array.isArray(segments) || segments.length !== 7) throw new Error('サンプルの書き起こしを読み取れませんでした');
-        return { projectUri: pathToFileURL(projectPath).toString(), sample: { sourcePath: join(asset.dir, 'clip.mp4'), segments } };
+        const segments = splitOnboardingTokens(transcript.tokens?.items ?? []);
+        if (!segments.length) throw new Error('サンプルの書き起こしを読み取れませんでした');
+        return { projectUri: pathToFileURL(projectPath).toString(), sample: { sourcePath: join(assetDir, 'clip.mp4'), segments } };
     }
 
     async importSample(projectUri: string, sourcePath: string): Promise<string> {
@@ -115,12 +134,12 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         const inside = relative(project, assetPath);
         if (!inside || inside.startsWith(`..${sep}`) || inside === '..') throw new Error('素材の場所が違います');
         const transcript = JSON.parse(await fs.readFile(join(dirname(sourcePath), 'transcript.json'), 'utf8')) as {
-            segments: { items: TranscriptSegment[] }
+            tokens?: { items?: TranscriptToken[] }
         };
         const analysisDir = join(project, '.akari', 'sidecars', `${rel}.analysis`);
         await fs.mkdir(analysisDir, { recursive: true });
         const analysis = { version: 0, source: relative(analysisDir, assetPath).split(sep).join('/'),
-            transcript: transcript.segments.items, keyframes: [], events: [],
+            transcript: splitOnboardingTokens(transcript.tokens?.items ?? []), keyframes: [], events: [],
             tracks: { speakers: [], faces: [], person_matte: null } };
         await fs.writeFile(join(analysisDir, 'analysis.json'), `${JSON.stringify(analysis, null, 2)}\n`);
         return rel;
@@ -130,7 +149,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         const current = await this.load();
         if (current?.projectUri !== projectUri || (!current.imported && !current.exampleActive) || basename(sourcePath) !== 'clip.mp4')
             throw new Error('素材を先に取り込んでください');
-        if (!Number.isInteger(count) || count < 0 || count > 7 || segments.length !== 7) throw new Error('字幕の数が不正です');
+        if (!Number.isInteger(count) || count < 0 || count > segments.length || !segments.length) throw new Error('字幕の数が不正です');
         const project = fileURLToPath(projectUri);
         const samplePath = `assets/${SAMPLE_NAME}`;
         const desired: Record<string, string> = {
@@ -166,7 +185,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         const editPath = join(project, 'edit.json');
         const captionPath = join(project, 'captions.json');
         const expectedEdit = `${JSON.stringify(createOnboardingEdit(`assets/${SAMPLE_NAME}`, true), null, 2)}\n`;
-        const expectedCaptions = `${JSON.stringify(createOnboardingCaptions(segments, 7, true), null, 2)}\n`;
+        const expectedCaptions = `${JSON.stringify(createOnboardingCaptions(segments, segments.length, true), null, 2)}\n`;
         const [edit, captions] = await Promise.all([fs.readFile(editPath, 'utf8'), fs.readFile(captionPath, 'utf8')]);
         if (edit !== expectedEdit || captions !== expectedCaptions)
             throw new Error('完成例を利用者が変更したため、空の編集へ戻せません');

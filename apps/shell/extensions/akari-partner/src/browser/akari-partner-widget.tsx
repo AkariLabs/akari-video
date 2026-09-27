@@ -160,6 +160,9 @@ export class AkariPartnerWidget extends ReactWidget {
         this.title.iconClass = 'codicon codicon-add';
         this.title.closable = false;
         this.node.setAttribute('data-akari-onboarding-target', 'partner');
+        const refreshOnboardingChoice = (): void => this.update();
+        window.addEventListener('akari.onboarding.answer', refreshOnboardingChoice);
+        this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.onboarding.answer', refreshOnboardingChoice)));
 
         this.devMode = this.preferences.get<boolean>(DEVELOPER_MODE_PREFERENCE, false);
         // akari-developer-mode-service.ts と同じ流儀: change イベントの値を
@@ -1115,6 +1118,9 @@ export class AkariPartnerWidget extends ReactWidget {
                         }
                         return result;
                     }, []).map(group => {
+                        const lastAnswer = typeof window === 'undefined' ? undefined
+                            : (window as Window & { akariOnboardingAnswer?: string }).akariOnboardingAnswer;
+                        const chosenAgent = lastAnswer === 'claude' ? 'claude' : lastAnswer === 'chatgpt' ? 'codex' : lastAnswer === 'google' ? 'antigravity' : undefined;
                         const cliEntry = group.entries.find(entry => entry.form === 'cli');
                         const extensionEntry = group.entries.find(entry => entry.form === 'extension');
                         const rowEntries = [cliEntry, extensionEntry].filter(
@@ -1143,6 +1149,7 @@ export class AkariPartnerWidget extends ReactWidget {
                                             {entry.recommended ? <span style={styles.recommendedIconBacking}>{icon}</span> : icon}
                                             {entry.name}
                                             {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
+                                            {entry.form === 'cli' && entry.agent === chosenAgent && <span style={{ fontSize: 10, color: '#fb923c', border: '1px solid #fb923c88', borderRadius: 99, padding: '1px 5px' }}>前回選んだ</span>}
                                         </span>
                                         <span style={styles.buttonAction}>
                                             {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}

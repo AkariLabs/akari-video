@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { lintProject } from '../../../../../../packages/edit-lint/src/edit-lint.mjs';
 
 const require = createRequire(import.meta.url);
@@ -11,7 +11,7 @@ const {
     INITIAL_ONBOARDING_STATE, ONBOARDING_STEPS, parseOnboardingState,
     COUNTED_ONBOARDING_STEPS, nextOnboardingState, shouldResumeOnboarding, partnerToConnect,
     onboardingCount, previousOnboardingStep, onboardingRevisit,
-    createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions
+    createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions, splitOnboardingTokens
 } = require('../../lib/onboarding/model.js');
 const segments = [
     { start: 0.3, end: 1.1, text: 'こんにちは。' },
@@ -77,6 +77,16 @@ test('最後の接続先は回答に従い、未使用・その他には表示�
     assert.equal(partnerToConnect('google'), 'Antigravity CLI');
     assert.equal(partnerToConnect('none'), undefined);
     assert.equal(partnerToConnect('other'), undefined);
+});
+
+test('同梱の語時刻から短い一行字幕を決定的に作る', async () => {
+    const transcript = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)),
+        '../../../../resources/onboarding-sample/talkinghead-desk-ja-01/transcript.json'), 'utf8'));
+    const result = splitOnboardingTokens(transcript.tokens.items);
+    assert.ok(result.length > 7);
+    assert.equal(result.map(item => item.text).join(''), transcript.tokens.items.map(item => item.t).join(''));
+    assert.ok(result.every(item => item.text.length <= 14 && item.end > item.start));
+    assert.deepEqual(result, splitOnboardingTokens(transcript.tokens.items));
 });
 
 test('お手本の本編、1行ずつの字幕、右上タイトルが edit-lint を通る', async () => {

@@ -1,0 +1,53 @@
+{
+  "shots": [
+    "r5-01-welcome-short",
+    "r5-01-welcome",
+    "r5-02-first",
+    "r5-03-invite",
+    "r5-04-tour0-fog",
+    "r5-05-tour0-clear",
+    "r5-06-tour1-transition",
+    "r5-07-tour1",
+    "r5-08-tour2-preview",
+    "r5-09-tour2-timeline",
+    "r5-10-tour3",
+    "r5-11-bridge",
+    "r5-12-drag-empty",
+    "r5-13-drag-hint",
+    "r5-13-drag-help-next"
+  ],
+  "startedAt": "2026-09-27T00:42:16.278Z",
+  "shortHero": {
+    "width": 388.28125,
+    "height": 218.40625,
+    "ratio": 1.7777936757762198
+  },
+  "welcomeHero": {
+    "width": 537.609375,
+    "height": 302.390625,
+    "ratio": 1.7778638970702216
+  },
+  "offlineSampleBytes": 5539748,
+  "tour": {
+    "partnerHidden": true,
+    "chatVisible": true,
+    "titleLines": 1,
+    "titleHeight": 36,
+    "chatWidth": 507,
+    "partnerWidth": 507
+  },
+  "example": {
+    "card": true,
+    "preview": true,
+    "chat": "AI パートナー（完成例）",
+    "subtitle": "今日はですね、",
+    "timeline": true
+  },
+  "empty": {
+    "card": false,
+    "examplePreview": false,
+    "transcript": false
+  },
+  "dragHelp": 1,
+  "finishedAt": "2026-09-27T00:43:04.649Z"
+}

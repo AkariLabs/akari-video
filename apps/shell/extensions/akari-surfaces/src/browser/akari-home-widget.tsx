@@ -543,6 +543,8 @@ export class AkariHomeWidget extends ReactWidget {
         const roots = await this.workspaceService.roots;
         const hasProjectHistory = this.creatorRootProjects.length > 0 || this.standaloneProjects.length > 0;
         const stored = await this.onboardingService.load();
+        (window as Window & { akariOnboardingAnswer?: string }).akariOnboardingAnswer = stored?.answer;
+        window.dispatchEvent(new CustomEvent('akari.onboarding.answer', { detail: { answer: stored?.answer } }));
         if (shouldResumeOnboarding(stored, roots[0]?.resource.toString())) {
             void this.openFirstVideoGuide(stored);
             return true;
@@ -572,7 +574,6 @@ export class AkariHomeWidget extends ReactWidget {
                     await this.commands.executeCommand('akari.preview.ensureVisible', { editUri: editUri.toString() });
                 }
             },
-            async () => { await this.commands.executeCommand('akari.partner.open'); },
             async () => { await this.shell.revealWidget('akari-role-buckets-widget'); },
             async (uri, time) => {
                 const editUri = new URI(uri).resolve('edit.json').toString();

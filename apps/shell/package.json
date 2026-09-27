@@ -122,6 +122,10 @@
     ],
     "extraResources": [
       {
+        "from": "resources/onboarding-sample",
+        "to": "onboarding-sample"
+      },
+      {
         "from": "native/bin",
         "to": "native/bin",
         "filter": ["akari-photo-mask"]

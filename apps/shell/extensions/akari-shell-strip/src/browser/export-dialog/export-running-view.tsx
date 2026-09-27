@@ -67,7 +67,7 @@ export function ExportRunningView(props: {
                                 );
                             })}
                         </div>
-                        <div className='overall'>
+                        <div className='overall' data-akari-onboarding-target='export-progress'>
                             <div className='lbl'><b>{percent}%</b><span>経過 {formatClock(status.progressElapsedMs)} · {status.progressRemainingMs !== undefined ? `残り約 ${formatClock(status.progressRemainingMs)}` : '残り時間を計算中…'}</span></div>
                             <div className='bar'><b style={{ width: `${percent}%` }} /></div>
                         </div>

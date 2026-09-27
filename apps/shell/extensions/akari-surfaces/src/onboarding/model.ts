@@ -88,6 +88,57 @@ export function partnerToConnect(answer: AiAnswer | undefined): string | undefin
 }
 
 export interface TranscriptSegment { start: number; end: number; text: string }
+export interface TranscriptToken { t: string; start: number; end: number }
+
+// Keep each subtitle below the width of the standard 16:9 subtitle plate.
+// Token boundaries supply the timing; punctuation supplies natural breaks.
+export function splitOnboardingTokens(tokens: readonly TranscriptToken[]): TranscriptSegment[] {
+    const result: TranscriptSegment[] = [];
+    let group: TranscriptToken[] = [];
+    const Segmenter = (Intl as typeof Intl & { Segmenter: new (locale: string, options: { granularity: 'word' }) => {
+        segment(input: string): Iterable<{ index: number; segment: string }>;
+    } }).Segmenter;
+    const words = new Segmenter('ja', { granularity: 'word' });
+    const flush = (): void => {
+        if (!group.length) return;
+        const text = group.map(token => token.t).join('');
+        const wordEnds = new Set([...words.segment(text)].map(word => word.index + word.segment.length));
+        const offsets = [0];
+        for (const token of group) offsets.push(offsets[offsets.length - 1] + token.t.length);
+        const best = Array.from({ length: group.length + 1 }, () => Number.POSITIVE_INFINITY);
+        const previous = Array.from({ length: group.length + 1 }, () => -1);
+        best[0] = 0;
+        for (let end = 1; end <= group.length; end++) {
+            for (let start = end - 1; start >= 0; start--) {
+                const length = offsets[end] - offsets[start];
+                if (length > 13 && start < end - 1) break;
+                const cost = best[start] + (length - 10) ** 2
+                    + (length < 5 && group.length > 1 ? 45 : 0)
+                    + (end < group.length && !wordEnds.has(offsets[end]) ? 80 : 0)
+                    + (end < group.length && /^[ぁ-ん]/u.test(group[end].t) ? 40 : 0);
+                if (cost < best[end]) { best[end] = cost; previous[end] = start; }
+            }
+        }
+        const pieces: TranscriptToken[][] = [];
+        for (let end = group.length; end > 0;) {
+            const start = previous[end];
+            pieces.unshift(group.slice(start, end));
+            end = start;
+        }
+        for (const piece of pieces) result.push({
+            start: piece[0].start, end: Math.max(piece[0].start + .05, piece[piece.length - 1].end),
+            text: piece.map(token => token.t).join('')
+        });
+        group = [];
+    };
+    for (const token of tokens) {
+        if (!token.t || !Number.isFinite(token.start) || !Number.isFinite(token.end)) continue;
+        group.push(token);
+        if (/[。！？]/u.test(token.t) || (/[、，]/u.test(token.t) && group.map(part => part.t).join('').length >= 7)) flush();
+    }
+    flush();
+    return result;
+}
 
 export function createEmptyOnboardingEdit(): object {
     return { version: 2, output: { width: 1280, height: 720, fps: 30 }, sources: [], tracks: [] };
@@ -108,18 +159,21 @@ export function createOnboardingEdit(samplePath: string, withTitle = false): obj
 export function createOnboardingCaptions(segments: readonly TranscriptSegment[], count: number, withTitle = false): object {
     const captions: object[] = segments.slice(0, count).map((segment, index) => ({
         id: `c-${String(index + 1).padStart(4, '0')}`, start: segment.start, end: segment.end,
-        text: segment.text, speaker: null, sourceRef: { segment: index }, edited: false,
+        text: segment.text, display_text: segment.text.replaceAll('、', '，'), runs: [],
+        speaker: null, sourceRef: { segment: index }, edited: false,
         src: 'sample', style_preset: 'subtitle-standard'
     }));
     if (withTitle) captions.push({
-        id: 'c-0008', start: 0, end: 37.6,
-        text: 'AI と話すだけで、動画編集', speaker: null, sourceRef: null,
-        // The display comma preserves the reading while avoiding the renderer's
-        // unconditional line break after the Japanese punctuation code point.
-        display_text: 'AI と話すだけで，動画編集', runs: [],
+        id: `c-${String(segments.length + 1).padStart(4, '0')}`, start: 0, end: 37.6,
+        text: 'AI と話すだけで動画編集', speaker: null, sourceRef: null,
+        display_text: 'AI と話すだけで動画編集', runs: [],
         edited: true, time_domain: 'output', style_preset: 'title-impact',
-        text_style: { zone: 'top-right', size_px: 32, max_characters: 40, color: '#FFFFFF',
-            background: { color: '#1C1B18', opacity: 0.78, padding_px: 14, radius_px: 8 } }
+        text_style: { zone: 'top-right', size_px: 38, weight: 800, letter_spacing_em: 0.035,
+            max_characters: 40, color: '#FFFFFF',
+            stroke: { color: '#000000', width_px: 0 },
+            shadow: { color: '#000000', opacity: 0.35, blur_px: 3, distance_px: 2, angle_deg: 90 },
+            animation: { in: { id: 'soft-fade' } },
+            background: { color: '#17130F', opacity: 0.87, padding_px: 20, radius_px: 7 } }
     });
     return { captions };
 }

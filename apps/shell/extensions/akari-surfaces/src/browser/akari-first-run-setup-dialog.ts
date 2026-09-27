@@ -161,16 +161,18 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
                 maxHeight: 'calc(100vh - 48px)',
                 borderRadius: `${AKARI_RADIUS.card}px`,
                 overflow: 'hidden',
-                border: AKARI_BORDER.edge,
-                boxShadow: '0 24px 72px rgba(0, 0, 0, 0.48)',
-                background: 'var(--theia-editor-background)'
+                border: '1px solid rgba(249, 115, 22, .55)',
+                boxShadow: '0 24px 72px rgba(0, 0, 0, 0.7)',
+                background: '#17130f',
+                color: '#e5e5e5'
             });
         }
         Object.assign(this.contentNode.style, {
             padding: '0',
             maxHeight: 'calc(100vh - 112px)',
             overflow: 'auto',
-            background: 'var(--theia-editor-background)'
+            background: '#17130f',
+            color: '#e5e5e5'
         });
         // アクションは各 step の panel 内に置く。空の既定 control 行は余白になるため隠す。
         this.controlPanel.style.display = 'none';
@@ -180,10 +182,10 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         });
 
         const header = document.createElement('header');
-        Object.assign(header.style, { textAlign: 'center', marginBottom: '18px' });
+        Object.assign(header.style, { textAlign: 'center', marginBottom: '18px', animation: 'akari-setup-rise .55s ease both' });
         const logo = document.createElement('div');
         logo.textContent = '🏮 AKARI Video';
-        Object.assign(logo.style, { fontSize: '21px', fontWeight: '800' });
+        Object.assign(logo.style, { fontSize: '21px', fontWeight: '800', color: '#fb923c' });
         const heading = document.createElement('h1');
         heading.textContent = 'はじめる準備';
         Object.assign(heading.style, { margin: '8px 0 5px', fontSize: '23px' });
@@ -201,7 +203,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             node.setAttribute('data-akari-setup-step-label', step.id);
             Object.assign(node.style, {
                 padding: '5px 11px', borderRadius: `${AKARI_RADIUS.chip}px`,
-                border: AKARI_BORDER.ghost, background: AKARI_SURFACE.elevated,
+                border: '1px solid #554333', background: '#29211c',
                 color: 'var(--theia-descriptionForeground)', fontSize: '11.5px'
             });
             this.stepNodes.set(step.id, node);
@@ -215,9 +217,15 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             border: '1px solid var(--theia-errorForeground)', color: 'var(--theia-errorForeground)'
         });
         Object.assign(this.panel.style, {
-            padding: '20px', borderRadius: `${AKARI_RADIUS.panel}px`, border: AKARI_BORDER.hairline,
-            background: AKARI_SURFACE.raised, position: 'relative'
+            padding: '20px', borderRadius: `${AKARI_RADIUS.panel}px`, border: '1px solid #554333',
+            background: '#211b17', position: 'relative'
         });
+        const style = document.createElement('style');
+        style.textContent = '@keyframes akari-setup-rise{from{opacity:0;transform:translateY(9px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}'
+            + '.akari-first-run-setup-dialog-overlay .theia-button.main{background:#f97316;border-color:#f97316;color:#230d00}'
+            + '.akari-first-run-setup-dialog-overlay .theia-button.secondary{background:#2a2521;border-color:#554333;color:#f3f3f3}'
+            + '@media(prefers-reduced-motion:reduce){.akari-first-run-setup-dialog-overlay *{animation:none!important}}';
+        this.contentNode.appendChild(style);
         this.body.append(header, this.errorNotice, this.panel);
         this.contentNode.appendChild(this.body);
     }

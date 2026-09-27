@@ -70,7 +70,6 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
         element.hidden = true;
         element.setAttribute('role', 'status');
         element.setAttribute('data-akari-export-chip', 'hidden');
-        element.setAttribute('data-akari-onboarding-target', 'export-progress');
         Object.assign(element.style, {
             position: 'fixed',
             right: '16px',

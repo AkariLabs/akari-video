@@ -2568,6 +2568,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const root = document.createElement('div');
         root.className = 'akari-daihon-row';
         root.dataset.captionId = row.id;
+        if (row.id === 'c-0001') root.setAttribute('data-akari-onboarding-target', 'daihon-first-row');
         if (this.handEditedCaptionIds.has(row.id)) root.style.borderLeft = '3px solid #6fa8ff';
         root.classList.toggle('iscut', row.outStart === null);
         root.classList.toggle('splitting', this.splitModeRowId === row.id);

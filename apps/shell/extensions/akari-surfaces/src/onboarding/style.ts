@@ -94,7 +94,7 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-choices small { color:#a3a3a3; }
 #akari-onboarding-v1 .ao-choice-icon { width:25px; height:25px; flex:none; display:grid; place-items:center; }
 #akari-onboarding-v1 .ao-choice-icon > span { width:22px; height:22px; display:block; background-size:contain; }
-#akari-onboarding-v1 .ao-google { font:bold 22px system-ui; color:#4285f4; text-shadow:-2px 0 #34a853,2px 0 #ea4335; }
+#akari-onboarding-v1 .ao-google { display:block; width:23px; height:23px; }
 #akari-onboarding-v1 .ao-choice-symbol { font-size:22px; color:#aaa; }
 #akari-onboarding-v1 .ao-link { color:#fb923c; }
 #akari-onboarding-v1 .ao-takeover { background:#0b0907; transition:opacity .38s ease; }
@@ -130,11 +130,45 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-streamer path { stroke-dasharray:1; stroke-dashoffset:1; }
 #akari-onboarding-v1 .ao-example-preview { position:absolute; overflow:hidden; background:#000; border-radius:5px; }
 #akari-onboarding-v1 .ao-example-preview video { width:100%; height:100%; object-fit:contain; }
-#akari-onboarding-v1 .ao-example-title { position:absolute; right:4%; top:5%; background:#241a16d9; padding:8px 12px; font-size:clamp(10px,1.1vw,18px); font-weight:800; white-space:nowrap; }
+#akari-onboarding-v1 .ao-example-title { position:absolute; right:4%; top:5%; background:#17130fe0; border-left:3px solid #f97316; padding:8px 14px; font-size:clamp(10px,1.1vw,18px); font-weight:800; letter-spacing:.035em; white-space:nowrap; }
 #akari-onboarding-v1 .ao-example-caption { position:absolute; bottom:8%; left:7%; right:7%; text-align:center; color:#fff; font-size:clamp(12px,1.2vw,21px); font-weight:800; text-shadow:0 2px 3px #000,2px 0 2px #000,-2px 0 2px #000; }
 #akari-onboarding-v1 .ao-example-tag { position:absolute; top:5%; left:3%; background:#241a16d9; color:#fdba74; border:1px solid #fb923c; padding:4px 8px; border-radius:999px; }
-#akari-onboarding-v1 .ao-chat { right:52px; top:42px; bottom:22px; width:min(360px,30vw); border:1px solid #39312a; background:#111; }
+#akari-onboarding-v1 .ao-chat { right:auto; bottom:auto; width:auto; height:auto; min-width:0; border:1px solid #39312a; background:#111; }
 #akari-onboarding-v1 .ao-chat h3 { color:#e5e5e5; }
+#akari-onboarding-v1 .ao-prompt-entry { padding:12px 14px; min-height:62px; border:1px solid #f97316; border-radius:8px; background:#28201a; color:#fff; line-height:1.6; box-shadow:0 0 0 3px #f9731620; }
+#akari-onboarding-v1 .ao-help { color:#fdba74; font-size:12px; }
+#akari-onboarding-v1 .ao-learn { max-width:580px; margin:20px auto 0; color:#e5c7af; font-size:13px; }
+#akari-onboarding-v1 .ao-learn[hidden] { display:none; }
+#akari-onboarding-v1 .ao-finder { width:min(790px,calc(100vw - 28px)); height:min(480px,calc(100vh - 48px)); background:#191d23; border:1px solid #39424c; border-radius:9px; }
+#akari-onboarding-v1 .ao-f-title { height:38px; display:flex; align-items:end; justify-content:space-between; padding:0 12px; background:#20242b; border:0; }
+#akari-onboarding-v1 .ao-f-tab { height:30px; display:flex; align-items:center; gap:8px; padding:0 14px; background:#2e343d; border-radius:8px 8px 0 0; min-width:210px; }
+#akari-onboarding-v1 .ao-f-tab span { margin-left:auto; }
+#akari-onboarding-v1 .ao-f-title-end { align-self:center; letter-spacing:12px; opacity:.7; }
+#akari-onboarding-v1 .ao-f-toolbar { height:43px; display:flex; align-items:center; gap:12px; padding:0 16px; white-space:nowrap; overflow:hidden; background:#242a31; }
+#akari-onboarding-v1 .ao-f-toolbar svg { flex:none; }
+#akari-onboarding-v1 .ao-f-sep { width:1px; height:20px; background:#46505a; }
+#akari-onboarding-v1 .ao-f-address { height:47px; display:flex; align-items:center; gap:11px; padding:5px 12px; background:#20252c; }
+#akari-onboarding-v1 .ao-f-breadcrumb,#akari-onboarding-v1 .ao-f-search { display:flex; align-items:center; height:30px; padding:0 10px; border:1px solid #48525d; border-radius:4px; }
+#akari-onboarding-v1 .ao-f-breadcrumb { flex:1; }
+#akari-onboarding-v1 .ao-f-search { width:125px; gap:7px; color:#aab1ba; }
+#akari-onboarding-v1 .ao-f-body { height:calc(100% - 153px); grid-template-columns:170px minmax(0,1fr) 210px; }
+#akari-onboarding-v1 .ao-f-side { padding:8px 10px; overflow:auto; line-height:normal; }
+#akari-onboarding-v1 .ao-f-nav { display:flex; align-items:center; gap:8px; height:29px; padding:0 7px; border-radius:4px; white-space:nowrap; }
+#akari-onboarding-v1 .ao-f-nav:last-child { color:#fb923c; background:#38312b; }
+#akari-onboarding-v1 .ao-f-files { padding:18px; }
+#akari-onboarding-v1 .ao-f-file { display:flex; align-items:center; gap:9px; width:190px; margin:0; padding:10px; }
+#akari-onboarding-v1 .ao-f-file svg { width:28px; height:28px; color:#f9b77f; }
+#akari-onboarding-v1 .ao-f-file small { display:block; color:#aeb8c2; }
+#akari-onboarding-v1 .ao-f-preview { padding:12px; overflow:auto; }
+#akari-onboarding-v1 .ao-f-preview video { margin:12px 0; }
+#akari-onboarding-v1 .ao-f-status { height:25px; padding:4px 13px; border-top:1px solid #3d4850; color:#aeb8c2; font-size:11px; }
+#akari-onboarding-v1 .ao-f-status span { margin-left:18px; }
+#akari-onboarding-v1 .ao-finder.mac .ao-f-title { flex-direction:row-reverse; }
+#akari-onboarding-v1 .ao-finder.mac .ao-f-title-end { color:#fc7668; letter-spacing:3px; }
+body.akari-onboarding-daihon-active .akari-daihon-dock { display:none!important; }
+body.akari-onboarding-daihon-active .akari-daihon-rows.docked { padding-bottom:8px!important; }
+body.akari-onboarding-daihon-active [data-akari-onboarding-target="daihon-first-row"] { outline:2px solid #fb923c; box-shadow:0 0 16px #f9731677; }
+#akari-onboarding-v1 .ao-hole.bounce { animation:ao-ping 1.2s ease-in-out infinite; }
 body.akari-onboarding-chat-active [data-akari-onboarding-target="partner"] { visibility:hidden; }
 #akari-onboarding-v1 .ao-hint svg { position:absolute; inset:0; overflow:visible; }
 #akari-onboarding-v1 .ao-hint-path { animation:ao-dash .5s linear infinite; }

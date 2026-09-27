@@ -1,0 +1,33 @@
+{
+  "id": "talkinghead-desk-ja-01",
+  "category": "broll",
+  "title": "自宅デスクのトーキングヘッド（日本語・37.6 秒）",
+  "description": "編集練習用のトーキングヘッド素材。自宅のデスクで日本語を話す男性。1280x720 / 30fps / 37.60 秒 / 音声つき。人物は画面左に固定され、右 45% が空いているのでテロップ・図解・モックアップを置ける。静止画・音声のみ・台本・書き起こしを同梱した練習パック",
+  "when_to_use": "動画編集の練習・チュートリアル・機能デモの被写体として。素材が手元に無くて編集を試せないときの出発点",
+  "tags": [
+    "16-9",
+    "ai-generated",
+    "broll",
+    "desk",
+    "japanese",
+    "practice",
+    "talking-head",
+    "vlog"
+  ],
+  "knobs": [],
+  "ai_usage": "編集練習用の素材。設計上の仕込みが 3 つある。(1) 余白: 人物は画面左に固定され右へ動かないため、x が 55%〜100% の領域が全編にわたって空いている。テロップ・図解・スマートフォンのモックアップの置き場に使える。(2) 無音の間: 1.333s から 1.019 秒（「こんにちは！」直後・テンポとして残す想定）と 25.065s から 2.016 秒（意図的に死なせた間・詰める練習用）。同じ素材の中に「残す間」と「詰める間」が両方入っているので、無音カットの判断を練習できる。(3) 書き起こし: transcript.json にセグメント単位（信頼できる粒度）とトークン単位（概算）の両方、transcript.srt に字幕形式。字幕・カラオケ表示の練習に使える。登場人物・音声はいずれも AI 生成であり実在しない。",
+  "requires": [],
+  "provenance": {
+    "origin": "2026-09-03〜04 に AKARI Labs が生成。(1) 静止画 = Codex CLI 内蔵 image_generation（プロンプトは fieldtest/2026-09-03-h3-vlog-demo/refs/prompt-vlogger.txt、3 案から b を採用）。(2) 音声 = fal 経由 Gemini 3.1 Flash TTS / voice=Charon / language_code=Japanese (Japan) / 日本語のスタイル指示つき。無音の間は TTS のタグでは秒数が安定しないため、通しテイクの句切れを検出して ffmpeg で 1.000 秒・2.000 秒に置換（実測 1.000023 / 2.000227）。(3) 映像 = fal 経由 Kling AI Avatar v2 standard（音声駆動アバター・request_id 01a06680-e5b3-7602-85e9-c418a8aef711・$2.02）。制作記録: fieldtest/2026-09-03-h3-vlog-demo/planning/concept.md §8",
+    "generator": "Kling AI Avatar v2 standard / Gemini 3.1 Flash TTS (Charon) / Codex image_generation"
+  },
+  "author": "AKARI Labs",
+  "license": {
+    "spdx": "LicenseRef-AKARI-Assets-v0",
+    "scope": "無料・商用可・クレジット不要・改変可。素材ファイル単体の再配布/再販/他素材集への再収録は禁止。登場人物は AI 生成の架空の人物であり、実在の人物として提示する用途・実在人物に似せる加工・本人の発言や推薦を装う用途は禁止。著作権は AKARI Labs 保有（planning/contract-2026-08-22-asset-license-v0.md §2）",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": 0,
+  "version": 1
+}
