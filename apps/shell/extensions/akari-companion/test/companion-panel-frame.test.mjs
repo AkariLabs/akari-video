@@ -283,6 +283,27 @@ test('pill は中身の幅と角丸を使い、リサイズ帯は pill と小さ
   assert.match(style, /\.akari-companion-panel\[data-mode='pill'\] \{\s*border-radius: 22px;/);
 });
 
+test('横幅を覚えていても、畳まれた中身（tab のまま丸だけ）には空の帯を広げない', () => {
+  const { frame, win, mount, message } = fixture();
+  mount();
+  frame.resizeEdgeEl.dispatch('mousedown', mouse(400));
+  win.dispatch('mousemove', mouse(350));
+  win.dispatch('mouseup');
+  assert.equal(frame.size.width, 670);
+  frame.unmount();
+  mount();
+  // 中身は畳まれていても mode を tab のまま送る。
+  message({ type: 'akari-companion-panel', width: 44, height: 44, mode: 'tab' });
+  assert.equal(frame.size.width, 44);
+  assert.equal(frame.size.height, 44);
+  // 畳まれているあいだに読み込みが終わっても、広げたときの幅は覚えた幅のまま伝える。
+  frame.iframeEl.dispatch('load');
+  assert.deepEqual(frame.iframeEl.messages.at(-1), [{ type: 'akari-companion-frame', width: 670 }, '*']);
+  message({ type: 'akari-companion-panel', width: 670, height: 200, mode: 'tab' });
+  assert.equal(frame.size.width, 670);
+  frame.unmount();
+});
+
 test('リサイズの操作面は押下中だけ iframe の上を覆う', () => {
   const { frame, win, mount } = fixture();
   mount();
