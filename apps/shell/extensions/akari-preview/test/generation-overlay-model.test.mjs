@@ -181,7 +181,9 @@ test('動画予定の 4 種類と最後の絵の有無を describeNextDraft か�
         [{ frames_or_refs: 'references', reference_images: [first] }, '参照から', null]
     ];
     for (const [inputs, label, pip] of rows) {
-        const description = describeOverlay('done', { kind: 'still', next: nextDraft(inputs) }, 'clip');
+        const description = describeOverlay('done', {
+            kind: 'still', next: nextDraft(inputs), job: { candidates: 3 }
+        }, 'clip');
         assert.equal(description.tag, `▶ 動画予定 · ${label}`);
         assert.equal(description.pip, pip);
         assert.equal(description.blurBackground, null);
@@ -216,13 +218,47 @@ test('静止画の生成中は経過秒とシマー、空の枠は静止した�
     assert.equal(audio.blurBackground, null);
 });
 
+test('候補ありは planned の淡いオーロラと札を保ち、候補 0 と生成中の表示を変えない', () => {
+    const label = '空の枠';
+    const candidate = describeOverlay('planned', {
+        kind: 'still', status: 'planned', job: { candidates: 3 }
+    }, label);
+    assert.equal(candidate.tag, '候補 3 · 空の枠');
+    assert.equal(candidate.aurora, 'planned');
+    assert.equal(candidate.band, null);
+    assert.equal(candidate.shimmer, false);
+    assert.equal(describeOverlay('planned', {
+        kind: 'still', status: 'planned', job: { candidates: 0 }
+    }, label).tag, 'planned · 空の枠');
+    const doneCandidate = describeOverlay('done', {
+        kind: 'still', status: 'done', job: { candidates: 3 }
+    }, label);
+    assert.equal(doneCandidate.tag, '候補 3 · 空の枠');
+    assert.equal(doneCandidate.aurora, null);
+    assert.equal(doneCandidate.band, null);
+    assert.equal(doneCandidate.shimmer, false);
+    const generating = describeOverlay('generating', {
+        kind: 'still', status: 'generating', job: { candidates: 3 }
+    }, label);
+    assert.equal(generating.tag, '生成中 · 空の枠');
+    assert.equal(generating.aurora, 'generating');
+    assert.ok(generating.band);
+    assert.equal(describeOverlay('failed', {
+        status: 'failed', error: { reason: 'timeout' }, job: { candidates: 3 }
+    }, label).tag, '失敗 · timeout · 再試行は右パネル');
+    assert.equal(describeOverlay('done', {
+        kind: 'frames', job: { candidates: 3 }
+    }, label).tag, 'パラパラ · 空の枠');
+});
+
 test('orphan / failed / generating / stale は next より優先し、小窓を出さない', () => {
     for (const [state, tag] of [
         ['orphan', '孤児 · clip'], ['failed', '失敗 · timeout · 再試行は右パネル'],
         ['generating', '生成中 · clip'], ['stale', '応答なし · 再取得は右パネル']
     ]) {
         const description = describeOverlay(state, {
-            kind: 'still', next: nextDraft({ last_frame: { path: 'last.png' } }), error: { reason: 'timeout' }
+            kind: 'still', next: nextDraft({ last_frame: { path: 'last.png' } }),
+            error: { reason: 'timeout' }, job: { candidates: 3 }
         }, 'clip');
         assert.equal(description.tag, tag);
         assert.equal(description.pip ?? null, null);
@@ -257,6 +293,12 @@ test('describeOverlay と next helper の toString 注入は外部スコープ�
     assert.equal(injected('done', meta, 'clip').tag, '▶ 動画予定 · 最初→最後');
     assert.equal(injected('done', meta, 'clip').pip, 'last.png');
     assert.equal(injected('generating', meta, 'clip', { sourcePath: 'clip.png' }).blurBackground, 'clip.png');
+    const candidate = injected('planned', { status: 'planned', job: { candidates: 3 } }, '空の枠');
+    assert.equal(candidate.tag, '候補 3 · 空の枠');
+    assert.equal(candidate.aurora, 'planned');
+    const doneCandidate = injected('done', { status: 'done', job: { candidates: 3 } }, '空の枠');
+    assert.equal(doneCandidate.tag, '候補 3 · 空の枠');
+    assert.equal(doneCandidate.aurora, null);
 });
 
 
@@ -290,6 +332,7 @@ test('production 相当の minify 後でも toString 注入へ helper を明示�
     const rows = [
         [null, 'none', null],
         [{ status: 'planned', kind: 'still' }, 'planned', 'planned · clip'],
+        [{ status: 'planned', kind: 'still', job: { candidates: 3 } }, 'planned', '候補 3 · clip'],
         [{ status: 'generating', progress: { percent: 25 } }, 'generating', '生成中 · clip'],
         [{ status: 'generating', job: { started_at: '2026-09-13T00:00:00.000Z' } }, 'stale', '応答なし · 再取得は右パネル'],
         [{ status: 'failed', error: { reason: 'timeout' } }, 'failed', '失敗 · timeout · 再試行は右パネル'],

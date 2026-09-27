@@ -20820,15 +20820,25 @@ body { display: grid; place-items: center; padding: 32px; }
                 const stageWidth = layersStage.offsetWidth;
                 const stageHeight = layersStage.offsetHeight;
                 const scale = Math.max(.01, finite(transform.scale, 1));
+                // layer-style の実描画は素材の自然寸法 × crop × scale。V1 cut の
+                // フレーム寸法とは基準が異なるため、同じ layer DOM から寸法を取る。
+                const layerMedia = clip.kind === 'layer'
+                    ? Array.from(layersStage.querySelectorAll('[data-akari-layer-id]'))
+                        .find(media => media.dataset.akariLayerId === String(clip.id)) : null;
+                const naturalWidth = Number(layerMedia?.videoWidth || layerMedia?.naturalWidth);
+                const naturalHeight = Number(layerMedia?.videoHeight || layerMedia?.naturalHeight);
+                const sourceWidth = Number.isFinite(naturalWidth) && naturalWidth > 0 ? naturalWidth : stageWidth;
+                const sourceHeight = Number.isFinite(naturalHeight) && naturalHeight > 0 ? naturalHeight : stageHeight;
                 const boxWidth = clip.kind === 'audio' ? stageWidth * .7
-                    : stageWidth * Math.max(.01, finite(crop.w, 1)) * Math.max(.01, finite(transform.scaleX, scale));
+                    : sourceWidth * Math.max(.01, finite(crop.w, 1)) * Math.max(.01, finite(transform.scaleX, scale));
                 const boxHeight = clip.kind === 'audio' ? stageHeight * .34
-                    : stageHeight * Math.max(.01, finite(crop.h, 1)) * Math.max(.01, finite(transform.scaleY, scale));
+                    : sourceHeight * Math.max(.01, finite(crop.h, 1)) * Math.max(.01, finite(transform.scaleY, scale));
                 generationOverlay.style.left = (stageWidth / 2 + finite(transform.x, 0) - boxWidth / 2) + 'px';
                 generationOverlay.style.top = (stageHeight / 2 + finite(transform.y, 0) - boxHeight / 2) + 'px';
                 generationOverlay.style.width = boxWidth + 'px';
                 generationOverlay.style.height = boxHeight + 'px';
-                generationOverlay.style.transform = 'rotate(' + finite(transform.rotate, 0) + 'deg)';
+                generationOverlay.style.transform = 'rotate(' + (finite(transform.rotate, 0)
+                    + (clip.kind === 'layer' ? finite(crop.rotate, 0) : 0)) + 'deg)';
                 const setGenerationImage = (container, image, path, uri) => {
                     container.hidden = !path || typeof uri !== 'string' || !uri;
                     if (container.hidden) image.removeAttribute('src');
@@ -22242,24 +22252,30 @@ body { display: grid; place-items: center; padding: 32px; }
                 workspaceRoots: await this.currentWorkspaceRoots()
             });
             if (disposed()) return;
-            // 音の空の枠は映像 cut の一覧に入らないため、生成小札用の時間窓だけ edit から読む。
+            // 音の空の枠と V2 以上の media layer は cuts に無い。素材パスは生 edit から読む。
             const audioFrames: Array<{ id: string; name: string; start: number; end: number;
                 sourcePath: string; meta: GenerationMetaV1 | null; binding: unknown;
                 transform: null; crop: null; kind: 'audio' }> = [];
+            const layerSources = new Map<string, { sourcePath: string; name?: string }>();
             try {
                 const raw = JSON.parse((await this.fileService.readFile(editUri)).value.toString()) as {
                     output?: { fps?: number }; sources?: Array<{ id?: string; path?: string }>;
-                    tracks?: Array<{ lane?: string; items?: Array<{ id?: string; name?: string; at?: number;
-                        duration?: number; source?: { src?: string; path?: string } }> }>;
+                    tracks?: Array<{ lane?: string; hidden?: boolean; items?: Array<{ id?: string; name?: string;
+                        at?: number; duration?: number; source?: { kind?: string; src?: string; path?: string } }> }>;
                 };
                 const fps = Number(raw.output?.fps) || 30;
                 const sourcePaths = new Map((raw.sources ?? []).filter(source => source.id && source.path)
                     .map(source => [source.id!, source.path!]));
                 for (const track of raw.tracks ?? []) {
-                    if (track.lane !== 'audio') continue;
+                    if (track.hidden === true) continue;
                     for (const item of track.items ?? []) {
+                        if (item.source?.kind !== 'media') continue;
+                        const sourcePath = item.source.path ?? sourcePaths.get(item.source.src ?? '');
+                        if (track.lane === 'visual' && item.id && sourcePath) {
+                            layerSources.set(item.id, { sourcePath, name: item.name });
+                        }
+                        if (track.lane !== 'audio') continue;
                         if (!Number.isFinite(item.at) || !Number.isFinite(item.duration)) continue;
-                        const sourcePath = item.source?.path ?? sourcePaths.get(item.source?.src ?? '');
                         if (!sourcePath) continue;
                         const generation = selectGenerationSidecarForSource(sourcePath,
                             sidecars.entries.map(entry => ({ sourcePath: entry.sourcePath,
@@ -22272,20 +22288,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             } catch { /* 旧形式や読み込み中でも映像の生成表示を続ける。 */ }
-            // summary は音声更新でも置き換わる。参照一致を送信条件にせず、その時点の cuts を使う。
+            // summary は音声更新でも置き換わる。参照一致を送信条件にせず、その時点の表示配置を使う。
             const describeClips = () => {
                 const latest = widget.akariPreviewSummary ?? summary;
+                const nowMs = Date.now();
+                const entries = sidecars.entries.map(entry => ({ sourcePath: entry.sourcePath,
+                    meta: entry.meta as GenerationMetaV1 | null, binding: entry.binding }));
                 const segments = this.previewCaptionTimelineSegments(latest.cuts, latest.output.fps);
                 const visualClips = segments.flatMap(segment => {
                     if (segment.kind !== 'src' || segment.cutIndex === null) return [];
                     const cut = latest.cuts[segment.cutIndex];
                     if (!cut) return [];
                     const sourcePath = cut.sourcePath ?? '';
-                    const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
-                        sourcePath: entry.sourcePath,
-                        meta: entry.meta as GenerationMetaV1 | null,
-                        binding: entry.binding
-                    })), Date.now());
+                    const generation = selectGenerationSidecarForSource(sourcePath, entries, nowMs);
                     return [{
                         id: cut.id,
                         name: sidecars.itemNames[cut.id] ?? cut.id,
@@ -22295,11 +22310,33 @@ body { display: grid; place-items: center; padding: 32px; }
                         transform: cut.transform ?? null,
                         crop: cut.crop ?? null,
                         meta: generation?.meta ?? null,
-                        binding: generation?.binding ?? null
+                        binding: generation?.binding ?? null,
+                        order: latest.itemStackZ?.[cut.id] ?? latest.trackStackZ?.[cut.trackId] ?? cut.renderTrack
                     }];
                 });
+                const hiddenLayers = new Set(widget.akariPreviewHiddenTracksByScope?.layers ?? []);
+                const hiddenTracks = widget.akariPreviewHiddenTracks ?? new Set<number>();
+                const layerClips = (latest.layers ?? []).flatMap(layer => {
+                    const source = layerSources.get(layer.id);
+                    if (layer.kind !== 'video' || !source || hiddenLayers.has(layer.track)
+                        || hiddenTracks.has(layer.track)
+                        || latest.tracks?.layers?.some(track => track.ref === layer.track && track.hidden === true)) return [];
+                    const generation = selectGenerationSidecarForSource(source.sourcePath, entries, nowMs);
+                    if (resolveGenerationState(generation?.meta, nowMs, generation?.binding) === 'none') return [];
+                    return [{ id: layer.id, name: sidecars.itemNames[layer.id] ?? source.name ?? layer.id,
+                        start: layer.t, end: layer.t + layer.duration, sourcePath: source.sourcePath,
+                        transform: layer.transform ?? null, crop: layer.crop ?? null,
+                        meta: generation?.meta ?? null, binding: generation?.binding ?? null,
+                        kind: 'layer' as const,
+                        order: latest.itemStackZ?.[layer.id] ?? latest.trackStackZ?.[layer.trackId]
+                            ?? layer.renderTrack ?? layer.track }];
+                });
+                // find() の先頭が表示対象。映像は実際の積層 z の降順にする。
+                const orderedVisualClips = [...visualClips, ...layerClips]
+                    .sort((a, b) => b.order - a.order)
+                    .map(({ order: _order, ...clip }) => clip);
                 return [...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) === 'generating'),
-                    ...visualClips, ...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) !== 'generating')];
+                    ...orderedVisualClips, ...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) !== 'generating')];
             };
             const clips = describeClips();
             // 画像の失敗・読み込みとの競合・遅延で既存の小札や帯まで止めない。
