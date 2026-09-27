@@ -406,6 +406,18 @@ interface EditSummaryAdjust {
 const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
+
+/** A motion preview changes glyphs inside the positioned caption, never the outer row host. */
+export function captionMotionTextTargets(host: Pick<Element, 'querySelectorAll'>): HTMLElement[] {
+    return Array.from(host.querySelectorAll<HTMLElement>('.akari-caption__line'))
+        .filter(line => Boolean(line.textContent?.trim()));
+}
+
+/** A saved cue may redraw shortly after a click; replay only while that request is still current. */
+export function shouldResumeCaptionMotion(request: { captionId: string; expiresAt: number } | null,
+    activeCaptionIds: readonly string[], now: number): boolean {
+    return !!request && now < request.expiresAt && activeCaptionIds.includes(request.captionId);
+}
 const PREVIEW_COLOR_KEYWORDS = new Set([
     'black', 'white', 'red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'gray', 'grey',
     'orange', 'purple', 'pink', 'brown'
@@ -1816,6 +1828,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.addEventListener('akari-caption-panel-preview', onCaptionPanelPreview);
         this.lifecycleDisposables.push({ dispose: () =>
             window.removeEventListener('akari-caption-panel-preview', onCaptionPanelPreview) });
+        const onCaptionMotionPlay = (event: Event): void => {
+            const detail = (event as CustomEvent<{ captionId?: string; id?: string;
+                kind?: string; wordIndex?: number; slot?: string }>).detail;
+            if (typeof detail?.captionId !== 'string' || typeof detail.id !== 'string') return;
+            for (const preview of this.openOutputPreviews.values()) {
+                preview.sendMessage({ type: 'akari-preview-caption-motion-play', ...detail });
+            }
+        };
+        window.addEventListener('akari-caption-motion-play', onCaptionMotionPlay);
+        this.lifecycleDisposables.push({ dispose: () =>
+            window.removeEventListener('akari-caption-motion-play', onCaptionMotionPlay) });
         const onCaptionPanelChanged = (event: Event): void => {
             if ((event as CustomEvent<{ panel?: string | null }>).detail?.panel !== null) return;
             for (const preview of this.openOutputPreviews.values()) {
@@ -18968,6 +18991,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (event.key === 'Alt' || !event.altKey) setCaptionAltAll(false);
             });
             window.addEventListener('blur', () => setCaptionAltAll(false));
+            // Keep these DOM-free rules aligned with captionMotionTextTargets / shouldResumeCaptionMotion.
+            // This script is also evaluated from source by the preview webview tests.
+            const motionTextTargets = host => [...host.querySelectorAll('.akari-caption__line')]
+                .filter(line => Boolean(line.textContent?.trim()));
+            const canResumeMotion = (request, ids, now) => !!request
+                && now < request.expiresAt && ids.includes(request.captionId);
+            let captionMotionReplay = null;
             const renderCaptionRow = (caption, row) => {
                 caption = captionStylePreview.resolve(caption, selectedCaptionId);
                 const captionPlate = row.plate;
@@ -19204,6 +19234,214 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyRequestedOverlaySelection();
             });
             const renderTransitionPlate = timelineTime => renderTransitionComposite(timelineTime);
+            const stopCaptionMotionReplay = keepRequest => {
+                const replay = captionMotionReplay;
+                if (!replay) return;
+                if (replay.startTimer) window.clearTimeout(replay.startTimer);
+                if (replay.finishTimer) window.clearTimeout(replay.finishTimer);
+                if (replay.interval) window.clearInterval(replay.interval);
+                if (replay.watchFrame) window.cancelAnimationFrame(replay.watchFrame);
+                for (const animation of replay.animations || []) animation.cancel();
+                replay.restore?.();
+                replay.startTimer = replay.finishTimer = replay.interval = replay.watchFrame = null;
+                replay.animations = [];
+                replay.restore = null;
+                if (!keepRequest) captionMotionReplay = null;
+            };
+            const finishCaptionMotionReplay = replay => {
+                if (captionMotionReplay !== replay) return;
+                stopCaptionMotionReplay(false);
+            };
+            const startCaptionMotionReplay = replay => {
+                if (captionMotionReplay !== replay || Date.now() >= replay.expiresAt) {
+                    stopCaptionMotionReplay(false);
+                    return;
+                }
+                const row = [...captionRows.values()].find(candidate =>
+                    (candidate.caption?.sourceCueId || candidate.caption?.id) === replay.captionId);
+                const targets = row ? motionTextTargets(row.plate) : [];
+                if (!targets.length) {
+                    replay.startTimer = window.setTimeout(() => startCaptionMotionReplay(replay), 100);
+                    return;
+                }
+                replay.startedAt ??= Date.now();
+                const elapsed = () => Math.max(0, Date.now() - replay.startedAt);
+                const original = targets.map(target => ({ target, nodes: [...target.childNodes],
+                    animation: target.style.animation }));
+                const token = String(++replay.revision);
+                targets.forEach(target => { target.dataset.akariMotionReplay = token; });
+                const watch = () => {
+                    if (captionMotionReplay !== replay) return;
+                    if (targets.some(target => !target.isConnected || target.dataset.akariMotionReplay !== token)) {
+                        resumeCaptionMotionAfterRender();
+                        return;
+                    }
+                    for (const target of targets) {
+                        for (const animation of target.getAnimations({ subtree: true })) {
+                            if (animation.playState !== 'paused') continue;
+                            if (replay.animations.includes(animation)) {
+                                animation.currentTime = elapsed();
+                            } else if (animation.effect?.target?.closest?.('[data-akari-motion-replay]')) {
+                                // renderCaptionRow seeks CSS animations to the cue time and pauses them.
+                                animation.currentTime = elapsed();
+                            } else continue;
+                            animation.play();
+                        }
+                    }
+                    replay.watchFrame = window.requestAnimationFrame(watch);
+                };
+                replay.watchFrame = window.requestAnimationFrame(watch);
+                replay.restore = () => {
+                    for (const entry of original) {
+                        if (!entry.target.isConnected || entry.target.dataset.akariMotionReplay !== token) continue;
+                        entry.target.replaceChildren(...entry.nodes);
+                        entry.target.style.animation = entry.animation;
+                        delete entry.target.dataset.akariMotionReplay;
+                    }
+                };
+                const animate = (element, frames, options) => {
+                    const animation = element.animate(frames, options);
+                    animation.currentTime = elapsed();
+                    replay.animations.push(animation);
+                    return animation;
+                };
+                if (replay.id === 'typewriter') {
+                    if (!document.getElementById('akari-caption-preview-caret-style')) {
+                        const style = document.createElement('style');
+                        style.id = 'akari-caption-preview-caret-style';
+                        style.textContent = '@keyframes akari-caption-preview-caret{50%{opacity:0}}';
+                        document.head.appendChild(style);
+                    }
+                    const letters = targets.map(target => Array.from(
+                        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(target.textContent || ''),
+                        part => part.segment));
+                    const total = letters.reduce((sum, line) => sum + line.length, 0);
+                    const caret = document.createElement('span');
+                    caret.textContent = '|';
+                    caret.style.cssText = 'display:inline-block;color:inherit;animation:akari-caption-preview-caret .55s step-end infinite';
+                    const step = Math.max(55, Math.round(1400 / Math.max(1, total)));
+                    let index = Math.min(total, Math.floor(elapsed() / step));
+                    const draw = () => {
+                        let remaining = index;
+                        let active = 0;
+                        letters.forEach((line, lineIndex) => {
+                            const count = Math.max(0, Math.min(line.length, remaining));
+                            targets[lineIndex].replaceChildren(document.createTextNode(line.slice(0, count).join('')));
+                            if (remaining > 0 || lineIndex === 0) active = lineIndex;
+                            remaining -= line.length;
+                        });
+                        targets[active].appendChild(caret);
+                    };
+                    draw();
+                    replay.interval = window.setInterval(() => {
+                        if (captionMotionReplay !== replay) return;
+                        index = Math.min(total, Math.floor(elapsed() / step));
+                        draw();
+                        if (index >= total) {
+                            window.clearInterval(replay.interval);
+                            replay.interval = null;
+                            replay.finishTimer = window.setTimeout(() => finishCaptionMotionReplay(replay), 650);
+                        }
+                    }, step);
+                    return;
+                }
+                const line = targets[0];
+                if (replay.kind === 'word-style') {
+                    const text = line.textContent || '';
+                    const words = Array.isArray(row.caption?.words) ? row.caption.words.map(word => word.text) : [];
+                    const units = words.length && words.join('') === text ? words : Array.from(text);
+                    line.replaceChildren();
+                    units.forEach((unit, index) => {
+                        const span = document.createElement('span');
+                        span.textContent = unit;
+                        span.style.display = 'inline-block';
+                        line.appendChild(span);
+                        const frames = replay.id === 'karaoke'
+                            ? [{ color: row.caption?.textStyle?.color || '#ffffff' }, { color: '#ffd94a' }]
+                            : replay.id === 'pop'
+                                ? [{ opacity: 0, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1)' }]
+                                : [{ opacity: 0 }, { opacity: 1 }];
+                        animate(span, frames, { duration: 260, delay: index * 160, fill: 'forwards' });
+                    });
+                    replay.finishTimer = window.setTimeout(() => finishCaptionMotionReplay(replay),
+                        units.length * 160 + 700);
+                    return;
+                }
+                if (replay.kind === 'emphasis') {
+                    const selected = row.caption?.words?.[Number(replay.wordIndex) || 0]?.text || line.textContent || '';
+                    const targetLine = targets.find(candidate => (candidate.textContent || '').includes(selected)) || line;
+                    const text = targetLine.textContent || '';
+                    const at = text.indexOf(selected);
+                    const span = document.createElement('span');
+                    span.textContent = selected;
+                    span.style.display = 'inline-block';
+                    targetLine.replaceChildren(document.createTextNode(at >= 0 ? text.slice(0, at) : ''),
+                        span, document.createTextNode(at >= 0 ? text.slice(at + selected.length) : ''));
+                    const styles = {
+                        'one-char-bang': [{ transform: 'scale(.5)' }, { transform: 'scale(1.45)' }, { transform: 'scale(1)' }],
+                        'one-char-jumble': [{ transform: 'rotate(-8deg)' }, { transform: 'rotate(8deg)' }, { transform: 'rotate(0)' }],
+                        'size-pulse': [{ transform: 'scale(1)' }, { transform: 'scale(1.3)' }, { transform: 'scale(1)' }],
+                        'color-accent': [{ color: 'currentColor' }, { color: '#ffd94a' }],
+                        'color-only': [{ color: 'currentColor' }, { color: '#ffd94a' }],
+                        'outline-bold': [{ webkitTextStrokeWidth: '0px' }, { webkitTextStrokeWidth: '2px' }],
+                        danger: [{ color: '#f87171', transform: 'translateX(-3px)' }, { color: '#f87171', transform: 'translateX(3px)' }],
+                        positive: [{ color: '#4ade80', transform: 'scale(1)' }, { color: '#4ade80', transform: 'scale(1.15)' }],
+                        highlight: [{ backgroundColor: 'transparent' }, { backgroundColor: '#ffd94a' }]
+                    };
+                    if (replay.id === 'one-char-bang' || replay.id === 'one-char-jumble') {
+                        span.textContent = '';
+                        Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+                            .segment(selected), part => part.segment).forEach((character, characterIndex) => {
+                            const unit = document.createElement('span');
+                            unit.textContent = character;
+                            unit.style.display = 'inline-block';
+                            span.appendChild(unit);
+                            animate(unit, styles[replay.id], { duration: 420,
+                                delay: characterIndex * 110, fill: 'forwards' });
+                        });
+                    } else animate(span, styles[replay.id] || styles['size-pulse'],
+                        { duration: 700, iterations: replay.id === 'danger' ? 3 : 1, fill: 'forwards' });
+                    replay.finishTimer = window.setTimeout(() => finishCaptionMotionReplay(replay), 1800);
+                    return;
+                }
+                const recipe = captionAnimationRecipes[replay.id];
+                if (!recipe) { finishCaptionMotionReplay(replay); return; }
+                const name = 'akari-caption-oneshot-' + replay.id;
+                if (!document.getElementById('akari-caption-oneshot-style-' + replay.id)) {
+                    const style = document.createElement('style');
+                    style.id = 'akari-caption-oneshot-style-' + replay.id;
+                    style.textContent = '@keyframes ' + name + '{' + recipe + '}';
+                    document.head.appendChild(style);
+                }
+                line.style.animation = 'none';
+                void line.offsetWidth;
+                line.style.animation = name + ' 650ms ease-out 1 '
+                    + (replay.slot === 'out' ? 'reverse' : 'normal') + ' both';
+                for (const animation of line.getAnimations()) animation.currentTime = elapsed();
+                replay.finishTimer = window.setTimeout(() => finishCaptionMotionReplay(replay), 700);
+            };
+            const scheduleCaptionMotionReplay = delay => {
+                const replay = captionMotionReplay;
+                if (!replay) return;
+                if (replay.startTimer) window.clearTimeout(replay.startTimer);
+                replay.startTimer = window.setTimeout(() => startCaptionMotionReplay(replay), delay);
+            };
+            const queueCaptionMotionReplay = message => {
+                stopCaptionMotionReplay(false);
+                captionMotionReplay = { captionId: message.captionId, id: message.id,
+                    kind: message.kind, wordIndex: message.wordIndex, slot: message.slot,
+                    expiresAt: Date.now() + 6000, revision: 0, animations: [] };
+                // A write may publish captions shortly after this message. Give that redraw the first chance.
+                scheduleCaptionMotionReplay(220);
+            };
+            const resumeCaptionMotionAfterRender = () => {
+                const replay = captionMotionReplay;
+                if (!replay) return;
+                const ids = [...captionRows.values()].map(row => row.caption?.sourceCueId || row.caption?.id);
+                if (!canResumeMotion(replay, ids, Date.now())) { stopCaptionMotionReplay(false); return; }
+                stopCaptionMotionReplay(true);
+                scheduleCaptionMotionReplay(40);
+            };
             let activeTransitionWindowKey = null;
             let activeTransitionOutgoingIsStill = false;
             let activeTransitionEngine = 'none';
@@ -21401,6 +21639,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     void captionStylePreview.receive(message);
                     return;
                 }
+                if (message && message.type === 'akari-preview-caption-motion-play'
+                    && typeof message.captionId === 'string' && typeof message.id === 'string') {
+                    queueCaptionMotionReplay(message);
+                    return;
+                }
                 if (message && message.type === 'akari-preview-captions-update') {
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated();
@@ -21417,6 +21660,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                     }
                     renderCaption();
+                    resumeCaptionMotionAfterRender();
                     window.akari.refreshActiveCaptionRuns?.();
                     updateCaptionSelectBox();
                     return;

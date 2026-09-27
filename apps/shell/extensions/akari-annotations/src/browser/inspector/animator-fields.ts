@@ -10,6 +10,12 @@ export const INSPECTOR_ANIMATOR_SHAPES = [
     { id: 'smooth', label: 'なめらか' }, { id: 'square', label: '矩形' }
 ] as const;
 export const INSPECTOR_ANIMATOR_MAX_ITEMS = 8;
+export const expandedAnimatorFields = new Set<string>();
+export const INSPECTOR_ANIMATOR_TEMPLATES = [
+    { id: 'sequential', label: '順に出る', shape: 'ramp', fields: ['end', 'offset'] },
+    { id: 'wave', label: '波打つ', shape: 'round', fields: ['amount.y', 'offset'] },
+    { id: 'random', label: 'ランダムに揺れる', shape: 'square', fields: ['amount.rotate', 'offset', 'randomize.seed'] }
+] as const;
 export type InspectorAnimatorBasis = typeof INSPECTOR_ANIMATOR_BASES[number]['id'];
 export type InspectorAnimatorShape = typeof INSPECTOR_ANIMATOR_SHAPES[number]['id'];
 export type InspectorAnimatorAmountKey = 'x' | 'y' | 'scale' | 'rotate' | 'opacity' | 'letterSpacing' | 'blur';
@@ -116,6 +122,27 @@ export function addInspectorAnimator(list: readonly InspectorAnimator[]): Inspec
     if (list.length >= INSPECTOR_ANIMATOR_MAX_ITEMS) throw new Error('アニメーターは 8 本までです。');
     const next = normalizeInspectorAnimators(list);
     return [...next, { id: nextAnimatorId(list), basis: 'chars', shape: 'ramp', start: 0, end: 0.3, offset: 0, amount: {} }];
+}
+
+export function addInspectorAnimatorTemplate(list: readonly InspectorAnimator[],
+    templateId: typeof INSPECTOR_ANIMATOR_TEMPLATES[number]['id']): InspectorAnimator[] {
+    const template = INSPECTOR_ANIMATOR_TEMPLATES.find(item => item.id === templateId);
+    if (!template) throw new Error('ひな形を選択してください。');
+    const result = addInspectorAnimator(list);
+    const last = result[result.length - 1];
+    if (template.id === 'sequential') {
+        result[result.length - 1] = { ...last, offset: .04 };
+        return result;
+    }
+    result[result.length - 1] = template.id === 'wave'
+        ? { ...last, shape: 'round', offset: .05, amount: { y: 14 } }
+        : { ...last, shape: 'square', offset: .03, amount: { rotate: 8 }, randomize: { seed: 7 } };
+    return result;
+}
+
+export function inspectorAnimatorTemplateFor(animator: InspectorAnimator): typeof INSPECTOR_ANIMATOR_TEMPLATES[number] | undefined {
+    return INSPECTOR_ANIMATOR_TEMPLATES.find(item => item.shape === animator.shape
+        && animator.basis === 'chars' && animator.offset > 0);
 }
 
 function assertIndex(list: readonly InspectorAnimator[], index: number): void {

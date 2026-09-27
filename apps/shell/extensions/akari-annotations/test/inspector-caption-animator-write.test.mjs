@@ -181,11 +181,11 @@ function fixture(initial, itemKind = 'captions') {
         row: name => section().fields.find(field => field.name === `animator-${name}`) };
 }
 
-test('字幕袋 captions と caption item の動きタブに開いたアニメーター節を出す', () => {
+test('字幕袋 captions と caption item の動きタブに畳んだアニメーター節を出す', () => {
     for (const kind of ['captions', 'caption']) {
         const f = fixture(undefined, kind);
-        assert.equal(f.section().label, 'アニメーター');
-        assert.equal(f.section().collapsedByDefault, undefined);
+        assert.equal(f.section().label, '詳細設定（上級）: アニメーター');
+        assert.equal(f.section().collapsedByDefault, true);
         const ids = f.all().map(section => section.id);
         assert.equal(ids[ids.indexOf('motion') + 1], 'animator');
     }
@@ -246,10 +246,11 @@ test('UI の不正入力・9 本目は ok:false となり要求を送らない',
 test('行順・単位・表示倍率・step・注記は定数に従い全行 KF 無効', () => {
     const f = fixture([animator()]);
     assert.deepEqual(f.section().fields.map(field => field.label), [
+        '文字を 1 文字 / 1 語ずつずらして動かす仕組みです', 'ひな形から始める',
         'アニメーターを追加', 'a1', '単位', '形', '範囲 始', '範囲 終', 'オフセット',
         '量 X', '量 Y', '量 拡縮', '量 回転', '量 不透明度', '量 字間', '量 ぼかし', 'イージング', 'ランダム seed'
     ]);
-    assert.ok(f.section().fields.every(field => field.keyframeDisabled && !field.liveField));
+    assert.ok(f.section().fields.slice(1).every(field => field.keyframeDisabled && !field.liveField));
     for (const field of INSPECTOR_ANIMATOR_NUMBER_FIELDS) {
         const row = f.row(`a1-${field.key.replace('.', '-')}`);
         assert.deepEqual([row.label, row.min, row.max, row.scrubStep, row.unit, row.displayScale, row.title],

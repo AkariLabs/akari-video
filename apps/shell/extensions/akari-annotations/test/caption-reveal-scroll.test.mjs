@@ -28,8 +28,8 @@ const Widget = new Function('captionRevealDestination', 'captionRevealScrollTop'
 test('render の scroll pin が使う記憶値ごと移し、3 つの行き先を開く', () => {
     for (const [field, owner, expectedTab, expectedSection] of [
         ['caption-effect', false, 'text', 'style:effect'],
-        ['caption-animation', true, 'motion', 'animator'],
-        ['caption-animation', false, 'motion', 'motion-empty'],
+        ['caption-animation', true, 'motion', 'motion:caption'],
+        ['caption-animation', false, 'motion', 'motion:caption'],
         ['caption-style', false, 'text', 'style']
     ]) {
         const previousWindow = globalThis.window;

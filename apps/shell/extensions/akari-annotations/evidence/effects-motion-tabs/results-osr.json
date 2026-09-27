@@ -1,0 +1,114 @@
+{
+  "phase": "osr",
+  "head": "7ad651c9b",
+  "writes": {
+    "c-0001": {
+      "text_style": {
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "glow": {
+          "color": "#ff3dae",
+          "density": 60,
+          "spread": 14
+        },
+        "background": {
+          "opacity": 0
+        }
+      },
+      "style": null
+    },
+    "c-0002": {
+      "text_style": {
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "background": {
+          "color": "#000000",
+          "opacity": 0.7,
+          "radius_px": 14,
+          "padding_px": 9
+        }
+      },
+      "style": "karaoke"
+    },
+    "c-0003": {
+      "text_style": {
+        "stroke": {
+          "color": "#2563eb",
+          "width_px": 6
+        },
+        "color": "#fff59d",
+        "background": {
+          "opacity": 0
+        }
+      },
+      "style": null
+    },
+    "c-0004": {
+      "text_style": {
+        "stroke": {
+          "color": "#000000",
+          "width_px": 6
+        },
+        "animation": {
+          "in": {
+            "id": "bounce"
+          }
+        }
+      },
+      "style": null
+    },
+    "c-0005": {
+      "text_style": {
+        "animation": {
+          "in": {
+            "id": "typewriter",
+            "duration_sec": 1.4
+          },
+          "out": {
+            "id": "fade-in-out",
+            "duration_sec": 0.27
+          }
+        }
+      },
+      "style": null
+    }
+  },
+  "scenarios": [
+    {
+      "key": "effect-neon-pink",
+      "t": 1.5
+    },
+    {
+      "key": "effect-bg-round",
+      "t": 5.3
+    },
+    {
+      "key": "effect-ol-color",
+      "t": 8.2
+    },
+    {
+      "key": "motion-bounce-in",
+      "t": 9.1
+    },
+    {
+      "key": "motion-typewriter-in",
+      "t": 12.5
+    },
+    {
+      "key": "motion-karaoke",
+      "t": 4.2
+    }
+  ],
+  "renderSeconds": 20,
+  "renderExit": 0,
+  "engine": "osr",
+  "launcherTiers": {
+    "provenance.osr.provenance.launcher_tier": 2
+  },
+  "osrLogFallback": false,
+  "status": "recorded"
+}

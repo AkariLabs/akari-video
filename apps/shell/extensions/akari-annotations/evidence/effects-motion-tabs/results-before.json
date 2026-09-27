@@ -1,0 +1,762 @@
+{
+  "phase": "before",
+  "base": "391d7c1c5",
+  "obs": {
+    "text-tab-caption": {
+      "state": {
+        "tab": "tab:inspector-text",
+        "dom": 274,
+        "sections": [
+          {
+            "id": "time",
+            "text": "時間 出力位置 00:00:00.000 尺 2.50 秒"
+          },
+          {
+            "id": "content",
+            "text": "内容 テキスト 話者 編集済み いいえ"
+          },
+          {
+            "id": "style",
+            "text": "文字 色 大きさ px （既定） 折り返し幅 % 太さ 普通 太字 極太 行間 （既定） 字間 em （既定）"
+          },
+          {
+            "id": "style:stroke",
+            "text": "縁取り 色 太さ px"
+          },
+          {
+            "id": "style:background",
+            "text": "座布団 表示 座布団を敷く 形 行ごと まとめて 色 不透明度 % （既定） 余白 px （既定） 角丸 px （既定） 角丸を最大にすると文字に沿った丸い座布団（カプセル）になる"
+          },
+          {
+            "id": "style:effect",
+            "text": "効果 種類 Aa なし Aa 影 Aa 浮き出し Aa ネオン Aa 袋文字 効果の色 強さ"
+          },
+          {
+            "id": "style:position",
+            "text": "位置 位置 保存中"
+          },
+          {
+            "id": "timing",
+            "text": "タイミング start 00:00:00.000 end 00:00:02.500 尺 2.50 秒 sourceRef.segment —"
+          }
+        ],
+        "selects": []
+      },
+      "shots": [
+        "before-01-text-tab-top.png",
+        "before-02-text-tab-effect.png"
+      ]
+    },
+    "effect-per-caption": {
+      "c-0001": "効果 種類 Aa なし Aa 影 Aa 浮き出し Aa ネオン Aa 袋文字 効果の色 強さ",
+      "c-0002": "効果 種類 Aa なし Aa 影 Aa 浮き出し Aa ネオン Aa 袋文字 効果の色 強さ",
+      "c-0003": "効果 種類 Aa なし Aa 影 Aa 浮き出し Aa ネオン Aa 袋文字 効果の色 強さ",
+      "c-0004": "効果 種類 Aa なし Aa 影 Aa 浮き出し Aa ネオン Aa 袋文字 効果の色 強さ px",
+      "c-0005": "効果 種類 Aa なし Aa 影 Aa 浮き出し Aa ネオン Aa 袋文字",
+      "shot": "before-03-effect-neon-none.png"
+    },
+    "motion-tab-bag": {
+      "state": {
+        "tab": "tab:inspector-motion",
+        "dom": 33,
+        "sections": [
+          {
+            "id": "animator",
+            "text": "袋 captions のアニメーター（全 cue に効く） アニメーターを追加 選択… アニメーター"
+          }
+        ],
+        "selects": [
+          {
+            "name": "",
+            "options": [
+              "選択…",
+              "アニメーター"
+            ]
+          }
+        ]
+      },
+      "animatorOptions": [
+        "選択…",
+        "アニメーター"
+      ],
+      "shots": [
+        "before-04-motion-tab-bag.png"
+      ]
+    },
+    "bag-selected": {
+      "bagChip": null
+    },
+    "library-textstyle": {
+      "cards": 12,
+      "fonts": 21,
+      "shot": "before-05-library-textstyle.png"
+    },
+    "library-textanim": {
+      "cards": 47,
+      "shot": "before-06-library-textanim.png"
+    },
+    "placed-text": {
+      "ids": [
+        "c-0001",
+        "c-0002",
+        "c-0006",
+        "c-0003",
+        "c-0004",
+        "c-0005"
+      ],
+      "placed": "c-0006",
+      "motion": {
+        "tab": "tab:inspector-motion",
+        "dom": 33,
+        "sections": [
+          {
+            "id": "animator",
+            "text": "袋 captions のアニメーター（全 cue に効く） アニメーターを追加 選択… アニメーター"
+          }
+        ],
+        "selects": [
+          {
+            "name": "",
+            "options": [
+              "選択…",
+              "アニメーター"
+            ]
+          }
+        ]
+      },
+      "shots": [
+        "before-07-placed-text-effect.png",
+        "before-08-placed-text-motion.png"
+      ]
+    },
+    "motion-tab-nobag": {
+      "state": {
+        "tab": "tab:inspector-motion",
+        "dom": 31,
+        "sections": [
+          {
+            "id": "motion-empty",
+            "text": "動き 設定 字幕の動きは、字幕をまとめた袋を置くと設定できます"
+          }
+        ],
+        "selects": []
+      },
+      "shot": "before-09-motion-tab-nobag.png"
+    }
+  },
+  "timing": {
+    "inspector-text-tab-click": {
+      "firstCardVisibleMs": 36,
+      "firstSampleVisibleMs": 36,
+      "allSettledMs": 111,
+      "final": {
+        "n": 8,
+        "view": 5,
+        "ready": 8,
+        "fonts": 0,
+        "dom": 274
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          36,
+          {
+            "n": 1,
+            "view": 1,
+            "ready": 1,
+            "fonts": 0,
+            "dom": 33
+          }
+        ],
+        [
+          111,
+          {
+            "n": 8,
+            "view": 5,
+            "ready": 8,
+            "fonts": 0,
+            "dom": 274
+          }
+        ]
+      ],
+      "profileTop": {
+        "totalMs": 11093,
+        "busyMs": 1085,
+        "top": [
+          [
+            "(program) :0",
+            641.6
+          ],
+          [
+            "(garbage collector) :0",
+            193.3
+          ],
+          [
+            "getBoundingClientRect :0",
+            34.6
+          ],
+          [
+            "querySelector :0",
+            34.2
+          ],
+          [
+            "l bundle.js:18867",
+            31
+          ],
+          [
+            "loop :8",
+            19
+          ],
+          [
+            "requestAnimationFrame :0",
+            15.5
+          ],
+          [
+            "querySelectorAll :0",
+            15.4
+          ],
+          [
+            "BJe.update bundle.js:1153",
+            13.8
+          ],
+          [
+            "inView :4",
+            7
+          ],
+          [
+            "BD bundle.js:1153",
+            6.6
+          ],
+          [
+            "append :0",
+            6.2
+          ],
+          [
+            "scrollIntoView :0",
+            3.3
+          ],
+          [
+            "(anon) bundle.js:432",
+            3.3
+          ],
+          [
+            "Z8i bundle.js:1160",
+            3.2
+          ],
+          [
+            "values :0",
+            3
+          ],
+          [
+            "FOe bundle.js:1160",
+            2.8
+          ],
+          [
+            "renderTab bundle.js:1185",
+            2.6
+          ],
+          [
+            "(anon) :0",
+            2.4
+          ],
+          [
+            "fromKey bundle.js:1189",
+            2.3
+          ],
+          [
+            "replaceChildren :0",
+            2
+          ],
+          [
+            "render bundle.js:18867",
+            1.7
+          ],
+          [
+            "invoke bundle.js:430",
+            1.6
+          ],
+          [
+            "getElementsByTagName :0",
+            1.4
+          ],
+          [
+            "Bpr bundle.js:1161",
+            1.2
+          ]
+        ]
+      }
+    },
+    "inspector-motion-tab-click": {
+      "firstCardVisibleMs": 21,
+      "firstSampleVisibleMs": 21,
+      "allSettledMs": 86,
+      "final": {
+        "n": 1,
+        "view": 1,
+        "ready": 1,
+        "fonts": 0,
+        "dom": 33
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          21,
+          {
+            "n": 8,
+            "view": 5,
+            "ready": 8,
+            "fonts": 0,
+            "dom": 274
+          }
+        ],
+        [
+          86,
+          {
+            "n": 1,
+            "view": 1,
+            "ready": 1,
+            "fonts": 0,
+            "dom": 33
+          }
+        ]
+      ]
+    },
+    "inspector-select-caption-text-tab": {
+      "firstCardVisibleMs": 77,
+      "firstSampleVisibleMs": 77,
+      "allSettledMs": 77,
+      "final": {
+        "n": 8,
+        "view": 5,
+        "ready": 8,
+        "fonts": 0,
+        "dom": 274
+      },
+      "longTasks": [
+        [
+          8,
+          68
+        ],
+        [
+          131,
+          212
+        ]
+      ],
+      "longTaskTotalMs": 280,
+      "changes": [
+        [
+          77,
+          {
+            "n": 8,
+            "view": 5,
+            "ready": 8,
+            "fonts": 0,
+            "dom": 274
+          }
+        ]
+      ]
+    },
+    "library-textstyle-cold": {
+      "firstCardVisibleMs": 2481,
+      "firstSampleVisibleMs": 2481,
+      "allSettledMs": 3313,
+      "final": {
+        "n": 12,
+        "view": 12,
+        "ready": 12,
+        "fonts": 0,
+        "dom": null
+      },
+      "longTasks": [
+        [
+          2323,
+          128
+        ],
+        [
+          2516,
+          113
+        ]
+      ],
+      "longTaskTotalMs": 241,
+      "changes": [
+        [
+          1,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2481,
+          {
+            "n": 12,
+            "view": 12,
+            "ready": 12,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2643,
+          {
+            "n": 12,
+            "view": 12,
+            "ready": 11,
+            "fonts": 1,
+            "dom": null
+          }
+        ],
+        [
+          3313,
+          {
+            "n": 12,
+            "view": 12,
+            "ready": 12,
+            "fonts": 0,
+            "dom": null
+          }
+        ]
+      ],
+      "profileTop": {
+        "totalMs": 13245,
+        "busyMs": 1509,
+        "top": [
+          [
+            "(program) :0",
+            777.7
+          ],
+          [
+            "getBoundingClientRect :0",
+            179
+          ],
+          [
+            "(anon) bundle.js:19350",
+            106.6
+          ],
+          [
+            "(garbage collector) :0",
+            105.4
+          ],
+          [
+            "querySelectorAll :0",
+            56.2
+          ],
+          [
+            "ready :5",
+            41.5
+          ],
+          [
+            "(anon) :5",
+            20
+          ],
+          [
+            "requestAnimationFrame :0",
+            18.8
+          ],
+          [
+            "loop :8",
+            15
+          ],
+          [
+            "values :0",
+            14.3
+          ],
+          [
+            "(anon) :9",
+            10.9
+          ],
+          [
+            "get id bundle.js:1153",
+            7.7
+          ],
+          [
+            "decode :0",
+            7.5
+          ],
+          [
+            "r bundle.js:1189",
+            7.5
+          ],
+          [
+            "F5t bundle.js:1153",
+            6.9
+          ],
+          [
+            "A7i bundle.js:1160",
+            6.2
+          ],
+          [
+            "inView :4",
+            5.7
+          ],
+          [
+            "renderCatalogTab bundle.js:19350",
+            5.5
+          ],
+          [
+            "querySelector :0",
+            4.9
+          ],
+          [
+            "executeCommand bundle.js:433",
+            4.8
+          ],
+          [
+            "RegExp: [\"'] :0",
+            4.1
+          ],
+          [
+            "dds bundle.js:433",
+            4.1
+          ],
+          [
+            "xur bundle.js:1160",
+            3.6
+          ],
+          [
+            "BJe.update bundle.js:1153",
+            3.6
+          ],
+          [
+            "ca.createElement bundle.js:1153",
+            3.3
+          ]
+        ]
+      }
+    },
+    "library-textanim-cold": {
+      "firstCardVisibleMs": 2296,
+      "firstSampleVisibleMs": 2296,
+      "allSettledMs": 2296,
+      "final": {
+        "n": 47,
+        "view": 33,
+        "ready": 47,
+        "fonts": 0,
+        "dom": null
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          2,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2296,
+          {
+            "n": 47,
+            "view": 33,
+            "ready": 47,
+            "fonts": 0,
+            "dom": null
+          }
+        ]
+      ],
+      "profileTop": {
+        "totalMs": 13164,
+        "busyMs": 1375,
+        "top": [
+          [
+            "(program) :0",
+            608.6
+          ],
+          [
+            "getBoundingClientRect :0",
+            227.3
+          ],
+          [
+            "ready :5",
+            119.4
+          ],
+          [
+            "querySelectorAll :0",
+            74.5
+          ],
+          [
+            "(anon) :5",
+            63
+          ],
+          [
+            "(garbage collector) :0",
+            60.7
+          ],
+          [
+            "next :0",
+            48.2
+          ],
+          [
+            "inView :4",
+            22.6
+          ],
+          [
+            "loop :8",
+            22
+          ],
+          [
+            "values :0",
+            13.9
+          ],
+          [
+            "querySelector :0",
+            9
+          ],
+          [
+            "add bundle.js:433",
+            7.8
+          ],
+          [
+            "getComputedStyle :0",
+            7
+          ],
+          [
+            "requestAnimationFrame :0",
+            5.8
+          ],
+          [
+            "vis :3",
+            5.8
+          ],
+          [
+            "Wlr bundle.js:1160",
+            3.9
+          ],
+          [
+            "get id bundle.js:1153",
+            3.4
+          ],
+          [
+            "(anon) :9",
+            3.3
+          ],
+          [
+            "(anon) bundle.js:430",
+            3
+          ],
+          [
+            "setTimeout :0",
+            2.8
+          ],
+          [
+            "appendChild :0",
+            2.8
+          ],
+          [
+            "r bundle.js:1189",
+            2.7
+          ],
+          [
+            "xur bundle.js:1160",
+            2.4
+          ],
+          [
+            "Xjc bundle.js:19292",
+            2
+          ],
+          [
+            "(anon) bundle.js:1153",
+            2
+          ]
+        ]
+      }
+    },
+    "library-textstyle-warm": {
+      "firstCardVisibleMs": 2346,
+      "firstSampleVisibleMs": 2346,
+      "allSettledMs": 2346,
+      "final": {
+        "n": 12,
+        "view": 12,
+        "ready": 12,
+        "fonts": 0,
+        "dom": null
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          2,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2346,
+          {
+            "n": 12,
+            "view": 12,
+            "ready": 12,
+            "fonts": 0,
+            "dom": null
+          }
+        ]
+      ]
+    },
+    "library-textanim-warm": {
+      "firstCardVisibleMs": 2346,
+      "firstSampleVisibleMs": 2346,
+      "allSettledMs": 2346,
+      "final": {
+        "n": 47,
+        "view": 33,
+        "ready": 47,
+        "fonts": 0,
+        "dom": null
+      },
+      "longTasks": [
+        [
+          2318,
+          65
+        ],
+        [
+          2383,
+          148
+        ]
+      ],
+      "longTaskTotalMs": 213,
+      "changes": [
+        [
+          1,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2346,
+          {
+            "n": 47,
+            "view": 33,
+            "ready": 47,
+            "fonts": 0,
+            "dom": null
+          }
+        ]
+      ]
+    }
+  },
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "status": "recorded"
+}

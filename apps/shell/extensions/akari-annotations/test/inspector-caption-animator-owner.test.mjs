@@ -69,8 +69,8 @@ test('cue 文脈のアニメーター節は袋の見出しを表示し、追加�
     const section = animatorSection(owner.id, `袋 ${owner.id} のアニメーター（全 cue に効く）`, owner.animator,
         async request => { writes.push(request); return { ok: true }; });
     assert.equal(section.id, 'animator');
-    assert.equal(section.label, '袋 captions-bag のアニメーター（全 cue に効く）');
-    assert.equal(section.collapsedByDefault, undefined);
+    assert.equal(section.label, '詳細設定（上級）: 袋 captions-bag のアニメーター（全 cue に効く）');
+    assert.equal(section.collapsedByDefault, true);
     const add = section.fields.find(field => field.name === 'animator-add');
     assert.equal(add.label, 'アニメーターを追加');
     assert.deepEqual(await add.write(snapshot, 'アニメーター'), { ok: true });

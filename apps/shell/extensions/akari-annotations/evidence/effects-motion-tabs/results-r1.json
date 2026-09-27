@@ -1,0 +1,956 @@
+{
+  "phase": "r1",
+  "obs": {
+    "libraryCold": {
+      "textstyle": [
+        {
+          "firstCardVisibleMs": 52,
+          "allSettledMs": 255,
+          "cards": 12,
+          "focus": {
+            "tag": "INPUT",
+            "type": "search",
+            "inLibrary": true,
+            "value": ""
+          }
+        },
+        {
+          "firstCardVisibleMs": 60,
+          "allSettledMs": 60,
+          "cards": 12,
+          "focus": {
+            "tag": "INPUT",
+            "type": "search",
+            "inLibrary": true,
+            "value": ""
+          }
+        },
+        {
+          "firstCardVisibleMs": 51,
+          "allSettledMs": 51,
+          "cards": 12,
+          "focus": {
+            "tag": "INPUT",
+            "type": "search",
+            "inLibrary": true,
+            "value": ""
+          }
+        }
+      ],
+      "textanim": [
+        {
+          "firstCardVisibleMs": 59,
+          "allSettledMs": 59,
+          "cards": 47,
+          "focus": {
+            "tag": "INPUT",
+            "type": "search",
+            "inLibrary": true,
+            "value": ""
+          }
+        },
+        {
+          "firstCardVisibleMs": 39,
+          "allSettledMs": 39,
+          "cards": 47,
+          "focus": {
+            "tag": "INPUT",
+            "type": "search",
+            "inLibrary": true,
+            "value": ""
+          }
+        },
+        {
+          "firstCardVisibleMs": 24,
+          "allSettledMs": 24,
+          "cards": 47,
+          "focus": {
+            "tag": "INPUT",
+            "type": "search",
+            "inLibrary": true,
+            "value": ""
+          }
+        }
+      ]
+    },
+    "library-reactivate": [
+      38.4,
+      38.6,
+      27.7
+    ],
+    "segmentArrowSwitches": {
+      "left": false,
+      "right": true
+    },
+    "library-search-keys": {
+      "composing": {
+        "tag": "INPUT",
+        "type": "search",
+        "inLibrary": true,
+        "value": "てすと"
+      },
+      "afterActivate": {
+        "tag": "INPUT",
+        "type": "search",
+        "inLibrary": true,
+        "value": "てすと"
+      },
+      "committed": {
+        "tag": "INPUT",
+        "type": "search",
+        "inLibrary": true,
+        "value": "テスト"
+      },
+      "afterArrows": {
+        "tag": "INPUT",
+        "value": "テスト",
+        "caret": 2
+      },
+      "segBefore": {
+        "seg": "catalog",
+        "catalog": true
+      },
+      "segAfter": {
+        "seg": "catalog",
+        "catalog": true
+      },
+      "segBack": {
+        "seg": "catalog",
+        "catalog": true
+      },
+      "errors": []
+    },
+    "inertBeforeVisual": false,
+    "sampleVisibleMoments": [
+      {
+        "shown": 17,
+        "total": 22
+      },
+      {
+        "shown": 16,
+        "total": 22
+      },
+      {
+        "shown": 20,
+        "total": 22
+      },
+      {
+        "shown": 18,
+        "total": 22
+      },
+      {
+        "shown": 18,
+        "total": 22
+      }
+    ],
+    "sample-hold": {
+      "frames": [
+        {
+          "kind": "combo",
+          "id": "simple",
+          "name": "akari-motion-sample-fade-in-out",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "combo",
+          "id": "smart",
+          "name": "akari-motion-sample-slide-up",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "combo",
+          "id": "fun",
+          "name": "akari-motion-sample-pop",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "combo",
+          "id": "corp",
+          "name": "akari-motion-sample-wipe-right",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "combo",
+          "id": "relax",
+          "name": "akari-motion-sample-fade-in-out",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "combo",
+          "id": "typewriter",
+          "name": "akari-motion-type",
+          "fades": false,
+          "start": null,
+          "end": null
+        },
+        {
+          "kind": "slot",
+          "id": "fade",
+          "name": "akari-motion-sample-fade-in-out",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "slide-up",
+          "name": "akari-motion-sample-slide-up",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "slide-down",
+          "name": "akari-motion-sample-slide-down",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "slide-left",
+          "name": "akari-motion-sample-slide-left",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "slide-right",
+          "name": "akari-motion-sample-slide-right",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "scale",
+          "name": "akari-motion-sample-zoom-in-out",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "wipe",
+          "name": "akari-motion-sample-wipe-right",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "pop",
+          "name": "akari-motion-sample-pop",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "zoom",
+          "name": "akari-motion-sample-zoom-in-out",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "slot",
+          "id": "twirl",
+          "name": "akari-motion-sample-spin-in",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "fade-in-out",
+          "name": "akari-motion-sample-fade-in-out",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "soft-fade",
+          "name": "akari-motion-sample-soft-fade",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "fade-up",
+          "name": "akari-motion-sample-fade-up",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "slide-left",
+          "name": "akari-motion-sample-slide-left",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "zoom-in-out",
+          "name": "akari-motion-sample-zoom-in-out",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "pop",
+          "name": "akari-motion-sample-pop",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "bounce",
+          "name": "akari-motion-sample-bounce",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "rotate-in",
+          "name": "akari-motion-sample-rotate-in",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "shake",
+          "name": "akari-motion-sample-shake",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "typewriter",
+          "name": "akari-motion-type",
+          "fades": false,
+          "start": null,
+          "end": null
+        },
+        {
+          "kind": "textanim",
+          "id": "wobble",
+          "name": "akari-motion-sample-wobble",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "textanim",
+          "id": "glitch",
+          "name": "akari-motion-sample-glitch",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "word-style",
+          "id": "karaoke",
+          "name": "akari-motion-karaoke",
+          "fades": false,
+          "start": null,
+          "end": null
+        },
+        {
+          "kind": "word-style",
+          "id": "pop",
+          "name": "akari-motion-sample-pop",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "word-style",
+          "id": "reveal",
+          "name": "akari-motion-sample-fade-up",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "word-style",
+          "id": "reveal-word",
+          "name": "akari-motion-sample-fade-up",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "one-char-bang",
+          "name": "akari-motion-sample-pop",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "one-char-jumble",
+          "name": "akari-motion-sample-jitter",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "size-pulse",
+          "name": "akari-motion-sample-heartbeat",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "color-accent",
+          "name": "akari-motion-sample-neon-flicker",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "color-only",
+          "name": "akari-motion-sample-soft-fade",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "outline-bold",
+          "name": "akari-motion-sample-zoom-pop",
+          "fades": true,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "danger",
+          "name": "akari-motion-sample-shake",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "positive",
+          "name": "akari-motion-sample-heartbeat",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        },
+        {
+          "kind": "emphasis",
+          "id": "highlight",
+          "name": "akari-motion-sample-wipe-right",
+          "fades": false,
+          "start": [
+            1
+          ],
+          "end": [
+            1
+          ]
+        }
+      ],
+      "moments": [
+        {
+          "shown": 17,
+          "total": 22
+        },
+        {
+          "shown": 16,
+          "total": 22
+        },
+        {
+          "shown": 20,
+          "total": 22
+        },
+        {
+          "shown": 18,
+          "total": 22
+        },
+        {
+          "shown": 18,
+          "total": 22
+        }
+      ],
+      "shot": "r1-motion-samples.png"
+    },
+    "sample-clip": {
+      "state": [
+        {
+          "id": "twirl",
+          "label": "あいう回転",
+          "frameClass": "akari-caption-motion-sample-frame",
+          "overflow": "hidden",
+          "frameInsideCard": true
+        },
+        {
+          "id": "rotate-in",
+          "label": "あいう回転イン",
+          "frameClass": "akari-caption-motion-sample-frame",
+          "overflow": "hidden",
+          "frameInsideCard": true
+        }
+      ],
+      "all": true,
+      "shot": "r1-clip-rotate.png"
+    },
+    "emphasis-chips": {
+      "chips": [
+        {
+          "text": "今日は朝",
+          "pressed": "false",
+          "border": "1px solid rgb(27, 27, 27)",
+          "radius": "999px",
+          "bg": "rgb(20, 20, 20)",
+          "color": "rgb(204, 204, 204)",
+          "padding": "3px 9px"
+        },
+        {
+          "text": "のルーテ",
+          "pressed": "true",
+          "border": "1px solid rgb(251, 146, 60)",
+          "radius": "999px",
+          "bg": "rgb(249, 115, 22)",
+          "color": "rgb(10, 10, 10)",
+          "padding": "3px 9px"
+        },
+        {
+          "text": "ィンを紹",
+          "pressed": "false",
+          "border": "1px solid rgb(27, 27, 27)",
+          "radius": "999px",
+          "bg": "rgb(20, 20, 20)",
+          "color": "rgb(204, 204, 204)",
+          "padding": "3px 9px"
+        },
+        {
+          "text": "介します",
+          "pressed": "false",
+          "border": "1px solid rgb(27, 27, 27)",
+          "radius": "999px",
+          "bg": "rgb(20, 20, 20)",
+          "color": "rgb(204, 204, 204)",
+          "padding": "3px 9px"
+        }
+      ],
+      "shot": "r1-emphasis-chips.png"
+    },
+    "animator-explain": {
+      "state": {
+        "text": "文字を 1 文字 / 1 語ずつずらして動かす仕組みです",
+        "scrollW": 529,
+        "clientW": 529,
+        "width": 529,
+        "sectionWidth": 547,
+        "whiteSpace": "normal",
+        "textOverflow": "clip"
+      },
+      "shot": "r1-animator-explain.png"
+    },
+    "word-style-emphasis-undo": {
+      "wordStyle": {
+        "before": null,
+        "written": "karaoke",
+        "afterUndo": "karaoke"
+      },
+      "emphasis": {
+        "before": 0,
+        "written": 1,
+        "afterUndo": 1
+      }
+    }
+  },
+  "checks": {
+    "library textstyle: 畳んだ欄から開き直して最初のカードまで 300ms 以内（3 回とも）": {
+      "ok": true,
+      "detail": [
+        52,
+        60,
+        51
+      ]
+    },
+    "library textstyle: 開いた後のフォーカスはライブラリの検索欄": {
+      "ok": true,
+      "detail": [
+        {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": ""
+        },
+        {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": ""
+        },
+        {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": ""
+        }
+      ]
+    },
+    "library textanim: 畳んだ欄から開き直して最初のカードまで 300ms 以内（3 回とも）": {
+      "ok": true,
+      "detail": [
+        59,
+        39,
+        24
+      ]
+    },
+    "library textanim: 開いた後のフォーカスはライブラリの検索欄": {
+      "ok": true,
+      "detail": [
+        {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": ""
+        },
+        {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": ""
+        },
+        {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": ""
+        }
+      ]
+    },
+    "library: 畳んだ欄から戻る activateWidget が 300ms 以内（3 回とも・activationTimeout 待ちなし）": {
+      "ok": true,
+      "detail": [
+        38.4,
+        38.6,
+        27.7
+      ]
+    },
+    "library 検索欄: 変換中に activate されても日本語入力が 1 回だけ確定する": {
+      "ok": true,
+      "detail": {
+        "before": {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": ""
+        },
+        "composing": {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": "てすと"
+        },
+        "afterActivate": {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": "てすと"
+        },
+        "committed": {
+          "tag": "INPUT",
+          "type": "search",
+          "inLibrary": true,
+          "value": "テスト"
+        }
+      }
+    },
+    "library 検索欄: 矢印キーで検索欄の値とフォーカスが保たれ、カーソルだけが動く（表示は切り替わらない）": {
+      "ok": true,
+      "detail": {
+        "afterArrows": {
+          "tag": "INPUT",
+          "value": "テスト",
+          "caret": 2
+        },
+        "view": "catalog"
+      }
+    },
+    "library 切り替えのボタン: 押した後のフォーカスが検索欄へ奪われず、左右キーの後もボタンに残る": {
+      "ok": true,
+      "detail": {
+        "segBefore": {
+          "seg": "catalog",
+          "catalog": true
+        },
+        "segAfter": {
+          "seg": "catalog",
+          "catalog": true
+        },
+        "segBack": {
+          "seg": "catalog",
+          "catalog": true
+        }
+      }
+    },
+    "見本: フェードで始まる見本も周期の頭と終わりは見える状態で止まる": {
+      "ok": true,
+      "detail": {
+        "fading": 28,
+        "bad": []
+      }
+    },
+    "見本: 回転などの見本はカードの見本の領域でクリップされる（全カードの見本の枠が overflow: hidden）": {
+      "ok": true,
+      "detail": [
+        {
+          "id": "twirl",
+          "label": "あいう回転",
+          "frameClass": "akari-caption-motion-sample-frame",
+          "overflow": "hidden",
+          "frameInsideCard": true
+        },
+        {
+          "id": "rotate-in",
+          "label": "あいう回転イン",
+          "frameClass": "akari-caption-motion-sample-frame",
+          "overflow": "hidden",
+          "frameInsideCard": true
+        }
+      ]
+    },
+    "強調の対象語チップ: 枠と背景があり、選択中は背景と文字色が変わる": {
+      "ok": true,
+      "detail": [
+        {
+          "text": "今日は朝",
+          "pressed": "false",
+          "border": "1px solid rgb(27, 27, 27)",
+          "radius": "999px",
+          "bg": "rgb(20, 20, 20)",
+          "color": "rgb(204, 204, 204)",
+          "padding": "3px 9px"
+        },
+        {
+          "text": "のルーテ",
+          "pressed": "true",
+          "border": "1px solid rgb(251, 146, 60)",
+          "radius": "999px",
+          "bg": "rgb(249, 115, 22)",
+          "color": "rgb(10, 10, 10)",
+          "padding": "3px 9px"
+        },
+        {
+          "text": "ィンを紹",
+          "pressed": "false",
+          "border": "1px solid rgb(27, 27, 27)",
+          "radius": "999px",
+          "bg": "rgb(20, 20, 20)",
+          "color": "rgb(204, 204, 204)",
+          "padding": "3px 9px"
+        },
+        {
+          "text": "介します",
+          "pressed": "false",
+          "border": "1px solid rgb(27, 27, 27)",
+          "radius": "999px",
+          "bg": "rgb(20, 20, 20)",
+          "color": "rgb(204, 204, 204)",
+          "padding": "3px 9px"
+        }
+      ]
+    },
+    "アニメーター: 平易な説明が全幅の説明文で最後まで読める（切れない）": {
+      "ok": true,
+      "detail": {
+        "text": "文字を 1 文字 / 1 語ずつずらして動かす仕組みです",
+        "scrollW": 529,
+        "clientW": 529,
+        "width": 529,
+        "sectionWidth": 547,
+        "whiteSpace": "normal",
+        "textOverflow": "clip"
+      }
+    }
+  },
+  "undoReverts": {
+    "wordStyle": false,
+    "emphasis": false
+  },
+  "status": "recorded",
+  "summary": {
+    "checks": 12,
+    "failed": []
+  }
+}
