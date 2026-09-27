@@ -9,6 +9,7 @@ import { nextPreviewLiveOverride } from '../common/preview-live-override';
 import { createPreviewLiveDomController } from '../common/preview-live-dom';
 import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
 import { captionControlScale } from '../common/caption-control-scale';
+import { captionEdgeHandleLayout } from '../common/caption-edge-handle-layout';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
 import { canvasCaptionZPlan } from '../common/canvas-caption-z';
 import { canvasDropTargets } from '../common/canvas-drop-target';
@@ -16391,6 +16392,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
             };
             const captionControlScaleFn = (${captionControlScale.toString()});
+            const captionEdgeHandleLayoutFn = (${captionEdgeHandleLayout.toString()});
             const captionOrientedFrameFn = (${captionOrientedFrame.toString()});
             const captionWrapAnchorDeltaFn = (${captionWrapAnchorDelta.toString()});
             const captionWrapResizeFn = (${captionWrapResize.toString()});
@@ -16479,6 +16481,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     top: frameRect.y + (oriented.center.y - oriented.height / 2) * frameScale,
                     bottom: frameRect.y + (oriented.center.y + oriented.height / 2) * frameScale
                 });
+                const chromeScaleY = previewStage.offsetHeight > 0
+                    && previewStage.getBoundingClientRect().height > 0
+                    ? previewStage.getBoundingClientRect().height / previewStage.offsetHeight : 1;
+                const chromeScaleX = previewStage.offsetWidth > 0
+                    && previewStage.getBoundingClientRect().width > 0
+                    ? previewStage.getBoundingClientRect().width / previewStage.offsetWidth : 1;
+                if (typeof captionEdgeHandleLayoutFn === 'function') {
+                    const edgeLayout = captionEdgeHandleLayoutFn(captionSelectBox.offsetHeight * chromeScaleY);
+                    captionSelectBox.style.setProperty('--akari-caption-edge-outset',
+                        edgeLayout.edgeOutset / chromeScaleX + 'px');
+                }
                 captionSelectBox.style.transform = 'rotate(' + captionTransform.rotate + 'deg)';
                 captionSelectBox.style.setProperty('--caption-box-rotate', captionTransform.rotate + 'deg');
                 captionSelectBox.classList.add('is-active');
@@ -17062,7 +17075,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 const kind = handle.getAttribute('data-h');
                 if (!['nw', 'ne', 'sw', 'se', 'rot', 'e', 'w', 'move'].includes(kind)) return false;
                 if (kind === 'move') return false;
-                if (['e', 'w'].includes(kind) && caption.timeDomain !== 'output') return false;
                 event.preventDefault();
                 event.stopPropagation();
                 if (selectedCaptionId !== cueId) selectCaption(cueId);
@@ -17087,6 +17099,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const startCorners = (kind === 'e' || kind === 'w')
                     ? captionOrientedFrameFn(layoutRect, baseScale, baseRotate).corners : null;
                 const originalWrap = captionPlate.style.getPropertyValue('--caption-wrap-width');
+                const originalPlateMargin = captionPlate.style.getPropertyValue('--caption-plate-margin');
                 const originalLeft = captionPlate.style.getPropertyValue('--caption-left');
                 const originalTop = captionPlate.style.getPropertyValue('--caption-top');
                 const originalBottom = captionPlate.style.getPropertyValue('--caption-bottom');
@@ -17112,6 +17125,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     else captionPlate.style.setProperty('--caption-rotate', baseRotate + 'deg');
                     if (originalWrap) captionPlate.style.setProperty('--caption-wrap-width', originalWrap);
                     else captionPlate.style.removeProperty('--caption-wrap-width');
+                    if (originalPlateMargin) captionPlate.style.setProperty('--caption-plate-margin', originalPlateMargin);
+                    else captionPlate.style.removeProperty('--caption-plate-margin');
                     if (originalLeft) captionPlate.style.setProperty('--caption-left', originalLeft);
                     else captionPlate.style.removeProperty('--caption-left');
                     for (const [name, value] of [['--caption-top', originalTop],
@@ -17157,6 +17172,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const wrap = captionWrapResizeFn(kind, layoutRect,
                             { x: now.x - start.x, y: now.y - start.y }, baseRotate, baseScale, outputWidth);
                         captionPlate.style.setProperty('--caption-wrap-width', wrap.widthPct + '%');
+                        captionPlate.style.setProperty('--caption-plate-margin', '0');
                         captionPlate.style.setProperty('--caption-left', wrap.left / outputWidth * 100 + '%');
                         captionPlate.style.setProperty('--caption-top', layoutRect.top / outputHeight * 100 + '%');
                         captionPlate.style.setProperty('--caption-bottom', 'auto');
@@ -18900,7 +18916,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 const handleBox = document.createElement('div');
                 handleBox.className = 'akari-caption-handle-box';
                 for (const kind of ['nw', 'ne', 'sw', 'se', 'e', 'w', 'rot', 'move']) {
-                    if ((kind === 'e' || kind === 'w') && caption.timeDomain !== 'output') continue;
                     const handle = document.createElement('i');
                     handle.className = 'akari-caption-handle';
                     handle.setAttribute('data-h', kind);
@@ -18929,14 +18944,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (caption !== row.renderedCaption) {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
-                    if (caption?.runs?.some(run => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)) {
+                    const wrapWidthActive = Boolean(caption?.textStyleVars?.['--caption-wrap-width']);
+                    if (wrapWidthActive
+                        || caption?.runs?.some(run => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)) {
                         captionPlate.dataset.captionSizedRun = '';
                         const captionPositionX = caption?.textStyle?.position?.x;
                         const captionAnchor = caption?.textStyle?.text_anchor;
+                        const captionHorizontal = captionAnchor?.[1]
+                            || (wrapWidthActive ? caption?.textStyle?.zone?.split('-').at(-1) : null);
                         captionPlate.style?.setProperty?.('--caption-plate-margin',
                             Number.isFinite(captionPositionX) ? '0'
-                                : captionAnchor?.[1] === 'l' ? '0 auto'
-                                    : captionAnchor?.[1] === 'r' ? 'auto 0' : 'auto');
+                                : captionHorizontal === 'l' || captionHorizontal === 'left' ? '0 auto'
+                                    : captionHorizontal === 'r' || captionHorizontal === 'right' ? 'auto 0' : 'auto');
                     } else {
                         delete captionPlate.dataset.captionSizedRun;
                         captionPlate.style?.removeProperty?.('--caption-plate-margin');

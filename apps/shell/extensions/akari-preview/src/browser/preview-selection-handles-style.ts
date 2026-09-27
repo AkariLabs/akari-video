@@ -55,15 +55,19 @@ body.akari-caption-rotating .akari-caption-handle, body.akari-caption-moving .ak
 body:is(.akari-caption-moving, .akari-caption-transforming, .akari-media-moving, .akari-media-transforming) :is(#caption-select-box .akari-caption-select-tools, #caption-select-box [data-akari-run-menu], #caption-select-box [data-caption-palette], #photo-crop-controls) { visibility: hidden !important; }
 body.akari-selection-gesture-active :is(#layer-crop-toggle, #layer-perspective-toggle, #layer-perspective-panel, #photo-crop-controls, #caption-select-box .akari-caption-select-tools, #caption-select-box [data-akari-run-menu], #caption-select-box [data-caption-palette], #layer-select-box .akari-layer-handle-rotate, #layer-select-box .akari-layer-handle-move, #cut-select-box .akari-cut-handle-rotate, #cut-select-box .akari-cut-handle-move) { visibility: hidden !important; }
 .caption-row-plate[data-output-caption][style*="--caption-wrap-width"] .akari-caption__plate { width: var(--caption-wrap-width); }
+.caption-row-plate:not([data-output-caption])[style*="--caption-wrap-width"] .akari-caption__plate { width: var(--caption-wrap-width); }
+.caption-row-plate[style*="--caption-wrap-width"] .akari-caption__plate { right: var(--caption-right,0); margin-inline: var(--caption-plate-margin,auto); }
 .caption-row-plate[data-output-caption][style*="--caption-wrap-width"] .akari-caption__line,
-.caption-row-plate[data-output-caption][style*="--caption-wrap-width"] .akari-caption__block { width: 100%; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
+.caption-row-plate[data-output-caption][style*="--caption-wrap-width"] .akari-caption__block,
+.caption-row-plate:not([data-output-caption])[style*="--caption-wrap-width"] .akari-caption__line,
+.caption-row-plate:not([data-output-caption])[style*="--caption-wrap-width"] .akari-caption__block { width: 100%; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
 .akari-caption-handle-box .akari-caption-handle { transform-origin: center; }
 #caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="nw"] { left: 0; top: 0; transform: translate(-50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
 #caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="ne"] { right: 0; top: 0; transform: translate(50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
 #caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="sw"] { left: 0; bottom: 0; transform: translate(-50%,50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
 #caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="se"] { right: 0; bottom: 0; transform: translate(50%,50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
-#caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="e"] { right: 0; top: 50%; transform: translate(50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
-#caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="w"] { left: 0; top: 50%; transform: translate(-50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+#caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="e"] { right: calc(0px - var(--akari-caption-edge-outset,0px)); top: 50%; transform: translate(50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+#caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="w"] { left: calc(0px - var(--akari-caption-edge-outset,0px)); top: 50%; transform: translate(-50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
 #caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="rot"],
 #caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="move"] { top: calc(100% + var(--akari-caption-control-below,24px)); transform: translate(-50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
 #caption-select-box .akari-caption-handle-box .akari-caption-handle[data-h="rot"] { left: calc(50% - var(--akari-caption-control-pair,14px)); }
