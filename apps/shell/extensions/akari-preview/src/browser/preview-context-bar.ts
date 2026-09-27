@@ -81,6 +81,8 @@ ICON.captionFont = ICON.style;
 ICON.captionStroke = ICON.weight;
 ICON.captionSpacing = ICON.dash;
 ICON.captionMore = ICON.more;
+ICON.captionEffect = svg(`<path d="M10 2.5 11.6 7l4.5 1.6-4.5 1.6L10 14.7l-1.6-4.5L4 8.6 8.4 7z" ${stroke}/><path d="M16 13l.8 2.2L19 16l-2.2.8L16 19l-.8-2.2L13 16l2.2-.8z" ${stroke}/>`);
+ICON.captionAnimation = svg(`<path d="M3 10h10m-4-4 4 4-4 4M15 5l2-2m-2 12 2 2" ${stroke}/>`);
 
 const ALIGN_LABEL: Record<AlignMode, string> = {
     left: '左に揃える', center: '左右の中央', right: '右に揃える', top: '上に揃える', middle: '上下の中央', bottom: '下に揃える'
@@ -394,7 +396,7 @@ export class PreviewContextBar implements Disposable {
         }).join('');
     }
 
-    protected captionButton(key: string): string {
+    protected captionButton(key: string, overflow = false): string {
         const style = (this.state?.item?.textStyle ?? {}) as Record<string, any>;
         const label: Record<string, string> = { captionFont: 'フォント', captionTextColor: '文字の色', captionBold: '太字',
             captionItalic: '斜体', captionUnderline: '下線', captionStrike: '取り消し線', captionCase: '大文字小文字',
@@ -410,9 +412,12 @@ export class PreviewContextBar implements Disposable {
             ? `<span class="akari-ctx-font-name">${escapeHtml(style.fontFamily || 'Noto Sans JP')}</span><span>⌄</span>`
             : key === 'captionTextColor' ? `<span class="akari-ctx-color-a">A<span style="background:${escapeHtml(style.color ?? '#ffffff')}"></span></span>`
                 : key === 'captionAlign' ? ICON[`align-${align}`] : glyph[key] ?? escapeHtml(label[key]);
+        const overflowIcon = key === 'captionEffect' || key === 'captionAnimation' ? ICON[key] : content;
         return `<button type="button" class="akari-ctx-item akari-ctx-caption-item${open || pressed ? ' is-open' : ''}"`
             + ` data-akari-bar-item="${key}" aria-label="${label[key]}" title="${label[key]}" aria-pressed="${pressed}"`
-            + ` aria-expanded="${open}"${key === 'captionFont' ? ' data-font-button' : ''}>${content}</button>`;
+            + ` aria-expanded="${open}"${key === 'captionFont' ? ' data-font-button' : ''}>${overflow
+                ? `<span class="akari-ctx-caption-overflow-icon">${overflowIcon}</span><span class="akari-ctx-caption-overflow-name">${escapeHtml(label[key])}</span><span class="akari-ctx-caption-overflow-check" aria-hidden="true">${pressed ? '✓' : ''}</span>`
+                : content}</button>`;
     }
 
     protected renderCaptionBar(): void {
@@ -489,7 +494,7 @@ export class PreviewContextBar implements Disposable {
         if (state.kind === 'caption') {
             this.more.innerHTML = this.captionOverflow.map(key => key === 'captionSize'
                 ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button><input type="number" data-akari-caption-size min="1" max="160" value="${Math.round(Number((state.item?.textStyle as Record<string, any>)?.sizePx) || 48)}" aria-label="サイズ"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
-                : this.captionButton(key)).join('');
+                : this.captionButton(key, true)).join('');
             return;
         }
         this.more.innerHTML = [
@@ -1006,7 +1011,10 @@ const PREVIEW_CONTEXT_BAR_STYLE = `
 [data-akari-ui="preview-context-bar"] .akari-ctx-overflow { position: relative; flex: none; box-sizing: border-box; width: 28px; min-width: 28px; height: 28px; padding: 0; }
 .akari-ctx-overflow[aria-pressed="true"]::after { content: ''; position: absolute; right: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--theia-focusBorder); }
 [data-akari-ui="preview-element-more"]:has([data-akari-bar-item]) { min-width: 160px; max-height: 280px; overflow: auto; }
-[data-akari-ui="preview-element-more"]:has([data-akari-bar-item]) > .akari-ctx-item { display: flex; width: 100%; justify-content: flex-start; }
+[data-akari-ui="preview-element-more"]:has([data-akari-bar-item]) > .akari-ctx-item { display: flex; width: 100%; min-width: 0; justify-content: flex-start; }
+[data-akari-ui="preview-element-more"] .akari-ctx-caption-overflow-icon { flex: none; display: inline-flex; width: 25px; align-items: center; justify-content: center; }
+[data-akari-ui="preview-element-more"] .akari-ctx-caption-overflow-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+[data-akari-ui="preview-element-more"] .akari-ctx-caption-overflow-check { flex: none; width: 16px; color: var(--theia-focusBorder); font-weight: 700; }
 .akari-ctx-item { display: inline-flex; align-items: center; gap: 6px; height: 30px; min-width: 30px; padding: 0 7px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; white-space: nowrap; justify-content: center; }
 .akari-ctx-item:hover:not(:disabled), .akari-ctx-item.is-open { background: var(--theia-toolbar-hoverBackground); }
 .akari-ctx-item.is-open { color: var(--theia-focusBorder); }

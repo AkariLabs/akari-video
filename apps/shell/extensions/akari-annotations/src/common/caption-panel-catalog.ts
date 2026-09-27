@@ -1,5 +1,6 @@
 /** Snapshot of catalog/font meta.json and presets/textstyle/index.jsonl for the inspector UI. */
-export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: string; tags: string[]; bundled: boolean }[] = [
+export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; displayName?: string;
+    family: string; tags: string[]; bundled: boolean }[] = [
     {
         "id": "851-chikara-dzuyoku",
         "title": "851チカラヅヨク",
@@ -34,6 +35,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "biz-udgothic",
         "title": "BIZ UDGothic",
+        "displayName": "BIZ UDゴシック",
         "family": "BIZ UDGothic",
         "tags": [
             "japanese",
@@ -66,6 +68,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "dela-gothic-one",
         "title": "Dela Gothic One",
+        "displayName": "Dela Gothic One あ字",
         "family": "Dela Gothic One",
         "tags": [
             "japanese",
@@ -77,6 +80,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "dotgothic16",
         "title": "DotGothic16",
+        "displayName": "ドットゴシック16",
         "family": "DotGothic16",
         "tags": [
             "japanese",
@@ -98,6 +102,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "klee-one",
         "title": "Klee One",
+        "displayName": "クレー One",
         "family": "Klee One",
         "tags": [
             "japanese",
@@ -139,6 +144,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "mplus-rounded-1c",
         "title": "M PLUS Rounded 1c",
+        "displayName": "M PLUS Rounded 1c あ字",
         "family": "M PLUS Rounded 1c",
         "tags": [
             "japanese",
@@ -150,6 +156,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "noto-sans-jp",
         "title": "Noto Sans JP",
+        "displayName": "Noto Sans JP あ字",
         "family": "Noto Sans JP",
         "tags": [
             "japanese",
@@ -160,6 +167,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "noto-serif-jp",
         "title": "Noto Serif JP",
+        "displayName": "Noto Serif JP あ字",
         "family": "Noto Serif JP",
         "tags": [
             "japanese",
@@ -211,6 +219,7 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "shippori-mincho",
         "title": "Shippori Mincho",
+        "displayName": "しっぽり明朝",
         "family": "Shippori Mincho",
         "tags": [
             "japanese",
@@ -309,6 +318,8 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
     {
         "id": "zen-maru-gothic",
         "title": "Zen Maru Gothic",
+        // 作者が日本語表記として提案: https://github.com/google/fonts/issues/4061
+        "displayName": "Zen丸ゴシック",
         "family": "Zen Maru Gothic",
         "tags": [
             "japanese",
@@ -330,4 +341,3 @@ export const CAPTION_PANEL_FONTS: readonly { id: string; title: string; family: 
         "bundled": false
     }
 ];
-

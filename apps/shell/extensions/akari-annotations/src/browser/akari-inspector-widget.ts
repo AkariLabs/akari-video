@@ -3,6 +3,8 @@ import { CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { AkariPreviewService, type OverlayRuntimeAssetUrls } from 'akari-preview/lib/common/akari-preview-protocol';
 import { createCaptionPanel, CAPTION_PANEL_CSS, type CaptionPanelMyStyle, type CaptionPanelViewState } from './inspector/caption-panels';
 import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
+import { captionRevealDestination } from '../common/caption-reveal-destination';
+import { captionRevealScrollTop } from '../common/caption-reveal-scroll';
 import { captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
 import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
     type CaptionPanelPreviewAction, type CaptionPanelPreviewState } from '../common/caption-panel-preview-state';
@@ -62,8 +64,7 @@ import { itemMotionMarks } from './inspector/motion-marks';
 import { isInspectorStillImage } from './inspector/edit-target';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
-    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
-    resolveCaptionRevealField
+    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch
 } from './inspector/caption-style-effects';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
@@ -2956,7 +2957,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const transition = advanceCaptionPanelPreview(this.captionPanelPreview, action);
         this.captionPanelPreview = transition.state;
         if (transition.detail) window.dispatchEvent(new CustomEvent('akari-caption-panel-preview', {
-            detail: transition.detail
+            detail: { ...transition.detail, ...(action.type === 'confirm' ? { committed: true } : {}) }
         }));
         return { close: transition.close, commit: transition.commit };
     }
@@ -4299,7 +4300,8 @@ export class AkariInspectorWidget extends BaseWidget {
         this.render();
     }
 
-    focusField(options: { tabId?: string; sectionId?: string; fieldName?: string; solo?: boolean }): boolean {
+    focusField(options: { tabId?: string; sectionId?: string; fieldName?: string; solo?: boolean;
+        pulse?: boolean }): boolean {
         if ((options.tabId === 'generation' || options.tabId === 'edit') && options.fieldName === 'akari-generation-retry') {
             void this.retryGenerationFromTimeline();
             return true;
@@ -4390,7 +4392,7 @@ export class AkariInspectorWidget extends BaseWidget {
             }
         }
         const target = fieldElement ?? sectionElement;
-        if (target) this.pulse(target as HTMLElement);
+        if (target && options.pulse !== false) this.pulse(target as HTMLElement);
         return true;
     }
 
@@ -4400,18 +4402,24 @@ export class AkariInspectorWidget extends BaseWidget {
             && snapshot.items.length > 0 && snapshot.items.every(item => item.kind === 'caption'))) {
             return false;
         }
-        const field = resolveCaptionRevealField(argument);
-        const sectionId = field === 'caption-style-stroke-color' ? 'style:stroke'
-            : field === 'caption-style-bg-color' ? 'style:background' : 'style';
-        if (!this.focusField({ tabId: 'text', sectionId })) return false;
-        const target = field === 'caption-style'
-            ? this.body.querySelector('[data-inspector-field="caption-style"]')
-            : this.body.querySelector(`[data-inspector-field="${field}"]`);
+        if (this.captionPanel) this.closeCaptionPanel();
+        const destination = captionRevealDestination(argument,
+            snapshot.kind === 'caption' && !!snapshot.animatorOwner);
+        if (!this.focusField({ tabId: destination.tabId, sectionId: destination.sectionId, pulse: false })) return false;
+        const target = destination.field
+            ? this.body.querySelector(`[data-inspector-field="${destination.field}"]`)
+            : this.body.querySelector(`[data-akari-ui="section:inspector-${destination.sectionId}"]`);
         if (!(target instanceof HTMLElement)) return false;
-        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        const panelRect = this.node.getBoundingClientRect();
+        const scrollTop = captionRevealScrollTop(this.node.scrollTop, panelRect.top,
+            this.node.clientHeight, this.node.scrollHeight, target.getBoundingClientRect().top);
+        // render() pins rememberedView.scrollTop for several frames. Update both so its
+        // restore and pin callbacks keep the requested section visible.
+        this.rememberedView = { ...this.rememberedView, scrollTop };
+        this.node.scrollTop = scrollTop;
         target.classList.add('akari-inspector-reveal-flash');
         window.setTimeout(() => target.classList.remove('akari-inspector-reveal-flash'), 650);
-        if (field !== 'caption-style') {
+        if (destination.field && destination.field !== 'caption-style') {
             const input = target.querySelector<HTMLInputElement>('input[type="text"], input[type="color"]');
             input?.focus({ preventScroll: true });
         }

@@ -4,6 +4,9 @@ import { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captio
     filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail,
     renderableCaptionFonts, CAPTION_FONT_FAMILY } from '../lib/common/caption-panel-state.js';
 import { CAPTION_PANEL_FONTS } from '../lib/common/caption-panel-catalog.js';
+import { filterCaptionPanelFonts } from '../lib/common/caption-font-label.js';
+import { captionRevealDestination } from '../lib/common/caption-reveal-destination.js';
+import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { createCaptionPanel, CAPTION_PANEL_STYLES } from '../lib/browser/inspector/caption-panels.js';
 import { updateCaptionTextStyleInSource } from '../lib/common/caption-store.js';
 
@@ -60,6 +63,34 @@ test('表示できる 9 書体だけを検索・複数タグ AND フィルター
     assert.equal(faces.get('noto-sans-jp'), CAPTION_FONT_FAMILY);
     assert.match(captionFontRowDetail(['latin']), /日本語は代わりの書体で表示/u);
     assert.doesNotMatch(captionFontRowDetail(['japanese']), /代わりの書体/u);
+});
+
+test('日本語表示名と英字名の両方で同じ書体を検索できる', () => {
+    const available = renderableCaptionFonts(CAPTION_PANEL_FONTS, faces);
+    for (const query of ['明朝', 'しっぽり', 'Shippori']) {
+        assert.ok(filterCaptionPanelFonts(available, query, new Set()).some(font => font.id === 'shippori-mincho'));
+    }
+    for (const query of ['ゴシック', 'DotGothic']) {
+        assert.ok(filterCaptionPanelFonts(available, query, new Set()).some(font => font.id === 'dotgothic16'));
+    }
+    const panel = createCaptionPanel(document, 'font', state(), [], faces, actions);
+    const row = descendants(panel).find(node => node.attributes['data-akari-font-row'] === 'shippori-mincho');
+    assert.ok(descendants(row).some(node => node.textContent === 'しっぽり明朝'));
+    assert.ok(descendants(row).some(node => node.textContent === 'Shippori Mincho'));
+});
+
+test('revealField の行き先は編集パネルの実在する欄とタブに一致する', () => {
+    for (const [field, owner, section, tab] of [
+        ['caption-effect', false, 'style:effect', 'text'],
+        ['caption-animation', true, 'animator', 'motion'],
+        ['caption-animation', false, 'motion-empty', 'motion'],
+        ['caption-style', false, 'style', 'text']
+    ]) {
+        const destination = captionRevealDestination({ field }, owner);
+        assert.equal(destination.sectionId, section);
+        assert.equal(destination.tabId, tab);
+        assert.equal(assignSectionToTab('caption', section), tab);
+    }
 });
 
 test('展開する太さはフォントファイルの静的ウェイトまたは可変 wght 軸内だけ', () => {

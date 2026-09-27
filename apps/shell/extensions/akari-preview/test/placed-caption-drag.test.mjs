@@ -107,6 +107,8 @@ test('output cues retain the frame-relative fallback and fit explicit-x plates t
 test('caption items use the export full-frame plate while ordinary output cues keep their fit rule', () => {
     const context = {
         activeCaptionEdit: null,
+        selectedCaptionId: null,
+        captionStylePreview: { resolve: caption => caption },
         applyCaptionStyleVars() {},
         applyCaptionRowSelectionAttrs() {},
         renderPlainCaptionFragment: () => '<div class="akari-caption__plate"></div>',
@@ -133,6 +135,8 @@ test('caption items use the export full-frame plate while ordinary output cues k
 test('renderCaptionRow clears output-only styling when the caption is absent', () => {
     const context = {
         activeCaptionEdit: null,
+        selectedCaptionId: null,
+        captionStylePreview: { resolve: caption => caption },
         applyCaptionStyleVars() {},
         applyCaptionRowSelectionAttrs() {},
         captionEntryAnimationsSettledFn: () => true,

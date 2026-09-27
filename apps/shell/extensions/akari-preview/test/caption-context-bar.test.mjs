@@ -52,6 +52,34 @@ test('畳んだ押下項目は一覧と「…」の点で示す', () => {
     assert.match(css, /\.akari-ctx-overflow\[aria-pressed="true"\]::after/u);
 });
 
+test('「…」の字幕項目はアイコン・日本語名・オンの印を持つ', () => {
+    const view = { state: { item: { textStyle: { underline: true } } }, captionPanel: null, openWindow: null };
+    const html = PreviewContextBar.prototype.captionButton.call(view, 'captionUnderline', true);
+    assert.match(html, /aria-label="下線"[^>]*aria-pressed="true"/u);
+    assert.match(html, /akari-ctx-caption-overflow-icon/u);
+    assert.match(html, /akari-ctx-caption-overflow-name">下線/u);
+    assert.match(html, /akari-ctx-caption-overflow-check" aria-hidden="true">✓/u);
+    assert.doesNotMatch(PreviewContextBar.prototype.captionButton.call(view, 'captionUnderline'),
+        /akari-ctx-caption-overflow-name/u);
+});
+
+test('畳まれる字幕項目は全てアイコン 1 つと名前 1 つを分けて描く', () => {
+    const view = { state, captionPanel: null, openWindow: null };
+    const labels = new Map(barItems(state).map(item => [item.key, item.label]));
+    for (const key of CAPTION_BAR_ORDER.filter(item => !['captionFont', 'captionSize', 'captionStyle'].includes(item))) {
+        const html = PreviewContextBar.prototype.captionButton.call(view, key, true);
+        const icon = html.split('<span class="akari-ctx-caption-overflow-icon">')[1]
+            ?.split('</span><span class="akari-ctx-caption-overflow-name">')[0];
+        const name = html.split('<span class="akari-ctx-caption-overflow-name">')[1]?.split('</span>')[0];
+        assert.ok(icon?.trim(), key);
+        assert.equal(name, labels.get(key), key);
+        assert.ok(!icon.includes(name), `${key}: icon must not repeat the name`);
+        if (key === 'captionEffect' || key === 'captionAnimation') assert.match(icon, /<svg /u);
+    }
+    assert.match(PreviewContextBar.prototype.captionButton.call(view, 'captionEffect'), />エフェクト<\/button>$/u);
+    assert.match(PreviewContextBar.prototype.captionButton.call(view, 'captionAnimation'), />アニメーション<\/button>$/u);
+});
+
 test('Esc は字幕の窓・「…」だけを閉じ、窓なしは選択解除へ渡す', () => {
     assert.equal(captionEscapeClosesPopup('caption', 'captionSpacing', false), true);
     assert.equal(captionEscapeClosesPopup('caption', null, true), true);
