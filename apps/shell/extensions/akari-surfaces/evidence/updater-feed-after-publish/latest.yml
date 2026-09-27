@@ -1,0 +1,8 @@
+version: 0.1.94
+files:
+  - url: 'https://github.com/AkariLabs/akari-video/releases/download/v0.1.94/shell-win-setup.exe'
+    sha512: 1Vxi6IEFR+FVT+K1l8nRo0OKOE2LypLa+T39EXsZkKdFq6pjFvpiRzeMHBHgkjZSBjOiRDAJKaJuSbJktwn7bA==
+    size: 304587852
+path: 'https://github.com/AkariLabs/akari-video/releases/download/v0.1.94/shell-win-setup.exe'
+sha512: 1Vxi6IEFR+FVT+K1l8nRo0OKOE2LypLa+T39EXsZkKdFq6pjFvpiRzeMHBHgkjZSBjOiRDAJKaJuSbJktwn7bA==
+releaseDate: '2026-09-27T07:29:14.025Z'

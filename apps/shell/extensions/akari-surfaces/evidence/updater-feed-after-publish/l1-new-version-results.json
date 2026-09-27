@@ -1,0 +1,12 @@
+[
+  {
+    "scenario": "new-version",
+    "status": "PASS",
+    "splashHiddenForCapture": true,
+    "text": "このアプリについて バージョンとアップデート。 AKARI Video v0.1.95 · 2026-09-28 ビルド · Windows_NT x64 v99.0.0 をダウンロードしています AKARI Video v99.0.0 をダウンロードしています。完了すると再起動ボタンが表示されます。 現在 v0.1.95 · 最後に確かめた: 2026/9/28 4:25:05 ダウンロード中",
+    "requests": [
+      "/latest.yml",
+      "/unavailable.exe.blockmap"
+    ]
+  }
+]

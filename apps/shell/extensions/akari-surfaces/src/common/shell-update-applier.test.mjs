@@ -26,6 +26,7 @@ import {
     resolveAllowPrerelease,
     resolveShellUpdaterErrorReason,
     resolveUpdaterCheckChannel,
+    resolveUpdaterFeedChannel,
     resolveUpdateButtonAction,
     resolveUpdateChannel,
     resolveUpdateUiEnabled,
@@ -68,9 +69,8 @@ test('feed URL フォールバックはパッケージ版かつ app-update.yml �
     assert.equal(shouldApplyFeedUrlFallback(false, true), false);
     assert.equal(shouldApplyFeedUrlFallback(false, false), false);
     assert.deepEqual(FALLBACK_FEED_OPTIONS, {
-        provider: 'github',
-        owner: 'AkariLabs',
-        repo: 'akari-video'
+        provider: 'generic',
+        url: 'https://github.com/AkariLabs/akari-video/releases/download/updates/'
     });
 });
 
@@ -132,14 +132,14 @@ test('applyShellUpdaterEvent: error は reason を保持し、DL 済みなら既
     assert.deepEqual(applyShellUpdaterEvent(INITIAL_SHELL_UPDATER_UI_STATE, { kind: 'error', reason: 'oops' }), {
         downloaded: false,
         failed: true,
-        failureReason: 'oops',
+        failureReason: '更新を確認できませんでした。時間をおいてもう一度お試しください',
         fallbackReason: undefined
     });
     const downloading = { downloaded: false, downloading: true, downloadingVersion: '0.2.0' };
     assert.deepEqual(applyShellUpdaterEvent(downloading, { kind: 'error', message: 'legacy message' }), {
         downloaded: false,
         failed: true,
-        failureReason: 'legacy message',
+        failureReason: '更新を確認できませんでした。時間をおいてもう一度お試しください',
         fallbackReason: undefined
     });
 });
@@ -178,7 +178,7 @@ test('failed 中の更新ボタンも API があればまず再試行し、明�
     const error = { kind: 'error', reason: 'still offline' };
     assert.equal(shouldOpenUpdaterBrowserFallback(checking, error), true);
     const fallback = applyShellUpdaterEvent(checking, error);
-    assert.equal(formatUpdaterFallbackText(fallback), 'アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: still offline）');
+    assert.equal(formatUpdaterFallbackText(fallback), 'ダウンロードページを開きます');
 });
 
 test('設定画面のアップデート確認ボタンは利用者の明示操作として保存済み channel で確認する', () => {
@@ -200,12 +200,17 @@ test('安定版設定でも、通知でプレリリースを明示ダウンロ�
     assert.equal(resolveUpdaterCheckChannel('stable', true, 'invalid'), 'stable');
 });
 
+test('generic feed は prerelease を latest、stable を専用 manifest に振り分ける', () => {
+    assert.equal(resolveUpdaterFeedChannel('prerelease'), 'latest');
+    assert.equal(resolveUpdaterFeedChannel('stable'), 'stable');
+});
+
 test('通知の新版を手動確認して更新なしなら無反応にせず、配布物への縮退を発火する', () => {
     const checking = beginUserInitiatedUpdaterCheck(INITIAL_SHELL_UPDATER_UI_STATE);
     const event = reconcileVisibleUpdateEvent(checking, { kind: 'update-not-available' }, '0.1.82');
     assert.equal(event.kind, 'error');
     assert.equal(shouldOpenUpdaterBrowserFallback(checking, event), true);
-    assert.match(formatUpdaterFallbackText(applyShellUpdaterEvent(checking, event)), /v0\.1\.82/);
+    assert.equal(formatUpdaterFallbackText(applyShellUpdaterEvent(checking, event)), 'ダウンロードページを開きます');
     assert.deepEqual(reconcileVisibleUpdateEvent(INITIAL_SHELL_UPDATER_UI_STATE, { kind: 'update-not-available' }, '0.1.82'), { kind: 'update-not-available' });
 });
 
@@ -231,7 +236,7 @@ test('バックグラウンドチェックの失敗では縮退表示もブラ�
 test('API 不在時は明示クリックから即ブラウザ縮退し、理由を一行表示する', () => {
     assert.equal(resolveUpdateButtonAction(INITIAL_SHELL_UPDATER_UI_STATE, false), 'browser-fallback');
     const fallback = applyImmediateUpdaterFallback(INITIAL_SHELL_UPDATER_UI_STATE, 'アプリ内更新機能を利用できませんでした');
-    assert.equal(formatUpdaterFallbackText(fallback), 'アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: アプリ内更新機能を利用できませんでした）');
+    assert.equal(formatUpdaterFallbackText(fallback), 'ダウンロードページを開きます');
 });
 
 test('App Translocation の実行パスだけを検知し、具体的な移動案内を優先する', () => {
@@ -242,16 +247,16 @@ test('App Translocation の実行パスだけを検知し、具体的な移動�
     assert.equal(resolveShellUpdaterErrorReason('network down', translated), 'アプリを Applications フォルダへ移動してから再起動してください');
 });
 
-test('ネットワーク系エラーは再試行方法を含む理由へ整形し、それ以外は生 message を保つ', () => {
+test('ネットワーク系エラーは日本語へ整形し、それ以外も生 message を画面へ渡さない', () => {
     assert.equal(
         resolveShellUpdaterErrorReason('net::ERR_INTERNET_DISCONNECTED', '/Applications/AKARI Video.app/Contents/MacOS/AKARI Video'),
-        'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください'
+        'オフラインのため更新を確認できませんでした'
     );
-    assert.equal(resolveShellUpdaterErrorReason('signature validation failed', '/Applications/AKARI Video.app'), 'signature validation failed');
+    assert.equal(resolveShellUpdaterErrorReason('signature validation failed', '/Applications/AKARI Video.app'), '更新を確認できませんでした。時間をおいてもう一度お試しください');
 });
 
 test('Chromium の配信先への接続失敗はオフラインと区別した理由にする', () => {
-    const reason = '更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください';
+    const reason = '配信先に接続できませんでした。時間をおいてお試しください';
     for (const code of [
         'ERR_CONNECTION_REFUSED', 'ERR_CONNECTION_RESET', 'ERR_CONNECTION_CLOSED',
         'ERR_CONNECTION_FAILED', 'ERR_ADDRESS_UNREACHABLE', 'ERR_TIMED_OUT'
@@ -260,11 +265,11 @@ test('Chromium の配信先への接続失敗はオフラインと区別した�
     }
     assert.equal(
         resolveShellUpdaterErrorReason('net::ERR_INTERNET_DISCONNECTED', '/Applications/AKARI Video.app'),
-        'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください'
+        'オフラインのため更新を確認できませんでした'
     );
     assert.equal(
         resolveShellUpdaterErrorReason('ECONNREFUSED', '/Applications/AKARI Video.app'),
-        'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください'
+        'オフラインのため更新を確認できませんでした'
     );
 });
 

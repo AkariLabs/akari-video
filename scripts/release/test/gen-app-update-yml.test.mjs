@@ -12,9 +12,8 @@ import {
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const EXPECTED_APP_UPDATE_YML = [
-  'owner: AkariLabs',
-  'repo: akari-video',
-  'provider: github',
+  'provider: generic',
+  'url: https://github.com/AkariLabs/akari-video/releases/download/updates/',
   "updaterCacheDirName: '@akari-videoshell-updater'",
   ''
 ].join('\n');
@@ -34,7 +33,7 @@ test('指定した出力先へ書き込み、updaterCacheDirName は package nam
     shellPackagePath,
     JSON.stringify({
       name: '@fixture/video-shell',
-      build: { publish: { provider: 'github', owner: 'FixtureOwner', repo: 'fixture-repo' } }
+      build: { publish: { provider: 'generic', url: 'https://example.com/updates/' } }
     }),
     'utf8'
   );
@@ -44,9 +43,8 @@ test('指定した出力先へ書き込み、updaterCacheDirName は package nam
   assert.equal(
     await readFile(outputPath, 'utf8'),
     [
-      'owner: FixtureOwner',
-      'repo: fixture-repo',
-      'provider: github',
+      'provider: generic',
+      'url: https://example.com/updates/',
       "updaterCacheDirName: '@fixturevideo-shell-updater'",
       ''
     ].join('\n')

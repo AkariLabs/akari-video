@@ -464,9 +464,8 @@
       "target": "dir"
     },
     "publish": {
-      "provider": "github",
-      "owner": "AkariLabs",
-      "repo": "akari-video"
+      "provider": "generic",
+      "url": "https://github.com/AkariLabs/akari-video/releases/download/updates/"
     },
     "afterPack": "./resources/scripts/after-pack-app-update-yml.cjs"
   },

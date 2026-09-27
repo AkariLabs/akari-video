@@ -12,6 +12,7 @@ import {
     FALLBACK_FEED_OPTIONS,
     isAppTranslocationPath,
     resolveUpdaterCheckChannel,
+    resolveUpdaterFeedChannel,
     resolveUpdateChannel,
     resolveShellUpdaterErrorReason,
     resolveManualUpdaterCheckEvent,
@@ -174,6 +175,9 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         }
         const settings = this.readUpdateSettings();
         const channel = resolveUpdaterCheckChannel(settings.channel, manual, offeredChannel);
+        // generic provider は allowPrerelease を参照しない。安定版は専用 channel を読む。
+        autoUpdater.channel = resolveUpdaterFeedChannel(channel);
+        autoUpdater.allowDowngrade = false;
         autoUpdater.allowPrerelease = channel === 'prerelease';
         if (!manual && !settings.autoCheck) { return; }
         if (isAppTranslocationPath(process.execPath)) {
@@ -253,7 +257,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         const message = error instanceof Error ? error.message : String(error);
         const reason = resolveShellUpdaterErrorReason(message, process.execPath);
         console.error(`[akari-surfaces] ${context}:`, error);
-        this.appendUpdaterLog(context, message);
+        this.appendUpdaterLog(context, error instanceof Error ? error.stack ?? message : message);
         this.emit({ kind: 'error', message, reason });
     }
 

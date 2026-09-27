@@ -1,0 +1,8 @@
+version: 0.1.94
+files:
+  - url: 'https://github.com/AkariLabs/akari-video/releases/download/v0.1.94/shell-mac.zip'
+    sha512: YGFwoefsnR4+s6Y/Dc4FlkjPoPV92j0Q3cSDtzeW8mTrQ0jf1xS7Bd++NTfFvvsW9o3IthtaLvY40eVrsHNcXA==
+    size: 325385513
+path: 'https://github.com/AkariLabs/akari-video/releases/download/v0.1.94/shell-mac.zip'
+sha512: YGFwoefsnR4+s6Y/Dc4FlkjPoPV92j0Q3cSDtzeW8mTrQ0jf1xS7Bd++NTfFvvsW9o3IthtaLvY40eVrsHNcXA==
+releaseDate: '2026-09-27T07:27:43.244Z'

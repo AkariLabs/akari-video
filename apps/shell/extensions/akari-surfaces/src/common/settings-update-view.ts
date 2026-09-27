@@ -38,7 +38,7 @@ export function resolveSettingsUpdateView(input: {
     }
     if (state.failed) {
         return {
-            label: `更新を確認できませんでした: ${state.failureReason ?? '原因を確認できませんでした'}`,
+            label: state.failureReason ?? '更新を確認できませんでした。時間をおいてもう一度お試しください',
             detail: state.fallbackReason ? `${formatUpdaterFallbackText(state)} · ${checked}` : checked,
             button: { kind: 'check', label: 'もう一度確かめる', disabled: false, primary: false },
             browserFallback: !!downloadUrl

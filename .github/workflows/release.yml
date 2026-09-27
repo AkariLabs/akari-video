@@ -16,7 +16,7 @@ name: Release
 # dry_run: true のときは版整合ゲート〜ビルドまでは通常どおり走らせ、Release 作成と
 # フィード更新だけをスキップして成果物一式を artifact upload に留める。
 # feed_only: true のときはビルド・Release 作成を全てスキップし、指定タグの既存 Release から
-# 成果物を取得して latest.json を作り直し、updates フィードだけを差し替える。
+# 成果物を取得して latest.json とアプリ内更新メタデータを作り直し、updates フィードを差し替える。
 # 2026-08-29 改訂: タグ push 時の自動フィード更新（旧 feed-update ジョブ）は廃止した。draft の段階で
 # フィードが新版を指してしまい、自動更新クライアントが draft の asset を落とせない窓が開くため
 # （v0.1.26 / v0.1.27 で実際に発生）。フィード更新は司令塔が本体 Release を公開した後に
@@ -933,6 +933,8 @@ jobs:
           TAG="${{ needs.resolve-tag.outputs.tag }}"
           if ! gh release download "$TAG" --dir release-artifacts --clobber \
             --pattern "${{ env.ARTIFACT_MAC }}" \
+            --pattern "${{ env.ARTIFACT_MAC_UPDATE_YML }}" \
+            --pattern "${{ env.ARTIFACT_WIN_UPDATE_YML }}" \
             --pattern "*.dmg" \
             --pattern "${{ env.ARTIFACT_WIN }}" \
             --pattern "${{ env.ARTIFACT_WIN_SETUP }}" \
@@ -945,13 +947,15 @@ jobs:
             gh api "repos/${{ github.repository }}/releases/$rel_id/assets?per_page=100" --jq '.[] | "\(.id) \(.name)"' |
               while read -r asset_id name; do
                 case "$name" in
-                  "${{ env.ARTIFACT_MAC }}"|*.dmg|"${{ env.ARTIFACT_WIN }}"|"${{ env.ARTIFACT_WIN_SETUP }}"|"${{ env.ARTIFACT_CLI }}"|"${{ env.ARTIFACT_APP }}")
+                  "${{ env.ARTIFACT_MAC }}"|"${{ env.ARTIFACT_MAC_UPDATE_YML }}"|"${{ env.ARTIFACT_WIN_UPDATE_YML }}"|*.dmg|"${{ env.ARTIFACT_WIN }}"|"${{ env.ARTIFACT_WIN_SETUP }}"|"${{ env.ARTIFACT_CLI }}"|"${{ env.ARTIFACT_APP }}")
                     gh api -H "Accept: application/octet-stream" "repos/${{ github.repository }}/releases/assets/$asset_id" > "release-artifacts/$name"
                     echo "  取得: $name" ;;
                 esac
               done
             test -s "release-artifacts/${{ env.ARTIFACT_MAC }}"
           fi
+          test -s "release-artifacts/${{ env.ARTIFACT_MAC_UPDATE_YML }}"
+          test -s "release-artifacts/${{ env.ARTIFACT_WIN_UPDATE_YML }}"
 
       - name: channel を対象 Release の現在状態から決定する
         id: channel
@@ -974,6 +978,17 @@ jobs:
             --released "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
             --out release-artifacts/latest.json
 
+      - name: アプリ内更新メタデータを固定フィード用へ変換
+        run: |
+          TAG="${{ needs.resolve-tag.outputs.tag }}"
+          for manifest in "${{ env.ARTIFACT_WIN_UPDATE_YML }}" "${{ env.ARTIFACT_MAC_UPDATE_YML }}"; do
+            node scripts/release/rewrite-app-update-feed.mjs "$TAG" "release-artifacts/$manifest" "release-artifacts/$manifest"
+          done
+          if [ "${{ steps.channel.outputs.channel }}" = stable ]; then
+            cp "release-artifacts/${{ env.ARTIFACT_WIN_UPDATE_YML }}" release-artifacts/stable.yml
+            cp "release-artifacts/${{ env.ARTIFACT_MAC_UPDATE_YML }}" release-artifacts/stable-mac.yml
+          fi
+
       - name: updates フィードへ差し替え
         env:
           GH_TOKEN: ${{ github.token }}
@@ -982,6 +997,11 @@ jobs:
             gh release create updates \
               --prerelease \
               --title "updates (machine feed)" \
-              --notes "機械用フィードです。akari / シェルの更新確認が参照する latest.json 専用の固定タグ Release です。人間向けの changelog はここに書きません。"
+              --notes "機械用フィードです。akari / シェルの更新確認が参照する latest.json とアプリ内更新メタデータを置く固定タグ Release です。人間向けの changelog はここに書きません。"
           fi
+          manifests=("release-artifacts/${{ env.ARTIFACT_WIN_UPDATE_YML }}" "release-artifacts/${{ env.ARTIFACT_MAC_UPDATE_YML }}")
+          if [ "${{ steps.channel.outputs.channel }}" = stable ]; then
+            manifests+=(release-artifacts/stable.yml release-artifacts/stable-mac.yml)
+          fi
+          gh release upload updates "${manifests[@]}" --clobber
           gh release upload updates release-artifacts/latest.json --clobber

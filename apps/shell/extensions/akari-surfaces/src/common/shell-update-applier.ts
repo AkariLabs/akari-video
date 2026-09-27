@@ -13,12 +13,12 @@
 import { compareVersions } from './update-feed';
 
 export const FALLBACK_FEED_OPTIONS = {
-    provider: 'github',
-    owner: 'AkariLabs',
-    repo: 'akari-video'
+    provider: 'generic',
+    url: 'https://github.com/AkariLabs/akari-video/releases/download/updates/'
 } as const;
+export const RELEASES_PAGE_URL = 'https://github.com/AkariLabs/akari-video/releases';
 
-/** パッケージ版で app-update.yml が欠けた場合だけ、GitHub feed を明示設定する。 */
+/** パッケージ版で app-update.yml が欠けた場合だけ、固定 feed を明示設定する。 */
 export function shouldApplyFeedUrlFallback(isPackaged: boolean, appUpdateYmlExists: boolean): boolean {
     return isPackaged && !appUpdateYmlExists;
 }
@@ -53,9 +53,8 @@ export const FALLBACK_APP_UPDATE_YML_FILENAME = 'app-update.yml';
  */
 export function buildFallbackAppUpdateYml(): string {
     return [
-        `owner: ${FALLBACK_FEED_OPTIONS.owner}`,
-        `repo: ${FALLBACK_FEED_OPTIONS.repo}`,
         `provider: ${FALLBACK_FEED_OPTIONS.provider}`,
+        `url: ${FALLBACK_FEED_OPTIONS.url}`,
         `updaterCacheDirName: '${FALLBACK_UPDATER_CACHE_DIR_NAME}'`,
         ''
     ].join('\n');
@@ -134,7 +133,7 @@ export function applyShellUpdaterEvent(state: ShellUpdaterUiState, event: ShellU
         return { downloaded: false, downloading: true, downloadingVersion: event.version };
     }
     if (event.kind === 'error') {
-        const failureReason = normalizeUpdaterReason(event.reason ?? event.message);
+        const failureReason = resolveShellUpdaterErrorReason(event.reason ?? event.message, undefined);
         return {
             downloaded: false,
             failed: true,
@@ -184,6 +183,11 @@ export function resolveUpdaterCheckChannel(
     return manual && (offeredChannel === 'stable' || offeredChannel === 'prerelease') ? offeredChannel : preference;
 }
 
+/** generic provider は allowPrerelease を見ないため、安定版だけ別 manifest を読む。 */
+export function resolveUpdaterFeedChannel(channel: 'stable' | 'prerelease'): 'stable' | 'latest' {
+    return channel === 'stable' ? 'stable' : 'latest';
+}
+
 /** 手動確認だけ、進行中・適用待ちの更新を再通知してチェックを省く。 */
 export function resolveManualUpdaterCheckEvent(
     manual: boolean,
@@ -225,7 +229,7 @@ export function applyImmediateUpdaterFallback(state: ShellUpdaterUiState, reason
     if (state.downloaded) {
         return state;
     }
-    const normalizedReason = normalizeUpdaterReason(reason);
+    const normalizedReason = resolveShellUpdaterErrorReason(reason, undefined);
     return {
         downloaded: false,
         failed: true,
@@ -244,12 +248,13 @@ export function formatUpdaterFallbackText(state: ShellUpdaterUiState): string {
     if (!state.fallbackReason) {
         return '';
     }
-    return `アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: ${state.fallbackReason}）`;
+    return 'ダウンロードページを開きます';
 }
 
 const APP_TRANSLOCATION_REASON = 'アプリを Applications フォルダへ移動してから再起動してください';
-const OFFLINE_UPDATE_REASON = 'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください';
-const UPDATE_DESTINATION_UNREACHABLE_REASON = '更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください';
+const OFFLINE_UPDATE_REASON = 'オフラインのため更新を確認できませんでした';
+const UPDATE_DESTINATION_UNREACHABLE_REASON = '配信先に接続できませんでした。時間をおいてお試しください';
+const UPDATE_CHECK_FAILED_REASON = '更新を確認できませんでした。時間をおいてもう一度お試しください';
 
 /** macOS App Translocation の実行パスを、OS API に依存せず判定する純粋関数。 */
 export function isAppTranslocationPath(executablePath: string | null | undefined): boolean {
@@ -265,13 +270,17 @@ export function resolveShellUpdaterErrorReason(
         return APP_TRANSLOCATION_REASON;
     }
     const normalized = normalizeUpdaterReason(message);
+    if (normalized === APP_TRANSLOCATION_REASON || normalized === OFFLINE_UPDATE_REASON
+        || normalized === UPDATE_DESTINATION_UNREACHABLE_REASON || normalized === UPDATE_CHECK_FAILED_REASON) {
+        return normalized;
+    }
     if (/\bERR_(?:CONNECTION_(?:REFUSED|RESET|CLOSED|FAILED)|ADDRESS_UNREACHABLE|TIMED_OUT)\b/i.test(normalized)) {
         return UPDATE_DESTINATION_UNREACHABLE_REASON;
     }
     if (/(?:offline|network|internet|ENOTFOUND|EAI_AGAIN|ECONN(?:REFUSED|RESET)|ETIMEDOUT|ERR_(?:INTERNET_DISCONNECTED|NETWORK_CHANGED|NAME_NOT_RESOLVED|CONNECTION_TIMED_OUT))/i.test(normalized)) {
         return OFFLINE_UPDATE_REASON;
     }
-    return normalized;
+    return UPDATE_CHECK_FAILED_REASON;
 }
 
 function normalizeUpdaterReason(reason: string | null | undefined): string {

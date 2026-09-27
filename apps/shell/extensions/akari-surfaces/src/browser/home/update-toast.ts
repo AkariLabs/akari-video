@@ -158,10 +158,8 @@ export class AkariUpdateToast {
             const copy = this.element('p', 'akari-update-copy');
             if (state.stage === 'found') {
                 const details = [state.summary, state.sizeLabel ? `約 ${state.sizeLabel}` : undefined].filter(Boolean);
-                const reason = state.fallbackReason && state.fallbackReason.length > 180
-                    ? `${state.fallbackReason.slice(0, 180)}…` : state.fallbackReason;
-                copy.textContent = state.checking ? '更新を確認しています…' : reason
-                    ? `アプリ内更新を開始できませんでした（${reason}）。${state.downloadUrl ? 'ブラウザから取得できます。' : '配布先を確認してください。'}`
+                copy.textContent = state.checking ? '更新を確認しています…' : state.fallbackReason
+                    ? `更新を確認できませんでした。${state.downloadUrl ? 'ブラウザから取得できます。' : '時間をおいてもう一度お試しください。'}`
                     : details.length ? details.join(' · ') : '新しい版をダウンロードできます。';
                 if (state.notesUrl && /^https?:\/\//i.test(state.notesUrl)) {
                     const link = this.element('a', '', '変更点');
