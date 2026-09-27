@@ -234,8 +234,10 @@ test('generation chip 更新は再描画で class を復元し、2 回適用し�
   assert.match(renderStrip, /const layerGeneration = this\.generationForPath\(this\.sourceMap\.get\(layer\.src\)\?\.path \?\? layer\.src\)/);
   assert.match(renderStrip, /media \|\| hasLayerGeneration \? 'akari-annotations-strip-layer akari-annotations-strip-clip'/);
   assert.match(renderStrip, /media \|\| hasLayerGeneration\s*\? this\.clipHeader\(media\?\.label \?\? layer\.id, layer\.duration\)/);
-  assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);\s*if \(created && transitionWarning\)/);
-  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*if \(created && unsupportedDeclaredTransitions/);
+  assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);/);
+  // 取り寄せ中の「ダウンロード中」も同じ位置で当て直す（generation chip と同居する）。
+  assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && transitionWarning\)/);
+  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && unsupportedDeclaredTransitions/);
   const ordinaryLayer = new DummyElement();
   ordinaryLayer.className = 'akari-annotations-strip-layer akari-annotations-strip-layer-still';
   const noGeneration = { state: 'none' };

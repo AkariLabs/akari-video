@@ -124,6 +124,14 @@ export class AkariCatalogCommandContribution implements CommandContribution {
                 return widget.resolveCatalogMaterial(key, options);
             }
         });
+        // 取り寄せる前に置き先だけ聞く口。楽観配置（先に置いて、届いたら塗り替える）が使う。
+        registry.registerCommand({ id: 'akari.catalog.planMaterial' }, {
+            execute: async (key: string) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                return widget.planCatalogMaterial(key);
+            }
+        });
         registry.registerCommand({ id: 'akari.catalog.resolveOverlay' }, {
             execute: async (key: string) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);

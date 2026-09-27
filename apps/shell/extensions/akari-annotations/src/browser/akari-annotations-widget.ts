@@ -56,6 +56,7 @@ import { createWorldBand } from './timeline/world-band';
 import type { WorldBandMap } from '../common/world-band-layout';
 import { GET_TIMELINE_PLAYHEAD } from './akari-annotations-commands';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
+import { pendingAssetFetches } from 'akari-preview/lib/common/pending-asset-fetch';
 import 'akari-preview/lib/electron-common/electron-api';
 import { VisualThumbnailCache } from './visual-thumbnail-cache';
 import type { VisualThumbnailCapture } from 'akari-preview/lib/common/visual-thumbnail';
@@ -2885,6 +2886,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
         // 注釈が増減したらピンを描き直す。パネルの時刻リンクからのジャンプもここで受ける。
         this.toDispose.push(this.review.onChanged(() => this.renderStrip()));
+        // 取り寄せ中の控えが変わったら帯を描き直す（「ダウンロード中」の出し入れ）。
+        this.toDispose.push(pendingAssetFetches.onChanged(() => this.renderStrip()));
         this.toDispose.push(this.review.onSeekRequested(time => {
             this.selectedSourceT = time;
             this.playheadT = time;
@@ -6607,29 +6610,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     async addMaterialAtOutputPoint(relativePath: string, kind: string, t: number,
         transform?: { x: number; y: number }, outsideCanvas = false, canvasAware = false,
-        knownSourceWidth?: number): Promise<void> {
+        knownSourceWidth?: number): Promise<string | undefined> {
         if (!Number.isFinite(t)) {
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
-            return;
+            return undefined;
         }
         if (kind === 'audio') {
-            await this.addMaterialAt(relativePath, kind, t, 0);
-            return;
+            return this.addMaterialAt(relativePath, kind, t, 0);
         }
-        if (kind !== 'image' && kind !== 'video') return;
+        if (kind !== 'image' && kind !== 'video') return undefined;
         const outputWidth = (this.editDocument?.output as { width?: number } | undefined)?.width;
         if (!transform || !Number.isFinite(transform.x) || !Number.isFinite(transform.y)
             || !(outputWidth && outputWidth > 0)) {
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
-            return;
+            return undefined;
         }
         const known = Number.isFinite(knownSourceWidth) && (knownSourceWidth ?? 0) > 0 ? knownSourceWidth : undefined;
         const probeStartedAt = Date.now();
         // 呼び出し側が知らないときは、まずレンダラで読む（ヘッダだけで済むので数十 ms）。
         // バックエンドの probe は実測 15 秒かかったうえ undefined を返しており、
         // その失敗が scale=1（原寸）での配置に化けて画面からはみ出していた。
-        const fromDom = known ? undefined : await this.readMediaSizeInRenderer(relativePath, kind);
-        const dimensions = known || fromDom || !this.location?.editUri ? undefined : await probePreviewMediaDimensions({
+        // 取り寄せ中はまだ実体が無い。読めないものを読みに行って 15 秒待つ意味はない。
+        const fetching = pendingAssetFetches.has(relativePath);
+        const fromDom = known || fetching ? undefined : await this.readMediaSizeInRenderer(relativePath, kind);
+        const dimensions = known || fromDom || fetching || !this.location?.editUri ? undefined : await probePreviewMediaDimensions({
             resolveUri: async () => {
                 await this.refreshReferenceMediaUris(undefined, [relativePath]);
                 return this.resolveEditMediaUri(relativePath, this.location!.editUri!).toString();
@@ -6638,19 +6642,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         const sourceWidth = known ?? fromDom?.width ?? dimensions?.width;
         if (!(sourceWidth && sourceWidth > 0)) {
-            await this.addMaterialAt(relativePath, kind, t, 0, {
+            const placed = await this.addMaterialAt(relativePath, kind, t, 0, {
                 transform: { ...transform, scale: 1 }, placeOnTop: true,
                 ...(outsideCanvas ? { outsideCanvas: true } : {}),
                 ...(canvasAware ? { canvasAware: true } : {})
             });
             this.messages.warn('素材の大きさを取得できなかったため、既定の大きさで置きました。');
-            return;
+            return placed;
         }
-        await this.addMaterialAt(relativePath, kind, t, 0, {
+        return this.addMaterialAt(relativePath, kind, t, 0, {
             transform: { ...transform, scale: outputWidth / (4 * sourceWidth) }, placeOnTop: true,
             ...(outsideCanvas ? { outsideCanvas: true } : {}),
             ...(canvasAware ? { canvasAware: true } : {})
         });
+    }
+
+    /**
+     * 取り寄せに失敗した楽観配置の後始末。置いた要素だけを消す（履歴にも 1 手として残す）。
+     * ここで消さないと、絵の出ない素材が黙って残る。
+     */
+    async removePlacedMaterial(itemId: string): Promise<void> {
+        if (!itemId || !this.location?.editUri) return;
+        try {
+            await this.commitEditMutation('置いた素材を取り消す', doc => removeV2Item(doc, itemId));
+        } catch (error) {
+            console.warn('[akari-annotations] 取り寄せに失敗した素材を消せませんでした', error);
+        }
+    }
+
+    /**
+     * 取り寄せが終わった素材を拾い直す。edit.json は先に書いてあるので中身は変わらず、
+     * 変わるのは参照台帳の解決結果（assets/... → ライブラリの実体）だけ。それを引き直して
+     * 帯を描き直す。失敗を覚えているサムネの控えも捨て、次の描画で読み直させる。
+     */
+    async refreshPlacedMaterial(relativePath: string): Promise<void> {
+        if (!relativePath || !this.location) return;
+        await this.refreshReferenceMediaUris(undefined, [relativePath]);
+        for (const [key, value] of [...this.thumbnailCache]) {
+            if (isMediaCacheFailure(value)) this.thumbnailCache.delete(key);
+        }
+        this.filmstripContentRevision++;
+        this.renderStrip();
     }
 
     async addOverlayAtOutputPoint(request: unknown): Promise<string | undefined> {
@@ -6728,7 +6760,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             transform?: { x: number; y: number; scale: number }; placeOnTop?: boolean;
             outsideCanvas?: boolean; canvasAware?: boolean; canvasId?: string;
         }
-    ): Promise<void> {
+    ): Promise<string | undefined> {
         if (this.materialSwap) await this.finishMaterialSwap(false);
         if (kind !== 'video' && kind !== 'audio' && kind !== 'image') {
             this.messages.warn('素材を追加できません（種別が不正です）。');
@@ -6920,7 +6952,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.hideNotice();
                 this.footer.textContent = `${overlapNote}${autoLevelNotice || `${successNote}${fallbackNote}`}`;
                 this.revealOutputPreview();
-                return;
+                return itemId;
             }
             const sources = Array.isArray(value.sources) ? [...value.sources] as Array<Record<string, unknown>> : [];
             let source = sources.find(candidate => candidate.path === relativePath);
@@ -7017,6 +7049,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.hideNotice();
             this.footer.textContent = `${successNote}${overlapNote}${beyondNote}${fallbackNote}`;
             this.revealOutputPreview();
+            return String(item.id);
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`素材を追加できません: ${detail}`);
@@ -9377,6 +9410,53 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return { state: resolveGenerationState(meta, Date.now(), binding), meta, binding };
     }
 
+    /**
+     * 取り寄せ中の素材のチップに、粗い絵とクルクルと「ダウンロード中」を出す。
+     * 配置は先に済んでいて実体だけが後から来るので、これが無いと空のチップに見える
+     * （2026-09-27 オーナー裁定 — タイムラインでもちゃんとクルクルが見えること）。
+     */
+    protected applyMaterialFetchBadge(element: HTMLElement, path: string | undefined): void {
+        const pending = pendingAssetFetches.get(path);
+        const existing = element.querySelector<HTMLElement>(':scope > [data-akari-fetch-badge]');
+        if (!pending) {
+            existing?.remove();
+            if (element.dataset.akariFetchThumb) {
+                delete element.dataset.akariFetchThumb;
+                element.style.backgroundImage = '';
+            }
+            return;
+        }
+        if (pending.thumb) {
+            element.style.backgroundImage = `url(${JSON.stringify(pending.thumb)})`;
+            element.style.backgroundSize = 'cover';
+            element.style.backgroundPosition = 'center';
+            element.dataset.akariFetchThumb = 'true';
+        }
+        const badge = existing ?? document.createElement('span');
+        if (!existing) {
+            badge.dataset.akariFetchBadge = '';
+            badge.setAttribute('role', 'status');
+            Object.assign(badge.style, {
+                position: 'absolute', inset: '0', zIndex: '9', display: 'flex', gap: '4px',
+                alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+                borderRadius: 'inherit', fontSize: '10px', color: '#fff',
+                background: 'rgba(0,0,0,.45)'
+            });
+            const spinner = document.createElement('span');
+            spinner.className = 'codicon codicon-loading codicon-modifier-spin';
+            spinner.setAttribute('aria-hidden', 'true');
+            const label = document.createElement('span');
+            label.dataset.akariFetchBadgeLabel = '';
+            badge.append(spinner, label);
+            element.appendChild(badge);
+        }
+        const label = badge.querySelector<HTMLElement>('[data-akari-fetch-badge-label]');
+        // 細いチップでは文字が入らない。クルクルだけでも「待ち」は伝わる。
+        const wide = (parseFloat(element.style.width) || element.getBoundingClientRect().width) >= 96;
+        if (label) label.textContent = wide ? 'ダウンロード中' : '';
+        badge.title = `${pending.title ?? '素材'}をダウンロード中`;
+    }
+
     protected applyGenerationChip(
         element: HTMLElement, generation: {
             state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
@@ -11088,6 +11168,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 else this.updateClipMediaGeometry(element, media.cut, clipWidth, media.segment, height, media.videoUri);
             }
             this.applyGenerationChip(element, hasLayerGeneration ? layerGeneration : undefined);
+            this.applyMaterialFetchBadge(element, this.sourceMap.get(layer.src)?.path ?? layer.src);
             if (created && transitionWarning) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
@@ -11540,6 +11621,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             this.applyGenerationChip(element, cutGeneration);
+            this.applyMaterialFetchBadge(element, this.sourceMap.get(cut.src)?.path ?? cut.src);
             if (created && unsupportedDeclaredTransitions.has(segment.index)) {
                 const warning = document.createElement('button');
                 warning.type = 'button';

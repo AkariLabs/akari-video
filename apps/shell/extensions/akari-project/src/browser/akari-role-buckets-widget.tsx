@@ -94,7 +94,7 @@ import {
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
 } from './library-card-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
-import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
+import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
@@ -2667,6 +2667,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const file = await this.files.readFile(URI.fromFilePath(item.libraryDir).resolve('meta.json'));
             return JSON.parse(file.value.toString());
         } catch { return undefined; }
+    }
+
+    /**
+     * 取り寄せる前に置き先だけ返す（ネットワークにも実体にも触らない）。
+     * 「先に置いて、届いたら塗り替える」配置の下ごしらえ。当てられない素材は
+     * undefined を返し、呼び出し側は従来の resolveCatalogMaterial 経路へ落とす。
+     */
+    planCatalogMaterial(key: string): {
+        relativePath: string; kind: MaterialKind; cached: boolean; thumb?: string; title?: string
+    } | undefined {
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || isPremiumLocked(item)) return undefined;
+        const planned = plannedLibraryAssetMedia(item);
+        if (!planned) return undefined;
+        return {
+            relativePath: planned.relativePath, kind: planned.kind, cached: item.state === 'cached',
+            ...(item.previewUrl ? { thumb: item.previewUrl } : {}),
+            ...(item.title ? { title: item.title } : {})
+        };
     }
 
     /** カタログ key を既存 resolver で取り込み、配置可能な主メディアだけ返す。 */

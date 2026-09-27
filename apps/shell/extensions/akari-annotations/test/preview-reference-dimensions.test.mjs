@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
 import { probePreviewMediaDimensions } from '../lib/browser/preview-media-dimensions.js';
+import { pendingAssetFetches } from 'akari-preview/lib/common/pending-asset-fetch.js';
 
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
@@ -15,8 +16,9 @@ const methods = names.map(name => widget.members.find(member => member.name?.get
 const code = ts.transpileModule(`class Handler { ${methods.join('\n')} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-const Handler = new Function('URI', 'probePreviewMediaDimensions', `${code}\nreturn Handler;`)(URI,
-    options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }));
+const Handler = new Function('URI', 'probePreviewMediaDimensions', 'pendingAssetFetches',
+    `${code}\nreturn Handler;`)(URI,
+    options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }), pendingAssetFetches);
 
 function fixture(relativePath, sourceWidth) {
     const handler = new Handler();
@@ -41,7 +43,15 @@ function fixture(relativePath, sourceWidth) {
     };
     handler.addMaterialAt = async (...args) => { calls.push(args); };
     handler.messages = { warn: text => notices.push(text) };
-    return { handler, calls, notices, libraryUri };
+    /*
+     * レンダラ側の寸法読み（readMediaSizeInRenderer）は Image / video 要素を使うので node には
+     * 無い。ここで見たいのはそれが読めなかったときのバックエンド probe への委譲なので、
+     * 読めなかった体で差し替える（読めたときの経路は下の専用テストで見る）。
+     */
+    let rendererReads = 0;
+    handler.readMediaSizeInRenderer = async () => { rendererReads++; return undefined; };
+    return { handler, calls, notices, libraryUri, rendererReads: () => rendererReads,
+        setRendererSize: size => { handler.readMediaSizeInRenderer = async () => { rendererReads++; return size; }; } };
 }
 
 for (const [kind, path, width] of [
@@ -49,11 +59,46 @@ for (const [kind, path, width] of [
     ['video', 'assets/broll/scene/scene.mp4', 1920]
 ]) {
     test(`参照 ${kind} はライブラリ実体の幅から 1/4 scale を計算する`, async () => {
-        const { handler, calls, notices, libraryUri } = fixture(path, width);
+        const { handler, calls, notices, libraryUri, rendererReads } = fixture(path, width);
         await handler.addMaterialAtOutputPoint(path, kind, 3, { x: 50, y: -20 });
         assert.deepEqual(calls[0], { path: libraryUri });
         assert.equal(calls[1][0], path);
         assert.deepEqual(calls[1][4], { transform: { x: 50, y: -20, scale: 1280 / (4 * width) }, placeOnTop: true });
+        assert.deepEqual(notices, []);
+        assert.equal(rendererReads(), 1, 'まずレンダラで読み、読めなければ probe へ委譲する');
+    });
+
+    test(`参照 ${kind} はレンダラで寸法が読めれば probe を省く`, async () => {
+        const { handler, calls, notices, setRendererSize, rendererReads } = fixture(path, width);
+        setRendererSize({ width: 800, height: 450 });
+        await handler.addMaterialAtOutputPoint(path, kind, 3, { x: 0, y: 0 });
+        assert.equal(rendererReads(), 1);
+        // probeSourceDimensions は calls[0] に入るので、先頭が addMaterialAt なら probe に出ていない
+        assert.equal(calls[0][0], path);
+        assert.deepEqual(calls[0][4], { transform: { x: 0, y: 0, scale: 1280 / (4 * 800) }, placeOnTop: true });
+        assert.deepEqual(notices, []);
+    });
+
+    test(`参照 ${kind} は取り寄せ中なら読みにも probe にも行かず既定の大きさで置く`, async () => {
+        const { handler, calls, notices, rendererReads } = fixture(path, width);
+        pendingAssetFetches.begin({ relativePath: path, kind: kind === 'image' ? 'image' : 'video' });
+        try {
+            await handler.addMaterialAtOutputPoint(path, kind, 3, { x: 0, y: 0 });
+        } finally {
+            pendingAssetFetches.end(path);
+        }
+        assert.equal(rendererReads(), 0, '実体がまだ無いものを読みに行かない');
+        assert.equal(calls[0][0], path);
+        assert.deepEqual(calls[0][4], { transform: { x: 0, y: 0, scale: 1 }, placeOnTop: true });
+        assert.match(notices[0], /既定の大きさ/);
+    });
+
+    test(`参照 ${kind} は呼び出し側が幅を知っていれば読みも probe もしない`, async () => {
+        const { handler, calls, notices, rendererReads } = fixture(path, width);
+        await handler.addMaterialAtOutputPoint(path, kind, 3, { x: 0, y: 0 }, false, false, 640);
+        assert.equal(rendererReads(), 0);
+        assert.equal(calls[0][0], path);
+        assert.deepEqual(calls[0][4], { transform: { x: 0, y: 0, scale: 1280 / (4 * 640) }, placeOnTop: true });
         assert.deepEqual(notices, []);
     });
 }

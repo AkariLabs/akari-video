@@ -120,6 +120,12 @@ export interface AssetCatalogViewItem {
     addedAt?: string;
     libraryDir?: string;
     mediaFile?: string | null;
+    /**
+     * 取り寄せ前に置き先を当てるための、配置後の主メディアのファイル名。resolver は
+     * カタログの files[] の name をそのまま置くので、その中からカテゴリの主メディアを
+     * 一意に選べたときだけ入る（selectResolverPlannedMediaName）。
+     */
+    plannedMediaName?: string;
     width?: number;
     height?: number;
     usageCount?: number;

@@ -13,6 +13,7 @@ import { probePreviewMediaDimensions } from '../lib/browser/preview-media-dimens
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
 import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from '../lib/browser/timeline/canvas-row-drop.js';
 import { shouldShowTimelineGhost } from '../lib/common/timeline-visibility.js';
+import { pendingAssetFetches } from 'akari-preview/lib/common/pending-asset-fetch.js';
 
 globalThis.document = { documentElement: { dataset: { akariTimelineHidden: 'false' } } };
 
@@ -35,6 +36,7 @@ const bindings = {
     canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY, SUBROW_GAP: 2,
     insertTreeV2ItemIntoCanvas: mutations.insertTreeV2ItemIntoCanvas,
     probePreviewMediaDimensions: options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }),
+    pendingAssetFetches,
     computeMaterialGhostRange,
     materialGhostVisibility, materialGhostRejectLabel, hitTestTimelineTrackDrop, libraryAssetGhostPayload,
     shouldShowTimelineGhost,

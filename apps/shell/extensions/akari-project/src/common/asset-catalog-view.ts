@@ -44,6 +44,38 @@ export interface ResolverRawCatalogItem {
 
 const AUDIO_FILE_EXTENSIONS = /\.(mp3|wav|m4a|ogg)$/i;
 
+/** 置いたあとの主メディアを files[] から選ぶときのカテゴリ別の当たり判定。 */
+const PLANNED_MEDIA_EXTENSIONS: Record<string, RegExp> = {
+    audio: /\.(wav|mp3|m4a|aac|flac|ogg)$/i,
+    broll: /\.(mp4|mov|m4v|webm|mkv|avi)$/i,
+    still: /\.(png|jpe?g|gif|webp)$/i
+};
+
+/**
+ * files[] から「取り寄せたあとの主メディア」のファイル名を選ぶ。resolver は files[] の
+ * name をそのままライブラリへ置くので、これが配置先（assets/<category>/<id>/<name>）の
+ * 末尾になる — つまり取り寄せる前に置き先が分かる（楽観配置の下ごしらえ）。
+ * 素材箱側の一意性判定（resolveAssetGroupMedia）と同じ規律で、候補が 1 本でないときは
+ * 選ばない。当てられないものは従来どおり「取り寄せてから置く」経路へ落とす。
+ */
+export function selectResolverPlannedMediaName(
+    item: Pick<ResolverRawCatalogItem, 'category' | 'files'>
+): string | undefined {
+    const extensions = PLANNED_MEDIA_EXTENSIONS[item.category];
+    if (!extensions || !Array.isArray(item.files)) {
+        return undefined;
+    }
+    const names = item.files.flatMap(file => typeof file.name === 'string' && file.name ? [file.name] : []);
+    const candidates = names.filter(name => extensions.test(name)
+        && (item.category !== 'still' || name.toLowerCase() !== 'preview.png'));
+    if (candidates.length !== 1) {
+        return undefined;
+    }
+    const name = candidates[0];
+    // 置き先を組み立てる名前なので、ディレクトリを跨げる形は採らない。
+    return name.includes('/') || name.includes('\\') || name.startsWith('.') ? undefined : name;
+}
+
 /**
  * resolver の生アイテムの files[] から試聴用の音声ファイル参照（url か base 相対 key）を選ぶ。
  * audio カテゴリでのみ意味を持つ（他カテゴリは常に undefined — サムネ用の preview
@@ -66,6 +98,7 @@ export function selectResolverAudioFileRef(item: Pick<ResolverRawCatalogItem, 'c
  * 返す url/key 文字列は previewUrl の入力と同じ形をしている）。
  */
 export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, previewUrl: string | undefined, mediaUrl?: string): AssetCatalogViewItem {
+    const plannedMediaName = selectResolverPlannedMediaName(item);
     return {
         origin: 'resolver',
         key: `${item.category}/${item.id}`,
@@ -78,6 +111,7 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
         addedAt: item.addedAt,
         libraryDir: item.libraryDir,
         mediaFile: item.mediaFile,
+        ...(plannedMediaName ? { plannedMediaName } : {}),
         ...(Number.isFinite(item.width) && item.width! > 0 ? { width: item.width } : {}),
         ...(Number.isFinite(item.height) && item.height! > 0 ? { height: item.height } : {}),
         machineTags: item.machineTags,

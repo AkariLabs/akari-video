@@ -622,11 +622,32 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 transform?: { x: number; y: number }; editUri?: string;
                 outsideCanvas?: boolean; canvasAware?: boolean; sourceWidth?: number }) => {
                 const location = request?.editUri ? await this.findProjectLocation(request.editUri) : undefined;
-                if (!location) return this.messages.warn('プロジェクトを特定できません。');
+                if (!location) { this.messages.warn('プロジェクトを特定できません。'); return undefined; }
                 const widget = await this.configureQuietTimeline(location);
-                await widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
+                // 置いた要素の id を返す。取り寄せに失敗した楽観配置を消すのに要る。
+                return widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
                     request?.transform, request?.outsideCanvas === true, request?.canvasAware === true,
                     request?.sourceWidth);
+            }
+        });
+        // 取り寄せに失敗した楽観配置の後始末。
+        commands.registerCommand({ id: 'akari.timeline.removePlacedMaterial' }, {
+            execute: async (request: { editUri?: string; itemId?: string }) => {
+                if (!request?.editUri || !request.itemId) return;
+                const location = await this.findProjectLocation(request.editUri);
+                if (!location) return;
+                const widget = await this.configureQuietTimeline(location);
+                await widget.removePlacedMaterial(request.itemId);
+            }
+        });
+        // 取り寄せが終わった素材を拾い直す（edit.json は変わらないので保存通知が来ない）。
+        commands.registerCommand({ id: 'akari.timeline.refreshPlacedMaterial' }, {
+            execute: async (request: { editUri?: string; relativePath?: string }) => {
+                if (!request?.editUri || !request.relativePath) return;
+                const location = await this.findProjectLocation(request.editUri);
+                if (!location) return;
+                const widget = await this.configureQuietTimeline(location);
+                await widget.refreshPlacedMaterial(request.relativePath);
             }
         });
         commands.registerCommand({ id: 'akari.timeline.applyLibraryItem' }, {

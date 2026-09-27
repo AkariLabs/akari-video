@@ -2709,6 +2709,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.commandRegistry.registerCommand(SEEK_OUTPUT_PREVIEW_COMMAND, {
             execute: (request?: SeekOutputRequest) => this.seekOutputPreview(request)
         });
+        /*
+         * 取り寄せ中に先に置いた素材は、実体が届いても edit.json が変わらない
+         * （参照台帳の解決結果だけが変わる）ので保存通知では描き直らない。
+         * 届いた合図でモデルを作り直し、粗い絵から実体へ入れ替える。
+         */
+        this.commandRegistry.registerCommand({ id: 'akari.preview.refreshMedia' }, {
+            execute: (request?: { editUri?: string }) => {
+                if (!request?.editUri) return;
+                const uri = new URI(request.editUri).normalizePath();
+                const widget = this.openOutputPreviews.get(uri.toString());
+                if (!widget || widget.isDisposed || !widget.akariPreviewConfigured) return;
+                this.queueRefresh(widget, uri, 'output', widget.akariPreviewLastKnownTime, true);
+            }
+        });
         this.commandRegistry.registerCommand({ id: 'akari.preview.measureOverlayBox' }, {
             execute: (request: { editUri?: string; fragment?: string;
                 relativePath?: string; vars?: Record<string, string | number | boolean> }) => this.measureOverlayBox(request)
