@@ -9,7 +9,7 @@ import { parseCaptions } from '@akari-video/edit-store';
 import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
-    captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch,
+    captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch,
     captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
     captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField,
     captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch
@@ -42,13 +42,13 @@ const code = ts.transpileModule(declarations.join('\n'), {
 }).outputText;
 const { captionSections, multiCaptionSections } = new Function(
     'composeInspectorSections', 'CAPTION_ZONES', 'CAPTION_BACKGROUND_ON_OPACITY',
-    'captionEffectFromStyle', 'captionEffectPatch', 'captionEffectColorPatch',
+    'captionEffectFromStyle', 'captionEffectPatch', 'captionEffectTransitionPatch', 'captionEffectColorPatch',
     'captionEffectStrength', 'captionEffectStrengthPatch', 'captionRunRows',
     'captionEffectCard', 'captionEffectAdjustmentKeys', 'captionEffectAdjustmentValue',
     'captionEffectAdjustmentPatch', 'createCaptionMotionPanel',
     `${code}\nreturn { captionSections: CAPTION_SECTIONS, multiCaptionSections: MULTI_CAPTION_SECTIONS };`
 )(composeInspectorSections, ['top', 'middle', 'bottom'], CAPTION_BACKGROUND_ON_OPACITY,
-    captionEffectFromStyle, captionEffectPatch, captionEffectColorPatch,
+    captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch, captionEffectColorPatch,
     captionEffectStrength, captionEffectStrengthPatch, captionRunRows,
     captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue,
     captionEffectAdjustmentPatch, () => {});

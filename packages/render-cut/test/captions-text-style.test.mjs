@@ -31,6 +31,26 @@ test("新しい項目の無い字幕は既存スタイル指定でも HTML の�
   }), renderStyledCaptionFragment(words, 'karaoke'));
 });
 
+test('rich looks add CSS only to their own caption and retain combined shadow vars', () => {
+  const rich = { stroke: { color: '#000000', width_px: 9 },
+    stroke_inner: { color: '#ffffff', width_px: 3 },
+    fill_gradient: { colors: ['#fb923c', '#8b5cf6'], angle_deg: 90 },
+    extrude: { depth_px: 5, color: '#a16207', angle_deg: 135 },
+    shadow: { color: '#000000', blur_px: 4 } };
+  const [overlay] = generateCaptionOverlays([caption(rich)], [], { output: { width: 1920, height: 1080 } });
+  assert.match(overlay.html, /background-image: var\(--caption-fill-gradient, none\)/u);
+  assert.match(overlay.html, /-webkit-text-stroke: var\(--caption-stroke/u);
+  assert.match(overlay.html, /-webkit-text-stroke: 0 transparent/u);
+  assert.match(overlay.html, /filter: var\(--caption-fill-filter, none\)/u);
+  assert.equal(overlay.vars['--caption-fill-gradient'], 'linear-gradient(90deg, #fb923c, #8b5cf6)');
+  assert.match(overlay.vars['--caption-text-shadow'], /#a16207/u);
+  assert.match(overlay.vars['--caption-text-shadow'], /rgba\(0,0,0,1\)/u);
+  const oldHtml = renderCaptionFragment('字幕', { textStyleActive: true, contextStyle: { color: '#ffffff' } });
+  assert.doesNotMatch(oldHtml, /--caption-fill-gradient/u);
+  assert.match(renderResolvedSingleLineCaption('字幕', ['字幕'], { text_style: rich, style_vars: overlay.vars }),
+    /--caption-fill-gradient/u);
+});
+
 test("縦書きの一列の高さは出力高を基準にし、句読点と横書きの文字数上限で列を割らない", () => {
   for (const output of [{ width: 1920, height: 1080 }, { width: 1080, height: 1920 }]) {
     const [overlay] = generateCaptionOverlays([{ ...caption({ vertical: true }),

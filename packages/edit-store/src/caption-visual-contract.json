@@ -48,7 +48,11 @@
     "--caption-align-items",
     "--caption-line-margin",
     "--caption-line-max-width",
-    "--caption-text-align"
+    "--caption-text-align",
+    "--caption-fill-gradient",
+    "--caption-fill-clip",
+    "--caption-fill-color",
+    "--caption-fill-filter"
   ],
   "resolved_caption_word_style_variable_names": [
     "--caption-tok-color",

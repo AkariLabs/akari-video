@@ -22,7 +22,8 @@ const CAPTION_STYLE_KEYS = new Set([
     'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout',
     'font_family', 'weight', 'italic', 'underline', 'strikethrough', 'list', 'opacity', 'letter_spacing_em', 'align',
     'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor',
-    'position', 'scale', 'rotate', 'shadow', 'glow', 'animation', 'reference_height_px'
+    'position', 'scale', 'rotate', 'shadow', 'glow', 'animation', 'reference_height_px',
+    'stroke_inner', 'fill_gradient', 'extrude'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
 const CAPTION_BACKGROUND_KEYS = new Set([
@@ -734,6 +735,36 @@ export function validateCaptionTextStyle(value: unknown, label = 'text_style'): 
     }
     validateTextStyleV0(value, label);
     if (Object.prototype.hasOwnProperty.call(value, 'stroke')) validateCaptionStroke(value.stroke, `${label}.stroke`);
+    if (Object.prototype.hasOwnProperty.call(value, 'stroke_inner')) {
+        const inner = value.stroke_inner;
+        if (!isRecord(inner)) fail('INVALID_TEXT_STYLE', `${label}.stroke_inner must be an object`);
+        rejectStyleUnknown(inner, new Set(['color', 'width_px']), `${label}.stroke_inner`);
+        if (inner.color !== undefined) validateHexColor(inner.color, `${label}.stroke_inner.color`);
+        if (inner.width_px !== undefined && !finiteNonNegative(inner.width_px)) {
+            fail('INVALID_TEXT_STYLE', `${label}.stroke_inner.width_px must be non-negative`);
+        }
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'fill_gradient')) {
+        const gradient = value.fill_gradient;
+        if (!isRecord(gradient)) fail('INVALID_TEXT_STYLE', `${label}.fill_gradient must be an object`);
+        rejectStyleUnknown(gradient, new Set(['colors', 'angle_deg']), `${label}.fill_gradient`);
+        if (!Array.isArray(gradient.colors) || gradient.colors.length < 2 || gradient.colors.length > 3) {
+            fail('INVALID_TEXT_STYLE', `${label}.fill_gradient.colors must contain 2 or 3 colors`);
+        }
+        gradient.colors.forEach((color: unknown, index: number) => validateHexColor(color, `${label}.fill_gradient.colors[${index}]`));
+        if (!finiteNumber(gradient.angle_deg)) fail('INVALID_TEXT_STYLE', `${label}.fill_gradient.angle_deg must be finite`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'extrude')) {
+        const extrude = value.extrude;
+        if (!isRecord(extrude)) fail('INVALID_TEXT_STYLE', `${label}.extrude must be an object`);
+        rejectStyleUnknown(extrude, new Set(['depth_px', 'color', 'color_end', 'angle_deg']), `${label}.extrude`);
+        if (!Number.isInteger(extrude.depth_px) || extrude.depth_px < 1 || extrude.depth_px > 32) {
+            fail('INVALID_TEXT_STYLE', `${label}.extrude.depth_px must be within [1, 32]`);
+        }
+        validateHexColor(extrude.color, `${label}.extrude.color`);
+        if (extrude.color_end !== undefined) validateHexColor(extrude.color_end, `${label}.extrude.color_end`);
+        if (!finiteNumber(extrude.angle_deg)) fail('INVALID_TEXT_STYLE', `${label}.extrude.angle_deg must be finite`);
+    }
     if (Object.prototype.hasOwnProperty.call(value, 'background')) validateCaptionBackground(value.background, `${label}.background`);
     if (Object.prototype.hasOwnProperty.call(value, 'zone') && !CAPTION_ZONES.has(value.zone)) {
         fail('INVALID_TEXT_STYLE', `${label}.zone must be one of the nine caption zones`);
@@ -1514,7 +1545,7 @@ export function mergeCaptionDisplayStyles(base: unknown, override: unknown): Unk
     const left = isRecord(base) ? base : {};
     const right = isRecord(override) ? override : {};
     const merged: UnknownRecord = { ...left, ...right };
-    for (const key of ['stroke', 'background', 'layout']) {
+    for (const key of ['stroke', 'stroke_inner', 'fill_gradient', 'extrude', 'background', 'layout']) {
         if (isRecord(left[key]) || isRecord(right[key])) merged[key] = { ...(isRecord(left[key]) ? left[key] : {}), ...(isRecord(right[key]) ? right[key] : {}) };
     }
     if (Object.keys(merged).length === 0) return undefined;
@@ -1599,6 +1630,18 @@ function normalizeCaptionLineTextStyle(value: unknown): UnknownRecord {
             ...(typeof value.stroke.color === 'string' ? { color: value.stroke.color } : {}),
             ...(finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {})
         } } : {}),
+        ...(isRecord(value.stroke_inner) ? { stroke_inner: {
+            ...(typeof value.stroke_inner.color === 'string' ? { color: value.stroke_inner.color } : {}),
+            ...(finiteNumber(value.stroke_inner.width_px) ? { width_px: value.stroke_inner.width_px } : {})
+        } } : {}),
+        ...(isRecord(value.fill_gradient) ? { fill_gradient: {
+            colors: value.fill_gradient.colors, angle_deg: value.fill_gradient.angle_deg
+        } } : {}),
+        ...(isRecord(value.extrude) ? { extrude: {
+            depth_px: value.extrude.depth_px, color: value.extrude.color,
+            ...(value.extrude.color_end !== undefined ? { color_end: value.extrude.color_end } : {}),
+            angle_deg: value.extrude.angle_deg
+        } } : {}),
         ...(isRecord(value.background) ? { background: {
             ...(typeof value.background.color === 'string' ? { color: value.background.color } : {}),
             ...(finiteNumber(value.background.opacity) ? { opacity: value.background.opacity } : {}),
@@ -1622,7 +1665,7 @@ export function mergeCaptionLineTextStyles(base: unknown, override: unknown): Un
     const left = normalizeCaptionLineTextStyle(base);
     const right = normalizeCaptionLineTextStyle(override);
     const merged: UnknownRecord = { ...left, ...right };
-    for (const key of ['stroke', 'background', 'shadow', 'glow', 'position', 'animation']) {
+    for (const key of ['stroke', 'stroke_inner', 'fill_gradient', 'extrude', 'background', 'shadow', 'glow', 'position', 'animation']) {
         if (isRecord(left[key]) || isRecord(right[key])) {
             merged[key] = { ...(isRecord(left[key]) ? left[key] : {}), ...(isRecord(right[key]) ? right[key] : {}) };
             if (Object.keys(merged[key]).length === 0) delete merged[key];
@@ -1779,6 +1822,16 @@ function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number)
         const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.9)';
         vars['--caption-stroke'] = `${width * 2}px ${color}`;
     }
+    if (isRecord(style.stroke_inner) && !isRecord(style.stroke)) vars['--caption-stroke'] = '0 transparent';
+    if (isRecord(style.fill_gradient) && Array.isArray(style.fill_gradient.colors)
+        && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3
+        && style.fill_gradient.colors.every((color: unknown) => typeof color === 'string' && HEX_COLOR.test(color))
+        && finiteNumber(style.fill_gradient.angle_deg)) {
+        vars['--caption-fill-gradient'] = `linear-gradient(${style.fill_gradient.angle_deg}deg, ${style.fill_gradient.colors.join(', ')})`;
+        vars['--caption-fill-clip'] = 'text';
+        vars['--caption-fill-color'] = 'transparent';
+        vars['--caption-fill-filter'] = captionGradientFilterValue(style, scale);
+    }
     if (isRecord(style.background) && (typeof style.background.color === 'string' || finiteNumber(style.background.opacity))) {
         const name = style.background.mode === 'block'
             ? '--plate-block-bg' : extendedBackground ? '--plate-ext-bg' : '--plate-bg';
@@ -1827,7 +1880,7 @@ function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number)
         vars['--plate-pad-y'] = `${px(style.background.padding_px)}px`;
         vars['--plate-pad-x'] = `${px(style.background.padding_px)}px`;
     }
-    const textShadow = captionTextShadowValue(style.shadow, style.glow, scale);
+    const textShadow = captionRichTextShadowValue(style, scale);
     if (textShadow !== null) vars['--caption-text-shadow'] = textShadow;
     Object.assign(vars, captionZoneVars(style.zone));
     Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position,
@@ -1887,13 +1940,15 @@ export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { wid
     const vars = resolveCaptionLineStyleVarsAtScale(style, scale);
     Object.assign(vars, captionVerticalHeightVars(style, output));
     vars['--caption-paint-order'] = 'stroke fill';
-    if (!isRecord(style.shadow) && !isRecord(style.glow)) vars['--caption-text-shadow'] = 'none';
+    if (!isRecord(style.shadow) && !isRecord(style.glow)
+        && !isRecord(style.stroke_inner) && !isRecord(style.extrude)) vars['--caption-text-shadow'] = 'none';
     if (isRecord(style.stroke)) {
         const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.85)';
         const width = finiteNonNegative(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
         vars['--caption-webkit-text-stroke'] = `${formatCssNumber(width * 2)}px ${color}`;
         vars['--caption-paint-order'] = 'stroke fill';
     }
+    if (isRecord(style.stroke_inner) && !isRecord(style.stroke)) vars['--caption-webkit-text-stroke'] = '0 transparent';
     if (isRecord(style.background) && finiteNonNegative(style.background.radius_px)) {
         vars['--plate-block-radius'] = `${formatCssNumber(style.background.radius_px * scale)}px`;
     }
@@ -1991,6 +2046,103 @@ export function captionTextShadowValue(shadow: unknown, glow: unknown, scale = 1
         );
     }
     return parts.length > 0 ? parts.join(', ') : null;
+}
+
+function captionRichTextShadowValue(style: UnknownRecord, scale: number): string | null {
+    const parts: string[] = [];
+    if (isRecord(style.stroke_inner) && finiteNonNegative(style.stroke_inner.width_px)
+        && style.stroke_inner.width_px > 0) {
+        const radius = scaleCaptionPx(style.stroke_inner.width_px, scale);
+        const color = typeof style.stroke_inner.color === 'string' && HEX_COLOR.test(style.stroke_inner.color)
+            ? style.stroke_inner.color : '#ffffff';
+        for (let index = 0; index < 16; index++) {
+            const angle = 2 * Math.PI * index / 16;
+            parts.push(`${formatCssNumber(Math.cos(angle) * radius)}px ${formatCssNumber(Math.sin(angle) * radius)}px 0 ${color}`);
+        }
+    }
+    if (isRecord(style.extrude) && Number.isInteger(style.extrude.depth_px)
+        && style.extrude.depth_px >= 1 && style.extrude.depth_px <= 32
+        && typeof style.extrude.color === 'string' && HEX_COLOR.test(style.extrude.color)
+        && finiteNumber(style.extrude.angle_deg)) {
+        const depth = Math.ceil(scaleCaptionPx(style.extrude.depth_px, scale));
+        const angle = style.extrude.angle_deg * Math.PI / 180;
+        for (let layer = 1; layer <= depth; layer++) {
+            const distance = Math.min(layer, scaleCaptionPx(style.extrude.depth_px, scale));
+            const color = typeof style.extrude.color_end === 'string' && HEX_COLOR.test(style.extrude.color_end)
+                ? interpolateCaptionHex(style.extrude.color, style.extrude.color_end, layer / depth)
+                : style.extrude.color;
+            parts.push(`${formatCssNumber(Math.sin(angle) * distance)}px ${formatCssNumber(-Math.cos(angle) * distance)}px 0 ${color}`);
+        }
+    }
+    const original = captionTextShadowValue(style.shadow, style.glow, scale);
+    if (original) parts.push(original);
+    return parts.length ? parts.join(', ') : null;
+}
+
+function captionGradientFilterValue(style: UnknownRecord, scale: number): string {
+    const parts: string[] = [];
+    const grow = (radius: number, color: string): void => {
+        let remaining = radius;
+        let power = 1;
+        while (remaining > 0.0001) {
+            const step = Math.min(power, remaining);
+            for (const [x, y] of [[step, 0], [0, step], [-step, 0], [0, -step]]) {
+                parts.push(`drop-shadow(${formatCssNumber(x)}px ${formatCssNumber(y)}px 0 ${color})`);
+            }
+            remaining -= step;
+            power *= 2;
+        }
+    };
+    const stroke = isRecord(style.stroke) ? style.stroke : null;
+    const inner = isRecord(style.stroke_inner) ? style.stroke_inner : null;
+    const outerRadius = stroke && finiteNonNegative(stroke.width_px) ? scaleCaptionPx(stroke.width_px, scale) : 0;
+    const innerRadius = inner && finiteNonNegative(inner.width_px) ? scaleCaptionPx(inner.width_px, scale) : 0;
+    if (innerRadius > 0) grow(innerRadius, typeof inner?.color === 'string' && HEX_COLOR.test(inner.color)
+        ? inner.color : '#ffffff');
+    if (outerRadius > 0) grow(Math.max(0, outerRadius - innerRadius),
+        typeof stroke?.color === 'string' && HEX_COLOR.test(stroke.color) ? stroke.color : '#000000');
+    if (isRecord(style.extrude) && Number.isInteger(style.extrude.depth_px)
+        && style.extrude.depth_px >= 1 && style.extrude.depth_px <= 32
+        && typeof style.extrude.color === 'string' && HEX_COLOR.test(style.extrude.color)
+        && finiteNumber(style.extrude.angle_deg)) {
+        const depth = Math.ceil(scaleCaptionPx(style.extrude.depth_px, scale));
+        const angle = style.extrude.angle_deg * Math.PI / 180;
+        for (let layer = 1; layer <= depth; layer++) {
+            const color = typeof style.extrude.color_end === 'string' && HEX_COLOR.test(style.extrude.color_end)
+                ? interpolateCaptionHex(style.extrude.color, style.extrude.color_end, layer / depth)
+                : style.extrude.color;
+            parts.push(`drop-shadow(${formatCssNumber(Math.sin(angle))}px ${formatCssNumber(-Math.cos(angle))}px 0 ${color})`);
+        }
+    }
+    if (isRecord(style.shadow) && typeof style.shadow.color === 'string' && HEX_COLOR.test(style.shadow.color)) {
+        const angle = (finiteNumber(style.shadow.angle_deg) ? style.shadow.angle_deg : 90) * Math.PI / 180;
+        const distance = scaleCaptionPx(finiteNonNegative(style.shadow.distance_px) ? style.shadow.distance_px : 0, scale);
+        const blur = scaleCaptionPx(finiteNonNegative(style.shadow.blur_px) ? style.shadow.blur_px : 0, scale);
+        parts.push(`drop-shadow(${formatCssNumber(Math.cos(angle) * distance)}px ${formatCssNumber(Math.sin(angle) * distance)}px ${formatCssNumber(blur)}px ${colorWithOpacity(style.shadow.color, style.shadow.opacity as number | undefined)})`);
+    }
+    if (isRecord(style.glow) && typeof style.glow.color === 'string' && HEX_COLOR.test(style.glow.color)) {
+        const spread = scaleCaptionPx(finiteNonNegative(style.glow.spread) ? style.glow.spread : 40, scale);
+        const alpha = Math.min(1, (finiteNonNegative(style.glow.density) ? style.glow.density : 50) / 60);
+        const x = scaleCaptionPx(finiteNumber(style.glow.offset_x) ? style.glow.offset_x : 0, scale);
+        const y = scaleCaptionPx(finiteNumber(style.glow.offset_y) ? style.glow.offset_y : 0, scale);
+        parts.push(`drop-shadow(${formatCssNumber(x)}px ${formatCssNumber(y)}px ${formatCssNumber(spread)}px ${colorWithOpacity(style.glow.color, alpha)})`);
+        parts.push(`drop-shadow(${formatCssNumber(x)}px ${formatCssNumber(y)}px ${formatCssNumber(spread * 2)}px ${colorWithOpacity(style.glow.color, Number((alpha * 0.7).toFixed(4)))})`);
+    }
+    return parts.join(' ') || 'none';
+}
+
+function interpolateCaptionHex(start: string, end: string, fraction: number): string {
+    const rgba = (value: string): number[] => {
+        const hex = value.slice(1);
+        const full = hex.length === 3 ? hex.split('').map(digit => digit + digit).join('') : hex;
+        return [0, 2, 4, 6].map(index => index === 6 && full.length === 6
+            ? 255 : parseInt(full.slice(index, index + 2), 16));
+    };
+    const from = rgba(start);
+    const to = rgba(end);
+    const channels = start.length === 9 || end.length === 9 ? 4 : 3;
+    return '#' + from.slice(0, channels).map((value, index) => Math.round(value + ((to[index] ?? value) - value) * fraction)
+        .toString(16).padStart(2, '0')).join('');
 }
 
 export function colorWithOpacity(color: string, explicitOpacity?: number): string {

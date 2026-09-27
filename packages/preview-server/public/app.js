@@ -4287,6 +4287,7 @@ const CAPTION_STYLE_VARS = [
   '--caption-font-style', '--caption-text-decoration', '--caption-letter-spacing',
   '--caption-text-transform', '--caption-writing-mode', '--caption-line-height',
   '--caption-text-shadow', '--caption-stroke', '--caption-webkit-text-stroke', '--caption-paint-order',
+  '--caption-fill-gradient', '--caption-fill-clip', '--caption-fill-color', '--caption-fill-filter',
   '--plate-bg', '--plate-radius', '--plate-pad-x', '--plate-pad-y',
   '--plate-block-pad-x', '--plate-block-pad-y',
   '--plate-ext-bg', '--plate-ext-radius', '--plate-ext-width', '--plate-ext-height',
@@ -4308,6 +4309,7 @@ function applyCaptionStyle(caption, captionPlate) {
     if (typeof caption?.text_style?.rotate === 'number' && Number.isFinite(caption.text_style.rotate)
       && caption.text_style.rotate !== 0) vars['--caption-rotate'] = `${caption.text_style.rotate}deg`;
     replaceCaptionStyleVariables(captionPlate.style, vars);
+    captionPlate.classList.toggle('akari-caption--fill-gradient', Boolean(vars['--caption-fill-gradient']));
     captionPlate.classList.add('akari-caption-resolved', 'akari-caption-styled');
     return;
   }
@@ -4323,6 +4325,7 @@ function applyCaptionStyle(caption, captionPlate) {
   if (typeof scale === 'number' && Number.isFinite(scale) && scale !== 1) vars['--caption-scale'] = String(scale);
   if (typeof rotate === 'number' && Number.isFinite(rotate) && rotate !== 0) vars['--caption-rotate'] = `${rotate}deg`;
   replaceCaptionStyleVariables(captionPlate.style, vars);
+  captionPlate.classList.toggle('akari-caption--fill-gradient', Boolean(vars['--caption-fill-gradient']));
   captionPlate.classList.toggle('akari-caption-resolved', captionsResolvedTimeline);
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
 }
@@ -4560,7 +4563,12 @@ function injectCaptionStyles() {
 }
 .akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9))); paint-order:var(--caption-paint-order,stroke fill); text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif); font-size:var(--caption-font-size,38px); font-weight:var(--caption-font-weight,700); font-style:var(--caption-font-style,normal); text-decoration:var(--caption-text-decoration,none); letter-spacing:var(--caption-letter-spacing,normal); text-transform:var(--caption-text-transform,none); line-height:var(--caption-word-line-height,var(--caption-line-height,1.42)); writing-mode:var(--caption-writing-mode,horizontal-tb); text-align:center; }
 .akari-caption__plate { position:absolute; top:var(--caption-top,auto); translate:var(--caption-translate,none); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1)); transform-origin:center; }
-.akari-caption__line { position:relative; isolation:isolate; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-radius,10px); background:var(--plate-bg,transparent); text-align:var(--caption-text-align,center); white-space:pre; }
+.akari-caption__line { position:relative; isolation:isolate; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-radius,10px); background:var(--plate-bg,transparent); background-image:var(--caption-fill-gradient,none); -webkit-background-clip:var(--caption-fill-clip,border-box); -webkit-text-fill-color:var(--caption-fill-color,currentColor); text-align:var(--caption-text-align,center); white-space:pre; }
+.caption-row-plate.akari-caption--fill-gradient .akari-caption__line { -webkit-text-stroke:0 transparent; text-shadow:none; filter:var(--caption-fill-filter,none); }
+.caption-row-plate.akari-caption--fill-gradient .akari-caption__resolved-line { display:inline-block; background-image:var(--caption-fill-gradient,none); -webkit-background-clip:text; -webkit-text-fill-color:transparent; -webkit-text-stroke:0 transparent; text-shadow:none; filter:var(--caption-fill-filter,none); }
+.caption-row-plate.akari-caption--fill-gradient .akari-caption__line:has(.akari-caption__tok),
+.caption-row-plate.akari-caption--fill-gradient .akari-caption__resolved-line:has(.akari-caption__tok) { background-image:none; -webkit-text-fill-color:currentColor; filter:none; }
+.caption-row-plate.akari-caption--fill-gradient .akari-caption__tok { background-image:var(--caption-fill-gradient,none); -webkit-background-clip:text; -webkit-text-fill-color:transparent; -webkit-text-stroke:0 transparent; text-shadow:none; filter:var(--caption-fill-filter,none); }
 .akari-caption__line::before { content:""; position:absolute; inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px)); z-index:-1; border-radius:var(--plate-ext-radius,10px); background:var(--plate-ext-bg,transparent); transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px)); }
 .akari-caption__block { display:flex; flex-direction:column; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); gap:var(--plate-gap,4px); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-block-radius,10px); background:var(--plate-block-bg,transparent); }
 .akari-caption__block .akari-caption__line { width:auto; max-width:none; margin:0; padding:0; border-radius:0; background:transparent; }

@@ -37,6 +37,34 @@
         "width_px": { "type": "number", "minimum": 0 }
       }
     },
+    "textInnerStrokeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/hexColor" },
+        "width_px": { "type": "number", "minimum": 0 }
+      }
+    },
+    "textFillGradient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colors", "angle_deg"],
+      "properties": {
+        "colors": { "type": "array", "minItems": 2, "maxItems": 3, "items": { "$ref": "#/$defs/hexColor" } },
+        "angle_deg": { "type": "number" }
+      }
+    },
+    "textExtrude": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depth_px", "color", "angle_deg"],
+      "properties": {
+        "depth_px": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "color": { "$ref": "#/$defs/hexColor" },
+        "color_end": { "$ref": "#/$defs/hexColor" },
+        "angle_deg": { "type": "number" }
+      }
+    },
     "referencePixelLayout": {
       "type": "object",
       "additionalProperties": false,
@@ -212,7 +240,7 @@
         "reference_height_px": {
           "type": "integer",
           "minimum": 1,
-          "$comment": "zone 方式の基準出力高さ（issue #40 §2）。この text_style の px 系フィールド（size_px、stroke.width_px、shadow.blur_px / distance_px、glow.spread / offset_x / offset_y、background.radius_px / padding_px / offset_x / offset_y）は高さ reference_height_px の出力向けに書かれた値として扱われ、実効 px = 宣言値 × output.height / reference_height_px。省略時は scale = 1（従来どおり）。layout（reference-pixel）とは併用不可（allOf/not）。layout は従来どおり output.width / reference_width_px で拡縮する。"
+          "$comment": "zone 方式の基準出力高さ（issue #40 §2）。この text_style の px 系フィールド（size_px、stroke.width_px、stroke_inner.width_px、extrude.depth_px、shadow.blur_px / distance_px、glow.spread / offset_x / offset_y、background.radius_px / padding_px / offset_x / offset_y）は高さ reference_height_px の出力向けに書かれた値として扱われ、実効 px = 宣言値 × output.height / reference_height_px。省略時は scale = 1（従来どおり）。layout（reference-pixel）とは併用不可（allOf/not）。layout は従来どおり output.width / reference_width_px で拡縮する。"
         },
         "font_family": { "type": "string", "minLength": 1 },
         "font_weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
@@ -239,6 +267,9 @@
         "glow": { "$ref": "#/$defs/textGlowStyle" },
         "animation": { "$ref": "#/$defs/textAnimation" },
         "stroke": { "$ref": "#/$defs/textStrokeStyle" },
+        "stroke_inner": { "$ref": "#/$defs/textInnerStrokeStyle" },
+        "fill_gradient": { "$ref": "#/$defs/textFillGradient" },
+        "extrude": { "$ref": "#/$defs/textExtrude" },
         "background": { "$ref": "#/$defs/textBackgroundStyle" },
         "zone": { "$ref": "#/$defs/captionZone" },
         "layout": { "$ref": "#/$defs/referencePixelLayout" }

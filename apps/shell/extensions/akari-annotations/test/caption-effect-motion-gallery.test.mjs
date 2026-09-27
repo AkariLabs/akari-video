@@ -2,18 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { CAPTION_EFFECT_GROUPS, CAPTION_EFFECT_SPECS, captionEffectAdjustmentKeys,
-    captionEffectAdjustmentPatch, captionEffectFromStyle, captionEffectPatch } from '../lib/browser/inspector/caption-style-effects.js';
+    captionEffectAdjustmentPatch, captionEffectFromStyle, captionEffectPatch,
+    captionEffectTransitionPatch, captionEffectPreviewStyle,
+    captionCueOriginalStylePatch } from '../lib/browser/inspector/caption-style-effects.js';
 import { createCaptionEffectImageCache, scheduleCaptionEffectImages } from '../lib/browser/inspector/caption-effect-images.js';
+import { createCaptionStylePreviewController } from '../../akari-preview/lib/common/caption-style-preview.js';
 import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionCards, captionTextAnimationCards,
     captionTextAnimationWrite } from '../lib/browser/inspector/caption-motion-cards.js';
 import { addInspectorAnimatorTemplate, INSPECTOR_ANIMATOR_TEMPLATES,
     inspectorAnimatorTemplateFor } from '../lib/browser/inspector/animator-fields.js';
 import { captionMotionSampleKeyframes, CAPTION_MOTION_PANEL_CSS } from '../lib/browser/inspector/caption-motion-panel.js';
 
-test('効果 21 種は五つの段に収まり、影と光を同時に書ける', () => {
-    assert.deepEqual(CAPTION_EFFECT_GROUPS.map(group => group.items.length), [6, 6, 3, 3, 3]);
+test('効果 28 種は七つの段に収まり、影と光を同時に書ける', () => {
+    assert.deepEqual(CAPTION_EFFECT_GROUPS.map(group => group.items.length), [6, 6, 5, 3, 2, 3, 3]);
     const ids = CAPTION_EFFECT_GROUPS.flatMap(group => group.items.map(item => item.id));
-    assert.equal(new Set(ids).size, 21);
+    assert.equal(new Set(ids).size, 28);
     for (const id of ids) assert.ok(CAPTION_EFFECT_SPECS[id], id);
     for (const id of ids) {
         const detected = captionEffectFromStyle(captionEffectPatch(id, '#ffffff'));
@@ -40,6 +43,57 @@ test('選んだ効果に関係する調整だけを示す', () => {
     assert.deepEqual(captionEffectAdjustmentPatch({ shadow: { color: '#123456' } }, 'shadow.distancePx', '9'),
         { shadow: { color: '#123456', distancePx: 9 } });
     assert.throws(() => captionEffectAdjustmentPatch({}, 'glow.color', 'red'), /hex|色/u);
+    assert.deepEqual(captionEffectAdjustmentKeys('ol-double-black'),
+        ['stroke.color', 'stroke.widthPx', 'strokeInner.color', 'strokeInner.widthPx']);
+    assert.deepEqual(captionEffectAdjustmentKeys('fill-ocean'),
+        ['fillGradient.color0', 'fillGradient.color1', 'fillGradient.angleDeg']);
+    assert.deepEqual(captionEffectAdjustmentKeys('ex-gold'),
+        ['extrude.depthPx', 'extrude.color', 'extrude.colorEnd', 'extrude.angleDeg']);
+    assert.deepEqual(captionEffectAdjustmentPatch({ fillGradient: { colors: ['#111111', '#222222'], angleDeg: 90 } },
+        'fillGradient.color1', '#abcdef'), { fillGradient: { colors: ['#111111', '#abcdef'], angleDeg: 90 } });
+});
+
+test('色を調整しても七枚の構造と色数に沿ってカードを判定する', () => {
+    const sea = { fillGradient: { colors: ['#111111', '#1d4ed8'], angleDeg: 115 } };
+    assert.equal(captionEffectFromStyle(sea), 'fill-ocean');
+    assert.equal(captionEffectAdjustmentKeys(captionEffectFromStyle(sea))
+        .filter(key => key.startsWith('fillGradient.color')).length, sea.fillGradient.colors.length);
+    assert.equal(captionEffectFromStyle({ fillGradient: {
+        colors: ['#111111', '#facc15', '#22c55e'], angleDeg: 45
+    } }), 'fill-rainbow');
+    assert.equal(captionEffectFromStyle({ fillGradient: {
+        colors: ['#111111', '#f43f5e', '#8b5cf6'], angleDeg: 90
+    } }), 'fill-sunset');
+    assert.equal(captionEffectFromStyle({ stroke: { color: '#eeeeee', widthPx: 8 },
+        strokeInner: { color: '#123456', widthPx: 3 } }), 'ol-double-color');
+    assert.equal(captionEffectFromStyle({ stroke: { color: '#222222', widthPx: 9 },
+        strokeInner: { color: '#ffffff', widthPx: 3 } }), 'ol-double-black');
+    assert.equal(captionEffectFromStyle({ color: '#e5e7eb', extrude: {
+        depthPx: 7, color: '#888888', colorEnd: '#334155', angleDeg: 135
+    } }), 'ex-silver');
+});
+
+test('新しい七枚は別のデータを持ち、旧カードへ戻す一操作で新欄を消す', async () => {
+    const ids = ['ol-double-black', 'ol-double-color', 'fill-sunset', 'fill-ocean',
+        'fill-rainbow', 'ex-gold', 'ex-silver'];
+    assert.equal(new Set(ids.map(id => JSON.stringify(CAPTION_EFFECT_SPECS[id]))).size, 7);
+    for (const id of ids) assert.equal(captionEffectFromStyle(captionEffectPatch(id, '#ffffff')), id);
+    const current = { fillGradient: { colors: ['#22d3ee', '#1d4ed8'], angleDeg: 115 } };
+    assert.equal(captionEffectTransitionPatch('sh-soft', '#ffffff', current).fillGradient, null);
+    const source = JSON.stringify([{ id: 'c-0001', text_style: {
+        fill_gradient: { colors: ['#22d3ee', '#1d4ed8'], angle_deg: 115 }
+    } }]);
+    const original = captionCueOriginalStylePatch(source, 'c-0001',
+        captionEffectTransitionPatch('sh-soft', '#ffffff', current));
+    assert.deepEqual(original.fillGradient, current.fillGradient);
+    const hover = captionEffectPreviewStyle({}, captionEffectPatch('fill-ocean', '#ffffff'));
+    assert.deepEqual(hover.fill_gradient, { colors: ['#22d3ee', '#1d4ed8'], angle_deg: 115 });
+    const controller = createCaptionStylePreviewController(() => ({}), async () => {}, () => {});
+    await controller.receive({ captionId: 'c-0001', textStyle: hover });
+    assert.deepEqual(controller.resolve({ id: 'c-0001', textStyle: {} }, 'c-0001').textStyle.fill_gradient,
+        hover.fill_gradient);
+    assert.equal(captionEffectPreviewStyle(current,
+        captionEffectTransitionPatch('sh-soft', '#ffffff', current)).fill_gradient, null);
 });
 
 test('同じ効果カードの画像は一回だけ描く', () => {
@@ -57,7 +111,7 @@ test('効果画像は最初の段だけ同期描画し、残りをフレーム�
         item => drawn.push(item.id), callback => queue.push(callback));
     assert.equal(drawn.length, 6);
     while (queue.length) queue.shift()();
-    assert.equal(drawn.length, 21);
+    assert.equal(drawn.length, 28);
     assert.deepEqual(drawn.slice(0, 6), CAPTION_EFFECT_GROUPS[0].items.map(item => item.id));
 });
 

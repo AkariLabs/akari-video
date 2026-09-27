@@ -18,7 +18,17 @@ export const CAPTION_EFFECT_GROUPS = [
     ] },
     { label: '縁', items: [
         { id: 'ol-thin', label: '袋文字 細' }, { id: 'ol-thick', label: '袋文字 太' },
-        { id: 'ol-color', label: '袋文字 色違い' }
+        { id: 'ol-color', label: '袋文字 色違い' },
+        { id: 'ol-double-black', label: '二重縁 黒 + 白' },
+        { id: 'ol-double-color', label: '二重縁 白 + 色' }
+    ] },
+    { label: '塗り', items: [
+        { id: 'fill-sunset', label: 'グラデ 夕焼け' },
+        { id: 'fill-ocean', label: 'グラデ 海' },
+        { id: 'fill-rainbow', label: 'グラデ 虹' }
+    ] },
+    { label: '立体', items: [
+        { id: 'ex-gold', label: '3D 金' }, { id: 'ex-silver', label: '3D 銀灰' }
     ] },
     { label: '帯', items: [
         { id: 'bg-band', label: '座布団 帯' }, { id: 'bg-round', label: '座布団 角丸' },
@@ -53,6 +63,13 @@ export const CAPTION_EFFECT_SPECS: Record<CaptionEffectCardId, CaptionTextStyleP
     'ol-thin': { stroke: { color: '#000000', widthPx: 3 } },
     'ol-thick': { stroke: { color: '#000000', widthPx: 6 } },
     'ol-color': { stroke: { color: '#2563eb', widthPx: 6 }, color: '#fff59d' },
+    'ol-double-black': { stroke: { color: '#000000', widthPx: 9 }, strokeInner: { color: '#ffffff', widthPx: 3 } },
+    'ol-double-color': { stroke: { color: '#ffffff', widthPx: 8 }, strokeInner: { color: '#2563eb', widthPx: 3 } },
+    'fill-sunset': { fillGradient: { colors: ['#fb923c', '#f43f5e', '#8b5cf6'], angleDeg: 90 } },
+    'fill-ocean': { fillGradient: { colors: ['#22d3ee', '#1d4ed8'], angleDeg: 115 } },
+    'fill-rainbow': { fillGradient: { colors: ['#f43f5e', '#facc15', '#22c55e'], angleDeg: 45 } },
+    'ex-gold': { color: '#fcd34d', extrude: { depthPx: 8, color: '#a16207', colorEnd: '#5c2a09', angleDeg: 135 } },
+    'ex-silver': { color: '#e5e7eb', extrude: { depthPx: 7, color: '#64748b', colorEnd: '#334155', angleDeg: 135 } },
     'bg-band': { background: background('#000000', .6, 0, 8) },
     'bg-round': { background: background('#000000', .7, 14, 9) },
     'bg-trans': { background: background('#1d4ed8', .32, 8, 8) },
@@ -73,6 +90,10 @@ export function captionEffectAdjustmentKeys(id: CaptionEffect): readonly string[
         ...(spec.glow ? ['glow.color', 'glow.density', 'glow.spread'] : []),
         ...(spec.stroke && ((spec.stroke.widthPx ?? 0) >= CAPTION_EFFECT_THRESHOLD_PX || id === 'ol-thin')
             ? ['stroke.color', 'stroke.widthPx'] : []),
+        ...(spec.strokeInner ? ['strokeInner.color', 'strokeInner.widthPx'] : []),
+        ...(spec.fillGradient ? spec.fillGradient.colors.map((_, index) => `fillGradient.color${index}`)
+            .concat('fillGradient.angleDeg') : []),
+        ...(spec.extrude ? ['extrude.depthPx', 'extrude.color', 'extrude.colorEnd', 'extrude.angleDeg'] : []),
         ...(spec.background ? ['background.color', 'background.opacity', 'background.radiusPx', 'background.paddingPx'] : [])
     ];
 }
@@ -81,18 +102,34 @@ export function captionEffectAdjustmentValue(style: CaptionTextStyle, path: stri
     const [part, key] = path.split('.') as [keyof CaptionTextStyle, string];
     const value = style[part];
     if (!value || typeof value !== 'object') return '';
+    if (part === 'fillGradient' && /^color[0-2]$/.test(key)) {
+        return style.fillGradient?.colors[Number(key.slice(-1))] ?? '';
+    }
     const result = (value as unknown as Record<string, unknown>)[key];
     return result === undefined || result === null ? '' : String(result);
 }
 
 export function captionEffectAdjustmentPatch(style: CaptionTextStyle, path: string, input: string): CaptionTextStylePatch {
-    const [part, key] = path.split('.') as ['shadow' | 'glow' | 'stroke' | 'background', string];
-    const value = key === 'color' ? input : Number(input);
-    if (key === 'color' && !/^#[0-9a-f]{6}$/iu.test(input)) throw new Error('色は #RRGGBB で入力してください。');
-    if (key !== 'color' && (!Number.isFinite(value) || Number(value) < 0)) throw new Error('0 以上の数値を入力してください。');
+    const [part, key] = path.split('.') as ['shadow' | 'glow' | 'stroke' | 'strokeInner' | 'fillGradient' | 'extrude' | 'background', string];
+    const colorField = key.startsWith('color');
+    const value = colorField ? input : Number(input);
+    if (colorField && !/^#[0-9a-f]{6}$/iu.test(input)) throw new Error('色は #RRGGBB で入力してください。');
+    if (!colorField && (!Number.isFinite(value) || Number(value) < 0)) throw new Error('0 以上の数値を入力してください。');
     if (part === 'shadow') return { shadow: { color: style.shadow?.color ?? '#000000', [key]: value } };
     if (part === 'glow') return { glow: { color: style.glow?.color ?? '#ffffff', [key]: value } };
     if (part === 'stroke') return { stroke: { [key]: value } };
+    if (part === 'strokeInner') return { strokeInner: { color: style.strokeInner?.color ?? '#ffffff',
+        widthPx: style.strokeInner?.widthPx ?? 3, [key]: value } };
+    if (part === 'fillGradient') {
+        const gradient = style.fillGradient ?? { colors: ['#fb923c', '#8b5cf6'], angleDeg: 90 };
+        const colors = [...gradient.colors];
+        if (colorField) colors[Number(key.slice(-1))] = input;
+        return { fillGradient: { colors, angleDeg: key === 'angleDeg' ? Number(value) : gradient.angleDeg } };
+    }
+    if (part === 'extrude') {
+        const extrude = style.extrude ?? { depthPx: 6, color: '#a16207', angleDeg: 135 };
+        return { extrude: { ...extrude, [key]: value } };
+    }
     return { background: { [key]: value } };
 }
 
@@ -105,7 +142,62 @@ export function captionEffectFromWidth(widthPx: number): CaptionEffect {
     return widthPx >= CAPTION_EFFECT_THRESHOLD_PX ? 'outline' : 'none';
 }
 
+function captionRgb(value: string | undefined): [number, number, number] | undefined {
+    if (!value || !/^#[0-9a-f]{6}$/iu.test(value)) return undefined;
+    return [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16)) as [number, number, number];
+}
+
+function captionColorDistance(left: string | undefined, right: string | undefined): number {
+    const a = captionRgb(left);
+    const b = captionRgb(right);
+    return a && b ? a.reduce((sum, channel, index) => sum + (channel - b[index]) ** 2, 0) : Infinity;
+}
+
+function richEffectExact(style: CaptionTextStyle, id: CaptionEffectCardId): boolean {
+    const spec = CAPTION_EFFECT_SPECS[id];
+    if (spec.strokeInner) return !!style.strokeInner && !!style.stroke
+        && style.stroke.color?.toLowerCase() === spec.stroke?.color?.toLowerCase()
+        && style.stroke.widthPx === spec.stroke?.widthPx
+        && style.strokeInner.color?.toLowerCase() === spec.strokeInner.color?.toLowerCase()
+        && style.strokeInner.widthPx === spec.strokeInner.widthPx;
+    if (spec.fillGradient) return !!style.fillGradient
+        && style.fillGradient.angleDeg === spec.fillGradient.angleDeg
+        && style.fillGradient.colors.length === spec.fillGradient.colors.length
+        && style.fillGradient.colors.every((color, index) =>
+            color.toLowerCase() === spec.fillGradient!.colors[index]?.toLowerCase());
+    if (spec.extrude) return !!style.extrude && style.color?.toLowerCase() === spec.color?.toLowerCase()
+        && style.extrude.depthPx === spec.extrude.depthPx
+        && style.extrude.color.toLowerCase() === spec.extrude.color.toLowerCase()
+        && style.extrude.colorEnd?.toLowerCase() === spec.extrude.colorEnd?.toLowerCase()
+        && style.extrude.angleDeg === spec.extrude.angleDeg;
+    return false;
+}
+
 export function captionEffectFromStyle(style: CaptionTextStyle | undefined): CaptionEffect {
+    if (style) for (const id of ['ol-double-black', 'ol-double-color', 'fill-sunset', 'fill-ocean',
+        'fill-rainbow', 'ex-gold', 'ex-silver'] as const) {
+        if (richEffectExact(style, id)) return id;
+    }
+    if (style?.strokeInner) {
+        const outer = captionRgb(style.stroke?.color);
+        const brightness = outer ? (outer[0] * .2126 + outer[1] * .7152 + outer[2] * .0722) : 0;
+        return brightness >= 160 ? 'ol-double-color' : 'ol-double-black';
+    }
+    if (style?.fillGradient) {
+        if (style.fillGradient.colors.length === 2) return 'fill-ocean';
+        const score = (id: 'fill-rainbow' | 'fill-sunset'): number =>
+            style.fillGradient!.colors.reduce((sum, color, index) =>
+                sum + captionColorDistance(color, CAPTION_EFFECT_SPECS[id].fillGradient?.colors[index]), 0);
+        return score('fill-rainbow') < score('fill-sunset') ? 'fill-rainbow' : 'fill-sunset';
+    }
+    if (style?.extrude) {
+        const gold = CAPTION_EFFECT_SPECS['ex-gold'];
+        const silver = CAPTION_EFFECT_SPECS['ex-silver'];
+        const score = (spec: CaptionTextStylePatch): number =>
+            captionColorDistance(style.extrude?.color, spec.extrude?.color)
+            + (style.color ? captionColorDistance(style.color, spec.color) : 0);
+        return score(silver) < score(gold) ? 'ex-silver' : 'ex-gold';
+    }
     const hasGlow = !!style?.glow && style.glow.density !== 0;
     const hasShadow = !!style?.shadow && style.shadow.opacity !== 0;
     const hasOutline = (style?.stroke?.widthPx ?? 0) >= CAPTION_EFFECT_THRESHOLD_PX;
@@ -113,6 +205,7 @@ export function captionEffectFromStyle(style: CaptionTextStyle | undefined): Cap
     const hasStroke = (style?.stroke?.widthPx ?? 0) >= 3;
     for (const group of CAPTION_EFFECT_GROUPS) for (const item of group.items) {
         const spec = CAPTION_EFFECT_SPECS[item.id];
+        if (spec.strokeInner || spec.fillGradient || spec.extrude) continue;
         if (!!spec.shadow !== hasShadow || !!spec.glow !== hasGlow
             || !!spec.background !== hasBand || !!spec.stroke !== hasStroke) continue;
         if (['shadow', 'glow', 'stroke', 'background'].every(key => {
@@ -198,6 +291,20 @@ export function captionCueOriginalStylePatch(
     }
     if (patch.fontFamily !== undefined) original.fontFamily = style.font_family as string | undefined ?? null;
     if (patch.zone !== undefined) original.zone = style.zone as CaptionTextStylePatch['zone'] ?? null;
+    for (const [key, jsonKey] of [
+        ['strokeInner', 'stroke_inner'], ['fillGradient', 'fill_gradient'], ['extrude', 'extrude']
+    ] as const) {
+        if (patch[key] === undefined) continue;
+        const raw = record(style[jsonKey]);
+        if (key === 'strokeInner') original.strokeInner = raw
+            ? { ...(raw.color !== undefined ? { color: String(raw.color) } : {}),
+                ...(raw.width_px !== undefined ? { widthPx: Number(raw.width_px) } : {}) } : null;
+        if (key === 'fillGradient') original.fillGradient = raw
+            ? { colors: raw.colors as string[], angleDeg: Number(raw.angle_deg) } : null;
+        if (key === 'extrude') original.extrude = raw
+            ? { depthPx: Number(raw.depth_px), color: String(raw.color),
+                ...(raw.color_end ? { colorEnd: String(raw.color_end) } : {}), angleDeg: Number(raw.angle_deg) } : null;
+    }
     if (patch.stroke) {
         const stroke = record(style.stroke) ?? {};
         original.stroke = {
@@ -258,7 +365,11 @@ function contrastingStroke(textColor: string): string {
 export function captionEffectPatch(effect: CaptionEffect, textColor: string): CaptionTextStylePatch {
     const reset = { shadow: null, glow: null } as const;
     if (captionEffectCard(effect)) return {
-        ...reset, background: { opacity: 0 }, stroke: DEFAULT_STROKE, ...CAPTION_EFFECT_SPECS[effect],
+        ...reset,
+        ...(CAPTION_EFFECT_SPECS[effect].strokeInner || CAPTION_EFFECT_SPECS[effect].fillGradient
+            || CAPTION_EFFECT_SPECS[effect].extrude
+            ? { strokeInner: null, fillGradient: null, extrude: null } : {}),
+        background: { opacity: 0 }, stroke: DEFAULT_STROKE, ...CAPTION_EFFECT_SPECS[effect],
         ...(effect === 'ol-thick' ? { stroke: { color: contrastingStroke(textColor), widthPx: 6 } } : {})
     };
     if (effect === 'shadow' || effect === 'raised' || effect === 'neon' || effect === 'outline') {
@@ -267,6 +378,40 @@ export function captionEffectPatch(effect: CaptionEffect, textColor: string): Ca
         return { shadow: patch.shadow, glow: patch.glow, stroke: patch.stroke };
     }
     return { ...reset, stroke: DEFAULT_STROKE };
+}
+
+export function captionEffectTransitionPatch(effect: CaptionEffect, textColor: string,
+    current: CaptionTextStyle | undefined): CaptionTextStylePatch {
+    return {
+        ...captionEffectPatch(effect, textColor),
+        ...(current?.strokeInner && !CAPTION_EFFECT_SPECS[effect as CaptionEffectCardId]?.strokeInner
+            ? { strokeInner: null } : {}),
+        ...(current?.fillGradient && !CAPTION_EFFECT_SPECS[effect as CaptionEffectCardId]?.fillGradient
+            ? { fillGradient: null } : {}),
+        ...(current?.extrude && !CAPTION_EFFECT_SPECS[effect as CaptionEffectCardId]?.extrude
+            ? { extrude: null } : {})
+    };
+}
+
+/** Hover preview crosses the webview boundary as snake_case captions.json style. */
+export function captionEffectPreviewStyle(current: CaptionTextStyle | undefined,
+    patch: CaptionTextStylePatch): CaptionTextStyle & Record<string, unknown> {
+    const style = { ...current, ...patch } as CaptionTextStyle & CaptionTextStylePatch;
+    return {
+        ...style,
+        ...(style.strokeInner !== undefined ? { stroke_inner: style.strokeInner === null ? null : {
+            ...(style.strokeInner.color !== undefined ? { color: style.strokeInner.color } : {}),
+            ...(style.strokeInner.widthPx !== undefined ? { width_px: style.strokeInner.widthPx } : {})
+        } } : {}),
+        ...(style.fillGradient !== undefined ? { fill_gradient: style.fillGradient === null ? null : {
+            colors: style.fillGradient.colors, angle_deg: style.fillGradient.angleDeg
+        } } : {}),
+        ...(style.extrude !== undefined ? { extrude: style.extrude === null ? null : {
+            depth_px: style.extrude.depthPx, color: style.extrude.color,
+            ...(style.extrude.colorEnd !== undefined ? { color_end: style.extrude.colorEnd } : {}),
+            angle_deg: style.extrude.angleDeg
+        } } : {})
+    } as CaptionTextStyle & Record<string, unknown>;
 }
 
 export function captionEffectColorPatch(style: CaptionTextStyle, color: string): CaptionTextStylePatch {

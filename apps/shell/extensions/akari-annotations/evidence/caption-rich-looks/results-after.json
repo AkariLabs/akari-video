@@ -1,0 +1,1498 @@
+{
+  "phase": "after",
+  "head": "7ad651c9b",
+  "obs": {
+    "effect-cards": {
+      "state": {
+        "n": 28,
+        "groups": [
+          "影",
+          "光",
+          "縁",
+          "塗り",
+          "立体",
+          "帯",
+          "組み合わせ"
+        ],
+        "ids": [
+          "sh-soft",
+          "sh-hard",
+          "sh-long",
+          "sh-diag",
+          "sh-raised",
+          "sh-inset",
+          "gl-white",
+          "gl-color",
+          "neon-blue",
+          "neon-pink",
+          "neon-green",
+          "neon-yellow",
+          "ol-thin",
+          "ol-thick",
+          "ol-color",
+          "ol-double-black",
+          "ol-double-color",
+          "fill-sunset",
+          "fill-ocean",
+          "fill-rainbow",
+          "ex-gold",
+          "ex-silver",
+          "bg-band",
+          "bg-round",
+          "bg-trans",
+          "combo-neon-shadow",
+          "combo-outline-shadow",
+          "combo-band-outline"
+        ],
+        "labels": [
+          "ソフトシャドウ",
+          "ハードシャドウ",
+          "ロングシャドウ",
+          "斜め下シャドウ",
+          "浮き出し",
+          "くぼみ風",
+          "光彩 白",
+          "光彩 橙",
+          "ネオン 青",
+          "ネオン ピンク",
+          "ネオン 緑",
+          "ネオン 黄",
+          "袋文字 細",
+          "袋文字 太",
+          "袋文字 色違い",
+          "二重縁 黒 + 白",
+          "二重縁 白 + 色",
+          "グラデ 夕焼け",
+          "グラデ 海",
+          "グラデ 虹",
+          "3D 金",
+          "3D 銀灰",
+          "座布団 帯",
+          "座布団 角丸",
+          "座布団 半透明",
+          "ネオン + 影",
+          "袋文字 + 影",
+          "座布団 + 袋文字"
+        ],
+        "distinctImages": 28,
+        "imagesReady": 28
+      },
+      "shot": "after-01-effect-cards-new.png"
+    },
+    "effect-new-cards": {
+      "ol-double-black": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "18px rgb(0, 0, 0)",
+          "textShadow": "rgb(255, 255, 255) 3px 0px 0px, rgb(255, 255, 255) 2.77164px 1.14805px 0px, rgb(255, 255, 255) 2.12132px 2.12132px 0px, ",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "18px rgb(0, 0, 0)",
+          "textShadow": "rgb(255, 255, 255) 3px 0px 0px, rgb(255, 255, 255) 2.77164px 1.14805px 0px, rgb(255, 255, 255) 2.12132px 2.12132px 0px, ",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "written": {
+          "stroke_inner": {
+            "color": "#ffffff",
+            "width_px": 3
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 9
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ol-double-black"
+        ],
+        "fields": [
+          "caption-effect-adjust-stroke-color",
+          "caption-effect-adjust-stroke-widthPx",
+          "caption-effect-adjust-strokeInner-color",
+          "caption-effect-adjust-strokeInner-widthPx"
+        ],
+        "hoverShot": "after-02-hover-ol-double-black.png",
+        "hoverWroteFile": false,
+        "undone": null,
+        "reapplied": {
+          "stroke_inner": {
+            "color": "#ffffff",
+            "width_px": 3
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 9
+          },
+          "background": {
+            "opacity": 0
+          }
+        }
+      },
+      "ol-double-color": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "16px rgb(255, 255, 255)",
+          "textShadow": "rgb(37, 99, 235) 3px 0px 0px, rgb(37, 99, 235) 2.77164px 1.14805px 0px, rgb(37, 99, 235) 2.12132px 2.12132px 0px, rgb(37",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "16px rgb(255, 255, 255)",
+          "textShadow": "rgb(37, 99, 235) 3px 0px 0px, rgb(37, 99, 235) 2.77164px 1.14805px 0px, rgb(37, 99, 235) 2.12132px 2.12132px 0px, rgb(37",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "written": {
+          "stroke_inner": {
+            "color": "#2563eb",
+            "width_px": 3
+          },
+          "stroke": {
+            "color": "#ffffff",
+            "width_px": 8
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ol-double-color"
+        ],
+        "fields": [
+          "caption-effect-adjust-stroke-color",
+          "caption-effect-adjust-stroke-widthPx",
+          "caption-effect-adjust-strokeInner-color",
+          "caption-effect-adjust-strokeInner-widthPx"
+        ],
+        "hoverShot": null,
+        "hoverWroteFile": false
+      },
+      "fill-sunset": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "written": {
+          "fill_gradient": {
+            "colors": [
+              "#fb923c",
+              "#f43f5e",
+              "#8b5cf6"
+            ],
+            "angle_deg": 90
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "fill-sunset"
+        ],
+        "fields": [
+          "caption-effect-adjust-fillGradient-color0",
+          "caption-effect-adjust-fillGradient-color1",
+          "caption-effect-adjust-fillGradient-color2",
+          "caption-effect-adjust-fillGradient-angleDeg"
+        ],
+        "hoverShot": "after-02-hover-fill-sunset.png",
+        "hoverWroteFile": false
+      },
+      "fill-ocean": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(115deg, rgb(34, 211, 238), rgb(29, 78, 216))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(115deg, rgb(34, 211, 238), rgb(29, 78, 216))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "written": {
+          "fill_gradient": {
+            "colors": [
+              "#22d3ee",
+              "#1d4ed8"
+            ],
+            "angle_deg": 115
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "fill-ocean"
+        ],
+        "fields": [
+          "caption-effect-adjust-fillGradient-color0",
+          "caption-effect-adjust-fillGradient-color1",
+          "caption-effect-adjust-fillGradient-angleDeg"
+        ],
+        "hoverShot": null,
+        "hoverWroteFile": false
+      },
+      "fill-rainbow": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(45deg, rgb(244, 63, 94), rgb(250, 204, 21), rgb(34, 197, 94))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(45deg, rgb(244, 63, 94), rgb(250, 204, 21), rgb(34, 197, 94))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "written": {
+          "fill_gradient": {
+            "colors": [
+              "#f43f5e",
+              "#facc15",
+              "#22c55e"
+            ],
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "fill-rainbow"
+        ],
+        "fields": [
+          "caption-effect-adjust-fillGradient-color0",
+          "caption-effect-adjust-fillGradient-color1",
+          "caption-effect-adjust-fillGradient-color2",
+          "caption-effect-adjust-fillGradient-angleDeg"
+        ],
+        "hoverShot": null,
+        "hoverWroteFile": false
+      },
+      "ex-gold": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(152, 91, 7) 0.707107px 0.707107px 0px, rgb(144, 84, 8) 1.41421px 1.41421px 0px, rgb(135, 77, 8) 2.12132px 2.12132px ",
+          "textShadowLayers": 8,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(252, 211, 77)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(152, 91, 7) 0.707107px 0.707107px 0px, rgb(144, 84, 8) 1.41421px 1.41421px 0px, rgb(135, 77, 8) 2.12132px 2.12132px ",
+          "textShadowLayers": 8,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(252, 211, 77)"
+        },
+        "written": {
+          "color": "#fcd34d",
+          "extrude": {
+            "depth_px": 8,
+            "color": "#a16207",
+            "color_end": "#5c2a09",
+            "angle_deg": 135
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ex-gold"
+        ],
+        "fields": [
+          "caption-effect-adjust-extrude-depthPx",
+          "caption-effect-adjust-extrude-color",
+          "caption-effect-adjust-extrude-colorEnd",
+          "caption-effect-adjust-extrude-angleDeg"
+        ],
+        "hoverShot": "after-02-hover-ex-gold.png",
+        "hoverWroteFile": false
+      },
+      "ex-silver": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(93, 109, 131) 0.707107px 0.707107px 0px, rgb(86, 101, 124) 1.41421px 1.41421px 0px, rgb(79, 94, 116) 2.12132px 2.121",
+          "textShadowLayers": 7,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(229, 231, 235)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(93, 109, 131) 0.707107px 0.707107px 0px, rgb(86, 101, 124) 1.41421px 1.41421px 0px, rgb(79, 94, 116) 2.12132px 2.121",
+          "textShadowLayers": 7,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(229, 231, 235)"
+        },
+        "written": {
+          "color": "#e5e7eb",
+          "extrude": {
+            "depth_px": 7,
+            "color": "#64748b",
+            "color_end": "#334155",
+            "angle_deg": 135
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ex-silver"
+        ],
+        "fields": [
+          "caption-effect-adjust-extrude-depthPx",
+          "caption-effect-adjust-extrude-color",
+          "caption-effect-adjust-extrude-colorEnd",
+          "caption-effect-adjust-extrude-angleDeg"
+        ],
+        "hoverShot": null,
+        "hoverWroteFile": false
+      },
+      "ol-thick": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "12px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "confirmed": {
+          "stroke": "12px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "written": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 6
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ol-thick"
+        ],
+        "fields": [
+          "caption-effect-adjust-stroke-color",
+          "caption-effect-adjust-stroke-widthPx"
+        ],
+        "hoverShot": null,
+        "hoverWroteFile": false
+      }
+    },
+    "effect-adjust": {
+      "adjustShot": "after-03-adjust-ex-gold-depth14.png"
+    },
+    "legacy-card": {
+      "stroke": {
+        "color": "#000000",
+        "width_px": 6
+      },
+      "background": {
+        "opacity": 0
+      }
+    }
+  },
+  "checks": {
+    "effect: 28 枚・7 段（塗り・立体が増える）・画像が全部違う": {
+      "ok": true,
+      "detail": {
+        "n": 28,
+        "groups": [
+          "影",
+          "光",
+          "縁",
+          "塗り",
+          "立体",
+          "帯",
+          "組み合わせ"
+        ],
+        "ids": [
+          "sh-soft",
+          "sh-hard",
+          "sh-long",
+          "sh-diag",
+          "sh-raised",
+          "sh-inset",
+          "gl-white",
+          "gl-color",
+          "neon-blue",
+          "neon-pink",
+          "neon-green",
+          "neon-yellow",
+          "ol-thin",
+          "ol-thick",
+          "ol-color",
+          "ol-double-black",
+          "ol-double-color",
+          "fill-sunset",
+          "fill-ocean",
+          "fill-rainbow",
+          "ex-gold",
+          "ex-silver",
+          "bg-band",
+          "bg-round",
+          "bg-trans",
+          "combo-neon-shadow",
+          "combo-outline-shadow",
+          "combo-band-outline"
+        ],
+        "labels": [
+          "ソフトシャドウ",
+          "ハードシャドウ",
+          "ロングシャドウ",
+          "斜め下シャドウ",
+          "浮き出し",
+          "くぼみ風",
+          "光彩 白",
+          "光彩 橙",
+          "ネオン 青",
+          "ネオン ピンク",
+          "ネオン 緑",
+          "ネオン 黄",
+          "袋文字 細",
+          "袋文字 太",
+          "袋文字 色違い",
+          "二重縁 黒 + 白",
+          "二重縁 白 + 色",
+          "グラデ 夕焼け",
+          "グラデ 海",
+          "グラデ 虹",
+          "3D 金",
+          "3D 銀灰",
+          "座布団 帯",
+          "座布団 角丸",
+          "座布団 半透明",
+          "ネオン + 影",
+          "袋文字 + 影",
+          "座布団 + 袋文字"
+        ],
+        "distinctImages": 28,
+        "imagesReady": 28
+      }
+    },
+    "effect: 新しい 7 枚が並ぶ": {
+      "ok": true,
+      "detail": [
+        "sh-soft",
+        "sh-hard",
+        "sh-long",
+        "sh-diag",
+        "sh-raised",
+        "sh-inset",
+        "gl-white",
+        "gl-color",
+        "neon-blue",
+        "neon-pink",
+        "neon-green",
+        "neon-yellow",
+        "ol-thin",
+        "ol-thick",
+        "ol-color",
+        "ol-double-black",
+        "ol-double-color",
+        "fill-sunset",
+        "fill-ocean",
+        "fill-rainbow",
+        "ex-gold",
+        "ex-silver",
+        "bg-band",
+        "bg-round",
+        "bg-trans",
+        "combo-neon-shadow",
+        "combo-outline-shadow",
+        "combo-band-outline"
+      ]
+    },
+    "ol-double-black: ホバーで出力プレビューに仮に当たり（ファイルは書かない）、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "18px rgb(0, 0, 0)",
+          "textShadow": "rgb(255, 255, 255) 3px 0px 0px, rgb(255, 255, 255) 2.77164px 1.14805px 0px, rgb(255, 255, 255) 2.12132px 2.12132px 0px, ",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        }
+      }
+    },
+    "ol-double-black: クリックで確定（captions.json に stroke_inner）・カードが選択表示": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "stroke_inner": {
+            "color": "#ffffff",
+            "width_px": 3
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 9
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ol-double-black"
+        ]
+      }
+    },
+    "ol-double-black: 調整欄はその見た目の項目だけ": {
+      "ok": true,
+      "detail": [
+        "caption-effect-adjust-stroke-color",
+        "caption-effect-adjust-stroke-widthPx",
+        "caption-effect-adjust-strokeInner-color",
+        "caption-effect-adjust-strokeInner-widthPx"
+      ]
+    },
+    "ol-double-color: ホバーで出力プレビューに仮に当たり（ファイルは書かない）、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "16px rgb(255, 255, 255)",
+          "textShadow": "rgb(37, 99, 235) 3px 0px 0px, rgb(37, 99, 235) 2.77164px 1.14805px 0px, rgb(37, 99, 235) 2.12132px 2.12132px 0px, rgb(37",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        }
+      }
+    },
+    "ol-double-color: クリックで確定（captions.json に stroke_inner）・カードが選択表示": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "stroke_inner": {
+            "color": "#2563eb",
+            "width_px": 3
+          },
+          "stroke": {
+            "color": "#ffffff",
+            "width_px": 8
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ol-double-color"
+        ]
+      }
+    },
+    "ol-double-color: 調整欄はその見た目の項目だけ": {
+      "ok": true,
+      "detail": [
+        "caption-effect-adjust-stroke-color",
+        "caption-effect-adjust-stroke-widthPx",
+        "caption-effect-adjust-strokeInner-color",
+        "caption-effect-adjust-strokeInner-widthPx"
+      ]
+    },
+    "fill-sunset: ホバーで出力プレビューに仮に当たり（ファイルは書かない）、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        }
+      }
+    },
+    "fill-sunset: クリックで確定（captions.json に fill_gradient）・カードが選択表示": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "fill_gradient": {
+            "colors": [
+              "#fb923c",
+              "#f43f5e",
+              "#8b5cf6"
+            ],
+            "angle_deg": 90
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "fill-sunset"
+        ]
+      }
+    },
+    "fill-sunset: 調整欄はその見た目の項目だけ": {
+      "ok": true,
+      "detail": [
+        "caption-effect-adjust-fillGradient-color0",
+        "caption-effect-adjust-fillGradient-color1",
+        "caption-effect-adjust-fillGradient-color2",
+        "caption-effect-adjust-fillGradient-angleDeg"
+      ]
+    },
+    "fill-ocean: ホバーで出力プレビューに仮に当たり（ファイルは書かない）、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(115deg, rgb(34, 211, 238), rgb(29, 78, 216))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        }
+      }
+    },
+    "fill-ocean: クリックで確定（captions.json に fill_gradient）・カードが選択表示": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "fill_gradient": {
+            "colors": [
+              "#22d3ee",
+              "#1d4ed8"
+            ],
+            "angle_deg": 115
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "fill-ocean"
+        ]
+      }
+    },
+    "fill-ocean: 調整欄はその見た目の項目だけ": {
+      "ok": true,
+      "detail": [
+        "caption-effect-adjust-fillGradient-color0",
+        "caption-effect-adjust-fillGradient-color1",
+        "caption-effect-adjust-fillGradient-angleDeg"
+      ]
+    },
+    "fill-rainbow: ホバーで出力プレビューに仮に当たり（ファイルは書かない）、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(45deg, rgb(244, 63, 94), rgb(250, 204, 21), rgb(34, 197, 94))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        }
+      }
+    },
+    "fill-rainbow: クリックで確定（captions.json に fill_gradient）・カードが選択表示": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "fill_gradient": {
+            "colors": [
+              "#f43f5e",
+              "#facc15",
+              "#22c55e"
+            ],
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "fill-rainbow"
+        ]
+      }
+    },
+    "fill-rainbow: 調整欄はその見た目の項目だけ": {
+      "ok": true,
+      "detail": [
+        "caption-effect-adjust-fillGradient-color0",
+        "caption-effect-adjust-fillGradient-color1",
+        "caption-effect-adjust-fillGradient-color2",
+        "caption-effect-adjust-fillGradient-angleDeg"
+      ]
+    },
+    "ex-gold: ホバーで出力プレビューに仮に当たり（ファイルは書かない）、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(152, 91, 7) 0.707107px 0.707107px 0px, rgb(144, 84, 8) 1.41421px 1.41421px 0px, rgb(135, 77, 8) 2.12132px 2.12132px ",
+          "textShadowLayers": 8,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(252, 211, 77)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        }
+      }
+    },
+    "ex-gold: クリックで確定（captions.json に extrude）・カードが選択表示": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "color": "#fcd34d",
+          "extrude": {
+            "depth_px": 8,
+            "color": "#a16207",
+            "color_end": "#5c2a09",
+            "angle_deg": 135
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ex-gold"
+        ]
+      }
+    },
+    "ex-gold: 調整欄はその見た目の項目だけ": {
+      "ok": true,
+      "detail": [
+        "caption-effect-adjust-extrude-depthPx",
+        "caption-effect-adjust-extrude-color",
+        "caption-effect-adjust-extrude-colorEnd",
+        "caption-effect-adjust-extrude-angleDeg"
+      ]
+    },
+    "ex-silver: ホバーで出力プレビューに仮に当たり（ファイルは書かない）、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "hover": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(93, 109, 131) 0.707107px 0.707107px 0px, rgb(86, 101, 124) 1.41421px 1.41421px 0px, rgb(79, 94, 116) 2.12132px 2.121",
+          "textShadowLayers": 7,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(229, 231, 235)"
+        },
+        "esc": {
+          "stroke": "8.96px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "textShadowLayers": 1,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        }
+      }
+    },
+    "ex-silver: クリックで確定（captions.json に extrude）・カードが選択表示": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "color": "#e5e7eb",
+          "extrude": {
+            "depth_px": 7,
+            "color": "#64748b",
+            "color_end": "#334155",
+            "angle_deg": 135
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          }
+        },
+        "pressed": [
+          "ex-silver"
+        ]
+      }
+    },
+    "ex-silver: 調整欄はその見た目の項目だけ": {
+      "ok": true,
+      "detail": [
+        "caption-effect-adjust-extrude-depthPx",
+        "caption-effect-adjust-extrude-color",
+        "caption-effect-adjust-extrude-colorEnd",
+        "caption-effect-adjust-extrude-angleDeg"
+      ]
+    },
+    "undo 1 回で元に戻る（c-0001）": {
+      "ok": true,
+      "detail": {
+        "undone": null
+      }
+    },
+    "新しい 7 種はプレビューで全部違う描き方になる": {
+      "ok": true,
+      "detail": {
+        "ol-double-black": {
+          "stroke": "18px rgb(0, 0, 0)",
+          "textShadow": "rgb(255, 255, 255) 3px 0px 0px, rgb(255, 255, 255) 2.77164px 1.14805px 0px, rgb(255, 255, 255) 2.12132px 2.12132px 0px, ",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "ol-double-color": {
+          "stroke": "16px rgb(255, 255, 255)",
+          "textShadow": "rgb(37, 99, 235) 3px 0px 0px, rgb(37, 99, 235) 2.77164px 1.14805px 0px, rgb(37, 99, 235) 2.12132px 2.12132px 0px, rgb(37",
+          "textShadowLayers": 16,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(255, 255, 255)"
+        },
+        "fill-sunset": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "fill-ocean": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(115deg, rgb(34, 211, 238), rgb(29, 78, 216))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "fill-rainbow": {
+          "stroke": "0px rgba(0, 0, 0, 0)",
+          "textShadow": "none",
+          "textShadowLayers": 0,
+          "filter": "drop-shadow(rgb(0, 0, 0) 1px 0px 0px) drop-shadow(rgb(0, 0, 0) 0px 1px 0px) drop-shadow(rgb(0, 0, 0) -1px 0px 0px) drop-",
+          "filterSteps": 8,
+          "bgImage": "linear-gradient(45deg, rgb(244, 63, 94), rgb(250, 204, 21), rgb(34, 197, 94))",
+          "fill": "rgba(0, 0, 0, 0)"
+        },
+        "ex-gold": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(152, 91, 7) 0.707107px 0.707107px 0px, rgb(144, 84, 8) 1.41421px 1.41421px 0px, rgb(135, 77, 8) 2.12132px 2.12132px ",
+          "textShadowLayers": 8,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(252, 211, 77)"
+        },
+        "ex-silver": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(93, 109, 131) 0.707107px 0.707107px 0px, rgb(86, 101, 124) 1.41421px 1.41421px 0px, rgb(79, 94, 116) 2.12132px 2.121",
+          "textShadowLayers": 7,
+          "filter": "none",
+          "filterSteps": 0,
+          "bgImage": "none",
+          "fill": "rgb(229, 231, 235)"
+        }
+      }
+    },
+    "調整: 3D の奥行きを変えると extrude.depth_px に書かれ、undo で戻る": {
+      "ok": true,
+      "detail": {
+        "before": {
+          "depth_px": 8,
+          "color": "#a16207",
+          "color_end": "#5c2a09",
+          "angle_deg": 135
+        },
+        "after": {
+          "depth_px": 14,
+          "color": "#a16207",
+          "color_end": "#5c2a09",
+          "angle_deg": 135
+        },
+        "undone": {
+          "depth_px": 8,
+          "color": "#a16207",
+          "color_end": "#5c2a09",
+          "angle_deg": 135
+        },
+        "inputValue": "8"
+      }
+    },
+    "OSR 書き出しは tier 2 の Electron（legacy へ落ちていない）": {
+      "ok": true,
+      "detail": {
+        "engineRequested": "osr",
+        "exit": 0,
+        "seconds": 24,
+        "engine": "osr",
+        "launcherTiers": {
+          "provenance.osr.provenance.launcher_tier": 2
+        },
+        "ineligibleWarning": null,
+        "refusal": null,
+        "osrFallbackToLegacy": false
+      }
+    },
+    "auto: GPU 不適格として OSR へ回り、理由に新しい見た目が出る": {
+      "ok": true,
+      "detail": {
+        "engineRequested": "auto",
+        "exit": 0,
+        "seconds": 23,
+        "engine": "osr",
+        "launcherTiers": {
+          "provenance.osr.provenance.launcher_tier": 2
+        },
+        "ineligibleWarning": "GPU export is ineligible; using OSR: caption:c-0001:caption-rich-look-stroke_inner-unsupported; caption:c-0002:caption-rich-look-stroke_inner-unsupported; caption:c-0003:caption-rich-look-fill_gradient-unsupported; caption:c-0004:caption-rich-look-fill_gradient-unsupported; caption:c-0005:caption-rich-look-fill_gradient-unsupported; caption:c-0006:caption-rich-look-extrude-unsupported; caption:c-0007:caption-rich-look-extrude-unsupported",
+        "refusal": null,
+        "osrFallbackToLegacy": false
+      }
+    },
+    "gpu を明示: 黙って違う見た目を出さず、理由つきで拒否する": {
+      "ok": true,
+      "detail": {
+        "engineRequested": "gpu",
+        "exit": 1,
+        "seconds": 1,
+        "engine": null,
+        "launcherTiers": {},
+        "ineligibleWarning": "GPU export is ineligible: caption:c-0001:caption-rich-look-stroke_inner-unsupported; caption:c-0002:caption-rich-look-stroke_inner-unsupported; caption:c-0003:caption-rich-look-fill_gradient-unsupported; caption:c-0004:caption-rich-look-fill_gradient-unsupported; caption:c-0005:caption-rich-look-fill_gradient-unsupported; caption:c-0006:caption-rich-look-extrude-unsupported; caption:c-0007:caption-rich-look-extrude-unsupported",
+        "refusal": "render-cut refused: GPU export is ineligible: caption:c-0001:caption-rich-look-stroke_inner-unsupported; caption:c-0002:caption-rich-look-stroke_inner-unsupported; caption:c-0003:caption-rich-look-fill_gradient-unsupported; caption:c-0004:caption-rich-look-fill_gradient-unsupported; caption:c-0005:caption-rich-look-fill_gradient-unsupported; caption:c-0006:caption-rich-look-extrude-unsupported; caption:c-0007:caption-rich-look-extrude-unsupported",
+        "osrFallbackToLegacy": false
+      }
+    }
+  },
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "adjustUndoVia": "command",
+  "writes": {
+    "c-0001": {
+      "stroke_inner": {
+        "color": "#ffffff",
+        "width_px": 3
+      },
+      "stroke": {
+        "color": "#000000",
+        "width_px": 9
+      },
+      "background": {
+        "opacity": 0
+      }
+    },
+    "c-0002": {
+      "stroke_inner": {
+        "color": "#2563eb",
+        "width_px": 3
+      },
+      "stroke": {
+        "color": "#ffffff",
+        "width_px": 8
+      },
+      "background": {
+        "opacity": 0
+      }
+    },
+    "c-0003": {
+      "fill_gradient": {
+        "colors": [
+          "#fb923c",
+          "#f43f5e",
+          "#8b5cf6"
+        ],
+        "angle_deg": 90
+      },
+      "stroke": {
+        "color": "#000000",
+        "width_px": 1.5
+      },
+      "background": {
+        "opacity": 0
+      }
+    },
+    "c-0004": {
+      "fill_gradient": {
+        "colors": [
+          "#22d3ee",
+          "#1d4ed8"
+        ],
+        "angle_deg": 115
+      },
+      "stroke": {
+        "color": "#000000",
+        "width_px": 1.5
+      },
+      "background": {
+        "opacity": 0
+      }
+    },
+    "c-0005": {
+      "fill_gradient": {
+        "colors": [
+          "#f43f5e",
+          "#facc15",
+          "#22c55e"
+        ],
+        "angle_deg": 45
+      },
+      "stroke": {
+        "color": "#000000",
+        "width_px": 1.5
+      },
+      "background": {
+        "opacity": 0
+      }
+    },
+    "c-0006": {
+      "color": "#fcd34d",
+      "extrude": {
+        "depth_px": 8,
+        "color": "#a16207",
+        "color_end": "#5c2a09",
+        "angle_deg": 135
+      },
+      "stroke": {
+        "color": "#000000",
+        "width_px": 1.5
+      },
+      "background": {
+        "opacity": 0
+      }
+    },
+    "c-0007": {
+      "color": "#e5e7eb",
+      "extrude": {
+        "depth_px": 7,
+        "color": "#64748b",
+        "color_end": "#334155",
+        "angle_deg": 135
+      },
+      "stroke": {
+        "color": "#000000",
+        "width_px": 1.5
+      },
+      "background": {
+        "opacity": 0
+      }
+    },
+    "c-0008": {
+      "stroke": {
+        "color": "#000000",
+        "width_px": 6
+      },
+      "background": {
+        "opacity": 0
+      }
+    }
+  },
+  "previewStage": {
+    "x": 36,
+    "y": 79.4375,
+    "width": 450,
+    "height": 253.125
+  },
+  "renders": {
+    "osr": {
+      "engineRequested": "osr",
+      "exit": 0,
+      "seconds": 24,
+      "engine": "osr",
+      "launcherTiers": {
+        "provenance.osr.provenance.launcher_tier": 2
+      },
+      "ineligibleWarning": null,
+      "refusal": null,
+      "osrFallbackToLegacy": false
+    },
+    "auto": {
+      "engineRequested": "auto",
+      "exit": 0,
+      "seconds": 23,
+      "engine": "osr",
+      "launcherTiers": {
+        "provenance.osr.provenance.launcher_tier": 2
+      },
+      "ineligibleWarning": "GPU export is ineligible; using OSR: caption:c-0001:caption-rich-look-stroke_inner-unsupported; caption:c-0002:caption-rich-look-stroke_inner-unsupported; caption:c-0003:caption-rich-look-fill_gradient-unsupported; caption:c-0004:caption-rich-look-fill_gradient-unsupported; caption:c-0005:caption-rich-look-fill_gradient-unsupported; caption:c-0006:caption-rich-look-extrude-unsupported; caption:c-0007:caption-rich-look-extrude-unsupported",
+      "refusal": null,
+      "osrFallbackToLegacy": false
+    },
+    "gpu": {
+      "engineRequested": "gpu",
+      "exit": 1,
+      "seconds": 1,
+      "engine": null,
+      "launcherTiers": {},
+      "ineligibleWarning": "GPU export is ineligible: caption:c-0001:caption-rich-look-stroke_inner-unsupported; caption:c-0002:caption-rich-look-stroke_inner-unsupported; caption:c-0003:caption-rich-look-fill_gradient-unsupported; caption:c-0004:caption-rich-look-fill_gradient-unsupported; caption:c-0005:caption-rich-look-fill_gradient-unsupported; caption:c-0006:caption-rich-look-extrude-unsupported; caption:c-0007:caption-rich-look-extrude-unsupported",
+      "refusal": "render-cut refused: GPU export is ineligible: caption:c-0001:caption-rich-look-stroke_inner-unsupported; caption:c-0002:caption-rich-look-stroke_inner-unsupported; caption:c-0003:caption-rich-look-fill_gradient-unsupported; caption:c-0004:caption-rich-look-fill_gradient-unsupported; caption:c-0005:caption-rich-look-fill_gradient-unsupported; caption:c-0006:caption-rich-look-extrude-unsupported; caption:c-0007:caption-rich-look-extrude-unsupported",
+      "osrFallbackToLegacy": false
+    }
+  },
+  "psnrCaptionBand": {
+    "ol-double-black": 30.021308,
+    "ol-double-color": 29.553172,
+    "fill-sunset": 34.106935,
+    "fill-ocean": 32.688823,
+    "fill-rainbow": 32.636305,
+    "ex-gold": 32.621298,
+    "ex-silver": 32.264171,
+    "ol-thick": 28.92904
+  },
+  "status": "recorded"
+}

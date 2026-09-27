@@ -60,6 +60,10 @@
     }
   },
   "valid_style_cases": [
+    { "id": "rich-double-outline", "style": { "stroke": { "color": "#000000", "width_px": 9 }, "stroke_inner": { "color": "#ffffff", "width_px": 3 } } },
+    { "id": "rich-gradient", "style": { "fill_gradient": { "colors": ["#fb923c", "#f43f5e", "#8b5cf6"], "angle_deg": 90 } } },
+    { "id": "rich-extrude", "style": { "extrude": { "depth_px": 8, "color": "#a16207", "color_end": "#5c2a09", "angle_deg": 135 } } },
+    { "id": "rich-combined", "style": { "stroke": { "color": "#000000", "width_px": 9 }, "stroke_inner": { "color": "#ffffff", "width_px": 3 }, "fill_gradient": { "colors": ["#fb923c", "#8b5cf6"], "angle_deg": 90 }, "extrude": { "depth_px": 6, "color": "#a16207", "angle_deg": 135 }, "shadow": { "color": "#000000", "blur_px": 4 } } },
     { "id": "v0-max-characters", "style": { "max_characters": 12 } },
     { "id": "empty", "style": {} },
     { "id": "hex-three", "style": { "color": "#FFF" } },
@@ -126,6 +130,10 @@
     }
   ],
   "invalid_cases": [
+    { "id": "rich-inner-negative", "caption_text_style": { "stroke_inner": { "color": "#ffffff", "width_px": -1 } } },
+    { "id": "rich-gradient-one-color", "caption_text_style": { "fill_gradient": { "colors": ["#fb923c"], "angle_deg": 90 } } },
+    { "id": "rich-gradient-bad-color", "caption_text_style": { "fill_gradient": { "colors": ["red", "#ffffff"], "angle_deg": 90 } } },
+    { "id": "rich-extrude-too-deep", "caption_text_style": { "extrude": { "depth_px": 33, "color": "#a16207", "angle_deg": 135 } } },
     { "id": "default-not-object", "default_text_style": "invalid" },
     { "id": "caption-not-object", "caption_text_style": [] },
     { "id": "unknown-style-key", "default_text_style": { "invented": true } },

@@ -5527,6 +5527,7 @@ var CAPTION_LAYOUT_KEYS = /* @__PURE__ */ new Set([
   "max_lines"
 ]);
 var CAPTION_LAYOUT_REQUIRED_KEYS = [...CAPTION_LAYOUT_KEYS];
+var HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/u;
 var CaptionDisplayError = class extends Error {
   constructor(code, message) {
     super(message);
@@ -5598,6 +5599,20 @@ function normalizeCaptionLineTextStyle(value) {
       ...typeof value.stroke.color === "string" ? { color: value.stroke.color } : {},
       ...finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {}
     } } : {},
+    ...isRecord4(value.stroke_inner) ? { stroke_inner: {
+      ...typeof value.stroke_inner.color === "string" ? { color: value.stroke_inner.color } : {},
+      ...finiteNumber(value.stroke_inner.width_px) ? { width_px: value.stroke_inner.width_px } : {}
+    } } : {},
+    ...isRecord4(value.fill_gradient) ? { fill_gradient: {
+      colors: value.fill_gradient.colors,
+      angle_deg: value.fill_gradient.angle_deg
+    } } : {},
+    ...isRecord4(value.extrude) ? { extrude: {
+      depth_px: value.extrude.depth_px,
+      color: value.extrude.color,
+      ...value.extrude.color_end !== void 0 ? { color_end: value.extrude.color_end } : {},
+      angle_deg: value.extrude.angle_deg
+    } } : {},
     ...isRecord4(value.background) ? { background: {
       ...typeof value.background.color === "string" ? { color: value.background.color } : {},
       ...finiteNumber(value.background.opacity) ? { opacity: value.background.opacity } : {},
@@ -5617,7 +5632,7 @@ function mergeCaptionLineTextStyles(base, override) {
   const left = normalizeCaptionLineTextStyle(base);
   const right = normalizeCaptionLineTextStyle(override);
   const merged = { ...left, ...right };
-  for (const key of ["stroke", "background", "shadow", "glow", "position", "animation"]) {
+  for (const key of ["stroke", "stroke_inner", "fill_gradient", "extrude", "background", "shadow", "glow", "position", "animation"]) {
     if (isRecord4(left[key]) || isRecord4(right[key])) {
       merged[key] = { ...isRecord4(left[key]) ? left[key] : {}, ...isRecord4(right[key]) ? right[key] : {} };
       if (Object.keys(merged[key]).length === 0) delete merged[key];
@@ -5725,6 +5740,13 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     const color2 = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.9)";
     vars["--caption-stroke"] = `${width * 2}px ${color2}`;
   }
+  if (isRecord4(style.stroke_inner) && !isRecord4(style.stroke)) vars["--caption-stroke"] = "0 transparent";
+  if (isRecord4(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color2) => typeof color2 === "string" && HEX_COLOR.test(color2)) && finiteNumber(style.fill_gradient.angle_deg)) {
+    vars["--caption-fill-gradient"] = `linear-gradient(${style.fill_gradient.angle_deg}deg, ${style.fill_gradient.colors.join(", ")})`;
+    vars["--caption-fill-clip"] = "text";
+    vars["--caption-fill-color"] = "transparent";
+    vars["--caption-fill-filter"] = captionGradientFilterValue(style, scale);
+  }
   if (isRecord4(style.background) && (typeof style.background.color === "string" || finiteNumber(style.background.opacity))) {
     const name = style.background.mode === "block" ? "--plate-block-bg" : extendedBackground ? "--plate-ext-bg" : "--plate-bg";
     vars[name] = colorWithOpacity(
@@ -5768,7 +5790,7 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     vars["--plate-pad-y"] = `${px(style.background.padding_px)}px`;
     vars["--plate-pad-x"] = `${px(style.background.padding_px)}px`;
   }
-  const textShadow = captionTextShadowValue(style.shadow, style.glow, scale);
+  const textShadow = captionRichTextShadowValue(style, scale);
   if (textShadow !== null) vars["--caption-text-shadow"] = textShadow;
   Object.assign(vars, captionZoneVars(style.zone));
   Object.assign(vars, captionAnchorPositionVars(
@@ -5833,6 +5855,87 @@ function captionTextShadowValue(shadow, glow, scale = 1) {
   }
   return parts.length > 0 ? parts.join(", ") : null;
 }
+function captionRichTextShadowValue(style, scale) {
+  const parts = [];
+  if (isRecord4(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
+    const radius = scaleCaptionPx(style.stroke_inner.width_px, scale);
+    const color2 = typeof style.stroke_inner.color === "string" && HEX_COLOR.test(style.stroke_inner.color) ? style.stroke_inner.color : "#ffffff";
+    for (let index = 0; index < 16; index++) {
+      const angle = 2 * Math.PI * index / 16;
+      parts.push(`${formatCssNumber(Math.cos(angle) * radius)}px ${formatCssNumber(Math.sin(angle) * radius)}px 0 ${color2}`);
+    }
+  }
+  if (isRecord4(style.extrude) && Number.isInteger(style.extrude.depth_px) && style.extrude.depth_px >= 1 && style.extrude.depth_px <= 32 && typeof style.extrude.color === "string" && HEX_COLOR.test(style.extrude.color) && finiteNumber(style.extrude.angle_deg)) {
+    const depth = Math.ceil(scaleCaptionPx(style.extrude.depth_px, scale));
+    const angle = style.extrude.angle_deg * Math.PI / 180;
+    for (let layer = 1; layer <= depth; layer++) {
+      const distance = Math.min(layer, scaleCaptionPx(style.extrude.depth_px, scale));
+      const color2 = typeof style.extrude.color_end === "string" && HEX_COLOR.test(style.extrude.color_end) ? interpolateCaptionHex(style.extrude.color, style.extrude.color_end, layer / depth) : style.extrude.color;
+      parts.push(`${formatCssNumber(Math.sin(angle) * distance)}px ${formatCssNumber(-Math.cos(angle) * distance)}px 0 ${color2}`);
+    }
+  }
+  const original = captionTextShadowValue(style.shadow, style.glow, scale);
+  if (original) parts.push(original);
+  return parts.length ? parts.join(", ") : null;
+}
+function captionGradientFilterValue(style, scale) {
+  const parts = [];
+  const grow = (radius, color2) => {
+    let remaining = radius;
+    let power = 1;
+    while (remaining > 1e-4) {
+      const step = Math.min(power, remaining);
+      for (const [x, y] of [[step, 0], [0, step], [-step, 0], [0, -step]]) {
+        parts.push(`drop-shadow(${formatCssNumber(x)}px ${formatCssNumber(y)}px 0 ${color2})`);
+      }
+      remaining -= step;
+      power *= 2;
+    }
+  };
+  const stroke = isRecord4(style.stroke) ? style.stroke : null;
+  const inner = isRecord4(style.stroke_inner) ? style.stroke_inner : null;
+  const outerRadius = stroke && finiteNonNegative2(stroke.width_px) ? scaleCaptionPx(stroke.width_px, scale) : 0;
+  const innerRadius = inner && finiteNonNegative2(inner.width_px) ? scaleCaptionPx(inner.width_px, scale) : 0;
+  if (innerRadius > 0) grow(innerRadius, typeof inner?.color === "string" && HEX_COLOR.test(inner.color) ? inner.color : "#ffffff");
+  if (outerRadius > 0) grow(
+    Math.max(0, outerRadius - innerRadius),
+    typeof stroke?.color === "string" && HEX_COLOR.test(stroke.color) ? stroke.color : "#000000"
+  );
+  if (isRecord4(style.extrude) && Number.isInteger(style.extrude.depth_px) && style.extrude.depth_px >= 1 && style.extrude.depth_px <= 32 && typeof style.extrude.color === "string" && HEX_COLOR.test(style.extrude.color) && finiteNumber(style.extrude.angle_deg)) {
+    const depth = Math.ceil(scaleCaptionPx(style.extrude.depth_px, scale));
+    const angle = style.extrude.angle_deg * Math.PI / 180;
+    for (let layer = 1; layer <= depth; layer++) {
+      const color2 = typeof style.extrude.color_end === "string" && HEX_COLOR.test(style.extrude.color_end) ? interpolateCaptionHex(style.extrude.color, style.extrude.color_end, layer / depth) : style.extrude.color;
+      parts.push(`drop-shadow(${formatCssNumber(Math.sin(angle))}px ${formatCssNumber(-Math.cos(angle))}px 0 ${color2})`);
+    }
+  }
+  if (isRecord4(style.shadow) && typeof style.shadow.color === "string" && HEX_COLOR.test(style.shadow.color)) {
+    const angle = (finiteNumber(style.shadow.angle_deg) ? style.shadow.angle_deg : 90) * Math.PI / 180;
+    const distance = scaleCaptionPx(finiteNonNegative2(style.shadow.distance_px) ? style.shadow.distance_px : 0, scale);
+    const blur = scaleCaptionPx(finiteNonNegative2(style.shadow.blur_px) ? style.shadow.blur_px : 0, scale);
+    parts.push(`drop-shadow(${formatCssNumber(Math.cos(angle) * distance)}px ${formatCssNumber(Math.sin(angle) * distance)}px ${formatCssNumber(blur)}px ${colorWithOpacity(style.shadow.color, style.shadow.opacity)})`);
+  }
+  if (isRecord4(style.glow) && typeof style.glow.color === "string" && HEX_COLOR.test(style.glow.color)) {
+    const spread = scaleCaptionPx(finiteNonNegative2(style.glow.spread) ? style.glow.spread : 40, scale);
+    const alpha = Math.min(1, (finiteNonNegative2(style.glow.density) ? style.glow.density : 50) / 60);
+    const x = scaleCaptionPx(finiteNumber(style.glow.offset_x) ? style.glow.offset_x : 0, scale);
+    const y = scaleCaptionPx(finiteNumber(style.glow.offset_y) ? style.glow.offset_y : 0, scale);
+    parts.push(`drop-shadow(${formatCssNumber(x)}px ${formatCssNumber(y)}px ${formatCssNumber(spread)}px ${colorWithOpacity(style.glow.color, alpha)})`);
+    parts.push(`drop-shadow(${formatCssNumber(x)}px ${formatCssNumber(y)}px ${formatCssNumber(spread * 2)}px ${colorWithOpacity(style.glow.color, Number((alpha * 0.7).toFixed(4)))})`);
+  }
+  return parts.join(" ") || "none";
+}
+function interpolateCaptionHex(start, end, fraction) {
+  const rgba = (value) => {
+    const hex2 = value.slice(1);
+    const full = hex2.length === 3 ? hex2.split("").map((digit) => digit + digit).join("") : hex2;
+    return [0, 2, 4, 6].map((index) => index === 6 && full.length === 6 ? 255 : parseInt(full.slice(index, index + 2), 16));
+  };
+  const from = rgba(start);
+  const to = rgba(end);
+  const channels = start.length === 9 || end.length === 9 ? 4 : 3;
+  return "#" + from.slice(0, channels).map((value, index) => Math.round(value + ((to[index] ?? value) - value) * fraction).toString(16).padStart(2, "0")).join("");
+}
 function colorWithOpacity(color2, explicitOpacity) {
   const raw = color2.slice(1);
   const expanded = raw.length === 3 ? raw.split("").map((character) => character + character).join("") : raw;
@@ -5849,6 +5952,9 @@ function finiteNumber(value) {
 }
 function finitePositive2(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+function finiteNonNegative2(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 function positiveInteger(value) {
   return Number.isInteger(value) && value >= 1;
