@@ -341,7 +341,7 @@ test('generation: 節割付・enabled・disabled title・やること印の DOM 
       assert.equal(generation.attributes.get('aria-selected'), String(widget.currentTab === 'edit'));
       assert.deepEqual(generation.children.map(child => child.attributes.get('data-akari-generation-todo')), todo ? ['true'] : []);
       const generatedPanel = ['generating', 'stale', 'failed'].includes(state);
-      assert.equal(widget.sections.some(([id, count]) => id === 'generation' && count === 8), generatedPanel);
+      assert.equal(widget.sections.some(([id, count]) => id === 'generation' && count === 9), generatedPanel);
     }
     widget.generationTabMeta.set(key, { next: { status: 'planned' } });
     widget.tabSelectionKey = undefined;
