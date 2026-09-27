@@ -82,8 +82,8 @@ test('日本語表示名と英字名の両方で同じ書体を検索できる',
 test('revealField の行き先は編集パネルの実在する欄とタブに一致する', () => {
     for (const [field, owner, section, tab] of [
         ['caption-effect', false, 'style:effect', 'text'],
-        ['caption-animation', true, 'animator', 'motion'],
-        ['caption-animation', false, 'motion-empty', 'motion'],
+        ['caption-animation', true, 'motion:caption', 'motion'],
+        ['caption-animation', false, 'motion:caption', 'motion'],
         ['caption-style', false, 'style', 'text']
     ]) {
         const destination = captionRevealDestination({ field }, owner);

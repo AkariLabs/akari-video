@@ -1,0 +1,2418 @@
+{
+  "phase": "after",
+  "head": "391d7c1c5",
+  "obs": {
+    "effect-cards": {
+      "state": {
+        "n": 21,
+        "groups": [
+          "影",
+          "光",
+          "縁",
+          "帯",
+          "組み合わせ"
+        ],
+        "ids": [
+          "sh-soft",
+          "sh-hard",
+          "sh-long",
+          "sh-diag",
+          "sh-raised",
+          "sh-inset",
+          "gl-white",
+          "gl-color",
+          "neon-blue",
+          "neon-pink",
+          "neon-green",
+          "neon-yellow",
+          "ol-thin",
+          "ol-thick",
+          "ol-color",
+          "bg-band",
+          "bg-round",
+          "bg-trans",
+          "combo-neon-shadow",
+          "combo-outline-shadow",
+          "combo-band-outline"
+        ],
+        "labels": [
+          "ソフトシャドウ",
+          "ハードシャドウ",
+          "ロングシャドウ",
+          "斜め下シャドウ",
+          "浮き出し",
+          "くぼみ風",
+          "光彩 白",
+          "光彩 橙",
+          "ネオン 青",
+          "ネオン ピンク",
+          "ネオン 緑",
+          "ネオン 黄",
+          "袋文字 細",
+          "袋文字 太",
+          "袋文字 色違い",
+          "座布団 帯",
+          "座布団 角丸",
+          "座布団 半透明",
+          "ネオン + 影",
+          "袋文字 + 影",
+          "座布団 + 袋文字"
+        ],
+        "distinctImages": 21,
+        "imagesReady": 21,
+        "imgTags": 21,
+        "domPerCard": 2,
+        "selects": 0
+      },
+      "shot": "after-01-effect-cards.png"
+    },
+    "effect-legacy": {
+      "c-0001": {
+        "pressed": [
+          "sh-soft"
+        ],
+        "fields": [
+          "caption-effect-adjust-shadow-color",
+          "caption-effect-adjust-shadow-opacity",
+          "caption-effect-adjust-shadow-distancePx",
+          "caption-effect-adjust-shadow-angleDeg",
+          "caption-effect-adjust-shadow-blurPx"
+        ]
+      },
+      "c-0002": {
+        "pressed": [
+          "sh-raised"
+        ],
+        "fields": [
+          "caption-effect-adjust-shadow-color",
+          "caption-effect-adjust-shadow-opacity",
+          "caption-effect-adjust-shadow-distancePx",
+          "caption-effect-adjust-shadow-angleDeg",
+          "caption-effect-adjust-shadow-blurPx"
+        ]
+      },
+      "c-0003": {
+        "pressed": [
+          "neon-blue"
+        ],
+        "fields": [
+          "caption-effect-adjust-glow-color",
+          "caption-effect-adjust-glow-density",
+          "caption-effect-adjust-glow-spread"
+        ]
+      },
+      "c-0004": {
+        "pressed": [
+          "ol-thick"
+        ],
+        "fields": [
+          "caption-effect-adjust-stroke-color",
+          "caption-effect-adjust-stroke-widthPx"
+        ]
+      },
+      "c-0005": {
+        "pressed": [],
+        "fields": []
+      }
+    },
+    "effect-hover-confirm-undo": {
+      "shots": [
+        "after-02-effect-hover-neon-pink.png",
+        "after-03-effect-confirm-bg-round.png"
+      ]
+    },
+    "motion-tab": {
+      "state": {
+        "titles": [
+          "まとめて当てる組",
+          "動き",
+          "テキストアニメ",
+          "語ごとの表示",
+          "強調（対象語）",
+          "速さ・尺"
+        ],
+        "kinds": {
+          "combo": 6,
+          "slot": 10,
+          "textanim": 12,
+          "word-style": 4,
+          "emphasis": 9
+        },
+        "comboLabels": [
+          "シンプル",
+          "スマート",
+          "ファン",
+          "コーポレート",
+          "リラックス",
+          "タイプライター"
+        ],
+        "visibleRunning": 28,
+        "visible": 28,
+        "offscreenPaused": 13,
+        "offscreen": 13,
+        "cardBorder": "1px solid",
+        "cardBg": "rgb(20, 20, 20)",
+        "karaokeSettings": false,
+        "animatorCollapsed": "false"
+      },
+      "shots": [
+        "after-04-motion-tab-top.png",
+        "after-05-motion-tab-textanim.png"
+      ]
+    },
+    "motion-typewriter": {
+      "base": {
+        "text": "今日は朝のルーティンを紹介します",
+        "topRatio": 0.847,
+        "styled": true,
+        "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+        "anims": [],
+        "caret": null
+      },
+      "samples": [
+        [
+          7,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ],
+        [
+          376,
+          null
+        ],
+        [
+          457,
+          {
+            "text": "今|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          540,
+          {
+            "text": "今日|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          641,
+          {
+            "text": "今日は|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          722,
+          {
+            "text": "今日は朝|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          807,
+          {
+            "text": "今日は朝の|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          907,
+          {
+            "text": "今日は朝のル|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          990,
+          {
+            "text": "今日は朝のルー|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1074,
+          {
+            "text": "今日は朝のルーテ|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1174,
+          {
+            "text": "今日は朝のルーティ|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1257,
+          {
+            "text": "今日は朝のルーティン|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1340,
+          {
+            "text": "今日は朝のルーティンを|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1422,
+          {
+            "text": "今日は朝のルーティンを紹|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1507,
+          {
+            "text": "今日は朝のルーティンを紹介|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1605,
+          {
+            "text": "今日は朝のルーティンを紹介し|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1690,
+          {
+            "text": "今日は朝のルーティンを紹介しま|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          1773,
+          {
+            "text": "今日は朝のルーティンを紹介します|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          2056,
+          {
+            "text": "今日は朝のルーティンを紹介します|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "0"
+          }
+        ],
+        [
+          2340,
+          {
+            "text": "今日は朝のルーティンを紹介します|",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-preview-caret"
+            ],
+            "caret": "1"
+          }
+        ],
+        [
+          2440,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ]
+      ],
+      "lens": [
+        16,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "shots": [
+        "after-06-typewriter-preview-mid.png"
+      ]
+    },
+    "motion-slot-loop": {
+      "motion": {
+        "loop": {
+          "preset": "pulse",
+          "period": 90
+        }
+      },
+      "samples": [
+        [
+          2,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ],
+        [
+          512,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-oneshot-heartbeat"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          980,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ]
+      ]
+    },
+    "motion-textanim": {
+      "animation": {
+        "in": {
+          "id": "bounce"
+        },
+        "out": {
+          "id": "fade-in-out",
+          "duration_sec": 0.27
+        }
+      }
+    },
+    "motion-word-style": {
+      "settings": "カラオケの設定 まだの文字の色 歌い終わった文字は現在、固定の黄色（#ffd94a）です。 強調（対象語） 今日は朝 のルーテ ィンを紹 介します あいう 1 文字ドン あいう ごちゃ混ぜ あいう 大きさの脈動 あいう 色の強調 あいう 色",
+      "shot": "after-07-karaoke-settings.png"
+    },
+    "motion-emphasis": {
+      "chips": [
+        "今日は朝",
+        "のルーテ",
+        "ィンを紹",
+        "介します"
+      ],
+      "emphasis": [
+        {
+          "id": "e-0001",
+          "word": "のルーテ",
+          "t_start": 0.625,
+          "t_end": 1.25,
+          "src": "a",
+          "emotion": "surprise",
+          "style_hint": "one-char-bang"
+        }
+      ],
+      "shot": "after-08-emphasis.png"
+    },
+    "animator": {
+      "templRows": [
+        "animator-a1-heading",
+        "animator-a1-all",
+        "animator-a1-offset",
+        "animator-a1-amount-y"
+      ],
+      "allRowsCount": 14,
+      "shot": "after-09-animator-template.png"
+    },
+    "placed-text": {
+      "placed": "c-0006",
+      "effects": 21,
+      "motion": 41,
+      "shot": "after-10-placed-text-motion.png"
+    },
+    "finalCaptions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 0,
+          "end": 2.5,
+          "text": "今日は朝のルーティンを紹介します",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "words": [
+            {
+              "start": 0,
+              "end": 0.625,
+              "text": "今日は朝"
+            },
+            {
+              "start": 0.625,
+              "end": 1.25,
+              "text": "のルーテ"
+            },
+            {
+              "start": 1.25,
+              "end": 1.875,
+              "text": "ィンを紹"
+            },
+            {
+              "start": 1.875,
+              "end": 2.5,
+              "text": "介します"
+            }
+          ],
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.75,
+              "blur_px": 2,
+              "distance_px": 8.5,
+              "angle_deg": 45
+            },
+            "animation": {
+              "in": {
+                "id": "bounce"
+              },
+              "out": {
+                "id": "fade-in-out",
+                "duration_sec": 0.27
+              }
+            }
+          },
+          "style": "reveal"
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 5.5,
+          "text": "まずはコーヒーを淹れるところから",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "words": [
+            {
+              "start": 3,
+              "end": 3.625,
+              "text": "まずはコ"
+            },
+            {
+              "start": 3.625,
+              "end": 4.25,
+              "text": "ーヒーを"
+            },
+            {
+              "start": 4.25,
+              "end": 4.875,
+              "text": "淹れると"
+            },
+            {
+              "start": 4.875,
+              "end": 5.5,
+              "text": "ころから"
+            }
+          ],
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "distance_px": 4,
+              "angle_deg": 90,
+              "blur_px": 14
+            }
+          }
+        },
+        {
+          "id": "c-0006",
+          "start": 4,
+          "end": 7,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "text_anchor": "tc",
+            "position": {
+              "y": 0.4625
+            }
+          }
+        },
+        {
+          "id": "c-0003",
+          "start": 6,
+          "end": 8.5,
+          "text": "豆は挽きたてが一番おいしい",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "words": [
+            {
+              "start": 6,
+              "end": 6.625,
+              "text": "豆は挽き"
+            },
+            {
+              "start": 6.625,
+              "end": 7.25,
+              "text": "たてが一"
+            },
+            {
+              "start": 7.25,
+              "end": 7.875,
+              "text": "番おいし"
+            },
+            {
+              "start": 7.875,
+              "end": 8.5,
+              "text": "い"
+            }
+          ],
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "glow": {
+              "color": "#39D5FF",
+              "density": 60,
+              "spread": 12
+            }
+          }
+        },
+        {
+          "id": "c-0004",
+          "start": 9,
+          "end": 11.5,
+          "text": "お湯は少し冷ましてから注ぎます",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "words": [
+            {
+              "start": 9,
+              "end": 9.625,
+              "text": "お湯は少"
+            },
+            {
+              "start": 9.625,
+              "end": 10.25,
+              "text": "し冷まし"
+            },
+            {
+              "start": 10.25,
+              "end": 10.875,
+              "text": "てから注"
+            },
+            {
+              "start": 10.875,
+              "end": 11.5,
+              "text": "ぎます"
+            }
+          ],
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            }
+          }
+        },
+        {
+          "id": "c-0005",
+          "start": 12,
+          "end": 14.5,
+          "text": "ここがいちばん大事",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "words": [
+            {
+              "start": 12,
+              "end": 12.833,
+              "text": "ここがい"
+            },
+            {
+              "start": 12.833,
+              "end": 13.667,
+              "text": "ちばん大"
+            },
+            {
+              "start": 13.667,
+              "end": 14.5,
+              "text": "事"
+            }
+          ]
+        }
+      ],
+      "emphasis_words": [
+        {
+          "id": "e-0001",
+          "word": "のルーテ",
+          "t_start": 0.625,
+          "t_end": 1.25,
+          "src": "a",
+          "emotion": "surprise",
+          "style_hint": "one-char-bang"
+        }
+      ]
+    },
+    "finalBag": {
+      "id": "captions",
+      "name": "字幕",
+      "at": 0,
+      "duration": 450,
+      "motion": {
+        "loop": {
+          "preset": "pulse",
+          "period": 90
+        }
+      },
+      "animator": [
+        {
+          "id": "a1",
+          "basis": "chars",
+          "shape": "round",
+          "start": 0,
+          "end": 0.3,
+          "offset": 0.05,
+          "amount": {
+            "y": 14
+          }
+        }
+      ],
+      "source": {
+        "kind": "captions",
+        "path": "captions.json"
+      },
+      "items": []
+    },
+    "motion-nobag": {
+      "animation": {
+        "in": {
+          "id": "slide-up",
+          "duration_sec": 0.4
+        },
+        "out": {
+          "id": "slide-up",
+          "duration_sec": 0.27
+        },
+        "loop": {
+          "id": "float",
+          "duration_sec": 3
+        }
+      },
+      "shot": "after-11-motion-tab-nobag.png"
+    }
+  },
+  "timing": {
+    "inspector-text-tab-click": {
+      "firstCardVisibleMs": 52,
+      "firstSampleVisibleMs": 52,
+      "allSettledMs": 112,
+      "final": {
+        "n": 21,
+        "view": 9,
+        "ready": 21,
+        "fonts": 0,
+        "dom": 402
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          12,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 204
+          }
+        ],
+        [
+          52,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 6,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          65,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 12,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          78,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 15,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          96,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 18,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          112,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 402
+          }
+        ]
+      ],
+      "profileTop": {
+        "totalMs": 10699,
+        "busyMs": 477,
+        "top": [
+          [
+            "(program) :0",
+            265.5
+          ],
+          [
+            "getBoundingClientRect :0",
+            51.9
+          ],
+          [
+            "(garbage collector) :0",
+            51.6
+          ],
+          [
+            "querySelector :0",
+            31.1
+          ],
+          [
+            "loop :8",
+            22.7
+          ],
+          [
+            "inView :4",
+            6.5
+          ],
+          [
+            "l bundle.js:19094",
+            5.4
+          ],
+          [
+            "requestAnimationFrame :0",
+            5.2
+          ],
+          [
+            "querySelectorAll :0",
+            4.8
+          ],
+          [
+            "(anon) bundle.js:19095",
+            3.9
+          ],
+          [
+            "vis :3",
+            3.4
+          ],
+          [
+            "ready :5",
+            2.4
+          ],
+          [
+            "values :0",
+            2
+          ],
+          [
+            "(anon) :9",
+            1.8
+          ],
+          [
+            "getElementsByTagName :0",
+            0.9
+          ],
+          [
+            "a bundle.js:1153",
+            0.8
+          ],
+          [
+            "KOe bundle.js:1160",
+            0.8
+          ],
+          [
+            "(anon) bundle.js:432",
+            0.8
+          ],
+          [
+            "appendRow bundle.js:19095",
+            0.8
+          ],
+          [
+            "h bundle.js:19094",
+            0.8
+          ],
+          [
+            "appendChild :0",
+            0.8
+          ],
+          [
+            "postMessage bundle.js:2224",
+            0.7
+          ],
+          [
+            "replaceChildren :0",
+            0.7
+          ],
+          [
+            "GLc bundle.js:18046",
+            0.6
+          ],
+          [
+            "hideOverflowingTabs bundle.js:1185",
+            0.4
+          ]
+        ]
+      }
+    },
+    "inspector-motion-tab-click": {
+      "firstCardVisibleMs": 55,
+      "firstSampleVisibleMs": 55,
+      "allSettledMs": 64,
+      "final": {
+        "n": 41,
+        "view": 25,
+        "ready": 41,
+        "fonts": 0,
+        "dom": 204
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          16,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          55,
+          {
+            "n": 28,
+            "view": 25,
+            "ready": 28,
+            "fonts": 0,
+            "dom": 155
+          }
+        ],
+        [
+          64,
+          {
+            "n": 41,
+            "view": 25,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 204
+          }
+        ]
+      ],
+      "profileTop": {
+        "totalMs": 10688,
+        "busyMs": 2360,
+        "top": [
+          [
+            "getAnimations :0",
+            1009.9
+          ],
+          [
+            "(program) :0",
+            942.6
+          ],
+          [
+            "getBoundingClientRect :0",
+            240.9
+          ],
+          [
+            "(garbage collector) :0",
+            77.5
+          ],
+          [
+            "querySelector :0",
+            21.5
+          ],
+          [
+            "loop :8",
+            18.5
+          ],
+          [
+            "l bundle.js:19094",
+            6.5
+          ],
+          [
+            "inView :4",
+            6.4
+          ],
+          [
+            "querySelectorAll :0",
+            3.7
+          ],
+          [
+            "vis :3",
+            3.1
+          ],
+          [
+            "ready :5",
+            3
+          ],
+          [
+            "requestAnimationFrame :0",
+            2.3
+          ],
+          [
+            "replaceChildren :0",
+            1.9
+          ],
+          [
+            "appendChild :0",
+            1.5
+          ],
+          [
+            "next :0",
+            1.1
+          ],
+          [
+            "YJe.update bundle.js:1153",
+            1.1
+          ],
+          [
+            "(anon) :9",
+            1.1
+          ],
+          [
+            "VX bundle.js:1153",
+            0.9
+          ],
+          [
+            "now :0",
+            0.8
+          ],
+          [
+            "toTrackedStack bundle.js:1189",
+            0.7
+          ],
+          [
+            "values :0",
+            0.6
+          ],
+          [
+            "on bundle.js:474",
+            0.6
+          ],
+          [
+            "QCi bundle.js:433",
+            0.5
+          ],
+          [
+            "r bundle.js:18047",
+            0.4
+          ],
+          [
+            "o bundle.js:17385",
+            0.4
+          ]
+        ]
+      }
+    },
+    "inspector-select-caption-text-tab": {
+      "firstCardVisibleMs": 5,
+      "firstSampleVisibleMs": 5,
+      "allSettledMs": 142,
+      "final": {
+        "n": 21,
+        "view": 0,
+        "ready": 21,
+        "fonts": 0,
+        "dom": 366
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          5,
+          {
+            "n": 21,
+            "view": 21,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          86,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 6,
+            "fonts": 0,
+            "dom": 366
+          }
+        ],
+        [
+          100,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 12,
+            "fonts": 0,
+            "dom": 366
+          }
+        ],
+        [
+          104,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 15,
+            "fonts": 0,
+            "dom": 366
+          }
+        ],
+        [
+          120,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 18,
+            "fonts": 0,
+            "dom": 366
+          }
+        ],
+        [
+          142,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 366
+          }
+        ]
+      ]
+    },
+    "inspector-select-caption-motion-tab": {
+      "firstCardVisibleMs": 14,
+      "firstSampleVisibleMs": 14,
+      "allSettledMs": 80,
+      "final": {
+        "n": 41,
+        "view": 22,
+        "ready": 41,
+        "fonts": 0,
+        "dom": 204
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          14,
+          {
+            "n": 41,
+            "view": 22,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 204
+          }
+        ],
+        [
+          57,
+          {
+            "n": 28,
+            "view": 22,
+            "ready": 28,
+            "fonts": 0,
+            "dom": 155
+          }
+        ],
+        [
+          80,
+          {
+            "n": 41,
+            "view": 22,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 204
+          }
+        ]
+      ]
+    },
+    "inspector-text-tab-click-2": {
+      "firstCardVisibleMs": 60,
+      "firstSampleVisibleMs": 60,
+      "allSettledMs": 112,
+      "final": {
+        "n": 21,
+        "view": 9,
+        "ready": 21,
+        "fonts": 0,
+        "dom": 402
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          14,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 204
+          }
+        ],
+        [
+          60,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 6,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          72,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 12,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          82,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 15,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          97,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 18,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          112,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 402
+          }
+        ]
+      ]
+    },
+    "inspector-motion-tab-click-2": {
+      "firstCardVisibleMs": 79,
+      "firstSampleVisibleMs": 79,
+      "allSettledMs": 93,
+      "final": {
+        "n": 41,
+        "view": 25,
+        "ready": 41,
+        "fonts": 0,
+        "dom": 204
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          26,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          79,
+          {
+            "n": 28,
+            "view": 25,
+            "ready": 28,
+            "fonts": 0,
+            "dom": 155
+          }
+        ],
+        [
+          93,
+          {
+            "n": 41,
+            "view": 25,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 204
+          }
+        ]
+      ]
+    },
+    "inspector-text-tab-click-3": {
+      "firstCardVisibleMs": 139,
+      "firstSampleVisibleMs": 139,
+      "allSettledMs": 213,
+      "final": {
+        "n": 21,
+        "view": 9,
+        "ready": 21,
+        "fonts": 0,
+        "dom": 402
+      },
+      "longTasks": [
+        [
+          70,
+          68
+        ]
+      ],
+      "longTaskTotalMs": 68,
+      "changes": [
+        [
+          22,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 204
+          }
+        ],
+        [
+          139,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 6,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          166,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 12,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          178,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 15,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          200,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 18,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          213,
+          {
+            "n": 21,
+            "view": 9,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 402
+          }
+        ]
+      ]
+    },
+    "inspector-motion-tab-click-3": {
+      "firstCardVisibleMs": 70,
+      "firstSampleVisibleMs": 70,
+      "allSettledMs": 97,
+      "final": {
+        "n": 41,
+        "view": 25,
+        "ready": 41,
+        "fonts": 0,
+        "dom": 204
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          23,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 402
+          }
+        ],
+        [
+          70,
+          {
+            "n": 28,
+            "view": 25,
+            "ready": 28,
+            "fonts": 0,
+            "dom": 155
+          }
+        ],
+        [
+          97,
+          {
+            "n": 41,
+            "view": 25,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 204
+          }
+        ]
+      ]
+    },
+    "library-textstyle-cold": {
+      "firstCardVisibleMs": 2306,
+      "firstSampleVisibleMs": 2306,
+      "allSettledMs": 2535,
+      "final": {
+        "n": 12,
+        "view": 12,
+        "ready": 12,
+        "fonts": 0,
+        "dom": null
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          2,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2306,
+          {
+            "n": 12,
+            "view": 12,
+            "ready": 12,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2340,
+          {
+            "n": 12,
+            "view": 12,
+            "ready": 11,
+            "fonts": 1,
+            "dom": null
+          }
+        ],
+        [
+          2535,
+          {
+            "n": 12,
+            "view": 12,
+            "ready": 12,
+            "fonts": 0,
+            "dom": null
+          }
+        ]
+      ]
+    },
+    "library-textanim-cold": {
+      "firstCardVisibleMs": 2293,
+      "firstSampleVisibleMs": 2293,
+      "allSettledMs": 2293,
+      "final": {
+        "n": 47,
+        "view": 33,
+        "ready": 47,
+        "fonts": 0,
+        "dom": null
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          4,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": null
+          }
+        ],
+        [
+          2293,
+          {
+            "n": 47,
+            "view": 33,
+            "ready": 47,
+            "fonts": 0,
+            "dom": null
+          }
+        ]
+      ]
+    }
+  },
+  "checks": {
+    "effect: 21 枚・5 グループ・画像が全部違う・select なし": {
+      "ok": true,
+      "detail": {
+        "n": 21,
+        "groups": [
+          "影",
+          "光",
+          "縁",
+          "帯",
+          "組み合わせ"
+        ],
+        "ids": [
+          "sh-soft",
+          "sh-hard",
+          "sh-long",
+          "sh-diag",
+          "sh-raised",
+          "sh-inset",
+          "gl-white",
+          "gl-color",
+          "neon-blue",
+          "neon-pink",
+          "neon-green",
+          "neon-yellow",
+          "ol-thin",
+          "ol-thick",
+          "ol-color",
+          "bg-band",
+          "bg-round",
+          "bg-trans",
+          "combo-neon-shadow",
+          "combo-outline-shadow",
+          "combo-band-outline"
+        ],
+        "labels": [
+          "ソフトシャドウ",
+          "ハードシャドウ",
+          "ロングシャドウ",
+          "斜め下シャドウ",
+          "浮き出し",
+          "くぼみ風",
+          "光彩 白",
+          "光彩 橙",
+          "ネオン 青",
+          "ネオン ピンク",
+          "ネオン 緑",
+          "ネオン 黄",
+          "袋文字 細",
+          "袋文字 太",
+          "袋文字 色違い",
+          "座布団 帯",
+          "座布団 角丸",
+          "座布団 半透明",
+          "ネオン + 影",
+          "袋文字 + 影",
+          "座布団 + 袋文字"
+        ],
+        "distinctImages": 21,
+        "imagesReady": 21,
+        "imgTags": 21,
+        "domPerCard": 2,
+        "selects": 0
+      }
+    },
+    "effect: カードは画像 1 枚 + 名前（重い DOM・書体読み込みなし）": {
+      "ok": true,
+      "detail": {
+        "domPerCard": 2
+      }
+    },
+    "effect: 既存 5 種は対応する新カードとして判定": {
+      "ok": true,
+      "detail": {
+        "c-0001": {
+          "pressed": [
+            "sh-soft"
+          ],
+          "fields": [
+            "caption-effect-adjust-shadow-color",
+            "caption-effect-adjust-shadow-opacity",
+            "caption-effect-adjust-shadow-distancePx",
+            "caption-effect-adjust-shadow-angleDeg",
+            "caption-effect-adjust-shadow-blurPx"
+          ]
+        },
+        "c-0002": {
+          "pressed": [
+            "sh-raised"
+          ],
+          "fields": [
+            "caption-effect-adjust-shadow-color",
+            "caption-effect-adjust-shadow-opacity",
+            "caption-effect-adjust-shadow-distancePx",
+            "caption-effect-adjust-shadow-angleDeg",
+            "caption-effect-adjust-shadow-blurPx"
+          ]
+        },
+        "c-0003": {
+          "pressed": [
+            "neon-blue"
+          ],
+          "fields": [
+            "caption-effect-adjust-glow-color",
+            "caption-effect-adjust-glow-density",
+            "caption-effect-adjust-glow-spread"
+          ]
+        },
+        "c-0004": {
+          "pressed": [
+            "ol-thick"
+          ],
+          "fields": [
+            "caption-effect-adjust-stroke-color",
+            "caption-effect-adjust-stroke-widthPx"
+          ]
+        },
+        "c-0005": {
+          "pressed": [],
+          "fields": []
+        }
+      }
+    },
+    "effect: 選んだ効果に関係する調整項目だけ": {
+      "ok": true,
+      "detail": {
+        "c-0001": {
+          "pressed": [
+            "sh-soft"
+          ],
+          "fields": [
+            "caption-effect-adjust-shadow-color",
+            "caption-effect-adjust-shadow-opacity",
+            "caption-effect-adjust-shadow-distancePx",
+            "caption-effect-adjust-shadow-angleDeg",
+            "caption-effect-adjust-shadow-blurPx"
+          ]
+        },
+        "c-0002": {
+          "pressed": [
+            "sh-raised"
+          ],
+          "fields": [
+            "caption-effect-adjust-shadow-color",
+            "caption-effect-adjust-shadow-opacity",
+            "caption-effect-adjust-shadow-distancePx",
+            "caption-effect-adjust-shadow-angleDeg",
+            "caption-effect-adjust-shadow-blurPx"
+          ]
+        },
+        "c-0003": {
+          "pressed": [
+            "neon-blue"
+          ],
+          "fields": [
+            "caption-effect-adjust-glow-color",
+            "caption-effect-adjust-glow-density",
+            "caption-effect-adjust-glow-spread"
+          ]
+        },
+        "c-0004": {
+          "pressed": [
+            "ol-thick"
+          ],
+          "fields": [
+            "caption-effect-adjust-stroke-color",
+            "caption-effect-adjust-stroke-widthPx"
+          ]
+        },
+        "c-0005": {
+          "pressed": [],
+          "fields": []
+        }
+      }
+    },
+    "effect: 既存の captions.json は書き換わらない（見るだけ）": {
+      "ok": true
+    },
+    "effect: ホバーでプレビューの字幕に仮に当たり、Esc で戻る": {
+      "ok": true,
+      "detail": {
+        "base": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+        "hover": "rgb(255, 61, 174) 0px 0px 14px, rgba(255, 61, 174, 0.7) 0px ",
+        "esc": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px"
+      }
+    },
+    "effect: クリックで確定し、調整欄が帯の項目に替わる": {
+      "ok": true,
+      "detail": {
+        "written": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "color": "#000000",
+            "opacity": 0.7,
+            "radius_px": 14,
+            "padding_px": 9
+          }
+        },
+        "fields": [
+          "caption-effect-adjust-background-color",
+          "caption-effect-adjust-background-opacity",
+          "caption-effect-adjust-background-radiusPx",
+          "caption-effect-adjust-background-paddingPx"
+        ]
+      }
+    },
+    "effect: undo 1 回で元に戻る": {
+      "ok": true,
+      "detail": {
+        "before": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.75,
+            "distance_px": 8.5,
+            "angle_deg": 45,
+            "blur_px": 2
+          }
+        },
+        "undone": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.75,
+            "blur_px": 2,
+            "distance_px": 8.5,
+            "angle_deg": 45
+          }
+        }
+      }
+    },
+    "timing: inspector-text-tab-click 最初のカード 300ms 以内・出揃い 1 秒以内（3 回とも）": {
+      "ok": true,
+      "detail": [
+        {
+          "first": 52,
+          "all": 112
+        },
+        {
+          "first": 60,
+          "all": 112
+        },
+        {
+          "first": 139,
+          "all": 213
+        }
+      ]
+    },
+    "timing: inspector-motion-tab-click 最初のカード 300ms 以内・出揃い 1 秒以内（3 回とも）": {
+      "ok": true,
+      "detail": [
+        {
+          "first": 55,
+          "all": 64
+        },
+        {
+          "first": 79,
+          "all": 93
+        },
+        {
+          "first": 70,
+          "all": 97
+        }
+      ]
+    },
+    "motion: 組 6 種（英語の内部名なし・パーティー無し）": {
+      "ok": true,
+      "detail": [
+        "シンプル",
+        "スマート",
+        "ファン",
+        "コーポレート",
+        "リラックス",
+        "タイプライター"
+      ]
+    },
+    "motion: 登場/強調/退場・テキストアニメ・語ごとの表示・強調の段がある": {
+      "ok": true,
+      "detail": {
+        "combo": 6,
+        "slot": 10,
+        "textanim": 12,
+        "word-style": 4,
+        "emphasis": 9
+      }
+    },
+    "motion: 見えているカードは常に動き、見えていないカードは止まっている": {
+      "ok": true,
+      "detail": {
+        "visible": 28,
+        "running": 28,
+        "offscreen": 13,
+        "paused": 13
+      }
+    },
+    "motion: カードに枠と背景がある": {
+      "ok": true,
+      "detail": {
+        "border": "1px solid",
+        "bg": "rgb(20, 20, 20)"
+      }
+    },
+    "motion: カラオケを選ぶ前はカラオケの設定が無い・アニメーターは畳まれている": {
+      "ok": true,
+      "detail": {
+        "titles": [
+          "まとめて当てる組",
+          "動き",
+          "テキストアニメ",
+          "語ごとの表示",
+          "強調（対象語）",
+          "速さ・尺"
+        ],
+        "kinds": {
+          "combo": 6,
+          "slot": 10,
+          "textanim": 12,
+          "word-style": 4,
+          "emphasis": 9
+        },
+        "comboLabels": [
+          "シンプル",
+          "スマート",
+          "ファン",
+          "コーポレート",
+          "リラックス",
+          "タイプライター"
+        ],
+        "visibleRunning": 28,
+        "visible": 28,
+        "offscreenPaused": 13,
+        "offscreen": 13,
+        "cardBorder": "1px solid",
+        "cardBg": "rgb(20, 20, 20)",
+        "karaokeSettings": false,
+        "animatorCollapsed": "false"
+      }
+    },
+    "typewriter: プレビューで 1 文字ずつ増える（途中の長さが 5 段以上）": {
+      "ok": true,
+      "detail": {
+        "distinctPartialLengths": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ]
+      }
+    },
+    "typewriter: 後ろに点滅するキャレット": {
+      "ok": true
+    },
+    "typewriter: 再生中も字幕の位置と見た目を保つ": {
+      "ok": true,
+      "detail": {
+        "baseTop": 0.847,
+        "tops": [
+          0.847
+        ]
+      }
+    },
+    "typewriter: text_style.animation.in = typewriter を書く": {
+      "ok": true,
+      "detail": {
+        "in": {
+          "id": "typewriter",
+          "duration_sec": 1.4
+        },
+        "out": {
+          "id": "fade-in-out",
+          "duration_sec": 0.27
+        }
+      }
+    },
+    "slot: 袋ありは袋の motion.loop へ書く": {
+      "ok": true,
+      "detail": {
+        "loop": {
+          "preset": "pulse",
+          "period": 90
+        }
+      }
+    },
+    "slot: 押すとプレビューの字幕で 1 回再生": {
+      "ok": true,
+      "detail": [
+        [
+          2,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ],
+        [
+          512,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-oneshot-heartbeat"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          980,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ]
+      ]
+    },
+    "textanim: text_style.animation へ書く": {
+      "ok": true,
+      "detail": {
+        "in": {
+          "id": "bounce"
+        },
+        "out": {
+          "id": "fade-in-out",
+          "duration_sec": 0.27
+        }
+      }
+    },
+    "textanim: 押すとプレビューの字幕で 1 回再生": {
+      "ok": true,
+      "detail": [
+        [
+          5,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ],
+        [
+          257,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "akari-caption-oneshot-bounce"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          905,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ]
+      ]
+    },
+    "word-style: captions[].style = karaoke を書き、カラオケの設定が出る": {
+      "ok": true,
+      "detail": {
+        "style": "karaoke",
+        "settings": "カラオケの設定 まだの文字の色 歌い終わった文字は現在、固定の黄色（#ffd94a）です。 強調（対象語） 今日は朝 のルーテ ィンを紹 介します あいう 1 文字ドン あいう ごちゃ混ぜ あいう 大きさの脈動 あいう 色の強調 あいう 色"
+      }
+    },
+    "word-style: 押すとプレビューで語ごとに再生": {
+      "ok": true,
+      "detail": [
+        [
+          13,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ],
+        [
+          281,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi",
+              "waapi",
+              "waapi",
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          546,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi",
+              "waapi",
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          713,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi",
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          863,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          1031,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ]
+      ]
+    },
+    "word-style: カラオケ以外ではカラオケの設定が消える": {
+      "ok": true,
+      "detail": {
+        "style": "reveal"
+      }
+    },
+    "emphasis: 選んだ語の source 秒で emphasis_words に書く": {
+      "ok": true,
+      "detail": {
+        "chips": [
+          "今日は朝",
+          "のルーテ",
+          "ィンを紹",
+          "介します"
+        ],
+        "record": {
+          "id": "e-0001",
+          "word": "のルーテ",
+          "t_start": 0.625,
+          "t_end": 1.25,
+          "src": "a",
+          "emotion": "surprise",
+          "style_hint": "one-char-bang"
+        }
+      }
+    },
+    "emphasis: 押すとプレビューで対象語に再生": {
+      "ok": true,
+      "detail": [
+        [
+          7,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ],
+        [
+          175,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi",
+              "waapi",
+              "waapi",
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          607,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi",
+              "waapi",
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          708,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi",
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          823,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [
+              "waapi"
+            ],
+            "caret": null
+          }
+        ],
+        [
+          942,
+          {
+            "text": "今日は朝のルーティンを紹介します",
+            "topRatio": 0.847,
+            "styled": true,
+            "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+            "anims": [],
+            "caret": null
+          }
+        ]
+      ]
+    },
+    "animator: 平易な説明とひな形 3 種": {
+      "ok": true,
+      "detail": "詳細設定（上級）: 袋 captions のアニメーター（全 cue に効く） 文字を 1 文字 / 1 語ずつずらして動かす仕組みです ひな形から始める 選択… 順に出る 波打つ ランダムに揺れる アニメーターを追加 選択… アニメーター"
+    },
+    "animator: ひな形の後は必要な欄だけ・「すべての項目」で全欄": {
+      "ok": true,
+      "detail": {
+        "templRows": [
+          "animator-a1-heading",
+          "animator-a1-all",
+          "animator-a1-offset",
+          "animator-a1-amount-y"
+        ],
+        "allRowsCount": 14,
+        "added": {
+          "id": "a1",
+          "basis": "chars",
+          "shape": "round",
+          "start": 0,
+          "end": 0.3,
+          "offset": 0.05,
+          "amount": {
+            "y": 14
+          }
+        }
+      }
+    },
+    "placed-text: 置いた文字でも効果カードと動きのカード": {
+      "ok": true,
+      "detail": {
+        "placed": "c-0006",
+        "effects": 21,
+        "motion": 41
+      }
+    },
+    "nobag: 袋なしでもカードで選べ、text_style.animation へ書く（袋は作らない）": {
+      "ok": true,
+      "detail": {
+        "in": {
+          "id": "slide-up",
+          "duration_sec": 0.4
+        },
+        "out": {
+          "id": "slide-up",
+          "duration_sec": 0.27
+        },
+        "loop": {
+          "id": "float",
+          "duration_sec": 3
+        }
+      }
+    },
+    "nobag: undo 1 回で元に戻る": {
+      "ok": true,
+      "detail": {
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.75,
+          "distance_px": 8.5,
+          "angle_deg": 45,
+          "blur_px": 2
+        }
+      }
+    }
+  },
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "status": "recorded",
+  "summary": {
+    "checks": 33,
+    "failed": []
+  }
+}

@@ -11,7 +11,8 @@ import {
     CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
     captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch,
     captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
-    captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField
+    captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField,
+    captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch
 } from '../lib/browser/inspector/caption-style-effects.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -43,10 +44,14 @@ const { captionSections, multiCaptionSections } = new Function(
     'composeInspectorSections', 'CAPTION_ZONES', 'CAPTION_BACKGROUND_ON_OPACITY',
     'captionEffectFromStyle', 'captionEffectPatch', 'captionEffectColorPatch',
     'captionEffectStrength', 'captionEffectStrengthPatch', 'captionRunRows',
+    'captionEffectCard', 'captionEffectAdjustmentKeys', 'captionEffectAdjustmentValue',
+    'captionEffectAdjustmentPatch', 'createCaptionMotionPanel',
     `${code}\nreturn { captionSections: CAPTION_SECTIONS, multiCaptionSections: MULTI_CAPTION_SECTIONS };`
 )(composeInspectorSections, ['top', 'middle', 'bottom'], CAPTION_BACKGROUND_ON_OPACITY,
     captionEffectFromStyle, captionEffectPatch, captionEffectColorPatch,
-    captionEffectStrength, captionEffectStrengthPatch, captionRunRows);
+    captionEffectStrength, captionEffectStrengthPatch, captionRunRows,
+    captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue,
+    captionEffectAdjustmentPatch, () => {});
 
 const caption = (id, extra = {}) => ({
     kind: 'caption', id, text: '字幕', sourceStart: 0, sourceEnd: 2, ...extra
@@ -78,10 +83,11 @@ test('折り返し幅はテキストタブの文字カードで表示・編集�
         'caption-wrap-width').getValue(), '自動');
 });
 
-test('袋がない字幕の動きタブは次の操作を案内する', () => {
+test('袋がない字幕にも動きのカードを開ける', () => {
     const section = captionSections(caption('plain'), async () => ({ ok: true }))
-        .find(section => section.id === 'motion-empty');
-    assert.equal(section.fields[0].getValue(), '字幕の動きは、字幕をまとめた袋を置くと設定できます');
+        .find(section => section.id === 'motion:caption');
+    assert.equal(assignSectionToTab('caption', section.id), 'motion');
+    assert.equal(typeof section.body, 'function');
 });
 
 test('字幕の全種類と複数選択に同じ五枚のスタイルカードを出す', () => {
@@ -186,12 +192,12 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
         assert.deepEqual(cards(sections).map(card => card.fields.map(entry => entry.label)), [
             ['色', '大きさ', '折り返し幅', '太さ', '行間', '字間'], ['色', '太さ'],
             ['表示', '形', '色', '不透明度', '余白', '角丸'],
-            ['種類', '効果の色', '強さ'], ['位置']
+            ['種類', '縁の色', '縁の太さ'], ['位置']
         ]);
         for (const [name, unit] of [
             ['caption-size', 'px'], ['caption-stroke-width', 'px'],
             ['caption-background-opacity', '%'], ['caption-background-radius', 'px'],
-            ['caption-style-effect-strength', 'px']
+            ['caption-effect-adjust-stroke-widthPx', 'px']
         ]) assert.equal(field(sections, name)?.unit, unit);
     }
     assert.match(source, /角丸を最大にすると文字に沿った丸い座布団（カプセル）になる/u);
@@ -234,7 +240,7 @@ test('座布団の敷く操作と効果は書ける項目だけを更新する',
         effectiveTextStyle: { stroke: { widthPx: 6, color: '#000000' } }
     }), async () => ({ ok: true }));
     assert.deepEqual(cards(outlined)[3].fields.map(item => item.name),
-        ['caption-style-effect', 'caption-style-effect-color', 'caption-style-effect-strength']);
+        ['caption-style-effect', 'caption-effect-adjust-stroke-color', 'caption-effect-adjust-stroke-widthPx']);
     writes.length = 0;
     await field(sections, 'caption-style-effect').write(caption('one'), 'outline');
     assert.deepEqual(writes.map(write => write.kind), ['caption-style-effect']);
@@ -248,6 +254,17 @@ test('座布団の敷く操作と効果は書ける項目だけを更新する',
     await field(multi, 'caption-style-effect').write(caption('one'), 'outline');
     assert.ok(multiWrites.every(write => write.targets?.length === 2));
     assert.match(source, /\['per-line', '行ごと'\], \['block', 'まとめて'\]/u);
+});
+
+test('帯の効果を外すと帯の不透明度も一操作で消す', async () => {
+    const writes = [];
+    const current = caption('band', { effectiveTextStyle: { background: {
+        color: '#000000', opacity: .6, radiusPx: 0, paddingPx: 8
+    } } });
+    const sections = captionSections(current, async request => { writes.push(request); return { ok: true }; });
+    await field(sections, 'caption-style-effect').write(current, 'none');
+    assert.equal(writes.length, 1);
+    assert.deepEqual(writes[0].value.background, { opacity: 0 });
 });
 
 test('効果五種は保存値から判定し一操作で排他的な項目を書く', async () => {
@@ -271,10 +288,10 @@ test('効果五種は保存値から判定し一操作で排他的な項目を�
         assert.deepEqual(writes, [{ kind: 'caption-style-effect', id: 'one', value: patch }]);
     }
     assert.equal(captionEffectFromStyle({ glow: { color: '#FFFFFF' },
-        shadow: { color: '#000000' } }), 'neon');
-    assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', blurPx: 14, distancePx: 4 } }), 'raised');
-    assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', blurPx: 2, distancePx: 8.5 } }), 'shadow');
-    assert.equal(captionEffectFromStyle({ stroke: { widthPx: 6 } }), 'outline');
+        shadow: { color: '#000000' } }), 'neon-blue');
+    assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', blurPx: 14, distancePx: 4 } }), 'sh-raised');
+    assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', blurPx: 2, distancePx: 8.5 } }), 'sh-soft');
+    assert.equal(captionEffectFromStyle({ stroke: { widthPx: 6 } }), 'ol-thick');
     assert.equal(captionEffectFromStyle({}), 'none');
     assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', opacity: 0 },
         glow: { color: '#000000', density: 0 } }), 'none');
@@ -308,11 +325,10 @@ test('効果の微調整欄は単体と複数選択で一つのパッチ要求�
         const sections = multi
             ? multiCaptionSections(snapshots, async request => { writes.push(request); return { ok: true }; }, {})
             : captionSections(snapshots[0], async request => { writes.push(request); return { ok: true }; });
-        await field(sections, 'caption-style-effect-color').write(snapshots[0], '#ABCDEF');
-        await field(sections, 'caption-style-effect-strength').write(snapshots[0], '2');
+        await field(sections, 'caption-effect-adjust-shadow-color').write(snapshots[0], '#ABCDEF');
+        await field(sections, 'caption-effect-adjust-shadow-distancePx').write(snapshots[0], '9');
         assert.deepEqual(writes.map(write => write.value), [
-            { shadow: { ...style.shadow, color: '#ABCDEF' } },
-            { shadow: { ...style.shadow, distancePx: 17, blurPx: 4 } }
+            { shadow: { color: '#ABCDEF' } }, { shadow: { color: '#000000', distancePx: 9 } }
         ]);
         assert.ok(writes.every(write => write.kind === 'caption-style-effect'));
         assert.ok(writes.every(write => multi ? write.targets?.length === 2 : write.targets === undefined));

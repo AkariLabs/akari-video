@@ -68,8 +68,13 @@ import { itemMotionMarks } from './inspector/motion-marks';
 import { isInspectorStillImage } from './inspector/edit-target';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
-    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch
+    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
+    CAPTION_EFFECT_GROUPS, captionEffectCard, captionEffectAdjustmentKeys,
+    captionEffectAdjustmentValue, captionEffectAdjustmentPatch
 } from './inspector/caption-style-effects';
+import { captionEffectImage, scheduleCaptionEffectImages } from './inspector/caption-effect-images';
+import { createCaptionMotionPanel, type CaptionMotionServices } from './inspector/caption-motion-panel';
+import { readCaptionMotionCue, readOwnerMotion, upsertCaptionEmphasis } from './inspector/caption-motion-document';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
@@ -150,7 +155,9 @@ import {
 } from './inspector/adjust-fx-fields';
 import {
     INSPECTOR_ANIMATOR_BASES, INSPECTOR_ANIMATOR_SHAPES, INSPECTOR_ANIMATOR_NUMBER_FIELDS,
-    normalizeInspectorAnimators, addInspectorAnimator, removeInspectorAnimator, moveInspectorAnimator,
+    normalizeInspectorAnimators, addInspectorAnimator, addInspectorAnimatorTemplate,
+    INSPECTOR_ANIMATOR_TEMPLATES, inspectorAnimatorTemplateFor, expandedAnimatorFields,
+    removeInspectorAnimator, moveInspectorAnimator,
     updateInspectorAnimator, type InspectorAnimator, type InspectorAnimatorAmountKey
 } from './inspector/animator-fields';
 import {
@@ -1312,6 +1319,7 @@ function CAPTION_SECTIONS(
         targets?: readonly TimelineSelectionTarget[];
         zoneHover?: (zone: string | null) => void;
         zonePreset?: (zone: string) => void;
+        motionServices?: CaptionMotionServices;
     } = {}
 ): InspectorSection[] {
     const raw = snapshot.textStyle;
@@ -1571,12 +1579,16 @@ function CAPTION_SECTIONS(
                     name: 'caption-style-effect', label: '種類', inputKind: 'caption-effect',
                     getValue: () => options.mixedFields?.has('effect') ? '—' : currentEffect,
                     write: async (_snapshot, nextValue) => {
-                        if (!['none', 'shadow', 'raised', 'neon', 'outline'].includes(nextValue)) {
+                        if (!['none', 'shadow', 'raised', 'neon', 'outline'].includes(nextValue)
+                            && !captionEffectCard(nextValue)) {
                             return { ok: false, message: '効果を選んでください。' };
                         }
                         return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
-                            value: captionEffectPatch(nextValue as 'none' | 'shadow' | 'raised' | 'neon' | 'outline',
-                                effective?.color ?? CAPTION_STYLE_DEFAULTS.color), ...requestOptions });
+                            value: { ...captionEffectPatch(nextValue as Parameters<typeof captionEffectPatch>[0],
+                                effective?.color ?? CAPTION_STYLE_DEFAULTS.color),
+                                ...(nextValue === 'none' && (currentEffect.startsWith('bg-')
+                                    || currentEffect === 'combo-band-outline') ? { background: { opacity: 0 } } : {}) },
+                            ...requestOptions });
                     }
                 },
                 {
@@ -1650,12 +1662,14 @@ function CAPTION_SECTIONS(
                 }
             ]
         },
+        { id: 'motion:caption', label: '動き', fields: [], body: () => createCaptionMotionPanel(snapshot,
+            requestWrite, options.motionServices) },
         ...(snapshot.animatorOwner ? [ANIMATOR_SECTION(
             snapshot.animatorOwner.id,
             `袋 ${snapshot.animatorOwner.id} のアニメーター（全 cue に効く）`,
             snapshot.animatorOwner.animator,
             requestWrite
-        )] : [MOTION_EMPTY_SECTION('字幕の動きは、字幕をまとめた袋を置くと設定できます')]),
+        )] : []),
         {
             id: 'info', label: '情報', collapsedByDefault: true, fields: [
                 { name: 'caption-id', label: 'clip', getValue: () => snapshot.id },
@@ -1693,8 +1707,35 @@ function CAPTION_SECTIONS(
                 note.textContent = '角丸を最大にすると文字に沿った丸い座布団（カプセル）になる';
                 return note;
             } },
-            { id: 'style:effect', label: '効果', fields: fields.slice(14,
-                options.mixedFields?.has('effect') || currentEffect === 'none' ? 15 : 17) },
+            { id: 'style:effect', label: '効果', fields: [fields[14],
+                ...(options.mixedFields?.has('effect') ? [] : captionEffectAdjustmentKeys(currentEffect).map(path => {
+                    const labels: Record<string, string> = {
+                        'shadow.color': '影の色', 'shadow.opacity': '影の濃さ',
+                        'shadow.distancePx': '距離', 'shadow.angleDeg': '角度', 'shadow.blurPx': 'ぼかし',
+                        'glow.color': '光の色', 'glow.density': '光の強さ', 'glow.spread': '広がり',
+                        'stroke.color': '縁の色', 'stroke.widthPx': '縁の太さ',
+                        'background.color': '帯の色', 'background.opacity': '帯の濃さ',
+                        'background.radiusPx': '角丸', 'background.paddingPx': '余白'
+                    };
+                    return {
+                        name: `caption-effect-adjust-${path.replace('.', '-')}`,
+                        label: labels[path] ?? path,
+                        inputKind: path.endsWith('.color') ? 'color' as const : 'scrub-number' as const,
+                        getValue: () => captionEffectAdjustmentValue(effective ?? {}, path),
+                        getEditValue: () => captionEffectAdjustmentValue(effective ?? {}, path),
+                        min: 0, max: path.endsWith('.opacity') ? 1 : undefined,
+                        scrubStep: path.endsWith('.opacity') ? .05 : 1,
+                        unit: path.endsWith('Px') ? 'px' : path.endsWith('Deg') ? '°' : '',
+                        write: async (_snapshot: TimelineCaptionSelection, value: string) => {
+                            try {
+                                return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
+                                    value: captionEffectAdjustmentPatch(effective ?? {}, path, value), ...requestOptions });
+                            } catch (error) {
+                                return { ok: false, message: error instanceof Error ? error.message : '値を確認してください。' };
+                            }
+                        }
+                    };
+                }))] },
             { id: 'style:position', label: '位置', fields: fields.slice(17) }
         ];
     });
@@ -1766,9 +1807,12 @@ function MULTI_CAPTION_SECTIONS(
     };
     const effect = common('effect', snapshot => captionEffectFromStyle(snapshot.effectiveTextStyle));
     if (!mixedFields.has('effect')) {
-        if (effect === 'shadow' || effect === 'raised') {
+        if (effect === 'shadow' || effect === 'raised' || effect.startsWith('sh-')
+            || effect === 'combo-neon-shadow' || effect === 'combo-outline-shadow') {
             effectiveStyle.shadow = snapshots[0].effectiveTextStyle?.shadow;
-        } else if (effect === 'neon') {
+        }
+        if (effect === 'neon' || effect.startsWith('neon-') || effect.startsWith('gl-')
+            || effect === 'combo-neon-shadow') {
             effectiveStyle.glow = snapshots[0].effectiveTextStyle?.glow;
         }
     }
@@ -2386,6 +2430,25 @@ function ANIMATOR_SECTION(
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorSection {
     const animators = normalizeInspectorAnimators(rawAnimators);
+    const syncAdvancedRows = (): void => {
+        const section = document.querySelector('[data-akari-ui="section:inspector-animator"]');
+        if (!section) return;
+        for (const animator of animators) {
+            const template = inspectorAnimatorTemplateFor(animator);
+            if (!template) continue;
+            const name = `animator-${animator.id.replace(/[^a-z0-9]/gi, character => `_${character.charCodeAt(0)}_`)}`;
+            const expanded = expandedAnimatorFields.has(`${id}:${animator.id}`);
+            section.querySelectorAll<HTMLElement>('[data-akari-field]').forEach(row => {
+                const fieldName = row.dataset.akariField ?? '';
+                if (!fieldName.startsWith(`${name}-`)) return;
+                const key = fieldName.slice(name.length + 1).replace(/^amount-/, 'amount.').replace(/^randomize-/, 'randomize.');
+                row.hidden = !expanded && !['heading', 'all', ...template.fields].includes(key);
+                row.style.display = row.hidden ? 'none' : '';
+            });
+            const button = section.querySelector<HTMLButtonElement>(`[data-akari-ui="action:inspector-${name}-all"]`);
+            if (button) button.textContent = expanded ? '必要な項目だけ' : 'すべての項目';
+        }
+    };
     const writeAnimator = async (update: () => InspectorAnimator[]): Promise<InspectorWriteResult> => {
         try {
             const value = normalizeInspectorAnimators(update());
@@ -2395,6 +2458,18 @@ function ANIMATOR_SECTION(
         }
     };
     const animatorFields: InspectorFieldDef[] = [{
+        name: 'animator-explain', label: '文字を 1 文字 / 1 語ずつずらして動かす仕組みです',
+        getValue: () => ''
+    }, {
+        name: 'animator-template', label: 'ひな形から始める', inputKind: 'select',
+        options: ['選択…', ...INSPECTOR_ANIMATOR_TEMPLATES.map(item => item.label)],
+        getValue: () => '選択…', getEditValue: () => '選択…', keyframeDisabled: true,
+        write: async (_snapshot, value) => {
+            const template = INSPECTOR_ANIMATOR_TEMPLATES.find(item => item.label === value);
+            if (!template) return { ok: false, message: 'ひな形を選んでください。' };
+            return writeAnimator(() => addInspectorAnimatorTemplate(animators, template.id));
+        }
+    }, {
         name: 'animator-add', label: 'アニメーターを追加', inputKind: 'select',
         options: ['選択…', 'アニメーター'], getValue: () => '選択…', getEditValue: () => '選択…',
         keyframeDisabled: true,
@@ -2407,6 +2482,9 @@ function ANIMATOR_SECTION(
     animators.forEach((animator, index) => {
         // 外部で付けた id に区切り文字があってもフィールド名が衝突しない。
         const name = `animator-${animator.id.replace(/[^a-z0-9]/gi, character => `_${character.charCodeAt(0)}_`)}`;
+        const template = inspectorAnimatorTemplateFor(animator);
+        const expandedKey = `${id}:${animator.id}`;
+        const showAll = expandedAnimatorFields.has(expandedKey) || !template;
         animatorFields.push({
             name: `${name}-heading`, label: animator.id, getValue: () => '', keyframeDisabled: true,
             actions: [{
@@ -2420,6 +2498,18 @@ function ANIMATOR_SECTION(
                 action: () => writeAnimator(() => removeInspectorAnimator(animators, index))
             }]
         });
+        if (template) animatorFields.push({
+            name: `${name}-all`, label: '', getValue: () => '',
+            actionLabel: showAll ? '必要な項目だけ' : 'すべての項目',
+            action: async () => {
+                if (expandedAnimatorFields.has(expandedKey)) expandedAnimatorFields.delete(expandedKey);
+                else expandedAnimatorFields.add(expandedKey);
+                syncAdvancedRows();
+                window.setTimeout(syncAdvancedRows, 0);
+                return { ok: true };
+            }
+        });
+        if (showAll) {
         for (const [key, label, options] of [
             ['basis', '単位', INSPECTOR_ANIMATOR_BASES], ['shape', '形', INSPECTOR_ANIMATOR_SHAPES]
         ] as const) {
@@ -2433,6 +2523,7 @@ function ANIMATOR_SECTION(
                 )),
                 reset: () => writeAnimator(() => updateInspectorAnimator(animators, index, key, null))
             });
+        }
         }
         for (const field of INSPECTOR_ANIMATOR_NUMBER_FIELDS) {
             if (field.key === 'randomize.seed') {
@@ -2449,7 +2540,10 @@ function ANIMATOR_SECTION(
                 : key === 'start' || key === 'end' || key === 'offset' ? animator[key]
                     : animator.amount[key.slice(7) as InspectorAnimatorAmountKey] ?? field.default;
             animatorFields.push({
-                name: `${name}-${key.replace('.', '-')}`, label: field.label,
+                name: `${name}-${key.replace('.', '-')}`,
+                label: !showAll && template ? ({ end: 'かかる時間', offset: '文字ごとのずれ',
+                    'amount.y': '波の高さ', 'amount.rotate': '揺れの角度',
+                    'randomize.seed': 'ランダム seed' } as Record<string, string>)[key] ?? field.label : field.label,
                 inputKind: key === 'randomize.seed' ? 'number' : 'scrub-number',
                 getValue: () => value === null ? '' : `${Number((value * field.displayScale).toFixed(1))} ${field.unit}`,
                 getEditValue: () => value === null ? '' : String(value),
@@ -2463,7 +2557,12 @@ function ANIMATOR_SECTION(
             });
         }
     });
-    return { id: 'animator', label: headingLabel, fields: animatorFields };
+    return { id: 'animator', label: `詳細設定（上級）: ${headingLabel}`, collapsedByDefault: true,
+        fields: animatorFields, body: () => {
+            const marker = document.createElement('span');
+            queueMicrotask(syncAdvancedRows);
+            return marker;
+        } };
 }
 
 function TREE_ITEM_SECTIONS(
@@ -3700,6 +3799,12 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-caption-effect-sample-neon {
         text-shadow: 0 0 5px #39D5FF, 0 0 10px #39D5FF;
     }
+    .akari-inspector-widget .akari-effect-group-title { margin: 8px 0 4px; color: var(--akari-muted); font-size: 11px; font-weight: 700; }
+    .akari-inspector-widget .akari-effect-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .akari-inspector-widget .akari-effect-card { min-width: 0; padding: 3px; border: 1px solid var(--akari-line); border-radius: 6px; background: var(--akari-card); color: var(--akari-ink); font: inherit; cursor: pointer; }
+    .akari-inspector-widget .akari-effect-card[aria-pressed="true"] { border-color: var(--akari-accent); }
+    .akari-inspector-widget .akari-effect-card img { display: block; width: 100%; aspect-ratio: 8 / 3; object-fit: cover; border-radius: 3px; }
+    .akari-inspector-widget .akari-effect-card span { display: block; padding: 3px 0; font-size: 10px; line-height: 1.25; }
     .akari-inspector-widget .akari-caption-toggle {
         display: inline-flex;
         align-items: center;
@@ -5131,7 +5236,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 case 'caption':
                     sections = CAPTION_SECTIONS(snapshot, requestWrite, {
                         zoneHover: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, zone),
-                        zonePreset: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_PRESET_EVENT, zone)
+                        zonePreset: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_PRESET_EVENT, zone),
+                        motionServices: this.captionMotionServices(snapshot)
                     });
                     break;
                 case 'audio':
@@ -7888,6 +7994,51 @@ export class AkariInspectorWidget extends BaseWidget {
         }
     }
 
+    /** Caption-only motion fields that are not yet represented by InspectorWriteRequest. */
+    protected captionMotionServices(snapshot: TimelineCaptionSelection): CaptionMotionServices {
+        const paths = (): { root: URI; captions: URI; edit: URI } => {
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) throw new Error('プロジェクトを開いてください。');
+            return { root, captions: root.resolve('captions.json'), edit: root.resolve('edit.json') };
+        };
+        const readCaptions = async (): Promise<string> =>
+            (await this.fileService.readFile(paths().captions)).value.toString();
+        return {
+            loadCue: async () => readCaptionMotionCue(await readCaptions(), snapshot.id),
+            setWordStyle: async style => {
+                try {
+                    const { root, captions } = paths();
+                    await this.layerAudioService.setCaptionFields({
+                        captionsUri: captions.toString(), projectRootUri: root.toString(),
+                        captionId: snapshot.id, style
+                    });
+                    return { ok: true };
+                } catch (error) {
+                    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+                }
+            },
+            setEmphasis: async (wordIndex, style) => {
+                try {
+                    const { root, captions, edit } = paths();
+                    const source = await readCaptions();
+                    const captionsSource = upsertCaptionEmphasis(source, snapshot.id, wordIndex, style);
+                    await this.layerAudioService.writeEditSnapshot({
+                        editUri: edit.toString(), projectRootUri: root.toString(),
+                        captionsUri: captions.toString(), captionsSource
+                    });
+                    return { ok: true };
+                } catch (error) {
+                    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+                }
+            },
+            ...(snapshot.animatorOwner ? { readOwner: async () => {
+                const source = (await this.fileService.readFile(paths().edit)).value.toString();
+                return readOwnerMotion(source, snapshot.animatorOwner!.id,
+                    snapshot.sourceEnd - snapshot.sourceStart);
+            } } : {})
+        };
+    }
+
     protected async commitWrite(
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult> {
@@ -8534,7 +8685,76 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
 
-        if (field.inputKind === 'caption-mode' || field.inputKind === 'caption-effect'
+        if (field.inputKind === 'caption-effect') {
+            const choices = document.createElement('div');
+            choices.className = 'akari-caption-effect-gallery';
+            const caption = snapshot.kind === 'caption' ? snapshot : undefined;
+            const preview = (id: string): void => {
+                if (!caption) return;
+                const patch = captionEffectPatch(id as Parameters<typeof captionEffectPatch>[0],
+                    caption.effectiveTextStyle?.color ?? '#ffffff');
+                this.runCaptionPanelPreview({ type: 'enter', captionId: caption.id,
+                    textStyle: { ...caption.effectiveTextStyle, ...patch } as CaptionTextStyle });
+            };
+            const imageGroups: Array<Array<{ id: Parameters<typeof captionEffectImage>[0]; image: HTMLImageElement }>> = [];
+            for (const group of CAPTION_EFFECT_GROUPS) {
+                const title = document.createElement('div');
+                title.className = 'akari-effect-group-title';
+                title.textContent = group.label;
+                choices.appendChild(title);
+                const grid = document.createElement('div');
+                grid.className = 'akari-effect-grid';
+                const groupImages: Array<{ id: Parameters<typeof captionEffectImage>[0]; image: HTMLImageElement }> = [];
+                for (const item of group.items) {
+                    const card = document.createElement('button');
+                    card.type = 'button';
+                    card.className = 'akari-effect-card';
+                    card.dataset.value = item.id;
+                    card.setAttribute('aria-pressed', String(editValue === item.id));
+                    const image = document.createElement('img');
+                    image.alt = '';
+                    groupImages.push({ id: item.id, image });
+                    const name = document.createElement('span');
+                    name.textContent = item.label;
+                    card.append(image, name);
+                    card.addEventListener('pointerenter', () => preview(item.id));
+                    card.addEventListener('focus', () => preview(item.id));
+                    card.addEventListener('pointerleave', () => this.runCaptionPanelPreview({ type: 'leave' }));
+                    card.addEventListener('blur', () => this.runCaptionPanelPreview({ type: 'leave' }));
+                    card.addEventListener('keydown', event => {
+                        if (event.key !== 'Escape') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        this.runCaptionPanelPreview({ type: 'escape' });
+                        card.blur();
+                    });
+                    card.addEventListener('click', () => {
+                        if (caption) this.runCaptionPanelPreview({ type: 'confirm', captionId: caption.id });
+                        void write(snapshot, item.id).then(result => {
+                            if (!result.ok) this.showFieldNotice(result.message ?? '効果を書き込めませんでした。');
+                        });
+                    });
+                    grid.appendChild(card);
+                }
+                imageGroups.push(groupImages);
+                choices.appendChild(grid);
+            }
+            scheduleCaptionEffectImages(imageGroups,
+                item => { if (item.image.isConnected || item.image.parentElement) item.image.src = captionEffectImage(item.id); },
+                callback => { window.requestAnimationFrame(callback); });
+            const clear = document.createElement('button');
+            clear.type = 'button';
+            clear.className = 'akari-inspector-row-input';
+            clear.textContent = '効果を外す';
+            clear.addEventListener('click', () => void write(snapshot, 'none').then(result => {
+                if (!result.ok) this.showFieldNotice(result.message ?? '効果を外せませんでした。');
+            }));
+            choices.appendChild(clear);
+            row.appendChild(choices);
+            parent.appendChild(row);
+            return;
+        }
+        if (field.inputKind === 'caption-mode'
             || field.inputKind === 'caption-weight') {
             const choices = document.createElement('div');
             choices.className = field.inputKind === 'caption-mode'
@@ -8542,10 +8762,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     ? 'akari-caption-weight-choices' : 'akari-caption-effect-choices';
             const values = field.inputKind === 'caption-mode'
                 ? [['per-line', '行ごと'], ['block', 'まとめて']]
-                : field.inputKind === 'caption-weight'
-                    ? [['400', '普通'], ['700', '太字'], ['900', '極太']]
-                    : [['none', 'なし'], ['shadow', '影'], ['raised', '浮き出し'],
-                        ['neon', 'ネオン'], ['outline', '袋文字']];
+                : [['400', '普通'], ['700', '太字'], ['900', '極太']];
             for (const [value, label] of values) {
                 const button = document.createElement('button');
                 button.type = 'button';
@@ -8554,15 +8771,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 button.dataset.value = value;
                 if (field.inputKind === 'caption-mode') {
                     button.appendChild(createInspectorIcon(value === 'per-line' ? 'plateLine' : 'plateBlock'));
-                } else if (field.inputKind === 'caption-effect') {
-                    const sample = document.createElement('span');
-                    sample.className = `akari-caption-effect-sample akari-caption-effect-sample-${value}`;
-                    sample.textContent = 'Aa';
-                    button.appendChild(sample);
                 }
                 button.appendChild(document.createTextNode(label));
                 button.addEventListener('click', () => {
-                    if (field.inputKind === 'caption-effect' || field.inputKind === 'caption-weight') {
+                    if (field.inputKind === 'caption-weight') {
                         void write(snapshot, value).then(result => {
                             if (!result.ok) this.showFieldNotice(result.message ?? '効果を書き込めませんでした。');
                         });

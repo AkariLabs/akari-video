@@ -237,7 +237,7 @@ test('プリセット影の「なし」は透明化し、undo で cue 側から�
     stroke: { color: null, widthPx: null } });
   const restored = updateCaptionTextStyleInSource(written, 'one', calls[1].textStyle);
   assert.equal(captionStyleEffects.captionEffectFromStyle(parseCaptions(restored).captions[0].textStyle),
-    'shadow');
+    'sh-soft');
   assert.equal(Object.hasOwn(JSON.parse(restored)[0], 'text_style'), false);
 });
 
@@ -267,7 +267,7 @@ test('プリセット影→なし→undo と混在複数選択は字幕ごとの
   noneSource = second.calls.slice(2).reduce((source, call) =>
     updateCaptionTextStyleInSource(source, call.captionId, call.textStyle), noneSource);
   assert.ok(parseCaptions(noneSource).captions.every(item =>
-    captionStyleEffects.captionEffectFromStyle(item.textStyle) === 'shadow'));
+    captionStyleEffects.captionEffectFromStyle(item.textStyle) === 'sh-soft'));
 });
 
 test('プリセット由来の影は効果の色と強さで上書きできる', async () => {
@@ -289,7 +289,7 @@ test('プリセット由来の影は効果の色と強さで上書きできる',
 test('ネオンプリセットの影と glow を「なし」で消し、色・強さも個別指定できる', async () => {
   const input = sourceFor([caption('one', {}, 'neon', {})]);
   const effective = parseCaptions(input).captions[0].textStyle;
-  assert.equal(captionStyleEffects.captionEffectFromStyle(effective), 'neon');
+  assert.equal(captionStyleEffects.captionEffectFromStyle(effective), 'neon-blue');
   const none = await invoke('caption-style-effect', captionStyleEffects.captionEffectPatch('none', '#FFFFFF'),
     [caption('one', effective, 'neon', {})], undefined, input);
   assert.deepEqual(none.calls[0].textStyle.shadow, { color: '#000000', opacity: 0 });

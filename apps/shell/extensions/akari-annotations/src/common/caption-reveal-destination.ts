@@ -1,11 +1,9 @@
-export function captionRevealDestination(argument: unknown, hasAnimatorOwner: boolean): {
+export function captionRevealDestination(argument: unknown, _hasAnimatorOwner: boolean): {
     tabId: 'text' | 'motion'; sectionId: string; field?: string
 } {
     const field = argument && typeof argument === 'object' && 'field' in argument ? argument.field : undefined;
     if (field === 'caption-effect') return { tabId: 'text', sectionId: 'style:effect' };
-    if (field === 'caption-animation') return {
-        tabId: 'motion', sectionId: hasAnimatorOwner ? 'animator' : 'motion-empty'
-    };
+    if (field === 'caption-animation') return { tabId: 'motion', sectionId: 'motion:caption' };
     if (field === 'caption-style-stroke-color') return {
         tabId: 'text', sectionId: 'style:stroke', field
     };
