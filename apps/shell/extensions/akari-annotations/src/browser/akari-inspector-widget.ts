@@ -356,6 +356,25 @@ type CaptionStyleFieldKey =
     | 'effect'
     | 'zone';
 
+function captionFontFamilyField(snapshot: TimelineCaptionSelection,
+    openFontPanel: () => Promise<boolean>): InspectorFieldDef<TimelineCaptionSelection> {
+    const rawFamily = snapshot.effectiveTextStyle?.fontFamily ?? snapshot.textStyle?.fontFamily;
+    const family = rawFamily === CAPTION_FONT_FAMILY ? 'Noto Sans JP' : rawFamily ?? 'Noto Sans JP';
+    return {
+        name: 'caption-font-family', label: 'フォント',
+        getValue: () => family,
+        actionLabel: `${family}  \u203a`,
+        action: async () => await openFontPanel() ? { ok: true }
+            : { ok: false, message: 'フォントパネルを開けませんでした。' }
+    };
+}
+
+function captionRowFontFace(family: string, loadedFaces: ReadonlyMap<string, string>): string {
+    if (family === 'Noto Sans JP' || family === CAPTION_FONT_FAMILY) return CAPTION_FONT_FAMILY;
+    const font = CAPTION_PANEL_FONTS.find(entry => entry.family === family);
+    return font ? loadedFaces.get(font.id) ?? family : family;
+}
+
 function captionStyleDisplayValue<T>(
     raw: T | undefined,
     effective: T | undefined,
@@ -2949,6 +2968,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected captionPanelMyStyles: CaptionPanelMyStyle[] = [];
     protected captionPanelFontFaces = new Map<string, string>();
     protected captionPanelFontsLoaded = false;
+    protected captionRowFontsLoading = false;
     protected captionPanelPreview: CaptionPanelPreviewState = { active: null };
 
     protected runCaptionPanelPreview(action: CaptionPanelPreviewAction): { close: boolean; commit: boolean } {
@@ -3032,7 +3052,18 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.captionPanelFontFaces.set(face.id, face.family);
                 }
             } catch { /* A failed font is not offered as an applicable row. */ }
-        })).then(() => { if (this.captionPanel === 'font') this.render(); });
+        })).then(() => {
+            if (this.captionPanel === 'font' || this.model.snapshot?.kind === 'caption'
+                || this.model.snapshot?.kind === 'multi') this.render();
+        });
+    }
+
+    protected ensureCaptionRowFontFace(): void {
+        if (this.captionPanelFontsLoaded || this.captionRowFontsLoading || !this.captionPreviewService) return;
+        this.captionRowFontsLoading = true;
+        void this.captionPreviewService.getOverlayRuntimeAssetUrls()
+            .then(assets => this.registerCaptionPanelFonts(assets))
+            .catch(() => { this.captionRowFontsLoading = false; });
     }
     protected readonly fieldNotice = document.createElement('div');
     protected fieldNoticeTimer: number | undefined;
@@ -5095,6 +5126,12 @@ export class AkariInspectorWidget extends BaseWidget {
                         request => this.model.requestLivePreview?.(request));
                     break;
             }
+        }
+        if (sectionKind === 'caption') {
+            const fontField = captionFontFamilyField(rowSnapshot as TimelineCaptionSelection,
+                () => this.commandRegistry.executeCommand<boolean>('akari.captionPanel.toggle', { panel: 'font' }));
+            sections = sections.map(section => section.id === 'style'
+                ? { ...section, fields: [fontField, ...section.fields] } : section);
         }
         // 色パネル（色の行・akari.inspector.openColorPanel）: 開いている間は同じ列の中身を色パネルにする。
         if (this.colorPanelHostInstance?.isOpen && this.renderColorPanelMode(sections, rowSnapshot)) return;
@@ -7891,6 +7928,10 @@ export class AkariInspectorWidget extends BaseWidget {
             action.type = 'button';
             action.className = 'akari-inspector-row-input';
             action.textContent = field.actionLabel ?? field.label;
+            if (fieldName === 'caption-font-family') {
+                this.ensureCaptionRowFontFace();
+                action.style.fontFamily = `${JSON.stringify(captionRowFontFace(field.getValue(snapshot), this.captionPanelFontFaces))}, sans-serif`;
+            }
             action.disabled = field.disabled === true;
             if (field.pressed) action.setAttribute('aria-pressed', String(field.pressed()));
             if (field.title) action.title = field.title;

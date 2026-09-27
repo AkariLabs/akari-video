@@ -19,7 +19,7 @@ test('最上段は 16 タイルで、作る/選ぶを分け、段の切れ目を
     ]);
     assert.deepEqual(LIBRARY_PRIMARY_TILES.filter(tile => tile.status === 'soon').map(tile => tile.key),
         ['stamps', 'fx', 'motion', 'mypresets', 'template']);
-    assert.equal(LIBRARY_PRIMARY_TILES[0].hint, '押すかドラッグで置く');
+    assert.equal(LIBRARY_PRIMARY_TILES[0].hint, '押すと一覧・ドラッグで置く');
     // 段の区切りは見出しではなく線 1 本。線を引く位置は startsGroup が持つ。
     assert.deepEqual(LIBRARY_PRIMARY_TILES.filter(tile => tile.startsGroup).map(tile => tile.key),
         ['image', 'lut', 'mypresets']);
@@ -35,13 +35,13 @@ test('最上段は 16 タイルで、作る/選ぶを分け、段の切れ目を
         && tile.plate.every(color => /^#[0-9a-f]{6}$/.test(color))));
 });
 
-test('詳細は主要タイルに出さなかった 5 カテゴリだけで、全カテゴリの外部解決を保つ', () => {
-    assert.deepEqual(LIBRARY_DETAIL_GROUPS.map(group => group.label), ['文字の見た目', 'マイ']);
+test('詳細はマイだけに絞り、全カテゴリの外部解決を保つ', () => {
+    assert.deepEqual(LIBRARY_DETAIL_GROUPS.map(group => group.label), ['マイ']);
     const detailKeys = LIBRARY_DETAIL_GROUPS.flatMap(group => group.categories.map(category => category.key));
-    assert.deepEqual(detailKeys, ['textstyle', 'textanim', 'font', 'fav', 'brandkit']);
+    assert.deepEqual(detailKeys, ['fav', 'brandkit']);
     const primaryCategoryKeys = LIBRARY_PRIMARY_TILES.filter(tile => tile.key !== 'text').map(tile => tile.key);
     assert.equal(detailKeys.some(key => primaryCategoryKeys.includes(key)), false);
-    assert.deepEqual(new Set([...detailKeys, ...primaryCategoryKeys]),
+    assert.deepEqual(new Set([...detailKeys, ...primaryCategoryKeys, 'textstyle', 'textanim', 'font']),
         new Set(LIBRARY_GROUPS.flatMap(group => group.categories.map(category => category.key))));
     assert.equal(resolveOpenableLibraryCategory('bgm'), 'bgm');
     assert.equal(resolveOpenableLibraryCategory('textstyle'), 'textstyle');

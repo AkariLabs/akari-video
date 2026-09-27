@@ -95,7 +95,7 @@ export interface LibraryPrimaryTile {
 }
 
 /**
- * ホームのタイル。text はカテゴリ一覧を持たない配置アクション。
+ * ホームのタイル。text はスタイルとフォントを選ぶページへ入る。
  *
  * 顔ぶれの経緯: 2026-09-22 裁定で 9 枚（text / shapes / stamps / image / broll /
  * bgm / sfx / overlay / scene3d）に確定していたが、**2026-09-27 オーナー指示で改訂**。
@@ -106,7 +106,7 @@ export interface LibraryPrimaryTile {
  *   テキストの中に入る（動きはスタイルに内包する。正本 = モック §03）
  */
 export const LIBRARY_PRIMARY_TILES = [
-    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すかドラッグで置く', status: 'live',
+    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すと一覧・ドラッグで置く', status: 'live',
         art: 'text', plate: ['#8b6cff', '#5b3fd6'] },
     { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '棚から選ぶ', status: 'live',
         art: 'shapes', plate: ['#35cadd', '#1490a8'] },
@@ -159,12 +159,9 @@ function detailGroup(label: string, keys: readonly LibraryCategoryKey[]): Librar
  * 2026-09-27 改訂: 仕上げ（lut / transition / fx / motion）・まとめて（pack / template）・
  * 保存したプリセット（mypresets）は主要タイルへ昇格したので詳細から外す
  * （重複させない規律は 2026-09-23 から継続）。残るのは
- * - 文字の見た目（textstyle / textanim / font）… 本来はテキストの中へ潜らせる予定。
- *   その導線ができるまでの仮置き（正本 = モック §03）
  * - マイの残り（fav / brandkit）… まだ実装枠
  */
 export const LIBRARY_DETAIL_GROUPS: readonly LibraryGroupDefinition[] = [
-    detailGroup('文字の見た目', ['textstyle', 'textanim', 'font']),
     detailGroup('マイ', ['fav', 'brandkit'])
 ];
 
