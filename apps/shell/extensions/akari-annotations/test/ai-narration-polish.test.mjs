@@ -183,15 +183,9 @@ test('widget: 古い edit キャッシュがあっても置き先が直後に出
   const state = { engineId: 'voicevox', voiceId: 'speaker', script: '長い原稿', reading: '',
     running: false, placementChoice: 'shift' };
   const Harness = narrationWidgetHarness(
-    ['startAiNarration', 'loadAiTranscribeTarget', 'verifyAiNarrationSource'], {
+    ['adoptAiNarrationCandidate', 'loadAiTranscribeTarget', 'verifyAiNarrationSource'], {
       window: { setInterval: () => 1, clearInterval: () => {} },
-      ConfirmDialog: class {},
-      generateAiNarration: async options => {
-        await options.commit('ナレーションを置く', doc => placeAiNarration(doc, 'frame',
-          'out/narration/n-0001.wav', 3.5, 30, 'shift'));
-        return '後ろのクリップを 1.5 秒ずらして A1 に置きました';
-      },
-      aiNarrationSourcePath,
+      placeAiNarration, planAiNarrationPlacement, aiNarrationSourcePath,
       resolveAiTranscribeTarget: () => ({ relativePath: 'assets/generated/frame.wav', name: 'frame.wav' })
     });
   let changed;
@@ -208,7 +202,8 @@ test('widget: 古い edit キャッシュがあっても置き先が直後に出
     workspaceService: { ready: Promise.resolve(), tryGetRoots: () => [{ resource: root }] },
     fileService: { readFile: async () => { reads++; return { value: Buffer.from(JSON.stringify(disk)) }; },
       exists: async () => true, onDidFilesChange: callback => { changed = callback; } },
-    layerAudioService: { readTranscriptSummary: async () => ({ state: 'none', segments: [], total: 0 }),
+    layerAudioService: { adoptNarrationCandidate: async () => ({ path: 'out/narration/n-0001.wav', durationSeconds: 3.5 }),
+      readTranscriptSummary: async () => ({ state: 'none', segments: [], total: 0 }),
       readGenerationSidecars: async () => ({ entries: [] }) },
     stillWidgetManager: { getWidgets: () => [{ isDisposed: false, location: { root },
       commitEditMutation: async (_, mutate) => { disk = mutate(disk); } }] },
@@ -224,9 +219,9 @@ test('widget: 古い edit キャッシュがあっても置き先が直後に出
     }
   });
   widget.wireEdit();
-  await widget.startAiNarration(key, 'frame', 1);
+  await widget.adoptAiNarrationCandidate(key, 'frame', 'assets/generated/candidates/frame/voicevox-1.wav');
   await widget.pendingLoad;
-  const placementVisible = () => widget.aiView === 'tiles'
+  const placementVisible = () => widget.aiView === 'narration'
     && widget.narrationPlacementNotice?.clipKey === key
     && widget.narrationPlacementNotice.sourcePath === widget.narrationSourcePath;
   assert.equal(widget.narrationPlacementNotice?.sourcePath, 'out/narration/n-0001.wav');

@@ -725,3 +725,26 @@ test('narration --profile は新 → 旧の順で解決し、彩は voice_id を
     await rm(scratch, { recursive: true, force: true });
   }
 });
+
+test('候補 --out は音声だけを指定先に作り、編集不変・外部と上書きを拒否する', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'narration-candidate-'));
+  const oldFetch = globalThis.fetch;
+  try {
+    await writeFile(join(scratch, 'edit.json'), '{"version":2,"sources":[],"tracks":[]}\n');
+    const before = await readFile(join(scratch, 'edit.json'), 'utf8');
+    globalThis.fetch = async () => ({ ok: true, status: 200, headers: { get: () => 'audio/wav' },
+      arrayBuffer: async () => fakeWav(0.4) });
+    const out = 'assets/generated/candidates/frame-a/irodori-123.wav';
+    const args = ['generate', '--project', scratch, '--engine', 'irodori', '--text', '候補', '--out', out, '--json'];
+    const logs = collectLogs();
+    assert.equal((await runNarrationCommand(args, logs)).exitCode, 0);
+    assert.equal(JSON.parse(logs.lines.at(-1)).path, out);
+    assert.ok((await readFile(join(scratch, out))).length > 44);
+    assert.equal(await readFile(join(scratch, 'edit.json'), 'utf8'), before);
+    assert.equal((await runNarrationCommand(args, collectLogs())).exitCode, 2);
+    for (const invalid of ['../outside.wav', '/tmp/outside.wav', 'assets/generated/candidates/../evil.wav']) {
+      const trial = [...args]; trial[trial.indexOf('--out') + 1] = invalid;
+      assert.equal((await runNarrationCommand(trial, collectLogs())).exitCode, 2);
+    }
+  } finally { globalThis.fetch = oldFetch; await rm(scratch, { recursive: true, force: true }); }
+});

@@ -59,8 +59,8 @@ import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEn
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { appendImageAiPanel, type ImageAiPanelState } from './inspector/image-ai-panel';
 import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
-import { appendAiNarrationPanel, chooseAiNarrationVoice, generateAiNarration, initialAiNarrationState, type AiNarrationState } from './inspector/ai-narration-panel';
-import { aiNarrationSourcePath, type NarrationTrack } from '../common/ai-narration-placement';
+import { appendAiNarrationPanel, chooseAiNarrationVoice, initialAiNarrationState, narrationBatchConfirm, type AiNarrationState } from './inspector/ai-narration-panel';
+import { aiNarrationSourcePath, placeAiNarration, planAiNarrationPlacement, type NarrationTrack } from '../common/ai-narration-placement';
 import { createInspectorIcon } from './inspector/icons';
 import { enableShapeStroke, shapeControlGroups, shapeNumber, shapeOptionValue, swapShapeEnds } from './inspector/shape-fields';
 import { shapeLiveMarkup } from './inspector/shape-live';
@@ -3116,6 +3116,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected aiCatalogLoading?: Promise<void>;
     protected narrationEngines: NarrationEngine[] = [];
     protected narrationStates = new Map<string, AiNarrationState>();
+    protected narrationAudio?: HTMLAudioElement;
     protected narrationPlacementNotice?: { clipKey: string; sourcePath: string; label: string };
     protected narrationSourcePath?: string;
     protected narrationSourceCheckVersion = 0;
@@ -5254,6 +5255,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (activeTab === 'edit') {
             if (this.aiCatalogLoaded) {
                 if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
+                const previousNarrationClipKey = this.aiViewClipKey;
                 this.aiView = aiTabViewFor({
                     clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
                     generationState, generationDone, forcePanel: aiAvailability.forcePanel
@@ -5269,6 +5271,15 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.photoAiOpening = undefined;
                 }
                 if ((this.aiView === 'cutout' || this.aiView === 'eraser') && !photoTools.enabled) this.aiView = 'tiles';
+                if (rowSnapshot.kind === 'audio' && this.narrationStates) {
+                    const narrationState = this.narrationStates.get(clipKey) ?? initialAiNarrationState(this.narrationEngines);
+                    this.narrationStates.set(clipKey, narrationState);
+                    if (previousNarrationClipKey !== clipKey && narrationState.candidates?.length) this.aiView = 'narration';
+                    if (narrationState.candidates === undefined && this.loadAiNarrationCandidates) {
+                        narrationState.candidates = [];
+                        void this.loadAiNarrationCandidates(clipKey, rowSnapshot.id);
+                    }
+                }
                 this.aiViewClipKey = clipKey;
             }
             // Older render harnesses extract this method without its imported visibility helper.
@@ -5304,6 +5315,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.aiView = id;
                     if (id === 'narration' && rowSnapshot.kind === 'audio') {
                         void this.loadAiNarrationVoices(clipKey);
+                        void this.loadAiNarrationCandidates(clipKey, rowSnapshot.id);
                     }
                     this.render();
                 }, this.transcribeSummary.state === 'done', imageItemId ? '' : undefined);
@@ -5419,13 +5431,27 @@ export class AkariInspectorWidget extends BaseWidget {
                 appendAiNarrationPanel(this.body, state, this.narrationEngines, {
                     change: () => {
                         const button = this.body.querySelector<HTMLButtonElement>('.akari-inspector-ai-narration-button');
-                        if (button) button.disabled = !state.script.trim() || !state.voiceId || state.running
-                            || state.engineId === 'irodori' && state.voiceId === 'custom' && !state.style?.trim();
+                        if (button) button.disabled = !state.script.trim() || !state.selectedEngineIds?.length || state.running
+                            || state.selectedEngineIds.some(id => !state.voiceByEngine?.[id])
+                            || state.selectedEngineIds.includes('irodori') && state.voiceByEngine?.irodori === 'custom' && !state.style?.trim();
                     },
-                    chooseEngine: id => { state.engineId = id; state.voiceId = ''; state.voices = [];
-                        void this.loadAiNarrationVoices(clipKey); this.render(); },
+                    chooseEngine: id => {
+                        const selected = new Set(state.selectedEngineIds ?? []);
+                        if (selected.has(id)) selected.delete(id); else selected.add(id);
+                        state.selectedEngineIds = [...selected];
+                        state.engineId = state.selectedEngineIds[0] ?? '';
+                        void this.loadAiNarrationVoices(clipKey); this.render();
+                    },
+                    chooseVoice: (id, voice) => {
+                        state.voiceByEngine ??= {}; state.voiceByEngine[id] = voice;
+                        if (id === state.engineId) state.voiceId = voice;
+                        this.render();
+                    },
                     generate: () => void this.startAiNarration(clipKey, rowSnapshot.id, rowSnapshot.outputStart),
-                    cancel: () => void this.cancelAiNarration(clipKey)
+                    cancel: () => void this.cancelAiNarration(clipKey, rowSnapshot.id),
+                    play: candidate => void this.playAiNarrationCandidate(clipKey, candidate.relativePath!),
+                    adopt: candidate => void this.adoptAiNarrationCandidate(clipKey, rowSnapshot.id, candidate.relativePath!),
+                    retry: candidate => void this.startAiNarration(clipKey, rowSnapshot.id, rowSnapshot.outputStart, candidate.route)
                 }, this.narrationPlacementContext?.itemId === rowSnapshot.id
                     ? this.narrationPlacementContext : undefined);
                 return;
@@ -6287,32 +6313,110 @@ export class AkariInspectorWidget extends BaseWidget {
         const state = this.narrationStates.get(key) ?? initialAiNarrationState(this.narrationEngines);
         this.narrationStates.set(key, state);
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        if (!root || !state.engineId) return;
-        const engineId = state.engineId;
+        if (!root) return;
         try {
-            const result = await this.layerAudioService.listNarrationVoices(root.toString(), engineId,
-                engineId === 'irodori' ? this.narrationIrodoriUrl() : undefined);
-            if (this.aiViewClipKey !== key || state.engineId !== engineId) return;
-            chooseAiNarrationVoice(state, result.voices);
-            this.render();
-        } catch (error) { state.error = String(error); this.render(); }
+            if (!state.favorites) {
+                const preferred = await this.layerAudioService.readPreferredNarrationRoutes(root.toString());
+                if (this.aiViewClipKey !== key) return;
+                state.favorites = preferred.favorites;
+                state.preferredEngineId = preferred.defaultEngineId;
+                const eligible = this.narrationEngines.find(engine => engine.id === preferred.defaultEngineId
+                    && (engine.availability.state === 'available' || engine.id === 'voicevox' && engine.availability.state === 'needs'));
+                if (eligible && (state.selectedEngineIds?.length ?? 0) <= 1) {
+                    state.selectedEngineIds = [eligible.id]; state.engineId = eligible.id;
+                }
+            }
+            await Promise.all((state.selectedEngineIds ?? []).map(async engineId => {
+                if (state.voicesByEngine?.[engineId]?.length) return;
+                const result = await this.layerAudioService.listNarrationVoices(root.toString(), engineId,
+                    engineId === 'irodori' ? this.narrationIrodoriUrl() : undefined);
+                if (this.aiViewClipKey === key) chooseAiNarrationVoice(state, result.voices, engineId);
+            }));
+            if (this.aiViewClipKey === key) this.render();
+        } catch (error) { state.error = String(error); if (this.aiViewClipKey === key) this.render(); }
     }
 
-    protected async startAiNarration(key: string, itemId: string, atSeconds: number): Promise<void> {
+    protected async loadAiNarrationCandidates(key: string, itemId: string): Promise<void> {
+        const state = this.narrationStates.get(key) ?? initialAiNarrationState(this.narrationEngines);
+        this.narrationStates.set(key, state);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return;
+        try {
+            const batch = await this.layerAudioService.readNarrationCandidates({ projectRootUri: root.toString(), itemId });
+            if (this.aiViewClipKey !== key) return;
+            state.candidates = batch.candidates; state.completed = batch.completed;
+            state.running = batch.running;
+            if (batch.candidates.length && this.aiView === 'tiles') this.aiView = 'narration';
+            this.render();
+        } catch { state.candidates = []; }
+    }
+
+    protected async startAiNarration(key: string, itemId: string, atSeconds: number, retryEngineId?: string): Promise<void> {
         const state = this.narrationStates.get(key);
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        const engine = this.narrationEngines.find(row => row.id === state?.engineId);
-        if (!state || !root || !engine || state.running) return;
-        state.error = undefined; state.cancelled = false; state.running = true; state.startedAt = Date.now();
-        this.render();
+        if (!state || !root || state.running) return;
+        const ids = retryEngineId ? [retryEngineId] : state.selectedEngineIds ?? [];
+        const engines = ids.map(id => this.narrationEngines.find(row => row.id === id));
+        if (!ids.length || engines.some(engine => !engine || !state.voiceByEngine?.[engine.id])) return;
+        const script = state.script, reading = state.reading.trim() || script;
+        const approval = narrationBatchConfirm(engines as NarrationEngine[], reading);
+        if (approval && !(await new ConfirmDialog(approval).open())) return;
+        state.error = undefined; state.cancelled = false; state.running = true; state.completed = 0;
+        state.startedAt = Date.now(); state.lastRoutes = [...ids]; state.runningRoutes = [...ids]; this.render();
         if (this.narrationTick) window.clearInterval(this.narrationTick);
         this.narrationTick = window.setInterval(() => {
             if (state.running && this.aiView === 'narration') {
-                const progress = this.body.querySelector<HTMLElement>('.akari-inspector-ai-narration-progress');
-                if (progress) progress.textContent = `声を作っています · ${Math.floor((Date.now() - state.startedAt!) / 1000)} 秒`;
+                void this.layerAudioService.readNarrationCandidates({ projectRootUri: root.toString(), itemId }).then(batch => {
+                    if (!state.running || this.aiViewClipKey !== key) return;
+                    state.completed = batch.completed;
+                    state.candidates = batch.candidates;
+                    this.render();
+                }).catch(() => undefined);
             }
-        }, 1000);
+        }, 750);
         try {
+            const batch = await this.layerAudioService.startNarrationBatch({ projectRootUri: root.toString(), itemId,
+                script, reading, t: atSeconds, approved: !!approval,
+                routes: ids.map(id => ({ engine: id, voice: state.voiceByEngine![id],
+                    profile: id === 'fal-qwen3' ? state.voiceByEngine![id] : undefined,
+                    style: id === 'gemini-tts' || id === 'irodori' && state.voiceByEngine![id] === 'custom' ? state.style : undefined,
+                    irodoriUrl: id === 'irodori' ? this.narrationIrodoriUrl() : undefined })) });
+            if (state.cancelled) return;
+            state.completed = batch.completed;
+            await this.loadAiNarrationCandidates(key, itemId);
+            if (!retryEngineId && ids.length === 1 && batch.candidates[0]?.ok && batch.candidates[0].relativePath) {
+                await this.adoptAiNarrationCandidate(key, itemId, batch.candidates[0].relativePath);
+            }
+        } catch (error) {
+            if (!state.cancelled) state.error = error instanceof Error ? error.message : String(error);
+        } finally {
+            state.running = false;
+            state.runningRoutes = undefined;
+            if (this.narrationTick) window.clearInterval(this.narrationTick);
+            this.narrationTick = undefined;
+            if (!this.isDisposed) this.render();
+        }
+    }
+
+    protected async playAiNarrationCandidate(key: string, relativePath: string): Promise<void> {
+        const state = this.narrationStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        if (this.narrationAudio) { this.narrationAudio.pause(); this.narrationAudio = undefined; }
+        if (state.playingPath === relativePath) { state.playingPath = undefined; this.render(); return; }
+        const audio = new Audio(root.resolve(relativePath).toString());
+        this.narrationAudio = audio; state.playingPath = relativePath;
+        audio.onended = () => { if (this.narrationAudio === audio) { this.narrationAudio = undefined; state.playingPath = undefined; this.render(); } };
+        try { await audio.play(); } catch (error) { state.error = String(error); state.playingPath = undefined; }
+        this.render();
+    }
+
+    protected async adoptAiNarrationCandidate(key: string, itemId: string, relativePath: string): Promise<void> {
+        const state = this.narrationStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        try {
+            const adopted = await this.layerAudioService.adoptNarrationCandidate({ projectRootUri: root.toString(), itemId, relativePath });
             const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
             const fps = Number(edit.output?.fps ?? 30);
             const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
@@ -6320,45 +6424,33 @@ export class AkariInspectorWidget extends BaseWidget {
                 return !widget.isDisposed && location?.root?.toString() === root.toString();
             }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
             if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
-            const label = await generateAiNarration({ state, engine, projectRootUri: root.toString(), itemId,
-                atSeconds, service: this.layerAudioService,
-                irodoriUrl: engine.id === 'irodori' ? this.narrationIrodoriUrl() : undefined,
-                confirm: message => new ConfirmDialog(message).open(),
-                commit: (name, mutate) => timeline.commitEditMutation!(name, mutate), fps });
-            if (label) {
-                // The edit.json event may arrive after this read. Do not reuse the pre-placement snapshot.
-                this.narrationEditVersion = (this.narrationEditVersion ?? 0) + 1;
-                this.narrationEditSnapshot = undefined;
-                this.narrationVerified = undefined;
-                this.narrationPlacementContext = undefined;
-                const placedEdit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
-                const sourcePath = aiNarrationSourcePath(placedEdit, itemId);
-                this.narrationSourcePath = sourcePath;
-                state.placement = label;
-                this.narrationPlacementNotice = sourcePath ? { clipKey: key, sourcePath, label } : undefined;
-                this.audioPlanned = false;
-                this.narrationSourceCheckVersion = (this.narrationSourceCheckVersion ?? 0) + 1;
-                this.narrationLoadRevision = (this.narrationLoadRevision ?? 0) + 1;
-                this.transcribeKey = undefined;
-                this.transcribeLoading = undefined;
-                this.aiView = 'tiles';
-            }
-        } catch (error) {
-            if (!state.cancelled) state.error = error instanceof Error ? error.message : String(error);
-        } finally {
-            state.running = false;
-            if (this.narrationTick) window.clearInterval(this.narrationTick);
-            this.narrationTick = undefined;
-            if (!this.isDisposed) this.render();
-        }
+            let label = '';
+            await timeline.commitEditMutation('ナレーションを置く', doc => {
+                const choice = state.placementChoice ?? 'lower';
+                label = planAiNarrationPlacement(doc.tracks, itemId, adopted.durationSeconds, fps, choice).label;
+                return placeAiNarration(doc, itemId, adopted.path, adopted.durationSeconds, fps, choice);
+            });
+            this.narrationEditVersion = (this.narrationEditVersion ?? 0) + 1;
+            this.narrationEditSnapshot = undefined; this.narrationVerified = undefined;
+            this.narrationPlacementContext = undefined;
+            const placedEdit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const sourcePath = aiNarrationSourcePath(placedEdit, itemId);
+            this.narrationSourcePath = sourcePath; state.placement = label;
+            this.narrationPlacementNotice = sourcePath ? { clipKey: key, sourcePath, label } : undefined;
+            this.audioPlanned = false;
+            this.narrationSourceCheckVersion = (this.narrationSourceCheckVersion ?? 0) + 1;
+            this.narrationLoadRevision = (this.narrationLoadRevision ?? 0) + 1;
+            this.transcribeKey = undefined; this.transcribeLoading = undefined;
+            this.render();
+        } catch (error) { state.error = error instanceof Error ? error.message : String(error); this.render(); }
     }
 
-    protected async cancelAiNarration(key: string): Promise<void> {
+    protected async cancelAiNarration(key: string, itemId: string): Promise<void> {
         const state = this.narrationStates.get(key);
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!state || !root) return;
         state.cancelled = true; state.running = false;
-        try { await this.layerAudioService.cancelNarration(root.toString()); }
+        try { await this.layerAudioService.cancelNarrationBatch({ projectRootUri: root.toString(), itemId }); }
         catch (error) { state.error = String(error); }
         this.render();
     }

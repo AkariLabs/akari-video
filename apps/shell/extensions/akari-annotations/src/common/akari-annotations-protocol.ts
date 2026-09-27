@@ -50,6 +50,19 @@ export interface GenerateNarrationResult {
     caption_ref?: string | null; provenance?: Record<string, unknown>; warnings?: string[];
     estimate_usd?: number; chars?: number;
 }
+export interface NarrationCandidateRoute { engine: string; voice: string; profile?: string; style?: string; irodoriUrl?: string }
+export interface NarrationBatchRequest {
+    projectRootUri: string; itemId: string; script: string; reading: string; t: number;
+    routes: NarrationCandidateRoute[]; approved?: boolean;
+}
+export interface NarrationCandidate {
+    route: string; voice: string; ok: boolean; status: 'generating' | 'done' | 'failed';
+    relativePath?: string; durationSeconds?: number; elapsedSeconds?: number; costUsd?: number; reason?: string;
+}
+export interface NarrationCandidateBatch {
+    routes: string[]; completed: number; candidates: NarrationCandidate[]; results: NarrationCandidate[]; running: boolean;
+}
+export interface PreferredNarrationRoutes { defaultEngineId?: string; favorites: string[] }
 export interface ApplyNarrationRequest {
     projectRootUri: string; path: string; t: number; script: string; reading: string;
     provenance?: Record<string, unknown>; captionRef?: string | null; id?: string;
@@ -906,6 +919,11 @@ export interface AkariAnnotationsService {
     narrationVerificationBackend(projectRootUri: string): Promise<NarrationVerificationBackend>;
     verifyNarration(request: VerifyNarrationRequest): Promise<VerifyNarrationResult>;
     generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult>;
+    startNarrationBatch(request: NarrationBatchRequest): Promise<NarrationCandidateBatch>;
+    readNarrationCandidates(request: { projectRootUri: string; itemId: string }): Promise<NarrationCandidateBatch>;
+    cancelNarrationBatch(request: { projectRootUri: string; itemId: string }): Promise<void>;
+    adoptNarrationCandidate(request: { projectRootUri: string; itemId: string; relativePath: string }): Promise<{ path: string; durationSeconds: number }>;
+    readPreferredNarrationRoutes(projectRootUri: string): Promise<PreferredNarrationRoutes>;
     applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }>;
     applyNarrations(request: ApplyNarrationsRequest): Promise<{ ids: string[] }>;
     cancelNarration(projectRootUri: string): Promise<void>;

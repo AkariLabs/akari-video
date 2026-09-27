@@ -121,7 +121,7 @@ export class GenerationCandidates<T extends CandidateResult> {
     }
 }
 
-export async function readCandidateMeta(root: string, itemId: string, extension: '.png' | '.mp4'):
+export async function readCandidateMeta(root: string, itemId: string, extension: '.png' | '.mp4' | '.wav' | '.mp3'):
     Promise<Array<{ name: string; meta: Record<string, any>; relativePath: string; absolutePath: string }>> {
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error('itemId が不正です。');
     const directory = join(root, 'assets', 'generated', 'candidates', itemId);
@@ -144,7 +144,7 @@ export async function readCandidateMeta(root: string, itemId: string, extension:
     return loaded.filter((row): row is NonNullable<typeof row> => !!row);
 }
 
-export async function readPreferredModelIds(projectRoot: string, kind: 'image' | 'video', env: NodeJS.ProcessEnv = process.env):
+export async function readPreferredModelIds(projectRoot: string, kind: 'image' | 'video' | 'voice', env: NodeJS.ProcessEnv = process.env):
     Promise<{ projectDefault?: string; appDefault?: string; favorites: string[] }> {
     const read = async (file: string): Promise<any> => fs.readFile(file, 'utf8').then(JSON.parse).catch(() => ({}));
     const [app, project] = await Promise.all([

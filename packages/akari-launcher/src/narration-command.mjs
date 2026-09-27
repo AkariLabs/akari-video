@@ -234,7 +234,7 @@ function isFiniteNumber(value) {
 const VALUE_OPTIONS = new Set([
   "--project", "--engine", "--reading-file", "--script-file",
   "--t", "--gain-db", "--id", "--speaker", "--profile",
-  "--voice", "--style", "--speed", "--text", "--caption-ref", "--irodori-url",
+  "--voice", "--style", "--speed", "--text", "--caption-ref", "--irodori-url", "--out",
 ]);
 const FLAG_OPTIONS = new Set(["--dry-run", "--yes", "--apply", "--json"]);
 
@@ -252,7 +252,7 @@ function parseArguments(argv) {
     id: null,
     speaker: "3",
     profile: null,
-    voice: null, style: null, speed: null, text: null, captionRef: null, irodoriUrl: null, json: false,
+    voice: null, style: null, speed: null, text: null, captionRef: null, irodoriUrl: null, out: null, json: false,
     dryRun: false,
     yes: false,
     apply: false,
@@ -281,6 +281,7 @@ function parseArguments(argv) {
         case "--text": options.text = value; break;
         case "--caption-ref": options.captionRef = value; break;
         case "--irodori-url": options.irodoriUrl = value; break;
+        case "--out": options.out = value; break;
         default: break;
       }
     } else if (argument === "--dry-run") {
@@ -336,6 +337,26 @@ function parseArguments(argv) {
   }
 
   options.project = path.resolve(options.project);
+  if (options.out !== null) {
+    const out = options.out.replace(/\\/gu, '/');
+    if (options.apply || options.id || !/^assets\/generated\/candidates\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:wav|mp3)$/u.test(out)
+        || out.split('/').some(part => part === '..') || !out.endsWith(`.${extensionFor(options.engine)}`)) {
+      throw new PublicError('--out はプロジェクト内の未使用候補音声パスを指定してください', 2);
+    }
+    const directory = path.dirname(path.join(options.project, out));
+    const root = fs.realpathSync(options.project);
+    for (let parent = path.dirname(directory); parent !== options.project && parent.startsWith(`${options.project}${path.sep}`); parent = path.dirname(parent)) {
+      if (fs.existsSync(parent) && !fs.realpathSync(parent).startsWith(`${root}${path.sep}`)) {
+        throw new PublicError('候補の出力先がプロジェクト外です', 2);
+      }
+    }
+    fs.mkdirSync(directory, { recursive: true });
+    if (!fs.realpathSync(directory).startsWith(`${root}${path.sep}`)
+        || fs.existsSync(path.join(options.project, out)) || fs.existsSync(path.join(options.project, `${out}.meta.json`))) {
+      throw new PublicError('候補の出力先がプロジェクト外、または既存ファイルです', 2);
+    }
+    options.out = out;
+  }
   return options;
 }
 
@@ -1008,8 +1029,8 @@ async function runGenerate(options, io) {
     return 0;
   }
 
-  const id = options.id ?? computeNextId(options.project);
-  const relativePath = relativeOutputPath(id, options.engine);
+  const id = options.out ? null : options.id ?? computeNextId(options.project);
+  const relativePath = options.out ?? relativeOutputPath(id, options.engine);
   const outputPath = path.join(options.project, relativePath);
 
   let audioBuffer;
@@ -1107,7 +1128,8 @@ async function runGenerate(options, io) {
   }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, audioBuffer);
+  if (options.out) fs.writeFileSync(outputPath, audioBuffer, { flag: 'wx' });
+  else fs.writeFileSync(outputPath, audioBuffer);
   const duration = durationForAudio(audioBuffer, outputPath, options.engine, warnings);
 
   const entry = {

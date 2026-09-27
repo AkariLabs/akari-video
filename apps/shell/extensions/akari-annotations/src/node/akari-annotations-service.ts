@@ -31,7 +31,7 @@ import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../commo
 import { ImageAiService } from './image-ai-service';
 import type { ImageAiInspection, ImageAiResult } from '../common/akari-annotations-protocol';
 import type { ImageAiBinding } from '../common/image-ai-binding';
-import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult, VoiceAvatar, VoiceCheckResult, VoiceCopyRequest, VoiceCreateRequest, VoiceScript, VoiceTryRequest, VoiceProfileSummary } from '../common/akari-annotations-protocol';
+import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationBatchRequest, NarrationCandidate, NarrationCandidateBatch, PreferredNarrationRoutes, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult, VoiceAvatar, VoiceCheckResult, VoiceCopyRequest, VoiceCreateRequest, VoiceScript, VoiceTryRequest, VoiceProfileSummary } from '../common/akari-annotations-protocol';
 import {
     ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
     AkariAnnotationsClient,
@@ -263,6 +263,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return this.imageAiService.generateBackground(request);
     }
     protected readonly narrationCli = new NarrationCliManager();
+    protected readonly narrationCandidates = new GenerationCandidates<NarrationCandidate>();
     protected readonly voiceTempPaths = new Set<string>();
     protected readonly voiceCreatedProfiles = new Set<string>();
     protected readonly voiceCreatedPaths = new Map<string, string>();
@@ -578,6 +579,166 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
     async cancelNarration(projectRootUri: string): Promise<void> {
         await this.narrationCli.cancel(this.fsPath(projectRootUri));
+    }
+    protected async narrationFrame(root: string, itemId: string): Promise<{ sidecarPath: string; meta: Record<string, any> }> {
+        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+            sources?: Array<{ id: string; path: string }>;
+            tracks?: Array<{ lane?: string; items?: Array<{ id: string; source?: { src?: string } }> }>;
+        };
+        const item = edit.tracks?.filter(track => track.lane === 'audio').flatMap(track => track.items ?? [])
+            .find(row => row.id === itemId);
+        const source = edit.sources?.find(row => row.id === item?.source?.src);
+        if (!source?.path || !/^assets\/generated\/[^/]+\.wav$/u.test(source.path)) throw new Error('音声の空の枠がありません。');
+        const sidecarPath = join(root, `${source.path}.meta.json`);
+        const meta = JSON.parse(await fs.readFile(sidecarPath, 'utf8')) as Record<string, any>;
+        if (meta.kind !== 'audio' || !['planned', 'generating', 'done', 'failed'].includes(meta.status)) {
+            throw new Error('音声の空の枠がありません。');
+        }
+        return { sidecarPath, meta };
+    }
+    async readPreferredNarrationRoutes(projectRootUri: string): Promise<PreferredNarrationRoutes> {
+        const root = resolve(this.fsPath(projectRootUri));
+        const selected = await readPreferredModelIds(root, 'voice');
+        const catalog = JSON.parse(await fs.readFile(await this.findGenerationAsset('packages/schemas/ai-models.json'), 'utf8')) as {
+            models: Array<{ id: string; kind: string; ref?: string }>;
+        };
+        const toEngine = (id?: string): string | undefined => {
+            const row = catalog.models.find(model => model.kind === 'voice' && model.id === id);
+            const ref = row?.ref ?? id;
+            return ref === 'voicevox' || ref === 'irodori' ? ref : ref?.startsWith('tts:') ? ref.slice(4) : undefined;
+        };
+        return { defaultEngineId: toEngine(selected.projectDefault) ?? toEngine(selected.appDefault),
+            favorites: selected.favorites.map(toEngine).filter((id): id is string => !!id) };
+    }
+    async startNarrationBatch(request: NarrationBatchRequest): Promise<NarrationCandidateBatch> {
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId) || !request.script.trim()
+            || !Array.isArray(request.routes) || !request.routes.length) throw new Error('ナレーションの入力が不正です。');
+        const routes = request.routes.map(row => row.engine);
+        if (new Set(routes).size !== routes.length || request.routes.some(row => !/^[a-z][a-z0-9-]*$/u.test(row.engine)
+            || !row.voice)) throw new Error('エンジンと声の選択が不正です。');
+        const engines = (await this.narrationCli.engines()).engines;
+        if (request.routes.some(row => !engines.some(engine => engine.id === row.engine
+            && (engine.availability.state === 'available' || engine.id === 'voicevox' && engine.availability.state === 'needs')))) {
+            throw new Error('使えないエンジンが含まれています。');
+        }
+        if (request.routes.some(row => engines.find(engine => engine.id === row.engine)?.place === 'cloud')
+            && request.approved !== true) throw new Error('費用承認が必要です。');
+        const frame = await this.narrationFrame(root, request.itemId);
+        const existing = [...await readCandidateMeta(root, request.itemId, '.wav'),
+            ...await readCandidateMeta(root, request.itemId, '.mp3')];
+        return this.narrationCandidates.batch(`${root}:${request.itemId}`, routes,
+            async () => ({ sidecarPath: frame.sidecarPath, original: frame.meta,
+                previousCandidates: existing.filter(row => row.meta.status === 'done').length }),
+            async engineId => this.narrationCandidates.runRoute(`${root}:${request.itemId}`, engineId, async () => {
+                const selected = request.routes.find(row => row.engine === engineId)!;
+                const extension = ['voicevox', 'irodori', 'chatterbox', 'gemini-3.8-flash-tts'].includes(engineId) ? 'wav' : 'mp3';
+                const relativePath = `assets/generated/candidates/${request.itemId}/${engineId}-${Date.now()}${Math.floor(Math.random() * 1000)}.${extension}`;
+                const started = Date.now();
+                try {
+                    const generated = await this.narrationCli.generate({ projectRootUri: request.projectRootUri,
+                        engine: engineId, voice: selected.voice, profile: selected.profile, style: selected.style,
+                        irodoriUrl: selected.irodoriUrl, script: request.script, reading: request.reading || request.script,
+                        t: request.t, approved: request.approved }, root, relativePath);
+                    if (this.narrationCandidates.isCancelled(`${root}:${request.itemId}`)) throw new Error('中止しました。');
+                    if (generated.status !== 'ok' || generated.path !== relativePath || !Number(generated.duration_s)) {
+                        throw new Error('音声を生成できませんでした。');
+                    }
+                    const bytes = await fs.readFile(join(root, relativePath));
+                    const elapsedSeconds = (Date.now() - started) / 1000;
+                    const meta = { ...frame.meta, kind: 'audio', status: 'done', candidate_of: request.itemId,
+                        route: engineId, voice: selected.voice, model: { id: `${engineId}:tts`, as_of: new Date().toISOString().slice(0, 10) },
+                        inputs: { ...frame.meta.inputs, prompt: request.script },
+                        output: { ...frame.meta.output, duration_s: generated.duration_s },
+                        cost: { ...frame.meta.cost, estimate_usd: generated.estimate_usd ?? generated.cost_usd ?? 0,
+                            actual_usd: generated.cost_usd ?? null, source: generated.cost_usd === undefined ? 'estimate' : 'provider' },
+                        job: { provider: engineId, started_at: new Date(started).toISOString(), elapsed_s: elapsedSeconds },
+                        result: { path: relativePath, bytes: bytes.length,
+                            sha256: createHash('sha256').update(bytes).digest('hex'), duration_s_actual: generated.duration_s } };
+                    await fs.writeFile(join(root, `${relativePath}.meta.json`), `${JSON.stringify(meta, null, 2)}\n`, { flag: 'wx' });
+                    return { ok: true, voice: selected.voice, status: 'done' as const, relativePath,
+                        durationSeconds: generated.duration_s, elapsedSeconds, costUsd: generated.cost_usd ?? 0 };
+                } catch (error) {
+                    await fs.rm(join(root, relativePath), { force: true }).catch(() => undefined);
+                    return { ok: false, voice: selected.voice, status: 'failed' as const,
+                        elapsedSeconds: (Date.now() - started) / 1000,
+                        reason: error instanceof Error ? error.message : String(error) };
+                }
+            }));
+    }
+    async readNarrationCandidates(request: { projectRootUri: string; itemId: string }): Promise<NarrationCandidateBatch> {
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const key = `${root}:${request.itemId}`;
+        const live = this.narrationCandidates.state(key);
+        const rows = [...await readCandidateMeta(root, request.itemId, '.wav'),
+            ...await readCandidateMeta(root, request.itemId, '.mp3')]
+            .sort((a, b) => String(a.meta.job?.started_at ?? '').localeCompare(String(b.meta.job?.started_at ?? ''))
+                || String(a.meta.route).localeCompare(String(b.meta.route)));
+        const candidates: NarrationCandidate[] = rows.map(row => ({ route: row.meta.route, voice: row.meta.voice ?? '',
+            ok: row.meta.status === 'done', status: row.meta.status, relativePath: row.relativePath,
+            durationSeconds: row.meta.result?.duration_s_actual, elapsedSeconds: row.meta.job?.elapsed_s,
+            costUsd: row.meta.cost?.actual_usd ?? row.meta.cost?.estimate_usd }));
+        const frame = await this.narrationFrame(root, request.itemId).catch(() => undefined);
+        const job = frame?.meta.job;
+        const failed = (job?.failed ?? []).map((row: { route: string; reason: string }) => ({
+            route: row.route, voice: '', ok: false, status: 'failed' as const, reason: row.reason
+        }));
+        return { routes: live?.routes ?? job?.routes ?? candidates.map(row => row.route),
+            completed: live?.completed ?? job?.completed ?? candidates.length + failed.length,
+            candidates: [...candidates, ...failed], results: [...candidates, ...failed], running: !!live?.running };
+    }
+    async cancelNarrationBatch(request: { projectRootUri: string; itemId: string }): Promise<void> {
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const key = `${root}:${request.itemId}`;
+        this.narrationCandidates.cancel(key);
+        const running = this.narrationCandidates.state(key);
+        if (!running) return;
+        await this.narrationCli.cancel(root, running.routes);
+    }
+    async adoptNarrationCandidate(request: { projectRootUri: string; itemId: string; relativePath: string }):
+        Promise<{ path: string; durationSeconds: number }> {
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const candidate = [...await readCandidateMeta(root, request.itemId, '.wav'),
+            ...await readCandidateMeta(root, request.itemId, '.mp3')].find(row => row.relativePath === request.relativePath);
+        if (!candidate || candidate.meta.status !== 'done' || !(candidate.meta.result?.duration_s_actual > 0)) {
+            throw new Error('採用できる候補がありません。');
+        }
+        const extension = extname(candidate.relativePath);
+        const directory = join(root, 'out', 'narration');
+        await fs.mkdir(directory, { recursive: true });
+        const names = await fs.readdir(directory);
+        let number = names.reduce((max, name) => Math.max(max, Number(/^n-(\d{4})\.(?:wav|mp3)$/u.exec(name)?.[1] ?? 0)), 0);
+        try {
+            const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+                audio?: { narration?: Array<{ id?: string }> };
+                tracks?: Array<{ items?: Array<{ id?: string }> }>;
+            };
+            const ids = [...(edit.audio?.narration ?? []).map(row => row.id),
+                ...(edit.tracks ?? []).flatMap(track => (track.items ?? []).map(row => row.id))];
+            for (const id of ids) if (id && /^n-\d{4}$/u.test(id)) number = Math.max(number, Number(id.slice(2)));
+        } catch { /* edit.json がまだ無い場合は既存ファイルから採番する。 */ }
+        for (;;) {
+            if (++number > 9999) throw new Error('ナレーション ID の上限に達しました。');
+            const path = `out/narration/n-${String(number).padStart(4, '0')}${extension}`;
+            let copiedAudio = false;
+            try {
+                await fs.copyFile(candidate.absolutePath, join(root, path), 1);
+                copiedAudio = true;
+                await fs.copyFile(join(root, `${candidate.relativePath}.meta.json`), join(root, `${path}.meta.json`), 1);
+                const frame = await this.narrationFrame(root, request.itemId);
+                const staging = `${frame.sidecarPath}.adopt-${randomUUID()}`;
+                await fs.writeFile(staging, `${JSON.stringify({ ...frame.meta, status: 'done',
+                    job: { ...frame.meta.job, provider: 'compare', completed: frame.meta.job?.completed } }, null, 2)}\n`);
+                await fs.rename(staging, frame.sidecarPath);
+                return { path, durationSeconds: candidate.meta.result.duration_s_actual };
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+                    if (copiedAudio) await fs.rm(join(root, path), { force: true });
+                    continue;
+                }
+                throw error;
+            }
+        }
     }
     async applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }> {
         const { projectRootUri, ...item } = request;

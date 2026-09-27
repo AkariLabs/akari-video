@@ -72,7 +72,7 @@ export class NarrationCliManager {
         return this.run(['narration', 'verify', '--project', root, '--audio', request.audio,
             '--text', request.text, ...(request.reading ? ['--reading', request.reading] : []), '--json'], root) as Promise<VerifyNarrationResult>;
     }
-    async generate(request: GenerateNarrationRequest, root: string): Promise<GenerateNarrationResult> {
+    async generate(request: GenerateNarrationRequest, root: string, candidateOut?: string): Promise<GenerateNarrationResult> {
         if (request.engine !== 'voicevox' && request.engine !== 'irodori' && request.approved !== true) {
             throw new Error('費用承認が必要です。');
         }
@@ -82,9 +82,10 @@ export class NarrationCliManager {
             await fs.writeFile(readingFile, request.reading, 'utf8');
             // CLI の自動採番は edit.json だけを見る。まとめ生成では配置まで edit.json を
             // 変えないため、未配置の out/narration も含めて ID を予約する。
-            const id = await this.nextOutputId(root);
+            const id = candidateOut ? undefined : await this.nextOutputId(root);
             const args = ['narration', 'generate', '--project', root, '--engine', request.engine,
-                '--text', request.script, '--reading-file', readingFile, '--id', id, '--json'];
+                '--text', request.script, '--reading-file', readingFile,
+                ...(id ? ['--id', id] : []), ...(candidateOut ? ['--out', candidateOut] : []), '--json'];
             if (request.engine === 'voicevox') args.push('--speaker', request.voice);
             else args.push('--voice', request.voice);
             if (request.profile) args.push('--profile', request.profile);
@@ -93,7 +94,7 @@ export class NarrationCliManager {
             if (request.irodoriUrl) args.push('--irodori-url', request.irodoriUrl);
             if (request.captionId) args.push('--caption-ref', request.captionId);
             if (request.engine !== 'voicevox' && request.engine !== 'irodori') args.push('--yes');
-            return await this.run(args, root, true) as GenerateNarrationResult;
+            return await this.run(args, `${root}:${request.engine}`, true) as GenerateNarrationResult;
         } finally {
             await fs.rm(directory, { recursive: true, force: true });
         }
@@ -116,12 +117,13 @@ export class NarrationCliManager {
         if (maximum >= 9999) throw new Error('ナレーション ID の上限に達しました。');
         return `n-${String(maximum + 1).padStart(4, '0')}`;
     }
-    async cancel(root: string): Promise<void> {
-        const child = this.children.get(root);
-        if (!child) return;
-        child.kill('SIGTERM');
-        const timer = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 3000);
-        child.once('close', () => clearTimeout(timer));
+    async cancel(root: string, engines?: readonly string[]): Promise<void> {
+        for (const [key, child] of this.children) {
+            if (!key.startsWith(`${root}:`) || engines && !engines.includes(key.slice(root.length + 1))) continue;
+            child.kill('SIGTERM');
+            const timer = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 3000);
+            child.once('close', () => clearTimeout(timer));
+        }
     }
     protected async run(args: string[], key?: string, allowApprovalExit = false, allowUnavailableExit = false): Promise<unknown> {
         const cli = await this.resolver.resolveCli();

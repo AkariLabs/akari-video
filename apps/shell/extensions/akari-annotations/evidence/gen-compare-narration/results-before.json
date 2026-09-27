@@ -1,0 +1,97 @@
+{
+  "phase": "before",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "single engine radio",
+      "pass": true,
+      "measured": [
+        {
+          "id": "voicevox",
+          "checked": true,
+          "type": "radio"
+        },
+        {
+          "id": "gemini-tts",
+          "checked": false,
+          "type": "radio"
+        },
+        {
+          "id": "fal-qwen3",
+          "checked": false,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "name": "running UI has no second start",
+      "pass": true,
+      "measured": {
+        "progress": "声を作っています · 0 秒",
+        "buttons": [
+          {
+            "text": "生成中…",
+            "disabled": true
+          },
+          {
+            "text": "キャンセル",
+            "disabled": false
+          }
+        ],
+        "radios": [
+          {
+            "id": "voicevox",
+            "checked": true
+          },
+          {
+            "id": "gemini-tts",
+            "checked": false
+          },
+          {
+            "id": "fal-qwen3",
+            "checked": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "generation immediately places narration",
+      "pass": true,
+      "measured": {
+        "beforeSource": "assets/generated/frame-audio-b.wav",
+        "afterSource": "out/narration/n-0001.wav"
+      }
+    },
+    {
+      "name": "placed narration visible in inspector",
+      "pass": true,
+      "measured": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "00-before-radio.png",
+      "bytes": 53235
+    },
+    {
+      "name": "00-before-running.png",
+      "bytes": 58868
+    },
+    {
+      "name": "00-before-placed.png",
+      "bytes": 74263
+    }
+  ],
+  "secondStart": {
+    "uiDisabled": true,
+    "engineChoices": "radio",
+    "attempted": false
+  },
+  "placement": {
+    "beforeSha256": "e50aa45fdd99a5b85be447920c59b0bdc17802a53387498979e7230e1c94ecbf",
+    "afterSha256": "8e72a213834773b1ab3ec841e40d2d84ad242f2cf75e735d0890fd61690b876b",
+    "beforeSource": "assets/generated/frame-audio-b.wav",
+    "afterSource": "out/narration/n-0001.wav"
+  },
+  "baseBuild": "a86274be5"
+}

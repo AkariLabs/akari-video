@@ -1,5 +1,6 @@
-import type { AkariAnnotationsService, NarrationEngine, NarrationVoice } from '../../common/akari-annotations-protocol';
+import type { AkariAnnotationsService, NarrationCandidate, NarrationEngine, NarrationVoice } from '../../common/akari-annotations-protocol';
 import { irodoriCustomVoiceMissing, narrationEstimate, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice } from '../../common/read-aloud-model';
+import { stillMakerBadge } from './maker-badge';
 import { aiNarrationNeedsChoice, placeAiNarration, planAiNarrationPlacement,
     type NarrationEdit, type NarrationTrack } from '../../common/ai-narration-placement';
 
@@ -7,9 +8,39 @@ export interface AiNarrationState {
     script: string; reading: string; style?: string; engineId: string; voiceId: string;
     voices: NarrationVoice[]; running: boolean; cancelled?: boolean; startedAt?: number; error?: string; placement?: string;
     placementChoice?: 'lower' | 'shift';
+    selectedEngineIds?: string[]; voicesByEngine?: Record<string, NarrationVoice[]>; voiceByEngine?: Record<string, string>;
+    preferredEngineId?: string; favorites?: string[]; candidates?: NarrationCandidate[]; completed?: number;
+    playingPath?: string; lastRoutes?: string[];
+    runningRoutes?: string[];
 }
 export interface AiNarrationActions {
-    change(): void; chooseEngine(engineId: string): void; generate(): void; cancel(): void;
+    change(): void; chooseEngine(engineId: string): void; chooseVoice?(engineId: string, voiceId: string): void;
+    generate(): void; cancel(): void; play?(candidate: NarrationCandidate): void; adopt?(candidate: NarrationCandidate): void;
+    retry?(candidate: NarrationCandidate): void;
+}
+
+export function selectedNarrationEngines(engines: readonly NarrationEngine[], preferred?: string): string[] {
+    return [selectReadAloudEngine(engines, preferred)?.id].filter((id): id is string => !!id);
+}
+
+export function orderedNarrationEngines(engines: readonly NarrationEngine[], favorites: readonly string[] = []): NarrationEngine[] {
+    return [...engines].sort((a, b) => Number(favorites.includes(b.id)) - Number(favorites.includes(a.id)));
+}
+
+export function narrationBatchConfirm(engines: readonly NarrationEngine[], reading: string):
+    { title: string; msg: string; ok: string; cancel: string } | undefined {
+    const paid = engines.filter(engine => engine.place === 'cloud');
+    if (!paid.length) return undefined;
+    const estimates = paid.map(engine => ({ engine, quote: narrationEstimate(engine, reading) }));
+    const total = estimates.some(row => row.quote.usd === null) ? '見積不可' :
+        `$${estimates.reduce((sum, row) => sum + (row.quote.usd ?? 0), 0).toFixed(3)}`;
+    return { title: '費用承認', msg: `${estimates.map(row => `${row.engine.label}: ${row.quote.usd === null ? '見積不可' : `$${row.quote.usd.toFixed(3)}`}`).join(' / ')}\n合計 ${total}。読み原稿 ${reading.length} 字を送ります。費用承認しますか`, ok: '費用承認する', cancel: 'キャンセル' };
+}
+
+export function narrationRowEstimate(engine: NarrationEngine, reading: string): string {
+    if (engine.place !== 'cloud') return '無料';
+    const quote = narrationEstimate(engine, reading);
+    return quote.usd === null ? '見積不可' : `見積 $${quote.usd.toFixed(3)}`;
 }
 
 export function aiNarrationChoiceVisible(state: Pick<AiNarrationState, 'script' | 'reading'>,
@@ -39,48 +70,65 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     readingLabel.append(reading);
     panel.append(scriptLabel, readingLabel, make('h4', 'heading', 'エンジン'));
     const cards = make('div', 'engines');
-    for (const engine of engines.filter(row => ['voicevox', 'gemini-tts', 'irodori'].includes(row.id)
-        || row.id === 'fal-qwen3' && row.availability.state === 'available')) {
-        const card = make('label', 'engine');
-        const radio = make('input', 'engine-radio'); radio.type = 'radio'; radio.name = 'akari-inspector-ai-narration-engine';
-        radio.value = engine.id; radio.checked = engine.id === state.engineId;
-        radio.disabled = engine.availability.state !== 'available' && !(engine.id === 'voicevox' && engine.availability.state === 'needs');
+    const rowEstimates: Array<{ engine: NarrationEngine; node: HTMLElement }> = [];
+    const shown = orderedNarrationEngines(engines.filter(row => ['voicevox', 'gemini-tts', 'irodori'].includes(row.id)
+        || row.id === 'fal-qwen3' && row.availability.state === 'available'), state.favorites);
+    for (const place of ['free', 'paid'] as const) {
+        const group = shown.filter(row => (row.place === 'cloud' ? 'paid' : 'free') === place);
+        if (!group.length) continue;
+        cards.append(make('h5', 'group', place === 'free' ? '追加料金なし' : '使った分だけ'));
+        for (const engine of group) {
+        const card = make('div', 'engine');
+        card.setAttribute('data-akari-narration-engine', engine.id);
+        const radio = make('input', 'engine-checkbox'); radio.type = 'checkbox';
+        radio.value = engine.id; radio.checked = (state.selectedEngineIds ?? [state.engineId]).includes(engine.id);
+        radio.disabled = state.running || engine.availability.state !== 'available' && !(engine.id === 'voicevox' && engine.availability.state === 'needs');
         radio.addEventListener('change', () => actions.chooseEngine(engine.id));
         const text = make('span', 'engine-text');
-        text.append(make('strong', 'engine-name', engine.id === 'fal-qwen3' ? '自声' : engine.label),
+        text.append(stillMakerBadge(engine.id === 'voicevox' ? 'voicevox' : engine.id === 'irodori' ? 'irodori'
+            : engine.id === 'fal-qwen3' ? 'qwen' : 'google'),
+            make('strong', 'engine-name', `${state.favorites?.includes(engine.id) ? '★ ' : ''}${engine.id === 'fal-qwen3' ? '自声' : engine.label}`),
             make('span', 'engine-cost', engine.place === 'local' ? 'この Mac · 無料'
                 : engine.place === 'network' ? `別の PC · ${engine.availability.detail?.url ?? '接続先を確認'}`
                     : `有料 · $${engine.price?.usd_per_1000_chars ?? 0} / 1000 字${engine.price?.verified === false ? '（暫定）' : ''}`),
             make('span', 'engine-availability', engine.availability.label));
-        card.append(radio, text); cards.append(card);
+        const rowEstimate = make('span', 'engine-estimate', narrationRowEstimate(engine, state.reading.trim() || state.script));
+        rowEstimates.push({ engine, node: rowEstimate });
+        text.append(rowEstimate);
+        card.append(radio, text);
+        const voiceLabel = make('label', 'label', '声');
+        const voice = make('select', 'voice'); voice.setAttribute('aria-label', `${engine.label} の声`);
+        for (const option of state.voicesByEngine?.[engine.id] ?? (engine.id === state.engineId ? state.voices : [])) {
+            const row = document.createElement('option'); row.value = option.id; row.textContent = option.label; voice.append(row);
+        }
+        voice.value = state.voiceByEngine?.[engine.id] ?? (engine.id === state.engineId ? state.voiceId : '');
+        voice.disabled = state.running || !radio.checked;
+        voice.addEventListener('change', () => actions.chooseVoice?.(engine.id, voice.value));
+        voiceLabel.append(voice); card.append(voiceLabel); cards.append(card);
+        }
     }
     panel.append(cards);
-    const voiceLabel = make('label', 'label', '声');
-    const voice = make('select', 'voice'); voice.setAttribute('aria-label', '声');
-    for (const option of state.voices) {
-        const row = document.createElement('option'); row.value = option.id; row.textContent = option.label; voice.append(row);
-    }
-    voice.value = state.voiceId;
-    voice.addEventListener('change', () => { state.voiceId = voice.value; actions.change(); });
-    voiceLabel.append(voice); panel.append(voiceLabel);
-    const engine = engines.find(row => row.id === state.engineId);
-    if (engine?.id === 'gemini-tts' || engine?.id === 'irodori' && state.voiceId === 'custom') {
-        const required = engine.id === 'irodori';
+    const selected = state.selectedEngineIds ?? [state.engineId];
+    if (selected.includes('gemini-tts') || selected.includes('irodori') && state.voiceByEngine?.irodori === 'custom') {
+        const required = selected.includes('irodori') && state.voiceByEngine?.irodori === 'custom';
         const styleLabel = make('label', 'label', required ? '声の指示（必須）' : '話し方の指示（任意）');
         const style = make('textarea', 'textarea'); style.value = state.style ?? '';
         style.setAttribute('aria-label', required ? '声の指示（必須）' : '話し方の指示（任意）');
         style.addEventListener('input', () => { state.style = style.value; actions.change(); });
-        styleLabel.append(style); panel.append(styleLabel);
+        styleLabel.append(style); panel.append(styleLabel, make('p', 'note', '話し方の指示は対応するエンジンにだけ効きます。'));
     }
     let estimateNode: HTMLParagraphElement | undefined;
     const updateEstimate = (): void => {
-        if (!engine || !estimateNode) return;
-        const estimate = narrationEstimate(engine, state.reading.trim() || state.script);
-        estimateNode.textContent = `${engine.label} · ${estimate.chars} 字 · ${estimate.label}`;
+        const currentReading = state.reading.trim() || state.script;
+        for (const row of rowEstimates) row.node.textContent = narrationRowEstimate(row.engine, currentReading);
+        if (!estimateNode) return;
+        const estimates = engines.filter(row => selected.includes(row.id)).map(row => narrationEstimate(row, currentReading));
+        const total = estimates.reduce((sum, row) => sum + (row.usd ?? 0), 0);
+        estimateNode.textContent = estimates.some(row => row.usd === null)
+            ? '合計見積不可（従量） · 承認 1 回' : `合計 $${total.toFixed(3)} · 承認 1 回`;
     };
-    if (engine) {
-        const estimate = narrationEstimate(engine, state.reading.trim() || state.script);
-        estimateNode = make('p', 'estimate', `${engine.label} · ${estimate.chars} 字 · ${estimate.label}`);
+    if (selected.length) {
+        estimateNode = make('p', 'estimate'); updateEstimate();
         panel.append(estimateNode);
     }
     const choice = make('fieldset', 'placement-choice');
@@ -106,14 +154,42 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         }
     };
     updateChoice(); panel.append(choice);
-    const button = make('button', 'button', state.running ? '生成中…' : state.error ? 'もう一度' : '声を作る');
-    button.type = 'button'; button.disabled = state.running || !state.script.trim() || !state.voiceId || !engine
-        || irodoriCustomVoiceMissing(engine.id, state.voiceId, state.style ?? '');
+    const button = make('button', 'button', state.running ? '生成中…' : state.error ? '同じ入力でもう一度' : `${selected.length} 案を作る`);
+    button.type = 'button'; button.disabled = state.running || !state.script.trim() || !selected.length
+        || selected.some(id => !state.voiceByEngine?.[id])
+        || irodoriCustomVoiceMissing(selected.includes('irodori') ? 'irodori' : undefined, state.voiceByEngine?.irodori ?? '', state.style ?? '');
     button.addEventListener('click', () => actions.generate()); panel.append(button);
     if (state.running) {
-        panel.append(make('p', 'progress', `声を作っています · ${Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000)} 秒`));
+        const activeRoutes = state.runningRoutes ?? selected;
+        panel.append(make('p', 'progress', `${activeRoutes.length} 案作成中 · ${state.completed ?? 0}/${activeRoutes.length}`));
+        for (const id of activeRoutes) {
+            const candidate = state.candidates?.find(row => row.route === id);
+            if (!candidate) panel.append(make('p', 'route-progress', `◌ ${engines.find(row => row.id === id)?.label ?? id} · ${Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000)} 秒`));
+        }
         const cancel = make('button', 'button', 'キャンセル'); cancel.type = 'button';
         cancel.addEventListener('click', () => actions.cancel()); panel.append(cancel);
+    }
+    if (state.candidates?.length) {
+        panel.append(make('h4', 'heading', `候補 ${state.candidates.filter(row => row.ok).length}`));
+        for (const candidate of state.candidates) {
+            const row = make('div', 'candidate'); row.setAttribute('data-akari-narration-candidate', candidate.route);
+            if (candidate.ok && candidate.relativePath) {
+                const play = make('button', 'play', state.playingPath === candidate.relativePath ? '■' : '▶');
+                play.type = 'button'; play.addEventListener('click', () => actions.play?.(candidate));
+                row.append(play);
+            }
+            row.append(make('span', 'candidate-label', `${engines.find(engine => engine.id === candidate.route)?.label ?? candidate.route} · ${candidate.voice || '声'} · ${candidate.durationSeconds?.toFixed(2) ?? '?'} 秒 · ${candidate.elapsedSeconds?.toFixed(1) ?? '?'} 秒 · $${(candidate.costUsd ?? 0).toFixed(3)}`));
+            if (candidate.ok) {
+                const adopt = make('button', 'adopt', 'この案を使う'); adopt.type = 'button';
+                adopt.addEventListener('click', () => actions.adopt?.(candidate)); row.append(adopt);
+            } else {
+                row.append(make('span', 'error', `失敗 · ${candidate.reason ?? '生成できませんでした。'}`));
+                const retry = make('button', 'retry', '同じ入力でもう一度'); retry.type = 'button';
+                retry.addEventListener('click', () => actions.retry?.(candidate)); row.append(retry);
+            }
+            panel.append(row);
+        }
+        panel.append(make('p', 'note', 'ほかの候補は素材に残ります。'));
     }
     if (state.error) panel.append(make('p', 'error', state.error));
     if (state.placement) panel.append(make('p', 'placement', state.placement));
@@ -155,10 +231,15 @@ export async function generateAiNarration(options: {
     return label;
 }
 
-export function initialAiNarrationState(engines: readonly NarrationEngine[]): AiNarrationState {
-    return { script: '', reading: '', style: '', engineId: selectReadAloudEngine(engines)?.id ?? '', voiceId: '',
-        voices: [], running: false, placementChoice: 'lower' };
+export function initialAiNarrationState(engines: readonly NarrationEngine[], preferred?: string): AiNarrationState {
+    const selected = selectedNarrationEngines(engines, preferred);
+    return { script: '', reading: '', style: '', engineId: selected[0] ?? '', voiceId: '',
+        voices: [], selectedEngineIds: selected, voicesByEngine: {}, voiceByEngine: {},
+        running: false, placementChoice: 'lower' };
 }
-export function chooseAiNarrationVoice(state: AiNarrationState, voices: readonly NarrationVoice[]): void {
-    state.voices = [...voices]; state.voiceId = selectReadAloudVoice(voices, state.voiceId)?.id ?? '';
+export function chooseAiNarrationVoice(state: AiNarrationState, voices: readonly NarrationVoice[], engineId = state.engineId): void {
+    state.voicesByEngine ??= {}; state.voiceByEngine ??= {};
+    state.voicesByEngine[engineId] = [...voices];
+    state.voiceByEngine[engineId] = selectReadAloudVoice(voices, state.voiceByEngine[engineId])?.id ?? '';
+    if (engineId === state.engineId) { state.voices = [...voices]; state.voiceId = state.voiceByEngine[engineId]; }
 }
