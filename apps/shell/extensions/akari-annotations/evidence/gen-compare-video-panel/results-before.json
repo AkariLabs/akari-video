@@ -1,0 +1,99 @@
+{
+  "phase": "before",
+  "status": "pass",
+  "step": "open generation",
+  "observations": {
+    "electronPid": 42107,
+    "panel": {
+      "modelControl": "SELECT",
+      "selected": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "selectedTitle": "fal:h3-i2v",
+      "options": [
+        {
+          "text": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+          "title": "fal:h3-i2v"
+        },
+        {
+          "text": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
+          "title": "fal:h3-ref"
+        },
+        {
+          "text": "Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）",
+          "title": "fal:kling-v3-standard-i2v"
+        },
+        {
+          "text": "Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）",
+          "title": "fal:kling-v3-pro-i2v"
+        },
+        {
+          "text": "Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）",
+          "title": "fal:veo-3.1-flf"
+        },
+        {
+          "text": "Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）",
+          "title": "fal:veo-3.1-ref"
+        },
+        {
+          "text": "Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）",
+          "title": "fal:seedance-2.0-i2v"
+        },
+        {
+          "text": "Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）",
+          "title": "fal:seedance-2.0-ref"
+        },
+        {
+          "text": "Seedance 2.5 · $0.2205/秒 · as_of 2026-09-12（fal:seedance-2.5-i2v）",
+          "title": "fal:seedance-2.5-i2v"
+        },
+        {
+          "text": "Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）",
+          "title": "fal:wan-2.7-i2v"
+        },
+        {
+          "text": "Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）",
+          "title": "fal:grok-imagine-i2v"
+        },
+        {
+          "text": "Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）",
+          "title": "fal:vidu-q3-i2v"
+        }
+      ],
+      "checkboxes": 1,
+      "actions": [
+        {
+          "name": "first-frame-current",
+          "text": "このクリップの絵"
+        },
+        {
+          "name": "first-frame-remove",
+          "text": "外す"
+        },
+        {
+          "name": "copy-adjacent",
+          "text": "隣から取る"
+        },
+        {
+          "name": "generate",
+          "text": "動画にする"
+        }
+      ],
+      "text": "生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · $0.2205/秒 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-"
+    }
+  },
+  "checks": [
+    {
+      "name": "BEFORE: モデルはドロップダウン（select）で 1 つだけ",
+      "pass": true,
+      "detail": {
+        "modelControl": "SELECT",
+        "options": 12
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "00-before-model-dropdown.png",
+      "bytes": 274689
+    }
+  ]
+}

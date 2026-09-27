@@ -178,7 +178,7 @@ export interface VideoCandidate {
 }
 export interface VideoCandidateBatch { routes: string[]; completed: number; candidates: VideoCandidate[]; results: VideoCandidate[]; running: boolean; }
 export interface VideoBatchRequest extends GenerationProcessRequest { models: string[]; approved?: boolean; }
-export interface VideoBatchEstimate { models: Array<{ modelId: string; estimateUsd: number | null; asOf?: string | null; needs_explicit_confirm: boolean }>;
+export interface VideoBatchEstimate { models: Array<{ modelId: string; estimateUsd: number | null; asOf?: string | null; needs_explicit_confirm: boolean; error?: string }>;
     totalUsd: number; needs_explicit_confirm: boolean; }
 export interface PreferredVideoRoutes { defaultModelId: string; favorites: string[]; source: 'project' | 'app' | 'generation'; }
 

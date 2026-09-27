@@ -1180,15 +1180,18 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const catalog = await this.readGenerationCatalog();
         const models = await Promise.all(request.models.map(async modelId => {
             const model = catalog.models.find(row => row.id === modelId);
-            if (!model) throw new Error(`生成モデルがカタログにありません: ${modelId}`);
+            if (!model || model.kind !== 'video') return { modelId, estimateUsd: null, needs_explicit_confirm: false,
+                error: `生成モデルがカタログにありません: ${modelId}` };
             const next = frame.meta.next?.kind === 'video' ? frame.meta.next : {};
-            const inputs = { ...(next.inputs ?? {}), first_frame: next.inputs?.first_frame
-                ?? (model.inputs?.first_frame !== 'none' ? { path: frame.sourcePath } : null) };
+            const inputs = { ...(next.inputs ?? {}), first_frame: Object.prototype.hasOwnProperty.call(next.inputs ?? {}, 'first_frame')
+                ? next.inputs.first_frame : model.inputs?.first_frame !== 'none' ? { path: frame.sourcePath } : null };
             const resolution = model.resolutions?.includes(next.output?.resolution) ? next.output.resolution
                 : model.resolutions?.find(value => Number.isFinite(model.price?.by_resolution?.[value])) ?? model.resolutions?.[0] ?? null;
             const output = { ...(next.output ?? {}), duration_s: next.output?.duration_s ?? frame.durationSeconds, resolution };
             const validation = await this.validateGenerationInputs({ modelId, inputs, output });
-            if (!validation.ok) throw new Error(`${modelId}: ${validation.messages.filter(message => message.level === 'error').map(message => message.text).join(' / ')}`);
+            if (!validation.ok) return { modelId, estimateUsd: null, needs_explicit_confirm: false,
+                error: validation.messages.filter(message => message.level === 'error').map(message => message.text).join(' / ')
+                    || 'この枠の条件では使えません。' };
             const estimateUsd = validation.cost.estimate_usd;
             return { modelId, estimateUsd, asOf: validation.cost.as_of,
                 needs_explicit_confirm: estimateUsd === null };
@@ -1199,7 +1202,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     async startGenerateVideoBatch(request: VideoBatchRequest): Promise<VideoCandidateBatch> {
         if (request.approved !== true) throw new Error('費用承認が必要です。');
-        await this.estimateVideoBatch(request);
+        const estimate = await this.estimateVideoBatch(request);
+        const invalid = estimate.models.find(model => model.error);
+        if (invalid) throw new Error(`${invalid.modelId}: ${invalid.error}`);
         const frame = await this.videoFrame(request);
         return this.videoCandidates.batch(request.itemId, request.models, async () => {
             const at = new Date().toISOString();

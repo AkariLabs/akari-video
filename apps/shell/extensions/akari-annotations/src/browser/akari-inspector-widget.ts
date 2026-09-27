@@ -12,6 +12,7 @@ import { CAPTION_FONT_FAMILY, CAPTION_FONT_LOAD_DESCRIPTOR, captionFontFaceCss }
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine, StillCandidate, ImageRouteState } from '../common/akari-annotations-protocol';
+import type { VideoCandidate, VideoCandidateBatch } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { captionRunRows } from './inspector/caption-run-rows';
 import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
@@ -51,6 +52,8 @@ import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
 import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, type AiStillState, type StillAspect, type StillFalEstimate } from './inspector/ai-still-panel';
+import { appendAiVideoCandidatesPanel, clearVideoPlayer, replaceVideoInEdit, videoApprovalMessage, videoModelGroups, videoModelName,
+    videoProgress, videoProgressCandidate, videoProgressLayoutKey, type AiVideoState } from './inspector/ai-video-candidates-panel';
 import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
@@ -3130,6 +3133,9 @@ export class AkariInspectorWidget extends BaseWidget {
     protected photoAiOpening?: 'tiles' | 'cutout' | 'eraser';
     protected aiStillSelectionClipKey?: string;
     protected readonly aiStillStates = new Map<string, AiStillState>();
+    protected readonly aiVideoStates = new Map<string, AiVideoState>();
+    protected aiVideoWorkspaceKey?: string;
+    protected aiVideoPlayerItemKey?: string;
     protected stillFalEstimate?: StillFalEstimate;
     protected stillFalEstimateLoading?: Promise<void>;
     protected previewedStillItemId?: string;
@@ -3357,9 +3363,11 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-progress-row { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border: 1px solid var(--akari-line); border-radius: 5px; margin-top: 4px; }
 .akari-inspector-ai-still-progress[data-akari-inspector-ai-progress-running="true"] { position: sticky; bottom: 8px; z-index: 3; padding: 5px; background: var(--akari-bg); border: 1px solid var(--akari-line); border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, .24); }
 .akari-inspector-ai-still-progress-thumbnail { width: 44px; height: 32px; margin-left: auto; object-fit: contain; border-radius: 3px; }
-.akari-inspector-ai-still-progress-row[data-akari-inspector-ai-progress-state="running"]::before { content: ''; width: 9px; height: 9px; border: 2px solid var(--akari-line); border-top-color: var(--akari-accent); border-radius: 50%; animation: akari-still-spin 1s linear infinite; }
+.akari-inspector-ai-still-progress-row[data-akari-inspector-ai-progress-state="running"]::before,
+.akari-inspector-ai-still-progress-row[data-akari-inspector-video-progress-state="running"]::before { content: ''; width: 9px; height: 9px; border: 2px solid var(--akari-line); border-top-color: var(--akari-accent); border-radius: 50%; animation: akari-still-spin 1s linear infinite; }
 @keyframes akari-still-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .akari-inspector-ai-still-progress-row[data-akari-inspector-ai-progress-state="running"]::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .akari-inspector-ai-still-progress-row[data-akari-inspector-ai-progress-state="running"]::before,
+.akari-inspector-ai-still-progress-row[data-akari-inspector-video-progress-state="running"]::before { animation: none; } }
 .akari-inspector-ai-still-candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 7px; }
 .akari-inspector-ai-still-candidate { display: grid; gap: 5px; padding: 5px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; text-align: left; cursor: pointer; font-size: 11px; }
 .akari-inspector-ai-still-candidate[data-akari-inspector-ai-candidate-selected="true"] { border: 2px solid var(--akari-accent); }
@@ -5518,6 +5526,9 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
                 this.appendSection(section, rowSnapshot, sectionKind);
             });
+        if (activeTab === 'edit' && this.aiView === 'video' && generationIdentity
+            && !generationIdentity.key.startsWith('material:')
+            && typeof this.appendVideoCandidatesPanel === 'function') this.appendVideoCandidatesPanel(generationIdentity);
         if (activeTab === 'audio' && sectionKind === 'audio') {
             if (!this.solo) AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
                 this.appendAdjustPreviewSection(section, sectionKind, 'audio-item'));
@@ -5592,6 +5603,7 @@ export class AkariInspectorWidget extends BaseWidget {
     override dispose(): void {
         if (this.transcribeTimer) clearInterval(this.transcribeTimer);
         if (this.narrationTick) window.clearInterval(this.narrationTick);
+        for (const state of this.aiVideoStates?.values() ?? []) clearVideoPlayer(state);
         this.cancelGenerationFramePick();
         this.syncAdjustCompare(undefined, '');
         this.lutGeneration++;
@@ -6871,14 +6883,17 @@ export class AkariInspectorWidget extends BaseWidget {
     } | undefined {
         if (!snapshot || snapshot.kind === 'multi') return undefined;
         if (snapshot.kind === 'cut') {
-            if (!snapshot.itemId || !snapshot.sourcePath || (this.generationDone?.get(snapshot.itemId)?.sourcePath !== snapshot.sourcePath && !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.sourcePath))) return undefined;
+            if (!snapshot.itemId || !snapshot.sourcePath || (this.generationDone?.get(snapshot.itemId)?.sourcePath !== snapshot.sourcePath
+                && !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.sourcePath)
+                && !/^assets\/generated\/candidates\/[^/]+\/[^/]+\.mp4$/u.test(snapshot.sourcePath))) return undefined;
             return {
                 key: snapshot.itemId, itemId: snapshot.itemId, sourcePath: snapshot.sourcePath,
                 duration: Math.max(0, snapshot.outputEnd - snapshot.outputStart), sourceId: snapshot.src
             };
         }
         if (snapshot.kind === 'layer' && snapshot.sourceKind === 'media' && snapshot.src
-            && (this.generationDone?.get(snapshot.id)?.sourcePath === snapshot.src || /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.src))) {
+            && (this.generationDone?.get(snapshot.id)?.sourcePath === snapshot.src || /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.src)
+                || /^assets\/generated\/candidates\/[^/]+\/[^/]+\.mp4$/u.test(snapshot.src))) {
             return { key: snapshot.id, itemId: snapshot.id, sourcePath: snapshot.src, duration: snapshot.duration };
         }
         return undefined;
@@ -7151,6 +7166,346 @@ export class AkariInspectorWidget extends BaseWidget {
         return this.generationThumbnails.get(uri);
     }
 
+    protected appendVideoCandidatesPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): void {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const workspaceKey = root?.toString();
+        if (workspaceKey && this.aiVideoWorkspaceKey && workspaceKey !== this.aiVideoWorkspaceKey) {
+            for (const previous of this.aiVideoStates.values()) clearVideoPlayer(previous);
+            this.aiVideoStates.clear();
+        }
+        this.aiVideoWorkspaceKey = workspaceKey;
+        if (this.aiVideoPlayerItemKey && this.aiVideoPlayerItemKey !== identity.key) {
+            const previous = this.aiVideoStates.get(this.aiVideoPlayerItemKey);
+            if (previous) clearVideoPlayer(previous);
+        }
+        this.aiVideoPlayerItemKey = identity.key;
+        let state = this.aiVideoStates.get(identity.key);
+        if (!state) {
+            state = { selected: new Set(), thumbnails: new Map(), running: false };
+            this.aiVideoStates.set(identity.key, state);
+        }
+        const current = state;
+        if (root && !current.loading && !current.loaded) {
+            current.loading = true;
+            void (async () => {
+                try {
+                    const preferred = await this.layerAudioService.readPreferredRoutes('video', root.toString());
+                    if (this.aiVideoStates.get(identity.key) !== current) return;
+                    current.preferred = preferred;
+                    const groups = videoModelGroups(this.generationCatalog, preferred);
+                    const usual = groups.usual[0] ?? groups.favorites[0] ?? groups.others[0];
+                    const editable = !/\.mp4$/iu.test(identity.sourcePath)
+                        && this.generationStates.get(identity.key) !== 'generating';
+                    if (usual) {
+                        current.selected.add(usual.id);
+                        if (editable && this.generationDrafts.get(identity.key)?.modelId !== usual.id) {
+                            await this.updateGenerationDraft(identity, 'modelId', usual.id);
+                        }
+                    }
+                    if (editable && this.generationDrafts.get(identity.key)) {
+                        await this.persistGenerationDraft(identity);
+                        await this.refreshVideoEstimate(identity);
+                    }
+                    current.batch = await this.layerAudioService.readVideoCandidates({
+                        projectRootUri: root.toString(), itemId: identity.itemId });
+                    current.running = current.batch.running;
+                    current.externalRunning = current.running;
+                    if (current.running) current.startedAt = Date.now();
+                    this.refreshVideoTimelineProgress(root, current);
+                    if (current.running) void this.pollVideoCandidates(identity, current);
+                } catch (error) { current.error = error instanceof Error ? error.message : String(error); }
+                finally { current.loading = false; current.loaded = true; this.renderVideoCandidates(); }
+            })();
+        }
+        appendAiVideoCandidatesPanel(this.body, current, this.generationCatalog, {
+            select: (modelId, checked) => {
+                if (checked) current.selected.add(modelId); else current.selected.delete(modelId);
+                const preferred = current.preferred;
+                const groups = videoModelGroups(this.generationCatalog, preferred);
+                const detail = groups.usual.find(row => current.selected.has(row.id))
+                    ?? [...groups.favorites, ...groups.others].find(row => current.selected.has(row.id));
+                if (detail && this.generationDrafts.get(identity.key)?.modelId !== detail.id)
+                    void this.updateGenerationDraft(identity, 'modelId', detail.id);
+                else this.renderVideoCandidates();
+            },
+            generate: models => void this.startVideoCandidates(identity, models),
+            cancel: () => void this.cancelVideoCandidates(identity),
+            pick: candidate => void this.pickVideoCandidate(identity, candidate),
+            adopt: () => void this.adoptVideoCandidate(identity),
+            thumbnail: (candidate, image) => {
+                const path = candidate.relativePath;
+                if (!path) return;
+                const cached = current.thumbnails.get(path);
+                if (cached) { image.src = cached; return; }
+                current.thumbnailLoads ??= new Map();
+                if (current.thumbnailLoads.has(path)) return;
+                const pending = (async () => {
+                    for (let attempt = 0; attempt < 6 && !this.isDisposed; attempt++) {
+                        const src = await this.generationThumbnail(path);
+                        if (src) {
+                            current.thumbnails.set(path, src);
+                            for (const visible of Array.from(this.body.querySelectorAll<HTMLImageElement>(
+                                '[data-akari-inspector-video-candidate-thumbnail]'))) {
+                                if (visible.getAttribute('data-akari-inspector-video-candidate-thumbnail') === path) visible.src = src;
+                            }
+                            return;
+                        }
+                        if (root) this.generationThumbnails.delete(root.resolve(path.replace(/\\/gu, '/')).toString());
+                        await new Promise<void>(resolve => window.setTimeout(resolve, 300 * (attempt + 1)));
+                    }
+                })().finally(() => current.thumbnailLoads?.delete(path));
+                current.thumbnailLoads.set(path, pending);
+            }
+        });
+    }
+
+    protected renderVideoCandidates(): void {
+        if (this.aiView !== 'video') return;
+        this.rememberedView = { ...this.rememberedView, scrollTop: this.node.scrollTop };
+        this.render();
+    }
+
+    protected refreshVideoTimelineProgress(root: URI, state: AiVideoState, force = false): Promise<void> {
+        const batch = state.batch;
+        if (!batch) return Promise.resolve();
+        const key = `${batch.running}:${batch.routes.join(',')}:${batch.completed}:${batch.candidates.filter(row => row.ok).length}`;
+        if (state.timelineProgressKey === key && !force) return state.timelineReload ?? Promise.resolve();
+        state.timelineProgressKey = key;
+        state.timelineReload = (state.timelineReload ?? Promise.resolve()).catch(() => undefined).then(async () => {
+            const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+                const location = (widget as unknown as { location?: { root?: URI } }).location;
+                return !widget.isDisposed && location?.root?.toString() === root.toString();
+            }) as unknown as { reloadGenerationSidecars?: () => Promise<void> } | undefined;
+            await timeline?.reloadGenerationSidecars?.();
+        });
+        return state.timelineReload;
+    }
+
+    protected syncVideoProgressRows(state: AiVideoState): void {
+        if (this.aiView !== 'video' || !state.batch) return;
+        const panel = this.body.querySelector('[data-akari-inspector-video-panel]');
+        const progress = panel?.querySelector<HTMLElement>('[data-akari-inspector-video-progress]');
+        if (!progress) return;
+        progress.setAttribute('data-akari-inspector-video-progress', `${state.batch.completed}/${state.batch.routes.length}`);
+        for (const row of Array.from(progress.querySelectorAll<HTMLElement>('[data-akari-inspector-video-progress-model]'))) {
+            const route = row.getAttribute('data-akari-inspector-video-progress-model');
+            if (!route) continue;
+            const candidate = videoProgressCandidate(state, route);
+            const elapsed = candidate?.elapsedSeconds ?? Math.max(0, (Date.now() - (state.startedAt ?? Date.now())) / 1000);
+            const status = videoProgress(candidate, elapsed);
+            const model = this.generationCatalog.find(entry => entry.id === route);
+            const text = `${status.state === 'done' ? '✓' : status.state === 'failed' ? '×' : '◌'} ${model ? videoModelName(model) : route} · ${status.label}`;
+            row.setAttribute('data-akari-inspector-video-progress-state', status.state);
+            row.setAttribute('data-akari-inspector-video-progress-elapsed', String(Math.round(elapsed)));
+            row.setAttribute('data-akari-inspector-video-progress-queue', candidate?.queueStatus ?? '');
+            if (row.textContent !== text) row.textContent = text;
+        }
+    }
+
+    protected async refreshVideoEstimate(identity: { key: string; itemId: string }): Promise<void> {
+        const state = this.aiVideoStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root || state.running) return;
+        const models = this.generationCatalog.filter(row => row.kind === 'video' && row.callable !== false).map(row => row.id);
+        const key = JSON.stringify([root.toString(), identity.itemId, this.generationDrafts.get(identity.key), models]);
+        if (state.estimateKey === key) return state.estimateLoading;
+        state.estimateKey = key;
+        state.estimate = undefined;
+        const loading = (async () => {
+            try {
+                const estimate = await this.layerAudioService.estimateVideoBatch({ projectRootUri: root.toString(),
+                    itemId: identity.itemId, models });
+                if (state.estimateKey === key) { state.estimate = estimate; this.renderVideoCandidates(); }
+            } catch (error) {
+                if (state.estimateKey === key) { state.error = error instanceof Error ? error.message : String(error); this.renderVideoCandidates(); }
+            }
+        })();
+        state.estimateLoading = loading;
+        await loading;
+        if (state.estimateLoading === loading) state.estimateLoading = undefined;
+    }
+
+    protected async startVideoCandidates(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string },
+        onlyModels?: string[]): Promise<void> {
+        const state = this.aiVideoStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root || state.running) return;
+        const models = onlyModels ?? [...state.selected];
+        if (!models.length) return;
+        const visibleDraft = this.generationDrafts.get(identity.key);
+        const retryDraft = onlyModels && state.batchDraft;
+        try {
+            if (retryDraft) this.generationDrafts.set(identity.key, structuredClone(retryDraft));
+            await this.persistGenerationDraft(identity);
+            await this.refreshVideoEstimate(identity);
+            const estimate = state.estimate;
+            if (!estimate || models.some(id => !estimate.models.some(row => row.modelId === id && !row.error))) {
+                throw new Error('この枠で使えないモデルがあります。');
+            }
+            const approved = await new ConfirmDialog({ title: '費用承認',
+                msg: videoApprovalMessage(estimate, new Set(models), this.generationCatalog),
+                ok: '費用承認する', cancel: 'キャンセル' }).open();
+            if (!approved) return;
+            if (!onlyModels) state.batchDraft = structuredClone(this.generationDrafts.get(identity.key)!);
+            state.error = undefined; state.running = true; state.externalRunning = false; state.startedAt = Date.now();
+            state.batchBaseline = new Set(state.batch?.candidates.flatMap(row => row.relativePath ? [row.relativePath] : []) ?? []);
+            state.batch = { routes: models, completed: 0, candidates: [], results: [], running: true };
+            this.generationStates.set(identity.key, 'generating');
+            this.renderVideoCandidates();
+            const work = this.layerAudioService.startGenerateVideoBatch({ projectRootUri: root.toString(),
+                itemId: identity.itemId, models, approved: true });
+            void this.pollVideoCandidates(identity, state);
+            const result = await work;
+            if (!state.running) return;
+            state.batch = await this.layerAudioService.readVideoCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+            state.running = false;
+            this.syncVideoProgressRows(state);
+            await this.refreshVideoTimelineProgress(root, state, true);
+            this.generationLoads.delete(identity.key);
+            await this.loadGeneration(identity);
+            if (models.length === 1) {
+                const candidate = result.candidates.find(row => row.ok && row.relativePath);
+                if (candidate) {
+                    const finished = state.batch.candidates.find(row => row.relativePath === candidate.relativePath);
+                    if (finished) { state.picked = finished.relativePath; await this.adoptVideoCandidate(identity); }
+                }
+            }
+        } catch (error) { state.error = error instanceof Error ? error.message : String(error); }
+        finally {
+            state.running = false;
+            if (retryDraft && visibleDraft) {
+                this.generationDrafts.set(identity.key, visibleDraft);
+                await this.persistGenerationDraft(identity).catch(error => {
+                    state.error = error instanceof Error ? error.message : String(error);
+                });
+            }
+            this.renderVideoCandidates();
+        }
+    }
+
+    protected async pollVideoCandidates(identity: { key: string; itemId: string; sourcePath?: string }, state: AiVideoState): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root || state.polling) return;
+        state.polling = true;
+        while (state.running && !this.isDisposed) {
+            try {
+                const batch = await this.readVideoCandidatesFromFiles(identity, state, root);
+                const before = state.batch ? videoProgressLayoutKey(state.batch) : '';
+                state.batch = batch;
+                void this.refreshVideoTimelineProgress(root, state);
+                if (videoProgressLayoutKey(batch) !== before) this.renderVideoCandidates();
+                this.syncVideoProgressRows(state);
+                if (state.externalRunning && !batch.running && batch.routes.length) {
+                    state.running = false;
+                    state.externalRunning = false;
+                    await this.refreshVideoTimelineProgress(root, state, true);
+                    this.generationLoads.delete(identity.key);
+                    const current = this.generationIdentity(this.model.snapshot);
+                    if (current?.key === identity.key) void this.loadGeneration(current);
+                    this.renderVideoCandidates();
+                }
+            } catch (error) { console.warn('[akari-video] 候補の進捗を読めませんでした', error); }
+            await new Promise<void>(resolve => window.setTimeout(resolve, 300));
+        }
+        state.polling = false;
+    }
+
+    /** Read sidecars through FileService while the long generation RPC occupies the annotations connection. */
+    protected async readVideoCandidatesFromFiles(identity: { itemId: string; sourcePath?: string },
+        state: AiVideoState, root: URI): Promise<VideoCandidateBatch> {
+        let frame: any = {};
+        if (identity.sourcePath) {
+            try { frame = JSON.parse((await this.fileService.readFile(root.resolve(`${identity.sourcePath}.meta.json`))).value.toString()); }
+            catch { /* The batch can start before the first sidecar write. */ }
+        }
+        const job = frame.job?.provider === 'compare' ? frame.job : undefined;
+        const fresh = state.externalRunning || Number.isFinite(Date.parse(job?.started_at))
+            && Date.parse(job.started_at) >= (state.startedAt ?? 0) - 2000;
+        const directory = root.resolve(`assets/generated/candidates/${identity.itemId}`);
+        const children = await this.fileService.resolve(directory, { resolveMetadata: true })
+            .then(result => result.children ?? []).catch(() => []);
+        const loaded = await Promise.all(children.filter(child => child.isFile && child.resource.path.base.endsWith('.mp4.meta.json'))
+            .map(async child => {
+                try {
+                    const meta = JSON.parse((await this.fileService.readFile(child.resource)).value.toString());
+                    if (meta.candidate_of !== identity.itemId || typeof meta.route !== 'string') return undefined;
+                    const relativePath = `assets/generated/candidates/${identity.itemId}/${child.resource.path.base.slice(0, -'.meta.json'.length)}`;
+                    return { startedAt: String(meta.job?.started_at ?? ''), candidate: {
+                        route: meta.route, ok: meta.status === 'done', status: meta.status,
+                        relativePath, queueStatus: meta.job?.queue_status,
+                        elapsedSeconds: meta.result?.elapsed_s, costUsd: meta.cost?.estimate_usd ?? null,
+                        durationSeconds: meta.result?.duration_s_actual,
+                        width: meta.result?.width, height: meta.result?.height,
+                        ...(meta.status === 'failed' ? { reason: meta.history?.at(-1)?.reason } : {})
+                    } as VideoCandidate };
+                } catch { return undefined; }
+            }));
+        const candidates = loaded.filter((row): row is NonNullable<typeof row> => !!row)
+            .sort((a, b) => a.startedAt.localeCompare(b.startedAt)
+                || a.candidate.route.localeCompare(b.candidate.route)
+                || String(a.candidate.relativePath).localeCompare(String(b.candidate.relativePath)))
+            .map(row => row.candidate);
+        if (fresh && Array.isArray(job?.failed)) for (const failed of job.failed) {
+            if (typeof failed?.route === 'string' && !candidates.some(row => row.route === failed.route && row.status === 'failed')) {
+                candidates.push({ route: failed.route, ok: false, status: 'failed', reason: failed.reason });
+            }
+        }
+        const routes = fresh && Array.isArray(job?.routes) ? job.routes : state.batch?.routes ?? [];
+        const completed = fresh && Number.isFinite(job?.completed) ? job.completed : state.batch?.completed ?? 0;
+        const running = state.externalRunning && frame.status ? frame.status === 'generating' : state.running;
+        return { routes, completed, candidates, results: [], running };
+    }
+
+    protected async cancelVideoCandidates(identity: { key: string; itemId: string }): Promise<void> {
+        const state = this.aiVideoStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state?.running || !root) return;
+        state.running = false;
+        await this.layerAudioService.cancelGenerateVideoBatch({ projectRootUri: root.toString(), itemId: identity.itemId });
+        state.batch = await this.layerAudioService.readVideoCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+        await this.refreshVideoTimelineProgress(root, state, true);
+        const current = this.generationIdentity(this.model.snapshot);
+        if (current?.key === identity.key) { this.generationLoads.delete(identity.key); void this.loadGeneration(current); }
+        this.renderVideoCandidates();
+    }
+
+    protected async pickVideoCandidate(identity: { key: string; itemId: string }, candidate: VideoCandidate): Promise<void> {
+        const state = this.aiVideoStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root || !candidate.relativePath) return;
+        if (state.picked === candidate.relativePath && state.playerUrl) return;
+        clearVideoPlayer(state);
+        state.picked = candidate.relativePath; state.playerUrl = undefined;
+        this.renderVideoCandidates();
+        try {
+            const data = await this.fileService.readFile(root.resolve(candidate.relativePath));
+            if (state.picked !== candidate.relativePath) return;
+            state.playerUrl = URL.createObjectURL(new Blob([data.value.buffer as ArrayBuffer], { type: 'video/mp4' }));
+            this.renderVideoCandidates();
+        } catch (error) { state.error = error instanceof Error ? error.message : String(error); this.renderVideoCandidates(); }
+    }
+
+    protected async adoptVideoCandidate(identity: { key: string; itemId: string }): Promise<void> {
+        const state = this.aiVideoStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const candidate = state?.batch?.candidates.find(row => row.relativePath === state.picked && row.ok);
+        if (!state || !root || !candidate || state.running || state.adopting) return;
+        state.adopting = true;
+        const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+            const location = (widget as unknown as { location?: { root?: URI } }).location;
+            return !widget.isDisposed && location?.root?.toString() === root.toString();
+        }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
+        if (!timeline?.commitEditMutation) { state.error = 'タイムラインの編集履歴が見つかりません。'; state.adopting = false; this.renderVideoCandidates(); return; }
+        try {
+            await timeline.commitEditMutation('この案を使う', doc => replaceVideoInEdit(doc, identity.itemId, candidate));
+            this.generationDone.set(identity.key, { sourcePath: candidate.relativePath!, meta: { kind: 'video', status: 'done' }, originalMeta: undefined });
+            this.generationStates.set(identity.key, 'done');
+            clearVideoPlayer(state);
+            this.renderVideoCandidates();
+        } catch (error) { state.error = error instanceof Error ? error.message : String(error); this.renderVideoCandidates(); }
+        finally { state.adopting = false; }
+    }
+
     protected async validateGenerationDraft(key: string): Promise<void> {
         const draft = this.generationDrafts.get(key);
         if (!draft) return;
@@ -7177,6 +7532,7 @@ export class AkariInspectorWidget extends BaseWidget {
             snapshot, catalogRow: row, draft, validation: this.generationValidations.get(identity.key),
             defaults: {
                 catalog: this.generationCatalog, currentImage: identity.sourcePath,
+                compareMode: !identity.key.startsWith('material:'),
                 ...this.generationNeighbors?.get(identity.key), thumbnail: path => this.generationThumbnail(path),
                 state: this.generationStates.get(identity.key),
                 cheapDraft: this.generationQuality?.get(identity.key)?.modelId === row.id && this.generationQuality.get(identity.key)?.enabled,
@@ -7313,6 +7669,7 @@ export class AkariInspectorWidget extends BaseWidget {
         });
         this.generationWrites.set(identity.key, write);
         await write;
+        if (this.aiVideoStates?.has(identity.key) && typeof this.refreshVideoEstimate === 'function') void this.refreshVideoEstimate(identity);
         if (this.generationIdentity(this.model.snapshot)?.key === identity.key
             || (this.materialSelection?.mediaKind === 'image' && `material:${this.materialSelection.relativePath}` === identity.key)) this.render();
     }

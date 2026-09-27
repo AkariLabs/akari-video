@@ -27,6 +27,8 @@ export interface GenerationReferenceCapability {
 export interface GenerationCatalogRow {
     id: string;
     kind: string;
+    provider?: string;
+    callable?: boolean;
     family?: string;
     inputs: {
         first_frame: 'required' | 'optional' | 'none';
@@ -106,6 +108,7 @@ export interface GenerationFieldsOptions<TSnapshot> {
     validation?: GenerationValidation;
     defaults: {
         catalog: readonly GenerationCatalogRow[]; state?: string;
+        compareMode?: boolean;
         cheapDraft?: boolean; finalQuality?: boolean; doneMeta?: unknown; originalNext?: unknown;
         currentImage?: string; previousImage?: string; nextImage?: string;
         thumbnail?: (path: string) => Promise<string | undefined>;
@@ -270,7 +273,7 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
 }: GenerationFieldsOptions<TSnapshot>): GenerationFieldDef<TSnapshot>[] {
     const canFinalize = generationCanFinalize(defaults.doneMeta, defaults.originalNext, catalogRow);
     if (defaults.state === 'done' && (defaults.doneMeta as GenerationMetaV1 | undefined)?.kind === 'video'
-        && !defaults.finalQuality) return canFinalize ? [{
+        && !defaults.finalQuality) return canFinalize && !defaults.compareMode ? [{
         name: 'generation-actions', label: '操作', getValue: () => '', actions: [{
             name: 'final-quality', label: '本番の画質にする…', title: '本番の画質にする…',
             action: () => actions.finalQuality!()
@@ -284,7 +287,7 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     const labels = videoRows.map(generationFactLabel);
     const byLabel = new Map(videoRows.map(row => [generationFactLabel(row), row.id]));
     const selectedLabel = generationFactLabel(catalogRow);
-    const fields: GenerationFieldDef<TSnapshot>[] = [{
+    const fields: GenerationFieldDef<TSnapshot>[] = defaults.compareMode ? [] : [{
         name: 'generation-model', label: 'モデル', inputKind: 'select', options: labels,
         optionTitles: Object.fromEntries(videoRows.map(row => [generationFactLabel(row), row.id])),
         getValue: () => selectedLabel, getEditValue: () => selectedLabel,
@@ -417,7 +420,7 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     });
 
     const estimate = validation?.cost?.estimate_usd;
-    fields.push({
+    if (!defaults.compareMode) fields.push({
         name: 'generation-estimate', label: '見積', className: 'akari-inspector-generation-estimate',
         getValue: () => typeof estimate === 'number'
             ? `$${estimate.toFixed(2)}（as_of ${validation?.cost?.as_of ?? catalogRow.as_of ?? '不明'}）`
@@ -438,13 +441,13 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     const actionRows: Array<NonNullable<GenerationFieldDef<TSnapshot>['actions']>[number]> = [{
         name: 'copy-adjacent', label: '隣から取る', title: '隣の映像 item の下書きを写す',
         action: actions.copyAdjacent
-    }, {
+    }, ...defaults.compareMode ? [] : [{
         name: 'generate', label: runLabel, title: runLabel,
         disabled: generating || validation?.ok === false || (defaults.finalQuality === true
             && (!quality || Number(catalogRow.price?.by_resolution?.[String(output.resolution)]) <= quality.unitPrice)), action: actions.generate
-    }];
-    if (state === 'stale') actionRows.push({ name: 'resume', label: '再取得', title: '生成結果を再取得', action: actions.resume });
-    if (state === 'failed' || state === 'stale') actionRows.push({ name: 'retry', label: '同じ入力でもう一度', title: '同じ入力でもう一度', action: actions.retry });
+    }]];
+    if (!defaults.compareMode && state === 'stale') actionRows.push({ name: 'resume', label: '再取得', title: '生成結果を再取得', action: actions.resume });
+    if (!defaults.compareMode && (state === 'failed' || state === 'stale')) actionRows.push({ name: 'retry', label: '同じ入力でもう一度', title: '同じ入力でもう一度', action: actions.retry });
     if (defaults.finalQuality) fields.push({ name: 'generation-final-note', label: '',
         getValue: () => '解像度を選んでください。同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）' });
     fields.push({ name: 'generation-actions', label: '操作', getValue: () => '', actions: actionRows });

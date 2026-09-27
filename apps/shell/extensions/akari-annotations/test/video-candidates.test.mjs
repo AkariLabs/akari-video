@@ -139,6 +139,14 @@ test('動画バッチは見積合計と価格不明を返し、承認なしで�
   assert.deepEqual(estimate.models.map(row => row.estimateUsd), [0.36, null, 1.8204]);
   assert.equal(estimate.totalUsd, 2.1804);
   assert.equal(estimate.needs_explicit_confirm, true);
+  const mixed = await service.estimateVideoBatch({ ...request,
+    models: ['fal:h3-i2v', 'fal:h3-ref'] });
+  assert.equal(mixed.models[0].error, undefined);
+  assert.match(mixed.models[1].error, /使え|フレーム|参照/u);
+  assert.equal(mixed.totalUsd, 0.36);
+  await assert.rejects(() => service.startGenerateVideoBatch({ ...request,
+    models: ['fal:h3-i2v', 'fal:h3-ref'], approved: true }), /fal:h3-ref/u);
+  assert.equal(starts, 0);
   await assert.rejects(() => service.startGenerateVideoBatch(request), /費用承認/u);
   assert.equal(starts, 0);
   const directory = path.join(root, 'assets/generated/candidates/clip-a');
@@ -170,4 +178,41 @@ test('動画バッチは見積合計と価格不明を返し、承認なしで�
   service.generationCli.cancelBatch = async () => [];
   await service.cancelGenerateVideoBatch(request);
   assert.equal(JSON.parse(await readFile(metaPath)).status, 'failed');
+});
+
+test('node サービスは batch の CLI 待機中も候補読み口に応答する', async t => {
+  const root = await temp();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'assets/stills'), { recursive: true });
+  await writeFile(path.join(root, 'assets/stills/frame.png'), png);
+  await writeFile(path.join(root, 'edit.json'), JSON.stringify({ version: 2,
+    sources: [{ id: 'still', path: 'assets/stills/frame.png' }],
+    tracks: [{ items: [{ id: 'clip-a', source: { kind: 'media', src: 'still', in: 0, out: 6 } }] }] }));
+  const at = new Date().toISOString();
+  const meta = plannedStillMeta({ prompt: '', duration_s: 6, at, asOf: at.slice(0, 10) });
+  meta.next = { kind: 'video', status: 'planned', model: { id: 'fal:h3-i2v' },
+    inputs: { prompt: 'Move.', first_frame: { path: 'assets/stills/frame.png' } },
+    output: { duration_s: 6, resolution: '768P' }, updated_at: at };
+  await writeFile(path.join(root, 'assets/stills/frame.png.meta.json'), JSON.stringify(meta));
+  const service = new AkariAnnotationsServiceImpl();
+  const releases = [];
+  service.generationCli = { startCandidate: () => new Promise(resolve => releases.push(resolve)) };
+  const request = { projectRootUri: pathToFileURL(root).href, itemId: 'clip-a',
+    models: ['fal:h3-i2v', 'fal:kling-v3-standard-i2v', 'fal:seedance-2.0-i2v'] };
+  const batch = service.startGenerateVideoBatch({ ...request, approved: true });
+  const deadline = Date.now() + 10_000;
+  while (releases.length < 3 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(releases.length, 3);
+  try {
+    const live = await Promise.race([
+      service.readVideoCandidates(request),
+      new Promise((_resolve, reject) => setTimeout(() => reject(new Error('候補読み口が CLI の完了まで待たされた')), 3_000))
+    ]);
+    assert.equal(live.running, true);
+    assert.deepEqual(live.routes, request.models);
+    assert.equal(live.completed, 0);
+  } finally {
+    for (const release of releases) release({ ok: false, reason: 'fixture', stdout: '' });
+    await batch;
+  }
 });

@@ -349,12 +349,12 @@ test('既存 RPC と CLI は done mp4 の next で同一 item を再生成し映
 const Loader = harness('akari-inspector-widget.ts', 'AkariInspectorWidget',
   ['loadGeneration', 'readGenerationOriginalNext', 'generationIdentity', 'generationSectionFields'],
   { generationFields: fields.generationFields, selectGenerationSidecarForSource });
-test('done item の実 loader → placeholder 読込 → 生成タブの本番画質ボタン（next なし・通常画質は非表示）', async () => {
+test('done item の実 loader → placeholder 読込後も比較パネルから旧 1 本経路を呼ばない', async () => {
   const root = mkdtempSync(join(tmpdir(), 'akari-final-loader-'));
   try {
     writeFileSync(join(root, 'still.png'), 'fixture');
     writeFileSync(join(root, 'done.mp4'), 'fixture');
-    for (const [next, resolution, visible] of [[originalMeta, '480P', true], [{ kind:'still', status:'done' }, '480P', false], [originalMeta, '768P', false]]) {
+    for (const [next, resolution] of [[originalMeta, '480P'], [{ kind:'still', status:'done' }, '480P'], [originalMeta, '768P']]) {
       writeFileSync(join(root, 'still.png.meta.json'), JSON.stringify(next));
       writeFileSync(join(root, 'done.mp4.meta.json'), JSON.stringify({ ...doneMeta, output:{ resolution } }));
       const w = new Loader();
@@ -370,7 +370,7 @@ test('done item の実 loader → placeholder 読込 → 生成タブの本番�
       await w.loadGeneration({key:'clip',itemId:'clip',sourcePath:'done.mp4',duration:6});
       assert.equal(w.generationIdentity(w.model.snapshot).sourcePath,'done.mp4');
       const definitions=w.generationSectionFields(w.model.snapshot)??[];
-      assert.equal(definitions.flatMap(field=>field.actions??[]).some(action=>action.name==='final-quality'),visible);
+      assert.equal(definitions.flatMap(field=>field.actions??[]).some(action=>action.name==='final-quality'),false);
     }
   } finally { rmSync(root,{recursive:true,force:true}); }
 });

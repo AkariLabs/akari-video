@@ -1,0 +1,1650 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "step": "(viii) single auto adopt",
+  "observations": {
+    "stubModels": [
+      {
+        "model": "fal:h3-i2v",
+        "color": "red",
+        "durationSec": 2,
+        "queueMs": 4000,
+        "processingMs": 12000
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "color": "green",
+        "durationSec": 3,
+        "queueMs": 6000,
+        "processingMs": 16000
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "color": "blue",
+        "durationSec": 4,
+        "queueMs": 8000,
+        "processingMs": 20000
+      }
+    ],
+    "electronPid": 33648,
+    "originalFrame": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 120,
+      "source": {
+        "kind": "media",
+        "src": "src-start",
+        "in": 0,
+        "out": 4
+      }
+    },
+    "originalSha": "055c5080d750b38a63075640de7a310525ed7693df3d775aa4e13d4e0f51306c",
+    "initial": {
+      "groups": [
+        {
+          "heading": "いつもの",
+          "hidden": false,
+          "models": [
+            {
+              "id": "fal:h3-i2v",
+              "checked": true,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "MiniMax H3（画像から）$0.30",
+              "badge": true,
+              "reason": null
+            }
+          ]
+        },
+        {
+          "heading": "★ お気に入り",
+          "hidden": false,
+          "models": [
+            {
+              "id": "fal:kling-v3-standard-i2v",
+              "checked": false,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "Kling Video v3 Standard（画像から）料金 未確認",
+              "badge": true,
+              "reason": null
+            },
+            {
+              "id": "fal:seedance-2.0-i2v",
+              "checked": false,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "BSeedance 2.0（画像から）$1.21",
+              "badge": false,
+              "reason": null
+            }
+          ]
+        },
+        {
+          "heading": "ほかのモデル",
+          "hidden": true,
+          "models": [
+            {
+              "id": "fal:h3-ref",
+              "checked": false,
+              "disabled": true,
+              "inputDisabled": true,
+              "text": "MiniMax H3（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+              "badge": true,
+              "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+            },
+            {
+              "id": "fal:kling-v3-pro-i2v",
+              "checked": false,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "Kling Video v3 Pro（画像から）$0.67",
+              "badge": true,
+              "reason": null
+            },
+            {
+              "id": "fal:veo-3.1-flf",
+              "checked": false,
+              "disabled": true,
+              "inputDisabled": true,
+              "text": "Veo 3.1（最初と最後）料金 未確認このモデルは最後のフレームが必要です",
+              "badge": true,
+              "reason": "このモデルは最後のフレームが必要です"
+            },
+            {
+              "id": "fal:veo-3.1-ref",
+              "checked": false,
+              "disabled": true,
+              "inputDisabled": true,
+              "text": "Veo 3.1（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+              "badge": true,
+              "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+            },
+            {
+              "id": "fal:seedance-2.0-ref",
+              "checked": false,
+              "disabled": true,
+              "inputDisabled": true,
+              "text": "BSeedance 2.0（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+              "badge": false,
+              "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+            },
+            {
+              "id": "fal:seedance-2.5-i2v",
+              "checked": false,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "BSeedance 2.5（画像から）$0.88",
+              "badge": false,
+              "reason": null
+            },
+            {
+              "id": "fal:wan-2.7-i2v",
+              "checked": false,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "Wan 2.7（画像から）料金 未確認",
+              "badge": true,
+              "reason": null
+            },
+            {
+              "id": "fal:grok-imagine-i2v",
+              "checked": false,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "Grok Imagine Video（画像から）料金 未確認",
+              "badge": true,
+              "reason": null
+            },
+            {
+              "id": "fal:vidu-q3-i2v",
+              "checked": false,
+              "disabled": false,
+              "inputDisabled": false,
+              "text": "Vidu Q3（画像から）料金 未確認",
+              "badge": true,
+              "reason": null
+            }
+          ]
+        }
+      ],
+      "create": "1 案を作る · 見積 $0.30",
+      "createDisabled": false,
+      "progress": null,
+      "rows": [],
+      "cancel": false,
+      "candidates": [],
+      "failed": [],
+      "player": null,
+      "adopt": null,
+      "adoptDisabled": false,
+      "remain": null,
+      "error": null,
+      "modelSelect": false
+    },
+    "greyed": [
+      {
+        "id": "fal:h3-ref",
+        "checked": false,
+        "disabled": true,
+        "inputDisabled": true,
+        "text": "MiniMax H3（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+        "badge": true,
+        "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+      },
+      {
+        "id": "fal:veo-3.1-flf",
+        "checked": false,
+        "disabled": true,
+        "inputDisabled": true,
+        "text": "Veo 3.1（最初と最後）料金 未確認このモデルは最後のフレームが必要です",
+        "badge": true,
+        "reason": "このモデルは最後のフレームが必要です"
+      },
+      {
+        "id": "fal:veo-3.1-ref",
+        "checked": false,
+        "disabled": true,
+        "inputDisabled": true,
+        "text": "Veo 3.1（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+        "badge": true,
+        "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+      },
+      {
+        "id": "fal:seedance-2.0-ref",
+        "checked": false,
+        "disabled": true,
+        "inputDisabled": true,
+        "text": "BSeedance 2.0（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+        "badge": false,
+        "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+      }
+    ],
+    "threeChecked": {
+      "create": "3 案を作る · 見積 $1.51 + 未確認 1",
+      "models": [
+        {
+          "id": "fal:h3-i2v",
+          "text": "MiniMax H3（画像から）$0.30"
+        },
+        {
+          "id": "fal:kling-v3-standard-i2v",
+          "text": "Kling Video v3 Standard（画像から）料金 未確認"
+        },
+        {
+          "id": "fal:seedance-2.0-i2v",
+          "text": "BSeedance 2.0（画像から）$1.21"
+        }
+      ]
+    },
+    "approvalDialog": {
+      "title": "費用承認",
+      "text": "MiniMax H3（画像から）: $0.30（as_of 2026-09-12）\nKling Video v3 Standard（画像から）: 料金 未確認（as_of 不明）\nSeedance 2.0（画像から）: $1.21（as_of 2026-09-12）\n合計 見積 $1.51 + 料金未確認 1 件（実際の費用が見積もれません）で送ります。費用承認しますか",
+      "buttons": [
+        "キャンセル",
+        "費用承認する"
+      ]
+    },
+    "deny": {
+      "stubSubmitsAfterDeny": 0,
+      "stubEventsTotal": 0,
+      "running": false,
+      "editShaSame": true
+    },
+    "runThree": {
+      "dialog": {
+        "title": "費用承認",
+        "text": "MiniMax H3（画像から）: $0.30（as_of 2026-09-12）\nKling Video v3 Standard（画像から）: 料金 未確認（as_of 不明）\nSeedance 2.0（画像から）: $1.21（as_of 2026-09-12）\n合計 見積 $1.51 + 料金未確認 1 件（実際の費用が見積もれません）で送ります。費用承認しますか",
+        "buttons": [
+          "キャンセル",
+          "費用承認する"
+        ]
+      },
+      "submits": [
+        {
+          "model": "fal:seedance-2.0-i2v",
+          "auth": true,
+          "atMs": 1790496664549
+        },
+        {
+          "model": "fal:h3-i2v",
+          "auth": true,
+          "atMs": 1790496664564
+        },
+        {
+          "model": "fal:kling-v3-standard-i2v",
+          "auth": true,
+          "atMs": 1790496664582
+        }
+      ],
+      "states": {
+        "fal:h3-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 6 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "fal:kling-v3-standard-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Kling Video v3 Standard（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ Kling Video v3 Standard（画像から） · 生成中 · 8 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "done",
+            "text": "✓ Kling Video v3 Standard（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "fal:seedance-2.0-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ Seedance 2.0（画像から） · 生成中 · 9 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "done",
+            "text": "✓ Seedance 2.0（画像から） · 完了",
+            "spinner": "none"
+          }
+        ]
+      },
+      "pageStates": {
+        "fal:h3-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "atMs": 1790496663223
+          },
+          {
+            "state": "running",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 6 秒",
+            "atMs": 1790496668724
+          },
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "atMs": 1790496676723
+          },
+          {
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "atMs": 1790496677025
+          }
+        ],
+        "fal:kling-v3-standard-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Kling Video v3 Standard（画像から） · 待ち",
+            "atMs": 1790496663223
+          },
+          {
+            "state": "running",
+            "text": "◌ Kling Video v3 Standard（画像から） · 生成中 · 7 秒",
+            "atMs": 1790496670623
+          },
+          {
+            "state": "done",
+            "text": "✓ Kling Video v3 Standard（画像から） · 完了",
+            "atMs": 1790496680823
+          }
+        ],
+        "fal:seedance-2.0-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "atMs": 1790496663223
+          },
+          {
+            "state": "running",
+            "text": "◌ Seedance 2.0（画像から） · 生成中 · 9 秒",
+            "atMs": 1790496672629
+          },
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "atMs": 1790496684923
+          },
+          {
+            "state": "done",
+            "text": "✓ Seedance 2.0（画像から） · 完了",
+            "atMs": 1790496685333
+          }
+        ]
+      },
+      "diag": {
+        "ok": true,
+        "gaps": [],
+        "maxGapMs": 0,
+        "rpcCount": 23,
+        "rpcMaxMs": 160,
+        "rpcMedianMs": 10,
+        "rpc": [
+          {
+            "atMs": 1790496663122,
+            "ms": 6
+          },
+          {
+            "atMs": 1790496664129,
+            "ms": 8
+          },
+          {
+            "atMs": 1790496665139,
+            "ms": 9
+          },
+          {
+            "atMs": 1790496666149,
+            "ms": 2
+          },
+          {
+            "atMs": 1790496667152,
+            "ms": 17
+          },
+          {
+            "atMs": 1790496668171,
+            "ms": 10
+          },
+          {
+            "atMs": 1790496669183,
+            "ms": 2
+          },
+          {
+            "atMs": 1790496670186,
+            "ms": 5
+          },
+          {
+            "atMs": 1790496671193,
+            "ms": 32
+          },
+          {
+            "atMs": 1790496672225,
+            "ms": 3
+          },
+          {
+            "atMs": 1790496673229,
+            "ms": 13
+          },
+          {
+            "atMs": 1790496674243,
+            "ms": 73
+          },
+          {
+            "atMs": 1790496675317,
+            "ms": 10
+          },
+          {
+            "atMs": 1790496676328,
+            "ms": 34
+          },
+          {
+            "atMs": 1790496677368,
+            "ms": 90
+          },
+          {
+            "atMs": 1790496678458,
+            "ms": 14
+          },
+          {
+            "atMs": 1790496679473,
+            "ms": 4
+          },
+          {
+            "atMs": 1790496680478,
+            "ms": 5
+          },
+          {
+            "atMs": 1790496681484,
+            "ms": 25
+          },
+          {
+            "atMs": 1790496682511,
+            "ms": 6
+          },
+          {
+            "atMs": 1790496683518,
+            "ms": 160
+          },
+          {
+            "atMs": 1790496684678,
+            "ms": 87
+          },
+          {
+            "atMs": 1790496685765,
+            "ms": 8
+          }
+        ]
+      },
+      "metaQueue": {
+        "fal:h3-i2v": [
+          {
+            "q": "generating/IN_QUEUE",
+            "atMs": 1790496664728
+          },
+          {
+            "q": "generating/IN_PROGRESS",
+            "atMs": 1790496668733
+          },
+          {
+            "q": "done/COMPLETED",
+            "atMs": 1790496676893
+          }
+        ],
+        "fal:kling-v3-standard-i2v": [
+          {
+            "q": "generating/IN_QUEUE",
+            "atMs": 1790496664729
+          },
+          {
+            "q": "generating/IN_PROGRESS",
+            "atMs": 1790496671296
+          },
+          {
+            "q": "done/COMPLETED",
+            "atMs": 1790496680899
+          }
+        ],
+        "fal:seedance-2.0-i2v": [
+          {
+            "q": "generating/IN_QUEUE",
+            "atMs": 1790496664729
+          },
+          {
+            "q": "generating/IN_PROGRESS",
+            "atMs": 1790496672826
+          },
+          {
+            "q": "generating/COMPLETED",
+            "atMs": 1790496684717
+          },
+          {
+            "q": "done/COMPLETED",
+            "atMs": 1790496685429
+          }
+        ]
+      },
+      "chips": [
+        "start.png00:04:00画像最初色の板がゆっくり動く▶ 動画予定",
+        "3 案作成中 · 0/3start.png00:04:00画像",
+        "生成中 · 0 秒start.png00:04:00画像",
+        "生成中 · 1 秒start.png00:04:00画像",
+        "生成中 · 2 秒start.png00:04:00画像",
+        "生成中 · 3 秒start.png00:04:00画像",
+        "生成中 · 6 秒start.png00:04:00画像",
+        "生成中 · 7 秒start.png00:04:00画像",
+        "生成中 · 8 秒start.png00:04:00画像",
+        "生成中 · 9 秒start.png00:04:00画像",
+        "生成中 · 10 秒start.png00:04:00画像",
+        "生成中 · 11 秒start.png00:04:00画像",
+        "生成中 · 12 秒start.png00:04:00画像",
+        "生成中 · 13 秒start.png00:04:00画像",
+        "生成中 · 14 秒start.png00:04:00画像",
+        "生成中 · 15 秒start.png00:04:00画像",
+        "生成中 · 16 秒start.png00:04:00画像",
+        "生成中 · 17 秒start.png00:04:00画像",
+        "生成中 · 18 秒start.png00:04:00画像",
+        "生成中 · 19 秒start.png00:04:00画像",
+        "生成中 · 20 秒start.png00:04:00画像",
+        "start.png00:04:00画像最初色の板がゆっくり動く候補 3"
+      ],
+      "waiting": {
+        "rows": [
+          {
+            "model": "fal:h3-i2v",
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "state": "waiting",
+            "text": "◌ Kling Video v3 Standard（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:seedance-2.0-i2v",
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          }
+        ],
+        "chip": "3 案作成中 · 0/3start.png00:04:00画像"
+      },
+      "running": {
+        "rows": [
+          {
+            "model": "fal:h3-i2v",
+            "state": "running",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 7 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "state": "waiting",
+            "text": "◌ Kling Video v3 Standard（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:seedance-2.0-i2v",
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          }
+        ],
+        "chip": "生成中 · 6 秒start.png00:04:00画像"
+      },
+      "final": {
+        "groups": [
+          {
+            "heading": "いつもの",
+            "hidden": false,
+            "models": [
+              {
+                "id": "fal:h3-i2v",
+                "checked": true,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "MiniMax H3（画像から）$0.30",
+                "badge": true,
+                "reason": null
+              }
+            ]
+          },
+          {
+            "heading": "★ お気に入り",
+            "hidden": false,
+            "models": [
+              {
+                "id": "fal:kling-v3-standard-i2v",
+                "checked": true,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "Kling Video v3 Standard（画像から）料金 未確認",
+                "badge": true,
+                "reason": null
+              },
+              {
+                "id": "fal:seedance-2.0-i2v",
+                "checked": true,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "BSeedance 2.0（画像から）$1.21",
+                "badge": false,
+                "reason": null
+              }
+            ]
+          },
+          {
+            "heading": "ほかのモデル",
+            "hidden": false,
+            "models": [
+              {
+                "id": "fal:h3-ref",
+                "checked": false,
+                "disabled": true,
+                "inputDisabled": true,
+                "text": "MiniMax H3（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+                "badge": true,
+                "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+              },
+              {
+                "id": "fal:kling-v3-pro-i2v",
+                "checked": false,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "Kling Video v3 Pro（画像から）$0.67",
+                "badge": true,
+                "reason": null
+              },
+              {
+                "id": "fal:veo-3.1-flf",
+                "checked": false,
+                "disabled": true,
+                "inputDisabled": true,
+                "text": "Veo 3.1（最初と最後）料金 未確認このモデルは最後のフレームが必要です",
+                "badge": true,
+                "reason": "このモデルは最後のフレームが必要です"
+              },
+              {
+                "id": "fal:veo-3.1-ref",
+                "checked": false,
+                "disabled": true,
+                "inputDisabled": true,
+                "text": "Veo 3.1（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+                "badge": true,
+                "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+              },
+              {
+                "id": "fal:seedance-2.0-ref",
+                "checked": false,
+                "disabled": true,
+                "inputDisabled": true,
+                "text": "BSeedance 2.0（参照から）料金 未確認このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください",
+                "badge": false,
+                "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+              },
+              {
+                "id": "fal:seedance-2.5-i2v",
+                "checked": false,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "BSeedance 2.5（画像から）$0.88",
+                "badge": false,
+                "reason": null
+              },
+              {
+                "id": "fal:wan-2.7-i2v",
+                "checked": false,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "Wan 2.7（画像から）料金 未確認",
+                "badge": true,
+                "reason": null
+              },
+              {
+                "id": "fal:grok-imagine-i2v",
+                "checked": false,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "Grok Imagine Video（画像から）料金 未確認",
+                "badge": true,
+                "reason": null
+              },
+              {
+                "id": "fal:vidu-q3-i2v",
+                "checked": false,
+                "disabled": false,
+                "inputDisabled": false,
+                "text": "Vidu Q3（画像から）料金 未確認",
+                "badge": true,
+                "reason": null
+              }
+            ]
+          }
+        ],
+        "create": "3 案を作る · 見積 $1.51 + 未確認 1",
+        "createDisabled": false,
+        "progress": "3/3",
+        "rows": [
+          {
+            "model": "fal:h3-i2v",
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "state": "done",
+            "text": "✓ Kling Video v3 Standard（画像から） · 完了",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:seedance-2.0-i2v",
+            "state": "done",
+            "text": "✓ Seedance 2.0（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "cancel": false,
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790496664485.mp4",
+            "selected": "false",
+            "text": "BSeedance 2.0（画像から） · 21 秒 · 4 秒 · 640×360 · $1.21",
+            "thumb": {
+              "complete": true,
+              "width": 160,
+              "src": "data:image/jpeg;base64"
+            }
+          },
+          {
+            "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496664506.mp4",
+            "selected": "false",
+            "text": "MiniMax H3（画像から） · 12 秒 · 2 秒 · 640×360 · $0.30",
+            "thumb": {
+              "complete": true,
+              "width": 160,
+              "src": "data:image/jpeg;base64"
+            }
+          },
+          {
+            "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+            "selected": "false",
+            "text": "Kling Video v3 Standard（画像から） · 16 秒 · 3 秒 · 640×360 · 料金 未確認",
+            "thumb": {
+              "complete": true,
+              "width": 160,
+              "src": "data:image/jpeg;base64"
+            }
+          }
+        ],
+        "failed": [],
+        "player": null,
+        "adopt": "この案を使う",
+        "adoptDisabled": true,
+        "remain": "ほかの候補は素材に残ります",
+        "error": null,
+        "modelSelect": false
+      },
+      "progressAllModelsRunning": true
+    },
+    "play": {
+      "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+      "player": {
+        "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+        "readyState": 4,
+        "videoWidth": 640,
+        "videoHeight": 360,
+        "duration": 3,
+        "currentTime": 0.550605,
+        "paused": false
+      },
+      "pixel": {
+        "rgb": [
+          1,
+          128,
+          1
+        ],
+        "currentTime": 0.546751,
+        "paused": false
+      }
+    },
+    "adopt": {
+      "item": {
+        "id": "clip-frame",
+        "at": 90,
+        "duration": 120,
+        "source": {
+          "kind": "media",
+          "src": "gen-clip-frame-video",
+          "in": 0,
+          "out": 3,
+          "freeze": {
+            "at_sec": 3,
+            "duration_sec": 1
+          },
+          "mute": true
+        }
+      },
+      "source": {
+        "id": "gen-clip-frame-video",
+        "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4"
+      },
+      "candidateFilesExist": [
+        true,
+        true,
+        true
+      ],
+      "previewEditUnchangedWhilePlaying": true
+    },
+    "undo": {
+      "item": {
+        "id": "clip-frame",
+        "at": 90,
+        "duration": 120,
+        "source": {
+          "kind": "media",
+          "src": "src-start",
+          "in": 0,
+          "out": 4
+        }
+      },
+      "sources": [
+        {
+          "id": "src-clip",
+          "path": "assets/clip.mp4"
+        },
+        {
+          "id": "src-start",
+          "path": "assets/stills/start.png"
+        }
+      ],
+      "sha": "055c5080d750b38a63075640de7a310525ed7693df3d775aa4e13d4e0f51306c",
+      "sameAsOriginalJson": true
+    },
+    "reopened": {
+      "candidates": 3,
+      "checked": [
+        "fal:h3-i2v",
+        "fal:kling-v3-standard-i2v",
+        "fal:seedance-2.0-i2v"
+      ]
+    },
+    "runFail": {
+      "submits": [
+        {
+          "model": "fal:kling-v3-standard-i2v",
+          "auth": true,
+          "atMs": 1790496693916
+        },
+        {
+          "model": "fal:h3-i2v",
+          "auth": true,
+          "atMs": 1790496693935
+        },
+        {
+          "model": "fal:seedance-2.0-i2v",
+          "auth": true,
+          "atMs": 1790496693973
+        }
+      ],
+      "states": {
+        "fal:h3-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "fal:kling-v3-standard-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Kling Video v3 Standard（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ Kling Video v3 Standard（画像から） · 生成中 · 7 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "failed",
+            "text": "× Kling Video v3 Standard（画像から） · 失敗 · fal 生成失敗: stub model failure",
+            "spinner": "none"
+          }
+        ],
+        "fal:seedance-2.0-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ Seedance 2.0（画像から） · 生成中 · 9 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "done",
+            "text": "✓ Seedance 2.0（画像から） · 完了",
+            "spinner": "none"
+          }
+        ]
+      },
+      "final": {
+        "rows": [
+          {
+            "model": "fal:h3-i2v",
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "state": "failed",
+            "text": "× Kling Video v3 Standard（画像から） · 失敗 · fal 生成失敗: stub model failure",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:seedance-2.0-i2v",
+            "state": "done",
+            "text": "✓ Seedance 2.0（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "failed": [
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "text": "Kling Video v3 Standard（画像から） · 失敗 · fal 生成失敗: stub model failure同じ入力でもう一度",
+            "retry": true
+          }
+        ],
+        "candidates": 5
+      }
+    },
+    "single": {
+      "submits": [
+        {
+          "model": "fal:h3-i2v",
+          "auth": true,
+          "atMs": 1790496718680
+        }
+      ],
+      "states": {
+        "fal:h3-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "spinner": "none"
+          }
+        ]
+      },
+      "item": {
+        "id": "clip-frame",
+        "at": 90,
+        "duration": 120,
+        "source": {
+          "kind": "media",
+          "src": "gen-clip-frame-video",
+          "in": 0,
+          "out": 2,
+          "freeze": {
+            "at_sec": 2,
+            "duration_sec": 2
+          },
+          "mute": true
+        }
+      },
+      "source": {
+        "id": "gen-clip-frame-video",
+        "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496718646.mp4"
+      }
+    },
+    "stubEvents": [
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:h3-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:h3-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "auth": true
+      },
+      {
+        "model": "fal:h3-i2v",
+        "auth": true
+      }
+    ]
+  },
+  "checks": [
+    {
+      "name": "(i) いつもの = h3 の 1 つだけにチェック",
+      "pass": true,
+      "detail": [
+        "fal:h3-i2v"
+      ]
+    },
+    {
+      "name": "(i) ★ お気に入り（kling / seedance）が並び、チェックは外れている",
+      "pass": true,
+      "detail": [
+        {
+          "id": "fal:kling-v3-standard-i2v",
+          "checked": false
+        },
+        {
+          "id": "fal:seedance-2.0-i2v",
+          "checked": false
+        }
+      ]
+    },
+    {
+      "name": "(i) ほかのモデルは畳まれている",
+      "pass": true,
+      "detail": [
+        [
+          "いつもの",
+          false
+        ],
+        [
+          "★ お気に入り",
+          false
+        ],
+        [
+          "ほかのモデル",
+          true
+        ]
+      ]
+    },
+    {
+      "name": "(i) 呼べないモデル（callable: false）は出ない",
+      "pass": true,
+      "detail": {
+        "callableFalse": [
+          "fal:nano-banana",
+          "fal:nano-banana-2",
+          "fal:gpt-image-2.5-sunburst",
+          "fal:grok-imagine-image",
+          "fal:minimax-image-01",
+          "fal:qwen-image-2",
+          "fal:seedance-2.5-ref",
+          "fal:h3-max-i2v",
+          "fal:h3-max-ref",
+          "fal:minimax-speech-2.8-hd",
+          "fal:gemini-3.8-flash-tts"
+        ],
+        "shown": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v",
+          "fal:h3-ref",
+          "fal:kling-v3-pro-i2v",
+          "fal:veo-3.1-flf",
+          "fal:veo-3.1-ref",
+          "fal:seedance-2.0-ref",
+          "fal:seedance-2.5-i2v",
+          "fal:wan-2.7-i2v",
+          "fal:grok-imagine-i2v",
+          "fal:vidu-q3-i2v"
+        ]
+      }
+    },
+    {
+      "name": "(i) モデルのドロップダウンは無い",
+      "pass": true,
+      "detail": false
+    },
+    {
+      "name": "(i) ボタン「1 案を作る · 見積 $X」",
+      "pass": true,
+      "detail": "1 案を作る · 見積 $0.30"
+    },
+    {
+      "name": "(i) この枠で使えないモデルはグレー + 理由 1 行（チェック不可）",
+      "pass": true,
+      "detail": [
+        {
+          "id": "fal:h3-ref",
+          "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+        },
+        {
+          "id": "fal:veo-3.1-flf",
+          "reason": "このモデルは最後のフレームが必要です"
+        },
+        {
+          "id": "fal:veo-3.1-ref",
+          "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+        },
+        {
+          "id": "fal:seedance-2.0-ref",
+          "reason": "このモデルは最初のフレームを使えません。外して続けるか、対応モデルに切り替えてください"
+        }
+      ]
+    },
+    {
+      "name": "(ii) ボタン「3 案を作る · 見積 $X + 未確認 1」（kling は料金なし）",
+      "pass": true,
+      "detail": "3 案を作る · 見積 $1.51 + 未確認 1"
+    },
+    {
+      "name": "(ii) 承認の文面にモデルごとの内訳・合計・as_of・料金未確認の明記",
+      "pass": true,
+      "detail": "MiniMax H3（画像から）: $0.30（as_of 2026-09-12）\nKling Video v3 Standard（画像から）: 料金 未確認（as_of 不明）\nSeedance 2.0（画像から）: $1.21（as_of 2026-09-12）\n合計 見積 $1.51 + 料金未確認 1 件（実際の費用が見積もれません）で送ります。費用承認しますか"
+    },
+    {
+      "name": "(ii) 断るとスタブの受信 0・edit.json 不変",
+      "pass": true,
+      "detail": {
+        "stubSubmitsAfterDeny": 0,
+        "stubEventsTotal": 0,
+        "running": false,
+        "editShaSame": true
+      }
+    },
+    {
+      "name": "(iii) 合計 1 回の承認でスタブに 3 モデルが同時に届く（偽の鍵で認証）",
+      "pass": true,
+      "detail": {
+        "submits": [
+          "fal:seedance-2.0-i2v",
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v"
+        ],
+        "spreadMs": 33
+      }
+    },
+    {
+      "name": "(iii) 進み具合の行: 待ち → 生成中 · N 秒 → 完了",
+      "pass": true,
+      "detail": {
+        "fal:h3-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ MiniMax H3（画像から） · 生成中 · 6 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "waiting",
+            "text": "◌ MiniMax H3（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "fal:kling-v3-standard-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Kling Video v3 Standard（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ Kling Video v3 Standard（画像から） · 生成中 · 8 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "done",
+            "text": "✓ Kling Video v3 Standard（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "fal:seedance-2.0-i2v": [
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "running",
+            "text": "◌ Seedance 2.0（画像から） · 生成中 · 9 秒",
+            "spinner": "akari-still-spin"
+          },
+          {
+            "state": "waiting",
+            "text": "◌ Seedance 2.0（画像から） · 待ち",
+            "spinner": "none"
+          },
+          {
+            "state": "done",
+            "text": "✓ Seedance 2.0（画像から） · 完了",
+            "spinner": "none"
+          }
+        ]
+      }
+    },
+    {
+      "name": "(iii) タイムラインの札「3 案作成中 · k/3」→「候補 3」",
+      "pass": true,
+      "detail": [
+        "start.png00:04:00画像最初色の板がゆっくり動く▶ 動画予定",
+        "3 案作成中 · 0/3start.png00:04:00画像",
+        "生成中 · 0 秒start.png00:04:00画像",
+        "生成中 · 1 秒start.png00:04:00画像",
+        "生成中 · 2 秒start.png00:04:00画像",
+        "生成中 · 3 秒start.png00:04:00画像",
+        "生成中 · 6 秒start.png00:04:00画像",
+        "生成中 · 7 秒start.png00:04:00画像",
+        "生成中 · 8 秒start.png00:04:00画像",
+        "生成中 · 9 秒start.png00:04:00画像",
+        "生成中 · 10 秒start.png00:04:00画像",
+        "生成中 · 11 秒start.png00:04:00画像",
+        "生成中 · 12 秒start.png00:04:00画像",
+        "生成中 · 13 秒start.png00:04:00画像",
+        "生成中 · 14 秒start.png00:04:00画像",
+        "生成中 · 15 秒start.png00:04:00画像",
+        "生成中 · 16 秒start.png00:04:00画像",
+        "生成中 · 17 秒start.png00:04:00画像",
+        "生成中 · 18 秒start.png00:04:00画像",
+        "生成中 · 19 秒start.png00:04:00画像",
+        "生成中 · 20 秒start.png00:04:00画像",
+        "start.png00:04:00画像最初色の板がゆっくり動く候補 3"
+      ]
+    },
+    {
+      "name": "(iv) 候補 3 つ（サムネイル・会社・所要秒・尺・寸法・料金）",
+      "pass": true,
+      "detail": [
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790496664485.mp4",
+          "selected": "false",
+          "text": "BSeedance 2.0（画像から） · 21 秒 · 4 秒 · 640×360 · $1.21",
+          "thumb": {
+            "complete": true,
+            "width": 160,
+            "src": "data:image/jpeg;base64"
+          }
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496664506.mp4",
+          "selected": "false",
+          "text": "MiniMax H3（画像から） · 12 秒 · 2 秒 · 640×360 · $0.30",
+          "thumb": {
+            "complete": true,
+            "width": 160,
+            "src": "data:image/jpeg;base64"
+          }
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+          "selected": "false",
+          "text": "Kling Video v3 Standard（画像から） · 16 秒 · 3 秒 · 640×360 · 料金 未確認",
+          "thumb": {
+            "complete": true,
+            "width": 160,
+            "src": "data:image/jpeg;base64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "(iv) 候補の時点で edit.json は変わらない",
+      "pass": true,
+      "detail": {
+        "before": "055c5080d750b38a63075640de7a310525ed7693df3d775aa4e13d4e0f51306c",
+        "after": "055c5080d750b38a63075640de7a310525ed7693df3d775aa4e13d4e0f51306c"
+      }
+    },
+    {
+      "name": "(v) 候補を押すと編集パネルの中で再生（緑の候補の画素）",
+      "pass": true,
+      "detail": {
+        "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+        "player": {
+          "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4",
+          "readyState": 4,
+          "videoWidth": 640,
+          "videoHeight": 360,
+          "duration": 3,
+          "currentTime": 0.550605,
+          "paused": false
+        },
+        "pixel": {
+          "rgb": [
+            1,
+            128,
+            1
+          ],
+          "currentTime": 0.546751,
+          "paused": false
+        }
+      }
+    },
+    {
+      "name": "(vi) 「この案を使う」で枠の item が候補の mp4 に（sources に登録）",
+      "pass": true,
+      "detail": {
+        "item": {
+          "id": "clip-frame",
+          "at": 90,
+          "duration": 120,
+          "source": {
+            "kind": "media",
+            "src": "gen-clip-frame-video",
+            "in": 0,
+            "out": 3,
+            "freeze": {
+              "at_sec": 3,
+              "duration_sec": 1
+            },
+            "mute": true
+          }
+        },
+        "source": {
+          "id": "gen-clip-frame-video",
+          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790496664529.mp4"
+        },
+        "candidateFilesExist": [
+          true,
+          true,
+          true
+        ],
+        "previewEditUnchangedWhilePlaying": true
+      }
+    },
+    {
+      "name": "(vi) 使わなかった候補は残る（ファイルと「ほかの候補は素材に残ります」）",
+      "pass": true,
+      "detail": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "(vi) undo 1 回で元の枠・元の sources に戻る",
+      "pass": true,
+      "detail": {
+        "item": {
+          "id": "clip-frame",
+          "at": 90,
+          "duration": 120,
+          "source": {
+            "kind": "media",
+            "src": "src-start",
+            "in": 0,
+            "out": 4
+          }
+        },
+        "sources": [
+          {
+            "id": "src-clip",
+            "path": "assets/clip.mp4"
+          },
+          {
+            "id": "src-start",
+            "path": "assets/stills/start.png"
+          }
+        ],
+        "sha": "055c5080d750b38a63075640de7a310525ed7693df3d775aa4e13d4e0f51306c",
+        "sameAsOriginalJson": true
+      }
+    },
+    {
+      "name": "(vii) 枠を選び直しても候補が見える",
+      "pass": true,
+      "detail": {
+        "candidates": 3,
+        "checked": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ]
+      }
+    },
+    {
+      "name": "(vii) kling は「失敗 · 理由」+ もう一度、h3・seedance は完了",
+      "pass": true,
+      "detail": {
+        "rows": [
+          {
+            "model": "fal:h3-i2v",
+            "state": "done",
+            "text": "✓ MiniMax H3（画像から） · 完了",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "state": "failed",
+            "text": "× Kling Video v3 Standard（画像から） · 失敗 · fal 生成失敗: stub model failure",
+            "spinner": "none"
+          },
+          {
+            "model": "fal:seedance-2.0-i2v",
+            "state": "done",
+            "text": "✓ Seedance 2.0（画像から） · 完了",
+            "spinner": "none"
+          }
+        ],
+        "failed": [
+          {
+            "model": "fal:kling-v3-standard-i2v",
+            "text": "Kling Video v3 Standard（画像から） · 失敗 · fal 生成失敗: stub model failure同じ入力でもう一度",
+            "retry": true
+          }
+        ],
+        "candidates": 5
+      }
+    },
+    {
+      "name": "(vii) 失敗があっても 2 案以上は自動で入れない（edit.json 不変）",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "(viii) ボタン「1 案を作る · 見積 $X」",
+      "pass": true,
+      "detail": "1 案を作る · 見積 $0.30"
+    },
+    {
+      "name": "(viii) 1 案だけなら出来たら自動で枠に入る",
+      "pass": true,
+      "detail": {
+        "submits": [
+          {
+            "model": "fal:h3-i2v",
+            "auth": true,
+            "atMs": 1790496718680
+          }
+        ],
+        "states": {
+          "fal:h3-i2v": [
+            {
+              "state": "waiting",
+              "text": "◌ MiniMax H3（画像から） · 待ち",
+              "spinner": "none"
+            },
+            {
+              "state": "running",
+              "text": "◌ MiniMax H3（画像から） · 生成中 · 5 秒",
+              "spinner": "akari-still-spin"
+            },
+            {
+              "state": "done",
+              "text": "✓ MiniMax H3（画像から） · 完了",
+              "spinner": "none"
+            }
+          ]
+        },
+        "item": {
+          "id": "clip-frame",
+          "at": 90,
+          "duration": 120,
+          "source": {
+            "kind": "media",
+            "src": "gen-clip-frame-video",
+            "in": 0,
+            "out": 2,
+            "freeze": {
+              "at_sec": 2,
+              "duration_sec": 2
+            },
+            "mute": true
+          }
+        },
+        "source": {
+          "id": "gen-clip-frame-video",
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790496718646.mp4"
+        }
+      }
+    },
+    {
+      "name": "(viii) 自動採用も undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "item": {
+          "id": "clip-frame",
+          "at": 90,
+          "duration": 120,
+          "source": {
+            "kind": "media",
+            "src": "src-start",
+            "in": 0,
+            "out": 4
+          }
+        },
+        "waitedMs": 204
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-after-default-checks.png",
+      "bytes": 388945
+    },
+    {
+      "name": "01b-after-other-models-greyed.png",
+      "bytes": 448714
+    },
+    {
+      "name": "02-after-three-checked.png",
+      "bytes": 413295
+    },
+    {
+      "name": "03-after-total-approval-dialog.png",
+      "bytes": 424527
+    },
+    {
+      "name": "04-after-deny-nothing-sent.png",
+      "bytes": 470861
+    },
+    {
+      "name": "05-a-waiting.png",
+      "bytes": 462420
+    },
+    {
+      "name": "05-b-running.png",
+      "bytes": 476465
+    },
+    {
+      "name": "06-after-three-candidates.png",
+      "bytes": 326822
+    },
+    {
+      "name": "07-after-play-candidate-in-panel.png",
+      "bytes": 331322
+    },
+    {
+      "name": "08-after-adopt.png",
+      "bytes": 261977
+    },
+    {
+      "name": "09-after-one-undo.png",
+      "bytes": 342960
+    },
+    {
+      "name": "10-after-one-model-failed.png",
+      "bytes": 325976
+    },
+    {
+      "name": "11-after-single-auto-adopt.png",
+      "bytes": 260148
+    },
+    {
+      "name": "12-after-single-undo.png",
+      "bytes": 325241
+    }
+  ]
+}
