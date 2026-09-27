@@ -48,10 +48,12 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
 import { exportWithOsr, resolveOsrLauncher } from "../../osr-export/src/index.mjs";
+import { launchElectronExport } from "../../osr-export/src/runner.mjs";
 import { renderMediaReferencesPath } from "../../osr-export/src/static-server.mjs";
 import { FALLBACK_REASONS, exportWithGpu, gpuRuntimeFallbackReason } from "../../gpu-export/src/index.mjs";
 import { evaluateGpuEligibility } from "../../gpu-export/src/eligibility.mjs";
 import { resolveGpuLauncher, isVgpuFailure } from "../../gpu-export/src/runner.mjs";
+import { buildGpuElectronArguments, launchGpuExport } from "../../gpu-export/src/runner.mjs";
 import {
   projectRendererCompatibilityEdit,
   readRenderEdit,
@@ -84,7 +86,7 @@ const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
   [--codec h264|hevc|prores422|png] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
   [--gpu-preference auto|off|force] [--preview auto|off] [--progress]
-  [--no-verify-blank]
+  [--no-verify-blank] [--no-audio]
   [--no-settle]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
@@ -194,6 +196,7 @@ function warningType(warning) {
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
+  if (options.noAudio && codec === "png") throw new RefusalError("--no-audio is only supported for video containers");
   const env = options.env ?? process.env;
   const forceGpu = engineRequested === "gpu" && readForceGpu(env);
   assertCodecEngine(codec, engineRequested);
@@ -208,7 +211,9 @@ export async function renderProject(input, options = {}, io = console) {
   const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
   const captionsRoot = await readJsonIfPresent(join(projectRoot, "captions.json"));
   const captions = captionsRoot === undefined ? undefined : toAnchorCaptions(captionsRoot);
-  const renderRead = readRenderEdit(editText, renderTmpRoot, { captions });
+  const normalizedEdit = parsedEdit?.version === 2 && parsedEdit.sources === undefined
+    ? { ...parsedEdit, sources: [] } : parsedEdit;
+  const renderRead = readRenderEdit(normalizedEdit, renderTmpRoot, { captions });
   let edit = renderRead.edit;
   const internalEdit = renderRead.internal;
   validateEditShape(edit, internalEdit);
@@ -317,6 +322,7 @@ export async function renderProject(input, options = {}, io = console) {
     codec,
     fpsOverride: options.fps,
     resolvedEngine,
+    noAudio: options.noAudio === true,
   });
   applyOutputScaleToPlan(plan, edit.output, options.scaleTo);
   assertHevcPresetSupported(plan.preset);
@@ -377,6 +383,29 @@ export async function renderProject(input, options = {}, io = console) {
   const reportPath = join(projectRoot, ".akari", "reports", "render-report.html");
   if (options.writeState !== false) await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
+
+  const runtimeEditPath = await prepareOverlayOnlyRuntimeEdit({
+    parsedEdit, normalizedEdit, projectRoot, temporaryDirectory,
+    frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
+  });
+  const runtimeLauncher = runtimeEditPath ? {
+    osr: (launcher, args) => launchElectronExport(launcher, {
+      ...args, extraArgs: [...(args.extraArgs ?? []), "--edit", runtimeEditPath],
+    }),
+    gpu: (launcher, args) => launchGpuExport(launcher, { ...args, editPath: runtimeEditPath }, {
+      argumentBuilder: (resolvedLauncher, resolvedOptions) => [
+        ...buildGpuElectronArguments(resolvedLauncher, resolvedOptions),
+        "--output-width", String(resolvedOptions.outputWidth ?? resolvedOptions.width),
+        "--output-height", String(resolvedOptions.outputHeight ?? resolvedOptions.height),
+        ...((resolvedOptions.codec ?? "h264") === "hevc" ? ["--codec", "hevc"] : []),
+        ...(resolvedOptions.preview === "off" ? ["--preview", "off"] : []),
+        ...(resolvedOptions.previewOutputDirectory ? ["--preview-dir", resolvedOptions.previewOutputDirectory] : []),
+        ...(resolvedOptions.collectLuma === false ? ["--no-luma"] : []),
+        ...(resolvedOptions.progress ? ["--progress-timing"] : []),
+        "--spawn-start-ms", String(Date.now()),
+      ],
+    }),
+  } : null;
 
   const progressEnabled = options.progress === true;
   const reporter = createProgressReporter({
@@ -473,6 +502,7 @@ export async function renderProject(input, options = {}, io = console) {
             eligibility: gpuEligibility,
             force: forceGpu,
             launcher: gpuLauncher,
+            ...(runtimeLauncher ? { launcherRunner: runtimeLauncher.gpu } : {}),
             preview: options.preview ?? "auto",
             previewOutputDirectory: join(projectRoot, ".akari", "cache", "export-preview"),
             collectLuma: options.verifyBlank,
@@ -486,6 +516,7 @@ export async function renderProject(input, options = {}, io = console) {
               ...commonV2Options,
               encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
               launcher: osrLauncher,
+              ...(runtimeLauncher ? { launcherRunner: runtimeLauncher.osr } : {}),
             });
           },
         });
@@ -516,6 +547,7 @@ export async function renderProject(input, options = {}, io = console) {
           ...commonV2Options,
           encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
           launcher: osrLauncher,
+          ...(runtimeLauncher ? { launcherRunner: runtimeLauncher.osr } : {}),
         });
         state.provenance.osr = osr.receipt;
         state.provenance.rasterizer.adopted = "osr";
@@ -532,7 +564,7 @@ export async function renderProject(input, options = {}, io = console) {
     const audioExecution = await executeAudioPlan(plan.commands.audio_mix, capabilities.ffmpegVersion, {
       projectRoot, temporaryDirectory, audioItemCount: countAudioItems(edit.audio),
     });
-    const audioMaster = edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
+    const audioMaster = !options.noAudio && edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
     if (audioMaster && audioExecution.error) {
       state.audio_qc = measurementErrorAudioQc({
         master: audioMaster,
@@ -772,6 +804,33 @@ export async function renderProject(input, options = {}, io = console) {
   }
 }
 
+export async function prepareOverlayOnlyRuntimeEdit({ parsedEdit, normalizedEdit, projectRoot, temporaryDirectory, frames }) {
+  if (parsedEdit?.version !== 2 || normalizedEdit.sources.length > 0) return null;
+  const background = parsedEdit.output?.background;
+  if (background !== undefined && !/^#[0-9a-fA-F]{6}$/u.test(background)) {
+    throw new ExecutionError("edit.json output.background must be a #rrggbb color");
+  }
+  const needsBackground = background !== undefined && background.toLowerCase() !== "#000000";
+  if (!needsBackground && parsedEdit.sources !== undefined) return null;
+  let runtimeEdit = normalizedEdit;
+  if (needsBackground) {
+    const htmlPath = join(temporaryDirectory, "overlay-only-background.html");
+    await writeFile(htmlPath,
+      `<div style="position:absolute;inset:0;background:${background}"></div>\n`, "utf8");
+    const relativeHtml = relative(projectRoot, htmlPath).replaceAll("\\", "/");
+    const ids = new Set(normalizedEdit.tracks.flatMap(track => [track.id, ...(track.items ?? []).map(item => item.id)]));
+    let id = "akari-render-background";
+    for (let suffix = 2; ids.has(id); suffix += 1) id = `akari-render-background-${suffix}`;
+    runtimeEdit = { ...normalizedEdit, tracks: [{
+      id, lane: "visual", items: [{ id: `${id}-item`, at: 0, duration: frames,
+        source: { kind: "html", path: relativeHtml } }],
+    }, ...normalizedEdit.tracks] };
+  }
+  const path = join(temporaryDirectory, "overlay-only-edit.json");
+  await writeFile(path, `${JSON.stringify(runtimeEdit)}\n`, "utf8");
+  return path;
+}
+
 // 表は子の起動前に閉じ、両出口と GPU→OSR 再試行が終了したら必ず消す。
 // 使用中の表だけを保護し、PID 再利用で残った自分の表は回収する。
 export async function withRenderMediaReferences(projectRoot, inputs, run) {
@@ -833,6 +892,7 @@ export function parseArguments(argv, env = process.env) {
     progress: false,
     preview: undefined,
     verifyBlank: true,
+    noAudio: false,
     settle: true,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -843,6 +903,7 @@ export function parseArguments(argv, env = process.env) {
     else if (argument === "--progress") options.progress = true;
     else if (argument === "--no-settle") options.settle = false;
     else if (argument === "--no-verify-blank") options.verifyBlank = false;
+    else if (argument === "--no-audio") options.noAudio = true;
     else if (argument === "--preview") {
       if (index + 1 >= argv.length) throw new Error("--preview requires a value");
       options.preview = parsePreviewValue(argv[++index]);
@@ -1551,7 +1612,11 @@ export function verifyArtifact({
     video?.color_range !== "pc",
     `color range ${video?.color_range ?? "missing (defaults to tv)"}; expected ${expected.color_range ?? "tv"}`,
   );
-  compare(findings, "verify.audio", audio?.codec_name === expectedAudioCodec, `audio codec ${audio?.codec_name ?? "missing"}; expected ${expectedAudioCodec}`);
+  if (plan.audio_enabled === false) {
+    compare(findings, "verify.audio", !audio, `audio stream ${audio ? "present" : "absent"}; expected absent`);
+  } else {
+    compare(findings, "verify.audio", audio?.codec_name === expectedAudioCodec, `audio codec ${audio?.codec_name ?? "missing"}; expected ${expectedAudioCodec}`);
+  }
   if (plan.commands.audio_mix?.hasNarration) {
     compare(findings, "verify.narration-audio", Boolean(audio), `narration audio stream present: ${Boolean(audio)}; expected an audio stream because edit.json has audio.narration`);
   }
@@ -2069,9 +2134,7 @@ function validateEditShape(edit, internalEdit) {
   if (!edit || typeof edit !== "object" || Array.isArray(edit)) throw new ExecutionError("edit.json must be an object");
   if (!edit.output || !positive(edit.output.width) || !positive(edit.output.height) || !positive(edit.output.fps)) throw new ExecutionError("edit.json output width, height, and fps must be positive numbers");
   {
-    if (!Array.isArray(edit.sources) || edit.sources.length === 0) {
-      throw new ExecutionError("edit.json sources must be an array with at least one item");
-    }
+    if (!Array.isArray(edit.sources)) throw new ExecutionError("edit.json sources must be an array");
     const sourceIds = new Set();
     for (const [index, source] of edit.sources.entries()) {
       if (!source || typeof source !== "object" || Array.isArray(source)) {

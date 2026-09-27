@@ -58,6 +58,7 @@ export function buildPlan({
   codec = "h264",
   fpsOverride,
   resolvedEngine = "osr",
+  noAudio = false,
 }) {
   const normalizedInternalEdit = internalEdit ?? readRenderEdit(edit, temporaryDirectory).internal;
   if (isPositiveNumber(fpsOverride) && fpsOverride !== edit.output.fps) {
@@ -129,7 +130,19 @@ export function buildPlan({
   const projectedAudio = projectLegacyAudioView(normalizedInternalEdit);
   const projectedBgms = Array.isArray(edit.audio?.bgms) ? edit.audio.bgms
     : projectedAudio.bgms ?? (projectedAudio.bgm ? [projectedAudio.bgm] : []);
-  const audioMix = buildAudioMixCommand({
+  const audioMix = noAudio ? {
+    operation: "ffmpeg",
+    command: capabilities.ffmpegCommand,
+    input: compositePath,
+    output: finalPath,
+    args: ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", compositePath,
+      "-map", "0:v:0", "-c:v", "copy", "-an", finalPath],
+    warnings: [],
+    hasNarration: false,
+    hasAudibleAudio: false,
+    envelope: null,
+    clip_fx: null,
+  } : buildAudioMixCommand({
     edit: projectedBgms.length > 1 ? { ...edit, audio: { ...edit.audio, bgms: projectedBgms } } : edit,
     projectRoot,
     inputPath: codec === "png" ? join(compositePath, "audio.wav") : compositePath,
@@ -142,6 +155,7 @@ export function buildPlan({
   });
 
   return {
+    ...(noAudio ? { audio_enabled: false } : {}),
     predicted_duration_seconds: finalDurationSeconds,
     duration_tolerance_seconds: Math.max(0.1, 2 / fps),
     output: relativeOrAbsolute(projectRoot, outputPath),
