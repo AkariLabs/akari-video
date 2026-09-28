@@ -24,6 +24,24 @@ export interface GenerationChipDescription {
     title: string;
 }
 
+/** 札の文字幅を保守的に見積もり、枠内に残せる表記を選ぶ。 */
+export function generationChipLabel(badge: string, widthPx: number): string {
+    const count = /^候補 (\d+)$/u.exec(badge)?.[1];
+    const short = /^\d+ 案作成中 · (\d+\/\d+)$/u.exec(badge)?.[1]
+        ?? (count ? `候補 ${count}` : undefined)
+        ?? /^生成中 · (\d+ 秒)$/u.exec(badge)?.[1]
+        ?? /^生成中 (\d+%)$/u.exec(badge)?.[1];
+    const shortLabel = short ? `✦ ${short}` : '✦';
+    const textWidth = (value: string): number => Array.from(value).reduce((width, char) =>
+        width + (char === ' ' ? 2 : char.codePointAt(0)! < 0x80 ? 5 : char === '·' ? 5 : 9), 0);
+    // ヘッダ余白・札の padding と、状態アイコンの幅を確保する。
+    const available = Math.max(0, widthPx - 26);
+    // 64px 未満では既存の container rule が文字を隠すため記号だけにする。
+    if (widthPx >= 64 && textWidth(badge) <= available) return badge;
+    if (widthPx >= 64 && textWidth(shortLabel) <= available) return shortLabel;
+    return '✦';
+}
+
 /** 生成中の表示用に、元の枠の記録を保ったまま状態を一時的に進める。 */
 export function markPlaceholderGenerating(meta: GenerationSidecarMeta, provider: string, at: string): GenerationSidecarMeta {
     return {

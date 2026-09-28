@@ -61,6 +61,16 @@ test('generationFields はモデル能力・見積・エラーを表駆動で欄
   }
 });
 
+test('長さの行は小数 1 桁、整数はそのまま表示する', () => {
+  for (const [seconds, expected] of [[0.7999999999999998, '0.8'], [5, '5'], [2.25, '2.3']]) {
+    const current = draft(models[0].id);
+    current.output.duration_s = seconds;
+    const fields = generationFields({ snapshot: {}, catalogRow: models[0], draft: current,
+      validation: { rounded: { duration_s: { from: seconds, to: 5 } } }, defaults: { catalog: models }, actions });
+    assert.equal(fields.find(field => field.name === 'generation-duration').getValue({}), `${expected} 秒 → 5 秒`);
+  }
+});
+
 test('実カタログの全 video 行は事実帯ラベルが一意で、select write が同じ id へ往復する', async () => {
   const labels = actualVideoModels.map(generationFactLabel);
   assert.equal(new Set(labels).size, actualVideoModels.length);

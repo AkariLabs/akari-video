@@ -8,7 +8,7 @@ import ts from 'typescript';
 import { selectGenerationSidecarForSource } from '@akari-video/edit-store';
 import * as fields from '../lib/browser/inspector/generation-fields.js';
 import { generationDraftFromDone } from '../lib/browser/inspector/generation-provenance.js';
-import { describeGenerationChip } from '../lib/common/generation-sidecar.js';
+import { describeGenerationChip, generationChipLabel } from '../lib/common/generation-sidecar.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { validateInputs } from '../../../../../packages/generate/src/validate-inputs.mjs';
 import { runVideoCommand } from '../../../../../packages/generate/src/cli/video.mjs';
@@ -110,7 +110,7 @@ class Element {
   getBoundingClientRect() { return { width: this.width, height: 14 }; }
 }
 const retryFrames = [];
-const Timeline = harness('akari-annotations-widget.ts', 'AkariAnnotationsWidget', ['applyGenerationChip', 'appendGenerationRetry', 'openGenerationRetry'], { describeGenerationChip, window: { setTimeout, clearTimeout, requestAnimationFrame: callback => retryFrames.push(callback) }, document: { createElement: () => new Element() }, OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' });
+const Timeline = harness('akari-annotations-widget.ts', 'AkariAnnotationsWidget', ['applyGenerationChip', 'appendGenerationRetry', 'openGenerationRetry'], { describeGenerationChip, generationChipLabel, window: { setTimeout, clearTimeout, requestAnimationFrame: callback => retryFrames.push(callback) }, document: { createElement: () => new Element() }, OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' });
 test('失敗チップ「もう一度」・狭い幅では出ない・pointerdown はドラッグへ伝播しない', () => {
   assert.match(describeGenerationChip('failed').title, /もう一度/); assert.doesNotMatch(describeGenerationChip('stale').title, /もう一度/);
   for (const width of [60, 127, 199, 300]) {

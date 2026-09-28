@@ -1,4 +1,5 @@
 import { describeNextDraft, type GenerationMetaV1 } from '@akari-video/edit-store';
+import { videoSecondsLabel } from './ai-video-candidates-panel';
 
 export interface GenerationReference {
     path: string;
@@ -393,7 +394,8 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     const durationChange = rounded ?? normalizedChanged;
     fields.push({
         name: 'generation-duration', label: '長さ',
-        getValue: () => durationChange ? `${durationChange.from} 秒 → ${durationChange.to} 秒` : `${duration} 秒（cuts）`,
+        getValue: () => durationChange ? `${videoSecondsLabel(durationChange.from)} 秒 → ${videoSecondsLabel(durationChange.to)} 秒`
+            : `${videoSecondsLabel(duration)} 秒（cuts）`,
         className: durationChange ? 'akari-inspector-generation-warning' : undefined
     });
     if (catalogRow.resolutions?.length) fields.push({

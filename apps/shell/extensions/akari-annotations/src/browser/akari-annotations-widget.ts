@@ -27,7 +27,7 @@ import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
 import { clipKindBadge, ClipKindBadgeContext, ClipKindBadgeItem } from '../common/clip-kind-badge';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
 import {
-    describeGenerationChip, GenerationBindingView, GenerationSidecarMeta, GenerationState, resolveGenerationState
+    describeGenerationChip, generationChipLabel, GenerationBindingView, GenerationSidecarMeta, GenerationState, resolveGenerationState
 } from '../common/generation-sidecar';
 import { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } from './inspector/ai-video-candidates-panel';
 
@@ -906,6 +906,14 @@ type DragPreview =
     | { kind: 'audio-trim'; id: string; edge: 'left' | 'right'; t: number; in: number; out: number }
     | { kind: 'cut-slip'; index: number; in: number; out: number }
     | { kind: 'audio-slip'; id: string; in: number; out: number };
+
+/** 点線の幅と次の item の開始位置から、文字をどの形で置くか決める。 */
+export function generationOverhangLabelLayout(
+    widthPx: number, labelWidthPx: number, nextItemStartPx: number
+): 'plain' | 'badge' | 'title' {
+    if (widthPx < labelWidthPx + 12) return 'title';
+    return nextItemStartPx >= labelWidthPx + 8 ? 'plain' : 'badge';
+}
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
@@ -9571,6 +9579,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const excess = reduceMotion || segment.tlEnd <= segment.tlStart
             ? 0 : videoOverhangSeconds(frameSeconds, generatedSeconds ?? 0);
         if (!excess) return;
+        const widthPx = clipWidth * excess / (segment.tlEnd - segment.tlStart);
+        const text = finished ? `動画は ${videoSecondsLabel(generatedSeconds!)} 秒`
+            : `${videoSecondsLabel(generatedSeconds!)} 秒で作ります`;
+        const labelWidthPx = Array.from(text).reduce((width, char) => width + (char.codePointAt(0)! < 0x80 ? char === ' ' ? 3 : 5 : 10), 0);
+        const nextItemStartPx = (this.segments ?? [])
+            .filter(next => next.index !== segment.index && next.track === segment.track
+                && next.tlStart < segment.tlEnd + excess && next.tlEnd > segment.tlEnd)
+            .reduce((nearest, next) => Math.min(nearest,
+                Math.max(0, next.tlStart - segment.tlEnd) * clipWidth / (segment.tlEnd - segment.tlStart)), Infinity);
+        const labelLayout = generationOverhangLabelLayout(widthPx, labelWidthPx, nextItemStartPx);
         const { element: overhang, created } = this.keyedNode('strip', `generation-overhang:${itemId}`,
             JSON.stringify([segment.tlEnd, element.style.top, element.style.height, clipWidth, generatedSeconds, finished]),
             () => document.createElement('span'));
@@ -9578,15 +9596,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             overhang.setAttribute('data-akari-generation-overhang', 'true');
             overhang.setAttribute('aria-hidden', 'true');
         }
-        overhang.textContent = finished ? `動画は ${videoSecondsLabel(generatedSeconds!)} 秒`
-            : `${videoSecondsLabel(generatedSeconds!)} 秒で作ります`;
+        overhang.textContent = labelLayout === 'plain' ? text : '';
+        overhang.title = text;
+        if (labelLayout === 'title') {
+            // 点線は pointer-events:none のため、ホバー可能な元の枠にも全文を残す。
+            element.dataset.akariGenerationBaseTitle ??= element.title;
+            element.title = [element.title, text].filter(Boolean).join('\n');
+            element.dataset.akariGenerationTitle = element.title;
+        }
+        if (labelLayout === 'badge') {
+            const label = document.createElement('span');
+            label.textContent = text;
+            Object.assign(label.style, {
+                position: 'absolute', left: '4px', top: '26px', padding: '1px 4px',
+                borderRadius: '2px', background: 'rgba(22, 25, 30, .96)', color: '#f2f5f7',
+                lineHeight: '14px', whiteSpace: 'nowrap'
+            });
+            overhang.appendChild(label);
+        }
         Object.assign(overhang.style, {
             position: 'absolute', left: `${this.layoutPercent(segment.tlEnd)}%`,
             top: element.style.top, height: element.style.height,
-            width: `${clipWidth * excess / (segment.tlEnd - segment.tlStart)}px`,
+            width: `${widthPx}px`,
             border: '1px dashed rgba(210, 220, 225, .55)', borderRadius: '4px', boxSizing: 'border-box',
             background: 'transparent', color: 'rgba(235, 240, 242, .75)',
-            fontSize: '10px', lineHeight: '14px', padding: '28px 4px 2px', whiteSpace: 'nowrap',
+            fontSize: '10px', lineHeight: '14px', padding: labelLayout === 'plain' ? '28px 4px 2px' : '0', whiteSpace: 'nowrap',
             overflow: 'hidden', pointerEvents: 'none', zIndex: '3'
         });
     }
@@ -9594,7 +9628,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected applyGenerationChip(
         element: HTMLElement, generation: {
             state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
-        } | undefined
+        } | undefined, clipWidth?: number
     ): void {
         const previousTimer = Number(element.dataset.akariGenerationElapsedTimer);
         if (previousTimer && typeof window !== 'undefined') window.clearInterval(previousTimer);
@@ -9638,23 +9672,63 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.appendChild(badge);
         }
         badge.className = 'akari-generation-badge';
-        badge.textContent = narrow && description.badge === '▶ 動画予定' ? '▶' : description.badge;
+        const frameWidth = clipWidth ?? ((typeof element.getBoundingClientRect === 'function'
+            ? element.getBoundingClientRect().width : 0) || parseFloat(element.style.width) || 0);
+        const chipText = generation.state === 'planned-video' && description.badge === '▶ 動画予定' ? description.badge
+            : generationChipLabel(description.badge, frameWidth);
+        badge.textContent = narrow && description.badge === '▶ 動画予定' ? '▶' : chipText;
         badge.title = description.title;
-        const fullCompareOrCandidates = generation.meta?.job?.provider === 'compare'
-            && (generation.state === 'generating' || Number(generation.meta.job.candidates) > 0);
-        badge.style.maxWidth = fullCompareOrCandidates ? 'none' : '';
-        badge.style.overflow = fullCompareOrCandidates ? 'visible' : '';
-        badge.style.zIndex = fullCompareOrCandidates ? '8' : '';
-        if (header) header.style.overflow = fullCompareOrCandidates ? 'visible' : '';
+        badge.setAttribute('aria-label', description.badge);
+        badge.style.maxWidth = '100%';
+        badge.style.overflow = 'hidden';
+        badge.style.zIndex = '';
+        if (header) header.style.overflow = 'hidden';
         if (generation.state !== 'planned-video') {
             element.classList.add('akari-generation-chip-layout');
             // One flex row: badge, optional future retry action, name, duration. No reserved button width.
             if (header) header.prepend(badge);
             const label = document.createElement('span');
             label.className = 'akari-generation-badge-label';
-            label.textContent = description.badge;
+            label.textContent = chipText;
             badge.textContent = '';
             badge.appendChild(label);
+            let labelRevision = 0;
+            const applyChipLabel = (fullText: string, width: number): void => {
+                const visible = generationChipLabel(fullText, width);
+                label.textContent = visible;
+                badge!.dataset.akariGenerationCompact = visible === '✦' ? '✦' : Array.from(visible)[0];
+                badge!.style.flex = visible === '✦' ? '' : 'none';
+                const revision = ++labelRevision;
+                if (visible === '✦' || typeof window === 'undefined'
+                    || typeof window.requestAnimationFrame !== 'function') return;
+                window.requestAnimationFrame(() => {
+                    if (revision !== labelRevision || label.parentElement !== badge) return;
+                    // 見積もり幅と実際のフォント幅が異なるときだけ、描画後の実寸で縮め直す。
+                    const clipped = (): boolean => {
+                        const frameRect = typeof element.getBoundingClientRect === 'function'
+                            ? element.getBoundingClientRect() : undefined;
+                        const badgeRect = typeof badge!.getBoundingClientRect === 'function'
+                            ? badge!.getBoundingClientRect() : undefined;
+                        const labelRect = typeof label.getBoundingClientRect === 'function'
+                            ? label.getBoundingClientRect() : undefined;
+                        const textClipped = typeof badge!.scrollWidth === 'number' && typeof badge!.clientWidth === 'number'
+                            && badge!.clientWidth > 0 && badge!.scrollWidth > badge!.clientWidth + 0.5;
+                        const labelClipped = labelRect && badgeRect && Number.isFinite(labelRect.right)
+                            && Number.isFinite(badgeRect.right) && labelRect.right > badgeRect.right + 0.5;
+                        const frameClipped = frameRect && badgeRect && Number.isFinite(frameRect.right)
+                            && Number.isFinite(badgeRect.right) && badgeRect.right > frameRect.right + 0.5;
+                        return !!(textClipped || labelClipped || frameClipped);
+                    };
+                    for (let step = 0; step < 2 && label.textContent !== '✦' && clipped(); step++) {
+                        const short = generationChipLabel(fullText, 64);
+                        const next = label.textContent === fullText && short !== fullText ? short : '✦';
+                        label.textContent = next;
+                        badge!.dataset.akariGenerationCompact = next === '✦' ? '✦' : Array.from(next)[0];
+                        badge!.style.flex = next === '✦' ? '' : 'none';
+                    }
+                });
+            };
+            applyChipLabel(description.badge, frameWidth);
             if (generation.state === 'generating' && description.progress === undefined
                 && Number.isFinite(Date.parse(String(generation.meta?.job?.started_at ?? '')))
                 && typeof window !== 'undefined') {
@@ -9676,19 +9750,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return;
                     }
                     const current = describeGenerationChip(live.state, live.meta);
-                    label.textContent = current.badge;
+                    applyChipLabel(current.badge, (typeof element.getBoundingClientRect === 'function'
+                        ? element.getBoundingClientRect().width : 0) || frameWidth);
                     badge!.title = `${current.badge} — ${current.title}`;
+                    badge!.setAttribute('aria-label', current.badge);
                     if (path && (live?.meta?.job?.provider === 'compare' || generation.meta?.job?.provider === 'compare')) {
                         void this.refreshCompareSidecar(path);
                     }
                 }, 1000);
                 element.dataset.akariGenerationElapsedTimer = String(timer);
             }
-            badge.dataset.akariGenerationCompact = fullCompareOrCandidates ? '' : Array.from(description.badge)[0];
-            if (fullCompareOrCandidates) {
-                label.style.display = 'inline';
-                badge.style.flex = 'none';
-            } else badge.style.flex = '';
             badge.title = `${description.badge} — ${description.title}`;
             const name = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-label');
             const duration = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-duration');
@@ -11778,7 +11849,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     element.style.cursor = 'crosshair';
                 }
             }
-            this.applyGenerationChip(element, cutGeneration);
+            this.applyGenerationChip(element, cutGeneration, clipWidth);
             this.applyGenerationOverhang(element, cut, segment, clipWidth, cutGeneration, cutItemId);
             this.applyMaterialFetchBadge(element, this.sourceMap.get(cut.src)?.path ?? cut.src);
             if (created && unsupportedDeclaredTransitions.has(segment.index)) {

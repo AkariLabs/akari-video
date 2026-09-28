@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 import {
-  describeGenerationChip, resolveGenerationState, sidecarPathFor
+  describeGenerationChip, generationChipLabel, resolveGenerationState, sidecarPathFor
 } from '../lib/common/generation-sidecar.js';
 
 const startedAt = Date.parse('2026-09-13T00:00:00.000Z');
@@ -52,6 +52,16 @@ test('候補の札は進捗と完了数を示す', () => {
     started_at: '2026-09-13T00:00:00.000Z' } }, startedAt + 1000).badge, /生成中 · 1 秒/u);
   assert.equal(describeGenerationChip('planned', { job: { routes: ['codex', 'grok', 'fal'], candidates: 2 } }).badge,
     '候補 2');
+});
+
+test('札は幅に応じて全文・記号と数・記号だけにし、400% では全文を戻す', () => {
+  const progress = '3 案作成中 · 1/3';
+  assert.equal(generationChipLabel(progress, 101), progress);
+  assert.equal(generationChipLabel(progress, 64), '✦ 1/3');
+  assert.equal(generationChipLabel(progress, 25.2), '✦');
+  assert.equal(generationChipLabel('候補 3', 101), '候補 3');
+  assert.equal(generationChipLabel('候補 3', 25.2), '✦');
+  assert.equal(generationChipLabel('生成中 · 12 秒', 64), '✦ 12 秒');
 });
 
 test('planned は空白だけ・欠落・不正型の prompt でも空の枠、文字があれば予定', () => {

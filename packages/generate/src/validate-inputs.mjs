@@ -13,6 +13,10 @@ function fmt(value) {
   return Number(value.toFixed(3)).toString();
 }
 
+function durationFmt(value) {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
+}
+
 function addReferenceMessages(messages, references, capability, slot, label, unit) {
   const count = references.length;
   if (Number.isFinite(capability?.max) && count > capability.max) {
@@ -81,11 +85,11 @@ function durationMessage(model, from, to) {
   const duration = model.duration;
   const family = model.family ?? model.id;
   const allowed = duration.kind === 'enum'
-    ? `${duration.values.map(fmt).join(' / ')} 秒のみ`
-    : `${fmt(duration.min)}〜${fmt(duration.max)} 秒`;
+    ? `${duration.values.map(durationFmt).join(' / ')} 秒のみ`
+    : `${durationFmt(duration.min)}〜${durationFmt(duration.max)} 秒`;
   const difference = Math.abs(from - to);
-  const suffix = difference > 0.5 ? `。差 ${fmt(difference)} 秒` : '';
-  return `尺 ${fmt(from)} 秒 → ${fmt(to)} 秒に丸めました（${family} は ${allowed}）${suffix}`;
+  const suffix = difference > 0.5 ? `。差 ${durationFmt(difference)} 秒` : '';
+  return `尺 ${durationFmt(from)} 秒 → ${durationFmt(to)} 秒に丸めました（${family} は ${allowed}）${suffix}`;
 }
 
 export function validateInputs({ inputs, output, model }) {

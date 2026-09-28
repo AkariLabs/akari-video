@@ -20,6 +20,16 @@ const MODELS = {
 
 const CATALOG = JSON.parse(readFileSync(new URL('../../schemas/gen-models.json', import.meta.url), 'utf8'));
 
+test('尺の丸め注記は小数 1 桁、整数はそのまま表示する', () => {
+  for (const [seconds, expected] of [[0.7999999999999998, '0.8'], [5, '5'], [2.25, '2.3']]) {
+    const model = { ...MODELS.h3, duration: { ...MODELS.h3.duration, min: 6 } };
+    const result = validateInputs({ inputs: { prompt: 'A garden.' }, output: { duration_s: seconds }, model });
+    const note = result.messages.find(message => message.code === 'duration.rounded');
+    assert.ok(note, String(seconds));
+    assert.match(note.text, new RegExp(`^尺 ${expected} 秒 → 6 秒に丸めました`, 'u'));
+  }
+});
+
 test('全モデル fixture は実 schema の行定義に準拠し、旧秒数欄は拒否する', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schemas/gen-models.schema.json', import.meta.url), 'utf8'));
   const ajv = new Ajv2020({ allErrors: true });
@@ -143,7 +153,7 @@ const CASES = [
   {
     name: 'H3 の 6.592 秒を step で 7 秒へ丸める', model: MODELS.h3, inputs: { prompt: 'A garden.' },
     output: { duration_s: 6.592, resolution: '768P' },
-    expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 6.592, to: 7, reason: 'step' } }, texts: { 'duration.rounded': '尺 6.592 秒 → 7 秒に丸めました（MiniMax H3 は 5〜15 秒）' } },
+    expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 6.592, to: 7, reason: 'step' } }, texts: { 'duration.rounded': '尺 6.6 秒 → 7 秒に丸めました（MiniMax H3 は 5〜15 秒）' } },
   },
   {
     name: 'H3 の許容値 6 秒は丸めない', model: MODELS.h3, inputs: { prompt: 'A garden.' },

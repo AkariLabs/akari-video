@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { describeGenerationChip } from '../lib/common/generation-sidecar.js';
+import { describeGenerationChip, generationChipLabel } from '../lib/common/generation-sidecar.js';
 import { appendAiMaterialView } from '../lib/browser/inspector/ai-material-view.js';
 
 class Node {
@@ -23,6 +23,7 @@ class Node {
   prepend(child) { child.remove(); child.parentElement = this; this.children.unshift(child); }
   remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(child => child !== this); this.parentElement = null; }
   setAttribute(name, value) { this.attributes.set(name, value); }
+  getBoundingClientRect() { return { width: 180, height: 14 }; }
   addEventListener(name, callback) { this.listeners.set(name, callback); }
   click() { this.listeners.get('click')?.(); }
   querySelector(selector) {
@@ -45,7 +46,8 @@ const harnessCode = ts.transpileModule(`class Harness {
   ${member('applyGenerationChip')}
   ${member('applyAudioGenerationChip')}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Harness = new Function('describeGenerationChip', `${harnessCode}; return Harness;`)(describeGenerationChip);
+const Harness = new Function('describeGenerationChip', 'generationChipLabel', `${harnessCode}; return Harness;`)(
+  describeGenerationChip, generationChipLabel);
 
 function audioHarness() {
   const instance = new Harness();

@@ -1,0 +1,1417 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "step": "adopt",
+  "observations": {
+    "stubModels": [
+      {
+        "model": "fal:h3-i2v",
+        "durationSec": 5,
+        "queueMs": 4500,
+        "processingMs": 18000
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "durationSec": 5,
+        "queueMs": 6000,
+        "processingMs": 36000
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "durationSec": 5,
+        "queueMs": 7500,
+        "processingMs": 54000
+      }
+    ],
+    "electronPid": 61918,
+    "originalFrame": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 24,
+      "source": {
+        "kind": "media",
+        "src": "src-start",
+        "in": 0,
+        "out": 0.8
+      }
+    },
+    "durationRow": "0.8 秒 → 5 秒",
+    "durationNote": "尺 0.8 秒 → 5 秒に丸めました（MiniMax H3 は 5〜15 秒）",
+    "panelNote": "枠 0.8 秒 → 5 秒の動画を作ります（枠に入るのは 0.8 秒ぶん。残りはタイムラインに点線で出ます）",
+    "planned": {
+      "100": {
+        "zoom": {
+          "zoom": 100,
+          "viewStart": 0,
+          "label": "100%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 459.5,
+            "right": 484.8,
+            "top": 520,
+            "bottom": 568,
+            "width": 25.2
+          },
+          "next": {
+            "left": 484.8,
+            "right": 579.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "badge": {
+            "text": "▶",
+            "title": "動画予定（画像から）",
+            "aria": "▶ 動画予定",
+            "ariaHidden": null,
+            "rect": {
+              "left": 462.5,
+              "right": 477.9,
+              "top": 523,
+              "bottom": 537,
+              "width": 15.4
+            },
+            "before": "none"
+          },
+          "badgeText": [
+            {
+              "text": "▶",
+              "rect": {
+                "left": 466.5,
+                "right": 473.9,
+                "top": 524,
+                "bottom": 535,
+                "width": 7.4
+              },
+              "clipped": false,
+              "onNext": false,
+              "background": 1,
+              "insideFrame": true
+            }
+          ],
+          "overhang": {
+            "text": "5 秒で作ります",
+            "title": "5 秒で作ります",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 484.8,
+              "right": 617.2,
+              "top": 520,
+              "bottom": 568,
+              "width": 132.5
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "5 秒で作ります"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "5 秒で作ります",
+              "rect": {
+                "left": 493.8,
+                "right": 563,
+                "top": 549,
+                "bottom": 560,
+                "width": 69.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": false,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      },
+      "400": {
+        "zoom": {
+          "zoom": 399,
+          "viewStart": 2.9,
+          "label": "399%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 377.5,
+            "right": 478.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 100.9
+          },
+          "next": {
+            "left": 478.4,
+            "right": 758.5,
+            "top": 520,
+            "bottom": 568,
+            "width": 280.1
+          },
+          "badge": {
+            "text": "▶ 動画予定",
+            "title": "動画予定（画像から）",
+            "aria": "▶ 動画予定",
+            "ariaHidden": null,
+            "rect": {
+              "left": 380.5,
+              "right": 434.6,
+              "top": 523,
+              "bottom": 537,
+              "width": 54.1
+            },
+            "before": "none"
+          },
+          "badgeText": [
+            {
+              "text": "▶ 動画予定",
+              "rect": {
+                "left": 384.5,
+                "right": 430.6,
+                "top": 524,
+                "bottom": 535,
+                "width": 46.1
+              },
+              "clipped": false,
+              "onNext": false,
+              "background": 1,
+              "insideFrame": true
+            }
+          ],
+          "overhang": {
+            "text": "5 秒で作ります",
+            "title": "5 秒で作ります",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 478.4,
+              "right": 1008.3,
+              "top": 520,
+              "bottom": 568,
+              "width": 529.8
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "5 秒で作ります"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "5 秒で作ります",
+              "rect": {
+                "left": 487.4,
+                "right": 556.7,
+                "top": 549,
+                "bottom": 560,
+                "width": 69.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": false,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      }
+    },
+    "generating-1of3": {
+      "100": {
+        "zoom": {
+          "zoom": 100,
+          "viewStart": 0,
+          "label": "100%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 459.5,
+            "right": 484.8,
+            "top": 520,
+            "bottom": 568,
+            "width": 25.2
+          },
+          "next": {
+            "left": 484.8,
+            "right": 579.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "badge": {
+            "text": "✦",
+            "title": "3 案作成中 · 1/3 — 3 案作成中 · 1/3",
+            "aria": "3 案作成中 · 1/3",
+            "ariaHidden": null,
+            "rect": {
+              "left": 463.5,
+              "right": 480.8,
+              "top": 523,
+              "bottom": 536,
+              "width": 17.2
+            },
+            "before": "\"✦\""
+          },
+          "badgeText": [],
+          "overhang": {
+            "text": "5 秒で作ります",
+            "title": "5 秒で作ります",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 484.8,
+              "right": 617.2,
+              "top": 520,
+              "bottom": 568,
+              "width": 132.5
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "5 秒で作ります"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "5 秒で作ります",
+              "rect": {
+                "left": 493.8,
+                "right": 563,
+                "top": 549,
+                "bottom": 560,
+                "width": 69.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": true,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      },
+      "400": {
+        "zoom": {
+          "zoom": 399,
+          "viewStart": 2.9,
+          "label": "399%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 377.5,
+            "right": 478.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 100.9
+          },
+          "next": {
+            "left": 478.4,
+            "right": 758.5,
+            "top": 520,
+            "bottom": 568,
+            "width": 280.1
+          },
+          "badge": {
+            "text": "3 案作成中 · 1/3",
+            "title": "3 案作成中 · 1/3 — 3 案作成中 · 1/3",
+            "aria": "3 案作成中 · 1/3",
+            "ariaHidden": null,
+            "rect": {
+              "left": 381.5,
+              "right": 474.2,
+              "top": 523,
+              "bottom": 537,
+              "width": 92.7
+            },
+            "before": "\"\""
+          },
+          "badgeText": [
+            {
+              "text": "3 案作成中 · 1/3",
+              "rect": {
+                "left": 400.5,
+                "right": 470.2,
+                "top": 526,
+                "bottom": 535,
+                "width": 69.7
+              },
+              "clipped": false,
+              "onNext": false,
+              "background": 1,
+              "insideFrame": true
+            }
+          ],
+          "overhang": {
+            "text": "5 秒で作ります",
+            "title": "5 秒で作ります",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 478.4,
+              "right": 1008.3,
+              "top": 520,
+              "bottom": 568,
+              "width": 529.8
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "5 秒で作ります"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "5 秒で作ります",
+              "rect": {
+                "left": 487.4,
+                "right": 556.7,
+                "top": 549,
+                "bottom": 560,
+                "width": 69.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": false,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      }
+    },
+    "chipSequence": [
+      "✦ | 3 案作成中 · 0/3 — 3 案作成中 · 0/3 | 3 案作成中 · 0/3",
+      "✦ | 3 案作成中 · 1/3 — 3 案作成中 · 1/3 | 3 案作成中 · 1/3",
+      "✦ | 3 案作成中 · 2/3 — 3 案作成中 · 2/3 | 3 案作成中 · 2/3",
+      "✦ | 候補 3 | 候補 3"
+    ],
+    "candidates-3": {
+      "100": {
+        "zoom": {
+          "zoom": 100,
+          "viewStart": 0,
+          "label": "100%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 459.5,
+            "right": 484.8,
+            "top": 520,
+            "bottom": 568,
+            "width": 25.2
+          },
+          "next": {
+            "left": 484.8,
+            "right": 579.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "badge": {
+            "text": "✦",
+            "title": "候補 3",
+            "aria": "候補 3",
+            "ariaHidden": null,
+            "rect": {
+              "left": 460.5,
+              "right": 477.8,
+              "top": 525,
+              "bottom": 539,
+              "width": 17.3
+            },
+            "before": "\"✦\""
+          },
+          "badgeText": [
+            {
+              "text": "✦",
+              "rect": {
+                "left": 470.6,
+                "right": 477.8,
+                "top": 526,
+                "bottom": 537,
+                "width": 7.1
+              },
+              "clipped": false,
+              "onNext": false,
+              "background": 0,
+              "insideFrame": true
+            }
+          ],
+          "overhang": {
+            "text": "5 秒で作ります",
+            "title": "5 秒で作ります",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 484.8,
+              "right": 617.2,
+              "top": 520,
+              "bottom": 568,
+              "width": 132.5
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "5 秒で作ります"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "5 秒で作ります",
+              "rect": {
+                "left": 493.8,
+                "right": 563,
+                "top": 549,
+                "bottom": 560,
+                "width": 69.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": false,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      },
+      "400": {
+        "zoom": {
+          "zoom": 399,
+          "viewStart": 2.9,
+          "label": "399%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 377.5,
+            "right": 478.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 100.9
+          },
+          "next": {
+            "left": 478.4,
+            "right": 758.5,
+            "top": 520,
+            "bottom": 568,
+            "width": 280.1
+          },
+          "badge": {
+            "text": "候補 3",
+            "title": "候補 3",
+            "aria": "候補 3",
+            "ariaHidden": null,
+            "rect": {
+              "left": 434.8,
+              "right": 471.4,
+              "top": 525,
+              "bottom": 539,
+              "width": 36.6
+            },
+            "before": "\"✦\""
+          },
+          "badgeText": [
+            {
+              "text": "候補 3",
+              "rect": {
+                "left": 444.9,
+                "right": 471.4,
+                "top": 526,
+                "bottom": 537,
+                "width": 26.5
+              },
+              "clipped": false,
+              "onNext": false,
+              "background": 0,
+              "insideFrame": true
+            }
+          ],
+          "overhang": {
+            "text": "5 秒で作ります",
+            "title": "5 秒で作ります",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 478.4,
+              "right": 1008.3,
+              "top": 520,
+              "bottom": 568,
+              "width": 529.8
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "5 秒で作ります"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "5 秒で作ります",
+              "rect": {
+                "left": 487.4,
+                "right": 556.7,
+                "top": 549,
+                "bottom": 560,
+                "width": 69.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": false,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      }
+    },
+    "adopted": {
+      "100": {
+        "zoom": {
+          "zoom": 100,
+          "viewStart": 0,
+          "label": "100%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 459.5,
+            "right": 484.8,
+            "top": 520,
+            "bottom": 568,
+            "width": 25.2
+          },
+          "next": {
+            "left": 484.8,
+            "right": 579.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 94.6
+          },
+          "badge": {
+            "text": "✦",
+            "title": "生成 — 生成された動画",
+            "aria": "生成",
+            "ariaHidden": null,
+            "rect": {
+              "left": 463.5,
+              "right": 476.9,
+              "top": 523,
+              "bottom": 535,
+              "width": 13.4
+            },
+            "before": "\"✦\""
+          },
+          "badgeText": [],
+          "overhang": {
+            "text": "動画は 5 秒",
+            "title": "動画は 5 秒",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 484.8,
+              "right": 617.2,
+              "top": 520,
+              "bottom": 568,
+              "width": 132.5
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "動画は 5 秒"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "動画は 5 秒",
+              "rect": {
+                "left": 493.8,
+                "right": 545.9,
+                "top": 549,
+                "bottom": 560,
+                "width": 52.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": true,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      },
+      "400": {
+        "zoom": {
+          "zoom": 399,
+          "viewStart": 2.9,
+          "label": "399%"
+        },
+        "geometry": {
+          "frame": {
+            "left": 377.5,
+            "right": 478.4,
+            "top": 520,
+            "bottom": 568,
+            "width": 100.9
+          },
+          "next": {
+            "left": 478.4,
+            "right": 758.5,
+            "top": 520,
+            "bottom": 568,
+            "width": 280.1
+          },
+          "badge": {
+            "text": "生成",
+            "title": "生成 — 生成された動画",
+            "aria": "生成",
+            "ariaHidden": null,
+            "rect": {
+              "left": 381.5,
+              "right": 407.5,
+              "top": 523,
+              "bottom": 535,
+              "width": 26
+            },
+            "before": null
+          },
+          "badgeText": [
+            {
+              "text": "生成",
+              "rect": {
+                "left": 385.5,
+                "right": 403.5,
+                "top": 524,
+                "bottom": 533,
+                "width": 18
+              },
+              "clipped": false,
+              "onNext": false,
+              "background": 1,
+              "insideFrame": true
+            }
+          ],
+          "overhang": {
+            "text": "動画は 5 秒",
+            "title": "動画は 5 秒",
+            "aria": null,
+            "ariaHidden": "true",
+            "rect": {
+              "left": 478.4,
+              "right": 1008.3,
+              "top": 520,
+              "bottom": 568,
+              "width": 529.8
+            },
+            "before": "none",
+            "pointerEvents": "none",
+            "border": "dashed",
+            "titles": [
+              "動画は 5 秒"
+            ]
+          },
+          "overhangText": [
+            {
+              "text": "動画は 5 秒",
+              "rect": {
+                "left": 487.4,
+                "right": 539.6,
+                "top": 549,
+                "bottom": 560,
+                "width": 52.2
+              },
+              "clipped": false,
+              "onNext": true,
+              "background": 0.96,
+              "insideFrame": false
+            }
+          ]
+        },
+        "verdict": {
+          "badgeOk": true,
+          "glyphOnly": false,
+          "overhangTextOk": true,
+          "overhangCarries": true,
+          "badgeFullInTitleAndAria": true,
+          "badgeCarries": true,
+          "textOnNextWithoutBackground": [],
+          "badgeOutsideFrame": [],
+          "clipped": []
+        }
+      }
+    },
+    "adoptedFrame": {
+      "id": "clip-frame",
+      "at": 90,
+      "duration": 24,
+      "source": {
+        "kind": "media",
+        "src": "gen-clip-frame-video",
+        "in": 0,
+        "out": 0.8,
+        "freeze": null,
+        "mute": false
+      }
+    },
+    "nextItem": {
+      "id": "clip-next",
+      "at": 114,
+      "duration": 90,
+      "source": {
+        "kind": "media",
+        "src": "src-clip",
+        "in": 0,
+        "out": 3
+      }
+    }
+  },
+  "checks": [
+    {
+      "name": "AFTER: 長さの行が「0.8 秒 → 5 秒」",
+      "pass": true,
+      "detail": {
+        "row": "0.8 秒 → 5 秒",
+        "note": "尺 0.8 秒 → 5 秒に丸めました（MiniMax H3 は 5〜15 秒）"
+      }
+    },
+    {
+      "name": "AFTER: 注記も「尺 0.8 秒 → 5 秒に丸めました」",
+      "pass": true,
+      "detail": "尺 0.8 秒 → 5 秒に丸めました（MiniMax H3 は 5〜15 秒）"
+    },
+    {
+      "name": "AFTER planned 100%: 点線そのものは今どおり次の item に重なり、表示専用",
+      "pass": true,
+      "detail": {
+        "text": "5 秒で作ります",
+        "title": "5 秒で作ります",
+        "aria": null,
+        "ariaHidden": "true",
+        "rect": {
+          "left": 484.8,
+          "right": 617.2,
+          "top": 520,
+          "bottom": 568,
+          "width": 132.5
+        },
+        "before": "none",
+        "pointerEvents": "none",
+        "border": "dashed",
+        "titles": [
+          "5 秒で作ります"
+        ]
+      }
+    },
+    {
+      "name": "AFTER planned 400%: 今どおり点線の全文が見える",
+      "pass": true,
+      "detail": [
+        {
+          "text": "5 秒で作ります",
+          "rect": {
+            "left": 487.4,
+            "right": 556.7,
+            "top": 549,
+            "bottom": 560,
+            "width": 69.2
+          },
+          "clipped": false,
+          "onNext": true,
+          "background": 0.96,
+          "insideFrame": false
+        }
+      ]
+    },
+    {
+      "name": "AFTER generating-1of3 100%: 札の文字は枠の中に収まり、切れず、次の item の上に直接乗らない",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "AFTER generating-1of3 100%: 札の全文は title と aria-label に残る",
+      "pass": true,
+      "detail": {
+        "text": "✦",
+        "title": "3 案作成中 · 1/3 — 3 案作成中 · 1/3",
+        "aria": "3 案作成中 · 1/3",
+        "ariaHidden": null,
+        "rect": {
+          "left": 463.5,
+          "right": 480.8,
+          "top": 523,
+          "bottom": 536,
+          "width": 17.2
+        },
+        "before": "\"✦\""
+      }
+    },
+    {
+      "name": "AFTER generating-1of3 100%: 点線の文字は次の item の上に直接乗らず（背景つきの札か非表示）、全文は文字か title に残る",
+      "pass": true,
+      "detail": {
+        "text": [
+          {
+            "text": "5 秒で作ります",
+            "rect": {
+              "left": 493.8,
+              "right": 563,
+              "top": 549,
+              "bottom": 560,
+              "width": 69.2
+            },
+            "clipped": false,
+            "onNext": true,
+            "background": 0.96,
+            "insideFrame": false
+          }
+        ],
+        "overhang": {
+          "text": "5 秒で作ります",
+          "title": "5 秒で作ります",
+          "aria": null,
+          "ariaHidden": "true",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "before": "none",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "titles": [
+            "5 秒で作ります"
+          ]
+        }
+      }
+    },
+    {
+      "name": "AFTER generating-1of3 100%: 点線そのものは今どおり次の item に重なり、表示専用",
+      "pass": true,
+      "detail": {
+        "text": "5 秒で作ります",
+        "title": "5 秒で作ります",
+        "aria": null,
+        "ariaHidden": "true",
+        "rect": {
+          "left": 484.8,
+          "right": 617.2,
+          "top": 520,
+          "bottom": 568,
+          "width": 132.5
+        },
+        "before": "none",
+        "pointerEvents": "none",
+        "border": "dashed",
+        "titles": [
+          "5 秒で作ります"
+        ]
+      }
+    },
+    {
+      "name": "AFTER generating-1of3 400%: 今どおり札の全文が見える",
+      "pass": true,
+      "detail": [
+        {
+          "text": "3 案作成中 · 1/3",
+          "rect": {
+            "left": 400.5,
+            "right": 470.2,
+            "top": 526,
+            "bottom": 535,
+            "width": 69.7
+          },
+          "clipped": false,
+          "onNext": false,
+          "background": 1,
+          "insideFrame": true
+        }
+      ]
+    },
+    {
+      "name": "AFTER generating-1of3 400%: 今どおり点線の全文が見える",
+      "pass": true,
+      "detail": [
+        {
+          "text": "5 秒で作ります",
+          "rect": {
+            "left": 487.4,
+            "right": 556.7,
+            "top": 549,
+            "bottom": 560,
+            "width": 69.2
+          },
+          "clipped": false,
+          "onNext": true,
+          "background": 0.96,
+          "insideFrame": false
+        }
+      ]
+    },
+    {
+      "name": "AFTER: 作成中 1/3 の状態を撮れた",
+      "pass": true,
+      "detail": [
+        "✦ | 3 案作成中 · 0/3 — 3 案作成中 · 0/3 | 3 案作成中 · 0/3",
+        "✦ | 3 案作成中 · 1/3 — 3 案作成中 · 1/3 | 3 案作成中 · 1/3",
+        "✦ | 3 案作成中 · 2/3 — 3 案作成中 · 2/3 | 3 案作成中 · 2/3",
+        "✦ | 候補 3 | 候補 3"
+      ]
+    },
+    {
+      "name": "AFTER candidates-3 100%: 札の文字は枠の中に収まり、切れず、次の item の上に直接乗らない",
+      "pass": true,
+      "detail": [
+        {
+          "text": "✦",
+          "rect": {
+            "left": 470.6,
+            "right": 477.8,
+            "top": 526,
+            "bottom": 537,
+            "width": 7.1
+          },
+          "clipped": false,
+          "onNext": false,
+          "background": 0,
+          "insideFrame": true
+        }
+      ]
+    },
+    {
+      "name": "AFTER candidates-3 100%: 札の全文は title と aria-label に残る",
+      "pass": true,
+      "detail": {
+        "text": "✦",
+        "title": "候補 3",
+        "aria": "候補 3",
+        "ariaHidden": null,
+        "rect": {
+          "left": 460.5,
+          "right": 477.8,
+          "top": 525,
+          "bottom": 539,
+          "width": 17.3
+        },
+        "before": "\"✦\""
+      }
+    },
+    {
+      "name": "AFTER candidates-3 100%: 点線の文字は次の item の上に直接乗らず（背景つきの札か非表示）、全文は文字か title に残る",
+      "pass": true,
+      "detail": {
+        "text": [
+          {
+            "text": "5 秒で作ります",
+            "rect": {
+              "left": 493.8,
+              "right": 563,
+              "top": 549,
+              "bottom": 560,
+              "width": 69.2
+            },
+            "clipped": false,
+            "onNext": true,
+            "background": 0.96,
+            "insideFrame": false
+          }
+        ],
+        "overhang": {
+          "text": "5 秒で作ります",
+          "title": "5 秒で作ります",
+          "aria": null,
+          "ariaHidden": "true",
+          "rect": {
+            "left": 484.8,
+            "right": 617.2,
+            "top": 520,
+            "bottom": 568,
+            "width": 132.5
+          },
+          "before": "none",
+          "pointerEvents": "none",
+          "border": "dashed",
+          "titles": [
+            "5 秒で作ります"
+          ]
+        }
+      }
+    },
+    {
+      "name": "AFTER candidates-3 100%: 点線そのものは今どおり次の item に重なり、表示専用",
+      "pass": true,
+      "detail": {
+        "text": "5 秒で作ります",
+        "title": "5 秒で作ります",
+        "aria": null,
+        "ariaHidden": "true",
+        "rect": {
+          "left": 484.8,
+          "right": 617.2,
+          "top": 520,
+          "bottom": 568,
+          "width": 132.5
+        },
+        "before": "none",
+        "pointerEvents": "none",
+        "border": "dashed",
+        "titles": [
+          "5 秒で作ります"
+        ]
+      }
+    },
+    {
+      "name": "AFTER candidates-3 400%: 今どおり札の全文が見える",
+      "pass": true,
+      "detail": [
+        {
+          "text": "候補 3",
+          "rect": {
+            "left": 444.9,
+            "right": 471.4,
+            "top": 526,
+            "bottom": 537,
+            "width": 26.5
+          },
+          "clipped": false,
+          "onNext": false,
+          "background": 0,
+          "insideFrame": true
+        }
+      ]
+    },
+    {
+      "name": "AFTER candidates-3 400%: 今どおり点線の全文が見える",
+      "pass": true,
+      "detail": [
+        {
+          "text": "5 秒で作ります",
+          "rect": {
+            "left": 487.4,
+            "right": 556.7,
+            "top": 549,
+            "bottom": 560,
+            "width": 69.2
+          },
+          "clipped": false,
+          "onNext": true,
+          "background": 0.96,
+          "insideFrame": false
+        }
+      ]
+    },
+    {
+      "name": "AFTER adopted 100%: 点線そのものは今どおり次の item に重なり、表示専用",
+      "pass": true,
+      "detail": {
+        "text": "動画は 5 秒",
+        "title": "動画は 5 秒",
+        "aria": null,
+        "ariaHidden": "true",
+        "rect": {
+          "left": 484.8,
+          "right": 617.2,
+          "top": 520,
+          "bottom": 568,
+          "width": 132.5
+        },
+        "before": "none",
+        "pointerEvents": "none",
+        "border": "dashed",
+        "titles": [
+          "動画は 5 秒"
+        ]
+      }
+    },
+    {
+      "name": "AFTER adopted 400%: 今どおり点線の全文が見える",
+      "pass": true,
+      "detail": [
+        {
+          "text": "動画は 5 秒",
+          "rect": {
+            "left": 487.4,
+            "right": 539.6,
+            "top": 549,
+            "bottom": 560,
+            "width": 52.2
+          },
+          "clipped": false,
+          "onNext": true,
+          "background": 0.96,
+          "insideFrame": false
+        }
+      ]
+    },
+    {
+      "name": "AFTER: 枠と次の item の edit.json は不変（表示だけ）",
+      "pass": true,
+      "detail": {
+        "frame": {
+          "id": "clip-frame",
+          "at": 90,
+          "duration": 24,
+          "source": {
+            "kind": "media",
+            "src": "gen-clip-frame-video",
+            "in": 0,
+            "out": 0.8,
+            "freeze": null,
+            "mute": false
+          }
+        },
+        "next": {
+          "id": "clip-next",
+          "at": 114,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "src-clip",
+            "in": 0,
+            "out": 3
+          }
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "00-after-duration-row.png",
+      "bytes": 396578
+    },
+    {
+      "name": "01-after-planned-100.png",
+      "bytes": 396573
+    },
+    {
+      "name": "01-after-planned-400.png",
+      "bytes": 398834
+    },
+    {
+      "name": "02-after-generating-1of3-100.png",
+      "bytes": 438941
+    },
+    {
+      "name": "02-after-generating-1of3-400.png",
+      "bytes": 406358
+    },
+    {
+      "name": "03-after-candidates-3-100.png",
+      "bytes": 412529
+    },
+    {
+      "name": "03-after-candidates-3-400.png",
+      "bytes": 417676
+    },
+    {
+      "name": "04-after-adopted-100.png",
+      "bytes": 313920
+    },
+    {
+      "name": "04-after-adopted-400.png",
+      "bytes": 308975
+    }
+  ],
+  "consoleErrors": [
+    {
+      "kind": "warning",
+      "atMs": 1790568633743,
+      "text": "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568634876,
+      "text": "2026-09-28T04:10:34.858Z root WARN Frontend Qb.configure took longer than the expected maximum 100 milliseconds: 471.9 ms [1.619 s since frontend page start]"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568635187,
+      "text": "2026-09-28T04:10:35.185Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568635187,
+      "text": "2026-09-28T04:10:35.185Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568635234,
+      "text": "2026-09-28T04:10:35.233Z root WARN Frontend Ize.onStart took longer than the expected maximum 100 milliseconds: 170.2 ms [1.993 s since frontend page start]"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568635717,
+      "text": "2026-09-28T04:10:35.716Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at LIc (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17655:13192)\n    at async j5n.reloadResolvedCaptionDisplay (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:18285:9223)\n    at async RIc (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:17655:12050)\n    at async j5n.reloadCaptionsFromSource (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:18285:8747)\n    at async j5n.reloadCaptions (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:18285:7865)\n    at async Promise.all (index 2)\n    at async j5n.reloadAll (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:18281:6789)\n    at async j5n.configure (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:18281:526)\n    at async Gy.attachAt (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19420:3005)\n    at async Gy.attachPassively (file://<HOME>/…"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568637481,
+      "text": "2026-09-28T04:10:37.480Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background "
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568637482,
+      "text": "2026-09-28T04:10:37.480Z root WARN Frontend T_i.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 2002.6 ms [4.241 s since frontend page start]"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568637632,
+      "text": "2026-09-28T04:10:37.631Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568640418,
+      "text": "2026-09-28T04:10:40.412Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.7727e59068c3583c47041bfe635ddf0f58e87b59.flac.61928.1790568639285.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568640418,
+      "text": "2026-09-28T04:10:40.413Z root WARN [akari-preview] speech sidecar clip-frame-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.a0291e657e960ed13a448c09ba355e56a7da9962.flac.61928.1790568639311.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568640419,
+      "text": "2026-09-28T04:10:40.414Z root WARN [akari-preview] speech sidecar clip-next-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.7727e59068c3583c47041bfe635ddf0f58e87b59.flac.61928.1790568639285.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568640498,
+      "text": "2026-09-28T04:10:40.496Z root WARN [webview: akari-output-preview-nbpvul] [frame-engine] src-clip:base: 最大キーフレーム間隔が 3.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568640518,
+      "text": "2026-09-28T04:10:40.517Z root WARN [webview: akari-output-preview-nbpvul] [frame-engine] src-clip:base: 最大キーフレーム間隔が 3.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568640519,
+      "text": "2026-09-28T04:10:40.518Z root WARN [webview: akari-output-preview-nbpvul] [frame-engine] warmup cut-2: clip src-clip:cut-2 is unavailable"
+    },
+    {
+      "kind": "error",
+      "atMs": 1790568655721,
+      "text": "2026-09-28T04:10:55.719Z filesystem:FileService ERROR Error: Request 'stat' failed\n    at Proxy.<anonymous> (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:432:49208)\n    at Fht.stat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1894:92784)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58593\n    at Array.map (<anonymous>)\n    at P4.toFileStat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58539)\n    at async P4.resolve (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:57704)\n    at async n6n.readVideoCandidatesFromFiles (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:118408)\n    at async n6n.pollVideoCandidates (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:117112)\nCaused by: EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, stat '<TMP>/project/assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790568648028.mp4.meta.json.tmp-62546-1790568655716.meta.json'\n    at oqt (<HOME>/…"
+    },
+    {
+      "kind": "error",
+      "atMs": 1790568668031,
+      "text": "2026-09-28T04:11:08.030Z filesystem:FileService ERROR Error: Request 'stat' failed\n    at Proxy.<anonymous> (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:432:49208)\n    at Fht.stat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1894:92784)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58593\n    at Array.map (<anonymous>)\n    at P4.toFileStat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58539)\n    at async P4.resolve (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:57704)\n    at async n6n.readVideoCandidatesFromFiles (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:118408)\n    at async n6n.pollVideoCandidates (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:117112)\nCaused by: EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, stat '<TMP>/project/assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790568648027.mp4.meta.json.tmp-62545-1790568668028.meta.json'\n    at oqt (<HOME>/…"
+    },
+    {
+      "kind": "error",
+      "atMs": 1790568668032,
+      "text": "2026-09-28T04:11:08.031Z filesystem:FileService ERROR Error: Request 'stat' failed\n    at Proxy.<anonymous> (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:432:49208)\n    at Fht.stat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1894:92784)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58593\n    at Array.map (<anonymous>)\n    at P4.toFileStat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58539)\n    at async P4.resolve (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:57704)\n    at async n6n.readVideoCandidatesFromFiles (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:118408)\n    at async n6n.pollVideoCandidates (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:117112)\nCaused by: EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, stat '<TMP>/project/assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790568648028.mp4.meta.json.tmp-62546-1790568668028.meta.json'\n    at oqt (<HOME>/…"
+    },
+    {
+      "kind": "error",
+      "atMs": 1790568701522,
+      "text": "2026-09-28T04:11:41.521Z filesystem:FileService ERROR Error: Request 'stat' failed\n    at Proxy.<anonymous> (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:432:49208)\n    at Fht.stat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1894:92784)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58593\n    at Array.map (<anonymous>)\n    at P4.toFileStat (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:58539)\n    at async P4.resolve (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1662:57704)\n    at async n6n.readVideoCandidatesFromFiles (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:118408)\n    at async n6n.pollVideoCandidates (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:19393:117112)\nCaused by: EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, stat '<TMP>/project/assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790568648028.mp4.meta.json.tmp-62546-1790568701519.meta.json'\n    at oqt (<HOME>/…"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568708421,
+      "text": "2026-09-28T04:11:48.420Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.7727e59068c3583c47041bfe635ddf0f58e87b59.flac.61928.1790568639285.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568708446,
+      "text": "2026-09-28T04:11:48.445Z root WARN [akari-preview] speech sidecar clip-next-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.7727e59068c3583c47041bfe635ddf0f58e87b59.flac.61928.1790568639285.tmp.flac. Error opening output files: Invalid argument"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568708831,
+      "text": "2026-09-28T04:11:48.830Z root WARN [webview: akari-output-preview-nbpvul] [frame-engine] gen-clip-frame-video:base: 最大キーフレーム間隔が 5.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568708913,
+      "text": "2026-09-28T04:11:48.912Z root WARN [webview: akari-output-preview-nbpvul] [frame-engine] src-clip:base: 最大キーフレーム間隔が 3.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568708934,
+      "text": "2026-09-28T04:11:48.933Z root WARN [webview: akari-output-preview-nbpvul] [frame-engine] src-clip:base: 最大キーフレーム間隔が 3.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    },
+    {
+      "kind": "warning",
+      "atMs": 1790568708935,
+      "text": "2026-09-28T04:11:48.934Z root WARN [webview: akari-output-preview-nbpvul] [frame-engine] warmup cut-2: clip src-clip:cut-2 is unavailable"
+    }
+  ]
+}

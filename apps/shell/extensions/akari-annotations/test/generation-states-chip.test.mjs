@@ -9,7 +9,7 @@ import ts from 'typescript';
 import postcss from 'postcss';
 
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { describeGenerationChip, resolveGenerationState } from '../lib/common/generation-sidecar.js';
+import { describeGenerationChip, generationChipLabel, resolveGenerationState } from '../lib/common/generation-sidecar.js';
 import { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } from '../lib/browser/inspector/ai-video-candidates-panel.js';
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
 import { assertChipLayout, selectClipsByLabel, layoutCapturePlan } from '../evidence/generation-states/scripts/cdp-lib.mjs';
@@ -39,6 +39,16 @@ function widgetMethod(name, dependencies) {
   return new Function(...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(...Object.values(dependencies));
 }
 
+function widgetFunction(name) {
+  const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
+  const declaration = ast.statements.find(statement => ts.isFunctionDeclaration(statement) && statement.name?.text === name);
+  assert.ok(declaration, name);
+  const code = ts.transpileModule(declaration.getText(ast).replace(/^export\s+/u, ''), {
+    compilerOptions: { target: ts.ScriptTarget.ES2021 }
+  }).outputText;
+  return new Function(`${code}\nreturn ${name};`)();
+}
+
 class DummyElement {
   constructor() {
     this.children = [];
@@ -66,7 +76,7 @@ class DummyElement {
   appendChild(child) { child.remove(); child.parent = this; this.children.push(child); }
   prepend(child) { child.remove(); child.parent = this; this.children.unshift(child); }
   setAttribute(name, value) { this[name] = value; }
-  getBoundingClientRect() { return { width: this.width ?? 180, height: this.height ?? 48 }; }
+  getBoundingClientRect() { return this.bounds ?? { width: this.width ?? 180, height: this.height ?? 48 }; }
   querySelector(selector) {
     if (selector.includes('data-akari-generation-overhang')) return this.children.find(child => child['data-akari-generation-overhang']);
     const frame = selector.match(/data-akari-generation-frame="(.*?)"/);
@@ -85,13 +95,14 @@ class DummyElement {
 }
 
 globalThis.document = { createElement: () => new DummyElement() };
-const applyGenerationChip = widgetMethod('applyGenerationChip', { describeGenerationChip });
+const applyGenerationChip = widgetMethod('applyGenerationChip', { describeGenerationChip, generationChipLabel });
 const generationForPath = widgetMethod('generationForPath', {
   resolveGenerationState, selectGenerationSidecarForSource
 });
 const generationVideoCatalog = JSON.parse(await readFile(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8'));
+const generationOverhangLabelLayout = widgetFunction('generationOverhangLabelLayout');
 const applyGenerationOverhang = widgetMethod('applyGenerationOverhang', {
-  videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel, generationVideoCatalog, document
+  videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel, generationVideoCatalog, generationOverhangLabelLayout, document
 });
 const reloadGenerationSidecars = widgetMethod('reloadGenerationSidecars', {});
 const refreshCompareSidecar = widgetMethod('refreshCompareSidecar', {});
@@ -99,11 +110,12 @@ const refreshCompareSidecar = widgetMethod('refreshCompareSidecar', {});
 test('生成尺の点線は表示だけで、次の item に重なる幅と実尺へ更新できる', () => {
   const element = new DummyElement();
   const cut = { in: 0, out: 0.8 };
-  const segment = { tlStart: 3, tlEnd: 3.8 };
+  const segment = { index: 0, track: 0, tlStart: 3, tlEnd: 3.8 };
   const planned = { state: 'planned-video', meta: { next: { kind: 'video', model: { id: 'fal:h3-i2v' },
     output: { duration_s: 0.8 } } } };
   const overlays = new Map();
   const context = { selectionModel: { snapshot: { kind: 'cut', itemId: 'clip-frame' } },
+    segments: [{ index: 1, track: 0, tlStart: 3.8, tlEnd: 6.8 }],
     layoutPercent: seconds => seconds * 10,
     keyedNode: (_scope, key, _signature, create) => {
       const existing = overlays.get(key);
@@ -116,6 +128,8 @@ test('生成尺の点線は表示だけで、次の item に重なる幅と実�
   assert.ok(dashed);
   assert.equal(element.children.includes(dashed), false, '点線は cut の子でなく表示レイヤーに置く');
   assert.equal(dashed.textContent, '5 秒で作ります');
+  assert.equal(dashed.children[0]?.style.background, 'rgba(22, 25, 30, .96)');
+  assert.equal(dashed.title, '5 秒で作ります');
   assert.ok(Number.parseFloat(dashed.style.width) > 90, '次の item 94.6px の範囲へ重なる');
   assert.equal(dashed.style.pointerEvents, 'none');
   assert.equal(dashed.style.background, 'transparent');
@@ -123,6 +137,15 @@ test('生成尺の点線は表示だけで、次の item に重なる幅と実�
   applyGenerationOverhang.call(context, element, cut, segment, 25.2,
     { state: 'done', meta: { kind: 'video', result: { duration_s_actual: 5.2 } } }, 'clip-frame');
   assert.equal(dashed.textContent, '動画は 5.2 秒');
+  context.segments = [];
+  applyGenerationOverhang.call(context, element, cut, segment, 25.2, planned, 'clip-frame');
+  assert.equal(dashed.textContent, '5 秒で作ります');
+  assert.equal(dashed.children.length, 0, '次の item が無ければ文字を点線へ直書きする');
+  context.segments = [{ index: 1, track: 0, tlStart: 3.8, tlEnd: 6.8 }];
+  applyGenerationOverhang.call(context, element, cut, segment, 10, planned, 'clip-frame');
+  assert.equal(dashed.textContent, '', '札も入らない点線では文字を消す');
+  assert.equal(dashed.title, '5 秒で作ります');
+  assert.match(element.title, /5 秒で作ります/u);
   applyGenerationOverhang.call(context, element, cut, segment, 25.2,
     { state: 'done', meta: { kind: 'video', result: { duration_s_actual: 0.7 } } }, 'clip-frame');
   const count = overlays.size;
@@ -132,6 +155,12 @@ test('生成尺の点線は表示だけで、次の item に重なる幅と実�
     applyGenerationOverhang.call(context, element, cut, segment, 25.2, planned, 'clip-frame');
     assert.equal(overlays.size, count, '動きを減らす設定では点線を登録しない');
   } finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
+});
+
+test('点線の文字は空き幅では直書き、次の item と重なれば背景つき、細すぎれば title のみ', () => {
+  assert.equal(generationOverhangLabelLayout(120, 55, Infinity), 'plain');
+  assert.equal(generationOverhangLabelLayout(120, 55, 0), 'badge');
+  assert.equal(generationOverhangLabelLayout(60, 55, 0), 'title');
 });
 const uri = path => pathToFileURL(path).toString();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -154,7 +183,16 @@ test('秒タイマーは文字列 item id を引き、compare meta の更新を�
     assert.equal(starts, 1);
     tick();
     assert.match(element.textContent, /3 案作成中 · 1\/3/u);
-    assert.deepEqual(refreshed, ['frame']);
+    assert.equal(element.querySelector('[data-akari-generation-badge]').style.flex, 'none');
+    element.width = 25.2;
+    tick();
+    assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '✦');
+    assert.equal(element.querySelector('[data-akari-generation-badge]').style.flex, '');
+    element.width = 100.9;
+    tick();
+    assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '3 案作成中 · 1/3');
+    assert.equal(element.querySelector('[data-akari-generation-badge]').style.flex, 'none');
+    assert.deepEqual(refreshed, ['frame', 'frame', 'frame']);
   } finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
 });
 
@@ -201,19 +239,78 @@ test('候補 mp4 の first_frame が枠を指しても compare 枠の k/N と候
   } finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
 });
 
-test('0.8 秒の狭い動画予定でも候補 3 と compare の進捗を省略しない', () => {
+test('0.8 秒の狭い枠では札を記号にし、全文を title と aria-label に残す', () => {
   const element = new DummyElement();
+  element.width = 25.2;
   element.dataset.akariItemKind = 'cut';
   const context = { renderPlannedVideoMedia: () => true };
   applyGenerationChip.call(context, element, { state: 'planned-video', meta: {
     job: { provider: 'compare', candidates: 3 }, next: { kind: 'video' } } });
   const badge = element.querySelector('[data-akari-generation-badge]');
-  assert.equal(badge.textContent, '候補 3');
-  assert.equal(badge.style.maxWidth, 'none');
+  assert.equal(badge.textContent, '✦');
+  assert.equal(badge.style.maxWidth, '100%');
+  assert.equal(badge.style.overflow, 'hidden');
+  assert.equal(badge['aria-label'], '候補 3');
+  assert.match(badge.title, /候補 3/u);
   applyGenerationChip.call(context, element, { state: 'generating', meta: {
     job: { provider: 'compare', routes: ['h3', 'kling', 'seedance'], completed: 2 } } });
-  assert.match(badge.textContent, /3 案作成中 · 2\/3/u);
-  assert.equal(badge.dataset.akariGenerationCompact, '');
+  assert.equal(badge.textContent, '✦');
+  assert.equal(badge.dataset.akariGenerationCompact, '✦');
+  assert.equal(badge['aria-label'], '3 案作成中 · 2/3');
+  assert.match(badge.title, /3 案作成中 · 2\/3/u);
+});
+
+test('400% は全文、途中幅は短い形を縮ませず、25px は記号だけにする', () => {
+  const element = new DummyElement();
+  const header = new DummyElement();
+  header.className = 'akari-annotations-strip-clip-header';
+  element.appendChild(header);
+  const generation = { state: 'generating', meta: { job: {
+    provider: 'compare', routes: ['h3', 'kling', 'seedance'], completed: 1
+  } } };
+  for (const [width, expected, flex] of [
+    [100.9, '3 案作成中 · 1/3', 'none'], [64, '✦ 1/3', 'none'], [25.2, '✦', '']
+  ]) {
+    element.width = width;
+    applyGenerationChip.call({}, element, generation);
+    const badge = header.querySelector('[data-akari-generation-badge]');
+    assert.equal(badge.textContent, expected, `${width}px`);
+    assert.equal(badge.style.flex, flex, `${width}px`);
+    assert.equal(badge['aria-label'], '3 案作成中 · 1/3');
+  }
+});
+
+test('描画後の実測で札が枠外へ出れば短い形、さらに入らなければ記号へ落とす', () => {
+  const previousWindow = globalThis.window;
+  const frames = [];
+  globalThis.window = { requestAnimationFrame: callback => { frames.push(callback); return frames.length; } };
+  try {
+    const element = new DummyElement();
+    const header = new DummyElement();
+    header.className = 'akari-annotations-strip-clip-header';
+    element.appendChild(header);
+    const generation = { state: 'generating', meta: { job: {
+      provider: 'compare', routes: ['h3', 'kling', 'seedance'], completed: 1
+    } } };
+    element.bounds = { width: 100.9, right: 478.4 };
+    applyGenerationChip.call({}, element, generation);
+    const badge = header.querySelector('[data-akari-generation-badge]');
+    const label = badge.children[0];
+    badge.getBoundingClientRect = () => ({ right: label.textContent.startsWith('3 ') ? 481 : 465 });
+    label.getBoundingClientRect = () => ({ right: label.textContent.startsWith('3 ') ? 480 : 460 });
+    frames.shift()();
+    assert.equal(badge.textContent, '✦ 1/3');
+    assert.equal(badge.style.flex, 'none');
+
+    element.bounds = { width: 64, right: 440 };
+    badge.getBoundingClientRect = () => ({ right: label.textContent === '✦' ? 430 : 445 });
+    label.getBoundingClientRect = () => ({ right: label.textContent === '✦' ? 425 : 444 });
+    applyGenerationChip.call({}, element, generation);
+    frames.shift()();
+    assert.equal(badge.textContent, '✦');
+    assert.equal(badge.style.flex, '');
+    assert.equal(badge['aria-label'], '3 案作成中 · 1/3');
+  } finally { if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
 });
 
 test('compare の backend RPC が待機中でも FileService の完了数を即座に描き、採用後の動画 meta も先読みする', async () => {
@@ -392,7 +489,7 @@ test('generation chip 更新は再描画で class を復元し、2 回適用し�
   assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);/);
   // 取り寄せ中の「ダウンロード中」も同じ位置で当て直す（generation chip と同居する）。
   assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && transitionWarning\)/);
-  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*this\.applyGenerationOverhang\(element, cut, segment, clipWidth, cutGeneration, cutItemId\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && unsupportedDeclaredTransitions/);
+  assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration, clipWidth\);\s*this\.applyGenerationOverhang\(element, cut, segment, clipWidth, cutGeneration, cutItemId\);\s*this\.applyMaterialFetchBadge\(element, [\s\S]*?\);\s*if \(created && unsupportedDeclaredTransitions/);
   const ordinaryLayer = new DummyElement();
   ordinaryLayer.className = 'akari-annotations-strip-layer akari-annotations-strip-layer-still';
   const noGeneration = { state: 'none' };

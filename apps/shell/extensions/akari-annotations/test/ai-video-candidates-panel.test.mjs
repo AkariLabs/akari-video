@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { withInspectorDom } from './helpers/inspector-dom.mjs';
 import { appendAiVideoCandidatesPanel, replaceVideoInEdit, videoApprovalMessage, videoCandidateDetail,
   videoModelGroups, videoModelName, videoProgress, videoProgressCandidate, videoProgressLayoutKey,
-  videoSelectionEstimate, videoRoundedDuration, videoOverhangSeconds, videoRequestedDuration } from '../lib/browser/inspector/ai-video-candidates-panel.js';
+  videoSelectionEstimate, videoRoundedDuration, videoOverhangSeconds, videoRequestedDuration, videoSecondsLabel } from '../lib/browser/inspector/ai-video-candidates-panel.js';
 
 const catalog = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8')).models;
 
@@ -23,6 +23,12 @@ const estimate = { models: [
 ], totalUsd: 0.36, needs_explicit_confirm: true };
 const descendants = node => [node, ...node.children.flatMap(descendants)];
 const attr = (node, name, value) => descendants(node).find(row => row.attributes.get(name) === value);
+
+test('動画秒数の表示は小数 1 桁、整数はそのまま', () => {
+  for (const [seconds, expected] of [[0.7999999999999998, '0.8'], [5, '5'], [2.25, '2.3']]) {
+    assert.equal(videoSecondsLabel(seconds), expected);
+  }
+});
 
 test('モデル別の丸め尺・最長の点線・枠超過の注意を示す', () => withInspectorDom(({ document }) => {
   const h3 = catalog.find(row => row.id === 'fal:h3-i2v');
