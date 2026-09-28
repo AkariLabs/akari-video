@@ -3218,6 +3218,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
     protected readonly generationProvenanceMeta = new Map<string, unknown>();
     protected readonly generationProvenanceLoads = new Set<string>();
+    protected readonly generationProvenanceVoiceLoads = new Set<string>();
     protected readonly frameAspectLive = new Map<string, FrameAspectLive>();
     protected readonly frameAspectWrites = new Map<string, Promise<void>>();
     protected readonly frameAspectTargets = new Map<string, LivePreviewTarget>();
@@ -7172,6 +7173,22 @@ export class AkariInspectorWidget extends BaseWidget {
             const row = this.generationCatalog.find(candidate => candidate.id === modelId);
             const shelf = generationModelShelf.models.find(candidate => candidate.id === modelId.replace(/:tts$/u, ''));
             return row ? videoModelName(row) : shelf?.name ?? shelf?.family ?? modelId;
+        }, (voiceId, engineId) => {
+            if (!engineId) return undefined;
+            const state = this.narrationStates.get(clipKey) ?? initialAiNarrationState(this.narrationEngines);
+            this.narrationStates.set(clipKey, state);
+            const voices = state.voicesByEngine?.[engineId];
+            const voiceKey = `${root.toString()}#${clipKey}#${engineId}`;
+            if (!voices && !this.generationProvenanceVoiceLoads.has(voiceKey)) {
+                this.generationProvenanceVoiceLoads.add(voiceKey);
+                void this.layerAudioService.listNarrationVoices(root.toString(), engineId,
+                    engineId === 'irodori' ? this.narrationIrodoriUrl() : undefined).then(result => {
+                    state.voicesByEngine ??= {};
+                    state.voicesByEngine[engineId] = result.voices;
+                    if (!this.isDisposed && this.currentTab === 'info') this.render();
+                }).catch(() => undefined).finally(() => this.generationProvenanceVoiceLoads.delete(voiceKey));
+            }
+            return voices?.find(voice => voice.id === voiceId)?.label;
         });
         if (!details) return;
         const section = document.createElement('section');

@@ -13,10 +13,20 @@ const filled = (value: unknown): string | undefined => typeof value === 'string'
 const amount = (value: unknown): string | undefined => typeof value === 'number' && Number.isFinite(value)
     ? String(value) : undefined;
 const seconds = (value: unknown): string | undefined => amount(value) ? `${amount(value)} 秒` : undefined;
+const elapsedSeconds = (value: unknown): string | undefined => typeof value === 'number' && Number.isFinite(value)
+    ? value < 1 ? '1 秒未満' : `${Math.round(value)} 秒` : undefined;
+const localDateTime = (value: string | undefined): string | undefined => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    const pad = (part: number): string => String(part).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 const fileName = (path: string): string => path.replace(/\\/gu, '/').split('/').pop() || path;
 
 /** A sidecar is historical evidence. Ignore next and every non-done record. */
-export function generationProvenance(meta: unknown, modelName?: (id: string) => string): GenerationProvenance | undefined {
+export function generationProvenance(meta: unknown, modelName?: (id: string) => string,
+    voiceName?: (id: string, engineId: string | undefined) => string | undefined): GenerationProvenance | undefined {
     const source = record(meta);
     if (source.status !== 'done' || !['video', 'image', 'still', 'audio'].includes(source.kind)) return undefined;
     const kind = source.kind === 'still' ? 'image' : source.kind as GenerationProvenance['kind'];
@@ -58,9 +68,11 @@ export function generationProvenance(meta: unknown, modelName?: (id: string) => 
     add('audio-out', '音声', typeof result.has_audio === 'boolean' ? result.has_audio ? 'あり' : 'なし'
         : typeof output.audio_out === 'boolean' ? output.audio_out ? 'あり' : 'なし' : undefined);
     add('cost', '料金', amount(cost.estimate_usd) && `見積 $${Number(cost.estimate_usd).toFixed(2)}${filled(model.as_of) ? ` · as_of ${model.as_of}` : ''}`);
-    add('created', '作った日時', filled(provenance.created_at) ?? filled(job.started_at));
-    add('elapsed', '所要秒', seconds(result.elapsed_s ?? job.elapsed_s));
-    add('voice', '声', filled(source.voice) ?? filled(inputs.voice) ?? filled(inputs.voice_id) ?? filled(inputs.voiceId));
+    add('created', '作った日時', localDateTime(filled(provenance.created_at) ?? filled(job.started_at)));
+    add('elapsed', '所要秒', elapsedSeconds(result.elapsed_s ?? job.elapsed_s));
+    const voiceId = filled(source.voice) ?? filled(inputs.voice) ?? filled(inputs.voice_id) ?? filled(inputs.voiceId);
+    const engineId = filled(source.route) ?? modelId?.replace(/:tts$/u, '');
+    add('voice', '声', voiceId && (kind === 'audio' ? voiceName?.(voiceId, engineId) ?? voiceId : voiceId));
     return { kind, modelId, rows };
 }
 
