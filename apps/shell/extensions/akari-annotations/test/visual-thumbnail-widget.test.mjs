@@ -46,7 +46,8 @@ function fixture(t, prepare, options = {}) {
   const w = new Widget();
   w.installVisualHover = () => {};
   const root = { value: 'A', toString() { return `file:///${this.value}/edit.json`; } };
-  Object.assign(w, { location: { editUri: root }, visualInputEpoch: 0, visualDependencyRevisions: new Map(), visualDependencies: new Map(),
+  Object.assign(w, { location: { editUri: root }, currentWorkspaceRoots: async () => [`file:///${root.value}`],
+    visualInputEpoch: 0, visualDependencyRevisions: new Map(), visualDependencies: new Map(),
     failedVisualThumbnails: new Map(), visualKeys: new WeakMap(), isDisposed: false, stripScroll: new Element(),
     editDocument: { version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [], tracks: [{ id: 'v', lane: 'visual', items: [
       { id: 'parent', at: 0, duration: 120, opacity: 1, source: { kind: 'group' }, items: [

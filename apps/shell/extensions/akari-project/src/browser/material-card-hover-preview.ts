@@ -1,6 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import { VisualThumbnailCache } from 'akari-preview/lib/common/visual-thumbnail-cache';
 import { visualThumbnailKey } from 'akari-preview/lib/common/visual-thumbnail-key';
@@ -27,7 +28,7 @@ export const visualThumbnails = new VisualThumbnailCache(key => {
     if (subscribers) for (const changed of subscribers) changed();
 });
 
-interface Props { assetUri: string; service: AkariPreviewService; files: FileService; icon: string; }
+interface Props { assetUri: string; service: AkariPreviewService; files: FileService; icon: string; workspaceService: WorkspaceService; }
 
 /** Owns only the thumbnail and its hover listeners; the card retains click/drag/menu behavior. */
 export function MaterialCardHoverPreview(props: Props): React.ReactElement {
@@ -38,7 +39,7 @@ export function MaterialCardHoverPreview(props: Props): React.ReactElement {
         if (!element || !card) return;
         const controller = new MaterialHoverController(element, card, props);
         return () => controller.dispose();
-    }, [props.assetUri, props.service, props.files, props.icon]);
+    }, [props.assetUri, props.service, props.files, props.icon, props.workspaceService]);
     return React.createElement('div', { ref, style: { position: 'absolute', inset: 0, pointerEvents: 'none' } });
 }
 
@@ -90,6 +91,14 @@ class MaterialHoverController {
         await Promise.all(page.streamIds.map(id => this.props.service.disposeAssetStream(id)));
     };
 
+    private async currentWorkspaceRoots(): Promise<string[]> {
+        try {
+            return (await this.props.workspaceService.roots).map(root => root.resource.toString());
+        } catch {
+            return [];
+        }
+    }
+
     private refresh = (): void => {
         if (!this.alive || !this.visible) return;
         if (!this.metadata) {
@@ -98,7 +107,8 @@ class MaterialHoverController {
             const generation = this.generation;
             void (async () => {
                 try {
-                    const page = await this.props.service.prepareAssetVisualThumbnail({ assetUri: this.props.assetUri });
+                    const page = await this.props.service.prepareAssetVisualThumbnail({ assetUri: this.props.assetUri,
+                        workspaceRoots: await this.currentWorkspaceRoots() });
                     await this.release(page);
                     if (!this.alive || generation !== this.generation) return;
                     this.metadata = page;
@@ -120,7 +130,8 @@ class MaterialHoverController {
             this.subscribe(key);
             const value = visualThumbnails.request({ key, priority: time === midpoint ? 0 : 1, wanted, valid: wanted,
                 capture: async () => {
-                    const prepared = await this.props.service.prepareAssetVisualThumbnail({ assetUri: page.assetUri, time });
+                    const prepared = await this.props.service.prepareAssetVisualThumbnail({ assetUri: page.assetUri, time,
+                        workspaceRoots: await this.currentWorkspaceRoots() });
                     try {
                         if (!wanted() || prepared.mtime !== page.mtime || prepared.size !== page.size) throw new Error('Stale material thumbnail');
                         const api = (window as unknown as { electronAkariPreview?: {

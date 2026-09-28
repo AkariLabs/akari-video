@@ -14,6 +14,7 @@ export interface VisualThumbnailRequest {
     editUri: string;
     itemId: string;
     editSnapshot: string;
+    workspaceRoots?: string[];
 }
 
 export interface VisualThumbnailPage {

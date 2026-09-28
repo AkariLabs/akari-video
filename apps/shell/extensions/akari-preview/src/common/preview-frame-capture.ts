@@ -17,7 +17,7 @@ export interface PreviewFrameCaptureResult {
     capturedHeight: number;
     reduced: boolean;
 }
-export interface SavePreviewFrameRequest { editUri: string; time: number; image: string }
+export interface SavePreviewFrameRequest { editUri: string; time: number; image: string; workspaceRoots?: string[] }
 export interface PreviewFrameRequestMessage { type: 'akari-preview-capture-frame'; requestId: string; pageId: string }
 export interface PreviewFrameCommand {
     type: 'akari-preview-capture-prepare' | 'akari-preview-capture-restore'; requestId: string; pageId: string;

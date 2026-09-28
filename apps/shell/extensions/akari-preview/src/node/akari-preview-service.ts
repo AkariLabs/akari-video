@@ -753,12 +753,14 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             throw new Error('Visual thumbnail requires an edit snapshot');
         }
         const editPath = await realpath(this.filePath(request.editUri));
-        const roots = await this.resolveWorkspaceRoots();
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
         if (!roots.some(root => this.contains(root, editPath))) throw new Error('Project is outside the workspace');
+        const workspaceRoots = roots.map(root => pathToFileURL(root).href);
         return prepareVisualThumbnailPage(editPath, request.itemId, await this.getOverlayRuntimeAssetUrls(),
-            assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id), request.editSnapshot,
+            assetUri => this.createAssetStream({ assetUri, workspaceRoots }), id => this.disposeAssetStream(id), request.editSnapshot,
             async declaredPath => {
-                const uri = await this.resolveProjectAssetUri({ projectRootUri: pathToFileURL(dirname(editPath)).href, declaredPath });
+                const uri = await this.resolveProjectAssetUri({ projectRootUri: pathToFileURL(dirname(editPath)).href, declaredPath,
+                    workspaceRoots });
                 return uri ? fileURLToPath(uri) : undefined;
             });
     }
@@ -768,7 +770,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const requestedEdit = this.filePath(request.editUri);
         const projectRoot = await realpath(dirname(requestedEdit));
         const editPath = await realpath(requestedEdit);
-        const roots = await this.resolveWorkspaceRoots();
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
         if (basename(requestedEdit) !== 'edit.json' || editPath !== join(projectRoot, 'edit.json')
             || !(await stat(editPath)).isFile() || !roots.some(root => this.contains(root, projectRoot))) {
             throw new Error('Capture project must contain edit.json inside the workspace (no redirected edit.json)');
@@ -776,15 +778,15 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return writePreviewFrame(projectRoot, request.time, request.image);
     }
 
-    async prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): ReturnType<AkariPreviewService['prepareAssetVisualThumbnail']> {
+    async prepareAssetVisualThumbnail(request: { assetUri: string; time?: number; workspaceRoots?: string[] }): ReturnType<AkariPreviewService['prepareAssetVisualThumbnail']> {
         const assetPath = await realpath(this.filePath(request.assetUri));
-        const roots = await this.resolveWorkspaceRoots();
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
         let root = roots.filter(value => this.contains(value, assetPath)).sort((a, b) => b.length - a.length)[0];
         if (!root && await this.isReferencedMediaPath(assetPath, roots)) root = dirname(assetPath);
         if (!root) throw new Error('Material is outside the workspace');
         const { prepareAssetVisualThumbnailPage } = await import('./visual-thumbnail-page');
         return prepareAssetVisualThumbnailPage(assetPath, root, request.time, await this.getOverlayRuntimeAssetUrls(),
-            assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id));
+            assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }), id => this.disposeAssetStream(id));
     }
 
     async rewriteFragmentAssets(request: FragmentAssetPreviewRequest): Promise<FragmentAssetPreviewResult> {
@@ -794,7 +796,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return rewritePreviewFragmentAssets(request.html, {
             projectRoot, htmlPath: request.htmlPath, overlayId: request.overlayId
         }, assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }), async declaredPath => {
-            const uri = await this.resolveProjectAssetUri({ projectRootUri: request.projectRootUri, declaredPath });
+            const uri = await this.resolveProjectAssetUri({ projectRootUri: request.projectRootUri, declaredPath,
+                workspaceRoots: request.workspaceRoots });
             return uri ? fileURLToPath(uri) : undefined;
         });
     }
@@ -1080,9 +1083,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return importModule(pathToFileURL(candidate).toString());
     }
 
-    async resolveProjectAssetUri(request: { projectRootUri: string; declaredPath: string }): Promise<string | undefined> {
+    async resolveProjectAssetUri(request: { projectRootUri: string; declaredPath: string; workspaceRoots?: string[] }): Promise<string | undefined> {
         const project = await realpath(this.filePath(request.projectRootUri));
-        const roots = await this.resolveWorkspaceRoots();
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
         if (!roots.some(root => this.contains(root, project))) throw new Error('Project is outside the workspace');
         const module = await this.loadReferenceModule();
         const actual = await module.resolveProjectAssetPath(project, request.declaredPath);
@@ -1278,7 +1281,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     async prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult> {
-        const roots = await this.resolveWorkspaceRoots();
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
         const text = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         const editPath = this.filePath(request.editUri);
         const planned = planMigration(dirname(editPath), editPath, text);

@@ -9030,7 +9030,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const value = this.visualThumbnails.request({ key, priority: Math.abs(rect.left - viewport.left), wanted: visible, valid,
                 readDisk: () => this.readVisualThumbnailDisk(root, key, id, valid),
                 capture: async () => {
-                    const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot }).catch(error => {
+                    const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot,
+                        workspaceRoots: await this.currentWorkspaceRoots() }).catch(error => {
                         this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
                         // Widget owns the retry budget; do not also trigger the cache's legacy retries.
                         throw new Error('Visual thumbnail unavailable');
@@ -9225,7 +9226,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         const job = { key, priority: 0, wanted, valid,
                             readDisk: () => this.readVisualThumbnailDisk(root, key, id, valid),
                             capture: async () => {
-                                const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot }).catch(error => {
+                                const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot,
+                                    workspaceRoots: await this.currentWorkspaceRoots() }).catch(error => {
                                     this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
                                     // Widget owns the retry budget; do not also trigger the cache's legacy retries.
                                     throw new Error('Visual thumbnail unavailable');

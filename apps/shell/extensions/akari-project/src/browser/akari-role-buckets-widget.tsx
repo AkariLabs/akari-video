@@ -24,6 +24,7 @@ import { isOSX } from '@theia/core/lib/common/os';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
 import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import {
@@ -3450,6 +3451,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     @inject(AkariPreviewService)
     protected readonly materialPreviewService!: AkariPreviewService;
 
+    @inject(WorkspaceService)
+    protected readonly workspaceService!: WorkspaceService;
+
     protected selectedMaterialPath?: string;
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
@@ -3535,6 +3539,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         />
                         : /\.html?$/i.test(entry.uri.path.base) || ['overlay', 'still'].includes(entry.assetGroup?.category ?? '')
                             ? <MaterialCardHoverPreview assetUri={entry.uri.toString()} service={this.materialPreviewService}
+                                workspaceService={this.workspaceService}
                                 files={this.files} icon={this.placeholderIcon(displayKind)} />
                             : <span className={this.placeholderIcon(displayKind)} aria-hidden='true' draggable={false}
                                 style={{ fontSize: '1.8em', opacity: 0.5 }} />}
