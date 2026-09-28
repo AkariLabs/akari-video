@@ -6,7 +6,107 @@ const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 export const runtimeRoot = SOURCE_DIRECTORY;
 export const registryPath = resolve(runtimeRoot, "src/runtime-registry.js");
 export class RenderInputError extends Error {}
-const stripHtmlComments = html => html.replace(/<!--[\s\S]*?-->/gu, "");
+export function stripHtmlComments(html) {
+  const parts = [];
+  let cursor = 0;
+  let copied = 0;
+  while (true) {
+    const at = html.indexOf("<!--", cursor);
+    if (at < 0) break;
+    const end = html.indexOf("-->", at + 4);
+    if (end < 0) break;
+    parts.push(html.slice(copied, at));
+    cursor = end + 3;
+    copied = cursor;
+  }
+  if (copied === 0) return html;
+  parts.push(html.slice(copied));
+  return parts.join("");
+}
+const scanSpace = char => char !== undefined && /\s/u.test(char);
+const scanWord = char => char !== undefined && /\w/iu.test(char);
+const fold = char => char === "ſ" ? "s" : char === "K" ? "k" : char.toLowerCase();
+function foldedAt(source, word, at) {
+  if (at + word.length > source.length) return false;
+  for (let i = 0; i < word.length; i += 1) if (fold(source[at + i]) !== word[i]) return false;
+  return true;
+}
+function hasDeclarationAttribute(source, from, to, name) {
+  for (let at = from; at + name.length <= to; at += 1) {
+    if (!scanSpace(source[at - 1]) || !foldedAt(source, name, at)) continue;
+    const next = source[at + name.length];
+    if (scanSpace(next) || next === "=" || next === ">" || (next === "/" && source[at + name.length + 1] === ">")) return true;
+  }
+  return false;
+}
+function hasJsonType(source, from, to) {
+  for (let at = from; at + 4 <= to; at += 1) {
+    if (scanWord(source[at - 1]) || !foldedAt(source, "type", at)) continue;
+    let cursor = at + 4;
+    while (scanSpace(source[cursor])) cursor += 1;
+    if (source[cursor++] !== "=") continue;
+    while (scanSpace(source[cursor])) cursor += 1;
+    const quote = source[cursor++];
+    if (quote !== '"' && quote !== "'") continue;
+    if (cursor + 16 < to && foldedAt(source, "application/json", cursor) && source[cursor + 16] === quote) return true;
+  }
+  return false;
+}
+function* declarationMatches(html, entry, protectComments = false) {
+  const name = entry.declaration.attr;
+  let cursor = 0;
+  const lastAngle = html.lastIndexOf(">");
+  let noDeclarationUntil = -1;
+  let noCommentClose = false;
+  const opener = /<script\b/iyu;
+  while (cursor < html.length) {
+    const at = html.indexOf("<", cursor);
+    if (at < 0) break;
+    if (protectComments && !noCommentClose && html.startsWith("<!--", at)) {
+      const commentEnd = html.indexOf("-->", at + 4);
+      if (commentEnd >= 0) {
+        cursor = commentEnd + 3;
+        continue;
+      }
+      noCommentClose = true;
+    }
+    opener.lastIndex = at;
+    if (at > noDeclarationUntil && at <= lastAngle && opener.test(html)) {
+      const tagEnd = html.indexOf(">", at + 7);
+      if (tagEnd >= 0 && hasJsonType(html, at + 7, tagEnd)
+        && hasDeclarationAttribute(html, at + 7, tagEnd, name)) {
+        let closing = html.indexOf("<", tagEnd + 1);
+        while (closing >= 0) {
+          if (html[closing + 1] === "/" && foldedAt(html, "script", closing + 2)) {
+            let end = closing + 8;
+            while (scanSpace(html[end])) end += 1;
+            if (html[end] === ">") {
+              yield { start: at, opening: html.slice(at, tagEnd + 1), json: html.slice(tagEnd + 1, closing), closing: html.slice(closing, end + 1), end: end + 1 };
+              cursor = end + 1;
+              break;
+            }
+          }
+          closing = html.indexOf("<", closing + 1);
+        }
+        if (closing >= 0) continue;
+        break;
+      }
+      noDeclarationUntil = tagEnd;
+    }
+    cursor = at + 1;
+  }
+}
+export function replaceDeclarations(html, entry, replace, protectComments = false) {
+  const pieces = [];
+  let copied = 0;
+  for (const match of declarationMatches(html, entry, protectComments)) {
+    pieces.push(html.slice(copied, match.start), replace(match));
+    copied = match.end;
+  }
+  if (copied === 0) return html;
+  pieces.push(html.slice(copied));
+  return pieces.join("");
+}
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const messageOf = error => error instanceof Error ? error.message : String(error);
 const isRelativeReference = value => typeof value === "string" && value !== "" && !value.startsWith("/") && !/^[a-z][a-z\d+.-]*:/iu.test(value);
@@ -17,8 +117,8 @@ export function declarationPattern(entry) {
   return new RegExp(`(<script\\b(?=[^>]*\\btype\\s*=\\s*(?:"application/json"|'application/json'))(?=[^>]*\\s${attr}(?=\\s|=|/?>))[^>]*>)([\\s\\S]*?)(</script\\s*>)`, "giu");
 }
 export function readDeclarations(html, entry) {
-  return [...stripHtmlComments(html).matchAll(declarationPattern(entry))].map(match => ({
-    json: match[2], parse: () => JSON.parse(match[2]),
+  return [...declarationMatches(stripHtmlComments(html), entry)].map(match => ({
+    json: match.json, parse: () => JSON.parse(match.json),
   }));
 }
 export function scriptApplies(script, descriptor) {
@@ -273,10 +373,8 @@ const FONT_MIME_TYPES = new Map([
 function embedGlassBackdrop(overlay, projectRoot, resolveDeclaredProjectInput) {
   const references = extractGlassSceneAssetReferences(overlay.html, overlay.htmlPath, overlay.id);
   let index = 0;
-  return overlay.html.replace(
-    new RegExp("<!--[\\s\\S]*?-->|" + declarationPattern(runtimes.find(entry => entry.id === "glass")).source, "giu"),
-    (match, opening, json, closing) => {
-      if (!opening) return match; // Preserve commented declarations byte for byte.
+  return replaceDeclarations(overlay.html, runtimes.find(entry => entry.id === "glass"),
+    ({ opening, json, closing }) => {
       const descriptor = JSON.parse(json);
       if (descriptor.backdrop !== undefined) {
         const reference = references[index++];
@@ -286,16 +384,14 @@ function embedGlassBackdrop(overlay, projectRoot, resolveDeclaredProjectInput) {
         descriptor.backdrop = `data:${mime};base64,${readFileSync(binding).toString("base64")}`;
       }
       return opening + JSON.stringify(descriptor).replace(/</gu, "\\u003c") + closing;
-    },
-  );
+    }, true);
 }
 
 function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
   if (!/data-akari-3d-scene/u.test(stripHtmlComments(html))) return html;
   let declarationCount = 0;
-  const embedded = html.replace(
-    declarationPattern(runtimes.find(entry => entry.id === "three")),
-    (_match, openingTag, jsonText, closingTag) => {
+  const embedded = replaceDeclarations(html, runtimes.find(entry => entry.id === "three"),
+    ({ opening: openingTag, json: jsonText, closing: closingTag }) => {
       declarationCount += 1;
       let descriptor;
       try {
@@ -463,4 +559,3 @@ function textureMimeType(path) {
   if (!mimeType) throw new TypeError(`Unsupported material override texture type: ${extension || "none"}`);
   return mimeType;
 }
-

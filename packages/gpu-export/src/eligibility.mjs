@@ -1,5 +1,5 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
-import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
+import { stripHtmlComments, stripCssComments, rawTextElements, htmlTags, findAttribute, isHtmlSpace, startsWithFold } from "../../render-cut/src/html-scan.mjs";
 import { hasDepthTransform, parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "./three-entrance.mjs";
 import { runtimes as overlayRuntimes } from "../../overlay-runtime/runtimes.mjs";
 import { captionFontFaces, captionFontFamilies } from '../../render-cut/src/caption-font-faces.mjs';
@@ -45,25 +45,60 @@ function firstArgument(args) {
   return args;
 }
 
-function hasAuthoredDepthAnimation(html) {
-  for (const style of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)) {
-    const css = style[1].replace(/\/\*[\s\S]*?\*\//gu, "");
+export function hasAuthoredDepthAnimation(html) {
+  for (const style of rawTextElements(html, "style")) {
+    const css = stripCssComments(html.slice(style.bodyStart, style.bodyEnd));
     for (const keyframes of css.matchAll(/@(?:-[a-z]+-)?keyframes\s+[\w-]+\s*\{/giu)) {
       const body = balancedBody(css, "{", "}", keyframes.index + keyframes[0].length);
       if (body === null || hasDepthTransform(body)) return true;
     }
   }
-  for (const tag of html.matchAll(/<[^>]+>/gu)) {
-    const style = tag[0].match(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu);
-    if (style && hasDepthTransform(style[1] ?? style[2] ?? style[3])) return true;
+  for (const tag of htmlTags(html)) {
+    const style = attributeValue(tag.text, "style");
+    if (style !== null && hasDepthTransform(style)) return true;
   }
-  for (const script of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu)) {
-    if (/\btype\s*=\s*["']application\/json["']/iu.test(script[1])) continue;
-    const body = script[2];
+  for (const script of rawTextElements(html, "script")) {
+    if (quotedJsonType(html, script.start + 7, script.bodyStart - 1)) continue;
+    const body = html.slice(script.bodyStart, script.bodyEnd);
     for (const animate of body.matchAll(/\.animate\s*\(/gu)) {
       const args = balancedBody(body, "(", ")", animate.index + animate[0].length);
       if (args === null || hasDepthTransform(firstArgument(args))) return true;
     }
+  }
+  return false;
+}
+
+function attributeValue(tag, name) {
+  for (let at = findAttribute(tag, name, 0, tag.length); at >= 0;
+    at = findAttribute(tag, name, at + 1, tag.length)) {
+    let cursor = at + name.length;
+    while (isHtmlSpace(tag[cursor])) cursor += 1;
+    if (tag[cursor++] !== "=") continue;
+    while (isHtmlSpace(tag[cursor])) cursor += 1;
+    const quote = tag[cursor] === '"' || tag[cursor] === "'" ? tag[cursor] : null;
+    if (quote) {
+      const end = tag.indexOf(quote, cursor + 1);
+      if (end >= 0) return tag.slice(cursor + 1, end);
+    }
+    // The old unquoted alternative also accepts an unmatched opening quote.
+    const start = cursor;
+    while (cursor < tag.length && !isHtmlSpace(tag[cursor]) && tag[cursor] !== ">") cursor += 1;
+    if (cursor > start) return tag.slice(start, cursor);
+  }
+  return null;
+}
+
+function quotedJsonType(source, from, to) {
+  for (let at = findAttribute(source, "type", from, to); at >= 0;
+    at = findAttribute(source, "type", at + 1, to)) {
+    let cursor = at + 4;
+    while (isHtmlSpace(source[cursor])) cursor += 1;
+    if (source[cursor++] !== "=") continue;
+    while (isHtmlSpace(source[cursor])) cursor += 1;
+    const quote = source[cursor++];
+    if ((quote === '"' || quote === "'") && cursor + 16 < to
+      && startsWithFold(source, "application/json", cursor)
+      && (source[cursor + 16] === '"' || source[cursor + 16] === "'")) return true;
   }
   return false;
 }
@@ -74,10 +109,80 @@ function hasAuthoredDepthAnimation(html) {
 // 外すのはタグ内・空白直後の xmlns 属性で、値が引用符付きかつ空白・引用符・<> を含まないものだけ。
 // src / href / xlink:href / url(…) / xml:base は残るので、実際の外部参照は従来どおり拒否する。
 // タグ境界が読めない（属性値に > がある等）ときは外さない側に倒れる（fail-closed）。
-const XML_NAMESPACE_DECLARATION = /(?<=\s)xmlns(?::[A-Za-z_][\w.-]*)?\s*=\s*(?:"[^"'\s<>]*"|'[^"'\s<>]*')/gu;
+export function withoutXmlNamespaceDeclarations(html) {
+  const pieces = [];
+  let copied = 0;
+  for (const tag of htmlTags(html, { noInnerAngle: true })) {
+    if (!/[A-Za-z]/u.test(html[tag.start + 1])) continue;
+    const replaced = stripXmlnsAttributes(tag.text);
+    if (replaced === tag.text) continue;
+    pieces.push(html.slice(copied, tag.start), replaced);
+    copied = tag.end;
+  }
+  if (copied === 0) return html;
+  pieces.push(html.slice(copied));
+  return pieces.join("");
+}
 
-function withoutXmlNamespaceDeclarations(html) {
-  return html.replace(/<[A-Za-z][^<>]*>/gu, (tag) => tag.replace(XML_NAMESPACE_DECLARATION, ""));
+function stripXmlnsAttributes(tag) {
+  const parts = [];
+  let copied = 0;
+  let at = tag.indexOf("xmlns");
+  while (at >= 0) {
+    let cursor = at + 5;
+    if (isHtmlSpace(tag[at - 1])) {
+      if (tag[cursor] === ":" && /[A-Za-z_]/u.test(tag[cursor + 1] ?? "")) {
+        cursor += 2;
+        while (/[\w.-]/u.test(tag[cursor] ?? "")) cursor += 1;
+      }
+      while (isHtmlSpace(tag[cursor])) cursor += 1;
+      if (tag[cursor++] === "=") {
+        while (isHtmlSpace(tag[cursor])) cursor += 1;
+        const quote = tag[cursor++];
+        if (quote === '"' || quote === "'") {
+          let end = cursor;
+          while (end < tag.length && tag[end] !== quote && tag[end] !== '"' && tag[end] !== "'"
+            && tag[end] !== "<" && tag[end] !== ">" && !isHtmlSpace(tag[end])) end += 1;
+          if (tag[end] === quote) {
+            parts.push(tag.slice(copied, at));
+            copied = end + 1;
+          }
+        }
+      }
+    }
+    at = tag.indexOf("xmlns", Math.max(at + 1, copied));
+  }
+  if (copied === 0) return tag;
+  parts.push(tag.slice(copied));
+  return parts.join("");
+}
+
+export function hasExternalImageSource(html) {
+  const opener = /<img\b/iyu;
+  let cursor = 0;
+  while (cursor < html.length) {
+    const at = html.indexOf("<", cursor);
+    if (at < 0) return false;
+    opener.lastIndex = at;
+    if (opener.test(html)) {
+      const tagEnd = html.indexOf(">", at + 4);
+      const end = tagEnd < 0 ? html.length : tagEnd;
+      for (let src = findAttribute(html, "src", at + 4, end); src >= 0;
+        src = findAttribute(html, "src", src + 1, end)) {
+        let p = src + 3;
+        while (isHtmlSpace(html[p])) p += 1;
+        if (html[p++] !== "=") continue;
+        while (isHtmlSpace(html[p])) p += 1;
+        if ((html[p] === '"' || html[p] === "'") && !startsWithFold(html, "data:", p + 1)) return true;
+      }
+      // The first <img can consume every later opener up to the same >.
+      // Once its candidate attributes fail, later openers cannot succeed.
+      cursor = tagEnd < 0 ? html.length : tagEnd + 1;
+      continue;
+    }
+    cursor = at + 1;
+  }
+  return false;
 }
 
 function hasAbsoluteExternalUrl(html) {
@@ -87,7 +192,7 @@ function hasAbsoluteExternalUrl(html) {
 const OVERLAY_CONDITIONS = [
   ["absolute-external-url", hasAbsoluteExternalUrl, "external"],
   ["font-face-external-resource", /@font-face[\s\S]{0,2000}?src\s*:\s*url\((?!["']?data:)/iu, "external"],
-  ["image-external-resource", /<img\b[^>]*\bsrc\s*=\s*["'](?!data:)/iu, "external"],
+  ["image-external-resource", hasExternalImageSource, "external"],
   // 走査は CSS 宣言の区切り（; }）に加えて引用符とタグ境界で止める。止めないと、末尾に ; の無い
   // インライン style から後続 SVG の fill="url(#id)" まで到達して誤検出する（issue #33）。
   // url(#…) の同一文書内フラグメント参照は外部リソースではない。

@@ -1,4 +1,4 @@
-import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
+import { stripHtmlComments, stripCssComments, rawTextElements, findRawTextOpen, findCloseTag, htmlTags, findAttribute, isHtmlSpace, startsWithFold, isRegexWord } from "../../render-cut/src/html-scan.mjs";
 
 const TIMING_KEYWORDS = new Map([
   ["linear", "linear"],
@@ -62,7 +62,7 @@ export function hasDepthTransform(html) {
 
 export function scanThreeSampled(html) {
   const source = stripComments(stripHtmlComments(html));
-  const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
+  const scripts = openingScriptTags(source);
   const declarations = scripts.filter((tag) =>
     /\btype\s*=\s*["']application\/json["']/iu.test(tag)
     && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
@@ -96,8 +96,7 @@ export function scanThreeSampled(html) {
     }
   }
 
-  const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
-    .map((match) => match[1]).join("\n");
+  const styleText = styleBodies(source).join("\n");
   const withoutKeyframes = extractKeyframes(styleText);
   if (!withoutKeyframes.ok) return fail("three-sampled-outside-chain");
   const withoutProperties = removeSampledAtRules(withoutKeyframes.css, /@property\s+--[a-z0-9_-]+\s*\{/gimu);
@@ -147,7 +146,7 @@ export function scanThreeSampled(html) {
 
 export function scanThreeComposite(html) {
   const source = stripComments(stripHtmlComments(html));
-  const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
+  const scripts = openingScriptTags(source);
   const declarations = scripts.filter((tag) =>
     /\btype\s*=\s*["']application\/json["']/iu.test(tag)
     && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
@@ -170,8 +169,7 @@ export function scanThreeComposite(html) {
 function scanCompositePreserve3dSiblings(source, elements, chain) {
   if (!PRESERVE_3D_DECLARATION_PATTERN.test(source)) return { ok: true };
 
-  const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
-    .map((match) => match[1]).join("\n");
+  const styleText = styleBodies(source).join("\n");
   const extracted = extractKeyframes(styleText);
   if (!extracted.ok) return fail(PRESERVE_3D_SIBLINGS_REASON);
   const withoutProperties = removeSampledAtRules(extracted.css, /@property\s+--[a-z0-9_-]+\s*\{/gimu);
@@ -250,7 +248,7 @@ function serializeDeclarations(declarations) {
 
 export function parseThreeEntrance(html, { vars = {}, transform = {}, role = null } = {}) {
   const source = stripComments(stripHtmlComments(html));
-  const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
+  const scripts = openingScriptTags(source);
   const declarations = scripts.filter((tag) =>
     /\btype\s*=\s*["']application\/json["']/iu.test(tag)
     && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
@@ -259,13 +257,12 @@ export function parseThreeEntrance(html, { vars = {}, transform = {}, role = nul
 
   const root = rootElement(source);
   if (!root || root.classes.length === 0) return fail("three-entrance-root-element");
-  const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
-    .map((match) => match[1]).join("\n");
+  const styleText = styleBodies(source).join("\n");
   if (styleText === "") return fail("three-entrance-animation-rule");
 
-  for (const match of source.matchAll(/<[^>]+\bstyle\s*=\s*(["'])([\s\S]*?)\1[^>]*>/giu)) {
-    if (/\btransition(?:-[a-z-]+)?\s*:/iu.test(match[2])) return fail("three-entrance-transition");
-    if (/\banimation(?:-[a-z-]+)?\s*:/iu.test(match[2])) return fail("three-entrance-multi-animated-element");
+  for (const style of inlineStyles(source)) {
+    if (/\btransition(?:-[a-z-]+)?\s*:/iu.test(style)) return fail("three-entrance-transition");
+    if (/\banimation(?:-[a-z-]+)?\s*:/iu.test(style)) return fail("three-entrance-multi-animated-element");
   }
 
   const extracted = extractKeyframes(styleText);
@@ -308,15 +305,99 @@ export function parseThreeEntrance(html, { vars = {}, transform = {}, role = nul
   };
 }
 
-function stripComments(value) {
-  return value.replace(/\/\*[\s\S]*?\*\//gu, "");
+export const stripComments = stripCssComments;
+
+function openingScriptTags(source) {
+  const tags = [];
+  const opener = /<script\b/iyu;
+  let cursor = 0;
+  const lastAngle = source.lastIndexOf(">");
+  while (cursor < source.length) {
+    const at = source.indexOf("<", cursor);
+    if (at < 0) break;
+    opener.lastIndex = at;
+    if (at <= lastAngle && opener.test(source)) {
+      const end = source.indexOf(">", at + 7);
+      if (end >= 0) { tags.push(source.slice(at, end + 1)); cursor = end + 1; continue; }
+    }
+    cursor = at + 1;
+  }
+  return tags;
 }
 
-function sampledElements(html) {
-  const withoutRawText = html.replace(
-    /<(style|script)\b([^>]*)>([\s\S]*?)<\/\1\s*>/giu,
-    (_match, tag, attributes, body) => `<${tag}${attributes}>${" ".repeat(body.length)}</${tag}>`,
-  );
+export function styleBodies(source) {
+  return [...rawTextElements(source, "style")].map(({ bodyStart, bodyEnd }) => source.slice(bodyStart, bodyEnd));
+}
+
+export function inlineStyles(source) {
+  const values = [];
+  let cursor = 0;
+  let tagEnd = -1;
+  while (cursor < source.length) {
+    const open = source.indexOf("<", cursor);
+    if (open < 0) break;
+    if (open >= tagEnd) tagEnd = source.indexOf(">", open + 1);
+    if (tagEnd < 0) break;
+    let value = null;
+    let matchEnd = -1;
+    let hasStyle = false;
+    // <[^>]+ is greedy: the last viable style before the first > wins.
+    for (let at = findAttribute(source, "style", open + 2, tagEnd); at >= 0;
+      at = findAttribute(source, "style", at + 1, tagEnd)) {
+      hasStyle = true;
+      let position = at + 5;
+      while (isHtmlSpace(source[position])) position += 1;
+      if (source[position++] !== "=") continue;
+      while (isHtmlSpace(source[position])) position += 1;
+      const quote = source[position++];
+      if (quote !== '"' && quote !== "'") continue;
+      const closeQuote = source.indexOf(quote, position);
+      if (closeQuote < 0) continue;
+      const closeTag = source.indexOf(">", closeQuote + 1);
+      if (closeTag < 0) continue;
+      value = source.slice(position, closeQuote);
+      matchEnd = closeTag + 1;
+    }
+    if (value !== null) {
+      values.push(value);
+      cursor = matchEnd;
+    } else cursor = hasStyle ? open + 1 : tagEnd + 1;
+  }
+  return values;
+}
+
+export function sampledElements(html) {
+  const pieces = [];
+  let copied = 0;
+  let cursor = 0;
+  let noStyleClose = false;
+  let noScriptClose = false;
+  const lastAngle = html.lastIndexOf(">");
+  while (cursor < html.length) {
+    const at = html.indexOf("<", cursor);
+    if (at < 0) break;
+    let matched = false;
+    for (const name of ["style", "script"]) {
+      if ((name === "style" && noStyleClose) || (name === "script" && noScriptClose) || at > lastAngle) continue;
+      const bodyStart = findRawTextOpen(html, name, at);
+      if (bodyStart === null) continue;
+      const close = findCloseTag(html, name, bodyStart);
+      if (!close) {
+        if (name === "style") noStyleClose = true;
+        else noScriptClose = true;
+        continue;
+      }
+      const authoredName = html.slice(at + 1, at + 1 + name.length);
+      pieces.push(html.slice(copied, bodyStart), " ".repeat(close.start - bodyStart), `</${authoredName}>`);
+      copied = close.end;
+      cursor = close.end;
+      matched = true;
+      break;
+    }
+    if (!matched) cursor = at + 1;
+  }
+  pieces.push(html.slice(copied));
+  const withoutRawText = pieces.join("");
   const voidElements = new Set([
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
   ]);
@@ -331,15 +412,48 @@ function sampledElements(html) {
       continue;
     }
     if (/^<\s*[!?]/u.test(token)) continue;
-    const match = token.match(/^<\s*([a-z][a-z0-9-]*)\b([\s\S]*?)>$/iu);
-    if (!match) return { ok: false, elements: [] };
+    let nameStart = 1;
+    while (isHtmlSpace(token[nameStart])) nameStart += 1;
+    let nameEnd = nameStart;
+    if (!/[a-z]/iu.test(token[nameEnd] ?? "")) return { ok: false, elements: [] };
+    nameEnd += 1;
+    while (/[a-z0-9-]/iu.test(token[nameEnd] ?? "")) nameEnd += 1;
+    while (nameEnd > nameStart + 1
+      && isRegexWord(token[nameEnd - 1]) === isRegexWord(token[nameEnd])) nameEnd -= 1;
+    if (isRegexWord(token[nameEnd - 1]) === isRegexWord(token[nameEnd])) return { ok: false, elements: [] };
+    const name = token.slice(nameStart, nameEnd);
     const attributes = new Map();
-    const body = match[2].replace(/\/\s*$/u, "");
-    const pattern = /([^\s=/>]+)(?:\s*=\s*(?:(["'])([\s\S]*?)\2|([^\s>]+)))?/gu;
-    for (const attribute of body.matchAll(pattern)) {
-      attributes.set(attribute[1].toLowerCase(), attribute[3] ?? attribute[4] ?? "");
+    let bodyEnd = token.length - 1;
+    while (isHtmlSpace(token[bodyEnd - 1])) bodyEnd -= 1;
+    if (token[bodyEnd - 1] === "/") bodyEnd -= 1;
+    const body = token.slice(nameEnd, bodyEnd);
+    for (let at = 0; at < body.length;) {
+      if (isHtmlSpace(body[at]) || body[at] === "=" || body[at] === "/" || body[at] === ">") { at += 1; continue; }
+      const begin = at;
+      while (at < body.length && !isHtmlSpace(body[at]) && body[at] !== "=" && body[at] !== "/" && body[at] !== ">") at += 1;
+      const attributeName = body.slice(begin, at).toLowerCase();
+      let cursor = at;
+      while (isHtmlSpace(body[cursor])) cursor += 1;
+      let value = "";
+      if (body[cursor] === "=") {
+        cursor += 1;
+        while (isHtmlSpace(body[cursor])) cursor += 1;
+        const quote = body[cursor] === '"' || body[cursor] === "'" ? body[cursor] : null;
+        let matchedQuote = false;
+        if (quote) {
+          const end = body.indexOf(quote, cursor + 1);
+          if (end >= 0) { value = body.slice(cursor + 1, end); at = end + 1; matchedQuote = true; }
+        }
+        if (!matchedQuote) {
+          // An unmatched quote falls through to the unquoted alternative.
+          const beginValue = cursor;
+          while (cursor < body.length && !isHtmlSpace(body[cursor]) && body[cursor] !== ">") cursor += 1;
+          if (cursor > beginValue) { value = body.slice(beginValue, cursor); at = cursor; }
+        }
+      }
+      attributes.set(attributeName, value);
     }
-    const tag = match[1].toLowerCase();
+    const tag = name.toLowerCase();
     const element = { tag, attributes, parent: stack.at(-1) ?? null };
     elements.push(element);
     if (!voidElements.has(tag) && !/\/\s*>$/u.test(token)) stack.push(element);
@@ -458,14 +572,44 @@ function sampledCompoundMatches(compound, element) {
   return true;
 }
 
-function rootElement(html) {
-  const withoutLeading = html.replace(/^\s*(?:<!doctype[^>]*>\s*)?/iu, "");
-  const match = withoutLeading.match(/^<([a-z][a-z0-9-]*)\b([^>]*)>/iu);
-  if (!match || ["script", "style", "link", "meta"].includes(match[1].toLowerCase())) return null;
-  const classMatch = match[2].match(/\bclass\s*=\s*(["'])(.*?)\1/iu);
+export function rootElement(html) {
+  let cursor = 0;
+  while (isHtmlSpace(html[cursor])) cursor += 1;
+  if (startsWithFold(html, "<!doctype", cursor)) {
+    const end = html.indexOf(">", cursor + 9);
+    if (end >= 0) {
+      cursor = end + 1;
+      while (isHtmlSpace(html[cursor])) cursor += 1;
+    }
+  }
+  if (html[cursor++] !== "<" || !/[a-z]/iu.test(html[cursor] ?? "")) return null;
+  const nameStart = cursor++;
+  while (/[a-z0-9-]/iu.test(html[cursor] ?? "")) cursor += 1;
+  while (cursor > nameStart + 1
+    && isRegexWord(html[cursor - 1]) === isRegexWord(html[cursor])) cursor -= 1;
+  if (isRegexWord(html[cursor - 1]) === isRegexWord(html[cursor])) return null;
+  const tag = html.slice(nameStart, cursor).toLowerCase();
+  if (["script", "style", "link", "meta"].includes(tag)) return null;
+  const end = html.indexOf(">", cursor);
+  if (end < 0) return null;
+  let classValue = null;
+  for (let at = findAttribute(html, "class", cursor, end); at >= 0;
+    at = findAttribute(html, "class", at + 1, end)) {
+    let valueStart = at + 5;
+    while (isHtmlSpace(html[valueStart])) valueStart += 1;
+    if (html[valueStart++] !== "=") continue;
+    while (isHtmlSpace(html[valueStart])) valueStart += 1;
+    const quote = html[valueStart++];
+    if (quote !== '"' && quote !== "'") continue;
+    const valueEnd = html.indexOf(quote, valueStart);
+    if (valueEnd < 0 || valueEnd >= end) continue;
+    if (/[\r\n\u2028\u2029]/u.test(html.slice(valueStart, valueEnd))) continue;
+    classValue = html.slice(valueStart, valueEnd);
+    break;
+  }
   return {
-    tag: match[1].toLowerCase(),
-    classes: classMatch ? classMatch[2].trim().split(/\s+/u).filter(Boolean) : [],
+    tag,
+    classes: classValue !== null ? classValue.trim().split(/\s+/u).filter(Boolean) : [],
   };
 }
 
