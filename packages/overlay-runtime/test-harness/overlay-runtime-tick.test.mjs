@@ -141,9 +141,11 @@ function fakeAnimation({ endTime = 800, playState = "running" } = {}) {
     writes: 0,
     plays: 0,
     pauses: 0,
+    cancels: 0,
     get currentTime() { return currentTime; },
     set currentTime(value) { currentTime = value; this.writes += 1; },
     pause() { this.playState = "paused"; this.pauses += 1; },
+    cancel() { this.cancels += 1; this.playState = "idle"; },
     play() { this.playState = "running"; this.plays += 1; },
     effect: { getComputedTiming: () => ({ endTime }) },
   };
@@ -215,6 +217,7 @@ test("非 3D 断片の getAnimations は 250ms 以内の連続 tick で 1 回だ
   await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 10, html: CAPTION_HTML }] });
   const container = host.stage.children[0];
   const captionCalls = () => host.getAnimationsCalls.filter((call) => call.element === container).length;
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"), true);
 
   host.clock = 1000;
   host.runtime.tick(0.1, true);
@@ -226,6 +229,7 @@ test("非 3D 断片の getAnimations は 250ms 以内の連続 tick で 1 回だ
   assert.deepEqual(own(host.getAnimationsCalls[0].options), { subtree: true });
   assert.equal(animation.playState, "running", "再生中は走らせたまま");
   assert.equal(animation.currentTime, 300, "キャッシュ済みの Animation もずれ（100ms > 閾値）を書き戻す");
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"), false);
   assert.equal(container.hasAttribute("data-akari-active"), true, "可視中は data-akari-active ゲートを付ける");
   assert.equal(host.renderCalls.length, 0, "非 3D 断片は threeRuntime.render を呼ばない");
 
@@ -237,12 +241,17 @@ test("非 3D 断片の getAnimations は 250ms 以内の連続 tick で 1 回だ
   host.runtime.tick(20, true); // 可視区間外
   assert.equal(container.style.visibility, "hidden");
   assert.equal(container.hasAttribute("data-akari-active"), false, "非表示ではゲートを外す");
-  assert.equal(captionCalls(), 2, "非表示の tick では getAnimations を呼ばない");
+  assert.equal(captionCalls(), 3, "exit fetches and cancels animations once");
+  assert.equal(animation.cancels, 1);
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"), true);
+  host.runtime.tick(21, true);
+  assert.equal(captionCalls(), 3, "hidden ticks do not fetch again");
 
   host.clock = 1320;
   host.runtime.tick(0.5, true); // 再可視化: 前回取得から 250ms 以内でもフリップで引き直す
   assert.equal(container.style.visibility, "visible");
-  assert.equal(captionCalls(), 3, "可視化フリップで引き直す");
+  assert.equal(captionCalls(), 4, "show refetches animations");
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"), false);
   assert.equal(animation.currentTime, 500);
 });
 
@@ -453,4 +462,143 @@ test("再生速度を tick の進みから推定し、走らせる Animation の
     host.runtime.tick(6 + (frame * 16) / 1000, true);
   }
   assert.equal(animation.playbackRate, 1);
+});
+
+test("Animation getters stay out of the write phase across overlays", async () => {
+  const events = [];
+  const timingReads = { a: 0, b: 0 };
+  const make = id => {
+    let current = null;
+    let state = "running";
+    let rate = 1;
+    let isPending = false;
+    return {
+      effect: { getComputedTiming() { timingReads[id]++; events.push("read:timing:"+id); return {endTime:2000}; } },
+      get currentTime() { events.push("read:current:"+id); return current; },
+      set currentTime(value) { events.push("write:current:"+id); current = value; },
+      get playState() { events.push("read:state:"+id); return state; },
+      set playState(value) { state = value; },
+      get playbackRate() { events.push("read:rate:"+id); return rate; },
+      set playbackRate(value) { events.push("write:rate:"+id); rate = value; },
+      get pending() { events.push("read:pending:"+id); return isPending; },
+      get ready() { events.push("read:ready:"+id); return { then() {} }; },
+      pause() { events.push("write:pause:"+id); state = "paused"; isPending = true; },
+      play() { events.push("write:play:"+id); state = "running"; isPending = false; },
+      cancel() {},
+    };
+  };
+  const animations = {a:make("a"),b:make("b")};
+  const host = createHost({animations:element=>[animations[element.dataset.overlayId]]});
+  await host.runtime.mount({overlays:[
+    {id:"a",start:0,duration:10,html:CAPTION_HTML},
+    {id:"b",start:0,duration:10,html:CAPTION_HTML},
+  ]});
+  const assertPhases = () => {
+    const firstWrite = events.findIndex(event=>event.startsWith("write:"));
+    const lastWrite = events.findLastIndex(event=>event.startsWith("write:"));
+    assert.ok(firstWrite >= 0);
+    assert.ok(events.slice(0,firstWrite).every(event=>event.startsWith("read:")));
+    assert.ok(events.slice(firstWrite,lastWrite+1).every(event=>event.startsWith("write:")),
+      "no getter may run between Animation writes");
+    assert.ok(events.slice(lastWrite+1).every(event=>event.startsWith("read:")),
+      "pending and ready are read only after all writes");
+    assert.ok(events.slice(lastWrite+1).some(event=>event.startsWith("read:pending:")));
+    assert.ok(events.slice(lastWrite+1).some(event=>event.startsWith("read:ready:")));
+  };
+  host.runtime.tick(0.5,false);
+  assertPhases();
+  assert.deepEqual(timingReads,{a:1,b:1});
+
+  events.length=0;
+  host.clock+=16;
+  host.runtime.tick(0.6,false);
+  assertPhases();
+  assert.equal(events.some(event=>/^read:(current|state|rate|timing):/.test(event)),false,
+    "cached tick estimates Animation state without getters");
+  assert.deepEqual(timingReads,{a:1,b:1},"endTime cache lasts for 250ms");
+
+  events.length=0;
+  host.clock+=16;
+  host.runtime.tick(0.6,false);
+  assert.equal(events.some(event=>event.startsWith("write:")),false);
+  assert.equal(events.some(event=>event.startsWith("read:pending:")),false,
+    "steady paused ticks do not inspect pending/ready");
+  assert.equal(events.some(event=>event.startsWith("read:ready:")),false);
+
+  host.clock+=300;
+  host.runtime.tick(0.7,false);
+  assert.deepEqual(timingReads,{a:2,b:2},"endTime refreshes with the Animation list");
+});
+
+test("runtime discovery is reused until a new runtime is registered", async () => {
+  const host = createHost();
+  await host.runtime.mount({overlays:[{id:"scene",start:0,duration:10,html:THREE_HTML}]});
+  const registry = host.window.akari.runtimes;
+  const original = registry.forContainer;
+  let lookups = 0;
+  registry.forContainer = function(container) { lookups++; return original.call(this,container); };
+  for (let frame=0;frame<10;frame++) host.runtime.tick(frame/10,true);
+  assert.equal(lookups,0,"steady ticks use the mounted runtime list");
+  let renders = 0;
+  registry.register({id:"replacement",selector:'[data-akari-3d-scene]',
+    render(){renders++;},inspect(){return {status:"ready"};},dispose(){}});
+  host.runtime.tick(1,true);
+  assert.equal(lookups,1,"registration invalidates the overlay cache once");
+  assert.equal(renders,1);
+  host.runtime.tick(1.1,true);
+  assert.equal(lookups,1);
+  assert.equal(renders,2);
+});
+
+test("hidden 3D premount keeps layout and configure toggles runtime hiding", async () => {
+  const host = createHost();
+  host.window.akari.threeRuntime.premountTick = () => {};
+  await host.runtime.mount({overlays:[{id:"scene",start:10,duration:2,html:THREE_HTML}]});
+  const container = host.stage.children[0];
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),false);
+  host.runtime.configure({premount:false});
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),true);
+  host.runtime.configure({premount:true});
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),false);
+});
+
+test("runtime hiding does not overwrite host track display", async () => {
+  const host = createHost();
+  await host.runtime.mount({overlays:[{id:"cap",start:1,duration:1,html:CAPTION_HTML}]});
+  const container = host.stage.children[0];
+  container.style.display = "none";
+  host.runtime.tick(1.5,false);
+  assert.equal(container.style.display,"none","visible runtime does not expose a hidden track");
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),false);
+  host.runtime.tick(0,false);
+  container.style.display = "";
+  host.runtime.tick(0.1,false);
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),true,
+    "host display update does not expose a hidden overlay");
+});
+
+test("pending pause cannot write after an overlay is hidden or unmounted", async () => {
+  const animation = fakeAnimation({endTime:60000});
+  let resolveReady;
+  animation.pause = function() {
+    this.playState = "paused";
+    this.pending = true;
+    this.ready = new Promise(resolve=>{resolveReady=resolve;});
+  };
+  const host = createHost({animations:()=>[animation]});
+  await host.runtime.mount({overlays:[{id:"cap",start:0,duration:2,html:CAPTION_HTML}]});
+  host.runtime.tick(1,false);
+  host.runtime.tick(3,false);
+  animation.currentTime = 1234;
+  resolveReady();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(animation.currentTime,1234,"hidden animation stays released");
+
+  await host.runtime.mount({overlays:[{id:"cap",start:0,duration:2,html:CAPTION_HTML}]});
+  host.runtime.tick(1,false);
+  host.runtime.unmount();
+  animation.currentTime = 2345;
+  resolveReady();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(animation.currentTime,2345,"unmounted animation stays released");
 });

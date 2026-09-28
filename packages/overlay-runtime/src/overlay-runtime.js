@@ -34,6 +34,7 @@ const PREVIEW_3D_MAX_RENDER_SIZE = 720;
 
 // getAnimations() 一覧のキャッシュ寿命（ms。app.js と同値）。詳細は tick() の注記。
 const ANIMATIONS_CACHE_MS = 250;
+const RUNTIME_HIDDEN_ATTRIBUTE = "data-akari-runtime-hidden";
 
 // 再生中の CSS アニメは走らせたままにし、タイムラインとのずれがこの幅を超えたときだけ
 // currentTime を書き戻す（ms。出力 30fps の 1.5 フレーム相当）。詳細は syncAnimation() の注記。
@@ -78,12 +79,33 @@ function renderingRuntimes(container) {
   });
 }
 
+// レジストリの登録時だけ既存オーバーレイの探索結果を無効にする。
+let runtimeRegistryVersion = 0;
+const registerRuntime = window.akari.runtimes.register;
+window.akari.runtimes.register = function (...args) {
+  const result = registerRuntime.apply(this, args);
+  runtimeRegistryVersion += 1;
+  return result;
+};
+
 function createOverlayRuntime(options = {}) {
   const mountedOverlays = [];
   let mountedStage = null;
   let premount = resolvePremount(options.premount);
   let premountConfigured = false;
   let maxRenderSize = resolveMaxRenderSize(options.maxRenderSize);
+
+  function overlayRuntimes(overlay) {
+    if (overlay.runtimesVersion !== runtimeRegistryVersion) {
+      overlay.runtimes = renderingRuntimes(overlay.container);
+      overlay.runtimesVersion = runtimeRegistryVersion;
+      overlay.keepLayoutWhenHidden = Boolean(premount && overlay.runtimes
+        .some(runtime => typeof runtime.premountTick === "function"));
+      if (!overlay.visible) overlay.container.toggleAttribute(RUNTIME_HIDDEN_ATTRIBUTE,
+        !overlay.keepLayoutWhenHidden);
+    }
+    return overlay.runtimes;
+  }
 
   // packages/overlay-runtime/package.json の version と同期させる。ブラウザに
   // <script> で直接読み込まれるホスト（npm 解決を経ない）が、mount 済みの
@@ -117,6 +139,19 @@ function createOverlayRuntime(options = {}) {
       premountConfigured = false;
       for (const runtime of window.akari.runtimes.list()) runtime.configurePremount?.(premount);
       premountConfigured = window.akari.runtimes.list().some(runtime => runtime.configurePremount);
+      for (const overlay of mountedOverlays) {
+        overlay.keepLayoutWhenHidden = Boolean(premount && overlayRuntimes(overlay)
+          .some(runtime => typeof runtime.premountTick === "function"));
+        if (!overlay.visible) {
+          overlay.container.toggleAttribute(RUNTIME_HIDDEN_ATTRIBUTE, !overlay.keepLayoutWhenHidden);
+          if (!overlay.keepLayoutWhenHidden) {
+            for (const animation of overlay.container.getAnimations({ subtree: true })) {
+              releaseAnimation(animation);
+              animation.cancel?.();
+            }
+          }
+        }
+      }
     }
     if (Object.prototype.hasOwnProperty.call(next, "maxRenderSize")) {
       maxRenderSize = resolveMaxRenderSize(next.maxRenderSize);
@@ -126,12 +161,10 @@ function createOverlayRuntime(options = {}) {
 
   // 入場アニメが現在時刻で確定姿勢に達したか。装飾用の無限ループ（spark 等）は
   // 永遠に終わらないため、終端が有限なアニメーションだけを見る。
-  function entryAnimationsSettled(animations) {
-    for (const animation of animations) {
-      const endTime = Number(animation.effect?.getComputedTiming?.().endTime);
+  function entryAnimationsSettled(endTimes, localTimeMs) {
+    for (const endTime of endTimes) {
       if (!Number.isFinite(endTime)) continue;
-      const currentTime = Number(animation.currentTime);
-      if (!Number.isFinite(currentTime) || currentTime < endTime) return false;
+      if (localTimeMs < endTime) return false;
     }
     return true;
   }
@@ -155,36 +188,87 @@ function createOverlayRuntime(options = {}) {
   // 止めると、まれに 1 フレーム 16.6ms 進んだ姿勢で止まる）。止めた時刻を pausedTargets に
   // 記録し、保留が解けた（ready）後にもう一度書き戻す。再生へ戻ったら記録を消す。
   const pausedTargets = new WeakMap();
-  function holdPausedTime(animation, localTimeMs) {
-    pausedTargets.set(animation, localTimeMs);
-    if (!animation.pending || !animation.ready?.then) return;
-    animation.ready.then(() => {
-      if (pausedTargets.get(animation) !== localTimeMs || animation.playState !== "paused") return;
-      if (Number(animation.currentTime) !== localTimeMs) animation.currentTime = localTimeMs;
-    }, () => {});
+  const animationState = new WeakMap();
+  const pendingReady = new WeakMap();
+  const readyCorrections = new Map();
+  let correctionScheduled = false;
+  function flushReadyCorrections() {
+    correctionScheduled = false;
+    const corrections = [...readyCorrections];
+    readyCorrections.clear();
+    const writes = [];
+    for (const [animation, target] of corrections) {
+      if (pausedTargets.get(animation) !== target || animation.playState !== "paused") continue;
+      if (Number(animation.currentTime) !== target) writes.push([animation, target]);
+    }
+    for (const [animation, target] of writes) {
+      animation.currentTime = target;
+      const state = animationState.get(animation);
+      if (state) { state.current = target; state.at = performance.now(); state.playState = "paused"; }
+    }
+  }
+  function holdPausedTime(animation, pending, ready) {
+    if (!pending || !ready?.then) return;
+    if (pendingReady.get(animation) === ready) return;
+    pendingReady.set(animation, ready);
+    ready.then(() => {
+      if (pendingReady.get(animation) !== ready) return;
+      pendingReady.delete(animation);
+      const target = pausedTargets.get(animation);
+      if (target === undefined) return;
+      readyCorrections.set(animation, target);
+      if (!correctionScheduled) {
+        correctionScheduled = true;
+        Promise.resolve().then(flushReadyCorrections);
+      }
+    }, () => {
+      if (pendingReady.get(animation) === ready) pendingReady.delete(animation);
+    });
   }
 
-  function syncAnimation(animation, localTimeMs, playing, playbackRate) {
-    const endTime = Number(animation.effect?.getComputedTiming?.().endTime);
-    const current = Number(animation.currentTime);
+  function releaseAnimation(animation) {
+    pausedTargets.delete(animation);
+    animationState.delete(animation);
+    pendingReady.delete(animation);
+    readyCorrections.delete(animation);
+  }
+
+  function syncAnimation(snapshot, localTimeMs, playing, playbackRate, nowMs) {
+    const { animation, endTime, current, playState, currentRate, state } = snapshot;
     if (playing && !(localTimeMs >= endTime)) {
       pausedTargets.delete(animation);
-      if (animation.playState !== "running") {
+      if (playState !== "running") {
         animation.currentTime = localTimeMs;
         animation.playbackRate = playbackRate;
         animation.play();
-        return;
+        Object.assign(state, { current: localTimeMs, at: nowMs, playState: "running", rate: playbackRate });
+        return false;
       }
-      if (animation.playbackRate !== playbackRate) animation.playbackRate = playbackRate;
+      if (currentRate !== playbackRate) {
+        animation.playbackRate = playbackRate;
+        Object.assign(state, { current, at: nowMs, rate: playbackRate });
+      }
       if (!Number.isFinite(current) || Math.abs(current - localTimeMs) > PLAYBACK_DRIFT_MS) {
         animation.currentTime = localTimeMs;
+        Object.assign(state, { current: localTimeMs, at: nowMs });
       }
-      return;
+      return false;
     }
-    if (playing && animation.playState === "paused" && current >= endTime) return;
-    if (animation.playState !== "paused") animation.pause();
-    if (current !== localTimeMs) animation.currentTime = localTimeMs;
-    holdPausedTime(animation, localTimeMs);
+    if (playing && playState === "paused" && current >= endTime) return false;
+    let needsWatch = !pausedTargets.has(animation);
+    if (playState !== "paused") {
+      animation.pause();
+      Object.assign(state, { current, at: nowMs, playState: "paused" });
+      needsWatch = true;
+    }
+    // pause() の瞬間は推定値が一致しても実値がずれ得るため、目標時刻を確定する。
+    if (current !== localTimeMs || playState !== "paused") {
+      animation.currentTime = localTimeMs;
+      Object.assign(state, { current: localTimeMs, at: nowMs });
+      needsWatch = true;
+    }
+    pausedTargets.set(animation, localTimeMs);
+    return needsWatch;
   }
 
   // 再生速度（タイムライン秒 / 壁時計秒）の推定。ホストは tick(t, playing) しか渡さないので、
@@ -214,7 +298,8 @@ function createOverlayRuntime(options = {}) {
 
   function unmount() {
     for (const overlay of mountedOverlays) {
-      for (const runtime of renderingRuntimes(overlay.container)) runtime.dispose(overlay.container);
+      for (const animation of overlay.animations ?? []) releaseAnimation(animation);
+      for (const runtime of overlayRuntimes(overlay)) runtime.dispose(overlay.container);
     }
     const stage = mountedStage ?? document.getElementById("overlay-stage");
     if (stage) stage.replaceChildren();
@@ -243,6 +328,14 @@ function createOverlayRuntime(options = {}) {
       throw new TypeError("summary.overlays は配列である必要があります");
     }
 
+    // ホストは非表示トラックの inline display も管理する。runtime 側は独立した属性で
+    // 非可視断片を隠し、ホストの display 更新でアニメーションが復活しないようにする。
+    if (document.head && !document.getElementById("akari-runtime-hidden-style")) {
+      const style = document.createElement("style");
+      style.id = "akari-runtime-hidden-style";
+      style.textContent = '[data-akari-runtime-hidden] { display: none !important; }';
+      document.head.appendChild(style);
+    }
     const fragment = document.createDocumentFragment();
 
     for (const overlay of overlays) {
@@ -294,7 +387,12 @@ function createOverlayRuntime(options = {}) {
         overlay.params
       );
       container.replaceChildren(rendered ?? template.content.cloneNode(true));
-      for (const runtime of renderingRuntimes(container)) {
+      const containerRuntimes = renderingRuntimes(container);
+      // 3D 先読みは非可視でもレイアウト箱が必要。通常の断片だけレイアウトから外す。
+      const keepLayoutWhenHidden = Boolean(premount && containerRuntimes
+        .some(runtime => typeof runtime.premountTick === "function"));
+      if (!keepLayoutWhenHidden) container.setAttribute(RUNTIME_HIDDEN_ATTRIBUTE, "");
+      for (const runtime of containerRuntimes) {
         if (runtime.fragmentBaseAttribute && overlay.htmlPath) container.setAttribute(runtime.fragmentBaseAttribute, new URL(overlay.htmlPath, document.baseURI).href);
       }
 
@@ -329,10 +427,14 @@ function createOverlayRuntime(options = {}) {
         start,
         duration,
         visible: false,
+        runtimes: containerRuntimes,
+        runtimesVersion: runtimeRegistryVersion,
+        keepLayoutWhenHidden,
         hitPolicyPending: false,
         // getAnimations({ subtree: true }) の 250ms キャッシュ（tick() 参照）
         animations: undefined,
         animationsAt: 0,
+        animationEndTimes: [],
         ...(motionDriven ? {
           keyframes: overlay.keyframes,
           motion: overlay.motion,
@@ -406,14 +508,18 @@ function createOverlayRuntime(options = {}) {
   function tick(t, playing) {
     const timelineTime = finiteNumber(t, 0);
     if (premount && !premountConfigured) applyPremountConfiguration();
-    const rate = observePlaybackRate(timelineTime, Boolean(playing), performance.now());
+    const nowMs = performance.now();
+    const rate = observePlaybackRate(timelineTime, Boolean(playing), nowMs);
+    const work = [];
 
     for (const overlay of mountedOverlays) {
+      if (overlay.runtimesVersion !== runtimeRegistryVersion) overlayRuntimes(overlay);
       const visible =
         overlay.start <= timelineTime &&
         timelineTime < overlay.start + overlay.duration;
 
       if (visible !== overlay.visible) {
+        if (visible) overlay.container.removeAttribute(RUNTIME_HIDDEN_ATTRIBUTE);
         overlay.container.style.visibility = visible ? "visible" : "hidden";
         // 断片側の出入りアニメ（telop.md）は `[data-akari-active] .foo { animation: ... }`
         // という祖先属性ゲート付きセレクタで宣言する規約にする（字幕断片は 1,205 件級で
@@ -429,10 +535,22 @@ function createOverlayRuntime(options = {}) {
         // getAnimations() のキャッシュ（下記）は可視化フリップで必ず捨てる。ゲート属性の付け外しで
         // CSS animation の顔ぶれが変わるため、可視化直後の tick は引き直す。非表示化でも捨て、
         // 非可視の間 Animation 参照を持ち越さない。
+        for (const animation of overlay.animations ?? []) releaseAnimation(animation);
         overlay.animations = undefined;
         overlay.animationsAt = 0;
-        if (!visible) for (const runtime of renderingRuntimes(overlay.container)) {
-          if (!premount || !runtime.premountTick) runtime.dispose(overlay.container);
+        overlay.animationEndTimes = [];
+        if (!visible) {
+          if (!overlay.keepLayoutWhenHidden) {
+            overlay.container.setAttribute(RUNTIME_HIDDEN_ATTRIBUTE, "");
+            // display:none でも paused の CSSAnimation は残るため、退出時に解放する。
+            for (const animation of overlay.container.getAnimations({ subtree: true })) {
+              releaseAnimation(animation);
+              animation.cancel?.();
+            }
+          }
+          for (const runtime of overlayRuntimes(overlay)) {
+            if (!premount || !runtime.premountTick) runtime.dispose(overlay.container);
+          }
         }
         overlay.visible = visible;
       }
@@ -465,37 +583,83 @@ function createOverlayRuntime(options = {}) {
         overlay.container.style.setProperty("opacity", String(state.opacity));
         overlay.container.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
       }
-      // getAnimations({ subtree: true }) のコストは「ドキュメント全体に現存する CSS animation の
-      // 総数」にほぼ比例する（上の注記）。断片のアニメは `[data-akari-active]` ゲートで宣言する
-      // 規約なので、可視の間は顔ぶれが変わらない。毎 tick 引き直さず、可視化フリップ直後の
-      // tick と 250ms ごとだけ引き直す（遅れて生える animation も拾える。app.js と同じ）。
-      // Animation オブジェクトはライブなので、キャッシュ済みでも syncAnimation() の書き込みと
-      // 下の entryAnimationsSettled() の読み取りは現在値で動く。
-      //
-      // 3D 断片も必ずここを通す。three のシーンは three 側が時刻を持つ（mixer.setTime）が、
-      // 断片の **CSS** アニメを進めるのは誰の仕事でもなくなる。以前は 3D 分岐がこの手前で
-      // continue していたため、3D 宣言を含む断片の CSS アニメが 1 本も同期されず、壁時計で
-      // 走り切って animation-fill-mode の最終姿勢に張り付いていた（実機報告 2026-09-04:
-      // S4 の 3D ステージが画面中央に残り続ける。仕様は translate3d(142%) = 局所 7 秒まで画面外）。
-      // 書き出し（render-cut の rasterize.mjs）は __akariSyncAnimations を 3D コンテナにも
-      // 等しく掛けているので、ここで飛ばすとプレビューと書き出しで絵が食い違う。
-      const nowMs = performance.now();
-      if (
-        overlay.animations === undefined ||
-        nowMs - overlay.animationsAt > ANIMATIONS_CACHE_MS
-      ) {
+      work.push({ overlay, localTimeMs });
+    }
+
+    // 可視化とキーフレームの DOM 書き込みを終えてから Animation をまとめて読む。
+    // 読み取りと書き込みを 1 本ずつ交互に行うと、Chromium が毎回スタイルを再計算する。
+    // getAnimations({ subtree: true }) のコストは「ドキュメント全体に現存する CSS animation の
+    // 総数」にほぼ比例する（上の注記）。断片のアニメは `[data-akari-active]` ゲートで宣言する
+    // 規約なので、可視の間は顔ぶれが変わらない。毎 tick 引き直さず、可視化フリップ直後の
+    // tick と 250ms ごとだけ引き直す（遅れて生える animation も拾える。app.js と同じ）。
+    // endTime / currentTime / playState / playbackRate は一覧更新時だけ実値を読み、
+    // 定常 tick は最後の確定値と壁時計から推定する。
+    //
+    // 3D 断片も必ずここを通す。three のシーンは three 側が時刻を持つ（mixer.setTime）が、
+    // 断片の **CSS** アニメを進めるのは誰の仕事でもなくなる。以前は 3D 分岐がこの手前で
+    // continue していたため、3D 宣言を含む断片の CSS アニメが 1 本も同期されず、壁時計で
+    // 走り切って animation-fill-mode の最終姿勢に張り付いていた（実機報告 2026-09-04:
+    // S4 の 3D ステージが画面中央に残り続ける。仕様は translate3d(142%) = 局所 7 秒まで画面外）。
+    // 書き出し（render-cut の rasterize.mjs）は __akariSyncAnimations を 3D コンテナにも
+    // 等しく掛けているので、ここで飛ばすとプレビューと書き出しで絵が食い違う。
+    for (const item of work) {
+      const { overlay } = item;
+      if (overlay.animations === undefined || nowMs - overlay.animationsAt > ANIMATIONS_CACHE_MS) {
+        const previousAnimations = overlay.animations ?? [];
         overlay.animations = overlay.container.getAnimations({ subtree: true });
+        const retained = new Set(overlay.animations);
+        for (const animation of previousAnimations) {
+          if (!retained.has(animation)) releaseAnimation(animation);
+        }
+        overlay.animationEndTimes = overlay.animations.map(animation =>
+          Number(animation.effect?.getComputedTiming?.().endTime));
         overlay.animationsAt = nowMs;
+        for (const animation of overlay.animations) animationState.set(animation, {
+          current: Number(animation.currentTime),
+          at: nowMs,
+          playState: animation.playState,
+          rate: animation.playbackRate,
+        });
       }
-      const animations = overlay.animations;
-      for (const animation of animations) syncAnimation(animation, localTimeMs, Boolean(playing), rate);
-      for (const runtime of renderingRuntimes(overlay.container)) {
+      item.snapshots = overlay.animations.map((animation, index) => {
+        const state = animationState.get(animation);
+        return {
+          animation,
+          endTime: overlay.animationEndTimes[index],
+          state,
+          current: state.playState === "running" && Number.isFinite(state.current)
+            ? state.current + Math.max(0, nowMs - state.at) * state.rate : state.current,
+          playState: state.playState,
+          currentRate: state.rate,
+        };
+      });
+    }
+
+    // 全オーバーレイへの書き込みが終わるまで Animation の getter を読まない。
+    const pauseChecks = [];
+    for (const { snapshots, localTimeMs } of work) {
+      for (const snapshot of snapshots) {
+        if (syncAnimation(snapshot, localTimeMs, Boolean(playing), rate, nowMs)) {
+          pauseChecks.push(snapshot.animation);
+        }
+      }
+    }
+    // pause() 後に変わる pending / ready は、全書き込み後にまとめて読む。
+    for (const animation of pauseChecks) {
+      const pending = animation.pending;
+      const ready = pending ? animation.ready : null;
+      holdPausedTime(animation, pending, ready);
+    }
+
+    for (const { overlay, localTimeMs } of work) {
+      for (const runtime of overlayRuntimes(overlay)) {
         // playing はランタイム側の動画テクスチャの同期方式（再生中は <video> を走らせ、停止・スクラブ中はシーク）に使う
-        runtime.render(overlay.container, localTimeMs / 1000, { syncVideos: true, maxRenderSize, playing: Boolean(playing) });
+        runtime.render(overlay.container, localTimeMs / 1000,
+          { syncVideos: true, maxRenderSize, playing: Boolean(playing) });
       }
       // opacity と clip-path は現在時刻へ合わせ、可視な間は入場アニメの終了まで毎 tick
       // 測り直す。フリップ時だけでは通常再生の localTimeMs がほぼ 0 となり、0% 姿勢の
-      // bbox が焼き付くため。上で取得済みの animations を再利用し、有限な入場アニメが
+      // bbox が焼き付くため。キャッシュした有限アニメの終端とローカル時刻で確定を判断する。
       // 終わった tick で確定する。以後は呼ばず、無限ループも終端無しとして数えないので、
       // 対象を可視オーバーレイだけにする性能原則「見えている分だけ」は維持される。
       if (overlay.hitPolicyPending) {
@@ -503,7 +667,7 @@ function createOverlayRuntime(options = {}) {
         // 当たり判定ポリシーは初回適用が WeakSet でガードされるため、ここでの再呼び出しは
         // 実質 no-op（暫定適用）。確定姿勢に達した tick で invalidate してから測り直す。
         window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
-        if (entryAnimationsSettled(animations)) {
+        if (entryAnimationsSettled(overlay.animationEndTimes, localTimeMs)) {
           window.akari.interaction?.invalidateOverlayHitPolicy?.(overlay.container);
           window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
           overlay.hitPolicyPending = false;
@@ -511,9 +675,17 @@ function createOverlayRuntime(options = {}) {
       }
     }
 
-    if (premount) for (const runtime of window.akari.runtimes.list()) {
-      const entries = mountedOverlays.filter(overlay => renderingRuntimes(overlay.container).includes(runtime));
-      if (entries.length) runtime.premountTick?.(entries, timelineTime);
+    if (premount) {
+      const entriesByRuntime = new Map();
+      for (const overlay of mountedOverlays) for (const runtime of overlayRuntimes(overlay)) {
+        if (!runtime.premountTick) continue;
+        if (!entriesByRuntime.has(runtime)) entriesByRuntime.set(runtime, []);
+        entriesByRuntime.get(runtime).push(overlay);
+      }
+      for (const runtime of window.akari.runtimes.list()) {
+        const entries = entriesByRuntime.get(runtime);
+        if (entries?.length) runtime.premountTick(entries, timelineTime);
+      }
     }
   }
 

@@ -170,7 +170,17 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
   if (!runtime || runtime.__akariItemKeyframesSoftReload) return;
   const mount = runtime.mount.bind(runtime);
   const tick = runtime.tick.bind(runtime);
-  const signature = summary => JSON.stringify(Array.isArray(summary?.overlays) ? summary.overlays : []);
+  let lastSummary = Symbol("unobserved");
+  let lastOverlays;
+  let lastSignature;
+  const signature = summary => {
+    const overlays = summary?.overlays;
+    if (summary === lastSummary && overlays === lastOverlays) return lastSignature;
+    lastSummary = summary;
+    lastOverlays = overlays;
+    lastSignature = JSON.stringify(Array.isArray(overlays) ? overlays : []);
+    return lastSignature;
+  };
   let mountedSignature;
   let remounting = null;
   // 対象は overlay-stage 直下の器だけ。ホバー枠（interaction.js の preview-hover-frame）も同じ

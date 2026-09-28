@@ -26,9 +26,10 @@ function puppeteerCacheCandidates() {
 }
 
 const CHROME_CANDIDATES = [
+  process.env.CHROME_PATH,
   ...puppeteerCacheCandidates(),
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-];
+].filter(Boolean);
 
 function findChrome() {
   for (const candidate of CHROME_CANDIDATES) {
@@ -97,8 +98,7 @@ async function main() {
     pipe: true,
     args: [
       "--no-sandbox",
-      "--no-zygote",
-      "--single-process",
+      ...(process.env.AKARI_TEST_BROWSER_MULTI_PROCESS === "1" ? [] : ["--no-zygote", "--single-process"]),
       "--allow-file-access-from-files",
       "--disable-gpu",
       "--enable-unsafe-swiftshader",
