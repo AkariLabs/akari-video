@@ -312,5 +312,372 @@
     "osr": "AFTER (stamp) out.mp4 is byte-identical to a BEFORE run (verify=off) whose frame 0 rendered correctly: 600/600 frames PSNR inf. A second BEFORE run (stamp) had a black frame 0 (pre-existing frame-0 flake on base code, 1 stamp retry); frames 1-599 match.",
     "gpu": "AFTER out.mp4 is byte-identical to BEFORE (600/600 frames).",
     "osrVerifyOff": "With AKARI_OSR_VERIFY=off, AFTER captured 26-28 one-frame-stale paints per 600 frames (BEFORE 0). Two of them are visible at a scene boundary. The default stamp verify retries each one once and the output is identical. Follow-up."
+  },
+  "r1": {
+    "note": "r1 (feedback-r1): the sheet waits only for active 3D containers; containers created in the 2 s lead load in the background. Re-measured on a rebuilt fixture with the same recipe (Windows 11, tier 2 Electron 39.8.7, other lanes sharing the machine). BEFORE = 49af07a62, AFTER = r1 commit.",
+    "sheetProbe": {
+      "before": [
+        {
+          "readyMs": 2378,
+          "readyLive": [
+            "phone-a",
+            "phone-b",
+            "phone-c"
+          ],
+          "loopMs": 85193,
+          "msPerFrameMean": 141.99,
+          "liveMax": 3,
+          "videosInDomMax": 3,
+          "seeksTotal": 1167,
+          "seekedVideosPerFrameMax": 3,
+          "seekedVideosPerFrameMean": 1.95,
+          "warningsTotal": 0,
+          "peakHeapMB": 20.7,
+          "memoryAtReadyMB": {
+            "Browser": 53.6,
+            "GPU": 1901.5,
+            "Utility": 12.9,
+            "Tab": 462.3
+          },
+          "peakMemoryMB": {
+            "Browser": 110.2,
+            "GPU": 1918.4,
+            "Utility": 13.1,
+            "Tab": 463.3
+          },
+          "threeWindowStats": null,
+          "timeline": [
+            {
+              "frame": 0,
+              "seconds": 0,
+              "live": 3,
+              "videos": 3,
+              "seekedVideos": 0
+            }
+          ]
+        },
+        {
+          "readyMs": 1636,
+          "readyLive": [
+            "phone-a",
+            "phone-b",
+            "phone-c"
+          ],
+          "loopMs": 57377,
+          "msPerFrameMean": 95.63,
+          "liveMax": 3,
+          "videosInDomMax": 3,
+          "seeksTotal": 1167,
+          "seekedVideosPerFrameMax": 3,
+          "seekedVideosPerFrameMean": 1.95,
+          "warningsTotal": 0,
+          "peakHeapMB": 20.7,
+          "memoryAtReadyMB": {
+            "Browser": 51.8,
+            "GPU": 1903.6,
+            "Utility": 13,
+            "Tab": 461.3
+          },
+          "peakMemoryMB": {
+            "Browser": 108.3,
+            "GPU": 1903.6,
+            "Utility": 13.1,
+            "Tab": 463.8
+          },
+          "threeWindowStats": null,
+          "timeline": [
+            {
+              "frame": 0,
+              "seconds": 0,
+              "live": 3,
+              "videos": 3,
+              "seekedVideos": 0
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "readyMs": 1768,
+          "readyLive": [
+            "phone-a"
+          ],
+          "loopMs": 35693,
+          "msPerFrameMean": 59.49,
+          "liveMax": 2,
+          "videosInDomMax": 2,
+          "seeksTotal": 537,
+          "seekedVideosPerFrameMax": 1,
+          "seekedVideosPerFrameMean": 0.9,
+          "warningsTotal": 0,
+          "peakHeapMB": 14.5,
+          "memoryAtReadyMB": {
+            "Browser": 51.9,
+            "GPU": 760.3,
+            "Utility": 13,
+            "Tab": 196.2
+          },
+          "peakMemoryMB": {
+            "Browser": 108.6,
+            "GPU": 1281.6,
+            "Utility": 13.1,
+            "Tab": 467.6
+          },
+          "threeWindowStats": {
+            "created": 3,
+            "disposed": 2,
+            "live": 1,
+            "liveMax": 2
+          },
+          "timeline": [
+            {
+              "frame": 0,
+              "seconds": 0,
+              "live": 1,
+              "videos": 1,
+              "seekedVideos": 0
+            },
+            {
+              "frame": 150,
+              "seconds": 5,
+              "live": 2,
+              "videos": 1,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 159,
+              "seconds": 5.3,
+              "live": 2,
+              "videos": 2,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 180,
+              "seconds": 6,
+              "live": 1,
+              "videos": 1,
+              "seekedVideos": 0
+            },
+            {
+              "frame": 360,
+              "seconds": 12,
+              "live": 2,
+              "videos": 1,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 368,
+              "seconds": 12.267,
+              "live": 2,
+              "videos": 2,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 390,
+              "seconds": 13,
+              "live": 1,
+              "videos": 1,
+              "seekedVideos": 0
+            }
+          ]
+        },
+        {
+          "readyMs": 1131,
+          "readyLive": [
+            "phone-a"
+          ],
+          "loopMs": 33356,
+          "msPerFrameMean": 55.59,
+          "liveMax": 2,
+          "videosInDomMax": 2,
+          "seeksTotal": 539,
+          "seekedVideosPerFrameMax": 2,
+          "seekedVideosPerFrameMean": 0.9,
+          "warningsTotal": 0,
+          "peakHeapMB": 14.5,
+          "memoryAtReadyMB": {
+            "Browser": 51.3,
+            "GPU": 731.6,
+            "Utility": 13.1,
+            "Tab": 196
+          },
+          "peakMemoryMB": {
+            "Browser": 106.4,
+            "GPU": 1134,
+            "Utility": 13.2,
+            "Tab": 338.6
+          },
+          "threeWindowStats": {
+            "created": 3,
+            "disposed": 2,
+            "live": 1,
+            "liveMax": 2
+          },
+          "timeline": [
+            {
+              "frame": 0,
+              "seconds": 0,
+              "live": 1,
+              "videos": 1,
+              "seekedVideos": 0
+            },
+            {
+              "frame": 150,
+              "seconds": 5,
+              "live": 2,
+              "videos": 1,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 159,
+              "seconds": 5.3,
+              "live": 2,
+              "videos": 2,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 180,
+              "seconds": 6,
+              "live": 1,
+              "videos": 1,
+              "seekedVideos": 0
+            },
+            {
+              "frame": 360,
+              "seconds": 12,
+              "live": 2,
+              "videos": 1,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 369,
+              "seconds": 12.3,
+              "live": 2,
+              "videos": 2,
+              "seekedVideos": 1
+            },
+            {
+              "frame": 390,
+              "seconds": 13,
+              "live": 1,
+              "videos": 1,
+              "seekedVideos": 0
+            }
+          ]
+        }
+      ]
+    },
+    "osrExport": {
+      "note": "render-cut --engine osr (tier 2), run.json of the OSR child",
+      "before": {
+        "verify": {
+          "mode": "stamp",
+          "retriesTotal": 0,
+          "retryHistogram": {
+            "0": 600
+          },
+          "hashPolicyAmbiguous": 0,
+          "preVerifyDeltaHistogram": {
+            "0": 600
+          }
+        },
+        "captureLoopMs": 131325,
+        "seekMedianMs": 180,
+        "seekP95Ms": 305.7,
+        "peakMemoryMB": 2292
+      },
+      "after": {
+        "verify": {
+          "mode": "stamp",
+          "retriesTotal": 28,
+          "retryHistogram": {
+            "0": 572,
+            "1": 28
+          },
+          "hashPolicyAmbiguous": 0,
+          "preVerifyDeltaHistogram": {
+            "0": 572,
+            "-1": 28
+          }
+        },
+        "captureLoopMs": 71918,
+        "seekMedianMs": 96.8,
+        "seekP95Ms": 169.9,
+        "peakMemoryMB": 1099
+      },
+      "verifyOff": {
+        "before": {
+          "verify": {
+            "mode": "off",
+            "retriesTotal": 0,
+            "retryHistogram": {
+              "0": 600
+            },
+            "hashPolicyAmbiguous": 0,
+            "preVerifyDeltaHistogram": {
+              "0": 600
+            }
+          },
+          "captureLoopMs": 114150,
+          "seekMedianMs": 163.6,
+          "seekP95Ms": 280.9,
+          "peakMemoryMB": 2509
+        },
+        "after": {
+          "verify": {
+            "mode": "off",
+            "retriesTotal": 0,
+            "retryHistogram": {
+              "0": 600
+            },
+            "hashPolicyAmbiguous": 0,
+            "preVerifyDeltaHistogram": {
+              "0": 586,
+              "-1": 14
+            }
+          },
+          "captureLoopMs": 77076,
+          "seekMedianMs": 96.9,
+          "seekP95Ms": 181.2,
+          "peakMemoryMB": 1098
+        }
+      },
+      "r0CommitAfter": {
+        "verify": {
+          "mode": "stamp",
+          "retriesTotal": 26,
+          "retryHistogram": {
+            "0": 574,
+            "1": 26
+          },
+          "hashPolicyAmbiguous": 0,
+          "preVerifyDeltaHistogram": {
+            "0": 574,
+            "-1": 26
+          }
+        },
+        "captureLoopMs": 76561,
+        "seekMedianMs": 81.2,
+        "seekP95Ms": 219,
+        "peakMemoryMB": 1116,
+        "note": "previous AFTER (f3301f70f, waited for every in-window container) on the same rebuilt fixture"
+      }
+    },
+    "gpuExport": {
+      "note": "render-cut --engine gpu --gpu-preference auto",
+      "before": {
+        "elapsedMs": 76676
+      },
+      "after": {
+        "elapsedMs": 81237
+      }
+    },
+    "frameComparison": {
+      "gpu": "AFTER mp4 is byte-identical to BEFORE.",
+      "osr": "AFTER mp4 differs from BEFORE on this rebuilt fixture: 600 frames, 60 identical (the gaps 6-7 s and 13-14 s), min PSNR 55.03 dB, all >= 45 dB. The r0 commit (f3301f70f) produces a byte-identical mp4 to r1 on this fixture, so the difference comes from windowed mounting itself (fewer live WebGL scenes), not from the r1 wait change. Stamp and verify-off outputs are byte-identical to each other for both BEFORE and AFTER.",
+      "psnrMinDb": 55.03,
+      "identicalFrames": 60,
+      "frames": 600
+    }
   }
 }
