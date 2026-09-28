@@ -226,6 +226,7 @@ import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
 import { computePreviewStageClearance, computePreviewPanLimits, pinchPreviewPan } from '../common/preview-stage-clearance';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
+import { planRawPreviewAudioSidecar, rawPreviewProjectRootCandidates, selectRawPreviewProjectRoot } from '../common/raw-preview-audio';
 import {
     clampPreviewPlaybackRate,
     effectiveMediaRate,
@@ -560,6 +561,7 @@ type PreviewAudioSidecarState = 'ready' | 'queued' | 'generating' | 'no-audio' |
 interface PreviewAudioSidecarRequest {
     sourceUri: string;
     projectRootUri: string;
+    workspaceRoots?: string[];
     inSec: number;
     outSec?: number;
     speed: number;
@@ -1033,6 +1035,12 @@ interface ReviewAnnotationStrokeRequest {
     }>;
 }
 
+interface RawPreviewAudioState {
+    pageId: string;
+    timer?: ReturnType<typeof setTimeout>;
+    url?: string;
+}
+
 interface PreviewWidgetMarker extends WebviewWidget {
     akariLibraryDrop?: PreviewLibraryDrop;
     akariPreviewFrameCaptureRequest?: string;
@@ -1070,6 +1078,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
     akariPreviewExtraStreamIds?: string[];
     akariPreviewAssetStreamIds?: string[];
+    akariPreviewRawAudio?: RawPreviewAudioState;
     akariPreviewSummary?: EditSummary;
     akariPreviewSeekable?: boolean;
     akariPreviewMuted?: boolean;
@@ -3825,6 +3834,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.akariPreviewDiagnostics?.ingest(message);
                 return;
             }
+            if (kind === 'raw' && message?.type === 'akari-preview-raw-audio-request') {
+                const rawAudio = widget.akariPreviewRawAudio;
+                if (rawAudio?.pageId === message.pageId && rawAudio.url) {
+                    widget.sendMessage({ type: 'akari-preview-raw-audio-ready',
+                        pageId: rawAudio.pageId, url: rawAudio.url });
+                }
+                return;
+            }
             if (message?.type === 'akari-preview-alt-all' && typeof message.on === 'boolean') {
                 window.dispatchEvent(new CustomEvent('akari.selection.altAll', { detail: { on: message.on } }));
             }
@@ -5119,6 +5136,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // setHTML はページを作り直すので、ページ側の段（スクリプト読込以降）はやり直しになる。
         diagnostics?.restartPageStages();
         widget.akariPreviewPlaybackPageId = `${widget.id}:${++this.playbackPageSequence}`;
+        if (kind === 'raw' && hasSourceAudio === true) {
+            widget.akariPreviewRawAudio = { pageId: widget.akariPreviewPlaybackPageId };
+        }
         this.noteSwapReload(widget, 'reload_start');
         if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus;
         widget.setHTML(this.prepareHtml(
@@ -5161,6 +5181,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
         widget.akariPreviewSummary = model.summary;
         this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
+        if (kind === 'raw' && hasSourceAudio === true) {
+            void this.startRawPreviewAudio(widget, videoUri, hasSourceAudio, widget.akariPreviewPlaybackPageId)
+                .catch(error => console.warn('[akari-preview] raw audio sidecar unavailable; continuing with video', error));
+        }
     }
 
     protected async handlePreviewAudioPriority(widget: PreviewWidgetMarker, time: unknown): Promise<void> {
@@ -5331,6 +5355,51 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             else this.stopPreviewAudioPolling(widget);
         };
         widget.akariPreviewAudioPollTimer = setTimeout(() => void poll(), 1000);
+    }
+
+    protected async startRawPreviewAudio(
+        widget: PreviewWidgetMarker, videoUri: URI, hasSourceAudio: boolean | undefined, pageId: string
+    ): Promise<void> {
+        const state = widget.akariPreviewRawAudio;
+        if (!state || state.pageId !== pageId || hasSourceAudio !== true) return;
+        const workspaceRoots = await this.currentWorkspaceRoots();
+        const candidates = rawPreviewProjectRootCandidates(videoUri.toString(), workspaceRoots);
+        const rootsWithAkari = new Set<string>();
+        await Promise.all(candidates.map(async candidate => {
+            if (await this.fileService.exists(new URI(candidate).resolve('.akari'))) rootsWithAkari.add(candidate);
+        }));
+        const projectRootUri = selectRawPreviewProjectRoot(candidates, rootsWithAkari);
+        const request = planRawPreviewAudioSidecar({
+            kind: 'raw', hasSourceAudio, sourceUri: videoUri.toString(), projectRootUri
+        });
+        if (!request || widget.isDisposed || widget.akariPreviewRawAudio !== state) return;
+        const service = this.previewService as AkariPreviewService & PreviewAudioService;
+        const current = (): boolean => !widget.isDisposed && widget.akariPreviewRawAudio === state;
+        const poll = async (): Promise<void> => {
+            if (!current()) return;
+            let result: PreviewAudioSidecarRequestResult;
+            try {
+                result = await service.requestPreviewAudioSidecar({ ...request, workspaceRoots });
+            } catch (error) {
+                console.warn('[akari-preview] raw audio sidecar unavailable; continuing with video', error);
+                return;
+            }
+            if (!current()) {
+                if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                return;
+            }
+            if (result.state === 'queued' || result.state === 'generating') {
+                state.timer = setTimeout(() => void poll(), 1000);
+                return;
+            }
+            if (result.state === 'ready' && result.stream) {
+                state.url = result.stream.url;
+                (widget.akariPreviewAssetStreamIds ??= []).push(result.stream.id);
+                widget.sendMessage({ type: 'akari-preview-raw-audio-ready', pageId, url: state.url });
+            }
+            // A missing ffmpeg, failed extraction or no-audio result leaves native video playback alone.
+        };
+        void poll();
     }
 
     // Picks the URI that actually gets streamed to <video>. task/2026-08-09-drop-hevc-proxy:
@@ -9311,6 +9380,68 @@ body { display: grid; place-items: center; padding: 32px; }
             if (initial.reloadNotice) showReloadToast();
 
             window.akari = window.akari || {};
+            // Raw material video only: the bundled Electron decodes its picture but can omit
+            // AAC audio. The backend extracts the embedded track as a FLAC sidecar; this
+            // element follows the video transport without changing output-preview audio.
+            if (initial.kind === 'raw' && initial.hasSourceAudio === true) {
+                let rawAudio = null;
+                let rawAudioUrl = null;
+                let rawAudioActive = false;
+                const stopRawAudio = () => {
+                    rawAudioActive = false;
+                    window.akari.rawAudioActive = false;
+                    rawAudio?.pause();
+                    video.muted = video.dataset.akariGlobalMuted === 'true';
+                };
+                const syncRawAudio = () => {
+                    if (!rawAudio || !rawAudioActive) return;
+                    rawAudio.muted = video.dataset.akariGlobalMuted === 'true';
+                    rawAudio.volume = video.volume;
+                    rawAudio.playbackRate = video.playbackRate;
+                    if (rawAudio.readyState >= 1 && Number.isFinite(video.currentTime)
+                        && Math.abs(rawAudio.currentTime - video.currentTime) > 0.09) {
+                        try { rawAudio.currentTime = Math.min(video.currentTime,
+                            Number.isFinite(rawAudio.duration) ? Math.max(0, rawAudio.duration - 0.005) : video.currentTime); }
+                        catch (_error) { /* metadata is changing; the next tick will retry */ }
+                    }
+                    if (video.paused || video.ended) {
+                        if (!rawAudio.paused) rawAudio.pause();
+                    } else if (rawAudio.paused) {
+                        void rawAudio.play().catch(stopRawAudio);
+                    }
+                };
+                window.akari.rawAudioActive = false;
+                window.akari.rawAudioSync = syncRawAudio;
+                for (const eventName of ['play', 'pause', 'seeking', 'seeked', 'ratechange', 'volumechange', 'timeupdate']) {
+                    video.addEventListener(eventName, syncRawAudio);
+                }
+                window.addEventListener('message', event => {
+                    const message = event.data;
+                    if (message?.type !== 'akari-preview-raw-audio-ready'
+                        || message.pageId !== initial.playbackPageId || typeof message.url !== 'string') return;
+                    if (rawAudio && rawAudioUrl === message.url) return;
+                    stopRawAudio();
+                    rawAudio?.remove();
+                    rawAudioUrl = message.url;
+                    rawAudio = document.createElement('audio');
+                    rawAudio.dataset.akariRawSidecar = 'true';
+                    rawAudio.crossOrigin = 'anonymous';
+                    rawAudio.preload = 'auto';
+                    rawAudio.hidden = true;
+                    rawAudio.addEventListener('canplay', () => {
+                        rawAudioActive = true;
+                        window.akari.rawAudioActive = true;
+                        video.muted = true;
+                        syncRawAudio();
+                    }, { once: true });
+                    rawAudio.addEventListener('error', stopRawAudio, { once: true });
+                    document.body.append(rawAudio);
+                    rawAudio.src = message.url;
+                    rawAudio.load();
+                });
+                window.addEventListener('pagehide', stopRawAudio, { once: true });
+                vscode.postMessage({ type: 'akari-preview-raw-audio-request', pageId: initial.playbackPageId });
+            }
             window.akari.previewPlaybackRate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
             window.akari.state = { editPath: initial.editPath, summary: initial.summary, selectionFloor: initial.selectionFloor };
             window.akari.showWriteError = error => {
@@ -20229,6 +20360,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     && (allTracksHiddenByScope.cuts || hiddenTracksByScope.cuts.has(segment.track)));
                 video.dataset.akariGlobalMuted = String(globalMuted);
                 video.muted = globalMuted || !isCutAudioAudibleFn(segment || {}, { muted: cutsTrackMuted });
+                if (initial.kind === 'raw') {
+                    if (window.akari.rawAudioActive === true) video.muted = true;
+                    window.akari.rawAudioSync?.();
+                }
                 const segmentIsStill = isStillSegment(segment);
                 video.style.visibility = !segment || segment.kind === 'gap' || segmentIsStill
                     || cutsTrackHidden ? 'hidden' : '';
@@ -22426,6 +22561,9 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     protected async disposePreviewStreams(widget: PreviewWidgetMarker): Promise<void> {
+        const rawAudio = widget.akariPreviewRawAudio;
+        if (rawAudio?.timer) clearTimeout(rawAudio.timer);
+        widget.akariPreviewRawAudio = undefined;
         const assetIds = widget.akariPreviewAssetStreamIds ?? [];
         widget.akariPreviewAssetStreamIds = [];
         const extraIds = widget.akariPreviewExtraStreamIds ?? [];

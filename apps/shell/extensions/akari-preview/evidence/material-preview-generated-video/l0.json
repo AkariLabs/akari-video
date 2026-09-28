@@ -1,0 +1,62 @@
+{
+  "buildExt": "pass",
+  "frameEngineTsc": "pass",
+  "build": "pass",
+  "lint": { "exitCode": 0, "errors": 0, "warnings": 5 },
+  "exitCodes": {
+    "buildExt": 0,
+    "build": 0,
+    "frameEngineTsc": 0,
+    "changedFilesEslint": 0
+  },
+  "baselinePureLane": {
+    "tests": 3243,
+    "passed": 3234,
+    "failed": 3,
+    "skipped": 6,
+    "failures": [
+      "preview-server: v2-object-tree-put temporary cache cleanup ENOTEMPTY; isolated rerun passed 2/2",
+      "scripts/test: build:ext order differs from expected order",
+      "scripts/test: extension dependency declarations fail repository check"
+    ]
+  },
+  "baselineShellLane": {
+    "tests": 6827,
+    "passed": 6825,
+    "failed": 2,
+    "skipped": 0,
+    "previewExtension": "1754/1754 passed",
+    "failures": [
+      "akari-annotations: known missing vendored ffprobe in timeline-frame-audio-rpc",
+      "akari-surfaces: shortcut display label actual 編集パネル, expected インスペクター"
+    ]
+  },
+  "currentPureLane": {
+    "tests": 3243,
+    "passed": 3235,
+    "failed": 2,
+    "skipped": 6,
+    "failures": [
+      "scripts/test: build:ext order differs from expected order (same baseline failure)",
+      "scripts/test: extension dependency declarations fail repository check (same baseline failure)"
+    ]
+  },
+  "currentShellLane": {
+    "completedFullRun": {
+      "tests": 6830,
+      "passed": 6828,
+      "failed": 2,
+      "skipped": 0,
+      "previewExtension": "1757/1757 passed",
+      "failures": [
+        "akari-annotations: known missing vendored ffprobe in timeline-frame-audio-rpc",
+        "akari-surfaces: shortcut display label actual 編集パネル, expected インスペクター"
+      ]
+    }
+  },
+  "previewExtensionStandalone": "1763/1763 passed",
+  "productSourceChanges": 2,
+  "newUnitTests": 3,
+  "newUnitTestsPassed": 3,
+  "reason": "raw 素材プレビューは既存 RPC で内蔵音声を抽出し、FLAC の音声要素を映像に同期する。"
+}
