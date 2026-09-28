@@ -19409,7 +19409,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         span.style.display = 'inline-block';
                         line.appendChild(span);
                         const frames = replay.id === 'karaoke'
-                            ? [{ color: row.caption?.textStyle?.color || '#ffffff' }, { color: '#ffd94a' }]
+                            ? [{ color: row.caption?.textStyle?.color || '#ffffff' }, { color: getComputedStyle(line).getPropertyValue('--caption-highlight-color').trim() || '#ffd94a' }]
                             : replay.id === 'pop'
                                 ? [{ opacity: 0, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1)' }]
                                 : [{ opacity: 0 }, { opacity: 1 }];

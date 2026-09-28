@@ -37,6 +37,13 @@ test('字幕更新後の再生は同じ cue が画面にあり、要求が期限
     assert.equal(shouldResumeCaptionMotion(null, ['c-0001'], 5000), false);
 });
 
+test('カラオケの一回再生は字幕行のハイライト色を使う', () => {
+    const start = source.indexOf('const startCaptionMotionReplay = replay =>');
+    const end = source.indexOf('const scheduleCaptionMotionReplay = delay =>', start);
+    const playback = source.slice(start, end);
+    assert.match(playback, /replay\.id === 'karaoke'[\s\S]*?\{ color: getComputedStyle\(line\)\.getPropertyValue\('--caption-highlight-color'\)\.trim\(\) \|\| '#ffd94a' \}/u);
+});
+
 test('字幕の再描画直後に保留再生を再開し、host の子要素を直接消さない', () => {
     const start = source.indexOf('const startCaptionMotionReplay = replay =>');
     const end = source.indexOf('const scheduleCaptionMotionReplay = delay =>', start);
