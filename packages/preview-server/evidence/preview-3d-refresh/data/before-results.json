@@ -1,0 +1,41 @@
+{
+  "label": "before",
+  "steps": {
+    "missing": {
+      "failureVisible": false,
+      "texts": [],
+      "rgb": [
+        22,
+        35,
+        56
+      ],
+      "notRed": true
+    },
+    "restored": {
+      "drawn": false,
+      "withinMs": 8093,
+      "rgb": [
+        22,
+        35,
+        56
+      ],
+      "failureTextsAfter": []
+    },
+    "swapped": {
+      "newLook": false,
+      "withinMs": 8426,
+      "rgb": [
+        22,
+        35,
+        56
+      ]
+    }
+  },
+  "editJsonUntouched": true,
+  "console": [
+    "[akari-three] 3D scene の読み込みに失敗しました id: fetch for \"http://127.0.0.1:38751/assets/models/probe.glb\" responded with 404: Not Found"
+  ],
+  "serverLog": [
+    "[watch] watching <path>"
+  ]
+}

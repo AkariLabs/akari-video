@@ -1,0 +1,43 @@
+{
+  "label": "after",
+  "steps": {
+    "missing": {
+      "failureVisible": true,
+      "texts": [
+        "3Dを読み込めませんでした: fetch for \"http://127.0.0.1:38752/assets/models/probe.glb?akari_preview_rev=0\" responded with 40"
+      ],
+      "rgb": [
+        22,
+        35,
+        56
+      ],
+      "notRed": true
+    },
+    "restored": {
+      "drawn": true,
+      "withinMs": 2085,
+      "rgb": [
+        250,
+        16,
+        20
+      ],
+      "failureTextsAfter": []
+    },
+    "swapped": {
+      "newLook": true,
+      "withinMs": 2690,
+      "rgb": [
+        147,
+        228,
+        89
+      ]
+    }
+  },
+  "editJsonUntouched": true,
+  "console": [
+    "[akari-three] 3D scene の読み込みに失敗しました id: fetch for \"http://127.0.0.1:38752/assets/models/probe.glb?akari_preview_rev=0\" responded with 404: Not Found"
+  ],
+  "serverLog": [
+    "[watch] watching <path>"
+  ]
+}
