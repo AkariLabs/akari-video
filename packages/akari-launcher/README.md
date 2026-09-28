@@ -123,6 +123,25 @@ npm i -g akari-video && akari
 npx akari-video
 ```
 
+### akari doctor の cli.node
+
+`akari doctor --json` の `cli.node` は、この CLI を動かしている実行体と、スクリプトを Node として呼ぶ方法を返す。
+
+| フィールド | 意味 |
+|---|---|
+| `exec_path` | 診断を実行した実行体のパス。Electron アプリの EXE になることもある |
+| `electron_run_as_node` | 診断を実行したプロセスの環境変数が `ELECTRON_RUN_AS_NODE=1` だったか |
+| `version` | 実行体の Node のバージョン（Electron では内蔵の Node） |
+| `runtime` | 実行体が `electron` か `node` か |
+| `electron_version` | Electron のバージョン。Node 実行体では `null` |
+| `run_as_node_supported` | Electron 実行体を Node として呼べるか |
+| `required_env` | Node として呼ぶために必要な環境変数。Electron では `{ "ELECTRON_RUN_AS_NODE": "1" }`、Node では `{}` |
+| `invocation` | `shell` は既定シェル、`example` はそのシェル用の呼び方。`cmd` と `sh` は両方常に出る。`<script>` を実際のスクリプトパスに置き換える |
+
+`electron_run_as_node` は診断時の環境だけを表す。Node として使えるかは `runtime`、`run_as_node_supported`、`required_env` で判断する。`runtime` が `electron` なら `required_env` を付けて呼ぶ。Windows の `cmd` では `set "ELECTRON_RUN_AS_NODE=1"` と引用符で囲む。`set ELECTRON_RUN_AS_NODE=1 &&` と書くと末尾の空白が値に入る。
+
+Electron を Node として呼んだプロセスから GUI の Electron を子プロセスとして起動するときは、子へ渡す環境から `ELECTRON_RUN_AS_NODE` を外す。
+
 ## 既知の制約
 
 - npm tarball は追跡済み skills・雛形・schemas と capability source set を `vendor/` に同梱する。
