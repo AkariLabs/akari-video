@@ -37,7 +37,7 @@ test('stylesheet loading is guarded for node tests', () => {
     assert.match(source, /try\s*\{\s*require\('\.\.\/\.\.\/src\/browser\/style\/menu-focus-pulse\.css'\);\s*\}\s*catch\s*\{/);
 });
 
-// Full method from 29e959c4, including its declaration and body.
+// Full expected method, including the variant target notice and its declaration.
 const baselineExportSection = `protected renderExportSection(): React.ReactNode {
         const status = this.exportSession.snapshot.status;
         const running = status.phase === 'linting' || status.phase === 'rendering';
@@ -62,6 +62,11 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
                     <span>書き出し…</span>
                 </button>
+                {this.selectedEditName !== 'edit.json' && (
+                    <p style={{ opacity: 0.75, fontSize: '0.85em', margin: '6px 0 0' }}>
+                        書き出し対象: {this.selectedEditName}。別タイムラインは現在書き出せません。edit.json のタブに戻すと書き出せます。
+                    </p>
+                )}
                 {!this.editJsonExists && (
                     <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>
                 )}
@@ -92,7 +97,7 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
         );
     }`;
 
-test('renderExportSection exactly matches 29e959c4', () => {
+test('renderExportSection exactly matches the variant target UI', () => {
     const current = method('renderExportSection').getText(ast);
     assert.match(current, /data-akari-onboarding-target='export-button'/);
     assert.equal(current.replace("                    data-akari-onboarding-target='export-button'\n", ''), baselineExportSection);

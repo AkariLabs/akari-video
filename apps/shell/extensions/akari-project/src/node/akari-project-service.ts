@@ -1501,13 +1501,13 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         });
     }
 
-    async applyCutsToEdit(request: TranscribeArtifactRequest): Promise<{ changed: boolean }> {
+    async applyCutsToEdit(request: TranscribeArtifactRequest & { editUri?: string }): Promise<{ changed: boolean }> {
         const target = await this.materialTarget(request.projectRoot, request.relativePath);
         return this.serializeTranscribeWrite(target.root, async () => {
             const { cuts } = await this.readTranscribeArtifacts(request);
             const candidates = cuts?.candidates.filter(candidate => candidate.on === true) ?? [];
             if (!candidates.length) return { changed: false };
-            const file = await this.transcribeFile(target.root, 'edit.json');
+            const file = await this.timelineEditFile(target.root, request.editUri);
             const original = await fs.readFile(file, 'utf8');
             const edit = JSON.parse(original);
             const source = edit.version === 0 ? edit.source : edit.sources?.find((item: { path: string }) => item.path === target.relativePath);
@@ -1578,13 +1578,15 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         });
     }
 
-    async buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult> {
+    async buildCaptions(request: BuildCaptionsRequest & { editUri?: string }): Promise<BuildCaptionsResult> {
         const root = await fs.realpath(this.fsPath(request.projectRoot));
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const editPath = await this.timelineEditFile(root, request.editUri);
+        const edit = JSON.parse(await fs.readFile(editPath, 'utf8'));
         const sources: { id: string; path: string }[] = Array.isArray(edit.sources) ? edit.sources : [];
         const source = request.source === undefined && sources.length === 1 ? sources[0]
             : sources.find(item => item.id === request.source);
         if (!source) throw new Error(`素材を選んでください: ${sources.map(item => item.id).join(', ')}`);
+        if (basename(editPath) !== 'edit.json') throw new Error('字幕生成 CLI は別タイムラインの指定に未対応です。');
         await this.materialTarget(root, source.path);
         if (request.transcribeFirst) await this.transcribeMaterial({ projectRoot: root, relativePath: source.path,
             backend: request.backend, compareSet: request.compareSet, autoCuts: request.autoCuts, approved: request.approved });
@@ -1593,6 +1595,17 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             ...(request.retime ? ['--retime'] : []),
             ...(request.dryRun ? ['--dry-run', '--json'] : [])], root);
         return interpretCaptionsResult(result.code, result.stdout, result.stderr);
+    }
+
+    protected async timelineEditFile(root: string, editUri?: string): Promise<string> {
+        const name = editUri ? basename(this.fsPath(editUri)) : 'edit.json';
+        const { isTimelineEditFileName } = await import('akari-annotations/lib/common/timeline-files');
+        if (!isTimelineEditFileName(name)) throw new Error('編集データのファイル名が不正です。');
+        const file = await this.transcribeFile(root, name);
+        if (editUri && await fs.realpath(this.fsPath(editUri)) !== await fs.realpath(file)) {
+            throw new Error('プロジェクト外の編集データは指定できません。');
+        }
+        return file;
     }
 
     /**

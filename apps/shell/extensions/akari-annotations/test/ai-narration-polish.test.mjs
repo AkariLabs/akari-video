@@ -1,3 +1,4 @@
+import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 
 import { readFileSync } from 'node:fs';

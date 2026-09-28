@@ -1,3 +1,4 @@
+import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildGenerationBatch, executeGenerationBatch } from '../lib/browser/inspector/generation-batch.js';

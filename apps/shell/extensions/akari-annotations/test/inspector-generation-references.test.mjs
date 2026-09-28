@@ -1,3 +1,4 @@
+import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdtemp, copyFile, rm } from 'node:fs/promises';
 import os from 'node:os';

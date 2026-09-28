@@ -75,6 +75,7 @@ import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
+import { editUriForVisibleTimeline, setActiveTimelineEditUri } from './active-timeline';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { AkariSessionViewerWidget } from './akari-session-viewer-widget';
@@ -326,8 +327,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             if (this.timelineHidden && widget instanceof AkariAnnotationsWidget) {
                 void this.shell.collapsePanel('bottom');
             }
-            if (widget instanceof AkariAnnotationsWidget && !widget.timelineLocation) {
-                void this.configureRestoredTimeline(widget);
+            if (widget instanceof AkariAnnotationsWidget) {
+                this.trackTimelineWidget(widget);
+                if (!widget.timelineLocation) void this.configureRestoredTimeline(widget);
+                else if (editUriForVisibleTimeline(widget)) setActiveTimelineEditUri(widget.timelineLocation?.editUri);
             }
         }));
         const keepTimelineHidden = (): void => {
@@ -338,8 +341,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         void this.stateService.reachedState('initialized_layout').then(keepTimelineHidden);
         await this.workspaceService.ready;
         for (const widget of this.widgetManager.getWidgets(AkariAnnotationsWidget.FACTORY_ID)) {
-            if (widget instanceof AkariAnnotationsWidget && !widget.timelineLocation) {
-                await this.configureRestoredTimeline(widget);
+            if (widget instanceof AkariAnnotationsWidget) {
+                this.trackTimelineWidget(widget);
+                if (!widget.timelineLocation) await this.configureRestoredTimeline(widget);
+                else if (editUriForVisibleTimeline(widget)) setActiveTimelineEditUri(widget.timelineLocation?.editUri);
             }
         }
         for (const root of await this.workspaceService.roots) {
@@ -1195,6 +1200,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         if (location && !widget.isDisposed) {
             this.trackTimelineWidget(widget);
             await widget.configure(location, uri => this.refreshLocationEditUri(uri));
+            if (editUriForVisibleTimeline(widget)) setActiveTimelineEditUri(widget.timelineLocation?.editUri);
         }
     }
 
@@ -1205,6 +1211,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         this.trackTimelineWidget(widget);
         await widget.configure(location, uri => this.refreshLocationEditUri(uri));
         if (!this.timelineWidget || this.timelineWidget.isDisposed) this.timelineWidget = widget;
+        if (editUriForVisibleTimeline(widget)) setActiveTimelineEditUri(widget.timelineLocation?.editUri);
         this.review.location = this.timelineWidget.timelineLocation;
         if (!widget.isAttached && shouldRevealTimeline(this.timelineHidden)) this.shell.addWidget(widget, { area: 'bottom' });
         return widget;
@@ -1216,6 +1223,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 { editUri: location.editUri?.toString() });
         this.trackTimelineWidget(widget);
         await widget.configure(location, uri => this.refreshLocationEditUri(uri));
+        if (editUriForVisibleTimeline(widget)) setActiveTimelineEditUri(widget.timelineLocation?.editUri);
         if (this.timelineHidden || !this.timelineWidget || this.timelineWidget.isDisposed || !this.timelineWidget.isAttached) {
             this.timelineWidget = widget;
             this.review.location = widget.timelineLocation;
@@ -1227,12 +1235,22 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     protected trackTimelineWidget(widget: AkariAnnotationsWidget): void {
         if (this.timelineWidgets.has(widget)) return;
         this.timelineWidgets.add(widget);
+        this.toDispose.push(widget.onDidChangeVisibility(visible => {
+            if (!visible) return;
+            const editUri = editUriForVisibleTimeline(widget);
+            if (!editUri) return;
+            this.timelineWidget = widget;
+            this.review.location = widget.timelineLocation;
+            setActiveTimelineEditUri(editUri);
+        }));
         widget.disposed.connect(() => {
             this.timelineWidgets.delete(widget);
             this.timelineDismissedThisSession = true;
             if (this.timelineWidget === widget) {
-                this.timelineWidget = [...this.timelineWidgets].find(candidate => candidate.isAttached && !candidate.isDisposed);
+                const visible = [...this.timelineWidgets].find(candidate => editUriForVisibleTimeline(candidate) && !candidate.isDisposed);
+                this.timelineWidget = visible ?? [...this.timelineWidgets].find(candidate => candidate.isAttached && !candidate.isDisposed);
                 this.review.location = this.timelineWidget?.timelineLocation;
+                setActiveTimelineEditUri(visible?.timelineLocation?.editUri);
             }
         });
     }

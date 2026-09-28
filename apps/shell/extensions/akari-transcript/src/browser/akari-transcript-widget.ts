@@ -1,7 +1,7 @@
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { CommandService, MessageService } from '@theia/core/lib/common';
-import { BaseWidget } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -10,6 +10,7 @@ import { Message } from '@theia/core/shared/@lumino/messaging';
 import * as monaco from '@theia/monaco-editor-core';
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { createAkariNoticeBanner } from 'akari-annotations/lib/browser/akari-notice-banner';
+import { currentTimelineCaptionsUri, currentTimelineEditUri, onActiveTimelineEditUriChange } from 'akari-annotations/lib/browser/active-timeline';
 import { diffCaptionLines, type CaptionLineOp } from '@akari-video/edit-store/lib/caption-line-diff';
 import {
     applyCaptionLineOps,
@@ -49,6 +50,8 @@ export class AkariTranscriptWidget extends BaseWidget {
     // akari-annotations の frontend module（同一アプリコンテナ）に相乗りする
     @inject(AkariAnnotationsService)
     protected readonly annotationsService: AkariAnnotationsService;
+    @inject(ApplicationShell)
+    protected readonly shell: ApplicationShell;
 
     protected readonly toolbar = document.createElement('div');
     protected readonly generateButton = document.createElement('button');
@@ -214,6 +217,14 @@ export class AkariTranscriptWidget extends BaseWidget {
         }
 
         await this.reloadAll();
+        this.toDispose.push(onActiveTimelineEditUriChange(() => {
+            void this.saveTail.then(async () => {
+                const selected = currentTimelineEditUri(root);
+                if (selected.toString() === this.editUri?.toString()) return;
+                await this.configureCaptionStorage(root);
+                await this.reloadAll();
+            }).catch(error => this.showNotice(this.errorMessage(error)));
+        }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (this.editUri && event.contains(this.editUri)) {
                 void this.reloadEdit();
@@ -636,6 +647,12 @@ export class AkariTranscriptWidget extends BaseWidget {
     }
 
     protected async configureCaptionStorage(root: URI): Promise<void> {
+        const selected = currentTimelineEditUri(root);
+        if (await this.fileService.exists(selected)) {
+            this.editUri = selected;
+            this.captionsUri = currentTimelineCaptionsUri(root);
+            return;
+        }
         const legacyCaptions = root.resolve('project/captions.json');
         if (await this.fileService.exists(legacyCaptions)) {
             this.captionsUri = legacyCaptions;

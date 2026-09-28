@@ -5,6 +5,8 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
+import { currentTimelineEditUri, onActiveTimelineEditUriChange } from 'akari-annotations/lib/browser/active-timeline';
+import { isTimelineEditFileName } from 'akari-annotations/lib/common/timeline-files';
 import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
 import { CUT_KIND_LABELS, cutsSummary, cutsViewNotice, isHandEditedCandidate } from '../../common/cuts-view';
 import { listenTranscribeRange, transcribeButton, transcribeElement } from './akari-transcribe-dialog';
@@ -79,12 +81,19 @@ export class AkariCutsWidget extends BaseWidget {
                 this.toDispose.push(this.workspace.onWorkspaceChanged(() => {
                     void this.configure().catch(error => this.showError(error));
                 }));
+                this.toDispose.push(onActiveTimelineEditUriChange(() => {
+                    const workspaceRoot = this.workspace.tryGetRoots()[0]?.resource;
+                    const selected = workspaceRoot && currentTimelineEditUri(workspaceRoot);
+                    if (selected && this.root && selected.parent.toString() !== this.root.toString()) {
+                        void this.configure().catch(error => this.showError(error));
+                    } else this.queueReload();
+                }));
                 this.toDispose.push(this.files.onDidFilesChange(event => {
-                    if (event.changes.some(change => change.resource.path.base === 'edit.json'
+                    if (event.changes.some(change => isTimelineEditFileName(change.resource.path.base)
                         && !this.root?.isEqualOrParent(change.resource))) {
                         void this.configure().catch(error => this.showError(error));
                     } else if (event.changes.some(change => this.root?.isEqualOrParent(change.resource)
-                        && ['edit.json', 'cuts.json'].includes(change.resource.path.base))) this.queueReload();
+                        && (isTimelineEditFileName(change.resource.path.base) || change.resource.path.base === 'cuts.json'))) this.queueReload();
                 }));
             }
             const workspaces = await this.workspace.roots;
@@ -113,7 +122,8 @@ export class AkariCutsWidget extends BaseWidget {
     protected async find(directory: URI, depth = 0): Promise<URI | undefined> {
         if (depth > 6 || this.isDisposed) return undefined;
         try {
-            if (await this.files.exists(directory.resolve('edit.json'))) return directory;
+            const selected = currentTimelineEditUri(directory);
+            if (await this.files.exists(selected)) return selected.parent;
             if (depth === 6) return undefined;
             const stat = await this.files.resolve(directory);
             for (const child of stat.children ?? []) {
@@ -136,7 +146,7 @@ export class AkariCutsWidget extends BaseWidget {
         const configuration = this.configuration, loading = ++this.loading;
         const current = () => configuration === this.configuration && loading === this.loading && !this.isDisposed;
         try {
-            const edit = JSON.parse((await this.files.readFile(root.resolve('edit.json'))).value.toString());
+            const edit = JSON.parse((await this.files.readFile(currentTimelineEditUri(root))).value.toString());
             if (!current()) return;
             const sources: { id: string; path: string }[] = edit.sources ?? (edit.source ? [{ id: 'source', ...edit.source }] : []);
             const source = sources.some(item => item.path === this.source) ? this.source : sources[0]?.path ?? '';
@@ -186,7 +196,7 @@ export class AkariCutsWidget extends BaseWidget {
                 this.root.resolve(this.source).normalizePath().toString(), first.start).catch(error => { this.notice.textContent = String(error); });
         }, !first);
         const timelineButton = transcribeButton('タイムラインへ', () => {
-            const request = { projectRoot: this.root!.toString(), relativePath: this.source };
+            const request = { projectRoot: this.root!.toString(), editUri: currentTimelineEditUri(this.root!).toString(), relativePath: this.source };
             this.tail = this.tail.then(async () => {
                 const result = await this.service.applyCutsToEdit(request);
                 this.notice.textContent = result.changed ? 'タイムラインにカット点を入れました' : '適用済みです';

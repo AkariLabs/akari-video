@@ -1771,7 +1771,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async readProjectReferenceDocuments(root: URI): Promise<{ documents: string[]; failed: boolean }> {
         const documents: string[] = [];
         let failed = false;
-        for (const name of ['edit.json', 'captions.json']) {
+        const { isTimelineEditFileName } = await import('akari-annotations/lib/common/timeline-files');
+        let names: string[];
+        try {
+            const directory = await this.files.resolve(root);
+            const files = (directory.children ?? []).filter(child => !child.isDirectory).map(child => child.resource.path.base);
+            names = files.filter(name => isTimelineEditFileName(name)
+                || name.startsWith('captions') && isTimelineEditFileName(`edit${name.slice('captions'.length)}`));
+        } catch {
+            return { documents, failed: true };
+        }
+        for (const name of names) {
             const uri = root.resolve(name);
             let exists: boolean;
             try {

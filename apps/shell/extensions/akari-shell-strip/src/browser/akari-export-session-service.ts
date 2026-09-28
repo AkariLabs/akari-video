@@ -53,13 +53,14 @@ import {
     UiLintFinding
 } from 'akari-annotations/lib/common/lint-message-ja';
 import { formatBytes } from './export-dialog/export-view-shared';
+import { currentTimelineCaptionsUri, currentTimelineEditUri } from 'akari-annotations/lib/browser/active-timeline';
+import { timelineSlugFromEditFileName } from 'akari-annotations/lib/common/timeline-files';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const LAST_RUN_STORAGE_KEY = 'akari.export.lastRun';
 const POLL_INTERVAL_MS = 500;
 /** 編集ドキュメントの変更をまとめてから再検査するまでの待ち（保存の連打を 1 本にする）。 */
 const LINT_RECHECK_DEBOUNCE_MS = 700;
-const CAPTIONS_RELATIVE_PATH = 'captions.json';
 const RENDER_JSON_RELATIVE_PATH = '.akari/render.json';
 
 export interface StoredExportLastRun extends ExportLastRun {
@@ -142,6 +143,7 @@ export class AkariExportSessionService implements Disposable {
     protected outputName = DEFAULT_EXPORT_OUTPUT_NAME;
     protected projectLabel = '';
     protected projectRoot: URI | undefined;
+    protected selectedEditUri: URI | undefined;
     protected lastRun: StoredExportLastRun | undefined;
     protected renderProgress: RenderProgressState | undefined;
     protected setupRequested = false;
@@ -328,7 +330,7 @@ export class AkariExportSessionService implements Disposable {
         }
         this.settings = { ...this.settings, outputDirectoryUri: destination.toString() };
         try {
-            this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
+            this.outputName = await this.chooseAvailableOutputName(this.defaultOutputName(this.settings.codec));
         } catch (error) {
             this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
             return;
@@ -341,6 +343,10 @@ export class AkariExportSessionService implements Disposable {
             return false;
         }
         await this.refreshProject();
+        if (this.selectedEditUri && this.selectedEditUri.path.base !== 'edit.json') {
+            void this.messages.error('この書き出しエンジンは別タイムラインをまだ指定できません。');
+            return false;
+        }
         if (!this.projectRoot) {
             void this.messages.error('プロジェクトルートを取得できないため、書き出しを開始できませんでした');
             return false;
@@ -351,7 +357,7 @@ export class AkariExportSessionService implements Disposable {
             await this.savePreferences(settings);
         }
         try {
-            this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(settings.codec));
+            this.outputName = await this.chooseAvailableOutputName(this.defaultOutputName(settings.codec));
         } catch (error) {
             this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
             return false;
@@ -497,12 +503,13 @@ export class AkariExportSessionService implements Disposable {
     }
 
     async handOffToPartner(): Promise<void> {
-        const outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
+        const outputName = await this.chooseAvailableOutputName(this.defaultOutputName(this.settings.codec));
+        const editName = this.selectedEditUri?.path.base ?? 'edit.json';
         const packet = composeExportRequestPacket({
-            resolutionLabel: 'edit.json のまま',
+            resolutionLabel: `${editName} のまま`,
             outputName,
             rerunLint: this.settings.rerunLint
-        });
+        }).replaceAll('edit.json', editName);
         await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
     }
 
@@ -551,6 +558,7 @@ export class AkariExportSessionService implements Disposable {
         const nextRoot = roots[0]?.resource;
         const rootChanged = nextRoot?.toString() !== this.projectRoot?.toString();
         this.projectRoot = nextRoot;
+        this.selectedEditUri = this.projectRoot ? currentTimelineEditUri(this.projectRoot) : undefined;
         this.projectLabel = this.projectRoot?.path.base ?? '';
         if (rootChanged) {
             this.licenseFindings = [];
@@ -560,14 +568,14 @@ export class AkariExportSessionService implements Disposable {
         if (!this.projectRoot) {
             this.editJson = {};
             this.video = { orientation: 'landscape', width: undefined, height: undefined, fps: undefined };
-            this.outputName = defaultExportOutputNameForCodec(this.settings.codec);
+            this.outputName = this.defaultOutputName(this.settings.codec);
             this.renderProgress = undefined;
             this.fireChanged();
             return;
         }
         const [editJson, captionsJson, renderJson] = await Promise.all([
-            this.readJson(this.projectRoot.resolve('edit.json')),
-            this.readJson(this.projectRoot.resolve(CAPTIONS_RELATIVE_PATH)),
+            this.readJson(this.selectedEditUri!),
+            this.readJson(currentTimelineCaptionsUri(this.projectRoot)),
             this.readJson(this.projectRoot.resolve(RENDER_JSON_RELATIVE_PATH))
         ]);
         this.editJson = editJson ?? {};
@@ -577,7 +585,7 @@ export class AkariExportSessionService implements Disposable {
             this.video = { ...this.video, durationSeconds: fallbackDuration };
         }
         this.renderProgress = renderJson ? parseRenderProgress(renderJson) : undefined;
-        this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
+        this.outputName = await this.chooseAvailableOutputName(this.defaultOutputName(this.settings.codec));
         void this.updateLintWatch();
         this.fireChanged();
     }
@@ -675,7 +683,7 @@ export class AkariExportSessionService implements Disposable {
     }
 
     protected refreshOutputNameForCodec(codec: QuickExportCodec = this.settings.codec): void {
-        const defaultName = defaultExportOutputNameForCodec(codec);
+        const defaultName = this.defaultOutputName(codec);
         this.outputName = defaultName;
         void this.chooseAvailableOutputName(defaultName).then(name => {
             if (this.settings.codec === codec) {
@@ -683,6 +691,12 @@ export class AkariExportSessionService implements Disposable {
                 this.fireChanged();
             }
         }).catch(error => console.info('[akari-shell-strip] export output name unavailable:', error));
+    }
+
+    protected defaultOutputName(codec: QuickExportCodec): string {
+        const base = defaultExportOutputNameForCodec(codec);
+        const slug = timelineSlugFromEditFileName(this.selectedEditUri?.path.base ?? 'edit.json');
+        return slug ? base.replace(/(\.[^.]+)$/u, `-${slug}$1`) : base;
     }
 
     protected async syncStatus(): Promise<void> {

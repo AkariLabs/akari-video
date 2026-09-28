@@ -4,6 +4,7 @@ import { CommandService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
+import { currentTimelineCaptionsUri, currentTimelineEditUri } from 'akari-annotations/lib/browser/active-timeline';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
 import { transcribeModeView, TranscribeMode, transcribeEngineAvailability, TranscribeToolStatus, TranscribeConnectionStatus, advanceTranscribeSteps, analysisTranscriptSummary, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
@@ -160,12 +161,13 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         if (!this.baselineReady || this.running || this.confirming || this.applying || this.applyCompleted) return;
         this.applying = true;
         this.render();
-        const captionsUri = this.root.resolve('captions.json');
+        const captionsUri = currentTimelineCaptionsUri(this.root);
         let before: string | undefined;
         try {
             try { before = (await this.files.readFile(captionsUri)).value.toString(); } catch { before = undefined; }
             const source = await this.resolveSourceId();
-            const result = await this.service.buildCaptions({ projectRoot: this.root.toString(), source, transcribeFirst: false });
+            const result = await this.service.buildCaptions({ projectRoot: this.root.toString(),
+                ...{ editUri: currentTimelineEditUri(this.root).toString() }, source, transcribeFirst: false });
             this.applied = parseCaptionsApplyPreview(result);
             const after = (await this.files.readFile(captionsUri)).value.toString();
             this.applyCompleted = true;
@@ -188,7 +190,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     }
     protected async resolveSourceId(): Promise<string> {
         if (this.sourceId) return this.sourceId;
-        const edit = JSON.parse((await this.files.readFile(this.root.resolve('edit.json'))).value.toString());
+        const edit = JSON.parse((await this.files.readFile(currentTimelineEditUri(this.root))).value.toString());
         const source = Array.isArray(edit.sources) ? edit.sources.find((item: { path?: string }) => item.path === this.relativePath) : undefined;
         if (!source?.id) throw new Error('この素材は edit.json の sources[] にありません');
         this.sourceId = source.id;
@@ -199,7 +201,8 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         if (typeof this.service.buildCaptions !== 'function') return;
         try {
             const source = await this.resolveSourceId();
-            const result = await this.service.buildCaptions({ projectRoot: this.root.toString(), source, transcribeFirst: false, dryRun: true });
+            const result = await this.service.buildCaptions({ projectRoot: this.root.toString(),
+                ...{ editUri: currentTimelineEditUri(this.root).toString() }, source, transcribeFirst: false, dryRun: true });
             this.preview = parseCaptionsApplyPreview(result);
         } catch { this.preview = undefined; }
         this.render();

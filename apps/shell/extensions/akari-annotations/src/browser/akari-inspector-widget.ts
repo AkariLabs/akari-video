@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { currentTimelineEditUri, currentTimelineCaptionsUri } from './active-timeline';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { AkariPreviewService, type OverlayRuntimeAssetUrls } from 'akari-preview/lib/common/akari-preview-protocol';
 import { createCaptionPanel, CAPTION_PANEL_CSS, type CaptionPanelMyStyle, type CaptionPanelViewState } from './inspector/caption-panels';
@@ -202,6 +203,10 @@ import type {
 } from '../common/akari-annotations-protocol';
 
 type InspectorSnapshot = TimelineItemSelectionSnapshot;
+/** RPC request payloads retain the selected edit URI while common protocols stay on their own lane. */
+function activeEditRequest(root: URI): { editUri: string } {
+    return { editUri: currentTimelineEditUri(root).toString() };
+}
 const GENERATION_SECTION_ID = 'generation';
 
 type AudioInspectorSnapshot = TimelineAudioSelection & {
@@ -4472,7 +4477,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (selectedItemId !== this.previewedStillItemId) {
                     const root = this.workspaceService.tryGetRoots()[0]?.resource;
                     if (root) window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
-                        editUri: root.resolve('edit.json').toString(), sourceId: null,
+                        ...activeEditRequest(root), sourceId: null,
                         itemId: this.previewedStillItemId, imageUrl: null
                     } }));
                     const previewState = this.aiStillStates.get(this.previewedStillItemId);
@@ -4492,7 +4497,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const onLiveValues = (event: Event): void => {
             const detail = (event as CustomEvent<{ id?: string; editUri?: string;
                 values?: Record<string, number>; clear?: boolean }>).detail;
-            const editUri = this.workspaceService.tryGetRoots()[0]?.resource.resolve('edit.json').normalizePath().toString();
+            const editUri = this.workspaceService.tryGetRoots()[0]?.resource && currentTimelineEditUri(this.workspaceService.tryGetRoots()[0].resource).normalizePath().toString();
             if (!editUri || detail?.editUri !== editUri) return;
             if (!detail?.id || this.liveSelectionId() !== detail.id) return;
             if (detail.clear) {
@@ -4513,7 +4518,7 @@ export class AkariInspectorWidget extends BaseWidget {
         } });
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root || !event.changes.some(change => change.resource.toString() === root.resolve('edit.json').toString())) return;
+            if (!root || !event.changes.some(change => change.resource.toString() === currentTimelineEditUri(root).toString())) return;
             this.narrationEditVersion = (this.narrationEditVersion ?? 0) + 1;
             if (!this.materialSelection && this.model.snapshot?.kind === 'audio') this.render();
         }));
@@ -5161,7 +5166,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     const root = this.workspaceService.tryGetRoots()[0]?.resource;
                     if (!root) return;
                     const sidecars = await this.layerAudioService.readGenerationSidecars({
-                        projectRootUri: root.toString(), sourcePaths: [generationIdentity.sourcePath]
+                        projectRootUri: root.toString(), ...activeEditRequest(root), sourcePaths: [generationIdentity.sourcePath]
                     });
                     // next belongs to the source's own sidecar, including kind: still.
                     // The generation selector may only return a related video job.
@@ -5224,7 +5229,7 @@ export class AkariInspectorWidget extends BaseWidget {
                             await this.workspaceService.ready;
                             const root = this.workspaceService.tryGetRoots()[0]?.resource;
                             if (!root) return;
-                            const uri = root.resolve('edit.json');
+                            const uri = currentTimelineEditUri(root);
                             const store = await import('@akari-video/edit-store');
                             const read = async () => {
                                 const text = (await this.fileService.readFile(uri)).value.toString();
@@ -5481,9 +5486,23 @@ export class AkariInspectorWidget extends BaseWidget {
                             state = { itemId: imageItemId, phase: 'closed' };
                             this.imageAiPanels.set(key, state);
                         }
+                        const imageAiService: AkariAnnotationsService = new Proxy(this.layerAudioService, {
+                            get: (target, property, receiver) => {
+                                if (property === 'imageAiInspect') return (projectRootUri: string, itemId: string) =>
+                                    (target.imageAiInspect as (rootUri: string, id: string, editUri: string) =>
+                                        ReturnType<AkariAnnotationsService['imageAiInspect']>)(projectRootUri, itemId,
+                                        currentTimelineEditUri(root).toString());
+                                if (property === 'imageAiUpscale') return (request: Parameters<AkariAnnotationsService['imageAiUpscale']>[0]) => {
+                                    const targeted = { ...request, editUri: currentTimelineEditUri(root).toString() };
+                                    return target.imageAiUpscale(targeted);
+                                };
+                                const value = Reflect.get(target, property, receiver);
+                                return typeof value === 'function' ? value.bind(target) : value;
+                            }
+                        });
                         const panel = appendImageAiPanel(alternativesGrid, {
                             projectRootUri: root.toString(), itemId: imageItemId,
-                            state, service: this.layerAudioService,
+                            state, service: imageAiService,
                             adopt: result => this.commitWrite({ kind: 'image-ai-apply', binding: result.binding,
                                 relativePath: result.relativePath }),
                             openSettings: () => void this.commandRegistry.executeCommand('akari.settings.open',
@@ -6128,7 +6147,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
                 if (row.sourcePath && row.visual) {
                     const sidecars = await this.layerAudioService.readGenerationSidecars({
-                        projectRootUri: root.toString(), sourcePaths: [row.sourcePath]
+                        projectRootUri: root.toString(), ...activeEditRequest(root), sourcePaths: [row.sourcePath]
                     });
                     const normalize = (value: string): string => value.replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
                     const direct = sidecars.entries.find(entry => normalize(entry.sourcePath) === normalize(row.sourcePath!));
@@ -6254,10 +6273,12 @@ export class AkariInspectorWidget extends BaseWidget {
                         // The CLI reads next.output.duration_s. Persist the approved cuts-based
                         // draft so the submitted input and the displayed estimate agree.
                         const draft = drafts.get(request.itemId)!;
-                        await this.layerAudioService.writeGenerationDraft({ projectRootUri, itemId: request.itemId, ...draft });
+                        await this.layerAudioService.writeGenerationDraft({ projectRootUri,
+                            ...activeEditRequest(new URI(projectRootUri)), itemId: request.itemId, ...draft });
                         if (run.stopped) throw new Error('送信前に中止しました');
                         // This RPC resolves on CLI process close, not on submission.
-                        return { completion: this.layerAudioService.startGenerateVideo(request) };
+                        return { completion: this.layerAudioService.startGenerateVideo({ ...request,
+                            ...activeEditRequest(new URI(projectRootUri)) }) };
                     },
                     wait: handle => handle.completion,
                     stopped: () => run.stopped,
@@ -6373,7 +6394,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 const editVersion = this.narrationEditVersion ?? 0;
                 const cached = snapshot.kind === 'audio' && this.narrationEditSnapshot?.itemId === snapshot.id
                     && this.narrationEditSnapshot.editVersion === editVersion ? this.narrationEditSnapshot.edit : undefined;
-                const edit = cached ?? JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+                const edit = cached ?? JSON.parse((await this.fileService.readFile(currentTimelineEditUri(root))).value.toString());
                 const sourcePath = snapshot.kind === 'audio' ? aiNarrationSourcePath(edit, snapshot.id) : undefined;
                 const resolved = resolveAiTranscribeTarget(snapshot, edit);
                 const target = resolved && sourcePath
@@ -6399,7 +6420,7 @@ export class AkariInspectorWidget extends BaseWidget {
                             projectRootUri: root.toString(), relativePath: target.relativePath
                         }),
                         snapshot.kind === 'audio' ? this.layerAudioService.readGenerationSidecars({
-                            projectRootUri: root.toString(), sourcePaths: [target.relativePath]
+                            projectRootUri: root.toString(), ...activeEditRequest(root), sourcePaths: [target.relativePath]
                         }) : Promise.resolve({ entries: [] })
                     ]);
                     if (this.transcribeKey !== key || this.narrationLoadRevision !== revision) return;
@@ -6429,7 +6450,7 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (!root) return;
-            const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const edit = JSON.parse((await this.fileService.readFile(currentTimelineEditUri(root))).value.toString());
             const sourcePath = aiNarrationSourcePath(edit, snapshot.id);
             if (version !== this.narrationSourceCheckVersion || this.transcribeKey !== key
                 || editVersion !== (this.narrationEditVersion ?? 0)) return;
@@ -6533,7 +6554,8 @@ export class AkariInspectorWidget extends BaseWidget {
             }
         }, 750);
         try {
-            const batch = await this.layerAudioService.startNarrationBatch({ projectRootUri: root.toString(), itemId,
+            const batch = await this.layerAudioService.startNarrationBatch({ projectRootUri: root.toString(),
+                ...activeEditRequest(root), itemId,
                 script, reading, t: atSeconds, approved: !!approval,
                 routes: ids.map(id => ({ engine: id, voice: state.voiceByEngine![id],
                     profile: id === 'fal-qwen3' ? state.voiceByEngine![id] : undefined,
@@ -6574,8 +6596,9 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!state || !root) return;
         try {
-            const adopted = await this.layerAudioService.adoptNarrationCandidate({ projectRootUri: root.toString(), itemId, relativePath });
-            const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const adopted = await this.layerAudioService.adoptNarrationCandidate({ projectRootUri: root.toString(),
+                ...activeEditRequest(root), itemId, relativePath });
+            const edit = JSON.parse((await this.fileService.readFile(currentTimelineEditUri(root))).value.toString());
             const fps = Number(edit.output?.fps ?? 30);
             const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
                 const location = (widget as unknown as { location?: { root?: URI } }).location;
@@ -6591,7 +6614,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.narrationEditVersion = (this.narrationEditVersion ?? 0) + 1;
             this.narrationEditSnapshot = undefined; this.narrationVerified = undefined;
             this.narrationPlacementContext = undefined;
-            const placedEdit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const placedEdit = JSON.parse((await this.fileService.readFile(currentTimelineEditUri(root))).value.toString());
             const sourcePath = aiNarrationSourcePath(placedEdit, itemId);
             this.narrationSourcePath = sourcePath; state.placement = label;
             this.narrationPlacementNotice = sourcePath ? { clipKey: key, sourcePath, label } : undefined;
@@ -6679,7 +6702,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
                 this.ensureStillFalEstimate();
-                void this.fileService.read(root.resolve('edit.json')).then(file => {
+                void this.fileService.read(currentTimelineEditUri(root)).then(file => {
                     const output = JSON.parse(file.value.toString()).output;
                     if (this.aiStillStates.get(identity.key) === state && output?.width > 0 && output?.height > 0) {
                         state!.canvas = { width: output.width, height: output.height };
@@ -6699,7 +6722,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     state!.preferencesLoaded = true;
                     if (this.aiView === 'still') this.render();
                 }).catch(() => { state!.preferencesLoaded = true; });
-                void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId })
+                void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId })
                     .then(batch => { if (this.aiStillStates.get(identity.key) === state && batch.candidates.length) {
                         state!.batch = batch; if (this.aiView === 'still') this.render();
                     } }).catch(() => undefined);
@@ -6786,7 +6809,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!state || !root) return;
         try {
-            const editUri = root.resolve('edit.json');
+            const editUri = currentTimelineEditUri(root);
             await this.commandRegistry.executeCommand('akari.preview.ensureVisible', { editUri: editUri.toString() });
             const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
             if (Number.isFinite(playhead) && playhead >= 0) await this.commandRegistry.executeCommand('akari.preview.seekOutput',
@@ -6827,7 +6850,7 @@ export class AkariInspectorWidget extends BaseWidget {
         };
         sendLive();
         if (!state.canvas && this.fileService?.readFile) {
-            void this.fileService.readFile(root.resolve('edit.json')).then(file => {
+            void this.fileService.readFile(currentTimelineEditUri(root)).then(file => {
                 const output = JSON.parse(file.value.toString()).output;
                 if (live!.sourceEpoch !== sourceEpoch || this.aiStillStates.get(identity.key) !== state
                     || !Number.isSafeInteger(output?.width) || !Number.isSafeInteger(output?.height)
@@ -6863,6 +6886,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 || selectedBefore.sourcePath !== live.sourcePath) return;
             const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
             const result = await this.layerAudioService.setEmptyFrameAspect({ projectRootUri: root.toString(),
+                ...activeEditRequest(root),
                 itemId: identity.itemId, aspect });
             const selectedAfter = this.generationIdentity(this.model.snapshot);
             if (live.sourceEpoch !== sourceEpoch || selectedAfter?.key !== identity.key
@@ -6887,7 +6911,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.generationStates.delete(identity.key);
             try {
                 if (Number.isFinite(playhead) && playhead >= 0) {
-                    const editUri = root.resolve('edit.json').normalizePath().toString();
+                    const editUri = currentTimelineEditUri(root).normalizePath().toString();
                     await this.commandRegistry.executeCommand('akari.preview.seekOutput', {
                         editUri, time: playhead, waitForReady: true
                     });
@@ -7015,7 +7039,7 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             if (state.polling) return;
             state.polling = true;
-            void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId,
+            void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId,
                 includeThumbnails: false })
                 .then(async batch => { if (state.running) {
                     const previous = state.batch;
@@ -7032,7 +7056,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.renderStillProgress();
                     this.refreshStillTimelineProgress?.(root, state, batch);
                     if (newSuccess) {
-                        const full = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+                        const full = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId });
                         if (!state.running) return;
                         state.batch = full;
                         this.renderStillProgress();
@@ -7042,11 +7066,12 @@ export class AkariInspectorWidget extends BaseWidget {
         }, 100);
         try {
             await this.layerAudioService.startGenerateStillBatch({ projectRootUri: root.toString(),
+                ...activeEditRequest(root),
                 itemId: identity.itemId, prompt: input.prompt, aspect: input.aspect, routes,
                 references: input.references, cropToAspect: input.cropToAspect,
                 quality: input.quality, approved: estimate > 0 });
             if (!state.running) return;
-            const saved = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+            const saved = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId });
             state.batch = { ...saved, routes, completed: routes.length, running: false };
             this.refreshStillTimelineProgress?.(root, state, state.batch);
             this.generationTabMeta.delete(identity.key);
@@ -7089,11 +7114,11 @@ export class AkariInspectorWidget extends BaseWidget {
         this.previewedStillItemId = state.pickedCandidate ? identity.itemId : undefined;
         const file = state.pickedCandidate ? candidate.thumbnail : undefined;
         try {
-            const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const edit = JSON.parse((await this.fileService.readFile(currentTimelineEditUri(root))).value.toString());
             const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === identity.itemId);
             if (!item?.source?.src) return;
             window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
-                editUri: root.resolve('edit.json').toString(), sourceId: item.source.src,
+                ...activeEditRequest(root), sourceId: item.source.src,
                 itemId: identity.itemId, imageUrl: file ?? null
             } }));
         } catch (error) { state.error = String(error); }
@@ -7114,7 +7139,7 @@ export class AkariInspectorWidget extends BaseWidget {
         state.pickedCandidate = undefined;
         this.previewedStillItemId = undefined;
         window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
-            editUri: root.resolve('edit.json').toString(), sourceId: null, itemId: identity.itemId, imageUrl: null
+            ...activeEditRequest(root), sourceId: null, itemId: identity.itemId, imageUrl: null
         } }));
         this.generationTabMeta.delete(identity.key);
         this.generationStates.delete(identity.key);
@@ -7308,7 +7333,7 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             this.aiCatalogLoaded = true;
             const sidecars = await this.layerAudioService.readGenerationSidecars({
-                projectRootUri: root.toString(), sourcePaths: [identity.sourcePath]
+                projectRootUri: root.toString(), ...activeEditRequest(root), sourcePaths: [identity.sourcePath]
             });
             const snapshot = this.model.snapshot;
             const selectedId = snapshot?.kind === 'cut' ? snapshot.itemId : snapshot?.kind === 'layer' ? snapshot.id : undefined;
@@ -7420,7 +7445,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 || path.startsWith('/') || path.includes(':') || path.split('/').includes('..')) return undefined;
             visited.add(path);
             if (!await this.fileService.exists(root.resolve(path))) return undefined;
-            const result = await this.layerAudioService.readGenerationSidecars({ projectRootUri: root.toString(), sourcePaths: [path] });
+            const result = await this.layerAudioService.readGenerationSidecars({ projectRootUri: root.toString(), ...activeEditRequest(root), sourcePaths: [path] });
             const original = result.entries.find(entry => entry.sourcePath === path)?.meta;
             if (/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path)) return generationFields.fromMeta(original) ? original : undefined;
             current = original;
@@ -7456,7 +7481,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected async loadGenerationNeighbors(identity: { key: string; itemId: string }): Promise<void> {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!root) return;
-        const edit = JSON.parse((await this.fileService.read(root.resolve('edit.json'))).value.toString()) as {
+        const edit = JSON.parse((await this.fileService.read(currentTimelineEditUri(root))).value.toString()) as {
             sources?: Array<{ id: string; path: string }>;
             tracks?: Array<{ items?: Array<{ id: string; at?: number; source?: { kind?: string; src?: string } }> }>;
         };
@@ -7612,7 +7637,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         await this.refreshVideoEstimate(identity);
                     }
                     current.batch = await this.layerAudioService.readVideoCandidates({
-                        projectRootUri: root.toString(), itemId: identity.itemId });
+                        projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId });
                     current.running = current.batch.running;
                     current.externalRunning = current.running;
                     if (current.running) current.startedAt = Date.now();
@@ -7772,11 +7797,12 @@ export class AkariInspectorWidget extends BaseWidget {
             this.generationStates.set(identity.key, 'generating');
             this.renderVideoCandidates();
             const work = this.layerAudioService.startGenerateVideoBatch({ projectRootUri: root.toString(),
+                ...activeEditRequest(root),
                 itemId: identity.itemId, models, approved: true });
             void this.pollVideoCandidates(identity, state);
             const result = await work;
             if (!state.running) return;
-            state.batch = await this.layerAudioService.readVideoCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+            state.batch = await this.layerAudioService.readVideoCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId });
             state.running = false;
             this.syncVideoProgressRows(state);
             await this.refreshVideoTimelineProgress(root, state, true);
@@ -7887,7 +7913,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!state?.running || !root) return;
         state.running = false;
         await this.layerAudioService.cancelGenerateVideoBatch({ projectRootUri: root.toString(), itemId: identity.itemId });
-        state.batch = await this.layerAudioService.readVideoCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+        state.batch = await this.layerAudioService.readVideoCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId });
         await this.refreshVideoTimelineProgress(root, state, true);
         const current = this.generationIdentity(this.model.snapshot);
         if (current?.key === identity.key) { this.generationLoads.delete(identity.key); void this.loadGeneration(current); }
@@ -7917,7 +7943,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.clearVideoCandidatePreview();
         clearVideoPlayer(state);
         state.picked = candidate.relativePath; state.playerUrl = undefined;
-        const editUri = root.resolve('edit.json').toString();
+        const editUri = currentTimelineEditUri(root).toString();
         const frameSeconds = this.generationIdentity(this.model.snapshot)?.duration;
         try {
             const detail = videoCandidatePreviewDetail(editUri, identity.itemId, frameSeconds ?? 0, candidate);
@@ -8110,7 +8136,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const previous = this.generationWrites.get(identity.key) ?? Promise.resolve();
         const write = previous.catch(() => undefined).then(async () => {
             await this.layerAudioService.writeGenerationDraft({
-                projectRootUri: root.toString(), itemId: identity.itemId,
+                projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId,
                 ...(identity.key.startsWith('material:') ? { fromImage: identity.sourcePath } : {}),
                 modelId: draft.modelId, inputs: draft.inputs, output: { ...draft.output, duration_s: identity.duration }
             });
@@ -8189,7 +8215,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.generationStates.set(identity.key, 'generating');
             this.render();
             void this.layerAudioService.startGenerateVideo({
-                projectRootUri: root.toString(), itemId: identity.itemId, approved: true,
+                projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId, approved: true,
                 ...(identity.key.startsWith('material:') ? { fromImage: identity.sourcePath } : {})
             }).then(result => {
                 if (!result.ok && identity.key.startsWith('material:')) {
@@ -8240,7 +8266,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const paths = (): { root: URI; captions: URI; edit: URI } => {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (!root) throw new Error('プロジェクトを開いてください。');
-            return { root, captions: root.resolve('captions.json'), edit: root.resolve('edit.json') };
+            return { root, captions: currentTimelineCaptionsUri(root), edit: currentTimelineEditUri(root) };
         };
         const readCaptions = async (): Promise<string> =>
             (await this.fileService.readFile(paths().captions)).value.toString();
@@ -8337,7 +8363,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0];
         if (!root) return;
         window.dispatchEvent(new CustomEvent(type, {
-            detail: { editUri: root.resource.resolve('edit.json').toString(), zone }
+            detail: { editUri: currentTimelineEditUri(root.resource).toString(), zone }
         }));
     }
 
@@ -9436,7 +9462,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 readProjectText: async path => {
                     const root = this.workspaceService.tryGetRoots()[0]?.resource;
                     if (!root) return undefined;
-                    try { return (await this.fileService.readFile(root.resolve(path))).value.toString(); } catch { return undefined; }
+                    const uri = path === 'edit.json' ? currentTimelineEditUri(root) : root.resolve(path);
+                    try { return (await this.fileService.readFile(uri)).value.toString(); } catch { return undefined; }
                 },
                 readProjectBytes: async path => {
                     const root = this.workspaceService.tryGetRoots()[0]?.resource;
@@ -9534,7 +9561,7 @@ export class AkariInspectorWidget extends BaseWidget {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (!root) return { ok: false, message: 'プロジェクトが開かれていません。' };
-            const uri = root.resolve('edit.json');
+            const uri = currentTimelineEditUri(root);
             const store = await import('@akari-video/edit-store');
             const doc = JSON.parse((await this.fileService.readFile(uri)).value.toString()) as import('@akari-video/edit-store').EditableEditV2;
             store.readEditV2(doc);

@@ -1,3 +1,5 @@
+import { isTimelineEditFileName } from 'akari-annotations/lib/common/timeline-files';
+
 /**
  * 書き出しダイアログの「lint で停止」画面を最新に保つための純関数群。
  *
@@ -15,7 +17,8 @@ export const LINT_RECHECK_WATCHED_FILES: readonly string[] = ['edit.json', 'capt
 /** ファイル変更 1 件が自動再検査に値するか。パスは絶対 / 相対・OS 区切りのどちらでもよい。 */
 export function shouldRecheckLintForPath(path: string): boolean {
     const base = path.split(/[\\/]+/u).filter(segment => segment.length > 0).pop();
-    return base !== undefined && LINT_RECHECK_WATCHED_FILES.includes(base);
+    return base !== undefined && (isTimelineEditFileName(base)
+        || base.startsWith('captions') && isTimelineEditFileName(`edit${base.slice('captions'.length)}`));
 }
 
 /**
