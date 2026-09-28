@@ -50,7 +50,8 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { nextCandidateAssetName } from '../common/asset-naming';
-import { dataFileIcon, orderDataEntries } from '../common/output-data-order';
+import { dataFileIcon, editVariantDataFileLabel, orderDataEntries } from '../common/output-data-order';
+import { isEditDataFileName } from '../common/edit-data-file';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
 import { composeMaterialAskAgentPrompt, composeOutputAskAgentPrompt } from '../common/agent-context-packet';
 import {
@@ -308,7 +309,7 @@ const ROOT_REPORT_FILES: ReadonlyArray<string> = ['analysis-report.html'];
  */
 const MATERIALS_IRRELEVANT_ROOT_FILES = new Set(['edit.json', 'captions.json', 'analysis.json', '.akari']);
 function isMaterialsIrrelevantRootFile(baseName: string): boolean {
-    return MATERIALS_IRRELEVANT_ROOT_FILES.has(baseName) || baseName.endsWith('.tmp');
+    return isEditDataFileName(baseName) || MATERIALS_IRRELEVANT_ROOT_FILES.has(baseName) || baseName.endsWith('.tmp');
 }
 
 /** 下段のグループ見出しと表示順。中身が空のグループは見出しごと描画しない。 */
@@ -352,7 +353,7 @@ interface OutputEntry {
     size: number;
     /**
      * ファイル名の代わりに出す見出し。report は HTML の <title>、plan は md の先頭 `#` 見出し、
-     * data は PROJECT_DATA_FILES の日本語ラベル。取れなければ未設定（ファイル名で表示）。
+     * data は編集データ・字幕・レビューの日本語ラベル。取れなければ未設定（ファイル名で表示）。
      */
     title?: string;
     /** export の動画/画像のみ: サムネキャッシュ。無ければアイコン表示。 */
@@ -1344,6 +1345,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async openFile(uri: URI): Promise<void> {
         await open(this.openers, uri);
+        if (isEditDataFileName(uri.path.base) && uri.parent.toString() === this.workflow.workspaceRoot?.toString()) {
+            await this.commandService.executeCommand('akari.annotations.open', { editUri: uri.toString() });
+        }
     }
 
     /**
@@ -1895,7 +1899,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 下段の 4 グループをまとめて読み込む。グループ内は新しい順、グループ間の順序は
      * OUTPUT_GROUPS の並び（描画側で束ねる）。
      *
-     * - 編集データ: ルート直下の PROJECT_DATA_FILES（あるものだけ）
+     * - 編集データ: ルート直下の edit.json / edit.<slug>.json と固定の字幕・レビューファイル
      * - 企画・メモ: `planning/` 配下の md（再帰）+ ルート直下の ROOT_PLAN_FILES
      * - 書き出し: `exports/` 直下（非再帰 — サブフォルダは対象外）
      * - レポート: ルート直下の ROOT_REPORT_FILES + `.akari/reports/` 直下の HTML
@@ -1917,7 +1921,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.outputsLoading = true;
         this.update();
         const [dataFiles, planFiles, exportFiles, rootReportFiles, managedReportFiles] = await Promise.all([
-            this.collectRootFilesNamed(root, PROJECT_DATA_FILES.map(file => file.name)),
+            this.collectTopLevelFiles(root).then(files => files.filter(file =>
+                isEditDataFileName(file.resource.path.base)
+                || PROJECT_DATA_FILES.some(candidate => candidate.name === file.resource.path.base))),
             this.collectPlanFiles(root),
             this.collectTopLevelFiles(root.resolve('exports')),
             this.collectRootFilesNamed(root, ROOT_REPORT_FILES),
@@ -2023,7 +2029,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         } else if (kind === 'plan') {
             entry.title = await this.readMarkdownTitle(file.resource);
         } else if (kind === 'data') {
-            entry.title = PROJECT_DATA_FILES.find(candidate => candidate.name === name)?.label;
+            entry.title = PROJECT_DATA_FILES.find(candidate => candidate.name === name)?.label
+                ?? editVariantDataFileLabel(name);
         }
         return entry;
     }
@@ -2118,7 +2125,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             watched.exportsUri.isEqualOrParent(change.resource)
             || watched.reportsUri.isEqualOrParent(change.resource)
             || watched.planningUri.isEqualOrParent(change.resource)
-            || (change.resource.parent.toString() === rootKey && watchedRootNames.has(change.resource.path.base))
+            || (change.resource.parent.toString() === rootKey
+                && (watchedRootNames.has(change.resource.path.base) || isEditDataFileName(change.resource.path.base)))
         );
         if (!relevant) {
             return;
@@ -5204,7 +5212,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderOutputCard(entry: OutputEntry): React.ReactNode {
         const label = entry.title ?? entry.name;
-        const isEditData = entry.kind === 'data' && entry.name === 'edit.json';
+        const isEditData = entry.kind === 'data' && isEditDataFileName(entry.name);
         return (
             <div
                 key={entry.uri.toString()}

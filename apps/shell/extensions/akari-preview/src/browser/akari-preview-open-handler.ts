@@ -1,4 +1,5 @@
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
+import { isEditDataFileName } from '../common/edit-data-file';
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
@@ -23151,7 +23152,7 @@ export class AkariOutputPreviewOpenHandler implements OpenHandler {
     protected readonly previewHandler: AkariPreviewOpenHandler;
 
     canHandle(uri: URI): number {
-        return uri.path.base === 'edit.json' ? 1200 : 0;
+        return isEditDataFileName(uri.path.base) ? 1200 : 0;
     }
 
     open(uri: URI, options?: any): Promise<WebviewWidget> {
