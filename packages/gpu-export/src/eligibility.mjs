@@ -68,8 +68,24 @@ function hasAuthoredDepthAnimation(html) {
   return false;
 }
 
+// XML 名前空間宣言（xmlns="http://www.w3.org/2000/svg" / xmlns:xlink="…"）の値は名前を区別する識別子で、
+// 取得されるリソースではない。図形アイテム（source.kind: "shape"）はインライン SVG へ降下するため必ず
+// xmlns を持ち、素の文字列走査のままだと全図形が absolute-external-url で OSR へ落ちていた。
+// 外すのはタグ内・空白直後の xmlns 属性で、値が引用符付きかつ空白・引用符・<> を含まないものだけ。
+// src / href / xlink:href / url(…) / xml:base は残るので、実際の外部参照は従来どおり拒否する。
+// タグ境界が読めない（属性値に > がある等）ときは外さない側に倒れる（fail-closed）。
+const XML_NAMESPACE_DECLARATION = /(?<=\s)xmlns(?::[A-Za-z_][\w.-]*)?\s*=\s*(?:"[^"'\s<>]*"|'[^"'\s<>]*')/gu;
+
+function withoutXmlNamespaceDeclarations(html) {
+  return html.replace(/<[A-Za-z][^<>]*>/gu, (tag) => tag.replace(XML_NAMESPACE_DECLARATION, ""));
+}
+
+function hasAbsoluteExternalUrl(html) {
+  return /(?:file:\/\/\/|https?:\/\/)/iu.test(withoutXmlNamespaceDeclarations(html));
+}
+
 const OVERLAY_CONDITIONS = [
-  ["absolute-external-url", /(?:file:\/\/\/|https?:\/\/)/iu, "external"],
+  ["absolute-external-url", hasAbsoluteExternalUrl, "external"],
   ["font-face-external-resource", /@font-face[\s\S]{0,2000}?src\s*:\s*url\((?!["']?data:)/iu, "external"],
   ["image-external-resource", /<img\b[^>]*\bsrc\s*=\s*["'](?!data:)/iu, "external"],
   // 走査は CSS 宣言の区切り（; }）に加えて引用符とタグ境界で止める。止めないと、末尾に ; の無い

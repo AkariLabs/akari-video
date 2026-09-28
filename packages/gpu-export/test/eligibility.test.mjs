@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 
 import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
@@ -339,5 +340,75 @@ test("runtimes.mjs の全ランタイム宣言が条件表に乗っている（�
     const { classification } = result.entries[0];
     assert.notEqual(classification, "same", `${entry.id}: 静止スプライト扱いになっている`);
     assert.notEqual(classification, "dom", `${entry.id}: DOM 層扱いになっている`);
+  }
+});
+
+// 図形アイテムはインライン SVG（xmlns="http://www.w3.org/2000/svg"）へ降下する。名前空間宣言は
+// 取得されない識別子なので absolute-external-url に数えず、実際の外部参照だけを拒否し続ける。
+const { shapeMarkup, shapeSourceFromPreset } = require("../../edit-store/lib/index.js");
+
+function shapeVariants() {
+  const rows = readFileSync(new URL("../../../presets/shapes/index.jsonl", import.meta.url), "utf8")
+    .trimEnd().split("\n").map((line) => JSON.parse(line));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const variants = rows.map((row) => ({ id: row.id, source: shapeSourceFromPreset(row, byId) }));
+  const gradient = { type: "linear", angle: 45, stops: [{ offset: 0, color: "#ff0000" }, { offset: 1, color: "#0000ff80" }] };
+  for (const style of ["ellipse", "rounded", "rect", "jagged", "burst", "cloud", "wobble"]) {
+    for (const tail of ["point", "dots", "none"]) {
+      for (const dash of ["solid", "dash", "dot"]) {
+        variants.push({ id: `bubble-${style}-${tail}-${dash}`, source: { kind: "shape", shape: "bubble", params: { style, tail, dash } } });
+      }
+    }
+  }
+  for (const cap of ["none", "triangle", "chevron", "bar", "square", "circle", "diamond"]) {
+    variants.push({ id: `line-${cap}`, source: { kind: "shape", shape: "line", params: { startCap: cap, endCap: cap, startCapFilled: false, dash: "dash", lineCap: "round" } } });
+  }
+  for (const shape of ["rect", "rounded-rect", "ellipse", "line", "arrow", "speech-bubble"]) {
+    variants.push({ id: `legacy-${shape}`, source: { kind: "shape", shape, params: { stroke: "#000000", strokeWidth: 4 } } });
+    variants.push({ id: `gradient-${shape}`, source: { kind: "shape", shape, params: { fill: gradient, stroke: { ...gradient, type: "radial" }, strokeWidth: 6, dash: "dot" } } });
+  }
+  return variants;
+}
+
+test("shape items (every preset, bubble style, tail, dash, cap, gradient) stay static sprites despite xmlns", () => {
+  const variants = shapeVariants();
+  assert.ok(variants.length > 300);
+  for (const { id, source } of variants) {
+    const html = shapeMarkup(source, id, 1280, { scale: 1.5 });
+    assert.match(html, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/u);
+    const result = evaluate([{ id, html }]);
+    assert.equal(result.eligible, true, `${id}: ${result.entries[0].reason}`);
+    assert.equal(result.entries[0].classification, "same", id);
+    assert.deepEqual(result.entries[0].conditions, [], id);
+  }
+});
+
+test("namespace declarations are ignored but real external references in the same SVG are refused", () => {
+  const ns = 'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"';
+  const eligible = evaluate([
+    { id: "svg", html: `<svg ${ns} width="10" height="10"><path d="M0 0L10 10" fill="url(#g)"/></svg>` },
+    { id: "xhtml", html: '<div xmlns="http://www.w3.org/1999/xhtml">static</div>' },
+    { id: "single", html: "<svg xmlns='http://www.w3.org/2000/svg'\n  xmlns:inkscape='http://www.inkscape.org/namespaces/inkscape'></svg>" },
+  ]);
+  assert.equal(eligible.eligible, true);
+  assert.deepEqual(eligible.entries.map((value) => value.conditions), [[], [], []]);
+  for (const html of [
+    `<svg ${ns}><image href="https://example.invalid/x.png"/></svg>`,
+    `<svg ${ns}><image xlink:href="http://example.invalid/x.png"/></svg>`,
+    `<svg ${ns}><use href="file:///etc/x.svg#a"/></svg>`,
+    `<svg ${ns}><rect style="fill:url(https://example.invalid/p.svg#p)"/></svg>`,
+    `<svg ${ns} xml:base="https://example.invalid/"><image href="x.png"/></svg>`,
+    '<div><a href="https://example.invalid/">link</a></div>',
+    '<p>see http://example.invalid/</p>',
+    // タグの外に書かれた xmlns= は宣言ではないので外さない。
+    '<p>xmlns="https://example.invalid/x"</p>',
+    // 値に空白や <> を含むものは名前空間 URI ではないので外さない（中の URL を隠させない）。
+    '<div title=\' xmlns="</div><img src=https://example.invalid/x.png>"\'></div>',
+    '<svg xmlns="http://example.invalid/ https://example.invalid/x"></svg>',
+  ]) {
+    const result = evaluate([{ id: "external", html }]);
+    assert.equal(result.eligible, false, html);
+    assert.equal(result.entries[0].classification, "degraded", html);
+    assert.ok(result.entries[0].conditions.includes("absolute-external-url"), html);
   }
 });
