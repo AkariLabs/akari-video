@@ -1,0 +1,845 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "step": "no meta",
+  "observations": {
+    "electronPid": 45528,
+    "first": {
+      "submits": [
+        {
+          "model": "fal:h3-i2v",
+          "auth": true,
+          "prompt": "[Pull out] 色の板がゆっくり動く"
+        }
+      ],
+      "chips": [
+        "1 案作成中 · 0/1start.png00:04:00画像",
+        "生成中 · 0 秒start.png00:04:00画像",
+        "生成中 · 1 秒start.png00:04:00画像",
+        "生成中 · 2 秒start.png00:04:00画像",
+        "生成中 · 3 秒start.png00:04:00画像",
+        "生成中 · 4 秒start.png00:04:00画像",
+        "生成中 · 5 秒start.png00:04:00画像",
+        "生成中 · 6 秒start.png00:04:00画像",
+        "生成中 · 7 秒start.png00:04:00画像",
+        "生成中 · 8 秒start.png00:04:00画像",
+        "生成中 · 9 秒start.png00:04:00画像",
+        "生成中 · 10 秒start.png00:04:00画像",
+        "生成中 · 11 秒start.png00:04:00画像",
+        "生成中 · 12 秒start.png00:04:00画像",
+        "生成fal-h3-i2v-1790554390717.mp400:02:00動画"
+      ],
+      "adoptedPath": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+      "adoptedMetaSha256": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd",
+      "meta": {
+        "prompt": "色の板がゆっくり動く",
+        "camera": {
+          "notation": "bracket",
+          "value": "[Pull out]"
+        },
+        "output": {
+          "duration_s": 5,
+          "resolution": "768P",
+          "aspect": null,
+          "audio_out": true
+        },
+        "model": {
+          "id": "fal:h3-i2v",
+          "endpoint": "minimax/h3/image-to-video",
+          "as_of": "2026-09-12"
+        },
+        "cost": {
+          "estimate_usd": 0.3,
+          "actual_usd": null,
+          "unit": "usd_per_second",
+          "source": "estimate"
+        }
+      }
+    },
+    "videoProvenance": {
+      "kind": "video",
+      "title": "作り方",
+      "rows": {
+        "model": {
+          "label": "手段",
+          "value": "MiniMax H3（画像から）",
+          "badge": true,
+          "selectable": "text"
+        },
+        "prompt": {
+          "label": "指示文",
+          "value": "色の板がゆっくり動く",
+          "badge": false,
+          "selectable": "text"
+        },
+        "camera": {
+          "label": "カメラの動き",
+          "value": "引く",
+          "badge": false,
+          "selectable": "text"
+        },
+        "first_frame": {
+          "label": "最初の絵",
+          "value": "start.png",
+          "badge": true,
+          "selectable": "text"
+        },
+        "duration": {
+          "label": "作った長さ",
+          "value": "5 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "actual-duration": {
+          "label": "実尺",
+          "value": "2 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "resolution": {
+          "label": "解像度",
+          "value": "768P",
+          "badge": false,
+          "selectable": "text"
+        },
+        "audio-out": {
+          "label": "音声",
+          "value": "なし",
+          "badge": false,
+          "selectable": "text"
+        },
+        "cost": {
+          "label": "料金",
+          "value": "見積 $0.30 · as_of 2026-09-12",
+          "badge": false,
+          "selectable": "text"
+        },
+        "created": {
+          "label": "作った日時",
+          "value": "2026-09-28T00:13:10.717Z",
+          "badge": false,
+          "selectable": "text"
+        },
+        "elapsed": {
+          "label": "所要秒",
+          "value": "12.241 秒",
+          "badge": false,
+          "selectable": "text"
+        }
+      },
+      "regenerate": "この作り方で作り直す"
+    },
+    "regenPanel": {
+      "promptValues": [
+        "色の板がゆっくり動く",
+        ""
+      ],
+      "current": "今の動画:MiniMax H3 · 2026-09-28T00:13:10.717Z",
+      "currentAny": "今の動画:MiniMax H3 · 2026-09-28T00:13:10.717Z指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り",
+      "camera": null,
+      "duration": null,
+      "create": "1 案を作り直す · 見積 $0.30",
+      "checked": [
+        "fal:h3-i2v"
+      ],
+      "candidates": [
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+          "inUse": true,
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 12 秒 · 640×360 · $0.30使用中"
+        }
+      ],
+      "rows": [],
+      "adopt": "この案を使う",
+      "finalQuality": false
+    },
+    "draftFile": {
+      "path": ".akari/generation/clip-frame.inputs.json",
+      "prompt": "色の板がすばやく回る"
+    },
+    "regenerate": {
+      "submits": [
+        {
+          "model": "fal:h3-i2v",
+          "auth": true,
+          "prompt": "[Pull out] 色の板がすばやく回る"
+        }
+      ],
+      "chips": [
+        "生成fal-h3-i2v-1790554390717.mp400:02:00動画",
+        "1 案作成中 · 0/1fal-h3-i2v-1790554390717.mp400:02:00動画",
+        "候補 2fal-h3-i2v-1790554390717.mp400:02:00動画"
+      ],
+      "candidates": [
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554421642.mp4",
+          "inUse": false,
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 12 秒 · 640×360 · $0.30"
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+          "inUse": true,
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 12 秒 · 640×360 · $0.30使用中"
+        }
+      ],
+      "candidateFiles": [
+        "fal-h3-i2v-1790554390717.mp4",
+        "fal-h3-i2v-1790554421642.mp4"
+      ],
+      "editSha256": "03740f64d1abc52f88e49036589143127d1f45a575379c3cd98c639c8913a515",
+      "adoptedEditSha256": "03740f64d1abc52f88e49036589143127d1f45a575379c3cd98c639c8913a515",
+      "adoptedMetaSha256Before": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd",
+      "adoptedMetaSha256After": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd",
+      "progressFile": {
+        "status": "done",
+        "job": {
+          "provider": "compare",
+          "request_id": "1",
+          "status_url": "http://127.0.0.1:56742/status/1",
+          "response_url": "http://127.0.0.1:56742/response/1",
+          "started_at": "2026-09-28T00:13:41.387Z",
+          "stale_after_s": 900,
+          "queue_status": "COMPLETED",
+          "routes": [
+            "fal:h3-i2v"
+          ],
+          "completed": 1,
+          "candidates": 2,
+          "failed": [],
+          "results": [
+            {
+              "route": "fal:h3-i2v",
+              "ok": true,
+              "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554421642.mp4",
+              "elapsed_s": 12.116
+            }
+          ]
+        }
+      }
+    },
+    "undoClicks": 1,
+    "undo": {
+      "src": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+      "sameAsAdoptedJson": true,
+      "shaEqual": true
+    },
+    "stillProvenance": {
+      "kind": "image",
+      "title": "作り方",
+      "rows": {
+        "model": {
+          "label": "手段",
+          "value": "ChatGPT",
+          "badge": true,
+          "selectable": "text"
+        },
+        "prompt": {
+          "label": "指示文",
+          "value": "夕焼けの庭と木のベンチ",
+          "badge": false,
+          "selectable": "text"
+        },
+        "reference_images-0": {
+          "label": "参照画像",
+          "value": "start.png",
+          "badge": true,
+          "selectable": "text"
+        },
+        "duration": {
+          "label": "作った長さ",
+          "value": "2 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "actual-duration": {
+          "label": "実尺",
+          "value": "2 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "resolution": {
+          "label": "解像度",
+          "value": "1280x720",
+          "badge": false,
+          "selectable": "text"
+        },
+        "cost": {
+          "label": "料金",
+          "value": "見積 $0.00 · as_of 2026-09-28",
+          "badge": false,
+          "selectable": "text"
+        },
+        "created": {
+          "label": "作った日時",
+          "value": "2026-09-28T00:13:01.644Z",
+          "badge": false,
+          "selectable": "text"
+        },
+        "elapsed": {
+          "label": "所要秒",
+          "value": "18 秒",
+          "badge": false,
+          "selectable": "text"
+        }
+      },
+      "regenerate": "この作り方で作り直す"
+    },
+    "stillRegenerate": {
+      "prompts": [
+        "夕焼けの庭と木のベンチ"
+      ],
+      "aspect": "",
+      "text": "codex-image-1790000000000.png00:07.0 – 00:09.0 · カットホーム映像色音声動き情報← ホーム静止画指示文参照画像（任意・最大 16 枚）start.png×素材から選ぶ今のコマ画角16:99:161:14:33:44:53:221:9ずれたら選んだ比率に切りそろえる（絵の端が切れることがあります）手段追加料金なし — いま使っているサブスクChatGPT（Codex）サインインが必要Antigravity確かめています…この手段は画像を受け取れませんGrok確かめています…参照は縮めて送られます使った分だけ — API キーfal · GPT Image 2.5 Flare使える見積もり $0.053 / 枚詳細指示文・画角・参照画像のほかに設定できる項目はありません状態を確かめ直す0 案を作る · 追加料金なし✓ ChatGPT（Codex）"
+    },
+    "narrationProvenance": {
+      "kind": "audio",
+      "title": "作り方",
+      "rows": {
+        "model": {
+          "label": "手段",
+          "value": "VOICEVOX",
+          "badge": true,
+          "selectable": "text"
+        },
+        "prompt": {
+          "label": "原稿",
+          "value": "今日は庭の話をします。",
+          "badge": false,
+          "selectable": "text"
+        },
+        "duration": {
+          "label": "作った長さ",
+          "value": "1.5 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "actual-duration": {
+          "label": "実尺",
+          "value": "1.5 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "cost": {
+          "label": "料金",
+          "value": "見積 $0.00 · as_of 2026-09-28",
+          "badge": false,
+          "selectable": "text"
+        },
+        "created": {
+          "label": "作った日時",
+          "value": "2026-09-28T00:13:01.644Z",
+          "badge": false,
+          "selectable": "text"
+        },
+        "elapsed": {
+          "label": "所要秒",
+          "value": "4 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "voice": {
+          "label": "声",
+          "value": "3",
+          "badge": false,
+          "selectable": "text"
+        }
+      },
+      "regenerate": "この作り方で作り直す"
+    },
+    "narrationRegenerate": {
+      "prompts": [
+        "今日は庭の話をします。",
+        ""
+      ],
+      "checked": [],
+      "text": "n-0001.wav00:00.0 – 00:01.5 · 音声ホーム音声情報← ホームナレーション原稿読み（任意）エンジン合計 $0.000 · 承認 1 回枠より声が長いとき下の音声トラックに置く（既定）後ろのクリップをずらして収める1 案を作る候補 1▶voicevox · 3 · 尺 1.5 秒 · 作成 4 秒 · $0.000この案を使うほかの候補は素材に残ります。 .akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; } .akari-inspector-ai-group { min-width: 0; } .akari-inspector-widget .akari-inspector-ai-heading { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--akari-muted); } .akari-inspector-ai-grid { display: grid; grid-templ"
+    },
+    "adoptedMetaSha256End": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd",
+    "stubEvents": [
+      {
+        "kind": "submit",
+        "endpoint": "/minimax/h3/image-to-video",
+        "model": "fal:h3-i2v",
+        "auth": true,
+        "prompt": "[Pull out] 色の板がゆっくり動く"
+      },
+      {
+        "kind": "submit",
+        "endpoint": "/minimax/h3/image-to-video",
+        "model": "fal:h3-i2v",
+        "auth": true,
+        "prompt": "[Pull out] 色の板がすばやく回る"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "name": "準備: 1 案を作って自動で採用（枠 = 候補の mp4）",
+      "pass": true,
+      "detail": {
+        "adoptedPath": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+        "submits": [
+          {
+            "model": "fal:h3-i2v",
+            "auth": true,
+            "prompt": "[Pull out] 色の板がゆっくり動く"
+          }
+        ]
+      }
+    },
+    {
+      "name": "(i) 情報のタブに「作り方」（動画）",
+      "pass": true,
+      "detail": {
+        "kind": "video",
+        "title": "作り方"
+      }
+    },
+    {
+      "name": "(i) 指示文（全文・選択できる）",
+      "pass": true,
+      "detail": {
+        "label": "指示文",
+        "value": "色の板がゆっくり動く",
+        "badge": false,
+        "selectable": "text"
+      }
+    },
+    {
+      "name": "(i) カメラの動き = 引く",
+      "pass": true,
+      "detail": {
+        "label": "カメラの動き",
+        "value": "引く",
+        "badge": false,
+        "selectable": "text"
+      }
+    },
+    {
+      "name": "(i) 長さ（作った長さ・実尺）",
+      "pass": true,
+      "detail": {
+        "duration": {
+          "label": "作った長さ",
+          "value": "5 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "actual": {
+          "label": "実尺",
+          "value": "2 秒",
+          "badge": false,
+          "selectable": "text"
+        }
+      }
+    },
+    {
+      "name": "(i) 手段 = ロゴ + モデル名",
+      "pass": true,
+      "detail": {
+        "label": "手段",
+        "value": "MiniMax H3（画像から）",
+        "badge": true,
+        "selectable": "text"
+      }
+    },
+    {
+      "name": "(i) 料金 = 見積 $X · as_of",
+      "pass": true,
+      "detail": {
+        "label": "料金",
+        "value": "見積 $0.30 · as_of 2026-09-12",
+        "badge": false,
+        "selectable": "text"
+      }
+    },
+    {
+      "name": "(i) 解像度・音声・作った日時・所要秒・最初の絵",
+      "pass": true,
+      "detail": {
+        "resolution": {
+          "label": "解像度",
+          "value": "768P",
+          "badge": false,
+          "selectable": "text"
+        },
+        "audio": {
+          "label": "音声",
+          "value": "なし",
+          "badge": false,
+          "selectable": "text"
+        },
+        "created": {
+          "label": "作った日時",
+          "value": "2026-09-28T00:13:10.717Z",
+          "badge": false,
+          "selectable": "text"
+        },
+        "elapsed": {
+          "label": "所要秒",
+          "value": "12.241 秒",
+          "badge": false,
+          "selectable": "text"
+        },
+        "first": {
+          "label": "最初の絵",
+          "value": "start.png",
+          "badge": true,
+          "selectable": "text"
+        }
+      }
+    },
+    {
+      "name": "(i) 「この作り方で作り直す」ボタン",
+      "pass": true,
+      "detail": "この作り方で作り直す"
+    },
+    {
+      "name": "(ii) 前回の指示文が欄に入っている",
+      "pass": true,
+      "detail": [
+        "色の板がゆっくり動く",
+        ""
+      ]
+    },
+    {
+      "name": "(ii) 欄の上に「今の動画: <モデル名> · <作った日時>」",
+      "pass": true,
+      "detail": {
+        "current": "今の動画:MiniMax H3 · 2026-09-28T00:13:10.717Z",
+        "currentAny": "今の動画:MiniMax H3 · 2026-09-28T00:13:10.717Z指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り"
+      }
+    },
+    {
+      "name": "(ii) ボタンは「1 案を作り直す」・前回のモデルにチェック",
+      "pass": true,
+      "detail": {
+        "create": "1 案を作り直す · 見積 $0.30",
+        "checked": [
+          "fal:h3-i2v"
+        ]
+      }
+    },
+    {
+      "name": "(ii) 今の動画の候補に「使用中」の札",
+      "pass": true,
+      "detail": [
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+          "inUse": true,
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 12 秒 · 640×360 · $0.30使用中"
+        }
+      ]
+    },
+    {
+      "name": "(iii) 直した指示文は下書きに入り、採用済みの候補の meta は不変",
+      "pass": true,
+      "detail": {
+        "draftPrompt": "色の板がすばやく回る",
+        "adoptedMetaSha256": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd"
+      }
+    },
+    {
+      "name": "(iii) 直した指示文でスタブへ 1 件（偽の鍵で認証あり）",
+      "pass": true,
+      "detail": [
+        {
+          "model": "fal:h3-i2v",
+          "auth": true,
+          "prompt": "[Pull out] 色の板がすばやく回る"
+        }
+      ]
+    },
+    {
+      "name": "(iii) 新しい候補が同じ列の先頭（新しい順）に並び、今の動画は「使用中」",
+      "pass": true,
+      "detail": [
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554421642.mp4",
+          "inUse": false,
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 12 秒 · 640×360 · $0.30"
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+          "inUse": true,
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 12 秒 · 640×360 · $0.30使用中"
+        }
+      ]
+    },
+    {
+      "name": "(iii) 採用まで今の動画は不変（edit.json の sha が採用直後と同じ）",
+      "pass": true,
+      "detail": {
+        "editShaAfterRegen": "03740f64d1abc52f88e49036589143127d1f45a575379c3cd98c639c8913a515",
+        "adoptedEditSha": "03740f64d1abc52f88e49036589143127d1f45a575379c3cd98c639c8913a515"
+      }
+    },
+    {
+      "name": "(iii) 採用済みの候補の meta は作り直しで書き換わらない（sha256 一致）",
+      "pass": true,
+      "detail": {
+        "before": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd",
+        "after": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd"
+      }
+    },
+    {
+      "name": "(iii) タイムラインの札（作成中 / 候補 N）が作り直しでも出る",
+      "pass": true,
+      "detail": [
+        "生成fal-h3-i2v-1790554390717.mp400:02:00動画",
+        "1 案作成中 · 0/1fal-h3-i2v-1790554390717.mp400:02:00動画",
+        "候補 2fal-h3-i2v-1790554390717.mp400:02:00動画"
+      ]
+    },
+    {
+      "name": "(iv) 「この案を使う」で枠が新しい候補に入れ替わる",
+      "pass": true,
+      "detail": {
+        "src": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554421642.mp4"
+      }
+    },
+    {
+      "name": "(iv) undo 1 回で前の動画に戻る（edit.json が採用直後と JSON 一致）",
+      "pass": true,
+      "detail": {
+        "src": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790554390717.mp4",
+        "sameAsAdoptedJson": true,
+        "shaEqual": true
+      }
+    },
+    {
+      "name": "(iv) 使わなかった候補は残る",
+      "pass": true,
+      "detail": [
+        "fal-h3-i2v-1790554390717.mp4",
+        "fal-h3-i2v-1790554421642.mp4"
+      ]
+    },
+    {
+      "name": "準備との比較: 元の枠（静止画）は採用前の edit にある",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "(v) 静止画の item の情報のタブに作り方（手段・指示文・参照）",
+      "pass": true,
+      "detail": {
+        "kind": "image",
+        "title": "作り方",
+        "rows": {
+          "model": {
+            "label": "手段",
+            "value": "ChatGPT",
+            "badge": true,
+            "selectable": "text"
+          },
+          "prompt": {
+            "label": "指示文",
+            "value": "夕焼けの庭と木のベンチ",
+            "badge": false,
+            "selectable": "text"
+          },
+          "reference_images-0": {
+            "label": "参照画像",
+            "value": "start.png",
+            "badge": true,
+            "selectable": "text"
+          },
+          "duration": {
+            "label": "作った長さ",
+            "value": "2 秒",
+            "badge": false,
+            "selectable": "text"
+          },
+          "actual-duration": {
+            "label": "実尺",
+            "value": "2 秒",
+            "badge": false,
+            "selectable": "text"
+          },
+          "resolution": {
+            "label": "解像度",
+            "value": "1280x720",
+            "badge": false,
+            "selectable": "text"
+          },
+          "cost": {
+            "label": "料金",
+            "value": "見積 $0.00 · as_of 2026-09-28",
+            "badge": false,
+            "selectable": "text"
+          },
+          "created": {
+            "label": "作った日時",
+            "value": "2026-09-28T00:13:01.644Z",
+            "badge": false,
+            "selectable": "text"
+          },
+          "elapsed": {
+            "label": "所要秒",
+            "value": "18 秒",
+            "badge": false,
+            "selectable": "text"
+          }
+        },
+        "regenerate": "この作り方で作り直す"
+      }
+    },
+    {
+      "name": "(v) 静止画: 無い項目の行は出さない（カメラ・音声・最初の絵なし）",
+      "pass": true,
+      "detail": [
+        "model",
+        "prompt",
+        "reference_images-0",
+        "duration",
+        "actual-duration",
+        "resolution",
+        "cost",
+        "created",
+        "elapsed"
+      ]
+    },
+    {
+      "name": "(v) 静止画「この作り方で作り直す」→ 前回の指示文で静止画のパネル",
+      "pass": true,
+      "detail": {
+        "prompts": [
+          "夕焼けの庭と木のベンチ"
+        ],
+        "aspect": "",
+        "text": "codex-image-1790000000000.png00:07.0 – 00:09.0 · カットホーム映像色音声動き情報← ホーム静止画指示文参照画像（任意・最大 16 枚）start.png×素材から選ぶ今のコマ画角16:99:161:14:33:44:53:221:9ずれたら選んだ比率に切りそろえる（絵の端が切れることがあります）手段追加料金なし — いま使っているサブスクChatGPT（Codex）サインインが必要Antigravity確かめています…この手段は画像を受け取れませんGrok確かめています…参照は縮めて送られます使った分だけ — API キーfal · GPT Image 2.5 Flare使える見積もり $0.053 / 枚詳細指示文・画角・参照画像のほかに設定できる項目はありません状態を確かめ直す0 案を作る · 追加料金なし✓ ChatGPT（Codex）"
+      }
+    },
+    {
+      "name": "(v) ナレーションの item（out/narration・meta なし）の情報のタブに作り方（手段・原稿・声）",
+      "pass": true,
+      "detail": {
+        "kind": "audio",
+        "title": "作り方",
+        "rows": {
+          "model": {
+            "label": "手段",
+            "value": "VOICEVOX",
+            "badge": true,
+            "selectable": "text"
+          },
+          "prompt": {
+            "label": "原稿",
+            "value": "今日は庭の話をします。",
+            "badge": false,
+            "selectable": "text"
+          },
+          "duration": {
+            "label": "作った長さ",
+            "value": "1.5 秒",
+            "badge": false,
+            "selectable": "text"
+          },
+          "actual-duration": {
+            "label": "実尺",
+            "value": "1.5 秒",
+            "badge": false,
+            "selectable": "text"
+          },
+          "cost": {
+            "label": "料金",
+            "value": "見積 $0.00 · as_of 2026-09-28",
+            "badge": false,
+            "selectable": "text"
+          },
+          "created": {
+            "label": "作った日時",
+            "value": "2026-09-28T00:13:01.644Z",
+            "badge": false,
+            "selectable": "text"
+          },
+          "elapsed": {
+            "label": "所要秒",
+            "value": "4 秒",
+            "badge": false,
+            "selectable": "text"
+          },
+          "voice": {
+            "label": "声",
+            "value": "3",
+            "badge": false,
+            "selectable": "text"
+          }
+        },
+        "regenerate": "この作り方で作り直す"
+      }
+    },
+    {
+      "name": "(v) ナレーション「この作り方で作り直す」→ 前回の原稿でナレーションのパネル",
+      "pass": true,
+      "detail": {
+        "prompts": [
+          "今日は庭の話をします。",
+          ""
+        ],
+        "checked": [],
+        "text": "n-0001.wav00:00.0 – 00:01.5 · 音声ホーム音声情報← ホームナレーション原稿読み（任意）エンジン合計 $0.000 · 承認 1 回枠より声が長いとき下の音声トラックに置く（既定）後ろのクリップをずらして収める1 案を作る候補 1▶voicevox · 3 · 尺 1.5 秒 · 作成 4 秒 · $0.000この案を使うほかの候補は素材に残ります。 .akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; } .akari-inspector-ai-group { min-width: 0; } .akari-inspector-widget .akari-inspector-ai-heading { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--akari-muted); } .akari-inspector-ai-grid { display: grid; grid-templ"
+      }
+    },
+    {
+      "name": "meta の無い item（撮った動画）には作り方の節が出ない",
+      "pass": true,
+      "detail": false
+    },
+    {
+      "name": "最後まで採用済みの候補の meta は不変（sha256）",
+      "pass": true,
+      "detail": {
+        "start": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd",
+        "end": "d5f8254e05cb53d9f0d90a6e023e0eee19015ea6aa68af1fa4ccf486c8e5d6fd"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-after-info-tab-video-provenance.png",
+      "bytes": 287735
+    },
+    {
+      "name": "02-after-regenerate-fields-prefilled.png",
+      "bytes": 326706
+    },
+    {
+      "name": "02b-after-regenerate-button-and-in-use.png",
+      "bytes": 305825
+    },
+    {
+      "name": "03-after-regenerated-candidate-listed.png",
+      "bytes": 309492
+    },
+    {
+      "name": "04-after-adopt-new-candidate.png",
+      "bytes": 316646
+    },
+    {
+      "name": "05-after-one-undo-previous-video.png",
+      "bytes": 314831
+    },
+    {
+      "name": "06-after-info-tab-still-provenance.png",
+      "bytes": 299916
+    },
+    {
+      "name": "06b-after-still-regenerate-panel.png",
+      "bytes": 296377
+    },
+    {
+      "name": "07-after-info-tab-narration-provenance.png",
+      "bytes": 254714
+    },
+    {
+      "name": "07b-after-narration-regenerate-panel.png",
+      "bytes": 241017
+    },
+    {
+      "name": "08-after-info-tab-plain-video-no-section.png",
+      "bytes": 275041
+    }
+  ]
+}

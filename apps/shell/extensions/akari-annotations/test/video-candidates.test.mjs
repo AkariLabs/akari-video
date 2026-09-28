@@ -174,8 +174,8 @@ test('動画バッチは見積合計と価格不明を返し、承認なしで�
   writeQueueStatus(metaPath, 'IN_PROGRESS');
   const pending = await service.readVideoCandidates(request);
   assert.deepEqual(pending.candidates.map(row => row.route),
-    ['fal:seedance-2.0-i2v', 'fal:h3-i2v', 'fal:kling-v3-standard-i2v']);
-  assert.equal(pending.candidates[1].queueStatus, 'IN_PROGRESS');
+    ['fal:h3-i2v', 'fal:kling-v3-standard-i2v', 'fal:seedance-2.0-i2v']);
+  assert.equal(pending.candidates[0].queueStatus, 'IN_PROGRESS');
   service.generationCli.cancelBatch = async () => [];
   await service.cancelGenerateVideoBatch(request);
   assert.equal(JSON.parse(await readFile(metaPath)).status, 'failed');

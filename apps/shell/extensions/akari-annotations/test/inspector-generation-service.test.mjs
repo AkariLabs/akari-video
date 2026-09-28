@@ -78,15 +78,57 @@ test('meta の無い静止画でない素材（mp4・音声・html）には meta
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('採用済み動画の欄は候補 meta の入力から復元し、保存後は枠 ID の下書きを優先する', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'akari-generation-done-'));
+  try {
+    const sourcePath = 'assets/generated/candidates/clip-a/old.mp4';
+    await mkdir(path.join(root, 'assets/generated/candidates/clip-a'), { recursive: true });
+    await fixture(root, sourcePath);
+    const meta = { version: 1, kind: 'video', status: 'done', candidate_of: 'clip-a', model: { id: 'fal:h3-i2v' },
+      inputs: { prompt: 'previous', first_frame: null, reference_images: [], reference_videos: [], reference_audios: [], extra: {} },
+      output: { duration_s: 6, resolution: '768P', audio_out: true } };
+    await writeFile(path.join(root, `${sourcePath}.meta.json`), JSON.stringify(meta));
+    const service = new AkariAnnotationsServiceImpl();
+    const widget = harness(root, service);
+    widget.generationDone = new Map(); widget.generationFinal = new Set(); widget.generationQuality = new Map();
+    widget.readGenerationOriginalNext = async () => undefined;
+    widget.layerAudioService.readGenerationSidecars = async () => ({ entries: [{ sourcePath, meta }] });
+    const identity = { key: 'clip-a', itemId: 'clip-a', sourcePath, duration: 6 };
+    widget.model.snapshot = { kind: 'cut', itemId: 'clip-a', sourcePath, outputStart: 0, outputEnd: 6 };
+    await widget.loadGeneration(identity);
+    assert.equal(widget.generationDrafts.get('clip-a').inputs.prompt, 'previous');
+    await service.writeGenerationDraft({ projectRootUri: pathToFileURL(root).toString(), itemId: 'clip-a',
+      modelId: 'fal:h3-i2v', inputs: { ...meta.inputs, prompt: 'revised' }, output: meta.output });
+    await widget.loadGeneration(identity);
+    assert.equal(widget.generationDrafts.get('clip-a').inputs.prompt, 'revised');
+    assert.equal(JSON.parse(await readFile(path.join(root, `${sourcePath}.meta.json`))).inputs.prompt, 'previous');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('生成済みの木 item も作り方と作り直しの対象として識別する', () => {
+  const widget = new Harness();
+  widget.generationDone = new Map();
+  for (const path of ['assets/generated/candidates/clip-a/old.mp4',
+    'assets/generated/candidates/clip-a/old.png']) {
+    const identity = widget.generationIdentity({ kind: 'item', id: 'clip-a', sourceKind: 'media',
+      sourcePath: path, duration: 6 });
+    assert.equal(identity?.sourcePath, path);
+  }
+  assert.equal(widget.generationIdentity({ kind: 'item', id: 'clip-a', sourceKind: 'media',
+    sourcePath: 'assets/imported.png', duration: 6 }), undefined);
+});
+
 import ts from 'typescript';
 import { generationFields } from '../lib/browser/inspector/generation-fields.js';
+import { generationDraftFromDone } from '../lib/browser/inspector/generation-provenance.js';
 import { selectGenerationSidecarForSource } from '@akari-video/edit-store';
 const widgetSource = await readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
 const widgetClass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const methodNames = ['generationIdentity', 'loadGeneration', 'loadGenerationNeighbors', 'validateGenerationDraft', 'persistGenerationDraft', 'copyAdjacentGenerationDraft'];
 const code = ts.transpileModule(`class Harness { ${widgetClass.members.filter(node => methodNames.includes(node.name?.getText(ast))).map(node => node.getText(ast)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Harness = new Function('generationFields', 'selectGenerationSidecarForSource', `${code}; return Harness;`)(generationFields, selectGenerationSidecarForSource);
+const Harness = new Function('generationFields', 'generationDraftFromDone', 'selectGenerationSidecarForSource',
+  `${code}; return Harness;`)(generationFields, generationDraftFromDone, selectGenerationSidecarForSource);
 const uri = value => ({ resolve: child => uri(path.join(value, child)), toString: () => pathToFileURL(value).toString(), value });
 function harness(root, service) {
   const widget = new Harness();

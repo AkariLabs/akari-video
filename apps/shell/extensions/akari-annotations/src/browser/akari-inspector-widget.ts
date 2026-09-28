@@ -54,7 +54,13 @@ import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
 import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, type AiStillState, type StillAspect, type StillFalEstimate } from './inspector/ai-still-panel';
 import { appendAiVideoCandidatesPanel, clearVideoPlayer, replaceVideoInEdit, videoApprovalMessage, videoModelGroups, videoModelName,
-    videoProgress, videoProgressCandidate, videoProgressLayoutKey, type AiVideoState } from './inspector/ai-video-candidates-panel';
+    videoMakerId, videoProgress, videoProgressCandidate, videoProgressLayoutKey, type AiVideoState } from './inspector/ai-video-candidates-panel';
+import { generationDraftFromDone, generationProvenance } from './inspector/generation-provenance';
+import { stillMakerBadge } from './inspector/maker-badge';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generationModelShelf = require('../../../../../../packages/schemas/ai-models.json') as {
+    models: Array<{ id: string; name?: string; family?: string; maker?: string }>;
+};
 import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
@@ -3210,6 +3216,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected currentTab?: string;
     protected explicitTabId?: string;
     protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
+    protected readonly generationProvenanceMeta = new Map<string, unknown>();
+    protected readonly generationProvenanceLoads = new Set<string>();
     protected readonly frameAspectLive = new Map<string, FrameAspectLive>();
     protected readonly frameAspectWrites = new Map<string, Promise<void>>();
     protected readonly frameAspectTargets = new Map<string, LivePreviewTarget>();
@@ -5267,6 +5275,11 @@ export class AkariInspectorWidget extends BaseWidget {
                         request => this.model.requestLivePreview?.(request));
                     break;
             }
+            if (snapshot.kind === 'item' && snapshot.sourceKind === 'media'
+                && this.generationDone?.get(snapshot.id)?.meta) {
+                const fields = this.generationSectionFields(snapshot);
+                if (fields) sections = [...sections, { id: GENERATION_SECTION_ID, label: '生成', fields }];
+            }
         }
         if (sectionKind === 'caption') {
             const fontField = captionFontFamilyField(rowSnapshot as TimelineCaptionSelection,
@@ -5684,6 +5697,9 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
                 this.appendSection(section, rowSnapshot, sectionKind);
             });
+        if (activeTab === 'info' && typeof this.appendGenerationProvenance === 'function') {
+            this.appendGenerationProvenance(rowSnapshot, generationIdentity, clipKey);
+        }
         if (activeTab === 'edit' && this.aiView === 'video' && generationIdentity
             && !generationIdentity.key.startsWith('material:')
             && typeof this.appendVideoCandidatesPanel === 'function') this.appendVideoCandidatesPanel(generationIdentity);
@@ -6636,13 +6652,15 @@ export class AkariInspectorWidget extends BaseWidget {
     protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
         let state = this.aiStillStates.get(identity.key);
         if (!state) {
-            const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string }; output?: { aspect?: StillAspect; resolution?: string } } | undefined;
+            const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string;
+                reference_images?: Array<{ path: string }> }; output?: { aspect?: StillAspect; resolution?: string } } | undefined;
             const [cardWidth, cardHeight] = String(meta?.output?.resolution ?? '').split('x').map(Number);
             const initialAspect = meta?.output?.aspect ?? (cardWidth > 0 && cardHeight > 0
                 ? nearestStillAspect(cardWidth, cardHeight) : '16:9');
             state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true,
                 selectedRoutes: new Set(),
-                running: false, references: [], cropToAspect: savedStillCrop(), falEstimate: this.stillFalEstimate };
+                running: false, references: (meta?.inputs?.reference_images ?? []).filter(ref => !!ref?.path)
+                    .map(ref => ({ path: ref.path })), cropToAspect: savedStillCrop(), falEstimate: this.stillFalEstimate };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
@@ -7109,6 +7127,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (snapshot.kind === 'cut') {
             if (!snapshot.itemId || !snapshot.sourcePath || (this.generationDone?.get(snapshot.itemId)?.sourcePath !== snapshot.sourcePath
                 && !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.sourcePath)
+                && !/^assets\/generated\/[^/]+\.mp4$/u.test(snapshot.sourcePath)
                 && !/^assets\/generated\/candidates\/[^/]+\/[^/]+\.mp4$/u.test(snapshot.sourcePath))) return undefined;
             return {
                 key: snapshot.itemId, itemId: snapshot.itemId, sourcePath: snapshot.sourcePath,
@@ -7117,10 +7136,127 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         if (snapshot.kind === 'layer' && snapshot.sourceKind === 'media' && snapshot.src
             && (this.generationDone?.get(snapshot.id)?.sourcePath === snapshot.src || /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.src)
+                || /^assets\/generated\/[^/]+\.mp4$/u.test(snapshot.src)
                 || /^assets\/generated\/candidates\/[^/]+\/[^/]+\.mp4$/u.test(snapshot.src))) {
             return { key: snapshot.id, itemId: snapshot.id, sourcePath: snapshot.src, duration: snapshot.duration };
         }
+        if (snapshot.kind === 'item' && snapshot.sourceKind === 'media') {
+            const path = snapshot.sourcePath ?? snapshot.src;
+            if (path && (/^assets\/generated\/.+\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path)
+                || /^assets\/generated\/(?:candidates\/[^/]+\/)?[^/]+\.mp4$/u.test(path))) {
+                return { key: snapshot.id, itemId: snapshot.id, sourcePath: path, duration: snapshot.duration };
+            }
+        }
         return undefined;
+    }
+
+    protected appendGenerationProvenance(snapshot: InspectorSnapshot,
+        identity: { key: string; itemId: string; sourcePath: string; duration: number } | undefined, clipKey: string): void {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const sourcePath = identity?.sourcePath ?? (snapshot.kind === 'audio' ? this.narrationSourcePath : undefined);
+        if (!root || !sourcePath || sourcePath.startsWith('/') || sourcePath.split('/').includes('..')) return;
+        const key = `${root.toString()}#${sourcePath}`;
+        if (!this.generationProvenanceMeta.has(key) && !this.generationProvenanceLoads.has(key)) {
+            this.generationProvenanceLoads.add(key);
+            void this.layerAudioService.readGenerationProvenance({
+                projectRootUri: root.toString(), sourcePath
+            }).then(result => {
+                this.generationProvenanceMeta.set(key, result.meta);
+            }).catch(() => this.generationProvenanceMeta.set(key, undefined)).finally(() => {
+                this.generationProvenanceLoads.delete(key);
+                if (!this.isDisposed && this.currentTab === 'info') this.render();
+            });
+        }
+        const meta = this.generationProvenanceMeta.get(key);
+        const details = generationProvenance(meta, modelId => {
+            const row = this.generationCatalog.find(candidate => candidate.id === modelId);
+            const shelf = generationModelShelf.models.find(candidate => candidate.id === modelId.replace(/:tts$/u, ''));
+            return row ? videoModelName(row) : shelf?.name ?? shelf?.family ?? modelId;
+        });
+        if (!details) return;
+        const section = document.createElement('section');
+        section.className = 'akari-inspector-section';
+        section.setAttribute('data-akari-generation-provenance', details.kind);
+        const title = document.createElement('div');
+        title.className = 'akari-inspector-section-header';
+        title.style.fontWeight = '600';
+        title.textContent = '作り方';
+        section.appendChild(title);
+        for (const row of details.rows) {
+            const line = document.createElement('div');
+            line.className = 'akari-inspector-field';
+            line.style.cssText = 'display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px;padding:5px 0';
+            line.setAttribute('data-akari-generation-provenance-row', row.key);
+            const label = document.createElement('span');
+            label.textContent = row.label;
+            label.style.color = 'var(--akari-muted)';
+            const value = document.createElement('span');
+            value.textContent = row.value;
+            value.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;user-select:text';
+            if (row.key === 'model' && details.modelId) {
+                const shelf = generationModelShelf.models.find(candidate => candidate.id === details.modelId!.replace(/:tts$/u, ''));
+                value.prepend(stillMakerBadge(shelf?.maker ?? (details.kind === 'video'
+                    ? videoMakerId(details.modelId) : details.modelId.split(':')[0]), true));
+            }
+            if (row.referencePath && /\.(?:png|jpe?g|webp|gif)$/iu.test(row.referencePath)) {
+                const thumbnail = document.createElement('img');
+                thumbnail.alt = row.value;
+                thumbnail.style.cssText = 'display:block;max-width:96px;max-height:54px;object-fit:contain;margin-top:4px';
+                value.appendChild(thumbnail);
+                void this.generationThumbnail(row.referencePath).then(src => {
+                    if (src && thumbnail.isConnected) thumbnail.src = src;
+                }).catch(() => undefined);
+            }
+            line.append(label, value);
+            section.appendChild(line);
+        }
+        const redo = document.createElement('button');
+        redo.type = 'button';
+        redo.className = 'theia-button secondary';
+        redo.textContent = 'この作り方で作り直す';
+        redo.setAttribute('data-akari-generation-provenance-regenerate', details.kind);
+        redo.addEventListener('click', () => {
+            this.aiViewClipKey = clipKey;
+            if (details.kind === 'video' && identity) {
+                const draft = generationDraftFromDone(meta);
+                if (!draft) return;
+                this.generationDrafts.set(identity.key, draft);
+                this.generationTabDrafts.set(identity.key, draft);
+                this.generationFinal.delete(identity.key);
+                void this.validateGenerationDraft(identity.key).then(() => {
+                    this.explicitTabId = 'edit'; this.aiView = 'video'; this.render();
+                });
+            } else if (details.kind === 'image' && identity) {
+                const source = meta as { inputs?: { prompt?: string; reference_images?: Array<{ path: string }> };
+                    output?: { aspect?: StillAspect; resolution?: string } };
+                const state = this.aiStillStates.get(identity.key);
+                if (state) {
+                    state.prompt = source.inputs?.prompt ?? '';
+                    const [width, height] = String(source.output?.resolution ?? '').split('x').map(Number);
+                    state.aspect = source.output?.aspect ?? (width > 0 && height > 0
+                        ? nearestStillAspect(width, height) : state.aspect);
+                    state.references = (source.inputs?.reference_images ?? []).filter(ref => !!ref?.path).map(ref => ({ path: ref.path }));
+                } else {
+                    this.generationTabMeta.set(identity.key, source as unknown as { next?: { status?: unknown } });
+                }
+                this.explicitTabId = 'edit'; this.aiView = 'still'; this.render();
+            } else if (details.kind === 'audio' && snapshot.kind === 'audio') {
+                const source = meta as { inputs?: { script?: string; text?: string; prompt?: string; voice_id?: string; voice?: string };
+                    model?: { id?: string }; route?: string; voice?: string };
+                const state = this.narrationStates.get(clipKey) ?? initialAiNarrationState(this.narrationEngines);
+                state.script = source.inputs?.script ?? source.inputs?.text ?? source.inputs?.prompt ?? '';
+                state.engineId = source.route ?? source.model?.id?.replace(/:tts$/u, '') ?? state.engineId;
+                state.voiceId = source.voice ?? source.inputs?.voice_id ?? source.inputs?.voice ?? state.voiceId;
+                state.selectedEngineIds = [state.engineId];
+                state.voiceByEngine = { ...state.voiceByEngine, [state.engineId]: state.voiceId };
+                state.favorites ??= [];
+                this.narrationStates.set(clipKey, state);
+                this.explicitTabId = 'edit'; this.aiView = 'narration'; this.render();
+                void this.loadAiNarrationVoices(clipKey);
+            }
+        });
+        section.appendChild(redo);
+        this.body.appendChild(section);
     }
 
     protected async loadGeneration(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<void> {
@@ -7156,12 +7292,24 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.frameAspectPlanned?.set(identity.key, planned);
             } else if (sourceMeta?.status) this.frameAspectPlanned?.get(identity.key)?.delete(identity.sourcePath);
             this.generationTabMeta.set(identity.key, sourceMeta ?? {});
-            let draft = generationFields.fromMeta(sourceMeta);
+            let draft = sourceMeta?.kind === 'video' && sourceMeta.candidate_of === identity.itemId
+                ? undefined : generationFields.fromMeta(sourceMeta);
             if (/\.(?:mp4|mov|webm|m4v)$/iu.test(identity.sourcePath)) {
                 const originalMeta = await this.readGenerationOriginalNext(sourceMeta, identity.itemId);
                 if (sourceMeta?.kind === 'video') this.generationDone.set(identity.key, { sourcePath: identity.sourcePath, meta: sourceMeta, originalMeta });
                 else this.generationDone.delete(identity.key);
                 const original = generationFields.fromMeta(originalMeta);
+                if (sourceMeta?.kind === 'video') {
+                    try {
+                        const uri = root.resolve(`.akari/generation/${identity.itemId}.inputs.json`);
+                        const saved = JSON.parse((await this.fileService.read(uri)).value.toString());
+                        draft ??= saved?.kind === 'video' && saved.status === 'planned' && saved.model?.id
+                            ? { modelId: saved.model.id, inputs: { ...saved.inputs }, output: { ...saved.output } }
+                            : undefined;
+                    } catch { /* First regeneration uses the selected candidate's own inputs. */ }
+                    draft ??= generationFields.fromMeta(sourceMeta);
+                    draft ??= generationDraftFromDone(sourceMeta);
+                }
                 draft ??= original;
                 if (!draft || sourceMeta?.kind !== 'video') {
                     this.generationDrafts.delete(identity.key);
@@ -7418,11 +7566,12 @@ export class AkariInspectorWidget extends BaseWidget {
                     current.preferred = preferred;
                     const groups = videoModelGroups(this.generationCatalog, preferred);
                     const usual = groups.usual[0] ?? groups.favorites[0] ?? groups.others[0];
-                    const editable = !/\.mp4$/iu.test(identity.sourcePath)
-                        && this.generationStates.get(identity.key) !== 'generating';
+                    const editable = this.generationStates.get(identity.key) !== 'generating';
                     if (usual) {
-                        current.selected.add(usual.id);
-                        if (editable && this.generationDrafts.get(identity.key)?.modelId !== usual.id) {
+                        const previousModel = this.generationDone?.has(identity.key)
+                            ? this.generationDrafts.get(identity.key)?.modelId : undefined;
+                        current.selected.add(previousModel ?? usual.id);
+                        if (editable && !previousModel && this.generationDrafts.get(identity.key)?.modelId !== usual.id) {
                             await this.updateGenerationDraft(identity, 'modelId', usual.id);
                         }
                     }
@@ -7481,6 +7630,19 @@ export class AkariInspectorWidget extends BaseWidget {
                 current.thumbnailLoads.set(path, pending);
             }
         });
+        if (this.generationDone?.has(identity.key)) {
+            const panel = this.body.querySelector<HTMLElement>('[data-akari-inspector-video-panel]');
+            const create = panel?.querySelector<HTMLButtonElement>('[data-akari-inspector-video-create]');
+            if (create) create.textContent = create.textContent?.replace('案を作る', '案を作り直す') ?? '';
+            const used = Array.from(panel?.querySelectorAll<HTMLElement>('[data-akari-inspector-video-candidate]') ?? [])
+                .find(button => button.getAttribute('data-akari-inspector-video-candidate') === identity.sourcePath);
+            if (used) {
+                const badge = document.createElement('span');
+                badge.textContent = '使用中';
+                badge.setAttribute('data-akari-inspector-video-in-use', identity.sourcePath);
+                used.appendChild(badge);
+            }
+        }
     }
 
     protected renderVideoCandidates(): void {
@@ -7556,6 +7718,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!state || !root || state.running) return;
         const models = onlyModels ?? [...state.selected];
         if (!models.length) return;
+        const regenerating = this.generationDone?.has(identity.key) === true;
         const visibleDraft = this.generationDrafts.get(identity.key);
         const retryDraft = onlyModels && state.batchDraft;
         try {
@@ -7587,7 +7750,7 @@ export class AkariInspectorWidget extends BaseWidget {
             await this.refreshVideoTimelineProgress(root, state, true);
             this.generationLoads.delete(identity.key);
             await this.loadGeneration(identity);
-            if (models.length === 1) {
+            if (models.length === 1 && !regenerating) {
                 const candidate = result.candidates.find(row => row.ok && row.relativePath);
                 if (candidate) {
                     const finished = state.batch.candidates.find(row => row.relativePath === candidate.relativePath);
@@ -7642,6 +7805,12 @@ export class AkariInspectorWidget extends BaseWidget {
             try { frame = JSON.parse((await this.fileService.readFile(root.resolve(`${identity.sourcePath}.meta.json`))).value.toString()); }
             catch { /* The batch can start before the first sidecar write. */ }
         }
+        if (frame.kind === 'video' && frame.status === 'done') {
+            try {
+                frame = JSON.parse((await this.fileService.readFile(root.resolve(
+                    `.akari/generation/${identity.itemId}.compare.meta.json`))).value.toString());
+            } catch { /* The first regeneration has no progress file yet. */ }
+        }
         const job = frame.job?.provider === 'compare' ? frame.job : undefined;
         const fresh = state.externalRunning || Number.isFinite(Date.parse(job?.started_at))
             && Date.parse(job.started_at) >= (state.startedAt ?? 0) - 2000;
@@ -7665,7 +7834,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 } catch { return undefined; }
             }));
         const candidates = loaded.filter((row): row is NonNullable<typeof row> => !!row)
-            .sort((a, b) => a.startedAt.localeCompare(b.startedAt)
+            .sort((a, b) => b.startedAt.localeCompare(a.startedAt)
                 || a.candidate.route.localeCompare(b.candidate.route)
                 || String(a.candidate.relativePath).localeCompare(String(b.candidate.relativePath)))
             .map(row => row.candidate);
@@ -7739,7 +7908,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.generationValidations.set(key, validation as GenerationValidationResult as GenerationValidation);
     }
 
-    protected generationSectionFields<T extends TimelineCutSelection | TimelineLayerSelection>(snapshot: T): InspectorFieldDef<T>[] | undefined {
+    protected generationSectionFields<T extends TimelineCutSelection | TimelineLayerSelection | TimelineTreeItemSnapshot>(snapshot: T): InspectorFieldDef<T>[] | undefined {
         const identity = this.generationIdentity(snapshot);
         if (!identity || this.generationCatalog.length === 0) return undefined;
         const draft = this.generationDrafts.get(identity.key);

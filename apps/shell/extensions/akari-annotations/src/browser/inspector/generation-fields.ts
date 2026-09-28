@@ -272,15 +272,7 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     catalogRow, draft, validation, defaults, actions
 }: GenerationFieldsOptions<TSnapshot>): GenerationFieldDef<TSnapshot>[] {
     const canFinalize = generationCanFinalize(defaults.doneMeta, defaults.originalNext, catalogRow);
-    if (defaults.state === 'done' && (defaults.doneMeta as GenerationMetaV1 | undefined)?.kind === 'video'
-        && !defaults.finalQuality) return canFinalize && !defaults.compareMode ? [{
-        name: 'generation-actions', label: '操作', getValue: () => '', actions: [{
-            name: 'final-quality', label: '本番の画質にする…', title: '本番の画質にする…',
-            action: () => actions.finalQuality!()
-        }]
-    }, { name: 'generation-final-note', label: '',
-        getValue: () => '同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）'
-    }] : [{ name: 'generation-done', label: '生成', getValue: () => '生成済み' }];
+    const doneVideo = defaults.state === 'done' && (defaults.doneMeta as GenerationMetaV1 | undefined)?.kind === 'video';
     const inputs = draft.inputs ?? {};
     const output = draft.output ?? {};
     const videoRows = defaults.catalog.filter(row => row.kind === 'video');
@@ -294,6 +286,14 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         className: 'akari-inspector-generation-facts',
         write: (_snapshot, value) => actions.update('modelId', byLabel.get(value) ?? value)
     }];
+    if (doneVideo && !defaults.finalQuality) fields.unshift({
+        name: 'generation-current-video', label: '今の動画:', getValue: () => {
+            const meta = defaults.doneMeta as { model?: { id?: string }; provenance?: { created_at?: string };
+                job?: { started_at?: string } };
+            const model = defaults.catalog.find(row => row.id === meta.model?.id);
+            return `${model?.family ?? meta.model?.id ?? '不明'} · ${meta.provenance?.created_at ?? meta.job?.started_at ?? '日時不明'}`;
+        }
+    });
     fields.push({
         name: 'prompt', label: '指示文（prompt）', inputKind: 'text',
         getValue: () => String(inputs.prompt ?? ''), getEditValue: () => String(inputs.prompt ?? ''),
@@ -438,7 +438,8 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
 
     const state = defaults.state;
     const generating = state === 'generating';
-    const runLabel = generating ? '生成中…（タイムラインとプレビューに進捗）' : '動画にする';
+    const runLabel = generating ? '生成中…（タイムラインとプレビューに進捗）'
+        : doneVideo ? '作り直す' : '動画にする';
     const actionRows: Array<NonNullable<GenerationFieldDef<TSnapshot>['actions']>[number]> = [{
         name: 'copy-adjacent', label: '隣から取る', title: '隣の映像 item の下書きを写す',
         action: actions.copyAdjacent
@@ -449,6 +450,14 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     }]];
     if (!defaults.compareMode && state === 'stale') actionRows.push({ name: 'resume', label: '再取得', title: '生成結果を再取得', action: actions.resume });
     if (!defaults.compareMode && (state === 'failed' || state === 'stale')) actionRows.push({ name: 'retry', label: '同じ入力でもう一度', title: '同じ入力でもう一度', action: actions.retry });
+    if (doneVideo && canFinalize && !defaults.finalQuality && !defaults.compareMode && actions.finalQuality) actionRows.push({
+        name: 'final-quality', label: '本番の画質にする…', title: '本番の画質にする…',
+        action: actions.finalQuality
+    });
+    if (doneVideo && canFinalize && !defaults.finalQuality && !defaults.compareMode) fields.push({
+        name: 'generation-final-note', label: '',
+        getValue: () => '同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）'
+    });
     if (defaults.finalQuality) fields.push({ name: 'generation-final-note', label: '',
         getValue: () => '解像度を選んでください。同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）' });
     fields.push({ name: 'generation-actions', label: '操作', getValue: () => '', actions: actionRows });

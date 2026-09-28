@@ -58,6 +58,8 @@ import {
     ProbeSourceHasAudioResult,
     ReadGenerationSidecarsRequest,
     ReadGenerationSidecarsResult,
+    ReadGenerationProvenanceRequest,
+    ReadGenerationProvenanceResult,
     ReadTranscriptSummaryRequest,
     TranscriptSummary,
     ReadGenerationCatalogResult,
@@ -231,6 +233,14 @@ interface CanvasStrokeRecord {
     tool: 'pen';
     space: 'canvas-rect';
     points: [number, number][];
+}
+
+class CandidateInputsCliManager extends GenerationCliManager {
+    startCandidateWithInputs(projectRoot: string, itemId: string, modelId: string, inputsPath: string) {
+        generationDraftPath(projectRoot, itemId);
+        return this.run(`${itemId}:${modelId}`, ['generate', 'video', projectRoot, '--item', itemId,
+            '--model', modelId, '--candidate', '--inputs', inputsPath, '--yes', '--json']);
+    }
 }
 
 @injectable()
@@ -778,7 +788,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { ids };
     }
     protected client: AkariAnnotationsClient | undefined;
-    protected readonly generationCli = new GenerationCliManager();
+    protected readonly generationCli: CandidateInputsCliManager = new CandidateInputsCliManager();
     protected readonly videoCandidates = new GenerationCandidates<VideoCandidate>();
     protected readonly sourceShaCache = new Map<string, string>();
 
@@ -885,6 +895,66 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         } catch { return none; }
     }
 
+    async readGenerationProvenance(request: ReadGenerationProvenanceRequest): Promise<ReadGenerationProvenanceResult> {
+        const declared = request?.sourcePath;
+        if (!request?.projectRootUri || typeof declared !== 'string' || !declared
+            || isAbsolute(declared) || /^[a-z]:/iu.test(declared) || declared.includes('\\')
+            || declared.split('/').some(part => !part || part === '.' || part === '..')) {
+            throw new Error('素材パスはプロジェクト内の相対パスで指定してください。');
+        }
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const inside = (target: string): boolean => {
+            const path = relative(root, target);
+            return path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path);
+        };
+        const sourcePath = join(root, declared);
+        const source = await fs.realpath(sourcePath).catch(error => {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            throw error;
+        });
+        if (!source) return {};
+        if (!inside(source)) throw new Error('素材パスがプロジェクトの外を指しています。');
+        if (!(await fs.stat(source)).isFile()) return {};
+        const sidecarPath = await fs.realpath(`${sourcePath}.meta.json`).catch(error => {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            throw error;
+        });
+        if (sidecarPath) {
+            if (!inside(sidecarPath)) throw new Error('meta がプロジェクトの外を指しています。');
+            const meta = JSON.parse(await fs.readFile(sidecarPath, 'utf8')) as GenerationSidecarMeta;
+            return { meta };
+        }
+        if (!/^out\/narration\/n-\d{4}\.(?:wav|mp3)$/u.test(declared)) return {};
+        const sha256 = await this.sourceSha256(source);
+        if (!sha256) return {};
+        const directory = join(root, 'assets', 'generated', 'candidates');
+        const canonical = await fs.realpath(directory).catch(error => {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            throw error;
+        });
+        if (!canonical) return {};
+        if (!inside(canonical)) throw new Error('候補がプロジェクトの外を指しています。');
+        const matches: Array<{ path: string; meta: GenerationSidecarMeta }> = [];
+        for (const folder of await fs.readdir(canonical, { withFileTypes: true })) {
+            if (!folder.isDirectory()) continue;
+            const candidateFolder = await fs.realpath(join(canonical, folder.name));
+            if (!inside(candidateFolder)) throw new Error('候補がプロジェクトの外を指しています。');
+            for (const entry of await fs.readdir(candidateFolder, { withFileTypes: true })) {
+                if (!entry.isFile() || !/\.(?:wav|mp3)\.meta\.json$/u.test(entry.name)) continue;
+                const path = await fs.realpath(join(candidateFolder, entry.name));
+                if (!inside(path)) throw new Error('候補 meta がプロジェクトの外を指しています。');
+                try {
+                    const meta = JSON.parse(await fs.readFile(path, 'utf8')) as GenerationSidecarMeta;
+                    if (meta.kind === 'audio' && meta.status === 'done' && meta.result?.sha256 === sha256
+                        && typeof meta.candidate_of === 'string') matches.push({ path, meta });
+                } catch { /* A malformed candidate cannot establish provenance. */ }
+            }
+        }
+        matches.sort((a, b) => String(b.meta.job?.started_at ?? '').localeCompare(String(a.meta.job?.started_at ?? ''))
+            || a.path.localeCompare(b.path));
+        return matches[0] ? { meta: matches[0].meta } : {};
+    }
+
     async readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult> {
         if (!request?.projectRootUri || !Array.isArray(request.sourcePaths)) return { entries: [] };
         const root = resolve(this.fsPath(request.projectRootUri));
@@ -919,6 +989,17 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         };
         await visit(generatedRoot);
         const canonicalRoot = await fs.realpath(root).catch(() => root);
+        const activeCandidates = new Map<string, string>();
+        try {
+            const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+            const paths = new Map((edit.sources ?? []).map((source: any) => [source.id, source.path]));
+            for (const item of (edit.tracks ?? []).flatMap((track: any) => track.items ?? [])) {
+                const path = paths.get(item.source?.src);
+                if (typeof path === 'string' && /^assets\/generated\/(?:candidates\/[^/]+\/)?[^/]+\.mp4$/u.test(path)) {
+                    activeCandidates.set(path, item.id);
+                }
+            }
+        } catch { /* A missing edit has no active candidate. */ }
         const loaded = await Promise.all([...candidates].map(async ([sourcePath, candidate]) => {
             try {
                 const declared = relative(root, candidate.sourceAbsolutePath).split(sep).join('/');
@@ -959,7 +1040,19 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                         source: expected.source
                     };
                 }
-                return { sourcePath, meta, binding };
+                const itemId = activeCandidates.get(sourcePath);
+                let displayMeta = meta;
+                if (itemId && meta.kind === 'video' && (!meta.candidate_of || meta.candidate_of === itemId)) {
+                    const progressPath = generationDraftPath(root, itemId).replace(/\.inputs\.json$/u, '.compare.meta.json');
+                    const actual = await fs.realpath(progressPath).catch(() => undefined);
+                    const rel = actual && relative(canonicalRoot, actual);
+                    const progress = actual && rel !== '..' && !rel?.startsWith(`..${sep}`) && !isAbsolute(rel!)
+                        ? await fs.readFile(actual, 'utf8').then(JSON.parse).catch(() => undefined) : undefined;
+                    if (progress?.job?.provider === 'compare') {
+                        displayMeta = { ...meta, status: progress.status, job: progress.job };
+                    }
+                }
+                return { sourcePath, meta: displayMeta, binding };
             } catch {
                 return undefined;
             }
@@ -1208,6 +1301,19 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         const meta = JSON.parse(original);
         if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('素材の meta が不正です。');
+        if (meta.kind === 'video' && meta.status === 'done' && meta.candidate_of === request.itemId && !request.fromImage) {
+            // A selected candidate is evidence: never put its editable next draft in that sidecar.
+            generationDraftPath(projectRoot, request.itemId);
+            const draftPath = await projectOutputPath(projectRoot, `.akari/generation/${request.itemId}.inputs.json`);
+            const next = { kind: 'video', status: 'planned', model: { id: request.modelId },
+                inputs: request.inputs ?? {}, output: request.output ?? {}, updated_at: new Date().toISOString() };
+            const temporary = `${draftPath}.${process.pid}.${randomUUID()}.tmp`;
+            try {
+                await fs.writeFile(temporary, `${JSON.stringify(next)}\n`);
+                await fs.rename(temporary, draftPath);
+            } finally { await fs.rm(temporary, { force: true }); }
+            return { ok: true, path: relative(projectRoot, draftPath).split(sep).join('/') };
+        }
         const importedImage = imported || meta.provenance?.tool === 'akari shell (imported image)';
         let inputs = request.inputs ?? {};
         if (importedImage) {
@@ -1315,6 +1421,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     protected async videoFrame(request: GenerationProcessRequest): Promise<{
         root: string; sourcePath: string; sidecarPath: string; meta: any; durationSeconds: number;
+        regenerated: boolean; inputsPath: string;
     }> {
         generationDraftPath(this.fsPath(request.projectRootUri), request.itemId);
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
@@ -1324,7 +1431,17 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (item?.source?.kind !== 'media' || typeof sourcePath !== 'string') throw new Error('生成対象の枠が見つかりません。');
         const sidecarPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
         const meta = await fs.readFile(sidecarPath, 'utf8').then(JSON.parse).catch(() => ({}));
-        return { root, sourcePath, sidecarPath, meta, durationSeconds: item.source.out - item.source.in };
+        const regenerated = meta.kind === 'video' && meta.status === 'done' && meta.candidate_of === request.itemId;
+        const inputsPath = regenerated
+            ? await projectOutputPath(root, `.akari/generation/${request.itemId}.inputs.json`)
+            : generationDraftPath(root, request.itemId);
+        const progressPath = regenerated
+            ? await projectOutputPath(root, `.akari/generation/${request.itemId}.compare.meta.json`)
+            : sidecarPath;
+        const next = regenerated ? await fs.readFile(inputsPath, 'utf8').then(JSON.parse).catch(() => undefined) : undefined;
+        return { root, sourcePath, sidecarPath: progressPath,
+            meta: next ? { ...meta, next } : meta, durationSeconds: item.source.out - item.source.in,
+            regenerated, inputsPath };
     }
 
     async estimateVideoBatch(request: Omit<VideoBatchRequest, 'approved'>): Promise<VideoBatchEstimate> {
@@ -1373,7 +1490,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             return { sidecarPath: frame.sidecarPath, original,
                 previousCandidates: existing.filter(name => name.endsWith('.mp4.meta.json')).length };
         }, modelId => this.videoCandidates.runRoute(request.itemId, modelId, async () => {
-            const result = await this.generationCli.startCandidate(frame.root, request.itemId, modelId);
+            const result = frame.regenerated
+                ? await this.generationCli.startCandidateWithInputs(frame.root, request.itemId, modelId, frame.inputsPath)
+                : await this.generationCli.startCandidate(frame.root, request.itemId, modelId);
             const parsed = result.stdout.trim().split(/\r?\n/u).map(line => { try { return JSON.parse(line); } catch { return undefined; } })
                 .find(row => row?.mp4);
             return { ok: result.ok, ...(result.ok ? { relativePath: parsed?.mp4,
@@ -1386,7 +1505,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const live = this.videoCandidates.state(request.itemId);
         const loaded = await readCandidateMeta(frame.root, request.itemId, '.mp4');
         const candidates: VideoCandidate[] = loaded.filter(({ meta }) => typeof meta.route === 'string')
-            .sort((left, right) => String(left.meta.job?.started_at ?? '').localeCompare(String(right.meta.job?.started_at ?? ''))
+            .sort((left, right) => String(right.meta.job?.started_at ?? '').localeCompare(String(left.meta.job?.started_at ?? ''))
                 || left.meta.route.localeCompare(right.meta.route) || left.relativePath.localeCompare(right.relativePath))
             .map(({ meta, relativePath }) => ({
             route: meta.route,

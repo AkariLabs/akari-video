@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { selectGenerationSidecarForSource } from '@akari-video/edit-store';
 import * as fields from '../lib/browser/inspector/generation-fields.js';
+import { generationDraftFromDone } from '../lib/browser/inspector/generation-provenance.js';
 import { describeGenerationChip } from '../lib/common/generation-sidecar.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { validateInputs } from '../../../../../packages/generate/src/validate-inputs.mjs';
@@ -61,11 +62,13 @@ for (const next of [originalMeta.next, undefined]) test(`still + done + next ${n
   assert.ok(defs.some(field => field.generationFrame));
   assert.ok(!defs.some(field => field.name === 'generation-done'));
 });
-test('video + done の通常画質は生成済みだけを表示する', () => {
+test('video + done の通常画質も前回の入力と作り直しを表示する', () => {
   const defs = fields.generationFields(options(h3, draftFor(h3), {
     state: 'done', doneMeta: { ...doneMeta, output: { resolution: '768P' } }, originalNext: originalMeta
   }));
-  assert.deepEqual(defs.map(field => [field.name, field.getValue({})]), [['generation-done', '生成済み']]);
+  assert.ok(defs.some(field => field.name === 'generation-current-video'));
+  assert.equal(defs.find(field => field.name === 'prompt').getValue({}), 'A garden.');
+  assert.ok(defs.flatMap(field => field.actions ?? []).some(action => action.name === 'generate' && action.label === '作り直す'));
 });
 test('下書き done + 元静止画 next だけに本番の画質にする…と説明を出す', async () => {
   for (const [meta, original, visible] of [[doneMeta, originalMeta, true], [doneMeta, undefined, false], [{ ...doneMeta, output: { resolution: '768P' } }, originalMeta, false], [{ ...doneMeta, status: 'failed' }, originalMeta, false]]) {
@@ -348,7 +351,7 @@ test('既存 RPC と CLI は done mp4 の next で同一 item を再生成し映
 
 const Loader = harness('akari-inspector-widget.ts', 'AkariInspectorWidget',
   ['loadGeneration', 'readGenerationOriginalNext', 'generationIdentity', 'generationSectionFields'],
-  { generationFields: fields.generationFields, selectGenerationSidecarForSource });
+  { generationFields: fields.generationFields, generationDraftFromDone, selectGenerationSidecarForSource });
 test('done item の実 loader → placeholder 読込後も比較パネルから旧 1 本経路を呼ばない', async () => {
   const root = mkdtempSync(join(tmpdir(), 'akari-final-loader-'));
   try {
