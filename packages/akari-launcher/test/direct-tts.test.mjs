@@ -11,6 +11,38 @@ const fish = DIRECT_TTS_ENGINES[0];
 const gemini = DIRECT_TTS_ENGINES[1];
 const collect = () => { const lines = []; return { lines, log: line => lines.push(line), logError: () => {} }; };
 
+test('話し方の指示は Gemini の注釈だけに入り、Fish ではタグだけを前置きする', async t => {
+  const T = 'きょうは、あたらしい機能を紹介します。';
+  const S = '明るくテンポよく';
+  const payload = gemini.buildPayload({ text: T, voice: 'Leda', style: S });
+  assert.equal(payload.input.length, 1);
+  assert.equal(payload.input[0].content.length, 1);
+  assert.equal(payload.input[0].content[0].text, T);
+  assert.deepEqual(payload.input[0].content[0].annotations, [{ type: 'speech_metadata', style: S }]);
+  const withoutAnnotations = structuredClone(payload);
+  delete withoutAnnotations.input[0].content[0].annotations;
+  assert.equal(JSON.stringify(withoutAnnotations).includes(S), false);
+  for (const style of [undefined, '']) {
+    const content = gemini.buildPayload({ text: T, voice: 'Leda', style }).input[0].content[0];
+    assert.equal(content.text, T);
+    assert.equal(Object.hasOwn(content, 'annotations'), false);
+  }
+  assert.equal(fish.buildPayload({ text: T, voice: fish.default_voice }).text, T);
+  assert.equal(fish.buildPayload({ text: T, voice: fish.default_voice, style: S }).text, `[${S}] ${T}`);
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-direct-style-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const oldFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = oldFetch; });
+  globalThis.fetch = async () => { throw new Error('dry-run must not access network'); };
+  const io = collect();
+  const result = await runNarrationCommand(['generate', '--project', root, '--engine', gemini.id,
+    '--text', T, '--style', S, '--dry-run', '--json'], io);
+  assert.equal(result.exitCode, 0);
+  const dryRun = JSON.parse(io.lines.at(-1));
+  assert.equal(dryRun.request.body.input[0].content[0].text, T);
+});
+
 test('Fish と Gemini の URL・認証・入力・見積・WAV 変換', () => {
   const fishPayload = fish.buildPayload({ text: 'こんにちは', voice: fish.default_voice, style: 'whispering' });
   assert.deepEqual(fishPayload, { text: '[whispering] こんにちは', reference_id: fish.default_voice, format: 'mp3' });

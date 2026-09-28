@@ -7,6 +7,7 @@ akari narration generate \
   --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2|fish-s2.1-pro|gemini-3.8-flash-tts> \
   --reading-file <読み原稿.txt> [--script-file <表示原稿.txt>] \
   --t <タイムライン秒> [--gain-db 0] [--id n-0001] \
+  [--voice <声>] [--style <話し方>] [--text <原稿>] \
   [--speaker 3]              # voicevox 用（既定 3 = ずんだもん/ノーマル）
   [--profile <id>]           # 自分の声（irodori / fal-qwen3 / minimax / chatterbox / index-tts-2 / Fish）
   [--dry-run] [--yes] [--apply]
@@ -76,6 +77,20 @@ IRODORI_MODEL_DEVICE=mps IRODORI_CODEC_DEVICE=mps \
 - `--text <原稿>` で文を直接渡せる。`--reading-file` を併用すれば表示文と読みを分けられる。`--caption-ref c-0001 --apply` で生成元の字幕 ID を記録する。
 - `--t` は `--apply` 時に必須。`--apply` しない生成・承認見積りでは省略でき、省略時は 0 秒扱い。
 
+## 読み方の指示を本文に混ぜない
+
+読み方・話し方の指示は `--text` / `--reading-file` / `--script-file` に書かない。抑揚は原稿の書き方（句読点・語順・かな化）で作る。話し方の指示は `--style` だけで渡し、CLI が下表の送り先へ入れる。
+
+2026-09-27 の報告（#94）では、`gemini-3.8-flash-tts` の本文の前に「明るくテンポよく読んでください：」を付けると、指示まで読み上げられた。`systemInstruction` は `HTTP 400 Developer instruction is not enabled for this model`。英語の指示にすると原稿まで英訳して読んだ。
+
+| engine | `--style` の送り先 | 備考 |
+|---|---|---|
+| `gemini-tts` / `gemini-3.1-flash-tts`（fal） | `style_instructions` | 原稿は `prompt` |
+| `gemini-3.8-flash-tts`（Google AI 直接） | `input[0].content[0].annotations[{type:"speech_metadata", style}]` | 原稿は同じ content の `text`。**style 注釈が読み上げられないかは未実測**。聞き取り照合（`akari narration verify`）で指示文が混ざっていないか確かめる |
+| `fish-s2.1-pro` | 角括弧タグ（例: `[whispering]`）に変換して本文の前に置く | Fish の API 仕様のインラインタグ。自然文の指示は書かない |
+| `irodori` | `caption` | 声レシピを置き換える |
+| `voicevox` / `fal-qwen3` / `elevenlabs-v3` / `minimax-2.6-hd` / `chatterbox` / `index-tts-2` | 送らない | `supports.style = false` |
+
 ## エンジン一覧・声一覧の JSON 口
 
 - `akari narration engines --json` は接続状態を含むエンジン一覧を返す。VOICEVOX の起動はしない。
@@ -122,7 +137,7 @@ schema の説明も禁止していない。fal storage への別アップロー�
 | engine | 経路・鍵 | 声と日本語 | 価格・クローン |
 |---|---|---|---|
 | `fish-s2.1-pro` | Fish Audio `POST /v1/tts`。`FISH_AUDIO_API_KEY` は https://fish.audio/app/api-keys/ で取得 | 日本語公開声 5 件、既定「元気な女性」。`--style` は角括弧タグに変換 | $15 / 100 万 UTF-8 バイト（日本語 1000 字で約 $0.045）。`--profile` は正本 wav と録音原稿を MessagePack で毎回送る |
-| `gemini-3.8-flash-tts` | Google AI Interactions API。`GEMINI_API_KEY` は https://aistudio.google.com/api-keys で取得 | 日本語対応・既製 30 声、既定 Leda。`--style` は `speech_metadata.style` | 出力 $9 / 100 万トークン、音声 1 秒 = 25 トークン（2026-12-31 まで。2027-01-01 から $18）。入力 $0.50 → $1.00。声クローンは本票対象外 |
+| `gemini-3.8-flash-tts` | Google AI Interactions API。`GEMINI_API_KEY` は https://aistudio.google.com/api-keys で取得 | 日本語対応・既製 30 声、既定 Leda。`--style` は `speech_metadata.style`（本文 `text` とは別の注釈。読み上げられないかは未実測） | 出力 $9 / 100 万トークン、音声 1 秒 = 25 トークン（2026-12-31 まで。2027-01-01 から $18）。入力 $0.50 → $1.00。声クローンは本票対象外 |
 
 両方とも `~/.akari/credentials.env` の鍵を使う。見積後の `--yes` が無ければ
 有償 API を呼ばない。Fish の参照音声には本人同意・cloud_upload 同意・原稿照合 0.7 以上が必要。
@@ -151,6 +166,10 @@ default_voice, supports, buildPayload })` を追加する。`buildPayload` は�
 | ずんだもん文化圏コンテンツ・キャラ解説・下書き試聴 | voicevox |
 | 本人ナレーションの本番（CM・ブランドコンテンツ） | fal-qwen3（`--profile owner-ja` 等） |
 | 多言語展開（自分の声のまま他言語） | fal-qwen3（クロスリンガルクローン） |
+| 既製の声で日本語の本番ナレーション・話し方を別に指定したい | `gemini-3.8-flash-tts`（`GEMINI_API_KEY`・Google AI 直接）、または `gemini-tts` / `gemini-3.1-flash-tts`（`FAL_KEY`・fal 経由） |
+| 日本語の公開声・参照音声からの声（本人同意つき） | `fish-s2.1-pro`（`FISH_AUDIO_API_KEY`） |
+
+どのエンジンでも読み方の指示は本文に混ぜない（上の節）。
 
 **二段運用（推奨フロー）**: まず `--engine voicevox` で仮ナレを生成し `--apply` して尺とテンポを
 確定する。方針が固まったら、同じ `--reading-file`（必要なら微調整）・同じ `--t` で

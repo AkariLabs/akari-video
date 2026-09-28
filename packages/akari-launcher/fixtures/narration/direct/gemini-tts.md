@@ -22,3 +22,6 @@
 見積は日本語約 5 字/秒で出力秒数を推定し、出力トークン単価を適用する概算。入力トークンは含めない。
 声クローンは本人の口頭同意録音を伴う Voice replication API で、本件では未実装。
 doctor は読み取り専用 `GET https://generativelanguage.googleapis.com/v1beta/models`。
+
+- 2026-09-27 の報告（#94）: 本文 `text` の前に読み方の指示を書くと指示ごと読み上げられた。`systemInstruction` は HTTP 400（Developer instruction is not enabled for this model）。英語の指示では原稿まで英訳された。したがって話し方は `speech_metadata.style` 注釈だけで渡し、本文に混ぜない。
+- `speech_metadata.style` 注釈が読み上げられないかは未実測（有償 API のため。2026-09-28 時点）。

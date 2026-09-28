@@ -12,6 +12,25 @@ const fixtures = fileURLToPath(new URL('../fixtures/narration/openapi/', import.
 const added = FAL_TTS_ENGINES.filter(row => !['gemini-tts', 'fal-qwen3'].includes(row.id));
 const collect = () => { const lines = []; return { lines, log: line => lines.push(line), logError: () => {} }; };
 
+test('fal の話し方指定は対応エンジンの別フィールドだけに入る', () => {
+  const T = 'きょうは、あたらしい機能を紹介します。';
+  const S = '明るくテンポよく';
+  const profileMeta = { embedding_source_url: 'https://example.invalid/embedding',
+    reference_text: 'こんにちは', engines: { 'minimax-2.6-hd': { custom_voice_id: 'custom-1' } } };
+  for (const engine of FAL_TTS_ENGINES) {
+    const payload = engine.buildPayload({ text: T, voice: engine.default_voice, style: S,
+      audioUrl: 'https://example.invalid/reference.wav', profileMeta });
+    const field = Object.hasOwn(payload, 'prompt') ? 'prompt' : 'text';
+    assert.equal(payload[field], T, engine.id);
+    if (engine.supports.style === true) {
+      assert.ok(['gemini-tts', 'gemini-3.1-flash-tts'].includes(engine.id));
+      assert.equal(payload.style_instructions, S, engine.id);
+    } else {
+      assert.equal(JSON.stringify(payload).includes(S), false, engine.id);
+    }
+  }
+});
+
 test('目録の全 payload は保存した OpenAPI required とキー名に従う', () => {
   assert.equal(added.length, 5);
   for (const engine of FAL_TTS_ENGINES) {
