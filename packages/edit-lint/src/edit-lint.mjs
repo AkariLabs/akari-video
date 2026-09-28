@@ -1154,6 +1154,8 @@ function validateEditV2(edit, findings) {
     }
   }
 
+  const fps = edit.output?.fps;
+
   for (const [trackIndex, track] of edit.tracks.entries()) {
     if (!isRecord(track) || !Array.isArray(track.items)) continue;
     const visit = (items, parent, parentPath) => {
@@ -1167,6 +1169,34 @@ function validateEditV2(edit, findings) {
         }
         if (track.lane === "audio" && Object.hasOwn(item, "link")) {
           linkedAudioItems.push({ item, path: `${itemPath}.link` });
+        }
+        if (isPositiveNumber(fps) && Number.isInteger(item.duration) && item.duration > 0) {
+          const duration = item.duration;
+          const seconds = (duration / fps).toFixed(2);
+          if (track.lane !== "audio" && item.source?.kind !== "caption"
+            && duration < Math.round(0.5 * fps)) {
+            addFinding(findings, {
+              severity: "warning", check: "v2.item-duration-short",
+              message: `item ${String(item.id)} の duration は ${duration} フレーム（${seconds} 秒）です。at / duration の単位はフレームです。${duration} 秒のつもりなら ${formatNumber(duration * fps)} フレームにしてください（×fps = ${formatNumber(fps)}）。`,
+              path: `${itemPath}.duration`,
+            });
+          }
+          const source = item.source;
+          if (source?.kind === "media" && isFiniteNumber(source.out)
+            && !isStillImageSourcePath(sourcePaths.get(source.src)) && !isRecord(source.freeze)) {
+            const sourceIn = source.in ?? 0;
+            const sourceSeconds = (effectiveSourceOut(item, fps) - sourceIn)
+              / (isPositiveNumber(source.speed) ? source.speed : 1);
+            const timelineSeconds = duration / fps;
+            const ratio = Math.max(sourceSeconds / timelineSeconds, timelineSeconds / sourceSeconds);
+            if (sourceSeconds > 0 && ratio >= 5) {
+              addFinding(findings, {
+                severity: "warning", check: "v2.item-duration-source-mismatch",
+                message: `item ${String(item.id)} の duration ${duration} フレーム（${seconds} 秒）と source の区間 in ${formatNumber(sourceIn)} 秒 〜 out ${formatNumber(source.out)} 秒（${sourceSeconds.toFixed(2)} 秒${isPositiveNumber(source.speed) && source.speed !== 1 ? `・speed ${formatNumber(source.speed)}` : ""}）が ${ratio.toFixed(1)} 倍食い違っています。at / duration はフレーム、source.in / out は秒です。取り違えていないか確かめてください（duration を秒で書いたなら ×fps = ${formatNumber(fps)}）。`,
+                path: `${itemPath}.duration`,
+              });
+            }
+          }
         }
         if (track.lane === "visual" && item.source?.kind === "media" && item.audio === false
           && (Object.hasOwn(item.source, "gain_db") || Object.hasOwn(item.source, "mute"))) {
@@ -1258,6 +1288,7 @@ function validateEditV2(edit, findings) {
       ? track.items.flatMap((item, itemIndex) =>
         isRecord(item) && item.role === "bgm" ? [{
           id: item.id, trackIndex, itemIndex, start: item.at, end: item.at + item.duration,
+          fadeIn: item.fade_in, fadeOut: item.fade_out,
         }] : [])
       : []
   );
@@ -1269,13 +1300,19 @@ function validateEditV2(edit, findings) {
         const start = Math.max(bgmItems[i].start, bgmItems[j].start);
         const end = Math.min(bgmItems[i].end, bgmItems[j].end);
         if (Number.isFinite(start) && Number.isFinite(end) && start < end) {
-          overlaps.push(`${String(bgmItems[i].id)} / ${String(bgmItems[j].id)} [${start}, ${end})`);
+          const [before, after] = bgmItems[i].start <= bgmItems[j].start
+            ? [bgmItems[i], bgmItems[j]] : [bgmItems[j], bgmItems[i]];
+          if (!(before.fadeOut > 0) && !(after.fadeIn > 0)) {
+            overlaps.push({ label: `${String(before.id)} / ${String(after.id)} [${start}, ${end})`, frames: end - start });
+          }
         }
       }
     }
+    const exampleSeconds = overlaps.length && isPositiveNumber(fps)
+      ? formatNumber(Number((overlaps[0].frames / fps).toFixed(2))) : null;
     if (overlaps.length) addFinding(findings, {
-      severity: "error", check: "v2.audio-bgm-multiple",
-      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.length ? overlaps.join('、') : 'なし'}。BGM の時間が重ならないように配置してください。`,
+      severity: "warning", check: "v2.audio-bgm-multiple",
+      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.map(overlap => overlap.label).join('、')}。重なった区間は両方の BGM が鳴ります。クロスフェードにするなら、前の item に fade_out（秒）、後の item に fade_in（秒）を付けてください${exampleSeconds !== null ? `（例: 重なり ${formatNumber(overlaps[0].frames)} フレーム = ${exampleSeconds} 秒なら "fade_out": ${exampleSeconds} / "fade_in": ${exampleSeconds}）` : ""}。意図しない重なりなら時間が重ならないように配置してください。（同じトラックの中では重ねられません。別の audio トラックに置いてください）`,
       path: "edit.json#tracks",
     });
   }
@@ -2198,19 +2235,27 @@ function validateSfxTracks(sfx, findings) {
     const hasValidTrack = Object.hasOwn(item, "track") && Number.isInteger(item.track) && item.track >= 0;
     const track = hasValidTrack ? item.track : 0;
     if (!pointsByTrack.has(track)) pointsByTrack.set(track, []);
-    pointsByTrack.get(track).push({ index, t: item.t });
+    pointsByTrack.get(track).push({ index, t: item.t, path: isNonEmptyString(item.path) ? item.path : undefined, track });
   });
   for (const list of pointsByTrack.values()) {
     list.sort((a, b) => a.t - b.t);
+    let groupStart = 0;
     for (let i = 1; i < list.length; i += 1) {
       if (Math.abs(list[i].t - list[i - 1].t) <= EPSILON) {
+        const current = list[i];
+        const samePath = current.path !== undefined
+          && list.slice(groupStart, i).some(previous => previous.path !== undefined && previous.path === current.path);
         addFinding(findings, {
-          severity: "warning",
+          severity: samePath ? "warning" : "info",
           check: "audio.sfx.track-overlap",
-          message: "sfx item shares the same track and t as another sfx item",
-          path: `edit.json#audio.sfx[${list[i].index}]`,
-          range: { start: list[i].t, end: list[i].t },
+          message: samePath
+            ? `効果音 audio.sfx[${current.index}] が同じ track ${current.track}・同じ時刻 ${formatNumber(current.t)} 秒に同じ素材 ${current.path} で置かれています（二重置きの可能性）。意図した重ねなら track を分けてください（書き出しのミックスは track を見ずに全部鳴らしますが、NLE 書き出しは track を NLE のトラック単位にするため同じトラックに重なります）。`
+            : `効果音 audio.sfx[${current.index}] が同じ track ${current.track}・同じ時刻 ${formatNumber(current.t)} 秒に別素材と重なっています。書き出しのミックスは track を見ずに両方鳴らします。重ねるつもりなら track を分けてください（NLE 書き出しは track を NLE のトラック単位にするため、同じトラックに重なります）。`,
+          path: `edit.json#audio.sfx[${current.index}]`,
+          range: { start: current.t, end: current.t },
         });
+      } else {
+        groupStart = i;
       }
     }
   }

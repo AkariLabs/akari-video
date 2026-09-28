@@ -78,6 +78,13 @@ non-decreasing `at` order. It does not change the render meaning or fail lint.
 
 `timeline.duration-derived` is an info finding when a project without visual media derives its duration from overlays, captions, narration, or SFX; BGM never extends that fallback duration.
 
+For v2, `at` and `duration` are frames; `source.in`, `source.out`, and fade values are seconds.
+`v2.item-duration-short` warns when a non-audio item is shorter than half a second (excluding
+caption items). `v2.item-duration-source-mismatch` warns when a media item's source interval,
+after speed adjustment, differs from its timeline duration by at least fivefold. The latter
+also applies to audio items but excludes still images and frozen sources. Both are warnings
+and leave the pass/fail verdict unchanged.
+
 ## Engine compatibility (`--engine`)
 
 Before export, check v2 projects against the selected renderer. Use `auto` when engine selection is
