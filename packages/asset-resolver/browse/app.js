@@ -89,7 +89,7 @@
     const say = (ok, text) => { msg.className = `msg ${ok ? 'ok' : 'err'}`; msg.textContent = text; };
 
     if (item.state === 'locked') {
-      actions.append(el(`<button class="btn" disabled>未購入（¥${(item.price ?? 0).toLocaleString()}） — ストアで購入してください</button>`));
+      actions.append(el(`<button class="btn" disabled>未購入（¥${(item.price ?? 0).toLocaleString()}） — AKARI Video Lab で購入してください</button>`));
     } else if (item.state === 'cached') {
       actions.append(el('<p class="note">✓ ライブラリに取得済みです。</p>'));
     } else {

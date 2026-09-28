@@ -265,7 +265,7 @@ export class AkariStatusbarResources implements FrontendApplicationContribution 
         const account = this.element('div', 'account');
         const detail = this.element('div');
         detail.append(this.element('b', '', this.accountName ?? this.sample?.username ?? 'アカウント'),
-            this.element('div', 'muted', this.storeConnected ? 'AKARI Store に接続済み' : 'AKARI Store 未接続'));
+            this.element('div', 'muted', this.storeConnected ? 'AKARI アカウント 接続済み' : 'AKARI アカウント 未接続'));
         const avatar = this.element('span', 'avatar');
         avatar.append(this.element('i', 'codicon codicon-account'));
         account.append(avatar, detail);

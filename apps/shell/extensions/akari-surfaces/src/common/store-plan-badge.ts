@@ -56,7 +56,7 @@ export function resolveStorePlanBadge(input: StorePlanBadgeInput): StorePlanBadg
     if (!connected) {
         return {
             state: 'disconnected', label: '未接続', tone: 'neutral', icon: 'codicon-account',
-            tooltip: 'AKARI Store に接続していません。クリックすると接続設定を開きます。', lifetime: false
+            tooltip: 'AKARI アカウントに接続していません。クリックすると接続設定を開きます。', lifetime: false
         };
     }
     if (storeReconnectRequired(connected, input.entitlementsStatus)) {
@@ -75,6 +75,6 @@ export function resolveStorePlanBadge(input: StorePlanBadgeInput): StorePlanBadg
         }
         : {
             state: 'connected', label: email, tone: 'neutral', icon: 'codicon-account',
-            tooltip: `AKARI Store に接続しています\n${email}`, lifetime: false
+            tooltip: `AKARI アカウントに接続しています\n${email}`, lifetime: false
         };
 }

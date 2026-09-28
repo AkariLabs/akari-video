@@ -111,10 +111,10 @@ function makeDialog(values = {}, extra = {}) {
 }
 
 // ---- (a) ナビの順と新しい 2 節 ---------------------------------------------------------------------
-test('(a) ナビは Akari アカウント先頭・外観を新設し、開発者モードだけが開発者グループ', () => {
+test('(a) ナビは AKARI アカウント先頭・外観を新設し、開発者モードだけが開発者グループ', () => {
     const { SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, resolveSettingsSectionId, sectionForPreferenceKey } = require('../../lib/common/settings-sections.js');
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'AI モデル', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ショートカット', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
+        ['AKARI アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'AI モデル', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ショートカット', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
     assert.deepEqual(SETTINGS_SECTIONS.filter(section => section.group === 'developer').map(section => section.id), ['developer']);
     const { SETTINGS_ICON_PATHS } = require('../../lib/browser/settings/settings-icons.js');
     for (const section of SETTINGS_SECTIONS) { assert.ok(section.icon in SETTINGS_ICON_PATHS, section.id); }
@@ -189,7 +189,9 @@ test('(d) Store はアカウント節に描かれ、接続と API キーの一�
     dialog.renderSection('account');
     assert.ok(account.children.includes(store), 'account section holds the Store content');
     assert.equal(find(store, node => node.attributes['data-akari-store-status'])?.attributes['data-akari-store-status'], 'disconnected');
-    byText(store, 'ストアを開く').click();
+    assert.ok(all(store).some(node => node._text === 'AKARI Video Lab'));
+    assert.equal(all(store).some(node => /AKARI Store|ストア/.test(node._text)), false);
+    byText(store, '開く').click();
     assert.equal(opened.length, 1);
     assert.match(opened[0][0], /^https:\/\/akari\.video\/lab\/$/);
     // プラン（準備中）の枠は出さない。

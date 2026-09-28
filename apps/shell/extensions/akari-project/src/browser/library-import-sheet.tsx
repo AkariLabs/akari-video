@@ -232,7 +232,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
             <div tabIndex={-1} role='dialog' aria-modal='true' aria-label='素材サイトでさがす' className='akari-import-sheet'>
                 <header><strong>素材サイトでさがす</strong></header>
                 <div className='akari-import-scroll'>
-                    <button type='button' onClick={() => { setSitesOpen(false); props.openLab(); }}>まず AKARI Lab から</button>
+                    <button type='button' onClick={() => { setSitesOpen(false); props.openLab(); }}>まず AKARI Video Lab から</button>
                     <div style={{ margin: '12px 0' }}><label>エージェントに頼む（自由文）
                         <textarea value={siteRequest} onChange={event => setSiteRequest(event.target.value)} /></label>
                         <button type='button' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(undefined, siteRequest)); }}>エージェントに頼む</button>

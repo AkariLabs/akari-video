@@ -34,6 +34,7 @@ import { dialogOutsideClick } from '../common/dialog-outside-click';
 import { describeToolInstallOutcome, formatInstallProgressLabel } from '../common/tool-install-ui';
 import { computeDownloadPercent, formatDownloadProgressLabel } from '../common/tool-install-progress';
 import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
+import { AKARI_VIDEO_LICENSE_URL, AKARI_VIDEO_NEW_ISSUE_URL, AKARI_VIDEO_REPO_URL } from '../common/repo-links';
 import { AkariHomeCommands } from './akari-home-command-contribution';
 import { AkariNarrationEnginesService, NarrationEngineRow, SettingsVoiceAvatar, SettingsVoiceProfile } from '../common/narration-engines-protocol';
 import { falKeyAvailable, settingsVoiceEngineValue, voiceAvatarLabel, voiceSettingsActions } from '../common/voice-settings-model';
@@ -295,8 +296,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         }
         this.storeRow.setAttribute('data-akari-store-settings', 'true');
         // AKARI Store は「Akari アカウント」節へ移した（2026-09-22）。接続と API キーの末尾には置かない。
-        const storeMoved = settingsNote('読み上げに使う API キーもここで登録できます。AKARI Store の接続は「Akari アカウント」へ移りました。');
-        storeMoved.append(' ', inlineLink('Akari アカウントを開く', () => this.showSection('account')));
+        const storeMoved = settingsNote('読み上げに使う API キーもここで登録できます。AKARI Video Lab との接続は「AKARI アカウント」へ移りました。');
+        storeMoved.append(' ', inlineLink('AKARI アカウントを開く', () => this.showSection('account')));
         this.connections.append(...this.sectionHeading('connections'), storeMoved, this.subscriptionList,
             element('h3', '使った分だけ — API キー'), this.providerList, this.imageAiRow, this.storage);
         this.providerList.append(settingsNote('接続を読み込んでいます…'));
@@ -809,7 +810,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 catch { this.notice.textContent = '診断情報を書き出せませんでした。'; }
             }, { small: true }))),
         groupCard('そのほか',
-            settingRow('不具合を報告する', 'GitHub の issue を開く', action('開く', () => this.windows.openNewWindow('https://github.com/akari-video/akari-video/issues/new', { external: true }), { small: true })),
+            settingRow('不具合を報告する', 'GitHub の issue を開く', action('開く', () => this.windows.openNewWindow(AKARI_VIDEO_NEW_ISSUE_URL, { external: true }), { small: true })),
             settingRow('ログのフォルダを開く', '~/Library/Logs/AKARI Video', action('開く', () => void this.maintenance.openPath('~/Library/Logs/AKARI Video'), { small: true })),
             settingRow('画面の配置を最初に戻す', 'パネルの位置・右のレールの並びを既定に', action('戻す', () => void this.commands.executeCommand('reset.layout'), { small: true }))));
     }
@@ -870,7 +871,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 section.append(groupCard('最近の変更', release));
             }
             section.append(groupCard(undefined, settingRow('リンク', 'akari.video · GitHub · オープンソースのライセンス',
-                ...[['公式サイト', 'https://akari.video'], ['GitHub', 'https://github.com/akari-video/akari-video'], ['ライセンス', 'https://github.com/akari-video/akari-video/blob/main/LICENSE']].map(([label, url]) =>
+                ...[['公式サイト', 'https://akari.video'], ['GitHub', AKARI_VIDEO_REPO_URL], ['ライセンス', AKARI_VIDEO_LICENSE_URL]].map(([label, url]) =>
                     action(label, () => this.windows.openNewWindow(url, { external: true }), { small: true })))));
         }).catch(() => { this.notice.textContent = 'アプリ情報を読み込めませんでした。'; });
     }
@@ -1628,10 +1629,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         avatar.className = 'akari-set-avatar akari-set-avatar-user';
         avatar.setAttribute('aria-hidden', 'true');
         const identity = element('div');
-        const name = element('div', connected ? (who || 'AKARI Store に接続中') : 'AKARI Store に接続していません');
+        const name = element('div', connected ? (who || 'AKARI アカウントに接続中') : 'AKARI アカウント 未接続');
         name.className = 'akari-set-account-name';
         const lead = description(connected ? '購入済みの素材を AKARI Video で使えます。'
-            : '接続すると、Store で買った素材をライブラリへ入れられます。');
+            : '接続すると、AKARI Video Lab で買った素材をライブラリへ入れられます。');
         lead.className = 'akari-set-account-desc';
         identity.append(name, lead);
         const controls = element('div');
@@ -1648,7 +1649,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 const disconnect = action('切断する', () => {
                     disconnect.disabled = true;
                     void this.storeController.disconnect().catch(() => {
-                        this.notice.textContent = 'AKARI Store から切断できませんでした。';
+                        this.notice.textContent = 'AKARI アカウントの接続を解除できませんでした。';
                         if (!this.isDisposed) { this.renderStore(); }
                     });
                 }, { small: true });
@@ -1662,8 +1663,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const store = element('div');
         store.className = 'akari-set-group';
         store.setAttribute('data-akari-store-group', 'true');
-        store.setAttribute('data-akari-settings-group', 'AKARI STORE');
-        const storeTitle = element('div', 'AKARI STORE');
+        store.setAttribute('data-akari-settings-group', 'AKARI Video Lab');
+        const storeTitle = element('div', 'AKARI Video Lab');
         storeTitle.className = 'akari-set-group-title';
         const statusRow = element('div');
         statusRow.className = 'akari-set-row';
@@ -1681,13 +1682,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const openRow = element('div');
         openRow.className = 'akari-set-row';
         const openCopy = element('div');
-        const openLabel = element('div', 'Store を開く');
+        const openLabel = element('div', 'AKARI Video Lab を開く');
         openLabel.className = 'akari-set-row-label';
         const openUrl = description(url.replace(/^https?:\/\//, '').replace(/\/$/, ''));
         openUrl.className = 'akari-set-row-desc';
         openCopy.append(openLabel, openUrl);
         openRow.setAttribute('data-akari-store-open', url);
-        openRow.append(openCopy, action('ストアを開く', () => this.windows.openNewWindow(url, { external: true }), { small: true, iconAfter: 'ext' }));
+        openRow.append(openCopy, action('開く', () => this.windows.openNewWindow(url, { external: true }), { small: true, iconAfter: 'ext' }));
         store.append(storeTitle, statusRow, openRow);
         if (state.error) {
             const error = description(state.error);
