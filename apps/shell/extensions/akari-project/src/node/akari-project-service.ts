@@ -7,6 +7,7 @@ import { assetResolveOutcome, restrictedReferenceCount } from '../common/project
 import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
 import { interpretCaptionsResult } from '../common/captions-result';
+import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { ChildProcess, execFile, spawn } from 'child_process';
@@ -1599,7 +1600,6 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
 
     protected async timelineEditFile(root: string, editUri?: string): Promise<string> {
         const name = editUri ? basename(this.fsPath(editUri)) : 'edit.json';
-        const { isTimelineEditFileName } = await import('akari-annotations/lib/common/timeline-files');
         if (!isTimelineEditFileName(name)) throw new Error('編集データのファイル名が不正です。');
         const file = await this.transcribeFile(root, name);
         if (editUri && await fs.realpath(this.fsPath(editUri)) !== await fs.realpath(file)) {

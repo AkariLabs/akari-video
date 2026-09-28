@@ -1,6 +1,7 @@
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { referencePresentation } from '../common/project-asset-reference';
+import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
 import { ProjectAssetReference, AssetBundleOutcome } from '../common/akari-project-protocol';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
 import {
@@ -1771,7 +1772,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async readProjectReferenceDocuments(root: URI): Promise<{ documents: string[]; failed: boolean }> {
         const documents: string[] = [];
         let failed = false;
-        const { isTimelineEditFileName } = await import('akari-annotations/lib/common/timeline-files');
         let names: string[];
         try {
             const directory = await this.files.resolve(root);
