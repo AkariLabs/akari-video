@@ -1,0 +1,2132 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "step": "(vi) adopt",
+  "observations": {
+    "stubModels": [
+      {
+        "model": "fal:h3-i2v",
+        "color": "red",
+        "toneHz": 440,
+        "durationSec": 2
+      },
+      {
+        "model": "fal:kling-v3-standard-i2v",
+        "color": "green",
+        "toneHz": 660,
+        "durationSec": 3
+      },
+      {
+        "model": "fal:seedance-2.0-i2v",
+        "color": "blue",
+        "toneHz": 880,
+        "durationSec": 6
+      }
+    ],
+    "electronPid": 16200,
+    "candidates": [
+      {
+        "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+        "selected": "false",
+        "text": "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 9 秒 · 640×360 · 料金 未確認"
+      },
+      {
+        "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790560424419.mp4",
+        "selected": "false",
+        "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 7 秒 · 640×360 · $0.30"
+      },
+      {
+        "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+        "selected": "false",
+        "text": "BSeedance 2.0（画像から） · 尺 6 秒 · 作成 10 秒 · 640×360 · $1.21"
+      }
+    ],
+    "emptyFrame": {
+      "time": 4.5,
+      "color": [
+        61,
+        90,
+        127
+      ],
+      "hue": "other",
+      "state": {
+        "marker": null,
+        "relativePath": null,
+        "video": null,
+        "audio": null,
+        "stageBox": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "stillBox": null,
+        "originalBox": null,
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ]
+      }
+    },
+    "pickA": {
+      "state": {
+        "marker": "clip-frame",
+        "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+        "video": {
+          "item": "clip-frame",
+          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+          "src": "722d58c9b03cc5f5941c1fe6d98b71317b257dd7879a313152d211b22e9081c6",
+          "currentTime": 1.5,
+          "paused": true,
+          "muted": true,
+          "readyState": 4,
+          "w": 640,
+          "h": 360,
+          "duration": 3,
+          "visible": true,
+          "box": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          }
+        },
+        "audio": null,
+        "stageBox": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "stillBox": null,
+        "originalBox": null,
+        "overlayText": []
+      },
+      "still": {
+        "time": 4.5,
+        "color": [
+          67,
+          136,
+          36
+        ],
+        "hue": "green",
+        "state": {
+          "marker": "clip-frame",
+          "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+          "video": {
+            "item": "clip-frame",
+            "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+            "src": "722d58c9b03cc5f5941c1fe6d98b71317b257dd7879a313152d211b22e9081c6",
+            "currentTime": 1.5,
+            "paused": true,
+            "muted": true,
+            "readyState": 4,
+            "w": 640,
+            "h": 360,
+            "duration": 3,
+            "visible": true,
+            "box": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            }
+          },
+          "audio": {
+            "src": "717b331e578f1cd956e7ef5c75ffe793133583e1f5447a177583d28d695c4399.flac",
+            "currentTime": 1.5,
+            "paused": true,
+            "muted": false,
+            "volume": 1,
+            "readyState": 4,
+            "decodedBytes": 36640,
+            "duration": 3
+          },
+          "stageBox": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          },
+          "stillBox": null,
+          "originalBox": null,
+          "overlayText": []
+        }
+      },
+      "play": [
+        {
+          "atMs": 435,
+          "hue": "green",
+          "color": [
+            67,
+            136,
+            36
+          ],
+          "state": {
+            "marker": "clip-frame",
+            "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+            "video": {
+              "item": "clip-frame",
+              "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+              "src": "722d58c9b03cc5f5941c1fe6d98b71317b257dd7879a313152d211b22e9081c6",
+              "currentTime": 0.63,
+              "paused": false,
+              "muted": true,
+              "readyState": 4,
+              "w": 640,
+              "h": 360,
+              "duration": 3,
+              "visible": true,
+              "box": {
+                "x": 36,
+                "y": 77,
+                "w": 332,
+                "h": 187
+              }
+            },
+            "audio": {
+              "src": "717b331e578f1cd956e7ef5c75ffe793133583e1f5447a177583d28d695c4399.flac",
+              "currentTime": 0.554,
+              "paused": false,
+              "muted": false,
+              "volume": 1,
+              "readyState": 4,
+              "decodedBytes": 77861,
+              "duration": 3
+            },
+            "stageBox": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            },
+            "stillBox": null,
+            "originalBox": null,
+            "overlayText": []
+          }
+        },
+        {
+          "atMs": 874,
+          "hue": "green",
+          "color": [
+            67,
+            136,
+            36
+          ],
+          "state": {
+            "marker": "clip-frame",
+            "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+            "video": {
+              "item": "clip-frame",
+              "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+              "src": "722d58c9b03cc5f5941c1fe6d98b71317b257dd7879a313152d211b22e9081c6",
+              "currentTime": 1.063,
+              "paused": false,
+              "muted": true,
+              "readyState": 4,
+              "w": 640,
+              "h": 360,
+              "duration": 3,
+              "visible": true,
+              "box": {
+                "x": 36,
+                "y": 77,
+                "w": 332,
+                "h": 187
+              }
+            },
+            "audio": {
+              "src": "717b331e578f1cd956e7ef5c75ffe793133583e1f5447a177583d28d695c4399.flac",
+              "currentTime": 0.987,
+              "paused": false,
+              "muted": false,
+              "volume": 1,
+              "readyState": 4,
+              "decodedBytes": 103788,
+              "duration": 3
+            },
+            "stageBox": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            },
+            "stillBox": null,
+            "originalBox": null,
+            "overlayText": []
+          }
+        },
+        {
+          "atMs": 1298,
+          "hue": "green",
+          "color": [
+            67,
+            136,
+            36
+          ],
+          "state": {
+            "marker": "clip-frame",
+            "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+            "video": {
+              "item": "clip-frame",
+              "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+              "src": "722d58c9b03cc5f5941c1fe6d98b71317b257dd7879a313152d211b22e9081c6",
+              "currentTime": 1.488,
+              "paused": false,
+              "muted": true,
+              "readyState": 4,
+              "w": 640,
+              "h": 360,
+              "duration": 3,
+              "visible": true,
+              "box": {
+                "x": 36,
+                "y": 77,
+                "w": 332,
+                "h": 187
+              }
+            },
+            "audio": {
+              "src": "717b331e578f1cd956e7ef5c75ffe793133583e1f5447a177583d28d695c4399.flac",
+              "currentTime": 1.412,
+              "paused": false,
+              "muted": false,
+              "volume": 1,
+              "readyState": 4,
+              "decodedBytes": 124478,
+              "duration": 3
+            },
+            "stageBox": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            },
+            "stillBox": null,
+            "originalBox": null,
+            "overlayText": []
+          }
+        },
+        {
+          "atMs": 1772,
+          "hue": "green",
+          "color": [
+            67,
+            136,
+            36
+          ],
+          "state": {
+            "marker": "clip-frame",
+            "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+            "video": {
+              "item": "clip-frame",
+              "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+              "src": "722d58c9b03cc5f5941c1fe6d98b71317b257dd7879a313152d211b22e9081c6",
+              "currentTime": 1.962,
+              "paused": false,
+              "muted": true,
+              "readyState": 4,
+              "w": 640,
+              "h": 360,
+              "duration": 3,
+              "visible": true,
+              "box": {
+                "x": 36,
+                "y": 77,
+                "w": 332,
+                "h": 187
+              }
+            },
+            "audio": {
+              "src": "717b331e578f1cd956e7ef5c75ffe793133583e1f5447a177583d28d695c4399.flac",
+              "currentTime": 1.886,
+              "paused": false,
+              "muted": false,
+              "volume": 1,
+              "readyState": 4,
+              "decodedBytes": 150304,
+              "duration": 3
+            },
+            "stageBox": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            },
+            "stillBox": null,
+            "originalBox": null,
+            "overlayText": []
+          }
+        },
+        {
+          "atMs": 2225,
+          "hue": "green",
+          "color": [
+            67,
+            136,
+            36
+          ],
+          "state": {
+            "marker": "clip-frame",
+            "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+            "video": {
+              "item": "clip-frame",
+              "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+              "src": "722d58c9b03cc5f5941c1fe6d98b71317b257dd7879a313152d211b22e9081c6",
+              "currentTime": 2.415,
+              "paused": false,
+              "muted": true,
+              "readyState": 4,
+              "w": 640,
+              "h": 360,
+              "duration": 3,
+              "visible": true,
+              "box": {
+                "x": 36,
+                "y": 77,
+                "w": 332,
+                "h": 187
+              }
+            },
+            "audio": {
+              "src": "717b331e578f1cd956e7ef5c75ffe793133583e1f5447a177583d28d695c4399.flac",
+              "currentTime": 2.338,
+              "paused": false,
+              "muted": false,
+              "volume": 1,
+              "readyState": 4,
+              "decodedBytes": 176171,
+              "duration": 3
+            },
+            "stageBox": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            },
+            "stillBox": null,
+            "originalBox": null,
+            "overlayText": []
+          }
+        }
+      ]
+    },
+    "pickB": {
+      "state": {
+        "marker": "clip-frame",
+        "relativePath": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+        "video": {
+          "item": "clip-frame",
+          "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+          "src": "667970ccb70d2747438708f53e1872b802e1446b9751c70b9de275a2f41e5c18",
+          "currentTime": 1.5,
+          "paused": true,
+          "muted": true,
+          "readyState": 4,
+          "w": 640,
+          "h": 360,
+          "duration": 6,
+          "visible": true,
+          "box": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          }
+        },
+        "audio": null,
+        "stageBox": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "stillBox": null,
+        "originalBox": null,
+        "overlayText": []
+      },
+      "still": {
+        "time": 6.5,
+        "color": [
+          28,
+          34,
+          246
+        ],
+        "hue": "blue",
+        "state": {
+          "marker": "clip-frame",
+          "relativePath": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+          "video": {
+            "item": "clip-frame",
+            "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+            "src": "667970ccb70d2747438708f53e1872b802e1446b9751c70b9de275a2f41e5c18",
+            "currentTime": 3.5,
+            "paused": true,
+            "muted": true,
+            "readyState": 4,
+            "w": 640,
+            "h": 360,
+            "duration": 6,
+            "visible": true,
+            "box": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            }
+          },
+          "audio": {
+            "src": "5fae330bc4ba16a3cdebc211c0ff723f95cd67e46ec79dbbc0e4e2f532446435.flac",
+            "currentTime": 3.5,
+            "paused": true,
+            "muted": false,
+            "volume": 1,
+            "readyState": 4,
+            "decodedBytes": 42978,
+            "duration": 4
+          },
+          "stageBox": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          },
+          "stillBox": null,
+          "originalBox": null,
+          "overlayText": []
+        }
+      }
+    },
+    "crossLog": [
+      {
+        "ms": 102,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 201,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 301,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 401,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 501,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 601,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 702,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 802,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 902,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1002,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1101,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1200,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1302,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1402,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1502,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1602,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1701,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1802,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 1902,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2002,
+        "candVisible": false,
+        "candT": 3.5,
+        "candPaused": true,
+        "audioT": 0,
+        "audioPaused": true,
+        "audioMuted": true,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2101,
+        "candVisible": true,
+        "candT": 0.092,
+        "candPaused": false,
+        "audioT": 0.029,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2201,
+        "candVisible": true,
+        "candT": 0.192,
+        "candPaused": false,
+        "audioT": 0.129,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2301,
+        "candVisible": true,
+        "candT": 0.292,
+        "candPaused": false,
+        "audioT": 0.229,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2402,
+        "candVisible": true,
+        "candT": 0.392,
+        "candPaused": false,
+        "audioT": 0.33,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2501,
+        "candVisible": true,
+        "candT": 0.492,
+        "candPaused": false,
+        "audioT": 0.429,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2601,
+        "candVisible": true,
+        "candT": 0.592,
+        "candPaused": false,
+        "audioT": 0.529,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2702,
+        "candVisible": true,
+        "candT": 0.692,
+        "candPaused": false,
+        "audioT": 0.63,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2801,
+        "candVisible": true,
+        "candT": 0.791,
+        "candPaused": false,
+        "audioT": 0.729,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 2900,
+        "candVisible": true,
+        "candT": 0.891,
+        "candPaused": false,
+        "audioT": 0.828,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3002,
+        "candVisible": true,
+        "candT": 0.992,
+        "candPaused": false,
+        "audioT": 0.93,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3101,
+        "candVisible": true,
+        "candT": 1.092,
+        "candPaused": false,
+        "audioT": 1.029,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3202,
+        "candVisible": true,
+        "candT": 1.192,
+        "candPaused": false,
+        "audioT": 1.13,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3302,
+        "candVisible": true,
+        "candT": 1.292,
+        "candPaused": false,
+        "audioT": 1.23,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3402,
+        "candVisible": true,
+        "candT": 1.393,
+        "candPaused": false,
+        "audioT": 1.33,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3502,
+        "candVisible": true,
+        "candT": 1.492,
+        "candPaused": false,
+        "audioT": 1.43,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3601,
+        "candVisible": true,
+        "candT": 1.592,
+        "candPaused": false,
+        "audioT": 1.529,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      },
+      {
+        "ms": 3702,
+        "candVisible": true,
+        "candT": 1.692,
+        "candPaused": false,
+        "audioT": 1.63,
+        "audioPaused": false,
+        "audioMuted": false,
+        "mainVisible": false,
+        "mainT": 0,
+        "mainPaused": true,
+        "otherPlaying": []
+      }
+    ],
+    "cross": {
+      "samples": [
+        {
+          "atMs": 428,
+          "hue": "other",
+          "color": [
+            128,
+            127,
+            162
+          ],
+          "video": {
+            "t": 3.5,
+            "paused": true,
+            "visible": false
+          },
+          "audio": {
+            "t": 0,
+            "paused": true,
+            "muted": true
+          }
+        },
+        {
+          "atMs": 843,
+          "hue": "other",
+          "color": [
+            128,
+            127,
+            162
+          ],
+          "video": {
+            "t": 3.5,
+            "paused": true,
+            "visible": false
+          },
+          "audio": {
+            "t": 0,
+            "paused": true,
+            "muted": true
+          }
+        },
+        {
+          "atMs": 1262,
+          "hue": "other",
+          "color": [
+            130,
+            127,
+            163
+          ],
+          "video": {
+            "t": 3.5,
+            "paused": true,
+            "visible": false
+          },
+          "audio": {
+            "t": 0,
+            "paused": true,
+            "muted": true
+          }
+        },
+        {
+          "atMs": 1673,
+          "hue": "other",
+          "color": [
+            124,
+            119,
+            169
+          ],
+          "video": {
+            "t": 3.5,
+            "paused": true,
+            "visible": false
+          },
+          "audio": {
+            "t": 0,
+            "paused": true,
+            "muted": true
+          }
+        },
+        {
+          "atMs": 2094,
+          "hue": "blue",
+          "color": [
+            28,
+            34,
+            246
+          ],
+          "video": {
+            "t": 0.086,
+            "paused": false,
+            "visible": true
+          },
+          "audio": {
+            "t": 0.023,
+            "paused": false,
+            "muted": false
+          }
+        },
+        {
+          "atMs": 2508,
+          "hue": "blue",
+          "color": [
+            28,
+            34,
+            246
+          ],
+          "video": {
+            "t": 0.5,
+            "paused": false,
+            "visible": true
+          },
+          "audio": {
+            "t": 0.438,
+            "paused": false,
+            "muted": false
+          }
+        },
+        {
+          "atMs": 2936,
+          "hue": "blue",
+          "color": [
+            28,
+            34,
+            246
+          ],
+          "video": {
+            "t": 0.928,
+            "paused": false,
+            "visible": true
+          },
+          "audio": {
+            "t": 0.865,
+            "paused": false,
+            "muted": false
+          }
+        },
+        {
+          "atMs": 3357,
+          "hue": "blue",
+          "color": [
+            28,
+            34,
+            246
+          ],
+          "video": {
+            "t": 1.349,
+            "paused": false,
+            "visible": true
+          },
+          "audio": {
+            "t": 1.286,
+            "paused": false,
+            "muted": false
+          }
+        },
+        {
+          "atMs": 3772,
+          "hue": "blue",
+          "color": [
+            28,
+            34,
+            246
+          ],
+          "video": {
+            "t": 1.765,
+            "paused": false,
+            "visible": true
+          },
+          "audio": {
+            "t": 1.702,
+            "paused": false,
+            "muted": false
+          }
+        }
+      ],
+      "inFrame": {
+        "marker": "clip-frame",
+        "relativePath": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+        "video": {
+          "item": "clip-frame",
+          "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+          "src": "667970ccb70d2747438708f53e1872b802e1446b9751c70b9de275a2f41e5c18",
+          "currentTime": 2.394,
+          "paused": false,
+          "muted": true,
+          "readyState": 4,
+          "w": 640,
+          "h": 360,
+          "duration": 6,
+          "visible": true,
+          "box": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          }
+        },
+        "audio": {
+          "src": "5fae330bc4ba16a3cdebc211c0ff723f95cd67e46ec79dbbc0e4e2f532446435.flac",
+          "currentTime": 2.31,
+          "paused": false,
+          "muted": false,
+          "volume": 1,
+          "readyState": 4,
+          "decodedBytes": 191907,
+          "duration": 4
+        },
+        "stageBox": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "stillBox": null,
+        "originalBox": null,
+        "overlayText": []
+      },
+      "level": {
+        "peak": 0.1298,
+        "rms": 0.0838,
+        "dominantHz": 891,
+        "tracks": 1
+      }
+    },
+    "crossSummary": {
+      "entries": 37,
+      "enterAtMs": 2101,
+      "beforeFrame": {
+        "n": 20,
+        "candVisible": 0,
+        "mainT": [
+          0,
+          0
+        ],
+        "otherPlaying": 0
+      },
+      "inFrame": {
+        "n": 17,
+        "candT": [
+          0.092,
+          1.692
+        ],
+        "candPlaying": 17,
+        "audioPlaying": 17
+      },
+      "lastColor": [
+        28,
+        34,
+        246
+      ]
+    },
+    "seek": {
+      "back": {
+        "time": 1,
+        "color": [
+          128,
+          127,
+          162
+        ],
+        "hue": "other",
+        "state": {
+          "marker": "clip-frame",
+          "relativePath": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+          "video": {
+            "item": "clip-frame",
+            "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+            "src": "667970ccb70d2747438708f53e1872b802e1446b9751c70b9de275a2f41e5c18",
+            "currentTime": 2.367,
+            "paused": true,
+            "muted": true,
+            "readyState": 4,
+            "w": 640,
+            "h": 360,
+            "duration": 6,
+            "visible": false,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          "audio": {
+            "src": "5fae330bc4ba16a3cdebc211c0ff723f95cd67e46ec79dbbc0e4e2f532446435.flac",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 4,
+            "decodedBytes": 213690,
+            "duration": 4
+          },
+          "stageBox": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          },
+          "stillBox": null,
+          "originalBox": null,
+          "overlayText": []
+        }
+      },
+      "into": {
+        "time": 5,
+        "color": [
+          28,
+          34,
+          246
+        ],
+        "hue": "blue",
+        "state": {
+          "marker": "clip-frame",
+          "relativePath": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+          "video": {
+            "item": "clip-frame",
+            "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+            "src": "667970ccb70d2747438708f53e1872b802e1446b9751c70b9de275a2f41e5c18",
+            "currentTime": 2,
+            "paused": true,
+            "muted": true,
+            "readyState": 4,
+            "w": 640,
+            "h": 360,
+            "duration": 6,
+            "visible": true,
+            "box": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            }
+          },
+          "audio": {
+            "src": "5fae330bc4ba16a3cdebc211c0ff723f95cd67e46ec79dbbc0e4e2f532446435.flac",
+            "currentTime": 2,
+            "paused": true,
+            "muted": false,
+            "volume": 1,
+            "readyState": 4,
+            "decodedBytes": 234705,
+            "duration": 4
+          },
+          "stageBox": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          },
+          "stillBox": null,
+          "originalBox": null,
+          "overlayText": []
+        }
+      }
+    },
+    "short": {
+      "early": {
+        "time": 3.8,
+        "color": [
+          228,
+          62,
+          34
+        ],
+        "hue": "red",
+        "state": {
+          "marker": "clip-frame",
+          "relativePath": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790560424419.mp4",
+          "video": {
+            "item": "clip-frame",
+            "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790560424419.mp4",
+            "src": "5b928e49f8c9ab35d34209886adde4fe43875500d65e76830fed89eb7e92385d",
+            "currentTime": 0.8,
+            "paused": true,
+            "muted": true,
+            "readyState": 4,
+            "w": 640,
+            "h": 360,
+            "duration": 2,
+            "visible": true,
+            "box": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            }
+          },
+          "audio": {
+            "src": "70060ddeb86b226ff2dd193107a31264e885196e4f0bfc6c23e419e356fe4f6b.flac",
+            "currentTime": 0.8,
+            "paused": true,
+            "muted": false,
+            "volume": 1,
+            "readyState": 4,
+            "decodedBytes": 41550,
+            "duration": 2
+          },
+          "stageBox": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          },
+          "stillBox": null,
+          "originalBox": null,
+          "overlayText": []
+        }
+      },
+      "late": {
+        "time": 6.5,
+        "color": [
+          228,
+          62,
+          34
+        ],
+        "hue": "red",
+        "state": {
+          "marker": "clip-frame",
+          "relativePath": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790560424419.mp4",
+          "video": {
+            "item": "clip-frame",
+            "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790560424419.mp4",
+            "src": "5b928e49f8c9ab35d34209886adde4fe43875500d65e76830fed89eb7e92385d",
+            "currentTime": 1.967,
+            "paused": true,
+            "muted": true,
+            "readyState": 4,
+            "w": 640,
+            "h": 360,
+            "duration": 2,
+            "visible": true,
+            "box": {
+              "x": 36,
+              "y": 77,
+              "w": 332,
+              "h": 187
+            }
+          },
+          "audio": {
+            "src": "70060ddeb86b226ff2dd193107a31264e885196e4f0bfc6c23e419e356fe4f6b.flac",
+            "currentTime": 1.967,
+            "paused": true,
+            "muted": false,
+            "volume": 1,
+            "readyState": 4,
+            "decodedBytes": 51267,
+            "duration": 2
+          },
+          "stageBox": {
+            "x": 36,
+            "y": 77,
+            "w": 332,
+            "h": 187
+          },
+          "stillBox": null,
+          "originalBox": null,
+          "overlayText": []
+        }
+      }
+    },
+    "clearRepick": {
+      "state": {
+        "marker": null,
+        "relativePath": null,
+        "video": null,
+        "audio": null,
+        "stageBox": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "stillBox": null,
+        "originalBox": null,
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ]
+      },
+      "color": [
+        61,
+        90,
+        127
+      ],
+      "rows": [
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+          "selected": "false",
+          "text": "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 9 秒 · 640×360 · 料金 未確認"
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790560424419.mp4",
+          "selected": "false",
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 7 秒 · 640×360 · $0.30"
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+          "selected": "false",
+          "text": "BSeedance 2.0（画像から） · 尺 6 秒 · 作成 10 秒 · 640×360 · $1.21"
+        }
+      ]
+    },
+    "clearSelection": {
+      "state": {
+        "marker": null,
+        "relativePath": null,
+        "video": null,
+        "audio": null,
+        "stageBox": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "stillBox": null,
+        "originalBox": null,
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ]
+      },
+      "color": [
+        61,
+        90,
+        127
+      ]
+    },
+    "adopt": {
+      "item": {
+        "id": "clip-frame",
+        "at": 90,
+        "duration": 120,
+        "source": {
+          "kind": "media",
+          "src": "gen-clip-frame-video",
+          "in": 0,
+          "out": 3,
+          "freeze": {
+            "at_sec": 3,
+            "duration_sec": 1
+          },
+          "mute": false
+        }
+      },
+      "color": [
+        55,
+        126,
+        34
+      ],
+      "candidateState": {
+        "marker": null,
+        "relativePath": null,
+        "video": null,
+        "audio": null,
+        "stageBox": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "stillBox": null,
+        "originalBox": null,
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ]
+      },
+      "probe": {
+        "frame": [],
+        "videos": [
+          {
+            "id": "preview-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": false,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "standby-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "transition-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "audios": [],
+        "overlayText": [],
+        "aurora": []
+      },
+      "historyBefore": {
+        "past": 0,
+        "future": 0,
+        "canUndo": false
+      },
+      "historyAfter": {
+        "past": 1,
+        "future": 0,
+        "canUndo": true
+      }
+    },
+    "undo": {
+      "item": {
+        "id": "clip-frame",
+        "at": 90,
+        "duration": 120,
+        "source": {
+          "kind": "media",
+          "src": "src-start",
+          "in": 0,
+          "out": 4
+        }
+      },
+      "sameAsOriginalJson": true,
+      "sha": "055c5080d750b38a63075640de7a310525ed7693df3d775aa4e13d4e0f51306c",
+      "color": [
+        61,
+        90,
+        127
+      ],
+      "overlayText": [
+        "▶ 動画予定 · 画像から"
+      ]
+    },
+    "shaTrail": [
+      {
+        "label": "start",
+        "same": true
+      },
+      {
+        "label": "picked A",
+        "same": true
+      },
+      {
+        "label": "picked B",
+        "same": true
+      },
+      {
+        "label": "played B",
+        "same": true
+      },
+      {
+        "label": "picked short",
+        "same": true
+      },
+      {
+        "label": "cleared",
+        "same": true
+      }
+    ],
+    "historyTrail": [
+      {
+        "label": "start",
+        "past": 0,
+        "future": 0,
+        "canUndo": false
+      },
+      {
+        "label": "picked A",
+        "past": 0,
+        "future": 0,
+        "canUndo": false
+      },
+      {
+        "label": "picked B",
+        "past": 0,
+        "future": 0,
+        "canUndo": false
+      },
+      {
+        "label": "played B",
+        "past": 0,
+        "future": 0,
+        "canUndo": false
+      },
+      {
+        "label": "picked short",
+        "past": 0,
+        "future": 0,
+        "canUndo": false
+      },
+      {
+        "label": "cleared",
+        "past": 0,
+        "future": 0,
+        "canUndo": false
+      }
+    ],
+    "stubEvents": [
+      {
+        "kind": "submit",
+        "model": "fal:h3-i2v",
+        "auth": true
+      },
+      {
+        "kind": "submit",
+        "model": "fal:seedance-2.0-i2v",
+        "auth": true
+      },
+      {
+        "kind": "submit",
+        "model": "fal:kling-v3-standard-i2v",
+        "auth": true
+      }
+    ]
+  },
+  "checks": [
+    {
+      "name": "3 案ができた（候補の時点で edit.json 不変）",
+      "pass": true,
+      "detail": [
+        "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+        "assets/generated/candidates/clip-frame/fal-h3-i2v-1790560424419.mp4",
+        "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4"
+      ]
+    },
+    {
+      "name": "(i) 候補 A（kling）を押すと出力プレビューの枠が緑（止めて 4.5 秒）",
+      "pass": true,
+      "detail": {
+        "color": [
+          67,
+          136,
+          36
+        ],
+        "marker": "clip-frame",
+        "relativePath": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790560424437.mp4",
+        "overlayText": [],
+        "currentTime": 1.5
+      }
+    },
+    {
+      "name": "(i) 再生すると候補の currentTime が進み、枠は緑のまま",
+      "pass": true,
+      "detail": [
+        {
+          "atMs": 435,
+          "hue": "green",
+          "t": 0.63,
+          "paused": false
+        },
+        {
+          "atMs": 874,
+          "hue": "green",
+          "t": 1.063,
+          "paused": false
+        },
+        {
+          "atMs": 1298,
+          "hue": "green",
+          "t": 1.488,
+          "paused": false
+        },
+        {
+          "atMs": 1772,
+          "hue": "green",
+          "t": 1.962,
+          "paused": false
+        },
+        {
+          "atMs": 2225,
+          "hue": "green",
+          "t": 2.415,
+          "paused": false
+        }
+      ]
+    },
+    {
+      "name": "(i) 候補の映像は枠の位置・大きさ（元の要素と同じ矩形）",
+      "pass": true,
+      "detail": {
+        "video": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        },
+        "still": null,
+        "stage": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        }
+      }
+    },
+    {
+      "name": "(ii) 候補 B（seedance）を押すと青に入れ替わる（緑の候補の video は残らない）",
+      "pass": true,
+      "detail": {
+        "color": [
+          28,
+          34,
+          246
+        ],
+        "relativePath": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+        "videoPath": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4"
+      }
+    },
+    {
+      "name": "(ii) 長い候補は枠の中の時刻どおり（6.5 秒 = 枠内 3.5 秒）",
+      "pass": true,
+      "detail": {
+        "item": "clip-frame",
+        "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790560424417.mp4",
+        "src": "667970ccb70d2747438708f53e1872b802e1446b9751c70b9de275a2f41e5c18",
+        "currentTime": 3.5,
+        "paused": true,
+        "muted": true,
+        "readyState": 4,
+        "w": 640,
+        "h": 360,
+        "duration": 6,
+        "visible": true,
+        "box": {
+          "x": 36,
+          "y": 77,
+          "w": 332,
+          "h": 187
+        }
+      }
+    },
+    {
+      "name": "(iii) 前のクリップ（1.0 秒〜）から再生すると、前のクリップの間は候補を出さず、3 秒で枠に入ると候補（青）が頭から再生される",
+      "pass": true,
+      "detail": {
+        "entries": 37,
+        "enterAtMs": 2101,
+        "beforeFrame": {
+          "n": 20,
+          "candVisible": 0,
+          "mainT": [
+            0,
+            0
+          ],
+          "otherPlaying": 0
+        },
+        "inFrame": {
+          "n": 17,
+          "candT": [
+            0.092,
+            1.692
+          ],
+          "candPlaying": 17,
+          "audioPlaying": 17
+        },
+        "lastColor": [
+          28,
+          34,
+          246
+        ]
+      }
+    },
+    {
+      "name": "(iv) 枠の中で候補の音（FLAC sidecar の audio）が鳴っている: paused=false・muted=false・currentTime が映像と揃う",
+      "pass": true,
+      "detail": {
+        "audio": {
+          "src": "5fae330bc4ba16a3cdebc211c0ff723f95cd67e46ec79dbbc0e4e2f532446435.flac",
+          "currentTime": 2.31,
+          "paused": false,
+          "muted": false,
+          "volume": 1,
+          "readyState": 4,
+          "decodedBytes": 191907,
+          "duration": 4
+        },
+        "video": {
+          "t": 2.394,
+          "paused": false
+        }
+      }
+    },
+    {
+      "name": "(iv) 音量: 実際に音が出ている（peak > 0.01）・主な周波数が seedance の 880Hz 付近",
+      "pass": true,
+      "detail": {
+        "peak": 0.1298,
+        "rms": 0.0838,
+        "dominantHz": 891,
+        "tracks": 1
+      }
+    },
+    {
+      "name": "(iii) シーク: 前のクリップ（1.0 秒）では候補を出さず、枠の途中（5.0 秒）では青・候補の時刻 2.0 秒",
+      "pass": true,
+      "detail": {
+        "back": {
+          "color": [
+            128,
+            127,
+            162
+          ],
+          "visible": false
+        },
+        "into": {
+          "color": [
+            28,
+            34,
+            246
+          ],
+          "t": 2
+        }
+      }
+    },
+    {
+      "name": "短い候補（h3・2 秒）: 枠の後半（6.5 秒）も赤のまま・候補は最後のコマ（< 2 秒）で止まる",
+      "pass": true,
+      "detail": {
+        "early": 0.8,
+        "late": 1.967,
+        "colors": [
+          [
+            228,
+            62,
+            34
+          ],
+          [
+            228,
+            62,
+            34
+          ]
+        ]
+      }
+    },
+    {
+      "name": "(v) 同じ候補をもう一度押すと仮表示が終わり空の枠（オーロラ・「動画予定」の札）に戻る",
+      "pass": true,
+      "detail": {
+        "color": [
+          61,
+          90,
+          127
+        ],
+        "emptyColor": [
+          61,
+          90,
+          127
+        ],
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ]
+      }
+    },
+    {
+      "name": "(v) 枠の選択を外す（前のクリップを選ぶ）と空の枠に戻る",
+      "pass": true,
+      "detail": {
+        "color": [
+          61,
+          90,
+          127
+        ],
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ]
+      }
+    },
+    {
+      "name": "(vii) 仮表示の間（押す・入れ替え・再生・シーク・解除）edit.json のハッシュが不変",
+      "pass": true,
+      "detail": [
+        {
+          "label": "start",
+          "same": true
+        },
+        {
+          "label": "picked A",
+          "same": true
+        },
+        {
+          "label": "picked B",
+          "same": true
+        },
+        {
+          "label": "played B",
+          "same": true
+        },
+        {
+          "label": "picked short",
+          "same": true
+        },
+        {
+          "label": "cleared",
+          "same": true
+        }
+      ]
+    },
+    {
+      "name": "(vii) 仮表示の間 undo 履歴の長さが不変",
+      "pass": true,
+      "detail": [
+        {
+          "label": "start",
+          "past": 0,
+          "future": 0,
+          "canUndo": false
+        },
+        {
+          "label": "picked A",
+          "past": 0,
+          "future": 0,
+          "canUndo": false
+        },
+        {
+          "label": "picked B",
+          "past": 0,
+          "future": 0,
+          "canUndo": false
+        },
+        {
+          "label": "played B",
+          "past": 0,
+          "future": 0,
+          "canUndo": false
+        },
+        {
+          "label": "picked short",
+          "past": 0,
+          "future": 0,
+          "canUndo": false
+        },
+        {
+          "label": "cleared",
+          "past": 0,
+          "future": 0,
+          "canUndo": false
+        }
+      ]
+    },
+    {
+      "name": "(vi) 「この案を使う」で枠が候補に確定し、仮表示は終わり、プレビューは確定した素材で緑",
+      "pass": true,
+      "detail": {
+        "src": {
+          "kind": "media",
+          "src": "gen-clip-frame-video",
+          "in": 0,
+          "out": 3,
+          "freeze": {
+            "at_sec": 3,
+            "duration_sec": 1
+          },
+          "mute": false
+        },
+        "color": [
+          55,
+          126,
+          34
+        ]
+      }
+    },
+    {
+      "name": "(vi) 採用は undo 履歴 1 手",
+      "pass": true,
+      "detail": {
+        "before": {
+          "past": 0,
+          "future": 0,
+          "canUndo": false
+        },
+        "after": {
+          "past": 1,
+          "future": 0,
+          "canUndo": true
+        }
+      }
+    },
+    {
+      "name": "(vi) undo 1 回で edit.json が元と完全一致・プレビューは空の枠",
+      "pass": true,
+      "detail": {
+        "item": {
+          "id": "clip-frame",
+          "at": 90,
+          "duration": 120,
+          "source": {
+            "kind": "media",
+            "src": "src-start",
+            "in": 0,
+            "out": 4
+          }
+        },
+        "sameAsOriginalJson": true,
+        "sha": "055c5080d750b38a63075640de7a310525ed7693df3d775aa4e13d4e0f51306c",
+        "color": [
+          61,
+          90,
+          127
+        ],
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "00-after-empty-frame-before-pick.png",
+      "bytes": 420307
+    },
+    {
+      "name": "01-after-pick-A-green-in-preview.png",
+      "bytes": 304989
+    },
+    {
+      "name": "02-after-pick-B-blue-in-preview.png",
+      "bytes": 285232
+    },
+    {
+      "name": "03-after-cross-play-seek-into-frame.png",
+      "bytes": 284436
+    },
+    {
+      "name": "04-after-short-candidate-freeze-last-frame.png",
+      "bytes": 305624
+    },
+    {
+      "name": "05-after-repick-back-to-empty-frame.png",
+      "bytes": 403020
+    },
+    {
+      "name": "06-after-deselect-back-to-empty-frame.png",
+      "bytes": 475737
+    },
+    {
+      "name": "07-after-adopt-green-committed.png",
+      "bytes": 318921
+    },
+    {
+      "name": "08-after-one-undo-empty-frame.png",
+      "bytes": 398762
+    }
+  ]
+}

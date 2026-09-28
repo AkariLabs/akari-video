@@ -53,7 +53,8 @@ import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
 import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, type AiStillState, type StillAspect, type StillFalEstimate } from './inspector/ai-still-panel';
-import { appendAiVideoCandidatesPanel, clearVideoPlayer, replaceVideoInEdit, videoApprovalMessage, videoModelGroups, videoModelName,
+import { appendAiVideoCandidatesPanel, clearVideoPlayer, replaceVideoInEdit, videoApprovalMessage, videoCandidatePreviewDetail,
+    shouldClearVideoCandidatePreview, videoModelGroups, videoModelName,
     videoMakerId, videoProgress, videoProgressCandidate, videoProgressLayoutKey, type AiVideoState } from './inspector/ai-video-candidates-panel';
 import { generationDraftFromDone, generationProvenance } from './inspector/generation-provenance';
 import { stillMakerBadge } from './inspector/maker-badge';
@@ -3259,6 +3260,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected stillFalEstimate?: StillFalEstimate;
     protected stillFalEstimateLoading?: Promise<void>;
     protected previewedStillItemId?: string;
+    protected previewedVideoCandidate?: { editUri: string; itemId: string; key: string };
     protected aiStillTick?: number;
     protected transcribeKey?: string;
     protected transcribeTarget?: AiTranscribeTarget;
@@ -4478,6 +4480,10 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.previewedStillItemId = undefined;
                 }
             }
+            if (this.previewedVideoCandidate && shouldClearVideoCandidatePreview(this.previewedVideoCandidate.itemId,
+                this.generationIdentity?.(this.model.snapshot)?.itemId)) {
+                this.clearVideoCandidatePreview();
+            }
             this.liveValues = undefined;
             this.lutGeneration++;
             this.projectLutRefs = [];
@@ -4869,6 +4875,11 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected render(): void {
+        if (this.previewedVideoCandidate && (this.aiView !== 'video'
+            || shouldClearVideoCandidatePreview(this.previewedVideoCandidate.itemId,
+                this.generationIdentity?.(this.model.snapshot)?.itemId))) {
+            this.clearVideoCandidatePreview();
+        }
         const forceEmpty = this.forceEmptyRender;
         this.forceEmptyRender = false;
         const selectionKey = this.viewSelectionKey();
@@ -5701,6 +5712,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (activeTab === 'info' && typeof this.appendGenerationProvenance === 'function') {
             this.appendGenerationProvenance(rowSnapshot, generationIdentity, clipKey);
         }
+        if (this.previewedVideoCandidate && activeTab !== 'edit') this.clearVideoCandidatePreview();
         if (activeTab === 'edit' && this.aiView === 'video' && generationIdentity
             && !generationIdentity.key.startsWith('material:')
             && typeof this.appendVideoCandidatesPanel === 'function') this.appendVideoCandidatesPanel(generationIdentity);
@@ -5776,6 +5788,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     override dispose(): void {
+        this.clearVideoCandidatePreview?.();
         if (this.transcribeTimer) clearInterval(this.transcribeTimer);
         if (this.narrationTick) window.clearInterval(this.narrationTick);
         for (const state of this.aiVideoStates?.values() ?? []) clearVideoPlayer(state);
@@ -7559,11 +7572,13 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         const workspaceKey = root?.toString();
         if (workspaceKey && this.aiVideoWorkspaceKey && workspaceKey !== this.aiVideoWorkspaceKey) {
+            this.clearVideoCandidatePreview();
             for (const previous of this.aiVideoStates.values()) clearVideoPlayer(previous);
             this.aiVideoStates.clear();
         }
         this.aiVideoWorkspaceKey = workspaceKey;
         if (this.aiVideoPlayerItemKey && this.aiVideoPlayerItemKey !== identity.key) {
+            this.clearVideoCandidatePreview();
             const previous = this.aiVideoStates.get(this.aiVideoPlayerItemKey);
             if (previous) clearVideoPlayer(previous);
         }
@@ -7879,13 +7894,36 @@ export class AkariInspectorWidget extends BaseWidget {
         this.renderVideoCandidates();
     }
 
+    protected clearVideoCandidatePreview(): void {
+        const preview = this.previewedVideoCandidate;
+        if (!preview) return;
+        this.previewedVideoCandidate = undefined;
+        const state = this.aiVideoStates.get(preview.key);
+        if (state) clearVideoPlayer(state);
+        window.dispatchEvent(new CustomEvent('akari.preview.videoCandidate', { detail: {
+            editUri: preview.editUri, itemId: preview.itemId, clear: true
+        } }));
+    }
+
     protected async pickVideoCandidate(identity: { key: string; itemId: string }, candidate: VideoCandidate): Promise<void> {
         const state = this.aiVideoStates.get(identity.key);
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!state || !root || !candidate.relativePath) return;
-        if (state.picked === candidate.relativePath && state.playerUrl) return;
+        if (state.picked === candidate.relativePath) {
+            this.clearVideoCandidatePreview();
+            this.renderVideoCandidates();
+            return;
+        }
+        this.clearVideoCandidatePreview();
         clearVideoPlayer(state);
         state.picked = candidate.relativePath; state.playerUrl = undefined;
+        const editUri = root.resolve('edit.json').toString();
+        const frameSeconds = this.generationIdentity(this.model.snapshot)?.duration;
+        try {
+            const detail = videoCandidatePreviewDetail(editUri, identity.itemId, frameSeconds ?? 0, candidate);
+            this.previewedVideoCandidate = { editUri, itemId: identity.itemId, key: identity.key };
+            window.dispatchEvent(new CustomEvent('akari.preview.videoCandidate', { detail }));
+        } catch (error) { state.error = error instanceof Error ? error.message : String(error); }
         this.renderVideoCandidates();
         try {
             const data = await this.fileService.readFile(root.resolve(candidate.relativePath));
@@ -7900,6 +7938,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         const candidate = state?.batch?.candidates.find(row => row.relativePath === state.picked && row.ok);
         if (!state || !root || !candidate || state.running || state.adopting) return;
+        this.clearVideoCandidatePreview();
         state.adopting = true;
         const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
             const location = (widget as unknown as { location?: { root?: URI } }).location;

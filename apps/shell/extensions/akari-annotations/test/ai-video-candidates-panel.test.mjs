@@ -487,6 +487,7 @@ test('1 案の自動採用は再読込の後に 1 手だけ積み、undo 1 回�
     } }] };
   instance.aiVideoStates = new Map([['clip-1', { selected: new Set([candidate.route]), estimate,
     running: false, thumbnails: new Map() }]]);
+  instance.clearVideoCandidatePreview = () => {};
   instance.workspaceService = { tryGetRoots: () => [{ resource: root }] };
   instance.generationCatalog = models;
   instance.generationDrafts = new Map([['clip-1', { modelId: candidate.route, inputs: {}, output: {} }]]);

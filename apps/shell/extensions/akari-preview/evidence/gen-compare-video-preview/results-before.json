@@ -1,0 +1,323 @@
+{
+  "phase": "before",
+  "status": "pass",
+  "step": "pick candidate",
+  "observations": {
+    "electronPid": 96312,
+    "candidates": [
+      {
+        "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790557052699.mp4",
+        "selected": "false",
+        "text": "BSeedance 2.0（画像から） · 尺 6 秒 · 作成 10 秒 · 640×360 · $1.21"
+      },
+      {
+        "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790557052685.mp4",
+        "selected": "false",
+        "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 7 秒 · 640×360 · $0.30"
+      },
+      {
+        "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790557052583.mp4",
+        "selected": "false",
+        "text": "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 8 秒 · 640×360 · 料金 未確認"
+      }
+    ],
+    "emptyFrame": {
+      "color": [
+        61,
+        90,
+        127
+      ],
+      "hue": "other",
+      "probe": {
+        "frame": [],
+        "videos": [
+          {
+            "id": "preview-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "standby-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "transition-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "audios": [],
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ],
+        "aurora": []
+      }
+    },
+    "pickedKling": {
+      "color": [
+        61,
+        90,
+        127
+      ],
+      "hue": "other",
+      "probe": {
+        "frame": [],
+        "videos": [
+          {
+            "id": "preview-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "standby-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "transition-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "audios": [],
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ],
+        "aurora": []
+      },
+      "panelPlayer": {
+        "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790557052583.mp4",
+        "readyState": 4
+      },
+      "rows": [
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790557052699.mp4",
+          "selected": "false",
+          "text": "BSeedance 2.0（画像から） · 尺 6 秒 · 作成 10 秒 · 640×360 · $1.21"
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790557052685.mp4",
+          "selected": "false",
+          "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 7 秒 · 640×360 · $0.30"
+        },
+        {
+          "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790557052583.mp4",
+          "selected": "true",
+          "text": "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 8 秒 · 640×360 · 料金 未確認"
+        }
+      ],
+      "editShaSame": true
+    },
+    "stubEvents": [
+      {
+        "kind": "submit",
+        "model": "fal:kling-v3-standard-i2v",
+        "auth": true
+      },
+      {
+        "kind": "submit",
+        "model": "fal:seedance-2.0-i2v",
+        "auth": true
+      },
+      {
+        "kind": "submit",
+        "model": "fal:h3-i2v",
+        "auth": true
+      }
+    ]
+  },
+  "checks": [
+    {
+      "name": "BEFORE: スタブ fal で 3 案ができた",
+      "pass": true,
+      "detail": [
+        "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790557052699.mp4",
+        "assets/generated/candidates/clip-frame/fal-h3-i2v-1790557052685.mp4",
+        "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790557052583.mp4"
+      ]
+    },
+    {
+      "name": "BEFORE: 候補（緑の kling）を押しても出力プレビューの枠は緑にならない（パネル内のプレイヤーだけ）",
+      "pass": true,
+      "detail": {
+        "color": [
+          61,
+          90,
+          127
+        ],
+        "hue": "other",
+        "probe": {
+          "frame": [],
+          "videos": [
+            {
+              "id": "preview-video",
+              "src": "",
+              "currentTime": 0,
+              "paused": true,
+              "muted": true,
+              "volume": 1,
+              "readyState": 0,
+              "visible": false,
+              "w": 0,
+              "h": 0
+            },
+            {
+              "id": "standby-video",
+              "src": "",
+              "currentTime": 0,
+              "paused": true,
+              "muted": true,
+              "volume": 1,
+              "readyState": 0,
+              "visible": false,
+              "w": 0,
+              "h": 0
+            },
+            {
+              "id": "transition-video",
+              "src": "",
+              "currentTime": 0,
+              "paused": true,
+              "muted": true,
+              "volume": 1,
+              "readyState": 0,
+              "visible": false,
+              "w": 0,
+              "h": 0
+            }
+          ],
+          "audios": [],
+          "overlayText": [
+            "▶ 動画予定 · 画像から"
+          ],
+          "aurora": []
+        },
+        "panelPlayer": {
+          "picked": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790557052583.mp4",
+          "readyState": 4
+        },
+        "rows": [
+          {
+            "path": "assets/generated/candidates/clip-frame/fal-seedance-2-0-i2v-1790557052699.mp4",
+            "selected": "false",
+            "text": "BSeedance 2.0（画像から） · 尺 6 秒 · 作成 10 秒 · 640×360 · $1.21"
+          },
+          {
+            "path": "assets/generated/candidates/clip-frame/fal-h3-i2v-1790557052685.mp4",
+            "selected": "false",
+            "text": "MiniMax H3（画像から） · 尺 2 秒 · 作成 7 秒 · 640×360 · $0.30"
+          },
+          {
+            "path": "assets/generated/candidates/clip-frame/fal-kling-v3-standard-i2v-1790557052583.mp4",
+            "selected": "true",
+            "text": "Kling Video v3 Standard（画像から） · 尺 3 秒 · 作成 8 秒 · 640×360 · 料金 未確認"
+          }
+        ],
+        "editShaSame": true
+      }
+    },
+    {
+      "name": "BEFORE: 出力プレビューの枠の要素に候補の mp4 が入らない",
+      "pass": true,
+      "detail": {
+        "frame": [],
+        "videos": [
+          {
+            "id": "preview-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "standby-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          },
+          {
+            "id": "transition-video",
+            "src": "",
+            "currentTime": 0,
+            "paused": true,
+            "muted": true,
+            "volume": 1,
+            "readyState": 0,
+            "visible": false,
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "audios": [],
+        "overlayText": [
+          "▶ 動画予定 · 画像から"
+        ],
+        "aurora": []
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "00-before-empty-frame.png",
+      "bytes": 412645
+    },
+    {
+      "name": "01-before-picked-candidate-frame-still-empty.png",
+      "bytes": 381938
+    }
+  ]
+}

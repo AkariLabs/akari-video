@@ -164,6 +164,24 @@ export function clearVideoPlayer(state: AiVideoState): void {
     state.picked = undefined;
 }
 
+/** The preview event carries the same trim/freeze rule as replaceVideoCandidateItem. */
+export function videoCandidatePreviewDetail(editUri: string, itemId: string, frameSeconds: number,
+    candidate: VideoCandidate): { editUri: string; itemId: string; relativePath: string;
+        inSeconds: number; outSeconds: number; freeze?: { atSeconds: number; durationSeconds: number } } {
+    if (!candidate.ok || !candidate.relativePath || !Number.isFinite(candidate.durationSeconds)
+        || candidate.durationSeconds! <= 0 || !Number.isFinite(frameSeconds) || frameSeconds <= 0) {
+        throw new Error('完成した候補と正の枠尺が必要です。');
+    }
+    const outSeconds = Number(Math.min(frameSeconds, candidate.durationSeconds!).toFixed(6));
+    return { editUri, itemId, relativePath: candidate.relativePath, inSeconds: 0, outSeconds,
+        ...(candidate.durationSeconds! < frameSeconds ? { freeze: { atSeconds: outSeconds,
+            durationSeconds: Number((frameSeconds - candidate.durationSeconds!).toFixed(6)) } } : {}) };
+}
+
+export function shouldClearVideoCandidatePreview(previewItemId: string | undefined, selectedItemId: string | undefined): boolean {
+    return !!previewItemId && previewItemId !== selectedItemId;
+}
+
 /** Both edits are committed by the timeline as a single undo step. */
 export function replaceVideoInEdit<T extends { sources?: Array<{ id: string; path: string }>;
     tracks?: Array<{ items?: Array<{ id: string; source: { kind: string; src: string; in: number; out: number } }> }> }>(
