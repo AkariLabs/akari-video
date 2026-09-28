@@ -1,0 +1,1091 @@
+{
+  "machine": "Windows 11 / Electron 39.8.7 tier 2 / Intel UHD（OSR は GPU 設定を書かない auto）",
+  "base": "49af07a62",
+  "fixtures": {
+    "p3d-a/p3d-b": "1920x1080 30fps 180 コマ・testsrc2 の下地 + 押し出し 3D テキスト断片（three runtime）",
+    "blend-on/blend-off": "1920x1080 30fps 360 コマ・カットを 1→1.75 倍に寄せる keyframes + 暖色の重ね（soft-light の有無だけ違う）",
+    "l1b": "blend-on 60 コマを、本物の electron-main を import する使い捨て main で起動し、ページの stamp を 1 小さい番号（stale）/ 青 40（color）に差し替え（製品コードは無改変）",
+    "deep": "157 字のプロジェクトパス・60 コマ・render-cut --engine osr --force（lint の references 検査が本機の fixture で FAIL するため）"
+  },
+  "runs": [
+    {
+      "label": "before-solo",
+      "wallMs": 157558,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 40729,
+      "msPerFrame": 226,
+      "verify": {
+        "retriesTotal": 26,
+        "retryHistogram": {
+          "0": 154,
+          "1": 26
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 154,
+          "-1": 26
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 29.392949999999473,
+          "p95": 38.47978999999996
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.08675000000221189,
+          "p95": 0.27300999999915787
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 3.287349999998696,
+          "p95": 4.176749999999078
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.024649999999383,
+          "p95": 33.382559999998556
+        },
+        "write": {
+          "count": 180,
+          "p50": 8.081850000000486,
+          "p95": 9.48048999999919
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": null,
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-par1-a",
+      "wallMs": 144243,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 40321,
+      "msPerFrame": 224,
+      "verify": {
+        "retriesTotal": 37,
+        "retryHistogram": {
+          "0": 143,
+          "1": 37
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 143,
+          "-1": 37
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 27.732850000000326,
+          "p95": 71.83039000000004
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.06370000000060827,
+          "p95": 0.1779750000003327
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 2.9487500000013824,
+          "p95": 6.8977849999997485
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.02275000000008731,
+          "p95": 37.51968999999999
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.694250000000466,
+          "p95": 84.41321999999799
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-par1-b",
+      "wallMs": 144171,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 39831,
+      "msPerFrame": 221,
+      "verify": {
+        "retriesTotal": 31,
+        "retryHistogram": {
+          "0": 149,
+          "1": 31
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 149,
+          "-1": 31
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 28.68594999999914,
+          "p95": 58.523075000000915
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.05995000000075379,
+          "p95": 0.22906500000135535
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 3.120649999997113,
+          "p95": 6.350109999999765
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.021650000000590808,
+          "p95": 34.811760000001236
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.3989999999994325,
+          "p95": 91.79806499999813
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-par2-a",
+      "wallMs": 172644,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 48020,
+      "msPerFrame": 267,
+      "verify": {
+        "retriesTotal": 36,
+        "retryHistogram": {
+          "0": 144,
+          "1": 36
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 144,
+          "-1": 36
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 26.995450000000346,
+          "p95": 55.285259999997265
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.06130000000121072,
+          "p95": 0.13118999999915046
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 2.9347500000003492,
+          "p95": 4.857995000006121
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.02049999999871943,
+          "p95": 35.28510500000229
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.633500000001732,
+          "p95": 101.86029999999948
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-par2-b",
+      "wallMs": 143099,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 38238,
+      "msPerFrame": 212,
+      "verify": {
+        "retriesTotal": 25,
+        "retryHistogram": {
+          "0": 155,
+          "1": 25
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 155,
+          "-1": 25
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 27.02349999999933,
+          "p95": 57.26706499999963
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.06015000000115833,
+          "p95": 0.2052199999994626
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 2.770699999999124,
+          "p95": 5.308975000001007
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.02035000000068976,
+          "p95": 39.01611500000229
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.205400000000736,
+          "p95": 80.05112999999925
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-blend-on",
+      "wallMs": 219685,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 360,
+      "captureLoopMs": 44042,
+      "msPerFrame": 122,
+      "verify": {
+        "retriesTotal": 181,
+        "retryHistogram": {
+          "0": 179,
+          "1": 181
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 179,
+          "-1": 181
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 360,
+          "p50": 26.30739999999969,
+          "p95": 66.75132500000026
+        },
+        "paint": {
+          "count": 360,
+          "p50": 0.05489999999917927,
+          "p95": 0.1617000000012013
+        },
+        "toBitmap": {
+          "count": 360,
+          "p50": 2.572650000000067,
+          "p95": 4.714274999999771
+        },
+        "verify": {
+          "count": 360,
+          "p50": 21.490249999999833,
+          "p95": 60.531959999999806
+        },
+        "write": {
+          "count": 360,
+          "p50": 7.5398500000010245,
+          "p95": 97.1832349999976
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-blend-off",
+      "wallMs": 83574,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 360,
+      "captureLoopMs": 59916,
+      "msPerFrame": 166,
+      "verify": {
+        "retriesTotal": 121,
+        "retryHistogram": {
+          "0": 239,
+          "1": 121
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 239,
+          "-1": 121
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 360,
+          "p50": 27.020950000001903,
+          "p95": 59.3127350000008
+        },
+        "paint": {
+          "count": 360,
+          "p50": 0.055099999999583815,
+          "p95": 0.1596150000000308
+        },
+        "toBitmap": {
+          "count": 360,
+          "p50": 2.8839000000007218,
+          "p95": 6.40533000000105
+        },
+        "verify": {
+          "count": 360,
+          "p50": 0.01940000000058717,
+          "p95": 52.97883500000011
+        },
+        "write": {
+          "count": 360,
+          "p50": 7.482700000000477,
+          "p95": 97.81518499999751
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-tri-a",
+      "wallMs": 206764,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 56175,
+      "msPerFrame": 312,
+      "verify": {
+        "retriesTotal": 29,
+        "retryHistogram": {
+          "0": 151,
+          "1": 29
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 151,
+          "-1": 29
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 28.06540000000132,
+          "p95": 93.6999849999999
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.060100000001511944,
+          "p95": 0.19894999999942228
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 2.7629499999984546,
+          "p95": 4.349424999999609
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.01860000000033324,
+          "p95": 34.70684499999952
+        },
+        "write": {
+          "count": 180,
+          "p50": 75.30224999999973,
+          "p95": 221.55519499999798
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-tri-b",
+      "wallMs": 129273,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 56154,
+      "msPerFrame": 312,
+      "verify": {
+        "retriesTotal": 25,
+        "retryHistogram": {
+          "0": 155,
+          "1": 25
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 155,
+          "-1": 25
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 27.683149999998932,
+          "p95": 126.3477499999984
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.06195000000116124,
+          "p95": 0.19094500000028342
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 2.741499999999178,
+          "p95": 4.712769999999725
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.018100000000231375,
+          "p95": 34.147349999998724
+        },
+        "write": {
+          "count": 180,
+          "p50": 40.98344999999972,
+          "p95": 170.26635999999925
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "before-tri-blend",
+      "wallMs": 117557,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 360,
+      "captureLoopMs": 71304,
+      "msPerFrame": 198,
+      "verify": {
+        "retriesTotal": 36,
+        "retryHistogram": {
+          "0": 325,
+          "1": 34,
+          "2": 1
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 325,
+          "-1": 35
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 360,
+          "p50": 27.012800000000425,
+          "p95": 72.88814499999918
+        },
+        "paint": {
+          "count": 360,
+          "p50": 0.056450000000040745,
+          "p95": 0.17461500000099478
+        },
+        "toBitmap": {
+          "count": 360,
+          "p50": 2.535149999999703,
+          "p95": 4.42906499999963
+        },
+        "verify": {
+          "count": 360,
+          "p50": 0.01449999999749707,
+          "p95": 33.545435000002186
+        },
+        "write": {
+          "count": 360,
+          "p50": 70.8480499999987,
+          "p95": 205.02296499999892
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": true
+    },
+    {
+      "label": "after-par1-a",
+      "wallMs": 99832,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 26034,
+      "msPerFrame": 145,
+      "verify": {
+        "retriesTotal": 22,
+        "retryHistogram": {
+          "0": 158,
+          "1": 22
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 158,
+          "-1": 22
+        },
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 891,
+          "max": 87,
+          "maxFrame": 135
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 25.944799999999304,
+          "p95": 52.12767500000007
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.062300000001414446,
+          "p95": 0.1913500000007838
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 2.9372000000003027,
+          "p95": 6.203934999999679
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.025299999999333522,
+          "p95": 33.845390000000315
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.400300000000243,
+          "p95": 69.38464000000123
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": false
+    },
+    {
+      "label": "after-par1-b",
+      "wallMs": 48941,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 26066,
+      "msPerFrame": 145,
+      "verify": {
+        "retriesTotal": 26,
+        "retryHistogram": {
+          "0": 154,
+          "1": 26
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 154,
+          "-1": 26
+        },
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 1077,
+          "max": 81,
+          "maxFrame": 91
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 26.873199999999997,
+          "p95": 50.810395000000135
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.0606500000003507,
+          "p95": 0.16276000000043486
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 3.110099999999875,
+          "p95": 7.423834999999865
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.025700000000597356,
+          "p95": 39.46239999999952
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.063349999999446,
+          "p95": 64.74118999999989
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": false
+    },
+    {
+      "label": "after-par2-a",
+      "wallMs": 52564,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 23545,
+      "msPerFrame": 131,
+      "verify": {
+        "retriesTotal": 44,
+        "retryHistogram": {
+          "0": 136,
+          "1": 44
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 136,
+          "-1": 44
+        },
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 1647,
+          "max": 74,
+          "maxFrame": 68
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 26.83680000000004,
+          "p95": 49.39020499999924
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.05929999999989377,
+          "p95": 0.21255999999971192
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 2.897099999999682,
+          "p95": 7.551415000000042
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.02790000000004511,
+          "p95": 46.29466000000025
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.705500000000029,
+          "p95": 51.708024999999886
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": false
+    },
+    {
+      "label": "after-par2-b",
+      "wallMs": 234963,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 180,
+      "captureLoopMs": 28914,
+      "msPerFrame": 161,
+      "verify": {
+        "retriesTotal": 29,
+        "retryHistogram": {
+          "0": 151,
+          "1": 29
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 151,
+          "-1": 29
+        },
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 1039,
+          "max": 53,
+          "maxFrame": 38
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 180,
+          "p50": 27.82879999999932,
+          "p95": 54.99044999999987
+        },
+        "paint": {
+          "count": 180,
+          "p50": 0.06149999999979627,
+          "p95": 0.18487000000050077
+        },
+        "toBitmap": {
+          "count": 180,
+          "p50": 3.1118500000002314,
+          "p95": 8.545884999999998
+        },
+        "verify": {
+          "count": 180,
+          "p50": 0.0294000000003507,
+          "p95": 35.550874999999344
+        },
+        "write": {
+          "count": 180,
+          "p50": 7.428599999998369,
+          "p95": 18.30205000000094
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": false
+    },
+    {
+      "label": "after-l1b-stale",
+      "wallMs": 175083,
+      "ok": false,
+      "error": "OSR Electron exited 1 (no signal)",
+      "runError": "Error: frame 0 stamp verify failed after 10 retries over 3053 ms（GPU: Intel(R) UHD Graphics）; expected stamp 0, read x=0:65535 x=959:65535 x=1919:65535; 1 コマ前の絵のまま（描画が追いついていない）; active overlays: warm（CSS: mix-blend-mode: soft-light）; 予算 3000 ms / 32 回; 他の書き出しと並走していると起きることがあります。同じ内容で再実行してください",
+      "frames": 60,
+      "captureLoopMs": null,
+      "msPerFrame": null,
+      "verify": {
+        "retriesTotal": 10,
+        "retryHistogram": {
+          "10": 1
+        },
+        "preVerifyDeltaHistogram": {},
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 3053,
+          "max": 3053,
+          "maxFrame": 0
+        },
+        "failure": {
+          "frame": 0,
+          "retries": 10,
+          "elapsed_ms": 3053,
+          "expected": 0,
+          "samples": [
+            {
+              "x": 0,
+              "frameNumber": 65535,
+              "bgra": [
+                85,
+                255,
+                255,
+                255
+              ],
+              "validColor": true
+            },
+            {
+              "x": 959,
+              "frameNumber": 65535,
+              "bgra": [
+                85,
+                255,
+                255,
+                255
+              ],
+              "validColor": true
+            },
+            {
+              "x": 1919,
+              "frameNumber": 65535,
+              "bgra": [
+                85,
+                255,
+                255,
+                255
+              ],
+              "validColor": true
+            }
+          ],
+          "classification": "stale",
+          "overlays": [
+            {
+              "id": "warm",
+              "blend": "normal",
+              "cssFeatures": [
+                "mix-blend-mode: soft-light"
+              ]
+            }
+          ]
+        }
+      },
+      "stages": null,
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 3,
+      "userDataNextToOut": false
+    },
+    {
+      "label": "after-l1b-color",
+      "wallMs": 275918,
+      "ok": false,
+      "error": "OSR Electron exited 1 (no signal)",
+      "runError": "Error: frame 0 stamp verify failed after 11 retries over 3508 ms（GPU: Intel(R) UHD Graphics）; expected stamp 0, read x=0:0(色不一致 BGRA 40,0,0,255) x=959:0(色不一致 BGRA 40,0,0,255) x=1919:0(色不一致 BGRA 40,0,0,255); stamp 行の色が崩れている（ブレンド・フィルタ・色変換が最下行に及んでいる可能性）; active overlays: warm（CSS: mix-blend-mode: soft-light）; 予算 3000 ms / 32 回; 他の書き出しと並走していると起きることがあります。同じ内容で再実行してください",
+      "frames": 60,
+      "captureLoopMs": null,
+      "msPerFrame": null,
+      "verify": {
+        "retriesTotal": 11,
+        "retryHistogram": {
+          "11": 1
+        },
+        "preVerifyDeltaHistogram": {},
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 3508,
+          "max": 3508,
+          "maxFrame": 0
+        },
+        "failure": {
+          "frame": 0,
+          "retries": 11,
+          "elapsed_ms": 3508,
+          "expected": 0,
+          "samples": [
+            {
+              "x": 0,
+              "frameNumber": 0,
+              "bgra": [
+                40,
+                0,
+                0,
+                255
+              ],
+              "validColor": false
+            },
+            {
+              "x": 959,
+              "frameNumber": 0,
+              "bgra": [
+                40,
+                0,
+                0,
+                255
+              ],
+              "validColor": false
+            },
+            {
+              "x": 1919,
+              "frameNumber": 0,
+              "bgra": [
+                40,
+                0,
+                0,
+                255
+              ],
+              "validColor": false
+            }
+          ],
+          "classification": "color",
+          "overlays": [
+            {
+              "id": "warm",
+              "blend": "normal",
+              "cssFeatures": [
+                "mix-blend-mode: soft-light"
+              ]
+            }
+          ]
+        }
+      },
+      "stages": null,
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 3,
+      "userDataNextToOut": false
+    },
+    {
+      "label": "after-blend-on",
+      "wallMs": 212538,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 360,
+      "captureLoopMs": 47108,
+      "msPerFrame": 131,
+      "verify": {
+        "retriesTotal": 31,
+        "retryHistogram": {
+          "0": 329,
+          "1": 31
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 329,
+          "-1": 31
+        },
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 1285,
+          "max": 69,
+          "maxFrame": 350
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 360,
+          "p50": 26.93304999999964,
+          "p95": 44.129625000001035
+        },
+        "paint": {
+          "count": 360,
+          "p50": 0.05774999999994179,
+          "p95": 0.17642500000292793
+        },
+        "toBitmap": {
+          "count": 360,
+          "p50": 2.8532999999988533,
+          "p95": 7.737889999999516
+        },
+        "verify": {
+          "count": 360,
+          "p50": 0.019450000000688306,
+          "p95": 33.78355000000156
+        },
+        "write": {
+          "count": 360,
+          "p50": 7.5674999999992,
+          "p95": 49.51203499999847
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": false
+    },
+    {
+      "label": "after-blend-off",
+      "wallMs": 110540,
+      "ok": true,
+      "error": null,
+      "runError": null,
+      "frames": 360,
+      "captureLoopMs": 29342,
+      "msPerFrame": 82,
+      "verify": {
+        "retriesTotal": 112,
+        "retryHistogram": {
+          "0": 248,
+          "1": 112
+        },
+        "preVerifyDeltaHistogram": {
+          "0": 248,
+          "-1": 112
+        },
+        "budget": {
+          "budget_ms": 3000,
+          "maximum_retries": 32
+        },
+        "retryElapsedMs": {
+          "total": 4225,
+          "max": 113,
+          "maxFrame": 350
+        }
+      },
+      "stages": {
+        "seek": {
+          "count": 360,
+          "p50": 26.05134999999973,
+          "p95": 51.76628999999912
+        },
+        "paint": {
+          "count": 360,
+          "p50": 0.054050000000643195,
+          "p95": 0.19209499999979018
+        },
+        "toBitmap": {
+          "count": 360,
+          "p50": 2.7811500000002525,
+          "p95": 7.36584499999981
+        },
+        "verify": {
+          "count": 360,
+          "p50": 0.022950000000491855,
+          "p95": 44.146564999999924
+        },
+        "write": {
+          "count": 360,
+          "p50": 6.903649999999743,
+          "p95": 12.803430000000937
+        }
+      },
+      "emptyPaints": 0,
+      "gpu": "Intel(R) UHD Graphics",
+      "stderr0xCE": false,
+      "stderrLines": 0,
+      "userDataNextToOut": false
+    }
+  ],
+  "deepPathRenderCut": {
+    "before": {
+      "stderrLines": 13,
+      "cacheErrorLines": 8
+    },
+    "after": {
+      "stderrLines": 0,
+      "cacheErrorLines": 0
+    }
+  }
+}

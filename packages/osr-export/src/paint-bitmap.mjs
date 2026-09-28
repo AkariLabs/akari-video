@@ -25,10 +25,89 @@
  *   paints were seen, whichever comes first; the message names attempts, ms and the active GPU.
  * - `recordEmptyPaints` / `createEmptyPaintRecorder` keep run.json `emptyPaints[]` as
  *   `{ frame, attempts, elapsed_ms }` (elapsed counted from the start of the capture call).
+ * Stamp retries took about 33–40 ms each on the measured machine; two or three concurrent exports
+ * still needed at most two retries, while their average frame took 212–312 ms. The fixed eight
+ * retries abandoned a frame after roughly 0.3 s. A 3 s budget gives a contended frame about ten
+ * times its measured average, with a count ceiling and capped backoff as independent bounds.
  */
 export const OSR_WARM_UP_BUDGET_MS = 5_000;
 export const OSR_EMPTY_PAINT_BUDGET_MS = 2_000;
 export const OSR_MAXIMUM_EMPTY_ATTEMPTS = 64;
+export const OSR_STAMP_RETRY_BUDGET_MS = 3_000;
+export const OSR_MAXIMUM_STAMP_RETRIES = 32;
+export const OSR_STAMP_RETRY_MAX_DELAY_MS = 500;
+
+export function stampRetryDelayMs(retry, { maxDelayMs = OSR_STAMP_RETRY_MAX_DELAY_MS } = {}) {
+  if (!Number.isFinite(retry) || retry <= 1 || !Number.isFinite(maxDelayMs) || maxDelayMs <= 0) return 0;
+  return Math.min(16 * 2 ** (retry - 2), maxDelayMs);
+}
+
+export async function retryUntilVerified({
+  check,
+  recapture,
+  settle,
+  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  maximumRetries = OSR_MAXIMUM_STAMP_RETRIES,
+  budgetMs = OSR_STAMP_RETRY_BUDGET_MS,
+  backoff = true,
+  now = () => performance.now(),
+}) {
+  const started = now();
+  let retries = 0;
+  for (;;) {
+    if (await check()) return { satisfied: true, retries, elapsedMs: now() - started };
+    const elapsed = now() - started;
+    if (retries >= maximumRetries || elapsed >= budgetMs) return { satisfied: false, retries, elapsedMs: elapsed };
+    retries += 1;
+    const delay = backoff ? stampRetryDelayMs(retries) : 0;
+    if (delay > 0) await wait(delay);
+    await settle();
+    await recapture();
+  }
+}
+
+function signedStampDelta(actual, expected, modulus) {
+  return ((actual - expected + modulus / 2) % modulus + modulus) % modulus - modulus / 2;
+}
+
+export function classifyStampSamples(samples, expectedFrameNumber, modulus = 65_536) {
+  if (samples.some((sample) => sample.validColor === false)) return "color";
+  if (samples.some((sample) => sample.frameNumber !== samples[0]?.frameNumber)) return "torn";
+  const delta = signedStampDelta(samples[0]?.frameNumber, expectedFrameNumber, modulus);
+  return delta < 0 ? "stale" : delta > 0 ? "ahead" : "match";
+}
+
+export function stampVerifyFailureMessage({
+  frame, retries, elapsedMs, activeDevice = null, expectedFrameNumber, samples = [], overlays = null,
+  budgetMs = OSR_STAMP_RETRY_BUDGET_MS, maximumRetries = OSR_MAXIMUM_STAMP_RETRIES,
+}) {
+  const classification = classifyStampSamples(samples, expectedFrameNumber);
+  const delta = signedStampDelta(samples[0]?.frameNumber, expectedFrameNumber, 65_536);
+  const reason = {
+    stale: `${Math.abs(delta)} コマ前の絵のまま（描画が追いついていない）`,
+    ahead: `${delta} コマ先の絵`,
+    torn: "stamp 行の 3 点で番号が食い違う（描画の途中を掴んだ）",
+    color: "stamp 行の色が崩れている（ブレンド・フィルタ・色変換が最下行に及んでいる可能性）",
+    match: "stamp 行は一致",
+  }[classification];
+  const read = samples.length === 0 ? "read unavailable" : `read ${samples.map((sample) =>
+    `x=${sample.x}:${sample.frameNumber}${sample.validColor ? "" : `(色不一致 BGRA ${sample.bgra.join(",")})`}`).join(" ")}`;
+  let active = "active overlays: 取得できませんでした";
+  if (Array.isArray(overlays)) {
+    const shown = overlays.slice(0, 8).map(({ id, cssFeatures = [], blend = "normal" }) =>
+      `${id}${cssFeatures.length ? `（CSS: ${cssFeatures.join(", ")}）` : ""}${blend !== "normal" ? `（blend: ${blend}）` : ""}`);
+    if (overlays.length > 8) shown.push(`ほか ${overlays.length - 8} 件`);
+    active = `active overlays: ${shown.length ? shown.join(", ") : "なし"}`;
+  }
+  return [
+    `frame ${frame} stamp verify failed after ${retries} retries over ${roundMs(elapsedMs)} ms（GPU: ${activeDevice ?? "unknown"}）`,
+    `expected stamp ${expectedFrameNumber}, ${read}`,
+    reason,
+    active,
+    `予算 ${budgetMs} ms / ${maximumRetries} 回`,
+    "他の書き出しと並走していると起きることがあります。同じ内容で再実行してください",
+  ].join("; ");
+}
 
 export function osrPageSize(width, height) {
   return { width: Number(width), height: Number(height) + 1 };

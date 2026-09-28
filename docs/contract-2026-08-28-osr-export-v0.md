@@ -55,7 +55,7 @@ A = 255
 
 BGRA bitmapでは `[0x55, G, R, 255]` となる。左端、中央、右端の3画素を復号し、期待番号との全点一致を要求する。確認後、ffmpegへ渡す前に `buffer.subarray(0, W * H * 4)` で最下行を除く。
 
-`--verify stamp|hash|off` を持ち、既定は `stamp` とする。`hash` は直前の映像領域と同じSHA-256ならsettle後に再取得し、静止画で上限へ達した場合は曖昧件数を記録して受理する。`off` は比較計測用である。通常書き出しではverifyを無効にしない。
+`--verify stamp|hash|off` を持ち、既定は `stamp` とする。`hash` は直前の映像領域と同じSHA-256ならsettle後に再取得し、上限は8回かつ`OSR_STAMP_RETRY_BUDGET_MS`、待ちは伸ばさない。静止画で上限へ達した場合は曖昧件数を記録して受理する。`off` は比較計測用である。通常書き出しではverifyを無効にしない。
 
 ## 4. 駆動プロトコル
 
@@ -71,6 +71,8 @@ seek → ready → invalidate → paint → verify → write
 
 `run.json` はseek、paint、toBitmap、verify、writeのp50/p95、1000コマ区切りmedian、先頭と末尾のdriftRatio、paint timeout、verify retry、verify前delta histogram、backpressure、メモリ、ffprobe結果を記録する。
 
+**2026-09-28 追記（#113 / #88）**: stampの再試行は時間予算3000 msと回数上限32の先に達した方で失敗する。2回目からsettleの前に16、32、64、…最大500 msを追加で待つ。並走実測では再試行1回が約33〜40 ms、2〜3本並走でも最大2回、1コマ平均が212〜312 msだった。従来の固定8回は約0.3秒で諦めていたため、3秒は並走中の平均1コマの約10倍の猶予とする。失敗文は従来の先頭、読めたstamp値と分類、活性オーバーレイとCSS機能、予算、再実行の案内を順に含む。`run.json` の `verify.budget` / `verify.retryElapsedMs` は完了・失敗の両方に、`verify.failure` はstamp失敗時だけに記録する。
+
 ## 5. LUT
 
 `output.look` のLUTはframe-engine canvas内のsampler3Dで適用する。ページ全体へCSS filterを掛けない。したがって字幕、自由HTML、3DはLUTの外にあり、映像canvasだけが色変換の対象となる。
@@ -85,7 +87,7 @@ seek → ready → invalidate → paint → verify → write
 
 第1段・第2段とも、実プロセスのコマンドラインに`--force-device-scale-factor=1`、`--force-color-profile=srgb`、background throttling無効化スイッチを渡す。npm Electronではスクリプトパスを`argv[1]`に保ち、その後へChromiumスイッチを置く。ソフト描画時は加えてGPU無効化とSwiftShaderスイッチを渡す。
 
-第1段・第2段とも`--user-data-dir=<run 一時ディレクトリ>/electron-user-data`を渡し、本体アプリの単一インスタンスロック（userData単位）と分離する。これによりアプリ起動中でも書き出せる。子がexit 0で終了して出力を作らなかった場合は、launcherが失敗として扱う。
+第1段・第2段とも`--user-data-dir`を渡し、本体アプリの単一インスタンスロック（userData単位）と分離する。既定は`launchElectronExport`が書き出しごとに`os.tmpdir()`直下へ`mkdtemp("akari-osr-")`で作る短い一意なディレクトリで、子のclose後に`finally`で削除する。呼び出し側が`userDataDir`を明示した場合はそれを使い、作らず消さない。これによりアプリ起動中でも書き出せる。子がexit 0で終了して出力を作らなかった場合は、launcherが失敗として扱う。**2026-09-28 改訂（#114）**: 出力の隣に置くとプロジェクトのパス長とChromiumのキャッシュ階層がWindowsのMAX_PATHを超え、キャッシュ作成エラーがstderrに出ていた。
 
 **Windows のアプリ別 GPU 設定の一時上書き（2026-09-01 追記・§11.7）**: `platform === "win32"` かつソフト描画でないとき、第1段・第2段とも launcher（`launchElectronExport`・gpu / osr 共通の spawn 点）は、`auto` では GPU 出口（`options.exit === "gpu"`・gpu-export の electron-main）のときだけ、`force` では OSR 出口でも、spawn の直前に `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` へ「値名 = 実行体のフルパス（`path.win32.resolve` で正規化）・REG_SZ `GpuPreference=2;`」を書き、子の `close` 後（exit code に関わらず・spawn エラーでも）に `finally` で必ず 1 回復元する（無かったなら削除・あったなら元の値へ）。方針は呼び出し側の `gpuPreference` → env `AKARI_EXPORT_GPU_PREFERENCE` → `auto` の順に解決し、`auto` は利用者が明示した値（`GpuPreference=1;` 等）を黙って上書きしない（`force` だけが上書き + 復元する）。書く前に sidecar `<AKARI_HOME ?? ~/.akari>/gpu-preference-override.json` を置き、復元後に削除する。`launchElectronExport` は毎回冒頭で sidecar があれば先に復元する。記録は戻り値の `gpuPreference`（`exit` 込み）と receipt の `provenance.gpu_preference`。OSR 出口を `auto` で外す根拠は §11.7（2026-09-02 改訂）。他 OS はバイト同一の no-op（記録に `reason: platform` だけ残す）。開発用に `AKARI_EXPORT_ALLOW_DESKTOP=0` で第1段（インストール済みアプリ）を候補から外せる（明示引数 `allowDesktop` が env より優先）。
 
