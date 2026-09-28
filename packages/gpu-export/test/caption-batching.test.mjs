@@ -189,6 +189,68 @@ test("variant CSS is scoped per band and rejects at-rules", () => {
   assert.throws(() => scopeCaptionCss("@media all{.a{color:red}}", ".band"), /at-rules/u);
 });
 
+test("字幕断片自身の CSS は帯ごとに閉じ、詳細度を変えず @規則はそのまま残す", () => {
+  const isolate = new Function(`return (${functionSource("isolateCaptionFragmentCss")})`)();
+  const band = '[data-akari-band="3"]';
+  assert.equal(
+    isolate('.a,.b:not(.c,.d)>.e{color:red} .f[data-x="1,2"]{opacity:0}', band),
+    ':where([data-akari-band="3"]) .a,:where([data-akari-band="3"]) .b:not(.c,.d)>.e{color:red}'
+      + ' :where([data-akari-band="3"]) .f[data-x="1,2"]{opacity:0}',
+  );
+  const atRules = '@font-face{font-family:a;src:url("/caption-font.ttf")}@keyframes k{from{opacity:0}to{opacity:1}}';
+  assert.equal(isolate(`${atRules}.p{width:1px}`, band), `${atRules}:where([data-akari-band="3"]) .p{width:1px}`);
+  // 想定外の形は触らない（書き出しを止めない）。
+  for (const malformed of [".a{color:red", ".a{color:red}}", '.a{content:"}'] ) {
+    assert.equal(isolate(malformed, band), malformed);
+  }
+});
+
+test("1 枚の SVG に並べた字幕の帯は互いの規則を受けない（wrap 字幕の plate が後ろの字幕の規則で縮まない）", () => {
+  // 実機の再現: 位置 + wrap_width_pct + scale の題字（c-0023）の後ろに別字幕が同じ batch に並ぶと、
+  // 後ろの字幕の .akari-caption__plate { width: var(--caption-width, auto) } が題字の
+  // width: var(--caption-wrap-width) に勝ち、plate が max-content へ縮んで scale の中心ごと 7px 左へずれた。
+  const isolateCaptionFragmentCss = new Function(`return (${functionSource("isolateCaptionFragmentCss")})`)();
+  const isolateCaptionFragmentStyles = new Function(
+    "isolateCaptionFragmentCss",
+    `return (${functionSource("isolateCaptionFragmentStyles")})`,
+  )(isolateCaptionFragmentCss);
+  const scopeCaptionCss = new Function(`return (${functionSource("scopeCaptionCss")})`)();
+  const captionRasterBand = new Function(
+    "serializeHtmlToXhtml", "scopeCaptionCss", "isolateCaptionFragmentStyles", "varsCss",
+    `return (${functionSource("captionRasterBand")})`,
+  )((value) => value, scopeCaptionCss, isolateCaptionFragmentStyles, () => "");
+  const captionBatchRasterSvg = new Function(
+    "captionRasterBand", "removeDuplicateCaptionFontFaces",
+    `return (${functionSource("captionBatchRasterSvg")})`,
+  )(captionRasterBand, (value) => value);
+  const wrapped = '<div class="akari-caption"><style>@keyframes akari-anim-soft-fade{from{opacity:0}to{opacity:1}}'
+    + '.akari-caption__plate{width:var(--caption-width,auto)}.akari-caption__plate{width:var(--caption-wrap-width)}'
+    + '.akari-caption__line{box-sizing:border-box;width:100%}</style><div class="akari-caption__plate"></div></div>';
+  const plain = '<div class="akari-caption"><style>.akari-caption__plate{width:var(--caption-width,auto)}'
+    + '.akari-caption__line{width:max-content}</style><div class="akari-caption__plate"></div></div>';
+  const unit = (id, html) => ({ id, html, value: { vars: {} }, sharedCss: "", bandCss: ["", ""],
+    textureRect: { y: 0, height: 10 } });
+  const { svg } = captionBatchRasterSvg({ units: [unit("wrap", wrapped), unit("plain", plain)] }, { width: 100, height: 100 });
+  // 帯ごとに [帯の規則, 断片自身の規則] の 2 つの <style> が並ぶ。断片側だけを取り出す。
+  const rules = svg.split("<foreignObject").slice(1)
+    .map((band) => [...band.matchAll(/<style>([\s\S]*?)<\/style>/gu)].map((match) => match[1])[1]);
+  assert.equal(rules.length, 4);
+  // 断片自身の規則はすべて自分の帯（data-akari-band）の中に閉じ、:where() なので詳細度は元のまま。
+  for (const [bandIndex, css] of rules.entries()) {
+    const selectors = [...css.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*\}/gu, "")
+      .matchAll(/(?:^|\})\s*([^{}]+)\{/gu)].map((match) => match[1].trim())
+      .filter((selector) => !/^(?:from|to)$/u.test(selector));
+    assert.ok(selectors.length > 0);
+    for (const selector of selectors) {
+      assert.ok(selector.startsWith(`:where([data-akari-band="${bandIndex}"]) .akari-caption__`),
+        `band ${bandIndex}: ${selector}`);
+    }
+  }
+  assert.match(rules[0], /:where\(\[data-akari-band="0"\]\) \.akari-caption__plate\{width:var\(--caption-wrap-width\)\}/u);
+  assert.match(rules[0], /@keyframes akari-anim-soft-fade\{from\{opacity:0\}to\{opacity:1\}\}/u);
+  assert.doesNotMatch(svg, /[}>]\s*\.akari-caption__plate\{/u);
+});
+
 test("only the first placeholder font-face survives while unrelated fonts remain", () => {
   const matchingBrace = (value, open) => {
     let depth = 0;

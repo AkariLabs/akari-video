@@ -1063,6 +1063,86 @@
     return out;
   }
 
+  // 字幕の帯は 1 枚の SVG 文書に並べてまとめてラスタする（captionBatchRasterSvg）。断片自身の <style>
+  // は文書全体に効くので、後ろの帯の字幕の規則が前の帯の字幕に勝ってしまう
+  // （例: wrap_width_pct の字幕の .akari-caption__plate { width: var(--caption-wrap-width) } が、
+  // 後ろに並んだ字幕の .akari-caption__plate { width: var(--caption-width, auto) } に負け、
+  // plate が max-content へ縮んで scale の中心ごと横へずれる。採寸は 1 本ずつなので採寸とも食い違う）。
+  // 各規則を自分の帯の中だけに限定する。:where() で包むので詳細度は変わらず、1 本だけで
+  // ラスタしたとき（= 採寸・OSR）と同じカスケードになる。@font-face / @keyframes は変えない。
+  // 想定外の形の CSS は手を付けずに返し、書き出しは止めない（OSR の caption-style-scope と同じ方針）。
+  function isolateCaptionFragmentCss(css, prefix) {
+    const qualify = (prelude) => {
+      const selectors = [];
+      let start = 0;
+      let parens = 0;
+      let brackets = 0;
+      let quote = null;
+      for (let index = 0; index < prelude.length; index += 1) {
+        const char = prelude[index];
+        if (quote) {
+          if (char === "\\") index += 1;
+          else if (char === quote) quote = null;
+          continue;
+        }
+        if (char === "'" || char === '"') quote = char;
+        else if (char === "(") parens += 1;
+        else if (char === ")") parens -= 1;
+        else if (char === "[") brackets += 1;
+        else if (char === "]") brackets -= 1;
+        else if (char === "," && parens === 0 && brackets === 0) {
+          selectors.push(prelude.slice(start, index));
+          start = index + 1;
+        }
+      }
+      selectors.push(prelude.slice(start));
+      return selectors.map((part) => {
+        const selector = part.trim();
+        return selector ? part.replace(selector, `:where(${prefix}) ${selector}`) : part;
+      }).join(",");
+    };
+    let out = "";
+    let start = 0;
+    let depth = 0;
+    let blockStart = -1;
+    let quote = null;
+    let comment = false;
+    for (let index = 0; index < css.length; index += 1) {
+      const char = css[index];
+      const next = css[index + 1];
+      if (comment) {
+        if (char === "*" && next === "/") { comment = false; index += 1; }
+        continue;
+      }
+      if (quote) {
+        if (char === "\\") index += 1;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (char === "/" && next === "*") { comment = true; index += 1; continue; }
+      if (char === "'" || char === '"') { quote = char; continue; }
+      if (char === "{") {
+        if (depth === 0) blockStart = index;
+        depth += 1;
+      }
+      if (char !== "}") continue;
+      if (depth === 0) return css;
+      if (--depth !== 0) continue;
+      const rule = css.slice(start, index + 1);
+      out += rule.trimStart().startsWith("@")
+        ? rule
+        : `${qualify(css.slice(start, blockStart))}${css.slice(blockStart, index + 1)}`;
+      start = index + 1;
+    }
+    if (depth !== 0 || comment || quote) return css;
+    return out + css.slice(start);
+  }
+
+  function isolateCaptionFragmentStyles(html, prefix) {
+    return html.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gu,
+      (_match, open, css, close) => `${open}${isolateCaptionFragmentCss(css, prefix)}${close}`);
+  }
+
   function matchingBrace(value, open) {
     let depth = 0;
     for (let index = open; index < value.length; index += 1) {
@@ -1100,8 +1180,8 @@
   }
 
   function captionRasterBand(value, config, html, sharedCss, bandCss, textureRect, bandIndex, offsetY) {
-    const xhtml = serializeHtmlToXhtml(html);
     const prefix = `[data-akari-band="${bandIndex}"]`;
+    const xhtml = serializeHtmlToXhtml(isolateCaptionFragmentStyles(html, prefix));
     const scopedBandCss = scopeCaptionCss(bandCss, prefix);
     return `<foreignObject x="0" y="${offsetY}" width="${config.width}" height="${textureRect.height}">
       <div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${config.width}px;height:${textureRect.height}px;overflow:hidden">
