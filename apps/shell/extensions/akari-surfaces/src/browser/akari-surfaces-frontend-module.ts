@@ -23,7 +23,7 @@ import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../commo
 
 import { AkariSettingsCommandContribution } from './akari-settings-dialog';
 import { AkariSettingsDialogStyleContribution } from './style/akari-settings-dialog-style';
-import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
+import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from 'akari-shell-strip/lib/common/akari-connections-protocol';
 import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-protocol';
 import { AkariNarrationEnginesService, AKARI_NARRATION_ENGINES_SERVICE_PATH } from '../common/narration-engines-protocol';
 import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboarding/protocol';

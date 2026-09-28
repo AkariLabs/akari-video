@@ -8,7 +8,7 @@ import { checkFalImageAiConnection } from './image-ai-connection';
 import {
     AkariConnectionsService, ConnectionDoctor, ConnectionsList, GenerationCatalog, GenerationCatalogModel,
     GenerationDefaultsResult, ProviderBalanceResult, providerHasBalanceEndpoint, SetCredentialResult
-} from '../common/akari-connections-protocol';
+} from 'akari-shell-strip/lib/common/akari-connections-protocol';
 import {
     ConnectionProvider, credentialEnvName, DoctorAdapter, formatConnections, maskedTail, safeDoctor
 } from '../common/credentials-file';

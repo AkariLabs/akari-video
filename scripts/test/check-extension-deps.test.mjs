@@ -17,7 +17,7 @@ const checker = path.join(repoRoot, 'scripts/ci/check-extension-deps.mjs');
 const shellPackage = path.join(repoRoot, 'apps/shell/package.json');
 const expectedOrder = [
   'akari-theme', 'akari-preview', 'akari-annotations', 'akari-project',
-  'akari-shell-strip', 'akari-world-view', 'akari-surfaces', 'akari-partner', 'akari-tabs',
+  'akari-shell-strip', 'akari-partner', 'akari-surfaces', 'akari-world-view', 'akari-tabs',
   'akari-transcript', 'akari-companion'
 ];
 const edges = [{ from: 'akari-transcript', to: 'akari-theme' }];

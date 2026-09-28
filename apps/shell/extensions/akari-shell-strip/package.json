@@ -37,6 +37,7 @@
     "@theia/terminal": "1.73.1",
     "@theia/workspace": "1.73.1",
     "akari-annotations": "file:../akari-annotations",
+    "akari-project": "file:../akari-project",
     "akari-theme": "file:../akari-theme"
   },
   "devDependencies": {

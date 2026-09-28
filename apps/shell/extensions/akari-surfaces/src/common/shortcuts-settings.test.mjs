@@ -150,5 +150,5 @@ test('physical KeyCode stringification keeps Theia modifier order and ignores pr
     assert.equal(keybindingFromKeyCode(code(undefined, { shift: true }), true), undefined);
     assert.equal(shortcutWhen('akariTimelineVisible && akariKeyframeSelected'), 'キーフレームを選んでいるとき');
     assert.equal(shortcutWhen('akariTimelineVisible && !akariModalOpen && !akariFocusOutsideTimeline && !akariInspectorFocus'), 'タイムライン');
-    assert.equal(shortcutWhen('akariInspectorFocus && akariInspectorSolo && !akariEditableFocus && !akariImeComposing'), 'インスペクター');
+    assert.equal(shortcutWhen('akariInspectorFocus && akariInspectorSolo && !akariEditableFocus && !akariImeComposing'), '編集パネル');
 });

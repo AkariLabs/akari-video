@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { ConnectionDoctor, ConnectionRow, SetCredentialResult } from './akari-connections-protocol';
+import type { ConnectionDoctor, ConnectionRow, SetCredentialResult } from 'akari-shell-strip/lib/common/akari-connections-protocol';
 
 export interface CredentialState {
     exists: boolean;

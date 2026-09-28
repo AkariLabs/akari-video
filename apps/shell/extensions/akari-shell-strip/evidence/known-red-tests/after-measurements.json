@@ -1,0 +1,155 @@
+{
+  "label": "after",
+  "pid": 84144,
+  "di": {
+    "symbolBindings": 1,
+    "statusbarUiFound": true,
+    "sameProxy": true
+  },
+  "resourcesBar": "CPU 52% · GPU 15% · メモリ 13.6 GB · 実行中 0",
+  "resourcesPopup": {
+    "text": "リソース\n3 秒ごと\nCPU（機械全体）\n59%\nGPU\n33%\nメモリ（機械全体）\n13.6 GB",
+    "rows": [
+      "cpu",
+      "gpu",
+      "memory"
+    ]
+  },
+  "accountEntry": "ryoma",
+  "accountPopup": {
+    "visible": true,
+    "rows": [
+      {
+        "id": "fal",
+        "name": "fal.ai",
+        "balance": "未接続",
+        "logo": {
+          "img": true,
+          "loaded": true
+        }
+      },
+      {
+        "id": "fish-audio",
+        "name": "Fish Audio",
+        "balance": "未接続",
+        "logo": {
+          "img": false,
+          "initial": "F"
+        }
+      },
+      {
+        "id": "google-ai",
+        "name": "Google AI（Gemini）",
+        "balance": "未接続",
+        "logo": {
+          "img": false,
+          "initial": "G"
+        }
+      },
+      {
+        "id": "openrouter",
+        "name": "OpenRouter",
+        "balance": "未接続",
+        "logo": {
+          "img": true,
+          "loaded": true
+        }
+      },
+      {
+        "id": "elevenlabs",
+        "name": "ElevenLabs",
+        "balance": "未接続",
+        "logo": {
+          "img": true,
+          "loaded": true
+        }
+      },
+      {
+        "id": "replicate",
+        "name": "Replicate",
+        "balance": "—",
+        "logo": {
+          "img": true,
+          "loaded": true
+        }
+      },
+      {
+        "id": "groq",
+        "name": "Groq",
+        "balance": "—",
+        "logo": {
+          "img": true,
+          "loaded": true
+        }
+      }
+    ]
+  },
+  "settingsConnectionsFromStatusbar": {
+    "dialogVisible": true,
+    "sectionVisible": true,
+    "heading": "接続と API キー",
+    "groups": [
+      "使った分だけ — API",
+      "生成サービスfal.ai",
+      "文字起こしGroq接続済"
+    ],
+    "providers": [
+      {
+        "id": "fal",
+        "logo": {
+          "img": true,
+          "loaded": true
+        },
+        "text": "fal.ai / 未接続 / おすすめ"
+      },
+      {
+        "id": "fish-audio",
+        "logo": {
+          "img": false
+        },
+        "text": "F / Fish Audio / 未接続"
+      },
+      {
+        "id": "google-ai",
+        "logo": {
+          "img": false
+        },
+        "text": "G / Google AI（Gemini） / 未接続"
+      },
+      {
+        "id": "openrouter",
+        "logo": {
+          "img": true,
+          "loaded": true
+        },
+        "text": "OpenRouter / 未接続 / いろいろな会社のモデルを 1 つのキーで。つなぐと Akari Vibe（声で話しかけて動画を編集）が使えます"
+      },
+      {
+        "id": "elevenlabs",
+        "logo": {
+          "img": true,
+          "loaded": true
+        },
+        "text": "ElevenLabs / 未接続 / ナレーション・音声の生成。つなぐと今月の残りクレジットを見られます"
+      },
+      {
+        "id": "replicate",
+        "logo": {
+          "img": true,
+          "loaded": true
+        },
+        "text": "Replicate / 接続済み / 画像・動画・音声のいろいろなモデルを呼び出します"
+      },
+      {
+        "id": "groq",
+        "logo": {
+          "img": true,
+          "loaded": true
+        },
+        "text": "Groq / 接続済み / 速いクラウド文字起こし。残高を問い合わせる公式の口が無いので、管理画面へのリンクだけ出します"
+      }
+    ]
+  },
+  "startupError": false,
+  "moduleErrors": []
+}

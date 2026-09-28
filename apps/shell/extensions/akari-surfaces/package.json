@@ -27,6 +27,8 @@
     "@theia/monaco": "1.73.1",
     "@theia/navigator": "1.73.1",
     "@theia/plugin-ext": "1.73.1",
+    "akari-annotations": "file:../akari-annotations",
+    "akari-partner": "file:../akari-partner",
     "akari-project": "file:../akari-project",
     "akari-shell-strip": "file:../akari-shell-strip",
     "electron-updater": "^6.8.9",

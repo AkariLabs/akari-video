@@ -5,7 +5,7 @@ import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/com
 import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
 import { AkariNewProjectServiceImpl } from './akari-new-project-service';
 
-import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
+import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from 'akari-shell-strip/lib/common/akari-connections-protocol';
 import { AkariConnectionsServiceImpl } from './akari-connections-service';
 import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-protocol';
 import { AkariKitsServiceImpl } from './akari-kits-service';

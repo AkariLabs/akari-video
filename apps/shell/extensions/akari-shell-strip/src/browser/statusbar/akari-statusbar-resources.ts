@@ -9,19 +9,12 @@ import { AkariExportSessionService } from '../akari-export-session-service';
 import { AkariPreviewServerService, PreviewServerStatus } from '../../common/preview-server-protocol';
 import { AkariStatusbarResourcesService } from '../../common/statusbar-resources-protocol';
 import { formatGb, ResourceSample, resolveStatusbarOptions, resourceRows, resourceSummary, RunningItem, StatusbarOptions } from '../../common/statusbar-resources';
+import { AkariConnectionsService } from '../../common/akari-connections-protocol';
+import { providerLogo, providerInitial } from '../settings/provider-catalog';
+import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 
 const ACCOUNT_ENTRY = 'akari-statusbar-account';
 const RESOURCE_ENTRY = 'akari-statusbar-resources';
-// surfaces と shell-strip は相互に lib を参照する。型検査時の循環を避けつつ、
-// 実行時には設定画面と同じ DI シンボル・RPC プロキシを共有する。
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { AkariConnectionsService } = require('akari-surfaces/lib/common/akari-connections-protocol') as { AkariConnectionsService: symbol };
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { providerLogo, providerInitial } = require('akari-surfaces/lib/browser/settings/provider-catalog') as {
-    providerLogo(id: string): string | undefined; providerInitial(label: string): string;
-};
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { AkariProjectService } = require('akari-project/lib/common/akari-project-protocol') as { AkariProjectService: symbol };
 interface ConnectionRow { id: string; label: string; configured: boolean }
 interface ProviderBalanceResult { ok: boolean; display?: string; error?: string; checked_at: string }
 interface ConnectionsClient {

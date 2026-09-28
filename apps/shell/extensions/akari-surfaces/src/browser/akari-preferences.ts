@@ -1,7 +1,7 @@
 import { PreferenceContribution, PreferenceSchema } from '@theia/core/lib/common/preferences';
 import { injectable } from '@theia/core/shared/inversify';
 
-import { TRANSCRIBE_BACKENDS } from '../common/akari-connections-protocol';
+import { TRANSCRIBE_BACKENDS } from 'akari-shell-strip/lib/common/akari-connections-protocol';
 
 export const AKARI_TRANSCRIBE_MODE = 'akari.transcribe.mode';
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';

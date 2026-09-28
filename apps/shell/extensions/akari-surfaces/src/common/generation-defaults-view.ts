@@ -1,6 +1,6 @@
 import {
     GenerationCatalogModel, GenerationCatalogPrice, GenerationDefaultsSource, GenerationKind
-} from './akari-connections-protocol';
+} from 'akari-shell-strip/lib/common/akari-connections-protocol';
 
 export function formatGenerationPrice(price: GenerationCatalogPrice | null): string {
     if (!price) { return '見積不可'; }

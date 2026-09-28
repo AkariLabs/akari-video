@@ -1,4 +1,4 @@
-import type { ConnectionDoctor } from '../common/akari-connections-protocol';
+import type { ConnectionDoctor } from 'akari-shell-strip/lib/common/akari-connections-protocol';
 
 /** A read-only fal request. Only an actual successful HTTP response counts as connected. */
 export async function checkFalImageAiConnection(secret: string | undefined,

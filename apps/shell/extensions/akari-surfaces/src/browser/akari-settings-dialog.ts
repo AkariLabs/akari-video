@@ -27,7 +27,7 @@ import { AKARI_BORDER, AKARI_SURFACE } from 'akari-project/lib/common/akari-surf
 import {
     AkariConnectionsService, ConnectionDoctor, ConnectionRow, ConnectionsList, GenerationKind, providerHasBalanceEndpoint,
     TRANSCRIBE_BACKENDS, TranscribeBackend
-} from '../common/akari-connections-protocol';
+} from 'akari-shell-strip/lib/common/akari-connections-protocol';
 import { generationOptions, generationSourceLabel } from '../common/generation-defaults-view';
 import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../common/store-entitlements-visibility';
 import { dialogOutsideClick } from '../common/dialog-outside-click';
@@ -76,7 +76,7 @@ import {
 } from './settings/settings-ui';
 import {
     PROVIDER_DISPLAY, PROVIDER_GROUP_LABELS, providerBillingUrl, providerGroup, providerInitial, providerLogo, ProviderGroup
-} from './settings/provider-catalog';
+} from 'akari-shell-strip/lib/browser/settings/provider-catalog';
 import { makerBadge } from './settings/maker-badge';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
