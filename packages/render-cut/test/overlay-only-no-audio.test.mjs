@@ -6,11 +6,12 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { buildV2Plan } from "./helpers/v2-fixture.mjs";
-import { parseArguments, prepareOverlayOnlyRuntimeEdit, renderProject } from "../src/render-cut.mjs";
+import { buildOverlayOnlyGpuArguments, parseArguments, prepareOverlayOnlyRuntimeEdit, renderProject } from "../src/render-cut.mjs";
 import { lintProject } from "../../edit-lint/src/edit-lint.mjs";
 import { resolveOsrLauncher } from "../../osr-export/src/index.mjs";
 import { loadAndBuildOsrPage } from "../../osr-export/src/page-builder.mjs";
 import { loadAndBuildGpuPage } from "../../gpu-export/src/page-builder.mjs";
+import { buildGpuElectronArguments } from "../../gpu-export/src/runner.mjs";
 
 const overlayOnlyEdit = {
   version: 2,
@@ -97,6 +98,44 @@ test("runtime edit supplies omitted sources and a declared solid background", as
     assert.match(gpu.html, /#123456/u);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("overlay-only GPU launcher matches the default export path except for --edit", async () => {
+  // gpu-export keeps this wrapper private. Evaluate its current builder with a launcher spy
+  // so changes to the default argument list are checked without editing that package.
+  const source = await readFile(new URL("../../gpu-export/src/index.mjs", import.meta.url), "utf8");
+  const start = source.indexOf("function launchGpuExportWithOutputSize(");
+  const end = source.indexOf("\nexport async function captureFramesWithGpu(", start);
+  assert.ok(start >= 0 && end > start);
+  const defaultRunner = new Function("launchGpuExport", "buildGpuElectronArguments",
+    `${source.slice(start, end)}\nreturn launchGpuExportWithOutputSize;`)(
+    (resolvedLauncher, resolvedOptions, { argumentBuilder }) => argumentBuilder(resolvedLauncher, resolvedOptions),
+    buildGpuElectronArguments,
+  );
+  const launcher = { tier: 2 };
+  for (const codec of ["h264", "hevc"]) {
+    const options = {
+      projectRoot: "/project", out: "/project/video.mp4", fps: 30,
+      width: 320, height: 180, outputWidth: 640, outputHeight: 360,
+      duration: 3, frames: 90, quality: "high", bitrate: 2_000_000,
+      codec, force: true, trapReadback: true, verifyFrames: true,
+      dumpFrames: [2, 5], preview: "off", previewOutputDirectory: "/project/previews",
+      collectLuma: false, progress: true, editPath: "/project/overlay-only-edit.json",
+    };
+    const base = defaultRunner(launcher, { ...options, editPath: undefined });
+    const actual = buildOverlayOnlyGpuArguments(launcher, options);
+    const editIndex = actual.indexOf("--edit");
+    assert.equal(actual.filter(arg => arg === "--edit").length, 1);
+    const withoutEdit = actual.slice(0, editIndex).concat(actual.slice(editIndex + 2));
+    assert.deepEqual(withoutEdit.slice(0, -1), base.slice(0, -1));
+    assert.equal(actual[editIndex + 1], options.editPath);
+    assert.ok(base.includes("--output-width") && base.includes("--output-height"));
+    assert.equal(base.includes("--codec"), codec === "hevc");
+    assert.ok(base.includes("--preview-dir") && base.includes("--no-luma") && base.includes("--progress-timing"));
+    assert.equal(actual.at(-2), "--spawn-start-ms");
+    assert.ok(Number.isFinite(Number(actual.at(-1))));
+    assert.ok(Number.isFinite(Number(base.at(-1))));
   }
 });
 

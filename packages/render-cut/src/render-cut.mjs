@@ -393,17 +393,7 @@ export async function renderProject(input, options = {}, io = console) {
       ...args, extraArgs: [...(args.extraArgs ?? []), "--edit", runtimeEditPath],
     }),
     gpu: (launcher, args) => launchGpuExport(launcher, { ...args, editPath: runtimeEditPath }, {
-      argumentBuilder: (resolvedLauncher, resolvedOptions) => [
-        ...buildGpuElectronArguments(resolvedLauncher, resolvedOptions),
-        "--output-width", String(resolvedOptions.outputWidth ?? resolvedOptions.width),
-        "--output-height", String(resolvedOptions.outputHeight ?? resolvedOptions.height),
-        ...((resolvedOptions.codec ?? "h264") === "hevc" ? ["--codec", "hevc"] : []),
-        ...(resolvedOptions.preview === "off" ? ["--preview", "off"] : []),
-        ...(resolvedOptions.previewOutputDirectory ? ["--preview-dir", resolvedOptions.previewOutputDirectory] : []),
-        ...(resolvedOptions.collectLuma === false ? ["--no-luma"] : []),
-        ...(resolvedOptions.progress ? ["--progress-timing"] : []),
-        "--spawn-start-ms", String(Date.now()),
-      ],
+      argumentBuilder: buildOverlayOnlyGpuArguments,
     }),
   } : null;
 
@@ -802,6 +792,22 @@ export async function renderProject(input, options = {}, io = console) {
     }
     throw error;
   }
+}
+
+// gpu-export's default launcher is private. Keep its output-size and diagnostics options
+// together here so the overlay-only path changes only the edit path.
+export function buildOverlayOnlyGpuArguments(launcher, options) {
+  return [
+    ...buildGpuElectronArguments(launcher, options),
+    "--output-width", String(options.outputWidth ?? options.width),
+    "--output-height", String(options.outputHeight ?? options.height),
+    ...((options.codec ?? "h264") === "hevc" ? ["--codec", "hevc"] : []),
+    ...(options.preview === "off" ? ["--preview", "off"] : []),
+    ...(options.previewOutputDirectory ? ["--preview-dir", options.previewOutputDirectory] : []),
+    ...(options.collectLuma === false ? ["--no-luma"] : []),
+    ...(options.progress ? ["--progress-timing"] : []),
+    "--spawn-start-ms", String(Date.now()),
+  ];
 }
 
 export async function prepareOverlayOnlyRuntimeEdit({ parsedEdit, normalizedEdit, projectRoot, temporaryDirectory, frames }) {
