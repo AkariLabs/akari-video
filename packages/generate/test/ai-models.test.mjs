@@ -22,7 +22,7 @@ test('GPT Image 2.5 のカタログは fal-still の既定品質・画角指定�
   assert.deepEqual(sunburst.outputs.akari_sizes, flare.outputs.akari_sizes);
   const expected = {
     '16:9': ['landscape_16_9', '1088x608'],
-    '9:16': ['portrait_16_9', '576x1024'],
+    '9:16': ['portrait_16_9', '608x1088'],
     '1:1': ['square_hd', '1024x1024'],
     '4:3': ['landscape_4_3', '1024x768'],
     '3:4': ['portrait_4_3', '768x1024'],

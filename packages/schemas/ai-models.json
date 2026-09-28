@@ -933,7 +933,7 @@
         ],
         "akari_sizes": {
           "16:9": "1088x608",
-          "9:16": "576x1024",
+          "9:16": "608x1088",
           "1:1": "1024x1024",
           "4:3": "1024x768",
           "3:4": "768x1024",
@@ -941,7 +941,7 @@
           "3:2": "1536x1024",
           "21:9": "2016x864"
         },
-        "akari_sizes_note": "16:9 は Flare 実測。ほかのプリセットは fal の GPT Image 2 資料の公表値、明示寸法は fal-still.mjs の指定値（https://fal.ai/learn/tools/how-to-use-gpt-image-2）。",
+        "akari_sizes_note": "8 画角とも Flare で実測（2026-09-28）。明示寸法は fal-still.mjs の指定値（https://fal.ai/learn/tools/how-to-use-gpt-image-2）。",
         "duration": null,
         "audio_out": false
       },
@@ -1000,7 +1000,7 @@
         ],
         "akari_sizes": {
           "16:9": "1088x608",
-          "9:16": "576x1024",
+          "9:16": "608x1088",
           "1:1": "1024x1024",
           "4:3": "1024x768",
           "3:4": "768x1024",
@@ -1008,7 +1008,7 @@
           "3:2": "1536x1024",
           "21:9": "2016x864"
         },
-        "akari_sizes_note": "16:9 は同じ API 形状の Flare 実測値。ほかのプリセットは fal の GPT Image 2 資料の公表値、明示寸法は fal-still.mjs の指定値（https://fal.ai/learn/tools/how-to-use-gpt-image-2）。",
+        "akari_sizes_note": "同じ API 形状の Flare の実測値（2026-09-28・8 画角）。明示寸法は fal-still.mjs の指定値（https://fal.ai/learn/tools/how-to-use-gpt-image-2）。",
         "duration": null,
         "audio_out": false
       },
