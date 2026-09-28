@@ -26,7 +26,8 @@ test('sheet injects vgpu only for declarations and preserves existing static/thr
   assert.match(gpu, /pendingVgpuDraws\.push\(\[vgpuContainer, seconds - start\]\)/);
   for (const [html, hash] of [
     ['<div>static</div>', '6e92534736bb9ee1e12961d8c9b1fc225acc94724f9a09a31677ede6b25afced'],
-    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', 'c72534526be3c88b210f321d1db3a72eed36470845f415f99207665ccf180d57'],
+    // #111 で 3D シートの窓式マウント・video 選別を入れたため更新。
+    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', '8137e4ecd9aec05cb3461ba2e8b1ab608788f213471ce5c9925450685b91a9b6'],
   ]) {
     const actual = sheet(html);
     assert.doesNotMatch(actual, /vgpuRuntime|AkariVgpu|pendingVgpu/);

@@ -245,6 +245,10 @@ node packages/gpu-export/bin/akari-gpu-export.mjs <project-dir> --out <output.mp
 The product path is `render-cut --engine gpu`: it mixes the audio declared by `edit.json` before
 calling GPU export. The low-level `akari-gpu-export` CLI does not read or mix `edit.json` audio.
 
+## 3D scene lifetime during export
+
+The GPU path creates every 3D scene at startup and registers each canvas as a sprite once. Each frame's active check updates or hides the sprite for its time window. Scenes outside their windows remain alive throughout export. `__akariSeekVideos` seeks 3D screen videos placed on `document.body` every frame. The OSR sheet's windowed lifecycle creates a scene two seconds before its window, waits for it to become ready during that seek, and disposes it afterward. This lifecycle does not apply to GPU export. Windowed mounting with sprite registration after remount remains follow-up work for #111.
+
 ## Development
 
 ```sh

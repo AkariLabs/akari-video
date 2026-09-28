@@ -16,7 +16,8 @@ test('glass-free 2D and 3D sheets match pre-glass baseline bytes', () => {
   // Captured from 885fc54d rasterize.mjs with these exact inputs.
   for (const [html, expected] of [
     ['<div>Hello</div>', '5881a5a26ed94c76d18e6c45a0babaf07bd622591f5ba56ffdaa0588fa701e56'],
-    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', '9728065552852f09333fad24d920dba82809fc5cc8f05382910b3e1217022904'],
+    // #111 で 3D シートの窓式マウント・video 選別を入れたため更新。
+    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', 'c0738522cda4c1b86b443646c954fc453d0810173d285215fc9b3e0a6ddc0f49'],
   ]) assert.equal(sha(renderOverlaySheet(input(html))), expected);
 });
 

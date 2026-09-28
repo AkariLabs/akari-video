@@ -1,0 +1,316 @@
+{
+  "fixture": "1280x720@30fps, 600 frames (20 s). Three 3D phone fragments (assets/scene3d/smartphone-mockup model.glb) with a video materialOverrides on ScreenMaterial, placed at 0-6 s, 7-13 s, 14-20 s. Measured on Windows 11 (tier 2 Electron 39.8.7) while other lanes shared the machine; timings are noisy.",
+  "base": "49af07a62",
+  "leadSeconds": 2,
+  "sheetProbe": {
+    "note": "sheet-probe.mjs: the OSR overlay sheet alone in offscreen Electron, __akariSeek over every frame",
+    "before": [
+      {
+        "readyMs": 1700,
+        "readyLive": [
+          "phone-a",
+          "phone-b",
+          "phone-c"
+        ],
+        "loopMs": 204541,
+        "msPerFrameMean": 340.9,
+        "liveMax": 3,
+        "videosInDomMax": 3,
+        "seeksTotal": 1167,
+        "seekedVideosPerFrameMax": 3,
+        "seekedVideosPerFrameMean": 1.95,
+        "warningsTotal": 0,
+        "memoryAtReadyMB": {
+          "Browser": 51.5,
+          "GPU": 1923.6,
+          "Utility": 12.7,
+          "Tab": 462.7
+        },
+        "peakMemoryMB": {
+          "Browser": 104.6,
+          "GPU": 1934.5,
+          "Utility": 13.2,
+          "Tab": 463.9
+        },
+        "threeWindowStats": null,
+        "timeline": [
+          {
+            "frame": 0,
+            "seconds": 0,
+            "live": 3,
+            "videos": 3,
+            "seekedVideos": 0
+          }
+        ]
+      },
+      {
+        "readyMs": 1689,
+        "readyLive": [
+          "phone-a",
+          "phone-b",
+          "phone-c"
+        ],
+        "loopMs": 156387,
+        "msPerFrameMean": 260.65,
+        "liveMax": 3,
+        "videosInDomMax": 3,
+        "seeksTotal": 1167,
+        "seekedVideosPerFrameMax": 3,
+        "seekedVideosPerFrameMean": 1.95,
+        "warningsTotal": 0,
+        "memoryAtReadyMB": {
+          "Browser": 54.9,
+          "GPU": 1928.3,
+          "Utility": 12.7,
+          "Tab": 463.9
+        },
+        "peakMemoryMB": {
+          "Browser": 108,
+          "GPU": 1939,
+          "Utility": 13.1,
+          "Tab": 464.8
+        },
+        "threeWindowStats": null,
+        "timeline": [
+          {
+            "frame": 0,
+            "seconds": 0,
+            "live": 3,
+            "videos": 3,
+            "seekedVideos": 0
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "readyMs": 700,
+        "readyLive": [
+          "phone-a"
+        ],
+        "loopMs": 75282,
+        "msPerFrameMean": 125.47,
+        "liveMax": 2,
+        "videosInDomMax": 2,
+        "seeksTotal": 537,
+        "seekedVideosPerFrameMax": 1,
+        "seekedVideosPerFrameMean": 0.9,
+        "warningsTotal": 0,
+        "memoryAtReadyMB": {
+          "Browser": 54.9,
+          "GPU": 715.5,
+          "Utility": 12.5,
+          "Tab": 196.3
+        },
+        "peakMemoryMB": {
+          "Browser": 111.6,
+          "GPU": 1265.1,
+          "Utility": 13.2,
+          "Tab": 335
+        },
+        "threeWindowStats": {
+          "created": 3,
+          "disposed": 2,
+          "live": 1,
+          "liveMax": 2
+        },
+        "timeline": [
+          {
+            "frame": 0,
+            "seconds": 0,
+            "live": 1,
+            "videos": 1,
+            "seekedVideos": 0
+          },
+          {
+            "frame": 150,
+            "seconds": 5,
+            "live": 2,
+            "videos": 2,
+            "seekedVideos": 1
+          },
+          {
+            "frame": 180,
+            "seconds": 6,
+            "live": 1,
+            "videos": 1,
+            "seekedVideos": 0
+          },
+          {
+            "frame": 360,
+            "seconds": 12,
+            "live": 2,
+            "videos": 2,
+            "seekedVideos": 1
+          },
+          {
+            "frame": 390,
+            "seconds": 13,
+            "live": 1,
+            "videos": 1,
+            "seekedVideos": 0
+          }
+        ]
+      },
+      {
+        "readyMs": 1103,
+        "readyLive": [
+          "phone-a"
+        ],
+        "loopMs": 73348,
+        "msPerFrameMean": 122.25,
+        "liveMax": 2,
+        "videosInDomMax": 2,
+        "seeksTotal": 537,
+        "seekedVideosPerFrameMax": 1,
+        "seekedVideosPerFrameMean": 0.9,
+        "warningsTotal": 0,
+        "memoryAtReadyMB": {
+          "Browser": 51.8,
+          "GPU": 714.8,
+          "Utility": 12.6,
+          "Tab": 196.1
+        },
+        "peakMemoryMB": {
+          "Browser": 108.4,
+          "GPU": 1272.1,
+          "Utility": 13.1,
+          "Tab": 334.9
+        },
+        "threeWindowStats": {
+          "created": 3,
+          "disposed": 2,
+          "live": 1,
+          "liveMax": 2
+        },
+        "timeline": [
+          {
+            "frame": 0,
+            "seconds": 0,
+            "live": 1,
+            "videos": 1,
+            "seekedVideos": 0
+          },
+          {
+            "frame": 150,
+            "seconds": 5,
+            "live": 2,
+            "videos": 2,
+            "seekedVideos": 1
+          },
+          {
+            "frame": 180,
+            "seconds": 6,
+            "live": 1,
+            "videos": 1,
+            "seekedVideos": 0
+          },
+          {
+            "frame": 360,
+            "seconds": 12,
+            "live": 2,
+            "videos": 2,
+            "seekedVideos": 1
+          },
+          {
+            "frame": 390,
+            "seconds": 13,
+            "live": 1,
+            "videos": 1,
+            "seekedVideos": 0
+          }
+        ]
+      }
+    ]
+  },
+  "osrExport": {
+    "note": "render-cut --engine osr, production stamp verify",
+    "before": {
+      "verify": {
+        "mode": "stamp",
+        "retriesTotal": 1,
+        "retryHistogram": {
+          "0": 599,
+          "1": 1
+        },
+        "hashPolicyAmbiguous": 0,
+        "preVerifyDeltaHistogram": {
+          "0": 599,
+          "-1": 1
+        }
+      },
+      "captureLoopMs": 235430,
+      "seekMedianMs": 314,
+      "peakMemoryMB": 2030
+    },
+    "after": {
+      "verify": {
+        "mode": "stamp",
+        "retriesTotal": 30,
+        "retryHistogram": {
+          "0": 570,
+          "1": 30
+        },
+        "hashPolicyAmbiguous": 0,
+        "preVerifyDeltaHistogram": {
+          "0": 570,
+          "-1": 30
+        }
+      },
+      "captureLoopMs": 137474,
+      "seekMedianMs": 146.8,
+      "peakMemoryMB": 1929
+    },
+    "verifyOff": {
+      "before": {
+        "verify": {
+          "mode": "off",
+          "retriesTotal": 0,
+          "retryHistogram": {
+            "0": 600
+          },
+          "hashPolicyAmbiguous": 0,
+          "preVerifyDeltaHistogram": {
+            "0": 600
+          }
+        },
+        "captureLoopMs": 234032,
+        "seekMedianMs": 329.3,
+        "peakMemoryMB": 2260
+      },
+      "after": {
+        "verify": {
+          "mode": "off",
+          "retriesTotal": 0,
+          "retryHistogram": {
+            "0": 600
+          },
+          "hashPolicyAmbiguous": 0,
+          "preVerifyDeltaHistogram": {
+            "0": 574,
+            "-1": 26
+          }
+        },
+        "captureLoopMs": 235229,
+        "seekMedianMs": 274.9,
+        "peakMemoryMB": 2022
+      }
+    }
+  },
+  "gpuExport": {
+    "note": "render-cut --engine gpu --gpu-preference auto",
+    "before": {
+      "elapsedMs": 118697,
+      "peakMemoryMB": 1213
+    },
+    "after": {
+      "elapsedMs": 113724,
+      "peakMemoryMB": 1367
+    }
+  },
+  "frameComparison": {
+    "osr": "AFTER (stamp) out.mp4 is byte-identical to a BEFORE run (verify=off) whose frame 0 rendered correctly: 600/600 frames PSNR inf. A second BEFORE run (stamp) had a black frame 0 (pre-existing frame-0 flake on base code, 1 stamp retry); frames 1-599 match.",
+    "gpu": "AFTER out.mp4 is byte-identical to BEFORE (600/600 frames).",
+    "osrVerifyOff": "With AKARI_OSR_VERIFY=off, AFTER captured 26-28 one-frame-stale paints per 600 frames (BEFORE 0). Two of them are visible at a scene boundary. The default stamp verify retries each one once and the output is identical. Follow-up."
+  }
+}
