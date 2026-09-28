@@ -36,8 +36,23 @@
         "via": { "enum": ["subscription", "api", "local"] },
         "provider": { "type": "string" },
         "inputs": { "type": "object" },
-        "outputs": { "type": "object" },
-        "price": { "type": ["object", "null"] },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "akari_sizes": {
+              "type": "object",
+              "propertyNames": { "pattern": "^[0-9]+:[0-9]+$" },
+              "additionalProperties": { "type": "string", "pattern": "^[1-9][0-9]*x[1-9][0-9]*$" }
+            },
+            "akari_sizes_note": { "type": "string" }
+          }
+        },
+        "price": {
+          "type": ["object", "null"],
+          "properties": { "default_quality": { "enum": ["low", "medium", "high"] } },
+          "if": { "required": ["by_quality_1024"] },
+          "then": { "required": ["default_quality"] }
+        },
         "speed_s": { "type": ["number", "null"], "minimum": 0 },
         "as_of": { "type": ["string", "null"] },
         "price_as_of": { "type": "string" },

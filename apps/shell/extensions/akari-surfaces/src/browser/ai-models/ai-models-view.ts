@@ -3,7 +3,7 @@ import {
     AiModelPreferences, AiModelSetId
 } from '../../common/ai-models-protocol';
 import {
-    capabilityState, capabilityText, comparisonKeys, filterAiModels, formatAiModelPrice, groupRepresentative,
+    capabilityState, capabilityText, comparisonKeys, filterAiModels, formatAiModelOtherPrices, formatAiModelPrice, groupRepresentative,
     INPUT_LABELS, OUTPUT_LABELS, otherVariantCount, radarAxes
 } from '../../common/ai-models-model';
 import { makerBadge } from '../settings/maker-badge';
@@ -33,16 +33,23 @@ function badge(catalog: AiModelCatalog, model: AiModel): HTMLElement {
     return makerBadge(catalog.makers, model.maker);
 }
 
-function fieldPills(values: Record<string, unknown>, labels: Record<string, string>, keys: readonly string[]): HTMLElement {
+function fieldPills(values: Record<string, unknown>, labels: Record<string, string>, keys: readonly string[], model?: AiModel): HTMLElement {
     const wrap = node('div', 'akari-ai-pills');
     for (const key of keys) {
         const state = capabilityState(values[key]);
         if (state === 'unknown') {
             continue;
         }
-        const detail = capabilityText(key, values[key]);
+        const detail = capabilityText(key, values[key], model);
         const label = `${labels[key]}${state === 'available' && detail !== '可' ? ` ${detail}` : ''}`;
         const pill = node('span', `akari-ai-pill${state === 'unavailable' ? ' akari-ai-no' : ''}`, label);
+        if (key === 'resolutions' && model?.outputs.akari_sizes) {
+            const limit = /（モデルの上限 [^）]+）$/.exec(detail);
+            if (limit) {
+                pill.textContent = `${labels[key]} ${detail.slice(0, -limit[0].length)}`;
+                pill.append(node('small', 'akari-ai-secondary', limit[0].slice(1, -1)));
+            }
+        }
         wrap.append(pill);
     }
     return wrap;
@@ -64,7 +71,7 @@ const STYLE = `
 .akari-ai-card[data-ai-model-compared=true]{border-color:var(--theia-focusBorder,#d6a958)}.akari-ai-card h4{font-size:13px;margin:0;line-height:1.3}
 .akari-ai-card-top{position:absolute;top:6px;left:6px;right:6px;display:flex;justify-content:space-between}.akari-ai-star{font-size:18px;padding:1px 7px}.akari-ai-star[aria-pressed=true]{color:#f3bd52}
 .akari-ai-star,.akari-ai-dots{width:27px;height:27px;display:inline-grid;place-items:center;padding:0;border-radius:6px}.akari-ai-star[aria-pressed=true]{background:rgba(240,180,76,.16);border-color:#f0b44c}
-.akari-ai-name-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.akari-ai-name-row h4{min-width:0}.akari-ai-price{font-size:11px;white-space:nowrap;color:#f0b44c}
+.akari-ai-name-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}.akari-ai-name-row h4{min-width:0}.akari-ai-price{font-size:11px;color:#f0b44c}.akari-ai-secondary{display:block;font-size:9px;opacity:.72;line-height:1.4}
 .akari-ai-via{white-space:nowrap}.akari-ai-summary{font-size:12px;line-height:1.5}
 .akari-ai-check{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer}.akari-ai-check input{accent-color:#f0b44c}
 .akari-ai-menu{position:absolute;z-index:10;right:7px;top:39px;display:flex;flex-direction:column;background:var(--theia-menu-background,#343b48);border:1px solid var(--theia-panel-border,#666);border-radius:7px;padding:4px;box-shadow:0 8px 20px #0008}
@@ -369,6 +376,10 @@ export class AiModelsView {
         const nameRow = node('div', 'akari-ai-name-row');
         nameRow.append(node('h4', '', model.name), node('span', 'akari-ai-price', model.via === 'api' ? formatAiModelPrice(model) : '¥0'));
         card.append(nameRow);
+        const otherPrices = formatAiModelOtherPrices(model);
+        if (otherPrices) {
+            card.append(node('small', 'akari-ai-secondary', otherPrices));
+        }
         const meta = node('div', 'akari-ai-meta');
         meta.append(badge(this.catalog!, model), node('span', '', model.via === 'api' ? `経由: ${model.provider || 'API'}` : model.via === 'local' ? 'この Mac' : 'サブスク'), node('span', '', model.family || model.group));
         card.append(meta);
@@ -376,8 +387,8 @@ export class AiModelsView {
         const inputKeys = comparisonKeys(this.catalog!.models, model.kind, 'inputs', INPUT_LABELS);
         const outputKeys = comparisonKeys(this.catalog!.models, model.kind, 'outputs', OUTPUT_LABELS);
         io.append(
-            node('span', '', '入力'), fieldPills(model.inputs, INPUT_LABELS, inputKeys),
-            node('span', '', '出力'), fieldPills(model.outputs, OUTPUT_LABELS, outputKeys)
+            node('span', '', '入力'), fieldPills(model.inputs, INPUT_LABELS, inputKeys, model),
+            node('span', '', '出力'), fieldPills(model.outputs, OUTPUT_LABELS, outputKeys, model)
         );
         card.append(io);
         const flags = node('div', 'akari-ai-flags');
@@ -487,7 +498,7 @@ export class AiModelsView {
             row(`入力: ${INPUT_LABELS[key]}`, model => capabilityText(key, model.inputs[key]));
         }
         for (const key of comparisonKeys(catalog.models, this.kind, 'outputs', OUTPUT_LABELS)) {
-            row(`出力: ${OUTPUT_LABELS[key]}`, model => capabilityText(key, model.outputs[key]));
+            row(`出力: ${OUTPUT_LABELS[key]}`, model => capabilityText(key, model.outputs[key], model));
         }
         row('公開日', model => model.released || '未確認');
         row('確かめ方', model => model.verified === 'measured' ? '実測' : '公表値');

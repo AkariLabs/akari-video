@@ -6,9 +6,38 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadAiModels } from '../src/ai-models.mjs';
 import { loadCatalog } from '../src/cli/catalog.mjs';
+import { falStillEstimate, falStillRequest } from '../src/cli/fal-still.mjs';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 const sourcePath = path.join(root, 'packages/schemas/ai-models.json');
+
+test('GPT Image 2.5 のカタログは fal-still の既定品質・画角指定と一致する', async () => {
+  const { models } = JSON.parse(await readFile(sourcePath, 'utf8'));
+  const flare = models.find(row => row.id === 'fal:gpt-image-2.5-flare');
+  const sunburst = models.find(row => row.id === 'fal:gpt-image-2.5-sunburst');
+  assert.equal(flare.price.default_quality, 'high');
+  assert.equal(falStillRequest({ prompt: 'test', aspect: '16:9' }).body.quality, flare.price.default_quality);
+  assert.equal(falStillEstimate().usd, flare.price.by_quality_1024[flare.price.default_quality]);
+  assert.deepEqual(sunburst.price, flare.price);
+  assert.deepEqual(sunburst.outputs.akari_sizes, flare.outputs.akari_sizes);
+  const expected = {
+    '16:9': ['landscape_16_9', '1088x608'],
+    '9:16': ['portrait_16_9', '576x1024'],
+    '1:1': ['square_hd', '1024x1024'],
+    '4:3': ['landscape_4_3', '1024x768'],
+    '3:4': ['portrait_4_3', '768x1024'],
+    '4:5': [{ width: 1024, height: 1280 }, '1024x1280'],
+    '3:2': [{ width: 1536, height: 1024 }, '1536x1024'],
+    '21:9': [{ width: 2016, height: 864 }, '2016x864']
+  };
+  assert.deepEqual(Object.keys(flare.outputs.akari_sizes), Object.keys(expected));
+  for (const [aspect, [requestSize, dimensions]] of Object.entries(expected)) {
+    assert.deepEqual(falStillRequest({ prompt: 'test', aspect }).body.image_size, requestSize, aspect);
+    assert.equal(flare.outputs.akari_sizes[aspect], dimensions, aspect);
+  }
+  // 16:9 は Flare の実測値。ほかのプリセットは fal の GPT Image 2 資料の公表値。
+  assert.match(flare.outputs.akari_sizes_note, /実測/);
+});
 
 async function withCatalog(edit, check) {
   const temp = await mkdtemp(path.join(os.tmpdir(), 'akari-ai-models-'));

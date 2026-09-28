@@ -101,7 +101,20 @@ function maximumResolution(value: unknown): string | undefined {
 }
 
 /** 比較表のセル。値が分かるものだけ短い数量に変換する。 */
-export function capabilityText(key: string, value: unknown): string {
+export function aiModelResolutionText(model: AiModel): string {
+    const sizes = model.outputs.akari_sizes;
+    if (sizes && typeof sizes === 'object' && !Array.isArray(sizes)) {
+        const entries = Object.entries(sizes);
+        const [aspect, dimensions] = entries.find(([key]) => key === '16:9') || entries[0] || [];
+        if (aspect && typeof dimensions === 'string') {
+            const limit = maximumResolution(model.outputs.resolutions);
+            return `${aspect} で ${dimensions.replace('x', '×')}${limit ? `（モデルの上限 ${limit}）` : ''}`;
+        }
+    }
+    return capabilityText('resolutions', model.outputs.resolutions);
+}
+
+export function capabilityText(key: string, value: unknown, model?: AiModel): string {
     const state = capabilityState(value);
     if (state === 'unknown') {
         return '未確認';
@@ -126,6 +139,9 @@ export function capabilityText(key: string, value: unknown): string {
         }
     }
     if (key === 'resolutions') {
+        if (model?.outputs.akari_sizes) {
+            return aiModelResolutionText(model);
+        }
         const maximum = maximumResolution(value);
         return maximum ? `〜${maximum}` : '可';
     }
@@ -173,6 +189,15 @@ export function aiModelPriceValue(model: AiModel): number | null {
     if (direct !== null) {
         return direct;
     }
+    const qualityRates = price.by_quality_1024;
+    const defaultQuality = price.default_quality;
+    if (qualityRates && typeof qualityRates === 'object' && !Array.isArray(qualityRates)
+        && typeof defaultQuality === 'string') {
+        const selected = number((qualityRates as Record<string, unknown>)[defaultQuality]);
+        if (selected !== null) {
+            return selected;
+        }
+    }
     for (const rates of [price.by_resolution, price.by_quality_1024]) {
         if (rates && typeof rates === 'object' && !Array.isArray(rates)) {
             const first = number(Object.values(rates)[0]);
@@ -198,7 +223,23 @@ export function formatAiModelPrice(model: AiModel): string {
         usd_per_1000_chars: ' / 1000 文字',
         usd_per_hour: ' / 時間'
     };
+    const quality = model.price?.default_quality;
+    if (typeof quality === 'string' && model.price?.by_quality_1024) {
+        const label: Record<string, string> = { low: '低', medium: '中', high: '高' };
+        return `$${value.toFixed(3)}${units[String(model.price.unit)] || ''}（品質 ${label[quality] || quality}・1024² 基準）`;
+    }
     return `$${value}${units[String(model.price?.unit)] || ''}`;
+}
+
+export function formatAiModelOtherPrices(model: AiModel): string {
+    const rates = model.price?.by_quality_1024;
+    const selected = model.price?.default_quality;
+    if (!rates || typeof rates !== 'object' || Array.isArray(rates) || typeof selected !== 'string') {
+        return '';
+    }
+    const labels: Record<string, string> = { low: '低', medium: '中', high: '高' };
+    return Object.entries(rates).filter(([quality, value]) => quality !== selected && number(value) !== null)
+        .map(([quality, value]) => `${labels[quality] || quality} $${(value as number).toFixed(3)}`).join(' · ');
 }
 
 function maxDuration(value: unknown): number | null {
@@ -255,7 +296,11 @@ export function radarAxes(model: AiModel): RadarAxis[] {
         add('references', '参照画像', refs && number(refs.max) !== null ? number(refs.max) : supported(refs) ? 1 : 0, 16);
         const aspects = model.outputs.measured_aspects || model.outputs.aspects;
         add('aspects', '画角の自由度', Array.isArray(aspects) ? aspects.length : null, 8);
-        add('resolution', '解像度', resolution(model.outputs.resolutions), 3840);
+        const akariSizes = model.outputs.akari_sizes;
+        const akariLongEdge = akariSizes && typeof akariSizes === 'object' && !Array.isArray(akariSizes)
+            ? resolution(Object.values(akariSizes)) : null;
+        add('resolution', '解像度', akariLongEdge ?? resolution(model.outputs.resolutions), 3840,
+            akariLongEdge === null ? undefined : `AKARI で最大 ${akariLongEdge} px`);
     }
     else if (model.kind === 'video') {
         add('duration', '最長の尺', maxDuration(model.outputs.duration), 30);

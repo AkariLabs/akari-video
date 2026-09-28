@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { capabilityState, capabilityText, comparisonKeys, filterAiModels, groupRepresentative,
-    otherVariantCount, applyAiModelSet, radarAxes, aiModelPriceValue, formatAiModelPrice } from '../../lib/common/ai-models-model.js';
+    otherVariantCount, applyAiModelSet, radarAxes, aiModelPriceValue, formatAiModelPrice,
+    formatAiModelOtherPrices, aiModelResolutionText } from '../../lib/common/ai-models-model.js';
 const model = (id, overrides = {}) => ({ id, kind: 'image', name: id, family: id, maker: 'openai', group: 'g', main: false,
     callable: true, via: 'api', inputs: { reference_images: { max: 2 }, first_frame: 'none' }, outputs: { aspects: ['16:9'], resolutions: null }, price: null, ...overrides });
 const rows = [model('main', { main: true, name: 'GPT Image' }), model('variant', { name: 'GPT Image Sunburst' }),
@@ -68,6 +69,31 @@ test('料金の3形式と4単位をカード・表・レーダーで共通に使
     assert.equal(aiModelPriceValue(model('unknown')), null);
     assert.equal(formatAiModelPrice(model('unknown')), '料金 未確認');
     assert.equal(formatAiModelPrice(model('local', { via: 'local' })), '追加料金 ¥0');
+});
+test('GPT Image 2.5 は既定の高品質と AKARI の画角別寸法をカード・比較表・レーダーで共有する', () => {
+    const catalog = JSON.parse(readFileSync(new URL('../../../../../../packages/schemas/ai-models.json', import.meta.url)));
+    for (const id of ['fal:gpt-image-2.5-flare', 'fal:gpt-image-2.5-sunburst']) {
+        const current = catalog.models.find(row => row.id === id);
+        assert.equal(aiModelPriceValue(current), 0.0528);
+        assert.equal(formatAiModelPrice(current), '$0.053 / 枚（品質 高・1024² 基準）');
+        assert.equal(formatAiModelOtherPrices(current), '低 $0.006 · 中 $0.013');
+        assert.equal(aiModelResolutionText(current), '16:9 で 1088×608（モデルの上限 3840×2160）');
+        assert.equal(capabilityText('resolutions', current.outputs.resolutions, current), aiModelResolutionText(current));
+        const axes = radarAxes(current);
+        assert.equal(axes.find(axis => axis.key === 'cost').value, 1 / (1 + 0.0528 * 10));
+        assert.equal(axes.find(axis => axis.key === 'cost').display, formatAiModelPrice(current));
+        assert.equal(axes.find(axis => axis.key === 'resolution').value, 2016 / 3840);
+        assert.equal(axes.find(axis => axis.key === 'resolution').display, 'AKARI で最大 2016 px');
+    }
+});
+test('by_resolution の Nano Banana 2 は従来の料金・上限表示を保つ', () => {
+    const catalog = JSON.parse(readFileSync(new URL('../../../../../../packages/schemas/ai-models.json', import.meta.url)));
+    const current = catalog.models.find(row => row.id === 'fal:nano-banana-2');
+    assert.equal(aiModelPriceValue(current), 0.06);
+    assert.equal(formatAiModelPrice(current), '$0.06 / 枚');
+    assert.equal(formatAiModelOtherPrices(current), '');
+    assert.equal(capabilityText('resolutions', current.outputs.resolutions, current), '〜4K');
+    assert.equal(radarAxes(current).find(axis => axis.key === 'resolution').value, 1);
 });
 test('比較表の入力・出力は同じ種類に値がある項目だけを出す', () => {
     const mixed = [
