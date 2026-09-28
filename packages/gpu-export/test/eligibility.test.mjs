@@ -28,6 +28,17 @@ test("static HTML is same and eligible", () => {
   assert.deepEqual(result.summary, { same: 1, three: 0, dom: 0, degraded: 0, unsupported: 0 });
 });
 
+test('GPU accepts bundled stack faces and rejects unavailable caption fonts with a reason', () => {
+  for (const font_family of ["'Noto Serif JP', serif", 'Noto Serif JP, serif', "'Noto Serif JP'"]) {
+    const bundled = evaluate([], [{ id: 'c-serif', text: '字幕', text_style: { font_family } }]);
+    assert.equal(bundled.eligible, true, font_family);
+  }
+  assert.equal(evaluate([], [{ id: 'c-alias', text: '字幕', text_style: { font_family: 'AKARI Noto Sans JP' } }]).eligible, true);
+  const missing = evaluate([], [{ id: 'c-missing', text: '字幕', text_style: { font_family: 'Nonexistent Font, serif' } }]);
+  assert.equal(missing.eligible, false);
+  assert.equal(missing.entries[0].reason, 'caption-font-unavailable:Nonexistent Font');
+});
+
 test('rich caption looks force OSR for cue and inherited styles', () => {
   for (const [key, value] of [
     ['stroke_inner', { color: '#ffffff', width_px: 3 }],

@@ -8,15 +8,16 @@ const require = createRequire(import.meta.url);
 const { BUNDLED_CAPTION_FONT_FACES, bundledCaptionFontFaceCss } = require('../lib/common/bundled-caption-fonts.js');
 const root = resolve(import.meta.dirname, '../../../../../');
 
-test('棚の family 名と同梱フォントの実体が 8 書体すべて対応する', () => {
+test('棚の family 名と同梱フォントの実体が 9 書体すべて対応する', () => {
     const families = new Set();
     for (const face of BUNDLED_CAPTION_FONT_FACES) {
-        const meta = JSON.parse(readFileSync(resolve(root, 'catalog/font', face.id, 'meta.json'), 'utf8'));
+        const sourceId = face.sourceId ?? face.id;
+        const meta = JSON.parse(readFileSync(resolve(root, 'catalog/font', sourceId, 'meta.json'), 'utf8'));
         assert.equal(face.family, meta.title.replace(/（.*$/, '').trim());
-        assert.ok(existsSync(resolve(root, 'assets/font', face.id, face.file)), `${face.id}/${face.file}`);
+        assert.ok(existsSync(resolve(root, 'assets/font', sourceId, face.file)), `${sourceId}/${face.file}`);
         families.add(face.family);
     }
-    assert.equal(families.size, 8);
+    assert.equal(families.size, 9);
 });
 
 test('webview の CSS は各 family と配信 URL を @font-face に使う', () => {

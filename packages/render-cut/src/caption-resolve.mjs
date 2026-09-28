@@ -1,6 +1,8 @@
 import { createRequire } from "node:module";
 
 import { generateCaptionOverlays, generateResolvedCaptionOverlays } from "./captions.mjs";
+import { captionFontFaces, captionFontFamilies } from './caption-font-faces.mjs';
+import { accessSync, constants, statSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -85,6 +87,15 @@ export function resolveCaptionPlan({
     warnings.push(warning);
     onWarning?.(warning);
   };
+  const fontFaces = captionFontFaces();
+  const available = new Set(fontFaces.filter(face => {
+    try { accessSync(face.path, constants.R_OK); return statSync(face.path).isFile(); } catch { return false; }
+  }).map(face => face.family));
+  const warnMissingFonts = (cue, family) => {
+    for (const name of captionFontFamilies(family)) {
+      if (!available.has(name)) warn(`captions.json item ${cue?.source_cue_id ?? cue?.id ?? '(unknown)'} font_family ${JSON.stringify(name)} is unavailable`);
+    }
+  };
 
   const styleOutput = output ?? edit.output;
 
@@ -94,13 +105,14 @@ export function resolveCaptionPlan({
   });
 
   if (layout) {
+    for (const cue of layout.display_cues) warnMissingFonts(cue, cue?.text_style?.font_family ?? cue?.style_vars?.['--caption-font-family']);
     // 単語帳の行分割保護が外れた件数は layout.word_book_fallbacks に載る。
     // どこへ報告するか（stderr / warnings）は経路ごとに違うので、ここでは判断しない。
     return {
       captionsRoot,
       captions,
       layout,
-      overlays: generateResolvedCaptionOverlays(layout),
+      overlays: generateResolvedCaptionOverlays(layout, fontFaces),
       defaultTextStyle: Array.isArray(captionsRoot) ? null : captionsRoot.default_text_style ?? null,
       emphasisWords: Array.isArray(captionsRoot)
         ? edit.emphasis_words ?? []
@@ -113,6 +125,7 @@ export function resolveCaptionPlan({
   // 既定スタイル・強調語の取り方は移設元の loadCaptions と 1 バイトも変えない。
   // emphasis_words は「キーがあるか」で見る（明示 null を edit 側へ落とさないため）。
   const legacyDefaultTextStyle = Array.isArray(captionsRoot) ? undefined : captionsRoot.default_text_style;
+  for (const cue of captions) warnMissingFonts(cue, cue?.text_style?.font_family ?? legacyDefaultTextStyle?.font_family);
   const legacyEmphasisWords = !Array.isArray(captionsRoot)
     && Object.prototype.hasOwnProperty.call(captionsRoot, "emphasis_words")
     ? captionsRoot.emphasis_words
@@ -125,6 +138,7 @@ export function resolveCaptionPlan({
     output: styleOutput,
     sourceCount: referencedCaptionSourceCount(edit),
     onWarning: warn,
+    fontFaces,
   });
   return {
     captionsRoot,

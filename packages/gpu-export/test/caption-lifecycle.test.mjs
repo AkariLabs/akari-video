@@ -17,14 +17,15 @@ test("caption rasters are prefetched with a lazy fallback, batched, cropped, rel
   assert.doesNotMatch(source, /unit\.canvases/u);
 });
 
-test("caption font embedding caches one encoded value and splits the SVG around it", async () => {
+test("caption font embedding caches encoded values per URL and splits the SVG around them", async () => {
   const source = await readFile(join(import.meta.dirname, "..", "src", "page-runtime.js"), "utf8");
   assert.match(source, /let captionEncodedFontPromise = null/u);
   assert.match(source, /captionEncodedFontPromise \?\?=/u);
+  assert.match(source, /captionEncodedFonts\.set\(url, encode\(\)\)/u);
   assert.doesNotMatch(source, /for \(const caption of config\.spriteManifest\.captions\).*replaceAll/u);
   assert.match(source, /document\.fonts\.check\(fontDeclaration, fontSample\)/u);
   assert.match(source, /font is not ready for measurement/u);
-  assert.match(source, /parts\.map\(encodeURIComponent\)\.join\(encodedFont\)/u);
+  assert.match(source, /encodedFonts\.get\(match\[0\]\)/u);
   assert.doesNotMatch(source, /svg\.replaceAll\("\/caption-font\.ttf"/u);
 });
 

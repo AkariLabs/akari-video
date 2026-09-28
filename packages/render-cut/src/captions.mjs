@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { computeCutTimelineOffsets, computeVideoRuns, cutSpeed, needsGapAwareCutTimeline, resolveCutSegments, segmentDuration } from "./cut-timeline.mjs";
 import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
+import { BUNDLED_CAPTION_FONT_FACES, captionFontFaceCss, captionFontFaces, captionFontFamilies } from "./caption-font-faces.mjs";
 import { predictedDuration } from "./plan.mjs";
 
 // text_anchor / position → CSS 変数は共有カーネル単一定義（プレビューと同じ式で描く —
@@ -60,21 +61,6 @@ const CAPTION_FONT_DIR = resolve(
 // ブラウザは実際に使われる family しかフェッチしないため、全宣言を常に埋めてもコストは
 // 参照分だけ。可変フォントは font-weight を範囲指定にして wght 軸を補間させる
 // （範囲を省略すると単一ウェイトのみマッチし、font-weight:700 等が無視される）。
-const BUNDLED_CAPTION_FONTS = [
-  { family: "Noto Sans JP", file: "noto-sans-jp/NotoSansJP-Variable.ttf", weight: "100 900", variable: true },
-  { family: "Noto Serif JP", file: "noto-serif-jp/NotoSerifJP-Variable.ttf", weight: "100 900", variable: true },
-  { family: "M PLUS Rounded 1c", file: "mplus-rounded-1c/MPLUSRounded1c-Medium.ttf", weight: "500" },
-  { family: "M PLUS Rounded 1c", file: "mplus-rounded-1c/MPLUSRounded1c-ExtraBold.ttf", weight: "800" },
-  { family: "M PLUS Rounded 1c", file: "mplus-rounded-1c/MPLUSRounded1c-Black.ttf", weight: "900" },
-  { family: "BIZ UDGothic", file: "biz-udgothic/BIZUDGothic-Regular.ttf", weight: "400" },
-  { family: "BIZ UDGothic", file: "biz-udgothic/BIZUDGothic-Bold.ttf", weight: "700" },
-  { family: "Dela Gothic One", file: "dela-gothic-one/DelaGothicOne-Regular.ttf", weight: "400" },
-  { family: "Zen Maru Gothic", file: "zen-maru-gothic/ZenMaruGothic-Regular.ttf", weight: "400" },
-  { family: "Zen Maru Gothic", file: "zen-maru-gothic/ZenMaruGothic-Bold.ttf", weight: "700" },
-  { family: "Shippori Mincho", file: "shippori-mincho/ShipporiMincho-Regular.ttf", weight: "400" },
-  { family: "DotGothic16", file: "dotgothic16/DotGothic16-Regular.ttf", weight: "400" },
-  { family: "Klee One", file: "klee-one/KleeOne-Regular.ttf", weight: "400" },
-];
 // 既定出力（text_style なし）のバイト等価を守るため、従来どおりの単一 Noto 宣言を残す
 const CAPTION_DEFAULT_FONT_FACE_CSS = `@font-face {
       font-family: "Noto Sans JP";
@@ -82,14 +68,17 @@ const CAPTION_DEFAULT_FONT_FACE_CSS = `@font-face {
       font-weight: 100 900;
       font-style: normal;
     }`;
-const CAPTION_FONT_FACE_CSS = BUNDLED_CAPTION_FONTS
-  .map((font) => `@font-face {
+const CAPTION_FONT_FACE_CSS = BUNDLED_CAPTION_FONT_FACES
+  .map(font => `@font-face {
       font-family: "${font.family}";
-      src: url("${pathToFileURL(resolve(CAPTION_FONT_DIR, font.file)).href}") format("${font.variable ? "truetype-variations" : "truetype"}");
+      src: url("${pathToFileURL(resolve(CAPTION_FONT_DIR, font.id, font.file)).href}") format("${font.variable ? "truetype-variations" : "truetype"}");
       font-weight: ${font.weight};
       font-style: normal;
     }`)
   .join("\n    ");
+function activeCaptionFontFaceCss(faces) {
+  return faces.map(captionFontFaceCss).join('\n    ');
+}
 // resolved caption は OS の同名フォントへ fall back しない固有 family alias で単一 Noto に固定する。
 // font-weight の 100 900 範囲指定は可変フォントの wght 軸を font-weight:700 等に補間させるため
 // （範囲を省略すると単一ウェイトのみマッチする）。
@@ -188,6 +177,9 @@ const JUMBLE_MAX_OFFSET_EM = 0.1;
 const JUMBLE_MAX_SCALE_AMP = 0.12;
 
 export function generateCaptionOverlays(captions, cuts, options = {}) {
+  const hasFamily = Boolean(options.defaultTextStyle?.font_family)
+    || captions.some(cue => Boolean(cue?.text_style?.font_family));
+  const fontFaceCss = hasFamily ? activeCaptionFontFaceCss(options.fontFaces ?? captionFontFaces()) : CAPTION_FONT_FACE_CSS;
   // output（edit.output の {width,height}）が縦長なら、行を短く・文字を大きくする既定へ切り替える。
   // 明示指定（maxCharacters / text_style.size_px）は常に既定より優先。
   const output = options.output;
@@ -306,6 +298,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               emphasisWords,
               displayTokens: rangeTokens,
               textStyleActive: textStyle !== null,
+              fontFaceCss,
               contextStyle: textStyle,
               displayText,
               vertical: textStyle?.vertical === true,
@@ -322,6 +315,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               maximum,
               baseFontSize,
               textStyleActive: textStyle !== null,
+              fontFaceCss,
               contextStyle: textStyle,
               vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
@@ -356,10 +350,10 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
  * Opt-in single-line policy renderer. Cues are already projected and split by
  * edit-store's Node kernel; this consumer never segments text again.
  */
-export function generateResolvedCaptionOverlays(displayResult) {
+export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces()) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
-    html: applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue), cue.text, cue.runs),
+    html: applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
@@ -390,7 +384,12 @@ function finiteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-export function renderResolvedSingleLineCaption(text, lines, cue) {
+export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = captionFontFaces()) {
+  const requested = new Set(captionFontFamilies(cue?.text_style?.font_family ?? cue?.style_vars?.['--caption-font-family']));
+  const matchingFaces = requested.size ? fontFaces.filter(face => requested.has(face.family)) : [];
+  const fontFaceCss = matchingFaces.length
+    ? `${RESOLVED_CAPTION_FONT_FACE_CSS}\n    ${matchingFaces.map(captionFontFaceCss).join('\n    ')}`
+    : RESOLVED_CAPTION_FONT_FACE_CSS;
   const richGradientCss = cue?.text_style?.fill_gradient
     ? '      background-image:var(--caption-fill-gradient,none);\n      -webkit-background-clip:var(--caption-fill-clip,border-box);\n      -webkit-text-fill-color:var(--caption-fill-color,currentColor);\n      -webkit-text-stroke:0 transparent;\n      text-shadow:none;\n      filter:var(--caption-fill-filter,none);\n'
     : '';
@@ -417,7 +416,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
   const lineMarkup = captionDecorationMarkup(`<p class="akari-caption__line">${renderedText}</p>`, cue?.text_style);
   return `<div class="akari-caption akari-caption--single-line${captionContextClasses(cue?.text_style)}">
   <style>
-    ${RESOLVED_CAPTION_FONT_FACE_CSS}
+    ${fontFaceCss}
     .akari-caption--single-line {
       position:absolute;
       inset:0;
@@ -831,7 +830,7 @@ export function renderCaptionFragment(text, options = {}) {
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
     : "";
-  const fontFaceCss = options.textStyleActive ? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
+  const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
     ? `      font-family: var(--caption-font-family, ${CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);
@@ -1005,7 +1004,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
     : "";
-  const fontFaceCss = options.textStyleActive ? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
+  const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
     ? `      font-family: var(--caption-font-family, ${CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);

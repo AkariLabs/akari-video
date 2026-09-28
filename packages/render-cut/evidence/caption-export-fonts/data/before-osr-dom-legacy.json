@@ -1,0 +1,1536 @@
+{
+  "captionCount": 18,
+  "faceRules": [],
+  "perCue": [
+    {
+      "overlay": "c-0001-01",
+      "family": "\"Noto Sans JP\", sans-serif",
+      "weight": "700",
+      "fontsLoadMatched": [
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded"
+      ],
+      "check": true
+    },
+    {
+      "overlay": "c-0002-01",
+      "family": "\"Noto Sans JP\"",
+      "weight": "400",
+      "fontsLoadMatched": [
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded"
+      ],
+      "check": true
+    },
+    {
+      "overlay": "c-0003-01",
+      "family": "\"Noto Sans JP\"",
+      "weight": "900",
+      "fontsLoadMatched": [
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded",
+        "Noto Sans JP 100 900 loaded"
+      ],
+      "check": true
+    },
+    {
+      "overlay": "c-0004-01",
+      "family": "\"Noto Serif JP\"",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0005-01",
+      "family": "\"Noto Serif JP\"",
+      "weight": "900",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0006-01",
+      "family": "\"M PLUS Rounded 1c\"",
+      "weight": "500",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0007-01",
+      "family": "\"M PLUS Rounded 1c\"",
+      "weight": "900",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0008-01",
+      "family": "\"BIZ UDGothic\"",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": true
+    },
+    {
+      "overlay": "c-0009-01",
+      "family": "\"BIZ UDGothic\"",
+      "weight": "700",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": true
+    },
+    {
+      "overlay": "c-0010-01",
+      "family": "\"Dela Gothic One\"",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0011-01",
+      "family": "\"Zen Maru Gothic\"",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0012-01",
+      "family": "\"Zen Maru Gothic\"",
+      "weight": "700",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0013-01",
+      "family": "\"Shippori Mincho\"",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0014-01",
+      "family": "DotGothic16",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0015-01",
+      "family": "\"Klee One\"",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    },
+    {
+      "overlay": "c-0016-01",
+      "family": "\"Probe Hand\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0017-01",
+      "family": "\"Nonexistent Font\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0018-01",
+      "family": "\"Noto Serif JP\", serif",
+      "weight": "400",
+      "fontsLoadMatched": "NetworkError: A network error occurred.",
+      "check": false
+    }
+  ],
+  "fontSet": [
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif JP",
+      "weight": "100 900",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "500",
+      "status": "error"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "800",
+      "status": "unloaded"
+    },
+    {
+      "family": "M PLUS Rounded 1c",
+      "weight": "900",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "BIZ UDGothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Dela Gothic One",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Zen Maru Gothic",
+      "weight": "700",
+      "status": "error"
+    },
+    {
+      "family": "Shippori Mincho",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "DotGothic16",
+      "weight": "400",
+      "status": "error"
+    },
+    {
+      "family": "Klee One",
+      "weight": "400",
+      "status": "error"
+    }
+  ],
+  "failedRequests": [
+    {
+      "url": "http://127.0.0.1:<port>/caption-font.ttf",
+      "error": "net::ERR_CACHE_MISS"
+    }
+  ],
+  "fontRequests": [
+    {
+      "url": "http://127.0.0.1:<port>/caption-font.ttf",
+      "status": 200
+    }
+  ],
+  "console": [
+    {
+      "level": 1,
+      "message": "@webav version: 1.2.8, date: 2026/9/28"
+    },
+    {
+      "level": 1,
+      "message": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-Medium.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-ExtraBold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-Black.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/biz-udgothic/BIZUDGothic-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/biz-udgothic/BIZUDGothic-Bold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/zen-maru-gothic/ZenMaruGothic-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/zen-maru-gothic/ZenMaruGothic-Bold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/shippori-mincho/ShipporiMincho-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/dotgothic16/DotGothic16-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/klee-one/KleeOne-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-Medium.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-ExtraBold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-Black.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/biz-udgothic/BIZUDGothic-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/biz-udgothic/BIZUDGothic-Bold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/zen-maru-gothic/ZenMaruGothic-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/zen-maru-gothic/ZenMaruGothic-Bold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/shippori-mincho/ShipporiMincho-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/dotgothic16/DotGothic16-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/klee-one/KleeOne-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-Medium.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-ExtraBold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-Black.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/biz-udgothic/BIZUDGothic-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/biz-udgothic/BIZUDGothic-Bold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/zen-maru-gothic/ZenMaruGothic-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/zen-maru-gothic/ZenMaruGothic-Bold.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/shippori-mincho/ShipporiMincho-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/dotgothic16/DotGothic16-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/klee-one/KleeOne-Regular.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf"
+    },
+    {
+      "level": 3,
+      "message": "Not allowed to load local resource: file://<repo>/assets/font/mplus-rounded-1c/MPLUSRounded1c-Medium.ttf"
+    }
+  ],
+  "warnings": []
+}

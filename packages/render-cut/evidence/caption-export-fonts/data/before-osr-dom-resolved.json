@@ -1,0 +1,270 @@
+{
+  "captionCount": 18,
+  "faceRules": [],
+  "perCue": [
+    {
+      "overlay": "c-0001-occ-0001-part-1",
+      "family": "\"AKARI Noto Sans JP\", sans-serif",
+      "weight": "700",
+      "fontsLoadMatched": [
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded",
+        "AKARI Noto Sans JP 100 900 loaded"
+      ],
+      "check": true
+    },
+    {
+      "overlay": "c-0002-occ-0001-part-1",
+      "family": "\"Noto Sans JP\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0003-occ-0001-part-1",
+      "family": "\"Noto Sans JP\"",
+      "weight": "900",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0004-occ-0001-part-1",
+      "family": "\"Noto Serif JP\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0005-occ-0001-part-1",
+      "family": "\"Noto Serif JP\"",
+      "weight": "900",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0006-occ-0001-part-1",
+      "family": "\"M PLUS Rounded 1c\"",
+      "weight": "500",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0007-occ-0001-part-1",
+      "family": "\"M PLUS Rounded 1c\"",
+      "weight": "900",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0008-occ-0001-part-1",
+      "family": "\"BIZ UDGothic\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0009-occ-0001-part-1",
+      "family": "\"BIZ UDGothic\"",
+      "weight": "700",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0010-occ-0001-part-1",
+      "family": "\"Dela Gothic One\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0011-occ-0001-part-1",
+      "family": "\"Zen Maru Gothic\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0012-occ-0001-part-1",
+      "family": "\"Zen Maru Gothic\"",
+      "weight": "700",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0013-occ-0001-part-1",
+      "family": "\"Shippori Mincho\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0014-occ-0001-part-1",
+      "family": "DotGothic16",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0015-occ-0001-part-1",
+      "family": "\"Klee One\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0016-occ-0001-part-1",
+      "family": "\"Probe Hand\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0017-occ-0001-part-1",
+      "family": "\"Nonexistent Font\"",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    },
+    {
+      "overlay": "c-0018-occ-0001-part-1",
+      "family": "\"Noto Serif JP\", serif",
+      "weight": "400",
+      "fontsLoadMatched": [],
+      "check": true
+    }
+  ],
+  "fontSet": [
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    },
+    {
+      "family": "AKARI Noto Sans JP",
+      "weight": "100 900",
+      "status": "loaded"
+    }
+  ],
+  "failedRequests": [
+    {
+      "url": "http://127.0.0.1:<port>/caption-font.ttf",
+      "error": "net::ERR_CACHE_MISS"
+    }
+  ],
+  "fontRequests": [
+    {
+      "url": "http://127.0.0.1:<port>/caption-font.ttf",
+      "status": 200
+    }
+  ],
+  "console": [
+    {
+      "level": 1,
+      "message": "@webav version: 1.2.8, date: 2026/9/28"
+    },
+    {
+      "level": 1,
+      "message": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36"
+    },
+    {
+      "level": 2,
+      "message": "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://"
+    }
+  ],
+  "warnings": []
+}

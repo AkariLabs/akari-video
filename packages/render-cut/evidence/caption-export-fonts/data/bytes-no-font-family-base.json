@@ -1,0 +1,32 @@
+{
+  "legacy-plain": {
+    "overlays": "f22143c1d56892dc450ee2761fd5c59072b85915ecc092cee176409040443efd",
+    "warnings": [],
+    "osrPageHtml": "447da1df06502330c610f319a46731f8012163759e84ef30cee880ac6c04743d",
+    "osrSheet": "8f9064450226473e06698701e1a7421e54c8c2869586cb8fa8cc62145f6e86f5"
+  },
+  "legacy-default-style-no-family": {
+    "overlays": "eaad68317c60579a49902cc864ce5472a065ec477957a455ac783cd7a60e78a6",
+    "warnings": [],
+    "osrPageHtml": "447da1df06502330c610f319a46731f8012163759e84ef30cee880ac6c04743d",
+    "osrSheet": "c814c3c4b22d2910a0ba0eda48da12f459c99400aa6c26fb1bc3f711cc523b86"
+  },
+  "legacy-text-style-no-family": {
+    "overlays": "ca2b81ffa9a6d575077de8e1a72a335f029d12484b1758a7e563e24c9d14d7fa",
+    "warnings": [],
+    "osrPageHtml": "447da1df06502330c610f319a46731f8012163759e84ef30cee880ac6c04743d",
+    "osrSheet": "a946ee04d8379ef56a3a4e861e4cf45a94276a25e2b03ae8caa779990904ed4f"
+  },
+  "resolved-plain": {
+    "overlays": "6c05b6af71822f8ee3ce0511fd06911921b654ea6f014b7bb9ad7f2dd2390bce",
+    "warnings": [],
+    "osrPageHtml": "447da1df06502330c610f319a46731f8012163759e84ef30cee880ac6c04743d",
+    "osrSheet": "05291632191d076f22e832dcb96282fae76824f9b7a0460fde8ef46c99bb6576"
+  },
+  "resolved-text-style-no-family": {
+    "overlays": "8047c62731f5c4ce26d01efb9e0d178ea25576714ebfab71ea7b51e114e043f3",
+    "warnings": [],
+    "osrPageHtml": "447da1df06502330c610f319a46731f8012163759e84ef30cee880ac6c04743d",
+    "osrSheet": "cfc9b643d07504da55334fe4c52b1e2007af98e4fe91049e832521f240a1c27e"
+  }
+}
