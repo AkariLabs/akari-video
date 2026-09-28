@@ -736,6 +736,128 @@ test('cross-track interval intersection keeps the bottom media as cuts, sends th
   assert.deepEqual(view.layers.map(layer => layer.track), [0]);
 });
 
+const evacuationMedia = (id, src, at, duration, extra = {}) => ({
+  id, at, duration, source: { kind: 'media', src, in: 0, out: duration / 30 }, ...extra,
+});
+const evacuationTrack = (id, items) => ({ id, lane: 'visual', items });
+const evacuationEdit = (tracks, sources = [
+  { id: 'main', path: 'main.mp4' },
+  { id: 'bg', path: 'bg.png' },
+  { id: 'broll', path: 'broll.mp4' },
+]) => ({ version: 2, output: { width: 1280, height: 720, fps: 30 }, sources, tracks });
+
+test('a full-frame B-roll above a still background evacuates after the background and keeps the main cut', () => {
+  const edit = evacuationEdit([
+    evacuationTrack('v0', [evacuationMedia('main', 'main', 0, 240)]),
+    evacuationTrack('v1', [evacuationMedia('bg', 'bg', 30, 180, { transform: { scale: 1, x: 0, y: 0 } })]),
+    evacuationTrack('v2', [evacuationMedia('broll', 'broll', 60, 90, { transform: { scale: 1, x: 0, y: 0 } })]),
+  ]);
+  const internal = readInternalEdit(edit);
+  assert.deepEqual(internal.tracks.map(track => track.items[0].legacy.collection), ['cuts', 'layers', 'layers']);
+  assert.deepEqual(projectLegacyEdit(internal).layers.map(layer => layer.id), ['bg', 'broll']);
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [
+    { itemId: 'bg', trackId: 'v1', causeItemId: 'main', causeTrackId: 'v0', overlapStartFrames: 30, overlapEndFrames: 210 },
+    { itemId: 'broll', trackId: 'v2', causeItemId: 'bg', causeTrackId: 'v1', overlapStartFrames: 60, overlapEndFrames: 150 },
+  ]);
+});
+
+test('a layer required by blend evacuates a full-frame upper mp4', () => {
+  const edit = evacuationEdit([
+    evacuationTrack('v0', [evacuationMedia('main', 'main', 0, 180)]),
+    evacuationTrack('v1', [evacuationMedia('blend', 'main', 20, 120, { blend: 'multiply' })]),
+    evacuationTrack('v2', [evacuationMedia('broll', 'broll', 40, 80)]),
+  ]);
+  assert.equal(readInternalEdit(edit).tracks[2].items[0].legacy.collection, 'layers');
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [
+    { itemId: 'broll', trackId: 'v2', causeItemId: 'blend', causeTrackId: 'v1', overlapStartFrames: 40, overlapEndFrames: 120 },
+  ]);
+});
+
+test('source-table chroma key is resolved for both projection and evacuation reports', () => {
+  const edit = evacuationEdit([
+    evacuationTrack('v0', [evacuationMedia('keyed', 'main', 0, 90)]),
+    evacuationTrack('v1', [evacuationMedia('broll', 'broll', 30, 60)]),
+  ], [
+    { id: 'main', path: 'main.mp4', chroma_key: { color: '#00ff00' } },
+    { id: 'broll', path: 'broll.mp4', chroma_key: null },
+  ]);
+  assert.deepEqual(readInternalEdit(edit).tracks.map(track => track.items[0].legacy.collection), ['layers', 'layers']);
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [
+    { itemId: 'broll', trackId: 'v1', causeItemId: 'keyed', causeTrackId: 'v0', overlapStartFrames: 30, overlapEndFrames: 90 },
+  ]);
+});
+
+test('one pass records every lower layer that overlaps the same upper item', () => {
+  const edit = evacuationEdit([
+    evacuationTrack('v0', [evacuationMedia('blend-a', 'main', 0, 60, { blend: 'multiply' })]),
+    evacuationTrack('v1', [evacuationMedia('blend-b', 'main', 30, 60, { blend: 'multiply' })]),
+    evacuationTrack('v2', [evacuationMedia('broll', 'broll', 40, 30)]),
+  ]);
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [
+    { itemId: 'broll', trackId: 'v2', causeItemId: 'blend-a', causeTrackId: 'v0', overlapStartFrames: 40, overlapEndFrames: 60 },
+    { itemId: 'broll', trackId: 'v2', causeItemId: 'blend-b', causeTrackId: 'v1', overlapStartFrames: 40, overlapEndFrames: 70 },
+  ]);
+});
+
+test('cross-track layer evacuation reaches a fixed point across four tracks', () => {
+  const edit = evacuationEdit([
+    evacuationTrack('v0', [evacuationMedia('main', 'main', 0, 180)]),
+    evacuationTrack('v1', [evacuationMedia('blend', 'main', 0, 60, { blend: 'multiply' })]),
+    evacuationTrack('v2', [evacuationMedia('middle', 'broll', 30, 90)]),
+    evacuationTrack('v3', [evacuationMedia('top', 'broll', 90, 60)]),
+  ]);
+  assert.deepEqual(readInternalEdit(edit).tracks.map(track => track.items[0].legacy.collection),
+    ['cuts', 'layers', 'layers', 'layers']);
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [
+    { itemId: 'middle', trackId: 'v2', causeItemId: 'blend', causeTrackId: 'v1', overlapStartFrames: 30, overlapEndFrames: 60 },
+    { itemId: 'top', trackId: 'v3', causeItemId: 'middle', causeTrackId: 'v2', overlapStartFrames: 90, overlapEndFrames: 120 },
+  ]);
+});
+
+test('filter and baked telop lower items each evacuate a full-frame upper mp4', () => {
+  for (const source of [
+    { kind: 'filter', filter: { type: 'invert' } },
+    { kind: 'telop', preset: 'title', params: { text: 'Title' }, baked: 'title.mov' },
+  ]) {
+    const edit = evacuationEdit([
+      evacuationTrack('v0', [{ id: 'effect', at: 10, duration: 60, source }]),
+      evacuationTrack('v1', [evacuationMedia('broll', 'broll', 30, 60)]),
+    ]);
+    assert.equal(readInternalEdit(edit).tracks[1].items[0].legacy.collection, 'layers');
+    assert.deepEqual(findCrossTrackLayerEvacuations(edit), [
+      { itemId: 'broll', trackId: 'v1', causeItemId: 'effect', causeTrackId: 'v0', overlapStartFrames: 30, overlapEndFrames: 70 },
+    ]);
+  }
+});
+
+test('three full-frame opaque mp4 tracks remain cuts', () => {
+  const edit = evacuationEdit(['main', 'broll', 'main'].map((src, index) =>
+    evacuationTrack(`v${index}`, [evacuationMedia(`clip-${index}`, src, 0, 90)])));
+  const internal = readInternalEdit(edit);
+  assert.deepEqual(internal.tracks.map(track => track.items[0].legacy.collection), ['cuts', 'cuts', 'cuts']);
+  assert.deepEqual(projectLegacyEdit(internal).layers, []);
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), []);
+});
+
+test('a full-frame mp4 touching the end of a lower layer remains cuts', () => {
+  const edit = evacuationEdit([
+    evacuationTrack('v0', [evacuationMedia('main', 'main', 0, 120)]),
+    evacuationTrack('v1', [evacuationMedia('blend', 'main', 0, 60, { blend: 'multiply' })]),
+    evacuationTrack('v2', [evacuationMedia('broll', 'broll', 60, 60)]),
+  ]);
+  assert.equal(readInternalEdit(edit).tracks[2].items[0].legacy.collection, 'cuts');
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), []);
+});
+
+test('an html lower item does not evacuate a full-frame mp4', () => {
+  const edit = evacuationEdit([
+    evacuationTrack('v0', [{ id: 'overlay', at: 0, duration: 90, source: { kind: 'html', path: 'overlay.html' } }]),
+    evacuationTrack('v1', [evacuationMedia('broll', 'broll', 30, 60)]),
+  ]);
+  assert.equal(readInternalEdit(edit).tracks[1].items[0].legacy.collection, 'cuts');
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), []);
+});
+
 test('cross-track layer evacuation reports the exact overlapping cause and frame interval', () => {
   const edit = {
     version: 2,
