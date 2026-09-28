@@ -1,0 +1,51 @@
+[
+  {
+    "t": "2026-09-28T11:09:41.983Z",
+    "step": "window-a-ready",
+    "ok": true,
+    "title": "ws-a — 単体"
+  },
+  {
+    "t": "2026-09-28T11:11:08.559Z",
+    "step": "window-b-ready",
+    "ok": true,
+    "title": "ws-b — 単体"
+  },
+  {
+    "t": "2026-09-28T11:11:13.584Z",
+    "step": "recent-workspaces",
+    "recent": [
+      "<pwr>/after/ws-b",
+      "<pwr>/after/ws-a"
+    ]
+  },
+  {
+    "t": "2026-09-28T11:11:18.331Z",
+    "step": "open-edit-json-in-a",
+    "attempt": 1
+  },
+  {
+    "t": "2026-09-28T11:12:23.677Z",
+    "step": "result",
+    "attempt": 1,
+    "elapsedMs": 65346,
+    "notifications": [],
+    "hasOutsideText": false,
+    "hasCannotOpen": false,
+    "preview": {
+      "stage": true,
+      "frameEngineReady": null,
+      "canvas": true,
+      "video": {
+        "readyState": 0,
+        "src": ""
+      },
+      "bodyError": false
+    }
+  },
+  {
+    "t": "2026-09-28T11:12:23.996Z",
+    "step": "backend-log-matches",
+    "lines": []
+  }
+]
