@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { enumerateProjectRenderInputs, withRenderMediaReferences } from "../../render-cut/src/render-cut.mjs";
 import { loadAndBuildGpuPage } from "../src/page-builder.mjs";
 import { exportWithGpu, resolveGpuRuntimeOptions } from "../src/index.mjs";
 
@@ -58,8 +60,20 @@ export async function runCli(argv = process.argv.slice(2), deps = {}) {
     const pageBuilder = deps.loadAndBuildGpuPage ?? loadAndBuildGpuPage;
     const exporter = deps.exportWithGpu ?? exportWithGpu;
     const runtimeOptionsResolver = deps.resolveGpuRuntimeOptions ?? resolveGpuRuntimeOptions;
-    const built = await pageBuilder(options);
-    await exporter({ ...options, ...runtimeOptionsResolver(options), eligibility: built.eligibility });
+    const inputsResolver = deps.enumerateProjectRenderInputs ?? enumerateProjectRenderInputs;
+    const mediaReferences = deps.withRenderMediaReferences ?? withRenderMediaReferences;
+    const projectRoot = resolve(options.projectRoot);
+    const built = await pageBuilder({ ...options, projectRoot });
+    // 製品経路（render-cut --engine gpu）と同じ宣言済み入力を列挙し、同じ媒体表で子を走らせる。
+    // これが無いと、プロジェクト内に実体の無い素材ライブラリ参照（assets/still/<id>/… 等）を
+    // 静的サーバーが 404 にし、その層が描かれないまま書き出しが進む。
+    const declaredInputs = await inputsResolver({ projectRoot, env: deps.env ?? process.env });
+    await mediaReferences(projectRoot, declaredInputs, () => exporter({
+      ...options,
+      projectRoot,
+      ...runtimeOptionsResolver(options),
+      eligibility: built.eligibility,
+    }));
     return 0;
   } catch (error) {
     if (error instanceof CliArgumentError) {

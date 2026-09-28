@@ -13,10 +13,12 @@ import {
 } from "../../../render-cut/src/contact-sheet.mjs";
 import { projectRendererCompatibilityEdit, readRenderEdit } from "../../../render-cut/src/internal-render.mjs";
 import {
+  enumerateProjectRenderInputs,
   loadCaptions,
   loadOverlays,
   renderProject,
   resolveEngineChoice,
+  withRenderMediaReferences,
 } from "../../../render-cut/src/render-cut.mjs";
 import { parseCaptureArguments } from "./arguments.mjs";
 import {
@@ -125,7 +127,10 @@ export async function runCapture(argv, options = {}) {
         frames: totalFrames,
         io: { log() {}, error: options.warn ?? ((line) => console.error(line)) },
       };
-      const execution = await runCaptureV2WithRuntimeFallback({
+      // render-cut と同じ媒体表で子を走らせる。無いとプロジェクト内に実体の無い素材ライブラリ参照が
+      // 静的サーバーで 404 になり、その層が描けない（書き出し同様、capture も層を抜かずに失敗する）。
+      const declaredInputs = await enumerateProjectRenderInputs({ projectRoot, editPath: parsed.edit });
+      const execution = await withRenderMediaReferences(projectRoot, declaredInputs, () => runCaptureV2WithRuntimeFallback({
         requested: parsed.engine,
         engine,
         runGpu: () => captureFramesWithGpu({
@@ -150,7 +155,7 @@ export async function runCapture(argv, options = {}) {
           });
           return { captured, launcher };
         },
-      });
+      }));
     engine = execution.engine;
     const captured = execution.result.captured ?? execution.result;
     engineReceipt = captured.receipt;

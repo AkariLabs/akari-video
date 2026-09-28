@@ -240,11 +240,9 @@ export async function renderProject(input, options = {}, io = console) {
   const captionFontAsset = plannedCaptions.overlays.length > 0
     ? resolveCanonicalCaptionFontAsset()
     : null;
-  const declaredInputs = await enumerateDeclaredRenderInputs({
+  const declaredInputs = await collectDeclaredRenderInputs({
     projectRoot, edit, editText, captionFontAsset, internalEdit, env,
   });
-  declaredInputs.push(...await additionalBgmInputs({ projectRoot, edit, editText, internalEdit, env }));
-  declaredInputs.sort((a, b) => a.role.localeCompare(b.role, "en") || a.path.localeCompare(b.path, "en"));
   const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
   const inputs = Object.fromEntries(
     inputSnapshot.map((input) => [input.path, {
@@ -1116,6 +1114,42 @@ async function measureCapabilities(
     };
   });
   return { ...shared, sourceInputs };
+}
+
+// renderProject が書き出しに渡す宣言済み入力（素材ライブラリへ解決した library scope を含む）の全列挙。
+async function collectDeclaredRenderInputs({ projectRoot, edit, editText, captionFontAsset = null, internalEdit, env }) {
+  const declaredInputs = await enumerateDeclaredRenderInputs({
+    projectRoot, edit, editText, captionFontAsset, internalEdit, env,
+  });
+  declaredInputs.push(...await additionalBgmInputs({ projectRoot, edit, editText, internalEdit, env }));
+  declaredInputs.sort((a, b) => a.role.localeCompare(b.role, "en") || a.path.localeCompare(b.path, "en"));
+  return declaredInputs;
+}
+
+/**
+ * render-cut を経ない書き出し入口（akari-gpu-export の直接実行・capture）が、renderProject と
+ * 同じ規則で宣言済み入力を得るための入口。withRenderMediaReferences に渡すと、プロジェクト内に
+ * 実体が無い素材ライブラリ参照（.akari/asset-references.json 経由の assets/<category>/<id>/…）も
+ * 静的サーバーの /media/ から配信される。これを通さない入口ではライブラリ素材が 404 になる。
+ * 字幕フォントは akari scope（媒体表の対象外）なので列挙しない。
+ */
+export async function enumerateProjectRenderInputs({
+  projectRoot,
+  editPath = join(projectRoot, "edit.json"),
+  env = process.env,
+}) {
+  const editText = await readRequired(editPath, "edit.json");
+  const captionsRoot = await readJsonIfPresent(join(projectRoot, "captions.json"));
+  const renderRead = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp"), {
+    captions: captionsRoot === undefined ? undefined : toAnchorCaptions(captionsRoot),
+  });
+  return collectDeclaredRenderInputs({
+    projectRoot,
+    edit: renderRead.edit,
+    editText,
+    internalEdit: renderRead.internal,
+    env,
+  });
 }
 
 async function additionalBgmInputs({ projectRoot, edit, editText, internalEdit, env }) {

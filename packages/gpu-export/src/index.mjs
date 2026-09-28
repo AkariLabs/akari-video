@@ -28,6 +28,16 @@ export function gpuRuntimeFallbackReason(error, fallbackReasons = FALLBACK_REASO
   return null;
 }
 
+// 書き出し・capture で層を抜いてよい場合は無い（抜いてよいのはプレビューだけ）。子の page-runtime は
+// 層の準備失敗をその場で失敗にするが、run.json に skippedLayers が残っていれば（ランタイムの取りこぼし）
+// completed でも成果物として受け取らない。層を抜いた MP4 が「成功」になるのを親でも塞ぐ二重の門。
+export function assertNoSkippedLayers(run) {
+  const skipped = Number(run?.frameEngineMetrics?.skippedLayers ?? 0);
+  if (skipped > 0 || !Number.isFinite(skipped)) {
+    throw new Error(`GPU run skipped ${run.frameEngineMetrics.skippedLayers} layer draw(s); 層の欠けた出力は採用しません（run.json の frameEngineMetrics.skippedLayers）`);
+  }
+}
+
 export async function exportWithGpu({
   projectRoot,
   out,
@@ -125,6 +135,7 @@ export async function exportWithGpu({
       };
     }
     if (run.status !== "completed") throw new Error(`GPU encoder unavailable: ${run.status}`);
+    assertNoSkippedLayers(run);
     const resolvedFfprobe = ffprobeCommand ?? resolveFfprobe({ env });
     const timing = { ...(run.timing ?? {}) };
     const recordTiming = (name, started) => {
@@ -289,6 +300,7 @@ export async function captureFramesWithGpu({
   if (run.status !== "completed" || run.operation !== "capture" || run.verify?.matched !== true) {
     throw new Error(`GPU capture failed verification: ${run.status ?? "unknown"}`);
   }
+  assertNoSkippedLayers(run);
   return {
     launcher,
     run,

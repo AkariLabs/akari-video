@@ -188,7 +188,15 @@
       }
       let frame;
       try {
-        frame = await FE.evaluateFrame(plan, { compositor: this.compositor, metrics: this.metrics });
+        frame = await FE.evaluateFrame(plan, {
+          compositor: this.compositor,
+          metrics: this.metrics,
+          // GPU 経路（gpu-export/src/page-runtime.js）と同じく、書き出しでは層を黙って抜かない。
+          onLayerFailure(layerId, error) {
+            const reason = error && error.message ? error.message : String(error);
+            throw new Error(`layer ${layerId} を描けないため書き出しを中止します（層を抜いた出力は作りません）: ${reason}`);
+          },
+        });
       } finally {
         frame && frame.close();
       }

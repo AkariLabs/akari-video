@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import { CliArgumentError, USAGE, parse, runCli } from "../bin/akari-gpu-export.mjs";
 
 const REQUIRED_ARGUMENTS = ["project", "--out", "out.mp4", "--duration", "1"];
+// 媒体表（素材ライブラリ参照の配信表）の準備は layer-failure.test.mjs が実物で確かめる。ここでは素通しにする
+const PASSTHROUGH_MEDIA_REFERENCES = {
+  enumerateProjectRenderInputs: async () => [],
+  withRenderMediaReferences: async (_projectRoot, _inputs, run) => run(),
+};
 
 test("GPU CLI parses --audio as audioSourcePath", () => {
   const options = parse([...REQUIRED_ARGUMENTS, "--audio", "tone.m4a"]);
@@ -63,6 +69,7 @@ test("GPU CLI without --audio announces video-only output and exports with audio
   const exitCode = await runCli(REQUIRED_ARGUMENTS, {
     io: { log() {}, error(message) { errors.push(message); } },
     loadAndBuildGpuPage: async () => ({ eligibility: { eligible: true, entries: [] } }),
+    ...PASSTHROUGH_MEDIA_REFERENCES,
     resolveGpuRuntimeOptions: () => ({}),
     exportWithGpu: async (options) => { exported = options; },
   });
@@ -115,6 +122,7 @@ test("GPU CLI passes a probed --audio source to export", async () => {
     resolveFfprobe: () => "ffprobe-fixture",
     probeAudioStream: async () => true,
     loadAndBuildGpuPage: async () => ({ eligibility: { eligible: true, entries: [] } }),
+    ...PASSTHROUGH_MEDIA_REFERENCES,
     resolveGpuRuntimeOptions: () => ({ queueDepth: 9 }),
     exportWithGpu: async (options) => { exported = options; },
   });
@@ -140,4 +148,51 @@ test("GPU CLI reserves exit 1 for export failures", async () => {
   });
   assert.equal(exitCode, 1);
   assert.match(errors.at(-1), /export failed/u);
+});
+
+test("GPU CLI runs the exporter inside the render-cut media reference table with the declared inputs", async () => {
+  const order = [];
+  const declared = [{ role: "layer:image-1", path: "assets/still/card/bg.png", scope: "library" }];
+  let exported;
+  const exitCode = await runCli(REQUIRED_ARGUMENTS, {
+    io: { log() {}, error() {} },
+    env: { AKARI_LIBRARY_ROOT: "/library" },
+    loadAndBuildGpuPage: async (options) => { order.push(["build", options.projectRoot]); return { eligibility: { eligible: true, entries: [] } }; },
+    enumerateProjectRenderInputs: async (options) => {
+      order.push(["enumerate", options.projectRoot, options.env.AKARI_LIBRARY_ROOT]);
+      return declared;
+    },
+    withRenderMediaReferences: async (projectRoot, inputs, run) => {
+      assert.equal(inputs, declared);
+      order.push(["references:open", projectRoot]);
+      try { return await run(); } finally { order.push(["references:close"]); }
+    },
+    resolveGpuRuntimeOptions: () => ({}),
+    exportWithGpu: async (options) => { exported = options; order.push(["export", options.projectRoot]); },
+  });
+  const projectRoot = resolve("project");
+  assert.equal(exitCode, 0);
+  assert.equal(exported.projectRoot, projectRoot);
+  assert.deepEqual(order, [
+    ["build", projectRoot],
+    ["enumerate", projectRoot, "/library"],
+    ["references:open", projectRoot],
+    ["export", projectRoot],
+    ["references:close"],
+  ]);
+});
+
+test("GPU CLI fails before export when a declared input cannot be resolved", async () => {
+  const errors = [];
+  let exported = false;
+  const exitCode = await runCli(REQUIRED_ARGUMENTS, {
+    io: { log() {}, error(message) { errors.push(message); } },
+    loadAndBuildGpuPage: async () => ({ eligibility: { eligible: true, entries: [] } }),
+    enumerateProjectRenderInputs: async () => { throw new Error("layer:image-1 could not be resolved: ENOENT"); },
+    resolveGpuRuntimeOptions: () => ({}),
+    exportWithGpu: async () => { exported = true; },
+  });
+  assert.equal(exitCode, 1);
+  assert.equal(exported, false);
+  assert.match(errors.at(-1), /layer:image-1 could not be resolved/u);
 });

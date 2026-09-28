@@ -489,7 +489,18 @@
       // フレームが同時に生きる瞬間ができる）
       const reaped = this.reaper.reap(plan, Math.round(clamped * this.fps));
       this.decoderSessions = { live: reaped.liveStreams, released: this.reaper.released() };
-      return FE.evaluateFrame(plan, { compositor: this.compositor, metrics: this.metrics });
+      return FE.evaluateFrame(plan, {
+        compositor: this.compositor,
+        metrics: this.metrics,
+        // frame-engine は層 1 枚の準備失敗（画像 404・decode 失敗など）をその層だけ抜いて続行する。
+        // プレビューにはそれが正しいが、書き出しで黙って抜くと写真の無い MP4 が completed になる
+        // （run.json の skippedLayers にしか残らない）。書き出しは層 id と原因を載せてここで止める。
+        onLayerFailure(layerId, error) {
+          const reason = error && error.message ? error.message : String(error);
+          // OSR へ逃がす理由（FALLBACK_REASONS）には含めない: 入力の不備なので OSR でも同じく描けない。
+          throw new Error(`layer ${layerId} を描けないため書き出しを中止します（層を抜いた出力は作りません）: ${reason}`);
+        },
+      });
     }
 
     prefetchSummary() {
