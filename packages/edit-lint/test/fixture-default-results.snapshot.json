@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "fixture_count": 117,
+  "fixture_count": 116,
   "fixtures": {
     "audio-sfx-track-invalid-value": {
       "exit_code": 0,
@@ -2686,66 +2686,6 @@
         }
       ],
       "skipped": [
-        {
-          "check": "audio.music-grid",
-          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
-        },
-        {
-          "check": "captions",
-          "reason": "captions.json is absent"
-        },
-        {
-          "check": "intake",
-          "reason": ".akari/intake.json is absent"
-        },
-        {
-          "check": "media",
-          "reason": "media checks require --media"
-        },
-        {
-          "check": "review",
-          "reason": "review.json is absent"
-        }
-      ]
-    },
-    "sfx-track-overlap-same-path-warning": {
-      "exit_code": 0,
-      "verdict": "pass",
-      "findings": [
-        {
-          "severity": "warning",
-          "check": "audio.sfx.file",
-          "message": "sfx path does not resolve to a regular file: sfx-a.wav",
-          "path": "sfx-a.wav"
-        },
-        {
-          "severity": "warning",
-          "check": "audio.sfx.file",
-          "message": "sfx path does not resolve to a regular file: sfx-a.wav",
-          "path": "sfx-a.wav"
-        },
-        {
-          "severity": "warning",
-          "check": "audio.sfx.track-overlap",
-          "message": "効果音 audio.sfx[1] が同じ track 0・同じ時刻 3 秒に同じ素材 sfx-a.wav で置かれています（二重置きの可能性）。意図した重ねなら track を分けてください（書き出しのミックスは track を見ずに全部鳴らしますが、NLE 書き出しは track を NLE のトラック単位にするため同じトラックに重なります）。",
-          "path": "edit.json#audio.sfx[1]",
-          "range": {
-            "start": 3,
-            "end": 3
-          }
-        },
-        {
-          "severity": "warning",
-          "check": "geometry.fit-compat",
-          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
-          "path": "edit.json#output.geometry"
-        }
-      ],
-      "skipped": [
-        {
-          "check": "analysis.json",
-          "reason": "analysis.json is absent"
-        },
         {
           "check": "audio.music-grid",
           "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"

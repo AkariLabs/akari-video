@@ -1992,14 +1992,27 @@ test("different sfx on the same track at the same t report info", async () => {
 });
 
 test("identical sfx on the same track at the same t warn without failing", async () => {
-  await withFixtures(async fixtures => {
-    const result = await lintProject(join(fixtures, "sfx-track-overlap-same-path-warning"), { writeReports: false });
+  const root = await mkdtemp(join(tmpdir(), "edit-lint-sfx-same-path-"));
+  try {
+    const edit = JSON.parse(await readFile(join(fixtureRoot, "sfx-track-overlap-warning", "edit.json"), "utf8"));
+    edit.sources[0].path = "sample.mp4";
+    edit.audio.sfx = [
+      { path: "sfx-a.wav", t: 3, track: 0 },
+      { path: "sfx-a.wav", t: 3, track: 0 },
+    ];
+    await writeFile(join(root, "sample.mp4"), "fixture");
+    await writeFile(join(root, "edit.json"), JSON.stringify(edit));
+    await migrateFixtureTree(root);
+    const result = await lintProject(root, { writeReports: false });
     assert.equal(result.verdict, "pass");
     const overlap = result.findings.filter(finding => finding.check === "audio.sfx.track-overlap");
     assert.equal(overlap.length, 1);
     assert.equal(overlap[0].severity, "warning");
     assert.match(overlap[0].message, /track を分けて/u);
-  });
+    assert.match(overlap[0].message, /同じ素材 sfx-a\.wav/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("three simultaneous sfx compare paths within the whole time group", async () => {
