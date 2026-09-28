@@ -24,9 +24,8 @@ look at the result and correct only where it drifts from your intent.
 
 > **Intent is human. Hands are AI.**
 
-**Status: under construction** — the desktop shell is mid-migration (the previous shell
-implementation is preserved at [akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri)).
-The headless path (opencode + Claude Code + Cursor Agent + skills) is usable today.
+**Status: under construction** — the desktop app (the Theia-based shell) is the main entrance.
+The headless path (opencode + Claude Code + Cursor Agent + skills) works too.
 
 ## Why this exists
 
