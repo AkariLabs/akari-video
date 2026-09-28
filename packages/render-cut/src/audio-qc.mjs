@@ -25,10 +25,11 @@ export function probeToolVersion(command, args, spawnSyncImpl = spawnSync) {
 // Real AAC re-encode overshoots loudnorm's PCM-stage true peak target (measured +1.2 dB on real
 // material; -1.73 dBTP landed from a -2.5 applied target in the same test — planning/
 // notes-2026-08-17-mac-fresh-install-bug-reports.md #05). plan.mjs bakes this margin into the
-// value it hands loudnorm whenever true_peak_dbtp is explicit (task
+// value it hands loudnorm only for explicit true_peak_dbtp on AAC output (task
 // 2026-08-17-render-cut-true-peak-guard 裁定 B); exported so both plan.mjs and this module derive
 // the applied target from a single constant instead of duplicating the number.
 export const AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP = 1.5;
+export const AAC_TRUE_PEAK_MARGIN_REASON = "aac_reencode_overshoot";
 
 // decoded_measurement is a second, independent ffmpeg pass (loudnorm re-analysis of the finished
 // artifact) — its input_tp is never bit-identical to the configured target even when nothing is
@@ -40,6 +41,10 @@ export const INTEGRATED_LOUDNESS_TOLERANCE_LU = 1.0;
 
 export function hasExplicitTruePeakDbtp(master) {
   return typeof master?.true_peak_dbtp === "number" && Number.isFinite(master.true_peak_dbtp);
+}
+
+export function appliesAacTruePeakMargin(master, audioCodec = "aac") {
+  return hasExplicitTruePeakDbtp(master) && audioCodec === "aac";
 }
 
 // Rounded to 2 decimal places (loudnorm's own report precision) so float noise like
@@ -69,6 +74,7 @@ export function measurementErrorAudioQc({ master, phase, code, message, filterRe
 
 export function buildAudioQc({
   master,
+  audioCodec = "aac",
   filterStderr,
   outputPath,
   ffmpegCommand,
@@ -128,10 +134,12 @@ export function buildAudioQc({
     verdict: loudnessInRange && typeof measuredTruePeak === "number" && !truePeakExceeded
       && typeof toolVersion === "string" && toolVersion.trim() !== ""
       ? "PASS" : "INCONCLUSIVE",
-    ...(hasExplicitTruePeakDbtp(master) ? {
+    ...(appliesAacTruePeakMargin(master, audioCodec) ? {
       true_peak_margin: {
         overshoot_margin_dbtp: AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP,
         applied_true_peak_dbtp: appliedTruePeakDbtp(configured.true_peak_dbtp),
+        reason: AAC_TRUE_PEAK_MARGIN_REASON,
+        audio_codec: audioCodec,
       },
     } : {}),
     ...(truePeakExceeded ? {

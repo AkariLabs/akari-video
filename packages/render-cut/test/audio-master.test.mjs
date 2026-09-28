@@ -10,7 +10,7 @@ import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
-import { buildAudioMixCommand } from "../src/plan.mjs";
+import { audioCodecForCodec, buildAudioMixCommand, buildVideoPreset } from "../src/plan.mjs";
 import { inspectFullIntegrity } from "../../akari-launcher/src/status-core/integrity.mjs";
 
 // docs/contract-2026-07-22-render-basics.md #5 (audio.master: denoise / loudnorm). L2 requires
@@ -88,6 +88,32 @@ async function makeProject({ duration = 4, master } = {}) {
   await writeFile(join(root, ".akari", "lint.json"), '{"version":1,"verdict":"pass"}\n');
   return root;
 }
+
+test("audio master target and preset audio codec follow the output codec", () => {
+  for (const codec of ["h264", "hevc", "prores422", "png"]) {
+    const expectedAudioCodec = codec === "prores422" || codec === "png" ? "pcm_s16le" : "aac";
+    assert.equal(audioCodecForCodec(codec), expectedAudioCodec);
+    assert.equal(buildVideoPreset({ codec, width: 320, height: 180, fps: 10 }).audio_codec, expectedAudioCodec);
+    for (const [master, expectedTp] of [
+      [{ loudnorm: -15, true_peak_dbtp: -1.5 }, expectedAudioCodec === "aac" ? -3 : -1.5],
+      [{ loudnorm: -15 }, -1.5],
+    ]) {
+      const command = buildAudioMixCommand({
+        edit: { audio: { master }, output: { fps: 10 } },
+        projectRoot: "fixture",
+        inputPath: "fixture-input.mp4",
+        outputPath: "fixture-output.mp4",
+        duration: 2,
+        ffmpegCommand: "ffmpeg",
+        ffprobeCommand: "ffprobe",
+        codec,
+      });
+      const graph = command.args[command.args.indexOf("-filter_complex") + 1];
+      assert.ok(graph.includes(`loudnorm=I=-15:TP=${expectedTp}:LRA=11`), `${codec}: ${graph}`);
+      if (expectedTp === -1.5) assert.ok(!graph.includes("TP=-3"), `${codec}: ${graph}`);
+    }
+  }
+});
 
 test("audio.master.loudnorm normalizes the final output to the target LUFS within +/-1 LU", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
@@ -198,7 +224,7 @@ exec "$AKARI_REAL_FFMPEG" "$@"
     // actually lands relative to what the caller asked for, not the internal applied target.
     assert.match(filterCall.join(" "), /TP=-3\.2/u);
     assert.match(decodedCall.join(" "), /TP=-1\.7/u);
-    assert.deepEqual(state.audio_qc.true_peak_margin, { overshoot_margin_dbtp: 1.5, applied_true_peak_dbtp: -3.2 });
+    assert.deepEqual(state.audio_qc.true_peak_margin, { overshoot_margin_dbtp: 1.5, applied_true_peak_dbtp: -3.2, reason: "aac_reencode_overshoot", audio_codec: "aac" });
 
     const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
     assert.deepEqual(receipt.audio_qc, state.audio_qc);

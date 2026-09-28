@@ -140,7 +140,7 @@ test("audio.master.true_peak_dbtp=-1 on high-pressure material: final mp4's real
       && typeof decoded.input_tp === "number" && decoded.input_tp <= -0.9;
     assert.equal(state.audio_qc.verdict, withinTarget ? "PASS" : "INCONCLUSIVE");
     assert.equal(state.audio_qc.configured.true_peak_dbtp, -1, "configured stays the caller's original ask, not the applied margin target");
-    assert.deepEqual(state.audio_qc.true_peak_margin, { overshoot_margin_dbtp: 1.5, applied_true_peak_dbtp: -2.5 });
+    assert.deepEqual(state.audio_qc.true_peak_margin, { overshoot_margin_dbtp: 1.5, applied_true_peak_dbtp: -2.5, reason: "aac_reencode_overshoot", audio_codec: "aac" });
     assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-14:TP=-2\.5:LRA=11/u, "loudnorm must actually be told the margin-applied target, not the raw -1");
 
     const outputPath = join(project, state.artifacts[0].path);
