@@ -38,6 +38,13 @@ test("font samples preserve first-seen code points, remove duplicates, and keep 
   assert.match(source, /captionFontCheckCache\.set\(fontCheckKey, true\)/u);
 });
 
+test('a rejected font face reports cue and stack instead of an opaque IPC object', async () => {
+  const loadCaptionFontForMeasurement = new Function('document', `return (async ${functionSource('loadCaptionFontForMeasurement')})`)
+    ({ fonts: { load: async () => { throw { name: 'NetworkError', message: 'A network error occurred.' }; } } });
+  await assert.rejects(loadCaptionFontForMeasurement('c-stack', 'normal 400 64px "Noto Serif JP", serif', '字幕'),
+    /caption c-stack font load failed \(normal 400 64px "Noto Serif JP", serif\): NetworkError: A network error occurred/u);
+});
+
 test("stable measurement keys contain only the five declared inputs and preserve variant order", async () => {
   const extracted = await loadExtracted(
     `export default (varsCss) => { ${functionSource("captionMeasurementKey")} return captionMeasurementKey; };`,

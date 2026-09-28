@@ -1,0 +1,484 @@
+{
+  "fixture": "resolved-gpu",
+  "cues": [
+    {
+      "i": 1,
+      "t": 0.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded"
+        ],
+        "caption": [
+          "\"AKARI Noto Sans JP\", sans-serif 700 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 2,
+      "t": 1.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded"
+        ],
+        "caption": [
+          "\"Noto Sans JP\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 3,
+      "t": 2.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded"
+        ],
+        "caption": [
+          "\"Noto Sans JP\" 900 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 4,
+      "t": 3.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded"
+        ],
+        "caption": [
+          "\"Noto Serif JP\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 5,
+      "t": 4.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded"
+        ],
+        "caption": [
+          "\"Noto Serif JP\" 900 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 6,
+      "t": 5.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded"
+        ],
+        "caption": [
+          "\"M PLUS Rounded 1c\" 500 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 7,
+      "t": 6.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded"
+        ],
+        "caption": [
+          "\"M PLUS Rounded 1c\" 900 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 8,
+      "t": 7.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded"
+        ],
+        "caption": [
+          "\"BIZ UDGothic\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 9,
+      "t": 8.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded"
+        ],
+        "caption": [
+          "\"BIZ UDGothic\" 700 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 10,
+      "t": 9.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded"
+        ],
+        "caption": [
+          "\"Dela Gothic One\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 11,
+      "t": 10.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded"
+        ],
+        "caption": [
+          "\"Zen Maru Gothic\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 12,
+      "t": 11.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded",
+          "Zen Maru Gothic 700 loaded"
+        ],
+        "caption": [
+          "\"Zen Maru Gothic\" 700 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 13,
+      "t": 12.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded",
+          "Zen Maru Gothic 700 loaded",
+          "Shippori Mincho 400 loaded"
+        ],
+        "caption": [
+          "\"Shippori Mincho\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 14,
+      "t": 13.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded",
+          "Zen Maru Gothic 700 loaded",
+          "Shippori Mincho 400 loaded",
+          "DotGothic16 400 loaded"
+        ],
+        "caption": [
+          "DotGothic16 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 15,
+      "t": 14.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded",
+          "Zen Maru Gothic 700 loaded",
+          "Shippori Mincho 400 loaded",
+          "DotGothic16 400 loaded",
+          "Klee One 400 loaded"
+        ],
+        "caption": [
+          "\"Klee One\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 16,
+      "t": 15.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded",
+          "Zen Maru Gothic 700 loaded",
+          "Shippori Mincho 400 loaded",
+          "DotGothic16 400 loaded",
+          "Klee One 400 loaded",
+          "Probe Hand 400 loaded"
+        ],
+        "caption": [
+          "\"Probe Hand\" 400 今日のまとめ Abc 123"
+        ]
+      }
+    },
+    {
+      "i": 17,
+      "t": 16.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded",
+          "Zen Maru Gothic 700 loaded",
+          "Shippori Mincho 400 loaded",
+          "DotGothic16 400 loaded",
+          "Klee One 400 loaded",
+          "Probe Hand 400 loaded"
+        ],
+        "caption": []
+      }
+    },
+    {
+      "i": 18,
+      "t": 17.5,
+      "clip": {
+        "x": 319.0390625,
+        "y": 72.9375,
+        "width": 450,
+        "height": 253.125,
+        "scale": 1
+      },
+      "fonts": {
+        "status": "loaded",
+        "faces": [
+          "AKARI Noto Sans JP 100 900 loaded",
+          "Noto Sans JP 100 900 loaded",
+          "Noto Serif JP 100 900 loaded",
+          "M PLUS Rounded 1c 500 loaded",
+          "M PLUS Rounded 1c 900 loaded",
+          "BIZ UDGothic 400 loaded",
+          "BIZ UDGothic 700 loaded",
+          "Dela Gothic One 400 loaded",
+          "Zen Maru Gothic 400 loaded",
+          "Zen Maru Gothic 700 loaded",
+          "Shippori Mincho 400 loaded",
+          "DotGothic16 400 loaded",
+          "Klee One 400 loaded",
+          "Probe Hand 400 loaded"
+        ],
+        "caption": [
+          "\"Noto Serif JP\", serif 400 今日のまとめ Abc 123"
+        ]
+      }
+    }
+  ],
+  "status": "ok"
+}

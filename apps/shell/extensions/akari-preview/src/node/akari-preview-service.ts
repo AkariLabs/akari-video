@@ -355,6 +355,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
     protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
     protected bundledCaptionFontBuffers?: Map<string, Buffer>;
+    protected libraryCaptionFontWarningReported = false;
     protected frameEngineSource: Buffer | null | undefined;
     protected previewAudioWorkletSource: Buffer | null | undefined;
     protected scrubAudioSource: Buffer | null | undefined;
@@ -487,6 +488,22 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const url = (name: string, body: Buffer, mimeType: string): string =>
             `${origin}${this.registerStaticAsset(name, body, mimeType)}`;
         const fontBuffers = this.loadBundledCaptionFontBuffers();
+        let libraryFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string }> = [];
+        try {
+            libraryFontFaces = (await this.loadLibraryCaptionFontFaces()).map(face => {
+                const body = readFileSync(face.path);
+                const suffix = extname(face.file).toLowerCase();
+                const mime = new Map([['.otf', 'font/otf'], ['.woff', 'font/woff'], ['.woff2', 'font/woff2']]).get(suffix) ?? 'font/ttf';
+                const name = `caption-library-${createHash('sha256').update(face.path).update(body).digest('hex').slice(0, 16)}${suffix}`;
+                return { id: face.id, family: face.family, file: face.file, weight: face.weight,
+                    url: url(name, body, mime) };
+            });
+        } catch (error) {
+            if (!this.libraryCaptionFontWarningReported) {
+                this.libraryCaptionFontWarningReported = true;
+                console.warn('[akari-preview] library caption fonts unavailable:', error);
+            }
+        }
         return {
             origin,
             threeJavaScriptUrl: url('three-bundle.js', sources.three, javascript),
@@ -506,17 +523,38 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 scrubAudioJavaScriptUrl: url('scrub-audio.js', scrubAudio, javascript)
             } : {}),
             captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf'),
-            bundledCaptionFontFaces: BUNDLED_CAPTION_FONT_FACES.map(face => ({ ...face,
+            bundledCaptionFontFaces: [...BUNDLED_CAPTION_FONT_FACES.map(face => ({ ...face,
                 url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`,
-                    fontBuffers.get(`${face.id}/${face.file}`)!, 'font/ttf') }))
+                    fontBuffers.get(`${face.sourceId ?? face.id}/${face.file}`)!, 'font/ttf') })),
+                ...libraryFontFaces]
         };
+    }
+
+    protected async loadLibraryCaptionFontFaces(): Promise<Array<{ id: string; family: string; file: string; weight: string; path: string }>> {
+        const candidates: string[] = [];
+        if (typeof process.resourcesPath === 'string') {
+            candidates.push(resolve(process.resourcesPath, 'packages/render-cut/src/caption-font-faces.mjs'));
+        }
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            candidates.push(resolve(ancestor, 'packages/render-cut/src/caption-font-faces.mjs'));
+            const parent = dirname(ancestor);
+            if (parent === ancestor) break;
+            ancestor = parent;
+        }
+        const candidate = candidates.find(value => this.isFile(value));
+        if (!candidate) throw new Error('字幕フォント一覧が見つかりません');
+        const importModule = Function('specifier', 'return import(specifier)') as
+            (specifier: string) => Promise<{ libraryCaptionFontFaces(env: NodeJS.ProcessEnv): Array<{ id: string; family: string; file: string; weight: string; path: string }> }>;
+        return (await importModule(pathToFileURL(candidate).toString())).libraryCaptionFontFaces(process.env);
     }
 
     protected loadBundledCaptionFontBuffers(): Map<string, Buffer> {
         if (!this.bundledCaptionFontBuffers) {
             this.bundledCaptionFontBuffers = new Map(BUNDLED_CAPTION_FONT_FACES.map(face => {
-                const key = `${face.id}/${face.file}`;
-                return [key, readFileSync(this.findFontAssetPath(join('assets', 'font', face.id, face.file)))] as const;
+                const sourceId = face.sourceId ?? face.id;
+                const key = `${sourceId}/${face.file}`;
+                return [key, readFileSync(this.findFontAssetPath(join('assets', 'font', sourceId, face.file)))] as const;
             }));
         }
         return this.bundledCaptionFontBuffers;

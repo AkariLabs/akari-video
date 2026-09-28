@@ -4,12 +4,14 @@ import { lstat, realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { scopeCaptionStylesInSheet } from "./caption-style-scope.mjs";
+import { captionFontFaces, captionFontUrl, BUNDLED_FONT_ROOT } from '../../render-cut/src/caption-font-faces.mjs';
 
 const MIME = new Map([
   [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
   [".json", "application/json; charset=utf-8"], [".mp4", "video/mp4"],
   [".mov", "video/quicktime"], [".webm", "video/webm"], [".wav", "audio/wav"],
   [".png", "image/png"], [".jpg", "image/jpeg"], [".jpeg", "image/jpeg"], [".webp", "image/webp"],
+  [".ttf", "font/ttf"], [".otf", "font/otf"], [".woff", "font/woff"], [".woff2", "font/woff2"],
 ]);
 
 // close() を待てる上限。書き出しは既に終わっているので、ここで待ち続けるより打ち切って終了させる方がよい。
@@ -74,6 +76,8 @@ export function closeStaticServer(server, timeoutMs = STATIC_SERVER_CLOSE_TIMEOU
 
 export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences, env = process.env }) {
   const root = resolve(projectRoot);
+  const bundledFontRoot = captionFontPath ? resolve(captionFontPath, '../..') : BUNDLED_FONT_ROOT;
+  const captionFonts = new Map(captionFontFaces(env, bundledFontRoot).map(face => [captionFontUrl(face), face.path]));
   const references = mediaReferences ?? readMediaReferences(root, env);
   const scopedOverlaySheetHtml = scopeCaptionStylesInSheet(overlaySheetHtml);
   return async (request, response) => {
@@ -91,6 +95,12 @@ export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, project
         const info = await stat(captionFontPath);
         if (!info.isFile()) return sendStatus(response, 404);
         return sendFile(request, response, captionFontPath, info.size);
+      }
+      if (captionFonts.has(rawPathname)) {
+        const path = captionFonts.get(rawPathname);
+        const info = await stat(path);
+        if (!info.isFile()) return sendStatus(response, 404);
+        return sendFile(request, response, path, info.size);
       }
       if (!rawPathname.startsWith("/media/")) return sendStatus(response, 404);
       let decoded;

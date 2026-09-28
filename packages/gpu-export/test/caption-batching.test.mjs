@@ -200,16 +200,29 @@ test("only the first placeholder font-face survives while unrelated fonts remain
   };
   const removeDuplicateCaptionFontFaces = new Function(
     "CAPTION_FONT_PLACEHOLDER",
+    "CAPTION_FONT_URL",
     "matchingBrace",
     `return (${source.slice(
       source.indexOf("function removeDuplicateCaptionFontFaces"),
       source.indexOf("\n\n  function captionRasterBand"),
     )})`,
-  )("/caption-font.ttf", matchingBrace);
+  )("/caption-font.ttf", /\/caption-font(?:\.ttf|s\/[A-Za-z0-9/_%.+-]+)/gu, matchingBrace);
   const svg = '<style>@font-face{font-family:a;src:url("/caption-font.ttf")}@font-face{font-family:b;src:url("file.ttf")}@font-face{font-family:a;src:url("/caption-font.ttf")}</style>';
   const result = removeDuplicateCaptionFontFaces(svg);
   assert.equal(result.split("/caption-font.ttf").length - 1, 1);
   assert.match(result, /file\.ttf/u);
+});
+
+test('caption SVG embeds every selected font URL as data without an external request', () => {
+  const assign = new Function('CAPTION_FONT_URL', `return (${functionSource('assignCaptionImageSource')})`)
+    (/\/caption-font(?:\.ttf|s\/[A-Za-z0-9/_%.+-]+)/gu);
+  const image = {};
+  assign(image, '<svg><style>url("/caption-fonts/noto-serif-jp/Serif.ttf") url("/caption-fonts/library-probe-hand")</style></svg>',
+    new Map([['/caption-fonts/noto-serif-jp/Serif.ttf', encodeURIComponent('data:font/ttf;base64,SERIF')],
+      ['/caption-fonts/library-probe-hand', encodeURIComponent('data:font/ttf;base64,LIBRARY')]]));
+  assert.match(image.src, /data%3Afont%2Fttf%3Bbase64%2CSERIF/u);
+  assert.match(image.src, /data%3Afont%2Fttf%3Bbase64%2CLIBRARY/u);
+  assert.doesNotMatch(image.src, /caption-fonts/u);
 });
 
 test("single-band SVG uses a cropped viewBox and explicit foreignObject dimensions", () => {

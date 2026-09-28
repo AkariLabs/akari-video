@@ -1,0 +1,40 @@
+{
+  "fixture": "legacy-gpu",
+  "project": "<work>/app/ws-caption-export-fonts-panel",
+  "steps": [
+    "clicked first caption chip",
+    "toggle font panel -> true"
+  ],
+  "panelRows": [
+    "biz-udgothic",
+    "dela-gothic-one",
+    "dotgothic16",
+    "klee-one",
+    "mplus-rounded-1c",
+    "noto-sans-jp",
+    "noto-serif-jp",
+    "shippori-mincho",
+    "zen-maru-gothic"
+  ],
+  "hitAt700": "<button type=\"button\" data-akari-font-weight=\"700\" data-akari-panel-sample=\"\" style=\"font-family: &quot;Zen Maru Gothic&",
+  "changed": true,
+  "c0001": {
+    "id": "c-0001",
+    "start": 0.05,
+    "end": 0.95,
+    "text": "今日のまとめ Abc 123",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "a",
+    "text_style": {
+      "font_weight": 700,
+      "weight": 700,
+      "font_family": "Zen Maru Gothic"
+    }
+  },
+  "previewComputed": [
+    "\"Zen Maru Gothic\" 700"
+  ],
+  "status": "ok"
+}

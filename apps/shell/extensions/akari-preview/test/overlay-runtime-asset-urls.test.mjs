@@ -8,6 +8,7 @@ import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
+const { bundledCaptionFontFaceCss } = require('../lib/common/bundled-caption-fonts.js');
 
 const URL_KEYS = [
     'threeJavaScriptUrl',
@@ -41,8 +42,15 @@ test('overlay runtime assets are served by content-hashed URL with immutable cac
         const withoutEngine = await service.getOverlayRuntimeAssetUrls();
         assert.equal(withoutEngine.frameEngineJavaScriptUrl, undefined);
         assert.equal(withoutEngine.captionFontUrl, urls.captionFontUrl);
-        assert.equal(urls.bundledCaptionFontFaces.length, 12);
+        assert.equal(urls.bundledCaptionFontFaces.length, 13);
         assert.deepEqual(withoutEngine.bundledCaptionFontFaces, urls.bundledCaptionFontFaces);
+        const directNoto = urls.bundledCaptionFontFaces.find(face => face.family === 'Noto Sans JP');
+        assert.equal(directNoto?.id, 'noto-sans-jp-direct');
+        assert.equal(urls.bundledCaptionFontFaces.some(face => face.id === 'noto-sans-jp'), false);
+        assert.equal((await fetch(directNoto.url)).status, 200);
+        assert.match(bundledCaptionFontFaceCss(urls.bundledCaptionFontFaces), /font-family: "Noto Sans JP"; src: url\(/u);
+        const inspector = readFileSync(new URL('../../akari-annotations/src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+        assert.match(inspector, /\{ id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900'/u);
         const dela = urls.bundledCaptionFontFaces.find(face => face.id === 'dela-gothic-one');
         assert.equal(dela.family, 'Dela Gothic One');
         const delaResponse = await fetch(dela.url);

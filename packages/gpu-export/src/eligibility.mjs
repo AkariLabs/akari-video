@@ -2,6 +2,8 @@ import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/s
 import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
 import { hasDepthTransform, parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "./three-entrance.mjs";
 import { runtimes as overlayRuntimes } from "../../overlay-runtime/runtimes.mjs";
+import { captionFontFaces, captionFontFamilies } from '../../render-cut/src/caption-font-faces.mjs';
+import { accessSync, constants, statSync } from 'node:fs';
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -199,6 +201,9 @@ export function evaluateGpuEligibility({
     ? emphasisWords
     : Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [];
   const validEmphasis = Array.isArray(resolvedEmphasis) ? resolvedEmphasis.filter(isValidEmphasis) : [];
+  const availableFonts = new Set(captionFontFaces().filter(face => {
+    try { accessSync(face.path, constants.R_OK); return statSync(face.path).isFile(); } catch { return false; }
+  }).map(face => face.family));
   for (const [index, cue] of captionList.entries()) {
     const id = cue?.id ?? `caption-${index}`;
     const style = typeof cue?.style === "string" && cue.style !== "" ? cue.style : null;
@@ -207,6 +212,11 @@ export function evaluateGpuEligibility({
       continue;
     }
     const textStyle = mergeTextStyle(inheritedTextStyle, cue?.text_style);
+    const unavailableFont = captionFontFamilies(textStyle?.font_family).find(family => !availableFonts.has(family));
+    if (unavailableFont) {
+      entries.push(entry('caption', id, 'unsupported', `caption-font-unavailable:${unavailableFont}`, ['text_style.font_family']));
+      continue;
+    }
     const richLooks = ["stroke_inner", "fill_gradient", "extrude"]
       .filter((name) => textStyle?.[name] != null);
     if (richLooks.length > 0) {

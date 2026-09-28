@@ -11,6 +11,7 @@
   const images = new Map();
   const captionFontCheckCache = new Map();
   let captionEncodedFontPromise = null;
+  const captionEncodedFonts = new Map();
 
   const CAPTION_MEASURE_MAX_ATTEMPTS = 32;
   const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
@@ -23,6 +24,7 @@
   const CAPTION_BATCH_MAX_HEIGHT_PX = 4096;
   const CAPTION_PREFETCH_MAX_BYTES = 256 * 1024 * 1024;
   const CAPTION_FONT_PLACEHOLDER = "/caption-font.ttf";
+  const CAPTION_FONT_URL = /\/caption-font(?:\.ttf|s\/[A-Za-z0-9/_%.+-]+)/gu;
   const CAPTION_MEASURE_ROOT_CLASS = "akari-measure-root";
 
   const macrotaskResolvers = [];
@@ -758,6 +760,16 @@
     return maximum;
   }
 
+  async function loadCaptionFontForMeasurement(id, fontDeclaration, fontSample) {
+    try {
+      await document.fonts.load(fontDeclaration, fontSample);
+    } catch (error) {
+      // Chromium returns a DOMException for a rejected @font-face fetch. Across the
+      // Electron IPC boundary that exception can become {}, then "[object Object]".
+      throw new Error(`caption ${id} font load failed (${fontDeclaration}): ${error?.name ?? 'Error'}: ${error?.message ?? String(error)}`);
+    }
+  }
+
   async function measureCaptionVariants(value, config, html, cssVariants, unitIndex, startupMetrics) {
     const contentKey = captionMeasurementKey(value, config, html, cssVariants, unitIndex);
     if (startupMetrics.measure.distinctKeys.has(contentKey)) startupMetrics.measure.duplicatePasses += 1;
@@ -777,7 +789,7 @@
         fontDeclaration = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
         fontSample = dedupeFontSample(typography.textContent);
         const fontLoadStarted = performance.now();
-        await document.fonts.load(fontDeclaration, fontSample);
+        await loadCaptionFontForMeasurement(value.id, fontDeclaration, fontSample);
         startupMetrics.measure.fontWaitMs += performance.now() - fontLoadStarted;
       }
       const fontReadyStarted = performance.now();
@@ -1052,7 +1064,7 @@
   function removeDuplicateCaptionFontFaces(svg, placeholder = CAPTION_FONT_PLACEHOLDER) {
     let out = "";
     let cursor = 0;
-    let keptPlaceholderFace = false;
+    const keptFontFaces = new Set();
     for (;;) {
       const start = svg.indexOf("@font-face", cursor);
       if (start < 0) {
@@ -1068,8 +1080,9 @@
       if (close < 0) throw new Error("caption @font-face block is unterminated");
       const block = svg.slice(start, close + 1);
       out += svg.slice(cursor, start);
-      if (!block.includes(placeholder) || !keptPlaceholderFace) out += block;
-      if (block.includes(placeholder)) keptPlaceholderFace = true;
+      const fontUrl = block.match(CAPTION_FONT_URL)?.[0];
+      if (!fontUrl || !keptFontFaces.has(fontUrl)) out += block;
+      if (fontUrl) keptFontFaces.add(fontUrl);
       cursor = close + 1;
     }
     return out;
@@ -1134,10 +1147,15 @@
     if (parserError) throw new Error(`caption ${id} SVG parsererror: ${parserError.textContent}`);
   }
 
-  function assignCaptionImageSource(image, svg, encodedFont) {
-    const parts = svg.split(CAPTION_FONT_PLACEHOLDER);
-    if (parts.length > 2) throw new Error("caption SVG contains duplicate embedded font placeholders");
-    image.src = "data:image/svg+xml;charset=utf-8," + parts.map(encodeURIComponent).join(encodedFont);
+  function assignCaptionImageSource(image, svg, encodedFonts) {
+    let encoded = '';
+    let cursor = 0;
+    for (const match of svg.matchAll(CAPTION_FONT_URL)) {
+      encoded += encodeURIComponent(svg.slice(cursor, match.index));
+      encoded += encodedFonts.get(match[0]);
+      cursor = match.index + match[0].length;
+    }
+    image.src = "data:image/svg+xml;charset=utf-8," + encoded + encodeURIComponent(svg.slice(cursor));
   }
 
   async function decodeCaptionSvg(svg, id, startupMetrics) {
@@ -1147,9 +1165,11 @@
       image.onload = resolve;
       image.onerror = () => reject(new Error(`caption ${id} image load failed`));
     });
-    const encodedFont = await embeddedCaptionFont(startupMetrics);
+    const fontUrls = [...new Set(svg.match(CAPTION_FONT_URL) ?? [])];
+    const encodedFonts = new Map(await Promise.all(fontUrls.map(async url =>
+      [url, await embeddedCaptionFont(startupMetrics, url)])));
     const srcAssignStarted = performance.now();
-    assignCaptionImageSource(image, svg, encodedFont);
+    assignCaptionImageSource(image, svg, encodedFonts);
     startupMetrics.raster.srcAssignMs += performance.now() - srcAssignStarted;
     const decodeStarted = performance.now();
     await loaded;
@@ -1468,22 +1488,28 @@
     return batches;
   }
 
-  function embeddedCaptionFont(startupMetrics) {
-    const encodeStarted = captionEncodedFontPromise === null ? performance.now() : null;
-    captionEncodedFontPromise ??= (async () => {
-      const response = await fetch("/caption-font.ttf");
+  function embeddedCaptionFont(startupMetrics, url = CAPTION_FONT_PLACEHOLDER) {
+    const encodeStarted = performance.now();
+    const encode = async () => {
+      const response = await fetch(url);
       if (!response.ok) throw new Error(`caption font fetch failed: ${response.status}`);
       const bytes = new Uint8Array(await response.arrayBuffer());
+      const mimeType = response.headers.get('content-type')?.split(';')[0] || 'font/ttf';
       let binary = "";
       for (let index = 0; index < bytes.length; index += 0x8000) {
         binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
       }
-      const encoded = encodeURIComponent(`data:font/ttf;base64,${btoa(binary)}`);
-      startupMetrics.fontEncodeMs = performance.now() - encodeStarted;
-      startupMetrics.fontBase64Bytes = encoded.length;
+      const encoded = encodeURIComponent(`data:${mimeType};base64,${btoa(binary)}`);
+      startupMetrics.fontEncodeMs += performance.now() - encodeStarted;
+      startupMetrics.fontBase64Bytes += encoded.length;
       return encoded;
-    })();
-    return captionEncodedFontPromise;
+    };
+    if (url === CAPTION_FONT_PLACEHOLDER) {
+      captionEncodedFontPromise ??= encode();
+      return captionEncodedFontPromise;
+    }
+    if (!captionEncodedFonts.has(url)) captionEncodedFonts.set(url, encode());
+    return captionEncodedFonts.get(url);
   }
 
   function installReadbackTraps(counters) {
