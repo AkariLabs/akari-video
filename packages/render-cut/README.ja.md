@@ -38,7 +38,7 @@ stem はファイル名に使える形へ sanitize されます。既存成果�
 
 書き出した動画の空フレーム検証は既定で有効です。ffmpeg の `signalstats,metadata=print` を全フレームに 1 パスだけ実行し、全 YMAX 観測値の下位 5% の中央値を背景 YMAX として推定します。`YMAX <= 背景 + 8` のフレームを背景への張り付きとみなし、0.3 秒以上連続した区間だけを報告します。
 
-走査には `-skip_frame` も縮小も使わないため、デコードした全フレームを測定し、報告可能な最小区間は 0.3 秒のままです。各区間は `verify.declared.blank_frames` と HTML レポートへ、活性な overlay / cut の ID とともに保存されます。宣言上活性な overlay または cut が 1 件以上あれば `warning`、0 件なら `info` です。これらの finding は検証 verdict を変えません。
+走査には `-skip_frame` も縮小も使わないため、デコードした全フレームを測定し、報告可能な最小区間は 0.3 秒のままです。各区間は `verify.declared.blank_frames` と HTML レポートへ、活性な overlay / cut の ID とともに保存されます。宣言上活性な overlay または cut が 1 件以上あれば `warning`、0 件なら `info` です。宣言済みの暗転（カット境界の `fade` / `fade-black` / `fade-white` / `dissolve`、motion の `fade`、opacity が 0 付近、opacity キーフレームが 0 付近の区間）の窓に ±1 フレームで収まる空白区間は、活性 ID があっても `info` に落とし、根拠を `declared_fades` に記録します。窓と一部だけ重なる区間は活性 ID があれば `warning` のままです。これらの finding は検証 verdict を変えません。
 
 この走査を無効にするには `--no-verify-blank` を指定します。
 

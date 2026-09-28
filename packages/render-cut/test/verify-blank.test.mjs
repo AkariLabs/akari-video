@@ -1,18 +1,22 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
 import { logVerificationResult, parseArguments, verifyArtifact } from "../src/render-cut.mjs";
 import { renderReport } from "../src/report.mjs";
+import { readRenderEdit } from "../src/internal-render.mjs";
 import {
   BLANK_FRAME_SPREAD_TOLERANCE,
   activeIdsForInterval,
+  annotateBlankIntervals,
   blankFramesFromLuma,
   blankFrameFindings,
   blankIntervalSeverity,
+  collectDeclaredFadeWindows,
+  declaredFadesForInterval,
   detectBlankIntervals,
   estimateBackgroundYmax,
   parseSignalstatsMetadata,
@@ -22,6 +26,157 @@ import {
 const ffmpegAvailable = spawnSync("ffmpeg", ["-version"]).status === 0;
 const fps = 30;
 const frame = 1 / fps;
+
+test("declared fade windows use composed cut positions and item-local units", () => {
+  const edit = {
+    output: { fps },
+    cuts: [
+      { id: "c1", in: 0, out: 2, transition_out: { type: "fade-black", duration: 1 } },
+      { id: "c2", in: 0, out: 2, transition_out: { type: "wipe-left", duration: 0.5 } },
+      { id: "c3", in: 0, out: 1 },
+    ],
+    layers: [{ id: "layer", t: 2, duration: 1, motion: { out: { preset: "fade", duration: 15 } } }],
+    overlays: [
+      { id: "title", start: 1, duration: 2, keyframeUnit: "frames", keyframes: [{ t: 0, opacity: 0 }, { t: 30, opacity: 1 }] },
+      { id: "dark", start: 3, duration: 0.5, opacity: 0 },
+    ],
+  };
+  assert.deepEqual(collectDeclaredFadeWindows(edit), [
+    { kind: "cut", id: "c1", via: "transition_out:fade-black", start: 1, end: 2 },
+    { kind: "layer", id: "layer", via: "motion.out:fade", start: 2.5, end: 3 },
+    { kind: "overlay", id: "title", via: "keyframes.opacity", start: 1, end: 2 },
+    { kind: "overlay", id: "dark", via: "opacity", start: 3, end: 3.5 },
+  ]);
+});
+
+test("declared coverage uses open overlap and the union of one-frame expanded windows", () => {
+  const windows = [{ kind: "cut", id: "a", via: "opacity", start: 1, end: 2 }];
+  assert.deepEqual(declaredFadesForInterval(windows, { start: 1, duration: 1 }, { fps }), {
+    declared_fades: [{ kind: "cut", id: "a", via: "opacity" }], declared_blank: true,
+  });
+  assert.equal(declaredFadesForInterval(windows, { start: 1 - frame, duration: 1 + frame }, { fps }).declared_blank, true);
+  assert.equal(declaredFadesForInterval(windows, { start: 1 - 2 * frame, duration: 1 + 2 * frame }, { fps }).declared_blank, false);
+  assert.deepEqual(declaredFadesForInterval(windows, { start: 2, duration: 0.1 }, { fps }).declared_fades, []);
+  assert.equal(declaredFadesForInterval([...windows, { ...windows[0], id: "b", start: 2 + 2 * frame, end: 3 }],
+    { start: 1.5, duration: 1 }, { fps }).declared_blank, true);
+  assert.equal(declaredFadesForInterval([], { start: 1, duration: 1 }, { fps }).declared_blank, false);
+});
+
+test("missing fps skips frame-unit declarations while parent and second-unit windows remain", () => {
+  const edit = { overlays: [{ id: "child", parentId: "group", start: 0, duration: 2,
+    keyframeUnit: "frames", keyframes: [{ t: 0, opacity: 0 }, { t: 30, opacity: 1 }],
+    motion: { in: { preset: "fade", duration: 10 } },
+    motionParents: [{ at: 0, duration: 2, keyframeUnit: "seconds", opacity: 0,
+      motion: { out: { preset: "fade", duration: 10 } },
+      keyframes: [{ t: 0, opacity: 0 }, { t: 1, opacity: 1 }] }],
+  }] };
+  assert.deepEqual(collectDeclaredFadeWindows(edit), [
+    { kind: "group", id: "group", via: "opacity", start: 0, end: 2 },
+    { kind: "group", id: "group", via: "keyframes.opacity", start: 0, end: 1 },
+  ]);
+});
+
+test("gap-aware cuts use explicit output positions and malformed cuts make no windows", () => {
+  const edit = { output: { fps }, cuts: [
+    { id: "first", in: 0, out: 2, at: 0, transition_out: { type: "dissolve", duration: 0.5 } },
+    { id: "broken", in: NaN, out: 1, at: 2, opacity: 0 },
+    { id: "last", in: 0, out: 1, at: 3, opacity: 0 },
+  ] };
+  assert.deepEqual(collectDeclaredFadeWindows(edit), [
+    { kind: "cut", id: "first", via: "transition_out:dissolve", start: 1.5, end: 2 },
+    { kind: "cut", id: "last", via: "opacity", start: 3, end: 4 },
+  ]);
+});
+
+test("real signalstats scan lowers declared dark transition and keeps undeclared black warning", async (t) => {
+  if (!ffmpegAvailable) return t.skip("ffmpeg unavailable");
+  const directory = await mkdtemp(join(tmpdir(), "render-cut-declared-fade-"));
+  try {
+    const path = join(directory, "declared.mkv");
+    runFfmpeg([
+      "-f", "lavfi", "-i", `testsrc2=size=160x90:rate=${fps}:duration=1`,
+      "-f", "lavfi", "-i", `testsrc2=size=160x90:rate=${fps}:duration=0.5,fade=t=out:st=0:d=0.5`,
+      "-f", "lavfi", "-i", `color=c=black:size=160x90:rate=${fps}:duration=0.5`,
+      "-f", "lavfi", "-i", `testsrc2=size=160x90:rate=${fps}:duration=0.5,fade=t=in:st=0:d=0.5`,
+      "-f", "lavfi", "-i", `testsrc2=size=160x90:rate=${fps}:duration=1`,
+      "-f", "lavfi", "-i", `color=c=black:size=160x90:rate=${fps}:duration=0.5`,
+      "-f", "lavfi", "-i", `testsrc2=size=160x90:rate=${fps}:duration=1`,
+      "-filter_complex", "[0:v][1:v][2:v][3:v][4:v][5:v][6:v]concat=n=7:v=1:a=0[v]",
+      "-map", "[v]", "-c:v", "ffv1", path,
+    ]);
+    const edit = { output: { fps }, cuts: [
+      { id: "outgoing", in: 0, out: 2, transition_out: { type: "fade-black", duration: 0.7 } },
+      { id: "incoming", in: 0, out: 3.7 },
+    ], overlays: [
+      { id: "background", start: 0, duration: 5 },
+      { id: "fade-in", start: 1.9, duration: 0.6, keyframeUnit: "frames",
+        keyframes: [{ t: 0, opacity: 0 }, { t: 18, opacity: 1 }] },
+    ] };
+    const result = scanBlankFrames({ outputPath: path, fps, edit });
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.intervals.length, 2, JSON.stringify(result.intervals));
+    const declared = result.intervals[0];
+    assert.equal(declared.severity, "info", JSON.stringify(declared));
+    assert.equal(declared.declared_blank, true);
+    assert.deepEqual(declared.declared_fades.map(({ via }) => via),
+      ["transition_out:fade-black", "keyframes.opacity"]);
+    assert.match(result.findings[0].message, /宣言済みの暗転/u);
+    assert.equal(result.intervals[1].severity, "warning");
+    assert.equal(result.intervals[1].declared_blank, false);
+    const control = structuredClone(edit);
+    delete control.cuts[0].transition_out;
+    delete control.overlays[1].keyframes;
+    const withoutDeclarations = scanBlankFrames({ outputPath: path, fps, edit: control });
+    assert.equal(withoutDeclarations.intervals[0].severity, "warning");
+    assert.equal(withoutDeclarations.intervals[0].declared_blank, false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("readRenderEdit projects group opacity keyframes from frames to seconds", async () => {
+  const root = join(import.meta.dirname, "fixtures", "item-keyframes");
+  const source = await readFile(join(root, "edit.json"), "utf8");
+  const { edit } = readRenderEdit(source, join(root, ".akari", "render-tmp"), { projectRoot: root });
+  assert.ok(collectDeclaredFadeWindows(edit).some((window) =>
+    JSON.stringify(window) === JSON.stringify({ kind: "overlay", id: "g1.first",
+      via: "keyframes.opacity", start: 0, end: 4 })));
+});
+
+test("report renders declared fade evidence and legacy intervals", () => {
+  const state = { version: 1, phase: "verified", plan: { output: "out.mp4",
+    predicted_duration_seconds: 2, preset: { width: 160, height: 90, fps },
+    rasterizer: { selected: "gpu" }, intermediates: [], commands: {} },
+  verify: { declared: { blank_frames: [
+    { start: 0, duration: 0.5, ymax_max: 16, severity: "info", declared_fades: [
+      { kind: "cut", id: "<c>", via: "transition_out:fade-black" }] },
+    { start: 1, duration: 0.5, ymax_max: 16, severity: "warning" },
+  ] } } };
+  const html = renderReport(state, "report.html", ".");
+  assert.match(html, /<th>Declared fades<\/th>/u);
+  assert.match(html, /<code>cut:&lt;c&gt; \(transition_out:fade-black\)<\/code>/u);
+  assert.match(html, /<td>None<\/td>/u);
+});
+
+test("findings preserve their prefix and append full or partial declaration evidence", () => {
+  const base = { start: 1, duration: 0.5, ymax_max: 16, active_overlays: ["title"], active_cuts: [], severity: "warning" };
+  const prefix = "空フレーム候補 1s–1.5s（0.5 秒、YMAX 最大 16）; 活性 overlay:title";
+  const details = "; background_ymax 16; spread 許容 16";
+  const fades = [{ kind: "cut", id: "c1", via: "transition_out:fade-black" }];
+  const messages = blankFrameFindings([
+    { ...base, declared_fades: fades, declared_blank: true },
+    { ...base, declared_fades: fades, declared_blank: false },
+    base,
+  ], { backgroundYmax: 16, spreadTolerance: 16 }).map(({ message }) => message);
+  assert.deepEqual(messages, [
+    `${prefix}; 宣言済みの暗転 cut:c1(transition_out:fade-black) の窓に収まる（意図した暗転として info）${details}`,
+    `${prefix}; 宣言済みの暗転 cut:c1(transition_out:fade-black) と一部だけ重なる${details}`,
+    `${prefix}${details}`,
+  ]);
+  assert.equal(blankIntervalSeverity({ ...base, declared_blank: true }), "info");
+  assert.equal(annotateBlankIntervals([{ start: 1, duration: 0.5, ymax_max: 16 }],
+    { output: { fps }, overlays: [{ id: "title", start: 0, duration: 2, opacity: 0 }] })[0].severity, "info");
+});
 
 function metadata(values, sampleFps = fps) {
   return values.map((ymax, index) => [
