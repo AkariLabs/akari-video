@@ -10,6 +10,7 @@ import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
 import { resolveDeclaredProjectInput, resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
+import { scopeCaptionStylesInSheet } from "./caption-style-scope.mjs";
 import { stampFunctionSource } from "./stamp.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -119,8 +120,7 @@ export function buildOsrPage({
   const staticBands = partitionPreviewMediaPlanes({ base: [], layers: mediaPlaneSummary.layers.map(layer => ({ id: String(layer.id) })) }, mediaPlaneSummary);
   const multipleBands = staticBands.length > 1;
   const blendFramesHtml = (multipleBands ? [] : orderedBlendOverlays).map((overlay, index) => {
-    const sheet = renderOverlaySheet({ overlays: [overlay], edit: projectedEdit, projectRoot, duration })
-      .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf");
+    const sheet = renderFrameOverlaySheet({ overlays: [overlay], edit: projectedEdit, projectRoot, duration });
     const escapedSheet = sheet.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
     return `<iframe class="akari-overlay-frame" data-blend="${overlay.blend ?? "normal"}" srcdoc="${escapedSheet}" scrolling="no" title="AKARI overlay ${index + 1}" style="mix-blend-mode:${blendModes.get(overlay.blend ?? "normal") ?? "normal"};z-index:${index + 1}"></iframe>`;
   }).join("\n    ");
@@ -312,6 +312,15 @@ function buildMediaPlaneSummary(edit, internal, overlays, captionZ) {
   };
 }
 
+// iframe srcdoc のシートは static-server の /overlay-sheet.html と違い素通しで埋まるので、
+// ここで字幕 CSS をスコープする。しないと同じ iframe に入った別字幕の規則
+// （例: wrap_width_pct の .akari-caption__plate { width: var(--caption-wrap-width) }）が
+// 全字幕へ漏れ、位置指定付き字幕の plate が横に伸びてプレビューとずれる。
+function renderFrameOverlaySheet(args) {
+  return scopeCaptionStylesInSheet(renderOverlaySheet(args)
+    .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf"));
+}
+
 function renderInterleavedPlanes(bands, overlays, barrierZ, { width, height, projectedEdit, projectRoot, duration, blendModes }) {
   const values = [...new Set([...bands.map(band => band.zIndex), ...barrierZ])].sort((a, b) => a - b);
   const rank = z => values.indexOf(z);
@@ -327,8 +336,7 @@ function renderInterleavedPlanes(bands, overlays, barrierZ, { width, height, pro
   elements.sort((a, b) => a.z - b.z || Number(Boolean(a.overlay)) - Number(Boolean(b.overlay))
     || (a.recordZ ?? 0) - (b.recordZ ?? 0) || a.order - b.order);
   const frameHtml = (records, z, index) => {
-    const sheet = renderOverlaySheet({ overlays: records, edit: projectedEdit, projectRoot, duration })
-      .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf");
+    const sheet = renderFrameOverlaySheet({ overlays: records, edit: projectedEdit, projectRoot, duration });
     const escapedSheet = sheet.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
     const mode = records[0].blend ?? "normal";
     const blend = blendModes.get(mode) ?? "normal";

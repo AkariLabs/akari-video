@@ -259,3 +259,17 @@ test("runtime composes bands and seeks grouped caption animators in one iframe",
   assert.deepEqual(animatorCalls.slice(2), [["cue-a", 1], ["cue-b", 1]]);
   assert.equal(stamp.style.backgroundColor, "30");
 });
+
+test("interleaved caption iframe scopes each cue's CSS so wrap width cannot widen a positioned cue", () => {
+  const captions = [
+    { id: "title", start: 0, end: 2, text: "タイトル", text_style: { wrap_width_pct: 40 } },
+    { id: "placed", start: 0, end: 2, text: "位置指定", text_style: { text_anchor: "bc", position: { x: 0.3, y: 0.9 } } },
+  ];
+  const input = edit([cut("main", 0), cut("photo", 2)]);
+  const html = page(input, [overlay("shape", 1)], { captions, captionTrackZ: 3 }).html;
+  const sheet = frames(html).find(frame => frame.includes("data-overlay-id=&quot;placed-01&quot;"))
+    .replaceAll("&lt;", "<").replaceAll("&quot;", '"').replaceAll("&amp;", "&");
+  assert.match(sheet, /data-overlay-id="title-01"/u);
+  assert.match(sheet, /\.akari-caption\[data-akari-caption-scope="[^"]+"\] \.akari-caption__plate \{ width: var\(--caption-wrap-width\); \}/u);
+  assert.doesNotMatch(sheet, /^\s*\.akari-caption__plate \{ width: var\(--caption-wrap-width\)/mu);
+});
