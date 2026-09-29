@@ -22,7 +22,9 @@ const skillCount = skillNames.length;
 // パターンが見つからない場合も fail する（表記が消えた/表現が変わったことを検知するため）
 const numberChecks = [
   { file: 'README.md', patterns: [/agent_skills-(\d+)-ff8a00/, /the (\d+)-skill map/, /\((\d+) of them\)/] },
-  { file: 'README.ja.md', patterns: [/agent_skills-(\d+)-ff8a00/, /(\d+) スキルの一枚地図/] },
+  { file: 'README.ja.md', patterns: [/agent_skills-(\d+)-ff8a00/, /(\d+) スキルの一枚地図/, /エージェント側ステージスキル（(\d+) 本）/] },
+  { file: 'docs/getting-started.md', patterns: [/all (\d+) skills \+ `\/akari`/, /Want all (\d+) skills inside Claude Code/] },
+  { file: 'docs/getting-started.ja.md', patterns: [/（(\d+) 本のスキルすべて \+ `\/akari`/, /Claude Code の中で (\d+) 本すべてを使いたい/] },
   { file: 'docs/README.md', patterns: [/ships as (\d+) agent-side skills/] },
   { file: 'docs/README.ja.md', patterns: [/(\d+) のエージェント側スキル/] },
   { file: 'docs/skills.md', patterns: [/split into \*\*(\d+) skills\*\*/] },

@@ -348,9 +348,9 @@ shown in the menu, and appending `?frameEngine=0` switches to the legacy view.
 
 ### D. From the app
 
-Connect from the Start screen of the Theia-based desktop shell (`apps/shell/`, mid-migration).
-The app is a place to review and fix what the agent built, so starting from the terminal
-or a session is the current recommendation for your first step.
+Connect from the Start screen of the desktop app (the Theia-based shell, `apps/shell/`).
+The app is the main entrance: you can run your AI agent in its partner pane and review and
+fix what the agent built in the same window. The terminal and session entrances (A–C) work too.
 
 #### Verifying the macOS download
 

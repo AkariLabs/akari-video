@@ -6,8 +6,8 @@
 
 **Q. Do I need the app to use this?**
 No. It's headless-first, so opencode or Claude Code alone takes you from planning
-through export. The app (the Theia shell) is "a place to review and fix," and it's
-currently mid-migration.
+through export. The app (the Theia shell) is the main entrance and "a place to review and
+fix" — you can also run your agent in its partner pane.
 
 **Q. Can I run it fully automatically, start to finish?**
 The default, **With proposals** (`checkpoint`), has no intermediate approvals; export is the

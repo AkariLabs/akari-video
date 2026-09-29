@@ -23,9 +23,8 @@ AKARI Video は AI エージェントが編集の主体になる動画編集ツ�
 
 > **意図は人、手は AI。**
 
-**Status: under construction** — シェルアプリは移行中（旧シェル実装は
-[akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri) に保存）。
-ヘッドレス経路（opencode / Claude Code / Cursor Agent + スキル）は今日から使えます。
+**Status: under construction** — デスクトップアプリ（Theia ベースのシェル）が主な入口です。
+ヘッドレス経路（opencode / Claude Code / Cursor Agent + スキル）も使えます。
 
 ## なぜ作ったか
 
@@ -112,7 +111,7 @@ Claude Code プラグインとして入れる: `claude plugin marketplace add Ak
 - `apps/shell/` — Theia ベースのデスクトップシェル
 - `packages/` — シェル非依存ライブラリ（schemas・frame engine・surface runtime・`akari-launcher`）
 - `templates/` — プロジェクト scaffold（`.opencode/` 設定を含む）
-- `skills/` — エージェント側ステージスキル（18 本）
+- `skills/` — エージェント側ステージスキル（26 本）
 - `plugin/` — Claude Code プラグインバンドル（スキルパック + SessionStart hook + `/akari`）
 - `catalog/` — キュレーション済みアドオンカタログ（参照配布のみ）
 - `docs/` — ユーザードキュメント + スペック契約
