@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { createRequire } from 'node:module';
+const { isEditDataFileName } = createRequire(import.meta.url)('../lib/common/edit-data-file.js');
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
@@ -14,7 +16,7 @@ const code = ts.transpileModule(`class Renderer { ${method.getText(source)} }`, 
     compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React }
 }).outputText;
 const React = { createElement: (type, props, ...children) => ({ type, props, children }) };
-const Renderer = new Function('React', ...Object.keys(tokens), 'revealInFileManagerActionLabel', `${code}\nreturn Renderer;`)(React, ...Object.values(tokens), label => label);
+const Renderer = new Function('React', ...Object.keys(tokens), 'revealInFileManagerActionLabel', 'isEditDataFileName', `${code}\nreturn Renderer;`)(React, ...Object.values(tokens), label => label, isEditDataFileName);
 const renderer = new Renderer();
 renderer.outputIcon = () => 'codicon codicon-layers';
 renderer.formatOutputMeta = () => 'JSON';
@@ -23,6 +25,8 @@ const render = (name, kind = 'data') => renderer.renderOutputCard({ name, kind, 
 test('編集データは既存の accentTint で強調し、全カードの枠と角丸は対称で同じ', () => {
     const edit = render('edit.json');
     const normal = render('captions.json');
+    const variant = render('edit.v20.json');
+    assert.equal(variant.props.style.background, edit.props.style.background);
     assert.equal(edit.props.style.background, 'var(--theia-akariTheme-accentTint)');
     assert.equal(normal.props.style.background, tokens.AKARI_SURFACE.raised);
     assert.notEqual(edit.props.style.background, normal.props.style.background);
@@ -40,7 +44,7 @@ test('編集データは既存の accentTint で強調し、全カードの枠�
 
 test('編集データの強調属性・太字・明るいアイコンを保持する', () => {
     for (const [name, emphasis, weight, opacity] of [
-        ['edit.json', 'edit', 600, 0.85], ['captions.json', undefined, undefined, 0.55]
+        ['edit.json', 'edit', 600, 0.85], ['edit.v20.json', 'edit', 600, 0.85], ['captions.json', undefined, undefined, 0.55]
     ]) {
         const card = render(name);
         assert.equal(card.props['data-akari-output-emphasis'], emphasis);

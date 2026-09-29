@@ -1,0 +1,59 @@
+{
+ "preloadGone": true,
+ "dataCards": [
+  {
+   "path": "edit.json",
+   "title": "編集データ",
+   "emphasis": "edit",
+   "visible": true
+  },
+  {
+   "path": "edit.timeline.json",
+   "title": "編集データ（timeline）",
+   "emphasis": "edit",
+   "visible": true
+  },
+  {
+   "path": "edit.v20.json",
+   "title": "編集データ（v20）",
+   "emphasis": "edit",
+   "visible": true
+  }
+ ],
+ "mainTabs": [
+  "ホーム *"
+ ],
+ "bottomTabs": [
+  "タイムライン *",
+  "v20",
+  "timeline"
+ ],
+ "leftTabs": [
+  "素材 *",
+  "設定",
+  "メニュー",
+  "素材 *",
+  "設定",
+  "メニュー",
+  "AKARI Video の設定",
+  "ドメインオブジェクトのカード棚 *",
+  "メニュー"
+ ],
+ "rightTabs": [
+  "パートナーを追加 *",
+  "台本",
+  "カット",
+  "注釈",
+  "パートナーを追加 *",
+  "台本",
+  "カット",
+  "注釈",
+  "パートナーを追加 *",
+  "台本",
+  "カット",
+  "注釈"
+ ],
+ "quickPick": null,
+ "bottomMenu": [],
+ "notifications": []
+}

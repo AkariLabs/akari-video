@@ -777,13 +777,14 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async savePreviewFrame(request: import('../common/preview-frame-capture').SavePreviewFrameRequest): Promise<{ path: string }> {
         if (!request || typeof request.editUri !== 'string') throw new Error('Invalid preview project');
+        const { isEditDataFileName } = await import('../common/edit-data-file');
         const requestedEdit = this.filePath(request.editUri);
         const projectRoot = await realpath(dirname(requestedEdit));
         const editPath = await realpath(requestedEdit);
         const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
-        if (basename(requestedEdit) !== 'edit.json' || editPath !== join(projectRoot, 'edit.json')
+        if (!isEditDataFileName(basename(requestedEdit)) || editPath !== join(projectRoot, basename(requestedEdit))
             || !(await stat(editPath)).isFile() || !roots.some(root => this.contains(root, projectRoot))) {
-            throw new Error('Capture project must contain edit.json inside the workspace (no redirected edit.json)');
+            throw new Error('Capture project must contain an edit file inside the workspace (no redirected edit file)');
         }
         return writePreviewFrame(projectRoot, request.time, request.image);
     }

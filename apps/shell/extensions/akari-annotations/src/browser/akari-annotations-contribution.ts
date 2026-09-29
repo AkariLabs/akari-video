@@ -1,4 +1,5 @@
 import type { PlaceTextOptions } from '../common/place-text';
+import { QuickInputService } from '@theia/core/lib/browser';
 import * as React from '@theia/core/shared/react';
 import type { MaterialSwapTarget } from '../common/material-replacement';
 import type { OnWillStopAction } from '@theia/core/lib/browser/frontend-application-contribution';
@@ -237,6 +238,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     @inject(MessageService)
     protected readonly messages!: MessageService;
+
+    @inject(QuickInputService)
+    protected readonly quickInputService!: QuickInputService;
 
     protected readonly toDispose = new DisposableCollection();
 
@@ -506,7 +510,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             }
         });
         commands.registerCommand(OPEN_AKARI_ANNOTATIONS, {
-            execute: () => this.open()
+            execute: (options?: { editUri?: string }) => this.open(options?.editUri)
         });
         commands.registerCommand(OPEN_AKARI_REVIEW_PANEL, {
             execute: () => this.openReviewPanel()
@@ -1022,7 +1026,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         }, 1500);
     }
 
-    async open(): Promise<AkariAnnotationsWidget | undefined> {
+    async open(editUri?: string): Promise<AkariAnnotationsWidget | undefined> {
+        if (editUri) return this.openOrCreateTimeline(editUri);
         this.openTimelinePromise ??= this.openOrCreateTimeline();
         try {
             return await this.openTimelinePromise;
@@ -1031,11 +1036,35 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         }
     }
 
-    protected async openOrCreateTimeline(): Promise<AkariAnnotationsWidget | undefined> {
+    protected async openOrCreateTimeline(editUri?: string): Promise<AkariAnnotationsWidget | undefined> {
         const locations = await this.locateAll();
-        if (!locations.length) return undefined;
-        const closed = locations.find(location => !this.findTimelineWidget(location)?.isAttached);
-        const location = closed ?? await this.createTimeline(locations);
+        let location: ProjectLocation | undefined;
+        if (editUri) {
+            location = await this.findProjectLocation(editUri);
+        } else {
+            if (!locations.length) return undefined;
+            const empty = locations.find(candidate => !candidate.editUri && !this.findTimelineWidget(candidate)?.isAttached);
+            if (empty) {
+                location = empty;
+            } else {
+                const closed = locations.filter(candidate => candidate.editUri && !this.findTimelineWidget(candidate)?.isAttached);
+                if (closed.length) {
+                    const picked = await this.quickInputService.pick([
+                        ...closed.map(candidate => ({
+                            id: candidate.editUri!.toString(),
+                            label: candidate.displayName ?? timelineDisplayName(candidate.slug),
+                            description: candidate.editUri!.path.base
+                        })),
+                        { id: 'new', label: '新しいタイムライン' }
+                    ], { title: 'タイムラインを開く' });
+                    if (!picked) return undefined;
+                    location = picked.id === 'new' ? await this.createTimeline(locations)
+                        : closed.find(candidate => candidate.editUri?.toString() === picked.id);
+                } else {
+                    location = await this.createTimeline(locations);
+                }
+            }
+        }
         if (!location) return undefined;
         if (this.timelineHidden) await this.setTimelineHidden(false);
         const widget = await this.attachAt(location);
