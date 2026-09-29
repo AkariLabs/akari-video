@@ -143,13 +143,12 @@ function createOverlayRuntime(options = {}) {
         overlay.keepLayoutWhenHidden = Boolean(premount && overlayRuntimes(overlay)
           .some(runtime => typeof runtime.premountTick === "function"));
         if (!overlay.visible) {
+          const animations = overlay.animations ?? overlay.container.getAnimations({ subtree: true });
           overlay.container.toggleAttribute(RUNTIME_HIDDEN_ATTRIBUTE, !overlay.keepLayoutWhenHidden);
-          if (!overlay.keepLayoutWhenHidden) {
-            for (const animation of overlay.container.getAnimations({ subtree: true })) {
-              releaseAnimation(animation);
-              animation.cancel?.();
-            }
-          }
+          cancelAnimations(animations);
+          overlay.animations = undefined;
+          overlay.animationsAt = 0;
+          overlay.animationEndTimes = [];
         }
       }
     }
@@ -174,11 +173,13 @@ function createOverlayRuntime(options = {}) {
   // 停止・スクラブ中は従来どおり pause + currentTime で毎 tick その時刻の姿勢に固定する
   // （シーク後の絵の決定性はここで担保する）。
   //
-  // 再生中は毎フレームのシークをやめ、Animation を走らせたまま（play）にする。毎フレーム
+  // 再生中にタイムライン時刻が進む間は、Animation を走らせたまま（play）にする。毎フレーム
   // currentTime を書くとアニメがメインスレッド駆動になり、拡大縮小を含む層が毎フレーム
   // ラスタし直される（実測: CSS アニメ 339 本の合成断片で GPU ラスタ ~115 回/フレーム・
   // 60Hz 表示で 30〜34fps。走らせたままにすると ~58fps・ラスタ 1/4.5）。ずれが
-  // PLAYBACK_DRIFT_MS を超えたとき（動画側の停滞・速度変更の直後など）だけ書き戻す。
+  // PLAYBACK_DRIFT_MS を超えたとき（速度変更・シークの直後など）だけ書き戻す。
+  // playing=true のまま時刻が 50ms 進まなければ停止分岐で一度だけ時刻を確定する。
+  // 音声クロックの量子化で 1〜2 tick だけ据え置かれる間は走らせたままにする。
   //
   // 有限アニメの終端以降は play() しない（finished な Animation への play() は先頭へ
   // 巻き戻る）。pause して fill の姿勢で止め、以後は同じ値を書き直さない。
@@ -233,6 +234,13 @@ function createOverlayRuntime(options = {}) {
     readyCorrections.delete(animation);
   }
 
+  function cancelAnimations(animations) {
+    for (const animation of animations) {
+      releaseAnimation(animation);
+      animation.cancel?.();
+    }
+  }
+
   function syncAnimation(snapshot, localTimeMs, playing, playbackRate, nowMs) {
     const { animation, endTime, current, playState, currentRate, state } = snapshot;
     if (playing && !(localTimeMs >= endTime)) {
@@ -275,6 +283,8 @@ function createOverlayRuntime(options = {}) {
   // 再生中の連続 tick から測る。停止・逆行・大きな飛び（シーク）で観測をやり直す。
   let playbackAnchor = null;
   let playbackRate = 1;
+  let lastPlayingTimelineTime = null;
+  let lastPlayingProgressAt = null;
   function observePlaybackRate(timelineTime, playing, nowMs) {
     if (!playing) {
       playbackAnchor = null;
@@ -306,6 +316,8 @@ function createOverlayRuntime(options = {}) {
 
     mountedOverlays.length = 0;
     mountedStage = null;
+    lastPlayingTimelineTime = null;
+    lastPlayingProgressAt = null;
   }
 
   async function mount(summary, options = {}) {
@@ -509,7 +521,17 @@ function createOverlayRuntime(options = {}) {
     const timelineTime = finiteNumber(t, 0);
     if (premount && !premountConfigured) applyPremountConfiguration();
     const nowMs = performance.now();
-    const rate = observePlaybackRate(timelineTime, Boolean(playing), nowMs);
+    const isPlaying = Boolean(playing);
+    if (!isPlaying) {
+      lastPlayingTimelineTime = null;
+      lastPlayingProgressAt = null;
+    } else if (lastPlayingTimelineTime === null || timelineTime !== lastPlayingTimelineTime) {
+      // 進行・シークのどちらも停止判定の観測窓をここから始め直す。
+      lastPlayingTimelineTime = timelineTime;
+      lastPlayingProgressAt = nowMs;
+    }
+    const animationPlaying = isPlaying && nowMs - lastPlayingProgressAt < PLAYBACK_DRIFT_MS;
+    const rate = observePlaybackRate(timelineTime, isPlaying, nowMs);
     const work = [];
 
     for (const overlay of mountedOverlays) {
@@ -519,6 +541,8 @@ function createOverlayRuntime(options = {}) {
         timelineTime < overlay.start + overlay.duration;
 
       if (visible !== overlay.visible) {
+        const exitingAnimations = visible ? null :
+          overlay.animations ?? overlay.container.getAnimations({ subtree: true });
         if (visible) overlay.container.removeAttribute(RUNTIME_HIDDEN_ATTRIBUTE);
         overlay.container.style.visibility = visible ? "visible" : "hidden";
         // 断片側の出入りアニメ（telop.md）は `[data-akari-active] .foo { animation: ... }`
@@ -535,18 +559,18 @@ function createOverlayRuntime(options = {}) {
         // getAnimations() のキャッシュ（下記）は可視化フリップで必ず捨てる。ゲート属性の付け外しで
         // CSS animation の顔ぶれが変わるため、可視化直後の tick は引き直す。非表示化でも捨て、
         // 非可視の間 Animation 参照を持ち越さない。
-        for (const animation of overlay.animations ?? []) releaseAnimation(animation);
+        if (visible) {
+          for (const animation of overlay.animations ?? []) releaseAnimation(animation);
+        } else {
+          // premount はレイアウトだけ保持する。paused CSSAnimation は必ず解放する。
+          cancelAnimations(exitingAnimations);
+        }
         overlay.animations = undefined;
         overlay.animationsAt = 0;
         overlay.animationEndTimes = [];
         if (!visible) {
           if (!overlay.keepLayoutWhenHidden) {
             overlay.container.setAttribute(RUNTIME_HIDDEN_ATTRIBUTE, "");
-            // display:none でも paused の CSSAnimation は残るため、退出時に解放する。
-            for (const animation of overlay.container.getAnimations({ subtree: true })) {
-              releaseAnimation(animation);
-              animation.cancel?.();
-            }
           }
           for (const runtime of overlayRuntimes(overlay)) {
             if (!premount || !runtime.premountTick) runtime.dispose(overlay.container);
@@ -639,7 +663,7 @@ function createOverlayRuntime(options = {}) {
     const pauseChecks = [];
     for (const { snapshots, localTimeMs } of work) {
       for (const snapshot of snapshots) {
-        if (syncAnimation(snapshot, localTimeMs, Boolean(playing), rate, nowMs)) {
+        if (syncAnimation(snapshot, localTimeMs, animationPlaying, rate, nowMs)) {
           pauseChecks.push(snapshot.animation);
         }
       }

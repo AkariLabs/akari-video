@@ -241,16 +241,16 @@ test("非 3D 断片の getAnimations は 250ms 以内の連続 tick で 1 回だ
   host.runtime.tick(20, true); // 可視区間外
   assert.equal(container.style.visibility, "hidden");
   assert.equal(container.hasAttribute("data-akari-active"), false, "非表示ではゲートを外す");
-  assert.equal(captionCalls(), 3, "exit fetches and cancels animations once");
+  assert.equal(captionCalls(), 2, "exit cancels cached animations without refetching");
   assert.equal(animation.cancels, 1);
   assert.equal(container.hasAttribute("data-akari-runtime-hidden"), true);
   host.runtime.tick(21, true);
-  assert.equal(captionCalls(), 3, "hidden ticks do not fetch again");
+  assert.equal(captionCalls(), 2, "hidden ticks do not fetch again");
 
   host.clock = 1320;
   host.runtime.tick(0.5, true); // 再可視化: 前回取得から 250ms 以内でもフリップで引き直す
   assert.equal(container.style.visibility, "visible");
-  assert.equal(captionCalls(), 4, "show refetches animations");
+  assert.equal(captionCalls(), 3, "show refetches animations");
   assert.equal(container.hasAttribute("data-akari-runtime-hidden"), false);
   assert.equal(animation.currentTime, 500);
 });
@@ -464,6 +464,84 @@ test("再生速度を tick の進みから推定し、走らせる Animation の
   assert.equal(animation.playbackRate, 1);
 });
 
+test("playing=true で同じ時刻が続いても pause と currentTime は停止時に一度だけ書く", async () => {
+  const animation = fakeAnimation({ endTime: 60000 });
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 20, html: CAPTION_HTML }] });
+
+  host.runtime.tick(1, true);
+  host.clock += 16;
+  host.runtime.tick(1.016, true);
+  const writesBeforeHold = animation.writes;
+  const pausesBeforeHold = animation.pauses;
+  for (let tick = 0; tick < 3; tick += 1) {
+    host.clock += 16;
+    host.runtime.tick(1.016, true);
+  }
+  assert.equal(animation.pauses, pausesBeforeHold, "50ms 未満の据え置きでは止めない");
+  assert.equal(animation.writes, writesBeforeHold, "50ms 未満の据え置きではシークしない");
+
+  host.clock += 2; // 最後に t が進んでから 50ms
+  host.runtime.tick(1.016, true);
+  for (let tick = 0; tick < 40; tick += 1) {
+    host.clock += 16;
+    host.runtime.tick(1.016, true);
+  }
+
+  assert.equal(animation.playState, "paused");
+  assert.equal(animation.currentTime, 1016);
+  assert.equal(animation.pauses - pausesBeforeHold, 1, "停止時だけ pause する");
+  assert.equal(animation.writes - writesBeforeHold, 1, "停止時刻を一度だけ確定する");
+});
+
+test("playing=true の保留時刻が進み始めたら play に戻してずれを 50ms 以内にする", async () => {
+  const animation = fakeAnimation({ endTime: 60000 });
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 20, html: CAPTION_HTML }] });
+
+  host.runtime.tick(1, true);
+  host.clock += 16;
+  host.runtime.tick(1.016, true);
+  for (let tick = 0; tick < 20; tick += 1) {
+    host.clock += 16;
+    host.runtime.tick(1.016, true);
+  }
+  assert.equal(animation.playState, "paused", "時刻の保留中は Animation も止まる");
+  const playsBeforeResume = animation.plays;
+
+  host.clock += 16;
+  host.runtime.tick(1.032, true);
+  assert.equal(animation.playState, "running");
+  assert.equal(animation.plays - playsBeforeResume, 1);
+  assert.ok(Math.abs(animation.currentTime - 1032) <= 50,
+    "再開時にタイムライン時刻とのずれを 50ms 以内に戻す");
+});
+
+test("8ms ごとに tick し t が 2 tick に 1 回進む時計では Animation に書き込まない", async () => {
+  const animation = fakeAnimation({ endTime: 60000 });
+  let current = 1000;
+  Object.defineProperty(animation, "currentTime", {
+    get() { return current; },
+    set(value) { current = value; animation.writes += 1; },
+  });
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 20, html: CAPTION_HTML }] });
+  host.runtime.tick(1, true);
+  const initialWrites = animation.writes;
+  const initialPauses = animation.pauses;
+  const initialPlays = animation.plays;
+
+  for (let frame = 1; frame <= 40; frame += 1) {
+    host.clock += 8;
+    if (animation.playState === "running") current += 8; // ブラウザで自走する Animation
+    host.runtime.tick(1 + Math.floor(frame / 2) * 0.016, true);
+  }
+
+  assert.equal(animation.pauses - initialPauses, 0, "量子化による短い据え置きでは pause しない");
+  assert.equal(animation.plays - initialPlays, 0, "pause / play を往復しない");
+  assert.equal(animation.writes - initialWrites, 0, "再生中に currentTime を書かない");
+});
+
 test("Animation getters stay out of the write phase across overlays", async () => {
   const events = [];
   const timingReads = { a: 0, b: 0 };
@@ -559,6 +637,47 @@ test("hidden 3D premount keeps layout and configure toggles runtime hiding", asy
   host.runtime.configure({premount:false});
   assert.equal(container.hasAttribute("data-akari-runtime-hidden"),true);
   host.runtime.configure({premount:true});
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),false);
+});
+
+test("paused premount animation is cancelled on hide and a fresh animation seeks on return", async () => {
+  const pausedAnimation = fakeAnimation({endTime:60000});
+  let activeAnimation = pausedAnimation;
+  let disposals = 0;
+  const host = createHost({animations:element=>element.hasAttribute("data-akari-active")
+    ? [activeAnimation] : []});
+  host.window.akari.runtimes.register({id:"premount-animation",selector:'[data-akari-3d-scene]',
+    render(){},inspect(){return {status:"idle"};},dispose(){disposals++;},premountTick(){}});
+  host.runtime.configure({premount:true});
+  await host.runtime.mount({overlays:[{id:"scene",start:0,duration:2,html:THREE_HTML}]});
+  const container = host.stage.children[0];
+
+  host.runtime.tick(0.5,true);
+  host.clock += 50;
+  host.runtime.tick(0.5,true);
+  assert.equal(pausedAnimation.playState,"paused");
+  host.runtime.tick(3,true);
+  assert.equal(pausedAnimation.cancels,1,"premount でも paused Animation を解放する");
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),false,"レイアウトは保持する");
+  assert.equal(disposals,0,"premount runtime は dispose しない");
+
+  activeAnimation = fakeAnimation({endTime:60000});
+  host.runtime.tick(0.5,false);
+  assert.equal(activeAnimation.currentTime,500,"再表示時に新しい Animation の姿勢を合わせる");
+  assert.equal(activeAnimation.playState,"paused");
+  assert.equal(pausedAnimation.cancels,1);
+});
+
+test("configure cancels lingering paused animations while hidden premount keeps layout", async () => {
+  const animation = fakeAnimation({playState:"paused"});
+  const host = createHost({animations:()=>[animation]});
+  host.window.akari.runtimes.register({id:"premount-configure",selector:'[data-akari-3d-scene]',
+    render(){},inspect(){return {status:"idle"};},dispose(){},premountTick(){}});
+  await host.runtime.mount({overlays:[{id:"scene",start:10,duration:2,html:THREE_HTML}]});
+  const container = host.stage.children[0];
+
+  host.runtime.configure({premount:true});
+  assert.equal(animation.cancels,1);
   assert.equal(container.hasAttribute("data-akari-runtime-hidden"),false);
 });
 

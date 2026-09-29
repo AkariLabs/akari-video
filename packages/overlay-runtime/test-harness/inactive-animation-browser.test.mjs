@@ -82,3 +82,44 @@ test('premount 3D runtime keeps hidden layout until premount is disabled', {time
     });
   } finally { await browser.close(); }
 });
+
+test('paused CSS animations are released when a premount overlay becomes hidden', {timeout:300000}, async () => {
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<style>@keyframes move { from { transform:translateX(0) } to { transform:translateX(100px) } } [data-akari-active] .motion { animation:move 1s linear both }</style><div id="overlay-stage"></div>');
+    await page.addScriptTag({content:source});
+    const result = await page.evaluate(async () => {
+      window.akari.runtimes.register({id:'premount-animation-test',selector:'[data-premount-test]',
+        render(){},inspect(){return {status:'idle'}},dispose(){},premountTick(){}});
+      window.akari.runtime.configure({premount:true});
+      await window.akari.runtime.mount({overlays:[{id:'scene',start:0,duration:2,
+        html:'<div data-premount-test style="width:100px;height:50px"><div class="motion">scene</div></div>'}]});
+      const node=document.querySelector('[data-overlay-id="scene"]');
+      const target=node.querySelector('.motion');
+      window.akari.runtime.tick(0.5,true);
+      await Promise.all(node.getAnimations({subtree:true}).map(animation=>animation.ready));
+      await new Promise(resolve=>setTimeout(resolve,60));
+      window.akari.runtime.tick(0.5,true); // playing=true のまま 50ms 以上据え置く
+      const paused=node.getAnimations({subtree:true}).map(animation=>animation.playState);
+      window.akari.runtime.tick(3,true); // premount のレイアウトを残して不可視化
+      const hidden={
+        count:document.getAnimations().filter(animation=>node.contains(animation.effect?.target)).length,
+        display:getComputedStyle(node).display,
+        visibility:node.style.visibility,
+        width:node.querySelector('[data-premount-test]').getBoundingClientRect().width,
+      };
+      window.akari.runtime.tick(0.5,false); // シークして再表示
+      const animations=node.getAnimations({subtree:true});
+      return {paused,hidden,returned:{count:document.getAnimations().length,
+        localTime:animations[0]?.currentTime,
+        translateX:new DOMMatrixReadOnly(getComputedStyle(target).transform).m41}};
+    });
+    assert.deepEqual(result.paused,['paused']);
+    assert.deepEqual(result.hidden,{count:0,display:'block',visibility:'hidden',width:100});
+    assert.equal(result.returned.count,1);
+    assert.equal(result.returned.localTime,500);
+    assert.ok(Math.abs(result.returned.translateX-50)<1,
+      `seek pose translateX=${result.returned.translateX}`);
+  } finally { await browser.close(); }
+});
