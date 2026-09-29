@@ -163,15 +163,18 @@ The `filter_report.normalized.output_tp` loudnorm reports for the PCM stage is n
 real true peak: the AAC re-encode that follows can measurably overshoot it (a real render measured
 `filter_report` at -1.00 dBTP against a decoded artifact at +0.23 dBFS — about +1.2 dB of
 codec-introduced overshoot; `planning/notes-2026-08-17-mac-fresh-install-bug-reports.md` #05). Two
-additive mitigations apply only when `true_peak_dbtp` is **explicit** in `audio.master` — the -1.5
+additive mitigations apply to explicit `true_peak_dbtp` in `audio.master` — the -1.5
 dBTP default is unchanged and unmargined:
 
-- **Applied margin.** `packages/render-cut/src/plan.mjs` hands loudnorm `configured -
+- **Applied margin.** Only when the output audio codec is AAC (h264 / hevc),
+  `packages/render-cut/src/plan.mjs` hands loudnorm `configured -
   AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP` (1.5 dB, `packages/render-cut/src/audio-qc.mjs`) instead of
   the raw configured value, so the *decoded* artifact — not just the PCM stage — has a better chance
   of landing under what the caller asked for. The receipt records both under an additive
-  `audio_qc.true_peak_margin: { overshoot_margin_dbtp, applied_true_peak_dbtp }` field;
+  `audio_qc.true_peak_margin: { overshoot_margin_dbtp, applied_true_peak_dbtp, reason: "aac_reencode_overshoot", audio_codec: "aac" }` field;
   `audio_qc.configured.true_peak_dbtp` is unchanged and still reports the caller's original value.
+  PCM output (prores422 / png → `pcm_s16le`) passes the configured target directly to loudnorm
+  and has no `audio_qc.true_peak_margin` field (#122, 2026-09-28).
   The margin is a fixed mitigation, not a guarantee — real-render testing found synthetic
   high-transient material where even the margined target still decodes above 0 dBFS (this is what
   the next mitigation exists to catch).
@@ -183,7 +186,8 @@ dBTP default is unchanged and unmargined:
   configured target, decoded measurement, and tool version; a mismatch is a structural error.
 
 These two fields are additive to the existing `configured` / `filter_report` /
-`decoded_measurement` fields. No margin is recorded when `true_peak_dbtp` is omitted, and no
+`decoded_measurement` fields. No margin is recorded when `true_peak_dbtp` is omitted or the output
+audio codec is PCM, and no
 overshoot warning is recorded when the measured peak does not exceed the threshold.
 
 ## 4. Recipe boundary and evidence grade

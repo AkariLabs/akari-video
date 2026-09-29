@@ -601,6 +601,7 @@ export async function renderProject(input, options = {}, io = console) {
     if (audioMaster) {
       state.audio_qc = buildAudioQc({
         master: audioMaster,
+        audioCodec: plan.preset.audio_codec,
         filterStderr: audioExecution.stderr,
         outputPath: codec === "png" ? join(outputPath, "audio.wav") : outputPath,
         ffmpegCommand: capabilities.ffmpegCommand,

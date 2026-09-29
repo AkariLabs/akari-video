@@ -18,7 +18,7 @@ import { buildAudioTailPadCommand, computeContentDurationSeconds } from "./conte
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
 import { buildAudioClipFxFilters } from "../../media-bin/src/preview-audio-sidecar.mjs";
-import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
+import { appliedTruePeakDbtp, appliesAacTruePeakMargin, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
 import { readRenderEdit } from "./internal-render.mjs";
 import { audioArgsForCodec, containerForCodec } from "./encode-preset.mjs";
 
@@ -168,6 +168,10 @@ export function buildPlan({
   };
 }
 
+export function audioCodecForCodec(codec = "h264") {
+  return codec === "prores422" || codec === "png" ? "pcm_s16le" : "aac";
+}
+
 export function buildVideoPreset({ codec = "h264", width, height, fps }) {
   if (!["h264", "hevc", "prores422", "png"].includes(codec)) throw new RangeError(`Unknown codec value: ${codec}`);
   const container = containerForCodec(codec);
@@ -177,7 +181,7 @@ export function buildVideoPreset({ codec = "h264", width, height, fps }) {
     pixel_format: codec === "prores422" ? "yuv422p10le" : codec === "png" ? "rgba" : "yuv420p",
     color_range: "tv",
     ...(codec === "h264" || codec === "hevc" ? {} : { container: container.ext ?? "directory" }),
-    audio_codec: codec === "prores422" || codec === "png" ? "pcm_s16le" : "aac",
+    audio_codec: audioCodecForCodec(codec),
     width,
     height,
     fps,
@@ -212,7 +216,7 @@ export function buildAudioMixCommand({
   const speechTracks = splitSpeech.tracks;
   const hasSpeech = speechTracks.length > 0;
   const hasNarration = narrationTracks.length > 0;
-  const master = normalizeMasterPlan(edit.audio?.master);
+  const master = normalizeMasterPlan(edit.audio?.master, { audioCodec: audioCodecForCodec(codec) });
   const duckKeys = normalizeDuckKeys(edit.audio?.duck_keys);
   const hasDuckTarget = audio.bgms.some(item => item?.ducking === true) || audio.sfx.some(item => item?.ducking === true);
   const speech = hasDuckTarget
@@ -562,7 +566,7 @@ export function isShareableSfxProbe(probe) {
 // not, so once the master object is present at all, loudness normalization is on by default at
 // -14 LUFS unless overridden (command-center judgment call, documented in edit.schema.json's
 // $defs/audioMaster $comment).
-function normalizeMasterPlan(master) {
+function normalizeMasterPlan(master, { audioCodec = "aac" } = {}) {
   if (!master || typeof master !== "object") return null;
   const denoise = ["off", "std", "strong"].includes(master.denoise) ? master.denoise : "off";
   const rawTarget = master.loudnorm;
@@ -572,9 +576,11 @@ function normalizeMasterPlan(master) {
   // Real AAC re-encode overshoots loudnorm's PCM-stage true peak target (audio-qc.mjs's
   // AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP; measured +1.2 dB on real material — planning/
   // notes-2026-08-17-mac-fresh-install-bug-reports.md #05). Bake the margin into what loudnorm is
-  // told to target only when true_peak_dbtp is explicit — the -1.5 dBTP default already carries
-  // its own headroom and must not double up (task 2026-08-17-render-cut-true-peak-guard 裁定 B).
-  const truePeakTarget = truePeakExplicit ? appliedTruePeakDbtp(configuredTruePeak) : configuredTruePeak;
+  // told to target only for explicit true_peak_dbtp on AAC output. PCM has no AAC re-encode
+  // overshoot (#122); the -1.5 dBTP default already carries its own headroom (task
+  // 2026-08-17-render-cut-true-peak-guard 裁定 B).
+  const truePeakTarget = appliesAacTruePeakMargin(master, audioCodec)
+    ? appliedTruePeakDbtp(configuredTruePeak) : configuredTruePeak;
   return { denoise, loudnormTarget, truePeakTarget };
 }
 

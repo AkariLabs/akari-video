@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP, appliedTruePeakDbtp, buildAudioQc, parseLoudnormReport } from "../src/audio-qc.mjs";
+import { AAC_TRUE_PEAK_MARGIN_REASON, AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP, appliedTruePeakDbtp, buildAudioQc, parseLoudnormReport } from "../src/audio-qc.mjs";
 
 const filterJson = `noise\n{\n "output_i" : "-14.52",\n "output_tp" : "-1.70"\n}\n`;
 
@@ -28,9 +28,10 @@ test("filter and decoded reports preserve raw strings without mixing fields", ()
 // task 2026-08-17-render-cut-true-peak-guard 裁定A: decoded_measurement exceeding
 // configured.true_peak_dbtp by more than the tolerance must be machine-detectable from the
 // receipt alone, with an INCONCLUSIVE verdict on overshoot.
-function buildWithDecodedInputTp(inputTp, master = { loudnorm: -14, true_peak_dbtp: -1 }) {
+function buildWithDecodedInputTp(inputTp, master = { loudnorm: -14, true_peak_dbtp: -1 }, audioCodec) {
   return buildAudioQc({
     master,
+    audioCodec,
     filterStderr: filterJson,
     outputPath: "/fixture/final.mp4",
     ffmpegCommand: "ffmpeg",
@@ -83,12 +84,39 @@ test("true_peak_margin is recorded only when true_peak_dbtp is explicit, using t
   assert.deepEqual(explicit.true_peak_margin, {
     overshoot_margin_dbtp: AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP,
     applied_true_peak_dbtp: appliedTruePeakDbtp(-1.7),
+    reason: AAC_TRUE_PEAK_MARGIN_REASON,
+    audio_codec: "aac",
   });
   assert.equal(explicit.true_peak_margin.applied_true_peak_dbtp, -3.2);
 
   const defaulted = buildWithDecodedInputTp("-3", { loudnorm: -14 });
   assert.equal(defaulted.true_peak_margin, undefined);
   assert.equal(defaulted.configured.true_peak_dbtp, -1.5, "unspecified true_peak_dbtp keeps today's -1.5 dBTP default, unmargined");
+});
+
+test("PCM output keeps the configured true peak without an AAC margin", () => {
+  let decodedArgs;
+  const qc = buildAudioQc({
+    master: { loudnorm: -14, true_peak_dbtp: -1.5 },
+    audioCodec: "pcm_s16le",
+    filterStderr: filterJson,
+    outputPath: "fixture.wav",
+    ffmpegCommand: "ffmpeg",
+    toolVersion: "ffmpeg fixture",
+    spawnSyncImpl: (_command, args) => {
+      decodedArgs = args;
+      return { status: 0, stderr: '{"input_i":"-14","input_tp":"-1.5"}' };
+    },
+  });
+  assert.equal(qc.true_peak_margin, undefined);
+  assert.equal(qc.configured.true_peak_dbtp, -1.5);
+  assert.match(decodedArgs.join(" "), /TP=-1\.5/u);
+});
+
+test("explicit AAC output records the same margin as the default codec", () => {
+  const explicit = buildWithDecodedInputTp("-3", { loudnorm: -14, true_peak_dbtp: -1.7 }, "aac");
+  const defaulted = buildWithDecodedInputTp("-3", { loudnorm: -14, true_peak_dbtp: -1.7 });
+  assert.deepEqual(explicit.true_peak_margin, defaulted.true_peak_margin);
 });
 
 test("-inf is retained and missing/invalid/parse/capture failures are discriminated", () => {
