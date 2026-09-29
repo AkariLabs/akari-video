@@ -23078,11 +23078,12 @@ ${indent}`);
     if (format !== "NV12" && format !== "I420") {
       throw new Error(`unsupported native VideoFrame format: ${String(frame.format)}`);
     }
-    const width = frame.codedWidth;
-    const height = frame.codedHeight;
-    const bytes = new Uint8Array(frame.allocationSize());
+    const rect = frame.visibleRect ?? { x: 0, y: 0, width: frame.codedWidth, height: frame.codedHeight };
+    const width = rect.width;
+    const height = rect.height;
+    const bytes = new Uint8Array(frame.allocationSize({ rect }));
     const copyStarted = performance.now();
-    const layouts = await frame.copyTo(bytes);
+    const layouts = await frame.copyTo(bytes, { rect });
     metrics?.record("copyTo", performance.now() - copyStarted);
     const chromaWidth = Math.ceil(width / 2);
     const chromaHeight = Math.ceil(height / 2);
@@ -30603,6 +30604,9 @@ caused by: ${cause.stack}`;
   var DECODER_FLUSH_TIMEOUT_MS = 1e3;
   var DECODER_DEQUEUE_TIMEOUT_MS = 2e3;
   var PREFETCH_BATCH = 8;
+  var HARDWARE_AHEAD_FRAMES = 3;
+  var MAX_CALLER_DECODER_FRAMES = 3;
+  var MAX_CALLER_DECODER_FRAMES_4K = 9;
   var PREFETCH_BUDGET_BASE_BYTES = 32 * 1024 * 1024;
   function resolveOptimizeForLatencyDefault() {
     const runtime = globalThis;
@@ -31055,6 +31059,7 @@ caused by: ${cause.stack}`;
     lastTargetUs = -1;
     consumedDecodeIndex = -1;
     lastOutputPresentationIndex = -1;
+    callerDecoderFrames = 0;
     flushedSinceSeek = false;
     destroyed = false;
     prefetchPromise = null;
@@ -31179,7 +31184,105 @@ caused by: ${cause.stack}`;
       const budgetBytes = this.options.prefetchBudgetBytes ?? resolvePrefetchBudgetBytes(scaledDefault);
       const budgetFrames = Math.floor(budgetBytes / frameBytes);
       const requested = this.options.prefetchAheadFrames == null ? gopLength : Math.max(0, Math.floor(this.options.prefetchAheadFrames));
-      return Math.max(2, Math.min(64, gopLength, requested, budgetFrames));
+      const surfaceLimit = this.acceleration === "prefer-hardware" && typeof createImageBitmap === "function" ? HARDWARE_AHEAD_FRAMES : 64;
+      return Math.max(2, Math.min(surfaceLimit, gopLength, requested, budgetFrames));
+    }
+    async detachHardwareOutput(frame) {
+      if (this.acceleration !== "prefer-hardware" || typeof createImageBitmap !== "function") return frame;
+      const callerFrameLimit = frame.codedWidth === 3840 && frame.codedHeight === 2160 ? MAX_CALLER_DECODER_FRAMES_4K : MAX_CALLER_DECODER_FRAMES;
+      if (this.callerDecoderFrames < callerFrameLimit && this.trackCallerFrame(frame)) {
+        return frame;
+      }
+      if (frame.format === "NV12" || frame.format === "I420") {
+        try {
+          const rect = { x: 0, y: 0, width: frame.codedWidth, height: frame.codedHeight };
+          const bytes = new Uint8Array(frame.allocationSize({ rect }));
+          const layout = await frame.copyTo(bytes, { rect });
+          const fullFrame = new VideoFrame(bytes, {
+            format: frame.format,
+            codedWidth: frame.codedWidth,
+            codedHeight: frame.codedHeight,
+            displayWidth: frame.displayWidth,
+            displayHeight: frame.displayHeight,
+            timestamp: frame.timestamp,
+            duration: frame.duration ?? void 0,
+            colorSpace: frame.colorSpace.toJSON(),
+            layout
+          });
+          try {
+            return new VideoFrame(fullFrame, {
+              visibleRect: frame.visibleRect ?? void 0,
+              displayWidth: frame.displayWidth,
+              displayHeight: frame.displayHeight,
+              timestamp: frame.timestamp,
+              duration: frame.duration ?? void 0
+            });
+          } finally {
+            fullFrame.close();
+          }
+        } finally {
+          frame.close();
+        }
+      }
+      let bitmap;
+      try {
+        bitmap = await createImageBitmap(frame);
+      } catch (error) {
+        frame.close();
+        throw error;
+      }
+      try {
+        const detached = new VideoFrame(bitmap, {
+          timestamp: frame.timestamp,
+          duration: frame.duration ?? void 0
+        });
+        frame.close();
+        return detached;
+      } catch (error) {
+        frame.close();
+        throw error;
+      } finally {
+        bitmap.close();
+      }
+    }
+    trackCallerFrame(frame) {
+      if (!Object.isExtensible(frame)) return false;
+      const ownClose = Object.getOwnPropertyDescriptor(frame, "close");
+      const ownClone = Object.getOwnPropertyDescriptor(frame, "clone");
+      const close = frame.close.bind(frame);
+      const clone = frame.clone.bind(frame);
+      let closed = false;
+      try {
+        Object.defineProperties(frame, {
+          close: {
+            configurable: true,
+            writable: true,
+            value: () => {
+              if (closed) return;
+              closed = true;
+              this.callerDecoderFrames -= 1;
+              close();
+            }
+          },
+          clone: {
+            configurable: true,
+            writable: true,
+            value: () => {
+              const copied = clone();
+              this.trackCallerFrame(copied);
+              return copied;
+            }
+          }
+        });
+        this.callerDecoderFrames += 1;
+        return true;
+      } catch {
+        if (ownClose) Object.defineProperty(frame, "close", ownClose);
+        else Reflect.deleteProperty(frame, "close");
+        if (ownClone) Object.defineProperty(frame, "clone", ownClone);
+        else Reflect.deleteProperty(frame, "clone");
+        return false;
+      }
     }
     handleOutput(frame) {
       const timing = this.prepared ? sampleAtPresentationTime(this.prepared.table, frame.timestamp) : null;
@@ -31317,21 +31420,26 @@ caused by: ${cause.stack}`;
       if (this.lastOutput && this.lastOutput.timestamp === targetSample.timestampUs) {
         const result = this.lastOutput.clone();
         this.noteFrameReturned(targetSample, targetUs, true);
-        return result;
+        return this.detachHardwareOutput(result);
       }
       const shouldScheduleFromFuture = targetUs > this.lastTargetUs;
       const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
       if (buffered) {
         this.shared.reader.stats.prefetchHits += 1;
         this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
-        return buffered;
+        return this.detachHardwareOutput(buffered);
       }
       await this.pausePrefetch();
       const bufferedAfterPause = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
       if (bufferedAfterPause) {
         this.shared.reader.stats.prefetchHits += 1;
         this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
-        return bufferedAfterPause;
+        return this.detachHardwareOutput(bufferedAfterPause);
+      }
+      for (const [timestamp, frame] of this.futureFrames) {
+        if (timestamp >= targetSample.timestampUs) continue;
+        frame.close();
+        this.futureFrames.delete(timestamp);
       }
       const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
       const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0 && targetUs > this.lastTargetUs && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);
@@ -31449,7 +31557,7 @@ caused by: ${cause.stack}`;
         this.lastOutput = result.clone();
         this.lastTargetUs = targetUs;
         this.noteFrameReturned(targetSample, targetUs, forward);
-        return result;
+        return this.detachHardwareOutput(result);
       } finally {
         this.activeTargetUs = null;
         if (this.outputWaiter === waiter) this.outputWaiter = null;

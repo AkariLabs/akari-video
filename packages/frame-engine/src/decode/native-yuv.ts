@@ -31,11 +31,15 @@ export async function copyNativeYuvFrame(
   if (format !== 'NV12' && format !== 'I420') {
     throw new Error(`unsupported native VideoFrame format: ${String(frame.format)}`);
   }
-  const width = frame.codedWidth;
-  const height = frame.codedHeight;
-  const bytes = new Uint8Array(frame.allocationSize());
+  // GPU の direct upload は visibleRect を描く。copyTo 経路も同じ領域を
+  // 取り出す。codedHeight 1088 を画像寸法にすると 1080p の下端に padding が出る。
+  const rect = frame.visibleRect
+    ?? { x: 0, y: 0, width: frame.codedWidth, height: frame.codedHeight };
+  const width = rect.width;
+  const height = rect.height;
+  const bytes = new Uint8Array(frame.allocationSize({ rect }));
   const copyStarted = performance.now();
-  const layouts = await frame.copyTo(bytes) as PlaneLayout[];
+  const layouts = await frame.copyTo(bytes, { rect }) as PlaneLayout[];
   metrics?.record('copyTo', performance.now() - copyStarted);
   const chromaWidth = Math.ceil(width / 2);
   const chromaHeight = Math.ceil(height / 2);

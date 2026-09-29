@@ -1,0 +1,1253 @@
+{
+  "fixture": {
+    "testsrc": {
+      "bytes": 6896314,
+      "width": 1920,
+      "height": 1080,
+      "coded_width": 1920,
+      "coded_height": 1080,
+      "has_b_frames": 2,
+      "color_range": "tv",
+      "color_space": "bt709",
+      "color_transfer": "bt709",
+      "color_primaries": "bt709"
+    },
+    "bars": {
+      "bytes": 52724,
+      "width": 1920,
+      "height": 1080,
+      "coded_width": 1920,
+      "coded_height": 1080,
+      "has_b_frames": 2,
+      "color_range": "tv",
+      "color_space": "bt709",
+      "color_transfer": "bt709",
+      "color_primaries": "bt709"
+    },
+    "rotate": {
+      "bytes": 41758,
+      "width": 320,
+      "height": 180,
+      "coded_width": 320,
+      "coded_height": 180,
+      "has_b_frames": 2,
+      "color_range": "tv",
+      "color_space": "bt709",
+      "color_transfer": "bt709",
+      "color_primaries": "bt709",
+      "side_data_list": [
+        {}
+      ]
+    },
+    "real": {
+      "bytes": 597115,
+      "width": 1920,
+      "height": 1080,
+      "coded_width": 1920,
+      "coded_height": 1080,
+      "has_b_frames": 2
+    }
+  },
+  "rows": [
+    {
+      "key": "testsrc",
+      "frame": 236,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "testsrc",
+      "frame": 236,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "testsrc",
+      "frame": 505,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "testsrc",
+      "frame": 505,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "bars",
+      "frame": 236,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "bars",
+      "frame": 236,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "bars",
+      "frame": 505,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "bars",
+      "frame": 505,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "rotate",
+      "frame": 10,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 90,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 333333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 333333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "rotate",
+      "frame": 10,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 90,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 333333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 333333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "rotate",
+      "frame": 30,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 90,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 1000000,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 1000000,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "rotate",
+      "frame": 30,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 90,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 1000000,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 320,
+        "codedHeight": 192,
+        "displayWidth": 320,
+        "displayHeight": 180,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 180
+        },
+        "timestamp": 1000000,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "real",
+      "frame": 236,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "real",
+      "frame": 236,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 7866667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "real",
+      "frame": 505,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "real",
+      "frame": 505,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 16833333,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "real",
+      "frame": 788,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 26266667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 26266667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "direct",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "key": "real",
+      "frame": 788,
+      "acceleration": "prefer-hardware",
+      "rotationDeg": 0,
+      "native": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 26266667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "copied": {
+        "format": "NV12",
+        "codedWidth": 1920,
+        "codedHeight": 1088,
+        "displayWidth": 1920,
+        "displayHeight": 1080,
+        "visibleRect": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "timestamp": 26266667,
+        "duration": 33333,
+        "colorSpace": {
+          "primaries": "bt709",
+          "transfer": "bt709",
+          "matrix": "bt709",
+          "fullRange": false
+        }
+      },
+      "nativeCallerFramesBefore": 3,
+      "nativeCallerFramesAfter": 3,
+      "metadataMatch": true,
+      "path": "copyTo",
+      "max": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "warnings": {
+    "testsrc": [
+      "testsrc: 最大キーフレーム間隔が 10.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    ],
+    "bars": [
+      "bars: 最大キーフレーム間隔が 10.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    ],
+    "rotate": [],
+    "real": [
+      "real: 最大キーフレーム間隔が 10.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
+    ]
+  },
+  "error": null,
+  "oddVisibleRect": {
+    "width": 3,
+    "height": 3,
+    "yBytes": 9,
+    "uBytes": 4,
+    "vBytes": 4
+  },
+  "legacyCodedPadding": {
+    "codedHeight": 1088,
+    "visibleHeight": 1080,
+    "max": [
+      255,
+      253,
+      255,
+      0
+    ],
+    "mean": [
+      6.813300057870371,
+      5.998489101080247,
+      4.341127025462963,
+      0
+    ],
+    "directBottomPixel": [
+      255,
+      24,
+      0,
+      255
+    ],
+    "oldCopyBottomPixel": [
+      0,
+      0,
+      0,
+      255
+    ]
+  }
+}
