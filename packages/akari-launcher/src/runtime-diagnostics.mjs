@@ -128,6 +128,36 @@ export function resolveRuntimePaths(options = {}) {
   };
 }
 
+export function describeNodeRuntime(options = {}) {
+  const execPath = options.execPath ?? process.execPath;
+  const platform = options.platform ?? process.platform;
+  const env = options.env ?? process.env;
+  const versions = options.versions ?? process.versions;
+  const runtime = versions.electron ? 'electron' : 'node';
+  const quotedExecPath = `"${execPath}"`;
+  const cmd = runtime === 'electron'
+    ? `set "ELECTRON_RUN_AS_NODE=1" && ${quotedExecPath} <script>`
+    : `${quotedExecPath} <script>`;
+  const sh = runtime === 'electron'
+    ? `ELECTRON_RUN_AS_NODE=1 ${quotedExecPath} <script>`
+    : `${quotedExecPath} <script>`;
+  return {
+    exec_path: execPath,
+    electron_run_as_node: env.ELECTRON_RUN_AS_NODE === '1',
+    version: options.nodeVersion ?? versions.node,
+    runtime,
+    electron_version: versions.electron ?? null,
+    run_as_node_supported: runtime === 'electron',
+    required_env: runtime === 'electron' ? { ELECTRON_RUN_AS_NODE: '1' } : {},
+    invocation: {
+      shell: platform === 'win32' ? 'cmd' : 'sh',
+      example: platform === 'win32' ? cmd : sh,
+      cmd,
+      sh,
+    },
+  };
+}
+
 export async function resolveDoctorReport(options = {}) {
   const env = options.env ?? process.env;
   const platform = options.platform ?? process.platform;
@@ -144,11 +174,11 @@ export async function resolveDoctorReport(options = {}) {
     cli: {
       version: options.cliVersion ?? readOwnVersion(),
       entry_path: options.entryPath ?? process.argv[1] ?? null,
-      node: {
-        exec_path: execPath,
-        electron_run_as_node: env.ELECTRON_RUN_AS_NODE === '1',
-        version: options.nodeVersion ?? process.versions.node,
-      },
+      node: describeNodeRuntime({
+        execPath, platform, env,
+        versions: options.versions ?? process.versions,
+        nodeVersion: options.nodeVersion,
+      }),
     },
     ...runtime,
     ffmpeg: mediaBin.ffmpeg,

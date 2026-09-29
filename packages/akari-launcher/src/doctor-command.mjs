@@ -29,6 +29,9 @@ export async function runDoctorCommand(argv, options = {}) {
 export function formatDoctorReport(report) {
   const rows = [
     ['cli', 'ok', `v${report.cli.version} — ${report.cli.entry_path}`],
+    ['node', report.cli.node?.runtime ?? 'unknown', report.cli.node
+      ? `v${report.cli.node.version} — ${report.cli.node.exec_path}${report.cli.node.runtime === 'electron' ? ' （Node として使うには ELECTRON_RUN_AS_NODE=1 を付けて呼ぶ）' : ''}`
+      : '診断情報がありません'],
     ['app_managed', report.app_managed.status, detail(report.app_managed.path, report.app_managed.version)],
     ['app_bundle', report.app_bundle.found ? 'found' : 'missing', detail(report.app_bundle.path, report.app_bundle.version)],
     ['render_cut', report.render_cut.origin, report.render_cut.path ?? '見つかりません'],

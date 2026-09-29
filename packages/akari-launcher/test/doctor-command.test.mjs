@@ -7,6 +7,7 @@ import test from 'node:test';
 import { runUpdateCommand } from '../src/cli.mjs';
 import { formatDoctorReport, runDoctorCommand } from '../src/doctor-command.mjs';
 import {
+  describeNodeRuntime,
   determineDoctorVerdict,
   doctorExitCode,
   resolveAppBundle,
@@ -28,6 +29,118 @@ async function put(file, contents = '#!/usr/bin/env node\n') {
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, contents, { mode: 0o755 });
 }
+
+for (const fixture of [
+  {
+    name: 'electron / win32', platform: 'win32', execPath: 'C:\\App\\AKARI Video.exe',
+    versions: { node: '22.0.0', electron: '39.8.7' }, runtime: 'electron',
+    cmd: 'set "ELECTRON_RUN_AS_NODE=1" && "C:\\App\\AKARI Video.exe" <script>',
+    sh: 'ELECTRON_RUN_AS_NODE=1 "C:\\App\\AKARI Video.exe" <script>',
+  },
+  {
+    name: 'electron / posix', platform: 'darwin', execPath: '/Applications/AKARI Video.app/Contents/MacOS/AKARI Video',
+    versions: { node: '22.0.0', electron: '39.8.7' }, runtime: 'electron',
+    cmd: 'set "ELECTRON_RUN_AS_NODE=1" && "/Applications/AKARI Video.app/Contents/MacOS/AKARI Video" <script>',
+    sh: 'ELECTRON_RUN_AS_NODE=1 "/Applications/AKARI Video.app/Contents/MacOS/AKARI Video" <script>',
+  },
+  {
+    name: 'node / win32', platform: 'win32', execPath: 'C:\\Tools\\node.exe',
+    versions: { node: '24.0.0' }, runtime: 'node',
+    cmd: '"C:\\Tools\\node.exe" <script>', sh: '"C:\\Tools\\node.exe" <script>',
+  },
+  {
+    name: 'node / posix', platform: 'linux', execPath: '/opt/node bin/node',
+    versions: { node: '24.0.0' }, runtime: 'node',
+    cmd: '"/opt/node bin/node" <script>', sh: '"/opt/node bin/node" <script>',
+  },
+]) {
+  test(`describeNodeRuntime: ${fixture.name}`, () => {
+    const result = describeNodeRuntime({
+      execPath: fixture.execPath, platform: fixture.platform, versions: fixture.versions, env: {},
+    });
+    assert.deepEqual(result, {
+      exec_path: fixture.execPath,
+      electron_run_as_node: false,
+      version: fixture.versions.node,
+      runtime: fixture.runtime,
+      electron_version: fixture.versions.electron ?? null,
+      run_as_node_supported: fixture.runtime === 'electron',
+      required_env: fixture.runtime === 'electron' ? { ELECTRON_RUN_AS_NODE: '1' } : {},
+      invocation: {
+        shell: fixture.platform === 'win32' ? 'cmd' : 'sh',
+        example: fixture.platform === 'win32' ? fixture.cmd : fixture.sh,
+        cmd: fixture.cmd,
+        sh: fixture.sh,
+      },
+    });
+  });
+}
+
+test('describeNodeRuntime は診断時の env だけを記録し、実行体の機能判定に使わない', () => {
+  for (const [value, expected] of [['1', true], [undefined, false], ['1 ', false]]) {
+    const env = value === undefined ? {} : { ELECTRON_RUN_AS_NODE: value };
+    const result = describeNodeRuntime({
+      execPath: 'C:\\App\\AKARI Video.exe', platform: 'win32', env,
+      versions: { node: '22.0.0', electron: '39.8.7' },
+    });
+    assert.equal(result.electron_run_as_node, expected);
+    assert.equal(result.run_as_node_supported, true);
+    assert.deepEqual(result.required_env, { ELECTRON_RUN_AS_NODE: '1' });
+  }
+});
+
+test('resolveDoctorReport は cli.node の既存キーと追加キーを JSON でも保つ', async () => {
+  await withFixture(async (root) => {
+    const report = await resolveDoctorReport({
+      env: { AKARI_HOME: join(root, 'home'), PATH: '' },
+      launcherDirectory: join(root, 'checkout', 'packages', 'akari-launcher', 'src'),
+      defaultAppResources: [],
+      loadMediaBin: async () => { throw new Error('fixture unavailable'); },
+      resolveGpuLauncher: async () => ({ tier: 0, reason: 'fixture unavailable' }),
+      entryPath: 'akari.mjs',
+      execPath: 'C:\\App\\AKARI Video.exe', platform: 'win32',
+      versions: { node: '22.0.0', electron: '39.8.7' },
+    });
+    const expected = describeNodeRuntime({
+      execPath: 'C:\\App\\AKARI Video.exe', platform: 'win32', env: {},
+      versions: { node: '22.0.0', electron: '39.8.7' },
+    });
+    assert.deepEqual(report.cli.node, expected);
+    assert.deepEqual(JSON.parse(JSON.stringify(report)).cli.node, expected);
+  });
+});
+
+test('formatDoctorReport は Electron の node 実行方法と Node の実行体を表示する', () => {
+  const base = {
+    cli: { version: '1.0.0', entry_path: 'akari.mjs' },
+    app_managed: { status: 'missing' }, app_bundle: { found: false },
+    render_cut: { origin: 'none' }, edit_lint: { origin: 'none' },
+    ffmpeg: { origin: 'none' }, ffprobe: { origin: 'none' },
+    path: { on_path: false, cli_shim_dir: '/isolated/bin' },
+    verdict: 'broken', next_steps: [],
+  };
+  const electron = formatDoctorReport({
+    ...base,
+    cli: { ...base.cli, node: describeNodeRuntime({
+      execPath: 'C:\\App\\AKARI Video.exe', platform: 'win32', env: {},
+      versions: { node: '22.0.0', electron: '39.8.7' },
+    }) },
+  });
+  assert.match(electron, /node\s+electron\s+v22\.0\.0 — C:\\App\\AKARI Video\.exe/u);
+  assert.match(electron, /ELECTRON_RUN_AS_NODE=1/u);
+
+  const node = formatDoctorReport({
+    ...base,
+    cli: { ...base.cli, node: describeNodeRuntime({
+      execPath: '/opt/node', platform: 'linux', env: {}, versions: { node: '24.0.0' },
+    }) },
+  });
+  assert.match(node, /node\s+node\s+v24\.0\.0 — \/opt\/node/u);
+  assert.doesNotMatch(node, /ELECTRON_RUN_AS_NODE/u);
+
+  const legacy = formatDoctorReport(base);
+  assert.match(legacy, /node\s+unknown\s+診断情報がありません/u);
+});
 
 test('render-cut 解決順は monorepo → managed-app → app-bundle → none', async () => {
   await withFixture(async (root) => {

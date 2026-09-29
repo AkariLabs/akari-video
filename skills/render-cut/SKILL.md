@@ -30,8 +30,12 @@ description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4
 ### 実行体の解決
 
 第一手として `akari doctor --json` を実行し、`render_cut.path` を `<render-cut>`、
-`cli.node.exec_path` を node の実行体として使う。まだこれらのフィールドを出力しない版なら、
-次の探索へ進む。
+`cli.node.exec_path` を node の実行体として使う。
+`cli.node.runtime` が `electron` のときは、`cli.node.required_env`（`ELECTRON_RUN_AS_NODE=1`）を付けて呼ぶ
+（書き方は `cli.node.invocation.sh` / `.cmd`。付けずに呼ぶと GUI のアプリが起動する）。
+`cli.node.electron_run_as_node` は診断時の環境を映すだけなので、使えるかどうかの判断に使わない。
+`runtime` を出力しない旧版で、`exec_path` のファイル名が `node` / `node.exe` 以外なら Electron とみなして同じく `ELECTRON_RUN_AS_NODE=1` を付ける。
+まだこれらのフィールドを出力しない版なら、次の探索へ進む。
 
 次の 3 形態を表の上から `ls` し、最初に存在した `<render-cut>` を使う。
 
