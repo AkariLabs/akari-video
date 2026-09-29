@@ -9419,14 +9419,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     rawAudioActive = false;
                     window.akari.rawAudioActive = false;
                     rawAudio?.pause();
-                    video.muted = video.dataset.akariGlobalMuted === 'true';
+                    const wantMuted = video.dataset.akariGlobalMuted === 'true';
+                    if (video.muted !== wantMuted) video.muted = wantMuted;
                 };
                 const syncRawAudio = () => {
                     if (!rawAudio || !rawAudioActive) return;
-                    rawAudio.muted = video.dataset.akariGlobalMuted === 'true';
-                    rawAudio.volume = video.volume;
-                    rawAudio.playbackRate = video.playbackRate;
-                    if (rawAudio.readyState >= 1 && Number.isFinite(video.currentTime)
+                    const wantMuted = video.dataset.akariGlobalMuted === 'true';
+                    if (rawAudio.muted !== wantMuted) rawAudio.muted = wantMuted;
+                    if (rawAudio.volume !== video.volume) rawAudio.volume = video.volume;
+                    if (rawAudio.playbackRate !== video.playbackRate) rawAudio.playbackRate = video.playbackRate;
+                    if (!rawAudio.seeking && rawAudio.readyState >= 1 && Number.isFinite(video.currentTime)
                         && Math.abs(rawAudio.currentTime - video.currentTime) > 0.09) {
                         try { rawAudio.currentTime = Math.min(video.currentTime,
                             Number.isFinite(rawAudio.duration) ? Math.max(0, rawAudio.duration - 0.005) : video.currentTime); }
@@ -9459,7 +9461,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     rawAudio.addEventListener('canplay', () => {
                         rawAudioActive = true;
                         window.akari.rawAudioActive = true;
-                        video.muted = true;
+                        if (!video.muted) video.muted = true;
                         syncRawAudio();
                     }, { once: true });
                     rawAudio.addEventListener('error', stopRawAudio, { once: true });
@@ -20479,12 +20481,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     && (allTracksMutedByScope.cuts || mutedTracksByScope.cuts.has(segment.track)));
                 const cutsTrackHidden = Boolean(segment && segment.kind === 'src'
                     && (allTracksHiddenByScope.cuts || hiddenTracksByScope.cuts.has(segment.track)));
-                video.dataset.akariGlobalMuted = String(globalMuted);
-                video.muted = globalMuted || !isCutAudioAudibleFn(segment || {}, { muted: cutsTrackMuted });
-                if (initial.kind === 'raw') {
-                    if (window.akari.rawAudioActive === true) video.muted = true;
-                    window.akari.rawAudioSync?.();
+                const globalMutedValue = String(globalMuted);
+                if (video.dataset.akariGlobalMuted !== globalMutedValue) {
+                    video.dataset.akariGlobalMuted = globalMutedValue;
                 }
+                const wantMuted = globalMuted || !isCutAudioAudibleFn(segment || {}, { muted: cutsTrackMuted });
+                if (initial.kind === 'raw' && window.akari.rawAudioActive === true) {
+                    if (!video.muted) video.muted = true;
+                } else if (video.muted !== wantMuted) {
+                    video.muted = globalMuted || !isCutAudioAudibleFn(segment || {}, { muted: cutsTrackMuted });
+                }
+                if (initial.kind === 'raw') window.akari.rawAudioSync?.();
                 const segmentIsStill = isStillSegment(segment);
                 video.style.visibility = !segment || segment.kind === 'gap' || segmentIsStill
                     || cutsTrackHidden ? 'hidden' : '';
