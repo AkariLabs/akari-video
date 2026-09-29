@@ -1,3 +1,4 @@
+import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { createRequire } from 'node:module';

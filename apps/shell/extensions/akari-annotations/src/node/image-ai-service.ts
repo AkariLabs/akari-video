@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { imageAiEditVersion, type ImageAiBinding } from '../common/image-ai-binding';
 import { projectOutputPath, resolveProjectMediaFile } from './project-asset-path';
+import { timelineEditPath } from './timeline-target';
 
 export const IMAGE_AI_MODELS = {
     upscale: 'fal-ai/clarity-upscaler',
@@ -165,11 +166,11 @@ export class ImageAiService {
         if (!uri.startsWith('file:')) throw new Error('プロジェクトの場所が不正です。');
         return fileURLToPath(uri);
     }
-    private async input(projectRootUri: string, itemId: string): Promise<{
+    private async input(projectRootUri: string, itemId: string, editUri?: string): Promise<{
         root: string; path: string; bytes: Buffer; mime: string; binding: ImageAiBinding
     }> {
         const root = this.root(projectRootUri);
-        const edit = JSON.parse(await fs.readFile(path.join(root, 'edit.json'), 'utf8'));
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, editUri), 'utf8'));
         const visit = (items: any[]): any => {
             for (const item of items) { if (item.id === itemId) return item;
                 const child = Array.isArray(item.items) ? visit(item.items) : undefined; if (child) return child; }
@@ -215,8 +216,8 @@ export class ImageAiService {
             || a.result.relativePath.localeCompare(b.result.relativePath)).map(entry => entry.result);
     }
 
-    async inspect(projectRootUri: string, itemId: string): Promise<ImageAiInspection> {
-        const input = await this.input(projectRootUri, itemId);
+    async inspect(projectRootUri: string, itemId: string, editUri?: string): Promise<ImageAiInspection> {
+        const input = await this.input(projectRootUri, itemId, editUri);
         const dimensions = imageDimensions(input.bytes, input.mime);
         const alternatives = await this.alternatives(input.root, input.binding);
         return { binding: input.binding, bytes: input.bytes.length, width: dimensions?.width ?? null,
@@ -226,10 +227,10 @@ export class ImageAiService {
             provider: this.provider.id, model: IMAGE_AI_MODELS.upscale, configured: Boolean(await this.readKey()), alternatives };
     }
 
-    async upscale(request: { projectRootUri: string; binding: ImageAiBinding; jobId: string }): Promise<ImageAiResult> {
+    async upscale(request: { projectRootUri: string; editUri?: string; binding: ImageAiBinding; jobId: string }): Promise<ImageAiResult> {
         const key = await this.readKey();
         if (!key) throw new Error('キーを設定すると使えます。');
-        const input = await this.input(request.projectRootUri, request.binding.itemId);
+        const input = await this.input(request.projectRootUri, request.binding.itemId, request.editUri);
         if (JSON.stringify(input.binding) !== JSON.stringify(request.binding)) throw new Error('編集が変わりました。写真を選び直してください。');
         if (!/^[a-zA-Z0-9-]{1,100}$/.test(request.jobId) || this.running.has(request.jobId)) throw new Error('処理の番号が不正です。');
         const running: { abort: AbortController; cancel?: () => Promise<void> } = { abort: new AbortController() };
@@ -260,10 +261,10 @@ export class ImageAiService {
         await job.cancel?.();
     }
 
-    async generateBackground(request: { projectRootUri: string; itemId: string; prompt: string; maskPath?: string }): Promise<ImageAiResult> {
+    async generateBackground(request: { projectRootUri: string; editUri?: string; itemId: string; prompt: string; maskPath?: string }): Promise<ImageAiResult> {
         const key = await this.readKey();
         if (!key) throw new Error('キーを設定すると使えます。');
-        const input = await this.input(request.projectRootUri, request.itemId);
+        const input = await this.input(request.projectRootUri, request.itemId, request.editUri);
         if (!request.maskPath || path.isAbsolute(request.maskPath) || request.maskPath.startsWith('..')) {
             throw new Error('背景を選ぶマスクが必要です。');
         }

@@ -25,6 +25,9 @@ import { frameDimensions, frameAspectTransform } from '../browser/inspector/fram
 import { frameSizeFromPng, frameSizeFromResolution } from '../browser/inspector/frame-aspect-live';
 import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, adoptPhotoCandidates } from './photo-segmentation';
 import { NarrationCliManager } from './narration-cli';
+import { timelineCaptionsPath, timelineEditPath, timelineEditPathForCaptions } from './timeline-target';
+/** Optional JSON-RPC field; the shared protocol file belongs to the timeline-open lane. */
+type TimelineRequest<T> = T & { editUri?: string };
 import { GenerationCandidates, readCandidateMeta, readPreferredModelIds } from './generation-candidates';
 import type { VideoCandidate, VideoCandidateBatch, VideoBatchRequest, VideoBatchEstimate, PreferredVideoRoutes } from '../common/akari-annotations-protocol';
 import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../common/generation-sidecar';
@@ -262,14 +265,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return values.get('AKARI_IMAGE_AI_FAL_KEY') ||
             (values.get('AKARI_IMAGE_AI_USE_NARRATION_KEY') === '1' ? values.get('FAL_KEY') : undefined);
     });
-    imageAiInspect(projectRootUri: string, itemId: string): Promise<ImageAiInspection> {
-        return this.imageAiService.inspect(projectRootUri, itemId);
+    imageAiInspect(projectRootUri: string, itemId: string, editUri?: string): Promise<ImageAiInspection> {
+        return this.imageAiService.inspect(projectRootUri, itemId, editUri);
     }
-    imageAiUpscale(request: { projectRootUri: string; binding: ImageAiBinding; jobId: string }): Promise<ImageAiResult> {
+    imageAiUpscale(request: { projectRootUri: string; editUri?: string; binding: ImageAiBinding; jobId: string }): Promise<ImageAiResult> {
         return this.imageAiService.upscale(request);
     }
     imageAiCancel(jobId: string): Promise<void> { return this.imageAiService.cancel(jobId); }
-    imageAiGenerateBackground(request: { projectRootUri: string; itemId: string; prompt: string; maskPath?: string }): Promise<ImageAiResult> {
+    imageAiGenerateBackground(request: { projectRootUri: string; editUri?: string; itemId: string; prompt: string; maskPath?: string }): Promise<ImageAiResult> {
         return this.imageAiService.generateBackground(request);
     }
     protected readonly narrationCli = new NarrationCliManager();
@@ -487,9 +490,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async startGenerateStillBatch(request: Omit<StartGenerateStillRequest, 'route'> & { routes: ImageRouteState['id'][] }) {
         return this.stillGeneration.startGenerateStillBatch(this.fsPath(request.projectRootUri), request);
     }
-    async readStillCandidates(request: GenerationProcessRequest & { includeThumbnails?: boolean }) {
+    async readStillCandidates(request: TimelineRequest<GenerationProcessRequest & { includeThumbnails?: boolean }>) {
         return this.stillGeneration.readStillCandidates(this.fsPath(request.projectRootUri), request.itemId,
-            request.includeThumbnails !== false);
+            request.includeThumbnails !== false, request.editUri);
     }
     async readStillPreferredRoutes(projectRootUri: string) {
         return this.stillGeneration.readStillPreferredRoutes(this.fsPath(projectRootUri));
@@ -514,12 +517,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!/^out\/narration\/n-\d{4}\.(wav|mp3)$/u.test(request.audio)) throw new Error('音声パスが不正です。');
         return this.narrationCli.verify(request, this.fsPath(request.projectRootUri));
     }
-    async generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult> {
+    async generateNarration(request: TimelineRequest<GenerateNarrationRequest>): Promise<GenerateNarrationResult> {
         if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
             throw new Error('費用承認が必要です。');
         }
         const root = resolve(this.fsPath(request.projectRootUri));
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8')) as {
             output?: { fps?: number }; sources?: Array<{ id: string; path: string }>;
             tracks?: Array<{ lane?: string; items?: Array<{ at?: number; source?: { src?: string } }> }>;
         };
@@ -590,8 +593,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async cancelNarration(projectRootUri: string): Promise<void> {
         await this.narrationCli.cancel(this.fsPath(projectRootUri));
     }
-    protected async narrationFrame(root: string, itemId: string): Promise<{ sidecarPath: string; meta: Record<string, any> }> {
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+    protected async narrationFrame(root: string, itemId: string, editUri?: string): Promise<{ sidecarPath: string; meta: Record<string, any> }> {
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, editUri), 'utf8')) as {
             sources?: Array<{ id: string; path: string }>;
             tracks?: Array<{ lane?: string; items?: Array<{ id: string; source?: { src?: string } }> }>;
         };
@@ -620,7 +623,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { defaultEngineId: toEngine(selected.projectDefault) ?? toEngine(selected.appDefault),
             favorites: selected.favorites.map(toEngine).filter((id): id is string => !!id) };
     }
-    async startNarrationBatch(request: NarrationBatchRequest): Promise<NarrationCandidateBatch> {
+    async startNarrationBatch(request: TimelineRequest<NarrationBatchRequest>): Promise<NarrationCandidateBatch> {
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId) || !request.script.trim()
             || !Array.isArray(request.routes) || !request.routes.length) throw new Error('ナレーションの入力が不正です。');
@@ -634,7 +637,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         if (request.routes.some(row => engines.find(engine => engine.id === row.engine)?.place === 'cloud')
             && request.approved !== true) throw new Error('費用承認が必要です。');
-        const frame = await this.narrationFrame(root, request.itemId);
+        const frame = await this.narrationFrame(root, request.itemId, request.editUri);
         const existing = [...await readCandidateMeta(root, request.itemId, '.wav'),
             ...await readCandidateMeta(root, request.itemId, '.mp3')];
         return this.narrationCandidates.batch(`${root}:${request.itemId}`, routes,
@@ -649,7 +652,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                     const generated = await this.narrationCli.generate({ projectRootUri: request.projectRootUri,
                         engine: engineId, voice: selected.voice, profile: selected.profile, style: selected.style,
                         irodoriUrl: selected.irodoriUrl, script: request.script, reading: request.reading || request.script,
-                        t: request.t, approved: request.approved }, root, relativePath);
+                        t: request.t, approved: request.approved, editUri: request.editUri }, root, relativePath);
                     if (this.narrationCandidates.isCancelled(`${root}:${request.itemId}`)) throw new Error('中止しました。');
                     if (generated.status !== 'ok' || generated.path !== relativePath || !Number(generated.duration_s)) {
                         throw new Error('音声を生成できませんでした。');
@@ -705,7 +708,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!running) return;
         await this.narrationCli.cancel(root, running.routes);
     }
-    async adoptNarrationCandidate(request: { projectRootUri: string; itemId: string; relativePath: string }):
+    async adoptNarrationCandidate(request: { projectRootUri: string; editUri?: string; itemId: string; relativePath: string }):
         Promise<{ path: string; durationSeconds: number }> {
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         const candidate = [...await readCandidateMeta(root, request.itemId, '.wav'),
@@ -718,8 +721,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await fs.mkdir(directory, { recursive: true });
         const names = await fs.readdir(directory);
         let number = names.reduce((max, name) => Math.max(max, Number(/^n-(\d{4})\.(?:wav|mp3)$/u.exec(name)?.[1] ?? 0)), 0);
+        const editPath = timelineEditPath(root, request.editUri);
         try {
-            const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+            const edit = JSON.parse(await fs.readFile(editPath, 'utf8')) as {
                 audio?: { narration?: Array<{ id?: string }> };
                 tracks?: Array<{ items?: Array<{ id?: string }> }>;
             };
@@ -744,12 +748,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             }
         }
     }
-    async applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }> {
-        const { projectRootUri, ...item } = request;
-        const result = await this.applyNarrations({ projectRootUri, items: [item] });
+    async applyNarration(request: TimelineRequest<ApplyNarrationRequest>): Promise<{ id: string }> {
+        const { projectRootUri, editUri, ...item } = request;
+        const result = await this.applyNarrations({ projectRootUri, editUri, items: [item] });
         return { id: result.ids[0] };
     }
-    async applyNarrations(request: ApplyNarrationsRequest): Promise<{ ids: string[] }> {
+    async applyNarrations(request: TimelineRequest<ApplyNarrationsRequest>): Promise<{ ids: string[] }> {
         if (!Array.isArray(request.items) || request.items.length === 0) throw new Error('配置する音声がありません。');
         const root = resolve(this.fsPath(request.projectRootUri));
         for (const item of request.items) {
@@ -759,7 +763,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             if (!audioPath.startsWith(join(root, 'out', 'narration') + sep)) throw new Error('音声パスが不正です。');
             if (!(await fs.stat(audioPath).then(stat => stat.isFile()).catch(() => false))) throw new Error('音声ファイルがありません。');
         }
-        const editPath = join(root, 'edit.json');
+        const editPath = timelineEditPath(root, request.editUri);
         const edit = JSON.parse(await fs.readFile(editPath, 'utf8')) as Record<string, unknown>;
         const audio = edit.audio && typeof edit.audio === 'object' && !Array.isArray(edit.audio)
             ? edit.audio as Record<string, unknown> : {};
@@ -955,7 +959,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return matches[0] ? { meta: matches[0].meta } : {};
     }
 
-    async readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult> {
+    async readGenerationSidecars(request: TimelineRequest<ReadGenerationSidecarsRequest>): Promise<ReadGenerationSidecarsResult> {
         if (!request?.projectRootUri || !Array.isArray(request.sourcePaths)) return { entries: [] };
         const root = resolve(this.fsPath(request.projectRootUri));
         const candidates = new Map<string, { sidecarPath: string; sourceAbsolutePath: string }>();
@@ -990,8 +994,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await visit(generatedRoot);
         const canonicalRoot = await fs.realpath(root).catch(() => root);
         const activeCandidates = new Map<string, string>();
+        const editPath = timelineEditPath(root, request.editUri);
         try {
-            const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+            const edit = JSON.parse(await fs.readFile(editPath, 'utf8'));
             const paths = new Map((edit.sources ?? []).map((source: any) => [source.id, source.path]));
             for (const item of (edit.tracks ?? []).flatMap((track: any) => track.items ?? [])) {
                 const path = paths.get(item.source?.src);
@@ -1107,14 +1112,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { video: resolved.effective?.defaults?.generate?.video || 'fal:h3-i2v' };
     }
 
-    async createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number; aspect?: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
+    async createEmptyGenerationFrame(request: { projectRootUri: string; editUri?: string; durationSeconds: number; aspect?: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
         relativePath: string; sha256: string; width: number; height: number; renderer: string;
     }> {
         if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
             throw new Error('projectRootUri と 0.5 秒以上の尺が必要です。');
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
         const canvas = edit.output ?? {};
         const { width, height } = request.aspect ? frameDimensions(request.aspect, canvas) : canvas;
@@ -1162,7 +1167,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
     }
 
-    async setEmptyFrameAspect(request: { projectRootUri: string; itemId: string; aspect: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
+    async setEmptyFrameAspect(request: { projectRootUri: string; editUri?: string; itemId: string; aspect: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
         relativePath: string; width: number; height: number;
         transform?: { x?: number; y?: number; scale?: number; [key: string]: unknown };
     }> {
@@ -1170,7 +1175,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('枠と画角を指定してください。');
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
         const item = edit.tracks?.flatMap((track: any) => track.items ?? []).find((row: any) => row.id === request.itemId);
         const sourceId = item?.source?.kind === 'media' ? item.source.src : undefined;
@@ -1182,7 +1187,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             ?? frameSizeFromPng(await fs.readFile(join(root, source.path)));
         if (!previousSize) throw new Error('文字カードの寸法を読み取れませんでした。');
         const canvas = edit.output;
-        const image = await this.createEmptyGenerationFrame({ projectRootUri: request.projectRootUri,
+        const image = await this.createEmptyGenerationFrame({ projectRootUri: request.projectRootUri, editUri: request.editUri,
             durationSeconds: item.duration / canvas.fps, aspect: request.aspect });
         if (meta.next || meta.inputs?.prompt) {
             const sidecar = join(root, `${image.relativePath}.meta.json`);
@@ -1195,14 +1200,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             transform: frameAspectTransform(previousSize, image, item.transform) };
     }
 
-    async createEmptyAudioFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
+    async createEmptyAudioFrame(request: { projectRootUri: string; editUri?: string; durationSeconds: number }): Promise<{
         relativePath: string; sha256: string; durationSeconds: number;
     }> {
         if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
             throw new Error('projectRootUri と 0.5 秒以上の尺が必要です。');
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
         const load = async (file: string): Promise<any> => importEsm(pathToFileURL(
@@ -1272,14 +1277,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return validator.validateInputs({ inputs: request.inputs ?? {}, output: request.output ?? {}, model });
     }
 
-    async writeGenerationDraft(request: WriteGenerationDraftRequest): Promise<{ ok: true; path: string }> {
+    async writeGenerationDraft(request: TimelineRequest<WriteGenerationDraftRequest>): Promise<{ ok: true; path: string }> {
         if (!request?.projectRootUri || (!request?.itemId && !request?.fromImage) || !request?.modelId) {
             throw new Error('projectRootUri / itemId / modelId が必要です。');
         }
         const projectRoot = resolve(this.fsPath(request.projectRootUri));
         // Keep the item-id guard used by legacy drafts, but resolve the current source from edit.json.
         if (!request.fromImage) generationDraftPath(projectRoot, request.itemId);
-        const edit = request.fromImage ? null : JSON.parse(await fs.readFile(join(projectRoot, 'edit.json'), 'utf8'));
+        const edit = request.fromImage ? null : JSON.parse(await fs.readFile(timelineEditPath(projectRoot, request.editUri), 'utf8'));
         const item = (edit?.tracks ?? []).flatMap(track => track.items ?? [])
             .find(candidate => candidate.id === request.itemId);
         const source = request.fromImage ? { path: request.fromImage } : item?.source?.kind === 'media'
@@ -1419,13 +1424,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
     }
 
-    protected async videoFrame(request: GenerationProcessRequest): Promise<{
+    protected async videoFrame(request: TimelineRequest<GenerationProcessRequest>): Promise<{
         root: string; sourcePath: string; sidecarPath: string; meta: any; durationSeconds: number;
         regenerated: boolean; inputsPath: string;
     }> {
         generationDraftPath(this.fsPath(request.projectRootUri), request.itemId);
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === request.itemId);
         const sourcePath = edit.sources?.find((row: any) => row.id === item?.source?.src)?.path;
         if (item?.source?.kind !== 'media' || typeof sourcePath !== 'string') throw new Error('生成対象の枠が見つかりません。');
@@ -2455,7 +2460,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = removeCaptionLine(source, request.captionId);
-        const editPath = join(dirname(captionsPath), 'edit.json');
+        const editPath = timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
         let editSource: string | undefined;
         try {
             const current = await fs.readFile(editPath, 'utf8');
@@ -2599,7 +2604,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         let updated = applied.source;
         if (detectEditVersion(updated) === 2) {
             try {
-                const captionsRaw = JSON.parse(await fs.readFile(join(dirname(editPath), 'captions.json'), 'utf8')) as unknown;
+                const captionsRaw = JSON.parse(await fs.readFile(timelineCaptionsPath(editPath), 'utf8')) as unknown;
                 const refreshed = refreshItemAnchors(
                     JSON.parse(updated) as EditableEditV2,
                     toAnchorCaptions(captionsRaw)
@@ -2719,14 +2724,18 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (typeof request.editSource !== 'string' && typeof request.captionsSource !== 'string') {
             throw new Error('書き戻す内容がありません。');
         }
-        const editPath = this.fsPath(request.editUri);
+        const editPath = timelineEditPath(this.fsPath(request.projectRootUri), request.editUri);
         const projectDir = dirname(editPath);
         const candidates: Record<string, string> = {};
         if (typeof request.editSource === 'string') {
             candidates[basename(editPath)] = request.editSource;
         }
         if (typeof request.captionsSource === 'string') {
-            const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : join(projectDir, 'captions.json');
+            const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : timelineCaptionsPath(editPath);
+            if (relative(resolve(captionsPath), resolve(timelineCaptionsPath(editPath))) !== '') {
+                throw new Error('編集データと字幕の組み合わせが一致しません。');
+            }
+            timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
             candidates[basename(captionsPath)] = request.captionsSource;
         }
         for (const name of Object.keys(candidates)) {
@@ -2783,6 +2792,10 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!uri || !projectRootUri) {
             throw new Error('書き戻し先を特定できません。');
         }
+        const target = this.fsPath(uri);
+        const root = this.fsPath(projectRootUri);
+        if (basename(target).startsWith('captions')) timelineEditPathForCaptions(target, root);
+        else timelineEditPath(root, uri);
     }
 
     /**
@@ -2807,7 +2820,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     private async refreshAnchorsAfterCaptionWrite(captionsPath: string): Promise<void> {
-        const editPath = join(dirname(captionsPath), 'edit.json');
+        const editPath = timelineEditPathForCaptions(captionsPath, dirname(captionsPath));
         try {
             const editSource = await fs.readFile(editPath, 'utf8');
             if (detectEditVersion(editSource) !== 2) return;

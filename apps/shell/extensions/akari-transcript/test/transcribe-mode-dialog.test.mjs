@@ -98,6 +98,7 @@ async function harness({ mode, done = false, pending, failSave = false, autoStar
         '@theia/core/lib/common/buffer': { BinaryBuffer: { fromString: value => value } },
         '@theia/core/lib/common/preferences': { PreferenceScope },
         '@theia/core/lib/common/uri': { default: URI },
+        'akari-annotations/lib/browser/active-timeline': require('../../akari-annotations/lib/browser/active-timeline.js'),
         '../../common/transcribe-steps': view,
         '../akari-transcript-commands': {},
         '../../common/captions-button': captionsButton

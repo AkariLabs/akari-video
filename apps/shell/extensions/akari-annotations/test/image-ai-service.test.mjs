@@ -41,6 +41,22 @@ test('preview needs a key and reports dimensions, bytes and model price', async 
     } finally { await f.cleanup(); }
 });
 
+test('image inspection reads the selected edit variant', async () => {
+    const f = await fixture();
+    try {
+        const variant = structuredClone(f.edit);
+        variant.sources[0].path = 'assets/still/photo-variant.png';
+        await writeFile(join(f.root, variant.sources[0].path), image);
+        const variantPath = join(f.root, 'edit.v20.json');
+        await writeFile(variantPath, JSON.stringify(variant));
+        const service = new ImageAiService(undefined, async () => undefined);
+        const canonical = await service.inspect(f.uri, 'item-1');
+        const selected = await service.inspect(f.uri, 'item-1', pathToFileURL(variantPath).href);
+        assert.notEqual(selected.binding.editVersion, canonical.binding.editVersion);
+        await assert.rejects(service.inspect(f.uri, 'item-1', pathToFileURL(join(f.root, 'other.json')).href));
+    } finally { await f.cleanup(); }
+});
+
 test('mock fal queue saves immutable alternative and provenance, then rejects stale edit', async () => {
     const f = await fixture();
     const calls = [];

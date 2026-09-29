@@ -1,4 +1,6 @@
 import { PLACE_TEXT_COMMAND_ID } from 'akari-annotations/lib/common/place-text';
+import { currentTimelineEditUri, currentTimelineCaptionsUri, onActiveTimelineEditUriChange } from 'akari-annotations/lib/browser/active-timeline';
+import { isTimelineEditFileName } from 'akari-annotations/lib/common/timeline-files';
 import { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming, placedTextEdgeTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
 import { attachmentRanges, visibleAttachmentRanges, visibleLaneCount, isAttachmentItem, type AttachmentMode, type AttachmentRange } from '../../common/daihon-attachments';
 import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
@@ -1009,6 +1011,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rootUri = root;
         await this.locateProject(root);
         await this.reload();
+        this.toDispose.push(onActiveTimelineEditUriChange(() => this.queueReload()));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
             const relevant = (this.editUri && event.contains(this.editUri))
@@ -1021,7 +1024,7 @@ export class AkariDaihonWidget extends BaseWidget {
             // The guide creates edit.json after this widget has already configured itself.
             // Discover the new project on that first file event as well as later edits.
             if (relevant || (!this.editUri && event.changes.some(change =>
-                change.resource.path.base === 'edit.json' && this.rootUri?.isEqualOrParent(change.resource)))) this.queueReload();
+                isTimelineEditFileName(change.resource.path.base) && this.rootUri?.isEqualOrParent(change.resource)))) this.queueReload();
         }));
         try {
             this.toDispose.push(await this.fileService.watch(root, { recursive: true, excludes: [] }));
@@ -1043,6 +1046,12 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected async locateProject(root: URI): Promise<void> {
+        const selected = currentTimelineEditUri(root);
+        if (await this.fileService.exists(selected)) {
+            this.editUri = selected;
+            this.captionsUri = currentTimelineCaptionsUri(root);
+            return;
+        }
         const legacyCaptions = root.resolve('project/captions.json');
         const legacyEdit = root.resolve('project/edit.json');
         if (await this.fileService.exists(legacyCaptions) && await this.fileService.exists(legacyEdit)) {
@@ -1095,7 +1104,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 }, states[source.path] === 'done');
             const options = await dialog.open().finally(() => stopListening?.());
             if (!options) return;
-            const request = { projectRoot, source: source.id, ...options };
+            const request = { projectRoot, editUri: this.editUri.toString(), source: source.id, ...options };
             const result = await this.projectService.buildCaptions(request);
             if (result.needsForce) {
                 const confirmed = await new ConfirmDialog({ title: '字幕を作る', msg: '手直し済みの字幕があります。上書きしますか', ok: '上書きする', cancel: 'キャンセル' }).open();
@@ -1124,7 +1133,7 @@ export class AkariDaihonWidget extends BaseWidget {
             let moved = 0;
             let retimeSummary: unknown;
             await this.withHistory('発話に合わせ直す', async () => {
-                const result = await this.projectService.buildCaptions({ projectRoot, source: source.id, retime: true });
+                const result = await this.projectService.buildCaptions({ projectRoot, ...{ editUri: this.editUri!.toString() }, source: source.id, retime: true });
                 retimeSummary = result;
                 moved = captionsRetimeMovedWords(result) ?? 0;
             });
@@ -1143,7 +1152,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async reload(): Promise<void> {
         if (this.wordDrag) { this.reloadPendingAfterDrag = true; return; }
-        if (!this.editUri && this.rootUri) await this.locateProject(this.rootUri);
+        if (this.rootUri) await this.locateProject(this.rootUri);
         this.closeCutRangeEditor();
         this.cutsButton.textContent = cutsJumpButtonLabel(null);
         this.editSources = await this.captionSources().catch(() => []);

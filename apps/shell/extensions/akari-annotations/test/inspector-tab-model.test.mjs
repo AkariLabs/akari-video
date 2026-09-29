@@ -1,3 +1,4 @@
+import './timeline-harness-dependencies.mjs';
 import { createSelectionHeader } from '../lib/browser/inspector/selection-header.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';

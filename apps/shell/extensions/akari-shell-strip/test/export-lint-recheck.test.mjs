@@ -13,6 +13,9 @@ test('shouldRecheckLintForPath: 編集ドキュメントの変更だけを引き
     assert.equal(shouldRecheckLintForPath('/project/captions.json'), true);
     assert.equal(shouldRecheckLintForPath('C:\\project\\edit.json'), true);
     assert.equal(shouldRecheckLintForPath('edit.json'), true);
+    assert.equal(shouldRecheckLintForPath('/project/edit.v20.json'), true);
+    assert.equal(shouldRecheckLintForPath('/project/captions.v20.json'), true);
+    assert.equal(shouldRecheckLintForPath('/project/edit.bad_slug.json'), false);
     // 書き出し・レポート・素材の更新では再検査しない（lint の入力ではない）。
     assert.equal(shouldRecheckLintForPath('/project/.akari/lint.json'), false);
     assert.equal(shouldRecheckLintForPath('/project/exports/final.mp4'), false);

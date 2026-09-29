@@ -43,6 +43,8 @@ const { AkariCutsWidget } = load('../lib/browser/daihon/akari-cuts-widget.js', {
     '@theia/filesystem/lib/browser/file-service': {},
     '@theia/workspace/lib/browser/workspace-service': {},
     'akari-project/lib/common/akari-project-protocol': {},
+    'akari-annotations/lib/browser/active-timeline': require('../../akari-annotations/lib/browser/active-timeline.js'),
+    'akari-annotations/lib/common/timeline-files': require('../../akari-annotations/lib/common/timeline-files.js'),
     '../../common/cuts-view': view,
     '../../common/daihon-focus-pulse-style': focusPulse,
     './akari-transcribe-dialog': { transcribeElement: element, transcribeButton: () => element('button') }
@@ -53,6 +55,8 @@ const daihonModules = Object.fromEntries(
     [...readFileSync(new URL(daihonPath, import.meta.url), 'utf8').matchAll(/require\("([^"]+)"\)/g)]
         .map(([, id]) => [id, id.startsWith('../../common/') || id === '../caption-store' ? daihonRequire(id) : {}])
 );
+daihonModules['akari-annotations/lib/browser/active-timeline'] = require('../../akari-annotations/lib/browser/active-timeline.js');
+daihonModules['akari-annotations/lib/common/timeline-files'] = require('../../akari-annotations/lib/common/timeline-files.js');
 daihonModules['../../common/daihon-focus-pulse-style'] = focusPulse;
 daihonModules['@theia/core/lib/browser'] = { BaseWidget };
 daihonModules['@theia/core/shared/inversify'] = inversify;

@@ -9,6 +9,7 @@ import { projectOutputPath } from './project-asset-path';
 import { finishPlaceholderGenerating, markPlaceholderGenerating, type GenerationSidecarMeta } from '../common/generation-sidecar';
 import { aiActionCatalog } from '../common/ai-action-catalog';
 import { GenerationCandidates, readCandidateMeta, readPreferredModelIds, type CandidatePreparation } from './generation-candidates';
+import { timelineEditPath } from './timeline-target';
 
 type SpawnProcess = typeof spawn;
 type Asset = (path: string) => Promise<string>;
@@ -153,13 +154,13 @@ export class StillGenerationManager {
         return { id: route, state: ready ? 'ready' : 'signed-out', detail: ready ? 'サインイン済み' : 'サインインが必要です' };
     }
 
-    async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest, candidateMode = false): Promise<GenerateStillResult> {
+    async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string }, candidateMode = false): Promise<GenerateStillResult> {
         const route = request.route ?? 'codex';
         return this.candidates.runRoute(request.itemId, route,
             () => this.runGenerateStill(projectRoot, request, candidateMode));
     }
 
-    private async runGenerateStill(projectRoot: string, request: StartGenerateStillRequest, candidateMode: boolean): Promise<GenerateStillResult> {
+    private async runGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string }, candidateMode: boolean): Promise<GenerateStillResult> {
         if (!request.prompt?.trim() || !stillAspectText[request.aspect]) return { ok: false, reason: '指示文と画角を指定してください。' };
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId)) return { ok: false, reason: 'itemId が不正です。' };
         const route = request.route ?? 'codex';
@@ -187,7 +188,7 @@ export class StillGenerationManager {
         if (route !== 'fal' && !cli) return { ok: false, reason: `${route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex'} CLI が見つかりません。` };
         const falKey = route === 'fal' ? await this.falKey() : undefined;
         if (route === 'fal' && !falKey) return { ok: false, reason: 'fal のキーを設定してください。' };
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         if (edit.version !== 2) return { ok: false, reason: 'v2 へ変換してから編集してください。' };
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
         const sourcePath = edit.sources?.find((source: any) => source.id === item?.source?.src)?.path;
@@ -341,7 +342,7 @@ export class StillGenerationManager {
         }
     }
 
-    async startGenerateStillBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'> & { routes: Route[] }): Promise<StillCandidateBatch> {
+    async startGenerateStillBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'> & { routes: Route[]; editUri?: string }): Promise<StillCandidateBatch> {
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId) || !request.prompt?.trim()
             || !stillAspectText[request.aspect]) throw new Error('枠、指示文、画角を指定してください。');
         const routes = [...new Set(request.routes)];
@@ -357,9 +358,9 @@ export class StillGenerationManager {
             }) as Promise<StillCandidateBatch>;
     }
 
-    private async prepareCompareBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'>): Promise<CandidatePreparation> {
+    private async prepareCompareBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'> & { editUri?: string }): Promise<CandidatePreparation> {
         const root = await fs.realpath(projectRoot);
-        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
         const sourcePath = edit.sources?.find((source: any) => source.id === item?.source?.src)?.path;
         if (!item || item.source?.kind !== 'media' || typeof sourcePath !== 'string'
@@ -379,14 +380,14 @@ export class StillGenerationManager {
         return { sidecarPath, original, previousCandidates: existing.filter(name => name.endsWith('.png.meta.json')).length };
     }
 
-    async readStillCandidates(projectRoot: string, itemId: string, includeThumbnails = true): Promise<StillCandidateBatch> {
+    async readStillCandidates(projectRoot: string, itemId: string, includeThumbnails = true, editUri?: string): Promise<StillCandidateBatch> {
         const live = this.candidates.state(itemId);
         const root = await fs.realpath(projectRoot);
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error('itemId が不正です。');
         const directory = join(root, 'assets', 'generated', 'candidates', itemId);
         const realDirectory = await fs.realpath(directory).catch(() => undefined);
         if (realDirectory && !realDirectory.startsWith(`${root}${sep}`)) throw new Error('候補がプロジェクト外です。');
-        const edit = await fs.readFile(join(root, 'edit.json'), 'utf8').then(JSON.parse).catch(() => ({}));
+        const edit = await fs.readFile(timelineEditPath(root, editUri), 'utf8').then(JSON.parse).catch(() => ({}));
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === itemId);
         const sourcePath = edit.sources?.find((row: any) => row.id === item?.source?.src)?.path;
         const safeMetaPath = typeof sourcePath === 'string'

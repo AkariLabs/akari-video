@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { GenerationCliManager } from './generation-cli';
+import { timelineEditPath } from './timeline-target';
 import type { GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult, VoiceCheckResult, VoiceCopyRequest, VoiceCreateRequest, VoiceScript, VoiceTryRequest, VoiceProfileSummary } from '../common/akari-annotations-protocol';
 
 export class NarrationCliManager {
@@ -72,7 +73,7 @@ export class NarrationCliManager {
         return this.run(['narration', 'verify', '--project', root, '--audio', request.audio,
             '--text', request.text, ...(request.reading ? ['--reading', request.reading] : []), '--json'], root) as Promise<VerifyNarrationResult>;
     }
-    async generate(request: GenerateNarrationRequest, root: string, candidateOut?: string): Promise<GenerateNarrationResult> {
+    async generate(request: GenerateNarrationRequest & { editUri?: string }, root: string, candidateOut?: string): Promise<GenerateNarrationResult> {
         if (request.engine !== 'voicevox' && request.engine !== 'irodori' && request.approved !== true) {
             throw new Error('費用承認が必要です。');
         }
@@ -82,7 +83,7 @@ export class NarrationCliManager {
             await fs.writeFile(readingFile, request.reading, 'utf8');
             // CLI の自動採番は edit.json だけを見る。まとめ生成では配置まで edit.json を
             // 変えないため、未配置の out/narration も含めて ID を予約する。
-            const id = candidateOut ? undefined : await this.nextOutputId(root);
+            const id = candidateOut ? undefined : await this.nextOutputId(root, request.editUri);
             const args = ['narration', 'generate', '--project', root, '--engine', request.engine,
                 '--text', request.script, '--reading-file', readingFile,
                 ...(id ? ['--id', id] : []), ...(candidateOut ? ['--out', candidateOut] : []), '--json'];
@@ -99,15 +100,16 @@ export class NarrationCliManager {
             await fs.rm(directory, { recursive: true, force: true });
         }
     }
-    protected async nextOutputId(root: string): Promise<string> {
+    protected async nextOutputId(root: string, editUri?: string): Promise<string> {
         const names = await fs.readdir(join(root, 'out', 'narration')).catch(() => []);
         let maximum = 0;
         for (const name of names) {
             const match = /^n-(\d{4})\.(?:wav|mp3)$/u.exec(name);
             if (match) maximum = Math.max(maximum, Number(match[1]));
         }
+        const editPath = timelineEditPath(root, editUri);
         try {
-            const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+            const edit = JSON.parse(await fs.readFile(editPath, 'utf8')) as {
                 audio?: { narration?: Array<{ id?: string }> }; tracks?: Array<{ items?: Array<{ id?: string }> }>;
             };
             const ids = [...(edit.audio?.narration ?? []).map(item => item.id),

@@ -102,7 +102,12 @@ export async function loadCaptionDisplayFailOpen<TResolved, TLoaded>(options: {
 
 export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: URI | undefined): URI | undefined {
     const base = editUri ? editUri.parent : workspaceRoot?.resolve('project');
-    return base?.resolve('captions.json');
+    return base?.resolve(previewCaptionsFileName(editUri?.path.base));
+}
+
+export function previewCaptionsFileName(editName: string | undefined): string {
+    const match = /^edit\.([a-z0-9]+(?:-[a-z0-9]+)*)\.json$/.exec(editName ?? '');
+    return match ? `captions.${match[1]}.json` : 'captions.json';
 }
 
 export function parsePreviewCaptions(

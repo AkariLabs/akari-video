@@ -20,6 +20,7 @@ import { formatBytes } from './export-dialog/export-view-shared';
 import { akariMenuRows } from '../common/menu-rows';
 import { AkariMenuFocusArgs, AKARI_MENU_PULSE_MS } from '../common/menu-focus';
 import { AkariScopeService } from './akari-scope-service';
+import { currentTimelineEditUri, onActiveTimelineEditUriChange } from 'akari-annotations/lib/browser/active-timeline';
 
 try { require('../../src/browser/style/menu-focus-pulse.css'); } catch { /* node 単体テスト環境 */ }
 
@@ -42,7 +43,6 @@ export interface SkillEntry {
 // 既存コードにも同じ「文字列 id だけ知っている」パターンがある）。
 const HOME_WIDGET_ID = 'akari-home-widget';
 
-const EDIT_JSON_RELATIVE_PATH = 'edit.json';
 const EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてから書き出してください。';
 /** ブラウザプレビュー（preview-server）の状態ポーリング間隔（裁定 1-f: 1,000 ms）。 */
 const PREVIEW_SERVER_POLL_INTERVAL_MS = 1000;
@@ -93,6 +93,7 @@ export class AkariMenuWidget extends ReactWidget {
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
     protected editJsonExists = false;
+    protected selectedEditName = 'edit.json';
     /** 「不要なデータを整理」が走っている間だけ true（二度押し防止）。 */
     protected cleaningProject = false;
     protected editJsonWatch = new DisposableCollection();
@@ -118,6 +119,10 @@ export class AkariMenuWidget extends ReactWidget {
             void this.resetPreviewServerOnWorkspaceChange();
         }));
         this.toDispose.push(this.exportSession.onDidChange(() => this.update()));
+        this.toDispose.push(onActiveTimelineEditUriChange(() => {
+            const root = this.workspace.tryGetRoots()[0]?.resource;
+            if (root) void this.refreshEditJsonExists(currentTimelineEditUri(root));
+        }));
         this.toDispose.push(this.scopeService.onDidChangeWorldMap(() => this.update()));
         // widget dispose ではポーリングだけ止める（サーバーは止めない —
         // メニューを閉じても生かす。裁定 1-f）。
@@ -322,11 +327,12 @@ export class AkariMenuWidget extends ReactWidget {
         if (!root) {
             this.workspaceOpened = false;
             this.editJsonExists = false;
+            this.selectedEditName = 'edit.json';
             this.update();
             return;
         }
         this.workspaceOpened = true;
-        const editJsonUri = root.resolve(EDIT_JSON_RELATIVE_PATH);
+        const editJsonUri = currentTimelineEditUri(root);
         await this.refreshEditJsonExists(editJsonUri);
         try {
             this.editJsonWatch.push(await this.files.watch(root));
@@ -334,23 +340,28 @@ export class AkariMenuWidget extends ReactWidget {
             console.info('[akari-shell-strip] edit.json watch unavailable:', error);
         }
         this.editJsonWatch.push(this.files.onDidFilesChange(event => {
-            if (event.contains(editJsonUri)) {
-                void this.refreshEditJsonExists(editJsonUri);
+            const selected = currentTimelineEditUri(root);
+            if (event.contains(selected)) {
+                void this.refreshEditJsonExists(selected);
             }
         }));
     }
 
     protected async refreshEditJsonExists(editJsonUri: URI): Promise<void> {
+        const editName = editJsonUri.path.base;
         let exists: boolean;
         try {
             exists = await this.files.exists(editJsonUri);
         } catch {
             exists = false;
         }
-        if (exists === this.editJsonExists) {
+        const root = this.workspace.tryGetRoots()[0]?.resource;
+        if (!root || currentTimelineEditUri(root).toString() !== editJsonUri.toString()) return;
+        if (exists === this.editJsonExists && editName === this.selectedEditName) {
             return;
         }
         this.editJsonExists = exists;
+        this.selectedEditName = editName;
         this.update();
     }
 
@@ -723,6 +734,11 @@ export class AkariMenuWidget extends ReactWidget {
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
                     <span>書き出し…</span>
                 </button>
+                {this.selectedEditName !== 'edit.json' && (
+                    <p style={{ opacity: 0.75, fontSize: '0.85em', margin: '6px 0 0' }}>
+                        書き出し対象: {this.selectedEditName}。別タイムラインは現在書き出せません。edit.json のタブに戻すと書き出せます。
+                    </p>
+                )}
                 {!this.editJsonExists && (
                     <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>
                 )}
