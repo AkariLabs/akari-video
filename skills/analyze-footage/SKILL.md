@@ -27,6 +27,7 @@ description: 動画素材 1 本を分析レベル L0〜L3 のプル駆動で観�
 - 観察は [`akari media` 契約 §1 / §2](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) に従って `akari media <sub> <target> [options]` を呼ぶ。stdout は JSON / JSON Lines として読み、媒体バックエンドをこの手順から直接呼ばない。
 - 720p プロキシは L2 以上の映像観察で必要な場合だけ作る。L0 / L1 は原本を `probe` / `waveform` / `transcribe` へ渡し、プロキシを作らない。
 - 文字起こしの backend 選択は契約 §2.5 に委ねる。クラウドは `.akari/connections.json` に doctor `ok` で登録済みの接続を明示し、決定カードで人間が承認した場合だけ使う。既定で音声を外部へ送らず、キーは `credentials.env` 経由だけで扱い、値をチャット・成果物・ログへ出さない。
+- 語ごとの時刻は `akari media transcribe` で取る（無音区間への吸着で語の開始を発話に合わせる）。whisper-cli を直に呼んだ結果の語の時刻を使わない — 既定の出力（`offsets`）は推定値で、先頭や文間に無音があると語の開始が発声より早く出る（#92。先頭 2 秒の無音で最初の語が 0 秒に出た）。`-dtw <preset>` は flash attention が有効な既定では黙って無効になる（`-nfa` を併用し `tokens[].t_dtw` を読む必要がある）。
 - backend が使えない、または発話が無い場合は文字を推測せず `transcript: []` のまま理由を報告する。
 - L2 で採用する画像は実際に視認してから `note` を書く。未視認画像へ所見を書かない。
 - `filler | trouble | chapter | highlight | hook` 以外の event を作らない。hook は採点対象に選んだ窓だけを帳面へ残し、その窓では 5 軸すべてを 1〜5 の整数で採点する。
