@@ -3152,8 +3152,8 @@ async function reloadSummary() {
 // （timeline / summary / captions）だけ再取得して組み直す。オーバーレイ選択だけは
 // DOM が入れ替わるため解除する。失敗時は従来どおり全リロードへフォールバック
 let softReloadTail = Promise.resolve();
-function requestSoftReload() {
-  softReloadTail = softReloadTail.then(applySoftReload).catch((err) => {
+function requestSoftReload(changedPaths = [], overlayIds = []) {
+  softReloadTail = softReloadTail.then(() => applySoftReload(changedPaths, overlayIds)).catch((err) => {
     console.warn('[preview] soft reload failed; falling back to full reload', err);
     location.reload();
   });
@@ -3164,7 +3164,7 @@ function overlaySignature(s) {
   return JSON.stringify((s?.overlays || []).map(o => [String(o.id), o.html, o.start, o.duration]));
 }
 
-async function applySoftReload() {
+async function applySoftReload(changedPaths = [], overlayIds = []) {
   const keep = { t: outputTime, playing: isPlaying };
   const signatureBefore = overlaySignature(summary);
   if (isPlaying) pause();
@@ -3179,6 +3179,7 @@ async function applySoftReload() {
   }
   timelineData = await timelineRes.json();
   summary = await editRes.json();
+  window.akari?.threeRuntime?.invalidateAssets?.(changedPaths);
   if (captionsBody !== null) {
     applyCaptionApiPayload(captionsBody);
   } else {
@@ -3203,6 +3204,7 @@ async function applySoftReload() {
     setupPenCanvas();
     if (overlaySignature(summary) === signatureBefore) {
       window.akari.runtime?.applyProps?.(summary);
+      await window.akari.runtime?.refreshChanged?.(changedPaths, overlayIds);
     } else {
       window.akari.interaction?.clearSelection?.();
       window.akari.runtime?.mount?.(summary);
@@ -3235,6 +3237,7 @@ async function applySoftReload() {
   // （ドラッグのたびに全部作り直すと画面がチラつき、選択も毎回外れる）
   if (overlaySignature(summary) === signatureBefore) {
     window.akari.runtime?.applyProps?.(summary);
+    await window.akari.runtime?.refreshChanged?.(changedPaths, overlayIds);
   } else {
     window.akari.interaction?.clearSelection?.();
     if (window.akari.runtime?.mount) window.akari.runtime.mount(summary);
@@ -3789,7 +3792,8 @@ async function ensureRuntimes(overlays) {
     for (const script of entry.scripts) {
       if (!script.when || descriptors.some(d => Array.isArray(d?.[script.when.nonEmptyArray]) && d[script.when.nonEmptyArray].length)) await loadRuntimeScript(script.url);
     }
-    window.akari?.[entry.browserGlobal]?.configure?.(entry.options ?? {});
+    window.akari?.[entry.browserGlobal]?.configure?.(entry.id === 'three'
+      ? { ...(entry.options ?? {}), previewDiagnostics: true } : (entry.options ?? {}));
     for (const rec of matching) rec.runtimeIds.add(entry.id);
   }
 }
@@ -3972,6 +3976,31 @@ function createOverlayRuntime() {
       updateOverlays();
     }).catch(error => console.error("[preview] runtime loading failed", error));
   }
+  async function refreshChanged(changedPaths, overlayIds) {
+    if (!changedPaths?.some(p => p !== 'edit.json' && p !== 'captions.json')) return;
+    const ids = new Set((overlayIds ?? []).map(String));
+    const paths = new Set(changedPaths.map(p => String(p).replaceAll('\\', '/')));
+    for (const rec of overlays) {
+      const fragmentPath = rec.fragmentUrl
+        ? decodeURIComponent(new URL(rec.fragmentUrl).pathname).replace(/^\/+/, '') : null;
+      if (!ids.has(rec.el.dataset.overlayId) && !paths.has(fragmentPath)) continue;
+      for (const runtime of window.akari?.runtimes?.forContainer(rec.el) ?? []) runtime.dispose(rec.el);
+      if (fragmentPath && paths.has(fragmentPath)) {
+        const url = new URL(rec.fragmentUrl);
+        url.searchParams.set('akari_preview_rev', String(Date.now()));
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`fragment reload failed: ${fragmentPath}`);
+        const overlay = summary?.overlays?.find(o => String(o.id) === rec.el.dataset.overlayId);
+        setOverlayFragmentHtml(rec.el, await response.text(), overlay?.params);
+        applyViewportUnits(rec.el);
+        window.akari.interaction?.invalidateOverlayHitPolicy?.(rec.el);
+        rec.runtimeIds.clear();
+        await ensureRuntimes([rec]);
+      }
+      rec.hitPolicyPending = rec.visible;
+      rec._anims = null;
+    }
+  }
   // 断片の実寸はアニメで毎フレーム変わりうる。外枠のサイズは固定なのでキャッシュ判定が
   // できず、可視中の断片は毎回測り直す（同時に見えている断片は通常 1〜3 枚）。
   function syncHitRegion(el) {
@@ -4129,7 +4158,7 @@ function createOverlayRuntime() {
     }
   }
 
-  return { mount, tick, unmount, applyProps };
+  return { mount, tick, unmount, applyProps, refreshChanged };
 }
 function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 
@@ -4822,7 +4851,7 @@ function connectWs() {
         requestAudioRefresh();
         return;
       }
-      if (m.type === 'reload') { requestSoftReload(); return; }
+      if (m.type === 'reload') { requestSoftReload(m.changedPaths, m.overlayIds); return; }
       if (m.type === 'captions-reload') {
         Promise.all([fetch(api.summary), loadCaptionApiPayload()]).then(async ([summaryResponse, captionsBody]) => {
           if (summaryResponse.ok) summary = await summaryResponse.json();

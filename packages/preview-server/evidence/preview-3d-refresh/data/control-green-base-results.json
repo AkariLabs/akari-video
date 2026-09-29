@@ -1,0 +1,28 @@
+{
+  "label": "control-green-base",
+  "steps": {
+    "missing": {
+      "failureVisible": false,
+      "texts": [],
+      "rgb": [
+        147,
+        228,
+        89
+      ],
+      "notRed": true
+    },
+    "control": {
+      "ok": true,
+      "ms": 142,
+      "rgb": [
+        147,
+        228,
+        89
+      ]
+    }
+  },
+  "error": "control-only run (stops after the control step by design)",
+  "serverLog": [
+    "[watch] watching <path>"
+  ]
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import http from 'node:http';
-import { runtimes, runtimeRoot, registryPath, browserManifest } from '../../overlay-runtime/runtimes.mjs';
+import { runtimes, runtimeRoot, registryPath, browserManifest, extractRuntimeAssetReferences } from '../../overlay-runtime/runtimes.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -778,9 +778,11 @@ const router = {
     }
     if (candidate === source) return respond(res, 200, { ok: true, changed: false });
     try {
-      markSelfWrite();
+      markSelfWrite(htmlPath);
       await writeAtomic(target, candidate);
-      wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
+      overlayWatchTargets = watchedOverlayPaths();
+      wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now(),
+        changedPaths: [htmlPath.replaceAll('\\', '/')], overlayIds: [id] }));
       respond(res, 200, { ok: true, changed: true });
     } catch (e) {
       respond(res, 500, { error: e.message });
@@ -1057,15 +1059,58 @@ wss.on('seek', (msg, socket) => {
 // 原因は (a) PUT 自身の通知 (b) atomic 書き込み（tmp + rename）が watch を複数回発火させること。
 // 自分で書いた直後の watch イベントは PUT が既に通知済みなので捨て、残りはまとめて 1 回にする。
 let selfWriteAt = 0;
-function markSelfWrite() { selfWriteAt = Date.now(); }
+const selfWrittenPaths = new Map();
+function markSelfWrite(changedPath) {
+  selfWriteAt = Date.now();
+  if (changedPath) selfWrittenPaths.set(changedPath.replaceAll('\\', '/'), selfWriteAt);
+}
 let reloadTimer = null;
-function scheduleReload() {
-  if (Date.now() - selfWriteAt < 1000) return;
+let overlayWatchTargets = new Map();
+const changedReloadPaths = new Set();
+const changedOverlayIds = new Set();
+function scheduleReload(changedPath, overlayIds = []) {
+  if ((changedPath === 'edit.json' || changedPath === 'captions.json') && Date.now() - selfWriteAt < 1000) return;
+  changedReloadPaths.add(changedPath);
+  for (const id of overlayIds) changedOverlayIds.add(String(id));
   if (reloadTimer) return;
   reloadTimer = setTimeout(() => {
     reloadTimer = null;
-    wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
+    wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now(),
+      changedPaths: [...changedReloadPaths], overlayIds: [...changedOverlayIds] }));
+    changedReloadPaths.clear();
+    changedOverlayIds.clear();
   }, 120);
+}
+
+// edit.json が実際に使う断片と、その宣言が参照する素材だけを watch の通知対象にする。
+// Windows の recursive watch はプロジェクト全体に掛けるが、.akari/ や exports/ の
+// 大量の書き込みはここで落とす。参照先がまだ存在しなくても集合へ入れる。
+function watchedOverlayPaths() {
+  const targets = new Map();
+  const edit = readPreviewEdit(path.join(projectRoot, 'edit.json'));
+  if (edit.error) return targets;
+  const add = (reference, id) => {
+    if (typeof reference !== 'string' || !reference) return;
+    const absolute = path.resolve(projectRoot, reference);
+    const relative = path.relative(projectRoot, absolute).replaceAll('\\', '/');
+    if (!relative || relative.startsWith('../') || path.isAbsolute(relative)
+      || relative.startsWith('.akari/') || relative.startsWith('exports/')) return;
+    if (!targets.has(relative)) targets.set(relative, new Set());
+    targets.get(relative).add(String(id));
+  };
+  for (const overlay of edit.data.overlays ?? []) {
+    const htmlPath = overlay.htmlPath ?? (typeof overlay.html === 'string'
+      && !overlay.html.trimStart().startsWith('<') ? overlay.html : null);
+    if (!htmlPath) continue;
+    add(htmlPath, overlay.id);
+    try {
+      const html = fs.readFileSync(path.resolve(projectRoot, htmlPath), 'utf8');
+      for (const reference of extractRuntimeAssetReferences(html, htmlPath, String(overlay.id))) {
+        add(reference.path, overlay.id);
+      }
+    } catch { /* 断片が未作成でも、作成イベントを受けて次回読み直す。 */ }
+  }
+  return targets;
 }
 
 function isEntrypoint() {
@@ -1077,7 +1122,7 @@ function isEntrypoint() {
   }
 }
 
-export const __testing = { hasMoovBox, usableProxy, toolCommand, MAX_PROXY_BOX_SCAN };
+export const __testing = { hasMoovBox, usableProxy, toolCommand, MAX_PROXY_BOX_SCAN, watchedOverlayPaths };
 
 if (isEntrypoint()) {
   audioSweepStartup = setTimeout(() => {
@@ -1085,10 +1130,22 @@ if (isEntrypoint()) {
     audioSweepInterval = setInterval(sweepAudio, 10 * 60 * 1000).unref();
   }, 60 * 1000).unref();
 
-  fs.watch(projectRoot, { recursive: false }, (eventType, filename) => {
-    if (filename === 'edit.json' || filename === 'captions.json') {
-      scheduleReload();
+  overlayWatchTargets = watchedOverlayPaths();
+  fs.watch(projectRoot, { recursive: true }, (eventType, filename) => {
+    if (!filename) return;
+    const changedPath = String(filename).replaceAll('\\', '/');
+    const selfWrittenAt = selfWrittenPaths.get(changedPath);
+    if (selfWrittenAt && Date.now() - selfWrittenAt < 1000) return;
+    if (selfWrittenAt) selfWrittenPaths.delete(changedPath);
+    if (changedPath === 'edit.json' || changedPath === 'captions.json') {
+      overlayWatchTargets = watchedOverlayPaths();
+      scheduleReload(changedPath);
+      return;
     }
+    const overlayIds = overlayWatchTargets.get(changedPath);
+    if (!overlayIds) return;
+    scheduleReload(changedPath, overlayIds);
+    if (/\.html?$/i.test(changedPath)) overlayWatchTargets = watchedOverlayPaths();
   });
   console.log(`[watch] watching ${projectRoot}`);
 

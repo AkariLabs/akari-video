@@ -4,7 +4,20 @@ window.akari = window.akari || {};
 window.akari.threeRuntime = (() => {
   const instances = new WeakMap();
   const failedContainers = new WeakSet();
-  let hostConfiguration = { defaultFontUrl: null };
+  let hostConfiguration = { defaultFontUrl: null, previewDiagnostics: false };
+  let previewAssetRevision = 0;
+  function previewAssetUrl(url) {
+    if (!hostConfiguration.previewDiagnostics || !url || String(url).startsWith("data:")) return url;
+    const separator = String(url).includes("?") ? "&" : "?";
+    return `${url}${separator}akari_preview_rev=${previewAssetRevision}`;
+  }
+  function invalidateAssets(changedPaths = []) {
+    if (!hostConfiguration.previewDiagnostics
+      || !changedPaths.some(path => path !== "edit.json" && path !== "captions.json")) return;
+    previewAssetRevision += 1;
+    gltfCache.clear();
+    textureCache.clear();
+  }
   // --- ライブプレビュー専用の事前マウント（premount）。task 2026-08-29-overlay-3d-premount ---
   // 既定は無効。書き出し（render-cut の rasterize / osr-export / gpu-export）は
   // configurePremount() を呼ばないので、以下の分岐はすべて素通りし、生成される絵は 1 バイトも
@@ -527,7 +540,12 @@ window.akari.threeRuntime = (() => {
   }
 
   function readDescriptor(container) {
-    if (container.childElementCount !== 1) {
+    // プレビューが失敗時に差し込む診断要素は authoring された断片ではない。
+    // 破棄時の除去が遅れた場合でも単一ルート判定へ混ぜない。
+    const rootCount = hostConfiguration.previewDiagnostics
+      ? [...container.children].filter(child => !child.hasAttribute("data-akari-3d-preview-generated")).length
+      : container.childElementCount;
+    if (rootCount !== 1) {
       throw new Error("3D overlay fragment は単一ルートである必要があります");
     }
     const executableScripts = container.querySelectorAll(
@@ -755,10 +773,11 @@ window.akari.threeRuntime = (() => {
 
   function loadTexture(THREE, instance, textureLoader, url) {
     if (VIDEO_TEXTURE_PATTERN.test(url)) return loadVideoTexture(THREE, instance, url);
+    url = previewAssetUrl(url);
     if (!premountPolicy) return textureLoader.loadAsync(url);
     let pending = textureCache.get(url);
     if (!pending) {
-      pending = textureLoader.loadAsync(url);
+      pending = textureLoader.loadAsync(url).catch(error => { textureCache.delete(url); throw error; });
       if (textureCache.size >= GLTF_CACHE_LIMIT) {
         textureCache.delete(textureCache.keys().next().value);
       }
@@ -1050,7 +1069,7 @@ window.akari.threeRuntime = (() => {
     // 差し替えは非同期なので、完了を status: ready の前に置く（待たずに焼くと既定の部屋のまま出る）
     const texture = await new Promise((resolve, reject) => {
       new THREE.TextureLoader().load(
-        url,
+        previewAssetUrl(url),
         resolve,
         undefined,
         () => reject(new Error(`environment.map を読み込めません: ${url.slice(0, 96)}`))
@@ -1679,16 +1698,37 @@ window.akari.threeRuntime = (() => {
 
   function showLoadError(container, error) {
     setFallback(container, true);
-    const fallback = container.querySelector("[data-akari-3d-fallback]");
+    let fallback = container.querySelector("[data-akari-3d-fallback]");
+    if (!(fallback instanceof HTMLElement) && hostConfiguration.previewDiagnostics) {
+      fallback = document.createElement("div");
+      fallback.setAttribute("data-akari-3d-fallback", "");
+      fallback.setAttribute("data-akari-3d-preview-generated", "");
+      fallback.style.cssText = "position:absolute;top:12px;left:12px;z-index:2147483647;max-width:80%;padding:8px 12px;color:#fff;background:rgba(105,25,25,.94);font:14px/1.5 sans-serif;pointer-events:none;white-space:normal;";
+      container.appendChild(fallback);
+    }
     if (!(fallback instanceof HTMLElement)) return;
-    fallback.textContent = "3Dを読み込めませんでした";
-    fallback.title = error instanceof Error ? error.message : String(error);
+    const reason = error instanceof Error ? error.message : String(error);
+    fallback.textContent = hostConfiguration.previewDiagnostics
+      ? `3Dを読み込めませんでした: ${reason.slice(0, 96)}`
+      : "3Dを読み込めませんでした";
+    fallback.title = reason;
     fallback.dataset.akari3dStatus = "error";
+  }
+
+  function removePreviewLoadError(container) {
+    if (!hostConfiguration.previewDiagnostics) return;
+    for (const child of [...container.children]) {
+      if (child.hasAttribute("data-akari-3d-preview-generated")) child.remove();
+    }
   }
 
   function setFallback(container, visible) {
     const fallback = container.querySelector("[data-akari-3d-fallback]");
     if (!(fallback instanceof HTMLElement)) return;
+    if (!visible && fallback.hasAttribute("data-akari-3d-preview-generated")) {
+      fallback.remove();
+      return;
+    }
     fallback.hidden = !visible;
     if (visible) fallback.style.removeProperty("display");
     else fallback.style.setProperty("display", "none", "important");
@@ -2082,10 +2122,14 @@ window.akari.threeRuntime = (() => {
     // instance の有無にかかわらず集合を必ず縮める。premountTick() の上限破棄ループが
     // stale container を選び続けても、各反復が必ず前進することをここで保証する。
     liveInstanceContainers.delete(container);
-    if (!instance) return;
+    if (!instance) {
+      removePreviewLoadError(container);
+      return;
+    }
     instances.delete(container);
     premountStats.disposed += 1;
     disposeInstance(instance);
+    removePreviewLoadError(container);
   }
 
   function dispose(container) {
@@ -2128,6 +2172,9 @@ window.akari.threeRuntime = (() => {
         throw new TypeError("threeRuntime.configure.defaultFontUrl は非空の URL 文字列である必要があります");
       }
       hostConfiguration = { ...hostConfiguration, defaultFontUrl: options.defaultFontUrl };
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "previewDiagnostics")) {
+      hostConfiguration = { ...hostConfiguration, previewDiagnostics: options.previewDiagnostics === true };
     }
     return { ...hostConfiguration };
   }
@@ -2185,10 +2232,11 @@ window.akari.threeRuntime = (() => {
   }
 
   async function loadGltfShared(THREE, loader, url) {
+    url = previewAssetUrl(url);
     if (!premountPolicy) return loader.loadAsync(url);
     let pending = gltfCache.get(url);
     if (!pending) {
-      pending = loader.loadAsync(url);
+      pending = loader.loadAsync(url).catch(error => { gltfCache.delete(url); throw error; });
       if (gltfCache.size >= GLTF_CACHE_LIMIT) gltfCache.delete(gltfCache.keys().next().value);
       gltfCache.set(url, pending);
     }
@@ -2205,6 +2253,7 @@ window.akari.threeRuntime = (() => {
   }
 
   function createInstance(container) {
+    removePreviewLoadError(container);
     const library = window.AkariThree;
     if (!library?.THREE
       || typeof library.GLTFLoader !== "function"
@@ -2670,6 +2719,7 @@ window.akari.threeRuntime = (() => {
 
   return {
     configure,
+    invalidateAssets,
     contentBounds,
     projectContentBounds,
     dispose,
