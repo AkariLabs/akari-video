@@ -2876,6 +2876,7 @@
           const container = overlayFrame.contentDocument.querySelector(`[data-overlay-id="${CSS.escape(value.id)}"] > .scene-content`);
           if (!container) throw new Error(`3D overlay container is missing: ${value.id}`);
           container.parentElement.style.visibility = "visible";
+          if (threeRuntime.inspect(container)?.status === "disposed") threeRuntime.render(container, 0);
           await waitForThreeReady(threeRuntime, container, value.id);
           const canvas = container.querySelector("canvas");
           if (!canvas) throw new Error(`3D sprite canvas is missing: ${value.id}`);
