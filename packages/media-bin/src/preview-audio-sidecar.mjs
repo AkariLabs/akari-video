@@ -778,7 +778,10 @@ function requestOptions(options) {
     if (finitePositive(options.decodedBytesThreshold)) {
       prepare(options, {}, false);
       const duration = options.outSec - options.inSec + (options.padBeforeSec ?? 0) + (options.padAfterSec ?? 0);
-      const heavy = duration * 48000 * 2 * 4 > options.decodedBytesThreshold;
+      // Compressed music is expensive to decode again on every page load. Keep a
+      // fingerprinted PCM sidecar even when this particular trim is short.
+      const compressed = /\.(?:mp3|m4a|aac|ogg|opus|oga|mp4|webm)$/iu.test(options.sourcePath);
+      const heavy = compressed || duration * 48000 * 2 * 4 > options.decodedBytesThreshold;
       if (!heavy && !hasAudioClipFx(options.clipFx)) return { status: { state: 'not-needed', key: null } };
       return { options: { ...options, decodedBytesThreshold: undefined, format: heavy ? 'pcm-s16le' : 'flac' } };
     }

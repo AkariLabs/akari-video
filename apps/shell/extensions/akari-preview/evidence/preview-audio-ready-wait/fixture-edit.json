@@ -1,0 +1,325 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "main",
+      "path": "main.mp4",
+      "proxy": null
+    },
+    {
+      "id": "bgm-a",
+      "path": "audio/bgm-a.mp3",
+      "proxy": null
+    },
+    {
+      "id": "bgm-b",
+      "path": "audio/bgm-b.m4a",
+      "proxy": null
+    },
+    {
+      "id": "n1",
+      "path": "narration/n-1.wav",
+      "proxy": null
+    },
+    {
+      "id": "n2",
+      "path": "narration/n-2.m4a",
+      "proxy": null
+    },
+    {
+      "id": "n3",
+      "path": "narration/n-3.wav",
+      "proxy": null
+    },
+    {
+      "id": "n4",
+      "path": "narration/n-4.m4a",
+      "proxy": null
+    },
+    {
+      "id": "n5",
+      "path": "narration/n-5.wav",
+      "proxy": null
+    },
+    {
+      "id": "n6",
+      "path": "narration/n-6.m4a",
+      "proxy": null
+    },
+    {
+      "id": "ding",
+      "path": "sfx/ding.wav",
+      "proxy": null
+    },
+    {
+      "id": "whoosh",
+      "path": "sfx/whoosh.mp3",
+      "proxy": null
+    },
+    {
+      "id": "pop",
+      "path": "sfx/pop.m4a",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    {
+      "id": "t1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 1200,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 0,
+            "out": 40
+          }
+        },
+        {
+          "id": "cut-2",
+          "at": 1200,
+          "duration": 1800,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 50,
+            "out": 110
+          }
+        },
+        {
+          "id": "cut-3",
+          "at": 3000,
+          "duration": 3000,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 100,
+            "out": 200
+          }
+        }
+      ]
+    },
+    {
+      "id": "audio-0",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "n-1",
+          "at": 60,
+          "duration": 0,
+          "role": "narration",
+          "source": {
+            "kind": "media",
+            "src": "n1",
+            "in": 0
+          }
+        },
+        {
+          "id": "n-2",
+          "at": 450,
+          "duration": 360,
+          "role": "narration",
+          "source": {
+            "kind": "media",
+            "src": "n2",
+            "in": 0,
+            "out": 12
+          }
+        },
+        {
+          "id": "n-3",
+          "at": 1050,
+          "duration": 0,
+          "role": "narration",
+          "source": {
+            "kind": "media",
+            "src": "n3",
+            "in": 0
+          }
+        },
+        {
+          "id": "n-4",
+          "at": 2100,
+          "duration": 120,
+          "role": "narration",
+          "source": {
+            "kind": "media",
+            "src": "n4",
+            "in": 0,
+            "out": 4
+          }
+        },
+        {
+          "id": "n-5",
+          "at": 3300,
+          "duration": 0,
+          "role": "narration",
+          "source": {
+            "kind": "media",
+            "src": "n5",
+            "in": 0
+          }
+        },
+        {
+          "id": "n-6",
+          "at": 4500,
+          "duration": 270,
+          "role": "narration",
+          "source": {
+            "kind": "media",
+            "src": "n6",
+            "in": 0,
+            "out": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "audio-1",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "bgm-01",
+          "at": 0,
+          "duration": 1200,
+          "role": "bgm",
+          "source": {
+            "kind": "media",
+            "src": "bgm-a",
+            "in": 3.9,
+            "out": 43.9
+          },
+          "gain_db": -12,
+          "fade_in": 1.5,
+          "fade_out": 0.5,
+          "ducking": true,
+          "duck_db": -8
+        },
+        {
+          "id": "bgm-02",
+          "at": 1200,
+          "duration": 1800,
+          "role": "bgm",
+          "source": {
+            "kind": "media",
+            "src": "bgm-a",
+            "in": 60,
+            "out": 120
+          },
+          "gain_db": -12,
+          "fade_in": 0.3,
+          "fade_out": 0.5,
+          "ducking": true,
+          "duck_db": -8
+        },
+        {
+          "id": "bgm-05",
+          "at": 4800,
+          "duration": 1200,
+          "role": "bgm",
+          "source": {
+            "kind": "media",
+            "src": "bgm-a",
+            "in": 150,
+            "out": 190
+          },
+          "gain_db": -12,
+          "fade_in": 0.3,
+          "fade_out": 0.8,
+          "ducking": true,
+          "duck_db": -8
+        }
+      ]
+    },
+    {
+      "id": "audio-2",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "bgm-03",
+          "at": 3000,
+          "duration": 900,
+          "role": "bgm",
+          "source": {
+            "kind": "media",
+            "src": "bgm-b",
+            "in": 20,
+            "out": 50
+          },
+          "gain_db": -14,
+          "fade_in": 0.3,
+          "fade_out": 0.3,
+          "ducking": true,
+          "duck_db": -8
+        },
+        {
+          "id": "bgm-04",
+          "at": 3900,
+          "duration": 900,
+          "role": "bgm",
+          "source": {
+            "kind": "media",
+            "src": "bgm-b",
+            "in": 100,
+            "out": 130
+          },
+          "gain_db": -14,
+          "fade_in": 0.3,
+          "fade_out": 0.3,
+          "ducking": true,
+          "duck_db": -8
+        }
+      ]
+    },
+    {
+      "id": "audio-3",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "sfx-ding",
+          "at": 30,
+          "duration": 12,
+          "role": "sfx",
+          "source": {
+            "kind": "media",
+            "src": "ding",
+            "in": 0,
+            "out": 0.4
+          }
+        },
+        {
+          "id": "sfx-whoosh",
+          "at": 1190,
+          "duration": 18,
+          "role": "sfx",
+          "source": {
+            "kind": "media",
+            "src": "whoosh",
+            "in": 0,
+            "out": 0.6
+          }
+        },
+        {
+          "id": "sfx-pop",
+          "at": 2990,
+          "duration": 30,
+          "role": "sfx",
+          "source": {
+            "kind": "media",
+            "src": "pop",
+            "in": 0,
+            "out": 1
+          }
+        }
+      ]
+    }
+  ]
+}

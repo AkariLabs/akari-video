@@ -1,0 +1,14 @@
+{
+  "description": "ffmpeg commands used to generate the L1 fixture media (run in the fixture root); edit.json is fixture-edit.json",
+  "commands": [
+    "ffmpeg -y -f lavfi -i \"aevalsrc='0.25*sin(2*PI*220*t)*(0.6+0.4*sin(2*PI*2*t))+0.2*sin(2*PI*277.2*t)+0.15*sin(2*PI*329.6*t)|0.25*sin(2*PI*220*t)*(0.6+0.4*sin(2*PI*2*t))+0.2*sin(2*PI*330*t)':s=44100:d=210\" -c:a libmp3lame -b:a 192k audio/bgm-a.mp3",
+    "ffmpeg -y -f lavfi -i \"aevalsrc='0.25*sin(2*PI*196*t)*(0.6+0.4*sin(2*PI*1.5*t))+0.2*sin(2*PI*246.9*t)|0.25*sin(2*PI*196*t)+0.2*sin(2*PI*293.7*t)':s=48000:d=195\" -c:a aac -b:a 192k audio/bgm-b.m4a",
+    "narration n-1..n-6: durations 6,12,30,4,18,9 s, sine (300+i*70) Hz with tremolo, odd i -> mono wav, even i -> aac m4a 128k",
+    "ffmpeg -y -f lavfi -i \"sine=frequency=1200:sample_rate=48000:duration=0.4\" -af \"afade=t=out:st=0.1:d=0.3\" sfx/ding.wav",
+    "ffmpeg -y -f lavfi -i \"anoisesrc=d=0.6:c=pink:r=48000:a=0.4\" -af \"afade=t=out:st=0.2:d=0.4\" -c:a libmp3lame -b:a 128k sfx/whoosh.mp3",
+    "ffmpeg -y -f lavfi -i \"sine=frequency=660:sample_rate=48000:duration=1.0\" -af \"afade=t=out:st=0.3:d=0.7\" -c:a aac -b:a 128k sfx/pop.m4a",
+    "ffmpeg -y -f lavfi -i \"testsrc2=size=1280x720:rate=30:duration=200\" -f lavfi -i \"sine=frequency=500:sample_rate=48000:duration=200\" -af \"volume=0.3,tremolo=f=3:d=0.8\" -c:v libx264 -preset ultrafast -crf 32 -g 30 -pix_fmt yuv420p -c:a aac -b:a 96k -shortest main.mp4",
+    "swap/bgm-a-880.mp3: ffmpeg -y -f lavfi -i \"aevalsrc='0.3*sin(2*PI*880*t)*(0.6+0.4*sin(2*PI*2*t))|0.3*sin(2*PI*880*t)':s=44100:d=210\" -c:a libmp3lame -b:a 192k (same byte size as bgm-a.mp3, different mtime)"
+  ],
+  "bands": "220 Hz = bgm-a, 196 Hz = bgm-b, 500 Hz = embedded speech of main.mp4, 880 Hz = swapped bgm-a"
+}

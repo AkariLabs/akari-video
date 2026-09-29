@@ -75,7 +75,7 @@ test('supply 作成と rebuild は同じ初期化で橋の最新値を優先し�
     const calls = [];
     const context = vm.createContext({
         initial: { mutedTracksByScope: { cuts: [2], audio: [4] }, allTracksMutedScopes: ['audio'] },
-        window: { akari: {} }, rate: 1, audioDeclarationsForSummary: () => ({}),
+        window: { akari: {} }, rate: 1, audioDeclarationsForSummary: () => ({}), sharedAudioCache: {},
         engine: { createPreviewAudioSupply: () => ({ setRate() {}, setMutedTracks: value => calls.push(plain(value)) }) },
     });
     vm.runInContext(creation + 'createAudioSupplyForSummary({}, [], 10);', context);
