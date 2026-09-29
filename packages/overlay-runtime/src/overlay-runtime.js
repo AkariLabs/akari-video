@@ -145,7 +145,8 @@ function createOverlayRuntime(options = {}) {
         if (!overlay.visible) {
           const animations = overlay.animations ?? overlay.container.getAnimations({ subtree: true });
           overlay.container.toggleAttribute(RUNTIME_HIDDEN_ATTRIBUTE, !overlay.keepLayoutWhenHidden);
-          cancelAnimations(animations);
+          if (overlay.keepLayoutWhenHidden) releaseHiddenPremountAnimations(animations);
+          else cancelAnimations(animations);
           overlay.animations = undefined;
           overlay.animationsAt = 0;
           overlay.animationEndTimes = [];
@@ -239,6 +240,38 @@ function createOverlayRuntime(options = {}) {
       releaseAnimation(animation);
       animation.cancel?.();
     }
+  }
+
+  // ゲートを外して消えた CSSAnimation だけ cancel し、ゲート無しは残す。
+  // premount は display:none にしないため、全 cancel するとゲート無しはスタイルが変わるまで作り直されない。
+  function releaseHiddenPremountAnimations(animations) {
+    const computedNames = new Map();
+    const toCancel = [];
+    for (const animation of animations) {
+      releaseAnimation(animation);
+      if (typeof animation.animationName !== "string" ||
+          typeof getComputedStyle !== "function" || !animation.effect?.target) continue;
+      const target = animation.effect.target;
+      const pseudo = animation.effect.pseudoElement ?? null;
+      let byPseudo = computedNames.get(target);
+      if (!byPseudo) {
+        byPseudo = new Map();
+        computedNames.set(target, byPseudo);
+      }
+      if (!byPseudo.has(pseudo)) {
+        let names = null;
+        try {
+          const value = getComputedStyle(target, pseudo).animationName;
+          if (typeof value === "string") names = new Set(value.split(",").map(name => name.trim()));
+        } catch {
+          // computed style を読めない環境では Animation を残す。
+        }
+        byPseudo.set(pseudo, names);
+      }
+      const names = byPseudo.get(pseudo);
+      if (names && !names.has(animation.animationName)) toCancel.push(animation);
+    }
+    for (const animation of toCancel) animation.cancel?.();
   }
 
   function syncAnimation(snapshot, localTimeMs, playing, playbackRate, nowMs) {
@@ -562,8 +595,8 @@ function createOverlayRuntime(options = {}) {
         if (visible) {
           for (const animation of overlay.animations ?? []) releaseAnimation(animation);
         } else {
-          // premount はレイアウトだけ保持する。paused CSSAnimation は必ず解放する。
-          cancelAnimations(exitingAnimations);
+          if (overlay.keepLayoutWhenHidden) releaseHiddenPremountAnimations(exitingAnimations);
+          else cancelAnimations(exitingAnimations);
         }
         overlay.animations = undefined;
         overlay.animationsAt = 0;

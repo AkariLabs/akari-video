@@ -89,7 +89,7 @@ function fakeElement(tagName, host) {
   return element;
 }
 
-function createHost({ animations = () => [] } = {}) {
+function createHost({ animations = () => [], computedStyle } = {}) {
   const host = {
     clock: 1000,
     getAnimationsCalls: [],
@@ -122,7 +122,8 @@ function createHost({ animations = () => [] } = {}) {
       itemMotion,
     },
   };
-  const context = { window, document, performance: { now: () => host.clock }, console };
+  const context = { window, document, performance: { now: () => host.clock }, console,
+    ...(computedStyle ? { getComputedStyle: computedStyle } : {}) };
   vm.runInNewContext(source, context, { filename: "overlay-runtime.js" });
   host.stage = stage;
   host.window = window;
@@ -642,15 +643,18 @@ test("hidden 3D premount keeps layout and configure toggles runtime hiding", asy
 
 test("paused premount animation is cancelled on hide and a fresh animation seeks on return", async () => {
   const pausedAnimation = fakeAnimation({endTime:60000});
+  pausedAnimation.animationName = "move";
   let activeAnimation = pausedAnimation;
   let disposals = 0;
   const host = createHost({animations:element=>element.hasAttribute("data-akari-active")
-    ? [activeAnimation] : []});
+    ? [activeAnimation] : [],
+    computedStyle:target=>({animationName:target.hasAttribute("data-akari-active") ? "move" : "none"})});
   host.window.akari.runtimes.register({id:"premount-animation",selector:'[data-akari-3d-scene]',
     render(){},inspect(){return {status:"idle"};},dispose(){disposals++;},premountTick(){}});
   host.runtime.configure({premount:true});
   await host.runtime.mount({overlays:[{id:"scene",start:0,duration:2,html:THREE_HTML}]});
   const container = host.stage.children[0];
+  pausedAnimation.effect.target = container;
 
   host.runtime.tick(0.5,true);
   host.clock += 50;
@@ -668,13 +672,82 @@ test("paused premount animation is cancelled on hide and a fresh animation seeks
   assert.equal(pausedAnimation.cancels,1);
 });
 
+test("ungated premount animation survives hide and seeks on return", async () => {
+  const animation = fakeAnimation({endTime:Infinity});
+  animation.animationName = "move";
+  let styleReads = 0;
+  const host = createHost({animations:()=>[animation],
+    computedStyle:target=>{ styleReads++; assert.equal(target,animation.effect.target);
+      return {animationName:"other, move"}; }});
+  host.window.akari.runtimes.register({id:"premount-ungated",selector:'[data-akari-3d-scene]',
+    render(){},inspect(){return {status:"idle"};},dispose(){},premountTick(){}});
+  host.runtime.configure({premount:true});
+  await host.runtime.mount({overlays:[{id:"scene",start:0,duration:2,html:THREE_HTML}]});
+  const container = host.stage.children[0];
+  animation.effect.target = container;
+
+  host.runtime.tick(0.5,true);
+  host.runtime.tick(3,true);
+  assert.equal(animation.cancels,0);
+  assert.equal(styleReads,1,"computed style is read only on the hide flip");
+  assert.equal(container.hasAttribute("data-akari-runtime-hidden"),false);
+  host.runtime.configure({premount:true});
+  assert.equal(animation.cancels,0,"configure also preserves the ungated animation");
+  assert.equal(styleReads,2);
+  host.runtime.tick(0.25,false);
+  host.runtime.tick(0.25,false);
+  assert.equal(animation.currentTime,250);
+  assert.equal(animation.playState,"paused");
+  assert.equal(animation.cancels,0);
+  assert.equal(styleReads,2,"steady ticks do not read computed style");
+  host.runtime.tick(0.25,true);
+  assert.equal(animation.playState,"running");
+});
+
+test("premount hide reads every animation style before cancelling gated animations", async () => {
+  const gated = fakeAnimation({endTime:Infinity});
+  const ungated = fakeAnimation({endTime:Infinity});
+  const gatedTarget = {id:"gated"};
+  const ungatedTarget = {id:"ungated"};
+  gated.animationName = "move";
+  ungated.animationName = "move";
+  gated.effect.target = gatedTarget;
+  ungated.effect.target = ungatedTarget;
+  const events = [];
+  for (const [name,animation] of [["gated",gated],["ungated",ungated]]) {
+    const cancel = animation.cancel;
+    animation.cancel = function() { events.push(`cancel:${name}`); cancel.call(this); };
+  }
+  let container;
+  const host = createHost({animations:()=>[gated,ungated],computedStyle:(target,pseudo)=>{
+    assert.equal(container.hasAttribute("data-akari-active"),false);
+    assert.equal(pseudo,null);
+    events.push(`read:${target.id}`);
+    return {animationName:target===gatedTarget ? "none" : "other, move"};
+  }});
+  host.window.akari.runtimes.register({id:"premount-mixed",selector:'[data-akari-3d-scene]',
+    render(){},inspect(){return {status:"idle"};},dispose(){},premountTick(){}});
+  host.runtime.configure({premount:true});
+  await host.runtime.mount({overlays:[{id:"scene",start:0,duration:2,html:THREE_HTML}]});
+  container = host.stage.children[0];
+
+  host.runtime.tick(0.5,true);
+  host.runtime.tick(3,true);
+  assert.deepEqual(events,["read:gated","read:ungated","cancel:gated"],
+    "すべてのスタイル読み取りを終えてからゲート付きだけを cancel する");
+  assert.equal(gated.cancels,1);
+  assert.equal(ungated.cancels,0);
+});
+
 test("configure cancels lingering paused animations while hidden premount keeps layout", async () => {
   const animation = fakeAnimation({playState:"paused"});
-  const host = createHost({animations:()=>[animation]});
+  animation.animationName = "move";
+  const host = createHost({animations:()=>[animation],computedStyle:()=>({animationName:"none"})});
   host.window.akari.runtimes.register({id:"premount-configure",selector:'[data-akari-3d-scene]',
     render(){},inspect(){return {status:"idle"};},dispose(){},premountTick(){}});
   await host.runtime.mount({overlays:[{id:"scene",start:10,duration:2,html:THREE_HTML}]});
   const container = host.stage.children[0];
+  animation.effect.target = container;
 
   host.runtime.configure({premount:true});
   assert.equal(animation.cancels,1);

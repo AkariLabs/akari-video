@@ -123,3 +123,45 @@ test('paused CSS animations are released when a premount overlay becomes hidden'
       `seek pose translateX=${result.returned.translateX}`);
   } finally { await browser.close(); }
 });
+
+test('ungated premount CSS animation survives hiding, seeks, and resumes', {timeout:300000}, async () => {
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<style>@keyframes move { from { transform:translateX(0) } to { transform:translateX(100px) } } .motion { animation:move 1s linear infinite }</style><div id="overlay-stage"></div>');
+    await page.addScriptTag({content:source});
+    const result = await page.evaluate(async () => {
+      window.akari.runtimes.register({id:'premount-ungated-test',selector:'[data-premount-test]',
+        render(){},inspect(){return {status:'idle'}},dispose(){},premountTick(){}});
+      window.akari.runtime.configure({premount:true});
+      await window.akari.runtime.mount({overlays:[{id:'scene',start:0,duration:2,
+        html:'<div data-premount-test><div class="motion">scene</div></div>'}]});
+      const node=document.querySelector('[data-overlay-id="scene"]');
+      const target=node.querySelector('.motion');
+      window.akari.runtime.tick(0.5,true);
+      window.akari.runtime.tick(3,true);
+      const hidden=node.getAnimations({subtree:true}).length;
+      window.akari.runtime.tick(0.25,false);
+      window.akari.runtime.tick(0.25,false);
+      const returned={count:node.getAnimations({subtree:true}).length,
+        translateX:new DOMMatrixReadOnly(getComputedStyle(target).transform).m41};
+      window.akari.runtime.tick(0.25,true);
+      const startedAt=performance.now();
+      for (let frame=0;frame<20;frame++) {
+        const frameTime=await new Promise(resolve=>requestAnimationFrame(resolve));
+        window.akari.runtime.tick(0.25+(frameTime-startedAt)/1000,true);
+      }
+      const resumed=node.getAnimations({subtree:true});
+      return {hidden,returned,resumed:{count:resumed.length,playState:resumed[0]?.playState,
+        translateX:new DOMMatrixReadOnly(getComputedStyle(target).transform).m41}};
+    });
+    assert.equal(result.hidden,1);
+    assert.equal(result.returned.count,1);
+    assert.ok(Math.abs(result.returned.translateX-25)<1,
+      `seek pose translateX=${result.returned.translateX}`);
+    assert.equal(result.resumed.count,1);
+    assert.equal(result.resumed.playState,'running');
+    assert.ok(result.resumed.translateX>result.returned.translateX+1,
+      `resumed pose did not advance: ${result.resumed.translateX}`);
+  } finally { await browser.close(); }
+});
