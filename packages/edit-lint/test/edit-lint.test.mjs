@@ -1979,19 +1979,68 @@ test("layers on the same v2 track overlapping fail closed", async () => {
   });
 });
 
-test("sfx on the same track at the same t warn without failing", async () => {
-  await withFixtures(async (fixtures) => {
-    const executed = run(join(fixtures, "sfx-track-overlap-warning"));
-    assert.equal(executed.status, 0, executed.stderr);
-    const result = parseResult(executed);
+test("different sfx on the same track at the same t report info", async () => {
+  await withFixtures(async fixtures => {
+    const result = await lintProject(join(fixtures, "sfx-track-overlap-warning"), { writeReports: false });
     assert.equal(result.verdict, "pass");
-    assert.ok(
-      result.findings.some(
-        (finding) => finding.check === "audio.sfx.track-overlap" && finding.severity === "warning",
-      ),
-      JSON.stringify(result.findings, null, 2),
-    );
+    const overlap = result.findings.filter(finding => finding.check === "audio.sfx.track-overlap");
+    assert.equal(overlap.length, 1);
+    assert.equal(overlap[0].severity, "info");
+    assert.match(overlap[0].message, /track を分けて/u);
+    assert.equal(overlap.filter(finding => finding.severity === "warning").length, 0);
   });
+});
+
+test("identical sfx on the same track at the same t warn without failing", async () => {
+  const root = await mkdtemp(join(tmpdir(), "edit-lint-sfx-same-path-"));
+  try {
+    const edit = JSON.parse(await readFile(join(fixtureRoot, "sfx-track-overlap-warning", "edit.json"), "utf8"));
+    edit.sources[0].path = "sample.mp4";
+    edit.audio.sfx = [
+      { path: "sfx-a.wav", t: 3, track: 0 },
+      { path: "sfx-a.wav", t: 3, track: 0 },
+    ];
+    await writeFile(join(root, "sample.mp4"), "fixture");
+    await writeFile(join(root, "edit.json"), JSON.stringify(edit));
+    await migrateFixtureTree(root);
+    const result = await lintProject(root, { writeReports: false });
+    assert.equal(result.verdict, "pass");
+    const overlap = result.findings.filter(finding => finding.check === "audio.sfx.track-overlap");
+    assert.equal(overlap.length, 1);
+    assert.equal(overlap[0].severity, "warning");
+    assert.match(overlap[0].message, /track を分けて/u);
+    assert.match(overlap[0].message, /同じ素材 sfx-a\.wav/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("three simultaneous sfx compare paths within the whole time group", async () => {
+  const root = await mkdtemp(join(tmpdir(), "edit-lint-sfx-overlap-"));
+  try {
+    const editPath = join(root, "edit.json");
+    const edit = JSON.parse(await readFile(join(fixtureRoot, "sfx-track-overlap-warning", "edit.json"), "utf8"));
+    edit.sources[0].path = "sample.mp4";
+    await writeFile(join(root, "sample.mp4"), "fixture");
+    for (const [thirdPath, expected] of [
+      ["sfx-c.wav", ["info", "info"]],
+      ["sfx-a.wav", ["info", "warning"]],
+    ]) {
+      edit.audio.sfx = [
+        { path: "sfx-a.wav", t: 3, track: 0 },
+        { path: "sfx-b.wav", t: 3, track: 0 },
+        { path: thirdPath, t: 3, track: 0 },
+      ];
+      await writeFile(editPath, JSON.stringify(edit));
+      await migrateFixtureTree(root);
+      const result = await lintProject(root, { writeReports: false });
+      assert.equal(result.verdict, "pass");
+      assert.deepEqual(result.findings.filter(finding => finding.check === "audio.sfx.track-overlap")
+        .map(finding => finding.severity), expected);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 for (const fixture of [

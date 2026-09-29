@@ -74,7 +74,7 @@ test('present narration provenance without provider retains execution error with
   }
 });
 
-test('multiple BGM error names clips, frame ranges, overlap, and the safe edit path', async () => {
+test('multiple BGM warns only for overlap without either fade', async () => {
   const root = await mkdtemp(join(tmpdir(), 'fieldreport-bgm-message-'));
   try {
     const edit = JSON.parse(await readFile(new URL('../fixtures/v2-audio-bgm-multiple-invalid/edit.json', import.meta.url)));
@@ -91,7 +91,39 @@ test('multiple BGM error names clips, frame ranges, overlap, and the safe edit p
     edit.tracks[1].items[0].at = 20;
     await writeFile(join(root, 'edit.json'), JSON.stringify(edit));
     const overlapping = await lintProject(root);
-    assert.match(overlapping.findings.find(f => f.check === 'v2.audio-bgm-multiple')?.message ?? '', /重なり: music-1 \/ music-2 \[20, 30\)/);
+    const bgmFindings = result => result.findings.filter(f => f.check === 'v2.audio-bgm-multiple');
+    assert.equal(overlapping.verdict, 'pass');
+    assert.equal(bgmFindings(overlapping).length, 1);
+    assert.equal(bgmFindings(overlapping)[0].severity, 'warning');
+    assert.match(bgmFindings(overlapping)[0].message, /重なり: music-1 \/ music-2 \[20, 30\)/);
+    assert.match(bgmFindings(overlapping)[0].message, /fade_out/);
+    assert.match(bgmFindings(overlapping)[0].message, /fade_in/);
+    assert.match(bgmFindings(overlapping)[0].message, /"fade_out": 0\.33/u);
+    for (const [firstFade, secondFade] of [[0.33, undefined], [undefined, 0.33], [0.33, 0.33]]) {
+      if (firstFade === undefined) delete edit.tracks[0].items[0].fade_out;
+      else edit.tracks[0].items[0].fade_out = firstFade;
+      if (secondFade === undefined) delete edit.tracks[1].items[0].fade_in;
+      else edit.tracks[1].items[0].fade_in = secondFade;
+      await writeFile(join(root, 'edit.json'), JSON.stringify(edit));
+      const result = await lintProject(root);
+      assert.equal(result.verdict, 'pass');
+      assert.equal(bgmFindings(result).length, 0);
+    }
+    edit.tracks[0].items[0].fade_out = 0.33;
+    delete edit.tracks[1].items[0].fade_in;
+    edit.tracks.push({ id: 'bgm-3', lane: 'audio', items: [{
+      id: 'music-3', at: 40, duration: 30, role: 'bgm',
+      source: { kind: 'media', src: 'music', in: 0, out: 1 },
+    }] });
+    edit.tracks[1].items[0].duration = 30;
+    edit.tracks[1].items[0].at = 20;
+    edit.tracks[2].items[0].at = 40;
+    await writeFile(join(root, 'edit.json'), JSON.stringify(edit));
+    const three = await lintProject(root);
+    assert.equal(three.verdict, 'pass');
+    assert.equal(bgmFindings(three).length, 1);
+    assert.match(bgmFindings(three)[0].message, /重なり: music-2 \/ music-3 \[40, 50\)/);
+    assert.doesNotMatch(bgmFindings(three)[0].message, /重なり: music-1 \/ music-2/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
