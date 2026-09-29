@@ -15,13 +15,13 @@ export function relativeTimelineMaterialPath(editDirectory: string, materialPath
 /** Node 専用の project-scaffold は browser から呼べないため、最小の雛形だけを作る。 */
 export function createTimelineEdit(): {
     version: 2;
-    output: { width: number; height: number; fps: number };
+    output: { width: number; height: number; fps: number; geometry: 'source' };
     sources: unknown[];
     tracks: unknown[];
 } {
     return {
         version: 2,
-        output: { width: 1920, height: 1080, fps: 30 },
+        output: { width: 1920, height: 1080, fps: 30, geometry: 'source' },
         sources: [],
         tracks: []
     };
