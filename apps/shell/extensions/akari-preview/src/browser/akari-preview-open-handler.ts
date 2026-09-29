@@ -11336,6 +11336,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 await prepareSources(timeline,
                     Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, sourceGeneration);
                 if (disposed) return;
+                const sharedAudioCache = engine.createPreviewAudioSharedCache();
                 const audioDeclarationsForSummary = (value, cuts) => {
                     const declarations = [];
                     const appendAudio = (kind, raw, fallbackId, duckKey = false) => {
@@ -11343,12 +11344,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
                         const sidecar = (raw.sidecarState === 'ready' || raw.sidecarState === undefined)
                             && raw.sidecar && raw.sidecar.path ? raw.sidecar : undefined;
+                        const pendingSourceFallback = !duckKey
+                            && (raw.sidecarState === 'queued' || raw.sidecarState === 'generating');
                         declarations.push({
                             kind,
                             ...(duckKey ? { duckKey: true } : {}),
                             id,
                             url: sidecar ? sidecar.path : raw.src,
-                            ...(sidecar ? { sourceUrl: raw.src } : {}),
+                            ...(sidecar || pendingSourceFallback
+                                ? { sourceUrl: raw.src } : {}),
+                            ...(pendingSourceFallback
+                                ? { fallbackWhileGenerating: true } : {}),
                             spec: { ...raw, sidecar, sidecarState: raw.sidecarState, id, durationSec: 0 }
                         });
                     };
@@ -11410,6 +11416,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     const supply = engine.createPreviewAudioSupply({
                         timelineDurationSec: duration,
                         ...audioDeclarationsForSummary(value, cuts),
+                        sharedCache: sharedAudioCache,
                         pauseWatchdogMs: false,
                         pitchShiftWorkletUrl: initial.previewAudioWorkletUrl || undefined
                     });
@@ -11425,17 +11432,39 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
                 const audioStatus = document.getElementById('audio-status');
+                let missingAudioSinceMs = null;
+                let missingAudioKeys = '';
+                const audioStatusPlaying = () => {
+                    try {
+                        return playing;
+                    } catch (error) {
+                        if (error instanceof ReferenceError) return false;
+                        throw error;
+                    }
+                };
                 const updateAudioStatus = () => {
                     if (!audioStatus || disposed) return;
-                    const supply = audioSupply.debug().supply;
+                    const statusPlaying = audioStatusPlaying();
+                    const audioState = audioSupply.debug();
+                    const supply = audioState.supply;
+                    const missing = supply.required.filter(key => !supply.ready.includes(key)
+                        && !supply.failed.includes(key) && !supply.noAudio.includes(key));
+                    const missingKeys = missing.join('|');
+                    if (!statusPlaying || supply.gate.holding || missing.length === 0) {
+                        missingAudioSinceMs = null;
+                        missingAudioKeys = '';
+                    } else if (missingAudioKeys !== missingKeys || missingAudioSinceMs === null) {
+                        missingAudioSinceMs = performance.now();
+                        missingAudioKeys = missingKeys;
+                    }
                     let message = '';
                     if (supply?.phase === 'degraded') {
                         message = '一部の音声を再生できません: ' + supply.failed.join(', ');
-                    } else if (supply && supply.gate && supply.gate.holding) {
+                    } else if (supply?.gate?.holding && supply.gate.heldMs >= 300) {
                         message = '音声を待っています（' + (supply.gate.heldMs / 1000).toFixed(1) + ' 秒）';
-                    } else if (supply?.phase === 'preparing') {
-                        const ready = supply.ready.filter(key => supply.required.includes(key)).length;
-                        message = '音声を準備中 ' + ready + '/' + supply.required.length;
+                    } else if (statusPlaying && missingAudioSinceMs !== null
+                        && performance.now() - missingAudioSinceMs >= 300) {
+                        message = '音声を準備中 ' + (supply.required.length - missing.length) + '/' + supply.required.length;
                     }
                     if (audioStatus.textContent !== message) audioStatus.textContent = message;
                     audioStatus.hidden = !message;
@@ -11443,6 +11472,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const updateAudio = message => {
                     if (disposed) return;
                     engineSummary.audio = message.audio;
+                    missingAudioSinceMs = null;
+                    missingAudioKeys = '';
                     audioSupply.updateAudio(audioDeclarationsForSummary({ audio: message.audio }, normalizedCuts));
                     updateAudioStatus();
                 };
@@ -12090,6 +12121,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             const previousAudioSupply = audioSupply;
                             scheduler = createSchedulerForTimeline(nextTimeline);
                             audioSupply = createAudioSupplyForSummary(nextSummary, nextCuts, nextDuration);
+                            missingAudioSinceMs = null;
+                            missingAudioKeys = '';
                             window.akari.attachAudioMeter(audioSupply.attachAnalyser(), 'frame-engine');
                             previousScheduler.dispose();
                             previousAudioSupply.dispose();
@@ -12242,6 +12275,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     for (const image of images.values()) image.destroy();
                     for (const pool of pools.values()) pool.destroy();
                     audioSupply.dispose();
+                    sharedAudioCache.dispose();
                     compositor.dispose();
                 }, { once: true });
             })().catch(reason => showError(reason, true));

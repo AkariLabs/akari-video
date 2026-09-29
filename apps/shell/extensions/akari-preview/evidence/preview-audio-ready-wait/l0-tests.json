@@ -1,0 +1,108 @@
+{
+ "description": "L0 test results in the worktree (Windows 11). Commands: packages/frame-engine: npm run build && node --test test/*.test.mjs; packages/media-bin: node --test test/*.test.mjs; apps/shell/extensions/akari-preview: node --test test/*.test.mjs (after apps/shell npm run build). apps/shell npm run lint exit 0; build:ext and theia build exit 0. Failure sets after the fix are identical to base (Windows-specific existing failures).",
+ "base": {
+  "frame-engine": {
+   "tests": 614,
+   "pass": 608,
+   "fail": 2,
+   "skipped": 4
+  },
+  "media-bin": {
+   "tests": 107,
+   "pass": 100,
+   "fail": 0,
+   "skipped": 7
+  },
+  "akari-preview": {
+   "tests": 1769,
+   "pass": 1753,
+   "fail": 16,
+   "skipped": 0
+  }
+ },
+ "after": {
+  "frame-engine": {
+   "tests": 622,
+   "pass": 616,
+   "fail": 2,
+   "skipped": 4
+  },
+  "media-bin": {
+   "tests": 108,
+   "pass": 101,
+   "fail": 0,
+   "skipped": 7
+  },
+  "akari-preview": {
+   "tests": 1773,
+   "pass": 1757,
+   "fail": 16,
+   "skipped": 0
+  }
+ },
+ "failingAtBaseAndAfter": {
+  "frame-engine": [
+   "✖ 再生中の組み直しが最初の窓を待つ間に届いた次の ready も拾い、組み直しは 2 回だけ行う",
+   "✖ 同じ tick の updateAudio は prefetch に合流し、finally と then が重なっても組み直しは 1 回だけ行う"
+  ],
+  "akari-preview": [
+   "✖ (c) a stream target cannot escape a requested root through a symbolic link",
+   "✖ 1 MB 超、ワークスペース外、symlink のサイドカーを読まない",
+   "✖ an existing filename symlink is a collision, never an overwrite",
+   "✖ caption and edit retarget races never return outside content across 10k RPC calls each",
+   "✖ caption display rejects static symlinks for both captions and edit inputs",
+   "✖ caption group position passes the project lint gate and is written to default_text_style",
+   "✖ caption text passes the project lint gate and preserves timing, style, and other cues",
+   "✖ caption zone passes the project lint gate and is written to captions.json",
+   "✖ L1 証跡 redaction は raw/realpath と入れ子値を伏せ HTTP URL を保持する",
+   "✖ merge CLI writes complete results and fails closed on a newer blocked capture",
+   "✖ out-of-frame caption cue position passes lint and is written to the selected cue",
+   "✖ rejects outside files, symlink escapes, non-HTML groups and invalid times",
+   "✖ save rejects symlink directory escapes and malformed payload before writing",
+   "✖ three transform implementations agree on rotated parent and anisotropic leaves",
+   "✖ 参照動画: 代表ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206",
+   "✖ 参照動画: 追加ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206"
+  ]
+ },
+ "redGreen": {
+  "note": "new/changed tests run against base sources (copy of a8b760ba1) = red; against the fix = green",
+  "packages/frame-engine/test/preview-audio-shared-cache.test.mjs": {
+   "base": {
+    "tests": 8,
+    "pass": 0,
+    "fail": 8,
+    "skipped": 0
+   },
+   "after": "8/8 pass"
+  },
+  "packages/media-bin/test/preview-audio-pcm-sidecar.test.mjs": {
+   "base": {
+    "tests": 9,
+    "pass": 8,
+    "fail": 1,
+    "skipped": 0
+   },
+   "baseFailing": "short compressed source requests a versioned PCM sidecar when a decode threshold is supplied",
+   "after": "all pass"
+  },
+  "apps/shell/extensions/akari-preview/test (play-gate, track-mute, shared-cache-wiring, status-startup)": {
+   "base": {
+    "tests": 13,
+    "pass": 9,
+    "fail": 4,
+    "skipped": 0
+   },
+   "after": "all pass",
+   "status-startup": "guards the TDZ regression introduced in codex round 2; red on the round-2 form (statusPlaying = playing), green after; passes on base (base has no such reference)"
+  }
+ },
+ "browserPreviewAudioTests": {
+  "note": "packages/preview-server audio/sidecar tests (not owned; run for impact only). The only failure, audio-declick-measurement (system Chrome splice measurement), fails identically on a base copy.",
+  "after": {
+   "tests": 91,
+   "pass": 90,
+   "fail": 1,
+   "skipped": 0
+  }
+ }
+}

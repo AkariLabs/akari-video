@@ -96,9 +96,10 @@ test('audio-update は専用受信で updateAudio に届き bootstrap 前は保�
 
 test('transport の状態表示は 250ms と play / seek / audio-update で更新する', () => {
     assert.match(source, /id="audio-status" class="audio-status" role="status" aria-live="polite" hidden/u);
+    assert.match(source, /音声を待っています/u);
     assert.match(source, /音声を準備中/u);
     assert.match(source, /一部の音声を再生できません/u);
-    assert.match(source, /supply\.ready\.filter\(key => supply\.required\.includes\(key\)\)/u);
+    assert.match(source, /supply\.gate\.heldMs >= 300/u);
     assert.match(source, /setInterval\(updateAudioStatus, 250\)/u);
     assert.match(source, /clearInterval\(audioStatusTimer\)/u);
     assert.match(source, /audioSupply\.playFrom\(position\);\s+updateAudioStatus\(\)/u);

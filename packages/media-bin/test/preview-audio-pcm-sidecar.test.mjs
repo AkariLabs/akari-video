@@ -39,6 +39,25 @@ test('PCM windows round outward, align interleaved samples, clamp and reject emp
   assert.equal(pcmWindowByteRange({ ...metadata, frames: 0 }, 0, 1), null);
 });
 
+test('short compressed source requests a versioned PCM sidecar when a decode threshold is supplied', t => {
+  const f = fixture(t);
+  for (const extension of ['mp3', 'm4a', 'aac', 'ogg', 'opus']) {
+    const sourcePath = path.join(f.root, `source.${extension}`);
+    fs.writeFileSync(sourcePath, 'compressed fixture');
+    const status = previewAudioSidecarStatus({ ...f.options, sourcePath, outSec: 2,
+      format: undefined, decodedBytesThreshold: 64 * 1024 * 1024 });
+    const stat = fs.statSync(sourcePath);
+    assert.equal(status.key, previewAudioSidecarKey({ ...f.options, sourcePath, outSec: 2,
+      size: stat.size, mtimeMs: stat.mtimeMs, format: 'pcm-s16le' }), extension);
+    const before = status.key;
+    fs.appendFileSync(sourcePath, 'new bytes');
+    assert.notEqual(previewAudioSidecarStatus({ ...f.options, sourcePath, outSec: 2,
+      format: undefined, decodedBytesThreshold: 64 * 1024 * 1024 }).key, before);
+  }
+  assert.equal(previewAudioSidecarStatus({ ...f.options, decodedBytesThreshold: 64 * 1024 * 1024 }).state,
+    'not-needed', 'short WAV keeps existing policy');
+});
+
 test('PCM has its own recipe and format key while the exact legacy FLAC hash stays unchanged', t => {
   const f = fixture(t);
   const stat = fs.statSync(f.options.sourcePath);

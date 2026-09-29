@@ -56,7 +56,7 @@ export class PcmWindowSource {
   constructor(
     readonly metadata: PcmWindowMetadata,
     private readonly fetchImpl: typeof fetch,
-    private readonly context: Pick<BaseAudioContext, 'createBuffer'>,
+    private context: Pick<BaseAudioContext, 'createBuffer'>,
     options: { cacheBytes?: number } = {},
   ) {
     if (!Number.isFinite(metadata.sampleRate) || metadata.sampleRate <= 0
@@ -70,6 +70,8 @@ export class PcmWindowSource {
   }
 
   debug(): PcmWindowStats { return { ...this.stats }; }
+  /** Buffers survive AudioContext replacement; new windows use the active context. */
+  setContext(context: Pick<BaseAudioContext, 'createBuffer'>): void { this.context = context; }
   noteLate(): void { this.stats.late += 1; }
 
   private key(startSec: number, endSec: number): string {

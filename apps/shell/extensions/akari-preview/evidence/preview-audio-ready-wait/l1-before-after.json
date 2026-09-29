@@ -1,0 +1,3467 @@
+{
+ "description": "L1 (Windows 11 dev shell + CDP) before/after for 2026-09-29-preview-audio-ready-wait. Phases: a=first open then play, b_resume=pause->play, b_seek=seek 90s->play, c=after a duration-changing edit (rebuildServices), d_rerender=full re-render (akari.preview.refreshMedia), d_reopen=close tab and reopen, e=app restart and reopen, swap=bgm-a.mp3 replaced by same-size 880 Hz file then re-render, props=mute/rate/ducking/drift. firstSoundMs = play press to first non-silent sample at an AnalyserNode tapped before AudioDestinationNode; videoMovesMs = play press until debug().renderedTimelineSec advances 0.1 s; gateHeldMs = time debug().supply.gate.holding was true; labels = time #audio-status showed each text. fetch/decode counts come from hooks on window.fetch and BaseAudioContext.decodeAudioData installed via CDP before the preview document loads. pcm-window = Range reads of pcm-s16le sidecars (streaming, not whole-file).",
+ "base": "a8b760ba1",
+ "fixture": "timeline 200 s: main.mp4 (200 s, 1280x720, AAC, 3 cuts -> 3 embedded speech flac sidecars), bgm-a.mp3 (210 s, 5,041,884 B) as 3 trimmed clips at 0/40/160 s, bgm-b.m4a (195 s, 4,763,176 B) as 2 trimmed clips at 100/130 s, 6 narrations (wav/m4a 4-30 s), 3 sfx (wav/mp3/m4a)",
+ "environment": "Electron 39.8.7 dev build of apps/shell (theia build --mode production); ffmpeg.dll replaced with the installed app's proprietary-codec build so AAC decodes as in the product (Theia's build swaps in a non-proprietary ffmpeg.dll that cannot decode m4a); isolated user-data-dir / THEIA_CONFIG_DIR / AKARI_HOME; frame-engine bundle regenerated locally for the after run only (not committed).",
+ "runs": {
+  "before": [
+   {
+    "a": {
+     "playStartSec": 0,
+     "firstSoundMs": 617,
+     "videoMovesMs": 3042.7,
+     "gateHeldMs": 3024,
+     "waitingLabelShownMs": 3137,
+     "preparingLabelShownMs": 1407,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 1540,
+     "afterPlayPress": {
+      "fetches": 135,
+      "fetchBytes": 22004360,
+      "decodes": 13,
+      "decodeMs": 633
+     },
+     "wholePage": {
+      "fetches": 204,
+      "fetchBytes": 29504230,
+      "decodes": 14,
+      "decodeMs": 1209,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 190,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      14.5,
+      14.2,
+      14.5,
+      14.4,
+      7.7,
+      8.1,
+      7.8,
+      7.4,
+      7.8,
+      7.7
+     ]
+    },
+    "b_resume": {
+     "playStartSec": 7.422294,
+     "firstSoundMs": 36.1,
+     "videoMovesMs": 3146.5,
+     "gateHeldMs": 2997,
+     "waitingLabelShownMs": 3113,
+     "preparingLabelShownMs": 1538,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 126,
+      "fetchBytes": 2860019,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 407,
+      "fetchBytes": 33789128,
+      "decodes": 14,
+      "decodeMs": 1209,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 393,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      16.2,
+      16,
+      16.4,
+      16.2,
+      16.2,
+      16.1,
+      16.2,
+      15.9,
+      16,
+      9.4
+     ]
+    },
+    "b_seek": {
+     "playStartSec": 90,
+     "firstSoundMs": 32.8,
+     "videoMovesMs": 3060.4,
+     "gateHeldMs": 2988,
+     "waitingLabelShownMs": 3190,
+     "preparingLabelShownMs": 1376,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 137,
+      "fetchBytes": 2703127,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 572,
+      "fetchBytes": 36980697,
+      "decodes": 14,
+      "decodeMs": 1209,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 558,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      15,
+      15.1,
+      8.4,
+      8.5,
+      8.1,
+      8.1,
+      8.6,
+      8.5,
+      8.3,
+      8.6
+     ]
+    },
+    "c": {
+     "playStartSec": 20,
+     "firstSoundMs": 297.6,
+     "videoMovesMs": 468.1,
+     "gateHeldMs": 363,
+     "waitingLabelShownMs": 543,
+     "preparingLabelShownMs": 1427,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 102,
+      "fetchBytes": 16658481,
+      "decodes": 12,
+      "decodeMs": 201
+     },
+     "wholePage": {
+      "fetches": 705,
+      "fetchBytes": 63921907,
+      "decodes": 28,
+      "decodeMs": 2838,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 677,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "sfx/ding.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-2.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-4.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "sfx/pop.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-6.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-3.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-1.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-5.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "speech-sidecar.flac": {
+        "fetch": 6,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 6
+       }
+      }
+     },
+     "sinceDurationEdit": {
+      "fetches": 104,
+      "fetchBytes": 26463541,
+      "decodes": 14,
+      "decodeMs": 1628,
+      "byFile": {
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "pcm-window": {
+        "fetch": 90,
+        "decode": 0
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      14.5,
+      15,
+      14.7,
+      14.3,
+      14.9,
+      14.8,
+      14.7,
+      14.8,
+      14.8,
+      14.7
+     ]
+    },
+    "d_rerender": {
+     "playStartSec": 22.666667,
+     "firstSoundMs": 80.2,
+     "videoMovesMs": 258.2,
+     "gateHeldMs": 166,
+     "waitingLabelShownMs": 216,
+     "preparingLabelShownMs": 1547,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 465,
+     "afterPlayPress": {
+      "fetches": 101,
+      "fetchBytes": 14892245,
+      "decodes": 12,
+      "decodeMs": 196
+     },
+     "wholePage": {
+      "fetches": 193,
+      "fetchBytes": 29291183,
+      "decodes": 14,
+      "decodeMs": 1018,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 179,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      15.8,
+      15.4,
+      15.8,
+      15.6,
+      15.5,
+      8.9,
+      8.9,
+      8.6,
+      9.1,
+      9
+     ]
+    },
+    "d_reopen": {
+     "playStartSec": 0,
+     "firstSoundMs": 81.6,
+     "videoMovesMs": 253.4,
+     "gateHeldMs": 135,
+     "waitingLabelShownMs": 209,
+     "preparingLabelShownMs": 1544,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 466,
+     "afterPlayPress": {
+      "fetches": 101,
+      "fetchBytes": 14902187,
+      "decodes": 12,
+      "decodeMs": 173
+     },
+     "wholePage": {
+      "fetches": 173,
+      "fetchBytes": 28952407,
+      "decodes": 14,
+      "decodeMs": 1002,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 159,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      7,
+      6.7,
+      6.6,
+      6.9,
+      7.1,
+      6.7,
+      9.9,
+      10.5,
+      10.3,
+      10.2
+     ]
+    },
+    "e": {
+     "playStartSec": 0,
+     "firstSoundMs": 371,
+     "videoMovesMs": 548.2,
+     "gateHeldMs": 232,
+     "waitingLabelShownMs": 276,
+     "preparingLabelShownMs": 1773,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 1217,
+     "afterPlayPress": {
+      "fetches": 98,
+      "fetchBytes": 16047911,
+      "decodes": 12,
+      "decodeMs": 216
+     },
+     "wholePage": {
+      "fetches": 168,
+      "fetchBytes": 28310957,
+      "decodes": 14,
+      "decodeMs": 1059,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 154,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      10.7,
+      10.6,
+      10.4,
+      10.5,
+      10.4,
+      10.3,
+      10.6,
+      10.6,
+      14,
+      13.8
+     ]
+    },
+    "props": {
+     "duck_noNarration_8s": {
+      "b220": -44.8,
+      "b196": -78.5,
+      "b500": -48.4,
+      "drift": 0,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 498.046875,
+       "db": -43.713993072509766
+      }
+     },
+     "duck_narration_17s": {
+      "b220": -56.7,
+      "b196": -90.4,
+      "b500": -48.4,
+      "drift": null,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 439.453125,
+       "db": -40.733848571777344
+      }
+     },
+     "mute": {
+      "before": {
+       "b220": -44.8,
+       "b196": -78.5,
+       "b500": -48.1,
+       "drift": 0,
+       "rate": 1,
+       "pitchPreserved": true,
+       "stretcher": "none",
+       "peak": {
+        "hz": 498.046875,
+        "db": -43.26982879638672
+       }
+      },
+      "after": {
+       "b220": -161.4,
+       "b196": -162.9
+      },
+      "restored": {
+       "b220": -43.8
+      }
+     },
+     "rate_0.5": {
+      "advancePerSec": 0.85,
+      "rate": 0.5,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -43.6,
+      "b500": -51,
+      "drift": 15.399333333334653
+     },
+     "rate_2": {
+      "advancePerSec": 3.38,
+      "rate": 2,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -53.5,
+      "b500": -47.5,
+      "drift": 13.118000000000407
+     },
+     "drift": {
+      "n": 25,
+      "mean": -2.6,
+      "maxAbs": 244.5
+     }
+    },
+    "swap": {
+     "playStartSec": 8,
+     "firstSoundMs": 102.1,
+     "videoMovesMs": 283.7,
+     "gateHeldMs": 262,
+     "waitingLabelShownMs": 288,
+     "preparingLabelShownMs": 2496,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 118,
+      "fetchBytes": 4439442,
+      "decodes": 3,
+      "decodeMs": 191
+     },
+     "wholePage": {
+      "fetches": 236,
+      "fetchBytes": 29425406,
+      "decodes": 14,
+      "decodeMs": 2254,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 222,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      14.8,
+      14.8,
+      14.5,
+      14.9,
+      14.8,
+      14.4,
+      14.8,
+      14.8,
+      7.9,
+      8.2
+     ],
+     "bandsDb": {
+      "b220": -151.8,
+      "b880": -38.1
+     }
+    }
+   },
+   {
+    "a": {
+     "playStartSec": 0,
+     "firstSoundMs": 557,
+     "videoMovesMs": 3047.5,
+     "gateHeldMs": 2968,
+     "waitingLabelShownMs": 3098,
+     "preparingLabelShownMs": 1453,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 1572,
+     "afterPlayPress": {
+      "fetches": 129,
+      "fetchBytes": 18104810,
+      "decodes": 5,
+      "decodeMs": 572
+     },
+     "wholePage": {
+      "fetches": 206,
+      "fetchBytes": 29535815,
+      "decodes": 14,
+      "decodeMs": 1307,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 192,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      6.9,
+      10.4,
+      6.8,
+      10,
+      6.6,
+      10,
+      9.8,
+      10.2,
+      10.2,
+      10
+     ]
+    },
+    "b_resume": {
+     "playStartSec": 7.476754,
+     "firstSoundMs": 35.7,
+     "videoMovesMs": 3167.6,
+     "gateHeldMs": 2967,
+     "waitingLabelShownMs": 3083,
+     "preparingLabelShownMs": 1587,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 128,
+      "fetchBytes": 2892547,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 410,
+      "fetchBytes": 33837278,
+      "decodes": 14,
+      "decodeMs": 1307,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 396,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      12.8,
+      12.6,
+      12.7,
+      12.7,
+      12.5,
+      12.7,
+      12.7,
+      12.7,
+      15.8,
+      16
+     ]
+    },
+    "b_seek": {
+     "playStartSec": 90,
+     "firstSoundMs": 29.8,
+     "videoMovesMs": 3175.5,
+     "gateHeldMs": 2987,
+     "waitingLabelShownMs": 3148,
+     "preparingLabelShownMs": 1530,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 141,
+      "fetchBytes": 2766700,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 579,
+      "fetchBytes": 37113395,
+      "decodes": 14,
+      "decodeMs": 1307,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 565,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      13.6,
+      13.3,
+      13.4,
+      13.7,
+      13.6,
+      13.4,
+      7,
+      6.8,
+      6.8,
+      7
+     ]
+    },
+    "c": {
+     "playStartSec": 20,
+     "firstSoundMs": 39.3,
+     "videoMovesMs": 2594.3,
+     "gateHeldMs": 449,
+     "waitingLabelShownMs": 697,
+     "preparingLabelShownMs": 3402,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 137,
+      "fetchBytes": 6985500,
+      "decodes": 1,
+      "decodeMs": 61
+     },
+     "wholePage": {
+      "fetches": 757,
+      "fetchBytes": 64395337,
+      "decodes": 28,
+      "decodeMs": 2227,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 729,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "sfx/ding.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-2.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-4.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "sfx/pop.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-6.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-1.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-3.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "narration/n-5.wav": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 2,
+        "decode": 2
+       },
+       "speech-sidecar.flac": {
+        "fetch": 6,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 6
+       }
+      }
+     },
+     "sinceDurationEdit": {
+      "fetches": 150,
+      "fetchBytes": 26819855,
+      "decodes": 14,
+      "decodeMs": 920,
+      "byFile": {
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "pcm-window": {
+        "fetch": 136,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      16.6,
+      13.6,
+      13.3,
+      13.3,
+      16.6,
+      6.6,
+      6.8,
+      6.9,
+      6.7,
+      6.5
+     ]
+    },
+    "d_rerender": {
+     "playStartSec": 25.066667,
+     "firstSoundMs": 77.6,
+     "videoMovesMs": 240,
+     "gateHeldMs": 159,
+     "waitingLabelShownMs": 246,
+     "preparingLabelShownMs": 1500,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 428,
+     "afterPlayPress": {
+      "fetches": 100,
+      "fetchBytes": 14846565,
+      "decodes": 12,
+      "decodeMs": 205
+     },
+     "wholePage": {
+      "fetches": 174,
+      "fetchBytes": 28944043,
+      "decodes": 14,
+      "decodeMs": 986,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 160,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      16.1,
+      16,
+      16.2,
+      16.4,
+      15.9,
+      16.2,
+      16.2,
+      16,
+      16.3,
+      16
+     ]
+    },
+    "d_reopen": {
+     "playStartSec": 0,
+     "firstSoundMs": 68.2,
+     "videoMovesMs": 238.5,
+     "gateHeldMs": 133,
+     "waitingLabelShownMs": 226,
+     "preparingLabelShownMs": 1514,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 517,
+     "afterPlayPress": {
+      "fetches": 100,
+      "fetchBytes": 14884737,
+      "decodes": 12,
+      "decodeMs": 167
+     },
+     "wholePage": {
+      "fetches": 172,
+      "fetchBytes": 28934957,
+      "decodes": 14,
+      "decodeMs": 991,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 158,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      15.5,
+      15.1,
+      15.6,
+      15.3,
+      15.5,
+      15.5,
+      15.6,
+      15.5,
+      15.5,
+      15.5
+     ]
+    },
+    "e": {
+     "playStartSec": 0,
+     "firstSoundMs": 369.4,
+     "videoMovesMs": 551.5,
+     "gateHeldMs": 253,
+     "waitingLabelShownMs": 528,
+     "preparingLabelShownMs": 1528,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": 1141,
+     "afterPlayPress": {
+      "fetches": 98,
+      "fetchBytes": 16065361,
+      "decodes": 12,
+      "decodeMs": 233
+     },
+     "wholePage": {
+      "fetches": 168,
+      "fetchBytes": 28328407,
+      "decodes": 14,
+      "decodeMs": 1151,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 154,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      10.8,
+      10.7,
+      10.4,
+      13.6,
+      10.6,
+      13.9,
+      13.8,
+      13.8,
+      14.1,
+      13.7
+     ]
+    },
+    "props": {
+     "duck_noNarration_8s": {
+      "b220": -44.8,
+      "b196": -78.3,
+      "b500": -48.5,
+      "drift": null,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 498.046875,
+       "db": -44.078857421875
+      }
+     },
+     "duck_narration_17s": {
+      "b220": -56.7,
+      "b196": -90.4,
+      "b500": -48.6,
+      "drift": 0,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 439.453125,
+       "db": -40.96332550048828
+      }
+     },
+     "mute": {
+      "before": {
+       "b220": -44.8,
+       "b196": -78.6,
+       "b500": -48.2,
+       "drift": 0,
+       "rate": 1,
+       "pitchPreserved": true,
+       "stretcher": "none",
+       "peak": {
+        "hz": 498.046875,
+        "db": -43.34236526489258
+       }
+      },
+      "after": {
+       "b220": -161.6,
+       "b196": -162.2
+      },
+      "restored": {
+       "b220": -43.9
+      }
+     },
+     "rate_0.5": {
+      "advancePerSec": 0.86,
+      "rate": 0.5,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -43.8,
+      "b500": -51.3,
+      "drift": 16.50133333333237
+     },
+     "rate_2": {
+      "advancePerSec": 3.1,
+      "rate": 2,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -53.2,
+      "b500": -47.6,
+      "drift": -56.02033333333267
+     },
+     "drift": {
+      "n": 25,
+      "mean": 1.7,
+      "maxAbs": 188.1
+     }
+    },
+    "swap": {
+     "playStartSec": 8,
+     "firstSoundMs": 19.3,
+     "videoMovesMs": 3079,
+     "gateHeldMs": 2968,
+     "waitingLabelShownMs": 3112,
+     "preparingLabelShownMs": 2467,
+     "statusTexts": [
+      "音声を待っています（N 秒）",
+      "音声を準備中 N/N"
+     ],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 171,
+      "fetchBytes": 3635105,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 290,
+      "fetchBytes": 30482622,
+      "decodes": 14,
+      "decodeMs": 1084,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 276,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      11.8,
+      12.1,
+      15.6,
+      15.7,
+      15.1,
+      15.5,
+      15.6,
+      15.3,
+      15.3,
+      15.7
+     ],
+     "bandsDb": {
+      "b220": -131.6,
+      "b880": -43.4
+     }
+    }
+   }
+  ],
+  "after": [
+   {
+    "a": {
+     "playStartSec": 0,
+     "firstSoundMs": 238.3,
+     "videoMovesMs": 425.7,
+     "gateHeldMs": 107,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 1779,
+     "afterPlayPress": {
+      "fetches": 92,
+      "fetchBytes": 15598564,
+      "decodes": 6,
+      "decodeMs": 234
+     },
+     "wholePage": {
+      "fetches": 168,
+      "fetchBytes": 28764161,
+      "decodes": 14,
+      "decodeMs": 1409,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 154,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      11.3,
+      11.4,
+      14.7,
+      14.4,
+      14.4,
+      14.4,
+      14.3,
+      14.2,
+      14.7,
+      14.4
+     ]
+    },
+    "b_resume": {
+     "playStartSec": 5.192262,
+     "firstSoundMs": 30.4,
+     "videoMovesMs": 192.5,
+     "gateHeldMs": 0,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 85,
+      "fetchBytes": 2081089,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 330,
+      "fetchBytes": 32270932,
+      "decodes": 14,
+      "decodeMs": 1409,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 316,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      6.9,
+      6.9,
+      6.8,
+      6.5,
+      10.2,
+      10.3,
+      10.6,
+      10.3,
+      10.5,
+      10.4
+     ]
+    },
+    "b_seek": {
+     "playStartSec": 90,
+     "firstSoundMs": 20.5,
+     "videoMovesMs": 212.3,
+     "gateHeldMs": 12,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 87,
+      "fetchBytes": 2164107,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 446,
+      "fetchBytes": 34923038,
+      "decodes": 14,
+      "decodeMs": 1409,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 432,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      10.6,
+      10.7,
+      10.3,
+      14.1,
+      13.9,
+      14.1,
+      14,
+      13.8,
+      13.9,
+      14.1
+     ]
+    },
+    "c": {
+     "playStartSec": 20,
+     "firstSoundMs": 27.4,
+     "videoMovesMs": 210,
+     "gateHeldMs": 13,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 87,
+      "fetchBytes": 6022204,
+      "decodes": 1,
+      "decodeMs": 61
+     },
+     "wholePage": {
+      "fetches": 561,
+      "fetchBytes": 41407329,
+      "decodes": 15,
+      "decodeMs": 1470,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 546,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 4,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 4
+       }
+      }
+     },
+     "sinceDurationEdit": {
+      "fetches": 87,
+      "fetchBytes": 6022204,
+      "decodes": 1,
+      "decodeMs": 61,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 86,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 1,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 1
+       }
+      }
+     },
+     "driftMsSamples": [
+      15.3,
+      15.4,
+      15.7,
+      15,
+      15.5,
+      15.5,
+      8.6,
+      8.6,
+      8.8,
+      8.7
+     ]
+    },
+    "d_rerender": {
+     "playStartSec": 22.666667,
+     "firstSoundMs": 31.6,
+     "videoMovesMs": 206,
+     "gateHeldMs": 0,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 472,
+     "afterPlayPress": {
+      "fetches": 86,
+      "fetchBytes": 2097313,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 186,
+      "fetchBytes": 18862123,
+      "decodes": 12,
+      "decodeMs": 242,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 174,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      14.6,
+      14.5,
+      14.9,
+      14.7,
+      14.7,
+      15,
+      14.9,
+      14.8,
+      8.1,
+      8
+     ]
+    },
+    "d_reopen": {
+     "playStartSec": 0,
+     "firstSoundMs": 23.9,
+     "videoMovesMs": 202.4,
+     "gateHeldMs": 17,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 557,
+     "afterPlayPress": {
+      "fetches": 86,
+      "fetchBytes": 2107255,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 166,
+      "fetchBytes": 18523347,
+      "decodes": 12,
+      "decodeMs": 299,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 154,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      14.8,
+      14.8,
+      14.7,
+      14.8,
+      14.8,
+      14.9,
+      14.8,
+      8,
+      8.2,
+      8.4
+     ]
+    },
+    "e": {
+     "playStartSec": 0,
+     "firstSoundMs": 423.8,
+     "videoMovesMs": 605.5,
+     "gateHeldMs": 21,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 1099,
+     "afterPlayPress": {
+      "fetches": 86,
+      "fetchBytes": 2107255,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 166,
+      "fetchBytes": 18523347,
+      "decodes": 12,
+      "decodeMs": 290,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 154,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      10.8,
+      10.7,
+      10.5,
+      10.7,
+      10.8,
+      10.3,
+      13.9,
+      13.8,
+      14,
+      13.7
+     ]
+    },
+    "props": {
+     "duck_noNarration_8s": {
+      "b220": -44.7,
+      "b196": -78.4,
+      "b500": -48.6,
+      "drift": 15.946999999998823,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 498.046875,
+       "db": -44.078857421875
+      }
+     },
+     "duck_narration_17s": {
+      "b220": -56.6,
+      "b196": -90.3,
+      "b500": -48.5,
+      "drift": 13.842000000000354,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 439.453125,
+       "db": -41.69795608520508
+      }
+     },
+     "mute": {
+      "before": {
+       "b220": -44.8,
+       "b196": -78.5,
+       "b500": -48.4,
+       "drift": 15.844999999998777,
+       "rate": 1,
+       "pitchPreserved": true,
+       "stretcher": "none",
+       "peak": {
+        "hz": 498.046875,
+        "db": -43.713993072509766
+       }
+      },
+      "after": {
+       "b220": -161.1,
+       "b196": -162.8
+      },
+      "restored": {
+       "b220": -44.1
+      }
+     },
+     "rate_0.5": {
+      "advancePerSec": 0.5,
+      "rate": 0.5,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -44,
+      "b500": -50.8,
+      "drift": 15.342500000000925
+     },
+     "rate_2": {
+      "advancePerSec": 2,
+      "rate": 2,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -53.3,
+      "b500": -47.2,
+      "drift": 9.879666666666509
+     },
+     "drift": {
+      "n": 25,
+      "mean": 13.3,
+      "maxAbs": 15.3
+     }
+    },
+    "swap": {
+     "playStartSec": 8,
+     "firstSoundMs": 55.2,
+     "videoMovesMs": 223.9,
+     "gateHeldMs": 35,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 120,
+      "fetchBytes": 8384934,
+      "decodes": 6,
+      "decodeMs": 267
+     },
+     "wholePage": {
+      "fetches": 232,
+      "fetchBytes": 24615688,
+      "decodes": 13,
+      "decodeMs": 1513,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 219,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      15.9,
+      16.2,
+      16.2,
+      15.6,
+      16.2,
+      16.3,
+      15.8,
+      16.3,
+      9.6,
+      9.2
+     ],
+     "bandsDb": {
+      "b220": -149.1,
+      "b880": -38.4
+     }
+    }
+   },
+   {
+    "a": {
+     "playStartSec": 0,
+     "firstSoundMs": 295.3,
+     "videoMovesMs": 512.1,
+     "gateHeldMs": 319,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 1723,
+     "afterPlayPress": {
+      "fetches": 95,
+      "fetchBytes": 17580106,
+      "decodes": 8,
+      "decodeMs": 532
+     },
+     "wholePage": {
+      "fetches": 169,
+      "fetchBytes": 28780672,
+      "decodes": 14,
+      "decodeMs": 1367,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 155,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      15.7,
+      15.9,
+      15.9,
+      15.8,
+      15.3,
+      15.9,
+      15.6,
+      9.1,
+      15.8,
+      9
+     ]
+    },
+    "b_resume": {
+     "playStartSec": 5.210936,
+     "firstSoundMs": 28.3,
+     "videoMovesMs": 193.7,
+     "gateHeldMs": 0,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 86,
+      "fetchBytes": 2081089,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 331,
+      "fetchBytes": 32270932,
+      "decodes": 14,
+      "decodeMs": 1367,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 317,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      11.4,
+      11.7,
+      11.7,
+      11.4,
+      11.5,
+      11.7,
+      11.4,
+      11.7,
+      14.9,
+      15.1
+     ]
+    },
+    "b_seek": {
+     "playStartSec": 90,
+     "firstSoundMs": 27.2,
+     "videoMovesMs": 213.8,
+     "gateHeldMs": 14,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 87,
+      "fetchBytes": 2164107,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 446,
+      "fetchBytes": 34923038,
+      "decodes": 14,
+      "decodeMs": 1367,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 432,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      10.8,
+      10.7,
+      10.5,
+      13.5,
+      14,
+      14,
+      13.9,
+      13.7,
+      14,
+      13.8
+     ]
+    },
+    "c": {
+     "playStartSec": 20,
+     "firstSoundMs": 18.3,
+     "videoMovesMs": 193.9,
+     "gateHeldMs": 0,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 86,
+      "fetchBytes": 6005186,
+      "decodes": 1,
+      "decodeMs": 62
+     },
+     "wholePage": {
+      "fetches": 560,
+      "fetchBytes": 41390311,
+      "decodes": 15,
+      "decodeMs": 1429,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 545,
+        "decode": 0
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-b.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar.flac": {
+        "fetch": 4,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 4
+       }
+      }
+     },
+     "sinceDurationEdit": {
+      "fetches": 87,
+      "fetchBytes": 6005186,
+      "decodes": 1,
+      "decodeMs": 62,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 86,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 1,
+        "decode": 0
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 1
+       }
+      }
+     },
+     "driftMsSamples": [
+      15.5,
+      15.4,
+      15.7,
+      15.4,
+      15.5,
+      15.5,
+      15.7,
+      15.3,
+      15.6,
+      15.7
+     ]
+    },
+    "d_rerender": {
+     "playStartSec": 22.666667,
+     "firstSoundMs": 32.4,
+     "videoMovesMs": 207.5,
+     "gateHeldMs": 17,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 489,
+     "afterPlayPress": {
+      "fetches": 85,
+      "fetchBytes": 2081471,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 185,
+      "fetchBytes": 18846281,
+      "decodes": 12,
+      "decodeMs": 285,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 173,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      16.5,
+      6.7,
+      6.7,
+      7,
+      6.9,
+      6.7,
+      16.6,
+      16.6,
+      6.7,
+      6.8
+     ]
+    },
+    "d_reopen": {
+     "playStartSec": 0,
+     "firstSoundMs": 36.2,
+     "videoMovesMs": 218.1,
+     "gateHeldMs": 13,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 377,
+     "afterPlayPress": {
+      "fetches": 86,
+      "fetchBytes": 2089805,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 166,
+      "fetchBytes": 18505897,
+      "decodes": 12,
+      "decodeMs": 233,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 154,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      6.7,
+      7,
+      6.9,
+      6.6,
+      7,
+      6.8,
+      6.6,
+      9.9,
+      6.8,
+      10.2
+     ]
+    },
+    "e": {
+     "playStartSec": 0,
+     "firstSoundMs": 365.3,
+     "videoMovesMs": 552.6,
+     "gateHeldMs": 25,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": 4345,
+     "afterPlayPress": {
+      "fetches": 86,
+      "fetchBytes": 2089805,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 166,
+      "fetchBytes": 18505897,
+      "decodes": 12,
+      "decodeMs": 282,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 154,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      10.7,
+      10.6,
+      10.5,
+      10.6,
+      10.8,
+      10.4,
+      10.7,
+      10.8,
+      10.5,
+      13.5
+     ]
+    },
+    "props": {
+     "duck_noNarration_8s": {
+      "b220": -44.7,
+      "b196": -78.4,
+      "b500": -48.3,
+      "drift": 13.694999999998458,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 498.046875,
+       "db": -43.60883712768555
+      }
+     },
+     "duck_narration_17s": {
+      "b220": -56.6,
+      "b196": -90.2,
+      "b500": -48.6,
+      "drift": 15.436333333333607,
+      "rate": 1,
+      "pitchPreserved": true,
+      "stretcher": "none",
+      "peak": {
+       "hz": 439.453125,
+       "db": -42.76190185546875
+      }
+     },
+     "mute": {
+      "before": {
+       "b220": -44.9,
+       "b196": -78.6,
+       "b500": -48.3,
+       "drift": 15.257333333332568,
+       "rate": 1,
+       "pitchPreserved": true,
+       "stretcher": "none",
+       "peak": {
+        "hz": 498.046875,
+        "db": -43.60883712768555
+       }
+      },
+      "after": {
+       "b220": -161.1,
+       "b196": -162.7
+      },
+      "restored": {
+       "b220": -44
+      }
+     },
+     "rate_0.5": {
+      "advancePerSec": 0.51,
+      "rate": 0.5,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -43.9,
+      "b500": -51.1,
+      "drift": 15.639166666668203
+     },
+     "rate_2": {
+      "advancePerSec": 1.99,
+      "rate": 2,
+      "pitchPreserved": true,
+      "stretcher": "worklet",
+      "b220": -53.6,
+      "b500": -47.6,
+      "drift": 15.85966666666394
+     },
+     "drift": {
+      "n": 25,
+      "mean": 15,
+      "maxAbs": 16.7
+     }
+    },
+    "swap": {
+     "playStartSec": 8,
+     "firstSoundMs": 39.1,
+     "videoMovesMs": 215.4,
+     "gateHeldMs": 34,
+     "waitingLabelShownMs": 0,
+     "preparingLabelShownMs": 0,
+     "statusTexts": [],
+     "openOrReloadMs": null,
+     "afterPlayPress": {
+      "fetches": 115,
+      "fetchBytes": 2562858,
+      "decodes": 0,
+      "decodeMs": 0
+     },
+     "wholePage": {
+      "fetches": 233,
+      "fetchBytes": 24647199,
+      "decodes": 13,
+      "decodeMs": 1161,
+      "decodeFailed": 0,
+      "byFile": {
+       "pcm-window": {
+        "fetch": 220,
+        "decode": 0
+       },
+       "speech-sidecar.flac": {
+        "fetch": 3,
+        "decode": 0
+       },
+       "sfx/ding.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-1.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-2.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-3.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/whoosh.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "audio/bgm-a.mp3": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-4.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "sfx/pop.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-5.wav": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "narration/n-6.m4a": {
+        "fetch": 1,
+        "decode": 1
+       },
+       "speech-sidecar decode": {
+        "fetch": 0,
+        "decode": 3
+       }
+      }
+     },
+     "driftMsSamples": [
+      14.6,
+      4.9,
+      15,
+      14.9,
+      14.6,
+      14.9,
+      14.9,
+      14.6,
+      15,
+      14.9
+     ],
+     "bandsDb": {
+      "b220": -148.9,
+      "b880": -38.4
+     }
+    }
+   }
+  ]
+ },
+ "notes": [
+  "before[0] (pre-4) props.rate_*.advancePerSec used an earlier harness formula that divided by (elapsed-0.5 s); use before[1] (pre-5) for rate comparison. Both before runs show the same 3 s gate hold."
+ ]
+}

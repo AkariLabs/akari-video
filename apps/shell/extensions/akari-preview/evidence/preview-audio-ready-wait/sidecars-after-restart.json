@@ -1,0 +1,148 @@
+{
+ "description": "On-disk preview audio PCM sidecars in <project>/.akari/cache/preview-audio after the post-fix L1 run r3-2. Key = sha1(source path | size | mtimeMs | in | out | speed | pads | filters | preview-audio-pcm-v1 | pcm-s16le | 24000 | 1 | 2) (media-bin keyFor, unchanged). The 5 files created at 02:58:38-39Z were generated once during phase (a) and read again (window Range reads, no whole-file decode) in phase (e) after the app restart at 02:59:09Z; no sidecar was regenerated in (e). After phase swap (bgm-a.mp3 replaced by a same-size 880 Hz file with a different mtime), 3 new keys were generated at 02:59:55Z and the old 3 no longer match the current source version (listed as stale); playback then showed 880 Hz at -38.4 dB and 220 Hz at -148.9 dB.",
+ "createdUtc": {
+  "39c73587ce,5a7bcf0c3a,77710c7a9c,a7a2502120,5f9f08ce66": "02:58:38-02:58:39Z (phase a)",
+  "71e28c4cb0,f490709179,c8d0842f88": "02:59:55Z (phase swap)"
+ },
+ "sidecars": [
+  {
+   "key": "71e28c4cb06533653cfb613ebde60124445a2308",
+   "file": "71e28c4cb06533653cfb613ebde60124445a2308.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 4946400,
+   "bytes": 9892800,
+   "inSec": 3.9,
+   "outSec": 210,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": [
+    {
+     "item": "bgm-01",
+     "source": "audio/bgm-a.mp3",
+     "sourceBytes": 5041884,
+     "sourceMtimeMs": 1790643058497.575
+    }
+   ]
+  },
+  {
+   "key": "f4907091798a5675c76dc261a604f72b3a3b4c56",
+   "file": "f4907091798a5675c76dc261a604f72b3a3b4c56.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 3600000,
+   "bytes": 7200000,
+   "inSec": 60,
+   "outSec": 210,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": [
+    {
+     "item": "bgm-02",
+     "source": "audio/bgm-a.mp3",
+     "sourceBytes": 5041884,
+     "sourceMtimeMs": 1790643058497.575
+    }
+   ]
+  },
+  {
+   "key": "a7a2502120250cc57911d036fbd78c9b1fdee0ef",
+   "file": "a7a2502120250cc57911d036fbd78c9b1fdee0ef.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 4199744,
+   "bytes": 8399488,
+   "inSec": 20,
+   "outSec": 195,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": [
+    {
+     "item": "bgm-03",
+     "source": "audio/bgm-b.m4a",
+     "sourceBytes": 4763176,
+     "sourceMtimeMs": 1790650709987.6245
+    }
+   ]
+  },
+  {
+   "key": "5f9f08ce66c5c4a37c35af380872eca51390daf3",
+   "file": "5f9f08ce66c5c4a37c35af380872eca51390daf3.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 2279744,
+   "bytes": 4559488,
+   "inSec": 100,
+   "outSec": 195,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": [
+    {
+     "item": "bgm-04",
+     "source": "audio/bgm-b.m4a",
+     "sourceBytes": 4763176,
+     "sourceMtimeMs": 1790650709987.6245
+    }
+   ]
+  },
+  {
+   "key": "c8d0842f883f5c2d96106565d61ba36ecd8cd964",
+   "file": "c8d0842f883f5c2d96106565d61ba36ecd8cd964.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 1440000,
+   "bytes": 2880000,
+   "inSec": 150,
+   "outSec": 210,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": [
+    {
+     "item": "bgm-05",
+     "source": "audio/bgm-a.mp3",
+     "sourceBytes": 5041884,
+     "sourceMtimeMs": 1790643058497.575
+    }
+   ]
+  },
+  {
+   "key": "39c73587cec476eeefa2b99d23d00f7d168dbdc3",
+   "file": "39c73587cec476eeefa2b99d23d00f7d168dbdc3.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 4946400,
+   "bytes": 9892800,
+   "inSec": 3.9,
+   "outSec": 210,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": "stale (source replaced; key no longer matches current size+mtime)"
+  },
+  {
+   "key": "5a7bcf0c3af8d870996d4ed2dd6661a4195f2af9",
+   "file": "5a7bcf0c3af8d870996d4ed2dd6661a4195f2af9.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 3600000,
+   "bytes": 7200000,
+   "inSec": 60,
+   "outSec": 210,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": "stale (source replaced; key no longer matches current size+mtime)"
+  },
+  {
+   "key": "77710c7a9c107c3202792348a6d065cf006c5303",
+   "file": "77710c7a9c107c3202792348a6d065cf006c5303.pcm",
+   "format": "pcm-s16le",
+   "sampleRate": 24000,
+   "channels": 1,
+   "frames": 1440000,
+   "bytes": 2880000,
+   "inSec": 150,
+   "outSec": 210,
+   "recipe": "preview-audio-pcm-v1",
+   "currentSourceVersion": "stale (source replaced; key no longer matches current size+mtime)"
+  }
+ ]
+}
