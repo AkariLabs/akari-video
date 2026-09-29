@@ -1,9 +1,17 @@
 import { spawn, spawnSync } from "node:child_process";
+import {
+  computeCutTimelineOffsets,
+  effectiveTransitionDurations,
+  needsGapAwareCutTimeline,
+  resolveCutSegments,
+} from "./cut-timeline.mjs";
 
 export const BLANK_FRAME_MIN_DURATION_SECONDS = 0.3;
 export const BLANK_FRAME_YMAX_TOLERANCE = 8;
 export const BLANK_FRAME_SPREAD_TOLERANCE = 16;
 export const BLANK_FRAME_BACKGROUND_FRACTION = 0.05;
+export const DECLARED_FADE_TRANSITION_TYPES = ["fade", "fade-black", "fade-white", "dissolve"];
+export const DECLARED_FADE_OPACITY_EPSILON = 0.05;
 
 const CAPTURE_LIMIT_BYTES = 64 * 1024 * 1024;
 
@@ -146,16 +154,137 @@ export function activeIdsForInterval(edit, interval) {
   };
 }
 
+export function collectDeclaredFadeWindows(edit, { fps } = {}) {
+  const frameRate = positiveFinite(fps) ? fps : positiveFinite(edit?.output?.fps) ? edit.output.fps : null;
+  const windows = [];
+  const add = (kind, id, via, start, end, boundsStart = start, boundsEnd = end) => {
+    if (typeof id !== "string" || !id || !Number.isFinite(start) || !Number.isFinite(end)
+      || !Number.isFinite(boundsStart) || !Number.isFinite(boundsEnd)) return;
+    const clippedStart = roundSeconds(Math.max(start, boundsStart));
+    const clippedEnd = roundSeconds(Math.min(end, boundsEnd));
+    if (clippedEnd > clippedStart) windows.push({ kind, id, via, start: clippedStart, end: clippedEnd });
+  };
+  const addItem = (item, kind, id, start, end, prefix = "") => {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+    for (const direction of ["in", "out"]) {
+      const motion = item?.motion?.[direction];
+      if (motion?.preset !== "fade" || !positiveFinite(motion.duration) || !frameRate) continue;
+      const seconds = motion.duration / frameRate;
+      add(kind, id, `${prefix}motion.${direction}:fade`,
+        direction === "in" ? start : end - seconds,
+        direction === "in" ? start + seconds : end, start, end);
+    }
+    if (Number.isFinite(item?.opacity) && item.opacity <= DECLARED_FADE_OPACITY_EPSILON) {
+      add(kind, id, "opacity", start, end);
+    }
+    const points = (Array.isArray(item?.keyframes) ? item.keyframes : [])
+      .filter((point) => Number.isFinite(point?.t) && Number.isFinite(point?.opacity))
+      .map((point) => ({
+        t: (kind === "overlay" || kind === "group") && item?.keyframeUnit === "frames"
+          ? (frameRate ? point.t / frameRate : NaN) : point.t,
+        opacity: point.opacity,
+      }))
+      .filter((point) => Number.isFinite(point.t))
+      .sort((left, right) => left.t - right.t);
+    if (!points.length) return;
+    const low = (point) => point.opacity <= DECLARED_FADE_OPACITY_EPSILON;
+    if (low(points[0])) add(kind, id, "keyframes.opacity", start, start + points[0].t, start, end);
+    for (let index = 0; index < points.length - 1; index += 1) {
+      if (low(points[index]) || low(points[index + 1])) {
+        add(kind, id, "keyframes.opacity", start + points[index].t, start + points[index + 1].t, start, end);
+      }
+    }
+    if (low(points.at(-1))) add(kind, id, "keyframes.opacity", start + points.at(-1).t, end, start, end);
+  };
+
+  const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+  // Keep indexes stable while preventing malformed in/out from poisoning timeline calculations.
+  const positionedCuts = cuts.map((cut) => Number.isFinite(cut?.in) && Number.isFinite(cut?.out)
+    && cut.out >= cut.in ? cut : { ...cut, in: 0, out: 0, transition_out: undefined, freeze: undefined });
+  const gapAware = needsGapAwareCutTimeline(positionedCuts);
+  const positions = gapAware ? resolveCutSegments(positionedCuts)
+    : computeCutTimelineOffsets(positionedCuts);
+  const transitions = gapAware ? [] : effectiveTransitionDurations(positionedCuts);
+  cuts.forEach((cut, index) => {
+    if (!Number.isFinite(cut?.in) || !Number.isFinite(cut?.out) || cut.out < cut.in) return;
+    const position = positions[index];
+    const start = position?.start;
+    const end = gapAware ? position?.end : start + position?.duration;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+    const transition = cut.transition_out;
+    if (index < cuts.length - 1 && DECLARED_FADE_TRANSITION_TYPES.includes(transition?.type)) {
+      const duration = gapAware ? Math.min(transition.duration, end - start) : transitions[index];
+      if (positiveFinite(duration)) add("cut", cut.id, `transition_out:${transition.type}`, end - duration, end, start, end);
+    }
+    addItem(cut, "cut", cut.id, start, end);
+  });
+  for (const layer of edit?.layers ?? []) {
+    if (Number.isFinite(layer?.t) && Number.isFinite(layer?.duration)) {
+      addItem(layer, "layer", layer.id, layer.t, layer.t + layer.duration);
+    }
+  }
+  for (const overlay of edit?.overlays ?? []) {
+    if (Number.isFinite(overlay?.start) && Number.isFinite(overlay?.duration)) {
+      addItem(overlay, "overlay", overlay.id, overlay.start, overlay.start + overlay.duration);
+    }
+    for (const parent of overlay?.motionParents ?? []) {
+      if (Number.isFinite(parent?.at) && Number.isFinite(parent?.duration)) {
+        addItem(parent, "group", overlay.parentId ?? overlay.id, parent.at, parent.at + parent.duration, "parent.");
+      }
+    }
+  }
+  return windows;
+}
+
+export function declaredFadesForInterval(windows, interval, { fps } = {}) {
+  const start = interval?.start;
+  const end = start + interval?.duration;
+  const declared_fades = [];
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return { declared_fades, declared_blank: false };
+  }
+  const overlapping = (Array.isArray(windows) ? windows : [])
+    .filter((window) => Number.isFinite(window?.start) && Number.isFinite(window?.end)
+      && window.end > window.start && window.start < end && window.end > start);
+  const seen = new Set();
+  for (const window of overlapping) {
+    const key = JSON.stringify([window.kind, window.id, window.via]);
+    if (!seen.has(key)) {
+      seen.add(key);
+      declared_fades.push({ kind: window.kind, id: window.id, via: window.via });
+    }
+  }
+  const margin = positiveFinite(fps) ? 1 / fps : 0;
+  const expanded = (Array.isArray(windows) ? windows : [])
+    .filter((window) => Number.isFinite(window?.start) && Number.isFinite(window?.end) && window.end > window.start)
+    .map((window) => ({ start: window.start - margin, end: window.end + margin }))
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+  let coveredUntil = start;
+  for (const window of expanded) {
+    if (window.start > coveredUntil + 1e-6) break;
+    coveredUntil = Math.max(coveredUntil, window.end);
+    if (coveredUntil + 1e-6 >= end) return { declared_fades, declared_blank: true };
+  }
+  return { declared_fades, declared_blank: false };
+}
+
+function positiveFinite(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 export function blankIntervalSeverity(interval) {
+  if (interval?.declared_blank === true) return "info";
   return (interval?.active_overlays?.length ?? 0) > 0 || (interval?.active_cuts?.length ?? 0) > 0
     ? "warning"
     : "info";
 }
 
-export function annotateBlankIntervals(intervals, edit) {
+export function annotateBlankIntervals(intervals, edit, { fps } = {}) {
+  const frameRate = positiveFinite(fps) ? fps : positiveFinite(edit?.output?.fps) ? edit.output.fps : null;
+  const windows = collectDeclaredFadeWindows(edit, { fps: frameRate });
   return (Array.isArray(intervals) ? intervals : []).map((interval) => {
     const active = activeIdsForInterval(edit, interval);
-    const record = { ...interval, ...active };
+    const record = { ...interval, ...active, ...declaredFadesForInterval(windows, interval, { fps: frameRate }) };
     return { ...record, severity: blankIntervalSeverity(record) };
   });
 }
@@ -169,10 +298,15 @@ export function blankFrameFindings(intervals, { backgroundYmax, spreadTolerance 
       ...(interval.active_overlays ?? []).map((id) => `overlay:${id}`),
       ...(interval.active_cuts ?? []).map((id) => `cut:${id}`),
     ];
+    const fades = Array.isArray(interval.declared_fades) ? interval.declared_fades : [];
+    const listed = fades.map(({ kind, id, via }) => `${kind}:${id}(${via})`).join(", ");
+    const declaredDetails = fades.length === 0 ? "" : interval.declared_blank === true
+      ? `; 宣言済みの暗転 ${listed} の窓に収まる（意図した暗転として info）`
+      : `; 宣言済みの暗転 ${listed} と一部だけ重なる`;
     return {
       severity: interval.severity,
       check: "verify.blank-frames",
-      message: `空フレーム候補 ${formatSeconds(interval.start)}s–${formatSeconds(interval.start + interval.duration)}s（${formatSeconds(interval.duration)} 秒、YMAX 最大 ${formatSeconds(interval.ymax_max)}）${active.length > 0 ? `; 活性 ${active.join(", ")}` : "; 活性 overlay/cut なし"}${thresholdDetails}`,
+      message: `空フレーム候補 ${formatSeconds(interval.start)}s–${formatSeconds(interval.start + interval.duration)}s（${formatSeconds(interval.duration)} 秒、YMAX 最大 ${formatSeconds(interval.ymax_max)}）${active.length > 0 ? `; 活性 ${active.join(", ")}` : "; 活性 overlay/cut なし"}${declaredDetails}${thresholdDetails}`,
     };
   });
 }
@@ -203,6 +337,7 @@ export function blankFramesFromLuma({
   const intervals = annotateBlankIntervals(
     detectBlankIntervals(samples, { fps, backgroundYmax, spreadTolerance }),
     edit,
+    { fps },
   );
   return {
     ok: true,
@@ -262,6 +397,7 @@ function buildBlankFrameScanResult({ metadata, failed, stderr, error, fps, edit,
   const intervals = annotateBlankIntervals(
     detectBlankIntervals(samples, { fps, backgroundYmax, spreadTolerance }),
     edit,
+    { fps },
   );
   return {
     ok: true,
