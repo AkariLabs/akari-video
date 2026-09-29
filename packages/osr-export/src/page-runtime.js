@@ -291,5 +291,48 @@
     await animationFrames(2);
   };
 
+  window.__akariStampDiagnostics = function (seconds) {
+    const overlays = [];
+    for (const frame of activeOverlayFrames) {
+      try {
+        const blend = frame.dataset?.blend ?? "normal";
+        const roots = frame.contentDocument.querySelectorAll("[data-overlay-id]");
+        for (const root of roots) {
+          try {
+            const start = Number(root.getAttribute("data-start"));
+            const duration = Number(root.getAttribute("data-duration"));
+            const timed = root.hasAttribute("data-start") && root.hasAttribute("data-duration")
+              && Number.isFinite(start) && Number.isFinite(duration)
+              && start <= seconds && seconds < start + duration;
+            if (!timed && !root.hasAttribute("data-akari-active")) continue;
+            const cssFeatures = new Set();
+            // Match gpu-export eligibility's advanced-css conditions without importing its dependent module.
+            const elements = [root, ...root.querySelectorAll("*")];
+            for (const element of elements.slice(0, 4_000)) {
+              try {
+                const style = frame.contentWindow.getComputedStyle(element);
+                const blendMode = style.getPropertyValue("mix-blend-mode");
+                if (blendMode && blendMode !== "normal") cssFeatures.add(`mix-blend-mode: ${blendMode}`);
+                const filter = style.getPropertyValue("filter");
+                if (filter && filter !== "none") cssFeatures.add("filter");
+                const backdropFilter = style.getPropertyValue("backdrop-filter");
+                if (backdropFilter && backdropFilter !== "none") cssFeatures.add("backdrop-filter");
+                if (["mask-image", "-webkit-mask-image"].some((name) => {
+                  const value = style.getPropertyValue(name);
+                  return value && value !== "none";
+                })) cssFeatures.add("mask");
+                const clipPath = style.getPropertyValue("clip-path");
+                if (clipPath && clipPath !== "none") cssFeatures.add("clip-path");
+              } catch { /* Inaccessible or detached element. */ }
+            }
+            if (root.querySelector("script[data-akari-3d-scene], canvas")) cssFeatures.add("3d-scene");
+            overlays.push({ id: root.getAttribute("data-overlay-id"), blend, cssFeatures: [...cssFeatures].slice(0, 8) });
+          } catch { /* An invalid overlay must not prevent reporting its siblings. */ }
+        }
+      } catch { /* An inaccessible iframe must not hide other diagnostics. */ }
+    }
+    return { overlays };
+  };
+
   window.addEventListener("beforeunload", () => engineRuntime && engineRuntime.dispose(), { once: true });
 })();

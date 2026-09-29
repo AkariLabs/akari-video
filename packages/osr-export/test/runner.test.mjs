@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -242,22 +243,42 @@ test("tier 1 も実プロセス引数へ Chromium スイッチを渡す", () => 
   assert.ok(args.indexOf("--force-color-profile=srgb") < args.indexOf("--render"));
 });
 
-test("tier 1 は run 配下の user data を --render より前へ渡す", () => {
-  const options = exportOptions(join("render-tmp", "run-1", "video.mp4"));
-  const args = buildElectronArguments({ tier: 1 }, options);
-  const userDataArgument = `--user-data-dir=${join(dirname(options.out), "electron-user-data")}`;
-  assert.ok(args.includes(userDataArgument));
-  assert.ok(args.indexOf("--force-device-scale-factor=1") < args.indexOf(userDataArgument));
-  assert.ok(args.indexOf(userDataArgument) < args.indexOf("--render"));
+test("tier 1 は短い一時 user data を --render より前へ渡す", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
+  try {
+    const options = exportOptions(join(root, "video.mp4"));
+    const calls = [];
+    await launchElectronExport({ tier: 1, executable: "/electron" }, options, {
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(options.out, "video") }),
+    });
+    const args = calls[0].args;
+    const userData = args.filter((arg) => arg.startsWith("--user-data-dir="));
+    assert.equal(userData.length, 1);
+    assert.equal(dirname(userData[0].slice("--user-data-dir=".length)), tmpdir());
+    assert.match(userData[0], /akari-osr-/);
+    assert.ok(args.indexOf("--force-device-scale-factor=1") < args.indexOf(userData[0]));
+    assert.ok(args.indexOf(userData[0]) < args.indexOf("--render"));
+    assert.ok(!args.includes(`--user-data-dir=${join(dirname(options.out), "electron-user-data")}`));
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("tier 2 は script を先頭に保って run 配下の user data を渡す", () => {
-  const options = exportOptions(join("render-tmp", "run-2", "video.mp4"));
-  const args = buildElectronArguments({ tier: 2 }, options);
-  const userDataArgument = `--user-data-dir=${join(dirname(options.out), "electron-user-data")}`;
-  assert.match(args[0], /electron-main\.mjs$/);
-  assert.ok(args.includes(userDataArgument));
-  assert.ok(args.indexOf(userDataArgument) < args.indexOf("--render"));
+test("tier 2 は script を先頭に保って短い一時 user data を渡す", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
+  try {
+    const options = exportOptions(join(root, "video.mp4"));
+    const calls = [];
+    await launchElectronExport({ tier: 2, executable: "/electron" }, options, {
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(options.out, "video") }),
+    });
+    const args = calls[0].args;
+    assert.match(args[0], /electron-main\.mjs$/);
+    const userData = args.filter((arg) => arg.startsWith("--user-data-dir="));
+    assert.equal(userData.length, 1);
+    assert.equal(dirname(userData[0].slice("--user-data-dir=".length)), tmpdir());
+    assert.match(userData[0], /akari-osr-/);
+    assert.ok(args.indexOf(userData[0]) < args.indexOf("--render"));
+    assert.ok(!args.includes(`--user-data-dir=${join(dirname(options.out), "electron-user-data")}`));
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("tier 1 は GPU main を --akari-main の POSIX 相対パスとして --render より前へ渡す", () => {
@@ -301,6 +322,47 @@ test("明示した user data ディレクトリは run 配下の既定より優�
   const args = buildElectronArguments({ tier: 1 }, options);
   assert.ok(args.includes(`--user-data-dir=${options.userDataDir}`));
   assert.ok(!args.includes(`--user-data-dir=${join(dirname(options.out), "electron-user-data")}`));
+});
+
+test("一時 userData は成功・無出力失敗・spawn reject の後に消え、run ごとに一意", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
+  const seen = [];
+  try {
+    for (const [index, kind] of ["success", "empty", "reject", "success"].entries()) {
+      const out = join(root, `video-${index}.mp4`);
+      const calls = [];
+      const options = exportOptions(out);
+      const launch = launchElectronExport({ tier: 1, executable: "/electron" }, options, {
+        spawnImpl: spawnMock({
+          calls,
+          beforeClose: () => kind === "reject" ? Promise.reject(new Error("spawn rejected"))
+            : kind === "success" ? writeFile(out, "video") : undefined,
+        }),
+      });
+      if (kind === "success") await launch;
+      else await assert.rejects(launch);
+      const userData = calls[0].args.find((arg) => arg.startsWith("--user-data-dir=")).slice("--user-data-dir=".length);
+      seen.push(userData);
+      assert.equal(existsSync(userData), false);
+    }
+    assert.equal(new Set(seen).size, seen.length);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("明示 userDataDir は作らず消さない", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
+  try {
+    const out = join(root, "video.mp4");
+    const userDataDir = join(root, "custom-profile");
+    await mkdir(userDataDir);
+    const calls = [];
+    await launchElectronExport({ tier: 1, executable: "/electron" }, { ...exportOptions(out), userDataDir }, {
+      temporaryDirectory: () => { throw new Error("must not create temp userData"); },
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }),
+    });
+    assert.ok(calls[0].args.includes(`--user-data-dir=${userDataDir}`));
+    assert.equal(existsSync(userDataDir), true);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("exit 0 でも出力が無ければ単一インスタンスロックの可能性を報告する", async () => {
@@ -563,13 +625,14 @@ test("darwin / linux / soft / off / OSR 出口の auto は registry に触らず
     for (const { platform, options, env, reason } of cases) {
       const mocks = gpuPreferenceMocks();
       const calls = [];
-      const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), ...options }, {
+      const launchOptions = { ...exportOptions(out), ...options, userDataDir: join(root, "explicit-user-data") };
+      const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, launchOptions, {
         spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }), env, platform, ...mocks,
       });
       assert.equal(mocks.log.filter(([name]) => name === "write" || name === "remove").length, 0, `${platform}/${reason}`);
       assert.equal(result.gpuPreference.reason, reason);
       assert.equal(result.gpuPreference.applied, false);
-      assert.deepEqual(calls[0].args, buildElectronArguments({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), ...options }));
+      assert.deepEqual(calls[0].args, buildElectronArguments({ tier: 2, executable: WINDOWS_ELECTRON }, launchOptions));
     }
   } finally {
     await rm(root, { recursive: true, force: true });

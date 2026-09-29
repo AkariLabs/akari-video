@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -122,41 +122,61 @@ export async function launchElectronExport(launcher, options, {
   sidecar = undefined,
   executableExists = undefined,
   stderr = undefined,
+  temporaryDirectory = tmpdir,
 } = {}) {
   if (launcher.tier === 3) {
     throw new Error(`osr-export error: Electron launcher unavailable: ${launcher.reason ?? "Electron unavailable"}`);
   }
-  const args = argumentBuilder(launcher, options);
-  let progressLines = 0;
-  let pendingStdout = "";
-  const onStdout = (text) => {
-    pendingStdout += text;
-    const lines = pendingStdout.split(/\r?\n/);
-    pendingStdout = lines.pop() ?? "";
-    progressLines += lines.filter((line) => line.startsWith("PROGRESS frame=")).length;
-    options.onStdout?.(text);
-  };
-  // write（HKCU）→ spawn → 子の close → finally で restore。他 OS / soft / off は記録に理由だけ残して spawn する。
-  const { gpuPreference } = await withGpuPreference(
-    launcher,
-    options,
-    () => spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr }),
-    { env, platform, registry, sidecar, executableExists, stderr },
-  );
-  if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
-  const output = await stat(options.out).catch(() => null);
-  const outputMissing = !output || (output.isDirectory()
-    ? (await readdir(options.out).catch(() => [])).length === 0
-    : output.size === 0);
-  if (outputMissing) {
-    const error = new Error(`osr-export error: OSR Electron は exit 0 で終了しましたが出力がありません（PROGRESS 行 ${progressLines}）。起動中の AKARI Video デスクトップアプリの単一インスタンスロックに弾かれた可能性があります（--user-data-dir の伝播を確認）: ${options.out}`);
-    error.gpuPreference = gpuPreference;
-    throw error;
+  const temporaryUserData = options.userDataDir == null
+    ? await mkdtemp(join(temporaryDirectory(), "akari-osr-")) : null;
+  const launchOptions = { ...options, userDataDir: temporaryUserData ?? options.userDataDir };
+  try {
+    const args = argumentBuilder(launcher, launchOptions);
+    let progressLines = 0;
+    let pendingStdout = "";
+    const onStdout = (text) => {
+      pendingStdout += text;
+      const lines = pendingStdout.split(/\r?\n/);
+      pendingStdout = lines.pop() ?? "";
+      progressLines += lines.filter((line) => line.startsWith("PROGRESS frame=")).length;
+      options.onStdout?.(text);
+    };
+    // write（HKCU）→ spawn → 子の close → finally で restore。他 OS / soft / off は記録に理由だけ残して spawn する。
+    const { gpuPreference } = await withGpuPreference(
+      launcher,
+      options,
+      () => spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr }),
+      { env, platform, registry, sidecar, executableExists, stderr },
+    );
+    if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
+    const output = await stat(options.out).catch(() => null);
+    const outputMissing = !output || (output.isDirectory()
+      ? (await readdir(options.out).catch(() => [])).length === 0
+      : output.size === 0);
+    if (outputMissing) {
+      const error = new Error(`osr-export error: OSR Electron は exit 0 で終了しましたが出力がありません（PROGRESS 行 ${progressLines}）。起動中の AKARI Video デスクトップアプリの単一インスタンスロックに弾かれた可能性があります（--user-data-dir の伝播を確認）: ${options.out}`);
+      error.gpuPreference = gpuPreference;
+      throw error;
+    }
+    return { launcher, gpuPreference };
+  } finally {
+    if (temporaryUserData) {
+      await rm(temporaryUserData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
+        .catch((error) => {
+          const line = `osr-export warning: Electron の一時 userData を削除できませんでした: ${temporaryUserData}: ${error?.message ?? error}\n`;
+          try {
+            if (stderr?.write) stderr.write(line);
+            else if (options.onStderr) options.onStderr(line);
+            else process.stderr.write(line);
+          } catch { /* Cleanup diagnostics must never replace the launch result. */ }
+        });
+    }
   }
-  return { launcher, gpuPreference };
 }
 
 export function buildElectronArguments(launcher, options) {
+  // Direct callers retain the historical output-adjacent default; launchElectronExport supplies
+  // a short per-launch directory before calling this synchronous builder.
   const userDataDir = options.userDataDir ?? join(dirname(options.out), "electron-user-data");
   const chromiumSwitches = [
     CHROMIUM_SWITCHES[0],

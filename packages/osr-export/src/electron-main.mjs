@@ -12,11 +12,16 @@ import { collectGpuDevices, summarizeGpuAdapters } from "./gpu-adapters.mjs";
 import { createMemorySampler, resolveMemoryBudget, memoryHardStopError } from "./memory.mjs";
 import {
   OSR_WARM_UP_BUDGET_MS,
+  OSR_STAMP_RETRY_BUDGET_MS,
+  OSR_MAXIMUM_STAMP_RETRIES,
   captureNonEmptyBitmap,
+  classifyStampSamples,
   createEmptyPaintRecorder,
   deviceEmulationParameters,
   osrPageSize,
   readPaintBitmap,
+  retryUntilVerified,
+  stampVerifyFailureMessage,
   viewportMatches,
   viewportRecord,
   warmUpFailureMessage,
@@ -139,6 +144,7 @@ export async function runOsrExport(options) {
   const paintTimeouts = [];
   const emptyPaints = [];
   const retryHistogram = {};
+  const retryElapsed = { total: 0, max: 0, maxFrame: null, perFrame: new Map() };
   const preVerifyDeltaHistogram = {};
   const frameHashes = [];
   const dumpFrameNumbers = new Set(dumpFrames);
@@ -242,20 +248,28 @@ export async function runOsrExport(options) {
       const hashVerifyStarted = performance.now();
       if (verify === "hash") {
         let hash = sha256(stripStampRow(bitmap, width, height));
-        while (lastAcceptedHash !== null && hash === lastAcceptedHash && retries < 8) {
-          await settle(windowRef);
-          const retryCapture = await captureFrameNonEmpty({
-            windowRef, frame, width, height, paintTimeoutMs, paintTimeouts, emptyPaints, viewport: viewportContext, activeDevice,
-          });
-          bitmap = retryCapture.bitmap;
-          hash = sha256(stripStampRow(bitmap, width, height));
-          retries += 1;
-        }
+        const hashRetry = await retryUntilVerified({
+          check: () => lastAcceptedHash === null || hash !== lastAcceptedHash,
+          maximumRetries: 8,
+          budgetMs: OSR_STAMP_RETRY_BUDGET_MS,
+          backoff: false,
+          settle: () => settle(windowRef),
+          recapture: async () => {
+            const retryCapture = await captureFrameNonEmpty({
+              windowRef, frame, width, height, paintTimeoutMs, paintTimeouts, emptyPaints, viewport: viewportContext, activeDevice,
+            });
+            bitmap = retryCapture.bitmap;
+            hash = sha256(stripStampRow(bitmap, width, height));
+          },
+        });
+        retries += hashRetry.retries;
+        if (hashRetry.retries > 0) recordRetryElapsed(retryElapsed, frame, hashRetry.elapsedMs);
         if (lastAcceptedHash !== null && hash === lastAcceptedHash) hashPolicyAmbiguous += 1;
         lastAcceptedHash = hash;
       }
       stages.verify.push(capturedFrame.verifyMs + (verify === "hash" ? performance.now() - hashVerifyStarted : 0));
       retriesTotal += retries;
+      if (capturedFrame.retries > 0) recordRetryElapsed(retryElapsed, frame, capturedFrame.retryElapsedMs);
       retryHistogram[String(retries)] = (retryHistogram[String(retries)] ?? 0) + 1;
 
       const writeStarted = performance.now();
@@ -298,7 +312,8 @@ export async function runOsrExport(options) {
       width, height, fps, duration, codec,
       output_scale: outputScale,
       gpu,
-      verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram },
+      verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram,
+        budget: stampRetryBudget(), retryElapsedMs: roundedRetryElapsed(retryElapsed) },
       frameHashes,
       stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
       bucketMedians: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, bucketMedians(values)])),
@@ -321,6 +336,12 @@ export async function runOsrExport(options) {
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(run, null, 2)}\n`);
     return run;
   } catch (error) {
+    if (error?.stampFailure?.retries > 0) {
+      const { frame, retries, elapsed_ms: elapsedMs } = error.stampFailure;
+      retriesTotal += retries;
+      retryHistogram[String(retries)] = (retryHistogram[String(retries)] ?? 0) + 1;
+      recordRetryElapsed(retryElapsed, frame, elapsedMs);
+    }
     encoderSession?.abort(error);
     const failed = {
       version: 1,
@@ -330,7 +351,9 @@ export async function runOsrExport(options) {
       framesRequested: frames,
       output_scale: outputScale,
       gpu,
-      verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram },
+      verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram,
+        budget: stampRetryBudget(), retryElapsedMs: roundedRetryElapsed(retryElapsed),
+        ...(error?.stampFailure ? { failure: error.stampFailure } : {}) },
       frameHashes,
       paintTimeouts,
       emptyPaints,
@@ -403,6 +426,7 @@ export async function runOsrCapture(options) {
   const paintTimeouts = [];
   const emptyPaints = [];
   const verifyFrames = [];
+  const retryElapsed = { total: 0, max: 0, maxFrame: null, perFrame: new Map() };
   const outputs = [];
   let windowRef = null;
   let viewport = null;
@@ -476,7 +500,9 @@ export async function runOsrCapture(options) {
         decodedFrameNumber: stamp.frameNumber,
         expectedFrameNumber: stamp.expectedFrameNumber,
         retries: captured.retries,
+        retryElapsedMs: Math.round(captured.retryElapsedMs),
       });
+      if (captured.retries > 0) recordRetryElapsed(retryElapsed, frame, captured.retryElapsedMs);
       outputs.push({ frameNumber: frame, path: outputPath, sha256: sha256(pixels) });
       process.stdout.write(`PROGRESS frame=${index + 1} total=${requestedFrames.length}\n`);
     }
@@ -498,6 +524,8 @@ export async function runOsrCapture(options) {
         mode: "stamp",
         matched: verifyFrames.every((entry) => entry.matched),
         frames: verifyFrames,
+        budget: stampRetryBudget(),
+        retryElapsedMs: roundedRetryElapsed(retryElapsed),
       },
       outputs,
       paintTimeouts,
@@ -511,6 +539,7 @@ export async function runOsrCapture(options) {
     await writeFile(out, `${JSON.stringify(run, null, 2)}\n`, "utf8");
     return run;
   } catch (error) {
+    if (error?.stampFailure?.retries > 0) recordRetryElapsed(retryElapsed, error.stampFailure.frame, error.stampFailure.elapsed_ms);
     await writeFile(out, `${JSON.stringify({
       version: 1,
       status: "failed",
@@ -518,7 +547,9 @@ export async function runOsrCapture(options) {
       error: String(error?.stack ?? error),
       framesRequested: requestedFrames,
       gpu,
-      verify: { mode: "stamp", matched: false, frames: verifyFrames },
+      verify: { mode: "stamp", matched: false, frames: verifyFrames,
+        budget: stampRetryBudget(), retryElapsedMs: roundedRetryElapsed(retryElapsed),
+        ...(error?.stampFailure ? { failure: error.stampFailure } : {}) },
       paintTimeouts,
       emptyPaints,
       viewport,
@@ -600,26 +631,67 @@ async function captureFrameBitmap({
   const verifyStarted = performance.now();
   const preCheck = verifyStamp(bitmap, width, height, frame);
   let retries = 0;
+  let retryElapsedMs = 0;
   if (verify === "stamp") {
-    while (!verifyStamp(bitmap, width, height, frame).exact && retries < 8) {
-      await settle(windowRef);
-      captured = await captureFrameNonEmpty(nonEmpty);
-      bitmap = captured.bitmap;
-      retries += 1;
-    }
-    if (!verifyStamp(bitmap, width, height, frame).exact) {
-      throw new Error(`frame ${frame} stamp verify failed after ${retries} retries`);
+    const result = await retryUntilVerified({
+      check: () => verifyStamp(bitmap, width, height, frame).exact,
+      settle: () => settle(windowRef),
+      recapture: async () => { captured = await captureFrameNonEmpty(nonEmpty); bitmap = captured.bitmap; },
+    });
+    retries = result.retries;
+    retryElapsedMs = result.elapsedMs;
+    if (!result.satisfied) {
+      const finalCheck = verifyStamp(bitmap, width, height, frame);
+      const overlays = await stampDiagnostics(windowRef, frame / fps);
+      const samples = finalCheck.samples ?? [];
+      const expectedFrameNumber = finalCheck.expectedFrameNumber;
+      const error = new Error(stampVerifyFailureMessage({
+        frame, retries, elapsedMs: retryElapsedMs, activeDevice, expectedFrameNumber, samples, overlays,
+      }));
+      error.stampFailure = {
+        frame, retries, elapsed_ms: Math.round(retryElapsedMs), expected: expectedFrameNumber,
+        samples, classification: classifyStampSamples(samples, expectedFrameNumber), overlays,
+      };
+      throw error;
     }
   }
   return {
     bitmap,
     preCheck,
     retries,
+    retryElapsedMs,
     seekMs,
     paintMs,
     toBitmapMs,
     verifyMs: performance.now() - verifyStarted,
   };
+}
+
+function stampRetryBudget() {
+  return { budget_ms: OSR_STAMP_RETRY_BUDGET_MS, maximum_retries: OSR_MAXIMUM_STAMP_RETRIES };
+}
+
+function recordRetryElapsed(summary, frame, elapsedMs) {
+  summary.total += elapsedMs;
+  const frameElapsed = (summary.perFrame.get(frame) ?? 0) + elapsedMs;
+  summary.perFrame.set(frame, frameElapsed);
+  if (frameElapsed > summary.max) { summary.max = frameElapsed; summary.maxFrame = frame; }
+}
+
+function roundedRetryElapsed(summary) {
+  return { total: Math.round(summary.total), max: Math.round(summary.max), maxFrame: summary.maxFrame };
+}
+
+async function stampDiagnostics(windowRef, seconds) {
+  let timeout;
+  try {
+    const result = await Promise.race([
+      windowRef.webContents.executeJavaScript(`window.__akariStampDiagnostics?.(${JSON.stringify(seconds)})`),
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("stamp diagnostics timeout")), 2_000); }),
+    ]);
+    return Array.isArray(result?.overlays) ? result.overlays : null;
+  } catch { return null; }
+  finally { clearTimeout(timeout); }
 }
 
 /** Adds renderer warnings in first-seen order; repeated seeks never duplicate run.json entries. */
