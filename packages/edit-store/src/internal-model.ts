@@ -426,7 +426,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
     // の両方が、トラックごとに独立した要素を合成できる layers 経路を選ぶ。
     const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(track =>
         'items' in track && track.lane === 'visual' ? [track.items] : []
-    ), pathOf);
+    ), pathOf, chromaKeyOf);
     const contentDurationFrames = edit.tracks.reduce((maximum, track) =>
         'items' in track && track.lane === 'visual' ? track.items.reduce((trackMaximum, item) =>
             Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
@@ -673,7 +673,8 @@ function needsLayersEngine(
 // layers へ退避する。終端と開始が接するだけなら交差ではない。同一トラックの交差は両方を
 // layers へ送る。別トラックの交差は、下段を cuts の不透明な基底として残し、上段が全画面不透明
 // ではない宣言を持つときだけ layers へ送る。上段が全画面不透明なら winner-take-all でも同じ絵に
-// なるため、従来の cuts / track-stack 経路を保つ。「全画面不透明」は宣言から証明できる場合に
+// なるのは、下段が全部 cuts の場合だけ。下段に layers として描かれるアイテムがあると、上段 cuts は
+// その下に描かれるため、不動点まで上段も layers へ退避する（#90）。「全画面不透明」は宣言から証明できる場合に
 // 限る: アルファを運べるコンテナ（webm / mov）のソースは単位元 transform でも不透明を証明
 // できないため退避対象（needsCrossTrackLayers 参照）。
 //
@@ -701,7 +702,8 @@ interface OverlapAnalysis {
 
 function analyzeOverlappingItems(
     itemGroups: readonly OverlapItemGroup[],
-    pathOf?: (sourceId: string) => string | undefined
+    pathOf?: (sourceId: string) => string | undefined,
+    chromaKeyOf?: (sourceId: string) => unknown
 ): OverlapAnalysis {
     const overlapping = new Set<string>();
     const crossTrackEvacuations: CrossTrackLayerEvacuation[] = [];
@@ -739,17 +741,47 @@ function analyzeOverlappingItems(
             }
         }
     }
+    // 各パスの開始時点の集合だけを原因判定に使う。同じ upper に複数の lower が
+    // 重なれば全て記録し、新しく退避した upper は次のパスから原因にする。
+    for (;;) {
+        const newlyEvacuated = new Set<string>();
+        for (let i = 0; i < entries.length; i++) {
+            const { item: lower, trackIndex: lowerTrackIndex, trackId: lowerTrackId } = entries[i];
+            const lowerIsLayer = lower.source.kind === 'media'
+                ? needsLayersEngine(lower, chromaKeyOf, overlapping.has(lower.id))
+                : lower.source.kind === 'telop' || lower.source.kind === 'filter';
+            if (!lowerIsLayer) continue;
+            for (let j = 0; j < entries.length; j++) {
+                const { item: upper, trackIndex: upperTrackIndex, trackId: upperTrackId } = entries[j];
+                if (upperTrackIndex <= lowerTrackIndex || upper.source.kind !== 'media'
+                    || overlapping.has(upper.id) || needsLayersEngine(upper, chromaKeyOf, false)) continue;
+                if (!(lower.at < upper.at + upper.duration && upper.at < lower.at + lower.duration)) continue;
+                newlyEvacuated.add(upper.id);
+                crossTrackEvacuations.push({
+                    itemId: upper.id,
+                    trackId: upperTrackId,
+                    causeItemId: lower.id,
+                    causeTrackId: lowerTrackId,
+                    overlapStartFrames: Math.max(lower.at, upper.at),
+                    overlapEndFrames: Math.min(lower.at + lower.duration, upper.at + upper.duration)
+                });
+            }
+        }
+        if (newlyEvacuated.size === 0) break;
+        for (const id of newlyEvacuated) overlapping.add(id);
+    }
     return { itemIds: overlapping, crossTrackEvacuations };
 }
 
 function computeOverlappingItemIds(
     itemGroups: readonly (readonly ItemV2[])[],
-    pathOf?: (sourceId: string) => string | undefined
+    pathOf?: (sourceId: string) => string | undefined,
+    chromaKeyOf?: (sourceId: string) => unknown
 ): Set<string> {
     return analyzeOverlappingItems(itemGroups.map((items, index) => ({
         items,
         trackId: String(index)
-    })), pathOf).itemIds;
+    })), pathOf, chromaKeyOf).itemIds;
 }
 
 /**
@@ -760,14 +792,16 @@ export function findCrossTrackLayerEvacuations(edit: unknown): CrossTrackLayerEv
     const raw = toRecord(edit);
     const parsed = readEditV2(raw === undefined ? edit : extractV2MediaCaptionSwitches(raw).input);
     const pathOf = (id: string): string | undefined => parsed.sources.find(entry => entry.id === id)?.path;
+    const chromaKeyOf = (id: string): unknown => parsed.sources.find(entry => entry.id === id)?.chroma_key ?? undefined;
     return analyzeOverlappingItems(parsed.tracks.flatMap(track =>
         track.lane === 'visual' && 'items' in track
             ? [{ items: track.items, trackId: track.id }]
             : []
-    ), pathOf).crossTrackEvacuations;
+    ), pathOf, chromaKeyOf).crossTrackEvacuations;
 }
 
-// cuts の winner-take-all が下段を隠してよいのは、上段が全画面を不透明に覆う場合だけ。
+// cuts の winner-take-all が下段を隠してよいのは、上段が全画面を不透明に覆い、下段が全部 cuts の場合だけ。
+// 下段に layers があれば上段 cuts はその下に描かれるため、不動点で上段も退避する（#90）。
 // 全画面不透明なソースで transform の単位元を明示しただけなら従来経路を維持する。crop / 半透明 / keyframes は、
 // 現在または途中フレームで下段が見える可能性があるため宣言の存在だけで layers へ退避する。
 // 加えて、アルファを運べるコンテナ（webm / mov — 本製品のマット生成パイプラインの出力形式）は
