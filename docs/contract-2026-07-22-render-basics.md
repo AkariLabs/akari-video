@@ -178,5 +178,5 @@ x264、その他の環境で x264 の順に解決する。ハードウェア対�
 OSR / GPU の v2 書き出しでは、映像エンジンが `edit.sources` から直接描画するため、cut 段と
 tail-pad 段は音声専用中間物だけを生成する。通常は `cut-audio.mp4`、最終尺までの音声 padding が
 必要な場合は `cut-audio-tail-padded.mp4` を使用し、どちらも `-vn` で映像を処理しない。
-legacy 書き出しは従来どおり `cut.mp4` と必要時の `cut-tail-padded.mp4` を使用する。
+旧 legacy 書き出しは `cut.mp4` と必要時の `cut-tail-padded.mp4` を使用していた（現在は廃止）。
 音声入力は cut ごとに入力側シーク（`-ss` / `-t`）し、cut 頭 0.5 s の先読みガード（AAC の overlap-add 用）を設け、cut 段の費用を素材長に依存させない。

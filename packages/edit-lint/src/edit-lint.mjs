@@ -204,7 +204,8 @@ export async function lintProject(input, options = {}) {
   if (findings.some(finding => finding.severity === "error")) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
-  const rawEdit = edit;
+  const rawEdit = edit.version === 2 && edit.sources === undefined
+    ? { ...edit, sources: [] } : edit;
   const internalEdit = readEditWithProviderGuidance(rawEdit, { allowCutAudioSplit: true });
   const legacyEdit = projectLegacyEdit(internalEdit);
   if (engineCapabilities !== null && rawEdit.version === 2) {
@@ -1029,7 +1030,7 @@ function validateEditStructure(edit, findings, paths) {
     validateLook(edit.output.look, findings, "edit.json#output.look");
   }
   const sourceIds = new Set();
-  if (!Array.isArray(edit.sources)) {
+  if (!Array.isArray(edit.sources) && !(edit.version === 2 && edit.sources === undefined)) {
     structureFinding(findings, editRelative, "sources must be an array");
   } else {
     for (const [index, source] of edit.sources.entries()) {

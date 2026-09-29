@@ -71,8 +71,8 @@ flowchart LR
     class A,B,C,D,E,F,G stage
 ```
 
-macOS の書き出しは v2（OSR）エンジンが既定になりました。従来の合成経路へ戻すには
-`--engine legacy` を指定してください。Windows は当面 legacy が既定です。
+書き出しは全 OS で `--engine auto` が既定です。GPU 適格なプロジェクトは GPU、
+それ以外は OSR を選びます。`--engine gpu` または `--engine osr` で明示指定もできます。
 
 ## はじめる — 4 つの入口
 

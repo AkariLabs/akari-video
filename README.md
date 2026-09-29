@@ -76,8 +76,8 @@ flowchart LR
     class A,B,C,D,E,F,G stage
 ```
 
-Export now defaults to the v2 OSR engine on macOS. Pass `--engine legacy` to use the previous
-compositing path; Windows continues to default to legacy for now.
+Export uses `--engine auto` by default on every platform. It selects GPU for eligible projects
+and OSR otherwise. You can choose either path explicitly with `--engine gpu` or `--engine osr`.
 
 ## Getting started — four entrances
 

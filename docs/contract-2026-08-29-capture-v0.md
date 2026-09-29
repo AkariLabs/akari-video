@@ -118,6 +118,8 @@ akari capture [-p <project>] (-t <time…> | --auto) [--separate] [--full] [--pe
 
 ## 9. v1 改訂（2026-08-30）— v2 経路への載せ替え
 
+> **現況（2026-09-27）:** 以下の legacy 分岐と非 macOS フォールバックは当時の設計記録。現在の書き出しは全 OS で `auto` が GPU 適格性により GPU / OSR を選び、`--engine legacy` は拒否する。
+
 ### 9.1 なぜ改訂するか（確定事実）
 
 - v0 の実装は `packages/akari-tools/src/capture/run.mjs` が `renderProject(…, { engine: "legacy" })` を**固定**で呼び、
