@@ -118,7 +118,7 @@ export async function resolve(
     const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
     if (!entitlements.has(item.id) && !entitlements.has(item.product_id)) {
       throw new AssetResolverError(
-        `未購入の素材です（¥${price.toLocaleString()}）。ストアで購入してから再度お試しください: ${item.id}`,
+        `未購入の素材です（¥${price.toLocaleString()}）。AKARI Video Lab で購入してから再度お試しください: ${item.id}`,
         'locked',
       );
     }
@@ -200,7 +200,7 @@ async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, 
   if (!credentials) {
     // entitled 判定（fetchEntitlements）が通った直後にここへ来るので通常は発生しないが、
     // その間にトークンが失効した場合も黙って劣化させず拒否する（fail-closed）。
-    throw new AssetResolverError(`ストア接続情報がありません（トークン失効の可能性）: ${item.id}`, 'locked');
+    throw new AssetResolverError(`AKARI アカウントの接続情報がありません（トークン失効の可能性）: ${item.id}`, 'locked');
   }
 
   await mkdir(home, { recursive: true });

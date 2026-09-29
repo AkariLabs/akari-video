@@ -210,18 +210,18 @@ test('catalogPurchaseActionText: カードは額面のみ、リストは「で�
     const url = 'https://akari.video/lab/asset.html?id=paid-asset';
     assert.deepEqual(catalogPurchaseActionText(2980, 'grid', url), {
         label: '¥2,980',
-        title: `¥2,980 で購入 — ストアを開く（${url}）`
+        title: `¥2,980 で購入 — AKARI Video Lab を開く（${url}）`
     });
     assert.deepEqual(catalogPurchaseActionText(2980, 'list', url), {
         label: '¥2,980 で購入',
-        title: `¥2,980 で購入 — ストアを開く（${url}）`
+        title: `¥2,980 で購入 — AKARI Video Lab を開く（${url}）`
     });
 });
 
 test('catalogPurchaseActionText: price 未指定は ¥0 として一貫して表示する', () => {
     const url = 'https://example.com/asset';
     assert.equal(catalogPurchaseActionText(undefined, 'grid', url).label, '¥0');
-    assert.match(catalogPurchaseActionText(undefined, 'list', url).title, /^¥0 で購入 — ストアを開く/);
+    assert.match(catalogPurchaseActionText(undefined, 'list', url).title, /^¥0 で購入 — AKARI Video Lab を開く/);
 });
 
 test('selectResolverAudioFileRef: audio カテゴリで url 型の音声ファイルを選ぶ', () => {
@@ -456,7 +456,7 @@ test('deriveCatalogEmptyStateKind: 0 件 + resolver 成功 → empty（通常起
 test('deriveCatalogResolverNotice: unauthorized は再接続案内で再試行ボタン無し', () => {
     assert.deepEqual(deriveCatalogResolverNotice('ok', 'unauthorized'), {
         kind: 'unauthorized',
-        message: 'ストア接続が解除されています — ホームから再接続してください',
+        message: 'AKARI アカウントの接続が解除されています — ホームから再接続してください',
         retry: false
     });
 });

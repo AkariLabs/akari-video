@@ -265,7 +265,7 @@ export async function runStoreCommand(args, options = {}) {
       return { exitCode: 1 };
     }
 
-    log('ブラウザで AKARI Store を開いて接続を承認してください。');
+    log('ブラウザで AKARI Video Lab を開いて、AKARI アカウントの接続を承認してください。');
     log(`  確認コード: ${start.userCode}`);
     log(`  URL: ${start.verificationUrl}`);
     if (!args.includes('--no-open')) {

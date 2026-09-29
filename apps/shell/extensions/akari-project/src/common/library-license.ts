@@ -128,7 +128,7 @@ export function libraryLicenseDisplayName(spdx: string | undefined): string {
     const id = spdx?.trim();
     if (!id) return 'ライセンスの記載なし';
     if (id === 'CC0-1.0') return 'CC0（パブリックドメイン）';
-    if (id === LAB_PREMIUM_SPDX) return `AKARI Lab 素材ライセンス（${id}）`;
+    if (id === LAB_PREMIUM_SPDX) return `AKARI Video Lab 素材ライセンス（${id}）`;
     if (id === 'LicenseRef-user-owned') return '自分で追加した素材';
     const cc = /^CC-BY((?:-(?:NC|SA|ND))*)-(\d\.\d)$/i.exec(id);
     if (cc) {

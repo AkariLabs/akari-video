@@ -3,7 +3,7 @@ import { buildExportEncoderChoices, ExportEncoder, ExportPlatform } from 'akari-
 // ナビの順（2026-09-22 設定ダイアログ刷新）。Akari アカウントを先頭に置き、テーマは開発者モードから外観へ移した。
 // icon は browser/settings/settings-icons.ts の線画 SVG の名前（絵文字・記号文字は使わない）。
 export const SETTINGS_SECTIONS = [
-    { id: 'account', label: 'Akari アカウント', group: 'main', icon: 'user' },
+    { id: 'account', label: 'AKARI アカウント', group: 'main', icon: 'user' },
     { id: 'start', label: 'はじめかた', group: 'main', icon: 'play' },
     { id: 'export', label: '書き出し', group: 'main', icon: 'download' },
     { id: 'appearance', label: '外観', group: 'main', icon: 'contrast', badge: '言語・大きさ' },
@@ -27,7 +27,7 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSectionId = typeof SETTINGS_SECTIONS[number]['id'];
 
 export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = {
-    account: 'AKARI Store の接続と、購入した素材の受け取りをここで管理します。',
+    account: 'AKARI アカウントの接続と、AKARI Video Lab で購入した素材の受け取りをここで管理します。',
     start: 'はじめてのガイドと、道具・作業場の準備をここから開けます。',
     export: '書き出しの画質・形式・フレームレートと保存先の既定値を選びます。',
     appearance: '色・言語・大きさと、下のバーに出すもの。',

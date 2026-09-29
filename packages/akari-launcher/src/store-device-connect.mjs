@@ -62,10 +62,10 @@ export async function fetchStoreEntitlements(fetchImpl, baseUrl, token) {
       headers: { authorization: `Bearer ${token}` }
     });
   } catch (error) {
-    return { error: `ストアに接続できませんでした: ${error instanceof Error ? error.message : String(error)}` };
+    return { error: `AKARI Video Lab に接続できませんでした: ${error instanceof Error ? error.message : String(error)}` };
   }
   if (response.status === 401) return { error: 'トークンが無効です。マイページで発行し直してください。' };
-  if (!response.ok) return { error: `ストアがエラーを返しました（${response.status}）` };
+  if (!response.ok) return { error: `AKARI Video Lab がエラーを返しました（${response.status}）` };
   return { data: await response.json() };
 }
 
@@ -125,16 +125,16 @@ export async function startDeviceConnection({
   } catch (error) {
     return {
       status: 'network-error',
-      error: `ストアに接続できませんでした: ${error instanceof Error ? error.message : String(error)}`
+      error: `AKARI Video Lab に接続できませんでした: ${error instanceof Error ? error.message : String(error)}`
     };
   }
   if (!response.ok) {
-    return { status: 'error', error: `ストアに接続できませんでした（${response.status}）` };
+    return { status: 'error', error: `AKARI Video Lab に接続できませんでした（${response.status}）` };
   }
   const body = await response.json().catch(() => ({}));
   if (typeof body.device_code !== 'string' || typeof body.user_code !== 'string'
     || typeof body.verification_url !== 'string') {
-    return { status: 'error', error: 'ストアから接続に必要な情報を受け取れませんでした。' };
+    return { status: 'error', error: 'AKARI Video Lab から接続に必要な情報を受け取れませんでした。' };
   }
   const result = {
     status: 'started',
@@ -168,7 +168,7 @@ export async function pollDeviceConnection({
   } catch (error) {
     return {
       status: 'network-error',
-      error: `ストアに接続できませんでした: ${error instanceof Error ? error.message : String(error)}`
+      error: `AKARI Video Lab に接続できませんでした: ${error instanceof Error ? error.message : String(error)}`
     };
   }
   if (response.status === 410) {

@@ -29,7 +29,7 @@ export function AkariStoreSettings({ service, windows, refreshKey }: { service: 
     const busy = state.phase === 'starting' || state.phase === 'pending';
     const url = `${deriveStoreLabBaseUrl(state.connection.url)}/`;
     return <section data-akari-store-settings='true' style={{ borderTop: '1px solid var(--theia-widget-border)', paddingTop: 14, display: 'grid', gap: 10 }}>
-        <strong>AKARI Store</strong>
+        <strong>AKARI Video Lab</strong>
         <p data-akari-store-description='true' style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: 'var(--theia-descriptionForeground)' }}>
             動画に使える素材や演出パックを探して購入できます。接続すると、購入済みの素材をAKARI Videoで使えます。
         </p>
@@ -40,7 +40,7 @@ export function AkariStoreSettings({ service, windows, refreshKey }: { service: 
         </span>
         {state.error && <small role='alert' style={{ color: 'var(--theia-errorForeground)' }}>{state.error}</small>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <button type='button' className='theia-button secondary' onClick={() => windows.openNewWindow(url, { external: true })}>ストアを開く</button>
+            <button type='button' className='theia-button secondary' onClick={() => windows.openNewWindow(url, { external: true })}>AKARI Video Lab を開く</button>
             {busy ? <button type='button' className='theia-button secondary' onClick={() => controller.cancel()}>キャンセル</button>
                 : (!state.connection.connected || reconnect || state.phase === 'error' || state.phase === 'expired') &&
                 <button type='button' className='theia-button main' disabled={state.connectionLoading} onClick={() => void controller.start()}>

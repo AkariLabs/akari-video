@@ -171,7 +171,7 @@ export function deriveCatalogEmptyStateKind(
 export type CatalogResolverNoticeKind = 'unauthorized' | 'error';
 
 export const CATALOG_ENTITLEMENTS_UNAUTHORIZED_MESSAGE =
-    'ストア接続が解除されています — ホームから再接続してください';
+    'AKARI アカウントの接続が解除されています — ホームから再接続してください';
 export const CATALOG_ENTITLEMENTS_ERROR_MESSAGE = 'アカウント素材の取得に失敗';
 
 /**
@@ -250,7 +250,7 @@ export function catalogPurchaseActionText(
     const amount = `¥${(price ?? 0).toLocaleString()}`;
     return {
         label: viewMode === 'list' ? `${amount} で購入` : amount,
-        title: `${amount} で購入 — ストアを開く（${productUrl}）`
+        title: `${amount} で購入 — AKARI Video Lab を開く（${productUrl}）`
     };
 }
 
