@@ -1,0 +1,416 @@
+{
+ "task": "2026-09-28-preview-playback-perf (#101) r2 rework",
+ "date": "2026-09-29",
+ "conditions": {
+  "shell": "worktree dev shell launched with Electron directly; isolated user-data-dir, THEIA_CONFIG_DIR and AKARI_HOME",
+  "project": "copy of perf-pv-v2 (3m37s, 21 HTML overlays)",
+  "seeks": [
+   5,
+   40,
+   75,
+   110,
+   150,
+   190
+  ],
+  "playMsPerSeek": 6000,
+  "passesPerLaunch": 2,
+  "host": "#102 not merged: frame-engine clock holds outputTime during decoder no-progress (sameT = playing ticks whose t equals the previous tick)",
+  "thresholds": {
+   "tickMeanMs": 3,
+   "rafFps": 50,
+   "animationsAt190": 700
+  },
+  "counters": "wCur/wPlay/wPause/wRate = calls to Animation.prototype currentTime setter / play / pause / playbackRate setter during the 6 s window (instrumented prototype)",
+  "runtime": "r2 rework (premount hide cancels only CSS animations no longer present in computed style)"
+ },
+ "summary": [
+  {
+   "launch": "after-1",
+   "runtime": "r2 rework",
+   "meets": "12/12",
+   "rafMin": 69.2,
+   "tickMeanMax": 1.11,
+   "animationsAt190": [
+    458,
+    458
+   ],
+   "currentTimeWritesPerWindow": [
+    2412,
+    5562
+   ],
+   "stalledTicksWithWritesPerWindow": [
+    2,
+    7
+   ]
+  },
+  {
+   "launch": "after-2",
+   "runtime": "r2 rework",
+   "meets": "12/12",
+   "rafMin": 56.8,
+   "tickMeanMax": 1.5,
+   "animationsAt190": [
+    466,
+    458
+   ],
+   "currentTimeWritesPerWindow": [
+    2412,
+    8040
+   ],
+   "stalledTicksWithWritesPerWindow": [
+    2,
+    13
+   ]
+  }
+ ],
+ "launches": [
+  {
+   "launch": "after-1",
+   "runtime": "r2 rework",
+   "rows": [
+    {
+     "seek": 5,
+     "tickMean": 0.31,
+     "rafFps": 112.8,
+     "animations": 389,
+     "animationsEnd": 407,
+     "playingTicks": 678,
+     "sameT": 603,
+     "sameTW": 4,
+     "wCur": 3220,
+     "wPlay": 1133,
+     "wPause": 796,
+     "wCancel": 52
+    },
+    {
+     "seek": 40,
+     "tickMean": 0.48,
+     "rafFps": 123.5,
+     "animations": 539,
+     "animationsEnd": 697,
+     "playingTicks": 742,
+     "sameT": 738,
+     "sameTW": 5,
+     "wCur": 3656,
+     "wPlay": 1051,
+     "wPause": 1451,
+     "wCancel": 242
+    },
+    {
+     "seek": 75,
+     "tickMean": 0.49,
+     "rafFps": 123.5,
+     "animations": 454,
+     "animationsEnd": 528,
+     "playingTicks": 742,
+     "sameT": 737,
+     "sameTW": 5,
+     "wCur": 4752,
+     "wPlay": 1921,
+     "wPause": 2112,
+     "wCancel": 117
+    },
+    {
+     "seek": 110,
+     "tickMean": 0.26,
+     "rafFps": 138.5,
+     "animations": 457,
+     "animationsEnd": 457,
+     "playingTicks": 833,
+     "sameT": 829,
+     "sameTW": 6,
+     "wCur": 4113,
+     "wPlay": 1371,
+     "wPause": 1371,
+     "wCancel": 0
+    },
+    {
+     "seek": 150,
+     "tickMean": 0.48,
+     "rafFps": 119.6,
+     "animations": 618,
+     "animationsEnd": 402,
+     "playingTicks": 715,
+     "sameT": 711,
+     "sameTW": 3,
+     "wCur": 2412,
+     "wPlay": 1141,
+     "wPause": 1206,
+     "wCancel": 281
+    },
+    {
+     "seek": 190,
+     "tickMean": 1.11,
+     "rafFps": 125.4,
+     "animations": 458,
+     "animationsEnd": 480,
+     "playingTicks": 744,
+     "sameT": 738,
+     "sameTW": 7,
+     "wCur": 5562,
+     "wPlay": 2191,
+     "wPause": 1854,
+     "wCancel": 121
+    },
+    {
+     "seek": 5,
+     "tickMean": 0.36,
+     "rafFps": 96.6,
+     "animations": 389,
+     "animationsEnd": 407,
+     "playingTicks": 580,
+     "sameT": 427,
+     "sameTW": 3,
+     "wCur": 2953,
+     "wPlay": 726,
+     "wPause": 389,
+     "wCancel": 52
+    },
+    {
+     "seek": 40,
+     "tickMean": 0.33,
+     "rafFps": 128.6,
+     "animations": 539,
+     "animationsEnd": 697,
+     "playingTicks": 772,
+     "sameT": 768,
+     "sameTW": 3,
+     "wCur": 2902,
+     "wPlay": 1051,
+     "wPause": 1451,
+     "wCancel": 242
+    },
+    {
+     "seek": 75,
+     "tickMean": 0.74,
+     "rafFps": 69.2,
+     "animations": 454,
+     "animationsEnd": 528,
+     "playingTicks": 414,
+     "sameT": 265,
+     "sameTW": 2,
+     "wCur": 2640,
+     "wPlay": 865,
+     "wPause": 528,
+     "wCancel": 117
+    },
+    {
+     "seek": 110,
+     "tickMean": 0.24,
+     "rafFps": 132.8,
+     "animations": 457,
+     "animationsEnd": 457,
+     "playingTicks": 799,
+     "sameT": 795,
+     "sameTW": 3,
+     "wCur": 2742,
+     "wPlay": 1371,
+     "wPause": 1371,
+     "wCancel": 0
+    },
+    {
+     "seek": 150,
+     "tickMean": 0.38,
+     "rafFps": 119.9,
+     "animations": 618,
+     "animationsEnd": 402,
+     "playingTicks": 721,
+     "sameT": 715,
+     "sameTW": 6,
+     "wCur": 4422,
+     "wPlay": 1945,
+     "wPause": 2010,
+     "wCancel": 281
+    },
+    {
+     "seek": 190,
+     "tickMean": 0.91,
+     "rafFps": 122.7,
+     "animations": 458,
+     "animationsEnd": 480,
+     "playingTicks": 734,
+     "sameT": 724,
+     "sameTW": 6,
+     "wCur": 5104,
+     "wPlay": 1711,
+     "wPause": 1374,
+     "wCancel": 121
+    }
+   ]
+  },
+  {
+   "launch": "after-2",
+   "runtime": "r2 rework",
+   "rows": [
+    {
+     "seek": 5,
+     "tickMean": 0.29,
+     "rafFps": 112.8,
+     "animations": 389,
+     "animationsEnd": 407,
+     "playingTicks": 677,
+     "sameT": 601,
+     "sameTW": 6,
+     "wCur": 3633,
+     "wPlay": 726,
+     "wPause": 389,
+     "wCancel": 52
+    },
+    {
+     "seek": 40,
+     "tickMean": 0.41,
+     "rafFps": 120.9,
+     "animations": 539,
+     "animationsEnd": 697,
+     "playingTicks": 735,
+     "sameT": 730,
+     "sameTW": 5,
+     "wCur": 4353,
+     "wPlay": 1748,
+     "wPause": 1451,
+     "wCancel": 242
+    },
+    {
+     "seek": 75,
+     "tickMean": 0.39,
+     "rafFps": 119.3,
+     "animations": 454,
+     "animationsEnd": 528,
+     "playingTicks": 715,
+     "sameT": 705,
+     "sameTW": 5,
+     "wCur": 5834,
+     "wPlay": 2449,
+     "wPause": 2112,
+     "wCancel": 117
+    },
+    {
+     "seek": 110,
+     "tickMean": 0.5,
+     "rafFps": 87.8,
+     "animations": 457,
+     "animationsEnd": 457,
+     "playingTicks": 528,
+     "sameT": 444,
+     "sameTW": 4,
+     "wCur": 4115,
+     "wPlay": 1371,
+     "wPause": 914,
+     "wCancel": 0
+    },
+    {
+     "seek": 150,
+     "tickMean": 0.34,
+     "rafFps": 127,
+     "animations": 618,
+     "animationsEnd": 402,
+     "playingTicks": 763,
+     "sameT": 759,
+     "sameTW": 3,
+     "wCur": 2412,
+     "wPlay": 1141,
+     "wPause": 1206,
+     "wCancel": 281
+    },
+    {
+     "seek": 190,
+     "tickMean": 0.94,
+     "rafFps": 122.5,
+     "animations": 466,
+     "animationsEnd": 480,
+     "playingTicks": 730,
+     "sameT": 726,
+     "sameTW": 4,
+     "wCur": 3250,
+     "wPlay": 1253,
+     "wPause": 1396,
+     "wCancel": 121
+    },
+    {
+     "seek": 5,
+     "tickMean": 0.35,
+     "rafFps": 94.4,
+     "animations": 389,
+     "animationsEnd": 407,
+     "playingTicks": 567,
+     "sameT": 413,
+     "sameTW": 2,
+     "wCur": 2813,
+     "wPlay": 726,
+     "wPause": 389,
+     "wCancel": 52
+    },
+    {
+     "seek": 40,
+     "tickMean": 1.5,
+     "rafFps": 56.8,
+     "animations": 539,
+     "animationsEnd": 697,
+     "playingTicks": 342,
+     "sameT": 211,
+     "sameTW": 4,
+     "wCur": 7821,
+     "wPlay": 2108,
+     "wPause": 1771,
+     "wCancel": 242
+    },
+    {
+     "seek": 75,
+     "tickMean": 0.85,
+     "rafFps": 65,
+     "animations": 454,
+     "animationsEnd": 528,
+     "playingTicks": 389,
+     "sameT": 242,
+     "sameTW": 2,
+     "wCur": 4224,
+     "wPlay": 865,
+     "wPause": 528,
+     "wCancel": 117
+    },
+    {
+     "seek": 110,
+     "tickMean": 0.39,
+     "rafFps": 125.7,
+     "animations": 457,
+     "animationsEnd": 457,
+     "playingTicks": 750,
+     "sameT": 738,
+     "sameTW": 3,
+     "wCur": 3656,
+     "wPlay": 1828,
+     "wPause": 1371,
+     "wCancel": 0
+    },
+    {
+     "seek": 150,
+     "tickMean": 0.46,
+     "rafFps": 112.9,
+     "animations": 618,
+     "animationsEnd": 402,
+     "playingTicks": 679,
+     "sameT": 648,
+     "sameTW": 13,
+     "wCur": 8040,
+     "wPlay": 2347,
+     "wPause": 2412,
+     "wCancel": 281
+    },
+    {
+     "seek": 190,
+     "tickMean": 0.84,
+     "rafFps": 133.8,
+     "animations": 458,
+     "animationsEnd": 458,
+     "playingTicks": 805,
+     "sameT": 801,
+     "sameTW": 3,
+     "wCur": 2748,
+     "wPlay": 1374,
+     "wPause": 1374,
+     "wCancel": 0
+    }
+   ]
+  }
+ ]
+}

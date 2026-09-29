@@ -1,0 +1,24 @@
+{
+  "scenario": {
+    "staticElements": 8000,
+    "cssAnimations": 300,
+    "playbackTicks": 60,
+    "pauseTicks": 60,
+    "recalcLimit": 240
+  },
+  "browser": "chromium-headless-shell",
+  "multiProcess": true,
+  "baseline": {
+    "revision": "49af07a62",
+    "playbackRecalcs": 4800,
+    "pauseRecalcs": 300,
+    "totalRecalcs": 5100,
+    "result": "FAIL"
+  },
+  "modified": {
+    "playbackRecalcs": 0,
+    "pauseRecalcs": 1,
+    "totalRecalcs": 1,
+    "result": "PASS"
+  }
+}

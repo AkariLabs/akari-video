@@ -48,6 +48,9 @@ function findChrome() {
 
 
 export async function launchBrowser() {
-  return loadPuppeteer().launch({executablePath:findChrome(), headless:"shell", pipe:true,
-    args:['--single-process','--no-zygote','--disable-gpu','--use-angle=swiftshader','--allow-file-access-from-files']});
+  // 既定は従来どおり単一プロセス（CI 等）。実ブラウザ計測時だけ明示的に解除する。
+  const multiProcess = process.env.AKARI_TEST_BROWSER_MULTI_PROCESS === '1';
+  const args = ['--disable-gpu','--use-angle=swiftshader','--allow-file-access-from-files'];
+  if (!multiProcess) args.unshift('--single-process','--no-zygote');
+  return loadPuppeteer().launch({executablePath:findChrome(), headless:"shell", pipe:true, args});
 }

@@ -1,0 +1,431 @@
+{
+  "measuredBy": "wrapper (Claude) with refs/measure.mjs (minimal changes: AKARI_EXE_ARGS to launch the worktree shell with Electron, puppeteer resolved from the worktree, main-window wait extended to 600s)",
+  "machine": "Windows 11 / RTX 5060 Laptop + Intel UHD / other lanes running concurrently",
+  "project": "perf-pv-v2 copy (3:37, 21 HTML overlays, ~11,000 elements)",
+  "mode": "shell output preview, dev layout (Electron 39.8.7 direct launch, isolated user-data-dir / THEIA_CONFIG_DIR / AKARI_HOME), TRACE=0, PLAY_MS=6000",
+  "thresholds": {
+    "tickMeanMs": 3,
+    "rafFps": 50,
+    "animationsAt190": 700
+  },
+  "runs": {
+    "base-49af07a62": [
+      {
+        "seek": 5,
+        "tickMean": 51.25,
+        "tickP95": 66,
+        "rafFps": 14.3,
+        "rate": 1.05,
+        "animations": 389,
+        "runningAnimations": 0,
+        "visibleOverlays": 3,
+        "longTaskMs": 5383,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 40,
+        "tickMean": 58.17,
+        "tickP95": 110.1,
+        "rafFps": 13.5,
+        "rate": 1.18,
+        "animations": 459,
+        "runningAnimations": 407,
+        "visibleOverlays": 3,
+        "longTaskMs": 5198,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 75,
+        "tickMean": 95.58,
+        "tickP95": 142.4,
+        "rafFps": 8.1,
+        "rate": 0.81,
+        "animations": 749,
+        "runningAnimations": 697,
+        "visibleOverlays": 3,
+        "longTaskMs": 5557,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 110,
+        "tickMean": 78.79,
+        "tickP95": 98.5,
+        "rafFps": 9.7,
+        "rate": 1.32,
+        "animations": 528,
+        "runningAnimations": 528,
+        "visibleOverlays": 3,
+        "longTaskMs": 5719,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 150,
+        "tickMean": 68.99,
+        "tickP95": 119.5,
+        "rafFps": 8.6,
+        "rate": 1.27,
+        "animations": 499,
+        "runningAnimations": 499,
+        "visibleOverlays": 3,
+        "longTaskMs": 6733,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 190,
+        "tickMean": 74.4,
+        "tickP95": 88.3,
+        "rafFps": 10.3,
+        "rate": 1.71,
+        "animations": 683,
+        "runningAnimations": 402,
+        "visibleOverlays": 3,
+        "longTaskMs": 5580,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      }
+    ],
+    "round2": [
+      {
+        "seek": 5,
+        "tickMean": 1.58,
+        "tickP95": 3.5,
+        "rafFps": 58.6,
+        "rate": 0.93,
+        "animations": 389,
+        "runningAnimations": 0,
+        "visibleOverlays": 3,
+        "longTaskMs": 74,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 40,
+        "tickMean": 3.14,
+        "tickP95": 4.1,
+        "rafFps": 68.8,
+        "rate": 0.77,
+        "animations": 407,
+        "runningAnimations": 407,
+        "visibleOverlays": 3,
+        "longTaskMs": 105,
+        "pass": {
+          "tickMean": false,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 75,
+        "tickMean": 22.82,
+        "tickP95": 126.8,
+        "rafFps": 4.7,
+        "rate": 0.49,
+        "animations": 697,
+        "runningAnimations": 697,
+        "visibleOverlays": 3,
+        "longTaskMs": 5297,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 110,
+        "tickMean": 12.03,
+        "tickP95": 14.9,
+        "rafFps": 13.2,
+        "rate": 1.81,
+        "animations": 400,
+        "runningAnimations": 400,
+        "visibleOverlays": 3,
+        "longTaskMs": 4294,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 150,
+        "tickMean": 60.82,
+        "tickP95": 283.1,
+        "rafFps": 5.5,
+        "rate": 5.04,
+        "animations": 499,
+        "runningAnimations": 499,
+        "visibleOverlays": 3,
+        "longTaskMs": 5126,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 190,
+        "tickMean": 7.44,
+        "tickP95": 21.2,
+        "rafFps": 7.9,
+        "rate": 0,
+        "animations": 402,
+        "runningAnimations": 402,
+        "visibleOverlays": 3,
+        "longTaskMs": 5506,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      }
+    ],
+    "round3-run1": [
+      {
+        "seek": 5,
+        "tickMean": 0.41,
+        "tickP95": 2.4,
+        "rafFps": 77.7,
+        "rate": 0.93,
+        "animations": 389,
+        "runningAnimations": 0,
+        "visibleOverlays": 3,
+        "longTaskMs": 54,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 40,
+        "tickMean": 0.66,
+        "tickP95": 1.9,
+        "rafFps": 88.5,
+        "rate": 1.24,
+        "animations": 539,
+        "runningAnimations": 539,
+        "visibleOverlays": 3,
+        "longTaskMs": 311,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 75,
+        "tickMean": 3.52,
+        "tickP95": 7.3,
+        "rafFps": 25.7,
+        "rate": 5.65,
+        "animations": 697,
+        "runningAnimations": 697,
+        "visibleOverlays": 3,
+        "longTaskMs": 483,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 110,
+        "tickMean": 0.8,
+        "tickP95": 3.6,
+        "rafFps": 42.1,
+        "rate": 1.76,
+        "animations": 457,
+        "runningAnimations": 457,
+        "visibleOverlays": 3,
+        "longTaskMs": 0,
+        "pass": {
+          "tickMean": true,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 150,
+        "tickMean": 0.89,
+        "tickP95": 4.1,
+        "rafFps": 59.2,
+        "rate": 1.31,
+        "animations": 618,
+        "runningAnimations": 618,
+        "visibleOverlays": 3,
+        "longTaskMs": 98,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 190,
+        "tickMean": 2.32,
+        "tickP95": 5.3,
+        "rafFps": 62.9,
+        "rate": 1.81,
+        "animations": 458,
+        "runningAnimations": 458,
+        "visibleOverlays": 3,
+        "longTaskMs": 185,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      }
+    ],
+    "round3-run2": [
+      {
+        "seek": 5,
+        "tickMean": 0.29,
+        "tickP95": 1.3,
+        "rafFps": 91.2,
+        "rate": 1.32,
+        "animations": 389,
+        "runningAnimations": 0,
+        "visibleOverlays": 3,
+        "longTaskMs": 0,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 40,
+        "tickMean": 0.89,
+        "tickP95": 2.4,
+        "rafFps": 66.1,
+        "rate": 1.29,
+        "animations": 539,
+        "runningAnimations": 539,
+        "visibleOverlays": 3,
+        "longTaskMs": 262,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 75,
+        "tickMean": 0.99,
+        "tickP95": 3.4,
+        "rafFps": 43.8,
+        "rate": 1.77,
+        "animations": 454,
+        "runningAnimations": 454,
+        "visibleOverlays": 3,
+        "longTaskMs": 211,
+        "pass": {
+          "tickMean": true,
+          "rafFps": false
+        }
+      },
+      {
+        "seek": 110,
+        "tickMean": 0.53,
+        "tickP95": 2.7,
+        "rafFps": 59.6,
+        "rate": 1.24,
+        "animations": 457,
+        "runningAnimations": 457,
+        "visibleOverlays": 3,
+        "longTaskMs": 0,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 150,
+        "tickMean": 0.61,
+        "tickP95": 2.5,
+        "rafFps": 68.7,
+        "rate": 1.46,
+        "animations": 618,
+        "runningAnimations": 618,
+        "visibleOverlays": 3,
+        "longTaskMs": 91,
+        "pass": {
+          "tickMean": true,
+          "rafFps": true
+        }
+      },
+      {
+        "seek": 190,
+        "tickMean": 4.63,
+        "tickP95": 7.9,
+        "rafFps": 36.6,
+        "rate": 5.92,
+        "animations": 402,
+        "runningAnimations": 402,
+        "visibleOverlays": 3,
+        "longTaskMs": 338,
+        "pass": {
+          "tickMean": false,
+          "rafFps": false
+        }
+      }
+    ]
+  },
+  "control": {
+    "browser-preview (preview-server + Edge, same session)": [
+      {
+        "seek": 5,
+        "tickMean": 0.41,
+        "rafFps": 86.3,
+        "rate": 0.43,
+        "animations": 389
+      },
+      {
+        "seek": 40,
+        "tickMean": 0.41,
+        "rafFps": 141.8,
+        "rate": 0.85,
+        "animations": 539
+      },
+      {
+        "seek": 75,
+        "tickMean": 0.65,
+        "rafFps": 115,
+        "rate": 1.32,
+        "animations": 454
+      },
+      {
+        "seek": 110,
+        "tickMean": 0.48,
+        "rafFps": 136.2,
+        "rate": 1.32,
+        "animations": 457
+      },
+      {
+        "seek": 150,
+        "tickMean": 1.15,
+        "rafFps": 126.3,
+        "rate": 0.86,
+        "animations": 618
+      },
+      {
+        "seek": 190,
+        "tickMean": 1.82,
+        "rafFps": 131.5,
+        "rate": 0.9,
+        "animations": 458
+      }
+    ]
+  },
+  "notes": [
+    "frame-engine logged decoder no-progress recreate (issue #102) roughly every 2.5s in every window of every shell run",
+    "rate >> 1 (5.65 / 5.92) marks windows where the timeline jumped"
+  ]
+}

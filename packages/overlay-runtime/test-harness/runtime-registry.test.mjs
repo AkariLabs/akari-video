@@ -5,7 +5,7 @@ import {readFileSync, realpathSync, mkdtempSync, writeFileSync, rmSync, cpSync} 
 import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {runtimes, readDeclarations, registryPath, browserManifest, validateRuntimeDeclarations} from '../runtimes.mjs';
 import {renderOverlaySheet} from '../../render-cut/src/rasterize.mjs';
@@ -67,7 +67,7 @@ test('third runtime is validated through the unmodified asset CLI with test-only
   const dir = join(root,'overlay/lower-third-clean');
   cpSync(new URL('../../schemas/test/fixtures/asset/valid-library/overlay/lower-third-clean',import.meta.url),dir,{recursive:true});
   writeFileSync(join(dir,'fragment.html'),html); writeFileSync(join(dir,'image.png'),'image');
-  const args = ['--import',fileURLToPath(new URL('./fixtures/dummy-entry.mjs',import.meta.url)),fileURLToPath(new URL('../../schemas/bin/validate-asset.mjs',import.meta.url)),dir];
+  const args = ['--import',pathToFileURL(fileURLToPath(new URL('./fixtures/dummy-entry.mjs',import.meta.url))).href,fileURLToPath(new URL('../../schemas/bin/validate-asset.mjs',import.meta.url)),dir];
   let result = spawnSync(process.execPath,args,{encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
   writeFileSync(join(dir,'fragment.html'),html.replace('blue','red'));
