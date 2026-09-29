@@ -32,6 +32,17 @@ const DECODER_FLUSH_TIMEOUT_MS = 1_000;
 // 「遅れて出す」正当なデコーダは dequeue はすぐ発火するので、この上限には掛からない。
 const DECODER_DEQUEUE_TIMEOUT_MS = 2_000;
 const PREFETCH_BATCH = 8;
+// hardware decoder は呼び手とデコーダが保持する VideoFrame で output surface が
+// 枯渇する。先読みの出力保持は並べ替え窓程度に抑える。
+const HARDWARE_AHEAD_FRAMES = 3;
+// 先頭数枚は decoder-backed のまま渡してコピー費用を避ける。呼び手がそれ以上
+// 保持したときは surface を占有しない画像へ切り替える。
+const MAX_CALLER_DECODER_FRAMES = 3;
+// Electron 39 / Windows の GPU 実測: 1080p は呼び手が 8 枚保持すると停止する一方、
+// 3840x2160 は同じ保持数で 270 枚を連続出力して作り直し 0 回だった。
+// 返却直前は保持 8 枚 + 新しい 1 枚になるため、測定できた 4K だけ 9 枚を許す。
+// 根拠と遅延分布は evidence/base-decoder-stall/performance-r4.json を参照。
+const MAX_CALLER_DECODER_FRAMES_4K = 9;
 // 2026-09-11 M1 / 16 GB 実測では 64 MiB と 32 MiB の時間・hit 率が同等だった
 // （1080p 30 秒: 10.1 s / 9.55 s、4K PiP: 45.5 / 45.0 fps）。IOSurface は
 // workingSetSize に載らない実メモリなので、4K 2 本を 512 MiB から 256 MiB に抑える。
@@ -655,6 +666,7 @@ export class RangeMp4Source {
   private lastTargetUs = -1;
   private consumedDecodeIndex = -1;
   private lastOutputPresentationIndex = -1;
+  private callerDecoderFrames = 0;
   private flushedSinceSeek = false;
   private destroyed = false;
   private prefetchPromise: Promise<void> | null = null;
@@ -818,7 +830,117 @@ export class RangeMp4Source {
     const requested = this.options.prefetchAheadFrames == null
       ? gopLength
       : Math.max(0, Math.floor(this.options.prefetchAheadFrames));
-    return Math.max(2, Math.min(64, gopLength, requested, budgetFrames));
+    const surfaceLimit = this.acceleration === 'prefer-hardware' && typeof createImageBitmap === 'function'
+      ? HARDWARE_AHEAD_FRAMES
+      : 64;
+    return Math.max(2, Math.min(surfaceLimit, gopLength, requested, budgetFrames));
+  }
+
+  private async detachHardwareOutput(frame: VideoFrame): Promise<VideoFrame> {
+    if (this.acceleration !== 'prefer-hardware' || typeof createImageBitmap !== 'function') return frame;
+    const callerFrameLimit = frame.codedWidth === 3840 && frame.codedHeight === 2160
+      ? MAX_CALLER_DECODER_FRAMES_4K
+      : MAX_CALLER_DECODER_FRAMES;
+    if (this.callerDecoderFrames < callerFrameLimit && this.trackCallerFrame(frame)) {
+      return frame;
+    }
+    // clone() は decoder の output surface を共有する。呼び手が数枚保持するプレビューでは
+    // DPB と合わせて surface が枯渇するので、出力面から独立した YUV バッファへコピーする。
+    // RGB を経由すると coded padding と BT.709 limited の情報が失われる。
+    // 元の surface は lastOutput に 1 枚だけ残し、呼び手の保持枚数には比例させない。
+    if (frame.format === 'NV12' || frame.format === 'I420') {
+      try {
+        const rect = { x: 0, y: 0, width: frame.codedWidth, height: frame.codedHeight };
+        const bytes = new Uint8Array(frame.allocationSize({ rect }));
+        const layout = await frame.copyTo(bytes, { rect });
+        // Chromium の BufferSource constructor は visibleRect を同時に渡すと
+        // codedHeight を visible の高さへ縮める。raw を作ってから view を切る。
+        const fullFrame = new VideoFrame(bytes, {
+          format: frame.format,
+          codedWidth: frame.codedWidth,
+          codedHeight: frame.codedHeight,
+          displayWidth: frame.displayWidth,
+          displayHeight: frame.displayHeight,
+          timestamp: frame.timestamp,
+          duration: frame.duration ?? undefined,
+          colorSpace: frame.colorSpace.toJSON(),
+          layout,
+        });
+        try {
+          return new VideoFrame(fullFrame, {
+            visibleRect: frame.visibleRect ?? undefined,
+            displayWidth: frame.displayWidth,
+            displayHeight: frame.displayHeight,
+            timestamp: frame.timestamp,
+            duration: frame.duration ?? undefined,
+          });
+        } finally {
+          fullFrame.close();
+        }
+      } finally {
+        frame.close();
+      }
+    }
+    let bitmap: ImageBitmap;
+    try {
+      bitmap = await createImageBitmap(frame);
+    } catch (error) {
+      frame.close();
+      throw error;
+    }
+    try {
+      const detached = new VideoFrame(bitmap, {
+        timestamp: frame.timestamp,
+        duration: frame.duration ?? undefined,
+      });
+      frame.close();
+      return detached;
+    } catch (error) {
+      frame.close();
+      throw error;
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  private trackCallerFrame(frame: VideoFrame): boolean {
+    if (!Object.isExtensible(frame)) return false;
+    const ownClose = Object.getOwnPropertyDescriptor(frame, 'close');
+    const ownClone = Object.getOwnPropertyDescriptor(frame, 'clone');
+    const close = frame.close.bind(frame);
+    const clone = frame.clone.bind(frame);
+    let closed = false;
+    try {
+      Object.defineProperties(frame, {
+        close: {
+          configurable: true,
+          writable: true,
+          value: () => {
+            if (closed) return;
+            closed = true;
+            this.callerDecoderFrames -= 1;
+            close();
+          },
+        },
+        clone: {
+          configurable: true,
+          writable: true,
+          value: () => {
+            const copied = clone();
+            this.trackCallerFrame(copied);
+            return copied;
+          },
+        },
+      });
+      this.callerDecoderFrames += 1;
+      return true;
+    } catch {
+      if (ownClose) Object.defineProperty(frame, 'close', ownClose);
+      else Reflect.deleteProperty(frame, 'close');
+      if (ownClone) Object.defineProperty(frame, 'clone', ownClone);
+      else Reflect.deleteProperty(frame, 'clone');
+      return false;
+    }
   }
 
   private handleOutput(frame: VideoFrame): void {
@@ -974,21 +1096,27 @@ export class RangeMp4Source {
     if (this.lastOutput && this.lastOutput.timestamp === targetSample.timestampUs) {
       const result = this.lastOutput.clone();
       this.noteFrameReturned(targetSample, targetUs, true);
-      return result;
+      return this.detachHardwareOutput(result);
     }
     const shouldScheduleFromFuture = targetUs > this.lastTargetUs;
     const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
     if (buffered) {
       this.shared.reader.stats.prefetchHits += 1;
       this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
-      return buffered;
+      return this.detachHardwareOutput(buffered);
     }
     await this.pausePrefetch();
     const bufferedAfterPause = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
     if (bufferedAfterPause) {
       this.shared.reader.stats.prefetchHits += 1;
       this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
-      return bufferedAfterPause;
+      return this.detachHardwareOutput(bufferedAfterPause);
+    }
+    // シーク先より前の先読み出力は以後使えない。供給を始める前に surface を返す。
+    for (const [timestamp, frame] of this.futureFrames) {
+      if (timestamp >= targetSample.timestampUs) continue;
+      frame.close();
+      this.futureFrames.delete(timestamp);
     }
     const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
     const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0
@@ -1134,7 +1262,7 @@ export class RangeMp4Source {
       this.lastOutput = result.clone();
       this.lastTargetUs = targetUs;
       this.noteFrameReturned(targetSample, targetUs, forward);
-      return result;
+      return this.detachHardwareOutput(result);
     } finally {
       this.activeTargetUs = null;
       if (this.outputWaiter === waiter) this.outputWaiter = null;

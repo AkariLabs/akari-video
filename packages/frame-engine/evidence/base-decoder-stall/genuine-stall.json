@@ -1,0 +1,9 @@
+{
+  "fixtureBytes": 3221,
+  "rangeRequests": 5,
+  "rangeBytes": 2232,
+  "decoderInstances": 2,
+  "outputs": 0,
+  "dequeues": 0,
+  "recreationWarnings": 1
+}

@@ -1,0 +1,256 @@
+{
+  "measurement": "Electron 39, GPU enabled, prefer-hardware WebCodecs, 1920x1080 H.264 with B frames",
+  "seekFrames": [
+    236,
+    505,
+    788
+  ],
+  "continuousFramesPerSeek": 90,
+  "cause": {
+    "baselineWithPrefetchAndCallerHold2": {
+      "stoppedAtRequestedFrame": 505,
+      "callerFrames": 2,
+      "staleFutureFrames": 6,
+      "hasLastOutput": true,
+      "decodeQueueSize": 8,
+      "millisecondsWithoutOutput": 1947,
+      "millisecondsWithoutDequeue": 1933
+    },
+    "baselineWithoutPrefetchAndCallerHold8": {
+      "stoppedAtRequestedFrame": 244,
+      "callerFrames": 8,
+      "futureFrames": 0,
+      "hasLastOutput": true,
+      "decodeQueueSize": 2,
+      "millisecondsWithoutOutput": 2003,
+      "millisecondsWithoutDequeue": 1998
+    },
+    "inference": "Retained decoder-backed output surfaces block hardware decoding. A high decodeQueueSize alone does not cause the stall: hold 0 reached queue sizes above 230 without recovery. Limiting retained prefetch frames and detaching excess caller frames removed the hold 8 stall."
+  },
+  "regression": {
+    "baselineLow20kPrefetchOnHold2": {
+      "hardwareAcceleration": "prefer-hardware",
+      "matchedFrames": 270,
+      "recreations": 2,
+      "maxDecodeMs": 2324,
+      "maxDecodeQueueSize": 239,
+      "maxFutureFrames": 8,
+      "rangeRequests": 146,
+      "rangeBytes": 133329,
+      "fullBodyFallback": false
+    },
+    "fixedLow20kAndReal": {
+      "scenarios": 6,
+      "matchedFramesPerScenario": 270,
+      "recreations": 0,
+      "targetReseekWarnings": 0,
+      "maxFutureFrames": 3,
+      "maxHeldCallerFrames": 8,
+      "maxHeldDecoderBackedCallerFramesIncludingClones": 4,
+      "maxDecodeQueueSize": 239,
+      "rangeRequestCounts": [
+        141,
+        268
+      ],
+      "rangeBytes": [
+        132756,
+        150435
+      ],
+      "p50DecodeMsRange": [
+        0.3,
+        14.1
+      ],
+      "maxDecodeMs": 426
+    },
+    "fullProbeRealLowAndG30": {
+      "prefetchModes": [
+        false,
+        true
+      ],
+      "callerHoldCounts": [
+        0,
+        2,
+        8
+      ],
+      "scenarios": 18,
+      "recreations": 0,
+      "targetReseekWarnings": 0,
+      "allRequestedFramesMatched": true,
+      "p50DecodeMsRange": [
+        0.3,
+        16.4
+      ],
+      "maxDecodeMs": 2930,
+      "outlierRepeat": {
+        "scenario": "g30 prefetch on hold 0",
+        "firstMaxMs": 2930,
+        "repeatMaxMs": 99,
+        "repeatRecreations": 0,
+        "yuvCopyBranchUsed": false
+      },
+      "callerSurfaceLimitTrial": {
+        "nativeFrameLimit": 4,
+        "lowPrefetchOffHold8P50Ms": 15.9,
+        "recreationsAcrossRealLowG30Hold8": 0,
+        "decision": "retain limit 3 for decoder surface reserve"
+      }
+    },
+    "pixelParity": {
+      "fixtures": [
+        "BT.709 testsrc2",
+        "BT.709 smptehdbars",
+        "rotate 90",
+        "real base-ink"
+      ],
+      "samplePtsCount": 9,
+      "compositorPaths": [
+        "direct",
+        "copyTo"
+      ],
+      "comparedImages": 18,
+      "maxAbsDifferencePerRgbaChannel": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "meanAbsDifferencePerRgbaChannel": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "nativeAndDetachedMetadataMatch": true,
+      "codedHeightFor1080p": 1088,
+      "displayHeightFor1080p": 1080,
+      "rotationDeg": 90
+    }
+  },
+  "rangeRequests": "206 partial responses throughout; no full-body fallback in the Electron regression test",
+  "performanceNote": "The r3 YUV CPU copy was costly for 4K hold 8 (p50 32.1 ms, 126/270 over 33 ms). The measured 3840x2160 hardware path now keeps up to nine native caller frames: paced full-matrix p50 0.7 ms and 13/270 over 33 ms; isolated final repeat p50 0.3 ms and 3/270 over 33 ms. All measured r4 conditions had zero recreations and exact requested frames. Other coded dimensions retain the conservative three-frame limit.",
+  "r4": {
+    "pacedProbe": {
+      "scenarios": 10,
+      "recreations": 0,
+      "allRequestedFramesMatched": true,
+      "targetReseekWarnings": 0,
+      "fourKHold8": {
+        "source": "ts4k",
+        "hold": 8,
+        "prefetch": true,
+        "pace": true,
+        "recreations": 0,
+        "hardwareAcceleration": "prefer-hardware",
+        "requestedFramesMatched": true,
+        "p50Ms": 0.7,
+        "p90Ms": 24.8,
+        "over33Of270": 13,
+        "maxMs": 383.6,
+        "maxFutureFrames": 3,
+        "targetReseekWarnings": 0
+      },
+      "fourKRepeat": [
+        {
+          "source": "ts4k",
+          "hold": 2,
+          "prefetch": true,
+          "pace": true,
+          "recreations": 0,
+          "hardwareAcceleration": "prefer-hardware",
+          "requestedFramesMatched": true,
+          "p50Ms": 0.3,
+          "p90Ms": 0.9,
+          "over33Of270": 5,
+          "maxMs": 301.2,
+          "maxFutureFrames": 3,
+          "targetReseekWarnings": 0
+        },
+        {
+          "source": "ts4k",
+          "hold": 8,
+          "prefetch": true,
+          "pace": true,
+          "recreations": 0,
+          "hardwareAcceleration": "prefer-hardware",
+          "requestedFramesMatched": true,
+          "p50Ms": 0.6,
+          "p90Ms": 1,
+          "over33Of270": 4,
+          "maxMs": 218.5,
+          "maxFutureFrames": 3,
+          "targetReseekWarnings": 0
+        }
+      ],
+      "fourKExactDimensionFinal": [
+        {
+          "source": "ts4k",
+          "hold": 8,
+          "prefetch": true,
+          "pace": true,
+          "recreations": 0,
+          "hardwareAcceleration": "prefer-hardware",
+          "requestedFramesMatched": true,
+          "p50Ms": 0.3,
+          "p90Ms": 0.8,
+          "over33Of270": 3,
+          "maxMs": 138.3,
+          "maxFutureFrames": 3,
+          "targetReseekWarnings": 0
+        }
+      ],
+      "fullTable": "performance-r4.json"
+    },
+    "pixelParity": {
+      "comparisons": 18,
+      "maximumChannelDifference": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "beforeVisibleRectFix": {
+        "codedHeight": 1088,
+        "visibleHeight": 1080,
+        "max": [
+          255,
+          253,
+          255,
+          0
+        ],
+        "mean": [
+          6.813300057870371,
+          5.998489101080247,
+          4.341127025462963,
+          0
+        ],
+        "directBottomPixel": [
+          255,
+          24,
+          0,
+          255
+        ],
+        "oldCopyBottomPixel": [
+          0,
+          0,
+          0,
+          255
+        ]
+      },
+      "oddOffsetVisibleRect": {
+        "width": 3,
+        "height": 3,
+        "yBytes": 9,
+        "uBytes": 4,
+        "vBytes": 4
+      },
+      "fullTable": "pixel-parity.json"
+    },
+    "verification": {
+      "build": "pass",
+      "typecheckNoEmit": "pass",
+      "unit": "616 tests, 610 pass, 4 skipped, 2 pre-existing preview-audio-supply failures",
+      "baseDecoderStall": "pass; low20k three conditions, 270/270 each, zero recovery",
+      "genuineStall": "pass"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "measurement": "Electron 39 GPU enabled, prefer-hardware, prefetch off, caller hold 8, 30fps pace, frames 236/505/788 plus 90 frames each",
+  "comparison": "The bitmap variant removes only the YUV copy branch from the same source. Each order uses a fresh Electron process per variant.",
+  "bitmapThenYuv": {
+    "bitmap": {
+      "real": { "p50Ms": 1.2, "maxMs": 338.8, "recreations": 0 },
+      "low": { "p50Ms": 18.7, "maxMs": 559.7, "recreations": 0 },
+      "g30": { "p50Ms": 15.3, "maxMs": 297.4, "recreations": 0 }
+    },
+    "yuv": {
+      "real": { "p50Ms": 10.8, "maxMs": 451.8, "recreations": 0 },
+      "low": { "p50Ms": 37.2, "maxMs": 896.3, "recreations": 0 },
+      "g30": { "p50Ms": 34.7, "maxMs": 521.4, "recreations": 0 }
+    }
+  },
+  "yuvThenBitmap": {
+    "yuv": {
+      "real": { "p50Ms": 10.2, "maxMs": 359.6, "recreations": 0 },
+      "low": { "p50Ms": 22.9, "maxMs": 486.9, "recreations": 0 },
+      "g30": { "p50Ms": 20.6, "maxMs": 158.7, "recreations": 0 }
+    },
+    "bitmap": {
+      "real": { "p50Ms": 1.1, "maxMs": 372.1, "recreations": 0 },
+      "low": { "p50Ms": 12.9, "maxMs": 476.0, "recreations": 0 },
+      "g30": { "p50Ms": 14.3, "maxMs": 151.0, "recreations": 0 }
+    }
+  },
+  "conclusion": "YUV copy preserves metadata and both compositor paths exactly, but it has a reproducible p50 cost. Nondegradation relative to bitmap is not demonstrated."
+}
