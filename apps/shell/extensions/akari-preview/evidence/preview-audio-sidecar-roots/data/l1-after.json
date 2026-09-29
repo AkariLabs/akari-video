@@ -1,0 +1,169 @@
+{
+ "startedAt": "2026-09-29T09:48:56.585Z",
+ "phases": {
+  "aloneA": {
+   "ensure": {
+    "ok": true,
+    "v": "opened"
+   },
+   "play": {
+    "at": 2,
+    "b500": -48.3,
+    "b220": -56.9,
+    "b196": -90.6,
+    "peak": 0.1003,
+    "taps": 1,
+    "audioStatus": [],
+    "supply": {
+     "phase": "ready",
+     "failed": [],
+     "pendingSidecar": [],
+     "required": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "narration:n-1"
+     ],
+     "ready": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "speech:cut-2-speech",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "speech:cut-3-speech",
+      "narration:n-5",
+      "narration:n-6"
+     ]
+    }
+   },
+   "errorsSoFar": 0,
+   "notifications": []
+  },
+  "windowB": {
+   "ensure": {
+    "ok": true,
+    "v": "opened"
+   },
+   "play": {
+    "at": 2,
+    "b500": -48.2,
+    "b220": -56.5,
+    "b196": -90.2,
+    "peak": 0.103,
+    "taps": 1,
+    "audioStatus": [],
+    "supply": {
+     "phase": "ready",
+     "failed": [],
+     "pendingSidecar": [],
+     "required": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "narration:n-1"
+     ],
+     "ready": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "speech:cut-2-speech",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "speech:cut-3-speech",
+      "narration:n-5",
+      "narration:n-6"
+     ]
+    }
+   },
+   "notifications": []
+  },
+  "reopenA": {
+   "closed": [
+    "plugin-webview:akari-output-preview-rpj5uh"
+   ],
+   "ensure": {
+    "ok": true,
+    "v": "opened"
+   },
+   "play": {
+    "at": 2,
+    "b500": -48.5,
+    "b220": -57,
+    "b196": -90.6,
+    "peak": 0.0981,
+    "taps": 1,
+    "audioStatus": [],
+    "supply": {
+     "phase": "ready",
+     "failed": [],
+     "pendingSidecar": [],
+     "required": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "narration:n-1"
+     ],
+     "ready": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "speech:cut-2-speech",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "speech:cut-3-speech",
+      "narration:n-5",
+      "narration:n-6"
+     ]
+    }
+   },
+   "play50": {
+    "at": 50,
+    "b500": -41.6,
+    "b220": -56.3,
+    "b196": -90,
+    "peak": 0.091,
+    "taps": 1,
+    "audioStatus": [],
+    "supply": {
+     "phase": "ready",
+     "failed": [],
+     "pendingSidecar": [],
+     "required": [
+      "narration:n-3",
+      "bgm:bgm-02",
+      "speech:cut-2-speech"
+     ],
+     "ready": [
+      "speech:cut-1-speech",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "bgm:bgm-02",
+      "speech:cut-2-speech",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "speech:cut-3-speech",
+      "narration:n-5",
+      "narration:n-6"
+     ]
+    }
+   },
+   "notifications": [],
+   "errorCountBeforeReopen": 0,
+   "errorCountTotal": 0,
+   "errorLines": []
+  }
+ }
+}

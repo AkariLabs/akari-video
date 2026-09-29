@@ -111,6 +111,21 @@ export interface TranscodeAudioRequest {
     workspaceRoots?: string[];
 }
 
+export interface PreviewAudioSidecarRequest {
+    sourceUri: string;
+    projectRootUri: string;
+    workspaceRoots?: string[];
+    inSec: number;
+    outSec?: number;
+    speed: number;
+    padBeforeSec?: number;
+    padAfterSec?: number;
+    heavyWavOnly?: boolean;
+    clipFx?: import('./audio-clip-fx').AudioClipFx;
+    format?: 'flac' | 'pcm-s16le';
+    decodedBytesThreshold?: number;
+}
+
 export type TranscodeAudioErrorKind =
     | 'ffmpeg-not-found'
     | 'input-too-large'

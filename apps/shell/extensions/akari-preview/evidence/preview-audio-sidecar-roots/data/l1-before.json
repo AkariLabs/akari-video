@@ -1,0 +1,228 @@
+{
+ "startedAt": "2026-09-29T09:30:03.282Z",
+ "phases": {
+  "aloneA": {
+   "ensure": {
+    "ok": true,
+    "v": "opened"
+   },
+   "play": {
+    "at": 2,
+    "b500": -48.4,
+    "b220": -57,
+    "b196": -90.7,
+    "peak": 0.1068,
+    "taps": 1,
+    "audioStatus": [],
+    "supply": {
+     "phase": "ready",
+     "failed": [],
+     "pendingSidecar": [],
+     "required": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "narration:n-1"
+     ],
+     "ready": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "speech:cut-2-speech",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "speech:cut-3-speech",
+      "narration:n-5",
+      "narration:n-6"
+     ]
+    }
+   },
+   "errorsSoFar": 0,
+   "notifications": []
+  },
+  "windowB": {
+   "ensure": {
+    "ok": true,
+    "v": "opened"
+   },
+   "play": {
+    "at": 2,
+    "b500": -48.2,
+    "b220": -56.7,
+    "b196": -90.4,
+    "peak": 0.1028,
+    "taps": 1,
+    "audioStatus": [],
+    "supply": {
+     "phase": "ready",
+     "failed": [],
+     "pendingSidecar": [],
+     "required": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "narration:n-1"
+     ],
+     "ready": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "speech:cut-2-speech",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "speech:cut-3-speech",
+      "narration:n-5",
+      "narration:n-6"
+     ]
+    }
+   },
+   "notifications": []
+  },
+  "reopenA": {
+   "closed": [
+    "plugin-webview:akari-output-preview-evdfek"
+   ],
+   "ensure": {
+    "ok": true,
+    "v": "opened"
+   },
+   "play": {
+    "at": 2,
+    "b500": -137.1,
+    "b220": -56.7,
+    "b196": -90.5,
+    "peak": 0.0813,
+    "taps": 1,
+    "audioStatus": [
+     "一部の音声を再生できません: speech:cut-1-speech, speech:cut-2-speech, speech:cut-3-speech"
+    ],
+    "supply": {
+     "phase": "degraded",
+     "failed": [
+      "speech:cut-1-speech",
+      "speech:cut-2-speech",
+      "speech:cut-3-speech"
+     ],
+     "pendingSidecar": [],
+     "required": [
+      "bgm:bgm-01",
+      "speech:cut-1-speech",
+      "narration:n-1"
+     ],
+     "ready": [
+      "bgm:bgm-01",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "bgm:bgm-02",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "bgm:bgm-03",
+      "narration:n-5",
+      "bgm:bgm-04",
+      "narration:n-6",
+      "bgm:bgm-05"
+     ]
+    }
+   },
+   "play50": {
+    "at": 50,
+    "b500": -41.8,
+    "b220": -56.4,
+    "b196": -90,
+    "peak": 0.0853,
+    "taps": 1,
+    "audioStatus": [
+     "一部の音声を再生できません: speech:cut-1-speech, speech:cut-2-speech, speech:cut-3-speech"
+    ],
+    "supply": {
+     "phase": "degraded",
+     "failed": [
+      "speech:cut-1-speech",
+      "speech:cut-2-speech",
+      "speech:cut-3-speech"
+     ],
+     "pendingSidecar": [],
+     "required": [
+      "narration:n-3",
+      "bgm:bgm-02",
+      "speech:cut-2-speech"
+     ],
+     "ready": [
+      "bgm:bgm-01",
+      "sfx:sfx-1",
+      "narration:n-1",
+      "narration:n-2",
+      "narration:n-3",
+      "sfx:sfx-2",
+      "bgm:bgm-02",
+      "narration:n-4",
+      "sfx:sfx-3",
+      "bgm:bgm-03",
+      "narration:n-5",
+      "bgm:bgm-04",
+      "narration:n-6",
+      "bgm:bgm-05"
+     ]
+    }
+   },
+   "notifications": [],
+   "errorCountBeforeReopen": 0,
+   "errorCountTotal": 11,
+   "errorLines": [
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.272Z root WARN [akari-preview] audio.bgm sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.273Z root WARN [akari-preview] speech sidecar cut-1-speech unavailable; using source fallback: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.274Z root WARN [akari-preview] audio.narration n-1 sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.275Z root WARN [akari-preview] audio.narration n-3 sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.275Z root WARN [akari-preview] audio.bgm sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.276Z root WARN [akari-preview] speech sidecar cut-2-speech unavailable; using source fallback: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.277Z root WARN [akari-preview] audio.bgm sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.278Z root WARN [akari-preview] speech sidecar cut-3-speech unavailable; using source fallback: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.278Z root WARN [akari-preview] audio.narration n-5 sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.279Z root WARN [akari-preview] audio.bgm sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    },
+    {
+     "file": "electron-1790674203283.log",
+     "line": "2026-09-29T09:30:46.291Z root WARN [akari-preview] audio.bgm sidecar unavailable; using source: Preview audio sidecar paths must stay inside an open workspace"
+    }
+   ]
+  }
+ }
+}

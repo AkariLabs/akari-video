@@ -49,6 +49,7 @@ export function createPreviewAudioHost(resultFor = () => ({ state: 'queued' }), 
     const calls = [];
     const requests = [];
     host.workspaceService = { roots: Promise.resolve([]) };
+    host.currentWorkspaceRoots = async () => ['file:///project'];
     host.lastRawEditVersionByUri = new Map();
     host.migrationCompactionPrompted = new Set();
     host.loadPreviewCaptions = async () => ({ captions: [] });

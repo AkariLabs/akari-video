@@ -94,6 +94,22 @@ test('loadPreviewModel issues the combined fixture in first-use order and retain
     assert.equal(audio.narration[0].gainDb, -2);
 });
 
+test('initial and polling sidecar requests carry the requesting window roots', async () => {
+    const f = harness(() => ({ state: 'queued' }));
+    const model = await f.load();
+    assert.equal(f.requests.length, expected.length);
+    assert.ok(f.requests.every(request => JSON.stringify(request.workspaceRoots) === '["file:///project"]'));
+    for (const item of model.previewAudioPendingRequests) delete item.request.workspaceRoots;
+    assert.ok(model.previewAudioPendingRequests.every(item => item.request.workspaceRoots === undefined));
+    const widget = { isDisposed: false, disposed: { connect() {} },
+        akariPreviewSummary: model.summary, sendMessage() {} };
+    f.host.startPreviewAudioTracking(widget, model, true);
+    await f.poll();
+    assert.equal(f.requests.length, expected.length * 2);
+    assert.ok(f.requests.slice(expected.length)
+        .every(request => JSON.stringify(request.workspaceRoots) === '["file:///project"]'));
+});
+
 test('ready results are written back to each declaration with the original stream keys', async () => {
     const f = harness(name => ({
         state: 'ready', key: name, stream: { id: `stream:${name}`, url: `pcm:${name}` },

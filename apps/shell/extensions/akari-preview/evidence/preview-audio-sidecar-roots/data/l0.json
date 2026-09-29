@@ -1,0 +1,83 @@
+{
+ "base": "35cc39241",
+ "env": "Windows 11, Node 24.20.0, TMP/TEMP under C:\t",
+ "suite": {
+  "command": "cd apps/shell/extensions/akari-preview && node --test --test-reporter=spec test/*.test.mjs",
+  "base": {
+   "tests": null,
+   "pass": null,
+   "fail": null,
+   "failing": [
+    "(c) a stream target cannot escape a requested root through a symbolic link",
+    "1 MB 超、ワークスペース外、symlink のサイドカーを読まない",
+    "an existing filename symlink is a collision, never an overwrite",
+    "caption and edit retarget races never return outside content across 10k RPC calls each",
+    "caption display rejects static symlinks for both captions and edit inputs",
+    "L1 証跡 redaction は raw/realpath と入れ子値を伏せ HTTP URL を保持する",
+    "merge CLI writes complete results and fails closed on a newer blocked capture",
+    "rejects outside files, symlink escapes, non-HTML groups and invalid times",
+    "save rejects symlink directory escapes and malformed payload before writing",
+    "test\\cut-size-basis.test.mjs",
+    "test\\photo-preview-mask.test.mjs",
+    "three transform implementations agree on rotated parent and anisotropic leaves",
+    "参照動画: 代表ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206",
+    "参照動画: 追加ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206"
+   ]
+  },
+  "after": {
+   "tests": null,
+   "pass": null,
+   "fail": null,
+   "failing": [
+    "(c) a stream target cannot escape a requested root through a symbolic link",
+    "1 MB 超、ワークスペース外、symlink のサイドカーを読まない",
+    "an existing filename symlink is a collision, never an overwrite",
+    "caption and edit retarget races never return outside content across 10k RPC calls each",
+    "caption display rejects static symlinks for both captions and edit inputs",
+    "L1 証跡 redaction は raw/realpath と入れ子値を伏せ HTTP URL を保持する",
+    "merge CLI writes complete results and fails closed on a newer blocked capture",
+    "rejects outside files, symlink escapes, non-HTML groups and invalid times",
+    "save rejects symlink directory escapes and malformed payload before writing",
+    "test\\cut-size-basis.test.mjs",
+    "test\\photo-preview-mask.test.mjs",
+    "three transform implementations agree on rotated parent and anisotropic leaves",
+    "参照動画: 代表ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206",
+    "参照動画: 追加ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206"
+   ]
+  },
+  "newFailures": []
+ },
+ "buildExt": {
+  "command": "cd apps/shell && npm run build:ext",
+  "exit": 0
+ },
+ "lint": {
+  "command": "cd apps/shell && npm run lint",
+  "exit": 0,
+  "problems": "0 errors, 5 warnings (preexisting no-unused-vars)"
+ },
+ "redGreen": {
+  "method": "new/updated tests copied onto a detached base worktree (35cc39241) and run against the base build",
+  "base": {
+   "initial and polling sidecar requests carry the requesting window roots": "FAIL",
+   "audio sidecar accepts window A roots while window B is most recent": "pass",
+   "audio sidecar rejects roots absent from the open workspace ledger": "pass",
+   "audio sidecar without roots keeps the legacy most-recent-workspace behavior": "pass"
+  },
+  "after": {
+   "initial and polling sidecar requests carry the requesting window roots": "pass",
+   "audio sidecar accepts window A roots while window B is most recent": "pass",
+   "audio sidecar rejects roots absent from the open workspace ledger": "pass",
+   "audio sidecar without roots keeps the legacy most-recent-workspace behavior": "pass"
+  },
+  "note": "The backend already resolved request.workspaceRoots via resolveWorkspaceRoots at base; the defect was that the frontend never sent roots. The backend-level tests pin (a)/(b)/(c) behavior and are green before and after; the frontend wiring test is the red->green one."
+ },
+ "mutation": {
+  "method": "drop each of the three `item.request.workspaceRoots = await this.currentWorkspaceRoots();` lines from a scratch copy of the compiled open-handler and rerun preview-audio-request-order.test.mjs",
+  "results": {
+   "poll (startPreviewAudioTracking)": "FAIL (1/12)",
+   "speech (loadPreviewModel)": "FAIL (1/12)",
+   "regular sidecar entry.resolve (resolveAudioAssets)": "FAIL (1/12)"
+  }
+ }
+}

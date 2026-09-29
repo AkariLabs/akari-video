@@ -29,6 +29,7 @@ import {
     ListReviewSessionsRequest,
     OverlayRuntimeAssets,
     OverlayRuntimeAssetUrls,
+    PreviewAudioSidecarRequest,
     ProbeAudioPresenceRequest,
     ProbeAudioPresenceResult,
     ReadReviewSessionStrokesRequest,
@@ -89,26 +90,7 @@ interface TranscodedAudioStreamTarget extends Omit<StreamTarget, 'extension'> {
     temporaryDirectory: string;
 }
 
-interface PrepareSpeechAtempoRequest {
-    sourceUri: string;
-    projectRootUri: string;
-    inSec: number;
-    outSec?: number;
-    speed: number;
-    padBeforeSec?: number;
-    padAfterSec?: number;
-    heavyWavOnly?: boolean;
-    format?: 'flac' | 'pcm-s16le';
-    decodedBytesThreshold?: number;
-    clipFx?: {
-        speed?: number;
-        pitch_semitones?: number;
-        formant?: 'preserve' | 'shift';
-        denoise?: { method: 'fft' | 'nlm'; strength: number };
-        lowcut_hz?: number;
-    };
-    workspaceRoots?: string[];
-}
+type PrepareSpeechAtempoRequest = PreviewAudioSidecarRequest;
 
 interface PrepareSpeechAtempoResult {
     ok: boolean;
