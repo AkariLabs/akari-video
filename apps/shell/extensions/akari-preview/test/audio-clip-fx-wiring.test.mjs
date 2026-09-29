@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const handlerSource = await readFile(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const protocolSource = await readFile(new URL('../src/common/akari-preview-protocol.ts', import.meta.url), 'utf8');
 const audioSource = handlerSource.slice(handlerSource.indexOf('    protected async resolveAudioAssets('));
 const resolveSource = audioSource.slice(audioSource.indexOf('        const resolveSource = async ('), audioSource.indexOf('        const gainDb ='));
 
@@ -15,7 +16,7 @@ test('resolveSource sends the shared clip FX request on the non-blocking sidecar
     assert.match(resolveSource, /const sidecarRequest = previewAudioSidecarRequestFor\(clipFx\)/);
     assert.match(resolveSource, /const request: PreviewAudioSidecarRequest = \{[^]*?\.\.\.sidecarRequest,[^]*?format: plan\.format/);
     assert.doesNotMatch(resolveSource, /heavyWavOnly/);
-    assert.match(handlerSource, /interface PreviewAudioSidecarRequest \{[^]*?clipFx\?: AudioClipFx;/);
+    assert.match(protocolSource, /interface PreviewAudioSidecarRequest \{[^]*?clipFx\?: import\('\.\/audio-clip-fx'\)\.AudioClipFx;/);
 });
 
 test('sfx, narration, speech and bgm requests all adopt clip FX with the corresponding kind', () => {

@@ -112,6 +112,7 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssetUrls,
+    PreviewAudioSidecarRequest,
     ReadGenerationSidecarsResult,
     ReviewStrokeFrame,
     VideoStreamReference,
@@ -559,21 +560,6 @@ interface EditSummaryCut {
 }
 
 type PreviewAudioSidecarState = 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable';
-
-interface PreviewAudioSidecarRequest {
-    sourceUri: string;
-    projectRootUri: string;
-    workspaceRoots?: string[];
-    inSec: number;
-    outSec?: number;
-    speed: number;
-    padBeforeSec?: number;
-    padAfterSec?: number;
-    heavyWavOnly?: boolean;
-    clipFx?: AudioClipFx;
-    format?: 'flac' | 'pcm-s16le';
-    decodedBytesThreshold?: number;
-}
 
 interface PreviewAudioSidecarRequestResult {
     state: PreviewAudioSidecarState | 'not-eligible' | 'not-needed';
@@ -5342,6 +5328,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             await Promise.all([...pending].map(async item => {
                 let result: PreviewAudioSidecarRequestResult;
                 try {
+                    item.request.workspaceRoots = await this.currentWorkspaceRoots();
                     result = await service.requestPreviewAudioSidecar(item.request);
                 } catch (error) {
                     result = { state: 'unavailable', reason: error instanceof Error ? error.message : String(error) };
@@ -6348,6 +6335,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                     continue;
                 }
+                item.request.workspaceRoots = await this.currentWorkspaceRoots();
                 const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
                 Object.assign(target, this.previewAudioSidecarFields(item, result));
                 if (result.key) previewAudioKeepKeys.add(result.key);
@@ -6536,6 +6524,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // The shared first-use loop invokes this only after both kinds are collected.
                 entry.resolve = async () => {
                     try {
+                        item.request.workspaceRoots = await this.currentWorkspaceRoots();
                         const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
                         if (result.key) previewAudioKeepKeys.add(result.key);
                         if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);

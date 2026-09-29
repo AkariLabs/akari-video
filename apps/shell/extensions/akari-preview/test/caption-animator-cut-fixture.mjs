@@ -61,6 +61,7 @@ export function captionHost(fixture) {
     const host = new Host();
     Object.assign(host, {
         workspaceService: { roots: Promise.resolve([]) }, lastRawEditVersionByUri: new Map(),
+        currentWorkspaceRoots: async () => ['file:///project'],
         migrationCompactionPrompted: new Set(),
         loadPreviewCaptions: async () => ({ captions: fixture.captions }),
         readText: async () => '', normalizeEmphasisWords: () => [],

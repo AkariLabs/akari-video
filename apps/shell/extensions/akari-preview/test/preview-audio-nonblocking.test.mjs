@@ -166,6 +166,7 @@ function lifecycle(requestSidecar = async () => ({ state: 'no-audio' })) {
         console: { warn: (...args) => warnings.push(args) }
     });
     const host = new Host();
+    host.currentWorkspaceRoots = async () => ['file:///project'];
     host.previewService = {
         requestPreviewAudioSidecar: requestSidecar,
         sweepPreviewAudioSidecars: async request => { sweeps.push(request); }
