@@ -4301,7 +4301,7 @@ function readV2Internal(raw) {
   const legacyIndexCounters = /* @__PURE__ */ new Map();
   const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(
     (track) => "items" in track && track.lane === "visual" ? [track.items] : []
-  ), pathOf);
+  ), pathOf, chromaKeyOf);
   const contentDurationFrames = edit.tracks.reduce((maximum, track) => "items" in track && track.lane === "visual" ? track.items.reduce((trackMaximum, item) => Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
   const tracks = edit.tracks.map((track) => {
     const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
@@ -4482,7 +4482,7 @@ function needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling = false) {
   if (hasOverlappingSibling) return true;
   return false;
 }
-function analyzeOverlappingItems(itemGroups, pathOf) {
+function analyzeOverlappingItems(itemGroups, pathOf, chromaKeyOf) {
   const overlapping = /* @__PURE__ */ new Set();
   const crossTrackEvacuations = [];
   const entries = itemGroups.flatMap(
@@ -4518,13 +4518,37 @@ function analyzeOverlappingItems(itemGroups, pathOf) {
       }
     }
   }
+  for (; ; ) {
+    const newlyEvacuated = /* @__PURE__ */ new Set();
+    for (let i = 0; i < entries.length; i++) {
+      const { item: lower, trackIndex: lowerTrackIndex, trackId: lowerTrackId } = entries[i];
+      const lowerIsLayer = lower.source.kind === "media" ? needsLayersEngine(lower, chromaKeyOf, overlapping.has(lower.id)) : lower.source.kind === "telop" || lower.source.kind === "filter";
+      if (!lowerIsLayer) continue;
+      for (let j = 0; j < entries.length; j++) {
+        const { item: upper, trackIndex: upperTrackIndex, trackId: upperTrackId } = entries[j];
+        if (upperTrackIndex <= lowerTrackIndex || upper.source.kind !== "media" || overlapping.has(upper.id) || needsLayersEngine(upper, chromaKeyOf, false)) continue;
+        if (!(lower.at < upper.at + upper.duration && upper.at < lower.at + lower.duration)) continue;
+        newlyEvacuated.add(upper.id);
+        crossTrackEvacuations.push({
+          itemId: upper.id,
+          trackId: upperTrackId,
+          causeItemId: lower.id,
+          causeTrackId: lowerTrackId,
+          overlapStartFrames: Math.max(lower.at, upper.at),
+          overlapEndFrames: Math.min(lower.at + lower.duration, upper.at + upper.duration)
+        });
+      }
+    }
+    if (newlyEvacuated.size === 0) break;
+    for (const id of newlyEvacuated) overlapping.add(id);
+  }
   return { itemIds: overlapping, crossTrackEvacuations };
 }
-function computeOverlappingItemIds(itemGroups, pathOf) {
+function computeOverlappingItemIds(itemGroups, pathOf, chromaKeyOf) {
   return analyzeOverlappingItems(itemGroups.map((items, index) => ({
     items,
     trackId: String(index)
-  })), pathOf).itemIds;
+  })), pathOf, chromaKeyOf).itemIds;
 }
 var ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN = /\.(webm|mov)$/iu;
 function isAlphaCapableMediaSourcePath(path) {

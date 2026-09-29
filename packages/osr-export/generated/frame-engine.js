@@ -11637,7 +11637,7 @@ ${indent}`);
         const warnings2 = [];
         const refCounters = /* @__PURE__ */ new Map();
         const legacyIndexCounters = /* @__PURE__ */ new Map();
-        const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap((track) => "items" in track && track.lane === "visual" ? [track.items] : []), pathOf);
+        const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap((track) => "items" in track && track.lane === "visual" ? [track.items] : []), pathOf, chromaKeyOf);
         const contentDurationFrames = edit.tracks.reduce((maximum, track) => "items" in track && track.lane === "visual" ? track.items.reduce((trackMaximum, item) => Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
         const tracks = edit.tracks.map((track) => {
           const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
@@ -11807,7 +11807,7 @@ ${indent}`);
           return true;
         return false;
       }
-      function analyzeOverlappingItems(itemGroups, pathOf) {
+      function analyzeOverlappingItems(itemGroups, pathOf, chromaKeyOf) {
         const overlapping = /* @__PURE__ */ new Set();
         const crossTrackEvacuations = [];
         const entries = itemGroups.flatMap((group, trackIndex) => group.items.map((item) => ({ item, trackIndex, trackId: group.trackId })));
@@ -11845,19 +11845,49 @@ ${indent}`);
             }
           }
         }
+        for (; ; ) {
+          const newlyEvacuated = /* @__PURE__ */ new Set();
+          for (let i2 = 0; i2 < entries.length; i2++) {
+            const { item: lower, trackIndex: lowerTrackIndex, trackId: lowerTrackId } = entries[i2];
+            const lowerIsLayer = lower.source.kind === "media" ? needsLayersEngine(lower, chromaKeyOf, overlapping.has(lower.id)) : lower.source.kind === "telop" || lower.source.kind === "filter";
+            if (!lowerIsLayer)
+              continue;
+            for (let j2 = 0; j2 < entries.length; j2++) {
+              const { item: upper, trackIndex: upperTrackIndex, trackId: upperTrackId } = entries[j2];
+              if (upperTrackIndex <= lowerTrackIndex || upper.source.kind !== "media" || overlapping.has(upper.id) || needsLayersEngine(upper, chromaKeyOf, false))
+                continue;
+              if (!(lower.at < upper.at + upper.duration && upper.at < lower.at + lower.duration))
+                continue;
+              newlyEvacuated.add(upper.id);
+              crossTrackEvacuations.push({
+                itemId: upper.id,
+                trackId: upperTrackId,
+                causeItemId: lower.id,
+                causeTrackId: lowerTrackId,
+                overlapStartFrames: Math.max(lower.at, upper.at),
+                overlapEndFrames: Math.min(lower.at + lower.duration, upper.at + upper.duration)
+              });
+            }
+          }
+          if (newlyEvacuated.size === 0)
+            break;
+          for (const id of newlyEvacuated)
+            overlapping.add(id);
+        }
         return { itemIds: overlapping, crossTrackEvacuations };
       }
-      function computeOverlappingItemIds(itemGroups, pathOf) {
+      function computeOverlappingItemIds(itemGroups, pathOf, chromaKeyOf) {
         return analyzeOverlappingItems(itemGroups.map((items, index) => ({
           items,
           trackId: String(index)
-        })), pathOf).itemIds;
+        })), pathOf, chromaKeyOf).itemIds;
       }
       function findCrossTrackLayerEvacuations(edit) {
         const raw = toRecord(edit);
         const parsed = (0, edit_v2_1.readEditV2)(raw === void 0 ? edit : extractV2MediaCaptionSwitches(raw).input);
         const pathOf = (id) => parsed.sources.find((entry) => entry.id === id)?.path;
-        return analyzeOverlappingItems(parsed.tracks.flatMap((track) => track.lane === "visual" && "items" in track ? [{ items: track.items, trackId: track.id }] : []), pathOf).crossTrackEvacuations;
+        const chromaKeyOf = (id) => parsed.sources.find((entry) => entry.id === id)?.chroma_key ?? void 0;
+        return analyzeOverlappingItems(parsed.tracks.flatMap((track) => track.lane === "visual" && "items" in track ? [{ items: track.items, trackId: track.id }] : []), pathOf, chromaKeyOf).crossTrackEvacuations;
       }
       var ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN = /\.(webm|mov)$/iu;
       function isAlphaCapableMediaSourcePath(path) {
@@ -22954,6 +22984,7 @@ ${indent}`);
     copyNativeYuvFrame: () => copyNativeYuvFrame,
     cornersToHomography: () => cornersToHomography,
     createDecoderErrorGuard: () => createDecoderErrorGuard,
+    createPreviewAudioSharedCache: () => createPreviewAudioSharedCache,
     createPreviewAudioSupply: () => createPreviewAudioSupply,
     createPreviewScheduler: () => createPreviewScheduler,
     cubicBezierAt: () => cubicBezierAt,
@@ -33429,6 +33460,10 @@ caused by: ${cause.stack}`;
     debug() {
       return { ...this.stats };
     }
+    /** Buffers survive AudioContext replacement; new windows use the active context. */
+    setContext(context) {
+      this.context = context;
+    }
     noteLate() {
       this.stats.late += 1;
     }
@@ -33578,6 +33613,25 @@ caused by: ${cause.stack}`;
     }
     return current;
   }
+  function createPreviewAudioSharedCache() {
+    return {
+      decoded: /* @__PURE__ */ new Map(),
+      windowSources: /* @__PURE__ */ new Map(),
+      decodedRefs: /* @__PURE__ */ new Map(),
+      windowRefs: /* @__PURE__ */ new Map(),
+      decodedBytes: 0,
+      overBudgetWarned: false,
+      dispose() {
+        this.decoded.clear();
+        for (const source of this.windowSources.values()) source.dispose();
+        this.windowSources.clear();
+        this.decodedRefs.clear();
+        this.windowRefs.clear();
+        this.decodedBytes = 0;
+        this.overBudgetWarned = false;
+      }
+    };
+  }
   var DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
   var MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
   var DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES = 64 * 1024 * 1024;
@@ -33611,11 +33665,10 @@ caused by: ${cause.stack}`;
         warn("[frame-engine] Web Audio unavailable; keeping wall-clock playback", reason);
       }
     }
-    const decoded = /* @__PURE__ */ new Map();
+    const cache = options.sharedCache ?? createPreviewAudioSharedCache();
+    const decoded = cache.decoded;
     const warned = /* @__PURE__ */ new Set();
     const speechMetrics = /* @__PURE__ */ new Map();
-    let decodedBytes = 0;
-    let overBudgetWarned = false;
     let prefetchInFlight = null;
     let activePrefetchQueue = null;
     let wakePrefetch = null;
@@ -33642,7 +33695,86 @@ caused by: ${cause.stack}`;
     let allAudioMuted = false;
     const trackMuted = (kind, track, id) => kind === "speech" ? speech.find((item) => item.id === id)?.scope === "layers" ? allLayersMuted || mutedLayerTracks.has(normalizedTrack(track)) : allCutsMuted || mutedCutTracks.has(normalizedTrack(track)) : allAudioMuted || mutedAudioTracks.has(normalizedTrack(track));
     const itemMuted = (item) => trackMuted(item.kind, item.track, item.id);
-    const windowSources = /* @__PURE__ */ new Map();
+    const windowSources = cache.windowSources;
+    const retainedDecoded = /* @__PURE__ */ new Set();
+    const retainedWindows = /* @__PURE__ */ new Set();
+    const retiredDecoded = /* @__PURE__ */ new Set();
+    const retiredWindows = /* @__PURE__ */ new Set();
+    const releaseDecoded = (key) => {
+      const count = cache.decodedRefs.get(key) ?? 0;
+      if (count > 1) {
+        cache.decodedRefs.set(key, count - 1);
+        return;
+      }
+      cache.decodedRefs.delete(key);
+      const entry = decoded.get(key);
+      if (entry) {
+        decoded.delete(key);
+        cache.decodedBytes = Math.max(0, cache.decodedBytes - entry.bytes);
+      }
+      if (cache.decodedBytes <= cacheLimit) cache.overBudgetWarned = false;
+    };
+    const releaseWindow = (key) => {
+      const count = cache.windowRefs.get(key) ?? 0;
+      if (count > 1) {
+        cache.windowRefs.set(key, count - 1);
+        return;
+      }
+      cache.windowRefs.delete(key);
+      windowSources.get(key)?.dispose();
+      windowSources.delete(key);
+    };
+    const releaseRetired = () => {
+      for (const key of retiredDecoded) releaseDecoded(key);
+      for (const key of retiredWindows) releaseWindow(key);
+      retiredDecoded.clear();
+      retiredWindows.clear();
+    };
+    const syncCacheReferences = () => {
+      const wantedDecoded = /* @__PURE__ */ new Set();
+      const wantedWindows = /* @__PURE__ */ new Set();
+      for (const item of declarations) {
+        if (item.spec.sidecarState === "no-audio") continue;
+        const sidecar = validSidecar(item.spec.sidecar);
+        if (sidecar?.format === "pcm-s16le") {
+          wantedWindows.add(pcmWindowCacheKey(item.url, sidecar));
+        } else if (item.spec.sidecarState !== "queued" && item.spec.sidecarState !== "generating" || item.fallbackWhileGenerating === true) {
+          wantedDecoded.add(decodeCacheKey(item.url, false));
+          if (sidecar && item.sourceUrl) wantedDecoded.add(decodeCacheKey(item.sourceUrl, false));
+        }
+      }
+      for (const item of speech) {
+        if (item.sidecarState === "no-audio") continue;
+        const sidecar = validSidecar(item.sidecar);
+        if (sidecar?.format === "pcm-s16le") {
+          wantedWindows.add(pcmWindowCacheKey(sidecar.path, sidecar));
+        } else {
+          const bakedPath = sidecar?.path ?? item.atempo?.path;
+          if (bakedPath) wantedDecoded.add(decodeCacheKey(bakedPath, false));
+          if (bakedPath || item.sidecarState !== "queued" && item.sidecarState !== "generating" || item.fallbackWhileGenerating === true) {
+            wantedDecoded.add(decodeCacheKey(item.url, true));
+          }
+        }
+      }
+      for (const key of wantedDecoded) if (!retainedDecoded.has(key)) {
+        if (!retiredDecoded.delete(key)) cache.decodedRefs.set(key, (cache.decodedRefs.get(key) ?? 0) + 1);
+        retainedDecoded.add(key);
+      }
+      for (const key of wantedWindows) if (!retainedWindows.has(key)) {
+        if (!retiredWindows.delete(key)) cache.windowRefs.set(key, (cache.windowRefs.get(key) ?? 0) + 1);
+        retainedWindows.add(key);
+      }
+      for (const key of [...retainedDecoded]) if (!wantedDecoded.has(key)) {
+        retainedDecoded.delete(key);
+        if (playing || starting) retiredDecoded.add(key);
+        else releaseDecoded(key);
+      }
+      for (const key of [...retainedWindows]) if (!wantedWindows.has(key)) {
+        retainedWindows.delete(key);
+        if (playing || starting) retiredWindows.add(key);
+        else releaseWindow(key);
+      }
+    };
     const windowStops = /* @__PURE__ */ new Map();
     const windowItems = /* @__PURE__ */ new Map();
     const windowFailures = /* @__PURE__ */ new Set();
@@ -33662,6 +33794,7 @@ caused by: ${cause.stack}`;
     let gateGeneration = -1;
     let gateIntent = null;
     let playing = false;
+    syncCacheReferences();
     let anchorTimelineSec = 0;
     let anchorContextSec = 0;
     let latestRequestedSec = 0;
@@ -33789,10 +33922,10 @@ caused by: ${cause.stack}`;
     };
     const noteDecodedBytes = (entry, buffer) => {
       entry.bytes = buffer.length * buffer.numberOfChannels * 4;
-      decodedBytes += entry.bytes;
-      if (decodedBytes > cacheLimit && !overBudgetWarned) {
-        overBudgetWarned = true;
-        warn(`[frame-engine] preview audio holds ${(decodedBytes / MIB).toFixed(0)} MiB of decoded PCM, over the ${(cacheLimit / MIB).toFixed(0)} MiB budget; keeping every buffer so playback stays complete`);
+      cache.decodedBytes += entry.bytes;
+      if (cache.decodedBytes > cacheLimit && !cache.overBudgetWarned) {
+        cache.overBudgetWarned = true;
+        warn(`[frame-engine] preview audio holds ${(cache.decodedBytes / MIB).toFixed(0)} MiB of decoded PCM, over the ${(cacheLimit / MIB).toFixed(0)} MiB budget; keeping every buffer so playback stays complete`);
       }
     };
     const decodeCompact = async (encoded) => {
@@ -33830,10 +33963,10 @@ caused by: ${cause.stack}`;
           }
           if (!buffer) buffer = await context.decodeAudioData(encoded);
           if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
-          noteDecodedBytes(entry, buffer);
+          if (decoded.get(cacheKey) === entry) noteDecodedBytes(entry, buffer);
           return buffer;
         } catch (reason) {
-          decoded.delete(cacheKey);
+          if (decoded.get(cacheKey) === entry) decoded.delete(cacheKey);
           if (!suppressWarning && !warned.has(cacheKey)) {
             warned.add(cacheKey);
             warn(`[frame-engine] ${label} unavailable`, reason);
@@ -33854,12 +33987,12 @@ caused by: ${cause.stack}`;
         frames: sidecar.frames,
         durationSec: sidecar.durationSec
       };
-      const key = JSON.stringify(metadata);
+      const key = pcmWindowCacheKey(url, sidecar);
       let source = windowSources.get(key);
       if (!source) {
         source = new PcmWindowSource(metadata, fetchImpl, context, { cacheBytes: options.windowCacheBytes });
         windowSources.set(key, source);
-      }
+      } else source.setContext(context);
       return source;
     };
     const resolveRegular = async (declaration) => {
@@ -33940,7 +34073,7 @@ caused by: ${cause.stack}`;
       });
     };
     const regularResolved = (item) => regularDecoded.some((candidate) => candidate.kind === item.kind && candidate.id === item.id);
-    const taskState = (state) => state === "queued" || state === "generating" ? "pending-sidecar" : state === "no-audio" ? "no-audio" : "decode";
+    const taskState = (state, sourceAvailable = false) => (state === "queued" || state === "generating") && !sourceAvailable ? "pending-sidecar" : state === "no-audio" ? "no-audio" : "decode";
     const prepareWindowedTask = (task, pcm) => {
       if (pcm && task.state === "decode") task.state = "windowed";
       if (task.state === "windowed" && !task.muted() && !task.resolved()) {
@@ -33955,7 +34088,7 @@ caused by: ${cause.stack}`;
       key: `${item.kind}:${item.id}`,
       at: firstUseRegular(item),
       failedAtMs: null,
-      state: taskState(item.spec.sidecarState),
+      state: taskState(item.spec.sidecarState, item.fallbackWhileGenerating === true && Boolean(item.sourceUrl)),
       muted: () => !(0, import_edit_store4.isAudioItemAudible)({ muted: trackMuted(item.kind, item.spec.track) }, item.spec),
       run: () => resolveRegular(item),
       resolved: () => regularResolved(item)
@@ -33964,7 +34097,7 @@ caused by: ${cause.stack}`;
       key: `speech:${item.id}`,
       at: firstUseSpeech(item),
       failedAtMs: null,
-      state: taskState(item.sidecarState),
+      state: taskState(item.sidecarState, item.fallbackWhileGenerating === true && Boolean(item.sourceUrl)),
       muted: () => trackMuted("speech", item.track, item.id),
       run: () => resolveSpeech(item),
       resolved: () => speechDecoded.has(item.id)
@@ -33973,6 +34106,37 @@ caused by: ${cause.stack}`;
       ...declarations.map(regularTask),
       ...speech.map(speechTask)
     ].sort((left, right) => left.at - right.at);
+    const taskActiveAt = (task, seconds) => {
+      if (task.at > seconds) return false;
+      const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        const spec = regular.spec;
+        if (regular.kind === "bgm" && (spec.loop === true || !finiteNonNegative(spec.t))) {
+          return seconds < timelineDurationSec;
+        }
+        const trimIn = finiteNonNegative(spec.in) ? spec.in : 0;
+        const trimDuration = finitePositive2(spec.out) && spec.out > trimIn ? (spec.out - trimIn) / (finitePositive2(spec.speed) ? spec.speed : 1) : void 0;
+        const resolved = regularDecoded.find((item) => item.kind === regular.kind && item.id === regular.id);
+        const remainingDecoded = finitePositive2(resolved?.durationSec) ? Math.max(0, (resolved.durationSec - (resolved.sidecar ? 0 : trimIn)) / (finitePositive2(spec.speed) ? spec.speed : 1)) : void 0;
+        const duration2 = [
+          spec.durationSec,
+          spec.duration,
+          trimDuration,
+          validSidecar(spec.sidecar)?.durationSec,
+          remainingDecoded
+        ].find(finitePositive2) ?? Infinity;
+        return seconds < task.at + duration2;
+      }
+      const spoken = speech.find((item) => `speech:${item.id}` === task.key);
+      if (!spoken) return true;
+      const duration = [
+        spoken.durationSec,
+        spoken.sidecar?.durationSec,
+        speechDecoded.get(spoken.id)?.durationSec
+      ].find(finitePositive2) ?? Infinity;
+      return seconds < spoken.atSec + duration + (finitePositive2(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec : 0);
+    };
+    const taskRelevantAfter = (task, seconds) => task.at >= seconds || taskActiveAt(task, seconds);
     const pendingTasks = () => {
       const at2 = now();
       return tasks.filter((task) => !task.muted() && task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
@@ -34065,7 +34229,7 @@ caused by: ${cause.stack}`;
     };
     const ensureDecodedUpTo = (seconds) => {
       const full = ensureDecoded();
-      const due = () => pendingTasks().filter((task) => task.at <= seconds && task.failedAtMs === null);
+      const due = () => pendingTasks().filter((task) => task.failedAtMs === null && taskActiveAt(task, seconds));
       if (due().length === 0) return Promise.resolve();
       return new Promise((resolve) => {
         let settled = false;
@@ -34111,7 +34275,9 @@ caused by: ${cause.stack}`;
       }
       const decodedCount = decodedRevision;
       if (!playing) {
-        if (lastStartOutcome === "empty" && decodedCount > emptyPlanDecodedCount) launch(latestRequestedSec);
+        if (lastStartOutcome === "empty" && tasks.filter((task) => taskRelevantAfter(task, latestRequestedSec) && task.resolved()).length > emptyPlanDecodedCount) {
+          launch(latestRequestedSec);
+        }
         return;
       }
       if (decodedCount <= scheduledDecodedCount) return;
@@ -34492,30 +34658,7 @@ caused by: ${cause.stack}`;
       };
     };
     const supplyKeysAt = (positionSec, asPlaying) => {
-      const requiredTasks = tasks.filter((task) => {
-        if (task.muted() || task.at > positionSec || task.state === "no-audio") return false;
-        const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
-        if (regular) {
-          if (regular.kind === "bgm") return positionSec < timelineDurationSec;
-          const durationSec = [
-            regular.spec.durationSec,
-            validSidecar(regular.spec.sidecar)?.durationSec,
-            regularDecoded.find((item) => item.kind === regular.kind && item.id === regular.id)?.durationSec
-          ].find(finitePositive2) ?? Infinity;
-          return positionSec < firstUseRegular(regular) + durationSec;
-        }
-        const spoken = speech.find((item) => `speech:${item.id}` === task.key);
-        if (spoken) {
-          const durationSec = [
-            spoken.durationSec,
-            spoken.sidecar?.durationSec,
-            speechDecoded.get(spoken.id)?.durationSec
-          ].find(finitePositive2) ?? Infinity;
-          const crossfadeOutSec = finitePositive2(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec : 0;
-          return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
-        }
-        return true;
-      });
+      const requiredTasks = tasks.filter((task) => !task.muted() && task.state !== "no-audio" && taskActiveAt(task, positionSec));
       const required = requiredTasks.map((task) => task.key);
       const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (!asPlaying || (bufferedUntil[task.key] ?? -Infinity) > positionSec))).map((task) => task.key);
       const pendingSidecar = tasks.filter((task) => task.state === "pending-sidecar").map((task) => task.key);
@@ -34627,7 +34770,7 @@ caused by: ${cause.stack}`;
         for (const warning of planWarnings) warn(`[frame-engine] audio: ${warning}`);
         if (plan.items.length === 0 && !replanning) {
           outcome = "empty";
-          emptyPlanDecodedCount = decodedRevision;
+          emptyPlanDecodedCount = tasks.filter((task) => taskRelevantAfter(task, latestRequestedSec) && task.resolved()).length;
           return;
         }
         const firstWindows = /* @__PURE__ */ new Map();
@@ -34662,6 +34805,7 @@ caused by: ${cause.stack}`;
         } else {
           stopSources();
         }
+        releaseRetired();
         windowControllers.add(controller);
         const contextStart = replanning ? anchorContextSec + (plan.startAtSec - anchorTimelineSec) / rate : context.currentTime + 0.02;
         if (!replanning) {
@@ -34701,6 +34845,7 @@ caused by: ${cause.stack}`;
           if (outcome === "failed") gateIntent = null;
           starting = false;
           lastStartOutcome = outcome;
+          if (outcome !== "started" && !playing) releaseRetired();
           if (replanPending) {
             replanPending = false;
             replanIfNeeded();
@@ -34726,6 +34871,7 @@ caused by: ${cause.stack}`;
       replanPending = false;
       lastStartOutcome = null;
       stopSources();
+      releaseRetired();
     };
     const armPauseWatchdog = () => {
       if (watchdogMs === false) return;
@@ -34781,12 +34927,12 @@ caused by: ${cause.stack}`;
         },
         prefetch: {
           items: tasks.length,
-          decodedBytes,
+          decodedBytes: cache.decodedBytes,
           elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? now() - prefetchStartedAt : 0),
           pending: prefetchPending,
           failed,
           compact: [...decoded.values()].filter((entry) => entry.compact).length,
-          overBudget: decodedBytes > cacheLimit,
+          overBudget: cache.decodedBytes > cacheLimit,
           windows: [...windowSources.values()].reduce((sum, source) => {
             const stats = source.debug();
             for (const name of Object.keys(sum)) sum[name] += stats[name];
@@ -34804,7 +34950,7 @@ caused by: ${cause.stack}`;
           okSources: perSource.filter((item) => item.ok).length,
           skippedSources: perSource.filter((item) => !item.ok).length,
           totalMs: perSource.reduce((sum, item) => sum + item.ms, 0),
-          bytes: decodedBytes,
+          bytes: cache.decodedBytes,
           perSource: perSource.map((item) => ({ ...item }))
         },
         speech: {
@@ -34871,6 +35017,7 @@ caused by: ${cause.stack}`;
         });
       }
       if (!changed) return;
+      syncCacheReferences();
       decodedRevision += 1;
       tasks.sort((left, right) => left.at - right.at);
       notifyTaskSettled();
@@ -35024,10 +35171,12 @@ caused by: ${cause.stack}`;
           analyser?.disconnect();
         } catch {
         }
-        decoded.clear();
-        for (const source of windowSources.values()) source.dispose();
-        windowSources.clear();
-        decodedBytes = 0;
+        for (const key of retainedDecoded) releaseDecoded(key);
+        for (const key of retainedWindows) releaseWindow(key);
+        retainedDecoded.clear();
+        retainedWindows.clear();
+        releaseRetired();
+        if (!options.sharedCache) cache.dispose();
         void context?.close().catch(() => void 0);
       }
     };
@@ -35041,7 +35190,6 @@ caused by: ${cause.stack}`;
     return typeof item.path === "string" && item.path && finitePositive2(item.durationSec) && finiteNonNegative(item.padBeforeSec) && finiteNonNegative(item.padAfterSec) ? item : void 0;
   }
   function firstUseRegular(item) {
-    if (item.kind === "bgm") return 0;
     return finiteNonNegative(item.spec.t) ? item.spec.t : 0;
   }
   function firstUseSpeech(item) {
@@ -35050,6 +35198,16 @@ caused by: ${cause.stack}`;
   }
   function decodeCacheKey(url, restricted) {
     return `${restricted ? "small:" : "audio:"}${url}`;
+  }
+  function pcmWindowCacheKey(url, sidecar) {
+    return JSON.stringify({
+      url,
+      sampleRate: sidecar.sampleRate,
+      channels: sidecar.channels,
+      bytesPerSample: sidecar.bytesPerSample,
+      frames: sidecar.frames,
+      durationSec: sidecar.durationSec
+    });
   }
   function finitePositive2(value) {
     return typeof value === "number" && Number.isFinite(value) && value > 0;
