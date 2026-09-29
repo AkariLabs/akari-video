@@ -353,6 +353,7 @@ export interface LintEditCandidateResult {
 
 export interface PrepareLegacyEditRequest {
     editUri: string;
+    workspaceRoots?: string[];
 }
 
 export type PrepareLegacyEditResult =
@@ -419,9 +420,9 @@ export interface ReadGenerationSidecarsResult {
 }
 
 export interface AkariPreviewService {
-    resolveProjectAssetUri(request: { projectRootUri: string; declaredPath: string }): Promise<string | undefined>;
+    resolveProjectAssetUri(request: { projectRootUri: string; declaredPath: string; workspaceRoots?: string[] }): Promise<string | undefined>;
     savePreviewFrame(request: import('./preview-frame-capture').SavePreviewFrameRequest): Promise<{ path: string }>;
-    prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): Promise<import('./visual-thumbnail').VisualThumbnailPage & {
+    prepareAssetVisualThumbnail(request: { assetUri: string; time?: number; workspaceRoots?: string[] }): Promise<import('./visual-thumbnail').VisualThumbnailPage & {
         assetUri: string; duration: number; time: number; mtime: number; size: number;
     }>;
     prepareVisualThumbnail(request: import('./visual-thumbnail').VisualThumbnailRequest): Promise<import('./visual-thumbnail').VisualThumbnailPage>;

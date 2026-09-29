@@ -1,0 +1,56 @@
+[
+  {
+    "t": "2026-09-28T10:41:42.828Z",
+    "step": "window-a-ready",
+    "ok": true,
+    "title": "ws-a — 単体"
+  },
+  {
+    "t": "2026-09-28T10:45:37.906Z",
+    "step": "window-b-ready",
+    "ok": true,
+    "title": "ws-b — 単体"
+  },
+  {
+    "t": "2026-09-28T10:45:42.931Z",
+    "step": "recent-workspaces",
+    "recent": [
+      "<pwr>/before/ws-b",
+      "<pwr>/before/ws-a"
+    ]
+  },
+  {
+    "t": "2026-09-28T10:45:47.130Z",
+    "step": "open-edit-json-in-a",
+    "attempt": 1
+  },
+  {
+    "t": "2026-09-28T10:46:01.854Z",
+    "step": "result",
+    "attempt": 1,
+    "elapsedMs": 14724,
+    "notifications": [
+      "edit.json: 動画プレビューを開けませんでした — Project is outside the workspace",
+      "Unable to open '/c:/t/pwr/before/ws-a/edit.json'"
+    ],
+    "hasOutsideText": true,
+    "hasCannotOpen": true,
+    "preview": null
+  },
+  {
+    "t": "2026-09-28T10:46:01.949Z",
+    "step": "backend-log-matches",
+    "lines": [
+      "2026-09-28T10:45:47.329Z root WARN [akari-preview] failed to configure created preview widget file:///c%3A/t/pwr/before/ws-a/edit.json Error: Project is outside the workspace",
+      "    at fHe.resolveProjectAssetUri (<HOME>\\akari-wt\\preview-window-roots\\apps\\shell\\lib\\backend\\main.js:2088:17497)",
+      "2026-09-28T10:45:47.329Z root WARN [akari-preview] open attempt 1 failed; retrying file:///c%3A/t/pwr/before/ws-a/edit.json Error: Project is outside the workspace",
+      "    at fHe.resolveProjectAssetUri (<HOME>\\akari-wt\\preview-window-roots\\apps\\shell\\lib\\backend\\main.js:2088:17497)",
+      "2026-09-28T10:45:47.398Z root WARN [akari-preview] failed to configure created preview widget file:///c%3A/t/pwr/before/ws-a/edit.json Error: Project is outside the workspace",
+      "    at fHe.resolveProjectAssetUri (<HOME>\\akari-wt\\preview-window-roots\\apps\\shell\\lib\\backend\\main.js:2088:17497)",
+      "2026-09-28T10:45:47.399Z root ERROR [akari-preview] failed to open preview file:///c%3A/t/pwr/before/ws-a/edit.json Error: Project is outside the workspace",
+      "    at fHe.resolveProjectAssetUri (<HOME>\\akari-wt\\preview-window-roots\\apps\\shell\\lib\\backend\\main.js:2088:17497)",
+      "2026-09-28T10:45:47.400Z root WARN Error: Project is outside the workspace",
+      "    at fHe.resolveProjectAssetUri (<HOME>\\akari-wt\\preview-window-roots\\apps\\shell\\lib\\backend\\main.js:2088:17497)"
+    ]
+  }
+]

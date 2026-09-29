@@ -41,22 +41,24 @@ test('host streams only a resolved project file and requests its FLAC sidecar', 
   const Host = new Function('URI', `${code}; return Host;`)(URI);
   const host = new Host();
   const edit = new URI('file:///project/edit.json');
-  const messages = [], disposed = [], requests = [];
+  const messages = [], disposed = [], requests = [], assetRequests = [];
   const widget = { akariPreviewEditUri: edit, isDisposed: false, sendMessage: message => messages.push(message) };
   host.openOutputPreviews = new Map([[edit.toString(), widget]]);
   host.videoCandidatePreviews = new Map();
+  host.currentWorkspaceRoots = async () => ['file:///project'];
   host.createVideoStream = async () => { requests.push('video'); return { id: 'video-1', url: 'http://localhost/video' }; };
   host.disposeVideoStreamId = async id => { disposed.push(id); };
   host.disposeAssetStreams = async ids => { disposed.push(...ids); };
-  host.previewService = { resolveProjectAssetUri: async () => 'file:///outside/escaped.mp4',
+  host.previewService = { resolveProjectAssetUri: async request => { assetRequests.push(request); return 'file:///outside/escaped.mp4'; },
     requestPreviewAudioSidecar: async request => { requests.push(request); return { state: 'ready',
       stream: { id: 'audio-1', url: 'http://localhost/audio.flac' } }; } };
   const detail = { itemId: 'clip-frame', relativePath: 'assets/generated/candidates/clip-frame/a.mp4',
     inSeconds: 0, outSeconds: 2 };
   await host.showVideoCandidatePreview(edit.toString(), detail);
   assert.deepEqual(requests, []);
-  host.previewService.resolveProjectAssetUri = async () => `file:///project/${detail.relativePath}`;
+  host.previewService.resolveProjectAssetUri = async request => { assetRequests.push(request); return `file:///project/${detail.relativePath}`; };
   await host.showVideoCandidatePreview(edit.toString(), detail);
+  assert.deepEqual(assetRequests[1].workspaceRoots, ['file:///project']);
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(messages.find(row => row.type === 'akari-preview-video-candidate' && row.url)?.relativePath,
     detail.relativePath);

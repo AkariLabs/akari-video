@@ -5593,7 +5593,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // 凍結 migration 前の v0/v1 生 JSON から旧席だけを退避し、後方互換入力にする。
             legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
             if (rawVersion !== 2) {
-                const prepared = await this.previewService.prepareLegacyEdit({ editUri: editUri.toString() });
+                const prepared = await this.previewService.prepareLegacyEdit({ editUri: editUri.toString(),
+                    workspaceRoots: await this.currentWorkspaceRoots() });
                 if ('blockers' in prepared) {
                     throw new TypeError(`このプロジェクトは変換できません: ${prepared.blockers.join(' / ')}`);
                 }
@@ -8932,7 +8933,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     return inspection;
                 },
                 save: async ({ captured, time }) => {
-                    const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image });
+                    const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image,
+                        workspaceRoots: await this.currentWorkspaceRoots() });
                     savedPath = saved.path;
                     void this.messages.info('コマを保存しました: ' + saved.path, { timeout: 3000 });
                     if (captured.reduced) void this.messages.info(
@@ -22670,7 +22672,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // The backend resolves real paths and rejects escaping symlinks. Its library fallback
             // may be outside the project, so the returned real path is checked again here.
             const resolved = await this.previewService.resolveProjectAssetUri({
-                projectRootUri: root.toString(), declaredPath: detail.relativePath
+                projectRootUri: root.toString(), declaredPath: detail.relativePath,
+                workspaceRoots: await this.currentWorkspaceRoots()
             });
             if (!current()) return;
             if (!resolved) { this.clearVideoCandidatePreview(key, detail.itemId); return; }
@@ -22891,7 +22894,8 @@ body { display: grid; place-items: center; padding: 32px; }
             default: {
                 if (!pathValue.replace(/\\/g, '/').startsWith('assets/')) return editUri.parent.resolve(pathValue);
                 const resolved = await this.previewService.resolveProjectAssetUri({
-                    projectRootUri: editUri.parent.toString(), declaredPath: pathValue
+                    projectRootUri: editUri.parent.toString(), declaredPath: pathValue,
+                    workspaceRoots: await this.currentWorkspaceRoots()
                 });
                 return resolved ? new URI(resolved) : editUri.parent.resolve(pathValue);
             }
