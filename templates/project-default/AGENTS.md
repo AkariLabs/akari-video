@@ -38,14 +38,13 @@
 
 ## AKARI Video の在処
 
-- `~/.akari/cli` … CLI 本体とシム（`~/.akari/cli/bin/akari`）。パートナー接続時に配備される。
+- `~/.akari/cli` … CLI 本体とシム（macOS / Linux は `~/.akari/cli/bin/akari`、Windows は `~/.akari/cli/bin/akari.cmd`）。パートナー接続時に配備される。
 - `~/.akari/app` … `install.sh` 経路で入れた本体。デスクトップアプリだけを使っている場合は存在しなくてよい。
 - アプリ同梱の `<App>/Contents/Resources/packages/` … render-cut・edit-lint などの CLI 実体。Windows は `<install dir>\resources\packages\`。
 - アプリ同梱の `<App>/Contents/Resources/media-bin/` … ffmpeg・ffprobe。whisper-cli はビルドにより同梱されないことがある。Windows は `<install dir>\resources\media-bin\`。
 - `<ライブラリの置き場>` … 素材ライブラリの実体。
 
-どれも PATH には無い前提とする。パートナー PTY 以外の端末では
-`~/.akari/cli/bin/akari` をフルパスで実行する。
+どれも PATH には無い前提とする。パートナー PTY 以外の端末では、macOS / Linux は `~/.akari/cli/bin/akari`、Windows は `~/.akari/cli/bin/akari.cmd` をフルパスで実行する（Windows の入口は `akari.cmd` だけであり、拡張子を省くと Git Bash では見つからない）。
 
 ## 素材が足りないとき
 
