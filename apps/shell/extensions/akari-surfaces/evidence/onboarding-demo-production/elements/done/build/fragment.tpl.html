@@ -1,0 +1,303 @@
+<div class="demo-done" lang="ja">
+<style>
+/*
+  編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」
+  edit.json では段 demo-stage、at 338 / duration 108（11.2667〜14.8667 秒）。
+  時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 338) / 30）。
+    1 行目   0.000 → 0.30   「喋ってるだけで」が下から（translateY 14→0、--ease-smooth）。
+                             不透明度は 0.10 秒で立てる（語頭 11.30 = フレーム 339 で 3 割見える）
+    2 行目   1.270 → 1.59   「編集は」が下から（translateY 20→0）。語頭 12.57 → フレーム 377 で見える
+    判子     2.090 → 2.29   「終わってる」の語頭 13.42 に叩きつける。フレーム 401（13.367）で大きく薄く現れ、
+                             0.08 秒で 13.44 に着地（scale 1.9→.92→1.03→1）。
+                             正解音（13.40）の直後に着地が来るよう、着地を先に合わせてある
+    着地     2.170          朱の輪が紙の縁から広がって消える（scale 1→1.35・opacity .6→0、0.30 秒）、
+                             2 行目が横に小さく揺れる（0.14 秒）、紙の落ち影が真下に締まる
+    抜け     3.280 → 3.53   全体が上へ 10px 抜けて消える（--ease-accelerate、forwards）
+  base（アニメ無しの見た目）は最終の静止状態。朱の輪だけは最終状態も不可視の過渡なので base で隠す。
+  判子は白い紙の円（不透明度 .96）に朱の二重円と「完了」。朱は左上 100% → 右下の縁 80% の押しムラ。
+
+  書体:
+    AKARI Demo Sans（系統）= Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
+                         Name 'Source'）の wght 800 / 900 を、この断片で使う文字だけに切り出した改変版
+    AKARI Demo Display（系統）= Dela Gothic One（SIL Open Font License 1.1、著作権 The Dela Gothic
+                         Project Authors）を「完了」の 2 字だけに切り出した改変版
+    どちらも別名で埋め込み、フォント内に著作権表示と許諾を保持。@font-face の family は
+    この断片専用の「AKARI Demo Sans Done」「AKARI Demo Display Done」にし、unicode-range で自分の字
+    （＋空白）だけを受け持つ。書き出しとプレビューは全断片を 1 枚の文書に並べるため、共通名
+    （AKARI Demo Sans）の面が unicode-range 無しで他の断片にあると、同じ太さの字をそちらの面が
+    先に取る（2026-10-01 実測）。専用名ならどの断片と並んでも同じ絵になる。空白（U+0020）を
+    含めるのは、行の高さの基準になる「最初に使える書体」を OS の書体でなくこの書体に固定するため
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --done-lead-right / --done-lead-top / --done-lead-size
+                              1 行目の右端から画面右までの距離・上端・文字サイズ（既定 82px / 162px / 38px）
+    --done-head-left / --done-head-top / --done-head-size
+                              2 行目の左端・上端・文字サイズ（既定 780px / 250px / 84px）
+    --done-stamp-cx / --done-stamp-cy / --done-stamp-size / --done-stamp-rotate
+                              判子の中心・朱の輪の外径・傾き（既定 1116px / 306px / 164px / -12deg）
+    --done-halo / --done-halo-color / --done-shadow-color
+                              壁に直に置く文字の白フチの太さ・色、その下の柔らかい影の色
+                              （既定 9px / #FFFFFF / rgba(58,38,20,.085) × 8 点 = 影 0 4px 14px 相当）
+    --done-paper              判子の紙の色（既定 rgba(255,255,255,.96)）
+    --demo-ink / --demo-stamp 墨（文字）と朱（判子）
+    --done-font / --done-stamp-font
+                              書体（既定 AKARI Demo Sans Done / AKARI Demo Display Done → Hiragino Sans → Yu Gothic UI …）
+    --done-lead-delay / --done-head-delay / --done-stamp-delay / --done-exit-delay
+                              各段の発火時刻（ローカル秒。着地の輪と揺れは判子 + 0.08 秒に従う）
+*/
+@font-face {
+  font-family: "AKARI Demo Sans Done";
+  src: url(data:font/woff2;base64,{{SANS800}}) format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+  unicode-range: {{SANS800_RANGE}};
+}
+@font-face {
+  font-family: "AKARI Demo Sans Done";
+  src: url(data:font/woff2;base64,{{SANS900}}) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: {{SANS900_RANGE}};
+}
+@font-face {
+  font-family: "AKARI Demo Display Done";
+  src: url(data:font/woff2;base64,{{DISPLAY}}) format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  unicode-range: {{DISPLAY_RANGE}};
+}
+
+.demo-done,
+.demo-done *,
+.demo-done *::before,
+.demo-done *::after { box-sizing: border-box; }
+
+.demo-done {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--done-font, "AKARI Demo Sans Done", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-feature-settings: "palt" 1;
+  font-synthesis: none;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+
+.demo-done__group {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── 壁に直に置く文字（白フチ 9px ＋ 暖色の影）──────────────── */
+.demo-done__lead,
+.demo-done__head-text {
+  display: block;
+  white-space: nowrap;
+  line-height: 1;
+  /* 白フチ: 半径 --done-halo の円周 32 点へ文字の形を白でずらし置きした輪（角が丸く出る。
+     -webkit-text-stroke は HTML の文字では角が尖る＝stroke-linejoin が効かない）。
+     その下に、同じ円周 8 点から暖色の柔らかい影を落として、白フチごと壁から浮かせる */
+  text-shadow:
+{{HALO_SHADOW}};
+}
+
+.demo-done__lead {
+  position: absolute;
+  right: var(--done-lead-right, 82px);
+  top: var(--done-lead-top, 162px);
+  font-size: var(--done-lead-size, 38px);
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-align: right;
+}
+
+.demo-done__head {
+  position: absolute;
+  left: var(--done-head-left, 780px);
+  top: var(--done-head-top, 250px);
+}
+
+.demo-done__head-text {
+  font-size: var(--done-head-size, 84px);
+  font-weight: 900;
+  letter-spacing: .01em;
+}
+
+/* ── 判子 ─────────────────────────────── */
+.demo-done__stamp {
+  position: absolute;
+  left: calc(var(--done-stamp-cx, 1116px) - var(--done-stamp-size, 164px) / 2);
+  top: calc(var(--done-stamp-cy, 306px) - var(--done-stamp-size, 164px) / 2);
+  width: var(--done-stamp-size, 164px);
+  height: var(--done-stamp-size, 164px);
+  transform: rotate(var(--done-stamp-rotate, -12deg));
+}
+
+/* 紙（白い円）の落ち影。宙にある間は大きく薄く、着地で紙の真下に締まる */
+.demo-done__stamp-shadow {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(58, 38, 20, .30) 0%,
+    rgba(58, 38, 20, .22) 62%,
+    rgba(58, 38, 20, .08) 84%,
+    rgba(58, 38, 20, 0) 100%);
+  opacity: 1;
+  transform: translate(0, 8px) scale(1);
+}
+
+.demo-done__slam {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.demo-done__paper {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--done-paper, rgba(255, 255, 255, .96));
+}
+
+.demo-done__slam svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.demo-done__ink-ring,
+.demo-done__ink-line {
+  fill: none;
+  stroke: var(--demo-stamp, #E8541E);
+}
+.demo-done__ink-ring { stroke-width: 7; }
+.demo-done__ink-line { stroke-width: 2; }
+
+.demo-done__stamp-text {
+  font-family: var(--done-stamp-font, "AKARI Demo Display Done", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-size: 70px;
+  font-weight: 400;
+  font-feature-settings: normal;
+  letter-spacing: 0;
+  fill: var(--demo-stamp, #E8541E);
+}
+
+/* 着地の輪（最終状態も不可視の過渡 FX） */
+.demo-done__ring {
+  position: absolute;
+  left: calc(var(--done-stamp-cx, 1116px) - var(--done-stamp-size, 164px) / 2 - 4px);
+  top: calc(var(--done-stamp-cy, 306px) - var(--done-stamp-size, 164px) / 2 - 4px);
+  width: calc(var(--done-stamp-size, 164px) + 8px);
+  height: calc(var(--done-stamp-size, 164px) + 8px);
+  border-radius: 50%;
+  border: 6px solid var(--demo-stamp, #E8541E);
+  opacity: 0;
+  transform: scale(1);
+}
+
+/* ── 動き（活性区間だけ宣言する）────────────── */
+[data-akari-active] .demo-done__group {
+  animation: demo-done-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--done-exit-delay, 3.28s) forwards;
+}
+[data-akari-active] .demo-done__lead {
+  animation:
+    demo-done-rise-14 .30s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--done-lead-delay, 0s) both,
+    demo-done-fade-in .10s var(--ease-linear, linear) var(--done-lead-delay, 0s) both;
+}
+[data-akari-active] .demo-done__head-text {
+  animation:
+    demo-done-rise-20 .32s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--done-head-delay, 1.27s) both,
+    demo-done-fade-in .10s var(--ease-linear, linear) var(--done-head-delay, 1.27s) both;
+}
+[data-akari-active] .demo-done__head {
+  animation: demo-done-shake .14s var(--ease-linear, linear) calc(var(--done-stamp-delay, 2.09s) + .08s) forwards;
+}
+[data-akari-active] .demo-done__slam {
+  animation:
+    demo-done-slam .20s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both,
+    demo-done-fade-in .06s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both;
+}
+[data-akari-active] .demo-done__stamp-shadow {
+  animation: demo-done-shadow .20s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both;
+}
+[data-akari-active] .demo-done__ring {
+  animation: demo-done-ring .30s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--done-stamp-delay, 2.09s) + .08s) forwards;
+}
+
+@keyframes demo-done-rise-14 {
+  0%   { transform: translateY(14px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-done-rise-20 {
+  0%   { transform: translateY(20px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-done-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes demo-done-slam {
+  0%   { transform: scale(1.9); }
+  40%  { transform: scale(.92); }
+  70%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-done-shadow {
+  0%   { transform: translate(16px, 34px) scale(1.75); opacity: 0; }
+  40%  { transform: translate(0, 6px) scale(.95);      opacity: 1; }
+  70%  { transform: translate(0, 9px) scale(1.04);     opacity: 1; }
+  100% { transform: translate(0, 8px) scale(1);        opacity: 1; }
+}
+@keyframes demo-done-ring {
+  0%   { transform: scale(1);    opacity: .6; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes demo-done-shake {
+  0%   { transform: translateX(0); }
+  33%  { transform: translateX(-3px); }
+  66%  { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-done-exit {
+  0%   { transform: translateY(0);     opacity: 1; }
+  100% { transform: translateY(-10px); opacity: 0; }
+}
+</style>
+<div class="demo-done__group">
+  <span class="demo-done__lead" data-akari-slot="lead">喋ってるだけで</span>
+  <div class="demo-done__head"><span class="demo-done__head-text" data-akari-slot="headline">編集は</span></div>
+  <i class="demo-done__ring"></i>
+  <div class="demo-done__stamp">
+    <i class="demo-done__stamp-shadow"></i>
+    <div class="demo-done__slam">
+      <i class="demo-done__paper"></i>
+      <svg viewBox="0 0 164 164" aria-hidden="true">
+        <defs>
+          <!-- 押しムラ: 朱の濃さを左上 100% → 右下の縁 80% へ落とす（紙の白が透ける） -->
+          <radialGradient id="demo-done-ink-density" cx="30%" cy="26%" r="95%">
+            <stop offset="0" stop-color="#FFFFFF"/>
+            <stop offset=".6" stop-color="#FFFFFF"/>
+            <stop offset="1" stop-color="#CCCCCC"/>
+          </radialGradient>
+          <mask id="demo-done-ink-mask" maskUnits="userSpaceOnUse" x="-8" y="-8" width="180" height="180">
+            <rect x="-8" y="-8" width="180" height="180" fill="url(#demo-done-ink-density)"/>
+          </mask>
+        </defs>
+        <g mask="url(#demo-done-ink-mask)">
+          <circle class="demo-done__ink-ring" cx="82" cy="82" r="78.5"/>
+          <circle class="demo-done__ink-line" cx="82" cy="82" r="71"/>
+          <text class="demo-done__stamp-text" x="82" y="{{TEXT_Y}}" text-anchor="middle">完了</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>
+</div>

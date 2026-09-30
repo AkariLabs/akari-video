@@ -1,0 +1,15 @@
+{
+ "frames": 1128,
+ "scale": "640x360（座標は 1/2）",
+ "person_region": "x < 55%（704px）",
+ "method": "差 > 24 の画素を 3x3 で収縮してから数える（圧縮ノイズの孤立画素を除く）",
+ "exempt_frames": "588-639（閃光・パンチインは全画面の例外）",
+ "overlay_pixels_in_person_region": {
+  "frames_with_hits": 0,
+  "worst": []
+ },
+ "overlay_pixels_on_caption_pixels": {
+  "frames_with_hits": 0,
+  "worst": []
+ }
+}

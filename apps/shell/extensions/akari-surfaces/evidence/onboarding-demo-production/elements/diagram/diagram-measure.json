@@ -1,0 +1,116 @@
+{
+ "element": "diagram（図解）",
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-diagram/fragment.html",
+ "fragment_md5": "f89b837ad50568b401d30691881bd15c",
+ "fragment_bytes": 46094,
+ "edit_item": {
+  "track": "demo-stage",
+  "id": "demo-diagram",
+  "at": 697,
+  "duration": 110,
+  "source": {
+   "kind": "html",
+   "path": "overlays/demo-diagram/fragment.html"
+  }
+ },
+ "sync": {
+  "method": "ハーネス（Edge ヘッドレス・data-akari-active・WAAPI seek）で k/30 秒ごとの透明連番 110 枚を撮り、部品の箱の中の色付き画素で最初に見えたフレームを取る。語頭は構成表 analysis/word-timing.json",
+  "rows": [
+   {
+    "element": "card（カード）",
+    "word_s": 23.27,
+    "word_frame": 698.1,
+    "first_visible_frame": 697,
+    "first_visible_s": 23.2333,
+    "diff_s": -0.037,
+    "diff_frames": -1.1
+   },
+   {
+    "element": "① 話す",
+    "word_s": 23.27,
+    "word_frame": 698.1,
+    "first_visible_frame": 698,
+    "first_visible_s": 23.2667,
+    "diff_s": -0.003,
+    "diff_frames": -0.1
+   },
+   {
+    "element": "② AI が編集",
+    "word_s": 23.58,
+    "word_frame": 707.4,
+    "first_visible_frame": 707,
+    "first_visible_s": 23.5667,
+    "diff_s": -0.013,
+    "diff_frames": -0.4
+   },
+   {
+    "element": "③ 完成！",
+    "word_s": 24.02,
+    "word_frame": 720.6,
+    "first_visible_frame": 720,
+    "first_visible_s": 24.0,
+    "diff_s": -0.02,
+    "diff_frames": -0.6
+   },
+   {
+    "element": "完成（③ が橙）",
+    "word_s": 24.7,
+    "word_frame": 741.0,
+    "first_visible_frame": 742,
+    "first_visible_s": 24.7333,
+    "diff_s": 0.033,
+    "diff_frames": 1.0
+   },
+   {
+    "element": "完成（輪郭）",
+    "word_s": 24.7,
+    "word_frame": 741.0,
+    "first_visible_frame": 741,
+    "first_visible_s": 24.7,
+    "diff_s": 0.0,
+    "diff_frames": 0.0
+   }
+  ],
+  "last_visible": {
+   "frame": 797,
+   "t": 26.5667
+  },
+  "judgement": "全部品が語頭の −1.1〜+1.0 フレーム（許容 ±0.15 秒・狙い ±0.05 秒の内）。③ の橙は 24.70 に 55% で乗り 24.733 で閾値を越える（輪郭は 24.700）"
+ },
+ "layout": {
+  "rest_bbox_alpha_gt_64": [
+   740,
+   150,
+   1229,
+   444
+  ],
+  "stage": "y<460 は x 720〜1240 の内",
+  "person_zone_max_alpha": "16/255（カードの影の裾だけ。絵としては見えない）",
+  "caption_band_pixels": 0,
+  "transient_outside_stage": "入り 697〜699 と抜け 796〜797 だけ（translateX 36 / 40 の移動中。右端最大 x=1263）"
+ },
+ "export_parity": {
+  "how": "render-cut --engine osr（tier 2 electron・worktree のコード）で書き出した mp4 と、ハーネス（Edge ヘッドレス・WAAPI seek）の透明連番を本編に重ねた mp4 を、舞台の箱 x700-1280・y130-470 で全 130 フレーム比較（両方 H.264 なので符号化誤差を含む）",
+  "worst_mean_abs_diff_0_255": 2.516,
+  "max_ratio_px_diff_gt_40": 0.00021,
+  "render_cut": "render-cut --engine osr（AKARI_EXPORT_ALLOW_DESKTOP=0 で tier 2 = worktree の electron.exe）PASS（verify: probe / blank-frames / decode / audio-level）"
+ },
+ "edit_lint": "隔離の雛形プロジェクト（本編 + demo-stage に本断片）で edit-lint --engine auto → PASS（0 findings）",
+ "knobs": "--diagram-left/top/step/node-size/title-size/link-color と --demo-accent を振った描画で位置・大きさ・色が追随（影・光の尾も color-mix で橙から追随）",
+ "deviation_from_plan": [
+  "抜けを構成表の 3.367→3.617（26.60→26.85）から 3.10→3.35（26.333→26.583）へ早めた。次の主役スマホが 26.967 から出るため、統一ルール「主役どうしは 0.3 秒以上空ける」を守る（空き 0.38 秒）。--diagram-at-out で戻せる",
+  "③ の墨→橙は opacity の重ね合わせだと途中が茶色く濁ったので、橙の円を scale .5→1 で中心から広げ、opacity は 0.06 秒で立ち上げる形にした",
+  "余韻の点は 8px の点だと 720p で見えにくかったので、頭 8px＋尾の光にした（溝の中で translateX(-100%)→0。0.9 秒周期・②→③ は半周期遅れ）",
+  "足したもの: ① の出現直後の声の波紋 2 重、完成時の ③ の脈打ち（scale 1→1.08→1）と輪、✦ の小さい星のきらめき（余韻中 2 回）、見出しの下の罫線"
+ ],
+ "renders": [
+  "diagram-export-sheet.png",
+  "diagram-export-build-frames-697-724.png",
+  "diagram-export-finish-frames-739-750.png",
+  "diagram-export-23.567-ai.png",
+  "diagram-export-24.733-finish.png",
+  "diagram-export-25.633-afterglow.png",
+  "diagram-export-22.90-27.23.mp4"
+ ],
+ "fonts": "AKARI Demo Sans = Noto Sans JP（OFL 1.1）wght 700/800/900 を使う 27 字だけ切り出し（各 約 5.2KB の woff2・nameID 0/13/14 保持）。切り出しの手順は diagram-font-subset.py"
+}

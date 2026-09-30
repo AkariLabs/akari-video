@@ -1,0 +1,342 @@
+<div class="demo-done" lang="ja">
+<style>
+/*
+  編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」
+  edit.json では段 demo-stage、at 338 / duration 108（11.2667〜14.8667 秒）。
+  時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 338) / 30）。
+    1 行目   0.000 → 0.30   「喋ってるだけで」が下から（translateY 14→0、--ease-smooth）。
+                             不透明度は 0.10 秒で立てる（語頭 11.30 = フレーム 339 で 3 割見える）
+    2 行目   1.270 → 1.59   「編集は」が下から（translateY 20→0）。語頭 12.57 → フレーム 377 で見える
+    判子     2.090 → 2.29   「終わってる」の語頭 13.42 に叩きつける。フレーム 401（13.367）で大きく薄く現れ、
+                             0.08 秒で 13.44 に着地（scale 1.9→.92→1.03→1）。
+                             正解音（13.40）の直後に着地が来るよう、着地を先に合わせてある
+    着地     2.170          朱の輪が紙の縁から広がって消える（scale 1→1.35・opacity .6→0、0.30 秒）、
+                             2 行目が横に小さく揺れる（0.14 秒）、紙の落ち影が真下に締まる
+    抜け     3.280 → 3.53   全体が上へ 10px 抜けて消える（--ease-accelerate、forwards）
+  base（アニメ無しの見た目）は最終の静止状態。朱の輪だけは最終状態も不可視の過渡なので base で隠す。
+  判子は白い紙の円（不透明度 .96）に朱の二重円と「完了」。朱は左上 100% → 右下の縁 80% の押しムラ。
+
+  書体:
+    AKARI Demo Sans（系統）= Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
+                         Name 'Source'）の wght 800 / 900 を、この断片で使う文字だけに切り出した改変版
+    AKARI Demo Display（系統）= Dela Gothic One（SIL Open Font License 1.1、著作権 The Dela Gothic
+                         Project Authors）を「完了」の 2 字だけに切り出した改変版
+    どちらも別名で埋め込み、フォント内に著作権表示と許諾を保持。@font-face の family は
+    この断片専用の「AKARI Demo Sans Done」「AKARI Demo Display Done」にし、unicode-range で自分の字
+    （＋空白）だけを受け持つ。書き出しとプレビューは全断片を 1 枚の文書に並べるため、共通名
+    （AKARI Demo Sans）の面が unicode-range 無しで他の断片にあると、同じ太さの字をそちらの面が
+    先に取る（2026-10-01 実測）。専用名ならどの断片と並んでも同じ絵になる。空白（U+0020）を
+    含めるのは、行の高さの基準になる「最初に使える書体」を OS の書体でなくこの書体に固定するため
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --done-lead-right / --done-lead-top / --done-lead-size
+                              1 行目の右端から画面右までの距離・上端・文字サイズ（既定 82px / 162px / 38px）
+    --done-head-left / --done-head-top / --done-head-size
+                              2 行目の左端・上端・文字サイズ（既定 780px / 250px / 84px）
+    --done-stamp-cx / --done-stamp-cy / --done-stamp-size / --done-stamp-rotate
+                              判子の中心・朱の輪の外径・傾き（既定 1116px / 306px / 164px / -12deg）
+    --done-halo / --done-halo-color / --done-shadow-color
+                              壁に直に置く文字の白フチの太さ・色、その下の柔らかい影の色
+                              （既定 9px / #FFFFFF / rgba(58,38,20,.085) × 8 点 = 影 0 4px 14px 相当）
+    --done-paper              判子の紙の色（既定 rgba(255,255,255,.96)）
+    --demo-ink / --demo-stamp 墨（文字）と朱（判子）
+    --done-font / --done-stamp-font
+                              書体（既定 AKARI Demo Sans Done / AKARI Demo Display Done → Hiragino Sans → Yu Gothic UI …）
+    --done-lead-delay / --done-head-delay / --done-stamp-delay / --done-exit-delay
+                              各段の発火時刻（ローカル秒。着地の輪と揺れは判子 + 0.08 秒に従う）
+*/
+@font-face {
+  font-family: "AKARI Demo Sans Done";
+  src: url(data:font/woff2;base64,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) format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020, U+3051, U+3060, U+3063, U+3066, U+3067, U+308B, U+558B;
+}
+@font-face {
+  font-family: "AKARI Demo Sans Done";
+  src: url(data:font/woff2;base64,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) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020, U+306F, U+7DE8, U+96C6;
+}
+@font-face {
+  font-family: "AKARI Demo Display Done";
+  src: url(data:font/woff2;base64,d09GMgABAAAAAAQMAA8AAAAACMQAAAO2AAEBRwAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcgRQGYABEEQgKgkCCGgE2AiQDGAsOAAQgBYguByAXJBgOG4sHKJ6HsQOtKRO0GKlYxdF/IojyoKozWYg8UT/5JSBn5n/nMh2y4j8EsIW0fMlLfo/UTQMJNaH2JuQUkJ2eUUfktnvW+5LNJIIYLMmI9+Evxx/w7LTxKJEIl9AY+4E0eA7qCBsiyzpsbfJIEw2AU690HbfXKFV9RNTJo2bsaoGqmqunjJ+4c0Ly5FCWAFTu6UQmVKjahwk/ym8NRjxEOP0mi9es8ZFUnUMcg1TfZQiIIBxohcpa6mHLlYWuqZzJVTB7ZRrqy5QqykVsTumZOFcFstOzC8Q0U4mVhtKDUAGOqIy9jBnbe2QBzDMTL08lPzUk98qaZ39oLRMZEhqt9WXpjaisupbWffKyM8sS+W9VfnzHkTceQgEQoixVBRVBdVTGKsQxCMhBQsghT6lx9ayuqbBCnTx5SMmO/aVHvDZf6rXXqr7xxtjXq51xSyjVOj3UqbpS54iaUTVqRA01VF0Y1f30WuNL77+7/2NVF15c9e2FiNdem//CGzPffHNW1aijwLEXVbu6JC6bPr5gwNqqC5p9cecXA3Yf+Vj3gn8a3tD6RsN/r0uW3brq6yEbBz9a99bak1qtr3Fv5akuF1dKD1ter9uXz+8ytu75fNiCYnz7Ki3ji0UXTmr8YOPbr8g3n7h3//ihOm0WuK//8aIeh0/cf9q1urHa8chX1zY9afDQr66+5urvp2XXVyp4rWLHBQO3V3jkmcabN3UgEIiYdFrDh8esKh3+W+VqqYD3Tql1gvDFJ3+9Xpbp9Hz2LyrJQJCf+v9HpKLUrH4FAKBiKjTzQSp0QW2J4teGWioaIUtiqKvVcL0k8iq4lQKhvWdkanoFyVz/yPXPECpoGhMV9U4KldXOi3EVVNM5r6huegrUiLbZyHk1DawzyxguQXBYbAgMGQjvBSdsFFhB+VRgHYNsDh04IDAuSue5KETOYwQJdLAhxElT+vWzONjVIU0fHRPoJyWoPKEkKqLf2cG9rtOibYuObIoxwHLZIXGqNeEIZQmrjPC4bdhW6l2cJgU7JQr1Mlh7np+JoCJKcPMMnSXgNH1aMKjPgAGjkvagQSpPRIhis5ogSgyFf+c1AifpWgmsYSIQOMaYUIxKoAAL+BypyKytBhCKMJQD0BugHa2bdoB9nBjoH9/pET2jJrUH56cdfdyttI0qSuXwqTQ+CkYM2Ij94qLDYjKaAuN9BySd4OCQ1Edy+PowgqXfvjU7LGVyq+U9+nps1Kb8+n/1VKTCfpE6HBEAIFLh9MRd2x/jaTcAAA==) format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020, U+4E86, U+5B8C;
+}
+
+.demo-done,
+.demo-done *,
+.demo-done *::before,
+.demo-done *::after { box-sizing: border-box; }
+
+.demo-done {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--done-font, "AKARI Demo Sans Done", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-feature-settings: "palt" 1;
+  font-synthesis: none;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+
+.demo-done__group {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── 壁に直に置く文字（白フチ 9px ＋ 暖色の影）──────────────── */
+.demo-done__lead,
+.demo-done__head-text {
+  display: block;
+  white-space: nowrap;
+  line-height: 1;
+  /* 白フチ: 半径 --done-halo の円周 32 点へ文字の形を白でずらし置きした輪（角が丸く出る。
+     -webkit-text-stroke は HTML の文字では角が尖る＝stroke-linejoin が効かない）。
+     その下に、同じ円周 8 点から暖色の柔らかい影を落として、白フチごと壁から浮かせる */
+  text-shadow:
+    calc(var(--done-halo, 9px) * 1.0000) calc(var(--done-halo, 9px) * 0.0000) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.9808) calc(var(--done-halo, 9px) * 0.1951) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.9239) calc(var(--done-halo, 9px) * 0.3827) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.8315) calc(var(--done-halo, 9px) * 0.5556) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.7071) calc(var(--done-halo, 9px) * 0.7071) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.5556) calc(var(--done-halo, 9px) * 0.8315) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.3827) calc(var(--done-halo, 9px) * 0.9239) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.1951) calc(var(--done-halo, 9px) * 0.9808) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.0000) calc(var(--done-halo, 9px) * 1.0000) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.1951) calc(var(--done-halo, 9px) * 0.9808) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.3827) calc(var(--done-halo, 9px) * 0.9239) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.5556) calc(var(--done-halo, 9px) * 0.8315) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.7071) calc(var(--done-halo, 9px) * 0.7071) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.8315) calc(var(--done-halo, 9px) * 0.5556) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.9239) calc(var(--done-halo, 9px) * 0.3827) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.9808) calc(var(--done-halo, 9px) * 0.1951) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -1.0000) calc(var(--done-halo, 9px) * 0.0000) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.9808) calc(var(--done-halo, 9px) * -0.1951) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.9239) calc(var(--done-halo, 9px) * -0.3827) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.8315) calc(var(--done-halo, 9px) * -0.5556) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.7071) calc(var(--done-halo, 9px) * -0.7071) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.5556) calc(var(--done-halo, 9px) * -0.8315) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.3827) calc(var(--done-halo, 9px) * -0.9239) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.1951) calc(var(--done-halo, 9px) * -0.9808) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * -0.0000) calc(var(--done-halo, 9px) * -1.0000) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.1951) calc(var(--done-halo, 9px) * -0.9808) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.3827) calc(var(--done-halo, 9px) * -0.9239) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.5556) calc(var(--done-halo, 9px) * -0.8315) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.7071) calc(var(--done-halo, 9px) * -0.7071) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.8315) calc(var(--done-halo, 9px) * -0.5556) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.9239) calc(var(--done-halo, 9px) * -0.3827) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 0.9808) calc(var(--done-halo, 9px) * -0.1951) 0 var(--done-halo-color, #FFFFFF),
+    calc(var(--done-halo, 9px) * 1.0000) calc(var(--done-halo, 9px) * 0.0000 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--done-halo, 9px) * 0.7071) calc(var(--done-halo, 9px) * 0.7071 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--done-halo, 9px) * 0.0000) calc(var(--done-halo, 9px) * 1.0000 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--done-halo, 9px) * -0.7071) calc(var(--done-halo, 9px) * 0.7071 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--done-halo, 9px) * -1.0000) calc(var(--done-halo, 9px) * 0.0000 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--done-halo, 9px) * -0.7071) calc(var(--done-halo, 9px) * -0.7071 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--done-halo, 9px) * -0.0000) calc(var(--done-halo, 9px) * -1.0000 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--done-halo, 9px) * 0.7071) calc(var(--done-halo, 9px) * -0.7071 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085));
+}
+
+.demo-done__lead {
+  position: absolute;
+  right: var(--done-lead-right, 82px);
+  top: var(--done-lead-top, 162px);
+  font-size: var(--done-lead-size, 38px);
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-align: right;
+}
+
+.demo-done__head {
+  position: absolute;
+  left: var(--done-head-left, 780px);
+  top: var(--done-head-top, 250px);
+}
+
+.demo-done__head-text {
+  font-size: var(--done-head-size, 84px);
+  font-weight: 900;
+  letter-spacing: .01em;
+}
+
+/* ── 判子 ─────────────────────────────── */
+.demo-done__stamp {
+  position: absolute;
+  left: calc(var(--done-stamp-cx, 1116px) - var(--done-stamp-size, 164px) / 2);
+  top: calc(var(--done-stamp-cy, 306px) - var(--done-stamp-size, 164px) / 2);
+  width: var(--done-stamp-size, 164px);
+  height: var(--done-stamp-size, 164px);
+  transform: rotate(var(--done-stamp-rotate, -12deg));
+}
+
+/* 紙（白い円）の落ち影。宙にある間は大きく薄く、着地で紙の真下に締まる */
+.demo-done__stamp-shadow {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(58, 38, 20, .30) 0%,
+    rgba(58, 38, 20, .22) 62%,
+    rgba(58, 38, 20, .08) 84%,
+    rgba(58, 38, 20, 0) 100%);
+  opacity: 1;
+  transform: translate(0, 8px) scale(1);
+}
+
+.demo-done__slam {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.demo-done__paper {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--done-paper, rgba(255, 255, 255, .96));
+}
+
+.demo-done__slam svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.demo-done__ink-ring,
+.demo-done__ink-line {
+  fill: none;
+  stroke: var(--demo-stamp, #E8541E);
+}
+.demo-done__ink-ring { stroke-width: 7; }
+.demo-done__ink-line { stroke-width: 2; }
+
+.demo-done__stamp-text {
+  font-family: var(--done-stamp-font, "AKARI Demo Display Done", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-size: 70px;
+  font-weight: 400;
+  font-feature-settings: normal;
+  letter-spacing: 0;
+  fill: var(--demo-stamp, #E8541E);
+}
+
+/* 着地の輪（最終状態も不可視の過渡 FX） */
+.demo-done__ring {
+  position: absolute;
+  left: calc(var(--done-stamp-cx, 1116px) - var(--done-stamp-size, 164px) / 2 - 4px);
+  top: calc(var(--done-stamp-cy, 306px) - var(--done-stamp-size, 164px) / 2 - 4px);
+  width: calc(var(--done-stamp-size, 164px) + 8px);
+  height: calc(var(--done-stamp-size, 164px) + 8px);
+  border-radius: 50%;
+  border: 6px solid var(--demo-stamp, #E8541E);
+  opacity: 0;
+  transform: scale(1);
+}
+
+/* ── 動き（活性区間だけ宣言する）────────────── */
+[data-akari-active] .demo-done__group {
+  animation: demo-done-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--done-exit-delay, 3.28s) forwards;
+}
+[data-akari-active] .demo-done__lead {
+  animation:
+    demo-done-rise-14 .30s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--done-lead-delay, 0s) both,
+    demo-done-fade-in .10s var(--ease-linear, linear) var(--done-lead-delay, 0s) both;
+}
+[data-akari-active] .demo-done__head-text {
+  animation:
+    demo-done-rise-20 .32s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--done-head-delay, 1.27s) both,
+    demo-done-fade-in .10s var(--ease-linear, linear) var(--done-head-delay, 1.27s) both;
+}
+[data-akari-active] .demo-done__head {
+  animation: demo-done-shake .14s var(--ease-linear, linear) calc(var(--done-stamp-delay, 2.09s) + .08s) forwards;
+}
+[data-akari-active] .demo-done__slam {
+  animation:
+    demo-done-slam .20s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both,
+    demo-done-fade-in .06s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both;
+}
+[data-akari-active] .demo-done__stamp-shadow {
+  animation: demo-done-shadow .20s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both;
+}
+[data-akari-active] .demo-done__ring {
+  animation: demo-done-ring .30s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--done-stamp-delay, 2.09s) + .08s) forwards;
+}
+
+@keyframes demo-done-rise-14 {
+  0%   { transform: translateY(14px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-done-rise-20 {
+  0%   { transform: translateY(20px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-done-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes demo-done-slam {
+  0%   { transform: scale(1.9); }
+  40%  { transform: scale(.92); }
+  70%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-done-shadow {
+  0%   { transform: translate(16px, 34px) scale(1.75); opacity: 0; }
+  40%  { transform: translate(0, 6px) scale(.95);      opacity: 1; }
+  70%  { transform: translate(0, 9px) scale(1.04);     opacity: 1; }
+  100% { transform: translate(0, 8px) scale(1);        opacity: 1; }
+}
+@keyframes demo-done-ring {
+  0%   { transform: scale(1);    opacity: .6; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes demo-done-shake {
+  0%   { transform: translateX(0); }
+  33%  { transform: translateX(-3px); }
+  66%  { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-done-exit {
+  0%   { transform: translateY(0);     opacity: 1; }
+  100% { transform: translateY(-10px); opacity: 0; }
+}
+</style>
+<div class="demo-done__group">
+  <span class="demo-done__lead" data-akari-slot="lead">喋ってるだけで</span>
+  <div class="demo-done__head"><span class="demo-done__head-text" data-akari-slot="headline">編集は</span></div>
+  <i class="demo-done__ring"></i>
+  <div class="demo-done__stamp">
+    <i class="demo-done__stamp-shadow"></i>
+    <div class="demo-done__slam">
+      <i class="demo-done__paper"></i>
+      <svg viewBox="0 0 164 164" aria-hidden="true">
+        <defs>
+          <!-- 押しムラ: 朱の濃さを左上 100% → 右下の縁 80% へ落とす（紙の白が透ける） -->
+          <radialGradient id="demo-done-ink-density" cx="30%" cy="26%" r="95%">
+            <stop offset="0" stop-color="#FFFFFF"/>
+            <stop offset=".6" stop-color="#FFFFFF"/>
+            <stop offset="1" stop-color="#CCCCCC"/>
+          </radialGradient>
+          <mask id="demo-done-ink-mask" maskUnits="userSpaceOnUse" x="-8" y="-8" width="180" height="180">
+            <rect x="-8" y="-8" width="180" height="180" fill="url(#demo-done-ink-density)"/>
+          </mask>
+        </defs>
+        <g mask="url(#demo-done-ink-mask)">
+          <circle class="demo-done__ink-ring" cx="82" cy="82" r="78.5"/>
+          <circle class="demo-done__ink-line" cx="82" cy="82" r="71"/>
+          <text class="demo-done__stamp-text" x="82" y="108.39" text-anchor="middle">完了</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>
+</div>

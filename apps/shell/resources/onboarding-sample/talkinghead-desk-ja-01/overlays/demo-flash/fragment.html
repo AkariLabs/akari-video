@@ -1,0 +1,68 @@
+<div class="demo-flash" data-akari-hit="pass" aria-hidden="true">
+<style>
+/*
+  閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として
+  画面全体を一瞬だけ白く飛ばす過渡 FX。
+  edit.json では段 demo-accents（字幕より下）、at 590 / duration 12（0.40 秒）。
+    ローカル 0     秒（19.667）: 0（まだ見えない）
+    ローカル 0.033 秒（19.700）: 0.62（語頭のフレームで最大）
+    ローカル 0.133 秒（19.800）: 0.30
+    ローカル 0.400 秒（20.067）: 0（ここで区間も終わる）
+  最終状態も不可視の過渡 FX なので、base は opacity 0（motion.md の例外）。
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --flash-origin-x / --flash-origin-y    光源の位置（既定 78% / 46% = 擬音の中心 1005,330 付近）
+    --flash-rgb                            光の色。空白区切りの RGB（既定 255 250 235 = 暖かい白）
+    --flash-mid-alpha / --flash-mid-stop   中ほどの濃さと位置（既定 .85 / 30%）
+    --flash-edge-alpha / --flash-edge-stop 外側の濃さと位置（既定 .35 / 75%。これより外も同じ濃さ）
+    --flash-core-rgb / --flash-core-alpha / --flash-core-size
+                                           光源の芯の色・濃さ・半径（既定 255 217 74 = 黄 #FFD94A / .5 / 170px。
+                                           濃さ 0 で芯なし）
+    --flash-strength                       全体の強さの倍率（既定 1 = 最大 0.62）
+    --flash-delay                          発火のずらし（ローカル秒。既定 0s）
+    --flash-duration                       尺（既定 .4s。keyframes の % はこの尺に対する比）
+*/
+.demo-flash,
+.demo-flash *,
+.demo-flash *::before,
+.demo-flash *::after { box-sizing: border-box; }
+
+.demo-flash {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--flash-strength, 1);
+}
+
+.demo-flash__light {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle var(--flash-core-size, 170px) at var(--flash-origin-x, 78%) var(--flash-origin-y, 46%),
+      rgb(var(--flash-core-rgb, 255 217 74) / var(--flash-core-alpha, .5)) 0%,
+      rgb(var(--flash-core-rgb, 255 217 74) / 0) 100%
+    ),
+    radial-gradient(
+      circle at var(--flash-origin-x, 78%) var(--flash-origin-y, 46%),
+      rgb(var(--flash-rgb, 255 250 235) / 1) 0%,
+      rgb(var(--flash-rgb, 255 250 235) / var(--flash-mid-alpha, .85)) var(--flash-mid-stop, 30%),
+      rgb(var(--flash-rgb, 255 250 235) / var(--flash-edge-alpha, .35)) var(--flash-edge-stop, 75%)
+    );
+  opacity: 0;
+}
+
+[data-akari-active] .demo-flash__light {
+  animation: demo-flash-burst var(--flash-duration, .4s) var(--ease-linear, linear) var(--flash-delay, 0s) both;
+}
+
+@keyframes demo-flash-burst {
+  0%      { opacity: 0; }
+  8.333%  { opacity: .62; }
+  33.333% { opacity: .30; }
+  100%    { opacity: 0; }
+}
+</style>
+<div class="demo-flash__light"></div>
+</div>

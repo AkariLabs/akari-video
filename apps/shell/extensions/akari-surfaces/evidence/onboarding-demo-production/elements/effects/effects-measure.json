@@ -1,0 +1,113 @@
+{
+  "element": "effects",
+  "kind": "キーワード＋画面効果（効果音・エフェクト・パッ！）",
+  "words": "喋ってる途中に効果音(17.50)とか、エフェクト(18.74)を、パッ(19.70)と。ほら(20.55)、こんな感じで(21.10)。",
+  "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-effects/fragment.html",
+  "file_md5": "79263850585fff3e5e3c6b76ce67e1bf",
+  "file_bytes": 22360,
+  "edit_item_from_plan_unchanged": {
+    "track": "demo-stage",
+    "id": "demo-effects",
+    "name": "効果音とエフェクト",
+    "at": 524,
+    "duration": 135,
+    "source": { "kind": "html", "path": "overlays/demo-effects/fragment.html" }
+  },
+  "local_seconds": {
+    "chip1_効果音": "delay var(--fx-chip1-at, 0s) → 最初に見えるのはローカル 0.033（17.500）",
+    "chip2_エフェクト": "delay var(--fx-chip2-at, 1.2333s)（1 フレーム前起点）→ 1.267（18.733）",
+    "pa_rays_ring_chip_bump": "delay var(--fx-pa-at, 2.2s)（1 フレーム前起点）→ 2.233（19.700）",
+    "sparkles_and_pa_pulse": "delay var(--fx-sparkle-at, 3.05s) + i×45ms → 1 個目が 3.067（20.533）",
+    "exit": "var(--fx-exit-at, 4.2333s) から 0.25 s、--ease-accelerate、forwards（21.700→21.950）"
+  },
+  "structure": {
+    "root": ".demo-effects（1 つ・data-start/duration なし・予約変数 --x/--y/--scale/--rotate 不使用）",
+    "layers_bottom_to_top": ["放射線 14 本＋衝撃の輪（.fx-burst）", "擬音「パッ!」（白フチ層 → 墨の縁と厚み層 → 黄→橙グラデの面。白フチと墨は data-mirror=\"text\"、編集できるのは面の 1 層）", "キラッ 7 個", "札 2 枚"],
+    "animations": 31,
+    "keyframes": "10 本・名前はすべて demo-effects- 始まり・全段に全プロパティ・transform / opacity のみ",
+    "gate": "animation はすべて [data-akari-active] 付きのルール。delay はローカル秒の CSS 変数（calc 含む）",
+    "base_state": "札・擬音は最終の静止状態が base。放射線・輪・キラッ・札の残響は過渡 FX なので base opacity 0（0% と 100% も不可視・fill both）",
+    "ray_angles_deg_clockwise_from_right": [161.8, 189.4, 205.9, 234.5, 252.1, 282.6, 301.2, 330.8, 347.4, 14.9, 33.5, 64.1, 83.6, 110.2],
+    "ray_angles_note": "人物側 120〜150° を避けた 330° に等間隔＋固定の揺らぎ（乱数なし）。長さ 60〜110px を交互"
+  },
+  "fonts": {
+    "sans": { "family": "AKARI Demo Sans", "weight": 800, "source": "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf を wght=800 に固定（fontTools instancer）", "chars": "効果音エフェクト", "woff2_bytes": 2820 },
+    "display": { "family": "AKARI Demo Display", "weight": 400, "source": "assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf", "chars": "パッ!", "woff2_bytes": 1288 },
+    "license": "どちらも SIL OFL 1.1。name テーブルの family を別名に書き換え（Noto の RFN 'Source' を名乗らない）、著作権（nameID 0）と OFL（13 / 14）は保持",
+    "script": "make-effects-fonts.py（head.modified を保つのでバイト単位で再現する。公開リポのルートで実行）",
+    "same_family_collision_check": "別の断片が同じ family・同じ weight で別の文字集合を宣言しても、Chromium（Edge 154 headless で実測）は合成フォントの中で cmap を持つ face に字ごとに落ちるので、字が欠けて代替書体になることはない"
+  },
+  "knobs": {
+    "position": ["--fx-chip1-left", "--fx-chip2-left", "--fx-chip-top", "--fx-chip1-width", "--fx-chip2-width", "--fx-pa-left", "--fx-pa-top", "--fx-pa-size", "--fx-pa-rotate"],
+    "color": ["--demo-ink", "--demo-accent", "--demo-accent-hot", "--demo-spark", "--demo-card", "--demo-card-line", "--demo-shadow"],
+    "time": ["--fx-chip1-at", "--fx-chip2-at", "--fx-pa-at", "--fx-sparkle-at", "--fx-exit-at"],
+    "audit": "22 通り（全ツマミ＋--demo-spark を炸裂中にも）を値を変えて描き、全部で画素が変わることを確認（無反応 0）。断片ルートでの再定義なし。擬音の縁・厚み・影は em 指定なので --fx-pa-size に追随する"
+  },
+  "sync": {
+    "method_harness": "透過で描画し、他の部分の時刻ツマミを 99s に逃がして 1 つずつ単独にし、画素が最初に出たフレーム",
+    "harness": [
+      { "part": "札「♪ 効果音」", "word": "効果音", "word_s": 17.50, "first_visible_s": 17.500, "delta_s": 0.000 },
+      { "part": "札「✦ エフェクト」", "word": "エフェクト", "word_s": 18.74, "first_visible_s": 18.733, "delta_s": -0.007 },
+      { "part": "擬音「パッ!」＋放射線＋輪", "word": "パッ", "word_s": 19.70, "first_visible_s": 19.700, "delta_s": 0.000 },
+      { "part": "キラッ 1 個目 (850,250)", "word": "ほら", "word_s": 20.55, "first_visible_s": 20.533, "delta_s": -0.017 }
+    ],
+    "method_export": "render-cut --engine osr（tier 2 = worktree の electron.exe）で、本編 16.8〜22.3 s＋この断片＋閃光（demo-flash）＋パンチイン＋効果音 3 本を書き出し、要素の箱の前フレーム差が最初に跳ねたフレーム。ミニ書き出しのフレーム n は絶対秒 n/30+16.8",
+    "export": [
+      { "part": "札「♪ 効果音」 box 780,92-950,140", "word_s": 17.50, "first_change_s": 17.500, "delta_s": 0.000 },
+      { "part": "札「✦ エフェクト」 box 966,92-1180,140", "word_s": 18.74, "first_change_s": 18.733, "delta_s": -0.007 },
+      { "part": "パッ! box 835,240-1175,418（閃光・パンチインと同じフレーム）", "word_s": 19.70, "first_change_s": 19.700, "delta_s": 0.000 },
+      { "part": "キラッ 1 個目 (850,250)", "word_s": 20.55, "first_change_s": 20.533, "delta_s": -0.017 },
+      { "part": "キラッ 5 個目 (1010,215)（i=4、+0.18 s の時間差で出る設計）", "word_s": 20.55, "first_change_s": 20.700, "delta_s": 0.150 }
+    ],
+    "verdict": "4 つの見せ場すべて語頭の −1〜0 フレーム（|差| ≤ 0.017 s。許容 ±0.15・狙い ±0.05 の内側）"
+  },
+  "keep_out": {
+    "method": "透過で全 135 フレームを描画し、alpha > 8 の画素を数えた",
+    "person_reach_px_max": 0,
+    "caption_band_px_max": 0,
+    "outside_stage_px_max": 0,
+    "union_bbox": [752, 81, 1239, 558],
+    "note": "初版は擬音の弾み（1.14 倍）で 19.767 の 1 フレームだけ右端が 1244 まで出たため、擬音の拡縮の基点を 58% に寄せて 1239 に収めた"
+  },
+  "export_parity": {
+    "method": "同じ書き出し（閃光・パンチインなし）と Windows 移植のハーネス描画を全 135 フレームで比較。右の舞台 700-1280×60-580 の平均絶対差（0〜255）",
+    "stage_mad_mean": 1.45,
+    "stage_mad_max": 2.56,
+    "background_mad_mean": 2.35,
+    "verdict": "舞台の差は本編の圧縮ノイズ（背景どうしの差）以下 = 書き出しはハーネスとフレーム単位で同じ絵・同じ時刻（最終版と CSS・DOM・書体が同一でコメントだけ違う 4ddebdab… で書き出し直して確認）",
+    "note": "閃光・効果音込みの書き出し（effects-export-osr-*.jpg）は、書体の head.modified だけが違う 1 つ前の版（5b0d09dd…）で作った。最終版とはハーネス描画が画素単位で一致（最大差 0）"
+  },
+  "lint": {
+    "fragment": "edit-lint（packages/edit-lint の lintProject）で 0 件。わざと 100% の opacity を抜いた版と var(--x) を使った版では keyframes-sparse / reserved-css-var-reference が出ることも確認（断片が検査されている）",
+    "side_note": "閃光込みのミニ書き出しでは demo-flash（別要素）の duration 12 に v2.item-duration-short の warning が 1 件出る（意図どおり 0.40 s なので無害。verdict は pass）"
+  },
+  "audio_cocheck_other_elements": {
+    "note": "音は別要素（sfx-kouka-pop / sfx-pa-whoosh / sfx-hora-sparkle）の担当ファイルをそのまま読んで、この断片と同じ書き出しに入れて測っただけ（ファイルには触っていない）。本編の音を mute した書き出しの 5 ms RMS 包絡",
+    "kouka_pop": { "onset_s": 17.490, "sample_peak_s": 17.498, "sample_peak_dbfs": -9.0, "chip1_first_visible_s": 17.500 },
+    "pa_whoosh": { "impact_onset_s": 19.700, "sample_peak_s": 19.761, "sample_peak_dbfs": -4.9, "pa_first_visible_s": 19.700, "comment": "衝撃の立ち上がりが「パ」と同フレーム。サンプル最大は +0.06 s 後（胴の途中）。ピークは構成表の目安 −8 dBFS より約 3 dB 大きい" },
+    "hora_sparkle": { "onset_s": 20.590, "sample_peak_s": 20.997, "sparkle_first_visible_s": 20.533 },
+    "full_mix_sample_peak_dbfs": -0.2
+  },
+  "deviations_from_spec": [
+    "擬音に白フチ（外側約 17px）を足した（統一ルール「壁に直に置く文字は白フチ」とバラエティの二重縁）。墨の縁は外側約 9px（構成表の 12px ストロークの見え幅 6px より太め）",
+    "擬音の入りのイージングは --ease-hard-out（構成表は段の値だけ指定）。19.70 のフレームで既に 1.04 倍・不透明度 0.88 まで出て、閃光と同時に「パッ」が読める",
+    "放射線は幅 7px＋墨の縁 2.5px（構成表は幅 6）。ベージュの壁と閃光の上で黄の線が消えるため",
+    "衝撃の輪は墨の縁 2px を足し、広がりを 2.4 → 3 倍（2.4 倍だと文字の裏に隠れて見えない）。舞台の外には出ない",
+    "キラッは 24〜42px（構成表 18〜34px）＋橙の縁＋淡い光の円（radial-gradient。blur は使っていない）。イージングは --ease-hard-out にして 1 個目が 20.533 に見えるようにした",
+    "札の残響: ♪ の弧は 1.45 倍、✦ は 1.8 倍まで（文字に被らない範囲）",
+    "札のポップの基点を左 22% に置き、弾んだ札 2 が札 1 に重ならないようにした"
+  ],
+  "tools": {
+    "renderer": "harness/render-fragment.mjs の Windows 移植（1 回の起動で複数時刻）。入れ子は rasterize.mjs と同じ .akari-overlay-container > .scene-content > 断片、外側に data-akari-active、motion-vocab.css を敷き、getAnimations の currentTime で seek。ブラウザは Edge 154 headless",
+    "composite": "clip.mp4 の同時刻のフレームを下に敷き、構成表のパンチイン（1.06）・閃光（構成表の式）・字幕（近似の見た目）を重ねたもの。書き出しの実物は effects-export-osr-*.jpg"
+  },
+  "evidence_files": {
+    "effects-render-seek-*.png": "構成表の確認時刻 0.05 / 1.30 / 2.24 / 2.30 / 2.50 / 3.20 / 3.90 の透過描画（1280x720）",
+    "effects-seek-on-clip.jpg": "同じ 7 時刻を本編のフレームに重ねたもの（パンチイン・閃光・字幕は近似）",
+    "effects-keepout-guides.jpg": "19.767 / 20.667 に人物の届く範囲（赤）・字幕帯（青）・舞台（緑点線）を重ねたもの",
+    "effects-export-osr-impact.jpg": "render-cut OSR の書き出し 19.60〜20.10（e087 = 19.700 に閃光・パンチイン・擬音が同時に着地）",
+    "effects-export-osr-every-4th-frame.jpg": "書き出しの 17.4〜22.1 を 4 フレームおき（右半分）",
+    "effects-export-vs-harness.jpg": "書き出し（左）とハーネス（右）の 19.700 / 19.767 / 19.967 / 20.667",
+    "make-effects-fonts.py": "埋め込み書体の切り出し手順"
+  }
+}

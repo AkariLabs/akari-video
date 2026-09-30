@@ -1,0 +1,148 @@
+<div class="demo-effects" lang="ja">
+<style>
+/*
+ * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s）
+ * edit.json: 段 demo-stage、at 524、duration 135。時刻はすべて断片内のローカル秒（先頭 = 0）。
+ *   0.033  札「♪ 効果音」（語頭 17.50）       --fx-chip1-at
+ *   1.267  札「✦ エフェクト」（語頭 18.74）   --fx-chip2-at（1 フレーム前起点）
+ *   2.233  擬音「パッ!」＋放射線＋衝撃の輪（語頭 19.70。閃光・パンチイン・whoosh の衝撃と同じフレーム）--fx-pa-at（1 フレーム前起点）
+ *   3.067  キラッ 7 個（0.045 s ずつ）＋擬音がもう一度弾む（語頭「ほら」20.55）--fx-sparkle-at（3.05 起点）
+ *   4.233→4.483 抜け                             --fx-exit-at
+ * 書体: 使う文字だけ切り出した OFL 書体を別名で埋め込み（Noto Sans JP wght 800 → "AKARI Demo Sans"、
+ *   Dela Gothic One → "AKARI Demo Display"。著作権表示と OFL の name レコードは書体内に保持）
+ * ツマミ（すべて var(--name, 既定値)。断片内では定義しない）:
+ *   位置   --fx-chip1-left / --fx-chip2-left / --fx-chip-top / --fx-chip1-width / --fx-chip2-width
+ *          --fx-pa-left / --fx-pa-top（擬音の中心）/ --fx-pa-size / --fx-pa-rotate
+ *   色     --demo-ink / --demo-accent / --demo-accent-hot / --demo-spark / --demo-card / --demo-card-line / --demo-shadow
+ *   時刻   --fx-chip1-at / --fx-chip2-at / --fx-pa-at / --fx-sparkle-at / --fx-exit-at
+ */
+@font-face{font-family:"AKARI Demo Sans";font-weight:800;font-style:normal;font-display:block;src:url(data:font/woff2;base64,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) format("woff2")}
+@font-face{font-family:"AKARI Demo Display";font-weight:400;font-style:normal;font-display:block;src:url(data:font/woff2;base64,d09GMgABAAAAAAUIAA8AAAAACgQAAASxAAEBRwAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcgSQGYABEEQgKhSCENwE2AiQDHAsQAAQgBYd8ByAXJBgQG4wIIxEmNJFF8BcJ8TR2yiM9u5s5Fb4smPeLBq83L4jn36uvzj1pcSDlgU53v4XdsyZ7kiUGvwunHtAX56ySkWdQAKBLI0pGD4D+v2ZHfDW26hIaNJppjZRisniyRLtD1EKkJIYQzV49VOL/9J+uLb/v+dIi9K/W3DzxLiJq4ozbsxEgSj2NyNLl5zcLYwH4PgBwgkEclJTvdkziTfb+u1BgjNj1fzJ9l108YuV7HmUrVru3KDYDAnahMwjTyWxMwxjiHk+xCKKyjgCF4oI0UzB6S1Xflgu1HHO22Qqsua6UHZks/QABFo5gcZ1FzunKFtJif6QH+8M6U/Z+FJh64wLNKGAABcpR5JpqYQPhW6yAFvsV+yMfc4X/4wfzP5iEQL1AfESPKQRAEkgDT4L0AGEgDoBiUBTF+CzVunBtPBoKp8rj8YQVC2Ssno89KnnA4anjSiVnvZvrrve8Dc8scO6f7E4uXJYbafAKu+evdvOFkdw/B9nZrXQ/R2e7XIZf+SB2znsvUXzx3ejZld6zFJ/DG1+Q4eejv37x2630qeO6+e3CgWIu53w6KWbklfKe90GfV5hxpY0vlpwJx+XkadJ1twx7OnaE4oPtbp5z1PsGCp6Scz9Ljis6VwIg+i4bXTkmKrG6nx/+edrBx1+cveSfyluab2VOdqDi5IOezy/duKDknF7fsWLRXk0XZh/oe/mtjitrg+f17LPLZxVrGlY2rPiiZ3n5YRPzOwvPdhUalnvN0y6yj2H6pi83e/ZFwQMq13bPfr1gLb/dC/cl2/pfbmt7ub+tfRRmX+GNqxsar25coeED/Dl9v4g8Go9Gvjx03RE3LJ5ywJK1jTy3uPzC4OlHhXayHLNiPF9dDD9ydKhpdWCP0IrtPre3LlOnfMp5y5zqH66sSt009EJy4rLN26Z4qafln/Qz9xwQOS/2VN0fTdfedH3P4MIFgzav4eETt1wzhaOmVpg1U2rfqCZ3btvtkae5/JaoPhX7ufmzpt1+WjFv4WQyh8WXWM81JMvOtfZ+6lCdxx8LXLUXbR59OEpAdgQDyPH+zREaRwCRFS/9f+EZO5n7WzimowBfnsEB+Kr71Dl+/nVMrwJCGAAErDP//xYdpcAIhIWGdJQ6C9tK+cmv+HL+hEyjUUfleAQIYaNkMBkoykpwc6VYEeB+QCKhnftFhiQfixSHb/stVhSgVqaKgtiyXhQmLSf2R0QUo1vOF8VZK4+LEtJqzOOSTNd2lrAsjMrENi2CXsd64e0wtOxae/zxu5AsW8I9CR0tCRYpVRomCJXkXRThrN02bfLZqWjJ0G9jyd30r4N2ceOg1cXJhp4HUL8fgpCNUcxcUiFtprA/Ceq12RjWFP8cdySoCWq20/oRu6mS/r5fnaAdBtBtdTrDUo21UZU5ED/lPSEVGaUp/3/axfc1hLC9FyV4TTS2yuSJBhK9oCZT0xNVkCKGgkSbjDql+HCGWxRpLBg8J0GjZasaq3+EreqNW1GecZTqceERuh7RojT1/sUDqTyYNe/Pj/IX04hwIqZi6xl/8mb7tj1rhP0oi1L/sckUSxr59f+4jr4wE7K7ngovyRQd5Wz+958kSDe7AwAAAA==) format("woff2")}
+.demo-effects{position:absolute;inset:0;isolation:isolate}
+.demo-effects,.demo-effects *,.demo-effects *::before,.demo-effects *::after{box-sizing:border-box}
+.demo-effects .fx-stage{position:absolute;inset:0;transform-origin:var(--fx-pa-left,1005px) var(--fx-pa-top,330px)}
+
+/* ── 札 2 枚（白いピル） ───────────────────────────── */
+.demo-effects .fx-chip{position:absolute;top:var(--fx-chip-top,92px);height:48px;z-index:4}
+.demo-effects .fx-chip--sound{left:var(--fx-chip1-left,780px);width:var(--fx-chip1-width,170px)}
+.demo-effects .fx-chip--effect{left:var(--fx-chip2-left,966px);width:var(--fx-chip2-width,214px)}
+.demo-effects .fx-chip-bump,.demo-effects .fx-chip-pop{position:absolute;inset:0}
+.demo-effects .fx-chip-pop{display:flex;align-items:center;justify-content:center;gap:9px;border-radius:24px;
+  background:var(--demo-card,rgba(255,255,255,.97));border:1px solid var(--demo-card-line,rgba(23,19,15,.07));
+  box-shadow:var(--demo-shadow,0 18px 44px rgba(58,38,20,.22));transform-origin:22% 60%;
+  font:800 22px/1 "AKARI Demo Sans","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif;
+  color:var(--demo-ink,#17130F);letter-spacing:.02em;white-space:nowrap}
+.demo-effects .fx-icon{position:relative;flex:none;display:block}
+.demo-effects .fx-icon svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.demo-effects .fx-icon--note{width:34px;height:26px}
+.demo-effects .fx-icon--spark{width:24px;height:24px}
+.demo-effects .fx-echo{transform-origin:9px 13px;opacity:0}
+.demo-effects .fx-icon--spark .fx-echo{transform-origin:50% 50%}
+
+/* ── 擬音「パッ!」（バラエティの文法: 白フチ → 墨の縁と厚み → 黄→橙のグラデ） ── */
+.demo-effects .fx-pa{position:absolute;left:var(--fx-pa-left,1005px);top:var(--fx-pa-top,330px);width:0;height:0;z-index:2}
+.demo-effects .fx-pa-tilt{position:absolute;left:0;top:0;transform:translate(-50%,-50%) rotate(var(--fx-pa-rotate,-6deg))}
+.demo-effects .fx-pa-hit,.demo-effects .fx-pa-pop{transform-origin:58% 55%}
+.demo-effects .fx-pa-stack{display:grid;width:max-content;white-space:nowrap;
+  font:400 var(--fx-pa-size,168px)/1 "AKARI Demo Display","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif;
+  letter-spacing:-.03em;padding:.06em .12em .1em}
+.demo-effects .fx-pa-stack>span{grid-area:1/1;paint-order:stroke fill}
+.demo-effects .fx-pa-halo{color:#FFFFFF;-webkit-text-stroke:.2em #FFFFFF;
+  text-shadow:0 .054em 0 #FFFFFF,0 .095em .167em rgba(58,38,20,.38)}
+.demo-effects .fx-pa-depth{color:var(--demo-ink,#17130F);-webkit-text-stroke:.107em var(--demo-ink,#17130F);
+  text-shadow:0 .048em 0 var(--demo-ink,#17130F)}
+.demo-effects .fx-pa-face{color:transparent;
+  background:linear-gradient(180deg,#FFE879 0%,var(--demo-spark,#FFD94A) 34%,var(--demo-accent-hot,#FB923C) 70%,var(--demo-accent,#F97316) 100%);
+  -webkit-background-clip:text;background-clip:text}
+
+/* ── 放射線 14 本と衝撃の輪（擬音の中心から。右 0° 時計回り 120〜150° は人物側なので置かない） ── */
+.demo-effects .fx-burst{position:absolute;left:var(--fx-pa-left,1005px);top:var(--fx-pa-top,330px);width:0;height:0;z-index:1}
+.demo-effects .fx-ray{position:absolute;left:0;top:0;width:0;height:0;transform:rotate(var(--a))}
+.demo-effects .fx-ray-bar{position:absolute;left:0;top:-3.5px;width:var(--l);height:7px;border-radius:3.5px;
+  background:var(--c);box-shadow:0 0 0 2.5px var(--demo-ink,#17130F);transform-origin:0 50%;opacity:0}
+.demo-effects .fx-ring{position:absolute;left:-60px;top:-60px;width:120px;height:120px;border-radius:50%;
+  border:6px solid var(--demo-spark,#FFD94A);box-shadow:0 0 0 2px var(--demo-ink,#17130F),inset 0 0 0 2px var(--demo-ink,#17130F);opacity:0}
+
+/* ── キラッ 7 個（4 芒星・黄に白い芯） ── */
+.demo-effects .fx-spark{position:absolute;width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);z-index:3}
+.demo-effects .fx-spark-body{position:absolute;inset:0;opacity:0}
+.demo-effects .fx-spark-body::before{content:"";position:absolute;inset:-45%;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,246,210,.95) 0,rgba(255,217,74,.45) 32%,rgba(255,217,74,0) 68%)}
+.demo-effects .fx-spark-body svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+
+/* ── 動き（[data-akari-active] ゲート内。delay はローカル秒の変数） ── */
+[data-akari-active] .demo-effects .fx-chip--sound .fx-chip-pop{animation:demo-effects-chip-pop .28s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--fx-chip1-at,0s) both}
+[data-akari-active] .demo-effects .fx-chip--effect .fx-chip-pop{animation:demo-effects-chip-pop .28s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--fx-chip2-at,1.2333s) both}
+[data-akari-active] .demo-effects .fx-chip--sound .fx-echo{animation:demo-effects-echo-wave .45s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--fx-chip1-at,0s) + .1s) both}
+[data-akari-active] .demo-effects .fx-chip--effect .fx-echo{animation:demo-effects-echo-spark .45s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--fx-chip2-at,1.2333s) + .1s) both}
+[data-akari-active] .demo-effects .fx-chip-bump{animation:demo-effects-chip-bump .2s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--fx-pa-at,2.2s) both}
+[data-akari-active] .demo-effects .fx-pa-pop{animation:demo-effects-pa-pop .28s var(--ease-hard-out, cubic-bezier(0, 0.61, 0, 1)) var(--fx-pa-at,2.2s) both}
+[data-akari-active] .demo-effects .fx-pa-hit{animation:demo-effects-pa-hit .25s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--fx-sparkle-at,3.05s) both}
+[data-akari-active] .demo-effects .fx-ray-bar{animation:demo-effects-ray .45s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--fx-pa-at,2.2s) both}
+[data-akari-active] .demo-effects .fx-ring{animation:demo-effects-ring .4s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--fx-pa-at,2.2s) both}
+[data-akari-active] .demo-effects .fx-spark-body{animation:demo-effects-spark .6s var(--ease-hard-out, cubic-bezier(0, 0.61, 0, 1)) calc(var(--fx-sparkle-at,3.05s) + var(--i) * 45ms) both}
+[data-akari-active] .demo-effects .fx-stage{animation:demo-effects-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--fx-exit-at,4.2333s) forwards}
+
+@keyframes demo-effects-chip-pop{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:scale(1)}}
+@keyframes demo-effects-echo-wave{0%{opacity:0;transform:scale(1)}20%{opacity:.95;transform:scale(1.12)}100%{opacity:0;transform:scale(1.45)}}
+@keyframes demo-effects-echo-spark{0%{opacity:0;transform:scale(1) rotate(0deg)}20%{opacity:.95;transform:scale(1.2) rotate(10deg)}100%{opacity:0;transform:scale(1.8) rotate(45deg)}}
+@keyframes demo-effects-chip-bump{0%{transform:translateY(0)}40%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+@keyframes demo-effects-pa-pop{0%{opacity:0;transform:scale(.3)}40%{opacity:1;transform:scale(1.14)}70%{opacity:1;transform:scale(.96)}100%{opacity:1;transform:scale(1)}}
+@keyframes demo-effects-pa-hit{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes demo-effects-ray{0%{opacity:0;transform:translateX(70px) scaleX(.2)}40%{opacity:1;transform:translateX(120px) scaleX(1)}100%{opacity:0;transform:translateX(190px) scaleX(.4)}}
+@keyframes demo-effects-ring{0%{opacity:0;transform:scale(.3)}12%{opacity:1;transform:scale(.75)}100%{opacity:0;transform:scale(3)}}
+@keyframes demo-effects-spark{0%{opacity:0;transform:scale(0) rotate(0deg)}45%{opacity:1;transform:scale(1.15) rotate(30deg)}100%{opacity:0;transform:scale(0) rotate(60deg)}}
+@keyframes demo-effects-exit{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.92)}}
+</style>
+<div class="fx-stage">
+  <div class="fx-burst" aria-hidden="true">
+    <i class="fx-ray" style="--a:161.8deg"><b class="fx-ray-bar" style="--l:110px;--c:var(--demo-accent,#F97316)"></b></i>
+    <i class="fx-ray" style="--a:189.4deg"><b class="fx-ray-bar" style="--l:70px;--c:var(--demo-spark,#FFD94A)"></b></i>
+    <i class="fx-ray" style="--a:205.9deg"><b class="fx-ray-bar" style="--l:96px;--c:var(--demo-accent,#F97316)"></b></i>
+    <i class="fx-ray" style="--a:234.5deg"><b class="fx-ray-bar" style="--l:62px;--c:var(--demo-spark,#FFD94A)"></b></i>
+    <i class="fx-ray" style="--a:252.1deg"><b class="fx-ray-bar" style="--l:104px;--c:var(--demo-accent,#F97316)"></b></i>
+    <i class="fx-ray" style="--a:282.6deg"><b class="fx-ray-bar" style="--l:76px;--c:var(--demo-spark,#FFD94A)"></b></i>
+    <i class="fx-ray" style="--a:301.2deg"><b class="fx-ray-bar" style="--l:90px;--c:var(--demo-accent,#F97316)"></b></i>
+    <i class="fx-ray" style="--a:330.8deg"><b class="fx-ray-bar" style="--l:60px;--c:var(--demo-spark,#FFD94A)"></b></i>
+    <i class="fx-ray" style="--a:347.4deg"><b class="fx-ray-bar" style="--l:108px;--c:var(--demo-accent,#F97316)"></b></i>
+    <i class="fx-ray" style="--a:14.9deg"><b class="fx-ray-bar" style="--l:72px;--c:var(--demo-spark,#FFD94A)"></b></i>
+    <i class="fx-ray" style="--a:33.5deg"><b class="fx-ray-bar" style="--l:98px;--c:var(--demo-accent,#F97316)"></b></i>
+    <i class="fx-ray" style="--a:64.1deg"><b class="fx-ray-bar" style="--l:66px;--c:var(--demo-spark,#FFD94A)"></b></i>
+    <i class="fx-ray" style="--a:83.6deg"><b class="fx-ray-bar" style="--l:100px;--c:var(--demo-accent,#F97316)"></b></i>
+    <i class="fx-ray" style="--a:110.2deg"><b class="fx-ray-bar" style="--l:80px;--c:var(--demo-spark,#FFD94A)"></b></i>
+    <i class="fx-ring"></i>
+  </div>
+  <div class="fx-pa">
+    <div class="fx-pa-tilt"><div class="fx-pa-hit"><div class="fx-pa-pop">
+      <div class="fx-pa-stack">
+        <span class="fx-pa-halo" data-mirror="text">パッ!</span>
+        <span class="fx-pa-depth" data-mirror="text">パッ!</span>
+        <span class="fx-pa-face">パッ!</span>
+      </div>
+    </div></div></div>
+  </div>
+  <div class="fx-sparks" aria-hidden="true">
+    <i class="fx-spark" style="left:850px;top:250px;--s:36px"><b class="fx-spark-body" style="--i:0"><svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark,#FFD94A)" stroke="var(--demo-accent,#F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></i>
+    <i class="fx-spark" style="left:1165px;top:245px;--s:30px"><b class="fx-spark-body" style="--i:1"><svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark,#FFD94A)" stroke="var(--demo-accent,#F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></i>
+    <i class="fx-spark" style="left:1180px;top:395px;--s:42px"><b class="fx-spark-body" style="--i:2"><svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark,#FFD94A)" stroke="var(--demo-accent,#F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></i>
+    <i class="fx-spark" style="left:880px;top:430px;--s:28px"><b class="fx-spark-body" style="--i:3"><svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark,#FFD94A)" stroke="var(--demo-accent,#F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></i>
+    <i class="fx-spark" style="left:1010px;top:215px;--s:34px"><b class="fx-spark-body" style="--i:4"><svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark,#FFD94A)" stroke="var(--demo-accent,#F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></i>
+    <i class="fx-spark" style="left:1110px;top:440px;--s:24px"><b class="fx-spark-body" style="--i:5"><svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark,#FFD94A)" stroke="var(--demo-accent,#F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></i>
+    <i class="fx-spark" style="left:820px;top:340px;--s:30px"><b class="fx-spark-body" style="--i:6"><svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark,#FFD94A)" stroke="var(--demo-accent,#F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></i>
+  </div>
+  <div class="fx-chip fx-chip--sound"><div class="fx-chip-bump"><div class="fx-chip-pop">
+    <span class="fx-icon fx-icon--note" aria-hidden="true">
+      <svg viewBox="0 0 34 26"><g fill="none" stroke="var(--demo-accent,#F97316)" stroke-width="2.6" stroke-linecap="round"><path d="M21.5 8.2a6.4 6.4 0 0 1 0 9.6"/><path d="M25.6 4.6a11.2 11.2 0 0 1 0 16.8"/></g><path d="M8.4 2.2c.1-.9 1-1.4 1.8-1 2.6 1.3 5.6 3 6.4 6.3.2.9-.8 1.5-1.5.9-1-.9-2.3-1.7-3.7-2.1V18a4.7 3.9 0 1 1-3-3.6Z" fill="var(--demo-accent,#F97316)"/></svg>
+      <svg class="fx-echo" viewBox="0 0 34 26"><g fill="none" stroke="var(--demo-accent,#F97316)" stroke-width="2.2" stroke-linecap="round"><path d="M21.5 8.2a6.4 6.4 0 0 1 0 9.6"/><path d="M25.6 4.6a11.2 11.2 0 0 1 0 16.8"/></g></svg>
+    </span>
+    <span class="fx-label">効果音</span>
+  </div></div></div>
+  <div class="fx-chip fx-chip--effect"><div class="fx-chip-bump"><div class="fx-chip-pop">
+    <span class="fx-icon fx-icon--spark" aria-hidden="true">
+      <svg viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-accent,#F97316)"/></svg>
+      <svg class="fx-echo" viewBox="0 0 100 100"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="none" stroke="var(--demo-accent,#F97316)" stroke-width="5"/></svg>
+    </span>
+    <span class="fx-label">エフェクト</span>
+  </div></div></div>
+</div>
+</div>

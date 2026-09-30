@@ -1,0 +1,153 @@
+{
+  "element": "sfx-diagram-ticks",
+  "kind": "効果音",
+  "measured": "2026-10-01",
+  "words": "こういう(23.27)／図解(23.58)／出せます(24.02)",
+  "intent": "図解のノード（① 話す／② AI が編集／③ 完成！）が 1 つ出るたびに小さく「コッ」と鳴る。ピーク目安 −20 dBFS（聞こえるが目立たない）",
+  "file": {
+    "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-click-soft-ui.m4a",
+    "project_target": "assets/onboarding/sfx-click-soft-ui.m4a（source id demo-sfx-click-soft-ui）",
+    "md5": "9feb9bb63bbf410e43f1a7803d7e1bb7",
+    "sha256": "e15492bed9fc2faaf2db0c22cbd2586600cb594b1cd7e2ecfff7a58375c78471",
+    "bytes": 3348,
+    "codec": "AAC-LC 128 kbps / 48 kHz / stereo / m4a（ffmpeg 内蔵 aac・bitexact・+faststart）",
+    "samples": 8192,
+    "duration_s": 0.1707,
+    "sample_peak_dbfs": -18.11,
+    "peak_L_R_dbfs": [-19.77, -18.11],
+    "rms10ms_max_dbfs": -28.82,
+    "attack_ms": 4.98,
+    "attack_def": "ファイル全体のサンプルピーク −20 dB を最初に越えるサンプル",
+    "audible_length": "−40 dBFS を越えるのは最初の 20 ms、−60 dBFS を越えるのは 37 ms まで。0.16 s 以降は −118 dBFS（無音の尾）",
+    "tags": "title / comment に素材 id・ライセンス・切り出し区間・ゲインを記録（他のメタデータは -map_metadata -1 で落とす）",
+    "reproduce": "python cut-sfx-click-soft-ui.py <ffmpeg> <sfx-click-soft-ui.mp3> <out.m4a>（ffmpeg n8.1.2 vendor で同じ md5 を 3 回再現。素材は ~/Akari/library と akari-wt/perf-pv-v2/assets/audio/sfx/ のどちらからでも同じ）"
+  },
+  "source": {
+    "id": "sfx-click-soft-ui",
+    "title": "Soft Rounded Interface Click, Gentle Low Blip, I（take A）",
+    "path_read": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3（読むだけ。akari-wt/perf-pv-v2/assets/audio/sfx/ と同一 md5）",
+    "md5": "9d83321587011f1218f3c89dce935b49",
+    "ledger": "akari-video-internal assets/audio/sfx-click-soft-ui/meta.json・provenance.jsonl id=sfx-click-soft-ui-a（curated）",
+    "author": "AKARI Sounds（Suno v5.5 chirp-sfx 生成 2026-08-02・オーナー試聴選別）",
+    "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布 / 音楽配信 / Content ID 登録は禁止）",
+    "price": 0,
+    "bundling_note": "アプリへの同梱はオーナーの了承待ちの仮置き（単体再配布禁止の条件）",
+    "format": "mp3 48 kHz stereo・1.801 s",
+    "sample_peak_dbfs": -3.80,
+    "transients": [
+      {
+        "name": "打音 1「チッ」",
+        "attack_ms": 5.0,
+        "peak_dbfs": -3.80,
+        "peak_ms": 7.9,
+        "decay_below_-60dbfs_ms": 60,
+        "spectrum": "64 Hz の胴（エネルギーの 83 %・ほぼ聞こえない帯）＋ 2.2〜2.6 kHz の鋭い芯",
+        "stereo": "L −3.8 / R −6.0 dBFS・相関 0.70",
+        "used": false
+      },
+      {
+        "name": "打音 2「コッ」",
+        "attack_ms": 102.79,
+        "peak_dbfs": -10.32,
+        "peak_ms": 104.27,
+        "decay_below_-60dbfs_ms": 140,
+        "spectrum": "150〜1500 Hz の丸い胴（300〜600 Hz に 32 %）＋ 1.2〜2.4 kHz",
+        "stereo": "L −12.1 / R −10.3 dBFS・相関 0.87・位相ずれ 0（わずかに右寄り＝図解の側。そのまま残す）",
+        "used": true
+      }
+    ]
+  },
+  "deviation_from_plan": {
+    "plan": "素材の 0〜0.16 s を 1 本切り出す（「アタック 0.005 s・実長 0.12 s」）",
+    "done": "素材の 97.8〜257.8 ms（打音 2 の立ち上がりの 5 ms 前から 0.16 s）を切り出し、立ち上がりをファイルの 4.98 ms に置いた",
+    "why": "素材は押して離す型の 2 打で、0〜0.16 s だと 1 回ごとに「チッ・コッ」と 2 回鳴る（3 ノードで 6 打・2 打目が 23.37 / 23.67 / 24.14 に余計に鳴る）。構成表の意図「ノードが 1 つ出るたびに小さく『コッ』」に合わせ、丸い 2 打目だけを使った。2 打目のほうが 300〜600 Hz の胴があり「コッ」の音色に近い",
+    "edit_item_effect": "なし。立ち上がりを 5 ms に置いたので、構成表の at / duration / in / out / gain_db はそのまま使える",
+    "compare": "構成表の文字どおり（2 打）の版は cut スクリプトの --variant spec で作れる。聞き比べ: C:/t/sfxdiag/listen-22.6-25.2-spec-literal-double-click.m4a"
+  },
+  "levels_design": {
+    "file_gain_db": -7.12,
+    "why": "音量の正本は edit.json の gain_db −2 に残し、ファイル側を『gain_db −2 で書き出しのピーク −20 dBFS』に合わせた（構成表の目安 −20、UI の細かい音の帯 −18〜−21）",
+    "encoder_choice": "128 kbps（計画どおり）。192 / 256 kbps でも SNR は 21〜22 dB で変わらない（立ち上がりの AAC 固有の誤差。誤差は信号より 22 dB 下で、書き出しでは声の下 −42 dBFS 前後）。立ち上がり前の pre-echo なし"
+  },
+  "decode_alignment": {
+    "ffmpeg_n8.1.2_vendor": { "samples": 8192, "attack_ms": 4.979, "peak_dbfs": -18.11, "peak_ms": 6.479, "lag_vs_source_samples": 0 },
+    "ffmpeg_9.0_path": { "samples": 8160, "attack_ms": 4.979, "peak_dbfs": -18.11, "peak_ms": 6.479, "lag_vs_source_samples": 0 },
+    "electron_39.8.7_decodeAudioData": { "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a", "length": 8192, "attack_sample": 239, "attack_ms": 4.979, "peak_dbfs": -18.11, "peak_sample": 311, "how": "隔離 user-data-dir（C:/t/sfxdiag/ud）の非表示 BrowserWindow で OfflineAudioContext.decodeAudioData" },
+    "verdict": "3 経路とも頭のずれ 0 サンプル（AAC の priming は elst で落ちる）。どの経路でも out 0.16 s（7680 サンプル）より長い"
+  },
+  "word_onsets_measured": {
+    "method": "書き出し（本編だけ）の音声 = clip.mp4 と同位相（ずれ 0 サンプル）の 2 ms / 5 ms RMS 包絡（狭帯域の bandpass は使わない）",
+    "ko_s": 23.268,
+    "ko_def": "無音（−75 dBFS）から 2 ms RMS が −50 dBFS を越える点（−40 dBFS は 23.269）",
+    "zu_consonant_s": 23.562,
+    "zu_vowel_s": 23.58,
+    "zu_def": "「いう」→「ず」の谷（23.555〜23.570・−28 dBFS）で摩擦（微分した信号の包絡）が立ち、母音が谷＋6 dB を越えるのが 23.579",
+    "de_burst_s": 24.025,
+    "de_def": "「も」の終わり 23.957 → 閉鎖の無音（23.96〜24.02・−54〜−78 dBFS）→ 「で」の破裂が −40 dBFS を越える点 24.026",
+    "director": { "こういう": 23.27, "図解": 23.58, "出せます": 24.02 }
+  },
+  "export_measure": {
+    "how": "隔離プロジェクト C:/t/sfxdiag/{proj, proj720, proj0}（本編＋3 個 / 3 個目だけ at 720 / 本編だけ）を edit-lint PASS → render-cut PASS（AKARI_FFMPEG_BIN = vendor n8.1.2、AKARI_HOME・TMP 隔離、作業フォルダは空）。差（効果音の寄与）に同梱ファイル × −2 dB の波形を相互相関で当てて置き位置を求めた",
+    "render_chain": "[sfx]atrim=start=0:end=0.16,asetpts=PTS-STARTPTS,volume=-2dB,adelay=23267 / 23567 / 24033（3 個目を at 720 にした版は 24000）:all=1 → amix normalize=0（packages/render-cut/src/plan.mjs の sfx の鎖）",
+    "voice_offset_export_vs_clip_samples": 0,
+    "codec_noise_note": "2 本の書き出しの差には AAC 再符号化の雑音（ピーク −33 dBFS）が乗る。置き位置は相互相関（相関 0.90〜0.99）で取った",
+    "ticks": [
+      {
+        "item": "demo-sfx-diagram-tick-1", "at": 698, "planned_start_s": 23.2667, "measured_start_s": 23.267, "start_err_ms": 0.33, "match_corr": 0.986,
+        "attack_s": 23.272, "word": "こ", "word_onset_s": 23.268, "attack_minus_word_ms": 4,
+        "visual": "ノード① 最初のフレーム 698 f = 23.267（構成表）", "attack_minus_visual_ms": 5,
+        "sfx_peak_in_mix_dbfs": -19.91,
+        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": -13.5, "max_third_octave_db": 20.8, "at_hz": 2000, "bands_above": [160, 200, 250, 1000, 1250, 1600, 2000, 2500] }
+      },
+      {
+        "item": "demo-sfx-diagram-tick-2", "at": 707, "planned_start_s": 23.5667, "measured_start_s": 23.567, "start_err_ms": 0.33, "match_corr": 0.904,
+        "attack_s": 23.571, "word": "図", "word_onset_s": 23.562, "attack_minus_word_ms": 9, "attack_minus_vowel_ms": -9,
+        "visual": "ノード② 最初のフレーム 707 f = 23.567（構成表）", "attack_minus_visual_ms": 4,
+        "sfx_peak_in_mix_dbfs": -20.34,
+        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": -13.0, "max_third_octave_db": 21.3, "at_hz": 800, "bands_above": [125, 160, 400, 630, 800, 1000, 1250, 1600, 2000] }
+      },
+      {
+        "item": "demo-sfx-diagram-tick-3（構成表どおり at 721）", "at": 721, "planned_start_s": 24.0333, "measured_start_s": 24.033, "start_err_ms": -0.33, "match_corr": 0.946,
+        "attack_s": 24.038, "word": "出", "word_onset_s": 24.025, "attack_minus_word_ms": 13,
+        "visual": "ノード③ 最初のフレーム 720 f = 24.000（構成表の sync_table）", "attack_minus_visual_ms": 38,
+        "sfx_peak_in_mix_dbfs": -20.19,
+        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": -10.3, "max_third_octave_db": 9.5, "at_hz": 160, "bands_above": [100, 125, 160, 200, 500, 2000] },
+        "reading": "「で」の破裂（広帯域）に重なって 3 個の中でいちばん埋もれる"
+      },
+      {
+        "item": "demo-sfx-diagram-tick-3（推奨 at 720）", "at": 720, "planned_start_s": 24.0, "measured_start_s": 24.0, "start_err_ms": 0.0, "match_corr": 0.938,
+        "attack_s": 24.005, "word": "出", "word_onset_s": 24.025, "attack_minus_word_ms": -20,
+        "visual": "ノード③ 最初のフレーム 720 f = 24.000（構成表の sync_table）", "attack_minus_visual_ms": 5,
+        "sfx_peak_in_mix_dbfs": -20.30,
+        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": 2.5, "max_third_octave_db": 33.4, "at_hz": 2000, "bands_above": [125, 160, 200, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000] },
+        "reading": "「も」と「で」の間の閉鎖の無音（23.96〜24.02）に落ちるので、声に埋もれずに「コッ」と聞こえる。語頭 −20 ms（規約 ±30 ms 内）、ノード③の出と +5 ms で ①② と同じ揃い方になる"
+      }
+    ],
+    "bgm_in_audibility": "BGM は計画値の近似（bgm-lofi-minimal-085 を +0.080 s で切り出し、gain −9 + duck −8 = −17 dB 一定。この区間 22.49〜25.50 はダッキングの区間が 1 つに結合されるため一定で近い）。keyframes が item の gain_db に加算される場合の −26 dB でも結論は同じ（tick-1 +21.3 / tick-2 +24.0 / tick-3@721 +7.3 dB）。書き出しの BGM の実測ではない"
+  },
+  "edit_items": {
+    "as_planned": [
+      { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-1", "at": 698, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } },
+      { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-2", "at": 707, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } },
+      { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-3", "at": 721, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } }
+    ],
+    "recommended_change": "tick-3 だけ at 721 → 720（他は構成表どおり）。721 のままでも規約（語頭 ±0.03 s）内で合格する",
+    "no_overlap": "demo-sfx 段で前の sfx-hora-sparkle は 661 f で終わり、次の sfx-phone（swoosh）は 805 f から。3 個は 698〜703 / 707〜712 / 720（721）〜725（726）で互いにも重ならない"
+  },
+  "listen": {
+    "recommended_720": "C:/t/sfxdiag/listen-22.6-25.2-ticks-720-recommended.m4a",
+    "as_planned_721": "C:/t/sfxdiag/listen-22.6-25.2-ticks-721-as-planned.m4a",
+    "spec_literal_double_click": "C:/t/sfxdiag/listen-22.6-25.2-spec-literal-double-click.m4a",
+    "voice_only": "C:/t/sfxdiag/listen-22.6-25.2-voice-only.m4a",
+    "note": "試聴用の抜粋（リポの外。22.6 s 起点）"
+  },
+  "not_verified": [
+    "図解の断片（overlays/demo-diagram）はこの時点で未作成のため、ノードの出と音の揃いは構成表のフレーム番号（698 / 707 / 720）で照合した。断片ができたら書き出しでノード③の最初のフレームが 720 か 721 かを確認し、721 なら tick-3 も 721 のままでよい",
+    "BGM を入れた書き出しでの実測（BGM は近似で聴こえ方を計算した）",
+    "シェルのプレビュー（L1）での再生。復号は Electron の decodeAudioData で書き出しと同じ位置に来ることだけ確認した"
+  ],
+  "renders": [
+    "sfx-diagram-ticks-cut.png（素材の 2 打・切り出し区間・同梱ファイルの復号波形・2 打の成分の比較）",
+    "sfx-diagram-ticks-sync.png（22.9〜24.4 s の声と効果音の包絡・語頭と立ち上がりの縦線・698 / 707 / 720 f の書き出しフレーム）"
+  ]
+}

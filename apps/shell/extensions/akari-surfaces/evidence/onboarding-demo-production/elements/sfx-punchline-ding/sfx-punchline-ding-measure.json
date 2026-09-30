@@ -1,0 +1,115 @@
+{
+  "element": "sfx-punchline-ding",
+  "measured": "2026-10-01",
+  "word": {
+    "text": "…けどね。（言い切り）",
+    "anchor_s": 35.63,
+    "source": "analysis/word-timing.json（有声区間 34.62–35.63・「ね」35.50–35.63）。clip.mp4 の 10 ms 包絡で再確認: 「ね」の山 35.54–35.58（−10.6 dB）→ 35.62 で −40.8 dB → 35.64 で −59 dB = 言い切り。clip.mp4 の音声は 35.921 s で終わる（render-cut は 37.6 まで無音を足す）"
+  },
+  "file": {
+    "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-ding-single.m4a",
+    "md5": "73732958497da2ed8cf0107952d55802",
+    "bytes": 34982,
+    "codec": "AAC-LC 192 kbps / 48 kHz / stereo（ffmpeg n8.1.2 vendor の内蔵 aac・bitexact・faststart・start_time 0・edit list で priming を除外）",
+    "duration_s": 1.4,
+    "samples": 67200,
+    "processing": "素材の 0〜1.4 s（先頭 67200 サンプル。頭は切らない）、音量は素材のまま、末尾 200 ms（1.2〜1.4 s）を raised cosine でフェード",
+    "reproduce": "python cut-sfx-ding-single.py <ffmpeg> <sfx-ding-single.mp3> <out.m4a>（同じ md5 を 3 回再現）"
+  },
+  "source": {
+    "id": "sfx-ding-single",
+    "title": "Single Clean Ding, Small Bright Bell, Isolated S",
+    "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-ding-single.mp3（読むだけ）",
+    "md5": "f3dec2573eb76986042005aec6a96ae7",
+    "sha256": "e94dab9371c990023671d2468eadffed70a62278fef5804bd979266e850b92f3",
+    "ledger": "内部リポ assets/audio/provenance.jsonl の sfx-ding-single-b（Suno chirp-sfx・2026-08-02・オーナー試聴選別 selection.json choice b・status curated）",
+    "meta": "akari-video-internal assets/audio/sfx-ding-single/meta.json",
+    "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布／音楽配信登録／Content ID 登録は禁止）",
+    "price": 0,
+    "status_note": "2026-08-23 のオーナー裁定で生成 SFX は keep 3 点を除き一括引退（sfx-retirement-2026-08-23.json の retired に含まれる）。sfx-review.json に個別の判定は無い（pop-ding のような「強調しすぎ」の指摘も無い）。後継の参照音源（OtoLogic・効果音ラボ）は参照配布のみで同梱できないため、構成表どおりこの音源を仮置きで使う",
+    "decoded": "48 kHz / 2ch / 2.761 s（mp3・start_time 0.023 = priming を ffmpeg が落とす）",
+    "onset_-30dBFS_ms": 4.98,
+    "sample_peak": { "dbfs": -2.26, "at_ms": 17.25 },
+    "env10ms_peak_dbfs": -12.48,
+    "decay": "10 ms RMS: 0.2 s −26 / 0.5 s −34 / 1.0 s −44 / 1.4 s −45 dBFS（1.4 s 以降のエネルギーは全体の 0.52 %）",
+    "spectrum": "部分音 1.4 kHz / 3.54 kHz。1–2 kHz 20.9 %・2–4 kHz 41.4 %・4–8 kHz 18.7 %・8 kHz 以上 19.0 %（500 Hz 以下は 0 %）。重心 4.8 kHz"
+  },
+  "decode_alignment": {
+    "tolerance_ms": 5,
+    "ffmpeg_n8.1.2_vendor": { "xcorr_lag_samples": 0, "onset_-30dBFS_ms": 4.96, "sample_peak_dbfs": -2.39, "sample_peak_ms": 17.25, "env10ms_peak_dbfs": -12.58, "decoded_samples": 67584, "note": "67200 以降は −123 dB の無音。書き出しは atrim end=1.4 で切る" },
+    "ffmpeg_9.0_path": { "xcorr_lag_samples": 0, "onset_-30dBFS_ms": 4.96, "sample_peak_dbfs": -2.39, "decoded_samples": 67200 },
+    "electron_39.8.7_decodeAudioData": { "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a", "xcorr_lag_samples": 0, "onset_-30dBFS_ms": 4.96, "sample_peak_dbfs": -2.39, "decoded_samples": 67199 },
+    "waveform_snr_db": 21.4,
+    "pre_echo_before_attack_dbfs": -39.9,
+    "verdict": "AAC の priming で頭はずれていない（3 経路とも 0 サンプル）"
+  },
+  "encoder_choice": {
+    "aac_128k": { "snr_db": 14.3, "snr_attack_0_50ms_db": 13.5, "pre_echo_dbfs": -33.2, "bytes": 23230 },
+    "aac_192k": { "snr_db": 21.4, "snr_attack_0_50ms_db": 22.6, "pre_echo_dbfs": -39.9, "bytes": 34982 },
+    "aac_256k": { "snr_db": 24.5, "snr_attack_0_50ms_db": 25.0, "pre_echo_dbfs": -45.0, "bytes": 43549 },
+    "pns_is_ms_off": "アタックの SNR が下がる（128k で 8.6 dB）ので既定のまま",
+    "chosen": "aac 192k（sfx_sources の 128 kbps からの逸脱。sfx-kouka-pop と同じ判断。明るい鈴の立ち上がりで 128k は崩れる）"
+  },
+  "fade_choice": "末尾 30 ms ではなく 200 ms（1.2〜1.4 s）。1.4 s の時点で鈴はまだ −45 dBFS で鳴っていて、30 ms だと余韻を断ち切る形になるため。聞こえ方の差は BGM の下で小さいが、途切れの危険が無い側を選んだ（sfx_sources の「末尾 30 ms フェード」からの逸脱）",
+  "edit_item_used": {
+    "track": "demo-sfx", "id": "demo-sfx-punchline-ding", "at": 1069, "duration": 42, "role": "sfx", "gain_db": -2,
+    "source": { "kind": "media", "src": "demo-sfx-ding-single", "in": 0, "out": 1.4 }
+  },
+  "render_cut_check": {
+    "how": "隔離プロジェクト（C:/t/ding/proj-*・AKARI_HOME=C:/t/ding/home・作業フォルダは空の C:/t/ding/cwd・AKARI_EXPORT_ALLOW_DESKTOP=0）で edit-lint PASS → render-cut。sfxonly = 本編 muted + この item だけ / noding = 本編 + BGM（構成表の item） / mix = noding + この item / av-osr = mix + demo-credit（01:22 版・md5 262f38dc）を --engine osr。HKCU UserGpuPreferences は前後で不変",
+    "filter": "[sfx]atrim=start=0:end=1.4,asetpts=PTS-STARTPTS,volume=-2dB,adelay=35633:all=1 → amix normalize=0",
+    "placement_xcorr": "素材の先頭サンプルが 35.63302 s（item 35.63333 に対し −0.3 ms）・倍率 −2.29 dB",
+    "first_nonzero_s": 35.6308,
+    "attack_-30dBFS_s": 35.6379,
+    "sample_peak": { "dbfs": -4.61, "at_s": 35.6502 },
+    "true_peak_dbtp": -4.56,
+    "env10ms_peak_sliding": { "dbfs": -14.15, "at_s": 35.65, "plan_target": -14 },
+    "momentary_lufs_400ms_max": -20.4,
+    "last_nonzero_s": 37.0244,
+    "silent_outside_item_dbfs": -151.3,
+    "verify_note": "sfxonly の render-cut は verify.audio-level が FAIL（検査窓 3.8〜33.8 s が本編ミュートで無音のため。out.mp4 は書き出されていて計測に使った）。mix / noding / av / av-osr は PASS",
+    "mix_peak_35.5_37.1_dbfs": -4.66,
+    "mix_minus_noding_vs_sfxonly": "相関 0.991・倍率 +0.08 dB（ミックスでも同じ音量で入っている）",
+    "osr_audio_equals_ffmpeg_path": true
+  },
+  "sync": {
+    "anchor_word_end_source_s": 35.63,
+    "voice_end_export_s": "≈35.60（書き出しの声は元素材より 23.2 ms 早い = 1115 サンプル@48k。sfx-name-pop の観測と同じ・packages 側）",
+    "item_start_frame": "f1069 = 35.633",
+    "attack_minus_anchor_ms": 7.9,
+    "attack_minus_voice_end_export_ms": "≈ +38（言い切った声が消えてから鳴る。声とは重ならない）",
+    "credit_row1_first_visible": "OSR 書き出し f1070 = 35.667（f1069 はまだ何も無い・f1070 で「出演 僕」が約 3 割の濃さで右から入る）。GPU 書き出し（render-cut 既定）は断片の var(--ease-*) が無く全フレーム最終状態（sfx-name-pop の side finding と同じ）",
+    "attack_minus_credit_row1_ms": -29,
+    "verdict": "言い切り 35.63 に対しアタック +8 ms・山 +20 ms（狙い ±30 ms・許容 ±150 ms の内）。絵（クレジット 1 行目）より音が 1 フレーム先行するが、音の先行 29 ms は知覚できる差（約 45 ms）の内"
+  },
+  "loudness_context": {
+    "window": "400 ms（BS.1770 K 重み・自前実装）",
+    "rows": [
+      { "t": 35.5, "ding": -20.7, "voice_bgm": -16.5, "mix": -15.1 },
+      { "t": 35.6, "ding": -20.4, "voice_bgm": -32.2, "mix": -20.0 },
+      { "t": 35.7, "ding": -23.7, "voice_bgm": -29.2, "mix": -22.7 },
+      { "t": 35.8, "ding": -24.4, "voice_bgm": -29.5, "mix": -23.3 },
+      { "t": 36.0, "ding": -31.5, "voice_bgm": -30.1, "mix": -27.8 },
+      { "t": 36.4, "ding": -37.9, "voice_bgm": -37.2, "mix": -34.5 },
+      { "t": 36.8, "ding": -46.4, "voice_bgm": -38.3, "mix": -37.6 }
+    ],
+    "reading": "言い切った直後の 400 ms で効果音 −20.4 LUFS は、声（発話中 −13〜−16）の 4〜7 LU 下、この区間の BGM（−32 LUFS）の 12 LU 上。オチの「チーン」として前に出るが声より大きくはならない",
+    "if_bgm_follows_plan_intent": "構成表の意図どおり BGM の keyframes を絶対値（−9 → −4 dB）で効かせた場合の試算（今の書き出しの BGM を +9 dB）: 35.7〜36.0 の BGM は −20〜−21 LUFS で効果音とほぼ同じ広帯域ラウドネスになるが、帯域別では効果音が 1–2 kHz で +24 dB・2–4 kHz で +45 dB・4–8 kHz で +60 dB 上（lofi の BGM は 1 kHz 以下に集まる）。埋もれない。gain_db −2 のままでよい",
+    "gain_alternative": "もっと控えめにするなら gain_db −5（10 ms 包絡 −17 dBFS・サンプルの山 −7.6 dBFS・瞬時 −23.4 LUFS）"
+  },
+  "side_findings_for_other_elements": [
+    "BGM の keyframes は render-cut で item の gain_db に「足される」: 構成表の item gain_db −9 + keyframes（−9 → −2 → −9 → −4）で、書き出しの BGM の倍率は −18 → −11 → −18 → −13 dB（bgm-only の書き出しを bgm.m4a と比べて実測）。構成表の意図（−9 → −2 → −4）より 9 dB 小さい。keyframes を相対（0 → +7 → 0 → +5）にするか、item の gain_db を 0 にする必要がある（bgm 要素・組み込み担当へ）",
+    "隔離プロジェクトに analysis.json が無いと BGM のダッキング（duck_keys narration / speech）は掛からない（render-cut の warning「no duck key intervals are available; ducking was not applied」）。お手本のプロジェクトにも analysis.json が無ければ duck_db −8 は効かない（bgm 要素・組み込み担当へ）",
+    "edit-lint は v2 の audio keyframes の t（フレーム）を秒として読み「keyframe t 879s exceeds effective duration 37.6s」の warning を 6 件出す（verdict は PASS。render-cut 側は edit-store の legacy-audio-view が t / fps で秒へ直すので正しく効く）。packages 側の lint の不整合（読むだけ・直していない）",
+    "demo-credit（01:22 版）は OSR 書き出しで 1 行目の最初に見えるフレームが f1070（設計 f1069）。f1071 と f1072 が同じ絵で 2 行目は f1073 から（credit 要素・目利きへ）"
+  ],
+  "evidence": [
+    "sfx-punchline-ding-sync.png",
+    "sfx-punchline-ding-file-vs-source.png",
+    "cut-sfx-ding-single.py"
+  ],
+  "listen_files_not_committed": [
+    "C:/t/ding/listen-34.4-37.6-av-osr.mp4（本編 + BGM + この効果音 + クレジット・OSR 書き出しの 34.4 s 以降）",
+    "C:/t/ding/proj-av-osr/renders/out.mp4（同じ構成の全編）"
+  ]
+}

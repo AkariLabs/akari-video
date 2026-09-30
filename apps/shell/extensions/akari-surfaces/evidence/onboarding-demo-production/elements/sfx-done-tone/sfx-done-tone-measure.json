@@ -1,0 +1,170 @@
+{
+  "element": "sfx-done-tone",
+  "source": {
+    "id": "sfx-correct-tone",
+    "library": "AKARI Sounds 効果音 v0（~/Akari/library/audio/akari-sounds-sfx/、読み取りのみ）",
+    "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-correct-tone.mp3",
+    "md5": "b4353a6dfca6405310591e02f1f5fa9c",
+    "sha256": "ac52e54c51b6bf9ab5dc806b6c1a17d461e3a31fd020742d824aa91417fcb777",
+    "take": "Suno take B（内部 assets/audio/sfx-correct-tone・provenance.jsonl の sha256_mp3 と一致）",
+    "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布/配信登録/Content ID 登録は禁止）・price 0",
+    "duration_s": 1.801,
+    "sample_peak_dbfs": -4.32,
+    "attack_ms": 4.98,
+    "note_onsets_s": {
+      "C5": 0.013,
+      "E5": 0.072,
+      "G5": 0.129
+    },
+    "note": "C5→E5→G5 の上行 3 音（たらーん）。-50 dB（ピーク比）まで 0.605 s"
+  },
+  "processing": {
+    "cut": "0〜0.55 s（26400 サンプル、頭は切らない＝アタック 0.005 s を保つ）",
+    "gain_db_baked": -4.85,
+    "fade_out": "0.52〜0.55 s（30 ms・線形）",
+    "codec": "AAC-LC 128 kbps / 48 kHz / stereo / m4a（faststart・bitexact・メタデータなし）",
+    "command": "ffmpeg -i sfx-correct-tone.mp3 -map_metadata -1 -af \"asetpts=N/SR/TB,atrim=end_sample=26400,volume=-4.85dB,afade=t=out:st=0.52:d=0.03\" -ar 48000 -ac 2 -c:a aac -b:a 128k -fflags +bitexact -flags:a +bitexact -movflags +faststart sfx-correct-tone.m4a",
+    "why_bake": "構成表の edit_item は gain_db −3 固定。出力ピーク −12 dBFS（構成表の目安）に着地するよう、ファイル側のピークを −9 dBFS 付近に合わせた（AAC の量子化でピークは ±0.2 dB 揺れるので −4.60〜−5.00 を振って −9.13 に最も近い値を採用）"
+  },
+  "output": {
+    "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-correct-tone.m4a",
+    "bytes": 9565,
+    "md5": "f0f3bc71c478efd7fef1b59e19026619",
+    "sha256": "b52317a1ce0c75dc1d7813714e742db95d9535dbc6c15f2534f076c064f3686d",
+    "duration_s": 0.55,
+    "samples": 26400,
+    "sample_peak_dbfs": -9.13,
+    "attack_ms_ffmpeg": 4.92,
+    "lag_vs_source_samples_ffmpeg": 0,
+    "attack_ms_chromium": 4.92,
+    "lag_vs_ffmpeg_samples_chromium": 0,
+    "chromium_samples": 26400,
+    "chromium": "Electron 39.8.7 / Chrome 142.0.7444.265（worktree の node_modules/electron・ffmpeg.dll md5 0b4fe392＝インストール版）、非表示ウィンドウで OfflineAudioContext(48 kHz).decodeAudioData ＝ シェルのプレビューと同じ復号経路",
+    "priming_check": "AAC の priming は m4a の edit list で相殺され、ffmpeg・Chromium とも頭 0 サンプルずれ（規約 ±5 ms）"
+  },
+  "placement": {
+    "track": "demo-sfx",
+    "item": {
+      "id": "demo-sfx-done-tone",
+      "at": 395,
+      "duration": 17,
+      "role": "sfx",
+      "gain_db": -3.0,
+      "source": {
+        "kind": "media",
+        "src": "demo-sfx-correct-tone",
+        "in": 0,
+        "out": 0.55
+      }
+    },
+    "project_path": "assets/onboarding/sfx-correct-tone.m4a（source id demo-sfx-correct-tone）",
+    "at_s": 13.1667,
+    "attack_on_timeline_s": 13.1716,
+    "word_onset_plan_s": 13.18,
+    "delta_vs_plan_word_s": -0.0084,
+    "word_onset_own_check": "clip.mp4 の 10 ms RMS・F0・重心で「もう|終わ」の境目を確認: 13.16 に谷（-19.9 dBFS）、13.19〜13.21 で次の母音が立ち上がる（13.22 で -10 dBFS）。構成表の 13.18 と ±0.02 s で一致。アタック 13.172 は 13.18 の −0.008 s、13.20 に対しても −0.028 s で ±0.03 以内",
+    "e5_on_timeline_s": 13.239,
+    "g5_on_timeline_s": 13.296,
+    "stamp_first_visible_plan_s": 13.1667,
+    "stamp_land_plan_s": 13.29,
+    "stamp_render": {
+      "fragment_md5_at_measure": "ab74b9e14733c9440f2ae2a87eba3346",
+      "method": "demo-done 断片（item at 338 f = 11.2667 s）を harness/render-fragment.mjs（Edge headless に差し替えた写し）で局所 1.78〜2.20 s を 10 ms 刻みで描き、朱の画素の外接幅と不透明度を測った",
+      "first_visible_s": 13.127,
+      "first_visible_note": "局所 1.85 s（--done-stamp-delay）で出始め、1.86 s（13.127）で朱が見える。30 fps では 394 f（13.133）が最初のフレーム",
+      "impact_s": 13.197,
+      "impact_note": "demo-done-slam 0.20 s の 40%（scale .92）= 局所 1.93 s。外接幅の最小は 1.92 s（170 px、その後は朱の輪が広がる）",
+      "attack_minus_impact_s": -0.025
+    },
+    "end_on_timeline_s": 13.7167,
+    "neighbors": "直前の効果音 sfx-chat-pops は 9.40 で終わり、次の sfx-kouka-pop は 17.47 から。demo-sfx 段の中で重ならない"
+  },
+  "mix_check": {
+    "window_s": [
+      13.167,
+      13.767
+    ],
+    "voice_lufs": -15.1,
+    "sfx_lufs": -24.1,
+    "bgm_lufs": -37.0,
+    "mix_lufs": -14.7,
+    "sfx_peak_dbfs_after_gain": -12.13,
+    "mix_peak_dbfs": -2.78,
+    "tone_energy_fraction_above_voice": 0.942,
+    "method": "clip.mp4 の声（48 kHz へ）＋ bgm.m4a を −17 dB（gain −9＋duck −8 の近似・前段の bgm）＋ この m4a を gain −3・adelay で 13.1667 に置いて amix(normalize=0)。render-cut と同じ volume→adelay→amix の組み方。書き出し（render-cut）の実測ではない"
+  },
+  "export_check": {
+    "method": "隔離プロジェクト（C:/t/sfx-done-tone-rc/proj・AKARI_HOME/TMP も C:/t 配下）に本編 12.0〜14.5 s と、この効果音 item（at 35 f・duration 17・gain −3・in 0/out 0.55）だけの edit.json v2 を置き、edit-lint PASS → render-cut PASS。本編の音を切った版（sfx-only）と入れた版（voice-sfx）の 2 本",
+    "edit_lint": "PASS（0 findings）",
+    "render_cut": "PASS",
+    "sfx_only_attack_s": 1.1719,
+    "expected_attack_s": 1.1716,
+    "attack_error_ms": 0.33,
+    "attack_error_note": "render-cut は adelay を整数 ms に丸める（1166.67→1167 ms）ぶん +0.33 ms",
+    "sfx_only_peak_dbfs": -12.24,
+    "voice_sfx_window_lufs": -14.6,
+    "voice_sfx_window_peak_dbfs": -2.8,
+    "edit_json": {
+      "version": 2,
+      "output": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "geometry": "source"
+      },
+      "sources": [
+        {
+          "id": "sample",
+          "path": "assets/sample.mp4"
+        },
+        {
+          "id": "demo-sfx-correct-tone",
+          "path": "assets/onboarding/sfx-correct-tone.m4a"
+        }
+      ],
+      "tracks": [
+        {
+          "id": "video",
+          "lane": "visual",
+          "name": "本編",
+          "items": [
+            {
+              "id": "sample",
+              "at": 0,
+              "duration": 75,
+              "source": {
+                "kind": "media",
+                "src": "sample",
+                "in": 12.0,
+                "out": 14.5
+              }
+            }
+          ]
+        },
+        {
+          "id": "demo-sfx",
+          "lane": "audio",
+          "name": "効果音",
+          "items": [
+            {
+              "id": "demo-sfx-done-tone",
+              "at": 35,
+              "duration": 17,
+              "role": "sfx",
+              "gain_db": -3,
+              "source": {
+                "kind": "media",
+                "src": "demo-sfx-correct-tone",
+                "in": 0,
+                "out": 0.55
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "files": {
+    "sync_png": "elements/sfx-done-tone/sfx-done-tone-sync.png"
+  }
+}

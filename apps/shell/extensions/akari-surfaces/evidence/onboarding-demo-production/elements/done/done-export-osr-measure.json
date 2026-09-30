@@ -1,0 +1,72 @@
+{
+ "export": "render-cut --engine osr（隔離プロジェクト C:/t/done-l0。本編 11.0〜15.0 秒を 120 フレームに切り出し、demo-done を at 8 / duration 108 = 本番 at 338 と同じ局所時刻。正解音 at 65 = 本番 395）。edit-lint PASS（findings 0）",
+ "rows": [
+  {
+   "part": "lead",
+   "word": "喋ってるだけで",
+   "word_onset_s": 11.3,
+   "first_visible_frame": 339,
+   "first_visible_s": 11.3,
+   "delta_s": 0.0,
+   "visibility_at_first": 16.5,
+   "visibility_prev": 0.2
+  },
+  {
+   "part": "head",
+   "word": "編集",
+   "word_onset_s": 12.57,
+   "first_visible_frame": 377,
+   "first_visible_s": 12.5667,
+   "delta_s": -0.0033,
+   "visibility_at_first": 24.7,
+   "visibility_prev": 0.4
+  },
+  {
+   "part": "stamp",
+   "word": "終わってる",
+   "word_onset_s": 13.18,
+   "first_visible_frame": 394,
+   "first_visible_s": 13.1333,
+   "delta_s": -0.0467,
+   "visibility_at_first": 17.4,
+   "visibility_prev": 1.7
+  }
+ ],
+ "stamp_landing": {
+  "frame": 396,
+  "s": 13.2,
+  "note": "slam 40% 点（scale .92）= 着地"
+ },
+ "last_visible_frame": 443,
+ "last_visible_s": 14.7667,
+ "item_end_frame": 446,
+ "keepout_changed_pixels_max": {
+  "person": 70,
+  "caption_band": 0,
+  "note": "人物域の差 70px は overlay が非活性のフレーム（f445〜449）で出た書き出しの圧縮ノイズ。活性区間の最大 31px も同じノイズ水準。字幕帯は 0"
+ },
+ "sfx_correct_tone": {
+  "placed_s": 13.1667,
+  "xcorr_start_s": 13.1441,
+  "attack_s": 13.1491,
+  "landing_minus_attack_s": 0.0509,
+  "note": "着地（f396 = 13.200）は正解音の立ち上がりの 0.05 秒後、音の山（+0.09 秒）の手前。音の置き位置と頭のずれ（−0.023 秒）は効果音の担当（sfx-done-tone）の範囲"
+ },
+ "method": "出力と素材の同時刻フレームの差（輝度の平均絶対差 > 3）で「最初に見えるフレーム」を判定。効果音は出力音声 − 素材音声の差分と sfx-correct-tone の相互相関",
+ "overlay_extent_harness": {
+  "steady_union_bbox_x0y0x1y1": [
+   769,
+   155,
+   1228,
+   418
+  ],
+  "stage": "右の舞台 y<460 は x 720〜1240 の内側",
+  "transient_f394_bbox": [
+   769,
+   155,
+   1262,
+   452
+  ],
+  "transient_note": "判子の叩きつけ 1 コマ目（f394、scale 1.69・不透明度 .28）だけ右端が舞台の 1240 を越える（画面内。人物・字幕帯とは無関係）。構成表の scale 1.9 起点に由来"
+ }
+}

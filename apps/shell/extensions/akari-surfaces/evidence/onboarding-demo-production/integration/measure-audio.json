@@ -1,0 +1,195 @@
+{
+ "sfx": [
+  {
+   "id": "title-whoosh",
+   "word": "こんにちは（カードの着地）",
+   "word_s": 0.49,
+   "item_at_s": 0.0,
+   "kind": "山",
+   "measured_s": 0.493,
+   "delta_s": 0.003,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -13.1
+  },
+  {
+   "id": "name-pop",
+   "word": "アカリビデオ",
+   "word_s": 3.59,
+   "item_at_s": 3.567,
+   "kind": "出",
+   "measured_s": 3.568,
+   "delta_s": -0.022,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -9.0
+  },
+  {
+   "id": "chat-pop-1",
+   "word": "AI",
+   "word_s": 8.55,
+   "item_at_s": 8.533,
+   "kind": "出",
+   "measured_s": 8.535,
+   "delta_s": -0.015,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -19.4
+  },
+  {
+   "id": "chat-pop-2",
+   "word": "対話",
+   "word_s": 9.26,
+   "item_at_s": 9.233,
+   "kind": "出",
+   "measured_s": 9.234,
+   "delta_s": -0.026,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -19.6
+  },
+  {
+   "id": "done-tone",
+   "word": "終わってる",
+   "word_s": 13.42,
+   "item_at_s": 13.4,
+   "kind": "出",
+   "measured_s": 13.401,
+   "delta_s": -0.019,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -16.9
+  },
+  {
+   "id": "kouka-pop",
+   "word": "効果音",
+   "word_s": 17.5,
+   "item_at_s": 17.467,
+   "kind": "出",
+   "measured_s": 17.488,
+   "delta_s": -0.012,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -15.0
+  },
+  {
+   "id": "pa-whoosh",
+   "word": "パッ（衝撃）",
+   "word_s": 19.7,
+   "item_at_s": 19.367,
+   "kind": "衝撃",
+   "measured_s": 19.703,
+   "delta_s": 0.003,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -6.9
+  },
+  {
+   "id": "hora-sparkle",
+   "word": "ほら",
+   "word_s": 20.55,
+   "item_at_s": 20.567,
+   "kind": "出",
+   "measured_s": 20.569,
+   "delta_s": 0.019,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -17.9
+  },
+  {
+   "id": "diagram-tick-1",
+   "word": "こういう",
+   "word_s": 23.27,
+   "item_at_s": 23.267,
+   "kind": "出",
+   "measured_s": 23.267,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -25.9
+  },
+  {
+   "id": "diagram-tick-2",
+   "word": "図解",
+   "word_s": 23.78,
+   "item_at_s": 23.767,
+   "kind": "出",
+   "measured_s": 23.767,
+   "delta_s": -0.013,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -25.8
+  },
+  {
+   "id": "diagram-tick-3",
+   "word": "出せます",
+   "word_s": 24.37,
+   "item_at_s": 24.367,
+   "kind": "出",
+   "measured_s": 24.367,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -25.8
+  },
+  {
+   "id": "phone-swoosh",
+   "word": "スマホ",
+   "word_s": 27.07,
+   "item_at_s": 26.833,
+   "kind": "山",
+   "measured_s": 27.079,
+   "delta_s": 0.009,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -19.3
+  },
+  {
+   "id": "phone-tap",
+   "word": "モックアップ",
+   "word_s": 27.77,
+   "item_at_s": 27.767,
+   "kind": "出",
+   "measured_s": 27.768,
+   "delta_s": -0.002,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -26.6
+  },
+  {
+   "id": "punchline-ding",
+   "word": "ね（言い切り）",
+   "word_s": 35.63,
+   "item_at_s": 35.633,
+   "kind": "出",
+   "measured_s": 35.634,
+   "delta_s": 0.004,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -10.9
+  }
+ ],
+ "bgm_applied_gain_db": {
+  "speech 5.2-6.3": -14.01,
+  "speech 15.4-16.8": -14.01,
+  "speech 33.4-34.7": -14.0,
+  "gap 1.3-2.3": -14.02,
+  "gap 25.1-26.8": -14.01,
+  "pause 28.80-29.25": -14.0,
+  "lifted 30.25-30.63": -6.01,
+  "tail 36.2-36.8": -4.62
+ },
+ "loudness_lufs": {
+  "all 0-37.6": {
+   "full": -16.0,
+   "bgm_sfx_only(novoice)": -26.1,
+   "voice_over_bgm_lu": 10.1
+  },
+  "speech 5.2-6.3": {
+   "full": -14.5,
+   "bgm_sfx_only(novoice)": -30.0,
+   "voice_over_bgm_lu": 15.5
+  },
+  "speech 15.4-16.8": {
+   "full": -16.5,
+   "bgm_sfx_only(novoice)": -31.0,
+   "voice_over_bgm_lu": 14.5
+  },
+  "speech 33.4-34.7": {
+   "full": -16.8,
+   "bgm_sfx_only(novoice)": -28.8,
+   "voice_over_bgm_lu": 12.0
+  },
+  "lift 29.6-30.6": {
+   "full": -13.5,
+   "bgm_sfx_only(novoice)": -20.9,
+   "voice_over_bgm_lu": 7.4
+  }
+ }
+}

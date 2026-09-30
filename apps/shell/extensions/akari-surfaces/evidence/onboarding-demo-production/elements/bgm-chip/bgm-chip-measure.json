@@ -1,0 +1,216 @@
+{
+ "element": "bgm-chip",
+ "task": "2026-09-30-onboarding-demo-production",
+ "created": "2026-10-01",
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-bgm/fragment.html",
+ "bytes": 10252,
+ "md5": "e30abe2b81a020b5d33a536efe69bd6d",
+ "edit_item": {
+  "track": "demo-accents",
+  "id": "demo-bgm-chip",
+  "name": "BGM",
+  "at": 883,
+  "duration": 105,
+  "source": {
+   "kind": "html",
+   "path": "overlays/demo-bgm/fragment.html"
+  }
+ },
+ "sync": {
+  "word": "BGM",
+  "word_s": 29.45,
+  "first_visible": {
+   "preview_overlay_runtime": {
+    "frame": 883,
+    "t": 29.4333,
+    "opacity": 0.597
+   },
+   "export_osr": {
+    "frame": 883,
+    "t": 29.4333
+   },
+   "export_gpu": {
+    "frame": 883,
+    "t": 29.4333
+   },
+   "diff_s": -0.017,
+   "rule": "語頭の -1〜0 フレーム（許容 ±0.15、狙い ±0.05）→ 合格"
+  },
+  "beat_grid_s": [
+   29.582,
+   30.288,
+   30.994,
+   31.7,
+   32.406
+  ],
+  "bar0_peaks_s": {
+   "export_osr": [
+    29.6,
+    30.3,
+    31.0,
+    31.7,
+    32.4
+   ],
+   "export_gpu": [
+    29.6,
+    30.3,
+    31.0,
+    31.7,
+    32.4
+   ]
+  },
+  "bar0_peak_minus_beat_ms": [
+   18,
+   12,
+   6,
+   0,
+   -6
+  ],
+  "other_bars_peaks_s_osr": {
+   "bar1": [
+    29.7667,
+    30.4667,
+    31.1667,
+    31.9,
+    32.6
+   ],
+   "bar2": [
+    29.6667,
+    30.4,
+    31.1,
+    31.8,
+    32.5
+   ],
+   "bar3": [
+    29.8667,
+    30.5667,
+    31.2667,
+    31.9667
+   ],
+   "bar4": [
+    29.7333,
+    30.4333,
+    31.1333,
+    31.8333,
+    32.5333
+   ]
+  },
+  "bgm_beat_check": "元の mp3（md5 982faf7a…）を 0.08 秒ずらして切り出した BGM で、29.582 / 30.288 / 30.994 / 31.700 / 32.406 のハット（1.5–8 kHz）の立ち上がりが格子から 0 / -11 / -2 / +3 / -3 ms。書き出しの音声と元の BGM の相互相関で書き出し側が 17 ms 早い（テスト用の AAC 切り出しを含む）。作り直す bgm.m4a が 0.072 秒ずらしになっても差は 8 ms",
+  "ring": "最初の拍 29.582 で淡橙の輪が 1 回広がる（0.45 秒）",
+  "exit": {
+   "start_s": 32.6,
+   "gone_s": 32.9,
+   "preview_opacity": {
+    "978": 1,
+    "979": 1,
+    "980": 1,
+    "981": 1,
+    "982": 1,
+    "983": 0.891,
+    "984": 0.669,
+    "985": 0.447,
+    "986": 0.224,
+    "987": 0.002,
+    "988": 0
+   },
+   "note": "スマホ（demo-phone）の抜け（translateY 0→150・0.30 秒 accelerate・最後の 0.15 秒で不透明度 0）と同じ動きで札も沈む"
+  },
+  "bgm_beat_check_recut_bgm_m4a": "並走の BGM 担当が作り直した bgm.m4a（md5 199ab0b8…、37.6 秒）でハットの立ち上がりを実測: 19.700→+3 ms、29.582→-5 ms、30.288→-1 ms、30.994→+3 ms、31.700→+12 ms、32.406→-8 ms。札の棒の山（29.60 / 30.30 / 31.00 / 31.70 / 32.40）と ±1 フレーム以内で一致"
+ },
+ "layout": {
+  "chip_box_px": "left 748 / top 118 / 136×48・rotate -4°（中心回転）",
+  "footprint_all_frames": {
+   "frames": 106,
+   "union_bbox_alpha_gt_3pct": [
+    712,
+    94,
+    904,
+    250
+   ],
+   "union_bbox_alpha_gt_25pct": [
+    726,
+    101,
+    896,
+    212
+   ],
+   "pixels_in_person_reach": 0,
+   "pixels_in_caption_band": 0,
+   "pixels_outside_stage": 311,
+   "pixels_outside_stage_body": 0
+  },
+  "verdict": "人物の届く範囲 0 px・字幕帯 0 px。本体（不透明度 25% 以上）は右の舞台の中。影の薄い裾（3% 以上）だけが舞台の左端 x=720 を 8 px 越える（x 712〜719・ポップの行き過ぎの 2 フレーム）"
+ },
+ "lint": {
+  "edit_lint": "PASS（テスト用プロジェクト C:/t/bgm-chip-export。overlays.* の指摘 0。出た 4 件は audio.keyframes.duration の warning = テスト用 BGM の keyframes）",
+  "gpu_eligibility": "dom（dom-layer-draw-element・animation-timing）",
+  "knobs": {
+   "declared": 20,
+   "react": 20,
+   "undeclared": [],
+   "declared_only": []
+  }
+ },
+ "exports": {
+  "osr": "render-cut --engine osr → PASS",
+  "gpu": "render-cut --engine gpu → PASS",
+  "osr_vs_gpu_chip_region_mean_abs_diff": 4.27,
+  "note": "GPU と OSR で棒の山・出る時刻・抜けが同じフレーム。スマホの枠は並走の demo-phone、画面は plan.json の phone-screen の crop/transform をそのまま置いた"
+ },
+ "font": {
+  "family": "AKARI Demo Sans BGM",
+  "source": "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf（SIL OFL 1.1・Reserved Font Name 'Source'）",
+  "instance": "wght 900",
+  "chars": " BGM",
+  "unicode_range": "U+0020,U+0042,U+0047,U+004D",
+  "woff2_bytes": 1152,
+  "name_table": "著作権表示（nameID 0）と OFL 許諾（nameID 13/14）を保持、family 名は別名"
+ },
+ "deviations_from_spec": [
+  "抜け: 構成表は translateY 0→40・opacity→0 だが、スマホと同じ 150 px・最後の 0.15 秒で不透明度 0 にした（札がスマホに付いたまま一緒に沈む。40 px だと札だけ取り残されて見えた）。ツマミ --bgm-out-y で 40px に戻せる",
+  "足したもの: 最初の拍 29.582 で淡橙の輪を 1 回だけ広げる（BGM が +7 dB 持ち上がる瞬間を目で見せる）。--bgm-ring: transparent で消せる",
+  "棒の動き: .35→1→.35 の山を拍に置くのは構成表どおり。形はメーター風（山の手前 0.085 秒で一気に上がり、残り 0.35 秒で落ちる）にした",
+  "イージングの var(--ease-*) に語彙と同じ値のフォールバックを添えた（GPU 書き出しでアニメが消えるため。下の findings）"
+ ],
+ "findings_for_team": [
+  {
+   "severity": "P0",
+   "what": "GPU 書き出し（render-cut の --engine auto が選びうる経路）のページは motion-vocab.css を読み込まない。var(--ease-*) にフォールバックの無い断片は animation の宣言ごと無効になり、最初のフレームから最終の静止状態のまま出る",
+   "evidence": [
+    "この断片の修正前: --engine gpu で札が静止（棒・ポップ・抜けが全部無し）、フォールバックを足して GPU = OSR に一致",
+    "demo-chat（var(--ease-*) 10 か所・フォールバック無し）を 8.0–11.0 秒だけ --engine gpu で書き出すと、ローカル 0.033 秒で『できました！』まで出ている（OSR では出ていない）: finding-gpu-export-without-motion-vocab-demo-chat.jpg",
+    "demo-* 9 断片はすべて GPU 適格（dom）→ お手本の書き出しが auto で GPU を選ぶ可能性が高い"
+   ],
+   "fallback_missing_counts_at_check": {
+    "demo-chat": 10,
+    "demo-credit": 12,
+    "demo-diagram": 29,
+    "demo-done": 10,
+    "demo-effects": 11,
+    "demo-title": 14,
+    "demo-flash": 0,
+    "demo-phone": 0,
+    "demo-bgm": 0
+   },
+   "fix": "各断片の var(--ease-x) を var(--ease-x, <motion-vocab.css と同じ値>) にする（demo-phone・demo-bgm の書き方）。公開リポ側の根治は gpu-export のページに motion-vocab.css を埋め込むこと（rasterize.mjs と同じ）— packages/ は所有外なので提案"
+  },
+  {
+   "severity": "P1",
+   "what": "BGM の keyframes（v2 の音声 item）は render-cut で item 相対フレーム・item の gain_db に加算で効く（実測: gain_db -9・keyframes 0→+7 で、読点の間 30.25–30.60 の実効ゲイン -2.0 dB、自然な間 28.80–29.25 は -9.0 dB）。plan.json の keyframes は -9→-2 の絶対値で書いてあるので、そのまま入れると -18→-11 になる",
+   "note": "edit-lint は v2 の keyframes を秒として尺と比べ audio.keyframes.duration の warning を出す（誤検知。PASS は変わらない）"
+  },
+  {
+   "severity": "P2",
+   "what": "構成表の BGM の受け入れ『読点の間 30.25–30.63 が自然な間 28.80–29.25 より 6 dB 以上大きい』は、曲そのものの音量差（元の曲で 30.25–30.60 は 28.80–29.25 より 7.2 dB 小さい。28.876 に強いキック）で打ち消され、絶対値の比較だと持ち上げが効いていても差 -0.2 dB になる。書き出し − 元の曲（実効ゲイン）で比べるべき"
+  }
+ ],
+ "renders": [
+  "bgm-chip-harness-seeks.jpg",
+  "bgm-chip-export-osr-29.700-ring.jpg",
+  "bgm-chip-export-osr-30.000.jpg",
+  "bgm-chip-export-gpu-vs-osr.jpg",
+  "bgm-chip-beat-sync.png",
+  "bgm-chip-footprint.jpg",
+  "bgm-chip-export-osr-29.20-33.10s.mp4",
+  "finding-gpu-export-without-motion-vocab-demo-chat.jpg"
+ ]
+}
