@@ -2136,8 +2136,14 @@
         if (!source) throw new Error(`3D composite source canvas is missing: ${entry.id}`);
         const container = this.domRuntime.containerFor(entry.id);
         if (!container) throw new Error(`3D composite DOM container is missing: ${entry.id}`);
-        const target = container.querySelector("canvas");
-        if (!target) throw new Error(`3D composite target canvas is missing: ${entry.id}`);
+        let target;
+        try {
+          const canvasFor = threeRecords.get(entry.id)?.canvasFor;
+          if (typeof canvasFor !== "function") throw new Error("threeRuntime.canvasFor is unavailable");
+          target = canvasFor(container);
+        } catch (error) {
+          throw new Error(`3D composite target canvas is missing: ${entry.id}: ${error.message}`, { cause: error });
+        }
         const context = target.getContext("2d", { alpha: true });
         if (!context) throw new Error(`3D composite target 2D canvas is unavailable: ${entry.id}`);
         for (const fallback of container.querySelectorAll("[data-akari-3d-fallback]")) {
@@ -2878,9 +2884,14 @@
           container.parentElement.style.visibility = "visible";
           if (threeRuntime.inspect(container)?.status === "disposed") threeRuntime.render(container, 0);
           await waitForThreeReady(threeRuntime, container, value.id);
-          const canvas = container.querySelector("canvas");
-          if (!canvas) throw new Error(`3D sprite canvas is missing: ${value.id}`);
-          threeRecords.set(value.id, { container, canvas });
+          let canvas;
+          try {
+            if (typeof threeRuntime.canvasFor !== "function") throw new Error("threeRuntime.canvasFor is unavailable");
+            canvas = threeRuntime.canvasFor(container);
+          } catch (error) {
+            throw new Error(`3D sprite canvas is missing: ${value.id}: ${error.message}`, { cause: error });
+          }
+          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor });
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
         if (config.spriteManifest.vgpu?.length > 0) {
