@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { guideShowsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
+const { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
     pointInGuideCutouts, guideBlockedRects, guideBlockerClipPath, shouldBlockGuidePointer,
     materialPreviewTransportRect, partnerFallbackReady, askHighlightTarget,
     askConnectionCopy } = require('../../lib/onboarding/guide-ui-model.js');
@@ -14,6 +14,34 @@ test('ask は本物のパートナーを見せ、その他の実演段にはチ�
     assert.equal(guideNeedsPartner('ask'), true);
     assert.equal(askHighlightTarget('chatgpt'), 'partner-codex');
     assert.match(askConnectionCopy('chatgpt'), /つなぐのは「Codex CLI」です（光っているところ）/);
+});
+
+test('チャットを霧の上に出して枠を付ける段だけを選ぶ', () => {
+    for (const [step, sub] of [['tour0', 0], ['tour0', 1], ['tour1', 0], ['tour2', 0],
+        ['tour2', 1], ['tour3', 1], ['ask', 0], ['drag', 0], ['play', 0], ['play', 1],
+        ['caption', 0], ['caption', 1], ['caption', 2], ['caption', 3]]) {
+        assert.equal(guideTargetsChat(step, sub), false, `${step} sub${sub}`);
+    }
+    for (const [step, sub] of [['tour3', 0], ['prompt', 0], ['prompt', 1], ['work', 0]]) {
+        assert.equal(guideTargetsChat(step, sub), true, `${step} sub${sub}`);
+    }
+});
+
+test('チャットが目当てでない案内段の入力くり抜きにチャットは入らない', () => {
+    const chat = { x: 700, y: 40, width: 250, height: 500 };
+    const targets = [
+        ['tour0', 0, []], ['tour0', 1, []],
+        ['tour1', 0, [{ x: 20, y: 40, width: 200, height: 400 }]],
+        ['tour2', 0, [{ x: 250, y: 40, width: 400, height: 300 }]],
+        ['tour2', 1, [{ x: 20, y: 500, width: 620, height: 100 }]],
+        ['tour3', 1, []]
+    ];
+    for (const [step, sub, holes] of targets) {
+        assert.equal(guideTargetsChat(step, sub), false);
+        const cutouts = guideInputCutouts(holes, [], []);
+        assert.equal(pointInGuideCutouts(chat.x + chat.width / 2, chat.y + chat.height / 2, cutouts), false,
+            `${step} sub${sub}`);
+    }
 });
 
 test('caption に戻ったときも前回と異なる入場番号なら再びパートナーを開く', () => {

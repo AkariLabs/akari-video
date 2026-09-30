@@ -6,7 +6,7 @@ import { AkariOnboardingService, SampleInformation } from './protocol';
 import { ONBOARDING_CSS } from './style';
 import { automaticGuideTransition, guideRecoveryView } from './recovery-model';
 import { BEFORE_AFTER_DATA_URL } from './before-after-data';
-import { guideShowsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
+import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
     guideBlockerClipPath, pointInGuideCutouts, shouldBlockGuidePointer, partnerFallbackReady, askHighlightTarget,
     askConnectionCopy, materialPreviewTransportRect, GuideRect } from './guide-ui-model';
 import { introVisual, inviteMarkup } from './intro-model';
@@ -606,7 +606,9 @@ export class OnboardingController {
             }
         } else { takeHost.replaceChildren(); takeHost.dataset.kind = ''; takeHost.dataset.step = ''; }
         this.root.querySelector<HTMLElement>('.ao-finder-host')!.innerHTML = this.finder();
-        this.root.querySelector<HTMLElement>('.ao-chat-host')!.innerHTML = this.chat();
+        const chatHost = this.root.querySelector<HTMLElement>('.ao-chat-host')!;
+        chatHost.innerHTML = this.chat();
+        chatHost.classList.toggle('ao-chat-target', guideTargetsChat(this.state.step, this.state.sub));
         const exampleHost = this.root.querySelector<HTMLElement>('.ao-example-host')!;
         if (this.state.step.startsWith('tour')) {
             if (!exampleHost.firstElementChild) exampleHost.innerHTML = `<div class="ao-example-preview"><video muted autoplay loop playsinline></video><div class="ao-example-title">AI と話すだけで動画編集</div><div class="ao-example-caption"></div><span class="ao-example-tag">完成例</span></div>`;
@@ -800,7 +802,8 @@ export class OnboardingController {
         const chat = this.root.querySelector<HTMLElement>('.ao-chat');
         const chatRect = chat?.getBoundingClientRect();
         const frames = rects.slice(0, framed).map((rect, index) => `<div class="ao-hole" style="left:${rect.x - 4}px;top:${rect.y - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px">${labels?.[index] ? `<span class="ao-hole-label">${labels[index]}</span>` : ''}</div>`).join('');
-        holes.innerHTML = frames + (chatRect && chatRect.width > 0 && chatRect.height > 0
+        holes.innerHTML = frames + (guideTargetsChat(this.state.step, this.state.sub)
+            && chatRect && chatRect.width > 0 && chatRect.height > 0
             ? `<div class="ao-hole ao-chat-frame" style="left:${chatRect.x - 4}px;top:${chatRect.y - 4}px;width:${chatRect.width + 8}px;height:${chatRect.height + 8}px"></div>` : '');
     }
 

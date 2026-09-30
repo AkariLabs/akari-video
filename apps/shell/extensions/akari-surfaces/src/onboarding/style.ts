@@ -75,7 +75,7 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-hint,#akari-onboarding-v1 .ao-takeover-host,
 #akari-onboarding-v1 .ao-finder-host,#akari-onboarding-v1 .ao-coach-host { position:absolute; inset:0; pointer-events:none; }
 #akari-onboarding-v1 .ao-example-host,#akari-onboarding-v1 .ao-chat-host { z-index:1; }
-#akari-onboarding-v1 .ao-chat-host { z-index:4; }
+#akari-onboarding-v1 .ao-chat-host.ao-chat-target { z-index:4; }
 #akari-onboarding-v1 .ao-dim { z-index:2; background:rgba(6,6,6,.56); backdrop-filter:blur(5px) saturate(.75); -webkit-backdrop-filter:blur(5px) saturate(.75); opacity:1; transition:opacity .9s ease; }
 #akari-onboarding-v1 .ao-input-blocker { z-index:3; pointer-events:auto; background:transparent; }
 #akari-onboarding-v1 .ao-input-blocker[hidden] { display:none; }

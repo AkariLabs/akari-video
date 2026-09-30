@@ -4,6 +4,11 @@ export function guideShowsChat(step: OnboardingStep): boolean {
     return step.startsWith('tour') || ['prompt', 'work', 'play', 'caption'].includes(step);
 }
 
+/** Only steps targeting the chat raise and frame it. */
+export function guideTargetsChat(step: OnboardingStep, sub: number): boolean {
+    return (step === 'tour3' && sub === 0) || step === 'prompt' || step === 'work';
+}
+
 export function guideNeedsPartner(step: OnboardingStep): boolean {
     return step.startsWith('tour') || ['ask', 'prompt', 'work', 'play', 'caption'].includes(step);
 }

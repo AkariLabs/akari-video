@@ -4,44 +4,351 @@
     "width": 1920,
     "height": 1080
   },
-  "electronPid": 25748,
-  "startedAt": "2026-09-30T01:57:40.266Z",
+  "electronPid": 14892,
+  "startedAt": "2026-09-30T02:50:22.111Z",
   "shots": [
     "01-welcome.jpg",
     "02-first.jpg",
     "03-invite.jpg",
     "04-invite-preparing.jpg",
     "05-tour0-fog.jpg",
-    "06-tour0-clear.jpg",
-    "07-tour0-next.jpg",
-    "08-tour1-assets.jpg",
-    "09-tour2-preview.jpg",
-    "10-tour2-after-10s.jpg",
-    "11-tour2-timeline.jpg",
-    "12-tour3-partner.jpg",
-    "13-drag.jpg",
-    "14-matpreview-card.jpg",
-    "15-matpreview-open.jpg",
-    "16-matpreview-playing.jpg",
-    "17-ask.jpg",
-    "18-ask-answered.jpg",
-    "19-prompt.jpg",
-    "20-prompt-partner-fallback.jpg",
-    "21-work-mid.jpg",
-    "22-play-before.jpg",
-    "23-play-running.jpg",
-    "24-caption.jpg",
-    "25-caption-adjusted.jpg",
-    "26-daihon.jpg",
-    "27-daihon-seek.jpg",
-    "28-caption-back-from-daihon.jpg",
-    "29-caption-adjusted-again.jpg",
-    "30-export.jpg",
-    "31-export-dialog.jpg",
-    "32-export-result.jpg",
-    "33-done.jpg"
+    "06-tour0-fog-after8s.jpg",
+    "07-tour0-clear.jpg",
+    "08-tour0-next.jpg",
+    "09-tour1-assets.jpg",
+    "10-tour2-preview.jpg",
+    "11-tour2-after-10s.jpg",
+    "12-tour2-timeline.jpg",
+    "13-tour3-partner.jpg",
+    "14-tour3-sub1.jpg",
+    "15-drag.jpg",
+    "16-matpreview-card.jpg",
+    "17-matpreview-open.jpg",
+    "18-matpreview-playing.jpg",
+    "19-ask.jpg",
+    "20-ask-answered.jpg",
+    "21-prompt.jpg",
+    "22-prompt-partner-fallback.jpg",
+    "23-work-mid.jpg",
+    "24-play-before.jpg",
+    "25-play-running.jpg",
+    "26-caption.jpg",
+    "27-caption-adjusted.jpg",
+    "28-daihon.jpg",
+    "29-daihon-seek.jpg",
+    "30-caption-back-from-daihon.jpg",
+    "31-caption-adjusted-again.jpg",
+    "32-export.jpg",
+    "33-export-dialog.jpg",
+    "34-export-result.jpg",
+    "35-done.jpg"
   ],
   "checks": {
+    "spot": [
+      {
+        "name": "tour0-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 635,
+          "y": 389.59375,
+          "width": 650,
+          "height": 128.1875
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 25894,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour0-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 635,
+          "y": 648.796875,
+          "width": 650,
+          "height": 128.1875
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 25894,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 379.71875,
+          "y": 453,
+          "width": 340,
+          "height": 184.375
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:① 素材"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour2-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 286.5,
+          "width": 340,
+          "height": 162.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:② 上: プレビュー"
+        ],
+        "coachChatOverlapPx2": 55176,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour2-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 800.171875,
+          "width": 340,
+          "height": 162.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:② 下: タイムライン"
+        ],
+        "coachChatOverlapPx2": 55176,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour3-sub0",
+        "expectedTargetsChat": true,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 729,
+          "y": 456,
+          "width": 340,
+          "height": 213.46875
+        },
+        "topAtChatCenter": "P",
+        "chatAboveDim": true,
+        "chatFramed": true,
+        "chatHostZ": "4",
+        "holes": [
+          "ao-hole:③ AI パートナー",
+          "ao-hole ao-chat-frame:"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour3-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 635,
+          "y": 389.59375,
+          "width": 650,
+          "height": 128.1875
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 25894,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "prompt",
+        "expectedTargetsChat": true,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 689,
+          "y": 818,
+          "width": 390,
+          "height": 244.765625
+        },
+        "topAtChatCenter": "ao-chat-log",
+        "chatAboveDim": true,
+        "chatFramed": true,
+        "chatHostZ": "4",
+        "holes": [
+          "ao-hole ao-chat-frame:"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "work",
+        "expectedTargetsChat": true,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 20,
+          "y": 572.390625,
+          "width": 300,
+          "height": 212.25
+        },
+        "topAtChatCenter": "ao-chat-log",
+        "chatAboveDim": true,
+        "chatFramed": true,
+        "chatHostZ": "4",
+        "holes": [
+          "ao-hole ao-chat-frame:"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "play-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 292,
+          "width": 340,
+          "height": 151.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 51436,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "play-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 275.5,
+          "width": 340,
+          "height": 184.375
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:"
+        ],
+        "coachChatOverlapPx2": 62688,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "caption-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 292,
+          "width": 340,
+          "height": 151.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 51436,
+        "crispOverlapPx2": 0
+      }
+    ],
     "welcome": {
       "images": [
         {
@@ -202,6 +509,7 @@
         "P."
       ]
     },
+    "tour0Sub0After8s": "画面の構成を知りましょう",
     "tour0Titles": [
       "画面の構成を知りましょう",
       "これが AKARI Video の画面です"
@@ -430,8 +738,12 @@
       "chatVsPartner": 0,
       "holeVsPartner": 4
     },
+    "tour3Sub1After9s": {
+      "step": "tour3",
+      "title": "では、これを一緒につくってみましょう"
+    },
     "tour3Bridge": {
-      "waitedMs": 8040,
+      "waitedMs": 4803,
       "clickedNext": true
     },
     "blockDrag": [
@@ -492,7 +804,7 @@
     },
     "matpreviewPlay": {
       "paused": false,
-      "time": 1.532983
+      "time": 1.487132
     },
     "partnerAsk": {
       "stage": "ask",
@@ -1267,14 +1579,7 @@
         "visibility": "visible",
         "display": "flex"
       },
-      "hole": {
-        "x": 1079,
-        "y": 67,
-        "width": 797,
-        "height": 991,
-        "visibility": "visible",
-        "display": "block"
-      },
+      "hole": null,
       "ring": null,
       "tabs": [
         {
@@ -1378,7 +1683,7 @@
         }
       ],
       "chatVsPartner": 0,
-      "holeVsPartner": 4
+      "holeVsPartner": null
     },
     "captionPath": [
       "help-next(size)",
@@ -1426,14 +1731,7 @@
         "visibility": "visible",
         "display": "flex"
       },
-      "hole": {
-        "x": 1079,
-        "y": 67,
-        "width": 797,
-        "height": 991,
-        "visibility": "visible",
-        "display": "block"
-      },
+      "hole": null,
       "ring": null,
       "tabs": [
         {
@@ -1537,7 +1835,7 @@
         }
       ],
       "chatVsPartner": 0,
-      "holeVsPartner": 4
+      "holeVsPartner": null
     },
     "exportMenuHit": {
       "rect": [
@@ -1550,9 +1848,10 @@
       "topmostIsTarget": true,
       "blockerClip": "path(\"M 0 0 H 1920 V 146 H 0 Z M 48 146 H 1920 V 194 H 48 Z M 0 194 H 1920 V 1080 H 0 Z\")"
     },
-    "exportMs": 47845,
-    "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ"
+    "exportMs": 20342,
+    "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ",
+    "spotAllOk": true
   },
   "pageErrors": [],
-  "finishedAt": "2026-09-30T02:01:30.432Z"
+  "finishedAt": "2026-09-30T02:53:36.627Z"
 }

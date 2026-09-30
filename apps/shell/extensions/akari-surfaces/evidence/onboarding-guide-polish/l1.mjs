@@ -200,6 +200,26 @@ try {
         return { stage, partner, chat, hole, ring, tabs, chatVsPartner: edgeDelta(chat, partner), holeVsPartner: edgeDelta(hole, partner) };
     };
 
+    // Spotlight check (r1 feedback): on steps whose target is not the chat, the sample chat must stay under the fog,
+    // carry no .ao-chat-frame, and the coach must not sit on top of a crisp chat.
+    const spot = async (name, targetsChat) => page.evaluate(([n, expected]) => {
+        const chat = document.querySelector('#akari-onboarding-v1 .ao-chat');
+        const coach = document.querySelector('#akari-onboarding-v1 .ao-coach');
+        const box = e => { if (!e || e.hidden) return null; const r = e.getBoundingClientRect(); return r.width ? { x: r.x, y: r.y, width: r.width, height: r.height } : null; };
+        const c = box(chat), k = box(coach);
+        const top = c ? document.elementFromPoint(c.x + c.width / 2, c.y + c.height / 2) : null;
+        const overlap = c && k ? Math.max(0, Math.min(c.x + c.width, k.x + k.width) - Math.max(c.x, k.x)) * Math.max(0, Math.min(c.y + c.height, k.y + k.height) - Math.max(c.y, k.y)) : 0;
+        const chatAboveDim = !!top?.closest('.ao-chat');
+        const chatFramed = !!document.querySelector('#akari-onboarding-v1 .ao-chat-frame');
+        const hostZ = getComputedStyle(document.querySelector('#akari-onboarding-v1 .ao-chat-host')).zIndex;
+        const crispOverlapPx2 = chatAboveDim ? Math.round(overlap) : 0;
+        const ok = expected ? chatFramed : (!chatAboveDim && !chatFramed && crispOverlapPx2 === 0);
+        return { name: n, expectedTargetsChat: expected, ok, chat: c, coach: k, topAtChatCenter: top ? (top.className || top.tagName) : null, chatAboveDim, chatFramed, chatHostZ: hostZ,
+            holes: [...document.querySelectorAll('#akari-onboarding-v1 .ao-hole')].map(h => h.className + ':' + (h.textContent || '')),
+            coachChatOverlapPx2: Math.round(overlap), crispOverlapPx2 };
+    }, [name, targetsChat]);
+    obs.checks.spot = [];
+
     // ---- welcome / first / invite ----
     await step('welcome', 120000);
     await wait(2200);
@@ -235,15 +255,16 @@ try {
     obs.checks.preparing = await page.evaluate(() => { window.__aoPrepObserver?.disconnect(); return window.__aoPrep; });
 
     // ---- tour ----
-    await wait(700); await shot('tour0-fog');
+    await wait(700); await shot('tour0-fog'); obs.checks.spot.push(await spot('tour0-sub0', false));
+    await wait(8000); obs.checks.tour0Sub0After8s = await coachTitle(); await shot('tour0-fog-after8s');
     await page.locator('#akari-onboarding-v1 [data-ao="next"]').waitFor({ timeout: 20000 });
     await wait(500); await clearToasts(); await shot('tour0-clear');
     obs.checks.tour0Titles = [await coachTitle()];
     for (let index = 0; index < 3 && await currentStep() === 'tour0'; index++) {
         await click('next'); await wait(1200);
-        if (await currentStep() === 'tour0') { obs.checks.tour0Titles.push(await coachTitle()); await shot('tour0-next'); }
+        if (await currentStep() === 'tour0') { obs.checks.tour0Titles.push(await coachTitle()); await shot('tour0-next'); obs.checks.spot.push(await spot('tour0-sub' + (index + 1), false)); }
     }
-    await step('tour1'); await wait(1100); await shot('tour1-assets');
+    await step('tour1'); await wait(1100); await shot('tour1-assets'); obs.checks.spot.push(await spot('tour1', false));
     obs.checks.blockTour1 = [
         await blockProbe('menu-button', '[data-akari-onboarding-target="menu-button"]'),
         await blockProbe('timeline-button', '[data-akari-onboarding-target="timeline"] button'),
@@ -253,17 +274,18 @@ try {
     if (await page.locator('#akari-onboarding-v1').count() === 0) throw new Error('guide closed by key probe');
     await click('next'); await step('tour2'); await wait(900);
     const tour2 = { at0: await coachTitle() };
-    await shot('tour2-preview');
+    await shot('tour2-preview'); obs.checks.spot.push(await spot('tour2-sub0', false));
     await wait(4000); tour2.at5 = await coachTitle();
     await wait(5200); tour2.at10 = await coachTitle();
     obs.checks.tour2AutoAdvance = { ...tour2, stayedOnPreview: tour2.at0 === tour2.at10 && tour2.at10.includes('プレビュー') };
     await shot('tour2-after-10s');
     if ((await coachTitle()).includes('プレビュー')) { await click('next'); await wait(1000); }
-    await shot('tour2-timeline');
+    await shot('tour2-timeline'); obs.checks.spot.push(await spot('tour2-sub1', false));
     await click('next'); await step('tour3'); await wait(1400);
     obs.checks.partnerTour3 = await partnerAlignment('tour3');
-    await shot('tour3-partner');
-    await click('next');
+    await shot('tour3-partner'); obs.checks.spot.push(await spot('tour3-sub0', true));
+    await click('next'); await wait(1000); await shot('tour3-sub1'); obs.checks.spot.push(await spot('tour3-sub1', false));
+    await wait(8000); obs.checks.tour3Sub1After9s = { step: await currentStep(), title: await coachTitle() };
     const drag0 = Date.now();
     obs.checks.tour3Bridge = { waitedMs: 0, clickedNext: false };
     while (Date.now() - drag0 < 20000 && await currentStep() !== 'drag') {
@@ -316,7 +338,7 @@ try {
     await shot('ask-answered');
     await click('replay'); await step('prompt'); await wait(1400);
     obs.checks.partnerPrompt = await partnerAlignment('prompt');
-    await shot('prompt');
+    await shot('prompt'); obs.checks.spot.push(await spot('prompt', true));
     // Simulate a partner panel that cannot be found: the guide must use its own placeholder view on the right
     // (not the old floating default position), then re-anchor when the real panel is back.
     const partnerNode = page.locator('[data-akari-onboarding-target="partner"]');
@@ -341,15 +363,15 @@ try {
     });
     await click('insert'); await wait(600); await click('send'); await step('work');
     await wait(9000); await shot('work-mid');
-    obs.checks.partnerWork = await partnerAlignment('work');
+    obs.checks.partnerWork = await partnerAlignment('work'); obs.checks.spot.push(await spot('work', true));
     await step('play', 90000); await wait(1500);
     const preview = await findPreviewFrame('output');
     if (!preview) throw new Error('output preview frame not found');
-    await shot('play-before');
+    await shot('play-before'); obs.checks.spot.push(await spot('play-sub0', false));
     obs.checks.blockPlay = [await blockProbe('menu-button', '[data-akari-onboarding-target="menu-button"]')];
     await preview.locator('[data-akari-onboarding-target="play-button"]').click();
     await page.waitForFunction(() => (document.querySelector('#akari-onboarding-v1 .ao-coach h3')?.textContent ?? '').includes('入りました'), null, { timeout: 20000 });
-    await wait(6000); await shot('play-running');
+    await wait(6000); await shot('play-running'); obs.checks.spot.push(await spot('play-sub1', false));
     await preview.locator('[data-akari-onboarding-target="play-button"]').click();
     await wait(400);
     const doCaption = async suffix => {
@@ -383,7 +405,7 @@ try {
     await wait(700); await shot('caption-adjusted' + suffix);
     };
     await click('next'); await step('caption'); await wait(900); await shot('caption');
-    obs.checks.partnerCaption = await partnerAlignment('caption');
+    obs.checks.partnerCaption = await partnerAlignment('caption'); obs.checks.spot.push(await spot('caption-sub0', false));
     await doCaption('');
     await click('next'); await step('daihon'); await wait(900); await shot('daihon');
     obs.checks.daihonButtonHit = await hitDiag('[data-akari-onboarding-target="daihon-button"]');
@@ -421,6 +443,7 @@ try {
     await wait(900); await shot('export-result');
     await click('next'); await step('done'); await wait(2400); await shot('done');
     obs.checks.done = await page.evaluate(() => document.querySelector('#akari-onboarding-v1 .ao-takeover')?.innerText.replace(/\s+/g, ' ').trim());
+    obs.checks.spotAllOk = obs.checks.spot.every(item => item.ok);
     obs.finishedAt = new Date().toISOString();
 } catch (error) {
     obs.error = String(error instanceof Error ? error.message : error).split(/[\r\n]/)[0].replaceAll(scratch, '<isolated>');
