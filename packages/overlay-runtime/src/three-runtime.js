@@ -2252,6 +2252,29 @@ window.akari.threeRuntime = (() => {
     return { ...master, scene: cloneSceneForInstance(master.scene) };
   }
 
+  const ambiguousCanvasWarnings = new WeakSet();
+
+  function resolveSceneCanvas(container) {
+    const marked = container.querySelectorAll("[data-akari-3d-canvas]");
+    if (marked.length > 1) {
+      throw new Error(`data-akari-3d-canvas は 1 つの断片に 1 個だけ付けてください（${marked.length} 個あります）`);
+    }
+    if (marked.length === 1) {
+      if (marked[0].localName !== "canvas") {
+        throw new Error("data-akari-3d-canvas は <canvas> に付けてください");
+      }
+      return marked[0];
+    }
+    const canvases = [...container.querySelectorAll("canvas")]
+      .filter(canvas => !canvas.closest("[data-akari-3d-preview-generated]"));
+    if (canvases.length === 0) throw new Error("3D overlay には canvas が必要です");
+    if (canvases.length > 1 && !ambiguousCanvasWarnings.has(container)) {
+      ambiguousCanvasWarnings.add(container);
+      console.warn(`[akari-three] 3D の断片に canvas が ${canvases.length} 個あり、描画先が明示されていません。文書順で最初の canvas に描きます。3D を描く canvas に data-akari-3d-canvas を付けてください`);
+    }
+    return canvases[0];
+  }
+
   function createInstance(container) {
     removePreviewLoadError(container);
     const library = window.AkariThree;
@@ -2273,10 +2296,7 @@ window.akari.threeRuntime = (() => {
     if (hasPhysics && typeof library.Matter !== "object") {
       throw new Error("AkariThree bundle に Matter がありません（vendor-3d-text-bundle.js 未読み込み）");
     }
-    const canvas = container.querySelector("canvas");
-    if (!(canvas instanceof HTMLCanvasElement)) {
-      throw new Error("3D overlay には canvas が必要です");
-    }
+    const canvas = resolveSceneCanvas(container);
 
     const { THREE, GLTFLoader, RoomEnvironment, TroikaText, opentype } = library;
     const scene = new THREE.Scene();
@@ -2719,6 +2739,7 @@ window.akari.threeRuntime = (() => {
 
   return {
     configure,
+    canvasFor: resolveSceneCanvas,
     invalidateAssets,
     contentBounds,
     projectContentBounds,

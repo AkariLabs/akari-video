@@ -18,6 +18,7 @@ import { renderLintReport } from "./report.mjs";
 import { isInlineOverlayHtml, isSourceCompatibleWithLane } from "./shape-lane.mjs";
 import { collectLicenseFindings } from "./license-findings.mjs";
 import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../render-cut/src/fragment-assets.mjs";
+import { htmlTags, rawTextElements, stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
@@ -2660,6 +2661,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       findings,
     );
     for (const finding of validateWorldSceneDeclaration(html, await readFile(join(paths.projectRoot, "planning/world-map.json"), "utf8").catch(error => error?.code === "ENOENT" ? null : Promise.reject(error)), isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`)) addFinding(findings, finding);
+    validateThreeCanvas(html, isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`, findings);
     if (!isHtmlFile) continue;
 
     validateOverlayFragmentAssets(html, overlay, paths, findings);
@@ -2730,6 +2732,48 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       }
     }
   }
+}
+
+function validateThreeCanvas(html, path, findings) {
+  const source = stripHtmlComments(html);
+  const raw = [
+    ...rawTextElements(source, "script"),
+    ...rawTextElements(source, "style"),
+  ].sort((left, right) => left.start - right.start);
+  let rawIndex = 0;
+  let scene = false;
+  let marked = 0;
+  let invalidMarked = false;
+  let canvases = 0;
+  for (const tag of htmlTags(source)) {
+    while (rawIndex < raw.length && tag.start >= raw[rawIndex].end) rawIndex += 1;
+    const block = raw[rawIndex];
+    if (block && tag.start > block.start && tag.start < block.end) continue;
+    const match = /^<([a-z][\w:-]*)\b/iu.exec(tag.text);
+    if (!match) continue;
+    const name = match[1].toLowerCase();
+    const attributes = parseHtmlAttributes(tag.text);
+    if (name === "script" && Object.hasOwn(attributes, "data-akari-3d-scene")
+      && attributes.type?.toLowerCase() === "application/json") scene = true;
+    if (name === "canvas") canvases += 1;
+    if (Object.hasOwn(attributes, "data-akari-3d-canvas")) {
+      marked += 1;
+      if (name !== "canvas") invalidMarked = true;
+    }
+  }
+  if (!scene) return;
+  if (marked > 1) addFinding(findings, {
+    severity: "error", check: "overlays.three-canvas",
+    message: `data-akari-3d-canvas must appear on at most one element (found ${marked}).`, path,
+  });
+  if (invalidMarked) addFinding(findings, {
+    severity: "error", check: "overlays.three-canvas",
+    message: "data-akari-3d-canvas must be attached to a <canvas> element.", path,
+  });
+  if (marked === 0 && canvases > 1) addFinding(findings, {
+    severity: "warning", check: "overlays.three-canvas",
+    message: "3D renders to the first canvas in document order; add data-akari-3d-canvas to the intended canvas.", path,
+  });
 }
 
 function validateOverlayFragmentAssets(html, overlay, paths, findings) {
