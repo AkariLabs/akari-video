@@ -1,0 +1,1028 @@
+{
+  "label": "base",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "electronPid": 33532,
+  "startedAt": "2026-09-30T01:05:14.694Z",
+  "shots": [
+    "01-welcome.jpg",
+    "02-first.jpg",
+    "03-invite.jpg",
+    "04-invite-preparing.jpg",
+    "05-tour0-fog.jpg",
+    "06-tour0-clear.jpg",
+    "07-tour1-assets.jpg",
+    "08-tour2-preview.jpg",
+    "09-tour2-after-10s.jpg",
+    "10-tour2-timeline.jpg",
+    "11-tour3-partner.jpg",
+    "12-drag.jpg",
+    "13-matpreview-card.jpg",
+    "14-matpreview-open.jpg",
+    "15-matpreview-playing.jpg",
+    "16-ask.jpg",
+    "17-ask-answered.jpg",
+    "18-prompt.jpg",
+    "19-work-mid.jpg",
+    "20-play-before.jpg",
+    "21-play-running.jpg",
+    "22-caption.jpg",
+    "23-caption-adjusted.jpg",
+    "24-daihon.jpg",
+    "25-daihon-seek.jpg",
+    "26-export.jpg",
+    "27-export-dialog.jpg",
+    "28-export-result.jpg",
+    "29-done.jpg"
+  ],
+  "checks": {
+    "welcome": {
+      "images": [
+        {
+          "cls": "",
+          "parent": "ao-hero",
+          "alt": "",
+          "x": 396.265625,
+          "y": 143.421875,
+          "width": 573.453125,
+          "height": 322.5625,
+          "natural": "1000x563"
+        }
+      ],
+      "heroes": 1,
+      "brand": 1,
+      "chip": 0,
+      "buttons": [
+        {
+          "ao": "next",
+          "text": "次へ",
+          "x": 647,
+          "y": 570.578125,
+          "width": 72,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(235, 119, 49)",
+          "border": "1px"
+        }
+      ],
+      "text": "AKARI VIDEO AKARI Video へようこそ 次へ",
+      "headings": [
+        "AKARI Video へようこそ"
+      ],
+      "topElement": {
+        "tag": "DIV",
+        "cls": "ao-hero",
+        "text": ""
+      },
+      "textChildren": [
+        "DIV.ao-brand",
+        "H2.",
+        "DIV.ao-actions"
+      ]
+    },
+    "first": {
+      "images": [
+        {
+          "cls": "",
+          "parent": "ao-hero small",
+          "alt": "",
+          "x": 505.5,
+          "y": 204.859375,
+          "width": 355,
+          "height": 199.6875,
+          "natural": "1000x563"
+        }
+      ],
+      "heroes": 1,
+      "brand": 1,
+      "chip": 0,
+      "buttons": [
+        {
+          "ao": "yes",
+          "text": "はじめて",
+          "x": 543,
+          "y": 509.140625,
+          "width": 104,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(235, 119, 49)",
+          "border": "1px"
+        },
+        {
+          "ao": "no",
+          "text": "使ったことがある",
+          "x": 655,
+          "y": 509.140625,
+          "width": 168,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(49, 58, 59)",
+          "border": "1px"
+        }
+      ],
+      "text": "AKARI VIDEO AKARI Video を使うのは、はじめてですか？ はじめて 使ったことがある",
+      "headings": [
+        "AKARI Video を使うのは、はじめてですか？"
+      ],
+      "topElement": {
+        "tag": "DIV",
+        "cls": "ao-hero small",
+        "text": ""
+      },
+      "textChildren": [
+        "DIV.ao-brand",
+        "H2.",
+        "DIV.ao-actions"
+      ]
+    },
+    "invite": {
+      "images": [
+        {
+          "cls": "",
+          "parent": "ao-hero small",
+          "alt": "",
+          "x": 505.5,
+          "y": 127.671875,
+          "width": 355,
+          "height": 199.6875,
+          "natural": "1000x563"
+        }
+      ],
+      "heroes": 1,
+      "brand": 1,
+      "chip": 1,
+      "buttons": [
+        {
+          "ao": "start",
+          "text": "やってみる",
+          "x": 511.625,
+          "y": 586.328125,
+          "width": 119.203125,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(235, 119, 49)",
+          "border": "1px"
+        },
+        {
+          "ao": "later",
+          "text": "あとで（自分で始める）",
+          "x": 638.828125,
+          "y": 586.328125,
+          "width": 215.53125,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(49, 58, 59)",
+          "border": "1px"
+        }
+      ],
+      "text": "AKARI VIDEO 一緒に 1 本、つくってみませんか？ 用意した動画に、AI でタイトルと字幕を入れて、書き出すところまで。5 分ほどです。途中でやめても大丈夫です。 サンプル動画 0:37 · 話している人の動画 · 用意してあります やってみる あとで（自分で始める）",
+      "headings": [
+        "一緒に 1 本、つくってみませんか？"
+      ],
+      "topElement": {
+        "tag": "DIV",
+        "cls": "ao-hero small",
+        "text": ""
+      },
+      "textChildren": [
+        "DIV.ao-brand",
+        "H2.",
+        "P.",
+        "DIV.ao-chip",
+        "DIV.ao-actions"
+      ]
+    },
+    "blockTour1": [
+      {
+        "name": "menu-button",
+        "selector": "[data-akari-onboarding-target=\"menu-button\"]",
+        "point": {
+          "x": 24,
+          "y": 170
+        },
+        "before": {
+          "topmost": "DIV.lm-TabBar-tabIcon codicon codicon-menu",
+          "topmostInsideGuide": false,
+          "menuPanelOpen": false
+        },
+        "hitTestOnly": true,
+        "blocked": false
+      },
+      {
+        "name": "timeline-button",
+        "selector": "[data-akari-onboarding-target=\"timeline\"] button",
+        "point": {
+          "x": 287,
+          "y": 530
+        },
+        "before": {
+          "topmost": "SPAN.codicon codicon-cursor",
+          "topmostInsideGuide": false,
+          "menuPanelOpen": false
+        },
+        "after": {
+          "pointerdown": 1,
+          "mousedown": 1,
+          "click": 1,
+          "menuPanelOpen": false
+        },
+        "blocked": false
+      }
+    ],
+    "keysTour1": {
+      "commandPaletteOpenedByCtrlShiftP": true,
+      "commandPaletteOpenedByF1": true,
+      "focusTrail": [
+        {
+          "tag": "TEXTAREA",
+          "cls": "ao-chat-input",
+          "insideGuide": true,
+          "ao": null
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "primary",
+          "insideGuide": true,
+          "ao": "next"
+        },
+        {
+          "tag": "LI",
+          "cls": "lm-MenuBar-item lm-mod-active",
+          "insideGuide": false,
+          "ao": null
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "",
+          "insideGuide": false,
+          "ao": null
+        }
+      ],
+      "focusReachedApp": true,
+      "outsideClicks": [
+        ""
+      ],
+      "guideStillOpen": true,
+      "stepAfter": "tour1"
+    },
+    "tour2AutoAdvance": {
+      "at0": "② 上は「プレビュー」です",
+      "at5": "② 下は「タイムライン」です",
+      "at10": "② 下は「タイムライン」です",
+      "stayedOnPreview": false
+    },
+    "partnerTour3": {
+      "stage": "tour3",
+      "partner": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "hidden",
+        "display": "block"
+      },
+      "chat": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": {
+        "x": 769,
+        "y": 67,
+        "width": 553,
+        "height": 679,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 773,
+          "y": 71,
+          "width": 545,
+          "height": 671,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 847.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 847.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 847.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 847.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 847.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 847.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 847.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 847.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 847.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 847.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": 4
+    },
+    "tour3Bridge": {
+      "waitedMs": 2870,
+      "clickedNext": false
+    },
+    "blockDrag": [
+      {
+        "name": "menu-button",
+        "selector": "[data-akari-onboarding-target=\"menu-button\"]",
+        "point": {
+          "x": 24,
+          "y": 170
+        },
+        "before": {
+          "topmost": "DIV.lm-TabBar-tabIcon codicon codicon-menu",
+          "topmostInsideGuide": false,
+          "menuPanelOpen": false
+        },
+        "hitTestOnly": true,
+        "blocked": false
+      }
+    ],
+    "dragDrop": {
+      "reachedMatpreview": true
+    },
+    "matpreviewRing": {
+      "play": {
+        "x": 455.890625,
+        "y": 438,
+        "width": 32,
+        "height": 32
+      },
+      "ring": null,
+      "body": "取り込んだ素材を、そのまま再生して確かめられます。確かめたら次へ。",
+      "ringContainsPlay": false,
+      "ringVsPlay": null
+    },
+    "matpreviewPlay": {
+      "paused": false,
+      "time": 1.479023
+    },
+    "partnerAsk": {
+      "stage": "ask",
+      "partner": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": null,
+      "hole": {
+        "x": 769,
+        "y": 67,
+        "width": 553,
+        "height": 679,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 773,
+          "y": 71,
+          "width": 545,
+          "height": 671,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 847.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 847.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 847.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 847.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 847.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 847.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 847.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 847.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 847.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 847.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": null,
+      "holeVsPartner": 4
+    },
+    "partnerAskAnswered": {
+      "stage": "ask-answered",
+      "partner": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": null,
+      "hole": {
+        "x": 843.5,
+        "y": 311.140625,
+        "width": 213,
+        "height": 64,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 773,
+          "y": 71,
+          "width": 545,
+          "height": 671,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 847.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 847.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 847.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 847.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 847.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 847.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 847.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 847.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 847.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 847.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": null,
+      "holeVsPartner": 366.859375
+    },
+    "partnerPrompt": {
+      "stage": "prompt",
+      "partner": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "hidden",
+        "display": "block"
+      },
+      "chat": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": null,
+      "ring": {
+        "x": 778,
+        "y": 627,
+        "width": 535,
+        "height": 65,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 773,
+          "y": 71,
+          "width": 545,
+          "height": 671,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 847.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 847.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 847.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 847.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 847.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 847.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 847.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 847.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 847.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 847.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": null
+    },
+    "chatStyle": {
+      "root": {
+        "cls": "ao-chat",
+        "fontSize": "16px",
+        "lineHeight": "normal",
+        "color": "rgb(246, 242, 236)",
+        "background": "rgb(17, 17, 17)",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+      },
+      "log": {
+        "cls": "ao-chat-log",
+        "fontSize": "12px",
+        "lineHeight": "19.2px",
+        "color": "rgb(246, 242, 236)",
+        "background": "rgba(0, 0, 0, 0)",
+        "fontFamily": "Consolas, monospace"
+      },
+      "children": [
+        {
+          "cls": "",
+          "fontSize": "14px",
+          "lineHeight": "normal",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgba(0, 0, 0, 0)",
+          "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+        },
+        {
+          "cls": "ao-chat-log",
+          "fontSize": "12px",
+          "lineHeight": "19.2px",
+          "color": "rgb(246, 242, 236)",
+          "background": "rgba(0, 0, 0, 0)",
+          "fontFamily": "Consolas, monospace"
+        },
+        {
+          "cls": "ao-chat-input",
+          "fontSize": "12px",
+          "lineHeight": "normal",
+          "color": "rgb(233, 237, 239)",
+          "background": "rgb(42, 48, 54)",
+          "fontFamily": "monospace"
+        },
+        {
+          "cls": "",
+          "fontSize": "16px",
+          "lineHeight": "normal",
+          "color": "rgb(255, 255, 255)",
+          "background": "rgb(231, 119, 49)",
+          "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+        }
+      ]
+    },
+    "partnerWork": {
+      "stage": "work",
+      "partner": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "hidden",
+        "display": "block"
+      },
+      "chat": {
+        "x": 773,
+        "y": 71,
+        "width": 545,
+        "height": 671,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": null,
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 773,
+          "y": 71,
+          "width": 545,
+          "height": 671,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 847.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 847.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 847.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 847.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 847.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 847.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 847.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 847.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 847.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 847.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "hidden"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": null
+    },
+    "blockPlay": [
+      {
+        "name": "menu-button",
+        "selector": "[data-akari-onboarding-target=\"menu-button\"]",
+        "point": {
+          "x": 24,
+          "y": 170
+        },
+        "before": {
+          "topmost": "DIV.lm-TabBar-tabIcon codicon codicon-menu",
+          "topmostInsideGuide": false,
+          "menuPanelOpen": false
+        },
+        "hitTestOnly": true,
+        "blocked": false
+      }
+    ],
+    "captionPath": [
+      "help-next(size)",
+      "help-next(slider)"
+    ],
+    "exportMs": 17919,
+    "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ"
+  },
+  "pageErrors": [],
+  "finishedAt": "2026-09-30T01:07:48.651Z"
+}

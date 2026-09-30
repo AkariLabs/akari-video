@@ -5,6 +5,12 @@ import { AiAnswer, INITIAL_ONBOARDING_STATE, nextOnboardingState, OnboardingStat
 import { AkariOnboardingService, SampleInformation } from './protocol';
 import { ONBOARDING_CSS } from './style';
 import { automaticGuideTransition, guideRecoveryView } from './recovery-model';
+import { BEFORE_AFTER_DATA_URL } from './before-after-data';
+import { guideShowsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
+    guideBlockerClipPath, pointInGuideCutouts, shouldBlockGuidePointer, partnerFallbackReady, askHighlightTarget,
+    askConnectionCopy, materialPreviewTransportRect, GuideRect } from './guide-ui-model';
+import { introVisual, inviteMarkup } from './intro-model';
+import { groupChatLines } from './chat-model';
 
 interface CoachSpec {
     key?: string;
@@ -79,6 +85,10 @@ export class OnboardingController {
     protected lastInteractionAt = 0;
     protected idleCloseTimer?: number;
     protected stepSerial = 0;
+    protected revealedPartnerSerial = -1;
+    protected partnerRevealAttempts = 0;
+    protected lastPartnerRevealAt = 0;
+    protected inputCutouts: GuideRect[] = [];
 
     constructor(
         protected readonly service: AkariOnboardingService,
@@ -104,7 +114,7 @@ export class OnboardingController {
         this.root = document.createElement('div');
         this.root.id = 'akari-onboarding-v1';
         this.root.setAttribute('data-akari-onboarding-step', this.state.step);
-        this.root.innerHTML = `<style>${ONBOARDING_CSS}</style><div class="ao-example-host"></div><div class="ao-chat-host"></div><div class="ao-dim"></div><div class="ao-holes"></div><div class="ao-rings"></div><div class="ao-hint"></div><div class="ao-takeover-host"></div><div class="ao-finder-host"></div><div class="ao-coach-host"></div><div class="ao-recovery-host"></div><div class="ao-close-host"></div>`;
+        this.root.innerHTML = `<style>${ONBOARDING_CSS}</style><div class="ao-example-host"></div><div class="ao-chat-host"></div><div class="ao-dim"></div><div class="ao-input-blocker"></div><div class="ao-holes"></div><div class="ao-rings"></div><div class="ao-hint"></div><div class="ao-takeover-host"></div><div class="ao-finder-host"></div><div class="ao-coach-host"></div><div class="ao-recovery-host"></div><div class="ao-close-host"></div>`;
         this.root.addEventListener('click', event => void this.handleClick(event));
         this.root.addEventListener('dragstart', event => {
             if ((event.target as Element).closest('[data-ao-file]')) {
@@ -122,7 +132,9 @@ export class OnboardingController {
         document.addEventListener('click', this.handleExternalClick, true);
         document.addEventListener('drop', this.handleDrop, true);
         document.addEventListener('dragover', this.handleDragOver, true);
-        document.addEventListener('keydown', this.handleKeyDown, true);
+        window.addEventListener('keydown', this.handleKeyDown, true);
+        for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
+            document.addEventListener(type, this.guardPointer, true);
         document.addEventListener('input', this.handleInput, true);
         window.addEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.addEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
@@ -165,13 +177,18 @@ export class OnboardingController {
         this.clearHelp();
         this.root?.remove();
         this.root = undefined;
+        this.revealedPartnerSerial = -1;
+        this.partnerRevealAttempts = 0;
+        this.inputCutouts = [];
         document.body.classList.remove('akari-onboarding-active');
         document.body.classList.remove('akari-onboarding-chat-active');
         document.body.classList.remove('akari-onboarding-daihon-active');
         document.removeEventListener('click', this.handleExternalClick, true);
         document.removeEventListener('drop', this.handleDrop, true);
         document.removeEventListener('dragover', this.handleDragOver, true);
-        document.removeEventListener('keydown', this.handleKeyDown, true);
+        window.removeEventListener('keydown', this.handleKeyDown, true);
+        for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
+            document.removeEventListener(type, this.guardPointer, true);
         document.removeEventListener('input', this.handleInput, true);
         window.removeEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.removeEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
@@ -291,21 +308,21 @@ export class OnboardingController {
         this.stepEnteredAt = performance.now();
         this.lastInteractionAt = this.stepEnteredAt;
         const serial = ++this.stepSerial;
+        this.partnerRevealAttempts = 0;
+        if (shouldRevealPartner(this.state.step, serial, this.revealedPartnerSerial)) this.revealPartner();
         this.scheduleHelp();
         if (this.tourTimer) window.clearTimeout(this.tourTimer);
-        const automatic = automaticGuideTransition(this.state.step, this.state.sub);
-        if (automatic) {
-            this.tourTimer = window.setTimeout(() => {
-                if (this.root && serial === this.stepSerial) void this.advanceAutomatically();
-            }, automatic.delayMs);
-            this.recoveryTimers.push(window.setTimeout(() => {
-                if (this.root && serial === this.stepSerial) this.renderRecovery();
-            }, automatic.delayMs + 3000));
-        }
         this.scheduleIdleClose(serial);
         this.renderRecovery();
         if (this.state.step === 'drag' && !this.state.imported) this.scheduleDragHint();
         if (this.state.step === 'done') this.celebrate();
+    }
+
+    protected revealPartner(): void {
+        this.revealedPartnerSerial = this.stepSerial;
+        this.partnerRevealAttempts++;
+        this.lastPartnerRevealAt = performance.now();
+        window.dispatchEvent(new Event('akari.onboarding.revealPartner'));
     }
 
     protected scheduleIdleClose(serial: number): void {
@@ -444,10 +461,10 @@ export class OnboardingController {
     }
 
     protected takeover(): string {
-        const brand = '<div class="ao-brand">AKARI VIDEO</div>';
+        const brand = introVisual(this.state.step).brand ? '<div class="ao-brand">AKARI VIDEO</div>' : '';
         if (this.state.step === 'welcome') return `${brand}<h2>AKARI Video へようこそ</h2><div class="ao-actions"><button class="primary" data-ao="next">次へ</button></div>`;
-        if (this.state.step === 'first') return `${brand}<h2>AKARI Video を使うのは、はじめてですか？</h2><div class="ao-actions"><button class="primary" data-ao="yes">はじめて</button><button data-ao="no">使ったことがある</button></div>`;
-        if (this.state.step === 'invite') return `${brand}<h2>一緒に 1 本、つくってみませんか？</h2><p>用意した動画に、AI でタイトルと字幕を入れて、書き出すところまで。5 分ほどです。途中でやめても大丈夫です。</p><div class="ao-chip">サンプル動画<small>0:37 · 話している人の動画 · 用意してあります</small></div>${this.busy ? '<p>準備しています… 作業場とプロジェクトを作っています</p>' : `${this.prepareError ? `<p role="alert">${esc(this.prepareError)}</p>` : ''}<div class="ao-actions"><button class="primary" data-ao="start">${this.prepareError ? 'もう一度' : 'やってみる'}</button><button data-ao="later">あとで（自分で始める）</button></div>`}`;
+        if (this.state.step === 'first') return '<h2>AKARI Video を使うのは、はじめてですか？</h2><div class="ao-actions"><button class="primary" data-ao="yes">はじめて</button><button data-ao="no">使ったことがある</button></div>';
+        if (this.state.step === 'invite') return inviteMarkup(this.busy, esc(this.prepareError));
         return `<div class="ao-congrats">おめでとうございます</div><h2>はじめての 1 本ができました</h2><button class="ao-magic" data-ao="own"><span>自分の動画で始める</span><b>→</b><i>✦</i><i>✦</i><i>✦</i></button><div class="ao-secondary"><button data-ao="explore">このまま触ってみる</button><span>·</span><button data-ao="again">もう一度見る</button><span>·</span><button data-ao="learn">使い方を学ぶ</button></div>`;
     }
 
@@ -455,7 +472,7 @@ export class OnboardingController {
         const sub = this.state.sub;
         switch (this.state.step) {
             case 'tour0': return sub === 0
-                ? { title: '画面の構成を知りましょう', body: '', minimal: true, fullFog: true }
+                ? { title: '画面の構成を知りましょう', body: '', minimal: true, fullFog: true, buttons: [['次へ', 'next', true]] }
                 : { title: 'これが AKARI Video の画面です', body: '', minimal: true, noDim: true,
                     buttons: [['次へ →', 'next', false]] };
             case 'tour1': return { title: '① 左は「素材」です', holes: ['assets'], labels: ['① 素材'],
@@ -468,7 +485,7 @@ export class OnboardingController {
             case 'tour3': return sub === 0
                 ? { title: '③ 右は「AI パートナー」です', holes: ['replay-chat'], labels: ['③ AI パートナー'], place: 'left',
                     body: '<p>やりたいことを文章で頼むと、AI が編集を進めます。</p><p>右のように、頼んだことと AI の返事が並びます。</p>', buttons: [['次へ', 'next', true]] }
-                : { title: 'では、これを一緒につくってみましょう', body: '', minimal: true, fullFog: true };
+                : { title: 'では、これを一緒につくってみましょう', body: '', minimal: true, fullFog: true, buttons: [['次へ', 'next', true]] };
             case 'drag': return this.state.imported
                 ? { title: '素材はもう入っています', holes: ['assets'], body: '<p>次へ進みましょう。</p>', buttons: [['次へ', 'next', true]] }
                 : { title: 'まず素材を入れます', holes: ['assets'], rings: ['finder-file'], wide: true,
@@ -476,13 +493,13 @@ export class OnboardingController {
                 link: ['import', 'ドラッグしづらいときは、ここを押して入れる'] };
             case 'matpreview': return sub === 0
                 ? { title: '素材を押すと、中身が見られます', clear: ['assets'], rings: ['sample-card'], body: '<p>入った動画を押してみてください。</p>' }
-                : { title: 'ここは「素材プレビュー」です', holes: ['material-preview'], body: '<p>取り込んだ素材を、そのまま再生して確かめられます。確かめたら次へ。</p>', buttons: [['次へ', 'next', true]] };
+                : { title: 'ここは「素材プレビュー」です', holes: ['material-preview'], rings: ['material-play-toggle'], body: '<p>下の ▶ で再生できます。確かめたら次へ。</p>', buttons: [['次へ', 'next', true]] };
             case 'ask': return sub === 0
                 ? { title: '編集は、右の AI に頼みます', holes: ['partner'], rings: ['answer-choices'], wide: true, place: 'left',
                     body: '<p>やりたいことを文章で伝えると、AI がタイムラインを組み立てます。いま使っている AI はありますか？</p>',
                     choices: [['claude', 'Claude', 'Pro・Max'], ['chatgpt', 'ChatGPT', '無料のアカウントでも可'], ['google', 'Google', 'AI Pro・無料のアカウント'], ['none', 'どれも使っていない', ''], ['other', 'ほかの AI', 'Cursor・Copilot・Devin など']] }
-                : { title: '今回は、お手本で流れを見ます', holes: [this.state.answer === 'claude' ? 'partner-claude' : this.state.answer === 'chatgpt' ? 'partner-codex' : this.state.answer === 'google' ? 'partner-antigravity' : 'partner'], wide: true, place: 'left',
-                    body: `<p>${({ claude: 'Claude の Pro・Max なら、つなぐのは「Claude Code CLI」です（光っているところ）。', chatgpt: 'ChatGPT なら、つなぐのは「Codex CLI」です（光っているところ）。無料のアカウントでも使えます。', google: 'Google のアカウントなら、つなぐのは「Antigravity CLI」です（光っているところ）。', none: 'AI とつながなくても、流れはお手本で見られます。', other: 'お使いの AI は、あとでこの一覧からつなげます。' } as Record<AiAnswer, string>)[this.state.answer ?? 'none']}</p><p>このあとは AI を使わずに、頼んでから仕上がるまでをお手本で再生します。本物の AI とは、最後につなげます。</p>`,
+                : { title: '今回は、お手本で流れを見ます', holes: [askHighlightTarget(this.state.answer)], wide: true, place: 'left',
+                    body: `<p>${askConnectionCopy(this.state.answer)}</p><p>このあとは AI を使わずに、頼んでから仕上がるまでをお手本で再生します。本物の AI とは、最後につなげます。</p>`,
                     buttons: [['お手本を始める', 'replay', true]], link: ['reanswer', '選び直す'] };
             case 'prompt': return onboardingRevisit(this.state) === 'completed'
                 ? { title: 'お手本はもう終わっています', clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
@@ -542,9 +559,14 @@ export class OnboardingController {
 
     protected chat(): string {
         const tour = this.state.step.startsWith('tour');
-        if (!tour && !['prompt', 'work', 'play', 'caption'].includes(this.state.step)) return '';
+        if (!guideShowsChat(this.state.step)) return '';
         const lines = tour ? [`完成例です。この動画は、AI にこう頼んでつくりました。`, `> ${PROMPT}`, ...LOG.flatMap(entry => entry.lines)] : this.logLines;
-        return `<div class="ao-chat" data-akari-onboarding-target="replay-chat"><h3>${tour ? 'AI パートナー（完成例）' : 'お手本（AI なし）'}</h3><div class="ao-chat-log">${lines.map(esc).join('\n')}</div><textarea class="ao-chat-input" data-akari-onboarding-target="replay-input" ${this.state.step === 'prompt' && !this.state.workCompleted ? '' : 'readonly'}>${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? esc(PROMPT) : ''}</textarea><button data-ao="send" ${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? '' : 'disabled'}>送る</button></div>`;
+        const grouped = groupChatLines(lines);
+        const messages = grouped.messages.map(message => {
+            const content = message.lines.map(line => line.kind === 'code' ? `<code>${esc(line.text)}</code>` : `<p>${esc(line.text)}</p>`).join('');
+            return `<div class="ao-message ${message.role}"><span class="ao-message-name">${message.role === 'user' ? 'あなた' : 'AI パートナー'}</span><div class="ao-bubble">${content}</div></div>`;
+        }).join('');
+        return `<div class="ao-chat" data-akari-onboarding-target="replay-chat"><h3>${tour ? 'AI パートナー（完成例）' : 'お手本（AI なし）'}</h3><div class="ao-chat-log">${grouped.note ? `<p class="ao-chat-note">${esc(grouped.note)}</p>` : ''}${messages}</div><textarea class="ao-chat-input" data-akari-onboarding-target="replay-input" ${this.state.step === 'prompt' && !this.state.workCompleted ? '' : 'readonly'}>${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? esc(PROMPT) : ''}</textarea><button data-ao="send" ${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? '' : 'disabled'}>送る</button></div>`;
     }
 
     protected render(): void {
@@ -552,8 +574,7 @@ export class OnboardingController {
         const takeover = ['welcome', 'first', 'invite', 'done'].includes(this.state.step);
         const spec = this.coach();
         this.root.setAttribute('data-akari-onboarding-step', this.state.step);
-        document.body.classList.toggle('akari-onboarding-chat-active',
-            this.state.step.startsWith('tour') || ['prompt', 'work', 'play', 'caption'].includes(this.state.step));
+        document.body.classList.toggle('akari-onboarding-chat-active', guideShowsChat(this.state.step));
         document.body.classList.toggle('akari-onboarding-daihon-active', this.state.step === 'daihon');
         const takeHost = this.root.querySelector<HTMLElement>('.ao-takeover-host')!;
         if (takeover) {
@@ -561,7 +582,7 @@ export class OnboardingController {
             if (takeHost.dataset.kind !== (intro ? 'intro' : 'done')) {
                 takeHost.dataset.kind = intro ? 'intro' : 'done';
                 takeHost.innerHTML = intro
-                    ? `<div class="ao-takeover"><div class="ao-takeover-inner"><div class="ao-hero">${this.hero ? `<img src="${this.hero}" alt="">` : ''}</div><div class="ao-text in"></div></div></div>`
+                    ? `<div class="ao-takeover"><div class="ao-takeover-inner"><div class="ao-hero"></div><div class="ao-text in"></div></div></div>`
                     : `<div class="ao-takeover ao-done"><div class="ao-celebrate"></div><div class="ao-text in"></div></div>`;
             }
             if (takeHost.dataset.step !== this.state.step || this.state.step === 'invite') {
@@ -572,7 +593,17 @@ export class OnboardingController {
                 void textNode.offsetWidth;
                 textNode.classList.add('in');
             }
-            takeHost.querySelector('.ao-hero')?.classList.toggle('small', this.state.step !== 'welcome');
+            const hero = takeHost.querySelector<HTMLElement>('.ao-hero');
+            if (hero) {
+                const visual = introVisual(this.state.step, this.busy);
+                hero.hidden = visual.hero === 'none';
+                hero.classList.toggle('before-after', visual.hero === 'before-after');
+                hero.innerHTML = visual.hero === 'welcome'
+                    ? (this.hero ? `<img src="${this.hero}" alt="">` : '')
+                    : visual.hero === 'before-after'
+                        ? `<img src="${BEFORE_AFTER_DATA_URL}" alt="左は素材そのままの動画、右はタイトル・字幕・図解・BGM が入った仕上がり"><div class="ao-before-after-labels"><span>ビフォー</span><span>アフター</span></div><div class="ao-before-after-note">タイトル・字幕・図解・BGM</div>`
+                        : '';
+            }
         } else { takeHost.replaceChildren(); takeHost.dataset.kind = ''; takeHost.dataset.step = ''; }
         this.root.querySelector<HTMLElement>('.ao-finder-host')!.innerHTML = this.finder();
         this.root.querySelector<HTMLElement>('.ao-chat-host')!.innerHTML = this.chat();
@@ -658,24 +689,61 @@ export class OnboardingController {
         const spec = this.coach();
         const dim = this.root.querySelector<HTMLElement>('.ao-dim');
         const coach = this.root.querySelector<HTMLElement>('.ao-coach');
-        if (!spec || !dim) { dim?.classList.add('clear'); return; }
+        const blocker = this.root.querySelector<HTMLElement>('.ao-input-blocker');
+        if (!spec || !dim) { dim?.classList.add('clear'); if (blocker) blocker.hidden = true; this.inputCutouts = []; return; }
         const rectOf = (name: string): DOMRect | undefined => {
+            if (name === 'material-play-toggle') {
+                const frame = document.querySelector<HTMLIFrameElement>('[data-akari-onboarding-target="material-preview"] iframe');
+                try {
+                    const play = frame?.contentDocument?.querySelector<HTMLElement>('#play-toggle');
+                    const outer = frame?.getBoundingClientRect(), inner = play?.getBoundingClientRect();
+                    if (outer && inner && inner.width > 0 && inner.height > 0)
+                        return new DOMRect(outer.left + inner.left, outer.top + inner.top, inner.width, inner.height);
+                } catch { /* The preview may use a separate origin while loading. */ }
+                // A Theia webview can have a separate origin. The play button shifts in a narrow grid.
+                // Frame the whole transport row instead of guessing its horizontal position.
+                const outer = frame?.getBoundingClientRect();
+                if (outer && outer.width > 0 && outer.height > 0) {
+                    const row = materialPreviewTransportRect(outer);
+                    return new DOMRect(row.x, row.y, row.width, row.height);
+                }
+            }
             let element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${name}"]`);
             if (name === 'export-dialog') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-submit"]')?.closest<HTMLElement>('[role="dialog"]') ?? undefined;
             if (!element && name === 'caption-text') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="output"] #caption-plate .caption-row-plate:not([hidden])');
             const rect = element?.getBoundingClientRect();
-            return rect && rect.width > 0 && rect.height > 0 ? rect : undefined;
+            return rect && rect.width > 0 && rect.height > 0 && element && getComputedStyle(element).display !== 'none'
+                && getComputedStyle(element).visibility === 'visible' ? rect : undefined;
         };
         const chat = this.root.querySelector<HTMLElement>('.ao-chat');
         const partner = rectOf('partner');
-        if (chat && partner) Object.assign(chat.style, {
-            left: `${partner.left}px`, top: `${partner.top}px`, width: `${partner.width}px`, height: `${partner.height}px`
-        });
+        if (guideNeedsPartner(this.state.step) && !partner && this.partnerRevealAttempts > 0 && this.partnerRevealAttempts < 4
+            && performance.now() - this.lastPartnerRevealAt >= 700) this.revealPartner();
+        const fallbackReady = partnerFallbackReady(this.partnerRevealAttempts, this.lastPartnerRevealAt, performance.now());
+        const panel = document.querySelector<HTMLElement>('#theia-right-content-panel')?.getBoundingClientRect();
+        const fallbackWidth = Math.min(390, innerWidth * .32);
+        const fallback = panel && panel.width > 48 && panel.height > 0
+            ? new DOMRect(panel.left, panel.top, panel.width - 48, panel.height)
+            : new DOMRect(Math.max(0, innerWidth - 48 - fallbackWidth), 40, fallbackWidth, innerHeight - 65);
+        if (chat) {
+            chat.hidden = !partner && !fallbackReady;
+            const bounds = partner ?? fallback;
+            Object.assign(chat.style, { left: `${bounds.left}px`, top: `${bounds.top}px`, width: `${bounds.width}px`, height: `${bounds.height}px` });
+            chat.classList.toggle('ao-chat-fallback', !partner);
+        }
         const framed = (spec.holes ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
         const clear = (spec.clear ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
-        const ring = spec.rings?.[0] ? rectOf(spec.rings[0]) : undefined;
+        const ringRects = (spec.rings ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
+        const ring = ringRects[0];
+        this.inputCutouts = guideInputCutouts(framed, clear, ringRects);
+        if (blocker) {
+            blocker.hidden = false;
+            blocker.style.clipPath = guideBlockerClipPath(innerWidth, innerHeight, this.inputCutouts);
+        }
         const all = [...framed, ...clear];
-        const serial = JSON.stringify([this.state.step, this.state.sub, ...all.map(rect => [rect.x, rect.y, rect.width, rect.height]), ring && [ring.x, ring.y, ring.width, ring.height]]);
+        const chatRect = chat?.getBoundingClientRect();
+        const serial = JSON.stringify([this.state.step, this.state.sub, ...all.map(rect => [rect.x, rect.y, rect.width, rect.height]),
+            ring && [ring.x, ring.y, ring.width, ring.height], chatRect && [chatRect.x, chatRect.y, chatRect.width, chatRect.height]]);
         if (serial === this.lastRects) return;
         this.lastRects = serial;
         dim.classList.toggle('clear', !!spec.noDim);
@@ -729,7 +797,11 @@ export class OnboardingController {
         const mask = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
         dim.style.maskImage = mask;
         dim.style.webkitMaskImage = mask;
-        holes.innerHTML = rects.slice(0, framed).map((rect, index) => `<div class="ao-hole" style="left:${rect.x - 4}px;top:${rect.y - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px">${labels?.[index] ? `<span class="ao-hole-label">${labels[index]}</span>` : ''}</div>`).join('');
+        const chat = this.root.querySelector<HTMLElement>('.ao-chat');
+        const chatRect = chat?.getBoundingClientRect();
+        const frames = rects.slice(0, framed).map((rect, index) => `<div class="ao-hole" style="left:${rect.x - 4}px;top:${rect.y - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px">${labels?.[index] ? `<span class="ao-hole-label">${labels[index]}</span>` : ''}</div>`).join('');
+        holes.innerHTML = frames + (chatRect && chatRect.width > 0 && chatRect.height > 0
+            ? `<div class="ao-hole ao-chat-frame" style="left:${chatRect.x - 4}px;top:${chatRect.y - 4}px;width:${chatRect.width + 8}px;height:${chatRect.height + 8}px"></div>` : '');
     }
 
     protected animateFog(target: DOMRect[], framed: number, labels?: string[]): void {
@@ -854,9 +926,11 @@ export class OnboardingController {
         if (action === 'next') {
             const step = this.state.step;
             if (step === 'welcome') return this.go('first');
+            if (step === 'tour0' && this.state.sub === 0) return this.setSub(1);
             if (step === 'tour0' && this.state.sub === 1) return this.go('tour1');
             if (step === 'tour2' && this.state.sub === 0) return this.setSub(1);
             if (step === 'tour3' && this.state.sub === 0) return this.setSub(1);
+            if (step === 'tour3' && this.state.sub === 1) return this.go('drag');
             if (step === 'prompt' && this.state.workCompleted) return this.go('play');
             if (step === 'drag' && this.state.imported) return this.go('matpreview');
             if (['tour0', 'matpreview', 'play', 'caption', 'daihon', 'export'].includes(step)
@@ -983,8 +1057,33 @@ export class OnboardingController {
     };
 
     protected handleKeyDown = (event: KeyboardEvent): void => {
-        if (event.key === 'Escape' && this.root) { event.stopImmediatePropagation(); void this.close(); }
-        else if (this.root) this.noteInteraction();
+        if (!this.root) return;
+        if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); void this.close(); return; }
+        if (event.key === 'F1' || ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p')) {
+            event.preventDefault(); event.stopImmediatePropagation(); return;
+        }
+        if (event.key === 'Tab') {
+            event.preventDefault(); event.stopImmediatePropagation();
+            const focusable = Array.from(this.root.querySelectorAll<HTMLElement>('button:not(:disabled),textarea:not([readonly]),a[href]'))
+                .filter(node => node.getClientRects().length > 0);
+            const index = focusable.indexOf(document.activeElement as HTMLElement);
+            focusable[(index + (event.shiftKey ? focusable.length - 1 : 1)) % focusable.length]?.focus();
+            return;
+        }
+        const target = event.target instanceof Element ? event.target : undefined;
+        const insideGuide = !!target && this.root.contains(target);
+        const rect = target?.getBoundingClientRect();
+        const allowed = rect && pointInGuideCutouts(rect.left + rect.width / 2, rect.top + rect.height / 2, this.inputCutouts);
+        if (!insideGuide && !allowed) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+        this.noteInteraction();
+    };
+
+    protected guardPointer = (event: Event): void => {
+        if (!this.root || this.root.contains(event.target as Node)) return;
+        const pointer = event as MouseEvent;
+        if (shouldBlockGuidePointer(event.isTrusted, pointer.clientX, pointer.clientY, this.inputCutouts)) {
+            event.preventDefault(); event.stopImmediatePropagation();
+        }
     };
 
     protected handleInput = (event: Event): void => {

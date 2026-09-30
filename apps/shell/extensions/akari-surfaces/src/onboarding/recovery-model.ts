@@ -7,9 +7,9 @@ export interface AutomaticGuideTransition {
 }
 
 export function automaticGuideTransition(step: OnboardingStep, sub: number): AutomaticGuideTransition | undefined {
-    if (step === 'tour0' && sub === 0) return { delayMs: 2200, kind: 'sub', target: 1 };
-    if (step === 'tour2' && sub === 0) return { delayMs: 2800, kind: 'sub', target: 1 };
-    if (step === 'tour3' && sub === 1) return { delayMs: 2300, kind: 'step', target: 'drag' };
+    // The guide advances only when the person chooses an action.
+    void step;
+    void sub;
     return undefined;
 }
 

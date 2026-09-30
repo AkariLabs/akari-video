@@ -25,6 +25,11 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-hero { position:relative; height:min(42vh,310px); overflow:hidden; border-radius:12px; background:#374436; }
 #akari-onboarding-v1 .ao-hero.small { height:min(27vh,190px); }
 #akari-onboarding-v1 .ao-hero img { width:100%; height:100%; object-fit:cover; }
+#akari-onboarding-v1 .ao-hero[hidden] { display:none; }
+#akari-onboarding-v1 .ao-hero.before-after { width:min(100%,760px); aspect-ratio:12/5; overflow:visible; margin:0 auto 64px; border-radius:8px; background:transparent; }
+#akari-onboarding-v1 .ao-hero.before-after img { display:block; border-radius:8px; }
+#akari-onboarding-v1 .ao-before-after-labels { display:grid; grid-template-columns:1fr 1fr; text-align:center; font-size:13px; font-weight:700; color:#f5f5f5; margin-top:7px; }
+#akari-onboarding-v1 .ao-before-after-note { color:#fdba74; font-size:12px; text-align:center; margin-top:4px; }
 #akari-onboarding-v1 .ao-brand { color:#e9863f; font-size:11px; font-weight:800; letter-spacing:.22em; margin-top:18px; }
 #akari-onboarding-v1 .ao-takeover h2 { font-size:29px; line-height:1.4; margin:10px 0; }
 #akari-onboarding-v1 .ao-takeover p { color:#c9d0ce; line-height:1.7; }
@@ -47,19 +52,33 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-f-preview { border-left:1px solid #3d4850; padding:10px; font-size:12px; }
 #akari-onboarding-v1 .ao-f-preview video { width:100%; height:110px; background:#111; object-fit:contain; }
 #akari-onboarding-v1 .ao-f-preview small { display:block; color:#aeb9bb; line-height:1.7; }
-#akari-onboarding-v1 .ao-chat { position:absolute; right:56px; top:54px; bottom:34px; width:min(330px,32vw); background:#1e2228; border:1px solid #dc7a3b; border-radius:10px; box-shadow:0 12px 38px #0009; display:flex; flex-direction:column; pointer-events:auto; }
+#akari-onboarding-v1 .ao-chat { position:absolute; background:#17130f; border:1px solid #f97316; border-radius:12px; box-shadow:0 12px 38px #0009; display:flex; flex-direction:column; pointer-events:auto; overflow:hidden; }
+#akari-onboarding-v1 .ao-chat[hidden] { display:none; }
 #akari-onboarding-v1 .ao-chat h3 { margin:0; padding:12px; font-size:14px; border-bottom:1px solid #3e454b; color:#f5b16d; }
-#akari-onboarding-v1 .ao-chat-log { flex:1; overflow:auto; padding:12px; font:12px/1.6 Consolas,monospace; white-space:pre-wrap; }
-#akari-onboarding-v1 .ao-chat-input { margin:9px; padding:9px; min-height:55px; border:1px solid #596068; border-radius:7px; color:#e9edef; background:#2a3036; font-size:12px; }
+#akari-onboarding-v1 .ao-chat-log { flex:1; overflow:auto; padding:12px; font:13px/1.6 "AKARI Noto Sans JP","Noto Sans JP",sans-serif; }
+#akari-onboarding-v1 .ao-message { margin-bottom:13px; max-width:94%; }
+#akari-onboarding-v1 .ao-message.user { margin-left:auto; }
+#akari-onboarding-v1 .ao-message-name { display:block; color:#d7c5b7; font-size:12px; margin:0 4px 4px; }
+#akari-onboarding-v1 .ao-bubble { padding:9px 11px; border:1px solid #554333; border-radius:11px; background:#2a2521; color:#f3f3f3; overflow-wrap:anywhere; }
+#akari-onboarding-v1 .ao-bubble p { margin:0 0 6px; }
+#akari-onboarding-v1 .ao-bubble p:last-child { margin-bottom:0; }
+#akari-onboarding-v1 .ao-message.user .ao-bubble { background:#51301a; border-color:#aa5d23; }
+#akari-onboarding-v1 .ao-bubble code { display:block; color:#ddd4cb; font:12px/1.5 Consolas,monospace; opacity:.9; }
+#akari-onboarding-v1 .ao-chat-note { color:#d7c5b7; font-size:12px; margin:0 2px 12px; }
+#akari-onboarding-v1 .ao-chat-fallback::before { content:"案内用ビュー"; display:block; padding:5px 12px; color:#d7c5b7; background:#29221d; font-size:11px; }
+#akari-onboarding-v1 .ao-chat-input { margin:9px; padding:9px; min-height:55px; border:1px solid #596068; border-radius:7px; color:#e9edef; background:#2a3036; font-size:13px; line-height:1.6; }
 #akari-onboarding-v1 .ao-chat button { margin:0 9px 9px auto; padding:6px 14px; border:0; border-radius:6px; background:#e77731; color:#fff; }
 #akari-onboarding-v1 .ao-pulse { outline:3px solid #ffa249!important; box-shadow:0 0 24px #ff8a38!important; }
 /* Round 2: one animated fog layer, separate contextual openings and one actionable ring. */
 #akari-onboarding-v1 .ao-example-host,#akari-onboarding-v1 .ao-chat-host,
-#akari-onboarding-v1 .ao-dim,#akari-onboarding-v1 .ao-holes,#akari-onboarding-v1 .ao-rings,
+#akari-onboarding-v1 .ao-dim,#akari-onboarding-v1 .ao-input-blocker,#akari-onboarding-v1 .ao-holes,#akari-onboarding-v1 .ao-rings,
 #akari-onboarding-v1 .ao-hint,#akari-onboarding-v1 .ao-takeover-host,
 #akari-onboarding-v1 .ao-finder-host,#akari-onboarding-v1 .ao-coach-host { position:absolute; inset:0; pointer-events:none; }
 #akari-onboarding-v1 .ao-example-host,#akari-onboarding-v1 .ao-chat-host { z-index:1; }
+#akari-onboarding-v1 .ao-chat-host { z-index:4; }
 #akari-onboarding-v1 .ao-dim { z-index:2; background:rgba(6,6,6,.56); backdrop-filter:blur(5px) saturate(.75); -webkit-backdrop-filter:blur(5px) saturate(.75); opacity:1; transition:opacity .9s ease; }
+#akari-onboarding-v1 .ao-input-blocker { z-index:3; pointer-events:auto; background:transparent; }
+#akari-onboarding-v1 .ao-input-blocker[hidden] { display:none; }
 #akari-onboarding-v1 .ao-dim.clear { opacity:0; }
 #akari-onboarding-v1 .ao-holes { z-index:3; }
 #akari-onboarding-v1 .ao-rings { z-index:5; }
@@ -169,7 +188,6 @@ body.akari-onboarding-daihon-active .akari-daihon-dock { display:none!important;
 body.akari-onboarding-daihon-active .akari-daihon-rows.docked { padding-bottom:8px!important; }
 body.akari-onboarding-daihon-active [data-akari-onboarding-target="daihon-first-row"] { outline:2px solid #fb923c; box-shadow:0 0 16px #f9731677; }
 #akari-onboarding-v1 .ao-hole.bounce { animation:ao-ping 1.2s ease-in-out infinite; }
-body.akari-onboarding-chat-active [data-akari-onboarding-target="partner"] { visibility:hidden; }
 #akari-onboarding-v1 .ao-hint svg { position:absolute; inset:0; overflow:visible; }
 #akari-onboarding-v1 .ao-hint-path { animation:ao-dash .5s linear infinite; }
 #akari-onboarding-v1 .ao-hint-label { fill:#fb923c; font:bold 15px system-ui; }

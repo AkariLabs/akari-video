@@ -65,6 +65,10 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     protected readonly messages!: MessageService;
 
     registerCommands(registry: CommandRegistry): void {
+        window.addEventListener('akari.onboarding.revealPartner', () => {
+            void registry.executeCommand(AkariPartnerCommands.OPEN.id).catch(error =>
+                console.warn('[akari-onboarding] partner could not be revealed:', error));
+        });
         registry.registerCommand(AkariPartnerCommands.OPEN, {
             execute: async () => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
