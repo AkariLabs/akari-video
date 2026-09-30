@@ -185,8 +185,74 @@ export function hasExternalImageSource(html) {
   return false;
 }
 
+// CSS の url()・<img src>・SVG の <image href> から画像として読む SVG は外部リソースを一切読まない。
+// よって data:image/ 内の URL は外部参照ではない。data:text/* は中から外部を読めるので残す。
+// withoutXmlNamespaceDeclarations は性質テストで旧正規表現版との一致を固定しており、前段で組み合わせる。
+// data: URI は数十 MB になり、V8 の正規表現量指定子は 2 バイト文字列で約 8M 文字進むと RangeError（#112）。
+// indexOf と添字で線形に走査し、終端が閉じない・改行・生の < を跨ぐときは外さない（fail-closed）。
+export function withoutImageDataUriPayloads(html) {
+  const pieces = [];
+  let copied = 0;
+  let searchFrom = 0;
+  while (searchFrom < html.length) {
+    const colon = html.indexOf(":", searchFrom);
+    if (colon < 0) break;
+    searchFrom = colon + 1;
+    if (colon < 4 || !startsWithFold(html, "data", colon - 4)
+      || !startsWithFold(html, "image/", colon + 1)) continue;
+
+    let before = colon - 5;
+    const quote = html[before] === "'" || html[before] === '"' ? html[before--] : null;
+    while (before >= 0 && isHtmlSpace(html[before])) before -= 1;
+    const cssUrl = before >= 3 && startsWithFold(html, "url(", before - 3);
+    let imageAttribute = false;
+    if (quote && !cssUrl && html[before] === "=") {
+      before -= 1;
+      while (before >= 0 && isHtmlSpace(html[before])) before -= 1;
+      for (const name of ["xlink:href", "href", "src"]) {
+        const nameStart = before - name.length + 1;
+        if (nameStart > 0 && isHtmlSpace(html[nameStart - 1])
+          && startsWithFold(html, name, nameStart)) {
+          imageAttribute = true;
+          break;
+        }
+      }
+    }
+    if (!cssUrl && !imageAttribute) continue;
+
+    const payloadStart = colon + 7;
+    let end = -1;
+    if (quote) {
+      for (let index = payloadStart; index < html.length; index += 1) {
+        const char = html[index];
+        if (char === "<") break;
+        if (cssUrl && char === "\\") {
+          if (html[index + 1] === "<") break;
+          index += 1;
+          continue;
+        }
+        if (cssUrl && (char === "\n" || char === "\r" || char === "\f")) break;
+        if (char === quote) { end = index; break; }
+      }
+    } else {
+      for (let index = payloadStart; index < html.length; index += 1) {
+        const char = html[index];
+        if (char === ")") { end = index; break; }
+        if (char === "<" || char === "'" || char === '"' || isHtmlSpace(char)) break;
+      }
+    }
+    if (end < 0) break;
+    pieces.push(html.slice(copied, payloadStart));
+    copied = end;
+    searchFrom = end + 1;
+  }
+  if (copied === 0) return html;
+  pieces.push(html.slice(copied));
+  return pieces.join("");
+}
+
 function hasAbsoluteExternalUrl(html) {
-  return /(?:file:\/\/\/|https?:\/\/)/iu.test(withoutXmlNamespaceDeclarations(html));
+  return /(?:file:\/\/\/|https?:\/\/)/iu.test(withoutXmlNamespaceDeclarations(withoutImageDataUriPayloads(html)));
 }
 
 const OVERLAY_CONDITIONS = [

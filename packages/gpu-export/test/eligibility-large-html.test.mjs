@@ -201,3 +201,12 @@ test("large two-byte HTML keeps GPU classification and all scanners running", ()
     }
   }
 });
+
+test("線形 scan handles two 24 MiB two-byte image data URI payloads", () => {
+  const payload = "日本語".repeat(8 * 1024 * 1024);
+  const uri = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg"%3E${payload}%3C/svg%3E`;
+  const html = `<div><style>.a{--m:url('${uri}');--n:url('${uri}')}</style></div>`;
+  const result = evaluateGpuEligibility({ edit: { overlays: [{ id: "large-image-data", html }], output: {} } });
+  assert.equal(result.eligible, true);
+  assert.equal(result.entries[0].conditions.includes("absolute-external-url"), false);
+});

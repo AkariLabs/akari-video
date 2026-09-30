@@ -412,3 +412,57 @@ test("namespace declarations are ignored but real external references in the sam
     assert.ok(result.entries[0].conditions.includes("absolute-external-url"), html);
   }
 });
+
+import { withoutImageDataUriPayloads } from "../src/eligibility.mjs";
+
+test("image data URI payload URLs do not disqualify static overlays", () => {
+  const cases = [
+    `<div class="t"><style>.t .a { --m: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="10" height="10"%3E%3C/svg%3E'); }</style><div class="a"></div></div>`,
+    `<style>.a{--m:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E")}</style>`,
+    `<style>.a{--m:url(data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3C/svg%3E)}</style>`,
+    `<style>.a{--m:URL( 'DATA:IMAGE/SVG+XML,%3Csvg xmlns="http://www.w3.org/2000/svg"%3E%3C/svg%3E' )}</style>`,
+    `<div style="--m:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22%3E%3C/svg%3E')"></div>`,
+    `<img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22%3E%3C/svg%3E">`,
+    `<svg xmlns="http://www.w3.org/2000/svg"><image href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg"%3E%3C/svg%3E'/></svg>`,
+    String.raw`<style>.a{--m:url('data:image/svg+xml,%3Ctext%3Eit\'s http://x%3C/text%3E')}</style>`,
+  ];
+  for (const html of cases) {
+    const result = evaluate([{ id: "image-data", html }]);
+    assert.equal(result.eligible, true, html);
+    assert.deepEqual(result.entries[0].conditions, [], html);
+  }
+});
+
+test("external URLs outside image data URI payloads remain disqualifying", () => {
+  const cases = [
+    `url('data:image/svg+xml,%3Csvg%3E%3C/svg%3E'), url(https://example.invalid/x.png)`,
+    `url('data:text/css,@import url(https://example.invalid/a.css)')`,
+    `<a href="data:text/html,<img src=https://example.invalid/x.png>">`,
+    `<div style="--m:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22%3E"></div>`,
+    `<p>data:image/svg+xml,https://example.invalid/</p>`,
+    `<div title="data:image/png,https://example.invalid/x"></div>`,
+    `<div style="background:url(&quot;data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22%3E&quot;)"></div>`,
+  ];
+  for (const html of cases) {
+    const result = evaluate([{ id: "external", html }]);
+    assert.ok(result.entries[0].conditions.includes("absolute-external-url"), html);
+  }
+});
+
+test("image data URI stripping returns the same string when no eligible context exists", () => {
+  const html = `<p>data:image/svg+xml,https://example.invalid/</p>`;
+  assert.strictEqual(withoutImageDataUriPayloads(html), html);
+});
+
+test("unterminated image data URI values never hide later external URLs", () => {
+  const cases = [
+    `<div style="--m:url('data:image/png,AAAA"></div><svg><image href="https://example.invalid/x.png"/></svg><p title='x'>t</p>`,
+    `<style>.a{--m:url('data:image/png,AAAA</style><svg><image href="https://example.invalid/x.png"/></svg><p title='x'>t</p>`,
+    `<style>.a{--m:url('data:image/png,AAAA\n);content:url(https://example.invalid/x.png);--z:'}</style>`,
+    `<div style="background:url(data:image/png,AAA" x="https://example.invalid/x.png" y=)"></div>`,
+  ];
+  for (const html of cases) {
+    const result = evaluate([{ id: "external-after-image-data", html }]);
+    assert.ok(result.entries[0].conditions.includes("absolute-external-url"), html);
+  }
+});
