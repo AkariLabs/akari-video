@@ -243,6 +243,86 @@ function nodeEnv(archive, asset = NODE_ASSET) {
     };
 }
 
+async function runClaudeDetectionCase({ platform, files, pathDir, appData, force = false }) {
+    const home = await makeHome('akari-claude-detection-');
+    const requestLogPath = path.join(home, 'requests.txt');
+    try {
+        await writeFile(requestLogPath, '');
+        for (const file of files) {
+            const executable = path.join(home, file);
+            await mkdir(path.dirname(executable), { recursive: true });
+            await writeFile(executable, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+        }
+        const result = await runBootstrap({
+            home, agent: 'claude', platform, force,
+            pathEnv: pathDir ? path.join(home, pathDir) : '',
+            mock: { origin: 'http://127.0.0.1:9', fixtures: { '/unreachable': fixture('', 404, 'text/plain') }, requestLogPath },
+            extraEnv: {
+                AKARI_PARTNER_CLAUDE_INSTALL_URL: 'http://127.0.0.1:9/unreachable',
+                ...(appData ? { APPDATA: path.join(home, appData) } : {})
+            }
+        });
+        return { result, home, requests: await readFile(requestLogPath, 'utf8') };
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+}
+
+test('Windows の APPDATA npm に claude.cmd だけあれば再利用し URL を取得しない', async () => {
+    const { result, home, requests } = await runClaudeDetectionCase({
+        platform: 'win32', appData: 'AppData/Roaming', files: ['AppData/Roaming/npm/claude.cmd']
+    });
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /"reused":true/);
+    assert.ok(result.stdout.includes(`"executablePath":"${home}/AppData/Roaming/npm/claude.cmd"`));
+    assert.equal(requests, '');
+    assert.doesNotMatch(result.stdout, /Claude installer を取得しています/);
+});
+
+test('mac の PATH 上だけに claude があれば再利用する', async () => {
+    const { result, home, requests } = await runClaudeDetectionCase({
+        platform: 'darwin', pathDir: 'path-bin', files: ['path-bin/claude']
+    });
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.ok(result.stdout.includes(`"executablePath":"${home}/path-bin/claude"`));
+    assert.match(result.stdout, /"reused":true/);
+    assert.equal(requests, '');
+});
+
+test('ネイティブと PATH の両方に claude があればネイティブを選ぶ', async () => {
+    const { result, home, requests } = await runClaudeDetectionCase({
+        platform: 'darwin', pathDir: 'path-bin', files: ['.local/bin/claude', 'path-bin/claude']
+    });
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.ok(result.stdout.includes(`"executablePath":"${home}/.local/bin/claude"`));
+    assert.equal(requests, '');
+});
+
+test('claude が無ければインストーラー URL へ進む', async () => {
+    const { result, requests } = await runClaudeDetectionCase({ platform: 'darwin', files: [] });
+    assert.equal(result.code, 1);
+    assert.match(result.stdout, /Claude installer を取得しています/);
+    assert.equal(requests, 'http://127.0.0.1:9/unreachable\n');
+});
+
+test('Windows の PATH 上に非対応拡張子だけならインストーラー URL へ進む', async () => {
+    const { result, requests } = await runClaudeDetectionCase({
+        platform: 'win32', pathDir: 'path-bin', files: ['path-bin/claude.ps1', 'path-bin/claude.js', 'path-bin/claude']
+    });
+    assert.equal(result.code, 1);
+    assert.match(result.stdout, /Claude installer を取得しています/);
+    assert.equal(requests, 'http://127.0.0.1:9/unreachable\n');
+});
+
+test('FORCE_REINSTALL=1 は既存 claude があってもインストーラー URL へ進む', async () => {
+    const { result, requests } = await runClaudeDetectionCase({
+        platform: 'darwin', pathDir: 'path-bin', files: ['path-bin/claude'], force: true
+    });
+    assert.equal(result.code, 1);
+    assert.match(result.stdout, /Claude installer を取得しています/);
+    assert.equal(requests, 'http://127.0.0.1:9/unreachable\n');
+});
+
 test('PATH 上の既存 Command Code を再利用する', async () => {
     const home = await makeHome('akari-commandcode-existing-home-');
     const binDir = await makeHome('akari-commandcode-existing-bin-');

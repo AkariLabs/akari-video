@@ -1,0 +1,11 @@
+phase: BEFORE
+runtime: Electron with ELECTRON_RUN_AS_NODE=1, serialized bootstrapRunner(partnerCliCandidates)
+HOME=<TMPHOME>/home
+PATH=<TMPHOME>/path-bin (only fake claude)
+AKARI_PARTNER_CLAUDE_INSTALL_URL=http://127.0.0.1:9/unreachable
+exit: 1
+stdout:
+Claude installer を取得しています: http://127.0.0.1:9/unreachable
+stderr:
+fetch failed
+error: 

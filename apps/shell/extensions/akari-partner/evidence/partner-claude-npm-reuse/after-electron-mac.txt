@@ -1,0 +1,11 @@
+case a: exit=0, installer=false, stdout=既存の claude を検出: <TMPHOME>/a/path-bin/claude
+プラグイン配線: プロジェクトの workspace が見つからないためスキップします
+{"executablePath":"<TMPHOME>/a/path-bin/claude","reused":true}, stderr=
+case b: exit=0, installer=false, stdout=既存の claude を検出: <TMPHOME>/b/home/.local/bin/claude
+プラグイン配線: プロジェクトの workspace が見つからないためスキップします
+{"executablePath":"<TMPHOME>/b/home/.local/bin/claude","reused":true}, stderr=
+case c: exit=1, installer=true, stdout=Claude installer を取得しています: http://127.0.0.1:9/unreachable, stderr=fetch failed
+case d: exit=1, installer=true, stdout=Claude installer を取得しています: http://127.0.0.1:9/unreachable, stderr=fetch failed
+case e (a HOME/PATH): settings=<TMPHOME>/a/path-bin/claude, connection=<TMPHOME>/a/path-bin/claude, match=true
+case e (b HOME/PATH): settings=<TMPHOME>/b/home/.local/bin/claude, connection=<TMPHOME>/b/home/.local/bin/claude, match=true
+result: PASS (a)-(e)

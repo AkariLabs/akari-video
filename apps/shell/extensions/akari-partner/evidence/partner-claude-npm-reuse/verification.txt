@@ -1,0 +1,25 @@
+L0 / L1 verification (macOS)
+
+BEFORE: Electron as Node, serialized production runner, fake claude only on PATH:
+exit 1; installer fetch attempted against http://127.0.0.1:9/unreachable.
+
+AFTER: See after-electron-mac.txt for cases (a)-(e).
+Windows hardware was unavailable; win32 branches were checked by unit tests.
+
+build:ext: exit 0.
+akari-partner npm test: 186 tests, 186 pass, 0 fail.
+test:shell (one run): 6953 tests, 6949 pass, 4 fail.
+  - 3 tests outside akari-partner could not import missing packages/frame-engine/dist modules.
+  - 1 akari-project 3-second cancellation test failed in the full run;
+    isolated rerun: 2 tests, 2 pass, 0 fail.
+lint: exit 0, 0 errors, 5 warnings in untouched extensions.
+
+Direct launch audit: bootstrap-runner's claude plugin install goes through
+run() and shellInvocation(), which supports Windows .cmd/.bat. The resolved
+CLI's PTY launch goes through resolvePartnerProcessLaunch(), now wrapping
+.cmd/.bat for every agent. No other direct spawn of the resolved claude path
+was found in akari-partner.
+
+Boundary: all tracked edits are inside owned akari-partner files. The
+pre-existing .lane-alive file was not touched. No installer or real user
+CLI location was accessed.

@@ -72,7 +72,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
     }
 
     function claudeCandidates(): string[] {
-        return candidatePaths('claude', { homeDir: os.homedir(), platform: process.platform, env: process.env, includePath: false, nativeOnly: true });
+        return candidatePaths('claude', { homeDir: os.homedir(), platform: process.platform, env: process.env });
     }
 
     function codexCandidates(): string[] {

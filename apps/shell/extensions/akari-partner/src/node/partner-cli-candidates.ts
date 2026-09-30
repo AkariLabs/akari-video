@@ -18,13 +18,20 @@ export function partnerCliCandidates(agent: PartnerAgentId, options: {
     const name = names[agent];
     const win = platform === 'win32';
     const pathExtensions = (env.PATHEXT || '').split(';').map(extension => extension.trim().toLowerCase()).filter(Boolean);
-    const suffixes = win ? options.nativeOnly ? ['.exe'] : pathExtensions.length ? pathExtensions : ['.exe', '.cmd', '.bat'] : [''];
+    const suffixes = win
+        ? agent === 'claude'
+            ? options.nativeOnly ? ['.exe'] : ['.exe', '.cmd', '.bat']
+            : options.nativeOnly ? ['.exe'] : pathExtensions.length ? pathExtensions : ['.exe', '.cmd', '.bat']
+        : [''];
     const local = path.join(homeDir, '.local', 'bin');
     const localAppData = env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
     const candidates = suffixes.map(suffix => path.join(local, name + suffix));
     const extra: string[] = [];
     if (agent === 'claude') {
         extra.push(path.join(homeDir, '.claude', 'bin'), path.join(homeDir, '.claude', 'local'));
+        if (win) {
+            extra.push(path.join(env.APPDATA || path.join(homeDir, 'AppData', 'Roaming'), 'npm'));
+        }
     } else if (agent === 'codex' && win) {
         extra.push(path.join(localAppData, 'AKARI Video', 'codex', 'current', 'bin'));
     } else if (agent === 'opencode') {
