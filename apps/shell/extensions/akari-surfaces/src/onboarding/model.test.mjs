@@ -11,7 +11,8 @@ const {
     INITIAL_ONBOARDING_STATE, ONBOARDING_STEPS, parseOnboardingState,
     COUNTED_ONBOARDING_STEPS, nextOnboardingState, shouldResumeOnboarding, partnerToConnect,
     onboardingCount, previousOnboardingStep, onboardingRevisit,
-    createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions, splitOnboardingTokens
+    previousGuidePosition, onboardingCaptionSeekTime, createEmptyOnboardingEdit, createOnboardingEdit,
+    createOnboardingCaptions, splitOnboardingTokens
 } = require('../../lib/onboarding/model.js');
 const segments = [
     { start: 0.3, end: 1.1, text: 'こんにちは。' },
@@ -54,6 +55,24 @@ test('戻るの順序と再訪は完了済みの成果を維持する', () => {
     assert.equal(backward.imported, true);
     assert.equal(backward.workCompleted, true);
     assert.equal(shouldResumeOnboarding({ ...backward, projectUri: 'file:///project' }, 'file:///project'), true);
+});
+
+test('字幕と台本の戻るは表示中の段から一段だけ戻る', () => {
+    const position = (step, sub) => previousGuidePosition({ ...INITIAL_ONBOARDING_STATE, step, sub });
+    assert.deepEqual(position('caption', 2), { step: 'caption', sub: 1 });
+    assert.deepEqual(position('caption', 1), { step: 'caption', sub: 0 });
+    assert.deepEqual(position('daihon', 2), { step: 'daihon', sub: 1 });
+    assert.deepEqual(position('daihon', 1), { step: 'daihon', sub: 0 });
+    assert.deepEqual(position('daihon', 0), { step: 'caption', sub: 2 });
+    assert.deepEqual(position('matpreview', 1), { step: 'drag', sub: 0 });
+});
+
+test('字幕のシーク時刻は実際に書く有効な区間の中央を選ぶ', () => {
+    const changed = [{ start: 18, end: 18.1, text: '短い' }, { start: 24, end: 26, text: '長い字幕' },
+        { start: 7, end: 10, text: '  ' }, { start: NaN, end: 31, text: '不正' }];
+    assert.equal(onboardingCaptionSeekTime(changed), 25);
+    assert.equal(onboardingCaptionSeekTime([]), undefined);
+    assert.equal(onboardingCaptionSeekTime(segments) !== 8.7, true);
 });
 
 test('保存形式を検査し、同じプロジェクトでのみ中断段から再開する', () => {

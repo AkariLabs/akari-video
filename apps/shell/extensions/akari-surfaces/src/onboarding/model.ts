@@ -59,6 +59,23 @@ export function previousOnboardingStep(step: OnboardingStep): OnboardingStep | u
     return index > 0 ? ONBOARDING_STEPS[index - 1] : undefined;
 }
 
+/** Return one visible guide position, keeping earlier tour revisit rules in the controller. */
+export function previousGuidePosition(state: OnboardingState): { step: OnboardingStep; sub: number } | undefined {
+    if ((state.step === 'caption' || state.step === 'daihon') && state.sub > 0)
+        return { step: state.step, sub: state.sub - 1 };
+    if (state.step === 'daihon') return { step: 'caption', sub: 2 };
+    const step = previousOnboardingStep(state.step);
+    return step ? { step, sub: 0 } : undefined;
+}
+
+/** Seek inside a caption actually written by writeExample, allowing sample timing to change. */
+export function onboardingCaptionSeekTime(segments: readonly TranscriptSegment[]): number | undefined {
+    const candidate = segments.filter(segment => Number.isFinite(segment.start) && Number.isFinite(segment.end)
+        && segment.end - segment.start >= 0.2 && segment.text.trim())
+        .sort((left, right) => (right.end - right.start) - (left.end - left.start))[0];
+    return candidate ? (candidate.start + candidate.end) / 2 : undefined;
+}
+
 export function onboardingRevisit(state: OnboardingState): 'imported' | 'previewed' | 'completed' | undefined {
     if (state.step === 'drag' && state.imported) return 'imported';
     if (state.step === 'matpreview' && state.materialOpened) return 'previewed';

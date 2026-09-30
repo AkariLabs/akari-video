@@ -41,6 +41,49 @@ export function materialPreviewTransportRect(frame: GuideRect): GuideRect {
     return { x: frame.x, y: frame.y + frame.height - height, width: frame.width, height };
 }
 
+/** The webview is cross-origin. Locate the lower caption band from its 16:9 video area. */
+export function outputCaptionBandRect(frame: GuideRect): GuideRect {
+    const inset = Math.min(16, frame.width * .03);
+    const availableWidth = Math.max(0, frame.width - inset * 2);
+    const availableHeight = Math.max(0, frame.height - 58);
+    const videoWidth = Math.min(availableWidth, availableHeight * 16 / 9);
+    const videoHeight = videoWidth * 9 / 16;
+    const videoX = frame.x + (frame.width - videoWidth) / 2;
+    const videoY = frame.y + (availableHeight - videoHeight) / 2;
+    return { x: videoX + videoWidth * .15, y: videoY + videoHeight * .76,
+        width: videoWidth * .7, height: videoHeight * .2 };
+}
+
+/** Keep the caption coach clear of the style bar, open popover and subtitle band. */
+export function captionCoachPosition(viewport: { width: number; height: number },
+    coach: { width: number; height: number }, output: GuideRect, obstacles: readonly GuideRect[]): { x: number; y: number } {
+    const maxX = Math.max(8, viewport.width - coach.width - 8);
+    const maxY = Math.max(8, viewport.height - coach.height - 32);
+    const clampY = (value: number): number => Math.max(8, Math.min(value, maxY));
+    const centerY = clampY(output.y + Math.min(72, output.height * .2));
+    const candidates = [
+        { x: output.x + output.width + 14, y: centerY },
+        { x: maxX, y: centerY },
+        { x: output.x - coach.width - 14, y: centerY },
+        { x: maxX, y: 8 },
+        { x: maxX, y: maxY },
+        { x: Math.max(8, Math.min(output.x, maxX)), y: clampY(output.y + output.height + 14) },
+        { x: Math.max(8, Math.min(output.x, maxX)), y: clampY(output.y - coach.height - 14) }
+    ];
+    const overlap = (at: { x: number; y: number }, rect: GuideRect): number =>
+        Math.max(0, Math.min(at.x + coach.width, rect.x + rect.width) - Math.max(at.x, rect.x))
+        * Math.max(0, Math.min(at.y + coach.height, rect.y + rect.height) - Math.max(at.y, rect.y));
+    return candidates.map((candidate, index) => ({ candidate, score:
+        (candidate.x < 8 || candidate.x > maxX ? 1e9 : 0)
+        + obstacles.reduce((sum, rect) => sum + overlap(candidate, rect), 0) * 100
+        + overlap(candidate, output) * .01 + index * .1
+    })).sort((left, right) => left.score - right.score)[0].candidate;
+}
+
+export function needsCaptionStyleSelection(step: OnboardingStep, sub: number, colorControlVisible: boolean): boolean {
+    return step === 'caption' && sub === 1 && !colorControlVisible;
+}
+
 /** Exactly the coach's holes, clear openings and rings receive input. */
 export function guideInputCutouts(holes: GuideRect[], clear: GuideRect[], rings: GuideRect[]): GuideRect[] {
     return [...holes, ...clear, ...rings].filter(rect => rect.width > 0 && rect.height > 0);

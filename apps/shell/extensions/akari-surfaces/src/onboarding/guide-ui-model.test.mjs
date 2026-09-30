@@ -5,7 +5,8 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
     pointInGuideCutouts, guideBlockedRects, guideBlockerClipPath, shouldBlockGuidePointer,
-    materialPreviewTransportRect, partnerFallbackReady, askHighlightTarget,
+    materialPreviewTransportRect, outputCaptionBandRect, captionCoachPosition, needsCaptionStyleSelection,
+    partnerFallbackReady, askHighlightTarget,
     askConnectionCopy } = require('../../lib/onboarding/guide-ui-model.js');
 
 test('ask は本物のパートナーを見せ、その他の実演段にはチャットを出す', () => {
@@ -50,6 +51,42 @@ test('caption に戻ったときも前回と異なる入場番号なら再びパ
     assert.equal(shouldRevealPartner('daihon', 15, 14), false);
     assert.equal(partnerFallbackReady(3, 0, 10000), false);
     assert.equal(partnerFallbackReady(4, 9000, 9700), true);
+});
+
+test('別オリジンの出力プレビュー枠から字幕の表示帯を推定する', () => {
+    const band = outputCaptionBandRect({ x: 395, y: 71, width: 659, height: 592 });
+    assert.ok(band.x < 590 && band.x + band.width > 859);
+    assert.ok(band.y < 447 && band.y + band.height > 490);
+    assert.ok(band.y > 400 && band.y + band.height < 520);
+});
+
+test('字幕のコーチは1920と1366の画面でメニュー・色窓・字幕帯を覆わない', () => {
+    const overlap = (a, b) => Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x))
+        * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+    for (const sample of [
+        { viewport: { width: 1920, height: 1080 }, output: { x: 395, y: 71, width: 659, height: 592 },
+            bar: { x: 440, y: 76, width: 580, height: 48 }, window: { x: 455, y: 125, width: 270, height: 168 },
+            band: { x: 486, y: 431, width: 477, height: 85 } },
+        { viewport: { width: 1366, height: 768 }, output: { x: 270, y: 70, width: 650, height: 550 },
+            bar: { x: 320, y: 75, width: 570, height: 48 }, window: { x: 350, y: 125, width: 270, height: 168 },
+            band: { x: 410, y: 390, width: 470, height: 80 } }
+    ]) {
+        const size = { width: 338, height: 181 };
+        const position = captionCoachPosition(sample.viewport, size, sample.output,
+            [sample.bar, sample.window, sample.band]);
+        const coach = { ...position, ...size };
+        assert.ok(coach.x >= 8 && coach.y >= 8);
+        assert.ok(coach.x + coach.width <= sample.viewport.width - 8);
+        assert.ok(coach.y + coach.height <= sample.viewport.height - 32);
+        for (const obstacle of [sample.bar, sample.window, sample.band]) assert.equal(overlap(coach, obstacle), 0);
+    }
+});
+
+test('見た目の段へ戻ったときだけ、色メニューが無ければ字幕を選び直す', () => {
+    assert.equal(needsCaptionStyleSelection('caption', 1, false), true);
+    assert.equal(needsCaptionStyleSelection('caption', 1, true), false);
+    assert.equal(needsCaptionStyleSelection('caption', 0, false), false);
+    assert.equal(needsCaptionStyleSelection('daihon', 1, false), false);
 });
 
 test('遮断層のくり抜きは spec の holes・clear・rings の矩形と一致する', () => {

@@ -155,7 +155,8 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-chat { right:auto; bottom:auto; width:auto; height:auto; min-width:0; border:1px solid #39312a; background:#111; }
 #akari-onboarding-v1 .ao-chat h3 { color:#e5e5e5; }
 #akari-onboarding-v1 .ao-prompt-entry { padding:12px 14px; min-height:62px; border:1px solid #f97316; border-radius:8px; background:#28201a; color:#fff; line-height:1.6; box-shadow:0 0 0 3px #f9731620; }
-#akari-onboarding-v1 .ao-help { color:#fdba74; font-size:12px; }
+#akari-onboarding-v1 .ao-coach p.ao-help { color:#fdba74; font-size:12px; }
+#akari-onboarding-v1 .ao-help::before { content:"↳ "; font-weight:700; }
 #akari-onboarding-v1 .ao-learn { max-width:580px; margin:20px auto 0; color:#e5c7af; font-size:13px; }
 #akari-onboarding-v1 .ao-learn[hidden] { display:none; }
 #akari-onboarding-v1 .ao-finder { width:min(790px,calc(100vw - 28px)); height:min(480px,calc(100vh - 48px)); background:#191d23; border:1px solid #39424c; border-radius:9px; }

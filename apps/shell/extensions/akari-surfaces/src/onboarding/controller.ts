@@ -1,16 +1,19 @@
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AiAnswer, INITIAL_ONBOARDING_STATE, nextOnboardingState, OnboardingState, OnboardingStep,
-    onboardingCount, onboardingRevisit, previousOnboardingStep } from './model';
+    onboardingCaptionSeekTime, onboardingCount, onboardingRevisit, previousGuidePosition } from './model';
 import { AkariOnboardingService, SampleInformation } from './protocol';
 import { ONBOARDING_CSS } from './style';
 import { automaticGuideTransition, guideRecoveryView } from './recovery-model';
 import { BEFORE_AFTER_DATA_URL } from './before-after-data';
 import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
     guideBlockerClipPath, pointInGuideCutouts, shouldBlockGuidePointer, partnerFallbackReady, askHighlightTarget,
-    askConnectionCopy, materialPreviewTransportRect, GuideRect } from './guide-ui-model';
+    askConnectionCopy, captionCoachPosition, materialPreviewTransportRect, needsCaptionStyleSelection,
+    outputCaptionBandRect, GuideRect } from './guide-ui-model';
 import { introVisual, inviteMarkup } from './intro-model';
 import { groupChatLines } from './chat-model';
+import { CAPTION_GUIDE_COPY, DAIHON_GUIDE_COPY, MATERIAL_PREVIEW_SELECT_COPY,
+    guideOffersHelpNext, guideWaitingHint, HELP_DELAY } from './guide-copy';
 
 interface CoachSpec {
     key?: string;
@@ -33,7 +36,6 @@ interface CoachSpec {
 }
 
 const PROMPT = 'この動画を編集したいです。右上に動画のタイトルを入れて、下に字幕を入れてください。';
-const HELP_DELAY = { hint: 4000, next: 10000 } as const;
 const LOG: Array<{ t: number; lines: string[]; live?: string; count?: number; title?: boolean }> = [
     { t: 500, live: '素材を確認しています…', lines: ['素材を確認します。'] },
     { t: 1400, lines: ['akari media probe assets/サンプル動画.mp4', '37.6 秒 · 1280×720 · 30fps · 音声あり'] },
@@ -73,6 +75,7 @@ export class OnboardingController {
     protected dragStarted = false;
     protected dragHintTimer?: number;
     protected bounceTimer?: number;
+    protected captionRingReady = false;
     protected tourTimer?: number;
     protected sourceExample = false;
     protected helpTimers: number[] = [];
@@ -135,7 +138,6 @@ export class OnboardingController {
         window.addEventListener('keydown', this.handleKeyDown, true);
         for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
             document.addEventListener(type, this.guardPointer, true);
-        document.addEventListener('input', this.handleInput, true);
         window.addEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.addEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
         if (this.state.projectUri) {
@@ -144,7 +146,10 @@ export class OnboardingController {
                 this.sample = prepared.sample;
                 if (this.state.step !== 'invite') {
                     await this.showOutput(this.state.projectUri);
-                    if (this.state.step === 'caption') await this.seekOutput(this.state.projectUri, 8.7);
+                    if (this.state.step === 'caption') {
+                        const time = onboardingCaptionSeekTime(this.sample.segments);
+                        if (time !== undefined) await this.seekOutput(this.state.projectUri, time);
+                    }
                 }
             } catch (error) {
                 this.live = error instanceof Error ? error.message : String(error);
@@ -189,7 +194,6 @@ export class OnboardingController {
         window.removeEventListener('keydown', this.handleKeyDown, true);
         for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
             document.removeEventListener(type, this.guardPointer, true);
-        document.removeEventListener('input', this.handleInput, true);
         window.removeEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.removeEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
         if (this.videoUrl) URL.revokeObjectURL(this.videoUrl);
@@ -282,8 +286,10 @@ export class OnboardingController {
             await this.showOutput(this.state.projectUri);
         if (step === 'prompt') this.startPromptTypewriter();
         if (step === 'work') void this.startWork();
-        if ((step === 'play' || step === 'caption') && this.state.projectUri)
-            await this.seekOutput(this.state.projectUri, step === 'caption' ? 8.7 : 0);
+        if ((step === 'play' || step === 'caption') && this.state.projectUri) {
+            const time = step === 'caption' ? onboardingCaptionSeekTime(this.sample?.segments ?? []) : 0;
+            if (time !== undefined) await this.seekOutput(this.state.projectUri, time);
+        }
         if (step === 'export') this.beginExportPoll();
         if (step === 'done') await this.service.markSeen();
     }
@@ -311,6 +317,7 @@ export class OnboardingController {
         this.partnerRevealAttempts = 0;
         if (shouldRevealPartner(this.state.step, serial, this.revealedPartnerSerial)) this.revealPartner();
         this.scheduleHelp();
+        this.ensureCaptionStyleSelection(serial);
         if (this.tourTimer) window.clearTimeout(this.tourTimer);
         this.scheduleIdleClose(serial);
         this.renderRecovery();
@@ -323,6 +330,19 @@ export class OnboardingController {
         this.partnerRevealAttempts++;
         this.lastPartnerRevealAt = performance.now();
         window.dispatchEvent(new Event('akari.onboarding.revealPartner'));
+    }
+
+    protected ensureCaptionStyleSelection(serial: number, attempt = 0): void {
+        if (this.state.step !== 'caption' || this.state.sub !== 1) return;
+        this.helpTimers.push(window.setTimeout(() => {
+            if (!this.root || serial !== this.stepSerial) return;
+            const color = document.querySelector<HTMLElement>('[data-akari-bar-item="captionTextColor"]');
+            const visible = !!color && getComputedStyle(color).display !== 'none'
+                && getComputedStyle(color).visibility === 'visible' && color.getClientRects().length > 0;
+            if (!needsCaptionStyleSelection(this.state.step, this.state.sub, visible)) return;
+            window.dispatchEvent(new Event('akari.onboarding.assistCaptionSelection'));
+            if (attempt < 2) this.ensureCaptionStyleSelection(serial, attempt + 1);
+        }, 200 + attempt * 450));
     }
 
     protected scheduleIdleClose(serial: number): void {
@@ -389,25 +409,15 @@ export class OnboardingController {
     }
 
     protected waitingHint(): string | undefined {
-        const { step, sub } = this.state;
-        if (step === 'drag' && !this.state.imported) return 'サンプル動画を左の素材へドラッグしてください。';
-        if (step === 'matpreview' && sub === 0) return '左のサンプル動画カードを押してください。';
-        if (step === 'ask' && sub === 0) return '使っている AI を選んでください。';
-        if (step === 'prompt') return sub === 0 ? '「入力欄に入れる」を押してください。' : '右の「送る」を押してください。';
-        if (step === 'play' && sub === 0) return 'プレビューの ▶ を押してください。';
-        if (step === 'caption' && sub < 3) return ['プレビューの字幕を押してください。', '上の「大きさ」を押してください。', 'つまみを動かしてください。'][sub];
-        if (step === 'daihon' && sub < 2) return sub === 0 ? '右端の紙のアイコンを押してください。' : '光っている最初の行を押してください。';
-        if (step === 'export' && sub < 3) return ['左上の ≡ を押してください。', '「書き出し…」を押してください。', '「書き出す」を押してください。'][sub];
-        return undefined;
+        return guideWaitingHint(this.state);
     }
 
     protected scheduleHelp(): void {
         this.clearHelp();
         const hint = this.waitingHint();
-        if (!hint) return;
         const key = `${this.state.step}:${this.state.sub}`;
         this.helpKey = key;
-        this.helpTimers.push(window.setTimeout(() => {
+        if (hint) this.helpTimers.push(window.setTimeout(() => {
             if (!this.root || this.helpKey !== key) return;
             const body = this.root.querySelector<HTMLElement>('.ao-coach .ao-body');
             if (body && !body.querySelector('.ao-help')) body.insertAdjacentHTML('beforeend', `<p class="ao-help">${esc(hint)}</p>`);
@@ -415,6 +425,7 @@ export class OnboardingController {
             this.lastRects = '';
             this.placeCoach();
         }, HELP_DELAY.hint));
+        if (!guideOffersHelpNext(this.state)) return;
         this.helpTimers.push(window.setTimeout(() => {
             if (!this.root || this.helpKey !== key) return;
             const coach = this.root.querySelector<HTMLElement>('.ao-coach');
@@ -444,11 +455,7 @@ export class OnboardingController {
         }
         if (step === 'caption') {
             if (sub === 0) window.dispatchEvent(new Event('akari.onboarding.assistCaptionSelection'));
-            if (sub === 1) document.querySelector<HTMLElement>('[data-akari-onboarding-target="caption-size"]')?.click();
-            if (sub === 2) {
-                const slider = document.querySelector<HTMLInputElement>('[data-akari-onboarding-target="caption-size-slider"]');
-                if (slider) { slider.value = String(Math.min(Number(slider.max), Number(slider.value) + 2)); slider.dispatchEvent(new Event('input', { bubbles: true })); slider.dispatchEvent(new Event('change', { bubbles: true })); }
-            }
+            if (sub === 2) return this.go('daihon');
             return this.setSub(sub + 1);
         }
         if (step === 'daihon') {
@@ -492,7 +499,7 @@ export class OnboardingController {
                 body: `<p>用意した動画を、左の「素材」へドラッグしてください。</p><p class="ao-note">${navigator.platform.includes('Mac') ? 'Finder' : 'エクスプローラー'}の右側で、中身を再生して確かめられます。</p>`,
                 link: ['import', 'ドラッグしづらいときは、ここを押して入れる'] };
             case 'matpreview': return sub === 0
-                ? { title: '素材を押すと、中身が見られます', clear: ['assets'], rings: ['sample-card'], body: '<p>入った動画を押してみてください。</p>' }
+                ? { ...MATERIAL_PREVIEW_SELECT_COPY, clear: ['assets'], rings: ['sample-card'] }
                 : { title: 'ここは「素材プレビュー」です', holes: ['material-preview'], rings: ['material-play-toggle'], body: '<p>下の ▶ で再生できます。確かめたら次へ。</p>', buttons: [['次へ', 'next', true]] };
             case 'ask': return sub === 0
                 ? { title: '編集は、右の AI に頼みます', holes: ['partner'], rings: ['answer-choices'], wide: true, place: 'left',
@@ -516,18 +523,15 @@ export class OnboardingController {
             case 'play': return sub === 0 ? { title: 'できました。再生してみましょう', clear: ['output'], rings: ['play-button'], bounce: true, body: '<p>▶ を押してください。</p>' }
                 : { title: 'タイトルと字幕が入りました', holes: ['output'], body: '<p>止めるときは、もう一度 ▶ を押します。見終わったら次へ。</p>', buttons: [['次へ', 'next', true]] };
             case 'caption': return ([
-                { title: '字幕を押すと、その場で直せます', clear: ['output'], rings: ['caption-text'], body: '<p>プレビューの字幕を押してください。</p>' },
-                { title: '大きさを変えてみましょう', clear: ['output'], rings: ['caption-size'], body: '<p>上に出たメニューの「大きさ」を押します。</p>' },
-                { title: 'つまみを動かしてみてください', clear: ['output'], rings: ['caption-size-slider'], body: '<p>いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。</p>' },
-                { title: '位置も動かせます', clear: ['output'], rings: ['caption-text'], body: '<p>字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。</p>', buttons: [['次へ', 'next', true]] }
-            ] as CoachSpec[])[Math.min(sub, 3)];
+                { ...CAPTION_GUIDE_COPY[0], clear: ['output'], rings: ['caption-text'], bounce: true },
+                { ...CAPTION_GUIDE_COPY[1], clear: ['output', 'caption-style'], rings: ['caption-style'],
+                    buttons: [['次へ', 'next', true]] },
+                { ...CAPTION_GUIDE_COPY[2], clear: ['output'], rings: ['caption-text'], buttons: [['次へ', 'next', true]] }
+            ] as CoachSpec[])[Math.min(sub, 2)];
             case 'daihon': return sub === 0
-                ? { title: '字幕の全文は「台本」で見られます', clear: ['daihon-button'], rings: ['daihon-button'], bounce: true, place: 'left',
-                    body: '<p>字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。</p><p>右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。</p>' }
-                : sub === 1 ? { title: 'この行を押してみてください', clear: ['daihon', 'output'], rings: ['daihon-first-row'], place: 'top',
-                    body: '<p>右の台本の最初の行を押すと、その場面へ飛びます。</p>' }
-                : { title: 'プレビューがこの場面へ飛びました', clear: ['daihon', 'output'], place: 'top',
-                    body: '<p>ダブルクリックで文字も直せます。AI パートナーへは右端のいちばん上のアイコンから戻れます。</p>', buttons: [['次へ', 'next', true]] };
+                ? { ...DAIHON_GUIDE_COPY[0], clear: ['daihon-button'], rings: ['daihon-button'], bounce: true, place: 'left' }
+                : sub === 1 ? { ...DAIHON_GUIDE_COPY[1], clear: ['daihon', 'output'], rings: ['daihon-first-row'], place: 'top' }
+                : { ...DAIHON_GUIDE_COPY[2], clear: ['daihon', 'output'], place: 'top', buttons: [['次へ', 'next', true]] };
             case 'export': return ([
                 { title: '書き出しは、左のメニューから', clear: ['menu-button'], rings: ['menu-button'], bounce: true, body: '<p>≡ を押してください。</p>' },
                 { title: '「書き出し…」を押します', clear: ['menu-panel'], rings: ['export-button'], bounce: true, body: '<p>編集データ（edit.json）ができていると押せます。</p>' },
@@ -621,6 +625,9 @@ export class OnboardingController {
         const coachHost = this.root.querySelector<HTMLElement>('.ao-coach-host')!;
         const key = spec ? `${this.state.step}:${this.state.sub}:${onboardingRevisit(this.state) ?? ''}` : '';
         if (key !== this.coachKey) {
+            if (this.bounceTimer) window.clearTimeout(this.bounceTimer);
+            this.bounceTimer = undefined;
+            this.captionRingReady = false;
             this.coachKey = key;
             const token = ++this.coachToken;
             const mount = (): void => {
@@ -629,7 +636,14 @@ export class OnboardingController {
                 this.lastRects = '';
                 this.placeCoach();
                 this.timers.push(window.setTimeout(() => this.placeCoach(), 450));
-                if (spec?.bounce) this.bounceTimer = window.setTimeout(() => this.root?.querySelector('.ao-ring')?.classList.add('bounce'), 3000);
+                if (spec?.bounce) this.bounceTimer = window.setTimeout(() => {
+                    if (this.state.step === 'caption' && this.state.sub === 0) {
+                        this.captionRingReady = true;
+                        this.lastRects = '';
+                        this.placeCoach();
+                    }
+                    this.root?.querySelector('.ao-ring')?.classList.add('bounce');
+                }, this.state.step === 'caption' && this.state.sub === 0 ? 2500 : 3000);
             };
             if (coachHost.firstElementChild && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 coachHost.firstElementChild.classList.add('out');
@@ -653,7 +667,7 @@ export class OnboardingController {
         const choices = spec.choices?.map(([answer, label, note]) => `<button data-ao="answer" data-answer="${answer}"><span class="ao-choice-icon">${icon[answer]}</span><span>${label}${note ? `<small>${note}</small>` : ''}</span></button>`).join('') ?? '';
         const count = onboardingCount(this.state.step);
         const eyebrow = this.state.step.startsWith('tour') ? '画面を知る' : count ? `STEP ${count.current} / ${count.total}` : '';
-        const back = previousOnboardingStep(this.state.step) && !spec.minimal ? '<button class="ao-back" data-ao="back">← 戻る</button>' : '';
+        const back = previousGuidePosition(this.state) && !spec.minimal ? '<button class="ao-back" data-ao="back">← 戻る</button>' : '';
         return `<div class="ao-coach ${spec.wide ? 'wide' : ''} ${spec.narrow ? 'narrow' : ''} ${spec.minimal ? 'minimal' : ''}" role="dialog" aria-live="polite">${eyebrow && !spec.minimal ? `<div class="ao-count">${eyebrow}</div>` : ''}<h3>${spec.title}</h3><div class="ao-body">${spec.body}</div>${choices ? `<div class="ao-choices">${choices}</div>` : ''}${spec.link ? `<button class="ao-link" data-ao="${spec.link[0]}">${spec.link[1]}</button>` : ''}${back || actions ? `<div class="ao-actions">${back}${actions}</div>` : ''}</div>`;
     }
 
@@ -694,6 +708,22 @@ export class OnboardingController {
         const blocker = this.root.querySelector<HTMLElement>('.ao-input-blocker');
         if (!spec || !dim) { dim?.classList.add('clear'); if (blocker) blocker.hidden = true; this.inputCutouts = []; return; }
         const rectOf = (name: string): DOMRect | undefined => {
+            if (name === 'caption-text') {
+                if (this.state.step === 'caption' && this.state.sub === 0 && !this.captionRingReady) return undefined;
+                const frame = document.querySelector<HTMLIFrameElement>('[data-akari-onboarding-target="output"] iframe');
+                const outer = frame?.getBoundingClientRect();
+                if (outer && outer.width > 0 && outer.height > 0) {
+                    const band = outputCaptionBandRect(outer);
+                    return new DOMRect(band.x, band.y, band.width, band.height);
+                }
+            }
+            if (name === 'caption-style') {
+                const color = document.querySelector<HTMLElement>('[data-akari-bar-item="captionTextColor"]');
+                const target = color && getComputedStyle(color).display !== 'none' && color.getClientRects().length
+                    ? color : document.querySelector<HTMLElement>('[data-akari-bar-item="overflow"]');
+                const rect = target?.getBoundingClientRect();
+                return rect && rect.width > 0 && rect.height > 0 ? rect : undefined;
+            }
             if (name === 'material-play-toggle') {
                 const frame = document.querySelector<HTMLIFrameElement>('[data-akari-onboarding-target="material-preview"] iframe');
                 try {
@@ -712,7 +742,6 @@ export class OnboardingController {
             }
             let element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${name}"]`);
             if (name === 'export-dialog') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-submit"]')?.closest<HTMLElement>('[role="dialog"]') ?? undefined;
-            if (!element && name === 'caption-text') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="output"] #caption-plate .caption-row-plate:not([hidden])');
             const rect = element?.getBoundingClientRect();
             return rect && rect.width > 0 && rect.height > 0 && element && getComputedStyle(element).display !== 'none'
                 && getComputedStyle(element).visibility === 'visible' ? rect : undefined;
@@ -737,6 +766,15 @@ export class OnboardingController {
         const clear = (spec.clear ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
         const ringRects = (spec.rings ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
         const ring = ringRects[0];
+        const captionObstacles = this.state.step === 'caption' && this.state.sub > 0
+            ? Array.from(document.querySelectorAll<HTMLElement>('[data-akari-bar-item], [data-akari-window]'))
+                .filter(element => getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility === 'visible')
+                .map(element => element.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
+            : [];
+        if (this.state.step === 'caption' && this.state.sub > 0) {
+            const band = rectOf('caption-text');
+            if (band) captionObstacles.push(band);
+        }
         this.inputCutouts = guideInputCutouts(framed, clear, ringRects);
         if (blocker) {
             blocker.hidden = false;
@@ -745,7 +783,8 @@ export class OnboardingController {
         const all = [...framed, ...clear];
         const chatRect = chat?.getBoundingClientRect();
         const serial = JSON.stringify([this.state.step, this.state.sub, ...all.map(rect => [rect.x, rect.y, rect.width, rect.height]),
-            ring && [ring.x, ring.y, ring.width, ring.height], chatRect && [chatRect.x, chatRect.y, chatRect.width, chatRect.height]]);
+            ring && [ring.x, ring.y, ring.width, ring.height], chatRect && [chatRect.x, chatRect.y, chatRect.width, chatRect.height],
+            ...captionObstacles.map(rect => [rect.x, rect.y, rect.width, rect.height])]);
         if (serial === this.lastRects) return;
         this.lastRects = serial;
         dim.classList.toggle('clear', !!spec.noDim);
@@ -787,6 +826,11 @@ export class OnboardingController {
         if (this.state.step === 'work') { x = 20; y = innerHeight * .53; }
         if (this.state.step === 'drag') { x = (anchor?.right ?? 240) + 14; y = innerHeight - height - 24; }
         if (this.state.step === 'daihon' && this.state.sub > 0) { x = 12; y = 66; }
+        if (this.state.step === 'caption' && this.state.sub > 0) {
+            const outputRect = rectOf('output');
+            if (outputRect) ({ x, y } = captionCoachPosition({ width: innerWidth, height: innerHeight },
+                { width, height }, outputRect, captionObstacles));
+        }
         coach.style.left = `${Math.max(8, Math.min(x, innerWidth - width - 8))}px`;
         coach.style.top = `${Math.max(8, Math.min(y, innerHeight - height - 32))}px`;
     }
@@ -936,8 +980,9 @@ export class OnboardingController {
             if (step === 'tour3' && this.state.sub === 1) return this.go('drag');
             if (step === 'prompt' && this.state.workCompleted) return this.go('play');
             if (step === 'drag' && this.state.imported) return this.go('matpreview');
+            if (step === 'caption' && this.state.sub === 1) return this.setSub(2);
             if (['tour0', 'matpreview', 'play', 'caption', 'daihon', 'export'].includes(step)
-                && (step === 'tour0' ? this.state.sub < 1 : step === 'caption' ? this.state.sub < 3
+                && (step === 'tour0' ? this.state.sub < 1 : step === 'caption' ? this.state.sub < 2
                     : step === 'export' ? this.state.sub < 4 : step === 'daihon' ? this.state.sub < 2 : this.state.sub < 1)) return this.nudge();
             const next: Partial<Record<OnboardingStep, OnboardingStep>> = {
                 tour1: 'tour2', tour2: 'tour3', matpreview: 'ask', play: 'caption', caption: 'daihon',
@@ -946,8 +991,15 @@ export class OnboardingController {
             if (next[step]) await this.go(next[step]!);
         } else if (action === 'yes') await this.go('invite');
         else if (action === 'back') {
-            const previous = previousOnboardingStep(this.state.step);
-            if (previous) await this.go(previous);
+            const previous = previousGuidePosition(this.state);
+            if (previous) {
+                if (previous.step === 'caption' && previous.sub === 0)
+                    window.dispatchEvent(new Event('akari.onboarding.clearPreviewSelection'));
+                if (previous.step === this.state.step) await this.setSub(previous.sub);
+                else await this.go(previous.step, previous.sub);
+                if (this.state.step === 'daihon' && this.state.sub === 0)
+                    window.dispatchEvent(new Event('akari.onboarding.revealPartner'));
+            }
         }
         else if (action === 'no' || action === 'later') { await this.service.returnToHome(); this.closeVisual(); }
         else if (action === 'start') await this.prepare();
@@ -1036,7 +1088,6 @@ export class OnboardingController {
             this.state = { ...this.state, materialOpened: true };
             void this.setSub(1);
         }
-        else if (this.state.step === 'caption' && name === 'caption-size' && this.state.sub === 1) void this.setSub(2);
         else if (this.state.step === 'daihon' && name === 'daihon-button' && this.state.sub === 0) void this.setSub(1);
         else if (this.state.step === 'daihon' && name === 'daihon-first-row' && this.state.sub === 1) void this.setSub(2);
         else if (this.state.step === 'export') {
@@ -1087,11 +1138,6 @@ export class OnboardingController {
         if (shouldBlockGuidePointer(event.isTrusted, pointer.clientX, pointer.clientY, this.inputCutouts)) {
             event.preventDefault(); event.stopImmediatePropagation();
         }
-    };
-
-    protected handleInput = (event: Event): void => {
-        if (this.state.step === 'caption' && this.state.sub === 2 && event.target instanceof Element
-            && event.target.matches('[data-akari-onboarding-target="caption-size-slider"]')) void this.setSub(3);
     };
 
     protected handlePlayback = (event: CustomEvent<{ playing?: boolean }>): void => {
