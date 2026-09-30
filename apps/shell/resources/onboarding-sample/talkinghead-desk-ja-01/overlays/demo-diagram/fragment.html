@@ -2,77 +2,81 @@
 <style>
 /*
   図解（demo-diagram）:「あと、こういう図解も出せますし、」
-  話し手が右へ手を差し出す（23.0〜23.5 秒）その手の先に、流れ図「話すだけで、動画ができるまで」を
-  語ごとに組み上げる。edit.json では段 demo-stage、at 697 / duration 110（23.2333〜26.9 秒）。
-  時刻はすべてクリップ先頭 0 のローカル秒（実時刻 = 23.2333 + ローカル秒）。
-    カード      -0.033 → 0.267  右から滑り込む（translateX 36→0、--ease-smooth。opacity は 0.12 秒で立ち上げ）
-    ① 話す      0.004 → 0.304  「こういう」の語頭 23.27（= 0.037）の 1 フレーム前から
-                                ポップ（scale .5→1、--ease-overshoot-soft）。続けて声の波紋が 2 重に広がる
-    線 1         0.39  → 0.54   ①→② の矢印が左から伸びる（scaleX 0→1。矢じりは先端に乗る）
-    ② AI が編集  0.514 → 0.814  「図解」の語頭 23.78（= 0.547）で同じポップ。✦ は -90°→0° 回って開く
-    線 2         0.95  → 1.10   ②→③
-    ③ 完成！     1.104 → 1.404  「出せます」の語頭 24.37（= 1.137）で同じポップ
-    完成         1.514 → 2.11   「し」の語頭 24.78（= 1.547）で ③ の地が墨→橙（橙の円が中心から広がる）、
-                                白地に橙のチェックのバッジ、カードに橙 3px の輪郭、③ が 1 回脈打って輪が広がる
-    余韻         1.85  → 3.65   線の上を橙の光（頭 8px＋尾）が 0.9 秒周期で流れる（②→③ は半周期遅れ）。
-                                ✦ の小さい星が同じ周期で 2 回きらめく
-    抜け         3.10  → 3.35   右へ 40px 抜けて消える（--ease-accelerate、forwards）。
-                                次の主役（スマホ、26.967 から）との間を 0.3 秒以上空けるため
-                                構成表の 3.367 より早めてある（戻すときは --diagram-at-out）
-  base（アニメ無しの見た目）は最終の静止状態（完成した図）。輪と流れる点だけは最終状態も
-  不可視の過渡なので base で隠す。
+  この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、編集タイムラインの形で見せる。
+  中身は構成表（evidence/onboarding-demo-production/plan.json）と onboarding-service.ts の DEMO_PLAN、
+  字幕 22 行の実時刻をそのまま使う（build/build_diagram.py が生成。手で数値を足さない）。
+  edit.json では段 demo-stage、at 697 / duration 110（23.2333〜26.9 秒）。
+  時刻はすべてクリップ先頭 0 のローカル秒（実時刻 = 23.2333 + ローカル秒。30 fps）。
+    カード       0.004 → 0.304  「こういう」の語頭 23.27（= 0.037）の 1 フレーム前から、右から滑り込む
+                                （translateX 28→0、--ease-smooth。不透明度は 0.12 秒で立ち上げ）。
+                                段のラベル 4 つは 0.06 秒遅れて 35 ms ずつ下から入る
+    積み上げ     0.480 → 1.03   「図解」の語頭 23.78（= 0.547）の直前のフレーム 713 で最初の部品が見え始めるよう、
+                                2 フレーム前から（scaleX の --ease-smooth は立ち上がりが遅く、1 フレーム目は 1px 未満）、段ごと（25 ms ずらし）・
+                                左から順に（位置に比例して 0.29 秒で掃く）部品が scaleX 0→1 で積み上がる
+                                （1 個 0.18 秒。効果音の点は scale 0→1 のポップ、BGM の帯は左から伸びる）
+    再生ヘッド   1.103 → 1.453  「出せます」の語頭 24.37（= 1.137）の 1 フレーム前から、墨の線と丸い頭が
+                                0 秒の位置から走り、実時刻（24.687 秒）の位置に着く（0.35 秒、--ease-smooth）。
+                                通り過ぎたテロップと効果音が、ヘッドが触れた瞬間に 1 回だけ跳ねる
+    いまここ     1.42           図解のブロック（太い縁）が脈打って輪が広がり、ヘッドの上に橙の「いまここ」が付く
+    件数         1.514 → 1.96   「し」の語頭 24.78（= 1.547）の 1 フレーム前から、レーンの下に
+                                「テロップ 7・効果音 15・BGM 1・字幕 22」の数字が overshoot で並ぶ（50 ms ずらし）
+    余韻         1.453 → 3.617  ヘッドは実時間の速さ（約 10.2 px/s）で進み続ける（外側の入れ物が区間全体を
+                                実時刻どおりに等速で動く）。2.967（= 26.20）でスマホのブロックと BGM の山が
+                                軽く光って次を予告する
+    抜け         3.367 → 3.617  右へ 40px 抜けて消える（--ease-accelerate、forwards。26.60 → 26.85）
+  base（アニメ無しの見た目）は最終の静止状態（全部品が並び、ヘッドが 26.85 秒の位置、件数あり）。
+  輪・光・跳ねのような最終状態も不可視の過渡だけ base で隠す。
+  イージングは語彙（--ease-*）を名前で呼び、語彙と同じ値をフォールバックに添える（GPU 書き出しの
+  ページは motion-vocab.css を読まないため）。
 
-  書体: AKARI Demo Sans = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font Name
-  'Source'）の wght 700 / 800 / 900 を、この断片で使う文字だけに切り出した改変版（別名で埋め込み、
-  フォント内に著作権表示と許諾を保持）。
+  書体: AKARI Demo Sans Diagram = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
+  Name 'Source'）の wght 800 / 900 を、この断片で使う文字だけに切り出した改変版（別名で埋め込み、
+  フォント内に著作権表示と許諾を保持）。書き出しとプレビューは全断片を 1 枚の文書に並べるため、
+  家族名はこの断片専用にしてある。
 
   ツマミ（edit.json の overlays[].vars で上書きする）:
     --diagram-left / --diagram-top / --diagram-width / --diagram-height
-                                          カードの位置と大きさ（既定 740px / 150px / 490px / 290px）
-    --diagram-radius / --diagram-pad      カードの角丸と左右の余白（既定 22px / 28px）
-    --diagram-card-bg / --diagram-card-line / --diagram-shadow
-                                          カードの地・縁・影
-    --diagram-row-y                       ノードの中心の高さ（カード上端から。既定 150px）
-    --diagram-step                        ノードの中心どうしの間隔（既定 159px）
-    --diagram-node-size                   ノードの直径（既定 96px。アイコンはこの 0.46 倍）
-    --diagram-link-gap                    ノードの縁から矢印までのすき間（既定 5.5px）
-    --diagram-title-size / --diagram-label-size / --diagram-sub-size
-                                          見出し・ラベル・補助の文字サイズ（既定 24px / 22px / 16px）
-    --diagram-talk-bg                     ①「話す」の地（既定 #FFF3E8）
-    --diagram-link-color                  矢印の色（既定 = --demo-accent-soft）
+                                  カードの位置と大きさ（既定 724px / 112px / 516px / 340px）
+    --diagram-radius              カードの角丸（既定 22px）
+    --demo-card / --demo-card-line / --demo-shadow
+                                  カードの地・縁・影
+    --diagram-axis-left / --diagram-axis-width
+                                  時間軸の左端（カードの内側から）と幅（既定 105px / 382px = 画面の x 830〜1212）
+    --diagram-lanes-top / --diagram-lane-h / --diagram-lane-gap
+                                  1 段目の上端・段の高さ・段の間隔（既定 65px / 46px / 12px）
+    --diagram-track               段の地（既定 #F6F1EB）
+    --diagram-title-size / --diagram-label-size / --diagram-count-size
+                                  見出し・段のラベル・件数の数字の文字サイズ（既定 26px / 18px / 20px）
     --demo-ink / --demo-ink-sub / --demo-accent / --demo-accent-soft
-                                          墨・補助の墨・橙・淡い橙
-    --diagram-font                        書体（既定 AKARI Demo Sans → Hiragino Sans → Yu Gothic UI …）
-    --diagram-lead                        語頭の何秒前から出し始めるか（既定 .033s = 1 フレーム）
-    --diagram-at-talk / --diagram-at-ai / --diagram-at-done / --diagram-at-finish
-                                          ①・②・③・完成の語頭（ローカル秒）
-    --diagram-at-link-1 / --diagram-at-link-2
-                                          矢印が伸び始める時刻（ローカル秒）
-    --diagram-at-flow / --diagram-at-out  余韻の光が流れ始める時刻・抜け始める時刻（ローカル秒）
+                                  墨・補助の墨・橙・淡い橙
+    --diagram-pill-bg             見出しの「37 秒」の地（既定 #F3EDE7）
+    --diagram-sfx                 効果音の点の色（既定 = --demo-ink）
+    --diagram-font                書体（既定 AKARI Demo Sans Diagram → Hiragino Sans → Yu Gothic UI …）
+    --diagram-lead                語頭の何秒前から出し始めるか（既定 .033s = 1 フレーム）
+    --diagram-at-card / --diagram-at-build / --diagram-at-play / --diagram-at-here /
+    --diagram-at-count / --diagram-at-hint / --diagram-at-out
+                                  カード・積み上げ・再生ヘッド・いまここ・件数・予告・抜けの時刻（ローカル秒）
+    --diagram-build-sweep / --diagram-build-lane / --diagram-build-lead
+                                  積み上げが左端から右端まで掃く時間・段ごとのずらし・語頭より前倒しする時間
+                                  （既定 .29s / 25ms / .067s）
+  再生ヘッドの位置（着地 24.687 秒・区間の終わり 26.85 秒）は区間が at 697 に置かれている前提の実時刻で、
+  keyframes に焼いてある（build_diagram.py の PLACE_AT を変えて再生成する）。
 */
 @font-face {
-  font-family: "AKARI Demo Sans";
-  src: url(data:font/woff2;base64,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) format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0020,U+0041,U+0049,U+3001,U+304C-304D,U+3051,U+3059,U+3060,U+3067,U+307E,U+308B,U+30C3,U+30C6,U+30D7,U+30ED,U+30FB,U+52D5,U+56F3,U+5B8C,U+6210,U+753B,U+7DE8,U+89E3,U+8A71,U+96C6,U+97F3,U+FF01;
-}
-@font-face {
-  font-family: "AKARI Demo Sans";
-  src: url(data:font/woff2;base64,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) format("woff2");
+  font-family: "AKARI Demo Sans Diagram";
+  src: url(data:font/woff2;base64,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) format("woff2");
   font-weight: 800;
   font-style: normal;
   font-display: block;
-  unicode-range: U+0020,U+0041,U+0049,U+3001,U+304C-304D,U+3051,U+3059,U+3060,U+3067,U+307E,U+308B,U+30C3,U+30C6,U+30D7,U+30ED,U+30FB,U+52D5,U+56F3,U+5B8C,U+6210,U+753B,U+7DE8,U+89E3,U+8A71,U+96C6,U+97F3,U+FF01;
+  unicode-range: U+0020,U+0030-0039,U+0042,U+0047,U+004D,U+3044,U+3053,U+306E,U+307E,U+30C3,U+30C6,U+30D7,U+30ED,U+4E2D,U+52B9,U+52D5,U+5B57,U+5E55,U+679C,U+753B,U+79D2,U+8EAB,U+97F3;
 }
 @font-face {
-  font-family: "AKARI Demo Sans";
-  src: url(data:font/woff2;base64,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) format("woff2");
+  font-family: "AKARI Demo Sans Diagram";
+  src: url(data:font/woff2;base64,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) format("woff2");
   font-weight: 900;
   font-style: normal;
   font-display: block;
-  unicode-range: U+0020,U+0041,U+0049,U+3001,U+304C-304D,U+3051,U+3059,U+3060,U+3067,U+307E,U+308B,U+30C3,U+30C6,U+30D7,U+30ED,U+30FB,U+52D5,U+56F3,U+5B8C,U+6210,U+753B,U+7DE8,U+89E3,U+8A71,U+96C6,U+97F3,U+FF01;
+  unicode-range: U+0020,U+0030-0039,U+0042,U+0047,U+004D,U+3044,U+3053,U+306E,U+307E,U+30C3,U+30C6,U+30D7,U+30ED,U+4E2D,U+52B9,U+52D5,U+5B57,U+5E55,U+679C,U+753B,U+79D2,U+8EAB,U+97F3;
 }
 
 .demo-diagram,
@@ -84,433 +88,458 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-family: var(--diagram-font, "AKARI Demo Sans", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-family: var(--diagram-font, "AKARI Demo Sans Diagram", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
   font-weight: 800;
   font-feature-settings: "palt" 1;
   color: var(--demo-ink, #17130F);
   -webkit-font-smoothing: antialiased;
 }
-
-.demo-diagram svg { display: block; flex: none; overflow: visible; }
+.demo-diagram svg { display: block; overflow: visible; }
+.demo-diagram i { display: block; font-style: normal; }
 
 .demo-diagram__group,
-.demo-diagram__enter {
-  position: absolute;
-  inset: 0;
-}
+.demo-diagram__enter { position: absolute; inset: 0; }
 
 /* ── カード ─────────────────────────────── */
 .demo-diagram__card {
   position: absolute;
-  left: var(--diagram-left, 740px);
-  top: var(--diagram-top, 150px);
-  width: var(--diagram-width, 490px);
-  height: var(--diagram-height, 290px);
+  left: var(--diagram-left, 724px);
+  top: var(--diagram-top, 112px);
+  width: var(--diagram-width, 516px);
+  height: var(--diagram-height, 340px);
   border-radius: var(--diagram-radius, 22px);
-  background: var(--diagram-card-bg, rgba(255, 255, 255, .97));
-  border: 1px solid var(--diagram-card-line, rgba(23, 19, 15, .07));
-  box-shadow: var(--diagram-shadow, 0 18px 44px rgba(58, 38, 20, .22));
-}
-
-/* 完成の輪郭（橙 3px）。カードの縁に重ねる */
-.demo-diagram__outline {
-  position: absolute;
-  inset: -1px;
-  border-radius: var(--diagram-radius, 22px);
-  border: 3px solid var(--demo-accent, #F97316);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--demo-accent, #F97316) 13%, transparent);
+  background: var(--demo-card, rgba(255, 255, 255, .97));
+  border: 1px solid var(--demo-card-line, rgba(23, 19, 15, .07));
+  box-shadow: var(--demo-shadow, 0 18px 44px rgba(58, 38, 20, .22));
 }
 
 .demo-diagram__head {
   position: absolute;
-  left: var(--diagram-pad, 28px);
-  right: var(--diagram-pad, 28px);
-  top: 22px;
+  left: 23px;
+  top: 15px;
+  height: 36px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(23, 19, 15, .08);
-  font-size: var(--diagram-title-size, 24px);
+  white-space: nowrap;
+}
+.demo-diagram__title {
+  font-size: var(--diagram-title-size, 26px);
   font-weight: 900;
-  line-height: 32px;
+  line-height: 36px;
   letter-spacing: .02em;
-  white-space: nowrap;
 }
-
-.demo-diagram__head-dot {
-  display: block;
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--demo-accent, #F97316);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--demo-accent, #F97316) 16%, transparent);
-}
-
-/* ── 矢印（①→②・②→③）──────────────────────── */
-/* 中心 c1 = カード中央 − step、c2 = カード中央、c3 = カード中央 + step */
-.demo-diagram__link {
-  position: absolute;
-  top: calc(var(--diagram-row-y, 150px) - 8px);
-  left: calc(50% + var(--link-from) * var(--diagram-step, 159px)
-    + var(--diagram-node-size, 96px) / 2 + var(--diagram-link-gap, 5.5px));
-  width: calc(var(--diagram-step, 159px) - var(--diagram-node-size, 96px) - 2 * var(--diagram-link-gap, 5.5px));
-  height: 16px;
-  color: var(--diagram-link-color, var(--demo-accent-soft, #FDBA74));
-}
-
-.demo-diagram__bar {
-  position: absolute;
-  left: 0;
-  right: 9px;
-  top: 5px;
-  height: 6px;
-  border-radius: 3px;
-  background: currentColor;
-  transform-origin: left center;
-}
-
-/* 矢じり: バーと同じ幅の入れ物の右端に乗せ、入れ物ごと translateX(-100%)→0 で運ぶと
-   バーの先端（scaleX）とぴったり同じ位置を進む（同じ尺・同じイージング）*/
-.demo-diagram__tip {
-  position: absolute;
-  left: 0;
-  right: 9px;
-  top: 0;
-  height: 16px;
-}
-
-.demo-diagram__tip svg {
-  position: absolute;
-  right: -9px;
-  top: 0;
-  width: 13px;
-  height: 16px;
-}
-
-/* 余韻の光: バーの範囲で切り抜いた溝の中を、丸い頭（8px）と尾をもつ橙の光が左から右へ流れる。
-   光の入れ物は溝と同じ幅で、頭を右端に描き、入れ物ごと translateX(-100%)→0 で運ぶ */
-.demo-diagram__track {
-  position: absolute;
-  left: 0;
-  right: 9px;
-  top: 4px;
-  height: 8px;
-  overflow: hidden;
-  border-radius: 4px;
-}
-
-.demo-diagram__flow {
-  position: absolute;
-  inset: 0;
-  border-radius: 0 4px 4px 0;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--demo-accent, #F97316) 0%, transparent) calc(100% - 30px),
-    color-mix(in srgb, var(--demo-accent, #F97316) 55%, transparent) calc(100% - 12px),
-    var(--demo-accent, #F97316) calc(100% - 6px));
-  opacity: 0;
-}
-
-/* ── ノード ─────────────────────────────── */
-.demo-diagram__node {
-  position: absolute;
-  top: calc(var(--diagram-row-y, 150px) - var(--diagram-node-size, 96px) / 2);
-  left: calc(50% + var(--node-i) * var(--diagram-step, 159px) - 80px);
-  width: 160px;
+.demo-diagram__len {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-}
-
-.demo-diagram__pop {
-  position: relative;
-  width: var(--diagram-node-size, 96px);
-  height: var(--diagram-node-size, 96px);
-}
-
-.demo-diagram__beat {
-  position: absolute;
-  inset: 0;
-}
-
-.demo-diagram__disc {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-}
-
-.demo-diagram__icon {
-  position: relative;
-  width: calc(var(--diagram-node-size, 96px) * .46);
-  height: calc(var(--diagram-node-size, 96px) * .46);
-}
-
-.demo-diagram__icon > svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.demo-diagram__node--talk .demo-diagram__disc {
-  background: var(--diagram-talk-bg, #FFF3E8);
-  border: 3px solid var(--demo-accent, #F97316);
-  color: var(--demo-accent, #F97316);
-  box-shadow: 0 8px 18px rgba(58, 38, 20, .12);
-}
-
-.demo-diagram__node--ai .demo-diagram__disc {
-  background: var(--demo-accent, #F97316);
-  color: #FFFFFF;
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--demo-accent, #F97316) 32%, transparent), 0 2px 0 rgba(255, 255, 255, .22) inset;
-}
-
-.demo-diagram__node--done .demo-diagram__disc {
-  background: var(--demo-ink, #17130F);
-  color: #FFFFFF;
-  box-shadow: 0 10px 22px rgba(58, 38, 20, .26);
-}
-
-/* ③ の地を墨→橙へ: 上に重ねた橙の円が中心から広がって塗りつぶす（opacity だけの重ね合わせだと
-   途中が茶色く濁るため、opacity は 2 フレームで立ち上げ、あとは広がりで見せる）。
-   縁の墨がにじまないよう 1px 大きくしてある */
-.demo-diagram__lit {
-  position: absolute;
-  inset: -1px;
-  border-radius: 50%;
-  background: var(--demo-accent, #F97316);
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--demo-accent, #F97316) 36%, transparent), 0 2px 0 rgba(255, 255, 255, .22) inset;
-}
-
-/* ✦（AI）: 大きい星と小さい星。大きい星だけが回って開く */
-.demo-diagram__star-big {
-  transform-origin: 43.2% 50%;
-}
-
-.demo-diagram__star-small {
-  transform-origin: 84% 16%;
-}
-
-/* 完成のバッジ（白地に橙のチェック）: 円の右上 45° の縁に乗せる */
-.demo-diagram__badge {
-  position: absolute;
-  left: calc(50% + var(--diagram-node-size, 96px) * .354 - 14px);
-  top: calc(50% - var(--diagram-node-size, 96px) * .354 - 14px);
-  width: 28px;
+  gap: 5px;
   height: 28px;
-  border-radius: 50%;
-  background: #FFFFFF;
-  color: var(--demo-accent, #F97316);
-  box-shadow: 0 4px 10px rgba(58, 38, 20, .24);
-  display: grid;
-  place-items: center;
-}
-
-.demo-diagram__badge svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* 完成の輪（最終状態も不可視の過渡）*/
-.demo-diagram__ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 3px solid var(--demo-accent-soft, #FDBA74);
-  opacity: 0;
-}
-
-.demo-diagram__text {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* ① の声の波紋（最終状態も不可視の過渡）*/
-.demo-diagram__wave {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 3px solid var(--demo-accent-soft, #FDBA74);
-  opacity: 0;
-}
-
-.demo-diagram__label {
-  display: block;
-  margin-top: 12px;
-  font-size: var(--diagram-label-size, 22px);
+  padding: 0 11px 0 10px;
+  border-radius: 14px;
+  background: var(--diagram-pill-bg, #F3EDE7);
+  color: var(--demo-ink-sub, #6B5E52);
+  font-size: 16px;
   font-weight: 800;
-  line-height: 28px;
+  line-height: 1;
   letter-spacing: .02em;
-  white-space: nowrap;
 }
+.demo-diagram__len svg { width: 10px; height: 12px; }
 
-.demo-diagram__sub {
-  display: block;
-  margin-top: 2px;
-  font-size: var(--diagram-sub-size, 16px);
-  font-weight: 700;
-  line-height: 20px;
+/* ── 段（字幕・テロップ・効果音・BGM）────────── */
+.demo-diagram__lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--diagram-lanes-top, 65px) + var(--lane) * (var(--diagram-lane-h, 46px) + var(--diagram-lane-gap, 12px)));
+  height: var(--diagram-lane-h, 46px);
+}
+.demo-diagram__label {
+  position: absolute;
+  left: 23px;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: var(--diagram-label-size, 18px);
+  font-weight: 800;
+  line-height: 1;
   letter-spacing: .02em;
   white-space: nowrap;
   color: var(--demo-ink-sub, #6B5E52);
 }
+.demo-diagram__track {
+  position: absolute;
+  left: calc(var(--diagram-axis-left, 105px) - 6px);
+  width: calc(var(--diagram-axis-width, 382px) + 12px);
+  top: 0;
+  height: 100%;
+  border-radius: 12px;
+  background: var(--diagram-track, #F6F1EB);
+}
+.demo-diagram__grid {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  margin-left: -.5px;
+  background: rgba(23, 19, 15, .07);
+}
+.demo-diagram__axis {
+  position: absolute;
+  left: var(--diagram-axis-left, 105px);
+  width: var(--diagram-axis-width, 382px);
+  top: 0;
+  height: 100%;
+}
+
+/* 区間もの（字幕・テロップ）: 時刻から位置と幅を出す（1px ずつ内側へ詰めて隣と分ける）*/
+.demo-diagram__span {
+  position: absolute;
+  left: calc(var(--t0) / 37.6 * 100% + 1px);
+  width: calc((var(--t1) - var(--t0)) / 37.6 * 100% - 2px);
+  transform-origin: 0 50%;
+}
+.demo-diagram__cap {
+  top: 17px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--demo-accent-soft, #FDBA74);
+}
+.demo-diagram__cap--karaoke { background: var(--demo-accent, #F97316); }
+
+.demo-diagram__block { top: 9px; height: 28px; }
+.demo-diagram__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  background: var(--demo-accent, #F97316);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+/* 図解（いま再生している区間）だけ太い縁 */
+.demo-diagram__block--now .demo-diagram__fill {
+  border: 3px solid var(--demo-ink, #17130F);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 3px 8px rgba(58, 38, 20, .22);
+}
+.demo-diagram__ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 9px;
+  border: 3px solid var(--demo-accent, #F97316);
+  opacity: 0;
+}
+/* 予告の光（最終状態も不可視の過渡）*/
+.demo-diagram__glow {
+  position: absolute;
+  inset: -5px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--demo-accent-soft, #FDBA74) 55%, transparent);
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--demo-accent, #F97316) 45%, transparent);
+  opacity: 0;
+}
+
+/* 点もの（効果音）: 鳴った瞬間（音の頭）に直径 10 の点 */
+.demo-diagram__dot {
+  position: absolute;
+  left: calc(var(--t0) / 37.6 * 100% - 5px);
+  top: calc(18px + var(--dy, 0px));
+  width: 10px;
+  height: 10px;
+}
+.demo-diagram__dot-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--diagram-sfx, var(--demo-ink, #17130F));
+  box-shadow: 0 0 0 2px var(--diagram-track, #F6F1EB);
+}
+
+/* BGM: 実際の音量の包絡（フェードイン・「BGM も」の山・締めの持ち上げ・フェードアウト）*/
+.demo-diagram__bgm {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+}
+.demo-diagram__bgm svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.demo-diagram__wave {
+  fill: none;
+  stroke: var(--demo-accent-soft, #FDBA74);
+  stroke-width: 2.2px;
+  stroke-linecap: round;
+}
+/*「BGM も」で持ち上げた山（gain keyframes が 0 dB から上がって戻るまで）だけ橙 */
+.demo-diagram__hump {
+  stroke: var(--demo-accent, #F97316);
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.demo-diagram__bgm-glow {
+  position: absolute;
+  left: calc(30.35 / 37.6 * 100% - 34px);
+  top: -4px;
+  width: 68px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--demo-accent, #F97316) 42%, transparent), transparent);
+  opacity: 0;
+}
+
+/* ── 再生ヘッド ─────────────────────────────── */
+/* 外側（__clock）は区間全体を実時刻どおりに等速で進む。内側（__scrub）が 0 秒の位置から実時刻へ走る。
+   どちらも時間軸と同じ幅の入れ物なので、translateX の % がそのまま「動画の長さに対する割合」になる */
+.demo-diagram__clock,
+.demo-diagram__scrub {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+.demo-diagram__head-wrap {
+  position: absolute;
+  left: var(--diagram-axis-left, 105px);
+  width: var(--diagram-axis-width, 382px);
+  top: 0;
+  height: 100%;
+}
+.demo-diagram__clock { left: 0; transform: translateX(71.4096%); }
+.demo-diagram__line {
+  position: absolute;
+  left: -1px;
+  top: calc(var(--diagram-lanes-top, 65px) - 7px);
+  width: 2px;
+  height: calc(4 * var(--diagram-lane-h, 46px) + 3 * var(--diagram-lane-gap, 12px) + 12px);
+  border-radius: 1px;
+  background: var(--demo-ink, #17130F);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .75);
+}
+.demo-diagram__knob {
+  position: absolute;
+  left: -7px;
+  top: calc(var(--diagram-lanes-top, 65px) - 14px);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--demo-ink, #17130F);
+  box-shadow: 0 0 0 2.5px #FFFFFF, 0 2px 6px rgba(58, 38, 20, .3);
+}
+/* 「いまここ」: ヘッドの上に付く橙のピル（位置合わせの入れ物と、ポップする中身を分ける）*/
+.demo-diagram__here {
+  position: absolute;
+  left: 0;
+  top: 17px;
+  width: 0;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+}
+.demo-diagram__here-pop {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 14px;
+  background: var(--demo-accent, #F97316);
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 5px 12px color-mix(in srgb, var(--demo-accent, #F97316) 32%, transparent);
+  transform-origin: 50% 120%;
+}
+.demo-diagram__here-pop::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 2px;
+  background: var(--demo-accent, #F97316);
+  transform: rotate(45deg);
+}
+
+/* ── 件数 ─────────────────────────────── */
+.demo-diagram__counts {
+  position: absolute;
+  left: 23px;
+  right: 23px;
+  top: calc(var(--diagram-lanes-top, 65px) + 4 * var(--diagram-lane-h, 46px) + 3 * var(--diagram-lane-gap, 12px) + 11px);
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  white-space: nowrap;
+}
+.demo-diagram__count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.demo-diagram__count-label {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: var(--demo-ink-sub, #6B5E52);
+}
+.demo-diagram__count-num {
+  display: block;
+  font-size: var(--diagram-count-size, 20px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--demo-accent, #F97316);
+  transform-origin: 30% 80%;
+}
+.demo-diagram__count-sep {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(23, 19, 15, .18);
+}
 
 /* ── 動き（活性区間だけ宣言する）────────────── */
 [data-akari-active] .demo-diagram__group {
-  animation: demo-diagram-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--diagram-at-out, 3.10s) forwards;
+  animation: demo-diagram-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--diagram-at-out, 3.367s) forwards;
 }
 [data-akari-active] .demo-diagram__enter {
-  animation: demo-diagram-fade-in .12s var(--ease-linear, linear) calc(0s - var(--diagram-lead, .033s)) both;
+  animation: demo-diagram-fade-in .12s var(--ease-linear, linear) calc(var(--diagram-at-card, .037s) - var(--diagram-lead, .033s)) both;
 }
 [data-akari-active] .demo-diagram__card {
-  animation: demo-diagram-card-in .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(0s - var(--diagram-lead, .033s)) both;
+  animation: demo-diagram-card-in .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-card, .037s) - var(--diagram-lead, .033s)) both;
 }
-[data-akari-active] .demo-diagram__node--talk .demo-diagram__pop {
-  animation: demo-diagram-fade-in .04s var(--ease-linear, linear) calc(var(--diagram-at-talk, .037s) - var(--diagram-lead, .033s)) both;
+[data-akari-active] .demo-diagram__label {
+  animation: demo-diagram-rise .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-card, .037s) - var(--diagram-lead, .033s) + .06s + var(--lane) * 35ms);
 }
-[data-akari-active] .demo-diagram__node--talk .demo-diagram__disc {
-  animation: demo-diagram-pop .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--diagram-at-talk, .037s) - var(--diagram-lead, .033s)) both;
+/* 積み上げ: 段ごとに 25 ms、段の中は左端からの位置に比例して掃く */
+[data-akari-active] .demo-diagram__span {
+  animation: demo-diagram-grow .18s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-build, .547s) - var(--diagram-build-lead, .067s) + var(--lane) * var(--diagram-build-lane, 25ms) + var(--t0) / 37.6 * var(--diagram-build-sweep, .29s));
 }
-[data-akari-active] .demo-diagram__node--talk .demo-diagram__text {
-  animation: demo-diagram-rise .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-talk, .037s) - var(--diagram-lead, .033s) + .06s) both;
+[data-akari-active] .demo-diagram__dot {
+  animation: demo-diagram-pop-in .18s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both;
+  animation-delay: calc(var(--diagram-at-build, .547s) - var(--diagram-build-lead, .067s) + var(--lane) * var(--diagram-build-lane, 25ms) + var(--t0) / 37.6 * var(--diagram-build-sweep, .29s));
 }
-[data-akari-active] .demo-diagram__wave--1 {
-  animation: demo-diagram-wave .6s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--diagram-at-talk, .037s) + .08s) forwards;
+[data-akari-active] .demo-diagram__bgm {
+  animation: demo-diagram-grow .4s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-build, .547s) - var(--diagram-build-lead, .067s) + 3 * var(--diagram-build-lane, 25ms));
 }
-[data-akari-active] .demo-diagram__wave--2 {
-  animation: demo-diagram-wave .6s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--diagram-at-talk, .037s) + .24s) forwards;
+/* 再生ヘッド: 外側は区間の頭から終わりまで実時刻どおり（等速）、内側が 0 秒の位置から走る */
+[data-akari-active] .demo-diagram__clock {
+  animation: demo-diagram-clock 3.6167s var(--ease-linear, linear) 0s both;
 }
-[data-akari-active] .demo-diagram__link--1 .demo-diagram__bar {
-  animation: demo-diagram-draw .15s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-link-1, .39s) both;
-}
-[data-akari-active] .demo-diagram__link--1 .demo-diagram__tip {
-  animation: demo-diagram-tip .15s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-link-1, .39s) both;
-}
-[data-akari-active] .demo-diagram__node--ai .demo-diagram__pop {
-  animation: demo-diagram-fade-in .04s var(--ease-linear, linear) calc(var(--diagram-at-ai, .547s) - var(--diagram-lead, .033s)) both;
-}
-[data-akari-active] .demo-diagram__node--ai .demo-diagram__disc {
-  animation: demo-diagram-pop .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--diagram-at-ai, .547s) - var(--diagram-lead, .033s)) both;
-}
-[data-akari-active] .demo-diagram__node--ai .demo-diagram__star-big {
-  animation: demo-diagram-spin .5s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-ai, .547s) - var(--diagram-lead, .033s)) both;
-}
-[data-akari-active] .demo-diagram__node--ai .demo-diagram__star-small {
+[data-akari-active] .demo-diagram__scrub {
   animation:
-    demo-diagram-twinkle .32s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--diagram-at-ai, .547s) - var(--diagram-lead, .033s) + .16s) both,
-    demo-diagram-glint .9s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-flow, 1.85s) + .2s) 2 none;
+    demo-diagram-scrub .35s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-play, 1.137s) - var(--diagram-lead, .033s)) both,
+    demo-diagram-fade-in .06s var(--ease-linear, linear) calc(var(--diagram-at-play, 1.137s) - var(--diagram-lead, .033s)) both;
 }
-[data-akari-active] .demo-diagram__node--ai .demo-diagram__text {
-  animation: demo-diagram-rise .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-ai, .547s) - var(--diagram-lead, .033s) + .06s) both;
+/* ヘッドが触れた瞬間に 1 回だけ跳ねる（--hit はヘッドが部品の位置を通る時刻。build_diagram.py が計算）*/
+[data-akari-active] .demo-diagram__block .demo-diagram__fill {
+  animation: demo-diagram-hit-block .24s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--hit, 99s) none;
 }
-[data-akari-active] .demo-diagram__link--2 .demo-diagram__bar {
-  animation: demo-diagram-draw .15s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-link-2, .95s) both;
+[data-akari-active] .demo-diagram__dot-fill {
+  animation: demo-diagram-hit-dot .24s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--hit, 99s) none;
 }
-[data-akari-active] .demo-diagram__link--2 .demo-diagram__tip {
-  animation: demo-diagram-tip .15s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-link-2, .95s) both;
+[data-akari-active] .demo-diagram__block--now .demo-diagram__fill {
+  animation: demo-diagram-beat .4s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-here, 1.42s) none;
 }
-[data-akari-active] .demo-diagram__node--done .demo-diagram__pop {
-  animation: demo-diagram-fade-in .04s var(--ease-linear, linear) calc(var(--diagram-at-done, 1.137s) - var(--diagram-lead, .033s)) both;
+[data-akari-active] .demo-diagram__block--now .demo-diagram__ring {
+  animation: demo-diagram-ring .55s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--diagram-at-here, 1.42s) forwards;
 }
-[data-akari-active] .demo-diagram__node--done .demo-diagram__disc {
-  animation: demo-diagram-pop .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--diagram-at-done, 1.137s) - var(--diagram-lead, .033s)) both;
+[data-akari-active] .demo-diagram__here-pop {
+  animation: demo-diagram-here .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--diagram-at-here, 1.42s) both;
 }
-[data-akari-active] .demo-diagram__node--done .demo-diagram__text {
-  animation: demo-diagram-rise .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-done, 1.137s) - var(--diagram-lead, .033s) + .06s) both;
+/* 件数 */
+[data-akari-active] .demo-diagram__count-label,
+[data-akari-active] .demo-diagram__count-sep {
+  animation: demo-diagram-fade-in .16s var(--ease-linear, linear) both;
+  animation-delay: calc(var(--diagram-at-count, 1.547s) - var(--diagram-lead, .033s) + var(--k) * 50ms);
 }
-[data-akari-active] .demo-diagram__lit {
-  animation:
-    demo-diagram-fill .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-finish, 1.547s) - var(--diagram-lead, .033s)) both,
-    demo-diagram-fade-in .06s var(--ease-linear, linear) calc(var(--diagram-at-finish, 1.547s) - var(--diagram-lead, .033s)) both;
+[data-akari-active] .demo-diagram__count-num {
+  animation: demo-diagram-num .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both;
+  animation-delay: calc(var(--diagram-at-count, 1.547s) - var(--diagram-lead, .033s) + var(--k) * 50ms);
 }
-[data-akari-active] .demo-diagram__beat {
-  animation: demo-diagram-beat .36s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-finish, 1.547s) - var(--diagram-lead, .033s)) both;
+/* 予告（26.20）: スマホのブロックと BGM の山を軽く光らせる */
+[data-akari-active] .demo-diagram__block--next .demo-diagram__fill {
+  animation: demo-diagram-hit-block .36s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-hint, 2.967s) none;
 }
-[data-akari-active] .demo-diagram__badge {
-  animation: demo-diagram-badge .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--diagram-at-finish, 1.547s) - var(--diagram-lead, .033s) + .05s) both;
+[data-akari-active] .demo-diagram__block--next .demo-diagram__glow,
+[data-akari-active] .demo-diagram__bgm-glow {
+  animation: demo-diagram-glow .6s var(--ease-linear, linear) var(--diagram-at-hint, 2.967s) forwards;
 }
-[data-akari-active] .demo-diagram__ring {
-  animation: demo-diagram-ring .6s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--diagram-at-finish, 1.547s) - var(--diagram-lead, .033s)) forwards;
-}
-[data-akari-active] .demo-diagram__outline {
-  animation: demo-diagram-fade-in .12s var(--ease-linear, linear) calc(var(--diagram-at-finish, 1.547s) - var(--diagram-lead, .033s)) both;
-}
-[data-akari-active] .demo-diagram__link--1 .demo-diagram__flow {
-  animation: demo-diagram-flow .9s var(--ease-linear, linear) var(--diagram-at-flow, 1.85s) 2 forwards;
-}
-[data-akari-active] .demo-diagram__link--2 .demo-diagram__flow {
-  animation: demo-diagram-flow .9s var(--ease-linear, linear) calc(var(--diagram-at-flow, 1.85s) + .45s) 2 forwards;
+[data-akari-active] .demo-diagram__hump {
+  animation: demo-diagram-hump .6s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-hint, 2.967s) none;
 }
 
-@keyframes demo-diagram-card-in {
-  0%   { transform: translateX(36px); }
-  100% { transform: translateX(0); }
-}
 @keyframes demo-diagram-fade-in {
   0%   { opacity: 0; }
   100% { opacity: 1; }
 }
-@keyframes demo-diagram-pop {
-  0%   { transform: scale(.5); }
-  100% { transform: scale(1); }
+@keyframes demo-diagram-card-in {
+  0%   { transform: translateX(28px); }
+  100% { transform: translateX(0); }
 }
 @keyframes demo-diagram-rise {
-  0%   { transform: translateY(10px); opacity: 0; }
-  100% { transform: translateY(0);    opacity: 1; }
+  0%   { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0);   opacity: 1; }
 }
-@keyframes demo-diagram-draw {
+@keyframes demo-diagram-grow {
   0%   { transform: scaleX(0); }
   100% { transform: scaleX(1); }
 }
-@keyframes demo-diagram-tip {
-  0%   { transform: translateX(-100%); opacity: 0; }
-  100% { transform: translateX(0);     opacity: 1; }
+@keyframes demo-diagram-pop-in {
+  0%   { transform: scale(0); }
+  100% { transform: scale(1); }
 }
-@keyframes demo-diagram-spin {
-  0%   { transform: rotate(-90deg) scale(.6); }
-  100% { transform: rotate(0deg)   scale(1); }
+@keyframes demo-diagram-clock {
+  0%   { transform: translateX(61.7908%); }
+  100% { transform: translateX(71.4096%); }
 }
-@keyframes demo-diagram-twinkle {
-  0%   { transform: scale(0); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+@keyframes demo-diagram-scrub {
+  0%   { transform: translateX(-64.7252%); }
+  100% { transform: translateX(0); }
 }
-@keyframes demo-diagram-glint {
-  0%   { transform: scale(1);   opacity: 1; }
-  35%  { transform: scale(.55); opacity: .7; }
-  70%  { transform: scale(1.12); opacity: 1; }
-  100% { transform: scale(1);   opacity: 1; }
+@keyframes demo-diagram-hit-block {
+  0%   { transform: scaleY(1); }
+  35%  { transform: scaleY(1.32); }
+  100% { transform: scaleY(1); }
 }
-@keyframes demo-diagram-fill {
-  0%   { transform: scale(.5); }
+@keyframes demo-diagram-hit-dot {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.7); }
   100% { transform: scale(1); }
 }
 @keyframes demo-diagram-beat {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.08); }
+  35%  { transform: scale(1.22); }
   100% { transform: scale(1); }
 }
-@keyframes demo-diagram-badge {
+@keyframes demo-diagram-ring {
+  0%   { transform: scale(1);   opacity: .9; }
+  100% { transform: scale(1.7, 1.9); opacity: 0; }
+}
+@keyframes demo-diagram-here {
   0%   { transform: scale(.4); opacity: 0; }
   100% { transform: scale(1);  opacity: 1; }
 }
-@keyframes demo-diagram-wave {
-  0%   { transform: scale(1);   opacity: .85; }
-  100% { transform: scale(1.3); opacity: 0; }
+@keyframes demo-diagram-num {
+  0%   { transform: scale(.4); opacity: 0; }
+  100% { transform: scale(1);  opacity: 1; }
 }
-@keyframes demo-diagram-ring {
-  0%   { transform: scale(1);    opacity: .9; }
-  100% { transform: scale(1.45); opacity: 0; }
+@keyframes demo-diagram-glow {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; }
 }
-@keyframes demo-diagram-flow {
-  0%   { transform: translateX(-100%); opacity: 0; }
-  15%  { transform: translateX(-85%);  opacity: 1; }
-  82%  { transform: translateX(-18%);  opacity: 1; }
-  100% { transform: translateX(0);     opacity: 0; }
+@keyframes demo-diagram-hump {
+  0%   { transform: scaleY(1); }
+  25%  { transform: scaleY(1.28); }
+  100% { transform: scaleY(1); }
 }
 @keyframes demo-diagram-exit {
   0%   { transform: translateX(0);    opacity: 1; }
@@ -520,60 +549,92 @@
 <div class="demo-diagram__group">
  <div class="demo-diagram__enter">
   <div class="demo-diagram__card">
-    <i class="demo-diagram__outline"></i>
-    <div class="demo-diagram__head"><i class="demo-diagram__head-dot"></i><span>話すだけで、動画ができるまで</span></div>
-
-    <div class="demo-diagram__link demo-diagram__link--1" style="--link-from: -1">
-      <i class="demo-diagram__bar"></i>
-      <span class="demo-diagram__tip"><svg viewBox="0 0 13 16" aria-hidden="true"><path d="M2.2 2.2 11 8 2.2 13.8Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg></span>
-      <span class="demo-diagram__track"><i class="demo-diagram__flow"></i></span>
+   <div class="demo-diagram__head"><span class="demo-diagram__title">この動画の中身</span><span class="demo-diagram__len"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M1.6 1.4v9.2c0 .7.8 1.1 1.4.7l6.4-4.6c.5-.4.5-1.1 0-1.5L3 .7c-.6-.4-1.4 0-1.4.7Z" fill="currentColor"/></svg>37 秒</span></div>
+   <div class="demo-diagram__lane" style="--lane: 0">
+    <span class="demo-diagram__label">字幕</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 37.6 * 100%)"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 0.29; --t1: 1.26"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 2.35; --t1: 3.59"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 3.59; --t1: 5.01"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 5.1; --t1: 6.36"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 6.43; --t1: 7.17"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 7.84; --t1: 9.9"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 9.9; --t1: 10.72"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 11.3; --t1: 12.57"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 12.57; --t1: 14.05"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 14.05; --t1: 14.49"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 15.31; --t1: 16.9"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 16.9; --t1: 18.44"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 18.74; --t1: 20.55"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 20.55; --t1: 21.68"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 22.64; --t1: 23.78"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 23.78; --t1: 25.01"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 27.07; --t1: 27.77"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 27.77; --t1: 29.45"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 29.45; --t1: 30.63"></i>
+     <i class="demo-diagram__span demo-diagram__cap demo-diagram__cap--karaoke" style="--t0: 30.63; --t1: 32.54"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 33.3; --t1: 34.79"></i>
+     <i class="demo-diagram__span demo-diagram__cap" style="--t0: 34.79; --t1: 35.64"></i>
     </div>
-    <div class="demo-diagram__link demo-diagram__link--2" style="--link-from: 0">
-      <i class="demo-diagram__bar"></i>
-      <span class="demo-diagram__tip"><svg viewBox="0 0 13 16" aria-hidden="true"><path d="M2.2 2.2 11 8 2.2 13.8Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg></span>
-      <span class="demo-diagram__track"><i class="demo-diagram__flow"></i></span>
+   </div>
+   <div class="demo-diagram__lane" style="--lane: 1">
+    <span class="demo-diagram__label">テロップ</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 37.6 * 100%)"></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 0.2333; --t1: 7.4667; --hit: 1.128s" data-id="demo-title"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 8.5333; --t1: 10.9667; --hit: 1.191s" data-id="demo-chat"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 11.2667; --t1: 14.8667; --hit: 1.202s" data-id="demo-done"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 17.4667; --t1: 21.9667; --hit: 1.237s" data-id="demo-effects"><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block demo-diagram__block--now" style="--t0: 23.2333; --t1: 26.9" data-id="demo-diagram"><i class="demo-diagram__ring"></i><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block demo-diagram__block--next" style="--t0: 26.9667; --t1: 32.9333" data-id="demo-phone"><i class="demo-diagram__glow"></i><i class="demo-diagram__fill"></i></i>
+     <i class="demo-diagram__span demo-diagram__block" style="--t0: 35.6; --t1: 37.6" data-id="demo-credit"><i class="demo-diagram__fill"></i></i>
     </div>
-
-    <div class="demo-diagram__node demo-diagram__node--talk" style="--node-i: -1">
-      <div class="demo-diagram__pop">
-        <i class="demo-diagram__wave demo-diagram__wave--1"></i>
-        <i class="demo-diagram__wave demo-diagram__wave--2"></i>
-        <div class="demo-diagram__beat">
-          <div class="demo-diagram__disc">
-            <span class="demo-diagram__icon"><svg viewBox="0 0 44 44" aria-hidden="true"><rect x="14.5" y="3" width="15" height="24" rx="7.5" fill="currentColor"/><path d="M8 19.5a14 14 0 0 0 28 0M22 33.5V40M14.5 40.5H29.5" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg></span>
-          </div>
-        </div>
-      </div>
-      <div class="demo-diagram__text"><span class="demo-diagram__label">話す</span></div>
+   </div>
+   <div class="demo-diagram__lane" style="--lane: 2">
+    <span class="demo-diagram__label">効果音</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 37.6 * 100%)"></i>
+     <i class="demo-diagram__dot" style="--t0: 0.49; --dy: 0px; --hit: 1.131s" data-id="demo-sfx-title-whoosh"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 3.5817; --dy: 0px; --hit: 1.166s" data-id="demo-sfx-name-pop"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 8.5533; --dy: -6px; --hit: 1.190s" data-id="demo-sfx-chat-pop-1"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 9.2533; --dy: 6px; --hit: 1.193s" data-id="demo-sfx-chat-pop-2"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 13.405; --dy: 0px; --hit: 1.211s" data-id="demo-sfx-done-tone"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 17.4917; --dy: 0px; --hit: 1.236s" data-id="demo-sfx-kouka-pop"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 19.6967; --dy: -6px; --hit: 1.257s" data-id="demo-sfx-pa-whoosh"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 20.5717; --dy: 6px; --hit: 1.267s" data-id="demo-sfx-hora-sparkle"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 23.2563; --dy: -6px; --hit: 1.317s" data-id="demo-sfx-diagram-pon"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 23.7737; --dy: 6px; --hit: 1.333s" data-id="demo-sfx-diagram-stack"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 24.3703; --dy: -6px; --hit: 1.361s" data-id="demo-sfx-diagram-playhead"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 24.7747; --dy: 6px" data-id="demo-sfx-diagram-count"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 27.1933; --dy: -6px" data-id="demo-sfx-phone-swoosh"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 27.7767; --dy: 6px" data-id="demo-sfx-phone-tap"><i class="demo-diagram__dot-fill"></i></i>
+     <i class="demo-diagram__dot" style="--t0: 35.6483; --dy: 0px" data-id="demo-sfx-punchline-ding"><i class="demo-diagram__dot-fill"></i></i>
     </div>
-
-    <div class="demo-diagram__node demo-diagram__node--ai" style="--node-i: 0">
-      <div class="demo-diagram__pop">
-        <div class="demo-diagram__beat">
-          <div class="demo-diagram__disc">
-            <span class="demo-diagram__icon">
-              <svg class="demo-diagram__star-big" viewBox="0 0 44 44" aria-hidden="true"><path d="M19 6.5c1.4 8.9 6.6 14.1 15.5 15.5-8.9 1.4-14.1 6.6-15.5 15.5C17.6 28.6 12.4 23.4 3.5 22 12.4 20.6 17.6 15.4 19 6.5Z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-              <svg class="demo-diagram__star-small" viewBox="0 0 44 44" aria-hidden="true"><path d="M37 1.5c.5 3.3 2.2 5 5.5 5.5-3.3.5-5 2.2-5.5 5.5-.5-3.3-2.2-5-5.5-5.5 3.3-.5 5-2.2 5.5-5.5Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
-            </span>
-          </div>
-        </div>
-      </div>
-      <div class="demo-diagram__text"><span class="demo-diagram__label">AI が編集</span><span class="demo-diagram__sub">テロップ・図解・音</span></div>
+   </div>
+   <div class="demo-diagram__lane" style="--lane: 3">
+    <span class="demo-diagram__label">BGM</span>
+    <i class="demo-diagram__track"></i>
+    <div class="demo-diagram__axis"><i class="demo-diagram__grid" style="left: calc(10 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(20 / 37.6 * 100%)"></i><i class="demo-diagram__grid" style="left: calc(30 / 37.6 * 100%)"></i>
+     <div class="demo-diagram__bgm"><i class="demo-diagram__bgm-glow"></i><svg viewBox="0 0 382 46" preserveAspectRatio="none" aria-hidden="true"><path class="demo-diagram__wave" d="M1.75 22.32V23.68 M5.26 19.80V26.20 M8.76 18.76V27.24 M12.27 18.50V27.50 M15.77 18.87V27.13 M19.28 20.07V25.93 M22.78 20.21V25.79 M26.28 18.75V27.25 M29.79 18.38V27.62 M33.29 18.32V27.68 M36.8 17.27V28.73 M40.3 17.20V28.80 M43.81 17.25V28.75 M47.31 18.71V27.29 M50.82 19.70V26.30 M54.32 19.20V26.80 M57.83 18.64V27.36 M61.33 17.09V28.91 M64.83 17.16V28.84 M68.34 17.09V28.91 M71.84 18.26V27.74 M75.35 18.32V27.68 M78.85 19.17V26.83 M82.36 19.42V26.58 M85.86 19.67V26.33 M89.37 19.73V26.27 M92.87 21.41V24.59 M96.38 20.12V25.88 M99.88 20.19V25.81 M103.39 20.23V25.77 M106.89 20.25V25.75 M110.39 19.21V26.79 M113.9 18.97V27.03 M117.4 17.33V28.67 M120.91 17.35V28.65 M124.41 17.18V28.82 M127.92 18.47V27.53 M131.42 18.60V27.40 M134.93 19.37V26.63 M138.43 19.03V26.97 M141.94 19.11V26.89 M145.44 19.09V26.91 M148.94 18.09V27.91 M152.45 17.20V28.80 M155.95 17.12V28.88 M159.46 17.88V28.12 M162.96 18.69V27.31 M166.47 19.16V26.84 M169.97 18.88V27.12 M173.48 18.50V27.50 M176.98 17.24V28.76 M180.49 17.30V28.70 M183.99 17.38V28.62 M187.5 18.45V27.55 M191.0 18.59V27.41 M194.5 19.23V26.77 M198.01 19.39V26.61 M201.51 19.11V26.89 M205.02 19.13V26.87 M208.52 19.91V26.09 M212.03 19.82V26.18 M215.53 20.00V26.00 M219.04 20.10V25.90 M222.54 21.55V24.45 M226.05 19.04V26.96 M229.55 18.62V27.38 M233.06 17.05V28.95 M236.56 17.05V28.95 M240.06 17.03V28.97 M243.57 18.32V27.68 M247.07 18.16V27.84 M250.58 18.26V27.74 M254.08 18.48V27.52 M257.59 19.42V26.58 M261.09 18.69V27.31 M264.6 18.02V27.98 M268.1 16.88V29.12 M271.61 17.00V29.00 M275.11 17.03V28.97 M278.61 18.38V27.62 M282.12 18.57V27.43 M285.62 19.32V26.68 M289.13 17.52V28.48 M292.63 17.10V28.90 M296.14 16.96V29.04 M320.67 19.44V26.56 M324.17 19.22V26.78 M327.68 17.30V28.70 M331.18 17.39V28.61 M334.69 17.54V28.46 M338.19 19.01V26.99 M341.7 18.76V27.24 M345.2 18.66V27.34 M348.71 17.14V28.86 M352.21 17.18V28.82 M355.72 17.16V28.84 M359.22 18.50V27.50 M362.72 15.60V30.40 M366.23 8.88V37.12 M369.73 9.33V36.67 M373.24 12.39V33.60 M376.74 15.20V30.80 M380.25 18.41V27.59" vector-effect="non-scaling-stroke"/><path class="demo-diagram__wave demo-diagram__hump" d="M299.64 10.21V35.79 M303.15 9.79V36.21 M306.65 10.14V35.85 M310.16 10.72V35.28 M313.66 13.45V32.55 M317.17 19.04V26.96" vector-effect="non-scaling-stroke"/></svg></div>
     </div>
-
-    <div class="demo-diagram__node demo-diagram__node--done" style="--node-i: 1">
-      <div class="demo-diagram__pop">
-        <i class="demo-diagram__ring"></i>
-        <div class="demo-diagram__beat">
-          <div class="demo-diagram__disc">
-            <i class="demo-diagram__lit"></i>
-            <span class="demo-diagram__icon"><svg viewBox="0 0 44 44" aria-hidden="true"><path d="M16 9.8v24.4c0 1.9 2.1 3.1 3.7 2.1l19.2-12.2c1.5-.9 1.5-3.2 0-4.1L19.7 7.7C18.1 6.7 16 7.9 16 9.8Z" fill="currentColor"/></svg></span>
-          </div>
-          <span class="demo-diagram__badge"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.4 8.4 6.6 11.4 12.6 4.8" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        </div>
-      </div>
-      <div class="demo-diagram__text"><span class="demo-diagram__label">完成！</span></div>
-    </div>
+   </div>
+   <div class="demo-diagram__head-wrap">
+    <div class="demo-diagram__clock"><div class="demo-diagram__scrub">
+     <i class="demo-diagram__line"></i>
+     <i class="demo-diagram__knob"></i>
+     <div class="demo-diagram__here"><span class="demo-diagram__here-pop">いまここ</span></div>
+    </div></div>
+   </div>
+   <div class="demo-diagram__counts">
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 0">テロップ</span><span class="demo-diagram__count-num" style="--k: 0">7</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 1"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 1">効果音</span><span class="demo-diagram__count-num" style="--k: 1">15</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 2"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 2">BGM</span><span class="demo-diagram__count-num" style="--k: 2">1</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 3"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 3">字幕</span><span class="demo-diagram__count-num" style="--k: 3">22</span></span>
+   </div>
   </div>
  </div>
 </div>

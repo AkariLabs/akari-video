@@ -4,21 +4,27 @@
   編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」
   edit.json では段 demo-stage、at 338 / duration 108（11.2667〜14.8667 秒）。
   時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 338) / 30）。
-    1 行目   0.000 → 0.30   「喋ってるだけで」が下から（translateY 14→0、--ease-smooth）。
-                             不透明度は 0.10 秒で立てる（語頭 11.30 = フレーム 339 で 3 割見える）
+    1 行目   0.000 → 0.30   強調テロップ「🎙 喋ってるだけで ▮▮▮▮▮」が下から（translateY 14→0、--ease-smooth）。
+                             不透明度は 0.10 秒で立てる（語頭 11.30 = フレーム 339 で 3 割見える）。
+                             マイクは同時に scale .6→1 でポップ（0.36 秒、--ease-overshoot-soft）
+    声の波形 常時           右の棒 5 本が scaleY で跳ねる（中心起点）。周期は BGM と同じ 85 BPM の 1 拍
+                             （.7059 秒）。棒ごとに 0 / .18 / .09 / .27 / .13 秒ずらし、左端の棒の山を
+                             BGM の拍（19.70 − 11 × .70588 = 11.935 = ローカル .6686）に置く（BGM 札 demo-bgm と同じ位相）
     2 行目   1.270 → 1.59   「編集は」が下から（translateY 20→0）。語頭 12.57 → フレーム 377 で見える
     判子     2.090 → 2.29   「終わってる」の語頭 13.42 に叩きつける。フレーム 401（13.367）で大きく薄く現れ、
                              0.08 秒で 13.44 に着地（scale 1.9→.92→1.03→1）。
                              正解音（13.40）の直後に着地が来るよう、着地を先に合わせてある
-    着地     2.170          朱の輪が紙の縁から広がって消える（scale 1→1.35・opacity .6→0、0.30 秒）、
-                             2 行目が横に小さく揺れる（0.14 秒）、紙の落ち影が真下に締まる
+    着地     2.170          朱の輪が判子の縁から広がって消える（scale 1→1.22・opacity .6→0、0.30 秒。
+                             1.22 = 輪の右端が舞台の右端 1240 を越えない上限）、2 行目が横に小さく揺れる（0.14 秒）
     抜け     3.280 → 3.53   全体が上へ 10px 抜けて消える（--ease-accelerate、forwards）
   base（アニメ無しの見た目）は最終の静止状態。朱の輪だけは最終状態も不可視の過渡なので base で隠す。
-  判子は白い紙の円（不透明度 .96）に朱の二重円と「完了」。朱は左上 100% → 右下の縁 80% の押しムラ。
+  判子は地を持たない（透明）。朱の二重円（外 7px・内 2px）と朱の「完了」だけを壁に押した印影。
+  朱は左上 100% → 右下の縁 80% の押しムラ。回転 −12° は判子の外枠ごと（輪も字も一緒に）回す。
+  「完了」は字の外形（2 字の墨の範囲）の中心を円の中心に合わせる（build-demo-done.py が書体から計算）。
 
   書体:
     AKARI Demo Sans（系統）= Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
-                         Name 'Source'）の wght 800 / 900 を、この断片で使う文字だけに切り出した改変版
+                         Name 'Source'）の wght 900 を、この断片で使う文字だけに切り出した改変版
     AKARI Demo Display（系統）= Dela Gothic One（SIL Open Font License 1.1、著作権 The Dela Gothic
                          Project Authors）を「完了」の 2 字だけに切り出した改変版
     どちらも別名で埋め込み、フォント内に著作権表示と許諾を保持。@font-face の family は
@@ -29,41 +35,41 @@
     含めるのは、行の高さの基準になる「最初に使える書体」を OS の書体でなくこの書体に固定するため
 
   ツマミ（edit.json の overlays[].vars で上書きする）:
-    --done-lead-right / --done-lead-top / --done-lead-size
-                              1 行目の右端から画面右までの距離・上端・文字サイズ（既定 82px / 162px / 38px）
+    --done-lead-left / --done-lead-top / --done-lead-width / --done-lead-size / --done-lead-gap
+                              1 行目（マイク・文字・波形）の左端・上端・幅・文字サイズ・部品の間隔
+                              （既定 770px / 140px / 450px / 56px / 9px。部品は幅の中で中央揃え。
+                              既定ではマイクの左端が 2 行目「編」の左端と、波形の右端が判子の右端と揃う）
+    --done-mic-size           マイクの高さ（既定 40px。幅は形なりの 32.4px）
+    --done-beat / --done-beat-peak
+                              波形の周期と、左端の棒の最初の山の時刻（既定 .7059s / .6686s）
     --done-head-left / --done-head-top / --done-head-size
-                              2 行目の左端・上端・文字サイズ（既定 780px / 250px / 84px）
+                              2 行目の左端・上端・文字サイズ（既定 770px / 250px / 84px。
+                              「は」の白フチと判子の輪の間が 12px 以上空く位置）
     --done-stamp-cx / --done-stamp-cy / --done-stamp-size / --done-stamp-rotate
-                              判子の中心・朱の輪の外径・傾き（既定 1116px / 306px / 164px / -12deg）
+                              判子の中心・朱の輪の外径・傾き（既定 1132px / 300px / 176px / -12deg）
     --done-halo / --done-halo-color / --done-shadow-color
-                              壁に直に置く文字の白フチの太さ・色、その下の柔らかい影の色
+                              壁に直に置く文字・マイク・波形の白フチの太さ・色、文字の下の柔らかい影の色
                               （既定 9px / #FFFFFF / rgba(58,38,20,.085) × 8 点 = 影 0 4px 14px 相当）
-    --done-paper              判子の紙の色（既定 rgba(255,255,255,.96)）
-    --demo-ink / --demo-stamp 墨（文字）と朱（判子）
+    --demo-ink / --demo-accent / --demo-stamp
+                              墨（文字）・橙（マイクと波形）・朱（判子）
     --done-font / --done-stamp-font
                               書体（既定 AKARI Demo Sans Done / AKARI Demo Display Done → Hiragino Sans → Yu Gothic UI …）
     --done-lead-delay / --done-head-delay / --done-stamp-delay / --done-exit-delay
                               各段の発火時刻（ローカル秒。着地の輪と揺れは判子 + 0.08 秒に従う）
+  イージングは語彙（--ease-*）を名前で呼び、語彙と同じ値をフォールバックに添える（GPU 書き出しの
+  DOM 層は motion-vocab.css を読まないため）。
 */
 @font-face {
   font-family: "AKARI Demo Sans Done";
-  src: url(data:font/woff2;base64,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) format("woff2");
-  font-weight: 800;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0020, U+3051, U+3060, U+3063, U+3066, U+3067, U+308B, U+558B;
-}
-@font-face {
-  font-family: "AKARI Demo Sans Done";
-  src: url(data:font/woff2;base64,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) format("woff2");
+  src: url(data:font/woff2;base64,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) format("woff2");
   font-weight: 900;
   font-style: normal;
   font-display: block;
-  unicode-range: U+0020, U+306F, U+7DE8, U+96C6;
+  unicode-range: U+0020, U+3051, U+3060, U+3063, U+3066, U+3067, U+306F, U+308B, U+558B, U+7DE8, U+96C6;
 }
 @font-face {
   font-family: "AKARI Demo Display Done";
-  src: url(data:font/woff2;base64,d09GMgABAAAAAAQMAA8AAAAACMQAAAO2AAEBRwAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcgRQGYABEEQgKgkCCGgE2AiQDGAsOAAQgBYguByAXJBgOG4sHKJ6HsQOtKRO0GKlYxdF/IojyoKozWYg8UT/5JSBn5n/nMh2y4j8EsIW0fMlLfo/UTQMJNaH2JuQUkJ2eUUfktnvW+5LNJIIYLMmI9+Evxx/w7LTxKJEIl9AY+4E0eA7qCBsiyzpsbfJIEw2AU690HbfXKFV9RNTJo2bsaoGqmqunjJ+4c0Ly5FCWAFTu6UQmVKjahwk/ym8NRjxEOP0mi9es8ZFUnUMcg1TfZQiIIBxohcpa6mHLlYWuqZzJVTB7ZRrqy5QqykVsTumZOFcFstOzC8Q0U4mVhtKDUAGOqIy9jBnbe2QBzDMTL08lPzUk98qaZ39oLRMZEhqt9WXpjaisupbWffKyM8sS+W9VfnzHkTceQgEQoixVBRVBdVTGKsQxCMhBQsghT6lx9ayuqbBCnTx5SMmO/aVHvDZf6rXXqr7xxtjXq51xSyjVOj3UqbpS54iaUTVqRA01VF0Y1f30WuNL77+7/2NVF15c9e2FiNdem//CGzPffHNW1aijwLEXVbu6JC6bPr5gwNqqC5p9cecXA3Yf+Vj3gn8a3tD6RsN/r0uW3brq6yEbBz9a99bak1qtr3Fv5akuF1dKD1ter9uXz+8ytu75fNiCYnz7Ki3ji0UXTmr8YOPbr8g3n7h3//ihOm0WuK//8aIeh0/cf9q1urHa8chX1zY9afDQr66+5urvp2XXVyp4rWLHBQO3V3jkmcabN3UgEIiYdFrDh8esKh3+W+VqqYD3Tql1gvDFJ3+9Xpbp9Hz2LyrJQJCf+v9HpKLUrH4FAKBiKjTzQSp0QW2J4teGWioaIUtiqKvVcL0k8iq4lQKhvWdkanoFyVz/yPXPECpoGhMV9U4KldXOi3EVVNM5r6huegrUiLbZyHk1DawzyxguQXBYbAgMGQjvBSdsFFhB+VRgHYNsDh04IDAuSue5KETOYwQJdLAhxElT+vWzONjVIU0fHRPoJyWoPKEkKqLf2cG9rtOibYuObIoxwHLZIXGqNeEIZQmrjPC4bdhW6l2cJgU7JQr1Mlh7np+JoCJKcPMMnSXgNH1aMKjPgAGjkvagQSpPRIhis5ogSgyFf+c1AifpWgmsYSIQOMaYUIxKoAAL+BypyKytBhCKMJQD0BugHa2bdoB9nBjoH9/pET2jJrUH56cdfdyttI0qSuXwqTQ+CkYM2Ij94qLDYjKaAuN9BySd4OCQ1Edy+PowgqXfvjU7LGVyq+U9+nps1Kb8+n/1VKTCfpE6HBEAIFLh9MRd2x/jaTcAAA==) format("woff2");
+  src: url(data:font/woff2;base64,d09GMgABAAAAAAQQAA8AAAAACMQAAAO6AAEBRwAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcgRQGYABEEQgKgkCCGgE2AiQDGAsOAAQgBYguByAXJBgOG4sHKJ4FORnaK7GgzuRik/P+i0gEUN7zzmbzBaq9yTfYr73J+d81NFdkxb8IYA9yQLmX5ApEz/f1+fI2PwVkpyerJkfktnvW+5LNJIIYLMn8j6/14S/HH/DstPEokQiX0Bj7gTR4DuoIGyLLOmxt8kgTDYBTr3Qdt9coVX1E1MmjZuxqAQVVlk7o3XdkBoVJIQNA5aZmBEKFpL1C7Sg/kbseIhx/k8UzZtgcJZ0lQ0HJdxkCJBAOaIX8qiphy/kFDVM5kcpj9so0KC1QyisVYXOML4Xj8pAcTBYgg0wlTFWVEog8cIT82EuPMTyGOsA8j162n3R/kNwrqZz8QXWBSBDRaC0tSHNIftW1VO/DSYczyH+r7Mv7N99eRwAQhIyCIC8ojPyYBtkGgRREBCmkMZYvHNQwRuYpka6ui1myOnbTO6Ntv/NOwffe6/luoUN3C0Khek/WKyyU2BQTCoYioYgiCo4Nhf30Tvnzj32seabg2LMFv7wWwjvvjH7tvaHvvz+sYCghwvYzkWfnhJ2Kz45pMzNiTKXvHviuzfL125Kn/il7q/ptnX+zc5PumfZjh7kNT5e8p3i/jNnRj+RvanA23/9OkxMbff/qMnXr07edxrz3rl0gp/f7uNP9yj9R/r5LQYPPPbK6d1WJGmPQdekvxzXZ2Dd+v2x6ZqHprm/PrLinfccfrl67+zcouZkv4p28dcfULQ5+6qXy87UCCAJC6Hf50IM/Lbbzb/kLxRx8sq/YDMSn9Xd3ys5+j68m/yKfBATS/f9/Qcxlq1S/BQBA3phTyTdiTgPUlij82lBLXl0ESQx1tSJuikJaAPdQIKjtCYmi3kI00l+kWqcKeVSMiryaZxv5Fc+LcQEUUj+fUdjg5FAk1Exqziuqbc3pRnhWUAaNjgNVKsJ7wQwdBnpgNhHoR3A6gwxMoAgTJvPs5CPnERQDCug4zsM0KVdOY2BX+yRlZISjHLNCZPGtwlzlzg7udYU6Des0ZVCMDpLLBsajWldMwTR+laEetw3bSqWLzZhgJ4NxpRTWnucnXFhECW7OwbMEjKZPCyqVqVChVtIeNJzIEi65pVlNOIwOhX/nNQIz6VoG9CFcHJhGqLglIgoDLGBzxNxZWxXA51KUA9AbwB2tg0aAcR4x0D8+0iNKRk1qD85PO/q4W2kb0SKRwSaS2DAYMaAj9oudJovJXBMY7zvAyCiDh2PKMAZbGYLSlBvXZ4SlQG41S0uPDcUJv/5fOOZizmpubYQEABBizsHoObc6xuNyAAA=) format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: block;
@@ -91,15 +97,22 @@
   inset: 0;
 }
 
+.demo-done svg {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
 /* ── 壁に直に置く文字（白フチ 9px ＋ 暖色の影）──────────────── */
-.demo-done__lead,
+.demo-done__lead-text,
 .demo-done__head-text {
   display: block;
   white-space: nowrap;
   line-height: 1;
-  /* 白フチ: 半径 --done-halo の円周 32 点へ文字の形を白でずらし置きした輪（角が丸く出る。
+  font-weight: 900;
+  /* 白フチ: 半径 --done-halo の円周 32 点へ文字の形を白でずらし置いた丸い輪（角が丸く出る。
      -webkit-text-stroke は HTML の文字では角が尖る＝stroke-linejoin が効かない）。
-     その下に、同じ円周 8 点から暖色の柔らかい影を落として、白フチごと壁から浮かせる */
+     その下に、同じ円の 8 点から暖色の柔らかい影を落として、白フチごと壁から浮かせる */
   text-shadow:
     calc(var(--done-halo, 9px) * 1.0000) calc(var(--done-halo, 9px) * 0.0000) 0 var(--done-halo-color, #FFFFFF),
     calc(var(--done-halo, 9px) * 0.9808) calc(var(--done-halo, 9px) * 0.1951) 0 var(--done-halo-color, #FFFFFF),
@@ -143,50 +156,79 @@
     calc(var(--done-halo, 9px) * 0.7071) calc(var(--done-halo, 9px) * -0.7071 + 4px) 14px var(--done-shadow-color, rgba(58, 38, 20, .085));
 }
 
+/* ── 1 行目: 強調テロップ（マイク・文字・声の波形）─────────── */
 .demo-done__lead {
   position: absolute;
-  right: var(--done-lead-right, 82px);
-  top: var(--done-lead-top, 162px);
-  font-size: var(--done-lead-size, 38px);
-  font-weight: 800;
-  letter-spacing: .02em;
-  text-align: right;
+  left: var(--done-lead-left, 770px);
+  top: var(--done-lead-top, 140px);
+  width: var(--done-lead-width, 450px);
+  height: var(--done-lead-size, 56px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--done-lead-gap, 9px);
 }
 
+.demo-done__lead-text {
+  font-size: var(--done-lead-size, 56px);
+  letter-spacing: 0;
+}
+
+/* マイク（demo-title と同じ形。viewBox は形の外形ぴったり 32 × 39.5）。白フチは同じ形を白い太線で下に敷く */
+.demo-done__mic {
+  width: calc(var(--done-mic-size, 40px) * .8101);
+  height: var(--done-mic-size, 40px);
+  color: var(--demo-accent, #F97316);
+  transform: scale(1);
+}
+.demo-done__mic-halo {
+  fill: var(--done-halo-color, #FFFFFF);
+  stroke: var(--done-halo-color, #FFFFFF);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* 高さ 39.5 単位を 40px に描くので、ユーザー単位 1 = 1.0127px。白フチ 9px = 8.89 単位（× 2 = 線の太さ） */
+.demo-done__mic-halo rect { stroke-width: calc(var(--done-halo, 9px) * 1.975); }
+.demo-done__mic-halo path { fill: none; stroke-width: calc(4px + var(--done-halo, 9px) * 1.975); }
+
+/* 声の波形: 棒 5 本（幅 6・高さ 12〜36）。線の端を丸め、太さは拡縮しない（non-scaling-stroke）ので
+   scaleY で縮んでも丸い棒のまま。白フチは同じ棒を白い太線で下に敷く */
+.demo-done__bar {
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transform: scaleY(var(--bar-rest, .7));
+}
+.demo-done__wave-ink .demo-done__bar {
+  stroke: var(--demo-accent, #F97316);
+  stroke-width: 6px;
+}
+.demo-done__wave-halo .demo-done__bar {
+  stroke: var(--done-halo-color, #FFFFFF);
+  stroke-width: calc(6px + var(--done-halo, 9px) * 2);
+}
+
+/* ── 2 行目 ─────────────────────────────────────────── */
 .demo-done__head {
   position: absolute;
-  left: var(--done-head-left, 780px);
+  left: var(--done-head-left, 770px);
   top: var(--done-head-top, 250px);
 }
 
 .demo-done__head-text {
   font-size: var(--done-head-size, 84px);
-  font-weight: 900;
   letter-spacing: .01em;
 }
 
-/* ── 判子 ─────────────────────────────── */
+/* ── 判子（地は透明。朱の二重円と朱の字だけ）──────────────── */
 .demo-done__stamp {
   position: absolute;
-  left: calc(var(--done-stamp-cx, 1116px) - var(--done-stamp-size, 164px) / 2);
-  top: calc(var(--done-stamp-cy, 306px) - var(--done-stamp-size, 164px) / 2);
-  width: var(--done-stamp-size, 164px);
-  height: var(--done-stamp-size, 164px);
+  left: calc(var(--done-stamp-cx, 1132px) - var(--done-stamp-size, 176px) / 2);
+  top: calc(var(--done-stamp-cy, 300px) - var(--done-stamp-size, 176px) / 2);
+  width: var(--done-stamp-size, 176px);
+  height: var(--done-stamp-size, 176px);
   transform: rotate(var(--done-stamp-rotate, -12deg));
-}
-
-/* 紙（白い円）の落ち影。宙にある間は大きく薄く、着地で紙の真下に締まる */
-.demo-done__stamp-shadow {
-  position: absolute;
-  inset: -12px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side,
-    rgba(58, 38, 20, .30) 0%,
-    rgba(58, 38, 20, .22) 62%,
-    rgba(58, 38, 20, .08) 84%,
-    rgba(58, 38, 20, 0) 100%);
-  opacity: 1;
-  transform: translate(0, 8px) scale(1);
 }
 
 .demo-done__slam {
@@ -196,20 +238,11 @@
   transform: scale(1);
 }
 
-.demo-done__paper {
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  background: var(--done-paper, rgba(255, 255, 255, .96));
-}
-
 .demo-done__slam svg {
   position: absolute;
   inset: 0;
-  display: block;
   width: 100%;
   height: 100%;
-  overflow: visible;
 }
 
 .demo-done__ink-ring,
@@ -222,7 +255,7 @@
 
 .demo-done__stamp-text {
   font-family: var(--done-stamp-font, "AKARI Demo Display Done", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
-  font-size: 70px;
+  font-size: 64px;
   font-weight: 400;
   font-feature-settings: normal;
   letter-spacing: 0;
@@ -232,17 +265,17 @@
 /* 着地の輪（最終状態も不可視の過渡 FX） */
 .demo-done__ring {
   position: absolute;
-  left: calc(var(--done-stamp-cx, 1116px) - var(--done-stamp-size, 164px) / 2 - 4px);
-  top: calc(var(--done-stamp-cy, 306px) - var(--done-stamp-size, 164px) / 2 - 4px);
-  width: calc(var(--done-stamp-size, 164px) + 8px);
-  height: calc(var(--done-stamp-size, 164px) + 8px);
+  left: calc(var(--done-stamp-cx, 1132px) - var(--done-stamp-size, 176px) / 2);
+  top: calc(var(--done-stamp-cy, 300px) - var(--done-stamp-size, 176px) / 2);
+  width: var(--done-stamp-size, 176px);
+  height: var(--done-stamp-size, 176px);
   border-radius: 50%;
   border: 6px solid var(--demo-stamp, #E8541E);
   opacity: 0;
   transform: scale(1);
 }
 
-/* ── 動き（活性区間だけ宣言する）────────────── */
+/* ── 動き（活性区間だけ宣言する）────────────────────── */
 [data-akari-active] .demo-done__group {
   animation: demo-done-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--done-exit-delay, 3.28s) forwards;
 }
@@ -250,6 +283,13 @@
   animation:
     demo-done-rise-14 .30s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--done-lead-delay, 0s) both,
     demo-done-fade-in .10s var(--ease-linear, linear) var(--done-lead-delay, 0s) both;
+}
+[data-akari-active] .demo-done__mic {
+  animation: demo-done-mic-pop .36s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--done-lead-delay, 0s) both;
+}
+[data-akari-active] .demo-done__bar {
+  animation: demo-done-bar var(--done-beat, .7059s) var(--ease-linear, linear) infinite both;
+  animation-delay: calc(var(--done-beat-peak, .6686s) - var(--done-beat, .7059s) * 1.5 + var(--bar-offset, 0s));
 }
 [data-akari-active] .demo-done__head-text {
   animation:
@@ -263,9 +303,6 @@
   animation:
     demo-done-slam .20s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both,
     demo-done-fade-in .06s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both;
-}
-[data-akari-active] .demo-done__stamp-shadow {
-  animation: demo-done-shadow .20s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both;
 }
 [data-akari-active] .demo-done__ring {
   animation: demo-done-ring .30s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--done-stamp-delay, 2.09s) + .08s) forwards;
@@ -283,21 +320,28 @@
   0%   { opacity: 0; }
   100% { opacity: 1; }
 }
+@keyframes demo-done-mic-pop {
+  0%   { transform: scale(.6); }
+  100% { transform: scale(1); }
+}
+/* 山（50%）の手前 0.085 秒で一気に上がり、残りで落ちる（BGM 札と同じメーターの形） */
+@keyframes demo-done-bar {
+  0%   { transform: scaleY(.35); }
+  38%  { transform: scaleY(.42); }
+  50%  { transform: scaleY(1); }
+  62%  { transform: scaleY(.78); }
+  80%  { transform: scaleY(.52); }
+  100% { transform: scaleY(.35); }
+}
 @keyframes demo-done-slam {
   0%   { transform: scale(1.9); }
   40%  { transform: scale(.92); }
   70%  { transform: scale(1.03); }
   100% { transform: scale(1); }
 }
-@keyframes demo-done-shadow {
-  0%   { transform: translate(16px, 34px) scale(1.75); opacity: 0; }
-  40%  { transform: translate(0, 6px) scale(.95);      opacity: 1; }
-  70%  { transform: translate(0, 9px) scale(1.04);     opacity: 1; }
-  100% { transform: translate(0, 8px) scale(1);        opacity: 1; }
-}
 @keyframes demo-done-ring {
   0%   { transform: scale(1);    opacity: .6; }
-  100% { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.22); opacity: 0; }
 }
 @keyframes demo-done-shake {
   0%   { transform: translateX(0); }
@@ -311,29 +355,49 @@
 }
 </style>
 <div class="demo-done__group">
-  <span class="demo-done__lead" data-akari-slot="lead">喋ってるだけで</span>
+  <div class="demo-done__lead">
+    <svg class="demo-done__mic" viewBox="6 3 32 39.5" aria-hidden="true">
+      <g class="demo-done__mic-halo"><rect x="14.5" y="3" width="15" height="24" rx="7.5"/><path d="M8 19.5a14 14 0 0 0 28 0M22 33.5V40M14.5 40.5H29.5"/></g>
+      <rect x="14.5" y="3" width="15" height="24" rx="7.5" fill="currentColor"/><path d="M8 19.5a14 14 0 0 0 28 0M22 33.5V40M14.5 40.5H29.5" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+    <span class="demo-done__lead-text" data-akari-slot="lead">喋ってるだけで</span>
+    <svg class="demo-done__wave" viewBox="0 0 42 36" width="42" height="36" aria-hidden="true">
+      <g class="demo-done__wave-halo">
+        <line class="demo-done__bar" x1="3" y1="13" x2="3" y2="23" style="--bar-offset:0s;--bar-rest:.55"/>
+        <line class="demo-done__bar" x1="12" y1="6" x2="12" y2="30" style="--bar-offset:.18s;--bar-rest:.9"/>
+        <line class="demo-done__bar" x1="21" y1="10" x2="21" y2="26" style="--bar-offset:.09s;--bar-rest:.7"/>
+        <line class="demo-done__bar" x1="30" y1="3" x2="30" y2="33" style="--bar-offset:.27s;--bar-rest:1"/>
+        <line class="demo-done__bar" x1="39" y1="15" x2="39" y2="21" style="--bar-offset:.13s;--bar-rest:.62"/>
+      </g>
+      <g class="demo-done__wave-ink">
+        <line class="demo-done__bar" x1="3" y1="13" x2="3" y2="23" style="--bar-offset:0s;--bar-rest:.55"/>
+        <line class="demo-done__bar" x1="12" y1="6" x2="12" y2="30" style="--bar-offset:.18s;--bar-rest:.9"/>
+        <line class="demo-done__bar" x1="21" y1="10" x2="21" y2="26" style="--bar-offset:.09s;--bar-rest:.7"/>
+        <line class="demo-done__bar" x1="30" y1="3" x2="30" y2="33" style="--bar-offset:.27s;--bar-rest:1"/>
+        <line class="demo-done__bar" x1="39" y1="15" x2="39" y2="21" style="--bar-offset:.13s;--bar-rest:.62"/>
+      </g>
+    </svg>
+  </div>
   <div class="demo-done__head"><span class="demo-done__head-text" data-akari-slot="headline">編集は</span></div>
   <i class="demo-done__ring"></i>
   <div class="demo-done__stamp">
-    <i class="demo-done__stamp-shadow"></i>
     <div class="demo-done__slam">
-      <i class="demo-done__paper"></i>
-      <svg viewBox="0 0 164 164" aria-hidden="true">
+      <svg viewBox="0 0 176 176" aria-hidden="true">
         <defs>
-          <!-- 押しムラ: 朱の濃さを左上 100% → 右下の縁 80% へ落とす（紙の白が透ける） -->
+          <!-- 押しムラ: 朱の濃さを左上 100% → 右下の縁 80% へ落とす -->
           <radialGradient id="demo-done-ink-density" cx="30%" cy="26%" r="95%">
             <stop offset="0" stop-color="#FFFFFF"/>
             <stop offset=".6" stop-color="#FFFFFF"/>
             <stop offset="1" stop-color="#CCCCCC"/>
           </radialGradient>
-          <mask id="demo-done-ink-mask" maskUnits="userSpaceOnUse" x="-8" y="-8" width="180" height="180">
-            <rect x="-8" y="-8" width="180" height="180" fill="url(#demo-done-ink-density)"/>
+          <mask id="demo-done-ink-mask" maskUnits="userSpaceOnUse" x="-8" y="-8" width="192" height="192">
+            <rect x="-8" y="-8" width="192" height="192" fill="url(#demo-done-ink-density)"/>
           </mask>
         </defs>
         <g mask="url(#demo-done-ink-mask)">
-          <circle class="demo-done__ink-ring" cx="82" cy="82" r="78.5"/>
-          <circle class="demo-done__ink-line" cx="82" cy="82" r="71"/>
-          <text class="demo-done__stamp-text" x="82" y="108.39" text-anchor="middle">完了</text>
+          <circle class="demo-done__ink-ring" cx="88" cy="88" r="84.5"/>
+          <circle class="demo-done__ink-line" cx="88" cy="88" r="77"/>
+          <text class="demo-done__stamp-text" x="89.5" y="112.13" text-anchor="middle">完了</text>
         </g>
       </svg>
     </div>

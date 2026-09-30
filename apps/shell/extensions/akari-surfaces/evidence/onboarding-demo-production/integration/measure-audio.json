@@ -83,43 +83,54 @@
    "word_s": 20.55,
    "item_at_s": 20.567,
    "kind": "出",
-   "measured_s": 20.569,
-   "delta_s": 0.019,
+   "measured_s": 20.568,
+   "delta_s": 0.018,
    "within_0.15": true,
-   "peak_5ms_dbfs": -17.9
+   "peak_5ms_dbfs": -13.6
   },
   {
-   "id": "diagram-tick-1",
-   "word": "こういう",
+   "id": "diagram-pon",
+   "word": "こういう（カード）",
    "word_s": 23.27,
-   "item_at_s": 23.267,
+   "item_at_s": 23.233,
    "kind": "出",
-   "measured_s": 23.267,
-   "delta_s": -0.003,
+   "measured_s": 23.251,
+   "delta_s": -0.019,
    "within_0.15": true,
-   "peak_5ms_dbfs": -25.9
+   "peak_5ms_dbfs": -15.7
   },
   {
-   "id": "diagram-tick-2",
-   "word": "図解",
+   "id": "diagram-stack",
+   "word": "図解（積み上げ）",
    "word_s": 23.78,
    "item_at_s": 23.767,
    "kind": "出",
-   "measured_s": 23.767,
-   "delta_s": -0.013,
+   "measured_s": 23.769,
+   "delta_s": -0.011,
    "within_0.15": true,
-   "peak_5ms_dbfs": -25.8
+   "peak_5ms_dbfs": -14.5
   },
   {
-   "id": "diagram-tick-3",
-   "word": "出せます",
+   "id": "diagram-playhead",
+   "word": "出せます（再生ヘッド）",
    "word_s": 24.37,
-   "item_at_s": 24.367,
-   "kind": "出",
-   "measured_s": 24.367,
-   "delta_s": -0.003,
+   "item_at_s": 24.233,
+   "kind": "山",
+   "measured_s": 24.37,
+   "delta_s": 0.0,
    "within_0.15": true,
-   "peak_5ms_dbfs": -25.8
+   "peak_5ms_dbfs": -15.1
+  },
+  {
+   "id": "diagram-count",
+   "word": "し（件数）",
+   "word_s": 24.78,
+   "item_at_s": 24.767,
+   "kind": "出",
+   "measured_s": 24.77,
+   "delta_s": -0.01,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -14.8
   },
   {
    "id": "phone-swoosh",
@@ -141,7 +152,7 @@
    "measured_s": 27.768,
    "delta_s": -0.002,
    "within_0.15": true,
-   "peak_5ms_dbfs": -26.6
+   "peak_5ms_dbfs": -18.2
   },
   {
    "id": "punchline-ding",
@@ -162,14 +173,14 @@
   "gap 1.3-2.3": -14.02,
   "gap 25.1-26.8": -14.01,
   "pause 28.80-29.25": -14.0,
-  "lifted 30.25-30.63": -6.01,
+  "lifted 30.25-30.63": -6.03,
   "tail 36.2-36.8": -4.62
  },
  "loudness_lufs": {
   "all 0-37.6": {
    "full": -16.0,
-   "bgm_sfx_only(novoice)": -26.1,
-   "voice_over_bgm_lu": 10.1
+   "bgm_sfx_only(novoice)": -25.7,
+   "voice_over_bgm_lu": 9.7
   },
   "speech 5.2-6.3": {
    "full": -14.5,
@@ -188,8 +199,8 @@
   },
   "lift 29.6-30.6": {
    "full": -13.5,
-   "bgm_sfx_only(novoice)": -20.9,
-   "voice_over_bgm_lu": 7.4
+   "bgm_sfx_only(novoice)": -21.0,
+   "voice_over_bgm_lu": 7.5
   }
  }
 }

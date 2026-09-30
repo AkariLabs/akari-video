@@ -21,16 +21,19 @@ SFX = [("title-whoosh", "こんにちは（カードの着地）", 0.49, 0, "山
        ("kouka-pop", "効果音", 17.50, 524, "出"),
        ("pa-whoosh", "パッ（衝撃）", 19.70, 581, "衝撃"),
        ("hora-sparkle", "ほら", 20.55, 617, "出"),
-       ("diagram-tick-1", "こういう", 23.27, 698, "出"),
-       ("diagram-tick-2", "図解", 23.78, 713, "出"),
-       ("diagram-tick-3", "出せます", 24.37, 731, "出"),
+       ("diagram-pon", "こういう（カード）", 23.27, 697, "出"),
+       ("diagram-stack", "図解（積み上げ）", 23.78, 713, "出"),
+       ("diagram-playhead", "出せます（再生ヘッド）", 24.37, 727, "山"),
+       ("diagram-count", "し（件数）", 24.78, 743, "出"),
        ("phone-swoosh", "スマホ", 27.07, 805, "山"),
        ("phone-tap", "モックアップ", 27.77, 833, "出"),
        ("punchline-ding", "ね（言い切り）", 35.63, 1069, "出")]
 res = {"sfx": []}
+ATS = sorted(at for _, _, _, at, _ in SFX)
 for sid, word, ws, at, kind in SFX:
     a = at / 30
-    i0 = int(max(0, a - 0.02) * 1000); i1 = int((a + 0.9) * 1000)
+    nxt = [x for x in ATS if x > at]
+    i0 = int(max(0, a - 0.02) * 1000); i1 = int(min(a + 0.9, (nxt[0] / 30 - 0.02) if nxt else a + 0.9) * 1000)
     seg = env_db[i0:i1]
     peak = float(np.max(seg))
     if kind == "山":

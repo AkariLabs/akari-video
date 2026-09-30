@@ -33,16 +33,17 @@ const expectedPlan = {
     ] },
     { stage: 3, key: 'effects', items: [
         html('demo-stage', 'demo-effects', '効果音とエフェクト', 524, 135, 'overlays/demo-effects/fragment.html'),
-        html('demo-accents', 'demo-flash', '閃光', 590, 12, 'overlays/demo-flash/fragment.html'),
+        html('demo-flash', 'demo-flash', '閃光', 590, 12, 'overlays/demo-flash/fragment.html'),
         sfx('demo-sfx-kouka-pop', 524, 5, -4, 'sfx-pop-cork', 0.15),
         sfx('demo-sfx-pa-whoosh', 581, 23, -4, 'sfx-whoosh-punchy', 0.75),
         sfx('demo-sfx-hora-sparkle', 617, 44, 2, 'sfx-shimmer-sparkle', 1.45)
     ] },
     { stage: 4, key: 'diagram', items: [
         html('demo-stage', 'demo-diagram', '図解', 697, 110, 'overlays/demo-diagram/fragment.html'),
-        sfx('demo-sfx-diagram-tick-1', 698, 5, -2, 'sfx-click-soft-ui', 0.16),
-        sfx('demo-sfx-diagram-tick-2', 713, 5, -2, 'sfx-click-soft-ui', 0.16),
-        sfx('demo-sfx-diagram-tick-3', 731, 5, -2, 'sfx-click-soft-ui', 0.16)
+        sfx('demo-sfx-diagram-pon', 697, 15, -3, 'sfx-diagram-pon', 0.482),
+        sfx('demo-sfx-diagram-stack', 713, 5, -3, 'sfx-diagram-stack', 0.147),
+        sfx('demo-sfx-diagram-playhead', 727, 7, -3, 'sfx-diagram-playhead', 0.216),
+        sfx('demo-sfx-diagram-count', 743, 18, -3, 'sfx-diagram-count', 0.567)
     ] },
     { stage: 5, key: 'phone', items: [
         { track: 'demo-phone-screen', item: { id: 'demo-phone-screen', name: 'スマホの画面', at: 833, duration: 144, crop: { x: 0.208, y: 0, w: 0.2645, h: 1 }, transform: { x: 372, y: -24, scale: 0.6607 }, source: { kind: 'media', src: 'sample', in: 27.7667, out: 32.5667, mute: true }, captions: 'off' } },
@@ -63,7 +64,7 @@ const expectedPlan = {
         sfx('demo-sfx-punchline-ding', 1069, 42, -2, 'sfx-ding-single', 1.4)
     ] }
   ],
-  punch_in_keyframes: [{ t: 590, transform: { scale: 1 } }, { t: 592, transform: { scale: 1.06 }, easing: 'out-expo' }, { t: 612, transform: { scale: 1.06 } }, { t: 633, transform: { scale: 1 }, easing: 'in-out-cubic' }]
+  punch_in_keyframes: [{ t: 590, transform: { x: 0, scale: 1 } }, { t: 592, transform: { x: 0, scale: 1.1 }, easing: 'out-expo' }, { t: 593, transform: { x: 4, scale: 1.1 } }, { t: 594, transform: { x: -4, scale: 1.1 } }, { t: 595, transform: { x: 0, scale: 1.1 } }, { t: 633, transform: { x: 0, scale: 1.1 } }, { t: 642, transform: { x: 0, scale: 1 }, easing: 'in-out-cubic' }]
 };
 const sample = join(dirname(fileURLToPath(import.meta.url)), '../../../../resources/onboarding-sample/talkinghead-desk-ja-01');
 const exists = path => stat(path).then(() => true, () => false);
@@ -77,7 +78,8 @@ test('同梱オーバーレイの easing 変数にはフォールバックがあ
     }
 });
 const sounds = ['sfx-whoosh-air-soft', 'sfx-pop-ding', 'sfx-pop-bubble-big', 'sfx-correct-tone',
-    'sfx-pop-cork', 'sfx-whoosh-punchy', 'sfx-shimmer-sparkle', 'sfx-click-soft-ui',
+    'sfx-pop-cork', 'sfx-whoosh-punchy', 'sfx-shimmer-sparkle', 'sfx-diagram-pon',
+    'sfx-diagram-stack', 'sfx-diagram-playhead', 'sfx-diagram-count',
     'sfx-swoosh-up', 'sfx-click-mouse-single', 'sfx-ding-single'];
 const files = [...overlays.map(name => [`overlays/${name}/fragment.html`, `overlays/${name}/fragment.html`]),
     ...sounds.map(name => [`audio/${name}.m4a`, `assets/onboarding/${name}.m4a`]),
@@ -85,8 +87,8 @@ const files = [...overlays.map(name => [`overlays/${name}/fragment.html`, `overl
 const stageItems = [
     { 'demo-stage': ['demo-title'], 'demo-sfx': ['demo-sfx-title-whoosh', 'demo-sfx-name-pop'] },
     { 'demo-stage': ['demo-chat', 'demo-done'], 'demo-sfx': ['demo-sfx-chat-pop-1', 'demo-sfx-chat-pop-2', 'demo-sfx-done-tone'] },
-    { 'demo-stage': ['demo-effects'], 'demo-accents': ['demo-flash'], 'demo-sfx': ['demo-sfx-kouka-pop', 'demo-sfx-pa-whoosh', 'demo-sfx-hora-sparkle'] },
-    { 'demo-stage': ['demo-diagram'], 'demo-sfx': ['demo-sfx-diagram-tick-1', 'demo-sfx-diagram-tick-2', 'demo-sfx-diagram-tick-3'] },
+    { 'demo-stage': ['demo-effects'], 'demo-flash': ['demo-flash'], 'demo-sfx': ['demo-sfx-kouka-pop', 'demo-sfx-pa-whoosh', 'demo-sfx-hora-sparkle'] },
+    { 'demo-stage': ['demo-diagram'], 'demo-sfx': ['demo-sfx-diagram-pon', 'demo-sfx-diagram-stack', 'demo-sfx-diagram-playhead', 'demo-sfx-diagram-count'] },
     { 'demo-phone-screen': ['demo-phone-screen'], 'demo-stage': ['demo-phone'], 'demo-sfx': ['demo-sfx-phone-swoosh', 'demo-sfx-phone-tap'] },
     { 'onboarding-bgm': ['onboarding-bgm'], 'demo-accents': ['demo-bgm-chip'] },
     {},
@@ -96,7 +98,7 @@ const sourceAdds = [
     ['demo-sfx-whoosh-air-soft', 'demo-sfx-pop-ding'],
     ['demo-sfx-pop-bubble-big', 'demo-sfx-correct-tone'],
     ['demo-sfx-pop-cork', 'demo-sfx-whoosh-punchy', 'demo-sfx-shimmer-sparkle'],
-    ['demo-sfx-click-soft-ui'],
+    ['demo-sfx-diagram-pon', 'demo-sfx-diagram-stack', 'demo-sfx-diagram-playhead', 'demo-sfx-diagram-count'],
     ['demo-sfx-swoosh-up', 'demo-sfx-click-mouse-single'],
     ['onboarding-bgm'], [], ['demo-sfx-ding-single']
 ];
@@ -120,8 +122,8 @@ async function fixture(t) {
     return { root, uri, service, segments };
 }
 
-test('同梱 21 本が library に届き、旧図解は同梱されない', async t => {
-    assert.equal(files.length, 21);
+test('同梱 24 本が library に届き、旧図解は同梱されない', async t => {
+    assert.equal(files.length, 24);
     for (const [origin] of files) assert.equal(await exists(join(sample, origin)), true, origin);
     for (const old of ['automatic', 'dialogue', 'effects', 'diagram', 'finishing'])
         assert.equal(await exists(join(sample, 'overlays', old)), false, old);
@@ -148,7 +150,7 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
         }
         const edit = await json(join(root, 'edit.json'));
         const captionData = await json(join(root, 'captions.json'));
-        const trackIds = ['video', 'demo-phone-screen', 'demo-stage', 'demo-accents', 'captions',
+        const trackIds = ['video', 'demo-phone-screen', 'demo-flash', 'demo-stage', 'demo-accents', 'captions',
             'onboarding-bgm', 'demo-sfx'].filter(id => id === 'video' || id === 'captions' || expected[id]?.length);
         assert.deepEqual(edit.tracks.map(track => track.id), trackIds, `stage ${stage} tracks`);
         for (const track of edit.tracks) {
@@ -212,7 +214,7 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
             assert.deepEqual(edit.tracks.find(track => track.id === 'video').items[0].keyframes,
                 expectedPlan.punch_in_keyframes);
             assert.deepEqual(edit.tracks.find(track => track.id === 'video').items[0].keyframes.map(frame => frame.t),
-                [590, 592, 612, 633]);
+                [590, 592, 593, 594, 595, 633, 642]);
             const phone = edit.tracks.find(track => track.id === 'demo-phone-screen').items[0];
             assert.deepEqual(phone.crop, { x: .208, y: 0, w: .2645, h: 1 });
             assert.deepEqual(phone.transform, { x: 372, y: -24, scale: .6607 });
@@ -224,7 +226,7 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
             for (const key of ['ducking', 'duck_db', 'duck_attack', 'duck_release'])
                 assert.equal(Object.hasOwn(bgm, key), false, key);
             const sfx = edit.tracks.find(track => track.id === 'demo-sfx').items;
-            assert.equal(sfx.length, 14);
+            assert.equal(sfx.length, 15);
             assert.ok(sfx.every((item, index) => index === sfx.length - 1 || item.at + item.duration <= sfx[index + 1].at));
             await service.writeExample(uri, join(sample, 'clip.mp4'), segments, segments.length, true);
             assert.deepEqual(await json(join(root, 'edit.json')), edit, 'five arguments produce stage 8');

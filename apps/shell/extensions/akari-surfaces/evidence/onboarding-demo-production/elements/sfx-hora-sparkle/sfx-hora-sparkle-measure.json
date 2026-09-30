@@ -1,116 +1,226 @@
 {
   "element": "sfx-hora-sparkle",
+  "revision": "r2（2026-10-01・目利きの差し戻しの直し）",
+  "feedback": "sfx-shimmer-sparkle は立ち上がりこそ 20.57 だが、音の山は 20.99 付近（「ほら」の 0.44 秒後）に来るふくらみ型。「ほら」の瞬間の手応えが弱い → 「ほら」20.55 にアタックのはっきりしたキラッ（例: sfx-pop-ding の頭 0.2 s）を −12 dBFS で重ねる。shimmer は頭の 0.25 s を切るか 0.25 s 前に置き、山が 20.55〜20.70 に来るようにする。新しいキラッの放射と紙吹雪にこの山を合わせる",
   "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-shimmer-sparkle.m4a",
-  "file_md5": "8d8618aa0efbebe8139566b2c95a71fd",
-  "file_sha256": "d1f7953b70dc1c6f990c6765fff32ba5c5ce384dd0a9352937e0a0d295692bf6",
-  "file_bytes": 24329,
-  "format": "AAC-LC 128 kbps / 48 kHz / stereo / m4a（ipod muxer・faststart・movie_timescale 48000）。70400 サンプル = 1.4667 s = 44 f ちょうど",
-  "content": "元の 0〜1.45 s（頭は切らない）→ 1.42〜1.45 s に 30 ms のフェード → 1.45〜1.4667 s は無音（item の duration 44 f と一致させ、out 1.45 がデコード長を超えないように）。切り出し時に −6.0 dB（理由は levels.why）",
-  "command": "packages/media-bin/vendor/win32-x64/ffmpeg.exe (n8.1.2) -i sfx-shimmer-sparkle.mp3 -af \"asetpts=PTS-STARTPTS,volume=-6.0dB,atrim=end_sample=69600,afade=t=out:st=1.42:d=0.03,apad=whole_len=70400\" -ar 48000 -ac 2 -c:a aac -b:a 128k -movflags +faststart -movie_timescale 48000 -map_metadata -1 -metadata comment=\"made with suno; created=2026-08-02T10:49:46Z; id=6537457a-cc1f-4abb-9be0-dae81be692a8\" sfx-shimmer-sparkle.m4a（2 回実行して md5 一致 = 決定的）",
-  "source": {
-    "id": "sfx-shimmer-sparkle",
-    "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-shimmer-sparkle.mp3",
-    "md5": "1fce76d7795fc3141f8daa381aa4b203",
-    "duration_s": 2.0002,
-    "license": "LicenseRef-AKARI-Sounds-v0（工房 assets/audio/sfx-shimmer-sparkle/meta.json。~/Akari/library の pack meta では LicenseRef-AKARI-Sounds-Terms-v0 と表記）・price 0・商用可・クレジット不要・単体再配布/配信登録/Content ID 登録は禁止・AI 学習不可",
-    "origin": "Suno chirp-sfx 2026-08-02 take A（https://suno.com/song/6537457a-cc1f-4abb-9be0-dae81be692a8）・provenance.jsonl status curated",
-    "sample_peak_dbfs": -5.39,
-    "rms10ms_max_dbfs_0_1.45": -17.4,
-    "momentary_max_lufs_0_1.45": -16.1
+  "file_md5": "df4977a640d1a0f924145080eccb1606",
+  "file_sha256": "e3994e32ea2de4cf6d8b1c63374a0c2d63b512b531759edc0da1e8440a189f53",
+  "file_bytes": 46460,
+  "format": "AAC-LC 256 kbps / 48 kHz / stereo / m4a（faststart・movie_timescale 48000・bitexact）。edit list = media time 1024・duration 70400（r1 と同じ構造）。70400 サンプル = 1.4667 s = 44 f ちょうど",
+  "why_same_path": "edit.json の値（at 617・duration 44・gain_db +2・src demo-sfx-shimmer-sparkle・in 0・out 1.45）を 1 つも変えずに差し替えられるよう、パスと長さを r1 と同じにした。配線（onboarding-service.ts）とテストの変更は不要。中身は 2 素材の合成なので出所は sources と meta.json に書く",
+  "command": "python make-sfx-hora-sparkle.py packages/media-bin/vendor/win32-x64/ffmpeg.exe（n8.1.2） ~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3 ~/Akari/library/audio/akari-sounds-sfx/sfx-shimmer-sparkle.mp3 <out.m4a>（2 回実行して md5 一致 = 決定的）",
+  "content": {
+    "kira_attack": "sfx-pop-ding の 0〜0.20 s（頭は切らない・0.14〜0.20 s に raised cosine のフェード）。2.1 kHz → 2.66 kHz の 2 音の頭。書き出しの標本ピーク −12.0 dBFS になる倍率（file では −14.0 dBFS）",
+    "shimmer": "sfx-shimmer-sparkle の 0.35〜1.80 s を −8.0 dB。頭 50 ms は raised cosine のフェードイン（キラッのアタックを濁さない）。τ 0.12〜0.30 で +4 dB まで持ち上げて保つ（尾の持ち上げ: 山を前へ寄せた分、「ほら、」と「こんな」の間に残る尾が r1 より 9 dB 小さくなるのを 3 dB 取り戻す）",
+    "why_cut_head_not_move_earlier": "「0.25 s 前に置く」案は音が「ほら」の前（20.3 付近）から鳴り始め、パッの余韻と「ほら」の間の無音を埋めて手応えの対比を弱めるので不採用。頭を 0.35 s 切ると shimmer は 2.1〜2.36 kHz の音から始まり、キラッの 2.1 kHz と同じ高さでつながって上昇音列（2.36→2.8→2.98 kHz）へ抜ける",
+    "why_0.35_not_0.25": "0.25 s だと山（元 0.4225 s）が 20.74 で目標 20.55〜20.70 の外。0.35 s で 20.640",
+    "tail": "1.42〜1.45 s に 30 ms のフェード、1.45〜1.4667 s は無音"
   },
-  "alignment": {
-    "onset_s_in_file": 0.005,
-    "onset_s_in_source": 0.005,
-    "envelope_peak_s_in_file": 0.4241,
-    "envelope_peak_s_in_source": 0.4241,
-    "lag_vs_source_ffmpeg_decode_samples": 0,
-    "corr": 0.9915,
-    "lag_electron_decodeAudioData_vs_ffmpeg_samples": 0,
-    "electron_decoded_length_samples": 70400,
-    "electron_decoded_duration_s": 1.466667,
-    "if_edit_list_ignored_ms": 21.33,
-    "note": "書き出し（ffmpeg）とプレビュー（Electron の decodeAudioData）の両方で AAC の priming 1024 サンプルが edit list で相殺され、元の mp3 と 0 サンプルずれ（±5 ms の条件を満たす）"
+  "sources": [
+    {
+      "id": "sfx-pop-ding",
+      "md5": "5ff54570ae103ac2a7cb77f191841807",
+      "used": "0〜0.20 s",
+      "license": "LicenseRef-AKARI-Sounds-v0・price 0・商用可・クレジット不要・単体再配布/配信登録/Content ID 登録は禁止・AI 学習不可（工房 assets/audio/sfx-pop-ding/meta.json）",
+      "origin": "Suno chirp-sfx 2026-08-02 take B（https://suno.com/song/0c428c1d-44f9-423f-9424-879f4e054506）",
+      "note": "タイトルの名札の「ポン」（sfx-name-pop・0〜0.5 s）と同じ素材の頭。「出る＝この音」で音の語彙が揃う"
+    },
+    {
+      "id": "sfx-shimmer-sparkle",
+      "md5": "1fce76d7795fc3141f8daa381aa4b203",
+      "used": "0.35〜1.80 s",
+      "license": "LicenseRef-AKARI-Sounds-v0（同上・工房 assets/audio/sfx-shimmer-sparkle/meta.json）",
+      "origin": "Suno chirp-sfx 2026-08-02 take A（https://suno.com/song/6537457a-cc1f-4abb-9be0-dae81be692a8）"
+    }
+  ],
+  "edit_json": {
+    "track": "demo-sfx",
+    "id": "demo-sfx-hora-sparkle",
+    "at": 617,
+    "duration": 44,
+    "role": "sfx",
+    "gain_db": 2,
+    "source": {
+      "kind": "media",
+      "src": "demo-sfx-shimmer-sparkle",
+      "in": 0,
+      "out": 1.45
+    },
+    "changed_from_r1": "なし"
   },
-  "sync": {
+  "decode_alignment": {
+    "ffmpeg_vs_float_mix": {
+      "lag_samples": 0,
+      "snr_db": 28.5,
+      "peak_dbfs_file": -11.58,
+      "first_40ms_peak_dbfs_file": -13.72,
+      "band_snr_db": {
+        "0-4k": 29.8,
+        "4-12k": 23.4,
+        "12-16k": 11.9
+      }
+    },
+    "electron_decodeAudioData": {
+      "electron": "39.8.7",
+      "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a",
+      "length": 70400,
+      "lag_vs_ffmpeg_samples": 0,
+      "max_abs_diff_vs_ffmpeg": "0（ビット一致）",
+      "lag_vs_float_samples": 0,
+      "onset_sample": 239,
+      "method": "tools/electron-decode-main.js（show:false・隔離 user-data-dir C:/t/hora-r2/electron-ud）"
+    },
+    "render_cut": {
+      "lag_samples_vs_at617": 16,
+      "corr": 0.9949,
+      "note": "16 サンプル = 0.33 ms"
+    },
+    "encoder_choice": "256 kbps。192 kbps は 4〜12 kHz の SNR 16.6 dB・12〜16 kHz 1.2 dB でキラキラの粒が落ちる"
+  },
+  "sync_render": {
+    "method": "render-cut の書き出し（効果音だけ = 本編 mute・BGM なし）。r1 は組み込み時の C:/t/integ/sfxonly、r2 は同じ edit.json で音源だけ差し替えて C:/t/hora-r2/sfxonly（tools/render-variants.sh・隔離 AKARI_HOME・空の作業フォルダ・--engine auto → 字幕のカラオケで OSR）。立ち上がりは統合担当の measure_audio.py と同じ定義（5 ms 窓・1 ms 刻み・峰 −30 dB を最初に超えた点）",
     "word": "ほら",
-    "word_onset_s_measured": 20.552,
-    "word_onset_method": "clip.mp4 の音声 2 ms RMS が −50 dB を超えた点（h の摩擦音。母音 o は 20.594〜）",
-    "item_at_frame": 617,
-    "item_at_s": 20.5667,
-    "sfx_onset_s": 20.5717,
-    "offset_ms": 19.7,
-    "rule": "効果音のアタックを語頭 ±0.03 s",
+    "word_onset_s": 20.552,
+    "r2": {
+      "kira_onset_s": 20.572,
+      "kira_onset_minus_word_ms": 20.0,
+      "kira_onset_5ms_method_s": 20.57,
+      "kira_sample_peak_s": 20.5764,
+      "shimmer_swell_peak_s_env50": 20.6395,
+      "shimmer_swell_peak_frame": 619.19,
+      "combined_env10_peak_s": 20.589,
+      "combined_env50_peak_s": 20.598,
+      "combined_sample_peak_s": 20.6469,
+      "all_peaks_in_20.55-20.70": true,
+      "second_hump": "なし（τ 0.2 以降の 50 ms 窓の最大 -28.7 dBFS・山 -17.8 dBFS）"
+    },
+    "r1": {
+      "onset_s": 20.571,
+      "env50_peak_s": 20.99,
+      "env10_peak_s": 20.995,
+      "sample_peak_s": 20.9911
+    },
+    "rule": "効果音のアタックを語頭 ±0.03 s・目利きの山 20.55〜20.70",
     "pass": true,
-    "swell_peak_s": 20.991,
-    "swell_peak_note": "「ほら、」(〜20.73) と「こんな」(21.10) の間の無音 20.74〜21.10 の中で音の山。声とぶつからずにキラッが聞こえる",
-    "visual_kira_plan": "demo-effects のキラッ 7 個 = 17.4667 + 3.05 + i×0.045（i=0..6）から各 0.6 s・50% で最大 → 最大 20.817〜21.087。音の山 20.99 はこの範囲の中",
-    "item_end_s": 22.0333,
-    "next_sfx": "sfx-diagram-ticks 23.2667（重ならない）",
-    "prev_sfx": "sfx-pa-whoosh 19.367〜20.133（重ならない）"
+    "visual_alignment": "demo-effects の作り直し（制作中の build-effects-fragment.py を 03:5x に読んだ値）: 「ほら」の起点 --fx-sparkle-at 3.05（= 20.517、最初に見えるコマ f616〜617）→ キラッ 12 個は 8%（+0.048 s ≈ 20.565）で不透明、30%（+0.18 s ≈ 20.70〜20.73）で最大・擬音の跳ね 1.15 は 20.617・紙吹雪の頂点 20.77。音はキラッの立ち上がり 20.572 が放射の最初の光るコマに、キラキラの山 20.640（f619.2）が擬音の跳ねの頂点 20.617 と放射の最大 20.70 の間に来る。放射の最大をさらに山へ寄せるなら glint の 30% のキーを 20% 前後へ（effects 担当の判断）",
+    "visual_check": "sfx-hora-sparkle-r2-av-strip.png: demo-effects（03:58 時点の fragment.html・md5 f235d32f…）を effects 担当の tools/render-effects.mjs で f616〜f623 描き、本編のコマ（パンチイン込み）に重ねて音の包絡と並べた。キラッが初めて見えるコマ f617（20.567）に音の立ち上がり 20.572、キラッが広がる f617〜f619 に音の一番大きい区間 20.57〜20.63、f619〜f620 にキラキラの山 20.640"
   },
-  "levels": {
-    "file_sample_peak_dbfs": -12.23,
-    "at_plan_gain_plus2": {
+  "levels_render": {
+    "sfx_only": {
+      "r2": {
+        "kira_first_60ms_sample_peak_dbfs": -11.09,
+        "kira_component_sample_peak_dbfs": -12.0,
+        "peak_5ms_dbfs": -16.7,
+        "combined_sample_peak_dbfs": -10.0,
+        "shimmer_component_sample_peak_dbfs": -11.39,
+        "rms_dbfs": {
+          "ほら 20.55-20.74": -20.9,
+          "間 20.74-21.10": -31.8,
+          "こんな感じで 21.10-21.67": -43.3
+        }
+      },
+      "r1": {
+        "first_60ms_sample_peak_dbfs": -25.24,
+        "peak_5ms_dbfs": -20.2,
+        "sample_peak_dbfs": -10.19,
+        "rms_dbfs": {
+          "ほら 20.55-20.74": -36.6,
+          "間 20.74-21.10": -26.0,
+          "こんな感じで 21.10-21.67": -35.0
+        }
+      },
+      "attack_gain_vs_r1": "「ほら」の瞬間（立ち上がりから 60 ms）の標本ピーク −25.2 → −11.1 dBFS（+14 dB）、5 ms 窓のピーク −20.2 → −16.7 dBFS、発話中 20.55〜20.74 の rms −36.6 → −20.9 dBFS"
+    },
+    "k_weighted_loudness_LUFS": {
+      "note": "BS.1770 の K 特性で窓ごとの最大（tools/k-loudness.py）。パッ = sfx-whoosh-punchy（計画上は本編で一番大きい効果音）",
+      "50ms": {
+        "pa_whoosh": -13.4,
+        "hora_r2": -12.1,
+        "hora_r1": -16.3
+      },
+      "100ms": {
+        "pa_whoosh": -14.3,
+        "hora_r2": -13.4,
+        "hora_r1": -17.5
+      },
+      "400ms": {
+        "pa_whoosh": -19.7,
+        "hora_r2": -17.9,
+        "hora_r1": -20.3
+      },
+      "finding": "標本ピークでは パッ（5 ms 窓 −6.9 dBFS）＞キラッ（−16.7）だが、キラッは 2.1 kHz の純音で K 特性の持ち上げを受けるため、ラウドネスでは キラッがパッを 0.9〜1.8 LU 上回る（指示どおりの −12 dBFS の結果）。パッを音でも一番にしたいなら make-sfx-hora-sparkle.py の DING_OUT_PEAK_DBFS を −14 にして作り直す（定数 1 つ・edit.json は不変）"
+    },
+    "mix_render": {
+      "method": "C:/t/hora-r2/mix（声 + BGM + 効果音 14 本・断片なしの写し）を render-cut",
+      "integrated_lufs": -16.0,
+      "integrated_lufs_r1": -16.0,
+      "sample_peak_dbfs": -1.46,
+      "sample_peak_at_s": 20.609,
+      "true_peak_dbtp": -1.5,
+      "r1_full_sample_peak_dbfs": -2.29,
+      "note": "全編の最大が 20.609（「ほ」の母音の山 −3.4 dBFS にキラッが重なる所）の −1.46 dBFS になった（r1 の最大は 29.973 の −2.29）。クリップなし",
+      "linear_model_snr_db": 25.4,
+      "sfx_minus_voice_bgm_db": {
+        "r2": {
+          "hora_20.55-20.74": {
+            "500-2000Hz": -11.5,
+            "2000-4000Hz": 22.4,
+            "4000-12000Hz": 12.4
+          },
+          "gap_20.74-21.10": {
+            "500-2000Hz": 7.7,
+            "2000-4000Hz": 11.8,
+            "4000-12000Hz": -1.8
+          }
+        },
+        "r1": {
+          "hora_20.55-20.74": {
+            "500-2000Hz": -26.5,
+            "2000-4000Hz": -4.2,
+            "4000-12000Hz": 9.0
+          },
+          "gap_20.74-21.10": {
+            "500-2000Hz": 17.6,
+            "2000-4000Hz": 18.3,
+            "4000-12000Hz": 11.6
+          }
+        },
+        "read": "r2 は「ほら」の発話中に 2〜4 kHz で声＋BGM を 22.4 dB 上回る（r1 は −4.2 dB で声に埋もれていた）。間では 2〜4 kHz で +11.8 dB 残る"
+      }
+    },
+    "others_unchanged": "r2 と r1 の効果音だけの書き出しの差は 20.5〜22.1 の外で最大 -110.0 dBFS（ほかの 13 本は同一）"
+  },
+  "renders": [
+    "sfx-hora-sparkle-r2-sync.png",
+    "sfx-hora-sparkle-r2-spectrogram.jpg",
+    "sfx-hora-sparkle-r2-av-strip.png"
+  ],
+  "tools": [
+    "make-sfx-hora-sparkle.py",
+    "tools/render-variants.sh",
+    "tools/measure-r2.py",
+    "tools/k-loudness.py",
+    "tools/charts-r2.py",
+    "tools/electron-decode-main.js",
+    "tools/av-strip.py"
+  ],
+  "r1_history": {
+    "file_md5": "8d8618aa0efbebe8139566b2c95a71fd",
+    "content": "元の 0〜1.45 s（頭は切らない）→ 1.42〜1.45 s に 30 ms のフェード → 1.45〜1.4667 s は無音（item の duration 44 f と一致させ、out 1.45 がデコード長を超えないように）。切り出し時に −6.0 dB（理由は levels.why）",
+    "sync": {
+      "item_at_s": 20.5667,
+      "sfx_onset_s": 20.5717,
+      "swell_peak_s": 20.991
+    },
+    "levels_at_plan_gain": {
       "sample_peak_dbfs": -10.2,
       "rms10ms_max_dbfs": -21.7,
       "momentary_max_lufs": -20.3
     },
-    "same_file_without_the_-6dB_at_plan_gain": {
-      "gain_db": 2,
-      "sample_peak_dbfs": -3.4,
-      "rms10ms_max_dbfs": -15.4,
-      "momentary_max_lufs": -14.1
-    },
-    "reference_at_plan_gain": {
-      "sfx-whoosh-punchy（パッ・本編で一番大きい効果音）": {
-        "gain_db": -4,
-        "sample_peak_dbfs": -4.7,
-        "rms10ms_max_dbfs": -9.1,
-        "momentary_max_lufs": -16.3
-      },
-      "sfx-ding-single（オチ・同じ −14 目安）": {
-        "gain_db": -2,
-        "sample_peak_dbfs": -4.3,
-        "rms10ms_max_dbfs": -14.5,
-        "momentary_max_lufs": -20.1
-      }
-    },
-    "voice": "integrated −16.0 LUFS・発話中の momentary の中央値 −17.0 LUFS",
-    "why": "構成表の「−17.5 dBFS」は元素材の 10 ms RMS の最大（実測 −17.4）で、標本ピークは −5.4 dBFS。音源のまま +2 dB だと momentary 最大 −14.1 LUFS になり、本編で一番大きいはずの「パッ」の whoosh（−16.3）と声の中央値（−17.0）を上回る（キラッが一番うるさくなる）。切り出しで −6.0 dB 入れると、構成表の gain_db +2 のままで momentary 最大 −20.3 LUFS（whoosh の 4 LU 下・同じ「−14 目安」の ding −20.1 と同格）・標本ピーク −10.2 dBFS になり、構成表の格付け（パッ > キラッ ≈ チーン）どおりに鳴る。edit.json の gain_db は +2 のまま変えないこと（変えると二重に下がる）"
-  },
-  "mock_mix_check": {
-    "note": "声（clip.mp4）＋ BGM（bgm-lofi-minimal-085 を +0.080 s ずらし・−9 dB・ducking −8 の近似）＋ sfx-pa-whoosh（計画値）＋ 本ファイル（617 f・+2 dB）の机上ミックス。書き出しの実測ではない",
-    "mix_sample_peak_dbfs_19_22": -3.1,
-    "windows": {
-      "ほら（発話中） 20.55-20.74": {
-        "voice_rms_dbfs": -18.3,
-        "bgm_rms_dbfs": -42.3,
-        "sparkle_rms_dbfs": -36.5,
-        "sparkle_minus_voice_bgm_500_2000Hz_db": -26.7,
-        "sparkle_minus_voice_bgm_2000_4000Hz_db": -4.3,
-        "sparkle_minus_voice_bgm_4000_12000Hz_db": 10.5
-      },
-      "ほら、と こんな の間（無音） 20.74-21.10": {
-        "voice_rms_dbfs": -70.9,
-        "bgm_rms_dbfs": -40.4,
-        "sparkle_rms_dbfs": -25.9,
-        "sparkle_minus_voice_bgm_500_2000Hz_db": 21.4,
-        "sparkle_minus_voice_bgm_2000_4000Hz_db": 55.4,
-        "sparkle_minus_voice_bgm_4000_12000Hz_db": 59.3
-      },
-      "こんな感じで 21.10-21.67": {
-        "voice_rms_dbfs": -19.7,
-        "bgm_rms_dbfs": -35.7,
-        "sparkle_rms_dbfs": -34.9,
-        "sparkle_minus_voice_bgm_500_2000Hz_db": -21.2,
-        "sparkle_minus_voice_bgm_2000_4000Hz_db": 1.1,
-        "sparkle_minus_voice_bgm_4000_12000Hz_db": -10.0
-      }
-    }
-  },
-  "renders": [
-    "sfx-hora-sparkle-sync.png",
-    "sfx-hora-sparkle-spectrum-mix.jpg",
-    "sfx-hora-sparkle-file-vs-source.png"
-  ]
+    "renders": [
+      "r1-sfx-hora-sparkle-sync.png",
+      "r1-sfx-hora-sparkle-spectrum-mix.jpg",
+      "r1-sfx-hora-sparkle-file-vs-source.png"
+    ]
+  }
 }

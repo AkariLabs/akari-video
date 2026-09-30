@@ -69,8 +69,9 @@
     "visual_bottom_to_top": [
       { "id": "video", "name": "本編", "items": ["sample（punch-in の keyframes を足す）"] },
       { "id": "demo-phone-screen", "name": "スマホの画面", "items": ["phone-screen"] },
+      { "id": "demo-flash", "name": "閃光", "items": ["flash（2026-10-01 目利きの差し戻しで demo-accents から移設。擬音「パッ！」より下に敷き、19.70 で擬音の墨の縁を白く飛ばさない）"] },
       { "id": "demo-stage", "name": "右の演出", "items": ["title", "chat", "done", "effects", "diagram", "phone", "credit"] },
-      { "id": "demo-accents", "name": "画面効果と札", "items": ["flash", "bgm-chip"] },
+      { "id": "demo-accents", "name": "札", "items": ["bgm-chip"] },
       { "id": "captions", "name": "字幕", "items": ["captions（model.ts が作る袋。最上段に置く）"] }
     ],
     "audio": [
@@ -199,7 +200,8 @@
       "words": "パッ（19.70）",
       "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-flash/fragment.html",
       "needs_production": true,
-      "edit_item": { "track": "demo-accents", "id": "demo-flash", "name": "閃光", "at": 590, "duration": 12, "source": { "kind": "html", "path": "overlays/demo-flash/fragment.html" } },
+      "edit_item": { "track": "demo-flash", "id": "demo-flash", "name": "閃光", "at": 590, "duration": 12, "source": { "kind": "html", "path": "overlays/demo-flash/fragment.html" } },
+      "revision_2026_10_01": "目利きの差し戻し: 段 demo-accents（右の演出より上）だと、見せ場の 19.70 で擬音「パッ！」自体が白く飛んだ（輪郭の暗画素 0 px）。閃光専用の段 demo-flash を本編・スマホの画面と demo-stage の間に新設して移した（配線は codex）。時刻・opacity の曲線・断片は不変。書き出しで 19.70 の擬音の墨（最大チャネル < 60）0 → 14,328 px（静止時 ≈ 14,500 px）、壁で逆算した閃光の α は 0.520 のまま（elements/flash/flash-measure.json の layer_fix_2026_10_01）",
       "spec": "全画面の 1 枚（position absolute; inset 0）。radial-gradient(circle at 78% 46%, rgba(255,250,235,1) 0%, rgba(255,250,235,.85) 30%, rgba(255,250,235,.35) 75%) で、光源が右の擬音にあるように見せる。opacity の keyframes（全段明示）: 0 s = 0 → 0.033 s = 0.62 → 0.133 s = 0.30 → 0.40 s = 0（linear）。過渡 FX なので base opacity 0 を許す（motion.md の例外）。字幕は上の段なので白く飛ばない。確認 --seek 0.00 / 0.033 / 0.10 / 0.30 を実フレーム 19.667 / 19.70 / 19.767 / 19.967 に重ねる"
     },
     {
@@ -398,7 +400,11 @@
       { "id": "sfx-pop-cork", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-cork.mp3", "md5_8": "e3b43e06", "cut_s": 0.15, "attack_or_peak_s": 0.025 },
       { "id": "sfx-whoosh-punchy", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-punchy.mp3", "md5_8": "df86b3f6", "cut_s": 0.75, "attack_or_peak_s": 0.33 },
       { "id": "sfx-shimmer-sparkle", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-shimmer-sparkle.mp3", "md5_8": "1fce76d7", "cut_s": 1.45, "attack_or_peak_s": 0.005 },
-      { "id": "sfx-click-soft-ui", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3", "md5_8": "9d833215", "cut_s": 0.16, "attack_or_peak_s": 0.005 },
+      { "id": "sfx-click-soft-ui", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3", "md5_8": "9d833215", "cut_s": 0.16, "attack_or_peak_s": 0.005, "retired_2026_10_01": "図解の 4 本（sfx-diagram-*）に置き換え" },
+      { "id": "sfx-diagram-pon", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-blip-marimba.mp3", "md5_8": "62f8b9c9", "cut_s": 0.482, "attack_or_peak_s": 0.023 },
+      { "id": "sfx-diagram-stack", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3", "md5_8": "9d833215", "cut_s": 0.147, "attack_or_peak_s": 0.007 },
+      { "id": "sfx-diagram-playhead", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-paper.mp3", "md5_8": "a520ac79", "cut_s": 0.216, "attack_or_peak_s": 0.137 },
+      { "id": "sfx-diagram-count", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3", "md5_8": "5ff54570", "cut_s": 0.567, "attack_or_peak_s": 0.008 },
       { "id": "sfx-swoosh-up", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-swoosh-up.mp3", "md5_8": "2fb7e5d0", "cut_s": 0.65, "attack_or_peak_s": 0.36 },
       { "id": "sfx-click-mouse-single", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-mouse-single.mp3", "md5_8": "234994de", "cut_s": 0.15, "attack_or_peak_s": 0.01 },
       { "id": "sfx-ding-single", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-ding-single.mp3", "md5_8": "f3dec257", "cut_s": 1.4, "attack_or_peak_s": 0.015 },

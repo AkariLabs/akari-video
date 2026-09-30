@@ -1,153 +1,679 @@
 {
-  "element": "sfx-diagram-ticks",
-  "kind": "効果音",
-  "measured": "2026-10-01",
-  "words": "こういう(23.27)／図解(23.58)／出せます(24.02)",
-  "intent": "図解のノード（① 話す／② AI が編集／③ 完成！）が 1 つ出るたびに小さく「コッ」と鳴る。ピーク目安 −20 dBFS（聞こえるが目立たない）",
-  "file": {
-    "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-click-soft-ui.m4a",
-    "project_target": "assets/onboarding/sfx-click-soft-ui.m4a（source id demo-sfx-click-soft-ui）",
-    "md5": "9feb9bb63bbf410e43f1a7803d7e1bb7",
-    "sha256": "e15492bed9fc2faaf2db0c22cbd2586600cb594b1cd7e2ecfff7a58375c78471",
-    "bytes": 3348,
-    "codec": "AAC-LC 128 kbps / 48 kHz / stereo / m4a（ffmpeg 内蔵 aac・bitexact・+faststart）",
-    "samples": 8192,
-    "duration_s": 0.1707,
-    "sample_peak_dbfs": -18.11,
-    "peak_L_R_dbfs": [-19.77, -18.11],
-    "rms10ms_max_dbfs": -28.82,
-    "attack_ms": 4.98,
-    "attack_def": "ファイル全体のサンプルピーク −20 dB を最初に越えるサンプル",
-    "audible_length": "−40 dBFS を越えるのは最初の 20 ms、−60 dBFS を越えるのは 37 ms まで。0.16 s 以降は −118 dBFS（無音の尾）",
-    "tags": "title / comment に素材 id・ライセンス・切り出し区間・ゲインを記録（他のメタデータは -map_metadata -1 で落とす）",
-    "reproduce": "python cut-sfx-click-soft-ui.py <ffmpeg> <sfx-click-soft-ui.mp3> <out.m4a>（ffmpeg n8.1.2 vendor で同じ md5 を 3 回再現。素材は ~/Akari/library と akari-wt/perf-pv-v2/assets/audio/sfx/ のどちらからでも同じ）"
+ "element": "sfx-diagram-ticks",
+ "kind": "効果音",
+ "measured": "2026-10-01",
+ "revision": "目利きの差し戻し（図解のクリック 23.767・24.367 がピーク −25.8 dBFS で声と BGM に埋もれ、声を引いた残りでも BGM の床から 2〜3 dB しか出ていない）の直し",
+ "request": "新しい図解の拍に合わせて 4 本: 23.27 カード＝柔らかいポン / 23.78 積み上げ＝軽いクリック 3 連（40 ms 間隔）/ 24.37 再生ヘッド＝短い whoosh の山 / 24.78 件数＝小さな ding。ピーク −16〜−14 dBFS、アタックを語頭 ±0.03 秒、声より上に出さない（主役の効果音 −8〜−12 dBFS より下）",
+ "level_definition": "書き出しの音を ffmpeg -ac 1 でモノラル化（(L+R)/√2）した 5 ms 窓の RMS を 1 ms 刻み（組み込みの integration/tools/measure_audio.py と同じ定義。差し戻しの −25.8 もこの数字）。「出」= その音の山 −30 dB を最初に越える 5 ms 窓の開始（窓の幅のぶん実際のアタックより約 5 ms 早く出る）、「山」= 5 ms RMS が最大の窓の開始",
+ "word_onsets": {
+  "こういう": 23.27,
+  "図解": 23.78,
+  "出せます": 24.37,
+  "し": 24.78,
+  "source": "transcript.json（声で合わせ直した語頭。evidence/timing-realign）。この瞬間の声: 23.268 まで無音→「こ」、23.75〜23.79「図」の前の閉鎖→23.80〜23.94「ず」の摩擦、24.37〜24.38「出」の閉鎖→24.39 破裂、24.69〜24.86「す＋し」の摩擦"
+ },
+ "files": {
+  "pon": {
+   "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-diagram-pon.m4a",
+   "project_target": "assets/onboarding/sfx-diagram-pon.m4a（source id demo-sfx-diagram-pon）",
+   "role": "23.27「こういう」カード＝柔らかいポン",
+   "why_this_sound": "マリンバ A4（440 Hz）の 1 打。直前の C5 の響きが短 3 度で重なる。BGM はこの区間 A・C・E（A マイナー）なので主音で濁らない。声の立ち上がり 23.268 の 12 ms 前、BGM の拍 23.229 の 27 ms あとに当たる（拍に乗って聞こえる）",
+   "source": "sfx-blip-marimba",
+   "source_use": "3 打目（A4 440 Hz＋C5 の響き）。1・2 打目（C5）は使わない",
+   "source_attack_s": 0.2323125,
+   "source_range_s": [
+    0.2313125,
+    0.6913125
+   ],
+   "head_silence_ms": 22.0,
+   "file_gain_db": -6.41,
+   "md5": "96559a1264abf2ad68d2e6b1179d91c4",
+   "sha256": "e1e9150c2cf985add3a1dfa389bfd80a9ce709ca83ce65c0b3a33ea15c843153",
+   "bytes": 12467,
+   "codec": "AAC-LC 192 kbps / 48 kHz / stereo / m4a（ffmpeg n8.1.2 vendor の内蔵 aac・bitexact・+faststart）",
+   "decoded_samples": 24576,
+   "decode_check": {
+    "ffmpeg_vendor_vs_electron_decodeAudioData": "同じ長さ・ずれ 0 サンプル・値も完全一致",
+    "vs_pre_encode_lag_samples": 0
+   },
+   "edit_item": {
+    "track": "demo-sfx",
+    "id": "demo-sfx-diagram-pon",
+    "at": 697,
+    "duration": 15,
+    "role": "sfx",
+    "gain_db": -3.0,
+    "source": {
+     "kind": "media",
+     "src": "demo-sfx-diagram-pon",
+     "in": 0,
+     "out": 0.482
+    }
+   }
   },
-  "source": {
-    "id": "sfx-click-soft-ui",
-    "title": "Soft Rounded Interface Click, Gentle Low Blip, I（take A）",
-    "path_read": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3（読むだけ。akari-wt/perf-pv-v2/assets/audio/sfx/ と同一 md5）",
-    "md5": "9d83321587011f1218f3c89dce935b49",
-    "ledger": "akari-video-internal assets/audio/sfx-click-soft-ui/meta.json・provenance.jsonl id=sfx-click-soft-ui-a（curated）",
-    "author": "AKARI Sounds（Suno v5.5 chirp-sfx 生成 2026-08-02・オーナー試聴選別）",
-    "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布 / 音楽配信 / Content ID 登録は禁止）",
-    "price": 0,
-    "bundling_note": "アプリへの同梱はオーナーの了承待ちの仮置き（単体再配布禁止の条件）",
-    "format": "mp3 48 kHz stereo・1.801 s",
-    "sample_peak_dbfs": -3.80,
-    "transients": [
-      {
-        "name": "打音 1「チッ」",
-        "attack_ms": 5.0,
-        "peak_dbfs": -3.80,
-        "peak_ms": 7.9,
-        "decay_below_-60dbfs_ms": 60,
-        "spectrum": "64 Hz の胴（エネルギーの 83 %・ほぼ聞こえない帯）＋ 2.2〜2.6 kHz の鋭い芯",
-        "stereo": "L −3.8 / R −6.0 dBFS・相関 0.70",
-        "used": false
-      },
-      {
-        "name": "打音 2「コッ」",
-        "attack_ms": 102.79,
-        "peak_dbfs": -10.32,
-        "peak_ms": 104.27,
-        "decay_below_-60dbfs_ms": 140,
-        "spectrum": "150〜1500 Hz の丸い胴（300〜600 Hz に 32 %）＋ 1.2〜2.4 kHz",
-        "stereo": "L −12.1 / R −10.3 dBFS・相関 0.87・位相ずれ 0（わずかに右寄り＝図解の側。そのまま残す）",
-        "used": true
-      }
-    ]
+  "stack": {
+   "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-diagram-stack.m4a",
+   "project_target": "assets/onboarding/sfx-diagram-stack.m4a（source id demo-sfx-diagram-stack）",
+   "role": "23.78「図解」積み上げ＝軽いクリック 3 連（40 ms 間隔）",
+   "why_this_sound": "sfx-click-soft-ui の丸い「コッ」（150〜1500 Hz）に鋭い「チッ」（300 Hz 以上だけ・−8 dB）を重ねた 1 打を、+0 / +2 / +4 半音で 40 ms ごとに 3 つ。「ず」の摩擦（2〜10 kHz）の下の 300〜1500 Hz が空いているので、2・3 打目も埋もれない。1 打目は「図」の前の閉鎖 23.75〜23.79 に落ちる",
+   "source": "sfx-click-soft-ui",
+   "source_use": "打音を 40 ms 間隔で 3 つ（+0/+2/+4 半音）",
+   "source_attack_s": {
+    "tick": 0.0049791666666666665,
+    "knock": 0.10285416666666666
+   },
+   "source_range_s": null,
+   "head_silence_ms": 6.0,
+   "file_gain_db": 0.5,
+   "md5": "3ebe089c423925c72853310a9aa3a3ae",
+   "sha256": "6da68cc1600e852611eb7710882efba96e73b368bf94593d785c2b2f37786357",
+   "bytes": 4677,
+   "codec": "AAC-LC 192 kbps / 48 kHz / stereo / m4a（ffmpeg n8.1.2 vendor の内蔵 aac・bitexact・+faststart）",
+   "decoded_samples": 8192,
+   "decode_check": {
+    "ffmpeg_vendor_vs_electron_decodeAudioData": "同じ長さ・ずれ 0 サンプル・値も完全一致",
+    "vs_pre_encode_lag_samples": 0
+   },
+   "edit_item": {
+    "track": "demo-sfx",
+    "id": "demo-sfx-diagram-stack",
+    "at": 713,
+    "duration": 5,
+    "role": "sfx",
+    "gain_db": -3.0,
+    "source": {
+     "kind": "media",
+     "src": "demo-sfx-diagram-stack",
+     "in": 0,
+     "out": 0.147
+    }
+   }
   },
-  "deviation_from_plan": {
-    "plan": "素材の 0〜0.16 s を 1 本切り出す（「アタック 0.005 s・実長 0.12 s」）",
-    "done": "素材の 97.8〜257.8 ms（打音 2 の立ち上がりの 5 ms 前から 0.16 s）を切り出し、立ち上がりをファイルの 4.98 ms に置いた",
-    "why": "素材は押して離す型の 2 打で、0〜0.16 s だと 1 回ごとに「チッ・コッ」と 2 回鳴る（3 ノードで 6 打・2 打目が 23.37 / 23.67 / 24.14 に余計に鳴る）。構成表の意図「ノードが 1 つ出るたびに小さく『コッ』」に合わせ、丸い 2 打目だけを使った。2 打目のほうが 300〜600 Hz の胴があり「コッ」の音色に近い",
-    "edit_item_effect": "なし。立ち上がりを 5 ms に置いたので、構成表の at / duration / in / out / gain_db はそのまま使える",
-    "compare": "構成表の文字どおり（2 打）の版は cut スクリプトの --variant spec で作れる。聞き比べ: C:/t/sfxdiag/listen-22.6-25.2-spec-literal-double-click.m4a"
+  "playhead": {
+   "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-diagram-playhead.m4a",
+   "project_target": "assets/onboarding/sfx-diagram-playhead.m4a（source id demo-sfx-diagram-playhead）",
+   "role": "24.37「出せます」再生ヘッド＝短い whoosh の山",
+   "why_this_sound": "sfx-whoosh-paper の 0〜0.20 s（「シュッ」の山 1 つ）。素材の 0.20〜0.26 s にある紙のめくれの 2 つ目の山（山と同じ高さ）は、山を 1 つにするため 0.16〜0.20 s のフェードで落とした。山 24.370 は「出」の閉鎖 24.37〜24.38 に当たる",
+   "source": "sfx-whoosh-paper",
+   "source_use": "whoosh の山 1 つ（0〜0.20 s。紙の 2 つ目の山 0.20〜0.26 s は使わない）",
+   "source_attack_s": null,
+   "source_range_s": [
+    0.0,
+    0.2
+   ],
+   "head_silence_ms": 15.5,
+   "file_gain_db": -2.22,
+   "md5": "d789bad4429620cc8dab16a76149b53b",
+   "sha256": "d9713f969ebcd070f6e7b4800ff27cb5d9ce0f6fec4320698de563a581711054",
+   "bytes": 7593,
+   "codec": "AAC-LC 192 kbps / 48 kHz / stereo / m4a（ffmpeg n8.1.2 vendor の内蔵 aac・bitexact・+faststart）",
+   "decoded_samples": 11264,
+   "decode_check": {
+    "ffmpeg_vendor_vs_electron_decodeAudioData": "同じ長さ・ずれ 0 サンプル・値も完全一致",
+    "vs_pre_encode_lag_samples": 0
+   },
+   "edit_item": {
+    "track": "demo-sfx",
+    "id": "demo-sfx-diagram-playhead",
+    "at": 727,
+    "duration": 7,
+    "role": "sfx",
+    "gain_db": -3.0,
+    "source": {
+     "kind": "media",
+     "src": "demo-sfx-diagram-playhead",
+     "in": 0,
+     "out": 0.216
+    }
+   }
   },
-  "levels_design": {
-    "file_gain_db": -7.12,
-    "why": "音量の正本は edit.json の gain_db −2 に残し、ファイル側を『gain_db −2 で書き出しのピーク −20 dBFS』に合わせた（構成表の目安 −20、UI の細かい音の帯 −18〜−21）",
-    "encoder_choice": "128 kbps（計画どおり）。192 / 256 kbps でも SNR は 21〜22 dB で変わらない（立ち上がりの AAC 固有の誤差。誤差は信号より 22 dB 下で、書き出しでは声の下 −42 dBFS 前後）。立ち上がり前の pre-echo なし"
+  "count": {
+   "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-diagram-count.m4a",
+   "project_target": "assets/onboarding/sfx-diagram-count.m4a（source id demo-sfx-diagram-count）",
+   "role": "24.78「し」件数＝小さな ding",
+   "why_this_sound": "sfx-pop-ding の ding の打音から（E7 2661 Hz。直前のポップの C7 が −15 dB で響く）。E はこの瞬間の BGM の一番強い音（24.6〜25.6 の chroma で E が 1.00）。「す＋し」の摩擦（3.5 kHz 以上）の下の 2.0〜2.5 kHz に芯があるので埋もれない。余韻 0.45 s は 25.0 からの無音に少しだけ残る。オチの「チーン」（sfx-ding-single・F6・1.4 s）とは高さと長さで分けた",
+   "source": "sfx-pop-ding",
+   "source_use": "ding の打音から（E7 2661 Hz。C7 の響きが −15 dB で重なる）。頭のポップ 0〜0.13 s は使わない",
+   "source_attack_s": 0.128875,
+   "source_range_s": [
+    0.127875,
+    0.687875
+   ],
+   "head_silence_ms": 7.0,
+   "file_gain_db": -4.75,
+   "md5": "1cd3b8eef5c8681ed9cacd47c7aa7ece",
+   "sha256": "8515b5d543d16b0463629a94a28c199d20fc4eb33734391db84b926c17a5daf5",
+   "bytes": 14475,
+   "codec": "AAC-LC 192 kbps / 48 kHz / stereo / m4a（ffmpeg n8.1.2 vendor の内蔵 aac・bitexact・+faststart）",
+   "decoded_samples": 28672,
+   "decode_check": {
+    "ffmpeg_vendor_vs_electron_decodeAudioData": "同じ長さ・ずれ 0 サンプル・値も完全一致",
+    "vs_pre_encode_lag_samples": 0
+   },
+   "edit_item": {
+    "track": "demo-sfx",
+    "id": "demo-sfx-diagram-count",
+    "at": 743,
+    "duration": 18,
+    "role": "sfx",
+    "gain_db": -3.0,
+    "source": {
+     "kind": "media",
+     "src": "demo-sfx-diagram-count",
+     "in": 0,
+     "out": 0.567
+    }
+   }
+  }
+ },
+ "sources": {
+  "sfx-blip-marimba": {
+   "take": "sfx-blip-marimba-a（curated）",
+   "title": "Single Soft Marimba Note Blip, Warm Wooden Tone",
+   "md5": "62f8b9c997845328b20acff099d8a5fb",
+   "sha256": "258c254e8619f43915b530d08c49cb9746aadf9027b487e418dd4b9ca90cca24",
+   "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布 / 音楽配信 / Content ID 登録は禁止）",
+   "price": 0,
+   "author": "AKARI Sounds（Suno v5.5 chirp-sfx 生成 2026-08-02・オーナー試聴選別）",
+   "ledger": "akari-video-internal assets/audio/sfx-blip-marimba/meta.json・provenance.jsonl（sha256 一致を確認）",
+   "path_read": "~/Akari/library/audio/akari-sounds-sfx/sfx-blip-marimba.mp3（読むだけ）"
   },
-  "decode_alignment": {
-    "ffmpeg_n8.1.2_vendor": { "samples": 8192, "attack_ms": 4.979, "peak_dbfs": -18.11, "peak_ms": 6.479, "lag_vs_source_samples": 0 },
-    "ffmpeg_9.0_path": { "samples": 8160, "attack_ms": 4.979, "peak_dbfs": -18.11, "peak_ms": 6.479, "lag_vs_source_samples": 0 },
-    "electron_39.8.7_decodeAudioData": { "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a", "length": 8192, "attack_sample": 239, "attack_ms": 4.979, "peak_dbfs": -18.11, "peak_sample": 311, "how": "隔離 user-data-dir（C:/t/sfxdiag/ud）の非表示 BrowserWindow で OfflineAudioContext.decodeAudioData" },
-    "verdict": "3 経路とも頭のずれ 0 サンプル（AAC の priming は elst で落ちる）。どの経路でも out 0.16 s（7680 サンプル）より長い"
+  "sfx-click-soft-ui": {
+   "take": "sfx-click-soft-ui-a（curated）",
+   "title": "Soft Rounded Interface Click, Gentle Low Blip",
+   "md5": "9d83321587011f1218f3c89dce935b49",
+   "sha256": "8f79773875e605c5a8c282a6305b85040764f0438df10e54286fd92750376a8b",
+   "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布 / 音楽配信 / Content ID 登録は禁止）",
+   "price": 0,
+   "author": "AKARI Sounds（Suno v5.5 chirp-sfx 生成 2026-08-02・オーナー試聴選別）",
+   "ledger": "akari-video-internal assets/audio/sfx-click-soft-ui/meta.json・provenance.jsonl（sha256 一致を確認）",
+   "path_read": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3（読むだけ）"
   },
-  "word_onsets_measured": {
-    "method": "書き出し（本編だけ）の音声 = clip.mp4 と同位相（ずれ 0 サンプル）の 2 ms / 5 ms RMS 包絡（狭帯域の bandpass は使わない）",
-    "ko_s": 23.268,
-    "ko_def": "無音（−75 dBFS）から 2 ms RMS が −50 dBFS を越える点（−40 dBFS は 23.269）",
-    "zu_consonant_s": 23.562,
-    "zu_vowel_s": 23.58,
-    "zu_def": "「いう」→「ず」の谷（23.555〜23.570・−28 dBFS）で摩擦（微分した信号の包絡）が立ち、母音が谷＋6 dB を越えるのが 23.579",
-    "de_burst_s": 24.025,
-    "de_def": "「も」の終わり 23.957 → 閉鎖の無音（23.96〜24.02・−54〜−78 dBFS）→ 「で」の破裂が −40 dBFS を越える点 24.026",
-    "director": { "こういう": 23.27, "図解": 23.58, "出せます": 24.02 }
+  "sfx-whoosh-paper": {
+   "take": "sfx-whoosh-paper-a（curated・2026-08-23 の SFX 大掃除でオーナーが残した 3 本の 1 つ）",
+   "title": "Paper Flip Whoosh, Light Page Turn Flick",
+   "md5": "a520ac79ed80cc1abcb77ff8f2e09895",
+   "sha256": "9bd61dbe510f68a58f739ed8f9f2956469f931a88ec04cd8c2c688c4273ea055",
+   "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布 / 音楽配信 / Content ID 登録は禁止）",
+   "price": 0,
+   "author": "AKARI Sounds（Suno v5.5 chirp-sfx 生成 2026-08-02・オーナー試聴選別）",
+   "ledger": "akari-video-internal assets/audio/sfx-whoosh-paper/meta.json・provenance.jsonl（sha256 一致を確認）",
+   "path_read": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-paper.mp3（読むだけ）"
   },
-  "export_measure": {
-    "how": "隔離プロジェクト C:/t/sfxdiag/{proj, proj720, proj0}（本編＋3 個 / 3 個目だけ at 720 / 本編だけ）を edit-lint PASS → render-cut PASS（AKARI_FFMPEG_BIN = vendor n8.1.2、AKARI_HOME・TMP 隔離、作業フォルダは空）。差（効果音の寄与）に同梱ファイル × −2 dB の波形を相互相関で当てて置き位置を求めた",
-    "render_chain": "[sfx]atrim=start=0:end=0.16,asetpts=PTS-STARTPTS,volume=-2dB,adelay=23267 / 23567 / 24033（3 個目を at 720 にした版は 24000）:all=1 → amix normalize=0（packages/render-cut/src/plan.mjs の sfx の鎖）",
-    "voice_offset_export_vs_clip_samples": 0,
-    "codec_noise_note": "2 本の書き出しの差には AAC 再符号化の雑音（ピーク −33 dBFS）が乗る。置き位置は相互相関（相関 0.90〜0.99）で取った",
-    "ticks": [
-      {
-        "item": "demo-sfx-diagram-tick-1", "at": 698, "planned_start_s": 23.2667, "measured_start_s": 23.267, "start_err_ms": 0.33, "match_corr": 0.986,
-        "attack_s": 23.272, "word": "こ", "word_onset_s": 23.268, "attack_minus_word_ms": 4,
-        "visual": "ノード① 最初のフレーム 698 f = 23.267（構成表）", "attack_minus_visual_ms": 5,
-        "sfx_peak_in_mix_dbfs": -19.91,
-        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": -13.5, "max_third_octave_db": 20.8, "at_hz": 2000, "bands_above": [160, 200, 250, 1000, 1250, 1600, 2000, 2500] }
-      },
-      {
-        "item": "demo-sfx-diagram-tick-2", "at": 707, "planned_start_s": 23.5667, "measured_start_s": 23.567, "start_err_ms": 0.33, "match_corr": 0.904,
-        "attack_s": 23.571, "word": "図", "word_onset_s": 23.562, "attack_minus_word_ms": 9, "attack_minus_vowel_ms": -9,
-        "visual": "ノード② 最初のフレーム 707 f = 23.567（構成表）", "attack_minus_visual_ms": 4,
-        "sfx_peak_in_mix_dbfs": -20.34,
-        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": -13.0, "max_third_octave_db": 21.3, "at_hz": 800, "bands_above": [125, 160, 400, 630, 800, 1000, 1250, 1600, 2000] }
-      },
-      {
-        "item": "demo-sfx-diagram-tick-3（構成表どおり at 721）", "at": 721, "planned_start_s": 24.0333, "measured_start_s": 24.033, "start_err_ms": -0.33, "match_corr": 0.946,
-        "attack_s": 24.038, "word": "出", "word_onset_s": 24.025, "attack_minus_word_ms": 13,
-        "visual": "ノード③ 最初のフレーム 720 f = 24.000（構成表の sync_table）", "attack_minus_visual_ms": 38,
-        "sfx_peak_in_mix_dbfs": -20.19,
-        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": -10.3, "max_third_octave_db": 9.5, "at_hz": 160, "bands_above": [100, 125, 160, 200, 500, 2000] },
-        "reading": "「で」の破裂（広帯域）に重なって 3 個の中でいちばん埋もれる"
-      },
-      {
-        "item": "demo-sfx-diagram-tick-3（推奨 at 720）", "at": 720, "planned_start_s": 24.0, "measured_start_s": 24.0, "start_err_ms": 0.0, "match_corr": 0.938,
-        "attack_s": 24.005, "word": "出", "word_onset_s": 24.025, "attack_minus_word_ms": -20,
-        "visual": "ノード③ 最初のフレーム 720 f = 24.000（構成表の sync_table）", "attack_minus_visual_ms": 5,
-        "sfx_peak_in_mix_dbfs": -20.30,
-        "audibility_vs_voice_plus_bgm": { "window": "立ち上がり −2〜+18 ms", "broadband_db": 2.5, "max_third_octave_db": 33.4, "at_hz": 2000, "bands_above": [125, 160, 200, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000] },
-        "reading": "「も」と「で」の間の閉鎖の無音（23.96〜24.02）に落ちるので、声に埋もれずに「コッ」と聞こえる。語頭 −20 ms（規約 ±30 ms 内）、ノード③の出と +5 ms で ①② と同じ揃い方になる"
-      }
+  "sfx-pop-ding": {
+   "take": "sfx-pop-ding-b（curated）",
+   "title": "Soft Pop Followed By A Tiny Ding, Cute Notification",
+   "md5": "5ff54570ae103ac2a7cb77f191841807",
+   "sha256": "fb89816dd85d27671f74e87cfe2c19895f3e7a7dc338a9ce33828c179f348829",
+   "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布 / 音楽配信 / Content ID 登録は禁止）",
+   "price": 0,
+   "author": "AKARI Sounds（Suno v5.5 chirp-sfx 生成 2026-08-02・オーナー試聴選別）",
+   "ledger": "akari-video-internal assets/audio/sfx-pop-ding/meta.json・provenance.jsonl（sha256 一致を確認）",
+   "path_read": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3（読むだけ）"
+  }
+ },
+ "export_measure": {
+  "how": "組み込みの書き出し用プロジェクト（C:/t/integ/full）を C:/t/sfxdiag2/proj/{full,mix,novoice,sfxonly,base} に写し、図解のクリック 3 個を新しい 4 本に差し替え（make-test-projects.py）→ edit-lint PASS（error 0）→ render-cut --engine osr（AKARI_HOME・TMP 隔離・作業フォルダは空・AKARI_FFMPEG_BIN = vendor n8.1.2）。mix = 声＋BGM＋効果音（演出の段なし）、novoice = 声を消した残り、sfxonly = 効果音だけ、base = 新しい 4 本なし、full = 全段",
+  "rows": [
+   {
+    "id": "diagram-pon",
+    "word": "こういう（カード）",
+    "word_s": 23.27,
+    "item_at": 697,
+    "item_at_s": 23.233,
+    "kind": "出",
+    "target_s": 23.256,
+    "measured_s": 23.251,
+    "delta_vs_word_s": -0.019,
+    "delta_vs_target_ms": -5.0,
+    "within_0.03_of_word": true,
+    "peak_5ms_dbfs": -15.7,
+    "within_-16_-14": true,
+    "novoice": {
+     "bgm_floor_median_5ms_dbfs": -32.7,
+     "peak_5ms_dbfs": -12.4,
+     "above_bgm_floor_db": 20.3
+    },
+    "voice_bgm_at_moment_5ms_max_dbfs": -13.8,
+    "phrase_voice_peak_5ms_dbfs": -6.7,
+    "below_phrase_voice_peak": true,
+    "mix_sample_peak_dbfs": -3.04
+   },
+   {
+    "id": "diagram-stack",
+    "word": "図解（積み上げ・1 打目）",
+    "word_s": 23.78,
+    "item_at": 713,
+    "item_at_s": 23.767,
+    "kind": "出",
+    "target_s": 23.774,
+    "measured_s": 23.769,
+    "delta_vs_word_s": -0.011,
+    "delta_vs_target_ms": -5.0,
+    "within_0.03_of_word": true,
+    "peak_5ms_dbfs": -14.5,
+    "within_-16_-14": true,
+    "hits": [
+     {
+      "hit": 1,
+      "onset_s": 23.769,
+      "peak_5ms_dbfs": -14.5
+     },
+     {
+      "hit": 2,
+      "onset_s": 23.809,
+      "peak_5ms_dbfs": -14.6
+     },
+     {
+      "hit": 3,
+      "onset_s": 23.849,
+      "peak_5ms_dbfs": -14.6
+     }
     ],
-    "bgm_in_audibility": "BGM は計画値の近似（bgm-lofi-minimal-085 を +0.080 s で切り出し、gain −9 + duck −8 = −17 dB 一定。この区間 22.49〜25.50 はダッキングの区間が 1 つに結合されるため一定で近い）。keyframes が item の gain_db に加算される場合の −26 dB でも結論は同じ（tick-1 +21.3 / tick-2 +24.0 / tick-3@721 +7.3 dB）。書き出しの BGM の実測ではない"
-  },
-  "edit_items": {
-    "as_planned": [
-      { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-1", "at": 698, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } },
-      { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-2", "at": 707, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } },
-      { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-3", "at": 721, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } }
+    "spacing_ms": [
+     40,
+     40
     ],
-    "recommended_change": "tick-3 だけ at 721 → 720（他は構成表どおり）。721 のままでも規約（語頭 ±0.03 s）内で合格する",
-    "no_overlap": "demo-sfx 段で前の sfx-hora-sparkle は 661 f で終わり、次の sfx-phone（swoosh）は 805 f から。3 個は 698〜703 / 707〜712 / 720（721）〜725（726）で互いにも重ならない"
-  },
-  "listen": {
-    "recommended_720": "C:/t/sfxdiag/listen-22.6-25.2-ticks-720-recommended.m4a",
-    "as_planned_721": "C:/t/sfxdiag/listen-22.6-25.2-ticks-721-as-planned.m4a",
-    "spec_literal_double_click": "C:/t/sfxdiag/listen-22.6-25.2-spec-literal-double-click.m4a",
-    "voice_only": "C:/t/sfxdiag/listen-22.6-25.2-voice-only.m4a",
-    "note": "試聴用の抜粋（リポの外。22.6 s 起点）"
-  },
-  "not_verified": [
-    "図解の断片（overlays/demo-diagram）はこの時点で未作成のため、ノードの出と音の揃いは構成表のフレーム番号（698 / 707 / 720）で照合した。断片ができたら書き出しでノード③の最初のフレームが 720 か 721 かを確認し、721 なら tick-3 も 721 のままでよい",
-    "BGM を入れた書き出しでの実測（BGM は近似で聴こえ方を計算した）",
-    "シェルのプレビュー（L1）での再生。復号は Electron の decodeAudioData で書き出しと同じ位置に来ることだけ確認した"
+    "novoice": {
+     "bgm_floor_median_5ms_dbfs": -28.1,
+     "peak_5ms_dbfs": -14.2,
+     "above_bgm_floor_db": 13.9
+    },
+    "voice_bgm_at_moment_5ms_max_dbfs": -20.8,
+    "phrase_voice_peak_5ms_dbfs": -6.7,
+    "below_phrase_voice_peak": true,
+    "mix_sample_peak_dbfs": -6.47
+   },
+   {
+    "id": "diagram-playhead",
+    "word": "出せます（再生ヘッド）",
+    "word_s": 24.37,
+    "item_at": 727,
+    "item_at_s": 24.233,
+    "kind": "山",
+    "target_s": 24.37,
+    "measured_s": 24.37,
+    "delta_vs_word_s": 0.0,
+    "delta_vs_target_ms": 0.0,
+    "within_0.03_of_word": true,
+    "peak_5ms_dbfs": -15.1,
+    "within_-16_-14": true,
+    "novoice": {
+     "bgm_floor_median_5ms_dbfs": -29.2,
+     "peak_5ms_dbfs": -15.1,
+     "above_bgm_floor_db": 14.1
+    },
+    "voice_bgm_at_moment_5ms_max_dbfs": -6.7,
+    "phrase_voice_peak_5ms_dbfs": -6.7,
+    "below_phrase_voice_peak": true,
+    "mix_sample_peak_dbfs": -3.61
+   },
+   {
+    "id": "diagram-count",
+    "word": "し（件数）",
+    "word_s": 24.78,
+    "item_at": 743,
+    "item_at_s": 24.767,
+    "kind": "出",
+    "target_s": 24.775,
+    "measured_s": 24.77,
+    "delta_vs_word_s": -0.01,
+    "delta_vs_target_ms": -5.0,
+    "within_0.03_of_word": true,
+    "peak_5ms_dbfs": -14.8,
+    "within_-16_-14": true,
+    "novoice": {
+     "bgm_floor_median_5ms_dbfs": -26.7,
+     "peak_5ms_dbfs": -14.5,
+     "above_bgm_floor_db": 12.3
+    },
+    "voice_bgm_at_moment_5ms_max_dbfs": -19.9,
+    "phrase_voice_peak_5ms_dbfs": -6.7,
+    "below_phrase_voice_peak": true,
+    "mix_sample_peak_dbfs": -8.33
+   }
   ],
-  "renders": [
-    "sfx-diagram-ticks-cut.png（素材の 2 打・切り出し区間・同梱ファイルの復号波形・2 打の成分の比較）",
-    "sfx-diagram-ticks-sync.png（22.9〜24.4 s の声と効果音の包絡・語頭と立ち上がりの縦線・698 / 707 / 720 f の書き出しフレーム）"
-  ]
+  "placement_by_cross_correlation": [
+   {
+    "item": "demo-sfx-diagram-pon",
+    "at": 697,
+    "planned_start_s": 23.2333,
+    "adelay_s": 23.233,
+    "measured_start_s": 23.233,
+    "err_vs_adelay_samples": 0,
+    "corr": 1.0
+   },
+   {
+    "item": "demo-sfx-diagram-stack",
+    "at": 713,
+    "planned_start_s": 23.7667,
+    "adelay_s": 23.767,
+    "measured_start_s": 23.767,
+    "err_vs_adelay_samples": 0,
+    "corr": 1.0
+   },
+   {
+    "item": "demo-sfx-diagram-playhead",
+    "at": 727,
+    "planned_start_s": 24.2333,
+    "adelay_s": 24.233,
+    "measured_start_s": 24.233,
+    "err_vs_adelay_samples": 0,
+    "corr": 0.988
+   },
+   {
+    "item": "demo-sfx-diagram-count",
+    "at": 743,
+    "planned_start_s": 24.7667,
+    "adelay_s": 24.767,
+    "measured_start_s": 24.767,
+    "err_vs_adelay_samples": 0,
+    "corr": 1.0
+   }
+  ],
+  "audibility_vs_voice_bgm": {
+   "how": "効果音だけ（sfxonly）と 声＋BGM（base）の同じ窓の 1/3 オクターブ帯のエネルギー比。窓: 出の −2〜+18 ms（whoosh は山の ±40 ms、ding は +60 ms、ポンは +30 ms）",
+   "pon": {
+    "window_s": [
+     23.254,
+     23.286
+    ],
+    "broadband_db": -3.5,
+    "max_third_octave_db": 23.0,
+    "at_hz": 1600,
+    "bands_above_0db": [
+     400,
+     504,
+     1270,
+     1600,
+     2016
+    ],
+    "bands_above_6db": 4
+   },
+   "stack-1": {
+    "window_s": [
+     23.772,
+     23.792
+    ],
+    "broadband_db": 10.9,
+    "max_third_octave_db": 61.7,
+    "at_hz": 2540,
+    "bands_above_0db": [
+     100,
+     126,
+     159,
+     200,
+     252,
+     317,
+     400,
+     504,
+     635,
+     800,
+     1008,
+     1270,
+     1600,
+     2016,
+     2540,
+     3200,
+     4032,
+     5080,
+     6400,
+     8063,
+     10159,
+     12800
+    ],
+    "bands_above_6db": 22
+   },
+   "stack-2": {
+    "window_s": [
+     23.812,
+     23.832
+    ],
+    "broadband_db": 4.9,
+    "max_third_octave_db": 26.9,
+    "at_hz": 1270,
+    "bands_above_0db": [
+     100,
+     126,
+     159,
+     200,
+     252,
+     317,
+     400,
+     504,
+     635,
+     800,
+     1008,
+     1270,
+     1600,
+     2016,
+     2540,
+     3200,
+     4032
+    ],
+    "bands_above_6db": 15
+   },
+   "stack-3": {
+    "window_s": [
+     23.852,
+     23.872
+    ],
+    "broadband_db": 1.5,
+    "max_third_octave_db": 21.1,
+    "at_hz": 200,
+    "bands_above_0db": [
+     100,
+     126,
+     159,
+     200,
+     252,
+     317,
+     400,
+     504,
+     635,
+     800,
+     1008,
+     1270,
+     1600,
+     2016,
+     2540,
+     3200
+    ],
+    "bands_above_6db": 15
+   },
+   "playhead": {
+    "window_s": [
+     24.33,
+     24.41
+    ],
+    "broadband_db": -3.2,
+    "max_third_octave_db": 36.8,
+    "at_hz": 2016,
+    "bands_above_0db": [
+     1008,
+     1270,
+     1600,
+     2016,
+     2540,
+     3200,
+     4032,
+     5080,
+     6400,
+     8063,
+     10159,
+     12800
+    ],
+    "bands_above_6db": 12
+   },
+   "count": {
+    "window_s": [
+     24.773,
+     24.835
+    ],
+    "broadband_db": 4.4,
+    "max_third_octave_db": 32.8,
+    "at_hz": 2540,
+    "bands_above_0db": [
+     2016,
+     2540
+    ],
+    "bands_above_6db": 2
+   }
+  }
+ },
+ "verdict": {
+  "levels": "5 ms RMS のピーク: ポン −15.7 / クリック −14.5・−14.6・−14.6 / whoosh −15.1 / ding −14.8 dBFS（指定 −16〜−14 に全部入る。差し戻し前 −25.8 から +10〜+11 dB）。この句の声のピーク −6.7 dBFS より 8〜9 dB 下、主役の効果音（−8〜−12）より下",
+  "timing": "語頭との差（組み込みの定義）: ポン −0.019 / クリック −0.011（3 打の出 23.769・23.809・23.849 = 40 ms 間隔）/ whoosh の山 +0.000 / ding −0.010 秒（指定 ±0.03 に全部入る）。置き位置は相互相関で adelay とずれ 0 サンプル",
+  "vs_bgm": "声を消した残り（novoice）で、BGM の床（直前 150〜10 ms の中央値）より ポン +20.3 / クリック +13.9 / whoosh +14.1 / ding +12.3 dB（差し戻し前は +2〜3 dB）",
+  "vs_voice": "声＋BGM に対して、1/3 オクターブ帯で +6 dB を越える帯がポン 4・クリック 22/15/15・whoosh 12・ding 2（ding は E7 と C7 の 2 本の純音なので帯は 2 本だが +33 dB）",
+  "mix_clipping": "最終ミックスのサンプルピークは各音の周りで −3.0〜−8.3 dBFS（クリップなし）"
+ },
+ "no_overlap_on_track": "段 demo-sfx: 前の hora-sparkle は 661 f で終わり、ポン 697〜712 / クリック 713〜718 / whoosh 727〜734 / ding 743〜761、次の phone-swoosh は 805 f から。互いにも重ならない",
+ "wiring_for_integration": {
+  "replace": "stage 4 の sfx('demo-sfx-diagram-tick-1/2/3', …, 'sfx-click-soft-ui', 0.16) の 3 行を下の 4 行に差し替え（html の demo-diagram の行はそのまま）",
+  "sfx_helper_lines": [
+   "sfx('demo-sfx-diagram-pon', 697, 15, -3, 'sfx-diagram-pon', 0.482)",
+   "sfx('demo-sfx-diagram-stack', 713, 5, -3, 'sfx-diagram-stack', 0.147)",
+   "sfx('demo-sfx-diagram-playhead', 727, 7, -3, 'sfx-diagram-playhead', 0.216)",
+   "sfx('demo-sfx-diagram-count', 743, 18, -3, 'sfx-diagram-count', 0.567)"
+  ],
+  "remove_after_rewire": "audio/sfx-click-soft-ui.m4a（新しい 4 本に置き換わり、どこからも使われなくなる。onboarding-demo.test.mjs の sounds 一覧と meta.json の provenance の sfx-click-soft-ui（2 打目だけ）も差し替え）",
+  "measure_audio_py_rows": [
+   [
+    "diagram-pon",
+    "こういう（カード）",
+    23.27,
+    697,
+    "出"
+   ],
+   [
+    "diagram-stack",
+    "図解（積み上げ）",
+    23.78,
+    713,
+    "出"
+   ],
+   [
+    "diagram-playhead",
+    "出せます（再生ヘッド）",
+    24.37,
+    727,
+    "山"
+   ],
+   [
+    "diagram-count",
+    "し（件数）",
+    24.78,
+    743,
+    "出"
+   ]
+  ],
+  "meta_json_provenance": "効果音の一覧の sfx-click-soft-ui（2 打目だけ）を次の 4 つに: sfx-diagram-pon（sfx-blip-marimba の 3 打目 0.231〜0.691 秒）、sfx-diagram-stack（sfx-click-soft-ui の 2 つの打音を重ねて 40 ms 間隔で 3 つ）、sfx-diagram-playhead（sfx-whoosh-paper の 0〜0.20 秒）、sfx-diagram-count（sfx-pop-ding の ding 0.128〜0.688 秒）。いずれも AAC 192 kbps"
+ },
+ "diagram_beats_in_export": {
+  "how": "新しい図解の断片（この動画の中身をタイムラインで見せる版・04:03）を入れた全段の書き出し（full-2.mp4）で、右の舞台の画素が前のフレームから変わり始めるフレーム",
+  "card": {
+   "first_visible_frame": 698,
+   "s": 23.267,
+   "sound": "ポン 23.256（11 ms 前）"
+  },
+  "stack": {
+   "first_visible_frame": 713,
+   "s": 23.767,
+   "then": "714・715 で段ごとに部品が増え、720 まで左から掃く",
+   "sound": "クリック 23.774 / 23.814 / 23.854（713・714・715 f の間に 1 打ずつ）"
+  },
+  "playhead": {
+   "first_visible_frame": 731,
+   "s": 24.367,
+   "sound": "whoosh の山 24.370（3 ms 後）"
+  },
+  "count": {
+   "first_visible_frame": 743,
+   "s": 24.767,
+   "then": "744〜746 で「テロップ 7・効果音 14・BGM 1」が並ぶ",
+   "sound": "ding 24.775（8 ms 後）"
+  },
+  "changed_pixels_vs_prev_frame": {
+   "695": 0,
+   "696": 0,
+   "697": 0,
+   "698": 38335,
+   "699": 69255,
+   "700": 79570,
+   "701": 14149,
+   "702": 6022,
+   "703": 5578,
+   "704": 4232,
+   "705": 2560,
+   "706": 1389,
+   "707": 813,
+   "708": 198,
+   "709": 31,
+   "710": 30,
+   "711": 1,
+   "712": 0,
+   "713": 377,
+   "714": 1789,
+   "715": 1734,
+   "716": 2980,
+   "717": 3772,
+   "718": 4449,
+   "719": 4788,
+   "720": 5594,
+   "721": 4527,
+   "722": 4206,
+   "723": 2812,
+   "724": 2429,
+   "725": 595,
+   "726": 3005,
+   "727": 0,
+   "728": 0,
+   "729": 0,
+   "730": 0,
+   "731": 681,
+   "732": 2566,
+   "733": 2439,
+   "734": 2992,
+   "735": 3677,
+   "736": 3137,
+   "737": 3112,
+   "738": 3443,
+   "739": 2860,
+   "740": 2993,
+   "741": 5367,
+   "742": 2843,
+   "743": 2268,
+   "744": 2556,
+   "745": 2678,
+   "746": 3232,
+   "747": 2710,
+   "748": 2213
+  }
+ },
+ "cross_element_notice": {
+  "sfx_count": "図解の「効果音 14」と効果音の段の点は、build_diagram.py が onboarding-service.ts の DEMO_PLAN の sfx(...) 行から数えて作る。クリック 3 個 → 新しい 4 本で効果音は 14 → 15 個になるので、配線を差し替えたあと build_diagram.py で図解を作り直す必要がある",
+  "plan_json_sfx_sources": "build_diagram.py は plan.json の sfx_sources.files[].attack_or_peak_s を音の名前で引く（無いと KeyError）。次の 4 行を足す: [{\"id\": \"sfx-diagram-pon\", \"source\": \"~/Akari/library/audio/akari-sounds-sfx/sfx-blip-marimba.mp3\", \"md5_8\": \"62f8b9c9\", \"cut_s\": 0.482, \"attack_or_peak_s\": 0.023}, {\"id\": \"sfx-diagram-stack\", \"source\": \"~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3\", \"md5_8\": \"9d833215\", \"cut_s\": 0.147, \"attack_or_peak_s\": 0.007}, {\"id\": \"sfx-diagram-playhead\", \"source\": \"~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-paper.mp3\", \"md5_8\": \"a520ac79\", \"cut_s\": 0.216, \"attack_or_peak_s\": 0.137}, {\"id\": \"sfx-diagram-count\", \"source\": \"~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3\", \"md5_8\": \"5ff54570\", \"cut_s\": 0.567, \"attack_or_peak_s\": 0.008}]"
+ },
+ "listen_outside_repo": {
+  "new_4sfx": "C:/t/sfxdiag2/listen-22.80-25.60-new-4sfx.m4a",
+  "before_3ticks": "C:/t/sfxdiag2/listen-22.80-25.60-before-3ticks.m4a（直前の組み込みの書き出し out/demo-export-osr.mp4 から）",
+  "no_diagram_sfx": "C:/t/sfxdiag2/listen-22.80-25.60-no-diagram-sfx.m4a",
+  "watch_new": "C:/t/sfxdiag2/watch-22.80-25.60-new-4sfx.mp4（新しい図解を入れた全段の書き出し）"
+ },
+ "not_verified": [
+  "図解は 04:03 時点の worktree の新しい断片（md5 a24390615b94db200c86822270fe9b12）で確かめた。図解の担当がこのあと直した場合は、拍（カード 698 f・積み上げ 713 f・再生ヘッド 731 f・件数 743 f）が動いていないかだけ見ればよい",
+  "耳での試聴はしていない（聴こえ方は帯域ごとのエネルギー比と包絡で判定）。上の試聴用の抜粋で目利きが確認できる",
+  "シェルのプレビュー（L1）での再生は未実施。Electron の decodeAudioData で 4 本とも書き出しと同じ復号（完全一致・ずれ 0）になることだけ確認した"
+ ],
+ "renders": [
+  "sfx-diagram-ticks-file.png（4 本のファイル: gain_db −3 での 5 ms RMS の包絡とスペクトログラム、狙いの位置）",
+  "sfx-diagram-ticks-sync.png（書き出しの 22.95〜25.35 秒: 効果音・声・BGM の包絡、語頭と狙いの縦線、ミックスのスペクトログラム）",
+  "sfx-diagram-ticks-frames.jpg（新しい図解を入れた全段の書き出しの右の舞台 x 700〜1260・y 90〜480 を 696〜746 f から 22 枚。♪ = そのフレームの間に鳴る音）"
+ ],
+ "reproduce": [
+  "python make-sfx-diagram.py <vendor ffmpeg> ~/Akari/library/audio/akari-sounds-sfx <out>（同じ md5 を 2 回再現）",
+  "python make-test-projects.py <out> <proj-root>（C:/t/integ/full を写して差し替え）→ edit-lint → render-cut --engine osr",
+  "python measure-sfx-diagram-export.py <proj-root> <json>"
+ ]
 }

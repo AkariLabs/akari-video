@@ -26,8 +26,11 @@
   "overlays\\demo-chat\\fragment.html",
   "overlays\\demo-bgm\\fragment.html",
   "audio\\sfx-click-mouse-single.m4a",
-  "audio\\sfx-click-soft-ui.m4a",
   "audio\\sfx-correct-tone.m4a",
+  "audio\\sfx-diagram-count.m4a",
+  "audio\\sfx-diagram-playhead.m4a",
+  "audio\\sfx-diagram-pon.m4a",
+  "audio\\sfx-diagram-stack.m4a",
   "audio\\sfx-ding-single.m4a",
   "audio\\sfx-pop-bubble-big.m4a",
   "audio\\sfx-pop-cork.m4a",
@@ -149,8 +152,8 @@
    "warnings": 7,
    "tracks": [
     "video[sample]",
+    "demo-flash[demo-flash]",
     "demo-stage[demo-title,demo-chat,demo-done,demo-effects]",
-    "demo-accents[demo-flash]",
     "captions[captions]",
     "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle]"
    ],
@@ -204,10 +207,10 @@
    "warnings": 7,
    "tracks": [
     "video[sample]",
+    "demo-flash[demo-flash]",
     "demo-stage[demo-title,demo-chat,demo-done,demo-effects,demo-diagram]",
-    "demo-accents[demo-flash]",
     "captions[captions]",
-    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-tick-1,demo-sfx-diagram-tick-2,demo-sfx-diagram-tick-3]"
+    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-pon,demo-sfx-diagram-stack,demo-sfx-diagram-playhead,demo-sfx-diagram-count]"
    ],
    "sources": [
     "sample",
@@ -218,12 +221,18 @@
     "demo-sfx-pop-cork",
     "demo-sfx-whoosh-punchy",
     "demo-sfx-shimmer-sparkle",
-    "demo-sfx-click-soft-ui"
+    "demo-sfx-diagram-pon",
+    "demo-sfx-diagram-stack",
+    "demo-sfx-diagram-playhead",
+    "demo-sfx-diagram-count"
    ],
    "files": [
     "assets/onboarding",
-    "assets/onboarding/sfx-click-soft-ui.m4a",
     "assets/onboarding/sfx-correct-tone.m4a",
+    "assets/onboarding/sfx-diagram-count.m4a",
+    "assets/onboarding/sfx-diagram-playhead.m4a",
+    "assets/onboarding/sfx-diagram-pon.m4a",
+    "assets/onboarding/sfx-diagram-stack.m4a",
     "assets/onboarding/sfx-pop-bubble-big.m4a",
     "assets/onboarding/sfx-pop-cork.m4a",
     "assets/onboarding/sfx-pop-ding.m4a",
@@ -264,10 +273,10 @@
    "tracks": [
     "video[sample]",
     "demo-phone-screen[demo-phone-screen]",
+    "demo-flash[demo-flash]",
     "demo-stage[demo-title,demo-chat,demo-done,demo-effects,demo-diagram,demo-phone]",
-    "demo-accents[demo-flash]",
     "captions[captions]",
-    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-tick-1,demo-sfx-diagram-tick-2,demo-sfx-diagram-tick-3,demo-sfx-phone-swoosh,demo-sfx-phone-tap]"
+    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-pon,demo-sfx-diagram-stack,demo-sfx-diagram-playhead,demo-sfx-diagram-count,demo-sfx-phone-swoosh,demo-sfx-phone-tap]"
    ],
    "sources": [
     "sample",
@@ -278,15 +287,21 @@
     "demo-sfx-pop-cork",
     "demo-sfx-whoosh-punchy",
     "demo-sfx-shimmer-sparkle",
-    "demo-sfx-click-soft-ui",
+    "demo-sfx-diagram-pon",
+    "demo-sfx-diagram-stack",
+    "demo-sfx-diagram-playhead",
+    "demo-sfx-diagram-count",
     "demo-sfx-swoosh-up",
     "demo-sfx-click-mouse-single"
    ],
    "files": [
     "assets/onboarding",
     "assets/onboarding/sfx-click-mouse-single.m4a",
-    "assets/onboarding/sfx-click-soft-ui.m4a",
     "assets/onboarding/sfx-correct-tone.m4a",
+    "assets/onboarding/sfx-diagram-count.m4a",
+    "assets/onboarding/sfx-diagram-playhead.m4a",
+    "assets/onboarding/sfx-diagram-pon.m4a",
+    "assets/onboarding/sfx-diagram-stack.m4a",
     "assets/onboarding/sfx-pop-bubble-big.m4a",
     "assets/onboarding/sfx-pop-cork.m4a",
     "assets/onboarding/sfx-pop-ding.m4a",
@@ -330,11 +345,12 @@
    "tracks": [
     "video[sample]",
     "demo-phone-screen[demo-phone-screen]",
+    "demo-flash[demo-flash]",
     "demo-stage[demo-title,demo-chat,demo-done,demo-effects,demo-diagram,demo-phone]",
-    "demo-accents[demo-flash,demo-bgm-chip]",
+    "demo-accents[demo-bgm-chip]",
     "captions[captions]",
     "onboarding-bgm[onboarding-bgm]",
-    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-tick-1,demo-sfx-diagram-tick-2,demo-sfx-diagram-tick-3,demo-sfx-phone-swoosh,demo-sfx-phone-tap]"
+    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-pon,demo-sfx-diagram-stack,demo-sfx-diagram-playhead,demo-sfx-diagram-count,demo-sfx-phone-swoosh,demo-sfx-phone-tap]"
    ],
    "sources": [
     "sample",
@@ -345,7 +361,10 @@
     "demo-sfx-pop-cork",
     "demo-sfx-whoosh-punchy",
     "demo-sfx-shimmer-sparkle",
-    "demo-sfx-click-soft-ui",
+    "demo-sfx-diagram-pon",
+    "demo-sfx-diagram-stack",
+    "demo-sfx-diagram-playhead",
+    "demo-sfx-diagram-count",
     "demo-sfx-swoosh-up",
     "demo-sfx-click-mouse-single",
     "onboarding-bgm"
@@ -354,8 +373,11 @@
     "assets/onboarding",
     "assets/onboarding-bgm.m4a",
     "assets/onboarding/sfx-click-mouse-single.m4a",
-    "assets/onboarding/sfx-click-soft-ui.m4a",
     "assets/onboarding/sfx-correct-tone.m4a",
+    "assets/onboarding/sfx-diagram-count.m4a",
+    "assets/onboarding/sfx-diagram-playhead.m4a",
+    "assets/onboarding/sfx-diagram-pon.m4a",
+    "assets/onboarding/sfx-diagram-stack.m4a",
     "assets/onboarding/sfx-pop-bubble-big.m4a",
     "assets/onboarding/sfx-pop-cork.m4a",
     "assets/onboarding/sfx-pop-ding.m4a",
@@ -401,11 +423,12 @@
    "tracks": [
     "video[sample]",
     "demo-phone-screen[demo-phone-screen]",
+    "demo-flash[demo-flash]",
     "demo-stage[demo-title,demo-chat,demo-done,demo-effects,demo-diagram,demo-phone]",
-    "demo-accents[demo-flash,demo-bgm-chip]",
+    "demo-accents[demo-bgm-chip]",
     "captions[captions]",
     "onboarding-bgm[onboarding-bgm]",
-    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-tick-1,demo-sfx-diagram-tick-2,demo-sfx-diagram-tick-3,demo-sfx-phone-swoosh,demo-sfx-phone-tap]"
+    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-pon,demo-sfx-diagram-stack,demo-sfx-diagram-playhead,demo-sfx-diagram-count,demo-sfx-phone-swoosh,demo-sfx-phone-tap]"
    ],
    "sources": [
     "sample",
@@ -416,7 +439,10 @@
     "demo-sfx-pop-cork",
     "demo-sfx-whoosh-punchy",
     "demo-sfx-shimmer-sparkle",
-    "demo-sfx-click-soft-ui",
+    "demo-sfx-diagram-pon",
+    "demo-sfx-diagram-stack",
+    "demo-sfx-diagram-playhead",
+    "demo-sfx-diagram-count",
     "demo-sfx-swoosh-up",
     "demo-sfx-click-mouse-single",
     "onboarding-bgm"
@@ -425,8 +451,11 @@
     "assets/onboarding",
     "assets/onboarding-bgm.m4a",
     "assets/onboarding/sfx-click-mouse-single.m4a",
-    "assets/onboarding/sfx-click-soft-ui.m4a",
     "assets/onboarding/sfx-correct-tone.m4a",
+    "assets/onboarding/sfx-diagram-count.m4a",
+    "assets/onboarding/sfx-diagram-playhead.m4a",
+    "assets/onboarding/sfx-diagram-pon.m4a",
+    "assets/onboarding/sfx-diagram-stack.m4a",
     "assets/onboarding/sfx-pop-bubble-big.m4a",
     "assets/onboarding/sfx-pop-cork.m4a",
     "assets/onboarding/sfx-pop-ding.m4a",
@@ -474,11 +503,12 @@
    "tracks": [
     "video[sample]",
     "demo-phone-screen[demo-phone-screen]",
+    "demo-flash[demo-flash]",
     "demo-stage[demo-title,demo-chat,demo-done,demo-effects,demo-diagram,demo-phone,demo-credit]",
-    "demo-accents[demo-flash,demo-bgm-chip]",
+    "demo-accents[demo-bgm-chip]",
     "captions[captions]",
     "onboarding-bgm[onboarding-bgm]",
-    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-tick-1,demo-sfx-diagram-tick-2,demo-sfx-diagram-tick-3,demo-sfx-phone-swoosh,demo-sfx-phone-tap,demo-sfx-punchline-ding]"
+    "demo-sfx[demo-sfx-title-whoosh,demo-sfx-name-pop,demo-sfx-chat-pop-1,demo-sfx-chat-pop-2,demo-sfx-done-tone,demo-sfx-kouka-pop,demo-sfx-pa-whoosh,demo-sfx-hora-sparkle,demo-sfx-diagram-pon,demo-sfx-diagram-stack,demo-sfx-diagram-playhead,demo-sfx-diagram-count,demo-sfx-phone-swoosh,demo-sfx-phone-tap,demo-sfx-punchline-ding]"
    ],
    "sources": [
     "sample",
@@ -489,7 +519,10 @@
     "demo-sfx-pop-cork",
     "demo-sfx-whoosh-punchy",
     "demo-sfx-shimmer-sparkle",
-    "demo-sfx-click-soft-ui",
+    "demo-sfx-diagram-pon",
+    "demo-sfx-diagram-stack",
+    "demo-sfx-diagram-playhead",
+    "demo-sfx-diagram-count",
     "demo-sfx-swoosh-up",
     "demo-sfx-click-mouse-single",
     "demo-sfx-ding-single",
@@ -499,8 +532,11 @@
     "assets/onboarding",
     "assets/onboarding-bgm.m4a",
     "assets/onboarding/sfx-click-mouse-single.m4a",
-    "assets/onboarding/sfx-click-soft-ui.m4a",
     "assets/onboarding/sfx-correct-tone.m4a",
+    "assets/onboarding/sfx-diagram-count.m4a",
+    "assets/onboarding/sfx-diagram-playhead.m4a",
+    "assets/onboarding/sfx-diagram-pon.m4a",
+    "assets/onboarding/sfx-diagram-stack.m4a",
     "assets/onboarding/sfx-ding-single.m4a",
     "assets/onboarding/sfx-pop-bubble-big.m4a",
     "assets/onboarding/sfx-pop-cork.m4a",

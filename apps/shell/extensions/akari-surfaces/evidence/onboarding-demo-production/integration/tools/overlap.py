@@ -19,7 +19,7 @@ def erode(m):
     r[1:, :] &= m[:-1, :]; r[:-1, :] &= m[1:, :]; r[:, 1:] &= m[:, :-1]; r[:, :-1] &= m[:, 1:]
     return r
 PERSON_X = int(0.55 * W)  # x < 55%
-EXEMPT = set(range(588, 640))  # 閃光（590-601）・パンチイン（590-633）は全画面の例外
+EXEMPT = set(range(588, 645))  # 閃光（590-601）・パンチイン（r2: 590-642）は全画面の例外
 person_hits = []; cap_hits = []; frames = 0
 for n, (a, b, c) in enumerate(zip(reader(full), reader(noov), reader(src))):
     frames += 1
@@ -32,7 +32,7 @@ for n, (a, b, c) in enumerate(zip(reader(full), reader(noov), reader(src))):
     both = int((ov & cap).sum())
     if both > 4: cap_hits.append((n, both))
 res = {"frames": frames, "scale": "640x360（座標は 1/2）", "person_region": "x < 55%（704px）",
-       "method": "差 > 24 の画素を 3x3 で収縮してから数える（圧縮ノイズの孤立画素を除く）", "exempt_frames": "588-639（閃光・パンチインは全画面の例外）",
+       "method": "差 > 24 の画素を 3x3 で収縮してから数える（圧縮ノイズの孤立画素を除く）", "exempt_frames": "588-644（閃光・パンチインは全画面の例外）",
        "overlay_pixels_in_person_region": {"frames_with_hits": len(person_hits), "worst": sorted(person_hits, key=lambda x: -x[1])[:10]},
        "overlay_pixels_on_caption_pixels": {"frames_with_hits": len(cap_hits), "worst": sorted(cap_hits, key=lambda x: -x[1])[:10]}}
 json.dump(res, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)

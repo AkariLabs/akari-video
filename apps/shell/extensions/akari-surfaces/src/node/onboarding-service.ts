@@ -47,16 +47,17 @@ const DEMO_PLAN: { stages: Array<{ stage: number; key: string; items: DemoEntry[
     ] },
     { stage: 3, key: 'effects', items: [
         html('demo-stage', 'demo-effects', '効果音とエフェクト', 524, 135, 'overlays/demo-effects/fragment.html'),
-        html('demo-accents', 'demo-flash', '閃光', 590, 12, 'overlays/demo-flash/fragment.html'),
+        html('demo-flash', 'demo-flash', '閃光', 590, 12, 'overlays/demo-flash/fragment.html'),
         sfx('demo-sfx-kouka-pop', 524, 5, -4, 'sfx-pop-cork', 0.15),
         sfx('demo-sfx-pa-whoosh', 581, 23, -4, 'sfx-whoosh-punchy', 0.75),
         sfx('demo-sfx-hora-sparkle', 617, 44, 2, 'sfx-shimmer-sparkle', 1.45)
     ] },
     { stage: 4, key: 'diagram', items: [
         html('demo-stage', 'demo-diagram', '図解', 697, 110, 'overlays/demo-diagram/fragment.html'),
-        sfx('demo-sfx-diagram-tick-1', 698, 5, -2, 'sfx-click-soft-ui', 0.16),
-        sfx('demo-sfx-diagram-tick-2', 713, 5, -2, 'sfx-click-soft-ui', 0.16),
-        sfx('demo-sfx-diagram-tick-3', 731, 5, -2, 'sfx-click-soft-ui', 0.16)
+        sfx('demo-sfx-diagram-pon', 697, 15, -3, 'sfx-diagram-pon', 0.482),
+        sfx('demo-sfx-diagram-stack', 713, 5, -3, 'sfx-diagram-stack', 0.147),
+        sfx('demo-sfx-diagram-playhead', 727, 7, -3, 'sfx-diagram-playhead', 0.216),
+        sfx('demo-sfx-diagram-count', 743, 18, -3, 'sfx-diagram-count', 0.567)
     ] },
     { stage: 5, key: 'phone', items: [
         { track: 'demo-phone-screen', item: { id: 'demo-phone-screen', name: 'スマホの画面', at: 833, duration: 144, crop: { x: 0.208, y: 0, w: 0.2645, h: 1 }, transform: { x: 372, y: -24, scale: 0.6607 }, source: { kind: 'media', src: 'sample', in: 27.7667, out: 32.5667, mute: true }, captions: 'off' } },
@@ -77,7 +78,7 @@ const DEMO_PLAN: { stages: Array<{ stage: number; key: string; items: DemoEntry[
         sfx('demo-sfx-punchline-ding', 1069, 42, -2, 'sfx-ding-single', 1.4)
     ] }
   ],
-  punch_in_keyframes: [{ t: 590, transform: { scale: 1 } }, { t: 592, transform: { scale: 1.06 }, easing: 'out-expo' }, { t: 612, transform: { scale: 1.06 } }, { t: 633, transform: { scale: 1 }, easing: 'in-out-cubic' }]
+  punch_in_keyframes: [{ t: 590, transform: { x: 0, scale: 1 } }, { t: 592, transform: { x: 0, scale: 1.1 }, easing: 'out-expo' }, { t: 593, transform: { x: 4, scale: 1.1 } }, { t: 594, transform: { x: -4, scale: 1.1 } }, { t: 595, transform: { x: 0, scale: 1.1 } }, { t: 633, transform: { x: 0, scale: 1.1 } }, { t: 642, transform: { x: 0, scale: 1 }, easing: 'in-out-cubic' }]
 };
 const demoFile = (source: DemoSource): { bundled: string; project: string } | undefined => {
     if (source.kind === 'html' && source.path) return { bundled: source.path, project: source.path };
@@ -94,10 +95,12 @@ const EXTRA_SAMPLE_FILES = [...new Map(DEMO_STAGES.flatMap(stage => stage.items)
     .map(({ item }) => demoFile(item.source))
     .filter((file): file is { bundled: string; project: string } => !!file)
     .map(file => [file.bundled, file])).values()];
+// 閃光は擬音「パッ！」（demo-stage）より下の専用段に置く（上だと 19.70 の見せ場で擬音が白く飛ぶ）。
 const DEMO_TRACKS = [
     { id: 'demo-phone-screen', lane: 'visual', name: 'スマホの画面' },
+    { id: 'demo-flash', lane: 'visual', name: '閃光' },
     { id: 'demo-stage', lane: 'visual', name: '右の演出' },
-    { id: 'demo-accents', lane: 'visual', name: '画面効果と札' },
+    { id: 'demo-accents', lane: 'visual', name: '札' },
     { id: 'onboarding-bgm', lane: 'audio', name: 'BGM' },
     { id: 'demo-sfx', lane: 'audio', name: '効果音' }
 ] as const;
