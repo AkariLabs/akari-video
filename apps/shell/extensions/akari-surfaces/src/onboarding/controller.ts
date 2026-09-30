@@ -26,18 +26,24 @@ interface CoachSpec {
     place?: 'left' | 'right' | 'top' | 'bottom';
 }
 
-const PROMPT = 'この動画を編集したいです。右上に動画のタイトルを入れて、下に字幕を入れてください。';
+const PROMPT = 'この動画を編集したいです。タイトルと字幕を入れて、話している内容に合わせて図解と BGM も入れてください。';
 const HELP_DELAY = { hint: 4000, next: 10000 } as const;
-const LOG: Array<{ t: number; lines: string[]; live?: string; count?: number; title?: boolean }> = [
+const LOG: Array<{ t: number; lines: string[]; live?: string; count?: number; title?: boolean;
+    captions?: boolean; figures?: number; bgm?: boolean; lint?: boolean }> = [
     { t: 500, live: '素材を確認しています…', lines: ['素材を確認します。'] },
-    { t: 1400, lines: ['akari media probe assets/サンプル動画.mp4', '37.6 秒 · 1280×720 · 30fps · 音声あり'] },
-    { t: 2500, live: '書き起こしを探しています…', lines: ['素材に書き起こしが付いていたので、それを使います（文字起こしは不要でした）。'] },
-    { t: 3500, live: '本編を置いています…', lines: ['edit.json', '本編を置きました'], count: 0 },
-    { t: 4500, live: '字幕を置いています…', lines: ['akari captions .', '字幕を短く分けてつくりました → captions.json'] },
-    { t: 8100, live: 'タイトルを考えています…', lines: ['話の中心は「AI と話すだけで編集が終わる」なので、タイトルは「AI と話すだけで動画編集」にします。'] },
-    { t: 9200, live: 'タイトルを置いています…', lines: ['edit.json', '右上にタイトルを置きました'], title: true },
-    { t: 10200, live: '確認しています…', lines: ['edit-lint .', '問題なし'] },
-    { t: 11100, live: 'できました', lines: ['できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。'] }
+    { t: 1300, lines: ['akari media probe assets/サンプル動画.mp4', '37.6 秒 · 1280×720 · 30fps · 音声あり'] },
+    { t: 2300, live: '書き起こしを探しています…', lines: ['素材の書き起こしを使い、話の要点を確認しました。'] },
+    { t: 3000, live: '本編を置いています…', lines: ['edit.json', '本編を置きました'], count: 0 },
+    { t: 4000, live: '字幕を置いています…', lines: ['字幕を短く分けてつくりました → captions.json'], captions: true },
+    { t: 7200, live: 'タイトルを置いています…', lines: ['右上にタイトルを置きました'], title: true },
+    { t: 8100, live: '図解を置いています…', lines: ['「AI と対話」を図にしました'], figures: 1 },
+    { t: 9000, lines: ['「話すだけで編集」を図にしました'], figures: 2 },
+    { t: 9900, lines: ['「効果音とエフェクト」を図にしました'], figures: 3 },
+    { t: 10800, lines: ['「図解とモックアップ」を図にしました'], figures: 4 },
+    { t: 11700, lines: ['「BGM と字幕」を図にしました'], figures: 5 },
+    { t: 12400, live: 'BGM を入れています…', lines: ['声の下に小さく BGM を入れました'], bgm: true },
+    { t: 13200, live: '確認しています…', lines: ['edit-lint .', '問題なし'], lint: true },
+    { t: 13700, live: 'できました', lines: ['できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。'] }
 ];
 const esc = (value: string): string => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
 
@@ -494,10 +500,10 @@ export class OnboardingController {
                 : { title: '「送る」を押してください', clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
                     body: '<p>ここから先は、用意したお手本を再生します。AI は使いません。</p>', buttons: [['送る', 'send', true]] };
             case 'work': return { title: 'AI が編集しています', noDim: true, narrow: true,
-                body: `<p class="ao-live">${esc(this.live)}</p><p>下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。</p><p class="ao-note">試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。</p>`,
+                body: `<p class="ao-live">${esc(this.live)}</p><p>下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。</p><p class="ao-note">お手本は約 15 秒です。実際には数分かかることがあります（未計測）。</p>`,
                 buttons: this.workError ? [['もう一度', 'retry-work', true]] : undefined };
             case 'play': return sub === 0 ? { title: 'できました。再生してみましょう', clear: ['output'], rings: ['play-button'], bounce: true, body: '<p>▶ を押してください。</p>' }
-                : { title: 'タイトルと字幕が入りました', holes: ['output'], body: '<p>止めるときは、もう一度 ▶ を押します。見終わったら次へ。</p>', buttons: [['次へ', 'next', true]] };
+                : { title: 'タイトル・字幕・図解・BGM が入りました', holes: ['output'], body: '<p>止めるときは、もう一度 ▶ を押します。見終わったら次へ。</p>', buttons: [['次へ', 'next', true]] };
             case 'caption': return ([
                 { title: '字幕を押すと、その場で直せます', clear: ['output'], rings: ['caption-text'], body: '<p>プレビューの字幕を押してください。</p>' },
                 { title: '大きさを変えてみましょう', clear: ['output'], rings: ['caption-size'], body: '<p>上に出たメニューの「大きさ」を押します。</p>' },
@@ -1010,10 +1016,13 @@ export class OnboardingController {
         this.logLines = [`> ${PROMPT}`];
         this.render();
         const started = performance.now();
+        const staged = this.service as AkariOnboardingService & { writeExample(
+            projectUri: string, sourcePath: string, segments: SampleInformation['segments'],
+            count: number, title: boolean, progress: { figures: number; bgm: boolean }): Promise<void> };
         try {
             for (const entry of LOG) {
                 await new Promise<void>(resolve => {
-                    this.timers.push(window.setTimeout(resolve, Math.max(0, entry.t * 1.5 - (performance.now() - started))));
+                    this.timers.push(window.setTimeout(resolve, Math.max(0, entry.t - (performance.now() - started))));
                 });
                 if (!this.root || this.state.step !== 'work') return;
                 this.live = entry.live ?? this.live;
@@ -1022,7 +1031,7 @@ export class OnboardingController {
                     window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
                     await this.seekOutput(this.state.projectUri, 1).catch(() => undefined);
                 }
-                if (entry.t === 4500) {
+                if (entry.captions) {
                     for (let count = 1; count <= this.sample.segments.length; count++) {
                         await new Promise<void>(resolve => { this.timers.push(window.setTimeout(resolve, Math.max(75, Math.floor(3150 / this.sample!.segments.length)))); });
                         if (!this.root || this.state.step !== 'work') return;
@@ -1035,18 +1044,28 @@ export class OnboardingController {
                     }
                 }
                 if (entry.title) {
-                    await this.service.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments, this.sample.segments.length, true);
+                    await staged.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments,
+                        this.sample.segments.length, true, { figures: 0, bgm: false });
                     window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
                     await this.seekOutput(this.state.projectUri, 8.6).catch(() => undefined);
                 }
-                if (entry.t === 10200) {
+                if (entry.figures !== undefined || entry.bgm) {
+                    await staged.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments,
+                        this.sample.segments.length, true, { figures: entry.figures ?? 5, bgm: !!entry.bgm });
+                    window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
+                    if (entry.figures !== undefined) {
+                        const moments = [9.4, 12.7, 18.5, 24, 29.5];
+                        await this.seekOutput(this.state.projectUri, moments[entry.figures - 1]).catch(() => undefined);
+                    }
+                }
+                if (entry.lint) {
                     const errors = await this.service.lintExample(this.state.projectUri);
                     if (errors !== 0) throw new Error(`edit-lint: ${errors} 件の指摘`);
                 }
                 this.logLines.push(...entry.lines);
                 this.render();
             }
-            await new Promise<void>(resolve => { this.timers.push(window.setTimeout(resolve, 1500)); });
+            await new Promise<void>(resolve => { this.timers.push(window.setTimeout(resolve, 700)); });
             if (this.root && this.state.step === 'work') {
                 this.state = { ...this.state, workCompleted: true };
                 await this.service.save(this.state);

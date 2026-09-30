@@ -18,6 +18,15 @@ const SAMPLE_NAME = 'サンプル動画.mp4';
 const STATE_FILE = 'onboarding-v1.json';
 const ANNOUNCEMENT_FILE = 'first-video-guide-announcement-v1.json';
 const BUNDLED_SAMPLE = 'onboarding-sample/talkinghead-desk-ja-01';
+const FIGURES = [
+    { id: 'dialogue', start: 7.8, end: 11.3 },
+    { id: 'automatic', start: 11.34, end: 15.3 },
+    { id: 'effects', start: 15.36, end: 22.6 },
+    { id: 'diagram', start: 22.62, end: 26.85 },
+    { id: 'finishing', start: 26.86, end: 35.6 }
+] as const;
+const EXTRA_SAMPLE_FILES = [...FIGURES.map(figure => `overlays/${figure.id}/fragment.html`), 'bgm.m4a'];
+type ExampleProgress = { figures?: number; bgm?: boolean };
 
 @injectable()
 export class AkariOnboardingServiceImpl implements AkariOnboardingService {
@@ -125,6 +134,11 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
                 try { await fs.copyFile(join(bundled, name), join(destination, name), fsConstants.COPYFILE_EXCL); }
                 catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
             }
+            for (const name of EXTRA_SAMPLE_FILES) {
+                await fs.mkdir(dirname(join(destination, name)), { recursive: true });
+                try { await fs.copyFile(join(bundled, name), join(destination, name), fsConstants.COPYFILE_EXCL); }
+                catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+            }
             return destination;
         }
         // Older development builds can still use the Lab resolver.
@@ -184,15 +198,41 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         return rel;
     }
 
-    async writeExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[], count: number, title: boolean): Promise<void> {
+    async writeExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[], count: number, title: boolean,
+        progress?: ExampleProgress): Promise<void> {
         const current = await this.load();
         if (current?.projectUri !== projectUri || (!current.imported && !current.exampleActive) || basename(sourcePath) !== 'clip.mp4')
             throw new Error('素材を先に取り込んでください');
         if (!Number.isInteger(count) || count < 0 || count > segments.length || !segments.length) throw new Error('字幕の数が不正です');
+        const figures = progress?.figures ?? (count === segments.length && title ? FIGURES.length : 0);
+        const bgm = progress?.bgm ?? (count === segments.length && title);
+        if (!Number.isInteger(figures) || figures < 0 || figures > FIGURES.length) throw new Error('図解の数が不正です');
         const project = fileURLToPath(projectUri);
         const samplePath = `assets/${SAMPLE_NAME}`;
+        const edit = createOnboardingEdit(samplePath, count > 0 || title) as {
+            sources: Array<{ id: string; path: string }>;
+            tracks: Array<{ id: string; lane: string; name: string; items: object[] }>;
+        };
+        if (figures) edit.tracks.push({ id: 'figures', lane: 'visual', name: '話に合わせた図解',
+            items: FIGURES.slice(0, figures).map(figure => ({ id: `figure-${figure.id}`,
+                at: Math.round(figure.start * 30), duration: Math.round((figure.end - figure.start) * 30),
+                source: { kind: 'html', path: `overlays/${figure.id}/fragment.html` } })) });
+        if (bgm) {
+            edit.sources.push({ id: 'onboarding-bgm', path: 'assets/onboarding-bgm.m4a' });
+            edit.tracks.push({ id: 'onboarding-bgm', lane: 'audio', name: 'BGM', items: [{
+                id: 'onboarding-bgm', at: 0, duration: 1128, role: 'bgm', gain_db: -12,
+                fade_in: 1, fade_out: 2.8, ducking: true,
+                source: { kind: 'media', src: 'onboarding-bgm', in: 0, out: 37.6 }
+            }] });
+        }
+        for (const name of [...EXTRA_SAMPLE_FILES.slice(0, figures), ...(bgm ? ['bgm.m4a'] : [])]) {
+            const target = name === 'bgm.m4a' ? 'assets/onboarding-bgm.m4a' : name;
+            await fs.mkdir(dirname(join(project, target)), { recursive: true });
+            try { await fs.copyFile(join(dirname(sourcePath), name), join(project, target), fsConstants.COPYFILE_EXCL); }
+            catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+        }
         const desired: Record<string, string> = {
-            'edit.json': `${JSON.stringify(createOnboardingEdit(samplePath, count > 0 || title), null, 2)}\n`,
+            'edit.json': `${JSON.stringify(edit, null, 2)}\n`,
             'captions.json': `${JSON.stringify(createOnboardingCaptions(segments, count, title), null, 2)}\n`
         };
         const candidates: Record<string, string> = {};
@@ -235,6 +275,15 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             'edit.json': `${JSON.stringify(createEmptyOnboardingEdit(), null, 2)}\n`
         });
         await fs.rm(captionPath, { force: true });
+        for (const name of EXTRA_SAMPLE_FILES) {
+            const target = name === 'bgm.m4a' ? 'assets/onboarding-bgm.m4a' : name;
+            const [original, copied] = await Promise.all([
+                fs.readFile(join(dirname(sourcePath), name)).catch(() => undefined),
+                fs.readFile(join(project, target)).catch(() => undefined)
+            ]);
+            if (original && copied && createHash('sha256').update(original).digest('hex') ===
+                createHash('sha256').update(copied).digest('hex')) await fs.rm(join(project, target), { force: true });
+        }
         if (removeSample) {
             await fs.rm(sample, { force: true });
             await fs.rm(join(project, '.akari', 'sidecars', `assets/${SAMPLE_NAME}.analysis`), { recursive: true, force: true });

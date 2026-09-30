@@ -1,0 +1,32 @@
+<div class="akari-figure dialogue" data-akari-hit="pass">
+<style>
+.akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--figure-font,"Yu Gothic",sans-serif);color:var(--figure-text,#fff)}
+.akari-figure *{box-sizing:border-box}
+.akari-figure .card{position:absolute;left:var(--figure-left,56%);top:var(--figure-top,25%);width:var(--figure-width,41%);max-height:var(--figure-max-height,38%);overflow:hidden;padding:var(--figure-padding,18px 20px);border-radius:var(--figure-radius,16px);background:var(--figure-bg,rgba(23,19,15,.95));border:1px solid var(--figure-border,#786656);box-shadow:0 12px 28px var(--figure-shadow,#0008)}
+.akari-figure .heading{margin:0;font-size:var(--figure-heading-size,27px);font-weight:800;line-height:1.25;letter-spacing:.02em}
+.akari-figure .accent{color:var(--figure-accent,#d5b48b)}
+.akari-figure svg{display:block;max-width:100%}
+.akari-figure .label{font-size:var(--figure-label-size,17px);font-weight:700;line-height:1.3}
+.dialogue .flow{display:flex;align-items:center;justify-content:space-between;gap:var(--figure-gap,10px);margin-top:var(--figure-gap-top,16px)}
+.dialogue .station{display:grid;justify-items:center;gap:var(--figure-label-gap,8px);flex:1;min-width:0}
+.dialogue .station svg{width:var(--figure-icon-size,68px);height:var(--figure-icon-size,68px)}
+.dialogue .arrow{width:var(--figure-arrow-width,32px);flex:none;color:var(--figure-accent,#d5b48b)}
+[data-akari-active] .dialogue .card{animation:dialogue-life 3.5s linear both}
+[data-akari-active] .dialogue .cue{animation:dialogue-cue .48s var(--ease-smooth,ease-out) both}
+[data-akari-active] .dialogue .person{animation-delay:var(--dialogue-person-delay,.02s)}
+[data-akari-active] .dialogue .to-ai,[data-akari-active] .dialogue .ai{animation-delay:var(--dialogue-ai-delay,.31s)}
+[data-akari-active] .dialogue .to-video,[data-akari-active] .dialogue .video{animation-delay:var(--dialogue-video-delay,1.57s)}
+@keyframes dialogue-life{0%{opacity:0;transform:translateY(10px)}8%{opacity:1;transform:translateY(0)}90%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(0)}}
+@keyframes dialogue-cue{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+</style>
+<section class="card">
+<h2 class="heading">対話だけで編集</h2>
+<div class="flow">
+<div class="station cue person"><svg viewBox="0 0 72 72" aria-hidden="true"><path d="M10 15h52v35H37L23 61V50H10z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M22 29h28M22 38h18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="label">あなた</span></div>
+<svg class="arrow cue to-ai" viewBox="0 0 32 20" aria-hidden="true"><path d="M2 10h26m-8-7 8 7-8 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div class="station cue ai accent"><svg viewBox="0 0 72 72" aria-hidden="true"><rect x="13" y="13" width="46" height="46" rx="12" fill="none" stroke="currentColor" stroke-width="3"/><path d="M36 22v28M22 36h28M27 27l18 18M45 27 27 45" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="36" cy="36" r="5" fill="currentColor"/></svg><span class="label">AI</span></div>
+<svg class="arrow cue to-video" viewBox="0 0 32 20" aria-hidden="true"><path d="M2 10h26m-8-7 8 7-8 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div class="station cue video"><svg viewBox="0 0 72 72" aria-hidden="true"><rect x="7" y="16" width="58" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><path d="m30 26 17 10-17 10z" fill="currentColor"/><path d="M14 61h44" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="label">完成動画</span></div>
+</div>
+</section>
+</div>

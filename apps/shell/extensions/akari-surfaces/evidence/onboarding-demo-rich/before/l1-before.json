@@ -1,0 +1,783 @@
+{
+ "mode": "before",
+ "startedAt": "2026-09-30T00:49:43.247Z",
+ "steps": [
+  {
+   "at": 7.7,
+   "label": "welcome",
+   "step": null,
+   "sub": null
+  },
+  {
+   "at": 9.2,
+   "label": "first",
+   "step": "first",
+   "sub": 0
+  },
+  {
+   "at": 10.6,
+   "label": "invite",
+   "step": "invite",
+   "sub": 0
+  },
+  {
+   "at": 24.4,
+   "label": "tour0:0",
+   "step": "tour0",
+   "sub": 0
+  },
+  {
+   "at": 28.9,
+   "label": "tour0:1",
+   "step": "tour0",
+   "sub": 1
+  },
+  {
+   "at": 31.5,
+   "label": "tour1:0",
+   "step": "tour1",
+   "sub": 0
+  },
+  {
+   "at": 34.1,
+   "label": "tour2:0",
+   "step": "tour2",
+   "sub": 0
+  },
+  {
+   "at": 36.6,
+   "label": "tour2:1",
+   "step": "tour2",
+   "sub": 1
+  },
+  {
+   "at": 39.2,
+   "label": "tour3:0",
+   "step": "tour3",
+   "sub": 0
+  },
+  {
+   "at": 41.8,
+   "label": "tour3:1",
+   "step": "tour3",
+   "sub": 1
+  },
+  {
+   "at": 44.5,
+   "label": "drag",
+   "step": "drag",
+   "sub": 0
+  },
+  {
+   "at": 46.7,
+   "label": "matpreview-0",
+   "step": "matpreview",
+   "sub": 0
+  },
+  {
+   "at": 50.4,
+   "label": "ask-0",
+   "step": "ask",
+   "sub": 0
+  },
+  {
+   "at": 58.7,
+   "label": "prompt-0",
+   "step": "prompt",
+   "sub": 0
+  },
+  {
+   "at": 81.6,
+   "label": "play-0",
+   "step": "play",
+   "sub": 0
+  },
+  {
+   "at": 122.4,
+   "label": "play:1",
+   "step": "play",
+   "sub": 1
+  },
+  {
+   "at": 124.7,
+   "label": "caption:0",
+   "step": "caption",
+   "sub": 0
+  },
+  {
+   "at": 137.5,
+   "label": "caption:1",
+   "step": "caption",
+   "sub": 1
+  },
+  {
+   "at": 148.2,
+   "label": "caption:2",
+   "step": "caption",
+   "sub": 2
+  },
+  {
+   "at": 158.9,
+   "label": "caption:3",
+   "step": "caption",
+   "sub": 3
+  },
+  {
+   "at": 161.2,
+   "label": "daihon:0",
+   "step": "daihon",
+   "sub": 0
+  },
+  {
+   "at": 172,
+   "label": "daihon:1",
+   "step": "daihon",
+   "sub": 1
+  },
+  {
+   "at": 182.8,
+   "label": "daihon:2",
+   "step": "daihon",
+   "sub": 2
+  },
+  {
+   "at": 185.2,
+   "label": "export:0",
+   "step": "export",
+   "sub": 0
+  },
+  {
+   "at": 189,
+   "label": "export:1",
+   "step": "export",
+   "sub": 1
+  },
+  {
+   "at": 192.7,
+   "label": "export:2",
+   "step": "export",
+   "sub": 2
+  },
+  {
+   "at": 196.3,
+   "label": "export:3",
+   "step": "export",
+   "sub": 3
+  },
+  {
+   "at": 223.9,
+   "label": "export:4",
+   "step": "export",
+   "sub": 4
+  },
+  {
+   "at": 227.4,
+   "label": "done",
+   "step": "done",
+   "sub": 0
+  }
+ ],
+ "shots": [
+  "before-01-welcome.png",
+  "before-02-first.png",
+  "before-03-invite.png",
+  "before-04-tour0-0.png",
+  "before-05-tour0-1.png",
+  "before-06-tour1-0.png",
+  "before-07-tour2-0.png",
+  "before-08-tour2-1.png",
+  "before-09-tour3-0.png",
+  "before-10-tour3-1.png",
+  "before-11-drag.png",
+  "before-12-matpreview-0.png",
+  "before-13-matpreview-1.png",
+  "before-14-ask-0.png",
+  "before-15-ask-1.png",
+  "before-16-prompt-typed.png",
+  "before-17-prompt-input.png",
+  "before-18-work-0s.png",
+  "before-19-work-3s.png",
+  "before-20-work-6s.png",
+  "before-21-work-9s.png",
+  "before-22-work-13s.png",
+  "before-23-work-16s.png",
+  "before-24-play-0.png",
+  "before-25-playing-mid-8.6-8.6s.png",
+  "before-26-playing-mid-23-23.0s.png",
+  "before-27-play-1.png",
+  "before-28-play-1.png",
+  "before-29-caption-0.png",
+  "before-30-caption-1.png",
+  "before-31-caption-2.png",
+  "before-32-caption-3.png",
+  "before-33-daihon-0.png",
+  "before-34-daihon-1.png",
+  "before-35-daihon-2.png",
+  "before-36-export-0.png",
+  "before-37-export-1.png",
+  "before-38-export-2.png",
+  "before-39-export-3.png",
+  "before-40-export-4.png",
+  "before-41-done.png"
+ ],
+ "work": [
+  {
+   "t": 0,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "> この動画を編集したいです。右上に動画のタイトルを入れて、下に字幕を入れてください。",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 1.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "> この動画を編集したいです。右上に動画のタイトルを入れて、下に字幕を入れてください。 / 素材を確認します。",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 2.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "akari media probe assets/サンプル動画.mp4 / 37.6 秒 · 1280×720 · 30fps · 音声あり",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 3.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "akari media probe assets/サンプル動画.mp4 / 37.6 秒 · 1280×720 · 30fps · 音声あり",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 4.3,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "書き起こしを探しています…",
+   "logTail": "37.6 秒 · 1280×720 · 30fps · 音声あり / 素材に書き起こしが付いていたので、それを使います（文字起こしは不要でした）。",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 5.3,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 1,
+   "kinds": "video:media",
+   "captions": 0,
+   "live": "書き起こしを探しています…",
+   "logTail": "37.6 秒 · 1280×720 · 30fps · 音声あり / 素材に書き起こしが付いていたので、それを使います（文字起こしは不要でした）。",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 6.3,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 1,
+   "kinds": "video:media",
+   "captions": 0,
+   "live": "本編を置いています…",
+   "logTail": "edit.json / 本編を置きました",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 7.4,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 2,
+   "live": "字幕を置いています…（2/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 8.4,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 5,
+   "live": "字幕を置いています…（5/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 9.5,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 11,
+   "live": "字幕を置いています…（11/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 10.6,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 17,
+   "live": "字幕を置いています…（17/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 11.6,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 22,
+   "live": "字幕を置いています…（22/22）",
+   "logTail": "akari captions . / 字幕を短く分けてつくりました → captions.json",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 12.6,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 22,
+   "live": "タイトルを考えています…",
+   "logTail": "字幕を短く分けてつくりました → captions.json / 話の中心は「AI と話すだけで編集が終わる」なので、タイトルは「AI と話すだけで動画編集」にします。",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 13.8,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 23,
+   "live": "タイトルを置いています…",
+   "logTail": "edit.json / 右上にタイトルを置きました",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 14.8,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 23,
+   "live": "タイトルを置いています…",
+   "logTail": "edit.json / 右上にタイトルを置きました",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 15.8,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 23,
+   "live": "確認しています…",
+   "logTail": "edit-lint . / 問題なし",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 16.9,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 23,
+   "live": "できました",
+   "logTail": "問題なし / できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 17.9,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 23,
+   "live": "できました",
+   "logTail": "問題なし / できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。",
+   "timelineItems": 0,
+   "editAudio": ""
+  },
+  {
+   "t": 19,
+   "step": "play",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 23,
+   "live": "",
+   "logTail": "問題なし / できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。",
+   "timelineItems": 0,
+   "editAudio": ""
+  }
+ ],
+ "play": {
+  "clockProbe": {
+   "seek": 0,
+   "playing": false
+  },
+  "figures": [],
+  "atFigures": [
+   {
+    "label": "mid-8.6",
+    "t": 8.633,
+    "shot": "before-25-playing-mid-8.6-8.6s.png",
+    "geom": {
+     "stage": {
+      "w": 392,
+      "h": 220.5
+     },
+     "overlays": [],
+     "captions": [
+      {
+       "text": ".akari-caption{position:absolute;inset:0",
+       "x0": 0,
+       "x1": 1,
+       "y0": 0,
+       "y1": 1
+      },
+      {
+       "text": ".akari-caption{position:absolute;inset:0",
+       "x0": 0,
+       "x1": 1,
+       "y0": 0,
+       "y1": 1
+      }
+     ]
+    }
+   },
+   {
+    "label": "mid-23",
+    "t": 23.033,
+    "shot": "before-26-playing-mid-23-23.0s.png",
+    "geom": {
+     "stage": {
+      "w": 392,
+      "h": 220.5
+     },
+     "overlays": [],
+     "captions": [
+      {
+       "text": ".akari-caption{position:absolute;inset:0",
+       "x0": 0,
+       "x1": 1,
+       "y0": 0,
+       "y1": 1
+      }
+     ]
+    }
+   }
+  ],
+  "wallSeconds": 37.2,
+  "audio": {
+   "samples": 8608,
+   "speech": [
+    {
+     "a": 3,
+     "b": 7,
+     "n": 1058,
+     "rmsDb": -18.9
+    },
+    {
+     "a": 8,
+     "b": 10.5,
+     "n": 526,
+     "rmsDb": -17.8
+    },
+    {
+     "a": 11.5,
+     "b": 14.3,
+     "n": 704,
+     "rmsDb": -17.4
+    },
+    {
+     "a": 15.5,
+     "b": 21.5,
+     "n": 1114,
+     "rmsDb": -19.2
+    },
+    {
+     "a": 22.7,
+     "b": 24.9,
+     "n": 532,
+     "rmsDb": -18.1
+    },
+    {
+     "a": 29.6,
+     "b": 32.4,
+     "n": 704,
+     "rmsDb": -17.2
+    },
+    {
+     "a": 33.3,
+     "b": 35.5,
+     "n": 518,
+     "rmsDb": -18
+    }
+   ],
+   "gaps": [
+    {
+     "a": 1.45,
+     "b": 2.25
+    },
+    {
+     "a": 25.2,
+     "b": 26.9
+    }
+   ],
+   "tail": {
+    "n": 14,
+    "rmsDb": -85.2
+   }
+  }
+ },
+ "export": {
+  "uiSeconds": 28.5,
+  "files": [
+   {
+    "path": "C:\\t\\odr\\b1\\home\\Akari\\channels\\my-channel\\videos\\2026-09-30-first-video\\exports\\final.mp4",
+    "bytes": 3198890
+   }
+  ],
+  "ffprobe": {
+   "programs": [],
+   "stream_groups": [],
+   "streams": [
+    {
+     "index": 0,
+     "codec_name": "h264",
+     "codec_type": "video",
+     "width": 1280,
+     "height": 720,
+     "r_frame_rate": "30/1"
+    },
+    {
+     "index": 1,
+     "codec_name": "aac",
+     "codec_type": "audio",
+     "sample_rate": "48000",
+     "channels": 2,
+     "r_frame_rate": "0/0"
+    }
+   ],
+   "format": {
+    "duration": "37.600000",
+    "size": "3198890"
+   }
+  },
+  "frames": [
+   "C:\\Users\\kyach\\akari-wt\\onboarding-demo-rich\\apps\\shell\\extensions\\akari-surfaces\\evidence\\onboarding-demo-rich\\before-export-frame-mid-8.6-8.6s.png",
+   "C:\\Users\\kyach\\akari-wt\\onboarding-demo-rich\\apps\\shell\\extensions\\akari-surfaces\\evidence\\onboarding-demo-rich\\before-export-frame-mid-23-23.0s.png"
+  ],
+  "levels": {
+   "speech": [
+    {
+     "a": 3,
+     "b": 7,
+     "mean": -18.9,
+     "max": -4.7
+    },
+    {
+     "a": 8,
+     "b": 10.5,
+     "mean": -17.7,
+     "max": -4.8
+    },
+    {
+     "a": 11.5,
+     "b": 14.3,
+     "mean": -17.4,
+     "max": -3.4
+    },
+    {
+     "a": 15.5,
+     "b": 21.5,
+     "mean": -19.3,
+     "max": -3.3
+    },
+    {
+     "a": 22.7,
+     "b": 24.9,
+     "mean": -18.1,
+     "max": -3.4
+    },
+    {
+     "a": 29.6,
+     "b": 32.4,
+     "mean": -17.3,
+     "max": -4.3
+    },
+    {
+     "a": 33.3,
+     "b": 35.5,
+     "mean": -18.3,
+     "max": -4.2
+    }
+   ],
+   "gaps": [
+    {
+     "a": 1.45,
+     "b": 2.25,
+     "mean": -91,
+     "max": -91
+    },
+    {
+     "a": 25.2,
+     "b": 26.9,
+     "mean": -91,
+     "max": -91
+    }
+   ]
+  }
+ },
+ "errors": [],
+ "projectUri": "file:///C:/t/odr/b1/home/Akari/channels/my-channel/videos/2026-09-30-first-video",
+ "tourEdit": {
+  "tracks": [],
+  "audio": null
+ },
+ "afterTourReset": {
+  "tracks": [],
+  "audio": null
+ },
+ "afterTourResetFiles": [
+  ".agents",
+  ".akari",
+  ".claude",
+  ".codex",
+  ".cursor",
+  ".devin",
+  ".git",
+  ".gitignore",
+  ".opencode",
+  "AGENTS.md",
+  "akari.sh",
+  "assets",
+  "cache",
+  "CLAUDE.md",
+  "edit.json",
+  "exports",
+  "planning"
+ ],
+ "promptTyped": "この動画を編集したいです。右上に動画のタイトルを入れて、下に字幕を入れてください。",
+ "promptInput": "この動画を編集したいです。右上に動画のタイトルを入れて、下に字幕を入れてください。",
+ "workSeconds": 19,
+ "finalEdit": {
+  "tracks": [
+   {
+    "id": "video",
+    "lane": "visual",
+    "name": "本編",
+    "items": [
+     {
+      "id": "sample",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "sample"
+     }
+    ]
+   },
+   {
+    "id": "captions",
+    "lane": "visual",
+    "name": "字幕とタイトル",
+    "items": [
+     {
+      "id": "captions",
+      "at": 0,
+      "duration": 1128,
+      "kind": "captions",
+      "path": "captions.json"
+     }
+    ]
+   }
+  ],
+  "audio": null
+ },
+ "playCoach0": {
+  "step": "play",
+  "title": "できました。再生してみましょう",
+  "body": "▶ を押してください。",
+  "buttons": [
+   "back"
+  ]
+ }
+}

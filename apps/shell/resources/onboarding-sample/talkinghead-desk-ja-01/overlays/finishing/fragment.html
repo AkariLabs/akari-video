@@ -1,0 +1,34 @@
+<div class="akari-figure finishing" data-akari-hit="pass">
+<style>
+.akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--figure-font,"Yu Gothic",sans-serif);color:var(--figure-text,#fff)}
+.akari-figure *{box-sizing:border-box}
+.akari-figure .card{position:absolute;left:var(--figure-left,56%);top:var(--figure-top,25%);width:var(--figure-width,41%);max-height:var(--figure-max-height,38%);overflow:hidden;padding:var(--figure-padding,18px 20px);border-radius:var(--figure-radius,16px);background:var(--figure-bg,rgba(23,19,15,.95));border:1px solid var(--figure-border,#786656);box-shadow:0 12px 28px var(--figure-shadow,#0008)}
+.akari-figure .heading{margin:0;font-size:var(--figure-heading-size,27px);font-weight:800;line-height:1.25;letter-spacing:.02em}
+.akari-figure .accent{color:var(--figure-accent,#d5b48b)}
+.akari-figure svg{display:block;max-width:100%}
+.akari-figure .label{font-size:var(--figure-label-size,17px);font-weight:700;line-height:1.3}
+.finishing .layout{display:grid;grid-template-columns:var(--figure-phone-column,34%) 1fr;gap:var(--figure-gap,14px);align-items:center;margin-top:var(--figure-gap-top,10px)}
+.finishing .phone{display:grid;justify-items:center;gap:var(--figure-label-gap,4px)}
+.finishing .phone svg{width:var(--figure-phone-width,74px);height:var(--figure-phone-height,108px)}
+.finishing .extras{display:grid;gap:var(--figure-extra-gap,8px)}
+.finishing .extra{display:flex;align-items:center;gap:var(--figure-extra-gap,10px);padding:var(--figure-extra-padding,5px 9px);border-radius:var(--figure-extra-radius,9px);background:var(--figure-extra-bg,#302821)}
+.finishing .extra svg{width:var(--figure-extra-icon,36px);height:var(--figure-extra-icon,36px);color:var(--figure-accent,#d5b48b)}
+.finishing .karaoke strong{color:var(--figure-accent,#d5b48b)}
+[data-akari-active] .finishing .card{animation:finishing-life 8.74s linear both}
+[data-akari-active] .finishing .phone{animation:finishing-cue .55s var(--ease-smooth,ease-out) var(--finishing-phone-delay,.03s) both}
+[data-akari-active] .finishing .music{animation:finishing-cue .55s var(--ease-smooth,ease-out) var(--finishing-music-delay,2.42s) both}
+[data-akari-active] .finishing .karaoke{animation:finishing-cue .55s var(--ease-smooth,ease-out) var(--finishing-karaoke-delay,3.59s) both}
+@keyframes finishing-life{0%{opacity:0;transform:translateY(10px)}5%{opacity:1;transform:translateY(0)}93%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(0)}}
+@keyframes finishing-cue{from{opacity:0;transform:translateY(12px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+</style>
+<section class="card">
+<h2 class="heading">仕上げを一度に</h2>
+<div class="layout">
+<div class="phone cue"><svg viewBox="0 0 74 108" aria-hidden="true"><rect x="8" y="3" width="58" height="100" rx="10" fill="none" stroke="currentColor" stroke-width="3"/><path d="M29 11h16" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="16" y="22" width="42" height="52" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="m31 37 15 11-15 11z" fill="currentColor"/><path d="M26 84h22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="label">スマホ</span></div>
+<div class="extras">
+<div class="extra music"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M16 27V7l17-4v20M16 10l17-4" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><ellipse cx="11" cy="29" rx="6" ry="4" fill="currentColor"/><ellipse cx="28" cy="25" rx="6" ry="4" fill="currentColor"/></svg><span class="label">BGM</span></div>
+<div class="extra karaoke"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="5" width="34" height="30" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 16h22M9 23h14M9 29h19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="label"><strong>カラオケ</strong>字幕</span></div>
+</div>
+</div>
+</section>
+</div>

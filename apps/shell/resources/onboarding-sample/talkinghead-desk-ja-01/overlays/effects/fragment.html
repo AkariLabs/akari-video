@@ -1,0 +1,29 @@
+<div class="akari-figure effects" data-akari-hit="pass">
+<style>
+.akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--figure-font,"Yu Gothic",sans-serif);color:var(--figure-text,#fff)}
+.akari-figure *{box-sizing:border-box}
+.akari-figure .card{position:absolute;left:var(--figure-left,56%);top:var(--figure-top,25%);width:var(--figure-width,41%);max-height:var(--figure-max-height,38%);overflow:hidden;padding:var(--figure-padding,18px 20px);border-radius:var(--figure-radius,16px);background:var(--figure-bg,rgba(23,19,15,.95));border:1px solid var(--figure-border,#786656);box-shadow:0 12px 28px var(--figure-shadow,#0008)}
+.akari-figure .heading{margin:0;font-size:var(--figure-heading-size,27px);font-weight:800;line-height:1.25;letter-spacing:.02em}
+.akari-figure .accent{color:var(--figure-accent,#d5b48b)}
+.akari-figure svg{display:block;max-width:100%}
+.akari-figure .label{font-size:var(--figure-label-size,17px);font-weight:700;line-height:1.3}
+.effects .stage{display:grid;grid-template-columns:1fr 1fr;gap:var(--figure-gap,16px);align-items:end;margin-top:var(--figure-gap-top,15px)}
+.effects .piece{display:grid;justify-items:center;gap:var(--figure-label-gap,5px)}
+.effects .wave svg{width:var(--figure-wave-width,170px);height:var(--figure-icon-height,80px)}
+.effects .burst svg{width:var(--figure-burst-size,92px);height:var(--figure-icon-height,80px);color:var(--figure-accent,#d5b48b)}
+.effects .rule{height:var(--figure-rule-height,3px);background:var(--figure-accent,#d5b48b);margin-top:var(--figure-rule-top,12px);border-radius:99px}
+[data-akari-active] .effects .card{animation:effects-life 7.24s linear both}
+[data-akari-active] .effects .wave{animation:effects-wave .55s var(--ease-smooth,ease-out) var(--effects-wave-delay,1.28s) both}
+[data-akari-active] .effects .burst{animation:effects-burst .62s var(--ease-overshoot-soft,ease-out) var(--effects-burst-delay,3.59s) both}
+@keyframes effects-life{0%{opacity:0;transform:translateY(10px)}6%{opacity:1;transform:translateY(0)}92%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(0)}}
+@keyframes effects-wave{from{opacity:0;transform:scaleX(.5)}to{opacity:1;transform:scaleX(1)}}
+@keyframes effects-burst{0%{opacity:0;transform:scale(.3)}70%{opacity:1;transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}
+</style>
+<section class="card">
+<h2 class="heading">効果音と演出</h2>
+<div class="stage">
+<div class="piece wave"><svg viewBox="0 0 170 80" aria-hidden="true"><path d="M4 40h17l7-16 12 32 12-46 12 60 13-38 10 18 12-27 11 34 10-17h46" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="label">効果音</span></div>
+<div class="piece burst"><svg viewBox="0 0 100 86" aria-hidden="true"><path d="m50 4 9 23 23-11-12 22 25 9-25 7 12 24-24-13-8 20-8-20-25 13 13-24-25-7 25-9-13-22 24 11z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="m39 47 8 8 17-19" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="label">パッと変化</span></div>
+</div><div class="rule"></div>
+</section>
+</div>
