@@ -67,6 +67,23 @@ test('字幕と台本の戻るは表示中の段から一段だけ戻る', () =>
     assert.deepEqual(position('matpreview', 1), { step: 'drag', sub: 0 });
 });
 
+test('書き出し前は一段ずつ戻り、開始後は書き出しを止める戻るを出さない', () => {
+    const position = sub => previousGuidePosition({ ...INITIAL_ONBOARDING_STATE, step: 'export', sub });
+    assert.deepEqual(position(2), { step: 'export', sub: 1 });
+    assert.deepEqual(position(1), { step: 'export', sub: 0 });
+    assert.deepEqual(position(0), { step: 'daihon', sub: 2 });
+    assert.equal(position(3), undefined);
+    assert.equal(position(4), undefined);
+});
+
+test('お手本の字幕表示文は読点を置換しない', () => {
+    const captions = createOnboardingCaptions([
+        { start: 0, end: 1, text: 'ほら、こんな感じで。' }
+    ], 1).captions;
+    assert.equal(captions[0].text, 'ほら、こんな感じで。');
+    assert.equal(captions[0].display_text, 'ほら、こんな感じで。');
+});
+
 test('字幕のシーク時刻は実際に書く有効な区間の中央を選ぶ', () => {
     const changed = [{ start: 18, end: 18.1, text: '短い' }, { start: 24, end: 26, text: '長い字幕' },
         { start: 7, end: 10, text: '  ' }, { start: NaN, end: 31, text: '不正' }];

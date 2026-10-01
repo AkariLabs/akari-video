@@ -1,5 +1,7 @@
 export const ONBOARDING_CSS = `
 #akari-onboarding-v1 { position:fixed; inset:0; z-index:2147483000; pointer-events:none; color:#f6f2ec; font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif; }
+/* Theia's modal overlay otherwise stacks above the guide; lowering it lets the non-inert coach receive clicks. */
+body.akari-onboarding-export-active .akari-export-dialog-host { z-index:2147482999!important; }
 #akari-onboarding-v1 * { box-sizing:border-box; }
 #akari-onboarding-v1 button { font:inherit; cursor:pointer; }
 #akari-onboarding-v1 .ao-dim { position:absolute; inset:0; pointer-events:none; }

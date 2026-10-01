@@ -55,9 +55,12 @@ test('caption に戻ったときも前回と異なる入場番号なら再びパ
 
 test('別オリジンの出力プレビュー枠から字幕の表示帯を推定する', () => {
     const band = outputCaptionBandRect({ x: 395, y: 71, width: 659, height: 592 });
-    assert.ok(band.x < 590 && band.x + band.width > 859);
-    assert.ok(band.y < 447 && band.y + band.height > 490);
-    assert.ok(band.y > 400 && band.y + band.height < 520);
+    const contains = (rect) => band.x <= rect.x && band.y <= rect.y
+        && band.x + band.width >= rect.x + rect.width
+        && band.y + band.height >= rect.y + rect.height;
+    assert.ok(contains({ x: 576, y: 447, width: 295, height: 43 }), '1 行の字幕');
+    assert.ok(contains({ x: 617.2, y: 401.5, width: 214, height: 88.6 }), '2 行の字幕');
+    assert.ok(band.y > 339 && band.y + band.height < 520);
 });
 
 test('字幕のコーチは1920と1366の画面でメニュー・色窓・字幕帯を覆わない', () => {
@@ -65,20 +68,19 @@ test('字幕のコーチは1920と1366の画面でメニュー・色窓・字幕
         * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
     for (const sample of [
         { viewport: { width: 1920, height: 1080 }, output: { x: 395, y: 71, width: 659, height: 592 },
-            bar: { x: 440, y: 76, width: 580, height: 48 }, window: { x: 455, y: 125, width: 270, height: 168 },
-            band: { x: 486, y: 431, width: 477, height: 85 } },
+            bar: { x: 440, y: 76, width: 580, height: 48 }, window: { x: 455, y: 125, width: 270, height: 168 } },
         { viewport: { width: 1366, height: 768 }, output: { x: 270, y: 70, width: 650, height: 550 },
-            bar: { x: 320, y: 75, width: 570, height: 48 }, window: { x: 350, y: 125, width: 270, height: 168 },
-            band: { x: 410, y: 390, width: 470, height: 80 } }
+            bar: { x: 320, y: 75, width: 570, height: 48 }, window: { x: 350, y: 125, width: 270, height: 168 } }
     ]) {
         const size = { width: 338, height: 181 };
+        const band = outputCaptionBandRect(sample.output);
         const position = captionCoachPosition(sample.viewport, size, sample.output,
-            [sample.bar, sample.window, sample.band]);
+            [sample.bar, sample.window, band]);
         const coach = { ...position, ...size };
         assert.ok(coach.x >= 8 && coach.y >= 8);
         assert.ok(coach.x + coach.width <= sample.viewport.width - 8);
         assert.ok(coach.y + coach.height <= sample.viewport.height - 32);
-        for (const obstacle of [sample.bar, sample.window, sample.band]) assert.equal(overlap(coach, obstacle), 0);
+        for (const obstacle of [sample.bar, sample.window, band]) assert.equal(overlap(coach, obstacle), 0);
     }
 });
 

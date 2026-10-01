@@ -65,6 +65,7 @@ export class OnboardingController {
     protected timers: number[] = [];
     protected exportPoll?: number;
     protected exportFinishing = false;
+    protected exportInertObserver?: MutationObserver;
     protected placeFrame?: number;
     protected lastRects = '';
     protected fogFrom: DOMRect[] = [];
@@ -174,6 +175,8 @@ export class OnboardingController {
         for (const timer of this.timers) window.clearTimeout(timer);
         this.timers = [];
         if (this.exportPoll) window.clearInterval(this.exportPoll);
+        this.exportInertObserver?.disconnect();
+        this.exportInertObserver = undefined;
         if (this.placeFrame) cancelAnimationFrame(this.placeFrame);
         if (this.fogFrame) cancelAnimationFrame(this.fogFrame);
         if (this.dragHintTimer) window.clearTimeout(this.dragHintTimer);
@@ -186,6 +189,7 @@ export class OnboardingController {
         this.partnerRevealAttempts = 0;
         this.inputCutouts = [];
         document.body.classList.remove('akari-onboarding-active');
+        document.body.classList.remove('akari-onboarding-export-active');
         document.body.classList.remove('akari-onboarding-chat-active');
         document.body.classList.remove('akari-onboarding-daihon-active');
         document.removeEventListener('click', this.handleExternalClick, true);
@@ -463,7 +467,12 @@ export class OnboardingController {
             return this.setSub(sub + 1);
         }
         if (step === 'export') {
-            document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${['menu-button', 'export-button', 'export-submit'][sub]}"]`)?.click();
+            if (sub === 0) {
+                if (!this.exportMenuIsOpen()) this.pressExportMenuTab();
+                if (this.exportMenuIsOpen()) await this.setSub(1);
+            } else {
+                document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${['menu-button', 'export-button', 'export-submit'][sub]}"]`)?.click();
+            }
         }
     }
 
@@ -578,6 +587,8 @@ export class OnboardingController {
         const takeover = ['welcome', 'first', 'invite', 'done'].includes(this.state.step);
         const spec = this.coach();
         this.root.setAttribute('data-akari-onboarding-step', this.state.step);
+        this.syncExportModalAccess();
+        document.body.classList.toggle('akari-onboarding-export-active', this.state.step === 'export');
         document.body.classList.toggle('akari-onboarding-chat-active', guideShowsChat(this.state.step));
         document.body.classList.toggle('akari-onboarding-daihon-active', this.state.step === 'daihon');
         const takeHost = this.root.querySelector<HTMLElement>('.ao-takeover-host')!;
@@ -993,6 +1004,7 @@ export class OnboardingController {
         else if (action === 'back') {
             const previous = previousGuidePosition(this.state);
             if (previous) {
+                if (this.state.step === 'export') this.restoreExportBackSurface();
                 if (previous.step === 'caption' && previous.sub === 0)
                     window.dispatchEvent(new Event('akari.onboarding.clearPreviewSelection'));
                 if (previous.step === this.state.step) await this.setSub(previous.sub);
@@ -1077,6 +1089,52 @@ export class OnboardingController {
             await this.go('matpreview');
         } catch (error) { this.live = error instanceof Error ? error.message : String(error); this.nudge(); }
         finally { this.busy = false; }
+    }
+
+    protected restoreExportBackSurface(): void {
+        if (this.state.sub === 2) {
+            // Setup has not submitted an export yet. Closing it restores access to the menu action.
+            document.querySelector<HTMLElement>('.akari-export-dialog-host button[aria-label="閉じる"]')?.click();
+            if (!this.exportMenuIsOpen()) this.pressExportMenuTab();
+        } else if (this.state.sub === 1 && this.exportMenuIsOpen()) {
+            this.pressExportMenuTab();
+        }
+    }
+
+    protected exportMenuIsOpen(): boolean {
+        const menu = document.querySelector<HTMLElement>('[data-akari-onboarding-target="menu-panel"]');
+        return !!menu && menu.getClientRects().length > 0 && getComputedStyle(menu).visibility === 'visible';
+    }
+
+    protected pressExportMenuTab(): void {
+        const tab = document.querySelector<HTMLElement>('[data-akari-onboarding-target="menu-button"]');
+        if (!tab) return;
+        const rect = tab.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const clientX = rect.left + rect.width / 2;
+        const clientY = rect.top + rect.height / 2;
+        for (const [type, buttons] of [['pointerdown', 1], ['pointerup', 0]] as const) {
+            tab.dispatchEvent(new PointerEvent(type, {
+                bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+                button: 0, buttons, clientX, clientY
+            }));
+        }
+    }
+
+    protected syncExportModalAccess(): void {
+        if (!this.root || this.state.step !== 'export') {
+            this.exportInertObserver?.disconnect();
+            this.exportInertObserver = undefined;
+            return;
+        }
+        if (this.exportInertObserver) return;
+        const root = this.root;
+        // Theia makes every other body child inert while its modal is open. Keep the guide's controls clickable.
+        this.exportInertObserver = new MutationObserver(() => {
+            if (this.root === root && this.state.step === 'export' && root.hasAttribute('inert')) root.removeAttribute('inert');
+        });
+        this.exportInertObserver.observe(root, { attributes: true, attributeFilter: ['inert'] });
+        if (root.hasAttribute('inert')) root.removeAttribute('inert');
     }
 
     protected handleExternalClick = (event: MouseEvent): void => {

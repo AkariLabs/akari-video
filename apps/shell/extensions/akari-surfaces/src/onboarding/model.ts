@@ -61,6 +61,10 @@ export function previousOnboardingStep(step: OnboardingStep): OnboardingStep | u
 
 /** Return one visible guide position, keeping earlier tour revisit rules in the controller. */
 export function previousGuidePosition(state: OnboardingState): { step: OnboardingStep; sub: number } | undefined {
+    // After submission the export may still be running; going back must not restart or cancel it.
+    if (state.step === 'export' && state.sub >= 3) return undefined;
+    if (state.step === 'export' && state.sub > 0) return { step: 'export', sub: state.sub - 1 };
+    if (state.step === 'export') return { step: 'daihon', sub: 2 };
     if ((state.step === 'caption' || state.step === 'daihon') && state.sub > 0)
         return { step: state.step, sub: state.sub - 1 };
     if (state.step === 'daihon') return { step: 'caption', sub: 2 };
@@ -176,7 +180,7 @@ export function createOnboardingEdit(samplePath: string, withTitle = false): obj
 export function createOnboardingCaptions(segments: readonly TranscriptSegment[], count: number, withTitle = false): object {
     const captions: object[] = segments.slice(0, count).map((segment, index) => ({
         id: `c-${String(index + 1).padStart(4, '0')}`, start: segment.start, end: segment.end,
-        text: segment.text, display_text: segment.text.replaceAll('、', '，'), runs: [],
+        text: segment.text, display_text: segment.text, runs: [],
         speaker: null, sourceRef: { segment: index }, edited: false,
         src: 'sample', style_preset: 'subtitle-standard'
     }));

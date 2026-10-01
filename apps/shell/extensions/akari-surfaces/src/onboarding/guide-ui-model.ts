@@ -41,7 +41,7 @@ export function materialPreviewTransportRect(frame: GuideRect): GuideRect {
     return { x: frame.x, y: frame.y + frame.height - height, width: frame.width, height };
 }
 
-/** The webview is cross-origin. Locate the lower caption band from its 16:9 video area. */
+/** The webview is cross-origin. Cover one or two caption lines in its 16:9 video area. */
 export function outputCaptionBandRect(frame: GuideRect): GuideRect {
     const inset = Math.min(16, frame.width * .03);
     const availableWidth = Math.max(0, frame.width - inset * 2);
@@ -50,8 +50,8 @@ export function outputCaptionBandRect(frame: GuideRect): GuideRect {
     const videoHeight = videoWidth * 9 / 16;
     const videoX = frame.x + (frame.width - videoWidth) / 2;
     const videoY = frame.y + (availableHeight - videoHeight) / 2;
-    return { x: videoX + videoWidth * .15, y: videoY + videoHeight * .76,
-        width: videoWidth * .7, height: videoHeight * .2 };
+    return { x: videoX + videoWidth * .15, y: videoY + videoHeight * .62,
+        width: videoWidth * .7, height: videoHeight * .34 };
 }
 
 /** Keep the caption coach clear of the style bar, open popover and subtitle band. */
