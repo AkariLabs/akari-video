@@ -91,7 +91,7 @@
 6. `captions` 字幕（最上段）
 - 音: `onboarding-bgm` BGM / `demo-sfx` 効果音 14 個（重ならない）
 
-## 使う音源（同梱はオーナーの了承待ちの仮置き）
+## 使う音源（2026-10-01 オーナー了承で同梱）
 
 すべて AKARI Sounds・`LicenseRef-AKARI-Sounds-v0`・price 0（単体再配布は禁止の条件）。頭は切らずに末尾だけ切る。
 

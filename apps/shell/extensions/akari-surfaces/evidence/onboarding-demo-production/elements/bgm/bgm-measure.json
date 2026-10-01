@@ -115,5 +115,5 @@
     "既存のお手本プロジェクトに前の assets/onboarding-bgm.m4a（sha256 829c903a…）が残っていると COPYFILE_EXCL で差し替わらず、拍が 80 ms ずれた古い曲に新しい音量設計が乗る。対象はオーナーの開発プレビュー（preview/2026-09-30-onboarding）だけだが、transcript と同じく『宛先が旧 sha256 と一致したら上書き』にするか、宛先名を変える（例: assets/onboarding-bgm-v2.m4a）とよい",
     "LOG の BGM 行は『声の下に BGM を入れ、「BGM も」で音を持ち上げました』のままで実態と合う（ダッキングという語は使わない）"
   ],
-  "owner_question": "AKARI Sounds の曲（bgm-lofi-minimal-085・LicenseRef-AKARI-Sounds-v0・単体再配布禁止）をアプリに同梱してよいか。今は仮置き。使った長さ 37.6 s（原曲 0.072〜37.672 s）"
+  "owner_decision": "2026-10-01 オーナーがアプリへの同梱を了承（bgm-lofi-minimal-085・LicenseRef-AKARI-Sounds-v0・price 0・単体再配布禁止は変えない）。使った長さ 37.6 s（原曲 0.072〜37.672 s）"
 }

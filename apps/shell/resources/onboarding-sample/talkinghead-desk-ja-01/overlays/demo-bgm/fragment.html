@@ -3,12 +3,21 @@
 /*
   BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。
   スマホ（demo-phone）の左上に付く橙のピル。♪・「BGM」・拍で跳ねるイコライザ 5 本。
+  右端をスマホの左の縁（x 891）へ 17px 重ねて、スマホに貼った札に見せる（スマホは段 demo-stage、
+  札はその上の段 demo-accents なので札が手前に来る）。
   edit.json では段 demo-accents、at 883 / duration 105（29.4333〜32.9333 秒）。
+  大きさ（2026-10-01 作り直し）: アプリのプレビュー枠は幅 640px 程度の縮小表示なので、「BGM」を
+  22→28px（1.27 倍。640px 枠で 14px 相当）、札を 136×48→170×58、♪ を 20→24px、棒を 4×22→5×27px にした。
+  大きくなったぶん左へ伸びると右の舞台の左端 x 720 を越えるので、右端をスマホの縁に重ねる位置
+  （738 / 113）へ寄せ、入りの拡大を .5→1 から .7→1 にして行き過ぎ（約 +10%）の左端も 720 の内側に
+  収める（不透明度 25% 以上の本体は全フレームで舞台の中。影の薄い裾だけが入りの 6 フレームで
+  x 704 まで出る。人物の届く範囲 x<690 と字幕帯には 0px）。
   時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 883) / 30）。
     札       -0.016 → 0.304  「BGM」の語頭 29.45 に向けて 1 フレーム前から開き始め、フレーム 883（29.433）
-                             で見え始める。scale .5→1・傾き -10°→-4°・不透明度 0→1（0.32 秒、
+                             で見え始める。scale .7→1・傾き -10°→-4°・不透明度 0→1（0.32 秒、
                              --ease-overshoot-soft、右端＝スマホの側を起点に開く）
-    拍の輪    0.149 → 0.599  最初の拍（29.582）で橙の輪が 1 回だけ広がって消える（BGM が持ち上がる瞬間）
+    拍の輪    0.149 → 0.599  最初の拍（29.582）で橙の輪が 1 回だけ横 1.2・縦 1.7 倍まで広がって消える
+                             （BGM が持ち上がる瞬間）
     棒        常時           scaleY .35→1→.35 を 1 拍（85 BPM = 0.7059 秒）周期で繰り返す（下端起点）。
                              棒ごとに 0 / .18 / .09 / .27 / .13 秒ずらし、左端の棒の最初の山を
                              ローカル 0.149 秒 = 29.582（BGM の拍 19.70 + 14 × 0.70588）に置く。
@@ -28,10 +37,10 @@
   （書き出しとプレビューは全断片を 1 枚の文書に並べるため、共通名だと他の断片の面が同じ太さの字を先に取る）。
 
   ツマミ（edit.json の overlays[].vars で上書きする）:
-    --bgm-left / --bgm-top / --bgm-width / --bgm-height   札の位置と大きさ（既定 748px / 118px / 136px / 48px）
-    --bgm-radius / --bgm-tilt                             角丸と傾き（既定 24px / -4deg）
-    --bgm-gap                                             ♪・文字・棒の間隔（既定 8px）
-    --bgm-font-size / --bgm-font                          「BGM」の文字サイズと書体（既定 22px / AKARI Demo Sans BGM → Hiragino Sans …）
+    --bgm-left / --bgm-top / --bgm-width / --bgm-height   札の位置と大きさ（既定 738px / 113px / 170px / 58px）
+    --bgm-radius / --bgm-tilt                             角丸と傾き（既定 29px / -4deg）
+    --bgm-gap                                             ♪・文字・棒の間隔（既定 9px）
+    --bgm-font-size / --bgm-font                          「BGM」の文字サイズと書体（既定 28px / AKARI Demo Sans BGM → Hiragino Sans …）
     --demo-accent                                         札の地（既定 #F97316 = アプリの主色）
     --bgm-ink                                             ♪・文字・棒の色（既定 #FFFFFF）
     --bgm-glow / --demo-shadow                            札の近い影（橙）と遠い影（既定 rgba(249,115,22,.30) /
@@ -46,22 +55,22 @@
 .demo-bgm,.demo-bgm *,.demo-bgm *::before,.demo-bgm *::after{box-sizing:border-box}
 .demo-bgm{position:absolute;inset:0;font-family:var(--bgm-font,"AKARI Demo Sans BGM","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif);font-weight:900;color:var(--bgm-ink,#FFFFFF);-webkit-font-smoothing:antialiased}
 .demo-bgm svg{display:block;flex:none}
-.demo-bgm__stage{position:absolute;left:var(--bgm-left,748px);top:var(--bgm-top,118px);width:var(--bgm-width,136px);height:var(--bgm-height,48px)}
+.demo-bgm__stage{position:absolute;left:var(--bgm-left,738px);top:var(--bgm-top,113px);width:var(--bgm-width,170px);height:var(--bgm-height,58px)}
 .demo-bgm__tilt{position:absolute;inset:0;transform:rotate(var(--bgm-tilt,-4deg))}
-.demo-bgm__chip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:var(--bgm-gap,8px);padding:0 14px 0 13px;border-radius:var(--bgm-radius,24px);background:var(--demo-accent,#F97316);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 6px 14px var(--bgm-glow,rgba(249,115,22,.30)),var(--demo-shadow,0 18px 44px rgba(58,38,20,.22));transform-origin:100% 50%}
-.demo-bgm__ring{position:absolute;inset:0;border-radius:var(--bgm-radius,24px);border:3px solid var(--bgm-ring,#FDBA74);opacity:0}
-.demo-bgm__note{width:20px;height:20px;color:var(--bgm-ink,#FFFFFF)}
-.demo-bgm__label{display:block;font-size:var(--bgm-font-size,22px);line-height:1;letter-spacing:.01em;white-space:nowrap}
-.demo-bgm__eq{display:flex;align-items:flex-end;gap:3px;height:22px;flex:none}
-.demo-bgm__bar{display:block;width:4px;height:22px;border-radius:2px;background:var(--bgm-ink,#FFFFFF);transform-origin:50% 100%;transform:scaleY(var(--bar-rest,.6))}
+.demo-bgm__chip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:var(--bgm-gap,9px);padding:0 15px 0 14px;border-radius:var(--bgm-radius,29px);background:var(--demo-accent,#F97316);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 6px 14px var(--bgm-glow,rgba(249,115,22,.30)),var(--demo-shadow,0 18px 44px rgba(58,38,20,.22));transform-origin:100% 50%}
+.demo-bgm__ring{position:absolute;inset:0;border-radius:var(--bgm-radius,29px);border:3px solid var(--bgm-ring,#FDBA74);opacity:0}
+.demo-bgm__note{width:24px;height:24px;color:var(--bgm-ink,#FFFFFF)}
+.demo-bgm__label{display:block;font-size:var(--bgm-font-size,28px);line-height:1;letter-spacing:.01em;white-space:nowrap}
+.demo-bgm__eq{display:flex;align-items:flex-end;gap:3px;height:27px;flex:none}
+.demo-bgm__bar{display:block;width:5px;height:27px;border-radius:2.5px;background:var(--bgm-ink,#FFFFFF);transform-origin:50% 100%;transform:scaleY(var(--bar-rest,.6))}
 [data-akari-active] .demo-bgm__stage{animation:demo-bgm-sink .3s var(--ease-accelerate,cubic-bezier(1,0,.98,.8)) forwards,demo-bgm-vanish .15s var(--ease-linear,linear) forwards;animation-delay:var(--bgm-at-out,3.167s),calc(var(--bgm-at-out,3.167s) + .15s)}
 [data-akari-active] .demo-bgm__chip{animation:demo-bgm-pop .32s var(--ease-overshoot-soft,cubic-bezier(.17,2.21,.17,.97)) both;animation-delay:calc(var(--bgm-at-in,.017s) - var(--bgm-lead,.033s))}
 [data-akari-active] .demo-bgm__ring{animation:demo-bgm-ring .45s var(--ease-smooth,cubic-bezier(.38,0,.1,1.1)) forwards;animation-delay:var(--bgm-beat-peak,.149s)}
 [data-akari-active] .demo-bgm__bar{animation:demo-bgm-bar var(--bgm-beat,.7059s) var(--ease-linear,linear) infinite both;animation-delay:calc(var(--bgm-beat-peak,.149s) - var(--bgm-beat,.7059s) * 1.5 + var(--bar-offset,0s))}
-@keyframes demo-bgm-pop{0%{transform:scale(.5) rotate(-6deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes demo-bgm-pop{0%{transform:scale(.7) rotate(-6deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
 @keyframes demo-bgm-sink{0%{transform:translateY(0)}100%{transform:translateY(var(--bgm-out-y,150px))}}
 @keyframes demo-bgm-vanish{0%{opacity:1}100%{opacity:0}}
-@keyframes demo-bgm-ring{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.32,1.9);opacity:0}}
+@keyframes demo-bgm-ring{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.2,1.7);opacity:0}}
 @keyframes demo-bgm-bar{0%{transform:scaleY(.35)}38%{transform:scaleY(.42)}50%{transform:scaleY(1)}62%{transform:scaleY(.78)}80%{transform:scaleY(.52)}100%{transform:scaleY(.35)}}
 </style>
 <div class="demo-bgm__stage">

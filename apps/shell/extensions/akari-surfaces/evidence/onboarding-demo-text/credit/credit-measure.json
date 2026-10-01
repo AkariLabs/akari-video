@@ -1,0 +1,547 @@
+{
+ "element": "credit",
+ "task": "2026-10-01-onboarding-demo-text",
+ "role": "制作（opus-xhigh）",
+ "fragment": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-credit/fragment.html",
+ "fragment_sha256_before": "63235270d22646bb2ce75670fa984a2b99de5462bc13c3e986712949c8eac51c",
+ "fragment_sha256_after": "f346b01e87ccf4f5fc803896469aed41529f2afd30fdf4fb8258deb82063da65",
+ "build": "python apps/shell/extensions/akari-surfaces/evidence/onboarding-demo-text/credit/make-demo-credit.py（前の版の写し。寸法・白フチの既定だけ変更、書体の切り出しは同じ字。head.modified を固定して同じ入力から同じバイト列が出るようにした = 2 回実行で sha256 一致）",
+ "edit_item_unchanged": {
+  "track": "demo-stage",
+  "id": "demo-credit",
+  "at": 1068,
+  "duration": 60,
+  "source": "overlays/demo-credit/fragment.html",
+  "vars": "なし（既定値を変えたので onboarding-service.ts は触らない）"
+ },
+ "goal": "アプリのプレビュー枠（縮小表示・幅 640px 程度）で読める大きさ。目安 = 最小 26px 相当（1280 基準）・現状の 1.2〜1.3 倍",
+ "sizes_px_1280": [
+  {
+   "part": "役職（出演・編集）",
+   "before": 24,
+   "after": 32,
+   "ratio": 1.33,
+   "at_640_px": 16.0
+  },
+  {
+   "part": "僕",
+   "before": 58,
+   "after": 72,
+   "ratio": 1.24,
+   "at_640_px": 36.0
+  },
+  {
+   "part": "AI",
+   "before": 84,
+   "after": 104,
+   "ratio": 1.24,
+   "at_640_px": 52.0
+  },
+  {
+   "part": "名札 AKARI Video",
+   "before": 30,
+   "after": 40,
+   "ratio": 1.33,
+   "at_640_px": 20.0
+  },
+  {
+   "part": "惹句 AI と話すだけで動画編集",
+   "before": 20,
+   "after": 28,
+   "ratio": 1.4,
+   "at_640_px": 14.0
+  }
+ ],
+ "sizes_note": "名前（僕）と AI は 1.24 倍。前段の目利きが「640px で読みにくい」とした役職と、名札は 1.33 倍、いちばん小さかった惹句は 1.4 倍（26px だと縮小で 13px になり「動画編集」の画数の多い字がつぶれ気味だった。28px = 縮小 14px で採用。26/38 の案と並べて目で比べた: explore の v1 / v2）。最小は惹句 28px で、目安の 26px を上回る。白フチ 8→9px（小さい字 6→7px）、キラッ 28→34px、区切り線 52×4→64×5px",
+ "other_knobs_after": {
+  "--credit-top": "120px",
+  "--credit-row-gap": "20px",
+  "--credit-gap": "22px",
+  "--credit-rule-top": "346px",
+  "--credit-plate-top": "378px",
+  "--credit-tagline-gap": "14px",
+  "--credit-right": "80px（変えない・右端 1200）"
+ },
+ "rects_before": {
+  "slots": [
+   {
+    "slot": "cast-role",
+    "rect": [
+     1040,
+     192,
+     1103,
+     216
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "24px",
+    "weight": "700"
+   },
+   {
+    "slot": "cast-name",
+    "rect": [
+     1113,
+     160,
+     1171,
+     218
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "58px",
+    "weight": "900"
+   },
+   {
+    "slot": "editor-role",
+    "rect": [
+     1040,
+     290,
+     1103,
+     314
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "24px",
+    "weight": "700"
+   },
+   {
+    "slot": "editor-name",
+    "rect": [
+     1113,
+     215,
+     1200,
+     336
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "84px",
+    "weight": "900"
+   },
+   {
+    "slot": "brand",
+    "rect": [
+     1012,
+     368,
+     1200,
+     398
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "30px",
+    "weight": "900"
+   },
+   {
+    "slot": "tagline",
+    "rect": [
+     970,
+     410,
+     1201,
+     430
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "20px",
+    "weight": "700"
+   }
+  ],
+  "spark": [
+   1193,
+   232,
+   1221,
+   260
+  ],
+  "rule": [
+   1148,
+   342,
+   1200,
+   346
+  ],
+  "star": [
+   976,
+   370,
+   1003,
+   397
+  ],
+  "brand": [
+   976,
+   368,
+   1200,
+   398
+  ],
+  "tagline": [
+   970,
+   410,
+   1201,
+   430
+  ],
+  "credits": [
+   1040,
+   160,
+   1200,
+   318
+  ]
+ },
+ "rects_after": {
+  "slots": [
+   {
+    "slot": "cast-role",
+    "rect": [
+     997,
+     157,
+     1080,
+     189
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "32px",
+    "weight": "700"
+   },
+   {
+    "slot": "cast-name",
+    "rect": [
+     1093,
+     120,
+     1165,
+     192
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "72px",
+    "weight": "900"
+   },
+   {
+    "slot": "editor-role",
+    "rect": [
+     997,
+     279,
+     1080,
+     311
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "32px",
+    "weight": "700"
+   },
+   {
+    "slot": "editor-name",
+    "rect": [
+     1093,
+     188,
+     1200,
+     339
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "104px",
+    "weight": "900"
+   },
+   {
+    "slot": "brand",
+    "rect": [
+     950,
+     378,
+     1200,
+     418
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "40px",
+    "weight": "900"
+   },
+   {
+    "slot": "tagline",
+    "rect": [
+     879,
+     432,
+     1202,
+     460
+    ],
+    "font": "\"AKARI Demo Sans Credit\", \"Hiragino Sans",
+    "size": "28px",
+    "weight": "700"
+   }
+  ],
+  "spark": [
+   1191,
+   210,
+   1225,
+   244
+  ],
+  "rule": [
+   1136,
+   346,
+   1200,
+   351
+  ],
+  "star": [
+   902,
+   380,
+   938,
+   416
+  ],
+  "brand": [
+   902,
+   378,
+   1200,
+   418
+  ],
+  "tagline": [
+   879,
+   432,
+   1202,
+   460
+  ],
+  "credits": [
+   997,
+   120,
+   1200,
+   316
+  ]
+ },
+ "layout": {
+  "union_bbox_alpha_gt8_all_60_frames": [
+   871,
+   116,
+   1230,
+   477
+  ],
+  "before_union_bbox": [
+   964,
+   156,
+   1231,
+   445
+  ],
+  "vertical_center_before_after": [
+   300.5,
+   296.5
+  ],
+  "stage": "y<460 は x 720〜1240、y 460〜610 は x 830〜1240 → 内側（y 460 より下は惹句だけで x 871〜1202）",
+  "person_reach": "y<470 で x<690、y 470〜660 で x<815 → 触れない（最小 x 871）。x < 55%（704）にも入らない",
+  "caption_band": "x 300〜980・y≥628 → 触れない（最大 y 477）",
+  "evidence": "credit-keepout-guides-1280.jpg（赤 = 人物、青 = 字幕帯、緑 = 舞台、黄 = 全フレームの外接）"
+ },
+ "sync_harness": {
+  "how": "render-seq（harness/render-fragment.mjs の Windows 写し・活性ゲート付き）で 0〜1.967 s を 30 fps で 60 枚。各部分の芯の箱の alpha",
+  "first_any_pixel": {
+   "frame": 1069,
+   "s": 35.6333
+  },
+  "parts": {
+   "row1 出演 僕": {
+    "first_visible_alpha>=24": {
+     "frame": 1069,
+     "s": 35.6333
+    },
+    "first_alpha>=128": {
+     "frame": 1070,
+     "s": 35.6667
+    },
+    "opaque_alpha>=250": {
+     "frame": 1072,
+     "s": 35.7333
+    }
+   },
+   "row2 編集 AI": {
+    "first_visible_alpha>=24": {
+     "frame": 1072,
+     "s": 35.7333
+    },
+    "first_alpha>=128": {
+     "frame": 1074,
+     "s": 35.8
+    },
+    "opaque_alpha>=250": {
+     "frame": 1076,
+     "s": 35.8667
+    }
+   },
+   "spark キラッ": {
+    "first_visible_alpha>=24": {
+     "frame": 1080,
+     "s": 36.0
+    },
+    "first_alpha>=128": {
+     "frame": 1080,
+     "s": 36.0
+    },
+    "opaque_alpha>=250": {
+     "frame": 1083,
+     "s": 36.1
+    }
+   },
+   "rule 区切り": {
+    "first_visible_alpha>=24": {
+     "frame": 1087,
+     "s": 36.2333
+    },
+    "first_alpha>=128": {
+     "frame": 1087,
+     "s": 36.2333
+    },
+    "opaque_alpha>=250": {
+     "frame": 1087,
+     "s": 36.2333
+    }
+   },
+   "brand ✦ AKARI Video": {
+    "first_visible_alpha>=24": {
+     "frame": 1089,
+     "s": 36.3
+    },
+    "first_alpha>=128": {
+     "frame": 1091,
+     "s": 36.3667
+    },
+    "opaque_alpha>=250": {
+     "frame": 1093,
+     "s": 36.4333
+    }
+   },
+   "star ✦": {
+    "first_visible_alpha>=24": {
+     "frame": 1089,
+     "s": 36.3
+    },
+    "first_alpha>=128": {
+     "frame": 1091,
+     "s": 36.3667
+    },
+    "opaque_alpha>=250": {
+     "frame": 1093,
+     "s": 36.4333
+    }
+   },
+   "tagline 惹句": {
+    "first_visible_alpha>=24": {
+     "frame": 1091,
+     "s": 36.3667
+    },
+    "first_alpha>=128": {
+     "frame": 1091,
+     "s": 36.3667
+    },
+    "opaque_alpha>=250": {
+     "frame": 1096,
+     "s": 36.5333
+    }
+   },
+   "label 出演": {
+    "first_visible_alpha>=24": {
+     "frame": 1069,
+     "s": 35.6333
+    },
+    "first_alpha>=128": {
+     "frame": 1070,
+     "s": 35.6667
+    },
+    "opaque_alpha>=250": {
+     "frame": 1072,
+     "s": 35.7333
+    }
+   },
+   "label 編集": {
+    "first_visible_alpha>=24": {
+     "frame": 1072,
+     "s": 35.7333
+    },
+    "first_alpha>=128": {
+     "frame": 1074,
+     "s": 35.8
+    },
+    "opaque_alpha>=250": {
+     "frame": 1076,
+     "s": 35.8667
+    }
+   }
+  },
+  "word": "ね（言い切り）35.63",
+  "row1_delta_s": 0.003,
+  "note": "大きさだけ変えたので、各部分の最初に見えるフレームは前の版の記録（credit-measure.json）と同じ: 1 行目 1069 / 2 行目 1072 / 区切り 1086〜1087 / 名札 1089"
+ },
+ "sync_export": {
+  "project": "C:/t/credit-text/proj（隔離。clip 33.6〜37.6 を 0〜120 f、クレジットを 60 f から 60 f。edit-lint pass・findings 0）",
+  "env": "AKARI_HOME・TMP・TEMP を C:/t/credit-text 配下、作業フォルダは空の C:/t/credit-text/cwd。OSR は AKARI_EXPORT_ALLOW_DESKTOP=0・AKARI_OSR_VERIFY=off",
+  "first_diff_frames": {
+   "gpu": {
+    "row1 出演 僕": {
+     "first_frame": 1069,
+     "first_s": 35.6333
+    },
+    "row2 編集 AI": {
+     "first_frame": 1074,
+     "first_s": 35.8
+    },
+    "label 出演": {
+     "first_frame": 1070,
+     "first_s": 35.6667
+    },
+    "label 編集": {
+     "first_frame": 1074,
+     "first_s": 35.8
+    },
+    "rule 区切り": {
+     "first_frame": 1087,
+     "first_s": 36.2333
+    },
+    "brand ✦ AKARI Video": {
+     "first_frame": 1090,
+     "first_s": 36.3333
+    },
+    "tagline 惹句": {
+     "first_frame": 1094,
+     "first_s": 36.4667
+    }
+   },
+   "osr": {
+    "row1 出演 僕": {
+     "first_frame": 1070,
+     "first_s": 35.6667
+    },
+    "row2 編集 AI": {
+     "first_frame": 1075,
+     "first_s": 35.8333
+    },
+    "label 出演": {
+     "first_frame": 1071,
+     "first_s": 35.7
+    },
+    "label 編集": {
+     "first_frame": 1075,
+     "first_s": 35.8333
+    },
+    "rule 区切り": {
+     "first_frame": 1088,
+     "first_s": 36.2667
+    },
+    "brand ✦ AKARI Video": {
+     "first_frame": 1092,
+     "first_s": 36.4
+    },
+    "tagline 惹句": {
+     "first_frame": 1095,
+     "first_s": 36.5
+    }
+   }
+  },
+  "osr_run2": {
+   "row1 出演 僕": 1070,
+   "row2 編集 AI": 1074,
+   "rule 区切り": 1088,
+   "brand ✦ AKARI Video": 1091,
+   "tagline 惹句": 1095
+  },
+  "row1_delta_s": {
+   "gpu": 0.003,
+   "osr": 0.037
+  },
+  "osr_one_frame_lag": "OSR は 1069 のフレームでまだ何も出ず、1070 から出る（2 回とも）。途中のコマが 1 つ前のコマと同じになる揺れもあり、2 回の書き出しで揺れる場所が違う。前の版の断片（HEAD の fragment.html）を同じ隔離プロジェクトで OSR に通しても同じく 1070 から出て、1071=1072 の重複も同じ → 断片の変更によるものではなく、この機械の今の OSR の挙動。語頭 35.63 との差 +0.037 s は許容 ±0.15・狙い ±0.05 の内側",
+  "gpu_vs_osr_mean_abs_max": 4.05,
+  "gpu_vs_osr_note": "差は入りの動き（OSR の 1 コマ遅れ）のフレームだけ。静止後（1100 以降）は平均差 1.9 前後で、1280 / 640 とも同じ見た目（credit-export-gpu-vs-osr-f1110-640.jpg）"
+ },
+ "knob_audit": {
+  "reacting": 29,
+  "total": 29,
+  "non_reacting": []
+ },
+ "lint": {
+  "edit_lint": "pass（findings 0）",
+  "gpu_eligibility": "eligible・dom-layer-draw-element",
+  "easing_fallback_test": "onboarding-demo.test.mjs 6/6 pass（easing 変数のフォールバックの検査を含む）"
+ },
+ "visual_check": {
+  "1280": "credit-after-seek-1.20-1280.png・credit-keepout-guides-1280.jpg",
+  "640_downscale": "credit-after-seek-1.20-640.png・credit-before-after-640.jpg（0.30 / 0.60 / 1.20 / 1.95 の前後比較）・credit-640-pixels-before-after.png（640 縮小を 2 倍の最近傍で拡大した画素）",
+  "640_dom_scaled": "credit-domscaled-640-before-after.png（プレビュー枠と同じく 1280 の舞台を CSS で 0.5 倍に縮めて描いた）",
+  "enter": "credit-enter-640-sheet.jpg（1069〜1127 の 18 コマ・640 縮小）",
+  "verdict_by_producer": "640 縮小で 役職「出演」「編集」(16px)・名札 (20px)・惹句 (14px) とも字の形が読める。前の版は役職 12px・惹句 10px で「動画編集」がつぶれていた"
+ },
+ "tools": "tools/（harness/render-fragment.mjs の Windows 写し = Edge のヘッドレス・活性ゲート付き。render-seq.mjs = 1 回の起動で連番。preview-scale.mjs = DOM で縮小。measure-harness.py / firstdiff-export.py = 最初に見えるフレーム。knob-audit.mjs）"
+}

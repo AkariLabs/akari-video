@@ -1,0 +1,434 @@
+{
+ "element": "chat",
+ "task": "2026-10-01-onboarding-demo-text",
+ "fragment": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-chat/fragment.html",
+ "fragment_md5": "c225c13e30dcd2de2365533275dad49a",
+ "fragment_bytes": {
+  "before": 29089,
+  "after": 19225
+ },
+ "base_commit": "aa43cb9f4",
+ "edit_item_unchanged": {
+  "track": "demo-stage",
+  "id": "demo-chat",
+  "at": 256,
+  "duration": 73,
+  "start_s": 8.5333,
+  "end_s": 10.9667,
+  "note": "edit.json 側（onboarding-service.ts）は変えていない。時刻のツマミ（--chat-at-*）も前段と同じ値"
+ },
+ "what_changed": {
+  "summary": "アプリのプレビュー枠（幅 640px 前後の縮小表示）で読めるよう、文字をすべて 1280 基準 26px 以上にした。縮小すると 8px になって読めなかった入力欄（案内文「AI に話しかける」16px と送信ボタン）は外し、面積を吹き出しに回した。動き・時刻・色・書体・構成（見出し → あなたの吹き出し → AI の入力中 → 返事＋チェック）は前段のまま",
+  "font_px_at_1280": [
+   {
+    "part": "見出し「✦ AI パートナー」",
+    "before": 20,
+    "after": 26,
+    "ratio": 1.3,
+    "at_640_preview": "10 → 13"
+   },
+   {
+    "part": "あなたの吹き出し「話に合わせて編集して」",
+    "before": 24,
+    "after": 30,
+    "ratio": 1.25,
+    "at_640_preview": "12 → 15"
+   },
+   {
+    "part": "AI の返事「できました！」",
+    "before": 24,
+    "after": 30,
+    "ratio": 1.25,
+    "at_640_preview": "12 → 15"
+   },
+   {
+    "part": "入力欄の案内文「AI に話しかける」",
+    "before": 16,
+    "after": null,
+    "ratio": null,
+    "at_640_preview": "8 → （外した）"
+   }
+  ],
+  "min_text_px_at_1280": {
+   "before": 16,
+   "after": 26
+  },
+  "computed_font_size_in_dom": {
+   ".demo-chat__head span": "26px",
+   ".demo-chat__bubble--you": "30px",
+   ".demo-chat__reply span": "30px"
+  },
+  "other_sizes_px": {
+   "AI のアイコン": "36 → 44",
+   "✦（見出し）": "20 → 25",
+   "チェック": "28 → 34",
+   "チェックの輪": "inset −6・2.5px → −7・3px",
+   "入力中の点": "9 → 11（跳ね −5 → −6）",
+   "吹き出しの高さ": "52 → 62",
+   "吹き出しの角丸": "18/6 → 22/7",
+   "カードの角丸": "22 → 26"
+  },
+  "card": {
+   "before": {
+    "left": 770,
+    "top": 140,
+    "width": 440,
+    "height": 270
+   },
+   "after": {
+    "left": 740,
+    "top": 130,
+    "width": 470,
+    "height": 248
+   },
+   "note": "幅は入り・抜けの translateX 30px 込みで右端が 1240（右の舞台の端）に収まる 470 にした。左端 740 は図解（demo-diagram）と同じ"
+  },
+  "font_subset": {
+   "family": "AKARI Demo Sans",
+   "source": "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf（OFL 1.1）",
+   "weights": [
+    800
+   ],
+   "chars": " AIきしせたてでにまわトナパー合編話集！",
+   "woff2_bytes": 5256,
+   "note": "案内文を外したので wght 500 の面（6120 B）と か・け・る を落とした。head.modified を保持して同じ入力なら同じバイト列（build.py 2 回の md5 一致）"
+  }
+ },
+ "dom_rects_final_state": {
+  "card": [
+   740,
+   130,
+   1210,
+   378
+  ],
+  "head": [
+   767,
+   149,
+   1183,
+   196
+  ],
+  "headText": [
+   805,
+   149,
+   963,
+   181
+  ],
+  "you": [
+   846,
+   214,
+   1183,
+   276
+  ],
+  "ai": [
+   767,
+   292,
+   1183,
+   354
+  ],
+  "avatar": [
+   767,
+   310,
+   811,
+   354
+  ],
+  "typing": [
+   823,
+   292,
+   924,
+   354
+  ],
+  "reply": [
+   823,
+   292,
+   1062,
+   354
+  ],
+  "replyText": [
+   848,
+   305,
+   1000,
+   341
+  ],
+  "check": [
+   1012,
+   306,
+   1046,
+   340
+  ]
+ },
+ "harness_preview": {
+  "renderer": "tools/render-seq.mjs（内部リポ harness/render-fragment.mjs と同じ入れ子とモーション語彙 + 容器の data-akari-active + rasterize.mjs と同じ WAAPI クローン化 + 本編フレームの背景）。静的 base は harness/render-fragment.mjs をパスだけ Windows に直した tools/render-fragment.win.mjs",
+  "sync": [
+   {
+    "element": "カード",
+    "word": "AI",
+    "word_onset_plan": 8.55,
+    "word_onset_voice_envelope": 8.535,
+    "first_visible_frame": 256,
+    "first_visible_s": 8.5333,
+    "diff_vs_plan_s": -0.017,
+    "diff_vs_envelope_s": -0.002,
+    "within_0.15": true
+   },
+   {
+    "element": "あなたの吹き出し",
+    "word": "AI",
+    "word_onset_plan": 8.55,
+    "word_onset_voice_envelope": 8.535,
+    "first_visible_frame": 256,
+    "first_visible_s": 8.5333,
+    "diff_vs_plan_s": -0.017,
+    "diff_vs_envelope_s": -0.002,
+    "within_0.15": true
+   },
+   {
+    "element": "AI のアイコン＋入力中の点",
+    "word": "対話",
+    "word_onset_plan": 9.26,
+    "word_onset_voice_envelope": 9.245,
+    "first_visible_frame": 277,
+    "first_visible_s": 9.2333,
+    "diff_vs_plan_s": -0.027,
+    "diff_vs_envelope_s": -0.012,
+    "within_0.15": true
+   },
+   {
+    "element": "返事「できました！」",
+    "word": "だけ",
+    "word_onset_plan": 9.9,
+    "word_onset_voice_envelope": 9.91,
+    "first_visible_frame": 297,
+    "first_visible_s": 9.9,
+    "diff_vs_plan_s": 0.0,
+    "diff_vs_envelope_s": -0.01,
+    "within_0.15": true
+   },
+   {
+    "element": "チェック",
+    "word": "だけ",
+    "word_onset_plan": 9.9,
+    "word_onset_voice_envelope": 9.91,
+    "first_visible_frame": 298,
+    "first_visible_s": 9.9333,
+    "diff_vs_plan_s": 0.033,
+    "diff_vs_envelope_s": 0.023,
+    "within_0.15": true
+   }
+  ],
+  "last_visible_frame": 327,
+  "last_visible_s": 10.9,
+  "extent_all_frames_px": {
+   "with_shadow_alpha_gt_12": [
+    723,
+    130,
+    1238,
+    411
+   ],
+   "card_body_alpha_ge_60": [
+    740,
+    130,
+    1237,
+    377
+   ]
+  },
+  "extent_note": "全 73 フレーム（入り・抜けの途中を含む）の外接矩形 [x0,y0,x1,y1]。本体（alpha≥60）は x 740〜1237・y 130〜377 で右の舞台（y<460 は x 720〜1240）に収まる。影（alpha>12）は x 723〜1238・y 130〜411",
+  "keepout_frames_with_any_alpha": {
+   "person_upper": 0,
+   "person_lower": 0,
+   "caption_band": 0
+  },
+  "keepout_note": "人物の届く範囲（y<470 で x<690 / y 470〜660 で x<815）と字幕帯（x300〜980・y≥628）に、断片の画素（alpha>0）があるフレームは 0",
+  "parity_preview_vs_export_mode": {
+   "max_channel_diff": 10,
+   "frames": 73
+  }
+ },
+ "render_cut_export": {
+  "project": "隔離プロジェクト C:/t/chat-text/rc/proj（本編 8.0〜11.5 秒を 105 フレーム・demo-chat を at 16 / duration 73 = 本番 at 256 と同じ局所時刻・効果音 2 本も本番どおり）。AKARI_HOME / TMP は C:/t/chat-text/rc 配下、作業フォルダは空の C:/t/chat-text/rc/cwd、AKARI_EXPORT_ALLOW_DESKTOP=0。edit-lint PASS（0 findings）→ render-cut PASS",
+  "engines": {
+   "gpu": {
+    "engine": "auto",
+    "sync": [
+     {
+      "element": "カード",
+      "word": "AI",
+      "word_onset_plan": 8.55,
+      "first_visible_frame": 256,
+      "first_visible_s": 8.5333,
+      "diff_vs_plan_s": -0.017,
+      "diff_vs_envelope_s": -0.002,
+      "within_0.15": true
+     },
+     {
+      "element": "あなたの吹き出し",
+      "word": "AI",
+      "word_onset_plan": 8.55,
+      "first_visible_frame": 256,
+      "first_visible_s": 8.5333,
+      "diff_vs_plan_s": -0.017,
+      "diff_vs_envelope_s": -0.002,
+      "within_0.15": true
+     },
+     {
+      "element": "AI のアイコン＋入力中の点",
+      "word": "対話",
+      "word_onset_plan": 9.26,
+      "first_visible_frame": 277,
+      "first_visible_s": 9.2333,
+      "diff_vs_plan_s": -0.027,
+      "diff_vs_envelope_s": -0.012,
+      "within_0.15": true
+     },
+     {
+      "element": "返事「できました！」",
+      "word": "だけ",
+      "word_onset_plan": 9.9,
+      "first_visible_frame": 297,
+      "first_visible_s": 9.9,
+      "diff_vs_plan_s": 0.0,
+      "diff_vs_envelope_s": -0.01,
+      "within_0.15": true
+     },
+     {
+      "element": "チェック",
+      "word": "だけ",
+      "word_onset_plan": 9.9,
+      "first_visible_frame": 298,
+      "first_visible_s": 9.9333,
+      "diff_vs_plan_s": 0.033,
+      "diff_vs_envelope_s": 0.023,
+      "within_0.15": true
+     }
+    ],
+    "last_visible_frame": 327,
+    "last_visible_s": 10.9,
+    "keepout_mean_abs_diff_vs_source_max_in_item": {
+     "person": 2.06,
+     "person_low": 1.65,
+     "caption_band": 1.71
+    },
+    "noise_before_item_max": {
+     "person": 1.87,
+     "person_low": 1.53,
+     "caption_band": 1.58
+    },
+    "keepout_pixels_diff_gt_40_max_in_item": {
+     "person": 0,
+     "person_low": 0,
+     "caption_band": 0
+    },
+    "noise_pixels_diff_gt_40_before_item": {
+     "person": 0,
+     "person_low": 0,
+     "caption_band": 0
+    },
+    "parity_vs_harness_card_region_max_mean_abs_diff": 2.97
+   },
+   "osr": {
+    "engine": "osr",
+    "sync": [
+     {
+      "element": "カード",
+      "word": "AI",
+      "word_onset_plan": 8.55,
+      "first_visible_frame": 256,
+      "first_visible_s": 8.5333,
+      "diff_vs_plan_s": -0.017,
+      "diff_vs_envelope_s": -0.002,
+      "within_0.15": true
+     },
+     {
+      "element": "あなたの吹き出し",
+      "word": "AI",
+      "word_onset_plan": 8.55,
+      "first_visible_frame": 256,
+      "first_visible_s": 8.5333,
+      "diff_vs_plan_s": -0.017,
+      "diff_vs_envelope_s": -0.002,
+      "within_0.15": true
+     },
+     {
+      "element": "AI のアイコン＋入力中の点",
+      "word": "対話",
+      "word_onset_plan": 9.26,
+      "first_visible_frame": 277,
+      "first_visible_s": 9.2333,
+      "diff_vs_plan_s": -0.027,
+      "diff_vs_envelope_s": -0.012,
+      "within_0.15": true
+     },
+     {
+      "element": "返事「できました！」",
+      "word": "だけ",
+      "word_onset_plan": 9.9,
+      "first_visible_frame": 297,
+      "first_visible_s": 9.9,
+      "diff_vs_plan_s": 0.0,
+      "diff_vs_envelope_s": -0.01,
+      "within_0.15": true
+     },
+     {
+      "element": "チェック",
+      "word": "だけ",
+      "word_onset_plan": 9.9,
+      "first_visible_frame": 298,
+      "first_visible_s": 9.9333,
+      "diff_vs_plan_s": 0.033,
+      "diff_vs_envelope_s": 0.023,
+      "within_0.15": true
+     }
+    ],
+    "last_visible_frame": 327,
+    "last_visible_s": 10.9,
+    "keepout_mean_abs_diff_vs_source_max_in_item": {
+     "person": 2.49,
+     "person_low": 2.23,
+     "caption_band": 2.48
+    },
+    "noise_before_item_max": {
+     "person": 2.32,
+     "person_low": 2.07,
+     "caption_band": 2.37
+    },
+    "keepout_pixels_diff_gt_40_max_in_item": {
+     "person": 3,
+     "person_low": 3,
+     "caption_band": 0
+    },
+    "noise_pixels_diff_gt_40_before_item": {
+     "person": 0,
+     "person_low": 0,
+     "caption_band": 0
+    },
+    "parity_vs_harness_card_region_max_mean_abs_diff": 2.36
+   }
+  },
+  "note": "既定（--engine auto）は gpu を選んだ。osr（既定の stamp 検証のまま）も同じ結果。人物域の差 >40 の画素（osr で最大 3 個/フレーム）は顔・手の輪郭（x 188〜528）に散る圧縮ノイズで、カード（x≥723）とは離れている。断片の画素が人物域に無いことは上の透過描画で 0 を確認済み",
+  "file": "chat-export-gpu-8.00-11.50s.mp4"
+ },
+ "lint": {
+  "tool": "packages/edit-lint の lintProject（隔離 C:/t/chat-text/lint/proj・この断片 1 件の v2 edit.json）",
+  "findings": [
+   "warning geometry.fit-compat"
+  ],
+  "overlay_findings": 0,
+  "note": "geometry.fit-compat は検査用ダミー素材の寸法由来で断片と無関係",
+  "negative_control": "base に opacity:0 と疎な keyframes を注入すると overlays.base-hidden-state と overlays.keyframes-sparse が出る（断片が実際に検査されている）"
+ },
+ "tests": {
+  "onboarding-demo + onboarding-sample-timing": "13/13 pass",
+  "onboarding-service + onboarding/model + asset-paths": "16/16 pass"
+ },
+ "images": {
+  "chat-before-after-640.jpg": "前段（上）と作り直し（下）を 5 時刻（8.60 / 8.93 / 9.33 / 10.00 / 10.53 秒）で、1280 の絵を 640 に縮めて並べた",
+  "chat-before-after-640-domscaled.jpg": "同じ 5 時刻を、アプリのプレビュー枠と同じく舞台を DOM で 0.5 倍にして 640×360 で撮った",
+  "chat-640-domscaled-zoom-f300.png": "10.00 秒の右側を 640 枠の原寸で前段と並べた（文字の読みやすさの比較）",
+  "chat-harness-preview-1280-sheet.jpg": "作り直しの 5 時刻を 1280 原寸で（プレビュー経路）",
+  "chat-export-gpu-osr-640-sheet.jpg": "render-cut の書き出し（gpu / osr）の同じ 5 時刻を 640 に縮めた",
+  "chat-static-base-1280.png": "harness/render-fragment.mjs（Windows パス版）の静的 base（最終の静止状態・透過）"
+ },
+ "not_done": [
+  "シェルの開発起動（L1）でのプレビュー確認は組み込み担当に委ねる（この要素ではプレビュー経路を DOM 縮小で再現して確認）",
+  "plan.json の chat の spec（left 770 / top 140 / width 440 / height 270・入力欄あり）は書き換えていない — 組み込みで追記する"
+ ]
+}

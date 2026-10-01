@@ -26,7 +26,7 @@
     "meta": "akari-video-internal assets/audio/sfx-ding-single/meta.json",
     "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布／音楽配信登録／Content ID 登録は禁止）",
     "price": 0,
-    "status_note": "2026-08-23 のオーナー裁定で生成 SFX は keep 3 点を除き一括引退（sfx-retirement-2026-08-23.json の retired に含まれる）。sfx-review.json に個別の判定は無い（pop-ding のような「強調しすぎ」の指摘も無い）。後継の参照音源（OtoLogic・効果音ラボ）は参照配布のみで同梱できないため、構成表どおりこの音源を仮置きで使う",
+    "status_note": "2026-08-23 のオーナー裁定で生成 SFX は keep 3 点を除き一括引退（sfx-retirement-2026-08-23.json の retired に含まれる）。sfx-review.json に個別の判定は無い（pop-ding のような「強調しすぎ」の指摘も無い）。後継の参照音源（OtoLogic・効果音ラボ）は参照配布のみで同梱できないため、構成表どおりこの音源を使う。同梱は 2026-10-01 にオーナーが了承",
     "decoded": "48 kHz / 2ch / 2.761 s（mp3・start_time 0.023 = priming を ffmpeg が落とす）",
     "onset_-30dBFS_ms": 4.98,
     "sample_peak": { "dbfs": -2.26, "at_ms": 17.25 },

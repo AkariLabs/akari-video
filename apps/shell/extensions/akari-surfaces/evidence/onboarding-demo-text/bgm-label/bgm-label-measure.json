@@ -1,0 +1,127 @@
+{
+ "element": "bgm-label",
+ "task": "2026-10-01-onboarding-demo-text",
+ "created": "2026-10-01",
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-bgm/fragment.html",
+ "md5_before": "e30abe2b81a020b5d33a536efe69bd6d",
+ "md5_after": "951dc8aead8cc5630e940282f3db7bd6",
+ "bytes_after": 11270,
+ "why": "前段（2026-09-30-onboarding-demo-production r2）の目利きの global 指摘「舞台の文字は最小 26px・現状の 1.2〜1.3 倍。640px 縮小で BGM 札は読みにくい」への対応。アプリのプレビュー枠は幅 640px 程度の縮小表示",
+ "changes": {
+  "label_font_size": "22px → 28px（1.27 倍。1280 基準で最小 26px を満たす。640px 枠で 14px 相当）",
+  "chip_box": "136×48 → 170×58（角丸 24 → 29、内側の余白 14/13 → 15/14、間隔 8 → 9）",
+  "note_icon": "20px → 24px",
+  "eq_bars": "幅 4・高さ 22 → 幅 5・高さ 27（棒の間 3px は据え置き）",
+  "position": "left 748 / top 118 → left 738 / top 113。右端（908）をスマホの左の縁（x 891）へ 17px 重ね、スマホに貼った札に見せる（札の段 demo-accents はスマホの段 demo-stage より上）",
+  "pop_in": "scale .5→1 → .7→1（構成表の統一ルール『ポップは scale 0.5〜0.7→1』の範囲内）。札が大きくなったぶん --ease-overshoot-soft の行き過ぎ（約 +10%）で左へ伸びる量が増え、.5 のままだと本体が x 706 まで出て舞台の左端 720 を越えた（実測）ため",
+  "beat_ring": "最大の広がり scale(1.32,1.9) → scale(1.2,1.7)（札が大きくなったので、輪が舞台の左端を越えない大きさに）",
+  "unchanged": "時刻（入り -0.016 s 始まり・拍の輪 0.149 s・棒の周期 0.7059 s と位相・抜け 3.167 s）、色（地 #F97316・白）、傾き -4°、書体（AKARI Demo Sans BGM = Noto Sans JP 900 の B/G/M 切り出し）、ツマミの顔ぶれ 20 個"
+ },
+ "text_size_check": {
+  "label_computed_font_size_px": 28,
+  "label_ink_bbox_1280": "67×32（傾き込み、DOM 実測）",
+  "at_640": "14px 相当。640px 縮小のシートで「♪ BGM」と拍の棒が読める（bgm-label-before-after-640-*.jpg・bgm-label-export-osr-640-sheet.jpg・bgm-label-harness-preview-640.jpg）",
+  "rule": "最小 26px 相当（1280 基準）・現状の 1.2〜1.3 倍 → 28px / 1.27 倍で合格"
+ },
+ "sync": {
+  "word": "BGM",
+  "word_onset_s": 29.45,
+  "first_visible": {
+   "harness_preview_and_export_mode": {
+    "frame": 883,
+    "t": 29.4333,
+    "chip_opacity": 0.597
+   },
+   "osr_export": {
+    "frame": 883,
+    "t": 29.4333,
+    "how": "札あり / 札なしの 2 本を同じ設定で書き出し、舞台の箱（x 600–1000, y 40–460）で新たに橙になった画素を数えた。f882 = 0 px → f883 = 4675 px"
+   },
+   "diff_s": -0.017,
+   "rule": "語頭の −1〜0 フレーム（許容 ±0.15 s・狙い ±0.05 s）→ 合格（前段と同じ）"
+  },
+  "exit": {
+   "last_frame_orange_over_50px_osr": 984,
+   "faint_frames_osr": [
+    985,
+    986
+   ],
+   "gone_frame_osr": 987,
+   "gone_t": 32.9,
+   "item_end_t": 32.9333,
+   "note": "スマホと同じく 32.60 から沈み、最後の 0.15 秒で薄れて区間の終わりの前に消え切る（前段と同じ。差分の強い画素は f985 まで・f986 は不透明度 0.22 の薄い残り・f987 で 0）"
+  }
+ },
+ "footprint": {
+  "how": "透明背景で区間の全 105 フレーム（883–987）を撮り、アルファで数える（tools/footprint.py）。書き出しと同じ WAAPI クローン化（export）とローカル秒シーク（preview）の両方。2 経路の差は最大 11/255",
+  "union_bbox_alpha_gt_25pct": [
+   721,
+   96,
+   918,
+   218
+  ],
+  "union_bbox_alpha_gt_3pct": [
+   704,
+   89,
+   926,
+   258
+  ],
+  "person_reach_px": 0,
+  "caption_band_px": 0,
+  "body_outside_stage_px_alpha_gt_25pct": 0,
+  "faint_shadow_outside_stage": {
+   "frames": [
+    884,
+    885,
+    886,
+    887,
+    888,
+    889
+   ],
+   "px_alpha_3_to_25pct": [
+    469,
+    799,
+    552,
+    251,
+    78,
+    4
+   ],
+   "leftmost_x": 704,
+   "note": "入りの行き過ぎ（0.2 秒）のあいだ、暖色の影の薄い裾だけが舞台の左端 720 を最大 16 px 越える。人物の届く範囲（x<690）には届かない。静止中は 0"
+  },
+  "osr_export_body_leftmost_x": 722,
+  "rule_source": "evidence/onboarding-demo-production/plan.json の style_guide.layout"
+ },
+ "exports": {
+  "project": "C:/t/bgmlabel/export-proj（隔離・使い捨て。clip.mp4 26.5–33.5 秒 + demo-phone-screen + demo-phone + demo-bgm + BGM。前段の C:/t/bgm-chip-export と同じ組み方）",
+  "edit_lint": "PASS（overlays.* の指摘 0。出た 4 件は audio.keyframes.duration の warning = テスト用 BGM の keyframes で、前段と同じ既知の誤検知）",
+  "osr": "render-cut --engine osr → PASS（210 フレーム・AKARI_HOME / TMP は C:/t/bgmlabel 配下・作業フォルダは空）",
+  "gpu": "未実施（--gpu-preference off では内蔵 GPU に H.264 のハードウェアエンコーダが無く execution error。auto はこの機械の GPU の割り当て設定を一時的に書き換えるので避けた。お手本はカラオケ字幕があり auto で OSR が選ばれる。easing のフォールバックは前段のまま）"
+ },
+ "knobs": {
+  "declared": 20,
+  "referenced": 20,
+  "undeclared": [],
+  "declared_only": [],
+  "react": "20/20（tools/knob-react.sh。4 時刻 0.05 / 0.3 / 0.567 / 3.3 で PNG のバイトが既定から変わる。--bgm-ring・--bgm-at-out・--bgm-out-y は効く時刻だけ変わる）"
+ },
+ "tests": "同梱オーバーレイの easing 変数にフォールバックがある（onboarding-demo.test.mjs）— この断片の var(--ease-*) はすべてフォールバック付きのまま",
+ "renders": [
+  "bgm-label-before-after-640-full.jpg",
+  "bgm-label-before-after-640-zoom.jpg",
+  "bgm-label-export-osr-640-sheet.jpg",
+  "bgm-label-export-osr-1280-crops.jpg",
+  "bgm-label-harness-preview-640.jpg",
+  "bgm-label-harness-preview-1280-crops.jpg",
+  "bgm-label-export-osr-29.20-33.10s.mp4"
+ ],
+ "tools": {
+  "render": "tools/render-bgm.mjs（内部リポ harness/render-fragment.mjs と同じ入れ子とモーション語彙に、容器の data-akari-active・rasterize.mjs と同じ WAAPI クローン化・本編フレームの背景・CSS 縮小 0.5 を足した Windows 版。ハーネス本体は mac のパス固定のため写しで回した）",
+  "background": "evidence/onboarding-demo-production/elements/phone/phone-export-gpu-26.967-32.933s.mp4 の各フレーム（スマホ入り・札なし。r2 の最終書き出しとの差は平均 1.5〜2.9/255）",
+  "footprint": "tools/footprint.py",
+  "export_diff": "tools/export-diff.py（参考。符号化の揺れが人物の範囲にも 1 フレーム数百 px 出るので、判定には使っていない）",
+  "sheet": "tools/sheet.py",
+  "knobs": "tools/knob-react.sh",
+  "export_orange": "tools/export-orange.py（出る時刻・消える時刻・本体の左端の判定に使ったもの）"
+ }
+}

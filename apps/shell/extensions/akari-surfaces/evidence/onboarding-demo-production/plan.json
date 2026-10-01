@@ -98,7 +98,8 @@
       "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-title/fragment.html",
       "needs_production": true,
       "edit_item": { "track": "demo-stage", "id": "demo-title", "name": "タイトル", "at": 7, "duration": 217, "source": { "kind": "html", "path": "overlays/demo-title/fragment.html" } },
-      "spec": "白いカード（left 760 / top 60 / width 460 / 高さ約 176、角丸 22、--demo-shadow、縁 1px --demo-card-line、内側余白 22px 28px）に 2 行: 1 行目「AI と話すだけで」40px/900 墨、2 行目「動画編集」64px/900 墨（字間 .02em）。2 行目の下に橙の下線（高さ 8px・角丸 4・幅は文字幅）。カードの下（left 760 / top 250）に橙の名札ピル「✦ AKARI Video」（高さ 46・左右 22px・白 26px/900・✦ は SVG 4 芒星）。ローカル秒: カード入り 0→0.42（translateX 48→0・opacity 0→1・--ease-smooth、delay −0.033）、1 行目 0.10→0.45・2 行目 0.18→0.55（translateY 14〜18→0 + opacity）、名札 3.357（=3.59−0.2333）で scale .55→1・opacity 0→1（0.32 s・--ease-overshoot-soft）＋名札の上を白い斜めの光が 3.45→3.85 で横切る（overflow hidden の中で translateX −120%→120%、opacity 0→.8→0）、下線 4.867（=5.10−0.2333）で scaleX 0→1（0.35 s・origin left）、抜け 6.98→7.23（translateX 0→40・opacity→0・--ease-accelerate・forwards）。ツマミ: --title-left / --title-top / --title-width / --demo-accent / --demo-ink / --title-badge-delay / --title-underline-delay / --title-exit-delay。確認: render-fragment.mjs --size 1280x720 --backdrop none を --seek 0.05 / 0.6 / 3.40 / 3.70 / 5.30 / 7.10 で撮り、clip.mp4 の同時刻（ローカル＋0.2333）のフレームに重ねて目視。名札が 3.59 のフレームで見えていること"
+      "spec": "白いカード（left 760 / top 60 / width 460 / 高さ約 176、角丸 22、--demo-shadow、縁 1px --demo-card-line、内側余白 22px 28px）に 2 行: 1 行目「AI と話すだけで」40px/900 墨、2 行目「動画編集」64px/900 墨（字間 .02em）。2 行目の下に橙の下線（高さ 8px・角丸 4・幅は文字幅）。カードの下（left 760 / top 250）に橙の名札ピル「✦ AKARI Video」（高さ 46・左右 22px・白 26px/900・✦ は SVG 4 芒星）。ローカル秒: カード入り 0→0.42（translateX 48→0・opacity 0→1・--ease-smooth、delay −0.033）、1 行目 0.10→0.45・2 行目 0.18→0.55（translateY 14〜18→0 + opacity）、名札 3.357（=3.59−0.2333）で scale .55→1・opacity 0→1（0.32 s・--ease-overshoot-soft）＋名札の上を白い斜めの光が 3.45→3.85 で横切る（overflow hidden の中で translateX −120%→120%、opacity 0→.8→0）、下線 4.867（=5.10−0.2333）で scaleX 0→1（0.35 s・origin left）、抜け 6.98→7.23（translateX 0→40・opacity→0・--ease-accelerate・forwards）。ツマミ: --title-left / --title-top / --title-width / --demo-accent / --demo-ink / --title-badge-delay / --title-underline-delay / --title-exit-delay。確認: render-fragment.mjs --size 1280x720 --backdrop none を --seek 0.05 / 0.6 / 3.40 / 3.70 / 5.30 / 7.10 で撮り、clip.mp4 の同時刻（ローカル＋0.2333）のフレームに重ねて目視。名札が 3.59 のフレームで見えていること",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 1 行目 48px・2 行目 80px・名札 34px。カード left 730 / width 502（右端 1232）・高さ約 214.5、下線 10px、名札はカードの下 11.5px、名札のポップの拡大の中心は 13%（✦ の位置）。時刻・イージング・色・書体は同じ。測定: evidence/onboarding-demo-text/title/title-measure.json"
     },
     {
       "id": "sfx-title-whoosh",
@@ -128,7 +129,8 @@
       "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-chat/fragment.html",
       "needs_production": true,
       "edit_item": { "track": "demo-stage", "id": "demo-chat", "name": "AI との対話", "at": 256, "duration": 73, "source": { "kind": "html", "path": "overlays/demo-chat/fragment.html" } },
-      "spec": "アプリの「AI パートナー」欄を模した白いカード（left 770 / top 140 / width 440 / height 270、角丸 22、--demo-shadow）。見出し行「✦ AI パートナー」20px/800 --demo-ink-sub＋細い区切り線。あなたの吹き出し（右寄せ・最大幅 300・橙 #F97316 地・白 24px/800・角丸 18、右下だけ 6）「話に合わせて編集して」。AI の吹き出し（左寄せ・36px の丸アイコン＝#FFF3E8 地に橙の ✦・吹き出し地 #F4EFE9・墨 24px/800）は最初「入力中の点 3 つ」→「できました！」＋橙の丸いチェック。ローカル秒: カード入り 0→0.30（translateX 40→0＋opacity、delay −0.033）、あなた 0.017（=8.55−8.5333）で scale .7→1＋opacity（0.28 s・overshoot-soft・origin 右下）、AI の吹き出し 0.727（=9.26−8.5333）で同様（origin 左下）＋点 3 つが 0.6 s 周期・0.12 s ずらしで上下（translateY 0→−5→0、両端明示）、1.367（=9.90−8.5333）で点が 0.1 s で消え「できました！」が 0.2 s で出て、チェックが 1.40 で scale .4→1（overshoot）。抜け 2.18→2.43（translateX 0→36・opacity→0）。確認 --seek 0.05 / 0.40 / 0.80 / 1.45 / 2.0（実時刻 8.58 / 8.93 / 9.33 / 9.98 / 10.53）"
+      "spec": "アプリの「AI パートナー」欄を模した白いカード（left 770 / top 140 / width 440 / height 270、角丸 22、--demo-shadow）。見出し行「✦ AI パートナー」20px/800 --demo-ink-sub＋細い区切り線。あなたの吹き出し（右寄せ・最大幅 300・橙 #F97316 地・白 24px/800・角丸 18、右下だけ 6）「話に合わせて編集して」。AI の吹き出し（左寄せ・36px の丸アイコン＝#FFF3E8 地に橙の ✦・吹き出し地 #F4EFE9・墨 24px/800）は最初「入力中の点 3 つ」→「できました！」＋橙の丸いチェック。ローカル秒: カード入り 0→0.30（translateX 40→0＋opacity、delay −0.033）、あなた 0.017（=8.55−8.5333）で scale .7→1＋opacity（0.28 s・overshoot-soft・origin 右下）、AI の吹き出し 0.727（=9.26−8.5333）で同様（origin 左下）＋点 3 つが 0.6 s 周期・0.12 s ずらしで上下（translateY 0→−5→0、両端明示）、1.367（=9.90−8.5333）で点が 0.1 s で消え「できました！」が 0.2 s で出て、チェックが 1.40 で scale .4→1（overshoot）。抜け 2.18→2.43（translateX 0→36・opacity→0）。確認 --seek 0.05 / 0.40 / 0.80 / 1.45 / 2.0（実時刻 8.58 / 8.93 / 9.33 / 9.98 / 10.53）",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 見出し 26px・吹き出し 30px、アイコン 44・チェック 34・点 11。カード 470×248 @(740,130)（旧 440×270 @(770,140)）。入力欄（案内文と送信ボタン）は外した。書体は wght 800 のみ。動き・時刻・色は同じ。測定: evidence/onboarding-demo-text/chat/chat-measure.json"
     },
     {
       "id": "sfx-chat-pops",
@@ -318,7 +320,8 @@
       "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-bgm/fragment.html",
       "needs_production": true,
       "edit_item": { "track": "demo-accents", "id": "demo-bgm-chip", "name": "BGM", "at": 883, "duration": 105, "source": { "kind": "html", "path": "overlays/demo-bgm/fragment.html" } },
-      "spec": "スマホの左上に付く橙のピル（left 748 / top 118 / width 136 / height 48、角丸 24、地 #F97316、--demo-shadow、rotate −4°）。中身: ♪（白 SVG 20px）＋「BGM」22px/900 白＋イコライザの棒 5 本（幅 4・高さ 8〜22・白・角丸 2）。ローカル秒: 0.017（=29.45−29.4333）で scale .5→1・rotate −10°→−4°・opacity 0→1（0.32 s・overshoot-soft、delay −0.016）。棒は scaleY .35→1→.35（origin bottom、両端明示）を 0.706 s 周期（85 BPM の 4 分）で、棒ごとに 0 / .18 / .09 / .27 / .13 s ずらす。拍に合わせるため、最初の山をローカル 0.149 s（= 29.582、BGM の拍 19.70＋14×0.70588）に置く（animation-delay で位相を合わせる）。抜けはスマホと一緒に 3.167→3.467（32.60→32.90、translateY 0→40・opacity→0）。確認 --seek 0.05 / 0.15 / 0.50 / 3.30"
+      "spec": "スマホの左上に付く橙のピル（left 748 / top 118 / width 136 / height 48、角丸 24、地 #F97316、--demo-shadow、rotate −4°）。中身: ♪（白 SVG 20px）＋「BGM」22px/900 白＋イコライザの棒 5 本（幅 4・高さ 8〜22・白・角丸 2）。ローカル秒: 0.017（=29.45−29.4333）で scale .5→1・rotate −10°→−4°・opacity 0→1（0.32 s・overshoot-soft、delay −0.016）。棒は scaleY .35→1→.35（origin bottom、両端明示）を 0.706 s 周期（85 BPM の 4 分）で、棒ごとに 0 / .18 / .09 / .27 / .13 s ずらす。拍に合わせるため、最初の山をローカル 0.149 s（= 29.582、BGM の拍 19.70＋14×0.70588）に置く（animation-delay で位相を合わせる）。抜けはスマホと一緒に 3.167→3.467（32.60→32.90、translateY 0→40・opacity→0）。確認 --seek 0.05 / 0.15 / 0.50 / 3.30",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 「BGM」28px、札 170×58 @(738,113)（右端をスマホの左の縁へ 17px 重ねる）、♪ 24px、棒 5×27、入りの拡大は .7 から、拍の輪の最大 1.2×1.7。時刻・色・書体は同じ。測定: evidence/onboarding-demo-text/bgm-label/bgm-label-measure.json"
     },
     {
       "id": "caption-keywords",
@@ -368,7 +371,8 @@
       "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-credit/fragment.html",
       "needs_production": true,
       "edit_item": { "track": "demo-stage", "id": "demo-credit", "name": "クレジット", "at": 1068, "duration": 60, "source": { "kind": "html", "path": "overlays/demo-credit/fragment.html" } },
-      "spec": "33.2〜35.6 は右の舞台を空けて「僕は喋ってるだけ」を素で言わせ、言い切った直後にエンドロール風のクレジットで落とす。壁に直に置く右寄せの文字（白フチ 8px）、右端 1200: 1 行目 top 206「出演」22px/700 --demo-ink-sub（字間 .3em）＋「僕」46px/900 墨、2 行目 top 276「編集」同じラベル＋「AI」64px/900 橙 #F97316（右上に 4 芒星のキラッ 20px）。終わりの名札 top 386: 「✦ AKARI Video」28px/900 墨＋下に「AI と話すだけで動画編集」18px/700 --demo-ink-sub。ローカル秒: 1 行目 0.03（=35.63−35.60）で translateX 30→0＋opacity（0.28 s・--ease-smooth）、2 行目 0.15 で同様、キラッ 0.35 で scale 0→1.1→1、名札 0.70（=36.30−35.60）で translateY 12→0＋opacity（0.40 s）。抜けは無し（37.6 で動画が終わる）。base は全部見えている状態。確認 --seek 0.05 / 0.30 / 0.60 / 1.20 / 1.95"
+      "spec": "33.2〜35.6 は右の舞台を空けて「僕は喋ってるだけ」を素で言わせ、言い切った直後にエンドロール風のクレジットで落とす。壁に直に置く右寄せの文字（白フチ 8px）、右端 1200: 1 行目 top 206「出演」22px/700 --demo-ink-sub（字間 .3em）＋「僕」46px/900 墨、2 行目 top 276「編集」同じラベル＋「AI」64px/900 橙 #F97316（右上に 4 芒星のキラッ 20px）。終わりの名札 top 386: 「✦ AKARI Video」28px/900 墨＋下に「AI と話すだけで動画編集」18px/700 --demo-ink-sub。ローカル秒: 1 行目 0.03（=35.63−35.60）で translateX 30→0＋opacity（0.28 s・--ease-smooth）、2 行目 0.15 で同様、キラッ 0.35 で scale 0→1.1→1、名札 0.70（=36.30−35.60）で translateY 12→0＋opacity（0.40 s）。抜けは無し（37.6 で動画が終わる）。base は全部見えている状態。確認 --seek 0.05 / 0.30 / 0.60 / 1.20 / 1.95",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 役職 32px・僕 72px・AI 104px・名札 40px・惹句 28px、白フチ 9/7px、キラッ 34px、区切り線 64×5。白フチ込みの外接 x 871〜1225・y 116〜477。動き・時刻・文言は同じ。測定: evidence/onboarding-demo-text/credit/credit-measure.json"
     },
     {
       "id": "sfx-punchline-ding",
@@ -391,7 +395,7 @@
     }
   ],
   "sfx_sources": {
-    "note": "同梱は owner の了承待ちの仮置き（AKARI Sounds の条件: 単体再配布禁止）。全て LicenseRef-AKARI-Sounds-v0・price 0。切り出しは頭を切らない（アタック位置がずれるため）。AAC 128 kbps / 48 kHz / m4a、末尾 30 ms フェード。切り出し後に包絡を取り、アタックの位置が元の mp3 と ±5 ms で一致することを確認（AAC の priming で頭がずれていないか）",
+    "note": "同梱は 2026-10-01 にオーナーが了承（AKARI Sounds の条件: 単体再配布禁止は変えない）。全て LicenseRef-AKARI-Sounds-v0・price 0。切り出しは頭を切らない（アタック位置がずれるため）。AAC 128 kbps / 48 kHz / m4a、末尾 30 ms フェード。切り出し後に包絡を取り、アタックの位置が元の mp3 と ±5 ms で一致することを確認（AAC の priming で頭がずれていないか）",
     "files": [
       { "id": "sfx-whoosh-air-soft", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-air-soft.mp3", "md5_8": "060cc41b", "cut_s": 0.95, "attack_or_peak_s": 0.49 },
       { "id": "sfx-pop-ding", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3", "md5_8": "5ff54570", "cut_s": 0.5, "attack_or_peak_s": 0.015 },

@@ -6,8 +6,8 @@
   （絶対秒 = ローカル + 0.2333）。語頭は clip.mp4 の声の 10ms 包絡で実測した立ち上がり。
     カード      -0.033 → 0.387  右から滑り込む（translateX 48→0・opacity、--ease-smooth）。
                                 「こんにちは」の立ち上がり 0.29 秒を含むフレーム 8 で見え始める
-    1 行目       0.10 → 0.45    「AI と話すだけで」が下から（translateY 14→0）
-    2 行目       0.18 → 0.55    「動画編集」が下から（translateY 18→0）
+    1 行目       0.10 → 0.45    「AI と話すだけで」が下から（translateY 17→0）
+    2 行目       0.18 → 0.55    「動画編集」が下から（translateY 22→0）
     マイク       0.25 → 0.57    右の丸がポップ（scale .6→1、--ease-overshoot-soft）。効果音 whoosh の山 0.49 秒のフレーム 15 で出る
     声の波紋     0.40 / 2.084   話している間だけ、マイクから 2 重の輪が広がる（「こんにちは」の途中と「今日は」の語頭 2.35 秒）
     名札         3.315 → 3.635  「アカリビデオ」の語頭（立ち上がり 3.57 秒 = フレーム 107）で
@@ -19,19 +19,25 @@
                                 （--ease-accelerate、forwards。区間の最後のフレーム 7.20 で消え切る）
   base（アニメ無しの見た目）は最終の静止状態。光と波紋だけは最終状態も不可視の過渡なので base で隠す。
 
+  文字の大きさ（2026-10-01 作り直し）: アプリのプレビュー枠は幅 640px 前後の縮小表示（1280 の半分）なので、
+  そこで読めるように 1 行目 40→48px（1.2 倍）・2 行目 64→80px（1.25 倍）・名札 26→34px（1.31 倍）に上げた。
+  縮小表示での字の高さは 24px / 40px / 17px。カードは右の舞台（x 720〜1240）の中央に寄せて
+  left 730 / width 502（右端 1232）、名札はカードの下 11px。名札のポップは ✦ の位置（左から 13%）を
+  中心にして、膨らみが舞台の左端 720 より左（人物の側）へはみ出さないようにした。時刻は変えていない。
+
   書体: AKARI Demo Sans = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font Name
   'Source'）の wght 900 を、この断片で使う文字だけに切り出した改変版（別名で埋め込み、フォント内に
   著作権表示と許諾を保持）。
 
   ツマミ（edit.json の overlays[].vars で上書きする）:
-    --title-left / --title-top / --title-width   カードの位置と幅（既定 760px / 60px / 460px）
-    --title-padding / --title-radius             カードの内側余白と角丸（既定 22px 28px / 22px）
+    --title-left / --title-top / --title-width   カードの位置と幅（既定 730px / 60px / 502px）
+    --title-padding / --title-radius             カードの内側余白と角丸（既定 24px 26px / 24px）
     --title-card-bg / --title-card-line / --title-shadow
                                                  カードの地・縁・影
-    --title-lead-size / --title-main-size        1 行目と 2 行目の文字サイズ（既定 40px / 64px）
-    --title-mic-size / --title-mic-bg            マイクの丸の直径と地（既定 88px / #FFF3E8）
-    --title-badge-gap                            カードの上端から名札の上端まで（既定 190px）
-    --title-badge-size                           名札の文字サイズ（既定 26px。高さはこの 1.77 倍）
+    --title-lead-size / --title-main-size        1 行目と 2 行目の文字サイズ（既定 48px / 80px）
+    --title-mic-size / --title-mic-bg            マイクの丸の直径と地（既定 92px / #FFF3E8）
+    --title-badge-gap                            カードの上端から名札の上端まで（既定 226px）
+    --title-badge-size                           名札の文字サイズ（既定 34px。高さはこの 1.77 倍）
     --demo-ink / --demo-accent / --demo-accent-soft
                                                  墨（文字）・橙（下線・名札・マイク）・淡橙（波紋）
     --title-font                                 書体（既定 AKARI Demo Sans → Hiragino Sans → Yu Gothic UI …）
@@ -71,15 +77,15 @@
 /* ── カード ─────────────────────────────── */
 .demo-title__card {
   position: absolute;
-  left: var(--title-left, 760px);
+  left: var(--title-left, 730px);
   top: var(--title-top, 60px);
-  width: var(--title-width, 460px);
+  width: var(--title-width, 502px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: var(--title-padding, 22px 28px);
-  border-radius: var(--title-radius, 22px);
+  padding: var(--title-padding, 24px 26px);
+  border-radius: var(--title-radius, 24px);
   background: var(--title-card-bg, rgba(255, 255, 255, .97));
   border: 1px solid var(--title-card-line, rgba(23, 19, 15, .07));
   box-shadow: var(--title-shadow, 0 18px 44px rgba(58, 38, 20, .22));
@@ -93,8 +99,8 @@
 .demo-title__mic {
   position: relative;
   flex: none;
-  width: var(--title-mic-size, 88px);
-  height: var(--title-mic-size, 88px);
+  width: var(--title-mic-size, 92px);
+  height: var(--title-mic-size, 92px);
 }
 
 .demo-title__mic-disc {
@@ -125,7 +131,7 @@
 
 .demo-title__lead {
   display: block;
-  font-size: var(--title-lead-size, 40px);
+  font-size: var(--title-lead-size, 48px);
   line-height: 1.22;
   letter-spacing: .01em;
   white-space: nowrap;
@@ -135,21 +141,21 @@
   position: relative;
   display: inline-block;
   margin-top: 2px;
-  padding-bottom: 14px;
-  font-size: var(--title-main-size, 64px);
+  padding-bottom: 16px;
+  font-size: var(--title-main-size, 80px);
   line-height: 1.1;
   letter-spacing: .02em;
   white-space: nowrap;
 }
 
-/* 下線: 文字幅（最後の字の字間 .02em を除く）いっぱい、高さ 8px */
+/* 下線: 文字幅（最後の字の字間 .02em を除く）いっぱい、高さ 10px */
 .demo-title__underline {
   position: absolute;
   left: 0;
   right: .02em;
   bottom: 0;
-  height: 8px;
-  border-radius: 4px;
+  height: 10px;
+  border-radius: 5px;
   background: var(--demo-accent, #F97316);
   transform-origin: left center;
 }
@@ -157,9 +163,9 @@
 /* ── 名札 ─────────────────────────────── */
 .demo-title__badge {
   position: absolute;
-  left: var(--title-left, 760px);
-  top: calc(var(--title-top, 60px) + var(--title-badge-gap, 190px));
-  transform-origin: 30% 50%;
+  left: var(--title-left, 730px);
+  top: calc(var(--title-top, 60px) + var(--title-badge-gap, 226px));
+  transform-origin: 13% 50%;
 }
 
 .demo-title__badge-body {
@@ -167,13 +173,13 @@
   display: flex;
   align-items: center;
   gap: .38em;
-  height: calc(var(--title-badge-size, 26px) * 1.77);
+  height: calc(var(--title-badge-size, 34px) * 1.77);
   padding: 0 .85em 0 .72em;
   border-radius: 999px;
   overflow: hidden;
   background: var(--demo-accent, #F97316);
   color: #FFFFFF;
-  font-size: var(--title-badge-size, 26px);
+  font-size: var(--title-badge-size, 34px);
   line-height: 1;
   letter-spacing: .01em;
   white-space: nowrap;
@@ -216,10 +222,10 @@
   animation: demo-title-card-in .42s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--title-card-delay, -.033s) both;
 }
 [data-akari-active] .demo-title__lead {
-  animation: demo-title-rise-14 .35s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--title-card-delay, -.033s) + .133s) both;
+  animation: demo-title-rise-lead .35s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--title-card-delay, -.033s) + .133s) both;
 }
 [data-akari-active] .demo-title__main {
-  animation: demo-title-rise-18 .37s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--title-card-delay, -.033s) + .213s) both;
+  animation: demo-title-rise-main .37s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--title-card-delay, -.033s) + .213s) both;
 }
 [data-akari-active] .demo-title__underline {
   animation: demo-title-underline .35s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--title-underline-delay, 4.80s) both;
@@ -255,12 +261,12 @@
   0%   { transform: translateX(48px); opacity: 0; }
   100% { transform: translateX(0);    opacity: 1; }
 }
-@keyframes demo-title-rise-14 {
-  0%   { transform: translateY(14px); opacity: 0; }
+@keyframes demo-title-rise-lead {
+  0%   { transform: translateY(17px); opacity: 0; }
   100% { transform: translateY(0);    opacity: 1; }
 }
-@keyframes demo-title-rise-18 {
-  0%   { transform: translateY(18px); opacity: 0; }
+@keyframes demo-title-rise-main {
+  0%   { transform: translateY(22px); opacity: 0; }
   100% { transform: translateY(0);    opacity: 1; }
 }
 @keyframes demo-title-underline {

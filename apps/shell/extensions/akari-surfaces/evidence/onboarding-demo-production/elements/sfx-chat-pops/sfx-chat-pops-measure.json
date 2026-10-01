@@ -29,7 +29,7 @@
   "peak_R_dBFS": -8.24,
   "energy_band": "400〜1000 Hz に 94〜99%",
   "sound_ends_s": 0.081,
-  "note": "同梱はオーナーの了承待ちの仮置き（単体再配布禁止の条件）"
+  "note": "2026-10-01 オーナーの了承で正式に同梱（単体再配布禁止の条件は変えない）"
  },
  "processing": {
   "script": "make-sfx-pop-bubble-big.sh（同じ ffmpeg で再実行してバイト一致を確認）",

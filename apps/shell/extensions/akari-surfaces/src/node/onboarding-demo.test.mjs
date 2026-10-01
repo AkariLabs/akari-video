@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AkariOnboardingServiceImpl } from '../../lib/node/onboarding-service.js';
 import { splitOnboardingTokens } from '../../lib/onboarding/model.js';
@@ -121,6 +122,47 @@ async function fixture(t) {
     const segments = splitOnboardingTokens((await json(join(sample, 'transcript.json'))).tokens.items);
     return { root, uri, service, segments };
 }
+
+test('同梱の音源 15 本は出所・ライセンス・price・秒数が記録され、\u4eee\u7f6e\u304dの記述が無い', async t => {
+    const sourcesText = await readFile(join(sample, 'audio-sources.json'), 'utf8');
+    const sources = JSON.parse(sourcesText);
+    assert.equal(sources.schema, 'akari-onboarding-audio-sources/v1');
+    assert.equal(sources.sample_id, 'talkinghead-desk-ja-01');
+    assert.equal(sources.bundled, true);
+    assert.equal(sources.files.length, 15);
+    const soundFiles = (await readdir(join(sample, 'audio')))
+        .filter(file => file.endsWith('.m4a')).map(file => `audio/${file}`);
+    assert.deepEqual(sources.files.map(record => record.file).sort(), [...soundFiles, 'bgm.m4a'].sort());
+
+    const { root, uri, service, segments } = await fixture(t);
+    await service.writeExample(uri, join(sample, 'clip.mp4'), segments, segments.length, true, { stage: 8 });
+    const edit = await json(join(root, 'edit.json'));
+    const audioItems = edit.tracks.filter(track => ['demo-sfx', 'onboarding-bgm'].includes(track.id))
+        .flatMap(track => track.items);
+    for (const record of sources.files) {
+        assert.equal(record.license, 'LicenseRef-AKARI-Sounds-v0', record.file);
+        assert.equal(record.price, 0, record.file);
+        assert.ok(typeof record.akari_sounds_id === 'string' && record.akari_sounds_id.length > 0 ||
+            Array.isArray(record.akari_sounds_id) && record.akari_sounds_id.length > 0 &&
+            record.akari_sounds_id.every(id => typeof id === 'string' && id.length > 0), record.file);
+        assert.ok(record.source_range_s, record.file);
+        assert.ok(record.file_duration_s > 0, record.file);
+        assert.ok(record.used_s > 0 && record.used_s <= record.file_duration_s, record.file);
+        const data = await readFile(join(sample, record.file));
+        assert.equal(record.bytes, data.length, record.file);
+        for (const algorithm of ['md5', 'sha256'])
+            assert.equal(record[algorithm], createHash(algorithm).update(data).digest('hex'), record.file);
+        const sourceId = record.file === 'bgm.m4a' ? 'onboarding-bgm' :
+            `demo-${basename(record.file, '.m4a')}`;
+        const matching = audioItems.filter(item => item.source.src === sourceId);
+        assert.deepEqual(matching.map(item => item.id).sort(), [...record.used_by].sort(), record.file);
+        for (const item of matching) assert.equal(item.source.out, record.used_s, item.id);
+    }
+    assert.equal(sources.total_bytes, sources.files.reduce((sum, record) => sum + record.bytes, 0));
+    const metaText = await readFile(join(sample, 'meta.json'), 'utf8');
+    for (const text of [sourcesText, metaText])
+        assert.doesNotMatch(text, /\u4eee\u7f6e\u304d|\u4e86\u627f\u5f85\u3061|\u672a\u78ba\u5b9a/);
+});
 
 test('同梱 24 本が library に届き、旧図解は同梱されない', async t => {
     assert.equal(files.length, 24);
