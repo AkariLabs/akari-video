@@ -4461,7 +4461,7 @@ function splitAfterPunctuation(value) {
   const segments = [];
   let start = 0;
   for (let index = 0; index < characters.length; index += 1) {
-    if ((characters[index] === '、' || characters[index] === '。') && index + 1 < characters.length) {
+    if (characters[index] === '。' && index + 1 < characters.length) {
       segments.push(characters.slice(start, index + 1).join(''));
       start = index + 1;
     }
@@ -4473,7 +4473,8 @@ function splitAtNaturalBoundaries(value, maximum) {
   const lines = [];
   let remaining = Array.from(value);
   while (remaining.length > maximum) {
-    const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
+    const commaBoundary = findLastCommaBoundary(remaining, maximum);
+    const spaceBoundary = commaBoundary ?? findLastSpaceBoundary(remaining, maximum);
     const phraseBoundary = spaceBoundary ?? findLastPhraseBoundary(remaining, maximum);
     const boundary = phraseBoundary ?? maximum;
     lines.push(remaining.slice(0, boundary).join(''));
@@ -4481,6 +4482,12 @@ function splitAtNaturalBoundaries(value, maximum) {
   }
   if (remaining.length > 0) lines.push(remaining.join(''));
   return lines;
+}
+function findLastCommaBoundary(characters, maximum) {
+  for (let index = maximum - 1; index > 0; index -= 1) {
+    if (characters[index] === '、') return index + 1;
+  }
+  return null;
 }
 function findLastSpaceBoundary(characters, maximum) {
   for (let index = maximum - 1; index > 0; index -= 1) {

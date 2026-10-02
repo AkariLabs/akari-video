@@ -18714,13 +18714,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 return best;
             };
+            const findLastCommaBoundary = (characters, maximum) => {
+                for (let index = maximum - 1; index > 0; index -= 1) {
+                    if (characters[index] === '、') return index + 1;
+                }
+                return null;
+            };
             const splitAtNaturalBoundaries = (value, maximum, graphemes = false) => {
                 const lines = [];
                 let remaining = graphemes
                     ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value), part => part.segment)
                     : Array.from(value);
                 while (remaining.length > maximum) {
-                    const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
+                    const commaBoundary = findLastCommaBoundary(remaining, maximum);
+                    const spaceBoundary = commaBoundary !== null ? commaBoundary : findLastSpaceBoundary(remaining, maximum);
                     const phraseBoundary = spaceBoundary !== null ? spaceBoundary : findLastPhraseBoundary(remaining, maximum, graphemes);
                     const boundary = phraseBoundary !== null ? phraseBoundary : maximum;
                     lines.push(remaining.slice(0, boundary).join(''));
@@ -18734,7 +18741,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segments = [];
                 let start = 0;
                 for (let index = 0; index < characters.length; index += 1) {
-                    if ((characters[index] === '、' || characters[index] === '。') && index + 1 < characters.length) {
+                    if (characters[index] === '。' && index + 1 < characters.length) {
                         segments.push(characters.slice(start, index + 1).join(''));
                         start = index + 1;
                     }
