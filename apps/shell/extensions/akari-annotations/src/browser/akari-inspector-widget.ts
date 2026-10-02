@@ -2312,6 +2312,12 @@ function OVERLAY_SECTIONS(
         * number('scaleY', number('scale', 1)));
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
     const transformFields: InspectorFieldDef<TimelineOverlaySelection>[] = [
+    const source = snapshot.payload.source && typeof snapshot.payload.source === 'object'
+        ? snapshot.payload.source as Record<string, unknown> : {};
+    const sourcePath = typeof source.html === 'string' ? source.html
+        : typeof source.path === 'string' ? source.path : '';
+    const isTelop = /^telop-/u.test(snapshot.id)
+        || /(?:^|[\\/])overlay[\\/]telop-[^\\/]+(?:[\\/]|$)/iu.test(sourcePath);
         {
             name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(number('x', 0)),
             getEditValue: () => String(number('x', 0)), inputKind: 'scrub-number', scrubStep: 1,
@@ -2325,13 +2331,26 @@ function OVERLAY_SECTIONS(
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.y', value: null })
         },
         {
-            name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
+            name: 'transform-scale', label: isTelop ? '倍率' : '拡縮', unit: '%', removable: true,
             getValue: () => String(overallScale() * 100), getEditValue: () => String(overallScale() * 100),
             inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
-            write: async (_snapshot, value) => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: Number(value) / 100 }),
-            reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null })
+            write: async (_snapshot, value) => {
+                const scale = Number(value) / 100;
+                if (isTelop && (transform.scaleX !== undefined || transform.scaleY !== undefined)) {
+                    await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleX', value: scale });
+                    return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleY', value: scale });
+                }
+                return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: scale });
+            },
+            reset: async () => {
+                if (isTelop) {
+                    await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleX', value: null });
+                    await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleY', value: null });
+                }
+                return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null });
+            }
         },
-        ...(['scaleX', 'scaleY'] as const).map((axis, index): InspectorFieldDef<TimelineOverlaySelection> => ({
+        ...(!isTelop ? (['scaleX', 'scaleY'] as const).map((axis, index): InspectorFieldDef<TimelineOverlaySelection> => ({
             name: `transform-${axis}`, label: index === 0 ? '幅' : '高さ', unit: '%', removable: true,
             getValue: () => String(number(axis, number('scale', 1)) * 100),
             getEditValue: () => String(number(axis, number('scale', 1)) * 100),
@@ -2340,7 +2359,7 @@ function OVERLAY_SECTIONS(
                 kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: Number(value) / 100
             }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: null })
-        })),
+        })) : []),
         {
             name: 'transform-rotate', label: '回転', unit: '°', removable: true,
             getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
