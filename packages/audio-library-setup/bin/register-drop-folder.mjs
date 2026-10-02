@@ -38,6 +38,20 @@ const repoRoot = path.resolve(here, '..', '..', '..');
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac']);
 
 function parseArguments(argv) {
+    if (argv.includes('--help') || argv.includes('-h')) {
+        console.log(`Usage: node bin/register-drop-folder.mjs --drop-dir <path> [--apply]
+  [--library-root <path>] [--catalog-dir <path>] [--candidates <path>]
+  -h, --help  このヘルプを表示する`);
+        process.exit(0);
+    }
+    function valueAfter(index, option, example) {
+        const value = argv[index + 1];
+        if (value === undefined || value.startsWith('--')) {
+            console.error(`${option} には値が必要です（例: ${example}）`);
+            process.exit(1);
+        }
+        return value;
+    }
     const options = {
         dropDir: path.join(process.env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'audio-drop'),
         libraryRoot: path.join(resolveAssetLibraryRoots().write, 'audio'),
@@ -47,10 +61,10 @@ function parseArguments(argv) {
     };
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
-        if (arg === '--drop-dir') { options.dropDir = path.resolve(argv[++i]); continue; }
-        if (arg === '--library-root') { options.libraryRoot = path.resolve(argv[++i]); continue; }
-        if (arg === '--catalog-dir') { options.catalogDir = path.resolve(argv[++i]); continue; }
-        if (arg === '--candidates') { options.candidatesPath = path.resolve(argv[++i]); continue; }
+        if (arg === '--drop-dir') { options.dropDir = path.resolve(valueAfter(i++, arg, '--drop-dir <path>')); continue; }
+        if (arg === '--library-root') { options.libraryRoot = path.resolve(valueAfter(i++, arg, '--library-root <path>')); continue; }
+        if (arg === '--catalog-dir') { options.catalogDir = path.resolve(valueAfter(i++, arg, '--catalog-dir <path>')); continue; }
+        if (arg === '--candidates') { options.candidatesPath = path.resolve(valueAfter(i++, arg, '--candidates <path>')); continue; }
         if (arg === '--apply') { options.apply = true; continue; }
         throw new Error(`Unknown option: ${arg}`);
     }

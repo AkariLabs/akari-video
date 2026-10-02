@@ -15365,7 +15365,7 @@ ${indent}`);
       function applyV2(source, ranges, opts) {
         const raw = JSON.parse(source);
         const validated = (0, edit_v2_1.readEditV2)(raw);
-        const fps = requireFps(opts.fps ?? validated.output.fps);
+        requireFps(opts.fps ?? validated.output.fps);
         const edit = JSON.parse(JSON.stringify(raw));
         const warnings2 = [];
         const affectedTrackIds = /* @__PURE__ */ new Set();

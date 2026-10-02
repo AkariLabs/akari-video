@@ -211,9 +211,6 @@ const CAPTION_STYLE_NAMES = {
 function camelToSnake(key) {
     return CAPTION_STYLE_NAMES[key] ?? key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 }
-function snapshotCaptions(captions) {
-    return stableJson({ rows: captions.rows, defaultTextStyle: captions.defaultTextStyle });
-}
 function stableJson(value) {
     return JSON.stringify(value);
 }
