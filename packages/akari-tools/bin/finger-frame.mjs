@@ -22,6 +22,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 import { stampSavedBy } from '../src/common/writer-stamp.mjs';
+import { resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { extractHandSamples } from './finger-frame/hand-metrics.mjs';
 import {
   detectOpenIntervals,
@@ -39,6 +40,12 @@ import {
   coverFitLayer,
 } from './finger-frame/timeline-map.mjs';
 
+const ffprobeBinary = (() => {
+  try { return { command: resolveFfprobe() }; }
+  catch (error) { return { error }; }
+})();
+
+async function main() {
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
   const i = args.indexOf(`--${name}`);
@@ -171,7 +178,8 @@ const chromaKeySimilarity = flag('chroma-key-similarity');
 const chromaKeyBlend = flag('chroma-key-blend');
 
 function ffprobeDimensions(path) {
-  const stdout = execFileSync('ffprobe', [
+  if (Object.hasOwn(ffprobeBinary, 'error')) throw ffprobeBinary.error;
+  const stdout = execFileSync(ffprobeBinary.command, [
     '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height',
     '-of', 'json', path,
   ], { encoding: 'utf8' });
@@ -345,3 +353,9 @@ const outArg = flag('out');
 if (outArg) {
   writeFileSync(resolve(outArg), `${JSON.stringify(result, null, 2)}\n`);
 }
+}
+
+await main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});
