@@ -1,0 +1,10 @@
+ℹ tests 241
+ℹ pass 236
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+✖ library serving uses only resolved references, rechecks containment, and prefers project files
+✖ OSR inner verification checks exact PNG count and first/last dimensions
+✖ OSR inner verification checks ProRes codec, HQ profile, and 10-bit 4:2:2 pixels
+✖ OSR PNG emits image2 frame-%05d.png without MP4-only args
+✖ 器は健全な npm electron dist を tier 2 にする

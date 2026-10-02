@@ -1,0 +1,32 @@
+ℹ tests 434
+ℹ pass 407
+ℹ fail 27
+ℹ cancelled 0
+ℹ skipped 0
+✖ ~/.akari/tools/bin に配置された道具は再チェックで検出される（brew 不在時 DL 配置の受け皿）
+✖ add / replace / delete preserve other lines, final newline and secure permissions
+✖ brew が存在して cask が無いときは追加探索せず公式サイト導線になる
+✖ Command Code は PATH 外の正式名で検出し、専用 Node の bin で版を取得する
+✖ credentials path resolves the override or supplied home without accessing either
+✖ ffmpeg は PATH 上の実行ファイルを実測し、版を返す
+✖ ffmpeg は同梱バイナリ（process.resourcesPath 配下の media-bin/）を PATH より優先して検出する
+✖ ffmpeg は開発時、packages/media-bin/vendor/<platform>-<arch>/ を上方探索して検出する
+✖ ffmpeg: env override > 同梱 > PATH の優先順で解決する
+✖ PATH 外の CLI が --version に失敗してもインストール済みとし、エラーを版にしない
+✖ registration checks the saved key; return, console and other files have no value
+✖ shell uses WHISPER_CPP_MODEL first and excludes test/English overrides
+✖ SpeechAnalyzer uses the CLI --check helper on macOS and reports OS / CLT conditions
+✖ symlink credential file is rejected without modifying its target
+✖ VOICEVOX は未導入・停止中・起動中の版とユーザー Applications を偽 fs/HTTP だけで検出する
+✖ whisper モデル: WHISPER_CPP_MODEL の実在パスが最優先で検出される
+✖ whisper: 本体は検出できてもモデル未取得なら行全体は available=false になる
+✖ whisper-cli も同じ規約で同梱候補（dev vendor）を検出する。モデルが揃うと行全体も available になる
+✖ win32: ~/.akari/tools/bin の道具は .exe 付きで検出される（DL ファースト化の受け皿）
+✖ アプリ管理モデルの再帰探索・除外・順序は検出側と一致する
+✖ モデル override: AKARI_WHISPER_MODEL のみなら警告して採用
+✖ モデル override: WHISPER_CPP_MODEL のみ
+✖ モデル override: 両方なら WHISPER_CPP_MODEL
+✖ モデルがなければ既存の DL 先とハッシュ検証を維持する
+✖ 掃除ターゲットは専用ディレクトリだけ。モデルと古い履歴の外へ出ない
+✖ 移さない状態でも旧置き場の実容量を数え、リンク先は重複計上しない
+✖ 解決済みモデルがあれば installTool はモデルを再ダウンロードしない

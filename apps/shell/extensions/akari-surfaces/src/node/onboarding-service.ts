@@ -398,7 +398,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             const caption = captions.captions.find(item => item.text === '字幕のカラオケ表示もいけます。');
             if (caption) Object.assign(caption, { style: 'karaoke', runs: [],
                 words: karaokeTokens.map(token => ({ text: token.t, start: token.start, end: token.end })),
-                text_style: { karaoke: { done_color: '#FB923C' }, size_px: 62 } });
+                text_style: { karaoke: { fill: 'smooth', done_color: '#FB923C' }, size_px: 62 } });
         }
         const desired: Record<string, string> = {
             'edit.json': `${JSON.stringify(edit, null, 2)}\n`,

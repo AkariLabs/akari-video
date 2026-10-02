@@ -215,7 +215,7 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
         assert.equal(captionData.captions.length, 22);
         assert.ok(captionData.captions.every(caption => caption.style_preset !== 'title-impact' && caption.time_domain !== 'output'));
         assert.equal(captionData.captions[18].text, 'BGMも、');
-        assert.equal(captionData.captions[18].display_text, 'BGMも，');
+        assert.equal(captionData.captions[18].display_text, 'BGMも、');
         assert.deepEqual([captionData.captions[18].start, captionData.captions[18].end], [29.45, 30.63]);
         assert.equal(captionData.captions[19].text, '字幕のカラオケ表示もいけます。');
         assert.deepEqual([captionData.captions[19].start, captionData.captions[19].end], [30.63, 32.54]);
@@ -238,7 +238,7 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
                 [31.55, 31.70], [31.76, 31.82], [31.88, 32.10], [32.10, 32.18], [32.18, 32.26],
                 [32.26, 32.33], [32.33, 32.53], [32.53, 32.54]
             ]);
-            assert.deepEqual(karaoke.text_style, { karaoke: { done_color: '#FB923C' }, size_px: 62 });
+            assert.deepEqual(karaoke.text_style, { karaoke: { fill: 'smooth', done_color: '#FB923C' }, size_px: 62 });
         } else assert.equal(captionData.captions[19].style, undefined);
         for (const track of edit.tracks) for (const item of track.items) {
             const path = item.source.path;
@@ -307,7 +307,7 @@ test('お手本のカラオケ段階と完成形は render-cut 経路で GPU 書
         const karaoke = captionsRoot.captions.find(caption => caption.id === 'c-0020');
         assert.equal(karaoke.style, 'karaoke', `stage ${stage}`);
         assert.equal(karaoke.text_style.karaoke.done_color, '#FB923C', `stage ${stage}`);
-        assert.equal(Object.hasOwn(karaoke.text_style.karaoke, 'fill'), false, `stage ${stage}`);
+        assert.equal(karaoke.text_style.karaoke.fill, 'smooth', `stage ${stage}`);
         assert.equal(Object.hasOwn(karaoke.text_style.karaoke, 'start_index'), false, `stage ${stage}`);
         assert.deepEqual(eligibility.entries.find(entry => entry.kind === 'caption' && entry.id === karaoke.id)?.classification,
             'same', `stage ${stage}`);

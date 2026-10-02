@@ -1,0 +1,1350 @@
+{
+ "version": 1,
+ "phase": "verified",
+ "inputs": {
+  "assets\\onboarding-bgm.m4a": {
+   "sha256": "224b07e8d0dfe612109d728f8d04ef378c8bcd36ef141cff3f3a34ee0a6ca0a4",
+   "bytes": 460904
+  },
+  "assets\\onboarding\\sfx-whoosh-air-soft.m4a": {
+   "sha256": "977050d474f3f7639bb5403c450972a5ca75c1b8fd28a93e50f33ba4cee04873",
+   "bytes": 16154
+  },
+  "assets\\onboarding\\sfx-pop-ding.m4a": {
+   "sha256": "e3854d2a9777c1c5429ddca36088b033ba93b52952e85db98b85d08c3e500130",
+   "bytes": 8858
+  },
+  "assets\\onboarding\\sfx-diagram-playhead.m4a": {
+   "sha256": "d9713f969ebcd070f6e7b4800ff27cb5d9ce0f6fec4320698de563a581711054",
+   "bytes": 7593
+  },
+  "assets\\onboarding\\sfx-diagram-count.m4a": {
+   "sha256": "8515b5d543d16b0463629a94a28c199d20fc4eb33734391db84b926c17a5daf5",
+   "bytes": 14475
+  },
+  "assets\\onboarding\\sfx-swoosh-up.m4a": {
+   "sha256": "c83510fc544a97f18a9aa26a9ed8636cefa06896f3c80b7cd526c021853a98e6",
+   "bytes": 11156
+  },
+  "assets\\onboarding\\sfx-click-mouse-single.m4a": {
+   "sha256": "bfbc36d2391168b065149b56099f8c28298da58273f13fc5c0a9cd04713d40c0",
+   "bytes": 4814
+  },
+  "assets\\onboarding\\sfx-ding-single.m4a": {
+   "sha256": "9ea0915ff3ae1d2644ce9b7b7e5d832d61e9d2f670ab9145bee91b3afcf05ec3",
+   "bytes": 34982
+  },
+  "assets\\onboarding\\sfx-pop-bubble-big.m4a": {
+   "sha256": "e25ef0215b8136fd8e027cec4228d3b6cf768b6473c60b0aecfd2b1b10b5a46e",
+   "bytes": 3587
+  },
+  "assets\\onboarding\\sfx-correct-tone.m4a": {
+   "sha256": "b52317a1ce0c75dc1d7813714e742db95d9535dbc6c15f2534f076c064f3686d",
+   "bytes": 9565
+  },
+  "assets\\onboarding\\sfx-pop-cork.m4a": {
+   "sha256": "9b9349f0221f10e5d79aa456f6ba16e0c7ed3f9738847fcdfc3579d2f0de9038",
+   "bytes": 5134
+  },
+  "assets\\onboarding\\sfx-whoosh-punchy.m4a": {
+   "sha256": "f3553579ec8f78d1bc2b6a0b960102f761c2c39078f19672bc04ea1bca5aa9bd",
+   "bytes": 12898
+  },
+  "assets\\onboarding\\sfx-shimmer-sparkle.m4a": {
+   "sha256": "e3994e32ea2de4cf6d8b1c63374a0c2d63b512b531759edc0da1e8440a189f53",
+   "bytes": 46460
+  },
+  "assets\\onboarding\\sfx-diagram-pon.m4a": {
+   "sha256": "e1e9150c2cf985add3a1dfa389bfd80a9ce709ca83ce65c0b3a33ea15c843153",
+   "bytes": 12467
+  },
+  "assets\\onboarding\\sfx-diagram-stack.m4a": {
+   "sha256": "6da68cc1600e852611eb7710882efba96e73b368bf94593d785c2b2f37786357",
+   "bytes": 4677
+  },
+  "captions.json": {
+   "sha256": "02700e2c396ca09cdf2acc388b2be740364d30c6b3f8540e8f4539794fb5e392",
+   "bytes": 10933
+  },
+  "akari:assets/font/noto-sans-jp/NotoSansJP-Variable.ttf": {
+   "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f",
+   "bytes": 9589900
+  },
+  "edit.json": {
+   "sha256": "2c457e550376b61fc2c59e9f5698ab2f3b5ca7080ec8692d17379b1a97866df5",
+   "bytes": 12863
+  },
+  "assets\\サンプル動画.mp4": {
+   "sha256": "2ff59ba1374d7d5dabc6e8c6947812404a18a4710026780c587fcf9a699d62e8",
+   "bytes": 5539748
+  },
+  "overlays\\demo-bgm\\fragment.html": {
+   "sha256": "274385733228e2e007c1c3c4ec248ba74ded2ec21aa242dad72c349ee4af97c5",
+   "bytes": 11270
+  },
+  "overlays\\demo-chat\\fragment.html": {
+   "sha256": "ccfbbb1645bb7e621c64fd381a8a116c846740d07b374e4b38c4f4ef980cbd89",
+   "bytes": 19225
+  },
+  "overlays\\demo-credit\\fragment.html": {
+   "sha256": "f346b01e87ccf4f5fc803896469aed41529f2afd30fdf4fb8258deb82063da65",
+   "bytes": 33770
+  },
+  "overlays\\demo-diagram\\fragment.html": {
+   "sha256": "bd639e5e6b721cf492d4148590f47b34e7ba9f092c2abcdf9d37db31a0fe3f25",
+   "bytes": 47707
+  },
+  "overlays\\demo-done\\fragment.html": {
+   "sha256": "a5655d10ab57f445ccc7e9001df87c6e39dc55f00c0553468fb78cc2db8b5be5",
+   "bytes": 29730
+  },
+  "overlays\\demo-effects\\fragment.html": {
+   "sha256": "b63a890a7f926ff5025c5efcec7e7e8f82025eddcf6ba31f369b2327e6f8995a",
+   "bytes": 48570
+  },
+  "overlays\\demo-flash\\fragment.html": {
+   "sha256": "9ee3b09fc1bee77995d7c5f4c259bec79596c1860e0bef109a020d6024847f59",
+   "bytes": 3366
+  },
+  "overlays\\demo-phone\\fragment.html": {
+   "sha256": "9a8b06c2b1681db6aad1ceae4ce4186fac65face73d1fca069a4f48b77299270",
+   "bytes": 16280
+  },
+  "overlays\\demo-title\\fragment.html": {
+   "sha256": "4980ea3faab2cd68ef8ea9293f268ec78114593ba329050bda57434df968143a",
+   "bytes": 18975
+  }
+ },
+ "warnings": [
+  "cut sample: audio stream ends at 35.920998s before out=37.6s; padded 1.679002s of silence"
+ ],
+ "validation": {
+  "lint": {
+   "verdict": "pass",
+   "sha256": "6ae9a93da8b2690a0195cf46e91d9ccb06753adae20d883ab54f77367b2b08b5",
+   "override": null
+  },
+  "environment": {
+   "node": "v22.22.1",
+   "ffmpeg": "ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+   "ffprobe": "ffprobe version 9.0-full_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers"
+  }
+ },
+ "plan": {
+  "predicted_duration_seconds": 37.6,
+  "duration_tolerance_seconds": 0.1,
+  "output": "exports\\final.mp4",
+  "preset": {
+   "video_codec": "h264",
+   "profile": "high",
+   "pixel_format": "yuv420p",
+   "color_range": "tv",
+   "audio_codec": "aac",
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "encoding": {
+   "codec": "h264",
+   "requested": {
+    "quality": {
+     "value": "standard",
+     "origin": "compatibility-default"
+    },
+    "encoder": {
+     "value": "auto",
+     "origin": "cli"
+    }
+   },
+   "effective": {
+    "quality": {
+     "value": "standard",
+     "origin": "compatibility-default"
+    },
+    "encoder": {
+     "value": "nvenc",
+     "origin": "capability-resolution"
+    }
+   },
+   "video_encode_args": [
+    "-c:v",
+    "h264_nvenc",
+    "-rc",
+    "vbr",
+    "-cq",
+    "23",
+    "-b:v",
+    "0",
+    "-preset",
+    "p5",
+    "-profile:v",
+    "high",
+    "-colorspace",
+    "bt709",
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-color_range",
+    "tv",
+    "-bsf:v",
+    "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"
+   ],
+   "rate_control": {
+    "engine": "nvenc",
+    "mode": "quality",
+    "quality_value": 23,
+    "bitrate": null,
+    "fallback_reason": null
+   },
+   "non_encoding_stages": [
+    {
+     "stage": "overlay_alpha_intermediate",
+     "reason": "qtrle/ProRes 4444 carries transparency into composite and is not a H.264 delivery-video reencode"
+    },
+    {
+     "stage": "audio_mix",
+     "reason": "audio-only mix/mux preserves the already encoded video with -c:v copy"
+    }
+   ]
+  },
+  "rasterizer": {
+   "selected": "gpu",
+   "order": [
+    "gpu"
+   ]
+  },
+  "intermediates": [
+   ".akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\cut-audio.mp4",
+   ".akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\composite.mp4",
+   ".akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\final.mp4"
+  ],
+  "commands": {
+   "cut_audio": {
+    "command": "ffmpeg",
+    "warnings": [
+     "cut sample: audio stream ends at 35.920998s before out=37.6s; padded 1.679002s of silence"
+    ],
+    "args": [
+     "-hide_banner",
+     "-loglevel",
+     "error",
+     "-nostdin",
+     "-y",
+     "-ss",
+     "0",
+     "-t",
+     "37.6",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\サンプル動画.mp4",
+     "-filter_complex",
+     "[0:a]atrim=start=0:end=37.6,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=37.6[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+     "-map",
+     "[joineda]",
+     "-vn",
+     "-c:a",
+     "aac",
+     "-ar",
+     "48000",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\.akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\cut-audio.mp4"
+    ]
+   },
+   "tail_pad_audio": null,
+   "audio_mix": {
+    "operation": "ffmpeg",
+    "command": "ffmpeg",
+    "args": [
+     "-hide_banner",
+     "-loglevel",
+     "error",
+     "-nostdin",
+     "-y",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\.akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\composite.mp4",
+     "-stream_loop",
+     "-1",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding-bgm.m4a",
+     "-f",
+     "f32le",
+     "-ar",
+     "48000",
+     "-ac",
+     "1",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\.akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\env-bgm.f32",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-whoosh-air-soft.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-pop-ding.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-pop-bubble-big.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-correct-tone.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-pop-cork.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-whoosh-punchy.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-shimmer-sparkle.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-diagram-pon.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-diagram-stack.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-diagram-playhead.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-diagram-count.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-swoosh-up.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-click-mouse-single.m4a",
+     "-i",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\assets\\onboarding\\sfx-ding-single.m4a",
+     "-filter_complex",
+     "[5:a]asplit=2[shared_5_0][shared_5_1];[1:a]volume=-14dB,atrim=duration=37.6,afade=t=in:st=0:d=0.6,afade=t=out:st=36.4:d=1.2,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base];[2:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_bgm];[bgm_base][env_bgm]amultiply[bgm_env];[3:a]atrim=start=0:end=0.95,asetpts=PTS-STARTPTS,volume=-10dB,adelay=0:all=1[sfx0];[4:a]atrim=start=0:end=0.5,asetpts=PTS-STARTPTS,volume=-6dB,adelay=3567:all=1[sfx1];[shared_5_0]atrim=start=0:end=0.15,asetpts=PTS-STARTPTS,volume=-4dB,adelay=8533:all=1[sfx2];[shared_5_1]atrim=start=0:end=0.15,asetpts=PTS-STARTPTS,volume=-4dB,adelay=9233:all=1[sfx3];[6:a]atrim=start=0:end=0.55,asetpts=PTS-STARTPTS,volume=-3dB,adelay=13400:all=1[sfx4];[7:a]atrim=start=0:end=0.15,asetpts=PTS-STARTPTS,volume=-4dB,adelay=17467:all=1[sfx5];[8:a]atrim=start=0:end=0.75,asetpts=PTS-STARTPTS,volume=-4dB,adelay=19367:all=1[sfx6];[9:a]atrim=start=0:end=1.45,asetpts=PTS-STARTPTS,volume=2dB,adelay=20567:all=1[sfx7];[10:a]atrim=start=0:end=0.482,asetpts=PTS-STARTPTS,volume=-3dB,adelay=23233:all=1[sfx8];[11:a]atrim=start=0:end=0.147,asetpts=PTS-STARTPTS,volume=-3dB,adelay=23767:all=1[sfx9];[12:a]atrim=start=0:end=0.216,asetpts=PTS-STARTPTS,volume=-3dB,adelay=24233:all=1[sfx10];[13:a]atrim=start=0:end=0.567,asetpts=PTS-STARTPTS,volume=-3dB,adelay=24767:all=1[sfx11];[14:a]atrim=start=0:end=0.65,asetpts=PTS-STARTPTS,volume=-5dB,adelay=26833:all=1[sfx12];[15:a]atrim=start=0:end=0.15,asetpts=PTS-STARTPTS,volume=-6dB,adelay=27767:all=1[sfx13];[16:a]atrim=start=0:end=1.4,asetpts=PTS-STARTPTS,volume=-2dB,adelay=35633:all=1[sfx14];[0:a][bgm_env][sfx0][sfx1][sfx2][sfx3][sfx4][sfx5][sfx6][sfx7][sfx8][sfx9][sfx10][sfx11][sfx12][sfx13][sfx14]amix=inputs=17:duration=first:normalize=0[mixed]",
+     "-map",
+     "0:v:0",
+     "-map",
+     "[mixed]",
+     "-t",
+     "37.6",
+     "-c:v",
+     "copy",
+     "-c:a",
+     "aac",
+     "-ar",
+     "48000",
+     "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\.akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\final.mp4"
+    ],
+    "warnings": [],
+    "hasNarration": false,
+    "hasAudibleAudio": true,
+    "envelopes": [
+     {
+      "label": "bgm",
+      "path": "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\.akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo\\env-bgm.f32",
+      "points": 7,
+      "ducked": false,
+      "keyframed": true
+     }
+    ],
+    "envelope": {
+     "duck_keys": [
+      "narration",
+      "speech"
+     ],
+     "speech_intervals": 0,
+     "ducked_items": [],
+     "keyframed_items": [
+      "bgm"
+     ]
+    },
+    "clip_fx": {
+     "processed_items": [],
+     "filters": {
+      "highpass": 0,
+      "afftdn": 0,
+      "anlmdn": 0,
+      "rubberband": 0
+     }
+    }
+   },
+   "verify": {
+    "command": "ffprobe",
+    "args": [
+     "-v",
+     "error",
+     "-show_streams",
+     "-show_format",
+     "-of",
+     "json",
+     "exports\\final.mp4"
+    ]
+   }
+  }
+ },
+ "provenance": {
+  "audio": {
+   "envelope": {
+    "duck_keys": [
+     "narration",
+     "speech"
+    ],
+    "speech_intervals": 0,
+    "ducked_items": [],
+    "keyframed_items": [
+     "bgm"
+    ]
+   },
+   "clip_fx": {
+    "processed_items": [],
+    "filters": {
+     "highpass": 0,
+     "afftdn": 0,
+     "anlmdn": 0,
+     "rubberband": 0
+    }
+   }
+  },
+  "sources": [
+   {
+    "id": "sample",
+    "path": "assets\\サンプル動画.mp4",
+    "duration_seconds": 37.6,
+    "has_audio": true,
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "pix_fmt": "yuv420p",
+    "color_range": null
+   }
+  ],
+  "proxy_used": false,
+  "render_tmp_dir": ".akari\\render-tmp\\2026-10-02T03-09-23-082Z-34716-TS2jbo",
+  "rasterizer": {
+   "planned": "gpu",
+   "adopted": "gpu",
+   "attempts": [
+    {
+     "method": "gpu",
+     "status": "adopted",
+     "reason": null
+    }
+   ]
+  },
+  "environment": {
+   "node": "v22.22.1",
+   "ffmpeg": "ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+   "ffprobe": "ffprobe version 9.0-full_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "engine_requested": "auto",
+  "engine": "gpu",
+  "codec": "h264",
+  "gpu": {
+   "provenance": {
+    "engine": "gpu",
+    "launcher_tier": 2,
+    "mux": "incremental-mp4",
+    "video_reencode": false,
+    "codec": "h264",
+    "gpu_preference": {
+     "policy": "off",
+     "exit": "gpu",
+     "applied": false,
+     "previous": null,
+     "restored": null,
+     "reason": "policy-off",
+     "recovered_stale": false
+    }
+   },
+   "gpu": {
+    "platform": "win32",
+    "chromium": "142.0.7444.265",
+    "renderer": {
+     "vendor": "Google Inc. (NVIDIA)",
+     "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D19) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    "encoder_support": {
+     "prefer-hardware": true,
+     "prefer-software": true
+    },
+    "encoder": "WebCodecsH264Encoder",
+    "hardware": "prefer-hardware",
+    "uploadPath": "direct",
+    "quality": "standard",
+    "bitrate": 8000000,
+    "queueDepth": 4,
+    "queueWaits": 130,
+    "rss_peak": 1149861888,
+    "readback": {
+     "webglReadbackCalls": 0,
+     "videoFrameCopyCalls": 0,
+     "canvasBlobCalls": 0,
+     "canvasDataUrlCalls": 0,
+     "canvasPixelReadCalls": 0,
+     "bitmapCreationCalls": 0
+    },
+    "captions": [
+     {
+      "id": "c-0001-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0002-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0003-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0004-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0005-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0006-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0007-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0008-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0009-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0010-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0011-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0012-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0013-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0014-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0015-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0016-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0017-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0018-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0019-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 1,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0020-01",
+      "mode": "words-native",
+      "style": "karaoke-smooth",
+      "units": 1,
+      "words": 13,
+      "rasters": 2,
+      "bands": 2,
+      "tiles": 17
+     },
+     {
+      "id": "c-0021-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     },
+     {
+      "id": "c-0022-01",
+      "mode": "sprite",
+      "style": null,
+      "units": 1,
+      "words": 0,
+      "rasters": 1,
+      "bands": 1,
+      "tiles": 0
+     }
+    ],
+    "captionLayoutMaxDeltaPx": 0,
+    "captionMeasureAttempts": {
+     "count": 23,
+     "p50": 2,
+     "max": 2
+    },
+    "captionMeasureDiffs": {
+     "totalCount": 0,
+     "shownCount": 0,
+     "truncated": false,
+     "entries": []
+    },
+    "captionRasterTotalMs": 2221.5000000596046,
+    "captionRasterBatches": {
+     "batches": 3,
+     "unitsPerBatchMax": 8,
+     "bandsMax": 8
+    },
+    "captionStartup": {
+     "totalMs": 619.1000000238419,
+     "fontEncodeMs": 569.3000000119209,
+     "fontBase64Bytes": 13623773,
+     "measure": {
+      "stableCalls": 23,
+      "reusedStableCalls": 0,
+      "passes": 46,
+      "variantMeasurements": 48,
+      "totalMs": 135.5000001192093,
+      "p50": 2.699999988079071,
+      "p95": 4.300000011920929,
+      "max": 7.800000011920929,
+      "fontWaitMs": 33.599999845027924,
+      "layoutMs": 9.599999845027924,
+      "rootMs": 15.400000154972076,
+      "distinctKeys": 23,
+      "duplicatePasses": 23,
+      "degradedUnits": 0,
+      "faultInjected": false
+     },
+     "raster": {
+      "batches": 3,
+      "bands": 23,
+      "units": 22,
+      "svgBuildMs": 17.80000001192093,
+      "svgChars": 170589,
+      "assertMs": 6.800000011920929,
+      "srcAssignMs": 132.5,
+      "decodeMs": 1050.800000011921,
+      "sheetDrawMs": 389.30000001192093,
+      "drawImageMs": 50.799999952316284,
+      "registerMs": 0.9999999403953552,
+      "totalMs": 2221.5000000596046,
+      "prefetchedBatches": 3,
+      "prefetchMs": 2221.5000000596046
+     }
+    },
+    "preview": {
+     "mode": "auto",
+     "frames": 38
+    },
+    "domLayer": {
+     "runs": 3,
+     "overlays": 9,
+     "policy": "sync-layout",
+     "flags": [
+      "--enable-features=CanvasDrawElement",
+      "--disable-gpu-vsync",
+      "--disable-frame-rate-limit"
+     ],
+     "api": {
+      "drawElementImage": true,
+      "devicePixelRatio": 1,
+      "available": true,
+      "settlePolicy": "sync-layout"
+     },
+     "cost": {
+      "p50": 2.100000023841858,
+      "p95": 5.100000023841858,
+      "breakdown": {
+       "timeFixMs": {
+        "count": 1001,
+        "p50": 0.5,
+        "p95": 2.100000023841858
+       },
+       "waitMs": {
+        "count": 1001,
+        "p50": 0.10000002384185791,
+        "p95": 0.5
+       },
+       "drawElementMs": {
+        "count": 1001,
+        "p50": 0.5999999642372131,
+        "p95": 1.699999988079071
+       },
+       "uploadMs": {
+        "count": 1001,
+        "p50": 0.30000001192092896,
+        "p95": 1.5
+       },
+       "domLayerCostMs": {
+        "count": 1001,
+        "p50": 1.800000011920929,
+        "p95": 4.800000011920929
+       },
+       "frameCostMs": {
+        "count": 884,
+        "p50": 2.100000023841858,
+        "p95": 5.100000023841858
+       }
+      }
+     },
+     "sentinel": {
+      "checked": false,
+      "mode": "disabled",
+      "tolerance": 8,
+      "requested": 0,
+      "matched": 0,
+      "mismatchCount": 0,
+      "mismatches": []
+     },
+     "preserve3dOrderConflicts": []
+    },
+    "three": {
+     "overlays": [],
+     "sampling": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+     }
+    },
+    "viewport": {
+     "requested": {
+      "width": 1280,
+      "height": 720
+     },
+     "measured": {
+      "width": 1280,
+      "height": 720
+     },
+     "emulated": false,
+     "display": {
+      "width": 1920,
+      "height": 1080
+     }
+    },
+    "eligibility": [
+     {
+      "kind": "overlay",
+      "id": "demo-flash",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-title",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-chat",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-done",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-effects",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-diagram",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-phone",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing",
+       "advanced-css"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-credit",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "overlay",
+      "id": "demo-bgm-chip",
+      "classification": "dom",
+      "reason": "dom-layer-draw-element",
+      "conditions": [
+       "animation-timing"
+      ]
+     },
+     {
+      "kind": "caption",
+      "id": "c-0001",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0002",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0003",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0004",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0005",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0006",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0007",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0008",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0009",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0010",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0011",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0012",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0013",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0014",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0015",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0016",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0017",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0018",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0019",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0020",
+      "classification": "same",
+      "reason": "words-native",
+      "conditions": [
+       "words"
+      ]
+     },
+     {
+      "kind": "caption",
+      "id": "c-0021",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     },
+     {
+      "kind": "caption",
+      "id": "c-0022",
+      "classification": "same",
+      "reason": "caption-sprite",
+      "conditions": []
+     }
+    ],
+    "forced": null
+   },
+   "memory": {
+    "profile": "gpu",
+    "warning_bytes": 9603907584,
+    "hard_stop_bytes": 12806258688,
+    "worker_budget_bytes": 12806258688,
+    "budget_scale": 1,
+    "machine_capped": false,
+    "machine_floor": true,
+    "total_memory_bytes": 51226636288,
+    "peak_bytes": 1149861888,
+    "warning_exceeded": false,
+    "hard_stop_exceeded": false
+   },
+   "output_scale": {
+    "from": [
+     1280,
+     720
+    ],
+    "to": [
+     1280,
+     720
+    ],
+    "mode": "none"
+   },
+   "run": ".akari/gpu-run.json",
+   "finalVerify": {
+    "matched": true,
+    "checks": {
+     "frames": true,
+     "duration": true,
+     "dimensions": true,
+     "codec": true,
+     "audioPresence": true,
+     "audioDuration": true,
+     "avTermination": true
+    },
+    "expected": {
+     "frames": 1128,
+     "fps": 30,
+     "width": 1280,
+     "height": 720,
+     "duration": 37.6,
+     "requireAudio": true,
+     "audioPacketSeconds": 0.021333333333333333,
+     "audioMaxDuration": 37.635333333333335
+    },
+    "measured": {
+     "programs": [],
+     "stream_groups": [],
+     "streams": [
+      {
+       "codec_name": "h264",
+       "profile": "High",
+       "codec_type": "video",
+       "width": 1280,
+       "height": 720,
+       "pix_fmt": "yuv420p",
+       "r_frame_rate": "30/1",
+       "avg_frame_rate": "30/1",
+       "duration": "37.600000",
+       "nb_read_frames": "1128"
+      },
+      {
+       "codec_name": "aac",
+       "profile": "LC",
+       "codec_type": "audio",
+       "sample_rate": "48000",
+       "r_frame_rate": "0/0",
+       "avg_frame_rate": "0/0",
+       "duration": "37.600000",
+       "nb_read_frames": "1763"
+      }
+     ],
+     "format": {
+      "duration": "37.600000"
+     }
+    },
+    "decode": {
+     "ok": true,
+     "stderr": ""
+    },
+    "avTermination": {
+     "matched": true,
+     "deltaSeconds": 0,
+     "toleranceSeconds": 0.03333333333333333,
+     "videoDuration": 37.6,
+     "audioDuration": 37.6
+    }
+   },
+   "audio": {
+    "mode": "copy",
+    "source": "cut-audio.mp4",
+    "source_has_audio": true
+   },
+   "timing": {
+    "electron_ready": 399,
+    "page_build": 184,
+    "window_create": 92,
+    "server_start": 112,
+    "gpu_info": 484,
+    "load_url": 1174,
+    "viewport_settle": 4,
+    "first_frame": 3551,
+    "encoder_flush": 22,
+    "luma_total": 2879,
+    "mux_finish": 6,
+    "window_destroy": 10,
+    "child_run_json": 9,
+    "window_destroy_to_exit": 10,
+    "audio_mux": 171,
+    "final_ffprobe": 593,
+    "run_json": 6,
+    "parent_receipt": 2,
+    "audio_mix": 1283,
+    "verify_probe": 79,
+    "verify_video_identity": 0,
+    "verify_blank": 4644,
+    "verify_decode": 506,
+    "verify_audio": 153,
+    "verify_motion": 340,
+    "verify_total": 5723,
+    "contact_sheet": 2922,
+    "receipt": 120
+   }
+  }
+ },
+ "artifacts": [
+  {
+   "path": "exports\\final.mp4",
+   "sha256": "437c4778093829e23de11079ceaa071d476c5e19617f874bb2d06be9f3bfba4f",
+   "ffprobe": {
+    "duration_seconds": 37.6,
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "video_codec": "h264",
+    "video_profile": "High",
+    "pixel_format": "yuv420p",
+    "color_range": null,
+    "audio_codec": "aac",
+    "frame_count": 1128
+   }
+  }
+ ],
+ "verify": {
+  "verdict": "pass",
+  "findings": [
+   {
+    "severity": "info",
+    "check": "verify.duration",
+    "message": "duration 37.6s; expected 37.6s ±0.1s"
+   },
+   {
+    "severity": "info",
+    "check": "verify.frame-count",
+    "message": "frame count 1128; expected 1128 ±3"
+   },
+   {
+    "severity": "info",
+    "check": "verify.resolution",
+    "message": "resolution 1280x720; expected 1280x720"
+   },
+   {
+    "severity": "info",
+    "check": "verify.fps",
+    "message": "fps 30; expected 30 ±0.026595744680851064 (1 frame of 1128)"
+   },
+   {
+    "severity": "info",
+    "check": "verify.video-codec",
+    "message": "video codec h264; expected h264"
+   },
+   {
+    "severity": "info",
+    "check": "verify.video-profile",
+    "message": "video profile High; expected high"
+   },
+   {
+    "severity": "info",
+    "check": "verify.pixel-format",
+    "message": "pixel format yuv420p; expected yuv420p"
+   },
+   {
+    "severity": "info",
+    "check": "verify.color-range",
+    "message": "color range missing (defaults to tv); expected tv"
+   },
+   {
+    "severity": "info",
+    "check": "verify.audio",
+    "message": "audio codec aac; expected aac"
+   },
+   {
+    "severity": "info",
+    "check": "verify.decode",
+    "message": "all frames decoded without error"
+   },
+   {
+    "severity": "info",
+    "check": "verify.audio-level",
+    "message": "最大音量 -1.1 dB（1 区間）"
+   },
+   {
+    "severity": "info",
+    "check": "verify.motion-static",
+    "message": "cut sample: NCC 0.9167"
+   }
+  ],
+  "measured": {
+   "duration_seconds": 37.6,
+   "width": 1280,
+   "height": 720,
+   "fps": 30,
+   "video_codec": "h264",
+   "video_profile": "High",
+   "pixel_format": "yuv420p",
+   "color_range": null,
+   "audio_codec": "aac",
+   "frame_count": 1128
+  },
+  "declared": {
+   "audio_level": {
+    "declared": true,
+    "reasons": [
+     "bgm",
+     "sfx",
+     "素材音声"
+    ],
+    "threshold_db": -80,
+    "intervals": [
+     {
+      "start": 3.8,
+      "duration": 30,
+      "mean_db": -19,
+      "max_db": -1.1
+     }
+    ],
+    "max_db": -1.1,
+    "verdict": "pass"
+   },
+   "motion": [
+    {
+     "cut": "sample",
+     "t1": 19.766666666666666,
+     "t2": 19.8,
+     "ncc": 0.9166505983339555,
+     "verdict": "pass"
+    }
+   ],
+   "blank_frames": []
+  }
+ },
+ "contact_sheet": {
+  "path": ".akari\\reports\\contact-sheet.png",
+  "timestamps_seconds": [
+   0,
+   3.8666666666666667,
+   6.8,
+   10.3,
+   13.3,
+   17.666666666666668,
+   19.733333333333334,
+   23.2,
+   27.433333333333334,
+   30.033333333333335,
+   34.03333333333333,
+   37.56666666666667
+  ]
+ },
+ "render_receipt": {
+  "path": ".akari\\reports\\render-receipts\\6600266202425aa7b7ee492155e616977c3b35dfab5ab99dfacf7414661ace62.json",
+  "sha256": "6600266202425aa7b7ee492155e616977c3b35dfab5ab99dfacf7414661ace62"
+ }
+}

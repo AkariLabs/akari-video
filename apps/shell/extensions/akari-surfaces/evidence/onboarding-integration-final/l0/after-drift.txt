@@ -1,0 +1,3 @@
+packages/gpu-export drift exit=0
+packages/osr-export drift exit=0
+apps/shell/extensions/akari-preview drift exit=0
