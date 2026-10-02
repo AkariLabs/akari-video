@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
+const { isCaptionWriteRequest } = createRequire(import.meta.url)('../lib/browser/preview-host-message-guards.js');
 import { captionPositionFromVisualRect, placedCaptionPositionFromRects } from '../lib/common/caption-zone-write.js';
 import { evaluateHostTemplate } from './helpers/host-template.mjs';
 import { readHandlerSource } from './helpers/handler-source.mjs';
@@ -174,7 +176,7 @@ function hostMethod(name, bindings = {}) {
 }
 
 test('write boundary accepts nine anchors and unbounded finite positions', () => {
-    const host = hostMethod('isCaptionWriteRequest');
+    const host = { isCaptionWriteRequest };
     const request = patch => ({ type: 'akari-preview-caption-write', requestId: 'r1', captionId: 'c1', patch });
     for (const anchor of ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br', 'invalid']) {
         const value = { anchor, position: { x: .45, y: .52 } };

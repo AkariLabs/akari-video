@@ -7,7 +7,7 @@ import { duplicatePreviewCaptionSource } from '../lib/common/preview-duplicate-f
 
 const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
 const start = compiled.indexOf('    async handleCaptionWrite(');
-const end = compiled.indexOf('    isCaptionWriteRequest(', start);
+const end = compiled.indexOf('    async persistCaptionGroupZoneForWidget(', start);
 assert.ok(start >= 0 && end > start);
 const Host = vm.runInNewContext('(class {' + compiled.slice(start, end) + '})', {
   caption_plate_handles_1: { persistCaptionPlateTransform },

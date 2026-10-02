@@ -7,6 +7,7 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 const require = createRequire(import.meta.url);
 const uri_1 = require('@theia/core/lib/common/uri');
 const preview_playback_rate_1 = require('../lib/common/preview-playback-rate.js');
+const preview_host_constants_1 = require('../lib/browser/preview-host-constants.js');
 const source = readHandlerSource();
 const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
 const CAPTION_ZONES = ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'];
@@ -19,7 +20,7 @@ function extractMethod(name) {
     return compiled.slice(match.index, end).trim();
 }
 function method(name) {
-    return vm.runInNewContext(`({ ${extractMethod(name)} }).${name}`, { uri_1, preview_playback_rate_1, CAPTION_ZONES });
+    return vm.runInNewContext(`({ ${extractMethod(name)} }).${name}`, { uri_1, preview_playback_rate_1, CAPTION_ZONES, preview_host_constants_1 });
 }
 const cases = [
     ['SetPreviewFullscreen', 'setFullscreen', 'setPreviewFullscreen', {}, null],

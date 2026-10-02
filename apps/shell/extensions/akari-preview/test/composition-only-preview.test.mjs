@@ -7,6 +7,7 @@ import vm from 'node:vm';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 const URI = require('@theia/core/lib/common/uri').default;
+const preview_host_constants_1 = require('../lib/browser/preview-host-constants.js');
 const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('handler.js', compiled, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
 let refreshMethod, noteSwapReloadMethod, streamVideoMethod;
@@ -28,7 +29,13 @@ const refresh = vm.runInNewContext(`({ ${refreshMethod} }).refreshPreview`, {
     frame_engine_render_scale_1: require('../lib/common/frame-engine-render-scale.js'),
     exports: { isImageLayerSrc: path => /\.(png|jpg)$/i.test(path) },
     UNSUPPORTED_FORMAT_MESSAGE: 'unsupported', EMPTY_PROJECT_MESSAGE: 'empty',
-    OUTSIDE_WORKSPACE_MESSAGE: 'outside', console
+    OUTSIDE_WORKSPACE_MESSAGE: 'outside',
+    preview_host_constants_1: {
+        ...preview_host_constants_1,
+        UNSUPPORTED_FORMAT_MESSAGE: 'unsupported',
+        EMPTY_PROJECT_MESSAGE: 'empty',
+        OUTSIDE_WORKSPACE_MESSAGE: 'outside'
+    }, console
 });
 const resolveStreamVideoUri = vm.runInNewContext(`({ ${streamVideoMethod} }).resolveStreamVideoUri`, {
     uri_1: { default: URI }, video_proxy_resolution_1: require('../lib/common/video-proxy-resolution.js')

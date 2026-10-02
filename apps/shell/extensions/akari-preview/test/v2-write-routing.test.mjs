@@ -69,7 +69,7 @@ test('cut の crop も transform と同じ version-routing ヘルパーを 1 pat
   // ホスト側は layerWrite と同じ crop 検証を通してから resolvePreviewItemWrite へ渡す。
   assert.match(
     source,
-    /this\.validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? this\.validateLayerCropPatch\(request\.patch\.crop\)/,
+    /validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? validateLayerCropPatch\(request\.patch\.crop\)/,
   );
   assert.match(source, /resolvePreviewItemWrite\(originalText, write\)/u);
 });
