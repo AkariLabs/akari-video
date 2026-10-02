@@ -90,6 +90,57 @@ jobs:
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
+  # 出荷するコミットの CI（必須チェック）が緑かを確かめる（2026-10-02 オーナー裁定）。
+  # いまは警告モード: 赤でも release は止めず、::warning:: と実行サマリに出すだけ。
+  # main の必須チェックが安定して緑になったら、このジョブを build-* の needs に足して止める側へ切り替える。
+  ci-status:
+    name: ci-status (出荷コミットの必須 CI・警告モード)
+    needs: resolve-tag
+    if: ${{ !inputs.feed_only }}
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: 必須チェックの結果を照会する
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.resolve-tag.outputs.tag }}
+        run: |
+          set -uo pipefail
+          SHA="$(gh api "repos/${REPO}/commits/${TAG}" --jq .sha 2>/dev/null || true)"
+          if [ -z "$SHA" ]; then
+            echo "::warning::タグ ${TAG} のコミットを解決できなかったので CI の照会を省略した"
+            exit 0
+          fi
+          REQUIRED=(
+            "unit (packages/* + scripts/test + skills/* — 外部ツール不要・required)"
+            "L0 (build:ext + lint + shell unit tests)"
+            "packaged-imports (extraResources を模擬 Resources に組んで入口の import グラフを検査)"
+            "frame-engine-golden"
+            "gate (tracked-file leak scan)"
+          )
+          RUNS="$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100" --paginate --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion)"' 2>/dev/null || true)"
+          bad=0
+          {
+            echo "### 出荷コミット ${SHA:0:9}（${TAG}）の必須 CI"
+            echo ""
+            echo "| チェック | 結果 |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for name in "${REQUIRED[@]}"; do
+            line="$(printf '%s\n' "$RUNS" | awk -F'\t' -v n="$name" '$1==n' | head -1)"
+            if [ -z "$line" ]; then result="未実行"; else result="$(printf '%s' "$line" | cut -f2,3 | tr '\t' '/')"; fi
+            echo "| ${name} | ${result} |" >> "$GITHUB_STEP_SUMMARY"
+            case "$result" in completed/success) ;; *) bad=1; echo "::warning::必須 CI が緑ではない: ${name} = ${result}" ;; esac
+          done
+          if [ "$bad" -ne 0 ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "警告モードのため release は続行する。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
+
   version-gate:
     name: version-gate (check-release-versions)
     needs: resolve-tag
@@ -201,7 +252,7 @@ jobs:
         # （v0.1.13 の build 失敗の恒久対処。版は packages/*/package.json から導出）
         run: node scripts/release/install-bundled-cli-deps.mjs
 
-      - name: build:ext (tsc -b, 9 extensions)
+      - name: build:ext (tsc -b)
         working-directory: apps/shell
         run: npm run build:ext
 
@@ -606,7 +657,7 @@ jobs:
         # （v0.1.13 の build 失敗の恒久対処。版は packages/*/package.json から導出）
         run: node scripts/release/install-bundled-cli-deps.mjs
 
-      - name: build:ext (tsc -b, 9 extensions)
+      - name: build:ext (tsc -b)
         working-directory: apps/shell
         run: npm run build:ext
 

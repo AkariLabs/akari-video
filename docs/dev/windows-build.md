@@ -78,8 +78,8 @@ Windows 実機では起こらない）。
 ```powershell
 cd apps\shell
 
-# 1. 依存インストール（package-lock.json は意図的に .gitignore 対象 — CI と同じ理由で
-#    apps/shell 単体を --no-workspaces でインストールする。`npm ci` は使えない
+# 1. 依存インストール（apps/shell 単体を --no-workspaces でインストールする。
+#    apps/shell/package-lock.json は 2026-08-19 から追跡対象）
 #    （ロックファイルが無いため）。CI と異なり --ignore-scripts は付けない
 #    （実機ビルドにはネイティブモジュールの実体が必要なため）
 #
@@ -116,7 +116,7 @@ if (-not (Test-Path node_modules/electron/dist/electron.exe)) {
 }
 node -e "require('fs').accessSync('node_modules/electron/dist/electron.exe'); console.log('electron.exe OK')"
 
-# 2. 拡張のビルド（TypeScript, 9 拡張）
+# 2. 拡張のビルド（TypeScript）
 npm run build:ext
 
 # 3. Theia 本体ビルド（production mode）
@@ -133,7 +133,7 @@ project-default テンプレートの同梱。win32 では node-pty 用の追加
 上表のとおり `.node` ファイルのみで足りるため / `patch-ripgrep-asar-path.mjs` —
 バンドルの rgPath を asar.unpacked 対応へパッチ〔issue #5〕）→ `electron-builder --dir --win`
 （自動で `@electron/rebuild` → ファイルコピー → asar 生成）→
-`postpackage`（`verify-asar-contents.mjs` — 拡張 9 本・skills・schemas・
+`postpackage`（`verify-asar-contents.mjs` — 拡張・skills・schemas・
 project-default テンプレート・node-pty の win32 ネイティブモジュールが
 `electron-builder-out/win-unpacked/resources/app.asar` に同梱されているか、
 および ripgrep が `app.asar.unpacked` 側に unpack され rgPath パッチが適用されて
@@ -205,18 +205,20 @@ project-default テンプレート・node-pty の win32 ネイティブモジュ
 
 ## トラブルシュート（Windows 実機で実際に踏まれた穴）
 
-### install が一度失敗したら package-lock.json も消す（issue #6）
+### install が一度失敗したら node_modules を消し、lock は追跡版に戻す（issue #6）
 
-失敗した `npm install` が自動生成した `apps\shell\package-lock.json` が、壊れた依存ツリー
+失敗した `npm install` が `apps\shell\package-lock.json` を書き換え、壊れた依存ツリー
 （例: @theia/monaco-editor-core が root に hoist されず 13 箇所にネスト）を固定することが
-ある。lockfile は意図的に .gitignore 済みのため `git status` に出ず、**node_modules を
-全消去しても lockfile がある限り壊れた木が再現する**。症状例: theia build の esbuild が
+ある。症状例: theia build の esbuild が
 `Could not resolve "@theia/monaco-editor-core/esm/vs/editor/common/services/editorWebWorkerMain.js"`
 で失敗し続ける。
 
+lockfile は 2026-08-19 から追跡対象なので、**ファイルを消さずに追跡版へ戻す**（消すと固定されて
+いない lock が作り直される）。
+
 ```powershell
 Remove-Item -Recurse -Force node_modules
-Remove-Item -Force package-lock.json
+git checkout -- package-lock.json
 # そのうえで LTO 無効化 env を設定し直して npm install --no-workspaces をやり直す
 ```
 

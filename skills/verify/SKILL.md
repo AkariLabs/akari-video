@@ -81,7 +81,8 @@ npm run lint                                       # eslint "extensions/*/src/**
    `chromium.connectOverCDP('http://127.0.0.1:<port>')` でアタッチする
 5. **入れ子 webview フレームへの到達**: Theia の `WebviewWidget` は外側 `webview.localhost` オリジンの iframe → 内側 `active-frame` という二重入れ子構成を取り、素朴な `page.frames()` 探索では実コンテンツに届かないことがある。CDP の `Page.getFrameTree` と `Runtime.executionContextCreated` イベントの `auxData.frameId` を突き合わせ、実際の内側 execution context を特定してから `Runtime.evaluate` で DOM 状態（`readyState` / `currentTime` / `data-*` 属性等）を直接読む自作クライアントが必要になる場合がある（`preview-streaming` report.md §2 参照）
 6. **観測・記録**:
-   - スクリーンショット: CDP `Page.captureScreenshot` または Playwright の screenshot API。保存先は検証対象拡張の `evidence/<機能名>/*.png`、1 枚 500KB 以下が目安
+   - スクリーンショット: CDP `Page.captureScreenshot` または Playwright の screenshot API
+   - **記録物はリポにコミットしない**（2026-10-02〜）: スクショ・動画・音声・ログ・計測 JSON などの検証記録は、リポの外（作業場所の一時ディレクトリやタスクの記録側）に置き、報告には要約と数値を書く。`evidence/<機能名>/` にコミットしてよいのは、再現に使うスクリプト（`.mjs` / `.cjs` / `.js` / `.sh`）と `README.md` だけ。Governance の `evidence-growth` ジョブが、`evidence/` 配下に新しく足された記録物（画像・動画・音声・`.txt` / `.log` / `.json` など）を拒否する。既にコミット済みの証跡はそのまま残す
    - 性能: `ps -o %cpu -p <pid>` を 1 秒間隔でサンプリングし GPU/renderer/main プロセスを分離して記録。タイミングは操作前後の CDP イベント/DOM 状態変化で実測（例: `readyState>=3` 到達までのミリ秒）
    - API 境界: `window.theia.container` 経由で Inversify DI コンテナから直接サービスを呼び出し、フロントエンドのガードをバイパスしてもバックエンドが独立して拒否する（多重防御）ことを確認するのも有効（`preview-streaming` report.md の配信境界検証を参照）
 7. **後片付け**: 起動した Electron プロセスは `ps aux` で確認した実 PID を指定して `kill`（`pkill -f` のような広いパターンマッチは使わない）。隔離ワークスペース・巨大な生成素材は検証後に完全削除しコミットしない

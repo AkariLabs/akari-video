@@ -90,6 +90,10 @@ jobs:
         run: npm --prefix packages/preview-server run typecheck
       - name: unit tests (lane pure)
         run: node scripts/ci/run-unit-tests.mjs --lane pure
+      # edit-store / pen-visuals の lib/ は追跡対象の生成物。pure レーンの npm test が src から作り直すので、
+      # ここで差分が出たら「src を変えたのに lib を再生成していない」= stale lib が出荷される
+      - name: generated lib drift (edit-store / pen-visuals)
+        run: git diff --exit-code --stat -- packages/edit-store/lib packages/pen-visuals/lib
 
   # 参考: main で既に赤いパッケージ（理由はレーン定義のコメント参照）。required に入れると初日から赤で
   # 止まるので隔離し、修正タスクで緑になったら pure へ移す。

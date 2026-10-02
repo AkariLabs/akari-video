@@ -37,8 +37,9 @@ jobs:
       - name: Verify skills symlinks materialized
         run: node scripts/gen-skills-index.mjs --check
 
-      # docs/dev/windows-build.md と同一手順。package-lock.json は意図的に gitignore のため
-      # npm ci は使えない（ci.yml の L0 ジョブと同じ理由）。--ignore-scripts は付けない
+      # docs/dev/windows-build.md と同一手順。apps/shell/package-lock.json は 2026-08-19 から追跡している
+      # （ci.yml の L0 は npm ci を使う）。ここは実機の失敗を潰して積み上げた install 手順のため、
+      # npm ci への切り替えは dry_run で確かめてから行う。--ignore-scripts は付けない
       # （実パッケージにはネイティブモジュールの実体が必要）。
       #
       # npm_config_enable_(thin_)lto=false について（run 29994686512 / 29995591439 / 29996236710 実測）:
@@ -89,7 +90,7 @@ jobs:
           node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
           node -e "require('fs').accessSync('node_modules/electron/dist/electron.exe'); console.log('electron.exe OK')"
 
-      - name: build:ext (tsc -b, 9 extensions)
+      - name: build:ext (tsc -b)
         working-directory: apps/shell
         run: npm run build:ext
 
