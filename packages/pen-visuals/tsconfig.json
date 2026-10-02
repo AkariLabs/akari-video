@@ -9,7 +9,7 @@
     "outDir": "lib",
     "rootDir": "src",
     "skipLibCheck": true,
-    "strict": false
+    "strict": true
   },
   "include": ["src"]
 }

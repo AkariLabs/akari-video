@@ -98,7 +98,7 @@ export function collectFitBasisCandidates(internal: InternalEdit): FitBasisCandi
     const visit = (item: InternalItem): void => {
         if (item.source.kind === 'media' && item.legacy.collection === 'cuts'
             && !hasCutLayerStyleVisual(item.declaration)) {
-            candidates.push({ itemId: item.id, sourceId: item.source.sourceId });
+            candidates.push({ itemId: item.id, sourceId: item.source.sourceId as string });
         }
         for (const child of item.children) visit(child);
     };

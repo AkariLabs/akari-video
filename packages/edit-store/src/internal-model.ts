@@ -519,7 +519,7 @@ function hideEmptyChildrenForCompatibility(tracks: InternalTrack[]): void {
     const visit = (item: InternalItem): void => {
         for (const child of item.children) visit(child);
         if (item.children.length !== 0 || !Object.prototype.propertyIsEnumerable.call(item, 'children')) return;
-        delete item.children;
+        delete (item as { children?: InternalItem[] }).children;
         Object.defineProperty(item, 'children', { value: [], enumerable: false, writable: true });
     };
     for (const track of tracks) for (const item of track.items) visit(item);
@@ -880,7 +880,7 @@ function buildV2Item(
     if (children.length > 0 || ('items' in item && Array.isArray(item.items))) {
         built.item.children = children;
     } else {
-        delete built.item.children;
+        delete (built.item as { children?: InternalItem[] }).children;
         Object.defineProperty(built.item, 'children', { value: children, enumerable: false, writable: true });
     }
     if (lane === 'visual' && item.source.kind === 'group') {

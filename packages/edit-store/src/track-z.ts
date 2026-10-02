@@ -57,8 +57,8 @@ export function resolveDeclaredCaptionTrackZ(tracks: readonly TrackZTrack[]): nu
     const declared = Array.isArray(tracks) ? tracks : [];
     for (let z = 0; z < declared.length; z += 1) {
         const track = declared[z];
-        const hasCaptionBag = (Array.isArray(track?.items) ? track.items : [])
-            .some(item => item?.source?.kind === 'captions');
+        const hasCaptionBag = (Array.isArray(track?.items) ? track.items : [] as readonly TrackZItem[])
+            .some((item: TrackZItem) => item?.source?.kind === 'captions');
         if (hasCaptionBag || track?.content?.from === 'captions.json' || track?.legacy?.kind === 'captions') return z;
     }
     return null;

@@ -128,7 +128,7 @@ export function parseEdit(source: string): {
                     if (transition && typeof transition === 'object' && !Array.isArray(transition)
                         && validType && validDuration) {
                         transitionOut = {
-                            type: transition.type as EditCut['transitionOut']['type'],
+                            type: transition.type as NonNullable<EditCut['transitionOut']>['type'],
                             duration: transition.duration
                         };
                     } else {
