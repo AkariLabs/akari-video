@@ -465,7 +465,7 @@ test("GPU Electron parses dump frames and uses raw/frame-N.rgba", () => {
     "--dump-frames", "29,0,12,12",
   ]);
   assert.deepEqual(parsed.dumpFrames, [0, 12, 29]);
-  assert.equal(gpuRawFramePath(parsed.out, 12), "/tmp/export/raw/frame-12.rgba");
+  assert.equal(gpuRawFramePath(parsed.out, 12), join(dirname(parsed.out), "raw", "frame-12.rgba"));
   assert.throws(() => parseElectronArguments([
     "--render", "/project", "--out", "/tmp/export/video.mp4", "--duration", "1",
     "--trap-readback", "--dump-frames", "0",

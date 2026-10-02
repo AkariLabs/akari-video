@@ -7,7 +7,7 @@ import { buildGpuReceipt } from '../src/receipt.mjs';
 import { renderOverlaySheet } from '../../render-cut/src/rasterize.mjs';
 
 const runtimeSource = readFileSync(new URL('../../overlay-runtime/src/vgpu-runtime.js', import.meta.url), 'utf8');
-const pageSource = readFileSync(new URL('../src/page-runtime.js', import.meta.url), 'utf8');
+const pageSource = readFileSync(new URL('../src/page-runtime.js', import.meta.url), 'utf8').replace(/\r\n/gu, '\n');
 const fixture = name => readFileSync(new URL(`./fixtures/vgpu-${name}.html`, import.meta.url), 'utf8');
 const descriptor = (name = 'stateful') => JSON.parse(fixture(name).match(/data-akari-vgpu-scene>([\s\S]*?)<\/script>/)[1]);
 const plain = value => JSON.parse(JSON.stringify(value));

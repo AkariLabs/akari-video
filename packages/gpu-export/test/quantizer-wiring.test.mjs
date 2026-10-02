@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 
-const electronMainSource = await readFile(new URL("../src/electron-main.mjs", import.meta.url), "utf8");
+const electronMainSource = (await readFile(new URL("../src/electron-main.mjs", import.meta.url), "utf8")).replace(/\r\n/gu, "\n");
 const parseStart = electronMainSource.indexOf("export function parseElectronArguments(argv) {");
 const parseEnd = electronMainSource.indexOf("\nfunction formatEligibilityFailures", parseStart);
 const helpersStart = electronMainSource.indexOf("function required(argv, index, option) {");

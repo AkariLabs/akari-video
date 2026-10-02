@@ -6,7 +6,7 @@ import vm from "node:vm";
 // page-runtime.js はブラウザ用 IIFE（inline 前提・import 不可）なので、normalizedCuts の本体だけを
 // 切り出して node:vm で評価する。関数の形が変わったらここで気づく（issue #31 の回帰検知）。
 async function loadNormalizedCuts(url) {
-  const source = await readFile(url, "utf8");
+  const source = (await readFile(url, "utf8")).replace(/\r\n/gu, "\n");
   const start = source.indexOf("  function resolvedItemAdjust(item, adjustLutCubeTexts) {");
   const normalizedStart = source.indexOf("  function normalizedCuts(edit, adjustLutCubeTexts = {}) {", start);
   assert.ok(start >= 0 && normalizedStart >= start, `${url}: normalizedCuts not found`);
