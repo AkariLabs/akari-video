@@ -21,16 +21,16 @@ const edit_store_1 = require("./edit-store");
 const caption_words_rederive_1 = require("./caption-words-rederive");
 const caption_runs_1 = require("./caption-runs");
 const caption_style_preset_1 = require("./caption-style-preset");
-const textstyle_catalog_1 = require("./generated/textstyle-catalog");
+const textstyle_catalog_merge_1 = require("./textstyle-catalog-merge");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
     'bottom-left', 'bottom', 'bottom-right'
 ];
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
-function parseCaptions(source) {
+function parseCaptions(source, options = {}) {
     let root = JSON.parse(source);
-    root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, textstyle_catalog_1.TEXTSTYLE_CATALOG).root;
+    root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog).root;
     const values = Array.isArray(root)
         ? root
         : isRecord(root) && Array.isArray(root.captions)
@@ -421,7 +421,7 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
-function updateCaptionStylePresetInSource(source, captionIds, presetId) {
+function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
     if (captionIds.length === 0) {
         throw new Error('字幕 ID を 1 件以上指定してください。');
     }
@@ -461,7 +461,7 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId) {
             changed++;
             continue;
         }
-        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style);
+        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
         // 同じテンプレの再適用でも、そのテンプレを覆い隠している字幕個別の指定が残っていれば
         // 掃除する仕事が残っている（「変更はありません」で終わらせない）。
         if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
@@ -501,9 +501,9 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId) {
  * 適用時に該当キーを落としてテンプレを表に出す。テンプレが決めないツマミ（ドラッグした position /
  * zone / max_characters など）は字幕個別の指定として残す。
  */
-function shadowedPresetStyleKeys(presetId, textStyle) {
-    const preset = Object.prototype.hasOwnProperty.call(textstyle_catalog_1.TEXTSTYLE_CATALOG, presetId)
-        ? textstyle_catalog_1.TEXTSTYLE_CATALOG[presetId] : undefined;
+function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
+    const preset = catalog instanceof Map ? catalog.get(presetId)
+        : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : undefined;
     if (!preset || textStyle === null || typeof textStyle !== 'object' || Array.isArray(textStyle)) {
         return [];
     }

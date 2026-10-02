@@ -23,9 +23,9 @@ import { openProject } from '../../edit-store/lib/project.js';
 import { list as listHistory, restore as restoreHistory, snapshot as snapshotHistory } from '../../edit-store/lib/history-store.js';
 import {
   applyCaptionStylePresets,
-  TEXTSTYLE_CATALOG,
   toAnchorCaptions,
 } from '../../edit-store/lib/index.js';
+import { loadTextstyleCatalogSync } from '../../edit-store/lib/textstyle-library-node.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
@@ -540,7 +540,7 @@ function addOutputRoutes(routes) {
     const cf = captionsFile();
     const r = outReadJson(fs.existsSync(cf) ? cf : null);
     if (!r || r.error) return respond(res, 200, []);
-    const captionsRoot = applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root;
+    const captionsRoot = applyCaptionStylePresets(r.data, loadTextstyleCatalogSync({ env: process.env }).catalog).root;
     if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object'
       || captionsRoot.display_policy === undefined) {
       return respond(res, 200, captionsRoot);
@@ -693,7 +693,7 @@ const router = {
   'GET /api/captions.json': (req, res) => {
     const r = readJson(path.join(projectRoot, 'captions.json'));
     if (r.error) return respond(res, 200, []);
-    const captionsRoot = applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root;
+    const captionsRoot = applyCaptionStylePresets(r.data, loadTextstyleCatalogSync({ env: process.env }).catalog).root;
     if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object' || captionsRoot.display_policy === undefined) {
       return respond(res, 200, captionsRoot);
     }

@@ -13,6 +13,12 @@ const library = [
 ].find(file => file && fs.existsSync(file));
 if (!library) throw new Error('edit-store が見つかりません（AKARI_EDIT_STORE_LIB または AKARI_PUBLIC_REPO を設定してください）');
 export const editStore = require(library);
+// Node consumers of parseCaptions share the installed textstyle catalog with render-cut.
+const textstyleLoader = path.join(path.dirname(library), 'textstyle-library-node.js');
+if (fs.existsSync(textstyleLoader) && typeof editStore.registerLibraryTextstylePresets === 'function') {
+    const { loadTextstyleCatalogSync } = require(textstyleLoader);
+    editStore.registerLibraryTextstylePresets(loadTextstyleCatalogSync({ env: process.env }).library);
+}
 export const declaredIntentByContext = new WeakMap();
 export const geometryTargetByEdit = new WeakMap();
 export const declaredKnobIntentFor = (context, target) => declaredIntentByContext.get(context)?.get(target) ?? null;

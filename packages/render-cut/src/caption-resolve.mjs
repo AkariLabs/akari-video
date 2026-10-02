@@ -11,8 +11,8 @@ const {
   filterCaptionRootByExcludedIds,
   referencedCaptionSourceCount,
   resolveCaptionDisplay,
-  TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
+const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
 
 /**
  * 字幕表示の単一解決経路。
@@ -68,7 +68,8 @@ export function resolveCaptionPlan({
     );
   }
 
-  const presetResolution = applyCaptionStylePresets(parsedRoot, TEXTSTYLE_CATALOG);
+  const textstyleCatalog = loadTextstyleCatalogSync({ env: process.env });
+  const presetResolution = applyCaptionStylePresets(parsedRoot, textstyleCatalog.catalog);
   const captionsRoot = filterCaptionRootByExcludedIds(
     presetResolution.root,
     collectExcludedCaptionIds(edit),
@@ -82,7 +83,8 @@ export function resolveCaptionPlan({
     throw new Error("captions.json root must be an array or an object with captions[]");
   }
 
-  const warnings = presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`);
+  const warnings = [...textstyleCatalog.warnings,
+    ...presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`)];
   const warn = (warning) => {
     warnings.push(warning);
     onWarning?.(warning);

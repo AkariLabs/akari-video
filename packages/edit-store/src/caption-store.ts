@@ -2,8 +2,8 @@ import { findMatchingBracket, splitTopLevelElements, type SourceElement } from '
 import { applyCaptionTextEdit, rebaseCaptionEmphasis, type CaptionEmphasis, type CaptionTextEditRecord, type CaptionWordTiming } from './caption-words-rederive';
 import { captionGraphemes, captionRunsRemovedNotice, joinAdjacentCaptionRuns, rebaseCaptionRuns, sliceCaptionRuns, setCaptionRunStyle,
     setCaptionRunRole, removeCaptionRun, type CaptionRun, type CaptionRunStyle } from './caption-runs';
-import { applyCaptionStylePresets } from './caption-style-preset';
-import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
+import { applyCaptionStylePresets, type TextstyleCatalog } from './caption-style-preset';
+import { resolveTextstyleCatalog } from './textstyle-catalog-merge';
 
 export const CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -184,13 +184,13 @@ export interface WordBookCaptionChange {
 
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
 
-export function parseCaptions(source: string): {
+export function parseCaptions(source: string, options: { catalog?: TextstyleCatalog } = {}): {
     captions: CaptionRecord[];
     defaultTextStyle?: CaptionTextStyle;
     warnings: string[];
 } {
     let root = JSON.parse(source) as unknown;
-    root = applyCaptionStylePresets(root, TEXTSTYLE_CATALOG).root;
+    root = applyCaptionStylePresets(root, options.catalog ?? resolveTextstyleCatalog().catalog).root;
     const values = Array.isArray(root)
         ? root
         : isRecord(root) && Array.isArray(root.captions)
@@ -663,7 +663,8 @@ export function updateCaptionTextStyleInSource(
 export function updateCaptionStylePresetInSource(
     source: string,
     captionIds: readonly string[],
-    presetId: string | null
+    presetId: string | null,
+    options: { catalog?: TextstyleCatalog } = {}
 ): { source: string; changed: number } {
     if (captionIds.length === 0) {
         throw new Error('字幕 ID を 1 件以上指定してください。');
@@ -703,7 +704,7 @@ export function updateCaptionStylePresetInSource(
             changed++;
             continue;
         }
-        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style);
+        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, options.catalog ?? resolveTextstyleCatalog().catalog);
         // 同じテンプレの再適用でも、そのテンプレを覆い隠している字幕個別の指定が残っていれば
         // 掃除する仕事が残っている（「変更はありません」で終わらせない）。
         if (hasPreset && record.style_preset === presetId && shadowed.length === 0) continue;
@@ -745,9 +746,9 @@ export function updateCaptionStylePresetInSource(
  * 適用時に該当キーを落としてテンプレを表に出す。テンプレが決めないツマミ（ドラッグした position /
  * zone / max_characters など）は字幕個別の指定として残す。
  */
-function shadowedPresetStyleKeys(presetId: string, textStyle: unknown): string[] {
-    const preset = Object.prototype.hasOwnProperty.call(TEXTSTYLE_CATALOG, presetId)
-        ? TEXTSTYLE_CATALOG[presetId] : undefined;
+function shadowedPresetStyleKeys(presetId: string, textStyle: unknown, catalog: TextstyleCatalog): string[] {
+    const preset = catalog instanceof Map ? catalog.get(presetId)
+        : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : undefined;
     if (!preset || textStyle === null || typeof textStyle !== 'object' || Array.isArray(textStyle)) {
         return [];
     }
