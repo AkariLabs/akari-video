@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { splitCaptionLines as renderSplit } from '../../../../../packages/render-cut/src/captions.mjs';
+import { splitCaptionLines as serverSplit } from '../../../../../packages/preview-server/public/caption-line-layout.js';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
@@ -19,12 +20,6 @@ const handler = readHandlerSource();
 const webviewCode = extract(handler, 'const CAPTION_BOUNDARIES =', '// splitCaptionLines の分割点')
   .replaceAll('\\\\', '\\');
 const webviewSplit = new Function(`${webviewCode}\nreturn splitCaptionLines;`)();
-
-const serverCode = extract(
-  read('../../../../../packages/preview-server/public/app.js'),
-  'const CAPTION_BOUNDARIES =', '// splitCaptionLines の分割点',
-);
-const serverSplit = new Function(`${serverCode}\nreturn splitCaptionLines;`)();
 
 const hoverSource = read('../../akari-annotations/src/common/caption-hover-preview.ts');
 const hoverCode = hoverSource.slice(hoverSource.indexOf('function splitCaptionLines('))

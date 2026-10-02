@@ -5,8 +5,8 @@ import ts from 'typescript';
 import { createRequire } from 'node:module';
 const { isEditDataFileName } = createRequire(import.meta.url)('../lib/common/edit-data-file.js');
 
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-outputs-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariOutputsPane');
 const method = widget.members.find(node => node.name?.getText(source) === 'renderOutputCard');
 const tokens = {};
 new Function('exports', ts.transpileModule(readFileSync(new URL('../src/common/akari-surface-tokens.ts', import.meta.url), 'utf8'), {
