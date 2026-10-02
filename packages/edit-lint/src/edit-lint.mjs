@@ -324,11 +324,8 @@ export async function lintProject(input, options = {}) {
   findings.push(...await collectLicenseFindings(edit, sourcePath =>
     resolveReferenceBinding(paths.editPath, sourcePath, paths).path));
   await validateProxyGops(rawEdit, findings, paths, options);
-  const sourceDuration = null;
-
   const cutsStructureResult = validateCuts(
     edit.cuts,
-    sourceDuration,
     findings,
     paths,
     structure.sourceIds,
@@ -2463,7 +2460,7 @@ function collectActualTrackNumbers(items) {
   return tracks;
 }
 
-function validateCuts(cuts, sourceDuration, findings, paths, sourceIds) {
+function validateCuts(cuts, findings, paths, sourceIds) {
   if (!Array.isArray(cuts)) return null;
   let valid = true;
   let timeline = 0;
@@ -2508,16 +2505,6 @@ function validateCuts(cuts, sourceDuration, findings, paths, sourceIds) {
           path,
         });
         valid = false;
-    }
-    if (sourceDuration !== null && cut.out > sourceDuration + EPSILON) {
-      addFinding(findings, {
-        severity: "error",
-        check: "cuts.source-duration",
-        message: `cut ends after source duration ${formatNumber(sourceDuration)}s`,
-        path,
-        range: { start: cut.in, end: cut.out },
-      });
-      valid = false;
     }
     if (Object.hasOwn(cut, "speed") && !isPositiveNumber(cut.speed)) {
       addFinding(findings, {
