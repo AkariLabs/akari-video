@@ -1,0 +1,28 @@
+{
+  "id": "telop-pop-thunder",
+  "text": "サンダー到来",
+  "style": {
+    "size_px": 72,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#fff7df", "width_px": 7.2 },
+      { "color": "#e88800", "width_px": 3.24 }
+    ],
+    "fill": {
+      "type": "pattern",
+      "pattern": {
+        "id": "thunder",
+        "scale": 1,
+        "fg": "#fff26ab3",
+        "bg": {
+          "angle_deg": -55,
+          "stops": [
+            { "at": 0, "color": "#ffd820" },
+            { "at": 50, "color": "#f0b800" },
+            { "at": 100, "color": "#ffd820" }
+          ]
+        }
+      }
+    }
+  }
+}

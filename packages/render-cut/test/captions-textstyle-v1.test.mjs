@@ -13,7 +13,8 @@ import { CAPTION_RICH_LAYER_CSS as PREVIEW_RICH_LAYER_CSS } from '../../preview-
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const fixtures = join(root, 'packages/render-cut/test/fixtures/textstyle-v1');
 const require = createRequire(import.meta.url);
-const { CAPTION_RICH_LAYER_CSS, alignCaptionRichFillPhase, TEXTSTYLE_CATALOG } = require('../../edit-store/lib/index.js');
+const { CAPTION_RICH_LAYER_CSS, alignCaptionRichFillPhase, resolveCaptionRichFillVars,
+  validateCaptionTextStyle, TEXTSTYLE_CATALOG } = require('../../edit-store/lib/index.js');
 const output = { width: 1080, height: 1920 };
 
 function withoutRich(style) {
@@ -147,7 +148,7 @@ test('all 36 v0 presets keep their HTML bytes and OSR pixels at 1080x1920', { ti
   } finally { await browser.close(); }
 });
 
-test('three v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1080x1920', { timeout: 360_000 }, async t => {
+test('six v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1080x1920', { timeout: 360_000 }, async t => {
   let browser;
   try { browser = await chromium.launch({ headless: true }); }
   catch { t.skip('Chromium is unavailable in this sandbox'); return; }
@@ -210,6 +211,89 @@ test('three v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1
       }
     }
   } finally { await browser.close(); }
+});
+
+test('v1.1 pattern schema, validation, two-layer background, and alpha match the fixtures', () => {
+  const schema = JSON.parse(readFileSync(join(root, 'packages/schemas/captions.schema.json'), 'utf8'));
+  const pattern = schema.$defs.textFillStyle.oneOf[2].properties.pattern.properties;
+  assert.ok(pattern.id.enum.includes('heart'));
+  assert.ok(pattern.id.enum.includes('thunder'));
+  assert.equal(pattern.bg.oneOf.length, 2);
+  const ids = ['diamond', 'dot', 'stripe', 'gingham', 'skull', 'hazard', 'night', 'heart', 'thunder'];
+  for (const id of ids) {
+    const fill = { type: 'pattern', pattern: { id, scale: 1, fg: '#ffffff80', bg: '#123456' } };
+    assert.doesNotThrow(() => validateCaptionTextStyle({ fill }));
+    const vars = resolveCaptionRichFillVars(fill);
+    const encoded = vars['--caption-rich-fill-image'].match(/^url\((['"])data:image\/svg\+xml,(.*?)\1\)$/u)?.[2];
+    assert.ok(encoded, `${id}: solid bg must use one SVG image`);
+    const svg = decodeURIComponent(encoded);
+    assert.match(svg, /<rect width="100%" height="100%" fill="#123456"\/>/u, id);
+    assert.ok(svg.includes('fill="#ffffff80"'), `${id}: fg alpha must survive`);
+    assert.ok(!vars['--caption-rich-fill-size'].includes(','), `${id}: solid bg must have one tile size`);
+    assert.ok(!vars['--caption-rich-fill-position'].includes(','), `${id}: solid bg must have one position`);
+    assert.equal(vars['--caption-rich-fill-position'], id === 'thunder' ? '4px 2px' : '0 0');
+    if (id === 'heart' || id === 'thunder') {
+      assert.equal(vars['--caption-rich-fill-size'], `${id === 'heart' ? 14 : 30}px ${id === 'heart' ? 14 : 30}px`);
+    }
+  }
+  const skull = JSON.parse(readFileSync(join(fixtures, 'telop-pattern-skull.json'), 'utf8'));
+  const skullSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24"><rect width="100%" height="100%" fill="#7c3aed"/><g fill="#ffffff" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="#7c3aed"/><circle cx="14.4" cy="9.6" r="1.7" fill="#7c3aed"/><path d="M12 12l-1.2 2.1h2.4z" fill="#7c3aed"/></svg>';
+  assert.deepEqual(resolveCaptionRichFillVars(skull.style.fill), {
+    '--caption-rich-fill-color': 'transparent',
+    '--caption-rich-fill-image': `url("data:image/svg+xml,${encodeURIComponent(skullSvg)}")`,
+    '--caption-rich-fill-size': '37.5px 37.5px',
+    '--caption-rich-fill-position': '0 0',
+  }, 'v1 skull variables must retain their a166bfd67 bytes');
+  for (const [id, filename] of [
+    ['diamond', 'pattern-diamond-bg-gradient.json'],
+    ['heart', 'telop-pop-heart.json'],
+    ['thunder', 'telop-pop-thunder.json'],
+  ]) {
+    const sample = JSON.parse(readFileSync(join(fixtures, filename), 'utf8'));
+    assert.doesNotThrow(() => validateCaptionTextStyle(sample.style));
+    const vars = resolveCaptionRichFillVars(sample.style.fill);
+    const image = vars['--caption-rich-fill-image'];
+    const encoded = image.match(/^url\((['"])data:image\/svg\+xml,(.*?)\1\), linear-gradient\(/u)?.[2];
+    assert.ok(encoded, `${id}: SVG must be the transparent top layer`);
+    const svg = decodeURIComponent(encoded);
+    assert.ok(!svg.includes('<rect'), `${id}: ground must stay outside the SVG`);
+    assert.ok(svg.includes(`fill="${sample.style.fill.pattern.fg}"`), `${id}: fg alpha must survive`);
+    if (id === 'heart' || id === 'thunder') {
+      assert.match(svg, id === 'heart' ? /fill-opacity="0\.6"/u : /fill-opacity="0\.95"/u);
+    }
+    assert.match(vars['--caption-rich-fill-size'], /px [^,]+px, 100% 100%$/u);
+    assert.ok(vars['--caption-rich-fill-position'].includes(','), `${id}: gradient bg needs two positions`);
+    assert.match(overlay(sample.style, sample.text).html, /data-rich-pattern-bg="gradient"/u);
+    assert.throws(() => validateCaptionTextStyle({ fill: { type: 'pattern', pattern: {
+      ...sample.style.fill.pattern, bg: { angle_deg: 180, stops: [
+        { at: 10, color: '#ffffff' }, { at: 100, color: '#000000' }
+      ] }
+    } } }), /stops/u);
+  }
+  assert.doesNotMatch(overlay({ fill: { type: 'solid', color: '#ffffff' } }).html, /data-rich-pattern-id=/u);
+  assert.doesNotMatch(overlay({ fill: { type: 'gradient', angle_deg: 180, stops: [
+    { at: 0, color: '#ffffff' }, { at: 100, color: '#000000' },
+  ] } }).html, /data-rich-pattern-id=/u);
+});
+
+test('one-layer pattern phase does not replace its tile size', () => {
+  for (const id of ['diamond', 'thunder']) {
+    const assigned = {};
+    const fill = {
+      getBoundingClientRect: () => ({ left: 12, top: 22, width: 30, height: 20 }),
+      style: { setProperty: (name, value) => { assigned[name] = value; } },
+    };
+    const line = {
+      getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 25 }),
+      querySelectorAll: () => [fill],
+    };
+    alignCaptionRichFillPhase({
+      getAttribute: name => ({ 'data-rich-fill-type': 'pattern', 'data-rich-pattern-id': id })[name] ?? null,
+      querySelectorAll: () => [line],
+    });
+    assert.equal(assigned['--caption-rich-fill-position'], id === 'thunder' ? '2px 0px' : '-2px -2px');
+    assert.equal(Object.hasOwn(assigned, '--caption-rich-fill-size'), false);
+  }
 });
 
 test('karaoke, run, and emphasis may share one rich cue without cloning source text into run projection', () => {

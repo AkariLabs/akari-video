@@ -4,6 +4,12 @@
     "height": 1920
   },
   "evidence": {
+    "pattern-diamond-bg-gradient": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
     "telop-anger-shadow": {
       "shell": 0,
       "preview": 0,
@@ -17,6 +23,18 @@
       "gpu": 0
     },
     "telop-pattern-skull": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
+    "telop-pop-heart": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
+    "telop-pop-thunder": {
       "shell": 0,
       "preview": 0,
       "osr": 0,
