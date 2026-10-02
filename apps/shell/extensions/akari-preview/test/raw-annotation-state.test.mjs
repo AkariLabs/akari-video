@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('raw preview は editUri ゲートより前に現在位置を専用注釈イベントへ流す', async () => {
-    const source = await readFile(join(extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+    const source = readHandlerSource();
     const methodStart = source.indexOf('protected forwardPlaybackTick(');
     const methodEnd = source.indexOf('protected isReviewTransportRequest(', methodStart);
     const method = source.slice(methodStart, methodEnd);

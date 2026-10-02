@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handlerSource = await readFile(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handlerSource = readHandlerSource();
 const protocolSource = await readFile(new URL('../src/common/akari-preview-protocol.ts', import.meta.url), 'utf8');
 const audioSource = handlerSource.slice(handlerSource.indexOf('    protected async resolveAudioAssets('));
 const resolveSource = audioSource.slice(audioSource.indexOf('        const resolveSource = async ('), audioSource.indexOf('        const gainDb ='));

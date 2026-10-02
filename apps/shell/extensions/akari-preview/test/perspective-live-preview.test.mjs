@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const start = source.indexOf('const summaryWithLivePreview =');
 const end = source.indexOf('const applyEngineSummary =', start);
 assert.ok(start >= 0 && end > start);

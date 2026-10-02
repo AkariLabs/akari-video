@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { partitionPreviewMediaPlanes } from '../lib/common/preview-media-planes.js';
 import { canvasCaptionZPlan } from '../lib/common/canvas-caption-z.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 const visual = { transform: { x: 0, y: 0, scale: 0.45, rotateDegrees: 0 }, opacity: 1 };
 const summary = { timelineTracks: [{ id: 'v1' }, { id: 'v13' }, { id: 'v14' }, { id: 'subtitles' }],
   captionTrackId: 'subtitles', overlays: [{ id: 'html', trackId: 'v13' }],
@@ -53,7 +53,7 @@ test('top-level caption item plates resolve their own track z even without group
   assert.equal(plate.split, true);
   assert.equal(plate.plateZ.get('cap-c1'), 1);
   assert.equal(plate.layerZ, 2);
-  const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const handler = readHandlerSource();
   assert.match(handler, /captionItemTrackIds\?: Record<string, string>/);
   assert.match(handler, /canvasTrackId: summary\.captionItemTrackIds\?\.\[row\.caption\.id\]/);
   assert.match(handler, /captionItemBarrierZ\.length \? \{ barrierZ: captionItemBarrierZ \}/);

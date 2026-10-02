@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { ALPHA_INTAKE_SOURCE_PATTERN, isAlphaIntakeSource } from '../lib/common/alpha-intake-routing.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 // task/2026-09-02-shell-frame-engine-alpha-intake: open-handler は @theia/core の
 // FrontendApplicationContribution で node:test から直接 import すると document is not defined になる
@@ -11,7 +12,7 @@ import { ALPHA_INTAKE_SOURCE_PATTERN, isAlphaIntakeSource } from '../lib/common/
 // 正規表現ソース照合で配線を確認する。判定関数だけは lib から直接テストする。
 const here = dirname(fileURLToPath(import.meta.url));
 const read = relative => readFileSync(join(here, '..', 'src', ...relative), 'utf8');
-const openHandler = read(['browser', 'akari-preview-open-handler.ts']);
+const openHandler = readHandlerSource();
 const protocol = read(['common', 'akari-preview-protocol.ts']);
 const service = read(['node', 'akari-preview-service.ts']);
 

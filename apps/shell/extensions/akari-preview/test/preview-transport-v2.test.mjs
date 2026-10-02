@@ -3,9 +3,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url));
-const source = readFileSync(join(sourceRoot, 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const source = readHandlerSource();
 const htmlStart = source.indexOf('return `<!doctype html>');
 const html = source.slice(htmlStart, source.indexOf('</html>', htmlStart));
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));

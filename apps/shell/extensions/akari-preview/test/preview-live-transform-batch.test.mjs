@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const previewSource = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const previewSource = readHandlerSource();
 const annotationsSource = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const inspectorSource = readFileSync(new URL('../../akari-annotations/src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 

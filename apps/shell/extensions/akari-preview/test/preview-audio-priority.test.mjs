@@ -8,10 +8,11 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { selectPreviewAudioItemsAt } from '../lib/common/preview-audio-priority.js';
 import { selectPreviewAudioItemsAt as selectServer } from '../../../../../packages/preview-server/src/preview-audio-summary.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const compiledUrl = new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url);
 const compiled = readFileSync(compiledUrl, 'utf8');
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const require = createRequire(compiledUrl);
 
 test('priority selector mirrors server for boundaries, unknown duration, state, stable ties and missing at', () => {

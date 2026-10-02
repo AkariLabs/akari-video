@@ -13,9 +13,10 @@ import {
     PREVIEW_RATE_PRESETS,
     wallClockOutputTime
 } from '../lib/common/preview-playback-rate.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const handlerSource = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const handlerSource = readHandlerSource();
 const compiledHandler = readFileSync(join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'), 'utf8');
 
 function extractMethod(name) {

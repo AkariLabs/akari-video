@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 import { computeZoomMinimapLayout } from '../lib/common/zoom-minimap-layout.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const closeTo = (actual, expected, epsilon = 1e-9) => {
     assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} should be within ${epsilon} of ${expected}`);
@@ -67,7 +67,7 @@ test('serialized function works without module state', () => {
     assert.deepEqual(JSON.parse(JSON.stringify(serialized(input))), computeZoomMinimapLayout(input));
 });
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const renderZoom = source.slice(source.indexOf('            const renderZoom = () => {'),
     source.indexOf('            const setZoom = value => {'));
 for (const zoom of [0.5, 1, 1.05, 1.051]) {

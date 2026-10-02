@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 
 // Read the template's cooked text without emitting lib/ or mounting the webview.
 function extractTemplate(methodName) {

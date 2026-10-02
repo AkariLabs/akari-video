@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { readInternalEdit } from '@akari-video/edit-store';
 import { collectItems, groupedCaptionBagSourceIds, projectDetachedCaptionItems, projectPreviewCaptionRows } from '../lib/common/preview-items.js';
 import { resolvePreviewCaptionTrackOrder } from '../lib/common/caption-track-order.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const internal = readInternalEdit(JSON.stringify({
   version: 2, output: { width: 640, height: 360, fps: 30 },
@@ -87,7 +88,7 @@ test('excluded bag row and grouped caption item draw the source cue once', () =>
 });
 
 test('webview places a grouped caption row between its media and HTML siblings', () => {
-  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const source = readHandlerSource();
   const start = source.indexOf('            const renderCaption = () => {');
   const end = source.indexOf("            window.addEventListener('akari-frame-engine-seek'", start);
   assert.ok(start >= 0 && end > start);

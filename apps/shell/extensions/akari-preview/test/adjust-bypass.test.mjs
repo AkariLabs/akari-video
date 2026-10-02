@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { applyAdjustBypass } from '../lib/common/adjust-bypass.js';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 for (const fn of [applyAdjustBypass, new Function('return (' + applyAdjustBypass.toString() + ')')()]) {
   test('adjust bypass removes only target adjustment and preserves raw summary', () => {
@@ -19,7 +20,7 @@ for (const fn of [applyAdjustBypass, new Function('return (' + applyAdjustBypass
   });
 }
 test('A/B event, engine projection and DOM bypass are connected', () => {
-  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const source = readHandlerSource();
   assert.match(source, /TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass'/u);
   assert.match(source, /const onAdjustBypass[\s\S]+type: 'akari-preview-adjust-bypass'/u);
   assert.match(source, /removeEventListener\(TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass\)/u);
@@ -36,10 +37,10 @@ test('A/B event, engine projection and DOM bypass are connected', () => {
 });
 
 test('A/B widget state seeds both webview scripts across setHTML and edit changes', () => {
-  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const source = readHandlerSource();
   const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
   assert.match(source, /akariPreviewAdjustBypassIds\?: Set<string>/u);
-  const handler = source.slice(source.indexOf('const onAdjustBypass'), source.indexOf('window.addEventListener(TIMELINE_ADJUST_BYPASS_EVENT'));
+  const handler = sliceBetween('const onAdjustBypass', 'window.addEventListener(TIMELINE_ADJUST_BYPASS_EVENT');
   assert.ok(handler.indexOf('ids.add(String(id))') < handler.indexOf('widget.sendMessage'));
   assert.match(handler, /else ids.delete\(String\(id\)\)/u);
   const compiledHandler = compiled.slice(compiled.indexOf('const onAdjustBypass'));

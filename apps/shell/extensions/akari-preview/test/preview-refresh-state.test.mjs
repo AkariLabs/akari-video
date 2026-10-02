@@ -1,16 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import {
     capturePreviewPlaybackTick,
     resolvePreviewRefreshRestore
 } from '../lib/common/preview-refresh-state.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handlerSource = readFileSync(fileURLToPath(new URL(
-    '../src/browser/akari-preview-open-handler.ts', import.meta.url
-)), 'utf8');
+const handlerSource = readHandlerSource();
 
 test('一時停止中の手動シーク tick も最新位置として保持する', () => {
     assert.deepEqual(capturePreviewPlaybackTick({

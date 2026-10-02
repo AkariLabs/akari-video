@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const compiledUrl = new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url);
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const compiled = readFileSync(compiledUrl, 'utf8');
 const require = createRequire(compiledUrl);
 

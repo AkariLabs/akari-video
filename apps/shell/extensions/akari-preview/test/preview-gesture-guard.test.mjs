@@ -4,10 +4,11 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
 import { reducePreviewGesture } from '../lib/common/preview-gesture-guard.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const compiledUrl = new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url);
 const compiled = readFileSync(compiledUrl, 'utf8');
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const require = createRequire(compiledUrl);
 const plain = value => JSON.parse(JSON.stringify(value));
 const settle = () => new Promise(resolve => setImmediate(resolve));

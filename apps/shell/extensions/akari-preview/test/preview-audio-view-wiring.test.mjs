@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { previewAudioTrimOf } from '../lib/common/preview-audio-trim.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handlerSource = await readFile(
-    new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url),
-    'utf8'
-);
+const handlerSource = readHandlerSource();
 
 test('プレビュー音源列挙は tracks 射影だけを読み、audio.master indicator は宣言を維持する', () => {
     assert.match(handlerSource, /projectLegacyAudioView/);

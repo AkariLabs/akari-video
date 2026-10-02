@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = await readFile(process.env.AKARI_AUDIO_WIRING_SOURCE
-  ?? new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = process.env.AKARI_AUDIO_WIRING_SOURCE
+  ? await readFile(process.env.AKARI_AUDIO_WIRING_SOURCE, 'utf8')
+  : readHandlerSource();
 
 test('page owns one audio cache across summary rebuilds and releases it on unload', () => {
   const bootstrap = source.slice(source.indexOf('const sharedAudioCache ='), source.indexOf('const audioStatus ='));

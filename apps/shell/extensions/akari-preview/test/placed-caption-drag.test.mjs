@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { captionPositionFromVisualRect, placedCaptionPositionFromRects } from '../lib/common/caption-zone-write.js';
 import { evaluateHostTemplate } from './helpers/host-template.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 function section(start, end) {
     const from = source.indexOf(start), to = source.indexOf(end, from);
     assert.ok(from >= 0 && to > from);

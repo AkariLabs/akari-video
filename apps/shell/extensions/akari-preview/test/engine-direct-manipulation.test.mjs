@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../src/browser/akari-preview-open-handler.ts',import.meta.url),'utf8');
+import { readHandlerSource } from './helpers/handler-source.mjs';
+const source=readHandlerSource();
 function fragment(start,end){return source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start)))}
 const gesture=fragment('            const beginMediaTransformDrag =','            const beginLayerMoveDrag =');
 const guard=fragment('            let selectionDragActive =','            let suppressClick =');

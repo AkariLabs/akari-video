@@ -6,6 +6,7 @@ import { applyCaptionContextField } from '../../akari-annotations/lib/common/cap
 import { captionTextStyleVars, renderCaptionFragment } from '../../../../../packages/render-cut/src/captions.mjs';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/index.js';
 import { harness } from './caption-animator-webview-harness.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { PreviewContextBar } = require('../lib/browser/preview-context-bar.js');
@@ -86,13 +87,13 @@ test('字幕の線は文字色、配置は内容幅の箱、箇条書きと透�
 });
 
 test('縦書きの選択枠は行の実測矩形を追う', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     assert.match(source, /const captionVisualRect = [\s\S]*?querySelectorAll\('\.akari-caption__line'\)[\s\S]*?getBoundingClientRect\(\)/u);
     assert.match(source, /const rect = captionVisualRect\(\);\s*updateCaptionSelectBoxForRect\(rect\)/u);
 });
 
 test('縦書きプレートは出力プレビューで物理的な左右の固定端を保つ', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     assert.match(source, /\.akari-caption\.akari-caption--vertical \.akari-caption__plate\{left:var\(--caption-left,0\);right:var\(--caption-right,0\);width:var\(--caption-width,max-content\);margin-inline:0;writing-mode:horizontal-tb;align-items:var\(--caption-align-items,center\);\}/u);
     for (const [vertical_align, items] of [['top', 'flex-end'], ['middle', 'center'], ['bottom', 'flex-start']]) {
         assert.equal(captionTextStyleVars({ vertical: true, vertical_align })['--caption-align-items'], items);

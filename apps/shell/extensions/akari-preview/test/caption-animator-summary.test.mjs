@@ -6,6 +6,7 @@ import { buildCaptionAnimatorSummaryFields as project } from '../lib/common/edit
 import { readPreviewInternalEdit } from '../lib/common/preview-items.js';
 import { cutFixture, captionHost } from './caption-animator-cut-fixture.mjs';
 import { collectTrackZByItemId, resolveRecordTrackZ } from '../../../../../packages/edit-store/lib/index.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 test('GPU / OSR の実際の射影と animator・点・開始秒が一致する', () => {
     const fixture = cutFixture({ at: 60 });
@@ -162,7 +163,7 @@ test('実際の v2 読込から item の絶対開始秒と animator 点を復元
 });
 
 test('初期モデルと字幕差分更新は同じ純関数で宣言を供給する', async () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     assert.match(source, /const outputCaptions = buildCaptionAnimatorSummaryFields\(normalizePreviewCaptionClock\([\s\S]*?\), internal\)/);
     assert.match(source, /captions: outputCaptions,/);
     assert.match(source, /captions: buildCaptionAnimatorSummaryFields\(normalizePreviewCaptionClock\(captions, \[\]\), internal\)/);

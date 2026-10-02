@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { persistCaptionPlateTransform } from '../src/common/caption-plate-handles.ts';
 import { persistCaptionCuePosition } from '../src/common/caption-zone-write.ts';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 const runner = readFileSync(new URL('../evidence/preview-caption-drag-rotate-v1/scripts/run-l1.mjs', import.meta.url), 'utf8');
 const handleStart = handler.slice(handler.indexOf('const beginCaptionHandleDrag ='), handler.indexOf('const restoreLocalTransform ='));
 

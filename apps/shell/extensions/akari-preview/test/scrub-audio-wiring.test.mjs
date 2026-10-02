@@ -4,8 +4,9 @@ import test from 'node:test';
 
 import { createScrubAudioController } from '../../../../../packages/preview-server/public/audio-scrub.js';
 import { resolveScrubSeek } from '../lib/common/scrub-audio-wiring.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handlerSource = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handlerSource = readHandlerSource();
 const frontendSource = readFileSync(new URL('../src/browser/akari-preview-frontend-module.ts', import.meta.url), 'utf8');
 const wiringSource = readFileSync(new URL('../src/common/scrub-audio-wiring.ts', import.meta.url), 'utf8');
 

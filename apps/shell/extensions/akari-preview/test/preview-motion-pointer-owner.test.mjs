@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createMotionDrawPointerOwnership } from '../lib/common/preview-motion-pointer-owner.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 test('draw ownership is acquired and released once on every stop', () => {
     const calls = [];
     const ownership = createMotionDrawPointerOwnership(() => ({

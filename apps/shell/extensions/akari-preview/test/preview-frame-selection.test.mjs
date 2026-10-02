@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = await readFile(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const captureCss = source.slice(source.indexOf('/* Capture-only presentation.'), source.indexOf('.icon-button { display: inline-grid;'));
 const rules = [...captureCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, declarations]) => ({ selectors, declarations }));
 const ruleFor = selector => {

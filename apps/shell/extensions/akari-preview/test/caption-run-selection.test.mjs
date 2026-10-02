@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../lib/common/caption-run-selection.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 test('DOM selection becomes displayed grapheme offsets, including joined emoji and combining marks', () => {
     assert.deepEqual(captionRunSelectionRange('A👩‍👩‍👧‍👦', 'e\u0301最高'), { from: 2, to: 5 });
@@ -19,7 +19,7 @@ test('幅の狭い字幕でも範囲ツールバーをプレビュー内へ寄�
 });
 
 test('インスペクターから styled span をまたぐ文字範囲を選べる', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const start = source.indexOf('const selectEditorGraphemes =');
     const end = source.indexOf('const refreshActiveCaptionRuns =', start);
     assert.ok(start >= 0 && end > start);

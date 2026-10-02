@@ -1,14 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { harness } from './caption-animator-webview-harness.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('legacy and resolved preview payloads retain run ranges', () => {
   const run = { from: 1, to: 2, role: 'emphasis', style: { color: '#f00' } };
@@ -24,7 +21,7 @@ test('legacy and resolved preview payloads retain run ranges', () => {
 });
 
 test('webview injects the self-contained run HTML renderer at both layout sites', async () => {
-  const source = await readFile(join(root, 'src/browser/akari-preview-open-handler.ts'), 'utf8');
+  const source = readHandlerSource();
   assert.match(source, /applyCaptionRunsToHtml\.toString\(\)/);
   assert.match(source, /measuringPlate\.innerHTML = candidate\.runs\?\.length/);
   assert.match(source, /captionPlate\.innerHTML = caption\.runs\?\.length/);

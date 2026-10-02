@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
-const source = ts.createSourceFile('preview.ts', readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8'),
+const source = ts.createSourceFile('preview.ts', readHandlerSource(),
     ts.ScriptTarget.Latest, true);
 const owner = source.statements.find(node => ts.isClassDeclaration(node)
     && node.members.some(member => member.name?.getText(source) === 'measureOverlayBox'));

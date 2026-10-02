@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { previewPhotoSourcePoint, frontmostPreviewHit } from '../lib/common/preview-photo-hit.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const size = { width: 400, height: 200 };
 const output = { width: 1000, height: 500 };
@@ -39,7 +39,7 @@ test('flipped and rounded photo samples the displayed source pixel', () => {
 });
 
 test('preview shows brush mode and a sized circular cursor', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     assert.match(source, /layerVideo\.readyState < HTMLMediaElement\.HAVE_METADATA\s*&& !\(frameEngineMediaIdle && layer\.isImage === true\)/u);
     assert.match(source, /消しゴム中 — Esc で終わる/u);
     assert.match(source, /photoBrushCursor\.style\.width = diameter/u);

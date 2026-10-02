@@ -1,13 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { layerResizeCornerPoint } from '../lib/common/layer-resize-anchor.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const source = readHandlerSource();
 
 test('ネイティブテロップを含む layer resize は pointerdown 時の対角アンカーを固定する', () => {
     const layerResize = source.slice(

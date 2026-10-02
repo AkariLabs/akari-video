@@ -5,14 +5,12 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const extensionRoot = resolve(here, '..');
 const repositoryRoot = resolve(extensionRoot, '../../../..');
-const source = readFileSync(
-    join(extensionRoot, 'src/browser/akari-preview-open-handler.ts'),
-    'utf8'
-);
+const source = readHandlerSource();
 const width = 1080;
 const height = 1920;
 

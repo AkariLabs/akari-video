@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { PREVIEW_Z_ORDER_MENU_ITEMS, previewZOrderMenuVisible } from '../lib/common/preview-context-menu.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const host = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const host = readHandlerSource();
 const contribution = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
 
 test('four z menu commands are visible only for one real output-preview selection', () => {

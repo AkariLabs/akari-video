@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
@@ -8,10 +7,11 @@ import { previewChromeLocalPoint, previewChromeMenuOffset, previewChromeRectClea
 import { placePreviewLayerActions } from '../lib/common/preview-layer-action-placement.js';
 import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-handles-style.js';
 import { previewContextBarPageScript } from '../lib/browser/preview-context-bar-page.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { evaluateItemMotion } = require('../../../../../packages/overlay-runtime/src/item-motion.js');
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 
 test('every preview helper embedded with toString runs in an isolated scope', () => {
   const isolated = fn => new Function('return (' + fn.toString() + ')')();

@@ -1,13 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../lib/common/preview-playback-clock.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const source = readHandlerSource();
 
 test('two-source boundary holds the output clock while the next media clock is not ready', () => {
     const secondCut = { outStart: 6, outEnd: 11, in: 0.5, speed: 1 };

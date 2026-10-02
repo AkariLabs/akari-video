@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { placePreviewLayerActions } from '../lib/common/preview-layer-action-placement.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const overlaps = (a, b) => a.left < b.left + b.width && a.left + a.width > b.left
     && a.top < b.top + b.height && a.top + a.height > b.top;
@@ -54,7 +55,7 @@ test('panned selection keeps its controls reachable at the viewport edge', () =>
 
 test('preview receives the host menu bounds and uses the placement helper', () => {
     const host = readFileSync(new URL('../src/browser/preview-context-bar.ts', import.meta.url), 'utf8');
-    const webview = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const webview = readHandlerSource();
     assert.match(host, /type: 'akari-preview-context-menu-rect', rect: menuRect/u);
     assert.match(webview, /previewLayerActionsFn\(previewPane\.getBoundingClientRect\(\),\s*layerSelectBox\.getBoundingClientRect\(\), floatingMenuRect, zoomScale\)/u);
 });

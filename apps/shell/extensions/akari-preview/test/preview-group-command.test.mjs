@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { buildPreviewContextMenuMessage, previewGroupMenuVisible } from '../lib/common/preview-context-menu.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const host = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const host = readHandlerSource();
 const contribution = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
 const l1 = readFileSync(new URL('../evidence/preview-group-command-v1/scripts/run-l1.mjs', import.meta.url), 'utf8');
 

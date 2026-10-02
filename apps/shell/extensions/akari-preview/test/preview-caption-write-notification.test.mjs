@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { previewCaptionWrite } from '../lib/common/preview-caption-write.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const host = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const host = readHandlerSource();
 
 test('caption write notification carries the exact before and after bytes', () => {
     const before = '{"captions":[]}\r\n';
