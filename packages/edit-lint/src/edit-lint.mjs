@@ -43,6 +43,8 @@ import {
   baseHiddenState,
   endpointClearsHiddenState,
 } from "./lint/overlay-css.mjs";
+import { ExecutionError, EPSILON, effectiveSourceOut, readRequiredText, resolveReference, resolveReferenceBinding, unfetchedLibraryNote, isRegularFileSync, isRegularFile, structureFinding, captionFinding, addFinding, addSkipped, relativePath, isRecord, isFiniteNumber, isPositiveNumber, isNonEmptyString, numbersEqual, formatNumber, formatDb, messageOf } from "./lint/shared.mjs";
+export { ExecutionError } from "./lint/shared.mjs";
 
 const {
   areCutsAdjacent,
@@ -65,7 +67,6 @@ const { captionsHaveRenderableCues, collectFitBasisCandidates } = createRequire(
 );
 
 const VERSION = 1;
-const EPSILON = 1e-6;
 const MOTION_IN_OUT_PRESETS = new Set(["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"]);
 const MOTION_LOOP_PRESETS = new Set(["pulse", "float", "spin", "blink", "jiggle"]);
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -110,8 +111,6 @@ export function loadTextstylePresetIds(repoRoot) {
     throw error;
   }
 }
-
-export class ExecutionError extends Error {}
 
 const PROVIDER_GUIDANCE = 'provenance.provider は必須です（例: {"provider":"voicevox","credit":"VOICEVOX:ずんだもん"} / "fal" / "human"）';
 
@@ -5891,17 +5890,6 @@ function bindCaptionsToVisualSource(captionsRoot, visualSourceIds) {
   };
 }
 
-/** item が要求する素材終端（秒）。out が無ければフレーム尺と speed から導く。 */
-function effectiveSourceOut(item, fps) {
-  const source = item?.source;
-  const inSeconds = isFiniteNumber(source?.in) ? source.in : 0;
-  if (isFiniteNumber(source?.out)) return source.out;
-  if (Number.isInteger(item?.duration) && isPositiveNumber(fps)) {
-    return inSeconds + (item.duration / fps) * (isPositiveNumber(source?.speed) ? source.speed : 1);
-  }
-  return null;
-}
-
 function validateVisualAudioDuration(visualCuts, probeBySourceId, findings, skipped, fps) {
   const unavailableSourceIds = new Set();
   for (const { item, sourceId, itemPath } of visualCuts) {
@@ -6615,21 +6603,6 @@ function inputOverride(options, projectRoot, filePath) {
   return Object.hasOwn(overrides, key) ? { present: true, text: overrides[key] } : undefined;
 }
 
-async function readRequiredText(filePath, label, override) {
-  if (override?.present) {
-    if (typeof override.text !== "string") {
-      throw new ExecutionError(`${label} cannot be read: in-memory override is absent`);
-    }
-    return override.text;
-  }
-  try {
-    await access(filePath, fsConstants.R_OK);
-    return await readFile(filePath, "utf8");
-  } catch (error) {
-    throw new ExecutionError(`${label} cannot be read: ${messageOf(error)}`);
-  }
-}
-
 async function readOptionalJson(filePath, label, override) {
   if (override?.present) {
     if (override.text === null) return { exists: false };
@@ -6653,63 +6626,6 @@ async function readOptionalJson(filePath, label, override) {
     if (error.code === "ENOENT") return { exists: false };
     throw new ExecutionError(`${label} cannot be read: ${messageOf(error)}`);
   }
-}
-
-function resolveReference(editPath, reference, paths = null) {
-  return resolveReferenceBinding(editPath, reference, paths).path;
-}
-
-function resolveReferenceBinding(editPath, reference, paths = null) {
-  const projectPath = isAbsolute(reference) ? resolve(reference) : resolve(paths?.projectRoot ?? dirname(editPath), reference);
-  if (paths === null || isRegularFileSync(projectPath)) {
-    return { path: projectPath, libraryReference: false, scope: "project" };
-  }
-  const fallback = resolveLibraryFallback({
-    projectRoot: paths.projectRoot,
-    declaredPath: reference,
-    references: paths.assetReferences,
-    libraryRoots: paths.libraryRoots,
-  });
-  if (fallback.path !== null) {
-    return { path: fallback.path, libraryReference: true, scope: "library" };
-  }
-  return { path: projectPath, libraryReference: fallback.matched, scope: "project" };
-}
-
-function unfetchedLibraryNote(binding) {
-  return binding.libraryReference ? "（共有ライブラリ参照（未取得））" : "";
-}
-
-function isRegularFileSync(filePath) {
-  try {
-    return statSync(filePath).isFile();
-  } catch {
-    return false;
-  }
-}
-
-async function isRegularFile(filePath) {
-  try {
-    return (await stat(filePath)).isFile();
-  } catch {
-    return false;
-  }
-}
-
-function structureFinding(findings, path, message) {
-  addFinding(findings, { severity: "error", check: "edit.structure", message, path });
-}
-
-function captionFinding(findings, check, message, path) {
-  addFinding(findings, { severity: "error", check, message, path });
-}
-
-function addFinding(findings, finding) {
-  findings.push(finding);
-}
-
-function addSkipped(skipped, check, reason) {
-  skipped.push({ check, reason });
 }
 
 function finalizeFindings(findings) {
@@ -6762,47 +6678,8 @@ function sortObject(value) {
   return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right, "en")));
 }
 
-function relativePath(root, filePath) {
-  const value = relative(root, filePath);
-  return value === "" ? basename(filePath) : value;
-}
-
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
-}
-
-function isRecord(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function isFiniteNumber(value) {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isPositiveNumber(value) {
-  return isFiniteNumber(value) && value > 0;
-}
-
-function isNonEmptyString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-
-function numbersEqual(left, right) {
-  return isFiniteNumber(left) && isFiniteNumber(right) && Math.abs(left - right) <= EPSILON;
-}
-
-function formatNumber(value) {
-  return Number.isFinite(value) ? String(Number(value.toFixed(6))) : String(value);
-}
-
-function formatDb(value) {
-  if (value === null) return "n/a";
-  if (value === -Infinity) return "-inf dB";
-  return `${formatNumber(value)} dB`;
-}
-
-function messageOf(error) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 // Intentional dependency-free duplicate of the closed adjustV1 structure.
