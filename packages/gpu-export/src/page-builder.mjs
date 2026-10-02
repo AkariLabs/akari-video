@@ -12,7 +12,7 @@ import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { classifyCaptionWordMode, evaluateGpuEligibility } from "./eligibility.mjs";
 import { parseThreeEntrance } from "./three-entrance.mjs";
-import { buildMediaPlaneSummary, hasEffectiveItemAdjust, inferDurationGpu as inferDuration, inlineScript, readJsonIfPresent, resolveItemAdjustLutCubeTexts, safeJson } from "../../osr-export/src/page-build-shared.mjs";
+import { buildMediaPlaneSummary, hasEffectiveItemAdjust, inferDuration, inlineScript, readJsonIfPresent, resolveItemAdjustLutCubeTexts, safeJson } from "../../osr-export/src/page-build-shared.mjs";
 import { GPU_BLEND_MODES, gpuBlendGlsl } from "./blend-modes.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
