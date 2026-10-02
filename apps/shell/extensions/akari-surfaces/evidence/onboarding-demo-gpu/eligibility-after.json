@@ -1,0 +1,12 @@
+{
+ "eligible": true,
+ "summary": {
+  "same": 22,
+  "three": 0,
+  "dom": 9,
+  "degraded": 0,
+  "unsupported": 0
+ },
+ "entries": 31,
+ "bad": []
+}

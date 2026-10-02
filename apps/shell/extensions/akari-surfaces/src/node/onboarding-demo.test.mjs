@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -8,6 +9,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AkariOnboardingServiceImpl } from '../../lib/node/onboarding-service.js';
 import { splitOnboardingTokens } from '../../lib/onboarding/model.js';
 import { lintProject } from '../../../../../../packages/edit-lint/src/edit-lint.mjs';
+import { readRenderEdit } from '../../../../../../packages/render-cut/src/internal-render.mjs';
+import { loadCaptions, loadOverlays } from '../../../../../../packages/render-cut/src/render-cut.mjs';
+import { evaluateGpuEligibility } from '../../../../../../packages/gpu-export/src/eligibility.mjs';
+
+const require = createRequire(import.meta.url);
+const { toAnchorCaptions } = require('../../../../../../packages/edit-store/lib/index.js');
 
 // Production layout: apps/shell/extensions/akari-surfaces/evidence/onboarding-demo-production/plan.json.
 // お手本に声のダッキング鍵は無いので ducking を使わず、声の下は -14 dB、「BGM も」は +8 dB、締めは +10 dB。
@@ -231,7 +238,7 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
                 [31.55, 31.70], [31.76, 31.82], [31.88, 32.10], [32.10, 32.18], [32.18, 32.26],
                 [32.26, 32.33], [32.33, 32.53], [32.53, 32.54]
             ]);
-            assert.deepEqual(karaoke.text_style, { karaoke: { fill: 'smooth', done_color: '#FB923C' }, size_px: 62 });
+            assert.deepEqual(karaoke.text_style, { karaoke: { done_color: '#FB923C' }, size_px: 62 });
         } else assert.equal(captionData.captions[19].style, undefined);
         for (const track of edit.tracks) for (const item of track.items) {
             const path = item.source.path;
@@ -273,6 +280,37 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
             await service.writeExample(uri, join(sample, 'clip.mp4'), segments, segments.length, true);
             assert.deepEqual(await json(join(root, 'edit.json')), edit, 'five arguments produce stage 8');
         }
+    }
+});
+
+test('お手本のカラオケ段階と完成形は render-cut 経路で GPU 書き出し可能', async t => {
+    const { root, uri, service, segments } = await fixture(t);
+    for (const stage of [7, 8]) {
+        await service.writeExample(uri, join(sample, 'clip.mp4'), segments, segments.length, true, { stage });
+        const editSource = await readFile(join(root, 'edit.json'), 'utf8');
+        const captionsRoot = await json(join(root, 'captions.json'));
+        const { edit } = readRenderEdit(editSource, join(root, '.akari', 'render-tmp'), {
+            captions: toAnchorCaptions(captionsRoot)
+        });
+        const plannedCaptions = await loadCaptions(root, edit);
+        const loadedOverlays = await loadOverlays(root, edit);
+        const eligibility = evaluateGpuEligibility({
+            edit: { ...edit, overlays: loadedOverlays },
+            captions: plannedCaptions.captions,
+            defaultTextStyle: plannedCaptions.defaultTextStyle,
+            emphasisWords: plannedCaptions.emphasisWords
+        });
+        assert.equal(eligibility.eligible, true, `stage ${stage}: ${JSON.stringify(eligibility.entries.filter(entry =>
+            entry.classification === 'unsupported' || entry.classification === 'degraded'))}`);
+        assert.equal(eligibility.summary.unsupported, 0, `stage ${stage}`);
+        assert.equal(eligibility.summary.degraded, 0, `stage ${stage}`);
+        const karaoke = captionsRoot.captions.find(caption => caption.id === 'c-0020');
+        assert.equal(karaoke.style, 'karaoke', `stage ${stage}`);
+        assert.equal(karaoke.text_style.karaoke.done_color, '#FB923C', `stage ${stage}`);
+        assert.equal(Object.hasOwn(karaoke.text_style.karaoke, 'fill'), false, `stage ${stage}`);
+        assert.equal(Object.hasOwn(karaoke.text_style.karaoke, 'start_index'), false, `stage ${stage}`);
+        assert.deepEqual(eligibility.entries.find(entry => entry.kind === 'caption' && entry.id === karaoke.id)?.classification,
+            'same', `stage ${stage}`);
     }
 });
 
