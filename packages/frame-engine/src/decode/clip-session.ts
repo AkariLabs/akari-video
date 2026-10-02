@@ -19,6 +19,7 @@ import {
   RetainedSourceBytes,
 } from './source-bytes.js';
 import { RangeMp4Source, type RangeFetchStats } from './range-mp4-source.js';
+import { nearestFrameCovers } from './nearest-frame.js';
 import { resolveNearestFrameDefault } from './sample-table.js';
 
 export type ClipSessionState = 'idle' | 'loading' | 'ready' | 'degraded' | 'unavailable';
@@ -869,9 +870,7 @@ export function frameCoversTimestamp(
   if (!resolveNearestFrameDefault()) {
     return targetUs >= frame.timestamp && targetUs < frame.timestamp + duration;
   }
-  const distance = Math.abs(targetUs - frame.timestamp);
-  const halfDuration = duration / 2;
-  return distance < halfDuration || (distance === halfDuration && frame.timestamp <= targetUs);
+  return nearestFrameCovers({ timestamp: frame.timestamp, duration }, targetUs);
 }
 
 export function presentationFrameTiming(

@@ -1,4 +1,5 @@
 import { withTimeout } from './guard.js';
+import { nearestFrameCovers } from './nearest-frame.js';
 import { evaluateCodecSupport, type CodecSupport } from './codec-probe.js';
 import {
   buildKeyframeIndexFromHeader,
@@ -581,16 +582,14 @@ export function encodedChunkInitForSample(
   };
 }
 
-function frameCovers(frame: Pick<VideoFrame, 'timestamp' | 'duration'>, targetUs: number): boolean {
+export function frameCovers(frame: Pick<VideoFrame, 'timestamp' | 'duration'>, targetUs: number): boolean {
   if (typeof frame.duration !== 'number' || !Number.isFinite(frame.duration) || frame.duration <= 0) {
     return false;
   }
   if (!resolveNearestFrameDefault()) {
     return targetUs >= frame.timestamp && targetUs < frame.timestamp + frame.duration;
   }
-  const distance = Math.abs(targetUs - frame.timestamp);
-  const halfDuration = frame.duration / 2;
-  return distance < halfDuration || (distance === halfDuration && frame.timestamp <= targetUs);
+  return nearestFrameCovers({ timestamp: frame.timestamp, duration: frame.duration }, targetUs);
 }
 
 class DecoderExecutionError extends Error {
