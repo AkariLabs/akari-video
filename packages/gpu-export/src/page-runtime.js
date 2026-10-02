@@ -601,6 +601,7 @@
 
   const CAPTION_WORD_FREEZE_CSS = `
     .akari-caption__tok--karaoke{animation:none!important}
+    .akari-caption__tok--karaoke-smooth::after{display:none!important}
     .akari-caption__tok--pop{animation:none!important}
     .akari-caption__tok--reveal-word{animation:none!important;opacity:1!important}
     .akari-caption__emphasis-char{animation:none!important;opacity:1!important}
@@ -672,13 +673,14 @@
     if (element.classList.contains("akari-caption__emphasis-char")) return "emphasis-bang";
     if (element.classList.contains("akari-caption__tok--size-pulse")) return "emphasis-pulse";
     if (element.classList.contains("akari-caption__tok--karaoke")) return "karaoke";
+    if (element.classList.contains("akari-caption__tok--karaoke-smooth")) return "karaoke-smooth";
     if (element.classList.contains("akari-caption__tok--pop")) return "pop";
     if (element.classList.contains("akari-caption__tok--reveal-word")) return "reveal-word";
     return "plain";
   }
 
   function tokenStyle(element, role) {
-    if (role === "karaoke" || role === "pop" || role === "reveal-word") return role;
+    if (role === "karaoke" || role === "karaoke-smooth" || role === "pop" || role === "reveal-word") return role;
     const token = element.closest(".akari-caption__tok") ?? element;
     for (const style of [
       "one-char-bang", "one-char-jumble", "size-pulse", "color-accent", "color-only",
@@ -696,7 +698,7 @@
 
   function tokenTiming(element, role, emPx) {
     if (role === "plain") return null;
-    if (role === "karaoke") return {
+    if (role === "karaoke" || role === "karaoke-smooth") return {
       role, delaySec: cssSeconds(element, "--akari-tok-delay", 0),
       durationSec: cssSeconds(element, "--akari-tok-dur", 0.2), emPx,
     };
@@ -733,19 +735,24 @@
       const role = tokenRole(parent);
       const line = element.closest(".akari-caption__line");
       const lineIndex = line ? [...unitElement.querySelectorAll(".akari-caption__line")].indexOf(line) : 0;
-      return [...element.getClientRects()].map((rect, rectIndex) => ({
-        tokenIndex: chars.length ? Number(element.getAttribute("data-akari-char")) : tokenIndex,
-        ...(chars.length ? {
-          charIndex: Number(element.getAttribute("data-akari-char")),
-          wordIndex: words.indexOf(element.closest(".akari-caption__tok")),
-        } : {}),
-        rectIndex,
-        role,
-        style: tokenStyle(parent, role),
-        timing: tokenTiming(parent, role, emPx),
-        rect: relativeRect(rect, origin),
-        lineIndex: Math.max(0, lineIndex),
-      }));
+      const fillRects = chars.length && role === "karaoke-smooth" ? [...parent.getClientRects()] : [];
+      return [...element.getClientRects()].map((rect, rectIndex) => {
+        const fillRect = fillRects.find((fill) => fill.top < rect.bottom && fill.bottom > rect.top);
+        return {
+          tokenIndex: chars.length ? Number(element.getAttribute("data-akari-char")) : tokenIndex,
+          ...(chars.length ? {
+            charIndex: Number(element.getAttribute("data-akari-char")),
+            wordIndex: words.indexOf(element.closest(".akari-caption__tok")),
+          } : {}),
+          rectIndex,
+          role,
+          style: tokenStyle(parent, role),
+          timing: tokenTiming(parent, role, emPx),
+          rect: relativeRect(rect, origin),
+          ...(fillRect ? { fillRect: relativeRect(fillRect, origin) } : {}),
+          lineIndex: Math.max(0, lineIndex),
+        };
+      });
     });
     const lines = [...unitElement.querySelectorAll(".akari-caption__line")]
       .map((line) => relativeRect(line.getBoundingClientRect(), origin));
@@ -1382,13 +1389,13 @@
         );
         unitMeasurement = probeMeasurement;
         const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
-        const hasColor = roles.has("karaoke");
+        const hasColor = roles.has("karaoke") || roles.has("karaoke-smooth");
         const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
         if (hasColor && hasGeometry) throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
         mode = hasColor ? "color" : hasGeometry || animators.length > 0 ? "geometry" : "sprite";
         if (mode === "color") {
-          const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
-          const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
+          const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-color,#fff)!important}`;
+          const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-highlight-color,#ffd94a)!important}`;
           const [baseMeasurement, highlightMeasurement] = await measureCaptionVariantsStable(
             value,
             config,
@@ -1440,7 +1447,8 @@
       const textureRect = FE.captionWordTextureRect(unitMeasurement, config);
       tiles = mode === "sprite"
         ? null
-        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect, ...(animators.length ? { includeTokens: true } : {}) });
+        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect,
+          ...(mode === "color" || animators.length ? { includeTokens: true } : {}) });
       units.push({
         id,
         secondaryId,
@@ -1560,6 +1568,46 @@
         rotateDeg: (tile.rotateDeg ?? 0) + rotateDeg,
       };
     });
+  }
+
+  // The OSR smooth fill clips the highlighted copy of the text inside its span.
+  // The compositor accepts one color mix per integer tile, so partition at the
+  // two fractional clip edges and use coverage for their one-pixel columns.
+  const CAPTION_KARAOKE_TIME_EPSILON_SEC = 1e-6;
+
+  function karaokeDelayReached(timing, localSeconds) {
+    return localSeconds >= timing.delaySec - CAPTION_KARAOKE_TIME_EPSILON_SEC;
+  }
+
+  function karaokeSmoothTilesAt(tile, localSeconds, state = tile.static, canvasSize = null) {
+    const { timing, token } = tile;
+    const rect = token.fillRect ?? token.rect;
+    const duration = Math.max(0, timing.durationSec);
+    const progress = !karaokeDelayReached(timing, localSeconds) ? 0
+      : duration === 0 ? 1
+      : Math.max(0, Math.min(1, (localSeconds - timing.delaySec) / duration));
+    const left = rect.x;
+    const right = left + rect.width * progress;
+    const start = tile.static.x;
+    const end = start + tile.static.width;
+    const breaks = [...new Set([start, end, Math.floor(left), Math.ceil(left), Math.floor(right), Math.ceil(right)])]
+      .filter((x) => x >= start && x <= end).sort((a, b) => a - b);
+    return breaks.slice(0, -1).map((x, index) => {
+      const next = breaks[index + 1];
+      const mix = Math.max(0, Math.min(1, Math.min(x + 1, right) - Math.max(x, left)));
+      const centerOffset = x + (next - x) / 2 - (start + tile.static.width / 2);
+      const radians = (state.rotateDeg ?? 0) * Math.PI / 180;
+      const aspect = canvasSize ? canvasSize.height / canvasSize.width : 1;
+      // SpriteCompositor rotates/scales each tile around that tile's center.
+      // Keep every fragment on the original tile's affine transform.
+      return { ...state, x, width: next - x, mix,
+        translateX: (state.translateX ?? 0) + (Math.cos(radians) * (state.scaleX ?? 1) - 1) * centerOffset,
+        translateY: (state.translateY ?? 0) - Math.sin(radians) * (state.scaleX ?? 1) * aspect * centerOffset };
+    });
+  }
+
+  function karaokeWordMixAt(timing, localSeconds, interpolatedMix) {
+    return timing.durationSec === 0 ? Number(karaokeDelayReached(timing, localSeconds)) : interpolatedMix;
   }
 
   function buildCaptionBatches(units, maxUnits = CAPTION_BATCH_MAX_UNITS, maxHeight = CAPTION_BATCH_MAX_HEIGHT_PX) {
@@ -3115,7 +3163,13 @@
             }
             let tiles = unit.tiles.map((tile) => {
               if (tile.timing === null) return tile.static;
+              if (tile.timing.role === "karaoke-smooth") return tile.static;
               const wordState = FE.captionWordStateAt(tile.timing, localSeconds);
+              // CSS zero-duration animations with fill:both use the end state at
+              // the exact delay. Frame-engine clamps duration to 1e-9 instead.
+              if (tile.timing.role === "karaoke") {
+                wordState.mix = karaokeWordMixAt(tile.timing, localSeconds, wordState.mix);
+              }
               return {
                 ...tile.static,
                 mix: wordState.mix,
@@ -3128,6 +3182,8 @@
               };
             });
             if (unit.animator) tiles = captionAnimatorTilesAt(unit, tiles, seconds, config);
+            tiles = tiles.flatMap((tile, index) => unit.tiles[index].timing?.role === "karaoke-smooth"
+              ? karaokeSmoothTilesAt(unit.tiles[index], localSeconds, tile, config) : [tile]);
             if (unit.mode === "geometry") {
               draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
                 originX: unit.originX, originY: unit.originY, ...state });
