@@ -1016,7 +1016,7 @@ const TEXT_STYLE_KEYS = new Set([
     'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
     'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor', 'position', 'scale', 'rotate', 'shadow', 'glow',
     'animation', 'stroke', 'background', 'zone', 'layout', 'karaoke',
-    'stroke_inner', 'fill_gradient', 'extrude'
+    'stroke_inner', 'fill_gradient', 'extrude', 'strokes', 'fill'
 ]);
 const TEXT_TRANSFORM_VALUES = new Set(['upper', 'uppercase', 'lower', 'lowercase', 'title', 'capitalize', 'none']);
 const TEXT_ANCHOR_VALUES = new Set(['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']);
