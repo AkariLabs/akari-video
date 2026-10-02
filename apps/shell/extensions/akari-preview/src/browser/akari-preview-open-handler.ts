@@ -72,6 +72,7 @@ import {
     isUnknownKeyEditError,
     newerSavedByVersion,
     newerVersionOpenNotice,
+    normalizeCaptionClock,
     projectLegacyAudioView,
     projectSpeechDeclarations,
     resolveInternalTrackZ,
@@ -466,55 +467,7 @@ interface LoadedPreviewCaptions {
 export const normalizePreviewCaptionClock = (
     captions: readonly PreviewCaptionClockInput[],
     segments: readonly TimelineSegment[]
-): OutputPreviewCaption[] => {
-    const epsilon = 0.000001;
-    const output: OutputPreviewCaption[] = [];
-    for (const caption of captions) {
-        const legacyOutputCue = caption.clockDomain === 'legacy' && segments.some(segment =>
-            segment.kind === 'gap'
-            && caption.start >= segment.outStart - epsilon
-            && caption.end <= segment.outEnd + epsilon
-        );
-        const domain = caption.clockDomain === 'legacy'
-            ? (legacyOutputCue ? 'output' : 'source')
-            : caption.clockDomain;
-        if (domain === 'output' || segments.length === 0) {
-            output.push({ ...caption, clockDomain: 'output' });
-            continue;
-        }
-        let occurrence = 0;
-        for (const segment of segments) {
-            if (segment.kind !== 'src' || segment.in === undefined || segment.out === undefined) continue;
-            if (caption.clockSourceId !== undefined && segment.src !== caption.clockSourceId) continue;
-            const sourceStart = Math.max(caption.start, segment.in);
-            const sourceEnd = Math.min(caption.end, segment.out);
-            if (!(sourceEnd - sourceStart > epsilon)) continue;
-            const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
-            const projectTime = (sourceTime: number): number =>
-                segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
-            occurrence += 1;
-            const sourceCueId = caption.sourceCueId ?? caption.id;
-            const words = caption.words?.flatMap(word => {
-                const wordStart = Math.max(word.start, sourceStart);
-                const wordEnd = Math.min(word.end, sourceEnd);
-                return wordEnd - wordStart > epsilon
-                    ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }]
-                    : [];
-            });
-            output.push({
-                ...caption,
-                ...(caption.id ? { id: `${caption.id}-output-${occurrence}` } : {}),
-                ...(sourceCueId ? { sourceCueId } : {}),
-                start: projectTime(sourceStart),
-                end: projectTime(sourceEnd),
-                ...(words && words.length > 0 ? { words } : { words: undefined }),
-                clockDomain: 'output'
-            });
-        }
-    }
-    return output.sort((left, right) => left.start - right.start || left.end - right.end);
-};
-// caption-clock-normalizer:end
+): OutputPreviewCaption[] => normalizeCaptionClock(captions, segments);
 
 interface EditSummaryCut {
     audio?: false;

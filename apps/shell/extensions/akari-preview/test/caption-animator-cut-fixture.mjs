@@ -12,7 +12,9 @@ const examples = new URL('../../../../../packages/schemas/examples/edit-v2-capti
 const start = compiled.indexOf('const normalizePreviewCaptionClock =');
 const end = compiled.indexOf('exports.normalizePreviewCaptionClock =', start);
 assert.ok(start >= 0 && end > start);
-export const normalizeClock = vm.runInNewContext(compiled.slice(start, end) + '\nnormalizePreviewCaptionClock;');
+export const normalizeClock = vm.runInNewContext(compiled.slice(start, end) + '\nnormalizePreviewCaptionClock;', {
+    edit_store_1: require('@akari-video/edit-store')
+});
 
 export function cutFixture({ fps = 30, at = 0, sourceDomain = false } = {}) {
     const edit = JSON.parse(readFileSync(new URL('edit.json', examples), 'utf8'));
