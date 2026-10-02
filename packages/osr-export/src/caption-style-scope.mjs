@@ -26,7 +26,10 @@ function qualifySelectorList(prelude, root, scope) {
   selectors.push(prelude.slice(start));
   return selectors.map(part => {
     const selector = part.trim();
-    if (selector.startsWith(".akari-caption__")) return part.replace(selector, `${root} ${selector}`);
+    if (selector.startsWith(".akari-caption__")
+      || (selector.includes(".akari-caption__rich-") && !selector.startsWith(".akari-caption"))) {
+      return part.replace(selector, `${root} ${selector}`);
+    }
     if (/^\.akari-caption(?:--[a-z-]+)?(?=$|[\s>+~.:#\[])/u.test(selector)) {
       return part.replace(selector, selector.replace(
         /^(\.akari-caption(?:--[a-z-]+)?)/u,

@@ -1,5 +1,6 @@
 import { type CaptionEmphasis, type CaptionWordTiming } from './caption-words-rederive';
 import { type CaptionRun, type CaptionRunStyle } from './caption-runs';
+import { type TextstyleCatalog } from './caption-style-preset';
 export declare const CAPTION_ZONES: readonly ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
 export type CaptionZone = typeof CAPTION_ZONES[number];
 export type CaptionBackgroundMode = 'per-line' | 'block';
@@ -201,7 +202,9 @@ export interface WordBookCaptionChange {
     display_text?: string;
     display_fragments?: string[];
 }
-export declare function parseCaptions(source: string): {
+export declare function parseCaptions(source: string, options?: {
+    catalog?: TextstyleCatalog;
+}): {
     captions: CaptionRecord[];
     defaultTextStyle?: CaptionTextStyle;
     warnings: string[];
@@ -261,7 +264,9 @@ export declare function captionEditNotices(result: {
 }, oldDisplayText: string): string[];
 export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;
-export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null): {
+export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null, options?: {
+    catalog?: TextstyleCatalog;
+}): {
     source: string;
     changed: number;
 };

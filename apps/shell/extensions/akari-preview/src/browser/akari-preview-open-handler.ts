@@ -60,6 +60,8 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
     applyCaptionRunsToHtml,
+    CAPTION_RICH_LAYER_CSS,
+    alignCaptionRichFillPhase,
     TEXTSTYLE_CATALOG,
     captionEditNotices,
     captionRunStyleFromLook,
@@ -19025,6 +19027,76 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const captionResolvedOpen = caption => ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                 .replace('akari-caption--single-line', 'akari-caption--single-line' + captionContextClasses(caption));
+            const applyRichCaptionLayers = (host, caption) => {
+                const style = caption?.textStyle;
+                if (!style || (style.fill === undefined && style.strokes === undefined)) return;
+                const root = host.querySelector('.akari-caption');
+                if (!root) return;
+                root.classList.add('akari-caption--rich');
+                root.dataset.richFillType = style.fill?.type || 'solid';
+                const css = document.createElement('style');
+                css.textContent = ${JSON.stringify(CAPTION_RICH_LAYER_CSS)};
+                root.appendChild(css);
+                const font = Number(style.size_px) || 38;
+                const strokes = Array.isArray(style.strokes) ? style.strokes
+                    : style.stroke ? [{ color: style.stroke.color || '#000000', width_px: style.stroke.width_px ?? 1.5 }] : [];
+                const em = number => String(Number(number.toFixed(6))) + 'em';
+                for (const line of root.querySelectorAll('.akari-caption__line')) {
+                    if (!line.querySelector('.akari-caption__tok')) {
+                        if ([...line.childNodes].every(node => node.nodeType === Node.TEXT_NODE)) {
+                            const source = line.textContent || '';
+                            line.textContent = '';
+                            for (const part of new Intl.Segmenter(undefined, { granularity: 'word' }).segment(source)) {
+                                const token = document.createElement('span');
+                                token.className = 'akari-caption__tok';
+                                token.textContent = part.segment;
+                                line.appendChild(token);
+                            }
+                        } else {
+                            const token = document.createElement('span');
+                            token.className = 'akari-caption__tok';
+                            while (line.firstChild) token.appendChild(line.firstChild);
+                            line.appendChild(token);
+                        }
+                    }
+                    for (const token of line.querySelectorAll('.akari-caption__tok')) {
+                        const walker = document.createTreeWalker(token, NodeFilter.SHOW_TEXT);
+                        const nodes = [];
+                        while (walker.nextNode()) nodes.push(walker.currentNode);
+                        for (const node of nodes) {
+                            const value = node.textContent || '';
+                            if (!value) continue;
+                            const segment = document.createElement('span');
+                            segment.className = 'akari-caption__rich-segment';
+                            node.parentNode.insertBefore(segment, node);
+                            const layer = (name, hidden = true) => {
+                                const span = document.createElement('span');
+                                span.className = 'akari-caption__rich-' + name;
+                                if (hidden) span.setAttribute('aria-hidden', 'true');
+                                span.textContent = value;
+                                segment.appendChild(span);
+                                return span;
+                            };
+                            layer('shadow');
+                            for (const stroke of strokes) {
+                                const span = layer('stroke');
+                                span.style.setProperty('--caption-rich-stroke-color', stroke.color);
+                                span.style.setProperty('--caption-rich-stroke-width', em(2 * stroke.width_px / font));
+                                span.style.setProperty('--caption-rich-stroke-offset-x', em((stroke.offset_x || 0) / font));
+                                span.style.setProperty('--caption-rich-stroke-offset-y', em((stroke.offset_y || 0) / font));
+                            }
+                            layer('fill', false).dataset.karaokeText = value;
+                            node.remove();
+                        }
+                    }
+                }
+                const align = ${alignCaptionRichFillPhase.toString()};
+                align(root);
+                document.fonts.ready.then(() => align(root));
+            };
+            const richPreviewWords = (line, renderText) => Array.from(
+                new Intl.Segmenter(undefined, { granularity: 'word' }).segment(line), part => part.segment
+            ).map(word => '<span class="akari-caption__tok">' + renderText(word) + '</span>').join('');
             const captionHasScaledRun = caption => Boolean(caption?.runs?.some(run =>
                 Number.isFinite(run?.style?.scale) && run.style.scale !== 1));
             const captionSizedRunPlateCss = caption => captionHasScaledRun(caption)
@@ -19103,13 +19175,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     + 'font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
-                    + (caption.textStyle?.fill_gradient ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
+                    + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
                     + captionSizedRunPlateCss(caption)
                     + frameFitCss
                     + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;will-change:transform,color;}'
-                    + (caption.textStyle?.fill_gradient ? '.akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
+                    + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
                     + (caption.textStyle?.karaoke
                         ? '@keyframes akari-caption-karaoke-wipe{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0 0 0 0);}}'
@@ -19141,13 +19213,14 @@ body { display: grid; place-items: center; padding: 32px; }
                         ? '.akari-caption--single-line .akari-caption__plate{left:4%;right:4%;width:auto;box-sizing:border-box;}'
                             + '.akari-caption--single-line .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;background:var(--plate-bg,var(--plate-ext-bg,transparent));border-radius:var(--plate-radius,var(--plate-ext-radius,0));}'
                         : '';
-                    if (caption.wordStyles && caption.resolvedWords) {
+                    if ((caption.wordStyles || caption.textStyle?.fill !== undefined
+                        || caption.textStyle?.strokes !== undefined) && caption.resolvedWords) {
                         let currentLine = caption.resolvedWords.length ? caption.resolvedWords[0].line : 0;
                         const markup = caption.resolvedWords.map((word, index) => {
                             const lineBreak = !caption.textStyle?.vertical && word.line !== currentLine
                                 ? '</p><p class="akari-caption__line">' : '';
                             currentLine = word.line;
-                            const style = caption.wordStyles.find(entry => entry.from <= index && index < entry.to);
+                            const style = caption.wordStyles?.find(entry => entry.from <= index && index < entry.to);
                             if (!style) return lineBreak + '<span class="akari-caption__tok">'
                                 + renderText(word.text) + '</span>';
                             const vars = Object.entries(style.style_vars || {})
@@ -19159,10 +19232,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         }).join('');
                         return captionDecorationMarkup(captionResolvedOpen(caption)
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
-                        + (caption.textStyle?.fill_gradient ? '.akari-caption--single-line .akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
+                        + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption--single-line .akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                             + resolvedRunPlateCss
                             + resolvedFrameCss
-                            + (caption.textStyle?.fill_gradient ? '.akari-caption--single-line .akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
+                            + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption--single-line .akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                             + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
                             + captionContextCss(caption, false, true)
                             + (captionAligned(caption) ? '</style><div class="akari-caption__plate"><div class="akari-caption__alignbox"><p class="akari-caption__line">' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)})
@@ -19171,13 +19244,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     const resolvedMarkup = !caption.textStyle?.vertical && Array.isArray(caption.displayLines)
                         && caption.displayLines.length >= 2
-                        ? caption.displayLines.map(line => renderText(line)).join(
+                        ? caption.displayLines.map(line => caption.textStyle?.fill !== undefined
+                            || caption.textStyle?.strokes !== undefined
+                            ? richPreviewWords(line, renderText) : renderText(line)).join(
                             '</p><p class="akari-caption__line">'
                         )
-                        : renderText(caption.text);
+                        : caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined
+                            ? richPreviewWords(caption.text, renderText) : renderText(caption.text);
                     return captionDecorationMarkup(captionResolvedOpen(caption)
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
-                        + (caption.textStyle?.fill_gradient ? '.akari-caption--single-line .akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
+                        + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption--single-line .akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                         + resolvedRunPlateCss
                         + resolvedFrameCss
                         + captionContextCss(caption, false)
@@ -19190,7 +19266,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? String(caption.text || '').split(/\\r?\\n/)
                     : splitCaptionLines(caption.text || '', captionLineBudget, Boolean(renderChars));
                 const markup = lines.map(line => '<p class="akari-caption__line">'
-                    + renderText(line) + '</p>').join('');
+                    + (caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined
+                        ? richPreviewWords(line, renderText) : renderText(line)) + '</p>').join('');
                 const blockMode = caption.textStyle && caption.textStyle.background
                     && caption.textStyle.background.mode === 'block';
                 const plateMarkup = blockMode
@@ -19210,7 +19287,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
-                    + (caption.textStyle?.fill_gradient ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
+                    + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
                     + captionSizedRunPlateCss(caption)
@@ -19360,6 +19437,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             : renderPlainCaptionFragment(caption, captionAnimation);
                         captionPlate.innerHTML = caption.runs?.length
                             ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
+                        applyRichCaptionLayers(captionPlate, caption);
                     } else {
                         captionPlate.innerHTML = '';
                     }

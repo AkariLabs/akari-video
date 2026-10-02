@@ -29,6 +29,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import {
     buildTimelineMap,
+    CAPTION_SAMPLE_TEXT,
     measureCaptionUnits,
     projectLegacyEdit,
     readInternalEdit,
@@ -2111,7 +2112,7 @@ export class AkariDaihonWidget extends BaseWidget {
         for (const item of presets.filter(preset => this.dockCategory === 'all' || preset.category === this.dockCategory)) {
             const card = document.createElement('button'); card.type = 'button';
             card.className = 'akari-daihon-tplcard'; card.dataset.presetId = item.id;
-            const preview = document.createElement('span'); preview.className = 'tprev'; preview.textContent = 'あア12';
+            const preview = document.createElement('span'); preview.className = 'tprev'; preview.textContent = CAPTION_SAMPLE_TEXT;
             Object.assign(preview.style, presetCardStyle(item.style));
             const name = document.createElement('span'); name.className = 'tname'; name.textContent = item.name;
             card.append(preview, name);
@@ -2250,7 +2251,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const button = document.createElement('button'); button.type = 'button'; button.className = 'akari-daihon-tplcard';
             button.dataset.emphasisPreset = item.id; button.disabled = !spans.length;
             const preview = document.createElement('span'); preview.className = 'tprev';
-            preview.textContent = spans.map(span => span.word).join('・').slice(0, 9) || 'あア12';
+            preview.textContent = spans.map(span => span.word).join('・').slice(0, 9) || CAPTION_SAMPLE_TEXT;
             Object.assign(preview.style, presetCardStyle(item.style));
             const name = document.createElement('span'); name.className = 'tname'; name.textContent = item.name;
             button.append(preview, name);
@@ -3788,7 +3789,7 @@ export class AkariDaihonWidget extends BaseWidget {
             card.dataset.presetId = item.presetId ?? '';
             const preview = document.createElement('span');
             preview.className = 'tprev';
-            preview.textContent = 'あア12';
+            preview.textContent = CAPTION_SAMPLE_TEXT;
             Object.assign(preview.style, presetCardStyle(item.style));
             const name = document.createElement('span');
             name.className = 'tname';

@@ -144,8 +144,10 @@ test("caption measurement roots are frozen in the same settled state the raster 
 
   const freezeUses = build.match(/\$\{CAPTION_WORD_FREEZE_CSS\}/gu) ?? [];
   const settledFreezeUses = build.match(/\$\{CAPTION_WORD_FREEZE_CSS\}\$\{motionFreezeCss\}\$\{measureSettleCss\}/gu) ?? [];
-  assert.equal(freezeUses.length, 7); // six measurement variants plus the raster stylesheet
-  assert.equal(settledFreezeUses.length, 6);
+  // Rich fill phase resolution measures the raster HTML in a seventh settled root.
+  assert.equal(freezeUses.length, 8); // six variants, rich phase root, raster stylesheet
+  assert.equal(settledFreezeUses.length, 7);
+  assert.match(build, /captionRichPhaseHtml\(value, config, html,\s*`\$\{CAPTION_WORD_FREEZE_CSS\}\$\{motionFreezeCss\}\$\{measureSettleCss\}`\)/u);
   assert.match(build, /const motionFreezeCss = hasMotion \? CAPTION_MOTION_FREEZE_CSS : ""/u);
 
   const bandAssignments = [...build.matchAll(/bandCss = \[([^\n]+)\];/gu)].map((match) => match[1]);

@@ -9,6 +9,10 @@
 全フィールド（フォント / 太さ / 色 / 字間 / 縁取り / 座布団 / 影 / グロー / 大文字化）が
 そのままツマミであり、派生スタイルはユーザーがツマミで作る。
 
+棚・台本・インスペクタのサンプル文字列は
+`packages/edit-store/src/caption-sample-text.ts` の `CAPTION_SAMPLE_TEXT` 1 定数を使う。
+サムネ生成でも同じ値を参照し、各画面や生成スクリプトへ文字列を直書きしない。
+
 ## 使い方
 
 `style` オブジェクトは `captions.json` の `default_text_style` と同じ語彙系（snake_case）。

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
     derivePresetShowcaseChips,
     filterPresetShowcaseItems,
-    parsePresetShowcaseJsonl
+    parsePresetShowcaseJsonl,
+    appendLibraryTextstyleShowcaseItems
 } from '../lib/common/preset-showcase.js';
 
 test('parsePresetShowcaseJsonl: retired telop is never offered', () => {
@@ -84,6 +85,20 @@ test('parsePresetShowcaseJsonl: textanim / textstyle の壊れ行をスキップ
     const invalidStyle = JSON.stringify({ id: 'bad', kind: 'textstyle', category: 'subtitle', name: '不正', sample_text: '不足' });
     assert.deepEqual(parsePresetShowcaseJsonl(invalidAnimation, 'textanim'), []);
     assert.deepEqual(parsePresetShowcaseJsonl(invalidStyle, 'textstyle'), []);
+});
+
+test('library textstyle follows built-ins, carries origin and drops conflicting ids', () => {
+    const builtin = [{ kind: 'textstyle', id: 'neon', name: 'Built-in', tags: [] }];
+    const library = [
+        { id: 'neon', name: 'Other', category: 'test', style: {}, origin: 'library' },
+        { id: 'library-gold-sample', name: 'Gold', category: 'metallic', style: { strokes: [] }, origin: 'library' }
+    ];
+    const items = appendLibraryTextstyleShowcaseItems(builtin, library, () => 'file:///preview.png');
+    assert.equal(items.length, 2);
+    assert.equal(items[0], builtin[0]);
+    assert.equal(items[1].origin, 'library');
+    assert.equal(items[1].previewUrl, 'file:///preview.png');
+    assert.deepEqual(items[1].style, { strokes: [] });
 });
 
 test('derivePresetShowcaseChips: 退役後の 3 種の件数を固定順で返す', () => {

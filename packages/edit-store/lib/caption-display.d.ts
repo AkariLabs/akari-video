@@ -8,6 +8,28 @@ import { type CaptionRun } from './caption-runs';
 export declare const CAPTION_DISPLAY_SCHEMA: "caption-layout/v1";
 export declare const CAPTION_DISPLAY_MODE: "single_line_sequential";
 export declare const CAPTION_DISPLAY_ALGORITHM: "a4-ja-two-fragment-v1";
+export declare const CAPTION_RICH_LAYER_CSS = ".akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*=\"color:\"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*=\"-webkit-text-stroke:\"][style*=\"px\"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*=\"-webkit-text-stroke:\"][style*=\"px\"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}";
+type RichRect = {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+};
+type RichFillNode = {
+    getBoundingClientRect(): RichRect;
+    style: {
+        setProperty(name: string, value: string): void;
+    };
+};
+type RichLineNode = {
+    getBoundingClientRect(): RichRect;
+    querySelectorAll(selector: string): Iterable<RichFillNode>;
+};
+/** Place each token's image in the coordinate system of its complete line. */
+export declare function alignCaptionRichFillPhase(root: {
+    getAttribute(name: string): string | null;
+    querySelectorAll(selector: string): Iterable<RichLineNode>;
+}): void;
 export declare const CAPTION_UNIT_METRIC: "ascii-half-other-one-v1";
 export interface CaptionBreakHints {
     preferred_second_starts?: string[];
@@ -207,6 +229,20 @@ export declare function scaleCaptionPx(value: number, scale: number): number;
  * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
  */
 export declare function captionAnchorPositionVars(anchorValue: unknown, positionValue: unknown, verticalAlignValue: unknown): Record<string, string>;
+export declare function deriveMetallicStops(hue: string, variant: 'gold' | 'navy'): Array<{
+    at: number;
+    color: string;
+}>;
+/** A nonmetallic or edited stop sequence has no one-knob hue representation. */
+export declare function readMetallicHue(stops: unknown): {
+    hue: string;
+    variant: 'gold' | 'navy';
+} | null;
+export declare function resolveCaptionRichFillVars(fill: UnknownRecord, scale?: number): Record<string, string>;
+export declare function resolveCaptionRichStrokes(style: UnknownRecord, output?: {
+    width: number;
+    height: number;
+}): Array<Record<string, string>>;
 /** Resolve the complete snake_case captions.json line style vocabulary to CSS variables. */
 export declare function resolveCaptionLineStyleVars(style: UnknownRecord | null | undefined, output: {
     width: number;

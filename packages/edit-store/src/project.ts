@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { parseCaptions, type CaptionRecord, type CaptionTextStyle } from './caption-store';
+import { loadTextstyleCatalogSync } from './textstyle-library-node';
 import { serializeCaptions, serializeEdit, serializeMotion } from './canonical';
 import type {
     KeyframeV2,
@@ -107,7 +108,7 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
     const captionsRoot = captionsText === undefined ? undefined : JSON.parse(captionsText) as unknown;
     const parsedCaptions = captionsText === undefined
         ? { captions: [] as CaptionRecord[], warnings: [] as string[] }
-        : parseCaptions(captionsText);
+        : parseCaptions(captionsText, { catalog: loadTextstyleCatalogSync({ env: process.env }).catalog });
     const captions: ProjectCaptions = {
         rows: parsedCaptions.captions,
         ...(parsedCaptions.defaultTextStyle !== undefined

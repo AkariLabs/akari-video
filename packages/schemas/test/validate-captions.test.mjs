@@ -29,6 +29,27 @@ function runValue(value) {
   return runPath(path);
 }
 
+test('textstyle v1 validates rich fills and strokes on default and cue styles', () => {
+  const fill = { type: 'gradient', angle_deg: 180, stops: [
+    { at: 0, color: '#111111' }, { at: 50, color: '#777777' }, { at: 100, color: '#ffffff' },
+  ] };
+  const strokes = [{ color: '#000000', width_px: 3, offset_x: 2, offset_y: -1 }];
+  const value = { default_text_style: { fill, strokes, color: '#abcdef', stroke: { color: '#ffffff', width_px: 1 } }, captions: [
+    { ...styleParity.caption, text_style: { fill: { type: 'solid', color: '#ff0000' }, strokes: [] } },
+  ] };
+  assert.equal(runValue(value).status, 0);
+  for (const invalidFill of [
+    { ...fill, stops: [{ at: 1, color: '#111111' }, { at: 100, color: '#ffffff' }] },
+    { ...fill, stops: [{ at: 0, color: '#111111' }, { at: 0, color: '#ffffff' }, { at: 100, color: '#000000' }] },
+    { ...fill, stops: [{ at: 0, color: '#111111' }, { at: 99, color: '#ffffff' }] },
+    { type: 'pattern', pattern: { id: 'unknown', scale: 1, fg: '#fff', bg: '#000' } },
+  ]) {
+    const result = runValue({ ...value, default_text_style: { fill: invalidFill } });
+    assert.equal(result.status, 1, result.stderr);
+  }
+  assert.equal(runValue({ ...value, default_text_style: { strokes: [{ color: '#fff' }] } }).status, 1);
+});
+
 test('background.fit accepts text/frame and rejects unknown values', () => {
   for (const fit of ['text', 'frame']) {
     assert.equal(runValue([{ ...styleParity.caption, text_style: { background: { fit } } }]).status, 0);

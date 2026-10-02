@@ -37,6 +37,7 @@ export * from './exits/readback.js';
 export * from './exits/webcodecs.js';
 export * from './exits/sprite-compositor.js';
 export * from './timeline/caption-motion.js';
+export * from './timeline/caption-words.js';
 export * from './timeline/caption-animator.js';
 export * from './timeline/caption-animator-dom.js';
 export * from './timeline/item-motion.js';

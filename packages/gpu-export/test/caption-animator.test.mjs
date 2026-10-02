@@ -195,6 +195,7 @@ test("caption unit builder activates tiles for plain animators and retains legac
   const { buildCaptionUnits } = extract(["buildCaptionUnits"], {
     FE, warnCaptionAnimatorOnce: (code) => messages.push(code), prepareCaptionAnimatorUnits,
     captionHtmlWithUnitMarkers: html => html,
+    captionRichPhaseHtml: (_value, _config, html) => html,
     captionRoot: () => ({ querySelectorAll: () => [], remove() {} }),
     document: { fonts: { ready: Promise.resolve() } },
     CAPTION_WORD_FREEZE_CSS: "", CAPTION_MEASURE_ROOT_CLASS: "measure",
@@ -221,6 +222,7 @@ test("animated caption texture freezes the plate and carries its box center", as
   const { buildCaptionUnits } = extract(["buildCaptionUnits"], {
     FE, warnCaptionAnimatorOnce: () => {}, prepareCaptionAnimatorUnits,
     captionHtmlWithUnitMarkers: html => html,
+    captionRichPhaseHtml: (_value, _config, html) => html,
     captionRoot: () => ({ querySelectorAll: () => [], remove() {} }),
     document: { fonts: { ready: Promise.resolve() } },
     CAPTION_WORD_FREEZE_CSS: "", CAPTION_MOTION_FREEZE_CSS: ".akari-caption__plate{animation:none!important}",

@@ -1,0 +1,32 @@
+{
+  "output": {
+    "width": 1080,
+    "height": 1920
+  },
+  "evidence": {
+    "telop-anger-shadow": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
+    "telop-broadcast-gold": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
+    "telop-pattern-skull": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
+    "karaoke-run-emphasis": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    }
+  }
+}

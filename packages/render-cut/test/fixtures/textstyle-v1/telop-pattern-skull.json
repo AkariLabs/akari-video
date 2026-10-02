@@ -1,0 +1,16 @@
+{
+  "id": "telop-pattern-skull",
+  "text": "スカル柄",
+  "style": {
+    "size_px": 82,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#111827", "width_px": 8 },
+      { "color": "#ffffff", "width_px": 2 }
+    ],
+    "fill": {
+      "type": "pattern",
+      "pattern": { "id": "skull", "scale": 1.25, "fg": "#ffffff", "bg": "#7c3aed" }
+    }
+  }
+}

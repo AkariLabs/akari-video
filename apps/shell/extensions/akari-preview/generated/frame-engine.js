@@ -3897,7 +3897,9 @@ ${indent}`);
         "karaoke",
         "stroke_inner",
         "fill_gradient",
-        "extrude"
+        "extrude",
+        "strokes",
+        "fill"
       ]);
       var TEXT_TRANSFORM_VALUES = /* @__PURE__ */ new Set(["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"]);
       var TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
@@ -4668,6 +4670,16 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/caption-sample-text.js
+  var require_caption_sample_text = __commonJS({
+    "packages/edit-store/lib/caption-sample-text.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.CAPTION_SAMPLE_TEXT = void 0;
+      exports.CAPTION_SAMPLE_TEXT = "\u3042\u30A212";
+    }
+  });
+
   // packages/edit-store/lib/caption-window.js
   var require_caption_window = __commonJS({
     "packages/edit-store/lib/caption-window.js"(exports) {
@@ -5165,7 +5177,8 @@ ${indent}`);
     "packages/edit-store/lib/caption-display.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+      exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+      exports.alignCaptionRichFillPhase = alignCaptionRichFillPhase;
       exports.measureCaptionUnits = measureCaptionUnits;
       exports.captionBreakBoundaryBlocked = captionBreakBoundaryBlocked;
       exports.joinCaptionLines = joinCaptionLines;
@@ -5185,6 +5198,10 @@ ${indent}`);
       exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
       exports.scaleCaptionPx = scaleCaptionPx;
       exports.captionAnchorPositionVars = captionAnchorPositionVars;
+      exports.deriveMetallicStops = deriveMetallicStops;
+      exports.readMetallicHue = readMetallicHue;
+      exports.resolveCaptionRichFillVars = resolveCaptionRichFillVars;
+      exports.resolveCaptionRichStrokes = resolveCaptionRichStrokes;
       exports.resolveCaptionLineStyleVars = resolveCaptionLineStyleVars;
       exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
       exports.resolveCaptionWordStyleVars = resolveCaptionWordStyleVars;
@@ -5197,6 +5214,19 @@ ${indent}`);
       exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
       exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
       exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
+      exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
+      function alignCaptionRichFillPhase(root) {
+        const gradient = root.getAttribute("data-rich-fill-type") === "gradient";
+        for (const line of root.querySelectorAll(".akari-caption__line,.akari-caption__resolved-line")) {
+          const lineRect = line.getBoundingClientRect();
+          for (const fill of line.querySelectorAll(".akari-caption__rich-fill")) {
+            const rect = fill.getBoundingClientRect();
+            fill.style.setProperty("--caption-rich-fill-position", `${Number((lineRect.left - rect.left).toFixed(3))}px ${Number((lineRect.top - rect.top).toFixed(3))}px`);
+            if (gradient)
+              fill.style.setProperty("--caption-rich-fill-size", `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+          }
+        }
+      }
       exports.CAPTION_UNIT_METRIC = "ascii-half-other-one-v1";
       var CAPTION_STYLE_KEYS = /* @__PURE__ */ new Set([
         "color",
@@ -5233,7 +5263,9 @@ ${indent}`);
         "stroke_inner",
         "fill_gradient",
         "extrude",
-        "karaoke"
+        "karaoke",
+        "strokes",
+        "fill"
       ]);
       var CAPTION_STROKE_KEYS = /* @__PURE__ */ new Set(["method", "color", "width_px"]);
       var CAPTION_BACKGROUND_KEYS = /* @__PURE__ */ new Set([
@@ -5787,6 +5819,10 @@ ${indent}`);
         validateTextStyleV0(value, label);
         if (Object.prototype.hasOwnProperty.call(value, "stroke"))
           validateCaptionStroke(value.stroke, `${label}.stroke`);
+        if (Object.prototype.hasOwnProperty.call(value, "strokes"))
+          validateCaptionRichStrokes(value.strokes, `${label}.strokes`);
+        if (Object.prototype.hasOwnProperty.call(value, "fill"))
+          validateCaptionRichFill(value.fill, `${label}.fill`);
         if (Object.prototype.hasOwnProperty.call(value, "stroke_inner")) {
           const inner = value.stroke_inner;
           if (!isRecord2(inner))
@@ -5850,6 +5886,68 @@ ${indent}`);
           validateHexColor(value.color, `${label}.color`);
         if (Object.prototype.hasOwnProperty.call(value, "width_px") && !finiteNonNegative2(value.width_px)) {
           fail("INVALID_TEXT_STYLE", `${label}.width_px must be a non-negative finite number`);
+        }
+      }
+      function validateCaptionRichStrokes(value, label) {
+        if (!Array.isArray(value))
+          fail("INVALID_TEXT_STYLE", `${label} must be an array`);
+        value.forEach((stroke, index) => {
+          const item = `${label}[${index}]`;
+          if (!isRecord2(stroke))
+            fail("INVALID_TEXT_STYLE", `${item} must be an object`);
+          rejectStyleUnknown(stroke, /* @__PURE__ */ new Set(["color", "width_px", "offset_x", "offset_y"]), item);
+          validateHexColor(stroke.color, `${item}.color`);
+          if (!finiteNonNegative2(stroke.width_px))
+            fail("INVALID_TEXT_STYLE", `${item}.width_px must be non-negative`);
+          for (const key of ["offset_x", "offset_y"]) {
+            if (Object.prototype.hasOwnProperty.call(stroke, key) && !finiteNumber2(stroke[key])) {
+              fail("INVALID_TEXT_STYLE", `${item}.${key} must be finite`);
+            }
+          }
+        });
+      }
+      function validateCaptionRichFill(value, label) {
+        if (!isRecord2(value))
+          fail("INVALID_TEXT_STYLE", `${label} must be an object`);
+        const keys = value.type === "solid" ? ["type", "color"] : value.type === "gradient" ? ["type", "stops", "angle_deg"] : value.type === "pattern" ? ["type", "pattern"] : null;
+        if (!keys)
+          fail("INVALID_TEXT_STYLE", `${label}.type must be solid, gradient, or pattern`);
+        rejectStyleUnknown(value, new Set(keys), label);
+        if (value.type === "solid")
+          validateHexColor(value.color, `${label}.color`);
+        if (value.type === "gradient") {
+          if (!finiteNumber2(value.angle_deg))
+            fail("INVALID_TEXT_STYLE", `${label}.angle_deg must be finite`);
+          if (!Array.isArray(value.stops) || value.stops.length < 2)
+            fail("INVALID_TEXT_STYLE", `${label}.stops must have at least two stops`);
+          let previous = -1;
+          value.stops.forEach((stop, index) => {
+            const item = `${label}.stops[${index}]`;
+            if (!isRecord2(stop))
+              fail("INVALID_TEXT_STYLE", `${item} must be an object`);
+            rejectStyleUnknown(stop, /* @__PURE__ */ new Set(["at", "color"]), item);
+            if (!finiteNumber2(stop.at) || stop.at < 0 || stop.at > 100 || stop.at <= previous) {
+              fail("INVALID_TEXT_STYLE", `${item}.at must be strictly ascending in [0, 100]`);
+            }
+            previous = stop.at;
+            validateHexColor(stop.color, `${item}.color`);
+          });
+          if (value.stops[0].at !== 0 || value.stops[value.stops.length - 1].at !== 100) {
+            fail("INVALID_TEXT_STYLE", `${label}.stops must begin at 0 and end at 100`);
+          }
+        }
+        if (value.type === "pattern") {
+          const pattern = value.pattern;
+          if (!isRecord2(pattern))
+            fail("INVALID_TEXT_STYLE", `${label}.pattern must be an object`);
+          rejectStyleUnknown(pattern, /* @__PURE__ */ new Set(["id", "scale", "fg", "bg"]), `${label}.pattern`);
+          if (!["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night"].includes(pattern.id)) {
+            fail("INVALID_TEXT_STYLE", `${label}.pattern.id is unknown`);
+          }
+          if (!finitePositive4(pattern.scale))
+            fail("INVALID_TEXT_STYLE", `${label}.pattern.scale must be positive`);
+          validateHexColor(pattern.fg, `${label}.pattern.fg`);
+          validateHexColor(pattern.bg, `${label}.pattern.bg`);
         }
       }
       function validateCaptionBackground(value, label) {
@@ -6614,6 +6712,13 @@ ${indent}`);
             ...typeof value.stroke.color === "string" ? { color: value.stroke.color } : {},
             ...finiteNumber2(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {}
           } } : {},
+          ...Array.isArray(value.strokes) ? { strokes: value.strokes.map((stroke) => ({
+            color: stroke.color,
+            width_px: stroke.width_px,
+            ...finiteNumber2(stroke.offset_x) ? { offset_x: stroke.offset_x } : {},
+            ...finiteNumber2(stroke.offset_y) ? { offset_y: stroke.offset_y } : {}
+          })) } : {},
+          ...isRecord2(value.fill) ? { fill: value.fill } : {},
           ...isRecord2(value.stroke_inner) ? { stroke_inner: {
             ...typeof value.stroke_inner.color === "string" ? { color: value.stroke_inner.color } : {},
             ...finiteNumber2(value.stroke_inner.width_px) ? { width_px: value.stroke_inner.width_px } : {}
@@ -6747,6 +6852,85 @@ ${indent}`);
           return value;
         return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
       }
+      var METALLIC_POSITIONS = {
+        gold: [0, 26, 44, 50, 58, 78, 100],
+        navy: [0, 34, 47, 51, 62, 82, 100]
+      };
+      function rgbFromHex(color) {
+        const hex = color.slice(1);
+        const expanded = hex.length === 3 ? [...hex].map((ch) => ch + ch).join("") : hex;
+        return [0, 2, 4].map((index) => Number.parseInt(expanded.slice(index, index + 2), 16));
+      }
+      function mixHex(color, other, fraction) {
+        return `#${rgbFromHex(color).map((channel) => Math.round(channel * fraction + other * (1 - fraction)).toString(16).padStart(2, "0")).join("")}`;
+      }
+      function deriveMetallicStops(hue, variant) {
+        if (!HEX_COLOR.test(hue) || !METALLIC_POSITIONS[variant])
+          throw new Error("invalid metallic hue or variant");
+        const colors = [
+          mixHex(hue, 0, 0.52),
+          hue.toLowerCase(),
+          mixHex(hue, 255, 0.45),
+          mixHex(hue, 255, 0.18),
+          mixHex(hue, 255, 0.45),
+          hue.toLowerCase(),
+          mixHex(hue, 0, 0.52)
+        ];
+        return METALLIC_POSITIONS[variant].map((at2, index) => ({ at: at2, color: colors[index] }));
+      }
+      function readMetallicHue(stops) {
+        if (!Array.isArray(stops) || stops.length !== 7 || !stops.every((stop) => isRecord2(stop)))
+          return null;
+        const variant = Object.keys(METALLIC_POSITIONS).find((candidate) => METALLIC_POSITIONS[candidate].every((at2, index) => stops[index].at === at2));
+        if (!variant || !HEX_COLOR.test(stops[1].color) || !HEX_COLOR.test(stops[5].color) || stops[1].color.toLowerCase() !== stops[5].color.toLowerCase())
+          return null;
+        const hue = stops[1].color;
+        const expected = deriveMetallicStops(hue, variant);
+        return expected.every((stop, index) => stop.color.toLowerCase() === stops[index].color.toLowerCase()) ? { hue, variant } : null;
+      }
+      var RICH_PATTERN_SHAPES = {
+        diamond: { size: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity=".5"/><path d="M-12 24 24-12M0 36 36 0" stroke="FG" stroke-width="2" opacity=".32"/>' },
+        dot: { size: 16, viewBox: 16, shape: '<circle cx="3" cy="3" r="2.5" fill="FG" opacity=".5"/><circle cx="11" cy="11" r="2" fill="FG" opacity=".35"/>' },
+        stripe: { size: 14, viewBox: 14, shape: '<path d="M0 0h14v7H0z" fill="FG"/>' },
+        gingham: { size: 22, viewBox: 22, shape: '<path d="M0 0h9v22H0zM0 0h22v9H0z" fill="FG" opacity=".55"/>' },
+        skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
+        hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
+        night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' }
+      };
+      function richPatternImage(pattern) {
+        const template = RICH_PATTERN_SHAPES[pattern.id];
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}"><rect width="100%" height="100%" fill="${pattern.bg}"/>${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, pattern.bg)}</svg>`;
+        return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+      }
+      function resolveCaptionRichFillVars(fill, scale = 1) {
+        if (fill.type === "solid")
+          return { "--caption-rich-fill-color": fill.color };
+        if (fill.type === "gradient")
+          return {
+            "--caption-rich-fill-color": "transparent",
+            "--caption-rich-fill-image": `linear-gradient(${fill.angle_deg}deg, ${fill.stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ")})`,
+            "--caption-rich-fill-size": "100% 100%",
+            "--caption-rich-fill-position": "0 0"
+          };
+        const pattern = fill.pattern;
+        return {
+          "--caption-rich-fill-color": "transparent",
+          "--caption-rich-fill-image": richPatternImage(pattern),
+          "--caption-rich-fill-size": `${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px ${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px`,
+          "--caption-rich-fill-position": "0 0"
+        };
+      }
+      function resolveCaptionRichStrokes(style, output) {
+        const scale = resolveCaptionReferenceScale(style, output);
+        const font = finitePositive4(style.size_px) ? style.size_px * scale : 38;
+        const strokes = Array.isArray(style.strokes) ? style.strokes : isRecord2(style.stroke) ? [{ color: style.stroke.color ?? "#000000", width_px: style.stroke.width_px ?? 1.5 }] : [];
+        return strokes.map((stroke) => ({
+          "--caption-rich-stroke-color": stroke.color,
+          "--caption-rich-stroke-width": `${formatCssNumber(2 * stroke.width_px * scale / font)}em`,
+          "--caption-rich-stroke-offset-x": `${formatCssNumber((stroke.offset_x ?? 0) * scale / font)}em`,
+          "--caption-rich-stroke-offset-y": `${formatCssNumber((stroke.offset_y ?? 0) * scale / font)}em`
+        }));
+      }
       function resolveCaptionLineStyleVarsAtScale(style, scale) {
         const vars = {};
         const px = (value) => scaleCaptionPx(value, scale);
@@ -6757,6 +6941,8 @@ ${indent}`);
         }
         if (typeof style.color === "string")
           vars["--caption-color"] = style.color;
+        if (isRecord2(style.fill))
+          Object.assign(vars, resolveCaptionRichFillVars(style.fill, scale));
         if (isRecord2(style.karaoke) && typeof style.karaoke.done_color === "string")
           vars["--caption-highlight-color"] = style.karaoke.done_color;
         if (finiteNumber2(style.size_px))
@@ -6766,9 +6952,11 @@ ${indent}`);
           const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.9)";
           vars["--caption-stroke"] = `${width * 2}px ${color}`;
         }
+        if (Array.isArray(style.strokes))
+          vars["--caption-stroke"] = "0 transparent";
         if (isRecord2(style.stroke_inner) && !isRecord2(style.stroke))
           vars["--caption-stroke"] = "0 transparent";
-        if (isRecord2(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color) => typeof color === "string" && HEX_COLOR.test(color)) && finiteNumber2(style.fill_gradient.angle_deg)) {
+        if (!isRecord2(style.fill) && isRecord2(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color) => typeof color === "string" && HEX_COLOR.test(color)) && finiteNumber2(style.fill_gradient.angle_deg)) {
           vars["--caption-fill-gradient"] = `linear-gradient(${style.fill_gradient.angle_deg}deg, ${style.fill_gradient.colors.join(", ")})`;
           vars["--caption-fill-clip"] = "text";
           vars["--caption-fill-color"] = "transparent";
@@ -6887,6 +7075,8 @@ ${indent}`);
           vars["--caption-webkit-text-stroke"] = `${formatCssNumber(width * 2)}px ${color}`;
           vars["--caption-paint-order"] = "stroke fill";
         }
+        if (Array.isArray(style.strokes))
+          vars["--caption-webkit-text-stroke"] = "0 transparent";
         if (isRecord2(style.stroke_inner) && !isRecord2(style.stroke))
           vars["--caption-webkit-text-stroke"] = "0 transparent";
         if (isRecord2(style.background) && finiteNonNegative2(style.background.radius_px)) {
@@ -6919,6 +7109,11 @@ ${indent}`);
         const scale = resolveCaptionReferenceScale(style, output);
         if (typeof style.color === "string")
           vars["--caption-tok-color"] = style.color;
+        if (isRecord2(style.fill)) {
+          const rich = resolveCaptionRichFillVars(style.fill, scale);
+          for (const [name, value] of Object.entries(rich))
+            vars[name.replace("--caption-rich-", "--caption-tok-rich-")] = value;
+        }
         if (finitePositive4(style.size_px))
           vars["--caption-tok-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
         if (typeof style.font_family === "string" && style.font_family.length > 0) {
@@ -6943,7 +7138,7 @@ ${indent}`);
           if (transform)
             vars["--caption-tok-text-transform"] = transform;
         }
-        if (isRecord2(style.stroke)) {
+        if (isRecord2(style.stroke) && !Array.isArray(style.strokes)) {
           const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
           const width = finiteNonNegative2(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
           vars["--caption-tok-webkit-text-stroke"] = `${formatCssNumber(width)}px ${color}`;
@@ -6985,7 +7180,7 @@ ${indent}`);
       }
       function captionRichTextShadowValue(style, scale) {
         const parts = [];
-        if (isRecord2(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
+        if (!Array.isArray(style.strokes) && isRecord2(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
           const radius = scaleCaptionPx(style.stroke_inner.width_px, scale);
           const color = typeof style.stroke_inner.color === "string" && HEX_COLOR.test(style.stroke_inner.color) ? style.stroke_inner.color : "#ffffff";
           for (let index = 0; index < 16; index++) {
@@ -15801,6 +15996,7 @@ ${indent}`);
       exports.withNewerVersionLintPrefix = withNewerVersionLintPrefix;
       __exportStar(require_edit_store(), exports);
       __exportStar(require_caption_store(), exports);
+      __exportStar(require_caption_sample_text(), exports);
       __exportStar(require_caption_style_preset(), exports);
       __exportStar(require_textstyle_catalog(), exports);
       __exportStar(require_caption_words_rederive(), exports);
@@ -22970,6 +23166,7 @@ ${indent}`);
     captionMeasurementsEqual: () => captionMeasurementsEqual,
     captionMotionAt: () => captionMotionAt,
     captionRevealGroupStateAt: () => captionRevealGroupStateAt,
+    captionRichInkExtentEm: () => captionRichInkExtentEm,
     captionWordStateAt: () => captionWordStateAt,
     captionWordTextureRect: () => captionWordTextureRect,
     capturePresentedRgba: () => capturePresentedRgba,
@@ -36874,6 +37071,28 @@ caused by: ${cause.stack}`;
   function integerTile(x3, y2, width, height) {
     return { x: x3, y: y2, width, height, mix: 0, visible: true, opacity: 1 };
   }
+  function captionRichInkExtentEm(style, emPx) {
+    if (!style || typeof style !== "object") return 0;
+    const record2 = style;
+    if (record2.fill === void 0 && record2.strokes === void 0) return 0;
+    const font = Math.max(1, Number(emPx) || Number(record2.size_px) || 38);
+    const scale = Number(record2.reference_height_px) > 0 ? font / (Number(record2.size_px) || font) : 1;
+    let extent = 0;
+    const strokes = Array.isArray(record2.strokes) ? record2.strokes : record2.stroke ? [record2.stroke] : [];
+    for (const stroke of strokes) {
+      if (!stroke || typeof stroke !== "object") continue;
+      const x3 = Math.abs(Number(stroke.offset_x) || 0);
+      const y2 = Math.abs(Number(stroke.offset_y) || 0);
+      extent = Math.max(extent, ((Number(stroke.width_px) || 0) + Math.max(x3, y2)) * scale / font);
+    }
+    if (record2.shadow && typeof record2.shadow === "object") {
+      extent = Math.max(extent, ((Number(record2.shadow.distance_px) || 0) + 2 * (Number(record2.shadow.blur_px) || 0)) * scale / font);
+    }
+    if (record2.glow && typeof record2.glow === "object") {
+      extent = Math.max(extent, ((Number(record2.glow.spread) || 0) + Math.max(Math.abs(Number(record2.glow.offset_x) || 0), Math.abs(Number(record2.glow.offset_y) || 0))) * scale / font);
+    }
+    return extent;
+  }
   function buildCaptionWordTiles(measurement, size) {
     const width = Number(size.width);
     const height = Number(size.height);
@@ -36881,6 +37100,7 @@ caused by: ${cause.stack}`;
       throw new Error("caption tile dimensions must be positive integers");
     }
     if (!measurement || measurement.tokens.length === 0) return null;
+    if (Number(size.inkExtentEm) > 0.35) return null;
     const textureRect = size.textureRect ?? {
       x: 0,
       y: 0,
