@@ -11,7 +11,6 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
@@ -44,51 +43,13 @@ import {
   endpointClearsHiddenState,
 } from "./lint/overlay-css.mjs";
 import { ExecutionError, EPSILON, effectiveSourceOut, readRequiredText, resolveReference, resolveReferenceBinding, unfetchedLibraryNote, isRegularFileSync, isRegularFile, structureFinding, captionFinding, addFinding, addSkipped, relativePath, isRecord, isFiniteNumber, isPositiveNumber, isNonEmptyString, numbersEqual, formatNumber, formatDb, messageOf } from "./lint/shared.mjs";
+import { readInternalEdit, projectLegacyEdit, timelineDurationSeconds, collectFitBasisCandidates, areCutsAdjacent, cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow, findCrossTrackLayerEvacuations, withoutItemAnchors, captionsHaveRenderableCues, resolveItemAnchors, toAnchorCaptions, TRANSITION_TYPE_IDS, findUnsupportedDeclaredTrackTransitions, resolveCaptionDisplay, CAPTION_TEXT_STYLE_FIELDS, CAPTION_ANIMATION_SLOTS, CAPTION_ANIMATION_SLOT_FIELDS, CAPTION_TEXTANIM_IDS } from "./lint/external.mjs";
 export { ExecutionError } from "./lint/shared.mjs";
-
-const {
-  areCutsAdjacent,
-  cutOverlapFrames,
-  findCrossTrackLayerEvacuations,
-  findUnsupportedDeclaredTrackTransitions,
-  isStillImageSourcePath,
-  planTransitionHandleWindow,
-  projectLegacyEdit,
-  readInternalEdit,
-  resolveItemAnchors,
-  resolveCaptionDisplay,
-  timelineDurationSeconds,
-  toAnchorCaptions,
-  TRANSITION_TYPE_IDS,
-  withoutItemAnchors,
-} = createRequire(import.meta.url)("../../edit-store/lib/index.js");
-const { captionsHaveRenderableCues, collectFitBasisCandidates } = createRequire(import.meta.url)(
-  "../../edit-store/lib/migrate/index.js",
-);
 
 const VERSION = 1;
 const MOTION_IN_OUT_PRESETS = new Set(["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"]);
 const MOTION_LOOP_PRESETS = new Set(["pulse", "float", "spin", "blink", "jiggle"]);
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const CAPTIONS_SCHEMA = JSON.parse(readFileSync(
-  new URL("../../schemas/captions.schema.json", import.meta.url),
-  "utf8",
-));
-const CAPTION_TEXT_STYLE_FIELDS = new Set(
-  Object.keys(CAPTIONS_SCHEMA.$defs.textStyle.properties),
-);
-const CAPTION_ANIMATION_SLOTS = new Set(
-  Object.keys(CAPTIONS_SCHEMA.$defs.textAnimation.properties),
-);
-const CAPTION_ANIMATION_SLOT_FIELDS = new Set(
-  Object.keys(CAPTIONS_SCHEMA.$defs.textAnimationSlot.properties),
-);
-const CAPTION_TEXTANIM_IDS = new Set(
-  readFileSync(new URL("../../../presets/textanim/index.jsonl", import.meta.url), "utf8")
-    .split("\n")
-    .filter((line) => line.trim())
-    .map((line) => JSON.parse(line).id),
-);
 const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json] [--no-reports] [--engine gpu|osr|auto]
        [--silence-error-seconds N] [--max-volume-error-db N]
        [--caption-silence-warn-percent N]
