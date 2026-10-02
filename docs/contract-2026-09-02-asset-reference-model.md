@@ -36,8 +36,8 @@
 - render-cut は解決した入力を render inputs 記録に `scope: "library"` として残す
   （既存 `scope: "akari"` と同列の additive 記録）。採用した実ルートを `library_root` に保存して後段でも検査する。edit-lint は解決できる参照を欠落と報告せず、
   台帳にあるが実体が無い参照は「共有ライブラリ参照（未取得）」として欠落報告する。
-- render-cut / edit-lint は依存ゼロ CLI のため、解決ロジックは各パッケージ内に**同一実装を重複**して
-  持つ（`src/library-reference.mjs`）。挙動同一性は両テストの同一ケース表で担保する。
+- 素材ライブラリ参照の解決ロジックの正本は `packages/creator-root/src/library-reference.mjs` に置く。
+  render-cut / edit-lint は各 `src/library-reference.mjs` から正本を再 export する。
 
 ## 3. 使い方（CLI）
 
