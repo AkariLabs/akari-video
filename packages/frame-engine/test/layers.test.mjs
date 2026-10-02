@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { applyHomography as referenceApply, cornersToHomography as referenceHomography } from '../../render-cut/src/perspective-homography.mjs';
-import { filterQuadCornersAt as legacyFilterQuadCornersAt } from '../../render-cut/src/filter-mask.mjs';
 import { computeLayerKeyframesVisual as previewVisual } from '../../preview-server/public/layer-keyframes-visual.js';
 import {
   applyHomography, buildResolvedTimelinePlan, computeLayerKeyframesVisual, cornersToHomography,
@@ -25,13 +24,12 @@ test('filter corners default to the full frame', () => {
 test('filter corners use static perspective without keyframes', () => {
   const layer = { perspective: { corners: movedCorners } };
   assert.deepEqual(filterQuadCornersAt(layer, 0.5), movedCorners);
-  assert.deepEqual(filterQuadCornersAt(layer, 0.5), legacyFilterQuadCornersAt(layer, 0.5));
 });
 
 test('one usable filter corner keyframe holds its value', () => {
   const layer = { perspective: { corners: fullCorners }, keyframes: [{ t: 2, perspective: { corners: movedCorners } }] };
   assert.deepEqual(filterQuadCornersAt(layer, -1), movedCorners);
-  assert.deepEqual(filterQuadCornersAt(layer, 99), legacyFilterQuadCornersAt(layer, 99));
+  assert.deepEqual(filterQuadCornersAt(layer, 99), movedCorners);
 });
 
 test('two filter corner keyframes interpolate linearly and ignore easing', () => {
@@ -39,7 +37,6 @@ test('two filter corner keyframes interpolate linearly and ignore easing', () =>
     { t: 1, perspective: { corners: fullCorners }, easing: 'ease-in' },
     { t: 3, perspective: { corners: movedCorners }, easing: 'ease-out' },
   ] };
-  assert.deepEqual(filterQuadCornersAt(layer, 2), legacyFilterQuadCornersAt(layer, 2));
   assert.deepEqual(filterQuadCornersAt(layer, 2), [[.1,.05],[.95,.1],[.05,.9],[.9,.95]]);
 });
 

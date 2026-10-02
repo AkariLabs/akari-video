@@ -43,7 +43,6 @@ const expectedSources = [
   'legacy-audio-view.ts',
   'media-planes.ts',
   'motion-keyframe-replace.ts',
-  'motion-position-write.ts',
   'my-style-parts.ts',
   'project.ts',
   'retime.ts',
