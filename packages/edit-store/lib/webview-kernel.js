@@ -5704,6 +5704,13 @@ var AkariEditKernel = (() => {
         ...typeof value.stroke.color === "string" ? { color: value.stroke.color } : {},
         ...finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {}
       } } : {},
+      ...Array.isArray(value.strokes) ? { strokes: value.strokes.map((stroke) => ({
+        color: stroke.color,
+        width_px: stroke.width_px,
+        ...finiteNumber(stroke.offset_x) ? { offset_x: stroke.offset_x } : {},
+        ...finiteNumber(stroke.offset_y) ? { offset_y: stroke.offset_y } : {}
+      })) } : {},
+      ...isRecord4(value.fill) ? { fill: value.fill } : {},
       ...isRecord4(value.stroke_inner) ? { stroke_inner: {
         ...typeof value.stroke_inner.color === "string" ? { color: value.stroke_inner.color } : {},
         ...finiteNumber(value.stroke_inner.width_px) ? { width_px: value.stroke_inner.width_px } : {}
@@ -5830,6 +5837,36 @@ var AkariEditKernel = (() => {
     if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim())) return value;
     return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
   }
+  var RICH_PATTERN_SHAPES = {
+    diamond: { size: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity=".5"/><path d="M-12 24 24-12M0 36 36 0" stroke="FG" stroke-width="2" opacity=".32"/>' },
+    dot: { size: 16, viewBox: 16, shape: '<circle cx="3" cy="3" r="2.5" fill="FG" opacity=".5"/><circle cx="11" cy="11" r="2" fill="FG" opacity=".35"/>' },
+    stripe: { size: 14, viewBox: 14, shape: '<path d="M0 0h14v7H0z" fill="FG"/>' },
+    gingham: { size: 22, viewBox: 22, shape: '<path d="M0 0h9v22H0zM0 0h22v9H0z" fill="FG" opacity=".55"/>' },
+    skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
+    hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
+    night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' }
+  };
+  function richPatternImage(pattern) {
+    const template = RICH_PATTERN_SHAPES[pattern.id];
+    const svg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}"><rect width="100%" height="100%" fill="${pattern.bg}"/>${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, pattern.bg)}</svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg2)}")`;
+  }
+  function resolveCaptionRichFillVars(fill, scale = 1) {
+    if (fill.type === "solid") return { "--caption-rich-fill-color": fill.color };
+    if (fill.type === "gradient") return {
+      "--caption-rich-fill-color": "transparent",
+      "--caption-rich-fill-image": `linear-gradient(${fill.angle_deg}deg, ${fill.stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ")})`,
+      "--caption-rich-fill-size": "100% 100%",
+      "--caption-rich-fill-position": "0 0"
+    };
+    const pattern = fill.pattern;
+    return {
+      "--caption-rich-fill-color": "transparent",
+      "--caption-rich-fill-image": richPatternImage(pattern),
+      "--caption-rich-fill-size": `${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px ${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px`,
+      "--caption-rich-fill-position": "0 0"
+    };
+  }
   function resolveCaptionLineStyleVarsAtScale(style, scale) {
     const vars = {};
     const px = (value) => scaleCaptionPx(value, scale);
@@ -5839,6 +5876,7 @@ var AkariEditKernel = (() => {
       vars["--caption-plate-fit"] = "frame";
     }
     if (typeof style.color === "string") vars["--caption-color"] = style.color;
+    if (isRecord4(style.fill)) Object.assign(vars, resolveCaptionRichFillVars(style.fill, scale));
     if (isRecord4(style.karaoke) && typeof style.karaoke.done_color === "string") vars["--caption-highlight-color"] = style.karaoke.done_color;
     if (finiteNumber(style.size_px)) vars["--caption-font-size"] = `${px(style.size_px)}px`;
     if (isRecord4(style.stroke) && (typeof style.stroke.color === "string" || finiteNumber(style.stroke.width_px))) {
@@ -5846,8 +5884,9 @@ var AkariEditKernel = (() => {
       const color2 = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.9)";
       vars["--caption-stroke"] = `${width * 2}px ${color2}`;
     }
+    if (Array.isArray(style.strokes)) vars["--caption-stroke"] = "0 transparent";
     if (isRecord4(style.stroke_inner) && !isRecord4(style.stroke)) vars["--caption-stroke"] = "0 transparent";
-    if (isRecord4(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color2) => typeof color2 === "string" && HEX_COLOR.test(color2)) && finiteNumber(style.fill_gradient.angle_deg)) {
+    if (!isRecord4(style.fill) && isRecord4(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color2) => typeof color2 === "string" && HEX_COLOR.test(color2)) && finiteNumber(style.fill_gradient.angle_deg)) {
       vars["--caption-fill-gradient"] = `linear-gradient(${style.fill_gradient.angle_deg}deg, ${style.fill_gradient.colors.join(", ")})`;
       vars["--caption-fill-clip"] = "text";
       vars["--caption-fill-color"] = "transparent";
@@ -5963,7 +6002,7 @@ var AkariEditKernel = (() => {
   }
   function captionRichTextShadowValue(style, scale) {
     const parts = [];
-    if (isRecord4(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
+    if (!Array.isArray(style.strokes) && isRecord4(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
       const radius = scaleCaptionPx(style.stroke_inner.width_px, scale);
       const color2 = typeof style.stroke_inner.color === "string" && HEX_COLOR.test(style.stroke_inner.color) ? style.stroke_inner.color : "#ffffff";
       for (let index = 0; index < 16; index++) {
