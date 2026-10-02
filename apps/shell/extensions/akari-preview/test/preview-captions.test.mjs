@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { RESOLVED_CAPTION_WORD_PRESET_CSS } from '../../../../../packages/render-cut/src/captions.mjs';
+import { CAPTION_RICH_LAYER_CSS as WEB_CAPTION_RICH_LAYER_CSS } from '../../../../../packages/preview-server/public/caption-style.js';
 
 const require = createRequire(import.meta.url);
 const {
@@ -16,7 +17,7 @@ const {
 } = require('../lib/browser/akari-preview-captions.js');
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
 const shellVisualContract = require('../lib/common/caption-visual-contract.js');
-const { captionAnchorPositionVars, resolveCaptionDisplay } = require('../../../../../packages/edit-store/lib/index.js');
+const { captionAnchorPositionVars, resolveCaptionDisplay, CAPTION_RICH_LAYER_CSS } = require('../../../../../packages/edit-store/lib/index.js');
 const { TEXTSTYLE_CATALOG } = require('../../../../../packages/edit-store/lib/index.js');
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(extensionRoot, '../../../..');
@@ -523,13 +524,20 @@ test('word preset style_vars are identical across kernel, render, preview API, a
 });
 
 test('word variable contract exactly matches render and Web preview preset consumers', async () => {
+    const variablesOf = css => [...css.matchAll(/var\((--caption-tok-[a-z-]+)/gu)].map(match => match[1]);
+    const expected = new Set(checkedVisualContract.resolved_caption_word_style_variable_names);
     const renderVariables = [...RESOLVED_CAPTION_WORD_PRESET_CSS.matchAll(/var\((--caption-tok-[a-z-]+)/gu)]
         .map(match => match[1]);
-    assert.deepEqual(new Set(renderVariables), new Set(checkedVisualContract.resolved_caption_word_style_variable_names));
+    const renderSource = await readFile(join(repositoryRoot, 'packages/render-cut/src/captions.mjs'), 'utf8');
+    assert.match(renderSource, /\.replace\('<\/style>', `\$\{CAPTION_RICH_LAYER_CSS\}<\/style>`\)/u);
+    assert.deepEqual(new Set([...renderVariables, ...variablesOf(CAPTION_RICH_LAYER_CSS)]), expected);
     const source = await readFile(join(repositoryRoot, 'packages/preview-server/public/app.js'), 'utf8');
+    assert.match(source, /import \{ replaceCaptionStyleVariables, applyRichCaptionLayers \} from '\/caption-style\.js'/u);
     const rule = source.match(/\.akari-caption__tok--preset \{([^}]+)\}/u)?.[1] ?? '';
     const previewVariables = [...rule.matchAll(/var\((--caption-tok-[a-z-]+)/gu)].map(match => match[1]);
     assert.deepEqual(previewVariables, renderVariables);
+    assert.equal(WEB_CAPTION_RICH_LAYER_CSS, CAPTION_RICH_LAYER_CSS);
+    assert.deepEqual(new Set([...previewVariables, ...variablesOf(WEB_CAPTION_RICH_LAYER_CSS)]), expected);
 });
 
 test('shell backend supplies protect_break terms and matches soft-fallback fragments', async () => {
