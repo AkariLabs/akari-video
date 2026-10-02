@@ -114,7 +114,7 @@ export function resolveCaptionPlan({
       captionsRoot,
       captions,
       layout,
-      overlays: generateResolvedCaptionOverlays(layout, fontFaces),
+      overlays: generateResolvedCaptionOverlays(layout, fontFaces, styleOutput),
       defaultTextStyle: Array.isArray(captionsRoot) ? null : captionsRoot.default_text_style ?? null,
       emphasisWords: Array.isArray(captionsRoot)
         ? edit.emphasis_words ?? []

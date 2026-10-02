@@ -394,12 +394,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
  * Opt-in single-line policy renderer. Cues are already projected and split by
  * edit-store's Node kernel; this consumer never segments text again.
  */
-export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces()) {
+export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces(), output) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
     html: applyCaptionRichLayers(
       applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
-      cue.text_style
+      cue.text_style, output
     ),
     start: cue.start,
     duration: cue.end - cue.start,
