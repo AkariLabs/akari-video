@@ -18,6 +18,19 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..', '..');
 
 function parseArguments(argv) {
+    if (argv.includes('--help') || argv.includes('-h')) {
+        console.log(`Usage: node bin/generate-candidates-html.mjs [--candidates <path>] [--catalog-dir <path>] [--out <path>]
+  -h, --help  このヘルプを表示する`);
+        process.exit(0);
+    }
+    function valueAfter(index, option, example) {
+        const value = argv[index + 1];
+        if (value === undefined || value.startsWith('--')) {
+            console.error(`${option} には値が必要です（例: ${example}）`);
+            process.exit(1);
+        }
+        return value;
+    }
     const options = {
         candidates: path.join(repoRoot, 'catalog', 'audio', 'candidates.json'),
         catalogDir: path.join(repoRoot, 'catalog', 'audio'),
@@ -25,9 +38,9 @@ function parseArguments(argv) {
     };
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
-        if (arg === '--candidates') { options.candidates = path.resolve(argv[++i]); continue; }
-        if (arg === '--catalog-dir') { options.catalogDir = path.resolve(argv[++i]); continue; }
-        if (arg === '--out') { options.out = path.resolve(argv[++i]); continue; }
+        if (arg === '--candidates') { options.candidates = path.resolve(valueAfter(i++, arg, '--candidates <path>')); continue; }
+        if (arg === '--catalog-dir') { options.catalogDir = path.resolve(valueAfter(i++, arg, '--catalog-dir <path>')); continue; }
+        if (arg === '--out') { options.out = path.resolve(valueAfter(i++, arg, '--out <path>')); continue; }
         throw new Error(`Unknown option: ${arg}`);
     }
     return options;

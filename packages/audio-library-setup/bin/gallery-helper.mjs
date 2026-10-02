@@ -11,14 +11,27 @@ import { createGalleryServer } from '../gallery-server.mjs';
 const HOST = '127.0.0.1';
 
 function parseArguments(argv) {
+    if (argv.includes('--help') || argv.includes('-h')) {
+        console.log(`Usage: node bin/gallery-helper.mjs [--library-root <path>] [--port <N>]
+  -h, --help  このヘルプを表示する`);
+        process.exit(0);
+    }
+    function valueAfter(index, option, example) {
+        const value = argv[index + 1];
+        if (value === undefined || value.startsWith('--')) {
+            console.error(`${option} には値が必要です（例: ${example}）`);
+            process.exit(1);
+        }
+        return value;
+    }
     const options = {
         libraryRoot: path.join(resolveAssetLibraryRoots().write, 'audio'),
         port: 0,
     };
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
-        if (arg === '--library-root') { options.libraryRoot = path.resolve(argv[++i]); continue; }
-        if (arg === '--port') { options.port = Number(argv[++i]); continue; }
+        if (arg === '--library-root') { options.libraryRoot = path.resolve(valueAfter(i++, arg, '--library-root <path>')); continue; }
+        if (arg === '--port') { options.port = Number(valueAfter(i++, arg, '--port <N>')); continue; }
         throw new Error(`Unknown option: ${arg}`);
     }
     return options;

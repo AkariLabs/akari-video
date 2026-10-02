@@ -36,6 +36,14 @@ function libraryRoot(env = process.env) {
 }
 
 function parseArguments(argv, env = process.env) {
+    function valueAfter(index, option, example) {
+        const value = argv[index + 1];
+        if (value === undefined || value.startsWith('--')) {
+            console.error(`${option} には値が必要です（例: ${example}）`);
+            process.exit(1);
+        }
+        return value;
+    }
     const options = {
         track: null, edit: null, timeline: null, in: null, trackDuration: null,
         snap: [], window: 0.12, every: 4, fps: null,
@@ -43,16 +51,16 @@ function parseArguments(argv, env = process.env) {
     };
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
-        if (arg === '--track') { options.track = argv[++i]; continue; }
-        if (arg === '--edit') { options.edit = path.resolve(argv[++i]); continue; }
-        if (arg === '--timeline') { options.timeline = Number(argv[++i]); continue; }
-        if (arg === '--in') { options.in = Number(argv[++i]); continue; }
-        if (arg === '--track-duration') { options.trackDuration = Number(argv[++i]); continue; }
-        if (arg === '--snap') { options.snap = argv[++i].split(',').map(Number).filter((n) => Number.isFinite(n)); continue; }
-        if (arg === '--window') { options.window = Number(argv[++i]); continue; }
-        if (arg === '--every') { options.every = Number(argv[++i]); continue; }
-        if (arg === '--fps') { options.fps = Number(argv[++i]); continue; }
-        if (arg === '--declarations') { options.declarations = argv[++i]; continue; }
+        if (arg === '--track') { options.track = valueAfter(i++, arg, '--track <id>'); continue; }
+        if (arg === '--edit') { options.edit = path.resolve(valueAfter(i++, arg, '--edit <edit.json>')); continue; }
+        if (arg === '--timeline') { options.timeline = Number(valueAfter(i++, arg, '--timeline <秒>')); continue; }
+        if (arg === '--in') { options.in = Number(valueAfter(i++, arg, '--in <秒>')); continue; }
+        if (arg === '--track-duration') { options.trackDuration = Number(valueAfter(i++, arg, '--track-duration <秒>')); continue; }
+        if (arg === '--snap') { options.snap = valueAfter(i++, arg, '--snap 12.3,45.6').split(',').map(Number).filter((n) => Number.isFinite(n)); continue; }
+        if (arg === '--window') { options.window = Number(valueAfter(i++, arg, '--window <秒>')); continue; }
+        if (arg === '--every') { options.every = Number(valueAfter(i++, arg, '--every <N>')); continue; }
+        if (arg === '--fps') { options.fps = Number(valueAfter(i++, arg, '--fps <数>')); continue; }
+        if (arg === '--declarations') { options.declarations = valueAfter(i++, arg, '--declarations <path>'); continue; }
         if (arg === '--json') { options.json = true; continue; }
         throw new Error(`Unknown option: ${arg}`);
     }
