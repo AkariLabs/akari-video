@@ -502,8 +502,11 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
  * zone / max_characters など）は字幕個別の指定として残す。
  */
 function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
+    // strict: `instanceof Map` の偽側では ReadonlyMap を除外できないため、Record 側へ明示的に絞る
     const preset = catalog instanceof Map ? catalog.get(presetId)
-        : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : undefined;
+        : Object.prototype.hasOwnProperty.call(catalog, presetId)
+            ? catalog[presetId]
+            : undefined;
     if (!preset || textStyle === null || typeof textStyle !== 'object' || Array.isArray(textStyle)) {
         return [];
     }
