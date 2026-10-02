@@ -50,6 +50,49 @@ test('textstyle v1 validates rich fills and strokes on default and cue styles', 
   assert.equal(runValue({ ...value, default_text_style: { strokes: [{ color: '#fff' }] } }).status, 1);
 });
 
+test('textstyle v1.1 accepts heart and thunder patterns and gradient grounds', () => {
+  const gradient = {
+    angle_deg: 180,
+    stops: [
+      { at: 0, color: '#ffd820' },
+      { at: 50, color: '#f0b800' },
+      { at: 100, color: '#ffd820' },
+    ],
+  };
+  for (const pattern of [
+    { id: 'heart', scale: 1, fg: '#e8a0f8', bg: '#b040e8' },
+    { id: 'thunder', scale: 1, fg: '#fff26ab3', bg: gradient },
+    { id: 'diamond', scale: 1, fg: '#ffffff80', bg: {
+      angle_deg: 90,
+      stops: [{ at: 0, color: '#322076' }, { at: 100, color: '#a476d8' }],
+    } },
+  ]) {
+    const executed = runValue({ default_text_style: { fill: { type: 'pattern', pattern } },
+      captions: [styleParity.caption] });
+    assert.equal(executed.status, 0, `${pattern.id}: ${executed.stderr}`);
+  }
+});
+
+test('textstyle v1.1 rejects malformed pattern background gradients', () => {
+  const stops = [
+    { at: 0, color: '#ffd820' },
+    { at: 50, color: '#f0b800' },
+    { at: 100, color: '#ffd820' },
+  ];
+  for (const [label, bg, message] of [
+    ['first stop 10', { angle_deg: 180, stops: [{ ...stops[0], at: 10 }, ...stops.slice(1)] }, /pattern\.bg\.stops\[0\]\.at/u],
+    ['last stop 90', { angle_deg: 180, stops: [...stops.slice(0, 2), { ...stops[2], at: 90 }] }, /pattern\.bg\.stops last at/u],
+    ['descending stops', { angle_deg: 180, stops: [stops[0], { ...stops[1], at: 80 }, { ...stops[2], at: 70 }] }, /pattern\.bg\.stops\[2\]\.at/u],
+    ['unknown color key', { angle_deg: 180, stops, color: '#ffffff' }, /pattern\.bg\.color is unknown/u],
+  ]) {
+    const executed = runValue({ default_text_style: { fill: { type: 'pattern', pattern: {
+      id: 'thunder', scale: 1, fg: '#fff26ab3', bg,
+    } } }, captions: [styleParity.caption] });
+    assert.equal(executed.status, 1, `${label}: ${executed.stdout}`);
+    assert.match(executed.stderr, message, label);
+  }
+});
+
 test('background.fit accepts text/frame and rejects unknown values', () => {
   for (const fit of ['text', 'frame']) {
     assert.equal(runValue([{ ...styleParity.caption, text_style: { background: { fit } } }]).status, 0);

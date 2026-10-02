@@ -465,10 +465,14 @@ function validateRichFill(value, label) {
     const pattern = value.pattern;
     if (!isPlainObject(pattern)) { fail(`${label}.pattern must be an object`); return; }
     for (const key of Object.keys(pattern)) if (!["id", "scale", "fg", "bg"].includes(key)) fail(`${label}.pattern.${key} is unknown`);
-    if (!["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night"].includes(pattern.id)) fail(`${label}.pattern.id is unknown`);
+    if (!["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night", "heart", "thunder"].includes(pattern.id)) fail(`${label}.pattern.id is unknown`);
     if (!isFiniteNumber(pattern.scale) || pattern.scale <= 0) fail(`${label}.pattern.scale must be positive`);
     validateHexColor(pattern.fg, `${label}.pattern.fg`);
-    validateHexColor(pattern.bg, `${label}.pattern.bg`);
+    if (isPlainObject(pattern.bg)) {
+      for (const key of Object.keys(pattern.bg)) if (!["stops", "angle_deg"].includes(key)) fail(`${label}.pattern.bg.${key} is unknown`);
+      validateRichFill({ type: "gradient", stops: pattern.bg.stops, angle_deg: pattern.bg.angle_deg }, `${label}.pattern.bg`);
+    }
+    else validateHexColor(pattern.bg, `${label}.pattern.bg`);
   }
 }
 
