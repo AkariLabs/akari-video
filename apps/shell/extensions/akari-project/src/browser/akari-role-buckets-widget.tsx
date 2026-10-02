@@ -109,7 +109,7 @@ import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
 import { LibraryTextTelopPage } from './library-text-telop-page';
-import { textTelopItems } from '../common/library-telop-shelf';
+import { catalogItemsWithoutShelvedTelops, textTelopItems } from '../common/library-telop-shelf';
 import { libraryTextstyleApplyPayload } from '../common/library-textstyle-apply';
 import { LibraryShapeShelf } from './library-shape-shelf-view';
 import { ShapeShelfService } from './shape-shelf-service';
@@ -4064,7 +4064,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderCatalogBody(): React.ReactNode {
-        const filtered = this.filteredCatalogItems();
+        const filtered = catalogItemsWithoutShelvedTelops(this.filteredCatalogItems(), this.catalogCategory, this.catalogQuery);
         let content: React.ReactNode;
         if (this.catalogLoading) {
             content = <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
