@@ -9,6 +9,7 @@ export interface InspectorKnob {
     max?: number;
     unit?: string;
     options?: readonly string[];
+    default?: number | string;
 }
 
 export function knobControlKind(type: InspectorKnobType): string {
@@ -16,6 +17,11 @@ export function knobControlKind(type: InspectorKnobType): string {
         slider: 'slider', color: 'color', dropdown: 'select', checkbox: 'boolean-select',
         text: 'text', media: 'readonly'
     } as const)[type];
+}
+
+export function isFontFamilyKnob(knob: InspectorKnob): boolean {
+    return knob.name === '--fontFamily'
+        || (knob.type === 'text' && knob.group === 'typography' && /font/iu.test(knob.name));
 }
 
 export function parseInspectorKnobs(value: unknown): InspectorKnob[] {
@@ -35,6 +41,8 @@ export function parseInspectorKnobs(value: unknown): InspectorKnob[] {
             ...(typeof knob.min === 'number' ? { min: knob.min } : {}),
             ...(typeof knob.max === 'number' ? { max: knob.max } : {}),
             ...(typeof knob.unit === 'string' ? { unit: knob.unit } : {}),
+            ...((knob.type === 'slider' && typeof knob.default === 'number' && Number.isFinite(knob.default))
+                || (knob.type !== 'slider' && typeof knob.default === 'string') ? { default: knob.default as number | string } : {}),
             ...(Array.isArray(knob.options) && knob.options.every(option => typeof option === 'string')
                 ? { options: knob.options as string[] } : {})
         }];
