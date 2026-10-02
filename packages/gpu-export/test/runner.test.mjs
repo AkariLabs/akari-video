@@ -13,7 +13,7 @@ test("tier 2 uses the GPU main and product flags", () => {
     projectRoot: "/project", out: "/out.mp4", fps: 30, width: 320, height: 180,
     duration: 1, frames: 30, queueDepth: 5, bitrate: 1234, soft: true, trapReadback: true,
   });
-  assert.match(args[0], /gpu-export\/src\/electron-main\.mjs$/);
+  assert.equal(args[0], join(import.meta.dirname, "..", "src", "electron-main.mjs"));
   assert.ok(args.includes("--trap-readback"));
   assert.ok(args.includes("--bitrate"));
   assert.equal(args[args.indexOf("--bitrate") + 1], "1234");
@@ -81,7 +81,7 @@ test("runner resolves HEVC bitrate and quantizer from HEVC presets", () => {
 test("GPU launcher uses the GPU desktop runtime probe (tier 1 via electron-entry --akari-main)", async () => {
   const result = await resolveGpuLauncher({
     env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
-    probe: async (path) => path === "/desktop" || path.endsWith("resources/packages/gpu-export/src/electron-main.mjs"),
+    probe: async (path) => path === "/desktop" || path.endsWith(join("resources", "packages", "gpu-export", "src", "electron-main.mjs")),
     resolveElectron: () => null,
   });
   assert.equal(result.tier, 1);
@@ -103,7 +103,7 @@ test("GPU launcher still honours allowDesktop: false (explicit opt-out of tier 1
   const result = await resolveGpuLauncher({
     allowDesktop: false,
     env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
-    probe: async (path) => path === "/desktop" || path.endsWith("resources/packages/gpu-export/src/electron-main.mjs"),
+    probe: async (path) => path === "/desktop" || path.endsWith(join("resources", "packages", "gpu-export", "src", "electron-main.mjs")),
     resolveElectron: () => null,
   });
   assert.equal(result.tier, 3);
