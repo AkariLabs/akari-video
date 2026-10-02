@@ -40,7 +40,7 @@ export async function runInternalCommand(args, options = {}) {
   const definitions = {
     'beat-sync-beatmap': { path: assets.beatmapScript, node: true },
     'beat-sync-probe-frame': { path: assets.probeFrameScript, node: true },
-    'beat-sync-render-when-idle': { path: assets.renderWhenIdleScript, node: false },
+    'beat-sync-render-when-idle': { path: assets.renderWhenIdleScript, node: true },
     'vision-finger-frame': {
       path: fingerFrameScript && existsSync(fingerFrameScript) ? fingerFrameScript : null,
       node: true

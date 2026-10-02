@@ -52,6 +52,7 @@ RENDER_CUT_CAPTURE_TIMEOUT_MS=300000 \
 - マシンが混んでいるなら**空くまで待ってから焼く**
   （`akari internal beat-sync-render-when-idle <project>`）。
   待つほうが、落ちて焼き直すより速い
+  Windows では負荷を測れないため待機せずにレンダーを始める
 - 進捗は `<project>/.akari/render-tmp/*/frames` のファイル数で見る（対 総フレーム数）
 
 ## 4. 検収
