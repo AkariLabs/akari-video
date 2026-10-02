@@ -363,7 +363,7 @@ function validateTextStyle(value, label) {
     "font_family", "weight", "italic", "underline", "strikethrough", "list", "opacity", "letter_spacing_em", "align",
     "vertical_align", "vertical", "text_transform", "max_width_pct", "wrap_width_pct", "max_characters", "text_anchor",
     "position", "scale", "rotate", "shadow", "glow", "animation", "reference_height_px",
-    "karaoke", "stroke_inner", "fill_gradient", "extrude",
+    "karaoke", "stroke_inner", "fill_gradient", "extrude", "strokes", "fill",
   ]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
@@ -397,6 +397,8 @@ function validateTextStyle(value, label) {
     fail(`${label}.line_height は 0 より大きい有限数である必要があります`);
   }
   if (hasOwn(value, "stroke")) validateTextStrokeStyle(value.stroke, `${label}.stroke`);
+  if (hasOwn(value, "strokes")) validateRichStrokes(value.strokes, `${label}.strokes`);
+  if (hasOwn(value, "fill")) validateRichFill(value.fill, `${label}.fill`);
   if (hasOwn(value, "stroke_inner")) validateInnerStroke(value.stroke_inner, `${label}.stroke_inner`);
   if (hasOwn(value, "fill_gradient")) validateFillGradient(value.fill_gradient, `${label}.fill_gradient`);
   if (hasOwn(value, "extrude")) validateExtrude(value.extrude, `${label}.extrude`);
@@ -412,6 +414,65 @@ function validateTextStyle(value, label) {
   }
   if (hasOwn(value, "layout") && hasOwn(value, "reference_height_px")) {
     fail(`${label} では layout と reference_height_px を併用できません`);
+  }
+}
+
+function validateRichStrokes(value, label) {
+  if (!Array.isArray(value)) { fail(`${label} must be an array`); return; }
+  value.forEach((stroke, index) => {
+    const item = `${label}[${index}]`;
+    if (!isPlainObject(stroke)) { fail(`${item} must be an object`); return; }
+    for (const key of Object.keys(stroke)) {
+      if (!["color", "width_px", "offset_x", "offset_y"].includes(key)) fail(`${item}.${key} is unknown`);
+    }
+    validateHexColor(stroke.color, `${item}.color`);
+    if (!isFiniteNumber(stroke.width_px) || stroke.width_px < 0) fail(`${item}.width_px must be non-negative`);
+    for (const key of ["offset_x", "offset_y"]) {
+      if (hasOwn(stroke, key) && !isFiniteNumber(stroke[key])) fail(`${item}.${key} must be finite`);
+    }
+  });
+}
+
+function validateRichFill(value, label) {
+  if (!isPlainObject(value)) { fail(`${label} must be an object`); return; }
+  const keys = value.type === "solid" ? ["type", "color"]
+    : value.type === "gradient" ? ["type", "stops", "angle_deg"]
+    : value.type === "pattern" ? ["type", "pattern"] : null;
+  if (!keys) { fail(`${label}.type must be solid, gradient, or pattern`); return; }
+  for (const key of Object.keys(value)) if (!keys.includes(key)) fail(`${label}.${key} is unknown`);
+  if (value.type === "solid") validateHexColor(value.color, `${label}.color`);
+  if (value.type === "gradient") {
+    if (!isFiniteNumber(value.angle_deg)) fail(`${label}.angle_deg must be finite`);
+    if (!Array.isArray(value.stops) || value.stops.length < 2) {
+      fail(`${label}.stops must contain at least two stops`);
+      return;
+    }
+    let previous = -1;
+    value.stops.forEach((stop, index) => {
+      const item = `${label}.stops[${index}]`;
+      if (!isPlainObject(stop)) { fail(`${item} must be an object`); return; }
+      for (const key of Object.keys(stop)) if (!["at", "color"].includes(key)) fail(`${item}.${key} is unknown`);
+      if (!isFiniteNumber(stop.at) || stop.at < 0 || stop.at > 100 || stop.at <= previous) {
+        fail(`${item}.at must be strictly ascending within [0, 100]`);
+      }
+      previous = stop.at;
+      validateHexColor(stop.color, `${item}.color`);
+    });
+    if (value.stops[0]?.at !== 0) fail(`${label}.stops[0].at must be 0`);
+    if (value.stops.at(-1)?.at !== 100) fail(`${label}.stops last at must be 100`);
+  }
+  if (value.type === "pattern") {
+    const pattern = value.pattern;
+    if (!isPlainObject(pattern)) { fail(`${label}.pattern must be an object`); return; }
+    for (const key of Object.keys(pattern)) if (!["id", "scale", "fg", "bg"].includes(key)) fail(`${label}.pattern.${key} is unknown`);
+    if (!["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night", "heart", "thunder"].includes(pattern.id)) fail(`${label}.pattern.id is unknown`);
+    if (!isFiniteNumber(pattern.scale) || pattern.scale <= 0) fail(`${label}.pattern.scale must be positive`);
+    validateHexColor(pattern.fg, `${label}.pattern.fg`);
+    if (isPlainObject(pattern.bg)) {
+      for (const key of Object.keys(pattern.bg)) if (!["stops", "angle_deg"].includes(key)) fail(`${label}.pattern.bg.${key} is unknown`);
+      validateRichFill({ type: "gradient", stops: pattern.bg.stops, angle_deg: pattern.bg.angle_deg }, `${label}.pattern.bg`);
+    }
+    else validateHexColor(pattern.bg, `${label}.pattern.bg`);
   }
 }
 

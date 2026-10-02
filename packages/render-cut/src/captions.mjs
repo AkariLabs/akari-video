@@ -24,10 +24,53 @@ const {
   resolveCaptionLineStyleVars,
   resolveCaptionStyleForOutput,
   resolveCaptionWordStyleVars,
+  resolveCaptionRichStrokes,
+  CAPTION_RICH_LAYER_CSS,
+  alignCaptionRichFillPhase,
   resolveCaptionStylePreset,
   TEXTSTYLE_CATALOG,
   usesExtendedPerLineBackground,
 } = require("../../edit-store/lib/index.js");
+
+
+/** Apply only after runs have been projected, so aria-hidden copies cannot change indices. */
+export function applyCaptionRichLayers(html, style, output) {
+  if (!style || (style.fill === undefined && style.strokes === undefined)) return html;
+  const strokes = resolveCaptionRichStrokes(style, output);
+  const layerText = text => `<span class="akari-caption__rich-segment"><span class="akari-caption__rich-shadow" aria-hidden="true">${text}</span>`
+    + strokes.map(vars => `<span class="akari-caption__rich-stroke" aria-hidden="true" style="${captionStyleVarsAttribute(vars)}">${text}</span>`).join('')
+    + `<span class="akari-caption__rich-fill" data-karaoke-text="${text.replaceAll('"', '&quot;')}">${text}</span></span>`;
+  const layered = html.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/gu, (_whole, open, content, close) => {
+    const withToken = /class="[^"]*\bakari-caption__tok\b/u.test(content)
+      ? content : `<span class="akari-caption__tok">${content}</span>`;
+    const tags = [];
+    let insideToken = 0;
+    const body = withToken.replace(/<[^>]+>|[^<]+/gu, part => {
+      if (part.startsWith('</')) {
+        if (tags.pop()) insideToken -= 1;
+        return part;
+      }
+      if (part.startsWith('<')) {
+        if (/^<span\b/u.test(part)) {
+          const isToken = /class="[^"]*\bakari-caption__tok\b/u.test(part);
+          tags.push(isToken);
+          if (isToken) insideToken += 1;
+        }
+        return part;
+      }
+      return insideToken && part ? layerText(part) : part;
+    });
+    return open + body + close;
+  });
+  const decorated = layered.replace('<div class="akari-caption', '<div class="akari-caption akari-caption--rich')
+    .replace('</style>', `${CAPTION_RICH_LAYER_CSS}</style>`)
+    .replace(/^(<div class="[^"]*")/u, `$1 data-rich-fill-type="${style.fill?.type ?? 'solid'}"${style.fill?.type === 'pattern'
+      ? ` data-rich-pattern-id="${style.fill.pattern.id}"${typeof style.fill.pattern.bg === 'object' ? ' data-rich-pattern-bg="gradient"' : ''}`
+      : ''}`);
+  const close = decorated.lastIndexOf('</div>');
+  const script = `<script data-akari-rich-phase>{const root=document.currentScript.closest('.akari-caption');document.fonts.ready.then(()=>(${alignCaptionRichFillPhase.toString()})(root));}</script>`;
+  return close < 0 ? decorated : decorated.slice(0, close) + script + decorated.slice(close);
+}
 
 const DEFAULT_MAX_CHARACTERS = 20;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
@@ -330,6 +373,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       if (runs?.length) {
         html = applyCaptionRunsToHtml(html, displayText, runs);
       }
+      html = applyCaptionRichLayers(html, textStyle, output);
       overlays.push({
         id: `${caption.id}${caption.fragmentIndex ? `-f${caption.fragmentIndex}` : ""}-${String(index + 1).padStart(2, "0")}`,
         html,
@@ -350,10 +394,13 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
  * Opt-in single-line policy renderer. Cues are already projected and split by
  * edit-store's Node kernel; this consumer never segments text again.
  */
-export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces()) {
+export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces(), output) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
-    html: applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
+    html: applyCaptionRichLayers(
+      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
+      cue.text_style, output
+    ),
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
@@ -390,14 +437,21 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
   const fontFaceCss = matchingFaces.length
     ? `${RESOLVED_CAPTION_FONT_FACE_CSS}\n    ${matchingFaces.map(captionFontFaceCss).join('\n    ')}`
     : RESOLVED_CAPTION_FONT_FACE_CSS;
-  const richGradientCss = cue?.text_style?.fill_gradient
+  const richGradientCss = cue?.text_style?.fill_gradient && !cue?.text_style?.fill
     ? '      background-image:var(--caption-fill-gradient,none);\n      -webkit-background-clip:var(--caption-fill-clip,border-box);\n      -webkit-text-fill-color:var(--caption-fill-color,currentColor);\n      -webkit-text-stroke:0 transparent;\n      text-shadow:none;\n      filter:var(--caption-fill-filter,none);\n'
     : '';
   const sizeToInk = cue?.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
+  const richTokens = cue?.text_style?.fill !== undefined || cue?.text_style?.strokes !== undefined;
   const renderedText = hasWordStyles
     ? renderResolvedCaptionWords(cue.words, cue.word_styles, cue?.text_style?.vertical === true)
+    : richTokens && Array.isArray(cue?.words) && cue.words.length > 0
+      ? renderResolvedCaptionWords(cue.words, [], cue?.text_style?.vertical === true)
+    : richTokens
+      ? (Array.isArray(lines) && lines.length ? lines : [text]).map(line =>
+        captionPlainWords(line).map(word => `<span class="akari-caption__tok">${escapeHtml(word)}</span>`).join('')
+      ).join('</p><p class="akari-caption__line">')
     : Array.isArray(lines) && lines.length >= 2 && cue?.text_style?.vertical !== true
       ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
       : escapeHtml(text);
@@ -804,7 +858,7 @@ function isValidWord(word) {
 }
 
 export function renderCaptionFragment(text, options = {}) {
-  const richGradientCss = options.contextStyle?.fill_gradient
+  const richGradientCss = options.contextStyle?.fill_gradient && !options.contextStyle?.fill
     ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
     : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
@@ -856,8 +910,8 @@ export function renderCaptionFragment(text, options = {}) {
   const charText = captionCharRenderer(options.animator);
   const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText));
   const markup = lines
-    .map((line) => `<p class="akari-caption__line">${charText
-      ? captionPlainWords(line, options.words).map(word => `<span class="akari-caption__tok">${charText(word)}</span>`).join("")
+    .map((line) => `<p class="akari-caption__line">${charText || options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined
+      ? captionPlainWords(line, options.words).map(word => `<span class="akari-caption__tok">${charText ? charText(word) : escapeHtml(word)}</span>`).join("")
       : escapeHtml(line)}</p>`)
     .join("");
   const blockMode = options.backgroundMode === "block";
@@ -978,7 +1032,7 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
 // 個々のトークン要素に data-start は不要（sub-c5 が想定する別ランタイムと異なり、render-cut の
 // __akariSeek はコンテナ単位でしか data-start を見ないため）。
 export function renderStyledCaptionFragment(words, style, options = {}) {
-  const richGradientCss = options.contextStyle?.fill_gradient
+  const richGradientCss = options.contextStyle?.fill_gradient && !options.contextStyle?.fill
     ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
     : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
@@ -1184,7 +1238,7 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
       line-height: 1;
       paint-order: stroke fill;
       will-change: transform, color;
-    }${options.contextStyle?.fill_gradient ? `
+    }${options.contextStyle?.fill_gradient && !options.contextStyle?.fill ? `
     .akari-caption__line { background-image:none; -webkit-text-fill-color:currentColor; filter:none; }
     .akari-caption__tok { background-image:var(--caption-fill-gradient,none); -webkit-background-clip:text; -webkit-text-fill-color:transparent; -webkit-text-stroke:0 transparent; text-shadow:none; filter:var(--caption-fill-filter,none); }` : ''}
     @keyframes akari-caption-fade {

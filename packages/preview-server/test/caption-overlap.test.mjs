@@ -37,6 +37,7 @@ test('Web UI renders concurrent rows in array order with independent styles and 
     document: { createElement: () => new Plate() },
     normalizeWords: value => value ?? [], isPortraitOutput: () => false,
     replaceCaptionStyleVariables: (style, vars) => { for (const [k, v] of Object.entries(vars)) style.setProperty(k, v); },
+    applyRichCaptionLayers() {},
     injectCaptionStyles() {}, esc: value => value,
   });
   vm.runInContext(section('const CAPTION_STYLE_VARS =', 'function collectExcludedCaptionIds'), context);

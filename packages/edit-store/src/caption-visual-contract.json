@@ -53,7 +53,11 @@
     "--caption-fill-gradient",
     "--caption-fill-clip",
     "--caption-fill-color",
-    "--caption-fill-filter"
+    "--caption-fill-filter",
+    "--caption-rich-fill-color",
+    "--caption-rich-fill-image",
+    "--caption-rich-fill-size",
+    "--caption-rich-fill-position"
   ],
   "resolved_caption_word_style_variable_names": [
     "--caption-tok-color",
@@ -67,7 +71,17 @@
     "--caption-tok-text-transform",
     "--caption-tok-webkit-text-stroke",
     "--caption-tok-paint-order",
-    "--caption-tok-text-shadow"
+    "--caption-tok-text-shadow",
+    "--caption-tok-rich-fill-color",
+    "--caption-tok-rich-fill-image",
+    "--caption-tok-rich-fill-size",
+    "--caption-tok-rich-fill-position"
+  ],
+  "resolved_caption_rich_layer_variable_names": [
+    "--caption-rich-stroke-color",
+    "--caption-rich-stroke-width",
+    "--caption-rich-stroke-offset-x",
+    "--caption-rich-stroke-offset-y"
   ],
   "resolved_single_line_caption_css": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}"
 }

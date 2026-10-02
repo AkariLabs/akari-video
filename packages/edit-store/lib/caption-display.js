@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+exports.alignCaptionRichFillPhase = alignCaptionRichFillPhase;
 exports.measureCaptionUnits = measureCaptionUnits;
 exports.captionBreakBoundaryBlocked = captionBreakBoundaryBlocked;
 exports.joinCaptionLines = joinCaptionLines;
@@ -20,6 +21,10 @@ exports.usesExtendedPerLineBackground = usesExtendedPerLineBackground;
 exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
 exports.scaleCaptionPx = scaleCaptionPx;
 exports.captionAnchorPositionVars = captionAnchorPositionVars;
+exports.deriveMetallicStops = deriveMetallicStops;
+exports.readMetallicHue = readMetallicHue;
+exports.resolveCaptionRichFillVars = resolveCaptionRichFillVars;
+exports.resolveCaptionRichStrokes = resolveCaptionRichStrokes;
 exports.resolveCaptionLineStyleVars = resolveCaptionLineStyleVars;
 exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
 exports.resolveCaptionWordStyleVars = resolveCaptionWordStyleVars;
@@ -38,6 +43,33 @@ const caption_runs_1 = require("./caption-runs");
 exports.CAPTION_DISPLAY_SCHEMA = 'caption-layout/v1';
 exports.CAPTION_DISPLAY_MODE = 'single_line_sequential';
 exports.CAPTION_DISPLAY_ALGORITHM = 'a4-ja-two-fragment-v1';
+exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
+/** Place each token's image in the coordinate system of its complete line. */
+function alignCaptionRichFillPhase(root) {
+    const fillType = root.getAttribute('data-rich-fill-type');
+    const gradient = fillType === 'gradient';
+    const pattern = fillType === 'pattern';
+    const patternGradient = pattern && root.getAttribute('data-rich-pattern-bg') === 'gradient';
+    const thunder = root.getAttribute('data-rich-pattern-id') === 'thunder';
+    for (const line of root.querySelectorAll('.akari-caption__line,.akari-caption__resolved-line')) {
+        const lineRect = line.getBoundingClientRect();
+        for (const fill of line.querySelectorAll('.akari-caption__rich-fill')) {
+            const rect = fill.getBoundingClientRect();
+            const x = Number((lineRect.left - rect.left).toFixed(3));
+            const y = Number((lineRect.top - rect.top).toFixed(3));
+            const patternPosition = `${Number((x + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y + (thunder ? 2 : 0)).toFixed(3))}px`;
+            fill.style.setProperty('--caption-rich-fill-position', patternGradient
+                ? `${patternPosition}, ${x}px ${y}px`
+                : pattern ? patternPosition : `${x}px ${y}px`);
+            if (gradient)
+                fill.style.setProperty('--caption-rich-fill-size', `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            if (patternGradient) {
+                const tile = globalThis.getComputedStyle(fill).backgroundSize.split(',')[0];
+                fill.style.setProperty('--caption-rich-fill-size', `${tile}, ${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            }
+        }
+    }
+}
 exports.CAPTION_UNIT_METRIC = 'ascii-half-other-one-v1';
 // textstyle v0（2026-08-03）で render-cut の legacy 字幕レールが実装した語彙を含む。
 // この契約は display_policy 経路（reference-pixel）と legacy 経路の**両方**が読む
@@ -48,7 +80,7 @@ const CAPTION_STYLE_KEYS = new Set([
     'font_family', 'weight', 'italic', 'underline', 'strikethrough', 'list', 'opacity', 'letter_spacing_em', 'align',
     'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor',
     'position', 'scale', 'rotate', 'shadow', 'glow', 'animation', 'reference_height_px',
-    'stroke_inner', 'fill_gradient', 'extrude', 'karaoke'
+    'stroke_inner', 'fill_gradient', 'extrude', 'karaoke', 'strokes', 'fill'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
 const CAPTION_BACKGROUND_KEYS = new Set([
@@ -615,6 +647,10 @@ function validateCaptionTextStyle(value, label = 'text_style') {
     validateTextStyleV0(value, label);
     if (Object.prototype.hasOwnProperty.call(value, 'stroke'))
         validateCaptionStroke(value.stroke, `${label}.stroke`);
+    if (Object.prototype.hasOwnProperty.call(value, 'strokes'))
+        validateCaptionRichStrokes(value.strokes, `${label}.strokes`);
+    if (Object.prototype.hasOwnProperty.call(value, 'fill'))
+        validateCaptionRichFill(value.fill, `${label}.fill`);
     if (Object.prototype.hasOwnProperty.call(value, 'stroke_inner')) {
         const inner = value.stroke_inner;
         if (!isRecord(inner))
@@ -679,6 +715,75 @@ function validateCaptionStroke(value, label) {
         validateHexColor(value.color, `${label}.color`);
     if (Object.prototype.hasOwnProperty.call(value, 'width_px') && !finiteNonNegative(value.width_px)) {
         fail('INVALID_TEXT_STYLE', `${label}.width_px must be a non-negative finite number`);
+    }
+}
+function validateCaptionRichStrokes(value, label) {
+    if (!Array.isArray(value))
+        fail('INVALID_TEXT_STYLE', `${label} must be an array`);
+    value.forEach((stroke, index) => {
+        const item = `${label}[${index}]`;
+        if (!isRecord(stroke))
+            fail('INVALID_TEXT_STYLE', `${item} must be an object`);
+        rejectStyleUnknown(stroke, new Set(['color', 'width_px', 'offset_x', 'offset_y']), item);
+        validateHexColor(stroke.color, `${item}.color`);
+        if (!finiteNonNegative(stroke.width_px))
+            fail('INVALID_TEXT_STYLE', `${item}.width_px must be non-negative`);
+        for (const key of ['offset_x', 'offset_y']) {
+            if (Object.prototype.hasOwnProperty.call(stroke, key) && !finiteNumber(stroke[key])) {
+                fail('INVALID_TEXT_STYLE', `${item}.${key} must be finite`);
+            }
+        }
+    });
+}
+function validateCaptionRichFill(value, label) {
+    if (!isRecord(value))
+        fail('INVALID_TEXT_STYLE', `${label} must be an object`);
+    const keys = value.type === 'solid' ? ['type', 'color']
+        : value.type === 'gradient' ? ['type', 'stops', 'angle_deg']
+            : value.type === 'pattern' ? ['type', 'pattern'] : null;
+    if (!keys)
+        fail('INVALID_TEXT_STYLE', `${label}.type must be solid, gradient, or pattern`);
+    rejectStyleUnknown(value, new Set(keys), label);
+    if (value.type === 'solid')
+        validateHexColor(value.color, `${label}.color`);
+    if (value.type === 'gradient') {
+        if (!finiteNumber(value.angle_deg))
+            fail('INVALID_TEXT_STYLE', `${label}.angle_deg must be finite`);
+        if (!Array.isArray(value.stops) || value.stops.length < 2)
+            fail('INVALID_TEXT_STYLE', `${label}.stops must have at least two stops`);
+        let previous = -1;
+        value.stops.forEach((stop, index) => {
+            const item = `${label}.stops[${index}]`;
+            if (!isRecord(stop))
+                fail('INVALID_TEXT_STYLE', `${item} must be an object`);
+            rejectStyleUnknown(stop, new Set(['at', 'color']), item);
+            if (!finiteNumber(stop.at) || stop.at < 0 || stop.at > 100 || stop.at <= previous) {
+                fail('INVALID_TEXT_STYLE', `${item}.at must be strictly ascending in [0, 100]`);
+            }
+            previous = stop.at;
+            validateHexColor(stop.color, `${item}.color`);
+        });
+        if (value.stops[0].at !== 0 || value.stops[value.stops.length - 1].at !== 100) {
+            fail('INVALID_TEXT_STYLE', `${label}.stops must begin at 0 and end at 100`);
+        }
+    }
+    if (value.type === 'pattern') {
+        const pattern = value.pattern;
+        if (!isRecord(pattern))
+            fail('INVALID_TEXT_STYLE', `${label}.pattern must be an object`);
+        rejectStyleUnknown(pattern, new Set(['id', 'scale', 'fg', 'bg']), `${label}.pattern`);
+        if (!['diamond', 'dot', 'stripe', 'gingham', 'skull', 'hazard', 'night', 'heart', 'thunder'].includes(pattern.id)) {
+            fail('INVALID_TEXT_STYLE', `${label}.pattern.id is unknown`);
+        }
+        if (!finitePositive(pattern.scale))
+            fail('INVALID_TEXT_STYLE', `${label}.pattern.scale must be positive`);
+        validateHexColor(pattern.fg, `${label}.pattern.fg`);
+        if (isRecord(pattern.bg)) {
+            rejectStyleUnknown(pattern.bg, new Set(['stops', 'angle_deg']), `${label}.pattern.bg`);
+            validateCaptionRichFill({ type: 'gradient', stops: pattern.bg.stops, angle_deg: pattern.bg.angle_deg }, `${label}.pattern.bg`);
+        }
+        else
+            validateHexColor(pattern.bg, `${label}.pattern.bg`);
     }
 }
 function validateCaptionBackground(value, label) {
@@ -1528,6 +1633,12 @@ function normalizeCaptionLineTextStyle(value) {
                 ...(typeof value.stroke.color === 'string' ? { color: value.stroke.color } : {}),
                 ...(finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {})
             } } : {}),
+        ...(Array.isArray(value.strokes) ? { strokes: value.strokes.map((stroke) => ({
+                color: stroke.color, width_px: stroke.width_px,
+                ...(finiteNumber(stroke.offset_x) ? { offset_x: stroke.offset_x } : {}),
+                ...(finiteNumber(stroke.offset_y) ? { offset_y: stroke.offset_y } : {})
+            })) } : {}),
+        ...(isRecord(value.fill) ? { fill: value.fill } : {}),
         ...(isRecord(value.stroke_inner) ? { stroke_inner: {
                 ...(typeof value.stroke_inner.color === 'string' ? { color: value.stroke_inner.color } : {}),
                 ...(finiteNumber(value.stroke_inner.width_px) ? { width_px: value.stroke_inner.width_px } : {})
@@ -1562,6 +1673,8 @@ function mergeCaptionLineTextStyles(base, override) {
     const left = normalizeCaptionLineTextStyle(base);
     const right = normalizeCaptionLineTextStyle(override);
     const merged = { ...left, ...right };
+    // Rich fill and stroke stacks replace their entire legacy families. Keep the old
+    // fields in the saved record, but never let them take precedence during drawing.
     for (const key of ['stroke', 'stroke_inner', 'fill_gradient', 'extrude', 'background', 'shadow', 'glow', 'position', 'animation', 'karaoke']) {
         if (isRecord(left[key]) || isRecord(right[key])) {
             merged[key] = { ...(isRecord(left[key]) ? left[key] : {}), ...(isRecord(right[key]) ? right[key] : {}) };
@@ -1702,6 +1815,120 @@ function cssCaptionFontFamily(value) {
         return value;
     return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
+const METALLIC_POSITIONS = {
+    gold: [0, 26, 44, 50, 58, 78, 100],
+    navy: [0, 34, 47, 51, 62, 82, 100]
+};
+function rgbFromHex(color) {
+    const hex = color.slice(1);
+    const expanded = hex.length === 3 ? [...hex].map(ch => ch + ch).join('') : hex;
+    return [0, 2, 4].map(index => Number.parseInt(expanded.slice(index, index + 2), 16));
+}
+function mixHex(color, other, fraction) {
+    return `#${rgbFromHex(color).map(channel => Math.round(channel * fraction + other * (1 - fraction))
+        .toString(16).padStart(2, '0')).join('')}`;
+}
+function deriveMetallicStops(hue, variant) {
+    if (!HEX_COLOR.test(hue) || !METALLIC_POSITIONS[variant])
+        throw new Error('invalid metallic hue or variant');
+    const colors = [mixHex(hue, 0, .52), hue.toLowerCase(), mixHex(hue, 255, .45),
+        mixHex(hue, 255, .18), mixHex(hue, 255, .45), hue.toLowerCase(), mixHex(hue, 0, .52)];
+    return METALLIC_POSITIONS[variant].map((at, index) => ({ at, color: colors[index] }));
+}
+/** A nonmetallic or edited stop sequence has no one-knob hue representation. */
+function readMetallicHue(stops) {
+    if (!Array.isArray(stops) || stops.length !== 7 || !stops.every(stop => isRecord(stop)))
+        return null;
+    const variant = Object.keys(METALLIC_POSITIONS)
+        .find(candidate => METALLIC_POSITIONS[candidate].every((at, index) => stops[index].at === at));
+    if (!variant || !HEX_COLOR.test(stops[1].color) || !HEX_COLOR.test(stops[5].color)
+        || stops[1].color.toLowerCase() !== stops[5].color.toLowerCase())
+        return null;
+    const hue = stops[1].color;
+    const expected = deriveMetallicStops(hue, variant);
+    return expected.every((stop, index) => stop.color.toLowerCase() === stops[index].color.toLowerCase())
+        ? { hue, variant } : null;
+}
+const RICH_PATTERN_SHAPES = {
+    diamond: { size: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity=".5"/><path d="M-12 24 24-12M0 36 36 0" stroke="FG" stroke-width="2" opacity=".32"/>' },
+    dot: { size: 16, viewBox: 16, shape: '<circle cx="3" cy="3" r="2.5" fill="FG" opacity=".5"/><circle cx="11" cy="11" r="2" fill="FG" opacity=".35"/>' },
+    stripe: { size: 14, viewBox: 14, shape: '<path d="M0 0h14v7H0z" fill="FG"/>' },
+    gingham: { size: 22, viewBox: 22, shape: '<path d="M0 0h9v22H0zM0 0h22v9H0z" fill="FG" opacity=".55"/>' },
+    skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
+    hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
+    night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' },
+    // Geometry, intrinsic SVG size, and opacity follow the source fragment data URIs.
+    heart: { size: 14, viewBox: 24, shape: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="FG" fill-opacity="0.6"/>' },
+    thunder: { size: 30, viewBox: 24, shape: '<path d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="FG" fill-opacity="0.95"/>' }
+};
+// Exact encoded SVGs from telop-pop-heart / telop-pop-thunder fragment.html.
+// Only the encoded fill color is substituted; geometry and fill-opacity stay fixed.
+const RICH_SOURCE_PATTERN_URIS = {
+    heart: {
+        uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"%3E%3Cpath d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="%23e8a0f8" fill-opacity="0.6"/%3E%3C/svg%3E',
+        sourceColor: '%23e8a0f8'
+    },
+    thunder: {
+        uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30"%3E%3Cpath d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="%23fff26a" fill-opacity="0.95"/%3E%3C/svg%3E',
+        sourceColor: '%23fff26a'
+    }
+};
+function richPatternImage(pattern, layered) {
+    const source = RICH_SOURCE_PATTERN_URIS[pattern.id];
+    if (source) {
+        const uri = source.uri.replace(source.sourceColor, encodeURIComponent(pattern.fg));
+        if (layered)
+            return `url('${uri}')`;
+        const svg = decodeURIComponent(uri.slice('data:image/svg+xml,'.length))
+            .replace('>', `><rect width="100%" height="100%" fill="${pattern.bg}"/>`);
+        return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    }
+    const template = RICH_PATTERN_SHAPES[pattern.id];
+    const rect = layered ? '' : `<rect width="100%" height="100%" fill="${pattern.bg}"/>`;
+    const bg = layered ? 'transparent' : pattern.bg;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}">${rect}${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, bg)}</svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+function resolveCaptionRichFillVars(fill, scale = 1) {
+    if (fill.type === 'solid')
+        return { '--caption-rich-fill-color': fill.color };
+    if (fill.type === 'gradient')
+        return {
+            '--caption-rich-fill-color': 'transparent',
+            '--caption-rich-fill-image': `linear-gradient(${fill.angle_deg}deg, ${fill.stops.map(stop => `${stop.color} ${stop.at}%`).join(', ')})`,
+            '--caption-rich-fill-size': '100% 100%', '--caption-rich-fill-position': '0 0'
+        };
+    const pattern = fill.pattern;
+    const bg = pattern.bg;
+    const tile = formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale);
+    const offset = pattern.id === 'thunder' ? '4px 2px' : '0 0';
+    if (typeof bg === 'string')
+        return {
+            '--caption-rich-fill-color': 'transparent',
+            '--caption-rich-fill-image': richPatternImage(pattern, false),
+            '--caption-rich-fill-size': `${tile}px ${tile}px`,
+            '--caption-rich-fill-position': offset
+        };
+    const background = `linear-gradient(${bg.angle_deg}deg, ${bg.stops.map(stop => `${stop.color} ${stop.at}%`).join(', ')})`;
+    return {
+        '--caption-rich-fill-color': 'transparent',
+        '--caption-rich-fill-image': `${richPatternImage(pattern, true)}, ${background}`,
+        '--caption-rich-fill-size': `${tile}px ${tile}px, 100% 100%`,
+        '--caption-rich-fill-position': `${offset}, 0 0`
+    };
+}
+function resolveCaptionRichStrokes(style, output) {
+    const scale = resolveCaptionReferenceScale(style, output);
+    const font = finitePositive(style.size_px) ? style.size_px * scale : 38;
+    const strokes = Array.isArray(style.strokes) ? style.strokes
+        : isRecord(style.stroke) ? [{ color: style.stroke.color ?? '#000000', width_px: style.stroke.width_px ?? 1.5 }] : [];
+    return strokes.map((stroke) => ({
+        '--caption-rich-stroke-color': stroke.color,
+        '--caption-rich-stroke-width': `${formatCssNumber(2 * stroke.width_px * scale / font)}em`,
+        '--caption-rich-stroke-offset-x': `${formatCssNumber((stroke.offset_x ?? 0) * scale / font)}em`,
+        '--caption-rich-stroke-offset-y': `${formatCssNumber((stroke.offset_y ?? 0) * scale / font)}em`
+    }));
+}
 function resolveCaptionLineStyleVarsAtScale(style, scale) {
     const vars = {};
     const px = (value) => scaleCaptionPx(value, scale);
@@ -1712,6 +1939,8 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     }
     if (typeof style.color === 'string')
         vars['--caption-color'] = style.color;
+    if (isRecord(style.fill))
+        Object.assign(vars, resolveCaptionRichFillVars(style.fill, scale));
     if (isRecord(style.karaoke) && typeof style.karaoke.done_color === 'string')
         vars['--caption-highlight-color'] = style.karaoke.done_color;
     if (finiteNumber(style.size_px))
@@ -1721,9 +1950,11 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
         const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.9)';
         vars['--caption-stroke'] = `${width * 2}px ${color}`;
     }
+    if (Array.isArray(style.strokes))
+        vars['--caption-stroke'] = '0 transparent';
     if (isRecord(style.stroke_inner) && !isRecord(style.stroke))
         vars['--caption-stroke'] = '0 transparent';
-    if (isRecord(style.fill_gradient) && Array.isArray(style.fill_gradient.colors)
+    if (!isRecord(style.fill) && isRecord(style.fill_gradient) && Array.isArray(style.fill_gradient.colors)
         && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3
         && style.fill_gradient.colors.every((color) => typeof color === 'string' && HEX_COLOR.test(color))
         && finiteNumber(style.fill_gradient.angle_deg)) {
@@ -1860,6 +2091,8 @@ function resolveCaptionStyleForOutput(style, output) {
         vars['--caption-webkit-text-stroke'] = `${formatCssNumber(width * 2)}px ${color}`;
         vars['--caption-paint-order'] = 'stroke fill';
     }
+    if (Array.isArray(style.strokes))
+        vars['--caption-webkit-text-stroke'] = '0 transparent';
     if (isRecord(style.stroke_inner) && !isRecord(style.stroke))
         vars['--caption-webkit-text-stroke'] = '0 transparent';
     if (isRecord(style.background) && finiteNonNegative(style.background.radius_px)) {
@@ -1897,6 +2130,11 @@ function resolveCaptionWordStyleVars(style, output) {
     const scale = resolveCaptionReferenceScale(style, output);
     if (typeof style.color === 'string')
         vars['--caption-tok-color'] = style.color;
+    if (isRecord(style.fill)) {
+        const rich = resolveCaptionRichFillVars(style.fill, scale);
+        for (const [name, value] of Object.entries(rich))
+            vars[name.replace('--caption-rich-', '--caption-tok-rich-')] = value;
+    }
     if (finitePositive(style.size_px))
         vars['--caption-tok-font-size'] = `${formatCssNumber(style.size_px * scale)}px`;
     if (typeof style.font_family === 'string' && style.font_family.length > 0) {
@@ -1922,7 +2160,7 @@ function resolveCaptionWordStyleVars(style, output) {
         if (transform)
             vars['--caption-tok-text-transform'] = transform;
     }
-    if (isRecord(style.stroke)) {
+    if (isRecord(style.stroke) && !Array.isArray(style.strokes)) {
         const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.85)';
         const width = finiteNonNegative(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
         vars['--caption-tok-webkit-text-stroke'] = `${formatCssNumber(width)}px ${color}`;
@@ -1964,7 +2202,7 @@ function captionTextShadowValue(shadow, glow, scale = 1) {
 }
 function captionRichTextShadowValue(style, scale) {
     const parts = [];
-    if (isRecord(style.stroke_inner) && finiteNonNegative(style.stroke_inner.width_px)
+    if (!Array.isArray(style.strokes) && isRecord(style.stroke_inner) && finiteNonNegative(style.stroke_inner.width_px)
         && style.stroke_inner.width_px > 0) {
         const radius = scaleCaptionPx(style.stroke_inner.width_px, scale);
         const color = typeof style.stroke_inner.color === 'string' && HEX_COLOR.test(style.stroke_inner.color)

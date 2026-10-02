@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     CATALOG_AUDIO_BGM_CATEGORY,
     CATALOG_AUDIO_SFX_CATEGORY,
+    CATALOG_CATEGORIES,
     classifyCatalogAudioItem,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
@@ -224,6 +225,11 @@ test('deriveCatalogCategoryChips: 未知カテゴリは既存項目を消さず�
         { category: 'avatars', label: 'avatars', count: 1 },
         { category: 'zeta', label: 'zeta', count: 2 }
     ]);
+});
+
+test('textstyle is a known catalog folder but has no general catalog chip', () => {
+    assert.ok(CATALOG_CATEGORIES.includes('textstyle'));
+    assert.ok(!deriveCatalogCategoryChips([{ category: 'textstyle' }]).some(chip => chip.category === 'textstyle'));
 });
 
 test('deriveCatalogFilteredEmptyKind: 0件カテゴリと検索0件を区別する', () => {

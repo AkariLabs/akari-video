@@ -6,7 +6,7 @@ import {
     mergeCaptionLineTextStyles,
     resolveCaptionLineStyleVars,
     sliceCaptionRuns,
-    TEXTSTYLE_CATALOG
+    resolveTextstyleCatalog
 } from '@akari-video/edit-store';
 import type { CaptionRun } from '@akari-video/edit-store';
 import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
@@ -115,7 +115,7 @@ export function parsePreviewCaptions(
     output?: { width: number; height: number }
 ): PreviewCaption[] {
     let root: unknown = JSON.parse(source);
-    root = applyCaptionStylePresets(root, TEXTSTYLE_CATALOG).root;
+    root = applyCaptionStylePresets(root, resolveTextstyleCatalog().catalog).root;
     const values = Array.isArray(root)
         ? root
         : isRecord(root) && Array.isArray(root.captions)

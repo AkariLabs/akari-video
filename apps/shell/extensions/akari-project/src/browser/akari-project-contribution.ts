@@ -31,6 +31,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, DroppedVideo, DroppedVideoImportResult } from '../common/akari-project-protocol';
+import { registerLibraryTextstylePresets } from '@akari-video/edit-store';
 import { LIST_MY_STYLES_COMMAND_ID, MyStyleListItem } from '../common/my-style';
 import { BRAND_KIT_ADD_COLOR_COMMAND_ID, BRAND_KIT_GET_COMMAND_ID, BRAND_KIT_REMOVE_COLOR_COMMAND_ID } from '../common/brand-kit';
 import { isDelegatedDragOverInput, isDelegatedDropInput } from '../common/delegated-drop';
@@ -211,6 +212,8 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
 
     async onStart(app: FrontendApplication): Promise<void> {
         this.app = app;
+        await this.projectService.getLibraryTextstylePresets()
+            .then(registerLibraryTextstylePresets).catch(() => registerLibraryTextstylePresets([]));
         await this.workflow.load();
         this.stateService.reachedState('ready').then(() => {
             void this.watchOpenRoots();

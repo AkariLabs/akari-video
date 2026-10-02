@@ -51,6 +51,8 @@ const expectedSources = [
   'shape-markup.ts',
   'shape-preset.ts',
   'shape-source-validation.ts',
+  'textstyle-catalog-merge.ts',
+  'textstyle-library-node.ts',
   'timeline-map.ts',
   'track-order.ts',
   'track-transition-compatibility.ts',

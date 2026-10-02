@@ -5,6 +5,7 @@ exports.openProject = openProject;
 const fs_1 = require("fs");
 const path_1 = require("path");
 const caption_store_1 = require("./caption-store");
+const textstyle_library_node_1 = require("./textstyle-library-node");
 const canonical_1 = require("./canonical");
 const tree_ops_1 = require("./tree-ops");
 const write_gate_1 = require("./write-gate");
@@ -27,7 +28,7 @@ async function openProject(dir, opts = {}) {
     const captionsRoot = captionsText === undefined ? undefined : JSON.parse(captionsText);
     const parsedCaptions = captionsText === undefined
         ? { captions: [], warnings: [] }
-        : (0, caption_store_1.parseCaptions)(captionsText);
+        : (0, caption_store_1.parseCaptions)(captionsText, { catalog: (0, textstyle_library_node_1.loadTextstyleCatalogSync)({ env: process.env }).catalog });
     const captions = {
         rows: parsedCaptions.captions,
         ...(parsedCaptions.defaultTextStyle !== undefined

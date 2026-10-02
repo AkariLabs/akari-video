@@ -117,3 +117,14 @@ test("未知の CSS 規則を残し、カンマ区切りの字幕セレクタを
   const malformed = '<div class="akari-caption"><style>.akari-caption__plate { color:red;</style></div>';
   assert.equal(scopeCaptionStylesInSheet(malformed), malformed);
 });
+
+test('rich caption layer selectors stay inside their own OSR cue', () => {
+  const html = '<div class="akari-caption akari-caption--rich"><style>'
+    + '.akari-caption--rich .akari-caption__rich-stroke{color:red;}'
+    + '.akari-caption__rich-fill{color:gold;}'
+    + '</style><span class="akari-caption__rich-fill">A</span></div>';
+  const result = scopeCaptionStylesInSheet(html);
+  const scope = '[data-akari-caption-scope="c-30"]';
+  assert.ok(result.includes(`.akari-caption--rich${scope} .akari-caption__rich-stroke{color:red;}`));
+  assert.ok(result.includes(`.akari-caption${scope} .akari-caption__rich-fill{color:gold;}`));
+});

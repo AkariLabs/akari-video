@@ -292,6 +292,7 @@ export interface LibrarySimpleCardProps {
     title?: string;
     draggable?: boolean;
     faceHeight?: string;
+    badge?: string;
     onDragStart?(event: React.DragEvent<HTMLElement>): void;
     onDragEnd?(): void;
     onMouseEnter?(event: React.MouseEvent<HTMLElement>): void;
@@ -329,6 +330,7 @@ export function LibrarySimpleCard(props: LibrarySimpleCardProps): React.ReactEle
                 <span style={{ flex: '1 1 auto', display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, fontSize: '0.82em' }}>
                     {props.favorite && <FavoriteStar />}
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{props.name}</span>
+                    {props.badge && <span style={{ fontSize: '0.65em', borderRadius: '999px', padding: '1px 5px', border: AKARI_BORDER.ghost }}>{props.badge}</span>}
                 </span>
                 <LibraryDotsButton variant='inline' label={props.name} expanded={props.infoOpen} onOpen={props.onInfo} />
             </div>
@@ -349,6 +351,7 @@ export function LibrarySimpleCard(props: LibrarySimpleCardProps): React.ReactEle
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, padding: '5px 7px 6px' }}>
                 {props.favorite && <FavoriteStar />}
                 <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{props.name}</span>
+                {props.badge && <span style={{ flex: '0 0 auto', fontSize: '0.65em', borderRadius: '999px', padding: '1px 5px', border: AKARI_BORDER.ghost }}>{props.badge}</span>}
             </div>
         </div>
     );

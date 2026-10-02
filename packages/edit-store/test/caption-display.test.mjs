@@ -20,6 +20,9 @@ import {
   resolveCaptionLineStyleVars,
   resolveCaptionReferenceScale,
   resolveCaptionStyleForOutput,
+  deriveMetallicStops,
+  readMetallicHue,
+  resolveCaptionRichStrokes,
   resolveCaptionWordStyleVars,
   scaleCaptionPx,
   splitCaptionFragments,
@@ -35,6 +38,32 @@ import {
 } from '../lib/index.js';
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
+
+test('textstyle v1 rich fill, strokes, and metallic hue round trip', () => {
+  for (const variant of ['gold', 'navy']) {
+    const stops = deriveMetallicStops('#c89432', variant);
+    assert.deepEqual(readMetallicHue(stops), { hue: '#c89432', variant });
+    assert.equal(readMetallicHue([{ ...stops[0], at: 1 }, ...stops.slice(1)]), null);
+  }
+  const style = {
+    color: '#ffffff', fill: { type: 'solid', color: '#ff0000' },
+    stroke: { color: '#000000', width_px: 1 },
+    strokes: [{ color: '#111111', width_px: 3, offset_x: 2, offset_y: -1 }],
+    size_px: 60, reference_height_px: 960,
+  };
+  validateCaptionTextStyle(style);
+  const vars = resolveCaptionStyleForOutput(style, { width: 1080, height: 1920 }).vars;
+  assert.equal(vars['--caption-rich-fill-color'], '#ff0000');
+  assert.equal(vars['--caption-webkit-text-stroke'], '0 transparent');
+  assert.deepEqual(resolveCaptionRichStrokes(style, { width: 1080, height: 1920 }), [{
+    '--caption-rich-stroke-color': '#111111',
+    '--caption-rich-stroke-width': '0.1em',
+    '--caption-rich-stroke-offset-x': '0.033333em',
+    '--caption-rich-stroke-offset-y': '-0.016667em',
+  }]);
+  assert.throws(() => validateCaptionTextStyle({ fill: { type: 'gradient', angle_deg: 180,
+    stops: [{ at: 0, color: '#fff' }, { at: 0, color: '#000' }] } }));
+});
 const styleParity = JSON.parse(await readFile(join(testRoot, 'fixtures/caption-style-validation-parity.json'), 'utf8'));
 
 test('font_family is a valid CSS family in line and word style variables', () => {

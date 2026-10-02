@@ -5,7 +5,7 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
 import { AKARI_HOST, LEGACY_AKARI_HOST } from './service-urls.mjs';
 
-export const ASSET_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'];
+export const ASSET_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font', 'textstyle'];
 const FIRST_PARTY_SOURCES = [
   { hostname: 'github.com', firstPathSegment: 'AkariLabs' },
   { hostname: AKARI_HOST, includeSubdomains: true },

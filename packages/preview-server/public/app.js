@@ -26,7 +26,7 @@ import {
   createPlatinumGradient,
   drawPenSegment as drawPenSegmentShared,
 } from '/pen-visuals.bundle.js';
-import { replaceCaptionStyleVariables } from '/caption-style.js';
+import { replaceCaptionStyleVariables, applyRichCaptionLayers } from '/caption-style.js';
 // cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
 import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
 import { composeCutVisualStyle } from '/cut-transform-visual.js';
@@ -4730,6 +4730,8 @@ function updateCaption() {
 }
 function renderCaptionRow(active, captionPlate) {
   applyCaptionStyle(active, captionPlate);
+  const richStyle = captionsResolvedTimeline ? active.text_style
+    : mergeCaptionLineTextStyles(summary?.default_text_style, active.text_style);
   const words = normalizeWords(active.words);
   const karaoke = active.text_style?.karaoke || summary?.default_text_style?.karaoke
     ? { ...(summary?.default_text_style?.karaoke ?? {}), ...(active.text_style?.karaoke ?? {}) } : null;
@@ -4770,6 +4772,7 @@ function renderCaptionRow(active, captionPlate) {
   injectCaptionStyles();
   if (captionsResolvedTimeline && active.word_styles?.length && active.words?.length) {
     captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${renderResolvedWordTokens(active)}</span>`;
+    applyRichCaptionLayers(captionPlate, richStyle);
     delete captionPlate.dataset.captionStart;
     return;
   }
@@ -4811,6 +4814,7 @@ function renderCaptionRow(active, captionPlate) {
     }
     delete captionPlate.dataset.captionStart;
   }
+  applyRichCaptionLayers(captionPlate, richStyle);
 }
 function syncCaptionAnimations() {
   for (const { plate } of captionRows.values()) {

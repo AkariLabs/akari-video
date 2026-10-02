@@ -1,0 +1,28 @@
+{
+  "id": "telop-pop-heart",
+  "text": "ハートいっぱい",
+  "style": {
+    "size_px": 72,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#ffffff", "width_px": 7.2 },
+      { "color": "#d020d8", "width_px": 3.24 }
+    ],
+    "fill": {
+      "type": "pattern",
+      "pattern": {
+        "id": "heart",
+        "scale": 1,
+        "fg": "#e8a0f880",
+        "bg": {
+          "angle_deg": 180,
+          "stops": [
+            { "at": 0, "color": "#b040e8" },
+            { "at": 55, "color": "#8820c0" },
+            { "at": 100, "color": "#6a08a0" }
+          ]
+        }
+      }
+    }
+  }
+}

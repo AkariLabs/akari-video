@@ -647,6 +647,47 @@
     return root;
   }
 
+  // SVG foreignObject does not run the phase script in a caption fragment. Resolve
+  // the same line coordinates in the measured DOM before serializing the texture.
+  function captionRichPhaseHtml(value, config, html, extraCss) {
+    if (!value.richTextStyle) return html;
+    const root = captionRoot(value, config, html, extraCss);
+    try {
+      const caption = root.querySelector('.akari-caption--rich');
+      if (caption) {
+        const fillType = caption.getAttribute('data-rich-fill-type');
+        const gradient = fillType === 'gradient';
+        const pattern = fillType === 'pattern';
+        const patternGradient = pattern && caption.getAttribute('data-rich-pattern-bg') === 'gradient';
+        const thunder = caption.getAttribute('data-rich-pattern-id') === 'thunder';
+        for (const line of caption.querySelectorAll('.akari-caption__line,.akari-caption__resolved-line')) {
+          const lineRect = line.getBoundingClientRect();
+          for (const fill of line.querySelectorAll('.akari-caption__rich-fill')) {
+            const rect = fill.getBoundingClientRect();
+            const x = Number((lineRect.left - rect.left).toFixed(3));
+            const y = Number((lineRect.top - rect.top).toFixed(3));
+            const patternPosition = `${Number((x + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y + (thunder ? 2 : 0)).toFixed(3))}px`;
+            fill.style.setProperty('--caption-rich-fill-position', patternGradient
+              ? `${patternPosition}, ${x}px ${y}px`
+              : pattern ? patternPosition : `${x}px ${y}px`);
+            if (gradient) fill.style.setProperty('--caption-rich-fill-size',
+              `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            if (patternGradient) {
+              const tile = getComputedStyle(fill).backgroundSize.split(',')[0];
+              fill.style.setProperty('--caption-rich-fill-size',
+                `${tile}, ${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            }
+          }
+        }
+      }
+      root.querySelector('style')?.remove();
+      root.querySelectorAll('script[data-akari-rich-phase]').forEach(script => script.remove());
+      return root.innerHTML;
+    } finally {
+      root.remove();
+    }
+  }
+
   function captionMeasurementKey(value, config, html, cssVariants, unitIndex) {
     return JSON.stringify([
       config.width,
@@ -1372,6 +1413,7 @@
       probe.remove();
     }
     const units = [];
+    let rasterHtml = null;
     let layoutMaxDeltaPx = 0;
     for (let unitIndex = 0; unitIndex < unitCount; unitIndex += 1) {
       const revealIndex = unitCount > 1 || html.includes("akari-caption__reveal-group") ? unitIndex : null;
@@ -1391,16 +1433,24 @@
         const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
         const hasColor = roles.has("karaoke") || roles.has("karaoke-smooth");
         const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
-        if (hasColor && hasGeometry) throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
-        mode = hasColor ? "color" : hasGeometry || animators.length > 0 ? "geometry" : "sprite";
+        if (hasColor && hasGeometry && !value.richTextStyle) {
+          throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
+        }
+        mode = hasColor && hasGeometry ? "sprite"
+          : hasColor ? "color" : hasGeometry || animators.length > 0 ? "geometry" : "sprite";
+        if (FE.captionRichInkExtentEm(value.richTextStyle, probeMeasurement.emPx) > 0.35) mode = "sprite";
         if (mode === "color") {
           const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-color,#fff)!important}`;
           const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-highlight-color,#ffd94a)!important}`;
+          const richBaseCss = value.richTextStyle
+            ? '.akari-caption--rich .akari-caption__tok--karaoke .akari-caption__rich-fill,.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill{-webkit-text-fill-color:var(--caption-color,#fff)!important;background-image:none!important}' : '';
+          const richHighlightCss = value.richTextStyle
+            ? '.akari-caption--rich .akari-caption__tok--karaoke .akari-caption__rich-fill,.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill{-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a)!important;background-image:none!important}' : '';
           const [baseMeasurement, highlightMeasurement] = await measureCaptionVariantsStable(
             value,
             config,
             html,
-            [`${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${highlightCss}`],
+            [`${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${baseCss}` + richBaseCss, `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${highlightCss}` + richHighlightCss],
             unitIndex,
             attemptsLog,
             differencesLog,
@@ -1410,7 +1460,7 @@
           // instead of hiding a real layout mismatch by widening the tolerance.
           layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(baseMeasurement, highlightMeasurement, id));
           unitMeasurement = baseMeasurement;
-          bandCss = [`${settleCss}${baseCss}`, `${settleCss}${highlightCss}`];
+          bandCss = [`${settleCss}${baseCss}${richBaseCss}`, `${settleCss}${highlightCss}${richHighlightCss}`];
           secondaryId = `${id}::b`;
         } else if (mode === "geometry") {
           const plateCss = `${captionUnitCss(revealIndex)}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
@@ -1444,16 +1494,21 @@
         startupMetrics.measure.degradedUnits += 1;
         warn(`caption ${value.id} unit ${unitIndex} degraded to sprite: ${CAPTION_MEASURE_UNSTABLE_REASON}`);
       }
-      const textureRect = FE.captionWordTextureRect(unitMeasurement, config);
+      const inkExtentEm = FE.captionRichInkExtentEm(value.richTextStyle, unitMeasurement.emPx);
+      const textureRect = inkExtentEm > 0.35
+        ? { x: 0, y: 0, width: config.width, height: config.height, right: config.width, bottom: config.height }
+        : FE.captionWordTextureRect(unitMeasurement, config);
       tiles = mode === "sprite"
         ? null
-        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect,
+        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect, inkExtentEm,
           ...(mode === "color" || animators.length ? { includeTokens: true } : {}) });
+      if (rasterHtml === null) rasterHtml = captionRichPhaseHtml(value, config, html,
+        `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}`);
       units.push({
         id,
         secondaryId,
         value: { id: value.id, motion: value.motion, vars: value.vars },
-        html,
+        html: rasterHtml,
         sharedCss: `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}`,
         bandCss,
         textureRect,

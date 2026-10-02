@@ -7,7 +7,7 @@ import { runtimes, validateRuntimeDeclarations } from "../../overlay-runtime/run
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const usage = "使い方: node packages/schemas/bin/validate-asset.mjs assets/overlay/<id>";
+const usage = "使い方: node packages/schemas/bin/validate-asset.mjs assets/<overlay|still|scene3d|audio|broll|font|textstyle>/<id>";
 const assetArgument = process.argv[2];
 
 if (!assetArgument || process.argv.length !== 3) {
@@ -96,9 +96,9 @@ function validateMeta(value) {
   }
 
   // 2026-07-29: 主題（3d/motion/telop/thumbnail）から配布物の形へ切り替え。主題は tags に逃がす。
-  const categories = new Set(["overlay", "still", "scene3d", "audio", "broll", "font"]);
+  const categories = new Set(["overlay", "still", "scene3d", "audio", "broll", "font", "textstyle"]);
   if (typeof value.category !== "string" || !categories.has(value.category)) {
-    fail("category は overlay / still / scene3d / audio / broll / font のいずれかである必要があります");
+    fail("category は overlay / still / scene3d / audio / broll / font / textstyle のいずれかである必要があります");
   }
 
   for (const field of ["title", "description", "when_to_use", "ai_usage", "author"]) {
@@ -388,12 +388,29 @@ function validateFiles() {
     fail(`素材ディレクトリを列挙できません: ${messageOf(error)}`);
     return;
   }
+  const category = path.basename(path.dirname(assetDir));
+  if (category === "textstyle") {
+    const presetPath = path.join(assetDir, "preset.json");
+    if (!isRegularFile(presetPath)) {
+      fail(`textstyle 素材には preset.json が必要です: ${presetPath}`);
+    } else {
+      try {
+        const preset = JSON.parse(fs.readFileSync(presetPath, "utf8"));
+        if (!isPlainObject(preset) || preset.format !== "akari-textstyle") {
+          fail("preset.json の format は akari-textstyle である必要があります");
+        }
+        if (!isPlainObject(preset) || preset.id !== meta.id) {
+          fail("preset.json の id は meta.json の id と一致する必要があります");
+        }
+      } catch (error) {
+        fail(`preset.json を JSON として読めません: ${messageOf(error)}`);
+      }
+    }
+  }
   if (payloadFiles.length === 0) {
     fail("実体ファイルがありません（meta.json / preview.png 以外に 1 ファイル以上必要です）");
     return;
   }
-
-  const category = path.basename(path.dirname(assetDir));
   if (["overlay", "still"].includes(category)) {
     const fragmentPath = path.join(assetDir, "fragment.html");
     if (!isRegularFile(fragmentPath)) {

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildCaptionWordTiles,
   captionMeasurementsEqual,
+  captionRichInkExtentEm,
   captionRevealGroupStateAt,
   captionWordTextureRect,
   captionWordStateAt,
@@ -159,6 +160,42 @@ test("one-line four-word partition uses line strips and adjacent-word midpoints"
 
 test("caption word tile builder returns null when no words were measured", () => {
   assert.equal(buildCaptionWordTiles({ emPx: 38, lines: [], tokens: [] }, { width: 1920, height: 1080 }), null);
+});
+
+test('rich ink beyond the 0.35em tile margin uses a full texture', () => {
+  const measured = measurement();
+  assert.equal(captionRichInkExtentEm({ fill: { type: 'solid', color: '#fff' },
+    strokes: [{ color: '#000', width_px: 18, offset_y: 2 }] }, 40), .5);
+  assert.ok(buildCaptionWordTiles(measured, { width: 1080, height: 1920, inkExtentEm: .35 }));
+  assert.equal(buildCaptionWordTiles(measured, { width: 1080, height: 1920, inkExtentEm: .350001 }), null);
+  assert.deepEqual(measured.tokens[0].rect, rect(10, 44, 30, 20), 'rich child layers do not change token geometry');
+});
+
+test('pattern bg gradients, alpha, heart, and thunder do not change rich ink extent', () => {
+  const decoration = {
+    size_px: 72,
+    reference_height_px: 1080,
+    strokes: [
+      { color: '#1f1745', width_px: 9, offset_x: 2, offset_y: 3 },
+      { color: '#ffffff', width_px: 3 },
+    ],
+    shadow: { color: '#000000', blur_px: 5, distance_px: 4, angle_deg: 90 },
+  };
+  const solid = captionRichInkExtentEm({ ...decoration,
+    fill: { type: 'solid', color: '#ffffff' } }, 72);
+  for (const id of ['diamond', 'heart', 'thunder']) {
+    const base = { id, scale: 1, fg: '#ffffff80' };
+    const oneLayer = captionRichInkExtentEm({ ...decoration,
+      fill: { type: 'pattern', pattern: { ...base, bg: '#322076' } } }, 72);
+    const twoLayers = captionRichInkExtentEm({ ...decoration,
+      fill: { type: 'pattern', pattern: { ...base, bg: {
+        angle_deg: 180,
+        stops: [{ at: 0, color: '#322076' }, { at: 50, color: '#a476d8' },
+          { at: 100, color: '#241658' }],
+      } } } }, 72);
+    assert.equal(oneLayer, solid, `${id}: a single pattern layer must not expand ink`);
+    assert.equal(twoLayers, solid, `${id}: gradient ground and fg alpha must not expand ink`);
+  }
 });
 
 test("caption texture crop includes the plate and a one-em vertical safety margin", () => {
