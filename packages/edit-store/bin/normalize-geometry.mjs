@@ -9,10 +9,11 @@
  * G1 ではエンジンはマーカーを読まないため、この移行だけでは描画は変わらない。
  */
 
+import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { probeMediaDimensions } from "../../media-bin/src/media-dimensions.mjs";
 
@@ -187,7 +188,17 @@ function messageOf(cause) {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// 両辺 realpath（AGENTS.md の規約）。失敗時は false = 実行しない（fail-closed）
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   run(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
   }, (cause) => {

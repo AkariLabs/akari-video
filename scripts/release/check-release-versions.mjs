@@ -7,6 +7,7 @@
 //
 // 使い方:
 //   node scripts/release/check-release-versions.mjs v0.1.0
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -92,6 +93,16 @@ async function main() {
   process.exitCode = result.ok ? 0 : 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// 両辺 realpath（AGENTS.md の規約）。失敗時は false = 実行しない（fail-closed）
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   await main();
 }

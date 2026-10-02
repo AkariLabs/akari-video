@@ -5,7 +5,7 @@
 // 入力フレームは ffmpeg で一定 fps / 幅の PNG に決定論的にデコードし、ブラウザページ内の
 // @mediapipe/tasks-vision (CPU/WASM) へ渡す。Python/Swift の追加ランタイムは持たない。
 
-import fs from "node:fs";
+import fs, { realpathSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -342,7 +342,17 @@ async function main() {
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+// 両辺 realpath（AGENTS.md の規約）。失敗時は false = 実行しない（fail-closed）
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+const isMain = isDirectRun();
 if (isMain) await main();
 
 export { checkAvailability, generate, parseArguments };
