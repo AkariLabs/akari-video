@@ -30,27 +30,27 @@
       "outputs": [
         {
           "frameNumber": 0,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-0.png",
+          "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-0.png",
           "bytes": 921600
         },
         {
           "frameNumber": 15,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-15.png",
+          "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-15.png",
           "bytes": 921600
         },
         {
           "frameNumber": 30,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-30.png",
+          "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-30.png",
           "bytes": 921600
         },
         {
           "frameNumber": 45,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-45.png",
+          "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-45.png",
           "bytes": 921600
         },
         {
           "frameNumber": 59,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-59.png",
+          "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-59.png",
           "bytes": 921600
         }
       ],
