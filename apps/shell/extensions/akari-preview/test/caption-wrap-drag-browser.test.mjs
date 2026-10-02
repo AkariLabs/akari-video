@@ -18,8 +18,15 @@ const cssStart = handler.indexOf('#caption-select-box .akari-caption-handle-box 
 const cssEnd = handler.indexOf('.caption-row-plate.akari-caption-host--editing,', cssStart);
 const baseCss = handler.slice(cssStart, cssEnd);
 
-test('a selected output caption keeps its grabbed edge and writes wrap width without changing size', async () => {
-  const browser = await launchBrowser();
+test('a selected output caption keeps its grabbed edge and writes wrap width without changing size', async t => {
+  let browser;
+  try {
+    browser = await launchBrowser();
+  } catch (error) {
+    if (error?.message !== 'headless Chrome が見つかりません') throw error;
+    t.skip('headless Chrome 不在（Chrome のある環境でのみ実行）');
+    return;
+  }
   try {
     const page = await browser.newPage();
     const sx = 332 / 1920, sy = 187 / 1080;
