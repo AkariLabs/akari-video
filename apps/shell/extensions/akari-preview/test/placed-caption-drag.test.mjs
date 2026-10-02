@@ -3,12 +3,18 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { captionPositionFromVisualRect, placedCaptionPositionFromRects } from '../lib/common/caption-zone-write.js';
+import { evaluateHostTemplate } from './helpers/host-template.mjs';
 
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 function section(start, end) {
     const from = source.indexOf(start), to = source.indexOf(end, from);
     assert.ok(from >= 0 && to > from);
     return source.slice(from, to);
+}
+
+function renderCaptionRowSection() {
+    const richLayer = evaluateHostTemplate(source, section('const applyRichCaptionLayers =', 'const richPreviewWords ='));
+    return `${richLayer}\n${section('const renderCaptionRow =', '            const renderCaption = () =>')}`;
 }
 
 test('actual drag listeners share snapping, preserve placed anchors, and write the landing', async () => {
@@ -117,7 +123,7 @@ test('caption items use the export full-frame plate while ordinary output cues k
         outputTime: 1.5,
         window: { akari: { interaction: { syncOverlayHitRegion() {} } } }
     };
-    const renderCaptionRow = vm.runInNewContext(`${section('const renderCaptionRow =', '            const renderCaption = ()')} renderCaptionRow`, context);
+    const renderCaptionRow = vm.runInNewContext(`${renderCaptionRowSection()} renderCaptionRow`, context);
     const plate = () => ({ style: {}, dataset: {}, classList: { toggle() {} },
         getAnimations: () => [], innerHTML: '' });
     const itemPlate = plate();
@@ -142,7 +148,7 @@ test('renderCaptionRow clears output-only styling when the caption is absent', (
         captionEntryAnimationsSettledFn: () => true,
         window: { akari: { interaction: { syncOverlayHitRegion() {} } } }
     };
-    const renderCaptionRow = vm.runInNewContext(`${section('const renderCaptionRow =', '            const renderCaption = () =>')} renderCaptionRow`, context);
+    const renderCaptionRow = vm.runInNewContext(`${renderCaptionRowSection()} renderCaptionRow`, context);
     for (const caption of [undefined, null]) {
         const plate = {
             dataset: { outputCaption: '' },

@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import * as visual from '../lib/common/caption-visual-contract.js';
-import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../lib/common/caption-text-animation-recipes.js';
+import { evaluateHostTemplate } from './helpers/host-template.mjs';
 import { captionEntryAnimationsSettled } from '../lib/common/caption-hit-region.js';
 import { createCaptionStylePreviewController } from '../lib/common/caption-style-preview.js';
 import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.js';
@@ -26,9 +25,8 @@ function section(text, from, to) {
     assert.ok(start >= 0 && end > start, `missing webview section: ${from}`);
     // Evaluate the host template first, exactly as previewBootstrapScript does. The second VM
     // has only browser globals/stubs, so accidental references to host module names fail.
-    return vm.runInNewContext('`' + text.slice(start, end) + '`', {
-        ...visual, PREVIEW_CAPTION_ANIMATION_RECIPES
-    });
+    const fragment = text.slice(start, end);
+    return evaluateHostTemplate(text, fragment);
 }
 
 export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [], applyAnimator, output, selectedIds = [] } = {}) {

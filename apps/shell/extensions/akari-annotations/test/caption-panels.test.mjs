@@ -9,6 +9,10 @@ import { captionRevealDestination } from '../lib/common/caption-reveal-destinati
 import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { createCaptionPanel, CAPTION_PANEL_STYLES } from '../lib/browser/inspector/caption-panels.js';
 import { updateCaptionTextStyleInSource } from '../lib/common/caption-store.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { CAPTION_SAMPLE_TEXT } = require('../../../../../packages/edit-store/lib/index.js');
 
 class Element {
     children = [];
@@ -135,7 +139,7 @@ test('スタイルカードは固定文字に色・縁・座布団・影・書�
     const cards = descendants(cardRoot).filter(node => node.attributes['data-akari-style-card']);
     assert.equal(cards.length, CAPTION_PANEL_STYLES.length);
     const lines = descendants(cardRoot).filter(node => node.className === 'akari-caption__line');
-    assert.ok(lines.every(line => line.textContent === 'Abc あいう 漢字'));
+    assert.ok(lines.length > 0 && lines.every(line => line.textContent === CAPTION_SAMPLE_TEXT));
     const variety = cards.find(card => card.attributes['data-akari-style-card'] === 'subtitle-variety');
     const varietyCaption = descendants(variety).find(node => node.className === 'akari-caption');
     assert.equal(varietyCaption.style['--caption-color'], '#fff200');
