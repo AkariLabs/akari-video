@@ -44,6 +44,8 @@ CSS mask、`feTurbulence` を用いる質感、断片ネイティブの独自 `@
 | `fill.type: "gradient"` | `stops` は 2 点以上。各 `at` は 0..100 の百分率で昇順、先頭 0・末尾 100。`angle_deg` は必須で CSS `linear-gradient()` と同じ角度（90 が左→右、180 が上→下）。重複位置は不可。 |
 | `fill.type: "pattern"` | `pattern:{id,scale,fg,bg}` 必須。`id` は `diamond` / `dot` / `stripe` / `gingham` / `skull` / `hazard` / `night`。`scale` は正数で 1 が素材の基準タイル寸法、`fg` / `bg` は `hexColor`。SVG データ URI やパターン定義は描画側に焼き込む。外部 URL と任意 SVG は受けない。 |
 
+v1.1（2026-10-02）では pattern に限り `id` に `heart` / `thunder` を追加し、`bg` は `hexColor` または `{stops,angle_deg}` のグラデーションとする。`fg` の `#RRGGBBAA` は図形の alpha として解釈する。詳細は §11。
+
 型ごとに不要な `color` / `stops` / `angle_deg` / `pattern` は受けない。`fill` を省略した場合は既存 `color` / `fill_gradient` の挙動を保つ。`fill` と旧 `fill_gradient` が同時にあれば `fill` が勝つ。`strokes` と旧 `stroke` / `stroke_inner` が同時にあれば `strokes` が縁取り全体に勝つ。旧 `stroke` だけの保存形は 1 要素の `strokes` と同じ絵に正規化し、旧値を書き換えない。旧 `stroke` の省略値・`method` は現行解決規則を先に適用する。旧 `extrude`、`shadow`、`glow` は引き続き有効で、リッチな塗り・縁取りより背面に置く。
 
 `default_text_style` → `style_preset.style` → cue `text_style` の優先順位は v0 のまま。`fill` はオブジェクト全体、`strokes` は配列全体を 1 フィールドとして上書きする。片側の `fill.stops` や `strokes[1]` だけを混ぜない。これによりプリセットから別の配色へ切り替えると古い停止点や輪郭が残らない。既存の `color` 単独 override は、明示 `fill` のあるプリセットを上書きしない。「塗りの色」を変える UI は `fill` 全体を再生成する。
@@ -61,6 +63,8 @@ CSS mask、`feTurbulence` を用いる質感、断片ネイティブの独自 `@
 ## 3. 柄の定義と変換元
 
 初期 7 id の図形、タイルの位相・基準寸法・重ね順は素材側 `assets/overlay/telop-pattern-*/fragment.html` の `--i-fill` と SVG データ URI を正本として固定する。`diamond` は斜め筋と菱形、`dot` はずれた水玉、`stripe` は帯、`gingham` は格子、`skull` は髑髏、`hazard` は警告三角、`night` は星点と星形を持つ。描画側は id から固定テンプレートを選び、検証済み `fg` / `bg` と `scale` を埋めて自己完結した CSS 画像を作る。同じ id と 3 値は 4 経路で同じ画素入力とする。素材の多色グラデや複数の独立した色を単一 `fg` / `bg` に縮約できないときは、変換プリセットに別の展開済み色を追加する改訂契約を起こすか §9 の残留とする。CSS `mask` による切り抜きはこの v1 pattern に含めない。
+
+v1.1 の `heart` / `thunder` は別の正本 URI を §11 で追加する。透過柄の下に `bg` のグラデーションを敷く 2 層合成を用いるため、上記の 2 色縮約条件はこの 2 id には適用しない。
 
 ### 素材（overlay 断片）から v1 への変換規則
 
@@ -227,6 +231,10 @@ fill image は検証済み stop から作る `linear-gradient(...)` または id
 
 停止点の先頭 0・末尾 100・昇順・重複禁止、および `strokes` と旧 `stroke` が共存する場合の優先順位は JSON Schema 単体で表現しきれないため validator / edit-store の解決時に検査する。後方互換の `stroke`、`stroke_inner`、`fill_gradient`、`extrude`、`color` は削除しない。`default_text_style`、cue `text_style` の両方で同じ `$defs.textStyle` を使う。`runs[].style` のスキーマは v0 のまま維持する。
 
+### v1.1 schema 差分（2026-10-02）
+
+`textFillStyle` の pattern 枝だけを拡張する。`pattern.id` の enum に `heart` / `thunder` を加える。`pattern.bg` は従来の `hexColor` または `{ "stops": textFillStop[], "angle_deg": number }` のいずれかとし、後者は gradient fill と同じ 2 点以上、先頭 0・末尾 100・昇順・重複不可の規則を使う。旧 `bg` 文字列、他の fill 枝、`additionalProperties:false` は維持する。`fg` は既存 `hexColor` の `#RRGGBBAA` を受け、SVG に埋めるときも alpha を保持する。
+
 ## 9. overlay 残留条件と未決事項
 
 次の表現は v1 で語彙化しない: CSS mask を介した任意の切り抜き、SVG `feTurbulence` / filter 由来のノイズ質感、断片固有の `@keyframes` と複数要素の独立した動き、画像・図形・別テキストの独立レイアウト、v1 の `fg` / `bg` へ縮約できない多色の柄。これらが不可欠な素材は overlay に残す。単純な多層 stroke・ずらし影・グラデ・7 柄だけで成立するものは textstyle へ変換する。素材別の残留判定は変換作業で記録する。
@@ -252,3 +260,20 @@ B-2 着手前に決める未決事項:
 - **未決 5**: マイスタイル look への `fill` / `strokes` は別票（同意）
 
 TODO（B-2 所有外）: インスペクタの「文字色」操作は `fill` を持つプリセットに対し `color` でなく `fill:{type:"solid",color}` を保存する。
+
+## 11. v1.1（2026-10-02）
+
+素材側の仕分けで、`telop-pop-heart` と `telop-pop-thunder` は地がグラデーションであり、単色 `pattern.bg` では原画を表せないと確定した。`pattern.bg` の gradient は保存時に停止点と角度を展開し、描画時は `background-image: <透過 pattern SVG>, linear-gradient(...)` の順に合成する。**`bg` 文字列は v1 の 1 層（SVG 内の `<rect>`）をバイト不変で維持し、2 層は `bg` がグラデーションオブジェクトのときだけ使う。**第 1 層のサイズは基準タイル × `scale`、第 2 層のグラデーションは行全体の描画矩形とする。両層の位置は行の共通原点に合わせ、`words[]` 分割後も位相を戻さない。2 層の SVG に地色を焼き込まない。
+
+| 項目 | v1 | v1.1 |
+|---|---|---|
+| `pattern.id` enum | `diamond` / `dot` / `stripe` / `gingham` / `skull` / `hazard` / `night` | 左記に `heart` / `thunder` を追加 |
+| `pattern.bg` の型 | `hexColor` 文字列 | `hexColor` 文字列または `{stops,angle_deg}` |
+| `fg` の alpha | `hexColor` の `#RRGGBBAA` を受理 | 9 id とも SVG の `fill` に alpha を保持し、図形固有の opacity と合成 |
+| CSS 合成式 `background-image` | `url("<rect を持つ pattern SVG>")` の 1 層 | `bg` 文字列は v1 とバイト一致。`bg` グラデのみ `<透過 pattern>, linear-gradient(...)` の 2 層 |
+| 位相・タイル寸法 | 初期 7 id の既定タイルと位相 | `heart` は 14px、`thunder` は 30px。`thunder` の位相は 4px 2px。1 層は位置 1 組・サイズ 1 組、2 層は位置 2 組・サイズはタイルと行全体 |
+| 対象外の `night` / `skull` / `stripe` | id は受理 | 素材の textstyle 変換は対象外。`night` は星点が別色、`skull` は SVG 2 色、`stripe` は独立した斜線グラデーションが必要 |
+
+`heart` / `thunder` の図形、基準タイル寸法、位相と不透明度は素材側 `telop-pop-heart/fragment.html` / `telop-pop-thunder/fragment.html` の SVG データ URI を正本とする。`fg` は `#RRGGBBAA` を含む `hexColor` とし、8-bit alpha を SVG の図形不透明度に掛ける。`#RRGGBB` と `#RGB` は不透明として扱う。文字の縁取りと影は従来の v1 層規則を使う。
+
+対象外の `night`（星点が別色）、`skull`（SVG 2 色）、`stripe`（独立した斜線グラデーション）はこの改訂では語彙化しない。これらの素材は overlay に残す。描画経路と GPU 書き出しは同じ edit-store の展開値と CSS を用い、v0 / v1 の保存値を書き換えない。
