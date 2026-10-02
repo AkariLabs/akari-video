@@ -2,6 +2,7 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
+import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import {
@@ -2204,7 +2205,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
         const beforeSource = await fs.readFile(captionsPath, 'utf8');
-        const updated = updateCaptionStylePresetInSource(beforeSource, request.captionIds, request.presetId);
+        const updated = updateCaptionStylePresetInSource(beforeSource, request.captionIds, request.presetId,
+            { catalog: loadTextstyleCatalogSync({ env: process.env }).catalog });
         if (updated.changed === 0) {
             return { committed: false, changed: 0, beforeSource };
         }

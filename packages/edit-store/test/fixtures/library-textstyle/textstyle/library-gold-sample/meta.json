@@ -1,0 +1,20 @@
+{
+  "id": "library-gold-sample",
+  "category": "textstyle",
+  "title": "ライブラリ金文字",
+  "description": "多層縁取りと金色のグラデーションを使う字幕スタイル。",
+  "when_to_use": "強調する短い見出しに使用する。",
+  "tags": ["metallic", "gold"],
+  "knobs": [],
+  "ai_usage": "短い字幕の強調に使用する。",
+  "requires": [],
+  "provenance": { "origin": "B-3 テスト fixture", "generator": null },
+  "author": "AKARI Video",
+  "license": {
+    "spdx": "LicenseRef-AKARI-Assets-v0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": 1980
+}

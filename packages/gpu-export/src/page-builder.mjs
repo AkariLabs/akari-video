@@ -26,8 +26,8 @@ const {
   resolveRecordTrackZ,
   partitionPreviewMediaPlanes,
   toAnchorCaptions,
-  TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
+const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 // data-akari-slot への文言注入。legacy（render-cut rasterize）・プレビュー（overlay-runtime）と同じ
@@ -425,7 +425,7 @@ export async function loadAndBuildGpuPage({
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
   // プリセット適用と除外フィルタは animator 射影の入力に要るのでここでも通す。
   // buildGpuPage 側の resolveCaptionPlan が同じ前段をもう一度かけるが、どちらも冪等。
-  const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root;
+  const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], loadTextstyleCatalogSync({ env: process.env }).catalog).root;
   const filteredCaptions = filterCaptionRootByExcludedIds(
     styledCaptions,
     collectExcludedCaptionIds(prepared.edit),

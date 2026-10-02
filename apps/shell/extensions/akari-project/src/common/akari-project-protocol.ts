@@ -5,6 +5,7 @@ import type { MyStyle } from './my-style';
 import type { ShapeShelfPreset } from './shape-shelf';
 export type { MyStyle } from './my-style';
 export { PresetShowcase, PresetShowcaseItem, PresetShowcaseKind } from './preset-showcase';
+import type { LibraryTextstylePreset } from '@akari-video/edit-store';
 
 export const AKARI_PROJECT_SERVICE_PATH = '/services/akari-project';
 export const AkariProjectService = Symbol('AkariProjectService');
@@ -375,6 +376,7 @@ export interface AkariProjectService {
     getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
     getPresetShowcase(): Promise<PresetShowcase>;
+    getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]>;
     getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>>;
     /** 図形の棚（presets/shapes/index.jsonl）。読めなければ空配列。 */
     getShapeShelf(): Promise<ShapeShelfPreset[]>;
