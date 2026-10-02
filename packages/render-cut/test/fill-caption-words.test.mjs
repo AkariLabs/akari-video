@@ -180,7 +180,7 @@ test("writes one physical line per caption in caption-store compatible format", 
     const captionLines = physicalLines.slice(1, -2);
     assert.equal(captionLines.length, captions.length);
 
-    // These expressions mirror replaceCaptionLine in caption-store.ts.
+    // These expressions mirror replaceCaptionLine in edit-store/src/caption-line-ops.ts.
     const idPattern = /"id"\s*:\s*"((?:\\.|[^"\\])*)"/;
     const textPattern = /"text"\s*:\s*"(?:\\.|[^"\\])*"/;
     const editedPattern = /"edited"\s*:\s*(?:true|false)/;
