@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const packageDirectory = resolve(testDirectory, '..');
@@ -18,14 +19,22 @@ execFileSync(process.execPath, [resolve(testDirectory, 'b-frame-sample-table.mjs
   cwd: packageDirectory,
   stdio: 'inherit',
 });
-execFileSync(resolve(repository, 'node_modules/esbuild/bin/esbuild'), [
-  resolve(testDirectory, 'golden/gop-tail.ts'),
-  '--bundle', '--format=iife', '--platform=browser', '--target=chrome122',
-  `--outfile=${resolve(generated, 'gop-tail-seek-renderer.js')}`,
-], { cwd: packageDirectory, stdio: 'inherit' });
+await build({
+  absWorkingDir: packageDirectory,
+  entryPoints: [resolve(testDirectory, 'golden/gop-tail.ts')],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'chrome122',
+  outfile: resolve(generated, 'gop-tail-seek-renderer.js'),
+});
 
-const directElectron = resolve(repository, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
-const electron = existsSync(directElectron) ? directElectron : resolve(repository, 'node_modules/.bin/electron');
+const windowsElectron = resolve(repository, 'node_modules/electron/dist/electron.exe');
+const macElectron = resolve(repository, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+const electron = existsSync(windowsElectron)
+  ? windowsElectron
+  : existsSync(macElectron) ? macElectron
+  : resolve(repository, 'node_modules/.bin/electron');
 const environment = { ...process.env };
 delete environment.ELECTRON_RUN_AS_NODE;
 if (existsSync(resultsPath)) unlinkSync(resultsPath);
