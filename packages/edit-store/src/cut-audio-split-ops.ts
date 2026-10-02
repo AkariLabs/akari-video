@@ -55,7 +55,7 @@ export function splitCutAudio(
         track.lane === 'audio' && 'items' in track
         && (track.muted === true) === (location.track.muted === true)
         && track.items.length > 0
-        && track.items.every(item => item.role === 'speech' && visualIds.has(item.link)));
+        && track.items.every(item => item.role === 'speech' && visualIds.has(item.link as string)));
     const createdTrack = audioTrack === undefined;
     if (!audioTrack) {
         // Audio tracks are inserted at the end of their lane, preserving all existing order.

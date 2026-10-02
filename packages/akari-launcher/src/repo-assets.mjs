@@ -37,7 +37,7 @@ export const DECISION_LOG_SCRIPT_RELATIVE = path.join('packages', 'akari-tools',
 export const CAPTIONS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'captions.mjs');
 // capture-command.mjs のエラー文と apps/shell の同梱テストが同じ相対パスを名指しできるよう export する。
 export const CAPTURE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'capture.mjs');
-export const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
+export const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.mjs');
 export const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
 export const FINGER_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'finger-frame.mjs');
 export const MEDIA_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'media.mjs');

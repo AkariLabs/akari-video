@@ -50,7 +50,6 @@ test('store install --from and kit links use pinned/env locations; index remains
   // Simulate installed.json moving before store/: the reader finds old absolute pack roots.
   await fs.mkdir(path.join(f.home,'assets'),{recursive:true});
   await fs.rename(path.join(f.root,'store'),path.join(f.home,'assets/store'));
-  await fs.mkdir(path.join(f.root,'store/test-pack/assets/still/card'),{recursive:true});
   assert.equal((await loadInstalledItems(f.env)).find(x=>x.id==='card').files[0].local_path,path.join(f.home,'assets/store/test-pack/assets/still/card/frame.txt'));
   assert.equal((await migrateAssetLibrary({env:f.env})).state,'done');
   const custom={...f.env,AKARI_LIBRARY_ROOT:path.join(f.temp,'custom')};

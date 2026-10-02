@@ -54,9 +54,9 @@ export async function createIntegrityFixture(root, {
     ...((audioQc || fullRoleInputs) ? { audio: {
       ...(audioQc ? { master: { loudnorm: -14, true_peak_dbtp: -1.7 } } : {}),
       ...(fullRoleInputs ? {
-        narration: [{ id: "narration-1", path: "audio/narration.wav", start: 0 }],
+        narration: [{ id: "narration-1", path: "audio/narration.wav", t: 0, provenance: { provider: "fixture" } }],
         bgm: { path: "audio/bgm.wav" },
-        sfx: [{ path: "audio/sfx.wav", start: 0 }],
+        sfx: [{ path: "audio/sfx.wav", t: 0 }],
       } : {}),
     } } : {}),
     output: {

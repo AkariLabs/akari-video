@@ -19,11 +19,17 @@
 
 import { audioReadPath, readAudioDeclarations } from '../shared/library-roots.mjs';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
+import { resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { cutCandidates, musicGrid, snapToGrid, toFrameGrid } from '../shared/beat-grid.mjs';
+
+const ffprobeBinary = (() => {
+    try { return { command: resolveFfprobe() }; }
+    catch (error) { return { error }; }
+})();
 
 function libraryRoot(env = process.env) {
     return path.join(resolveAssetLibraryRoots(env).write, 'audio');
@@ -91,11 +97,16 @@ function trackIdFromPath(bgmPath) {
 }
 
 function probeDuration(filePath) {
-    const result = spawnSync('ffprobe', [
-        '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', filePath,
-    ], { encoding: 'utf8' });
-    const seconds = Number(String(result.stdout ?? '').trim());
-    return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+    try {
+        if (Object.hasOwn(ffprobeBinary, 'error')) throw ffprobeBinary.error;
+        const result = spawnSync(ffprobeBinary.command, [
+            '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', filePath,
+        ], { encoding: 'utf8' });
+        const seconds = Number(String(result.stdout ?? '').trim());
+        return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+    } catch {
+        return null;
+    }
 }
 
 function formatHuman(grid, { trackId, snaps, cuts, declarationsSource }) {

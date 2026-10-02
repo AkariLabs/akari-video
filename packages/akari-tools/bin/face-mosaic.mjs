@@ -5,36 +5,18 @@
 // render-cut は変更せず、既存 layers[kind=baked] + transform keyframes だけを出力する。
 
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
-const writerVersion = (() => {
-  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
-  catch { return undefined; }
-})();
 
+import { printJson, summarize } from "../src/common/json-output.mjs";
+import { checkMediaAvailability } from "../src/common/media-availability.mjs";
+import { stampSavedBy } from "../src/common/writer-stamp.mjs";
 import { appendLayersAdditive, loadEditJson } from "../src/eye-bar/edit-apply.mjs";
 import { resolveTargetSourceId } from "../src/eye-bar/resolve-source.mjs";
 import { probeSourceDisplaySize } from "../src/eye-bar/source-probe.mjs";
-import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { bakeMosaicClip } from "./face-mosaic/bake.mjs";
 import { buildMosaicPlan } from "./face-mosaic/plan.mjs";
 
-function printJson(value) {
-  process.stdout.write(`${JSON.stringify(value)}\n`);
-}
-
-function summary(value, fallback) {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  return text ? text.slice(0, 1000) : fallback;
-}
-
-function checkAvailability() {
-  for (const [name, resolver] of [["ffmpeg", resolveFfmpeg], ["ffprobe", resolveFfprobe]]) {
-    try { resolver(); } catch (error) { return { available: false, reason: `${name}: ${summary(error.message, "not found")}` }; }
-  }
-  return { available: true };
-}
+const summary = (value, fallback) => summarize(value, fallback, 1000);
 
 function parseArguments(argv) {
   const options = {
@@ -80,7 +62,7 @@ async function main() {
   let options;
   try { options = parseArguments(process.argv.slice(2)); }
   catch (error) { printJson({ ok: false, reason: summary(error.message, "引数が不正です") }); process.exitCode = 2; return; }
-  if (options.check) { printJson(checkAvailability()); return; }
+  if (options.check) { printJson(checkMediaAvailability()); return; }
   if (!options.analysis || !options.edit) {
     printJson({ ok: false, reason: "--analysis と --edit が必要です" });
     process.exitCode = 2;
@@ -91,7 +73,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  const available = checkAvailability();
+  const available = checkMediaAvailability();
   if (!available.available) { printJson({ ok: false, ...available }); process.exitCode = 1; return; }
 
   try {
@@ -137,7 +119,7 @@ async function main() {
     if (options.apply) {
       const applied = appendLayersAdditive(options.edit, plan.layers);
       if (!applied.ok) throw new Error(applied.reason);
-      if (basename(options.edit) === "edit.json") await writeSavedByStamp(dirname(options.edit), writerVersion);
+      if (basename(options.edit) === "edit.json") await stampSavedBy(dirname(options.edit));
       output.applied = { addedIds: applied.addedIds };
     }
     printJson(output);

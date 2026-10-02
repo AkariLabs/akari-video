@@ -1,27 +1,27 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const compiled = readFileSync(
-    join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const compiledUrl = new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url);
+const compiled = readFileSync(compiledUrl, 'utf8');
+const require = createRequire(compiledUrl);
+const handlerSource = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 
 // The handler module cannot be imported under node --test because Theia's browser dependencies
-// touch document at module load. Extract the compiled, self-contained normalizer instead.
+// touch document at module load. Execute the compiled wrapper with its edit-store dependency.
 const normalizerStart = compiled.indexOf('const normalizePreviewCaptionClock =');
 const normalizerEnd = compiled.indexOf('exports.normalizePreviewCaptionClock =', normalizerStart);
 assert.notEqual(normalizerStart, -1, 'caption clock normalizer is missing');
 assert.notEqual(normalizerEnd, -1, 'caption clock normalizer export is missing');
-const normalizerDeclaration = compiled.slice(normalizerStart, normalizerEnd).trim();
-const normalizerExpression = normalizerDeclaration
-    .slice(normalizerDeclaration.indexOf('=') + 1)
-    .replace(/;$/u, '');
-const normalizePreviewCaptionClock = vm.runInNewContext(`(${normalizerExpression})`);
+const normalizePreviewCaptionClock = vm.runInNewContext(
+    compiled.slice(normalizerStart, normalizerEnd) + '\nnormalizePreviewCaptionClock;',
+    { edit_store_1: require('@akari-video/edit-store') }
+);
+
+assert.doesNotMatch(handlerSource, /\blegacyOutputCue\b/u, 'legacy preview caption clock implementation must not return');
+assert.match(handlerSource, /normalizeCaptionClock\(captions, segments\)/u, 'preview caption clock must call the shared normalizer');
 
 const segments = [
     { kind: 'src', outStart: 0, outEnd: 3, cutIndex: 0, src: 'main', in: 2, out: 5, speed: 1 },

@@ -195,6 +195,8 @@ export const LANES = {
       pkg('project-scaffold'),
       pkg('schemas'),
       pkg('word-book'),           // 依存ゼロ・tmp fixture で作業場を組む（単語帳 v0 コア 2026-09-02）
+      // 2026-10-02 quarantine から昇格（テスト側の追随で 497/497。ubuntu の参考レーンで fail 0 を確認してから）
+      pkg('akari-launcher'),
       pkg('generate'),            // 依存ゼロ・純関数（生成入力バリデータ w1-b 2026-09-13。adapters/ は test script の glob 外 = 合流後の統合小票で吸収）
       pkg('akari-vibe'),          // 依存ゼロ・fetch 差し替え・係を起こすテストはポート 0 番と一時の AKARI_HOME
       {
@@ -256,9 +258,9 @@ export const LANES = {
     entries: [
       // 1 件: migration-regression.test.mjs の v1 fixture（narration: { id, path, t }）を edit-store の migrate が
       // 「path / t / in / out / gain_db / script / reading / provenance が不正」で拒む → migrate の検証強化にテストが未追随
-      pkg('export-nle'),
-      // 15 件: full-integrity.test.mjs の fixture（audio.sfx[].start 等）を同じ migrate が「未知フィールド」で拒む
-      pkg('akari-launcher')
+      // export-nle の赤は fixture ではなくプロダクト側の退行（migrate が音声を tracks[] へ移したのに NLE 書き出しが
+      // 追随していない）。fixture だけ直して緑にすると退行が隠れるので、直るまでここに残す
+      pkg('export-nle')
     ]
   },
 

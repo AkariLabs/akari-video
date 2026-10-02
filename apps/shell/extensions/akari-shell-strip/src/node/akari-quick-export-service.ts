@@ -1,9 +1,10 @@
 import { injectable } from '@theia/core/shared/inversify';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import URI from '@theia/core/lib/common/uri';
-import { type ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { type ChildProcessByStdio, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
+import type { Readable } from 'stream';
 import {
     AkariQuickExportService,
     QuickExportLintFinding,
@@ -37,6 +38,7 @@ import { packagedCliCandidates } from './packaged-cli-candidates';
 import { childNodeEnvironment, electronResourcesPath } from './child-node-process';
 
 const LOG_TAIL_MAX_CHARS = 4000;
+type ScriptChild = ChildProcessByStdio<null, Readable, Readable>;
 const EDIT_LINT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'edit-lint-report.html');
 const RENDER_CUT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'render-report.html');
 export const EXPORT_PREVIEW_RELATIVE_DIRECTORY = join('.akari', 'cache', 'export-preview');
@@ -99,7 +101,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
     protected renderStartedAt: number | undefined;
     protected progressTracker: QuickExportProgressTracker = createQuickExportProgressTracker();
     protected renderStageStartedAt: number | undefined;
-    protected activeChild: ChildProcessWithoutNullStreams | undefined;
+    protected activeChild: ScriptChild | undefined;
     protected cancelRequested = false;
     /** start 時点で既にあった render-tmp の entry 名（この回のゴミの判定基準）。 */
     protected renderTmpEntriesAtStart: ReadonlySet<string> = new Set();
@@ -423,7 +425,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
      * どちらも失敗したら直接の子だけでも殺す（best effort — 中止操作は必ず
      * 「何かしら止まる」で終わらせる）。
      */
-    protected killTree(child: ChildProcessWithoutNullStreams, signal: 'SIGTERM' | 'SIGKILL'): void {
+    protected killTree(child: ScriptChild, signal: 'SIGTERM' | 'SIGKILL'): void {
         const pid = child.pid;
         if (pid === undefined) {
             return;
@@ -457,7 +459,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
         spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
     }
 
-    protected killDirect(child: ChildProcessWithoutNullStreams, signal: 'SIGTERM' | 'SIGKILL'): void {
+    protected killDirect(child: ScriptChild, signal: 'SIGTERM' | 'SIGKILL'): void {
         try {
             child.kill(signal);
         } catch {
@@ -811,7 +813,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
                     resolvePromise(result);
                 }
             };
-            let child: ChildProcessWithoutNullStreams;
+            let child: ScriptChild;
             try {
                 child = spawn(process.execPath, [scriptPath, ...args], {
                     env: this.childEnvironment(),

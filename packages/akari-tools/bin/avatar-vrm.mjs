@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { createRequire } from "node:module";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
-const writerVersion = (() => {
-  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
-  catch { return undefined; }
-})();
 
+import { printJson, summarize } from "../src/common/json-output.mjs";
+import { isMainModule } from "../src/common/main-module.mjs";
+import { stampSavedBy } from "../src/common/writer-stamp.mjs";
 import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 import { parseArguments } from "./avatar-vrm/arguments.mjs";
@@ -17,14 +13,7 @@ import { loadDrive } from "./avatar-vrm/drive.mjs";
 import { findChrome } from "./avatar-vrm/find-chrome.mjs";
 import { buildAvatarVrmLayer } from "./avatar-vrm/layer.mjs";
 
-function printJson(value) {
-  process.stdout.write(`${JSON.stringify(value)}\n`);
-}
-
-function summary(value, fallback) {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  return text ? text.slice(0, 4000) : fallback;
-}
+const summary = (value, fallback) => summarize(value, fallback, 4000);
 
 function availability() {
   let ffmpeg;
@@ -118,7 +107,7 @@ async function main() {
     if (options.apply) {
       const applied = appendLayersAdditive(output.editPath, [layer]);
       if (!applied.ok) throw new Error(applied.reason);
-      await writeSavedByStamp(options.project, writerVersion);
+      await stampSavedBy(options.project);
       result.applied = { addedIds: applied.addedIds };
     }
     printJson(result);
@@ -128,7 +117,6 @@ async function main() {
   }
 }
 
-if (process.argv[1]
-  && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   await main();
 }

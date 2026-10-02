@@ -84,6 +84,10 @@ jobs:
       # スクリプトを読み、一時ディレクトリへ再生成してバイト比較するため working tree を汚さない。
       - name: check generated bundle drift (frame-engine 3 consumers + preview-server 6 bundles)
         run: node scripts/ci/check-frame-engine-drift.mjs
+      # preview-server の frame-engine-client.ts は esbuild でバンドルされるだけで型検査されていなかった。
+      # tsconfig（noEmit・frame-engine の設定を継承）で strict の型検査を通す
+      - name: typecheck (preview-server frame-engine-client.ts)
+        run: npm --prefix packages/preview-server run typecheck
       - name: unit tests (lane pure)
         run: node scripts/ci/run-unit-tests.mjs --lane pure
 

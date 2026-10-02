@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-import { realpathSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { isMainModule } from "../src/common/main-module.mjs";
 import { settleDecisionLog } from "../src/decision-log/settle.mjs";
 
 const usage = [
@@ -44,9 +43,4 @@ export async function runDecisionLogCli(argv, options = {}) {
   }
 }
 
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); }
-  catch { return false; }
-}
-if (isMainModule()) process.exitCode = await runDecisionLogCli(process.argv.slice(2));
+if (isMainModule(import.meta.url)) process.exitCode = await runDecisionLogCli(process.argv.slice(2));

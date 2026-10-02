@@ -16,7 +16,7 @@ const ASSET_MARKERS = {
   assetResolverCliPath: ['packages', 'asset-resolver', 'bin', 'akari-assets.mjs'],
   beatmapScript: ['packages', 'akari-tools', 'bin', 'beatmap.mjs'],
   probeFrameScript: ['packages', 'akari-tools', 'bin', 'probe-frame.mjs'],
-  renderWhenIdleScript: ['packages', 'akari-tools', 'bin', 'render-when-idle.sh'],
+  renderWhenIdleScript: ['packages', 'akari-tools', 'bin', 'render-when-idle.mjs'],
   eyeBarScript: ['packages', 'akari-tools', 'bin', 'eye-bar.mjs'],
   decisionLogScript: ['packages', 'akari-tools', 'bin', 'decision-log.mjs'],
   captionsScript: ['packages', 'akari-tools', 'bin', 'captions.mjs'],

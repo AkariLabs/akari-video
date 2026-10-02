@@ -558,9 +558,9 @@ function resolveProjectedWordStyles(
                 if (!isRecord(value) || typeof value.text !== 'string' || !value.text
                     || !finiteNonNegative(value.start) || !finiteNonNegative(value.end)
                     || value.start !== value.end) return [];
-                const later = caption.words.slice(wordIndex + 1).find(candidate => projected.words!.includes(candidate));
+                const later = caption.words.slice(wordIndex + 1).find((candidate: UnknownRecord) => projected.words!.includes(candidate));
                 const earlier = caption.words.slice(0, wordIndex).reverse()
-                    .find(candidate => projected.words!.includes(candidate));
+                    .find((candidate: UnknownRecord) => projected.words!.includes(candidate));
                 const anchor = later ?? earlier ?? projected.words![0];
                 return [{ word: { text: value.text, start: anchor.start, end: anchor.end }, synthetic: true }];
             });

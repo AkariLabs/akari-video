@@ -1,0 +1,10 @@
+{
+  "extends": "../frame-engine/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "rootDir": "..",
+    "alwaysStrict": false
+  },
+  "include": ["src", "../frame-engine/src/*.d.ts"]
+}

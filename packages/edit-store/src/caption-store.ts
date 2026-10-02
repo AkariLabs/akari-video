@@ -1719,7 +1719,7 @@ function textStyleToJson(style: CaptionTextStyle): Record<string, unknown> {
     };
 }
 
-function animationSlotToJson(slot: CaptionAnimationSlot): Record<string, unknown> {
+function animationSlotToJson(slot: { id: string; durationSec?: number; ease?: string | null; amp?: number | null }): Record<string, unknown> {
     return {
         id: slot.id,
         ...(slot.durationSec !== undefined ? { duration_sec: slot.durationSec } : {}),

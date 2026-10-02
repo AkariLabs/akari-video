@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { createIntegrityFixture } from "./helpers/integrity-fixture.mjs";
+import { commandAvailable } from "./helpers/command-availability.mjs";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../..");
 const PACKAGE_ROOT = join(REPO_ROOT, "packages", "akari-launcher");
@@ -17,6 +18,7 @@ test("generated plugin mirror has byte-identical file-list and SHA parity", () =
 });
 
 test("checkout, npm tarball, and copied plugin emit byte-identical canonical fast status", async (t) => {
+  if (!commandAvailable("npm")) { t.skip("npm 不在（配布物の pack 検証には npm が必要）"); return; }
   const temporary = await mkdtemp(join(tmpdir(), "akari-status-distribution-"));
   try {
     const project = join(temporary, "fixture-project");
