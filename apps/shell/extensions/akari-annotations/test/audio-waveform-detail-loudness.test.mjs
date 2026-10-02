@@ -25,23 +25,29 @@ import {
 const widgetSource = readFileSync(
   new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8',
 );
+const metricsSource = readFileSync(
+  new URL('../src/browser/timeline/timeline-metrics.ts', import.meta.url), 'utf8',
+);
+const cssSource = readFileSync(
+  new URL('../src/browser/style/annotations-widget-style.ts', import.meta.url), 'utf8',
+);
 
 const peakAtDb = db => 10 ** (db / 20);
 
 test('裁定1: clipHeader は18pxから14pxへ詰め、上1px・行高12pxを使う', () => {
-  assert.match(widgetSource, /const CLIP_HEADER_HEIGHT = 14;/u);
-  const start = widgetSource.indexOf('.akari-annotations-strip-clip-header {');
-  const end = widgetSource.indexOf('.akari-annotations-strip-clip-header-label', start);
-  const css = widgetSource.slice(start, end);
+  assert.match(metricsSource, /export const CLIP_HEADER_HEIGHT = 14;/u);
+  const start = cssSource.indexOf('.akari-annotations-strip-clip-header {');
+  const end = cssSource.indexOf('.akari-annotations-strip-clip-header-label', start);
+  const css = cssSource.slice(start, end);
   assert.match(css, /padding: 1px 3px 0;/u);
   assert.match(css, /line-height: 12px;/u);
   assert.match(css, /align-items: flex-start;/u);
 });
 
 test('裁定1: segmentLabel は上1pxを残し行高22pxから12pxへ詰める', () => {
-  const start = widgetSource.indexOf('.akari-annotations-segment-label {');
-  const end = widgetSource.indexOf('}', start);
-  const css = widgetSource.slice(start, end);
+  const start = cssSource.indexOf('.akari-annotations-segment-label {');
+  const end = cssSource.indexOf('}', start);
+  const css = cssSource.slice(start, end);
   assert.match(css, /padding: 1px 3px;/u);
   assert.match(css, /font-size: 11px;/u);
   assert.match(css, /line-height: 12px;/u);
