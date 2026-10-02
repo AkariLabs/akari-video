@@ -6,6 +6,7 @@ import { frontmostPreviewHit } from '../lib/common/preview-photo-hit.js';
 import { harness as captionHarness } from './caption-animator-webview-harness.mjs';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const harness = options => {
     const view = captionHarness(options);
@@ -18,7 +19,7 @@ const harness = options => {
     view.context.window.akari.interaction.selectFromTimeline = () => {};
     return view;
 };
-const openHandlerSource = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const openHandlerSource = readHandlerSource();
 
 test('seeking away releases every selected visual kind for host notification', () => {
     const view = harness({ cues: [{ id: 'caption-a', start: 0, end: 3, text: 'A' }] });
@@ -146,7 +147,7 @@ test('the requested cut expires by its own range after another cut becomes activ
 });
 
 test('IX selection of a shape or HTML releases on the first seek without an intervening tick', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const start = source.indexOf('let lastReportedOverlayId = null;');
     const end = source.indexOf("window.addEventListener('akari-preview-scope-selection'", start);
     for (const id of ['shape-a', 'html-a-item']) {
@@ -168,7 +169,7 @@ test('IX selection of a shape or HTML releases on the first seek without an inte
 });
 
 test('the overlay selection bridge preserves an explicit invisible request', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const start = source.indexOf('let lastReportedOverlayId = null;');
     const end = source.indexOf("window.addEventListener('akari-preview-scope-selection'", start);
     assert.ok(start >= 0 && end > start);
@@ -372,7 +373,7 @@ test('one click resolves the visible top media above an old caption or lower sha
         { element: 'photo', z: 7, order: 1 }];
     assert.equal(frontmostPreviewHit(hits), 'photo');
     assert.equal(frontmostPreviewHit(hits.filter(hit => hit.element !== 'photo')), 'shape');
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     assert.match(source, /const captionRow = target\?\.closest\?\.\('\.caption-row-plate'\)/);
     assert.match(source, /Number\(mediaHit\.style\.zIndex\) <= domZ/);
 });
@@ -385,7 +386,7 @@ test('interaction runtime publishes an out-of-range overlay release to the host'
 });
 
 test('seek tick releases stale selection before announcing its new playhead', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const tick = source.slice(source.indexOf('window.akari.playbackTick ='),
         source.indexOf('window.akari.persistPlaybackRate ='));
     assert.ok(tick.indexOf('expirePreviewSelections?.(time)') < tick.indexOf("type: 'akari-preview-playback-tick'"));

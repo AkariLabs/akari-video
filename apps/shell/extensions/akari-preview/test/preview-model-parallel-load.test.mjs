@@ -5,10 +5,10 @@
 //   - GLB はヘッダ + JSON チャンクだけ読む（readGltfHeaderBytes）
 //   - webview: コーデックプローブは並列、legacy AudioContext は frame-engine 経路で作らない
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 const loadModel = handler.slice(handler.indexOf('protected async loadPreviewModel('), handler.indexOf('protected async resolveAudioAssets('));
 
 test('loadPreviewModel は宣言ソース・cut・断片・overlay・layer を並列に解決し、宣言順に積む', () => {

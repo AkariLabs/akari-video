@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { captionOrientedFrame } from '../lib/common/caption-edit-geometry.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 // Execute the webview's actual source fragments; no compiled lib is required.
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 function between(start, end) {
     const from = source.indexOf(start);
     assert.notEqual(from, -1, start);

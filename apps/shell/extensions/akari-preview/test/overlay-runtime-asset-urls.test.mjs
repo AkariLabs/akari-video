@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
@@ -89,7 +90,7 @@ test('overlay runtime assets are served by content-hashed URL with immutable cac
 });
 
 test('prepareHtml references the runtime by URL and never inlines the font or the bundles', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     // 本文の埋め込みは残っていない
     assert.ok(!source.includes('captionFontDataUri'), 'handler must not touch the data: URI form');
     assert.ok(!/inlineScript\(assets\./.test(source), 'handler must not inline asset bundles');

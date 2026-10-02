@@ -4,10 +4,11 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import vm from 'node:vm';
 import { resolvePreviewItemWrite } from '../../../../../packages/edit-store/lib/edit-v2-item-write.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const fixture = readFileSync(new URL('../../../../../packages/render-cut/test/fixtures/object-tree-html-bag/edit.json', import.meta.url), 'utf8');
 const methods = ['handleOverlayWrite', 'isOverlayWriteRequest'].map(name => {
   const start = source.search(new RegExp(`^    protected (?:async )?${name}\\(`, 'mu'));

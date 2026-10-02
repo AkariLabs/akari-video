@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { motionDrawFinishTransition } from '../lib/common/preview-motion-draw-finish.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const start = source.indexOf('            const finishMotionDraw = event => {');
 const end = source.indexOf('\n            };', start);
 assert.ok(start > 0 && end > start);

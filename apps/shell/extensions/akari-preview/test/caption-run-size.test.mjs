@@ -5,10 +5,11 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { captionEditorFitWidth, captionEditorLines, captionEditorWrapWidth,
     captionLineCountFromMetrics } from '../lib/common/caption-edit-geometry.js';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { applyCaptionRunsToHtml } = require('@akari-video/edit-store');
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 
 test('scaled runs reserve their own em width and retain parent-em shift in pixels', () => {
     const html = '<div><p class="akari-caption__line">今日はいい天気</p></div>';
@@ -32,10 +33,8 @@ test('only scaled runs get an ink-sized plate; ordinary captions retain their or
     assert.match(source, /\.caption-row-plate\[data-caption-sized-run\]\[data-output-caption\] \.akari-caption__plate \{ width: var\(--caption-width, max-content\)/);
     assert.equal((source.match(/width:var\(--caption-width,auto\);display:flex/g) ?? []).length, 2);
     assert.equal((source.match(/max-width:var\(--caption-line-max-width,92%\)/g) ?? []).length, 4);
-    const start = source.indexOf('const captionHasScaledRun =');
-    const end = source.indexOf('const renderStyledCaptionFragment =', start);
     const context = {};
-    vm.runInNewContext(`${source.slice(start, end)} globalThis.sized = captionHasScaledRun; globalThis.css = captionSizedRunPlateCss;`, context);
+    vm.runInNewContext(`${sliceBetween('const captionHasScaledRun =', 'const renderStyledCaptionFragment =')} globalThis.sized = captionHasScaledRun; globalThis.css = captionSizedRunPlateCss;`, context);
     assert.equal(context.sized({ text: '普通' }), false);
     assert.equal(context.sized({ runs: [{ style: { scale: 1 } }] }), false);
     assert.equal(context.css({ text: '普通' }), '');
@@ -48,13 +47,11 @@ test('only scaled runs get an ink-sized plate; ordinary captions retain their or
 });
 
 test('selection bounds include a shifted or rotated run outside the line', () => {
-    const start = source.indexOf('const captionVisualRect =');
-    const end = source.indexOf('const captionLayoutRect =', start);
     const context = {
         captionOutputPoint: (x, y) => ({ x, y }),
         selectedCaptionPlate: () => null,
     };
-    vm.runInNewContext(`${source.slice(start, end)} globalThis.measure = captionVisualRect;`, context);
+    vm.runInNewContext(`${sliceBetween('const captionVisualRect =', 'const captionLayoutRect =')} globalThis.measure = captionVisualRect;`, context);
     const line = { getBoundingClientRect: () => ({ left: 10, right: 100, top: 20, bottom: 50 }) };
     const run = { getBoundingClientRect: () => ({ left: 90, right: 125, top: 5, bottom: 45 }) };
     const plate = { querySelector: () => null, querySelectorAll: selector =>
@@ -63,8 +60,6 @@ test('selection bounds include a shifted or rotated run outside the line', () =>
 });
 
 test('editing restores one line after scaled runs are inserted and leaves plain width alone', () => {
-    const start = source.indexOf('const beginCaptionEdit =');
-    const end = source.indexOf("captionLayer.addEventListener('dblclick'", start);
     for (const scaled of [false, true]) {
         const caption = { id: 'caption', text: 'Hello World',
             ...(scaled ? { runs: [{ from: 2, to: 5, style: { scale: 1.1 } }] } : {}) };
@@ -99,7 +94,7 @@ test('editing restores one line after scaled runs are inserted and leaves plain 
             window: { akari: { reportCaptionEditFocus() {},
                 refreshActiveCaptionRuns() { runInserted = scaled; }, syncRunSelection() {} } }
         };
-        vm.runInNewContext(`${source.slice(start, end)} globalThis.begin = beginCaptionEdit;`, context);
+        vm.runInNewContext(`${sliceBetween('const beginCaptionEdit =', "captionLayer.addEventListener('dblclick'")} globalThis.begin = beginCaptionEdit;`, context);
         context.begin(caption);
         assert.equal(editor.style.width, scaled ? '256px' : '255px');
         assert.equal(editor.offsetHeight, 20);

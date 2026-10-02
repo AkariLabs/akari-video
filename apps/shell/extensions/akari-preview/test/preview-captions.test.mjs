@@ -8,6 +8,7 @@ import test from 'node:test';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { RESOLVED_CAPTION_WORD_PRESET_CSS } from '../../../../../packages/render-cut/src/captions.mjs';
 import { CAPTION_RICH_LAYER_CSS as WEB_CAPTION_RICH_LAYER_CSS } from '../../../../../packages/preview-server/public/caption-style.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -29,9 +30,7 @@ const checkedVisualContract = JSON.parse(await readFile(join(
 ), 'utf8'));
 
 test('webview に埋め込む語プリセット CSS は render-cut と一致する', async () => {
-    const source = await readFile(join(
-        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
-    ), 'utf8');
+    const source = readHandlerSource();
     const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;[^']+\.akari-caption__tok--preset\{[^']+\})'/u);
     assert.equal(embedded?.[1], RESOLVED_CAPTION_WORD_PRESET_CSS);
 });
@@ -50,9 +49,7 @@ test('無装飾字幕も fragment 経路で描画する（plain 流し込みに�
     // plain の textContent 経路では焼き込みと同じ複数行分割が使われず、長い字幕が折り返されなかった。
     // 合流時に webview のモジュール読み込み（inversify の @inject）へ依存しない形へ直した:
     // 上の語プリセット CSS テストと同じく open-handler のソース文字列を見る。
-    const source = await readFile(join(
-        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
-    ), 'utf8');
+    const source = readHandlerSource();
     assert.ok(!source.includes("captionPlate.textContent = caption ? caption.text : ''"));
     assert.ok(source.includes('renderPlainCaptionFragment(caption, captionAnimation)'));
 });
@@ -438,9 +435,7 @@ test('shared caption-style contract reaches shell RPC and renderer unchanged', a
         await writeFile(captionsPath, JSON.stringify(withStyle(styleParity.caption_style_contract.accepted.style)));
         await assert.rejects(resolveFrom(service, captionsPath, editPath), /style cannot be combined with display_policy/u);
 
-        const rendererSource = await readFile(join(
-            extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
-        ), 'utf8');
+        const rendererSource = readHandlerSource();
         assert.match(rendererSource, /akari-caption__tok--reveal-word/u);
         assert.match(rendererSource, /--akari-tok-delay/u);
         assert.match(rendererSource, /akari-caption-reveal-word/u);

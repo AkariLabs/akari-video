@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { captionEdgeHandleLayout } from '../lib/common/caption-edge-handle-layout.js';
@@ -10,14 +9,13 @@ import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-h
 import { renderCaptionFragment, renderResolvedSingleLineCaption,
   renderStyledCaptionFragment, generateCaptionOverlays,
   generateResolvedCaptionOverlays } from '../../../../../packages/render-cut/src/captions.mjs';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 
 test('R1 speech captions expose both edge grips and persist width with fixed-side position in one write', async () => {
-  const handles = handler.slice(handler.indexOf('const applyCaptionSelectionAttrs ='),
-    handler.indexOf('const setCaptionAltAll ='));
-  const drag = handler.slice(handler.indexOf('const beginCaptionHandleDrag ='),
-    handler.indexOf('const onCaptionPointerDown ='));
+  const handles = sliceBetween('const applyCaptionSelectionAttrs =', 'const setCaptionAltAll =');
+  const drag = sliceBetween('const beginCaptionHandleDrag =', 'const onCaptionPointerDown =');
   assert.match(handles, /\['nw', 'ne', 'sw', 'se', 'e', 'w', 'rot', 'move'\]/u);
   assert.doesNotMatch(handles, /timeDomain/u);
   assert.doesNotMatch(drag, /caption\.timeDomain\s*!==\s*'output'/u);

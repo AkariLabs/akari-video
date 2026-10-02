@@ -6,6 +6,7 @@ import { barItems } from '../lib/common/context-bar-view.js';
 import { CAPTION_BAR_ORDER, CAPTION_TOOL_KEYS, captionEscapeClosesPopup, captionOverflowKeys,
     captionOverflowPressed, captionValueChanged, nextCaptionAlign, nextCaptionWindow } from '../lib/common/caption-context-bar.js';
 import { previewContextBarPageScript } from '../lib/browser/preview-context-bar-page.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { PreviewContextBar } = require('../lib/browser/preview-context-bar.js');
@@ -103,7 +104,7 @@ test('配置の巡回とミニポップアップの切り替え・閉じる規�
 });
 
 test('下の通常表示は 4 操作だけで、範囲選択用は残る', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const section = source.slice(source.indexOf('<div id="caption-select-box">'), source.indexOf('</div><div data-akari-run-menu'));
     const buttons = [...section.matchAll(/<button[^>]*data-caption-tool="([^"]+)"[^>]*>/gu)]
         .map(match => ({ key: match[1], html: match[0] }));

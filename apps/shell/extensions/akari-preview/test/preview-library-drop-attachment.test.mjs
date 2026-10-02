@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const sourceText = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const sourceText = readHandlerSource();
 const source = ts.createSourceFile('handler.ts', sourceText, ts.ScriptTarget.Latest, true);
 const declaration = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariPreviewOpenHandler');
 const method = declaration.members.find(member => member.name?.getText(source) === 'configurePreview');

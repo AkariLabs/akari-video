@@ -10,14 +10,10 @@
 // 初回描画は `await renderFrame(...)` を待つ構造なので、止まった段が「メディア供給」のときに
 // 打ち切られた素材が並んでいる必要がある。
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(
-    fileURLToPath(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url)),
-    'utf8'
-);
+const source = readHandlerSource();
 
 function onTimeoutBody() {
     const from = source.indexOf('onTimeout: src => {');

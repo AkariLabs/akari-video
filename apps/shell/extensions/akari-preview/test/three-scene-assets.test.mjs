@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -91,10 +91,7 @@ test('3D text vendor gate only matches texts scene declarations', () => {
 });
 
 test('webview script order is three bundle, conditional text vendor, then three runtime', () => {
-    const source = readFileSync(
-        new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url),
-        'utf8'
-    );
+    const source = readHandlerSource();
     assert.match(
         source,
         /assets\.threeJavaScriptUrl\)[\s\S]*threeTextRuntimeScript[\s\S]*assets\.threeRuntimeJavaScriptUrl\)/
@@ -132,7 +129,7 @@ test('texture variable paths retain the same asset boundary as literal paths', a
     }
 });
 test('shell host delegates material/path resolution instead of maintaining a narrower override vocabulary', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const method = source.slice(source.indexOf('protected async resolveThreeSceneAssets('), source.indexOf('protected previewCaptionTimelineSegments('));
     assert.ok(method.includes('resolveThreeSceneDescriptorAssets(parsedDescriptor, resolveAsset, overlayVars)'));
     assert.ok(!method.includes("key !== 'texture'"));

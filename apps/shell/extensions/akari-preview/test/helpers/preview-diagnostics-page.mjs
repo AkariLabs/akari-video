@@ -8,16 +8,16 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { readHandlerSource } from './handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 export const diagnosticsModule = require('../../lib/common/preview-init-diagnostics.js');
 
 const handlerPath = fileURLToPath(new URL('../../src/browser/akari-preview-open-handler.ts', import.meta.url));
-const handlerSource = readFileSync(handlerPath, 'utf8');
+const handlerSource = readHandlerSource();
 const handlerFile = ts.createSourceFile(handlerPath, handlerSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 
 /** 指定メソッドが return するテンプレートリテラルのソース（`${}` を含む生テキスト）。 */

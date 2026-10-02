@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { readInternalEdit } from '@akari-video/edit-store';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 // Run the actual summary declarations, including legacy precedence, without Theia DI.
-const source = ts.createSourceFile('akari-preview-open-handler.ts', readFileSync(
-  new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8'
-), ts.ScriptTarget.Latest, true);
+const source = ts.createSourceFile('akari-preview-open-handler.ts', readHandlerSource(), ts.ScriptTarget.Latest, true);
 let statements;
 function visit(node) {
   if (ts.isBlock(node) && node.statements.some(statement => ts.isVariableStatement(statement)

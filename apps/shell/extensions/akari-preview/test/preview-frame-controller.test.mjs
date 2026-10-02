@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { installPreviewFrameCapture, PreviewFrameCapturePending } from '../lib/common/preview-frame-controller.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 function renderer({ clipped = false, broken = false, ready, moving = 0, nodes = [], plate = null, play = null } = {}) {
     const sent = [], raf = [], timers = new Map(), classes = new Set();
@@ -219,7 +220,7 @@ test('timeout during the paint wait cannot apply capture classes or capture a re
 });
 
 test('camera freezes playing preview without scheduling a scrub render; DOM tick follows the awaited render', async () => {
-    const source = await readFile(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const capture = source.slice(source.indexOf('(${installPreviewFrameCapture.toString()})'));
     const body = capture.match(/freeze: \(\) => \{([\s\S]*?)\n                \}\n            \}\);/)[1];
     const calls = [];

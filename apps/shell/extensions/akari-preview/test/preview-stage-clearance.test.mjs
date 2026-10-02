@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 
 import { computePreviewStageClearance, computePreviewPanLimits, pinchPreviewPan }
     from '../lib/common/preview-stage-clearance.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const empty = { top: 16, barHeight: 0, holdUntil: 0, retryAfter: null };
 
@@ -102,7 +103,7 @@ test('embedded pure functions have no module dependencies', () => {
 });
 
 test('webview receives bar rectangle and refreshes geometry during stage transition', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const host = readFileSync(new URL('../src/browser/preview-context-bar.ts', import.meta.url), 'utf8');
     assert.match(host, /akari-preview-context-bar-rect/);
     assert.match(source, /event\.data\?\.type !== 'akari-preview-context-bar-rect'/);
@@ -120,7 +121,7 @@ test('webview receives bar rectangle and refreshes geometry during stage transit
 });
 
 test('wheel pans in pixel and line modes without intercepting scrollable controls', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const start = source.indexOf("previewPane.addEventListener('wheel', event => {");
     const end = source.indexOf('}, { passive: false });', start) + '}, { passive: false });'.length;
     assert.ok(start >= 0 && end > start);

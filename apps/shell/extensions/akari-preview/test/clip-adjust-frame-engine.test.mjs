@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = await readFile(path.resolve(
-  import.meta.dirname,
-  '../src/browser/akari-preview-open-handler.ts',
-), 'utf8');
+const source = readHandlerSource();
 
 test('shell summary and LUT resolution preserve every v1 adjust section', () => {
   const declaration = source.match(/interface EditSummaryAdjust \{([\s\S]*?)\n\}/u)?.[1];

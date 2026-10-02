@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { launchBrowser } from '../../../../../packages/overlay-runtime/test-harness/fixtures/browser.mjs';
 import { captionControlScale } from '../lib/common/caption-control-scale.js';
@@ -8,8 +7,9 @@ import { captionOrientedFrame, captionWrapAnchorDelta, captionWrapResize } from 
 import { captionWrapPosition } from '../lib/common/caption-wrap-position.js';
 import { captionAnchorPositionVars } from '@akari-video/edit-store';
 import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-handles-style.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 const start = handler.indexOf('const beginCaptionHandleDrag =');
 const end = handler.indexOf("const onCaptionPointerDown = event =>", start);
 assert.ok(start >= 0 && end > start);

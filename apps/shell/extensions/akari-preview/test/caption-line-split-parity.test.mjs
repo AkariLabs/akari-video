@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { splitCaptionLines as renderSplit } from '../../../../../packages/render-cut/src/captions.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const extract = (source, start, end) => {
@@ -12,7 +13,7 @@ const extract = (source, start, end) => {
   return source.slice(begin, finish);
 };
 
-const handler = read('../src/browser/akari-preview-open-handler.ts');
+const handler = readHandlerSource();
 // The webview code sits inside a TypeScript template literal, so its regex backslashes
 // are doubled in the source. Evaluate the same JavaScript the template emits.
 const webviewCode = extract(handler, 'const CAPTION_BOUNDARIES =', '// splitCaptionLines の分割点')

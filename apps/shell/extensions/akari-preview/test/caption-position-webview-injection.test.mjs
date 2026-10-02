@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
@@ -11,12 +10,13 @@ import {
 } from '../lib/common/caption-zone-write.js';
 import { captionWrapWidthDrag, captionCornerTransform } from '../lib/common/caption-plate-handles.js';
 import { captionWrapPosition } from '../lib/common/caption-wrap-position.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const { minify } = require('terser');
 const { transformSync } = require('esbuild');
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const start = source.indexOf('const roundCaptionRatioUnclamped =');
 const end = source.indexOf('const updateCaptionSelectBox =', start);
 assert.ok(start >= 0 && end > start);

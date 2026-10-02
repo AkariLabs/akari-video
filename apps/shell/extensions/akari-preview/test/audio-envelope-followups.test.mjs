@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
-const source = await readFile(
-    new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url),
-    'utf8'
-);
+const source = readHandlerSource();
 
 test('旧プレビューは共通 envelope API を注入し deprecated duck API を参照しない', () => {
     assert.match(source, /computeDuckEnvelope\.toString\(\)/u);
@@ -34,9 +31,7 @@ test('音量 keyframes は省略 gain_db を 0 dB として summary へ運ぶ', 
 });
 
 test('旧経路の duck 鍵は decoded narration の実尺だけから作る', () => {
-    const start = source.indexOf('const narrationDuckIntervals');
-    const end = source.indexOf('const fadeMultiplierAt', start);
-    const block = source.slice(start, end);
+    const block = sliceBetween('const narrationDuckIntervals', 'const fadeMultiplierAt');
     assert.match(block, /decoded\.narration\.map/u);
     assert.match(block, /endSec:\s*item\.t \+ item\.durationSec/u);
     assert.doesNotMatch(block, /speech/u);

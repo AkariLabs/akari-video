@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -19,10 +20,7 @@ const compiledFrontendModule = readFileSync(
     join(extensionRoot, 'lib', 'browser', 'akari-preview-frontend-module.js'),
     'utf8'
 );
-const sourceHandler = readFileSync(
-    join(extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'),
-    'utf8'
-);
+const sourceHandler = readHandlerSource();
 const generatedBundle = join(extensionRoot, 'generated', 'frame-engine.js');
 const generatedWorkletBundle = join(extensionRoot, 'generated', 'preview-audio-worklet.js');
 

@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { readEditV2 } from '@akari-video/edit-store';
@@ -7,6 +6,7 @@ import {
   compactVisualTracks,
   trackCompactionProposalAfterMigration,
 } from '../lib/common/track-compact.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const visualItem = (id, at, duration) => ({
   id,
@@ -103,10 +103,7 @@ test('減らせない v1→v2 遷移では提案を返さず、ダイアログ�
 });
 
 test('compactTracks command は read→純関数→lint→write の write-gate 順で登録され、提案は非同期で一度だけ出す', async () => {
-  const source = await readFile(
-    new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url),
-    'utf8',
-  );
+  const source = readHandlerSource();
   assert.match(source, /COMPACT_TRACKS_COMMAND: Command = \{ id: 'akari\.preview\.compactTracks' \}/u);
   assert.match(source, /registerCommand\(COMPACT_TRACKS_COMMAND,[\s\S]*execute: \(request\?: CompactTracksRequest\) => this\.compactTracks\(request\)/u);
   assert.match(source, /const originalText = await this\.readText\(editUri\);[\s\S]*compactVisualTracks\(parsed as EditV2\)[\s\S]*lintEditCandidate\([\s\S]*fileService\.writeFile\(editUri, BinaryBuffer\.fromString\(candidateText\)\)/u);

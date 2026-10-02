@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { captionRowWrapRect } from '../lib/common/caption-row-box.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 
 test('default row box marks the 92% wrap width, centered inside a full-frame plate', () => {
     const rect = captionRowWrapRect(

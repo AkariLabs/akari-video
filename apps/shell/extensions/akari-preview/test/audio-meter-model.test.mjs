@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { measureBlock, linearToDbfs, holdPeak, latchClip, meterFraction, isAudioMeterFrame } from '../lib/common/audio-meter-model.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const closeTo = (actual, expected, epsilon = 1e-6) =>
     assert.ok(Math.abs(actual - expected) < epsilon, `${actual} != ${expected}`);
@@ -69,7 +70,7 @@ test('frame guard rejects malformed messages and amplitudes', () => {
 async function meterBridge() {
     const { readFileSync } = await import('node:fs');
     const { runInNewContext } = await import('node:vm');
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     let script = source.slice(source.indexOf('            const measureAudioMeterBlock ='),
         source.indexOf('            window.akari.playbackTick ='));
     for (const [name, fn] of Object.entries({ measureBlock, linearToDbfs, latchClip })) {

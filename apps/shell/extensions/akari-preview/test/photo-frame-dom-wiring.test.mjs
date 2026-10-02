@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { photoFrameVisual } from '../lib/common/photo-frame-visual.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const start = source.indexOf('            const applyLayerStyleMediaLayout = (media, outputWidth, outputHeight, cut = false) => {');
 const end = source.indexOf('            const applyCutLayerStyleLayout = media => {', start);
 assert.ok(start >= 0 && end > start);

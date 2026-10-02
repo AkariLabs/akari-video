@@ -10,12 +10,10 @@
 // ともに開始 158401・長さ 281、総尺 158682 フレーム / 30fps = 5289.4 秒。最終有効フレーム
 // 158681（88:09.366667）では左右とも表示され、終端 158682（88:09.40）で右が黒くなる。
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handlerPath = fileURLToPath(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url));
-const source = await readFile(handlerPath, 'utf8');
+const source = readHandlerSource();
 
 const section = (text, start, end) => {
     const from = text.indexOf(start);

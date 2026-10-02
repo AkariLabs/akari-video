@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import { createPreviewPage, injectedScript } from './helpers/preview-diagnostics-page.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const core = require('../lib/common/preview-init-diagnostics.js');
@@ -171,8 +172,7 @@ test('webview 側: safeKeyHandler は本筋の例外も診断へ回して止め�
 });
 
 test('全画面解除の Escape 監視が guardedKeyHandler で包まれている', () => {
-    const source = require('node:fs')
-        .readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     const at = source.indexOf('const onKeyDown = guardedKeyHandler<KeyboardEvent>(');
     assert.ok(at > 0, '全画面解除の keydown が包まれていない');
     const block = source.slice(at, at + 900);

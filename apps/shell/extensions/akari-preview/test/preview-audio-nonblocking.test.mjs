@@ -3,8 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 import { classifyPreviewModelUpdate } from '../lib/common/preview-model-diff.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = await readFile(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const compiled = await readFile(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
 const section = (text, start, end) => {
     const from = text.indexOf(start);

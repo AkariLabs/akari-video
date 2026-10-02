@@ -3,12 +3,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(
-  join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'),
-  'utf8',
-);
+const source = readHandlerSource();
 const serviceSource = readFileSync(
   join(here, '..', 'src', 'node', 'akari-preview-service.ts'),
   'utf8',

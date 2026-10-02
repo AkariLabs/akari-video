@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const generatedUrl = new URL('../generated/scrub-audio.js', import.meta.url);
 const bundleScript = readFileSync(new URL('../scripts/bundle-frame-engine.mjs', import.meta.url), 'utf8');
 const copyScript = readFileSync(new URL('../../../resources/scripts/copy-native-helpers.mjs', import.meta.url), 'utf8');
 const serviceSource = readFileSync(new URL('../src/node/akari-preview-service.ts', import.meta.url), 'utf8');
 const protocolSource = readFileSync(new URL('../src/common/akari-preview-protocol.ts', import.meta.url), 'utf8');
-const handlerSource = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handlerSource = readHandlerSource();
 
 test('scrub audio IIFE は preview-server の正本から生成される', () => {
     assert.ok(existsSync(generatedUrl));

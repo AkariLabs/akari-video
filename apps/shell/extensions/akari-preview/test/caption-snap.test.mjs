@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const interaction = readFileSync(new URL('../../../../../packages/overlay-runtime/src/interaction.js', import.meta.url), 'utf8');
-const preview = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const preview = readHandlerSource();
 const start = interaction.indexOf('function closestAxisSnap(');
 const end = interaction.indexOf('function applyDragSnapping(', start);
 assert.ok(start >= 0 && end > start);

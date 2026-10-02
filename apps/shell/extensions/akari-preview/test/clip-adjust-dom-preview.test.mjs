@@ -1,14 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 import { computeAdjustCssVisual } from '../lib/common/adjust-css-visual.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = await readFile(path.resolve(
-  import.meta.dirname,
-  '../src/browser/akari-preview-open-handler.ts',
-), 'utf8');
+const source = readHandlerSource();
 
 test('shell wheels-only indicator executes on DOM and is suppressed on frame-engine', () => {
   const refresh = source.match(/adjustCssApproximationActive = !frameEngineMediaIdle[\s\S]*?;/u)?.[0];
