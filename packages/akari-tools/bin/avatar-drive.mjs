@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 
 import { mkdirSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
-const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
-const writerVersion = (() => {
-  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
-  catch { return undefined; }
-})();
 
+import { printJson, summarize } from "../src/common/json-output.mjs";
+import { stampSavedBy } from "../src/common/writer-stamp.mjs";
 import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { extractRmsEnvelope, loadProjectTimeline } from "./avatar-drive/audio.mjs";
@@ -24,14 +20,7 @@ import { envelopeToMouthStates, normalizeProfile } from "./avatar-drive/profile.
 import { loadSpriteSet, requireVowelMouthAssets } from "./avatar-drive/sprite-set.mjs";
 import { buildVowelTimeline, parseTranscript, resolveMouthStates } from "./avatar-drive/vowel.mjs";
 
-function printJson(value) {
-  process.stdout.write(`${JSON.stringify(value)}\n`);
-}
-
-function summary(value, fallback) {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  return text ? text.slice(0, 4000) : fallback;
-}
+const summary = (value, fallback) => summarize(value, fallback, 4000);
 
 function parseArguments(argv) {
   const options = {
@@ -247,7 +236,7 @@ async function main() {
     if (options.apply) {
       const applied = appendLayersAdditive(timeline.editPath, [layer]);
       if (!applied.ok) throw new Error(applied.reason);
-      await writeSavedByStamp(options.project, writerVersion);
+      await stampSavedBy(options.project);
       output.applied = { addedIds: applied.addedIds };
     }
     printJson(output);

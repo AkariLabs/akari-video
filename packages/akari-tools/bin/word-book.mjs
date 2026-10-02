@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { isMainModule } from "../src/common/main-module.mjs";
 
 import { resolveCreatorRoot } from "../../creator-root/src/index.mjs";
 import {
@@ -265,13 +264,4 @@ function mergeStats(target, source) {
   for (const [surface, count] of Object.entries(source.by_surface)) target.by_surface[surface] = (target.by_surface[surface] ?? 0) + count;
 }
 
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) process.exitCode = await runWordBookCli(process.argv.slice(2));
+if (isMainModule(import.meta.url)) process.exitCode = await runWordBookCli(process.argv.slice(2));

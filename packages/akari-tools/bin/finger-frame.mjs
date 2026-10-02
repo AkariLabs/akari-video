@@ -18,15 +18,10 @@
 // 出力: 1 行 JSON を stdout へ（{ ok, layers, gesture_intervals_source, warnings, ... }）。
 // --apply で edit.layers へ additive に書き込む（既存 layers・その他フィールドは一切変更しない）。
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-const { writeSavedByStamp } = createRequire(import.meta.url)('../../edit-store/lib/write-gate.js');
-const writerVersion = (() => {
-  try { return JSON.parse(readFileSync(new URL('../../akari-launcher/package.json', import.meta.url), 'utf8')).version; }
-  catch { return undefined; }
-})();
 import { basename, dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
+import { stampSavedBy } from '../src/common/writer-stamp.mjs';
 import { extractHandSamples } from './finger-frame/hand-metrics.mjs';
 import {
   detectOpenIntervals,
@@ -330,7 +325,7 @@ if (applied) {
   } else {
     edit.layers = [...(edit.layers ?? []), ...newLayers];
     writeFileSync(editPath, `${JSON.stringify(edit, null, 2)}\n`);
-    if (basename(editPath) === 'edit.json') await writeSavedByStamp(dirname(editPath), writerVersion);
+    if (basename(editPath) === 'edit.json') await stampSavedBy(dirname(editPath));
   }
 }
 

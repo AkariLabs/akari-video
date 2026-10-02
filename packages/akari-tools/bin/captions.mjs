@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { isMainModule } from "../src/common/main-module.mjs";
 
 import { resolveWordBook, buildMatcher, applyWordBook } from "../../word-book/src/index.mjs";
 
@@ -176,13 +175,4 @@ async function readStoredSilences(analysis, analysisPath) {
   return null;
 }
 
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) process.exitCode = await runCaptionsCli(process.argv.slice(2));
+if (isMainModule(import.meta.url)) process.exitCode = await runCaptionsCli(process.argv.slice(2));
