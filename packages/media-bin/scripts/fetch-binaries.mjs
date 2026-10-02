@@ -9,7 +9,7 @@
 // CDN である *.githubusercontent.com）。sha256 不一致は即エラーで停止する（サイレント続行しない）。
 
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, realpathSync } from "node:fs";
 import { chmod, copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import https from "node:https";
 import { tmpdir } from "node:os";
@@ -172,7 +172,17 @@ export async function ensureVendorBinaries({ target = currentTarget(), force = f
   return result;
 }
 
-const isMainModule = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+// 両辺 realpath（AGENTS.md の規約）。失敗時は false = 実行しない（fail-closed）
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+const isMainModule = isDirectRun();
 if (isMainModule) {
   ensureVendorBinaries({ log: (msg) => console.log(msg) })
     .then((result) => {

@@ -89,7 +89,12 @@ test('brew が存在して cask が無いときは追加探索せず公式サイ
             return child;
         } });
     assert.equal((await cli.narrationEngines()).voicevoxCaskAvailable, false);
-    assert.equal(calls.filter(([, args]) => args[0] === 'info').length, 1);
+    if (process.platform === 'darwin') {
+        assert.equal(calls.filter(([, args]) => args[0] === 'info').length, 1);
+    } else {
+        assert.equal(calls.filter(([command]) => /(^|[\\/])brew$/.test(command)).length, 0);
+        assert.equal(calls.filter(([, args]) => args[0] === 'info').length, 0);
+    }
 });
 
 test('voice RPC は CLI の引数を渡し、fal は承認前に spawn しない', async () => {

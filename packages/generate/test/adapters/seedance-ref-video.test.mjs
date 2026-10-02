@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import { cp, mkdtemp, readFile, readdir, rm, truncate, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -29,6 +30,20 @@ after(() => {
 const FIXTURE = fileURLToPath(new URL("../fixtures/cli-video/", import.meta.url));
 const clipTemps = async () => (await readdir(os.tmpdir()))
   .filter((name) => name.startsWith("akari-gen-reference-audio-")).sort();
+
+function executable(command) {
+  const candidates = command.includes(path.sep)
+    ? [command]
+    : (process.env.PATH ?? "").split(path.delimiter).map(directory => path.join(directory, command));
+  return candidates.some(candidate => {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return fs.statSync(candidate).isFile();
+    } catch {
+      return false;
+    }
+  });
+}
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(os.tmpdir(), "akari-ref-video-test-"));
@@ -124,6 +139,12 @@ for (const prompt of ["@画像3", "@画像0", "@画像-1", "@動画2", "@音声1
 }
 
 test("音声 range_s [2,7]: 送信した data URI は実測5秒、原本・meta は保持、一時ファイルは残らない", async (t) => {
+  try {
+    if (!executable(resolveFfmpeg()) || !executable(resolveFfprobe())) throw new Error("binary is not executable");
+  } catch {
+    t.skip("ffmpeg/ffprobe 不在（unit-media 相当の環境でのみ実行）");
+    return;
+  }
   const root = await fixture(t);
   const audioPath = path.join(root, "reference.wav");
   execFileSync(resolveFfmpeg(), [

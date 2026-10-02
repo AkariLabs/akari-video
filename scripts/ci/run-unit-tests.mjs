@@ -434,7 +434,9 @@ function main() {
     tests: acc.tests + (r.tests ?? 0), pass: acc.pass + (r.pass ?? 0), fail: acc.fail + (r.fail ?? 0), skipped: acc.skipped + (r.skipped ?? 0)
   }), { tests: 0, pass: 0, fail: 0, skipped: 0 });
   console.log(`合計: tests ${totals.tests} / pass ${totals.pass} / fail ${totals.fail} / skipped ${totals.skipped} — ${failed.length === 0 ? '全エントリ exit 0' : `exit≠0: ${failed.map(r => r.id).join(', ')}`}`);
-  process.exit(failed.length === 0 ? 0 : 1);
+  // process.exit() はパイプ先（CI ログ）への書き込みが終わる前にプロセスを止め、約 64KB で出力が切れる。
+  // 終了コードだけ設定して、出力を書き切ってから自然に終わらせる。
+  process.exitCode = failed.length === 0 ? 0 : 1;
 }
 
 // レーン定義とコマンド組み立てを scripts/test から import して検査できるように、

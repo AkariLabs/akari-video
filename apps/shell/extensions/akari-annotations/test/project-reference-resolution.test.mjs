@@ -6,8 +6,10 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { recordProjectReference } from '../../../../../packages/asset-resolver/src/project-references.mjs';
+import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
 
 test('annotations RPC の解決済み音声で実尺と波形を取得できる', async t => {
+    if (!requireFfmpeg(t)) return;
     const root = await realpath(await mkdtemp(join(tmpdir(), 'annotations-reference-')));
     const env = { AKARI_HOME: join(root, 'home'), AKARI_LIBRARY_ROOT: join(root, 'library'), AKARI_CREATOR_ROOT: join(root, 'creator') };
     const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
