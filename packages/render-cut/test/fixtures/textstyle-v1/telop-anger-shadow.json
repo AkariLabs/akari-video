@@ -1,0 +1,15 @@
+{
+  "id": "telop-anger-shadow",
+  "text": "怒りの一撃",
+  "style": {
+    "size_px": 86,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#210c0c", "width_px": 14, "offset_x": 7, "offset_y": 9 },
+      { "color": "#7f1d1d", "width_px": 8, "offset_x": 2, "offset_y": 3 },
+      { "color": "#fff4eb", "width_px": 2 }
+    ],
+    "shadow": { "color": "#000000", "opacity": 0.78, "blur_px": 12, "distance_px": 11, "angle_deg": 90 },
+    "fill": { "type": "solid", "color": "#ef4444" }
+  }
+}
