@@ -412,9 +412,9 @@ export function evaluateGpuEligibility({
     }
     const karaoke = inheritedTextStyle?.karaoke || cue?.text_style?.karaoke
       ? { ...(inheritedTextStyle?.karaoke ?? {}), ...(cue?.text_style?.karaoke ?? {}) } : null;
-    if (style === 'karaoke' && karaoke
-      && (karaoke.fill !== undefined || (karaoke.start_index ?? 0) > 0)) {
-      entries.push(entry('caption', id, 'unsupported', 'caption-karaoke-fill-osr', ['text_style.karaoke']));
+    if (style === 'karaoke' && karaoke?.fill !== undefined
+      && !['char', 'word', 'smooth'].includes(karaoke.fill)) {
+      entries.push(entry('caption', id, 'unsupported', 'caption-karaoke-fill-unsupported', ['text_style.karaoke.fill']));
       continue;
     }
     const animation = textStyle?.animation ?? null;

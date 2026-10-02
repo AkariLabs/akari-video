@@ -1,0 +1,1851 @@
+{
+  "osrFile": "out-osr.mp4",
+  "gpuFile": "out-auto.mp4",
+  "decode": "both decoded as BT.709 tv (GPU output is untagged)",
+  "tolerance": {
+    "centroid": 0.002,
+    "rect": 0.007,
+    "hlRatio": [
+      0.9,
+      1.1
+    ],
+    "hlDiffShare": 0.005
+  },
+  "summary": {
+    "frames": 540,
+    "within": 523,
+    "byCaption": {
+      "c-0001": {
+        "label": "char + done_color",
+        "karaoke": {
+          "fill": "char",
+          "done_color": "#FB923C"
+        },
+        "frames": 90,
+        "within": 90,
+        "outside": [],
+        "maxD32": 300,
+        "maxMeanAbs": 0.169,
+        "maxAbsDhcx": 0.0013,
+        "maxAbsDhw": 0.0008,
+        "hlRatioRange": [
+          1.003,
+          1.058
+        ],
+        "boundary": [
+          {
+            "local": 3,
+            "t": 0.1,
+            "osrHl": 0,
+            "gpuHl": 0,
+            "hlRatio": 1,
+            "dhcx": null,
+            "dhw": null,
+            "d32": 72,
+            "meanAbs": 0.12,
+            "within": true
+          },
+          {
+            "local": 6,
+            "t": 0.2,
+            "osrHl": 396,
+            "gpuHl": 418,
+            "hlRatio": 1.056,
+            "dhcx": -0.0001,
+            "dhw": -0.0008,
+            "d32": 115,
+            "meanAbs": 0.125,
+            "within": true
+          },
+          {
+            "local": 15,
+            "t": 0.5,
+            "osrHl": 881,
+            "gpuHl": 901,
+            "hlRatio": 1.023,
+            "dhcx": -0.0005,
+            "dhw": 0,
+            "d32": 115,
+            "meanAbs": 0.13,
+            "within": true
+          },
+          {
+            "local": 20,
+            "t": 0.667,
+            "osrHl": 883,
+            "gpuHl": 901,
+            "hlRatio": 1.02,
+            "dhcx": -0.0005,
+            "dhw": 0,
+            "d32": 117,
+            "meanAbs": 0.13,
+            "within": true
+          },
+          {
+            "local": 24,
+            "t": 0.8,
+            "osrHl": 1351,
+            "gpuHl": 1377,
+            "hlRatio": 1.019,
+            "dhcx": -0.0004,
+            "dhw": 0.0008,
+            "d32": 139,
+            "meanAbs": 0.138,
+            "within": true
+          },
+          {
+            "local": 33,
+            "t": 1.1,
+            "osrHl": 1650,
+            "gpuHl": 1675,
+            "hlRatio": 1.015,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 139,
+            "meanAbs": 0.143,
+            "within": true
+          },
+          {
+            "local": 39,
+            "t": 1.3,
+            "osrHl": 1926,
+            "gpuHl": 1955,
+            "hlRatio": 1.015,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 158,
+            "meanAbs": 0.147,
+            "within": true
+          },
+          {
+            "local": 42,
+            "t": 1.4,
+            "osrHl": 1926,
+            "gpuHl": 1955,
+            "hlRatio": 1.015,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 158,
+            "meanAbs": 0.147,
+            "within": true
+          },
+          {
+            "local": 45,
+            "t": 1.5,
+            "osrHl": 2312,
+            "gpuHl": 2337,
+            "hlRatio": 1.011,
+            "dhcx": -0.0007,
+            "dhw": 0,
+            "d32": 179,
+            "meanAbs": 0.155,
+            "within": true
+          },
+          {
+            "local": 51,
+            "t": 1.7,
+            "osrHl": 2586,
+            "gpuHl": 2613,
+            "hlRatio": 1.01,
+            "dhcx": -0.0007,
+            "dhw": 0,
+            "d32": 191,
+            "meanAbs": 0.16,
+            "within": true
+          },
+          {
+            "local": 57,
+            "t": 1.9,
+            "osrHl": 2864,
+            "gpuHl": 2888,
+            "hlRatio": 1.008,
+            "dhcx": -0.0009,
+            "dhw": 0,
+            "d32": 218,
+            "meanAbs": 0.167,
+            "within": true
+          },
+          {
+            "local": 63,
+            "t": 2.1,
+            "osrHl": 3386,
+            "gpuHl": 3395,
+            "hlRatio": 1.003,
+            "dhcx": -0.0013,
+            "dhw": 0,
+            "d32": 151,
+            "meanAbs": 0.164,
+            "within": true
+          },
+          {
+            "local": 74,
+            "t": 2.467,
+            "osrHl": 3889,
+            "gpuHl": 3921,
+            "hlRatio": 1.008,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 154,
+            "meanAbs": 0.169,
+            "within": true
+          },
+          {
+            "local": 84,
+            "t": 2.8,
+            "osrHl": 3889,
+            "gpuHl": 3922,
+            "hlRatio": 1.008,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 151,
+            "meanAbs": 0.169,
+            "within": true
+          },
+          {
+            "local": 87,
+            "t": 2.9,
+            "osrHl": 3889,
+            "gpuHl": 3922,
+            "hlRatio": 1.008,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 151,
+            "meanAbs": 0.169,
+            "within": true
+          }
+        ]
+      },
+      "c-0002": {
+        "label": "word + start_index 2",
+        "karaoke": {
+          "fill": "word",
+          "start_index": 2
+        },
+        "frames": 90,
+        "within": 89,
+        "outside": [
+          3
+        ],
+        "maxD32": 222,
+        "maxMeanAbs": 0.178,
+        "maxAbsDhcx": 0.0016,
+        "maxAbsDhw": 0.0008,
+        "hlRatioRange": [
+          0.84,
+          1.004
+        ],
+        "boundary": [
+          {
+            "local": 3,
+            "t": 0.1,
+            "osrHl": 575,
+            "gpuHl": 483,
+            "hlRatio": 0.84,
+            "dhcx": 0.0007,
+            "dhw": -0.0008,
+            "d32": 106,
+            "meanAbs": 0.132,
+            "within": false
+          },
+          {
+            "local": 6,
+            "t": 0.2,
+            "osrHl": 1364,
+            "gpuHl": 1346,
+            "hlRatio": 0.987,
+            "dhcx": -0.0001,
+            "dhw": 0,
+            "d32": 119,
+            "meanAbs": 0.136,
+            "within": true
+          },
+          {
+            "local": 15,
+            "t": 0.5,
+            "osrHl": 1364,
+            "gpuHl": 1344,
+            "hlRatio": 0.985,
+            "dhcx": -0.0002,
+            "dhw": 0,
+            "d32": 116,
+            "meanAbs": 0.136,
+            "within": true
+          },
+          {
+            "local": 20,
+            "t": 0.667,
+            "osrHl": 1364,
+            "gpuHl": 1344,
+            "hlRatio": 0.985,
+            "dhcx": -0.0002,
+            "dhw": 0,
+            "d32": 116,
+            "meanAbs": 0.136,
+            "within": true
+          },
+          {
+            "local": 24,
+            "t": 0.8,
+            "osrHl": 1364,
+            "gpuHl": 1344,
+            "hlRatio": 0.985,
+            "dhcx": -0.0002,
+            "dhw": 0,
+            "d32": 116,
+            "meanAbs": 0.136,
+            "within": true
+          },
+          {
+            "local": 33,
+            "t": 1.1,
+            "osrHl": 2330,
+            "gpuHl": 2312,
+            "hlRatio": 0.992,
+            "dhcx": 0.0003,
+            "dhw": -0.0008,
+            "d32": 139,
+            "meanAbs": 0.152,
+            "within": true
+          },
+          {
+            "local": 39,
+            "t": 1.3,
+            "osrHl": 2330,
+            "gpuHl": 2312,
+            "hlRatio": 0.992,
+            "dhcx": 0.0003,
+            "dhw": -0.0008,
+            "d32": 139,
+            "meanAbs": 0.152,
+            "within": true
+          },
+          {
+            "local": 42,
+            "t": 1.4,
+            "osrHl": 2330,
+            "gpuHl": 2312,
+            "hlRatio": 0.992,
+            "dhcx": 0.0003,
+            "dhw": -0.0008,
+            "d32": 139,
+            "meanAbs": 0.152,
+            "within": true
+          },
+          {
+            "local": 45,
+            "t": 1.5,
+            "osrHl": 2330,
+            "gpuHl": 2312,
+            "hlRatio": 0.992,
+            "dhcx": 0.0003,
+            "dhw": -0.0008,
+            "d32": 139,
+            "meanAbs": 0.152,
+            "within": true
+          },
+          {
+            "local": 51,
+            "t": 1.7,
+            "osrHl": 2892,
+            "gpuHl": 2870,
+            "hlRatio": 0.992,
+            "dhcx": 0.0002,
+            "dhw": -0.0007,
+            "d32": 156,
+            "meanAbs": 0.162,
+            "within": true
+          },
+          {
+            "local": 57,
+            "t": 1.9,
+            "osrHl": 2892,
+            "gpuHl": 2870,
+            "hlRatio": 0.992,
+            "dhcx": 0.0002,
+            "dhw": -0.0007,
+            "d32": 156,
+            "meanAbs": 0.162,
+            "within": true
+          },
+          {
+            "local": 63,
+            "t": 2.1,
+            "osrHl": 3968,
+            "gpuHl": 3943,
+            "hlRatio": 0.994,
+            "dhcx": -0.0016,
+            "dhw": 0,
+            "d32": 222,
+            "meanAbs": 0.178,
+            "within": true
+          },
+          {
+            "local": 74,
+            "t": 2.467,
+            "osrHl": 3968,
+            "gpuHl": 3951,
+            "hlRatio": 0.996,
+            "dhcx": -0.0014,
+            "dhw": 0,
+            "d32": 219,
+            "meanAbs": 0.177,
+            "within": true
+          },
+          {
+            "local": 84,
+            "t": 2.8,
+            "osrHl": 3968,
+            "gpuHl": 3951,
+            "hlRatio": 0.996,
+            "dhcx": -0.0014,
+            "dhw": 0,
+            "d32": 219,
+            "meanAbs": 0.177,
+            "within": true
+          },
+          {
+            "local": 87,
+            "t": 2.9,
+            "osrHl": 3968,
+            "gpuHl": 3951,
+            "hlRatio": 0.996,
+            "dhcx": -0.0014,
+            "dhw": 0,
+            "d32": 219,
+            "meanAbs": 0.177,
+            "within": true
+          }
+        ]
+      },
+      "c-0003": {
+        "label": "smooth + done_color + start_index 1",
+        "karaoke": {
+          "fill": "smooth",
+          "done_color": "#22C55E",
+          "start_index": 1
+        },
+        "frames": 90,
+        "within": 89,
+        "outside": [
+          40
+        ],
+        "maxD32": 266,
+        "maxMeanAbs": 0.176,
+        "maxAbsDhcx": 0.0019,
+        "maxAbsDhw": 0.0071,
+        "hlRatioRange": [
+          0.938,
+          1.068
+        ],
+        "boundary": [
+          {
+            "local": 3,
+            "t": 0.1,
+            "osrHl": 383,
+            "gpuHl": 372,
+            "hlRatio": 0.971,
+            "dhcx": -0.0001,
+            "dhw": 0,
+            "d32": 101,
+            "meanAbs": 0.124,
+            "within": true
+          },
+          {
+            "local": 6,
+            "t": 0.2,
+            "osrHl": 438,
+            "gpuHl": 444,
+            "hlRatio": 1.014,
+            "dhcx": -0.0001,
+            "dhw": 0,
+            "d32": 208,
+            "meanAbs": 0.13,
+            "within": true
+          },
+          {
+            "local": 15,
+            "t": 0.5,
+            "osrHl": 438,
+            "gpuHl": 444,
+            "hlRatio": 1.014,
+            "dhcx": -0.0001,
+            "dhw": 0,
+            "d32": 173,
+            "meanAbs": 0.13,
+            "within": true
+          },
+          {
+            "local": 20,
+            "t": 0.667,
+            "osrHl": 719,
+            "gpuHl": 700,
+            "hlRatio": 0.974,
+            "dhcx": -0.0008,
+            "dhw": -0.0008,
+            "d32": 199,
+            "meanAbs": 0.136,
+            "within": true
+          },
+          {
+            "local": 24,
+            "t": 0.8,
+            "osrHl": 947,
+            "gpuHl": 936,
+            "hlRatio": 0.988,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 148,
+            "meanAbs": 0.134,
+            "within": true
+          },
+          {
+            "local": 33,
+            "t": 1.1,
+            "osrHl": 1451,
+            "gpuHl": 1421,
+            "hlRatio": 0.979,
+            "dhcx": -0.0006,
+            "dhw": 0,
+            "d32": 140,
+            "meanAbs": 0.14,
+            "within": true
+          },
+          {
+            "local": 39,
+            "t": 1.3,
+            "osrHl": 1774,
+            "gpuHl": 1737,
+            "hlRatio": 0.979,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 150,
+            "meanAbs": 0.145,
+            "within": true
+          },
+          {
+            "local": 42,
+            "t": 1.4,
+            "osrHl": 1929,
+            "gpuHl": 1866,
+            "hlRatio": 0.967,
+            "dhcx": -0.0012,
+            "dhw": -0.0008,
+            "d32": 223,
+            "meanAbs": 0.153,
+            "within": true
+          },
+          {
+            "local": 45,
+            "t": 1.5,
+            "osrHl": 2076,
+            "gpuHl": 2028,
+            "hlRatio": 0.977,
+            "dhcx": -0.0005,
+            "dhw": 0,
+            "d32": 145,
+            "meanAbs": 0.15,
+            "within": true
+          },
+          {
+            "local": 51,
+            "t": 1.7,
+            "osrHl": 2495,
+            "gpuHl": 2441,
+            "hlRatio": 0.978,
+            "dhcx": -0.0004,
+            "dhw": -0.0008,
+            "d32": 148,
+            "meanAbs": 0.155,
+            "within": true
+          },
+          {
+            "local": 57,
+            "t": 1.9,
+            "osrHl": 2799,
+            "gpuHl": 2743,
+            "hlRatio": 0.98,
+            "dhcx": -0.0001,
+            "dhw": 0,
+            "d32": 158,
+            "meanAbs": 0.162,
+            "within": true
+          },
+          {
+            "local": 63,
+            "t": 2.1,
+            "osrHl": 3106,
+            "gpuHl": 3083,
+            "hlRatio": 0.993,
+            "dhcx": -0.0002,
+            "dhw": -0.0007,
+            "d32": 166,
+            "meanAbs": 0.16,
+            "within": true
+          },
+          {
+            "local": 74,
+            "t": 2.467,
+            "osrHl": 3671,
+            "gpuHl": 3638,
+            "hlRatio": 0.991,
+            "dhcx": -0.0003,
+            "dhw": -0.0007,
+            "d32": 112,
+            "meanAbs": 0.168,
+            "within": true
+          },
+          {
+            "local": 84,
+            "t": 2.8,
+            "osrHl": 4248,
+            "gpuHl": 4228,
+            "hlRatio": 0.995,
+            "dhcx": 0.0002,
+            "dhw": 0,
+            "d32": 123,
+            "meanAbs": 0.175,
+            "within": true
+          },
+          {
+            "local": 87,
+            "t": 2.9,
+            "osrHl": 4248,
+            "gpuHl": 4228,
+            "hlRatio": 0.995,
+            "dhcx": 0.0002,
+            "dhw": 0,
+            "d32": 122,
+            "meanAbs": 0.175,
+            "within": true
+          }
+        ]
+      },
+      "c-0004": {
+        "label": "fill なし（従来の語ごとの線形）+ start_index 4",
+        "karaoke": {
+          "start_index": 4
+        },
+        "frames": 90,
+        "within": 78,
+        "outside": [
+          3,
+          42,
+          43,
+          44,
+          45,
+          57,
+          58,
+          59,
+          74,
+          75,
+          76,
+          78
+        ],
+        "maxD32": 361,
+        "maxMeanAbs": 0.187,
+        "maxAbsDhcx": 0.0167,
+        "maxAbsDhw": 0.057,
+        "hlRatioRange": [
+          0.749,
+          1.016
+        ],
+        "boundary": [
+          {
+            "local": 3,
+            "t": 0.1,
+            "osrHl": 961,
+            "gpuHl": 720,
+            "hlRatio": 0.749,
+            "dhcx": -0.0041,
+            "dhw": -0.0007,
+            "d32": 119,
+            "meanAbs": 0.142,
+            "within": false
+          },
+          {
+            "local": 6,
+            "t": 0.2,
+            "osrHl": 1641,
+            "gpuHl": 1648,
+            "hlRatio": 1.004,
+            "dhcx": 0,
+            "dhw": 0,
+            "d32": 201,
+            "meanAbs": 0.151,
+            "within": true
+          },
+          {
+            "local": 15,
+            "t": 0.5,
+            "osrHl": 1641,
+            "gpuHl": 1661,
+            "hlRatio": 1.012,
+            "dhcx": -0.0005,
+            "dhw": 0,
+            "d32": 172,
+            "meanAbs": 0.149,
+            "within": true
+          },
+          {
+            "local": 20,
+            "t": 0.667,
+            "osrHl": 1640,
+            "gpuHl": 1661,
+            "hlRatio": 1.013,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 173,
+            "meanAbs": 0.149,
+            "within": true
+          },
+          {
+            "local": 24,
+            "t": 0.8,
+            "osrHl": 1640,
+            "gpuHl": 1661,
+            "hlRatio": 1.013,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 173,
+            "meanAbs": 0.149,
+            "within": true
+          },
+          {
+            "local": 33,
+            "t": 1.1,
+            "osrHl": 1640,
+            "gpuHl": 1661,
+            "hlRatio": 1.013,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 173,
+            "meanAbs": 0.149,
+            "within": true
+          },
+          {
+            "local": 39,
+            "t": 1.3,
+            "osrHl": 1640,
+            "gpuHl": 1661,
+            "hlRatio": 1.013,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 207,
+            "meanAbs": 0.156,
+            "within": true
+          },
+          {
+            "local": 42,
+            "t": 1.4,
+            "osrHl": 1821,
+            "gpuHl": 1664,
+            "hlRatio": 0.914,
+            "dhcx": -0.0094,
+            "dhw": -0.057,
+            "d32": 231,
+            "meanAbs": 0.162,
+            "within": false
+          },
+          {
+            "local": 45,
+            "t": 1.5,
+            "osrHl": 2215,
+            "gpuHl": 2164,
+            "hlRatio": 0.977,
+            "dhcx": -0.0027,
+            "dhw": -0.0008,
+            "d32": 201,
+            "meanAbs": 0.158,
+            "within": false
+          },
+          {
+            "local": 51,
+            "t": 1.7,
+            "osrHl": 2302,
+            "gpuHl": 2322,
+            "hlRatio": 1.009,
+            "dhcx": -0.0005,
+            "dhw": -0.0008,
+            "d32": 182,
+            "meanAbs": 0.159,
+            "within": true
+          },
+          {
+            "local": 57,
+            "t": 1.9,
+            "osrHl": 2328,
+            "gpuHl": 2324,
+            "hlRatio": 0.998,
+            "dhcx": -0.0018,
+            "dhw": -0.032,
+            "d32": 199,
+            "meanAbs": 0.163,
+            "within": false
+          },
+          {
+            "local": 63,
+            "t": 2.1,
+            "osrHl": 2844,
+            "gpuHl": 2879,
+            "hlRatio": 1.012,
+            "dhcx": -0.0005,
+            "dhw": 0,
+            "d32": 341,
+            "meanAbs": 0.172,
+            "within": true
+          },
+          {
+            "local": 74,
+            "t": 2.467,
+            "osrHl": 3215,
+            "gpuHl": 2910,
+            "hlRatio": 0.905,
+            "dhcx": -0.0167,
+            "dhw": -0.0094,
+            "d32": 361,
+            "meanAbs": 0.187,
+            "within": false
+          },
+          {
+            "local": 84,
+            "t": 2.8,
+            "osrHl": 3919,
+            "gpuHl": 3937,
+            "hlRatio": 1.005,
+            "dhcx": -0.0014,
+            "dhw": 0,
+            "d32": 277,
+            "meanAbs": 0.185,
+            "within": true
+          },
+          {
+            "local": 87,
+            "t": 2.9,
+            "osrHl": 3921,
+            "gpuHl": 3939,
+            "hlRatio": 1.005,
+            "dhcx": -0.0013,
+            "dhw": 0,
+            "d32": 282,
+            "meanAbs": 0.185,
+            "within": true
+          }
+        ]
+      },
+      "c-0005": {
+        "label": "smooth + done_color（お手本と同じ指定）",
+        "karaoke": {
+          "fill": "smooth",
+          "done_color": "#FB923C"
+        },
+        "frames": 90,
+        "within": 89,
+        "outside": [
+          12
+        ],
+        "maxD32": 335,
+        "maxMeanAbs": 0.188,
+        "maxAbsDhcx": 0.0018,
+        "maxAbsDhw": 0.0024,
+        "hlRatioRange": [
+          0.899,
+          1.048
+        ],
+        "boundary": [
+          {
+            "local": 3,
+            "t": 0.1,
+            "osrHl": 0,
+            "gpuHl": 0,
+            "hlRatio": 1,
+            "dhcx": null,
+            "dhw": null,
+            "d32": 112,
+            "meanAbs": 0.122,
+            "within": true
+          },
+          {
+            "local": 6,
+            "t": 0.2,
+            "osrHl": 0,
+            "gpuHl": 0,
+            "hlRatio": 1,
+            "dhcx": null,
+            "dhw": null,
+            "d32": 232,
+            "meanAbs": 0.127,
+            "within": true
+          },
+          {
+            "local": 15,
+            "t": 0.5,
+            "osrHl": 400,
+            "gpuHl": 413,
+            "hlRatio": 1.033,
+            "dhcx": -0.0001,
+            "dhw": -0.0008,
+            "d32": 175,
+            "meanAbs": 0.132,
+            "within": true
+          },
+          {
+            "local": 20,
+            "t": 0.667,
+            "osrHl": 670,
+            "gpuHl": 664,
+            "hlRatio": 0.991,
+            "dhcx": -0.0008,
+            "dhw": -0.0015,
+            "d32": 218,
+            "meanAbs": 0.139,
+            "within": true
+          },
+          {
+            "local": 24,
+            "t": 0.8,
+            "osrHl": 885,
+            "gpuHl": 893,
+            "hlRatio": 1.009,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 173,
+            "meanAbs": 0.138,
+            "within": true
+          },
+          {
+            "local": 33,
+            "t": 1.1,
+            "osrHl": 1355,
+            "gpuHl": 1363,
+            "hlRatio": 1.006,
+            "dhcx": -0.0003,
+            "dhw": 0.0008,
+            "d32": 181,
+            "meanAbs": 0.145,
+            "within": true
+          },
+          {
+            "local": 39,
+            "t": 1.3,
+            "osrHl": 1655,
+            "gpuHl": 1662,
+            "hlRatio": 1.004,
+            "dhcx": -0.0004,
+            "dhw": -0.0008,
+            "d32": 200,
+            "meanAbs": 0.152,
+            "within": true
+          },
+          {
+            "local": 42,
+            "t": 1.4,
+            "osrHl": 1803,
+            "gpuHl": 1792,
+            "hlRatio": 0.994,
+            "dhcx": -0.0011,
+            "dhw": -0.0008,
+            "d32": 273,
+            "meanAbs": 0.16,
+            "within": true
+          },
+          {
+            "local": 45,
+            "t": 1.5,
+            "osrHl": 1935,
+            "gpuHl": 1940,
+            "hlRatio": 1.003,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 206,
+            "meanAbs": 0.158,
+            "within": true
+          },
+          {
+            "local": 51,
+            "t": 1.7,
+            "osrHl": 2313,
+            "gpuHl": 2314,
+            "hlRatio": 1,
+            "dhcx": -0.0005,
+            "dhw": 0.0008,
+            "d32": 223,
+            "meanAbs": 0.165,
+            "within": true
+          },
+          {
+            "local": 57,
+            "t": 1.9,
+            "osrHl": 2592,
+            "gpuHl": 2591,
+            "hlRatio": 1,
+            "dhcx": -0.0005,
+            "dhw": 0,
+            "d32": 243,
+            "meanAbs": 0.172,
+            "within": true
+          },
+          {
+            "local": 63,
+            "t": 2.1,
+            "osrHl": 2870,
+            "gpuHl": 2876,
+            "hlRatio": 1.002,
+            "dhcx": -0.0005,
+            "dhw": -0.0007,
+            "d32": 209,
+            "meanAbs": 0.169,
+            "within": true
+          },
+          {
+            "local": 74,
+            "t": 2.467,
+            "osrHl": 3406,
+            "gpuHl": 3396,
+            "hlRatio": 0.997,
+            "dhcx": -0.0009,
+            "dhw": 0,
+            "d32": 226,
+            "meanAbs": 0.179,
+            "within": true
+          },
+          {
+            "local": 84,
+            "t": 2.8,
+            "osrHl": 3917,
+            "gpuHl": 3923,
+            "hlRatio": 1.002,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 292,
+            "meanAbs": 0.188,
+            "within": true
+          },
+          {
+            "local": 87,
+            "t": 2.9,
+            "osrHl": 3917,
+            "gpuHl": 3923,
+            "hlRatio": 1.002,
+            "dhcx": -0.0004,
+            "dhw": 0,
+            "d32": 292,
+            "meanAbs": 0.188,
+            "within": true
+          }
+        ]
+      },
+      "c-0006": {
+        "label": "char + start_index 5（語の途中）+ done_color",
+        "karaoke": {
+          "fill": "char",
+          "start_index": 5,
+          "done_color": "#38BDF8"
+        },
+        "frames": 90,
+        "within": 88,
+        "outside": [
+          1,
+          3
+        ],
+        "maxD32": 251,
+        "maxMeanAbs": 0.177,
+        "maxAbsDhcx": 0.0011,
+        "maxAbsDhw": 0.0039,
+        "hlRatioRange": [
+          0.848,
+          1.009
+        ],
+        "boundary": [
+          {
+            "local": 3,
+            "t": 0.1,
+            "osrHl": 1366,
+            "gpuHl": 1158,
+            "hlRatio": 0.848,
+            "dhcx": -0.0011,
+            "dhw": -0.0039,
+            "d32": 82,
+            "meanAbs": 0.144,
+            "within": false
+          },
+          {
+            "local": 6,
+            "t": 0.2,
+            "osrHl": 1839,
+            "gpuHl": 1817,
+            "hlRatio": 0.988,
+            "dhcx": 0.0007,
+            "dhw": 0.0008,
+            "d32": 137,
+            "meanAbs": 0.151,
+            "within": true
+          },
+          {
+            "local": 15,
+            "t": 0.5,
+            "osrHl": 1849,
+            "gpuHl": 1818,
+            "hlRatio": 0.983,
+            "dhcx": 0.0008,
+            "dhw": 0.0008,
+            "d32": 119,
+            "meanAbs": 0.15,
+            "within": true
+          },
+          {
+            "local": 20,
+            "t": 0.667,
+            "osrHl": 1849,
+            "gpuHl": 1818,
+            "hlRatio": 0.983,
+            "dhcx": 0.0008,
+            "dhw": 0.0008,
+            "d32": 119,
+            "meanAbs": 0.15,
+            "within": true
+          },
+          {
+            "local": 24,
+            "t": 0.8,
+            "osrHl": 1849,
+            "gpuHl": 1818,
+            "hlRatio": 0.983,
+            "dhcx": 0.0008,
+            "dhw": 0.0008,
+            "d32": 119,
+            "meanAbs": 0.15,
+            "within": true
+          },
+          {
+            "local": 33,
+            "t": 1.1,
+            "osrHl": 1849,
+            "gpuHl": 1818,
+            "hlRatio": 0.983,
+            "dhcx": 0.0008,
+            "dhw": 0.0008,
+            "d32": 119,
+            "meanAbs": 0.15,
+            "within": true
+          },
+          {
+            "local": 39,
+            "t": 1.3,
+            "osrHl": 1849,
+            "gpuHl": 1818,
+            "hlRatio": 0.983,
+            "dhcx": 0.0008,
+            "dhw": 0.0008,
+            "d32": 119,
+            "meanAbs": 0.15,
+            "within": true
+          },
+          {
+            "local": 42,
+            "t": 1.4,
+            "osrHl": 1850,
+            "gpuHl": 1818,
+            "hlRatio": 0.983,
+            "dhcx": 0.0008,
+            "dhw": 0.0008,
+            "d32": 117,
+            "meanAbs": 0.15,
+            "within": true
+          },
+          {
+            "local": 45,
+            "t": 1.5,
+            "osrHl": 2210,
+            "gpuHl": 2173,
+            "hlRatio": 0.983,
+            "dhcx": 0.0007,
+            "dhw": 0,
+            "d32": 108,
+            "meanAbs": 0.154,
+            "within": true
+          },
+          {
+            "local": 51,
+            "t": 1.7,
+            "osrHl": 2473,
+            "gpuHl": 2430,
+            "hlRatio": 0.983,
+            "dhcx": 0.0005,
+            "dhw": 0,
+            "d32": 121,
+            "meanAbs": 0.159,
+            "within": true
+          },
+          {
+            "local": 57,
+            "t": 1.9,
+            "osrHl": 2731,
+            "gpuHl": 2690,
+            "hlRatio": 0.985,
+            "dhcx": 0.0008,
+            "dhw": 0,
+            "d32": 133,
+            "meanAbs": 0.163,
+            "within": true
+          },
+          {
+            "local": 63,
+            "t": 2.1,
+            "osrHl": 3235,
+            "gpuHl": 3248,
+            "hlRatio": 1.004,
+            "dhcx": -0.0005,
+            "dhw": 0,
+            "d32": 210,
+            "meanAbs": 0.172,
+            "within": true
+          },
+          {
+            "local": 74,
+            "t": 2.467,
+            "osrHl": 3731,
+            "gpuHl": 3765,
+            "hlRatio": 1.009,
+            "dhcx": 0.0002,
+            "dhw": 0,
+            "d32": 207,
+            "meanAbs": 0.177,
+            "within": true
+          },
+          {
+            "local": 84,
+            "t": 2.8,
+            "osrHl": 3730,
+            "gpuHl": 3765,
+            "hlRatio": 1.009,
+            "dhcx": 0.0003,
+            "dhw": 0,
+            "d32": 204,
+            "meanAbs": 0.177,
+            "within": true
+          },
+          {
+            "local": 87,
+            "t": 2.9,
+            "osrHl": 3730,
+            "gpuHl": 3765,
+            "hlRatio": 1.009,
+            "dhcx": 0.0003,
+            "dhw": 0,
+            "d32": 204,
+            "meanAbs": 0.177,
+            "within": true
+          }
+        ]
+      }
+    }
+  },
+  "outsideFrames": [
+    {
+      "frame": 123,
+      "id": "c-0002",
+      "local": 3,
+      "t": 0.1,
+      "osr": {
+        "ink": 0.003747,
+        "hl": 575,
+        "cx": 0.5015,
+        "cy": 0.8944,
+        "w": 0.2883,
+        "h": 0.0486,
+        "hcx": 0.387,
+        "hcy": 0.8919,
+        "hw": 0.0516
+      },
+      "gpu": {
+        "ink": 0.00363,
+        "hl": 483,
+        "cx": 0.5013,
+        "cy": 0.8942,
+        "w": 0.2875,
+        "h": 0.0486,
+        "hcx": 0.3877,
+        "hcy": 0.8918,
+        "hw": 0.0508
+      },
+      "px": {
+        "d32": 106,
+        "meanAbs": 0.132,
+        "maxAbs": 57
+      },
+      "hlRatio": 0.84,
+      "hlDiffShare": 0.0266,
+      "within": false
+    },
+    {
+      "frame": 280,
+      "id": "c-0003",
+      "local": 40,
+      "t": 1.333,
+      "osr": {
+        "ink": 0.004595,
+        "hl": 1784,
+        "cx": 0.513,
+        "cy": 0.8918,
+        "w": 0.2883,
+        "h": 0.05,
+        "hcx": 0.4099,
+        "hcy": 0.8918,
+        "hw": 0.118
+      },
+      "gpu": {
+        "ink": 0.004559,
+        "hl": 1745,
+        "cx": 0.5137,
+        "cy": 0.8916,
+        "w": 0.2883,
+        "h": 0.05,
+        "hcx": 0.4094,
+        "hcy": 0.8916,
+        "hw": 0.1109
+      },
+      "px": {
+        "d32": 161,
+        "meanAbs": 0.146,
+        "maxAbs": 52
+      },
+      "hlRatio": 0.978,
+      "hlDiffShare": 0.0092,
+      "within": false
+    },
+    {
+      "frame": 363,
+      "id": "c-0004",
+      "local": 3,
+      "t": 0.1,
+      "osr": {
+        "ink": 0.003768,
+        "hl": 961,
+        "cx": 0.5014,
+        "cy": 0.8944,
+        "w": 0.2891,
+        "h": 0.0486,
+        "hcx": 0.4102,
+        "hcy": 0.8943,
+        "hw": 0.107
+      },
+      "gpu": {
+        "ink": 0.003658,
+        "hl": 720,
+        "cx": 0.5008,
+        "cy": 0.8942,
+        "w": 0.2891,
+        "h": 0.0486,
+        "hcx": 0.4061,
+        "hcy": 0.8936,
+        "hw": 0.1063
+      },
+      "px": {
+        "d32": 119,
+        "meanAbs": 0.142,
+        "maxAbs": 60
+      },
+      "hlRatio": 0.749,
+      "hlDiffShare": 0.0694,
+      "within": false
+    },
+    {
+      "frame": 402,
+      "id": "c-0004",
+      "local": 42,
+      "t": 1.4,
+      "osr": {
+        "ink": 0.005111,
+        "hl": 1821,
+        "cx": 0.5025,
+        "cy": 0.8918,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4179,
+        "hcy": 0.8918,
+        "hw": 0.1672
+      },
+      "gpu": {
+        "ink": 0.005124,
+        "hl": 1664,
+        "cx": 0.5027,
+        "cy": 0.8916,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4085,
+        "hcy": 0.8918,
+        "hw": 0.1102
+      },
+      "px": {
+        "d32": 231,
+        "meanAbs": 0.162,
+        "maxAbs": 51
+      },
+      "hlRatio": 0.914,
+      "hlDiffShare": 0.0333,
+      "within": false
+    },
+    {
+      "frame": 403,
+      "id": "c-0004",
+      "local": 43,
+      "t": 1.433,
+      "osr": {
+        "ink": 0.005112,
+        "hl": 1886,
+        "cx": 0.5025,
+        "cy": 0.8918,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4206,
+        "hcy": 0.8915,
+        "hw": 0.1672
+      },
+      "gpu": {
+        "ink": 0.005131,
+        "hl": 1713,
+        "cx": 0.5027,
+        "cy": 0.8916,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4112,
+        "hcy": 0.8918,
+        "hw": 0.1578
+      },
+      "px": {
+        "d32": 230,
+        "meanAbs": 0.16,
+        "maxAbs": 57
+      },
+      "hlRatio": 0.908,
+      "hlDiffShare": 0.0367,
+      "within": false
+    },
+    {
+      "frame": 404,
+      "id": "c-0004",
+      "local": 44,
+      "t": 1.467,
+      "osr": {
+        "ink": 0.005113,
+        "hl": 2171,
+        "cx": 0.5025,
+        "cy": 0.8918,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4318,
+        "hcy": 0.892,
+        "hw": 0.1688
+      },
+      "gpu": {
+        "ink": 0.005129,
+        "hl": 1969,
+        "cx": 0.5027,
+        "cy": 0.8916,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4231,
+        "hcy": 0.8919,
+        "hw": 0.1688
+      },
+      "px": {
+        "d32": 235,
+        "meanAbs": 0.161,
+        "maxAbs": 62
+      },
+      "hlRatio": 0.907,
+      "hlDiffShare": 0.0429,
+      "within": false
+    },
+    {
+      "frame": 405,
+      "id": "c-0004",
+      "local": 45,
+      "t": 1.5,
+      "osr": {
+        "ink": 0.005114,
+        "hl": 2215,
+        "cx": 0.5025,
+        "cy": 0.8918,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4329,
+        "hcy": 0.8921,
+        "hw": 0.1688
+      },
+      "gpu": {
+        "ink": 0.005125,
+        "hl": 2164,
+        "cx": 0.5027,
+        "cy": 0.8916,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4302,
+        "hcy": 0.8917,
+        "hw": 0.168
+      },
+      "px": {
+        "d32": 201,
+        "meanAbs": 0.158,
+        "maxAbs": 52
+      },
+      "hlRatio": 0.977,
+      "hlDiffShare": 0.0108,
+      "within": false
+    },
+    {
+      "frame": 417,
+      "id": "c-0004",
+      "local": 57,
+      "t": 1.9,
+      "osr": {
+        "ink": 0.005105,
+        "hl": 2328,
+        "cx": 0.5026,
+        "cy": 0.8918,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4368,
+        "hcy": 0.892,
+        "hw": 0.2008
+      },
+      "gpu": {
+        "ink": 0.005134,
+        "hl": 2324,
+        "cx": 0.5029,
+        "cy": 0.8916,
+        "w": 0.2891,
+        "h": 0.05,
+        "hcx": 0.435,
+        "hcy": 0.8917,
+        "hw": 0.1688
+      },
+      "px": {
+        "d32": 199,
+        "meanAbs": 0.163,
+        "maxAbs": 51
+      },
+      "hlRatio": 0.998,
+      "hlDiffShare": 0.0009,
+      "within": false
+    },
+    {
+      "frame": 418,
+      "id": "c-0004",
+      "local": 58,
+      "t": 1.933,
+      "osr": {
+        "ink": 0.005101,
+        "hl": 2554,
+        "cx": 0.5025,
+        "cy": 0.8918,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4473,
+        "hcy": 0.8922,
+        "hw": 0.2273
+      },
+      "gpu": {
+        "ink": 0.005132,
+        "hl": 2442,
+        "cx": 0.5029,
+        "cy": 0.8916,
+        "w": 0.2891,
+        "h": 0.05,
+        "hcx": 0.4409,
+        "hcy": 0.8918,
+        "hw": 0.2258
+      },
+      "px": {
+        "d32": 198,
+        "meanAbs": 0.163,
+        "maxAbs": 51
+      },
+      "hlRatio": 0.956,
+      "hlDiffShare": 0.0238,
+      "within": false
+    },
+    {
+      "frame": 419,
+      "id": "c-0004",
+      "local": 59,
+      "t": 1.967,
+      "osr": {
+        "ink": 0.005098,
+        "hl": 2759,
+        "cx": 0.5025,
+        "cy": 0.8918,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4556,
+        "hcy": 0.8923,
+        "hw": 0.2289
+      },
+      "gpu": {
+        "ink": 0.005129,
+        "hl": 2733,
+        "cx": 0.5028,
+        "cy": 0.8916,
+        "w": 0.2891,
+        "h": 0.05,
+        "hcx": 0.4532,
+        "hcy": 0.892,
+        "hw": 0.2281
+      },
+      "px": {
+        "d32": 200,
+        "meanAbs": 0.163,
+        "maxAbs": 58
+      },
+      "hlRatio": 0.991,
+      "hlDiffShare": 0.0055,
+      "within": false
+    },
+    {
+      "frame": 434,
+      "id": "c-0004",
+      "local": 74,
+      "t": 2.467,
+      "osr": {
+        "ink": 0.005119,
+        "hl": 3215,
+        "cx": 0.5031,
+        "cy": 0.8918,
+        "w": 0.2906,
+        "h": 0.05,
+        "hcx": 0.4767,
+        "hcy": 0.8919,
+        "hw": 0.2852
+      },
+      "gpu": {
+        "ink": 0.00516,
+        "hl": 2910,
+        "cx": 0.5028,
+        "cy": 0.8917,
+        "w": 0.2906,
+        "h": 0.05,
+        "hcx": 0.46,
+        "hcy": 0.8922,
+        "hw": 0.2758
+      },
+      "px": {
+        "d32": 361,
+        "meanAbs": 0.187,
+        "maxAbs": 66
+      },
+      "hlRatio": 0.905,
+      "hlDiffShare": 0.0646,
+      "within": false
+    },
+    {
+      "frame": 435,
+      "id": "c-0004",
+      "local": 75,
+      "t": 2.5,
+      "osr": {
+        "ink": 0.005118,
+        "hl": 3230,
+        "cx": 0.503,
+        "cy": 0.8918,
+        "w": 0.2906,
+        "h": 0.05,
+        "hcx": 0.4773,
+        "hcy": 0.8919,
+        "hw": 0.2852
+      },
+      "gpu": {
+        "ink": 0.005164,
+        "hl": 3095,
+        "cx": 0.5029,
+        "cy": 0.8917,
+        "w": 0.2906,
+        "h": 0.05,
+        "hcx": 0.4692,
+        "hcy": 0.8919,
+        "hw": 0.2836
+      },
+      "px": {
+        "d32": 320,
+        "meanAbs": 0.183,
+        "maxAbs": 66
+      },
+      "hlRatio": 0.958,
+      "hlDiffShare": 0.0286,
+      "within": false
+    },
+    {
+      "frame": 436,
+      "id": "c-0004",
+      "local": 76,
+      "t": 2.533,
+      "osr": {
+        "ink": 0.005122,
+        "hl": 3550,
+        "cx": 0.5031,
+        "cy": 0.8918,
+        "w": 0.2906,
+        "h": 0.05,
+        "hcx": 0.4901,
+        "hcy": 0.8921,
+        "hw": 0.2852
+      },
+      "gpu": {
+        "ink": 0.005163,
+        "hl": 3386,
+        "cx": 0.5029,
+        "cy": 0.8917,
+        "w": 0.2906,
+        "h": 0.0514,
+        "hcx": 0.482,
+        "hcy": 0.8917,
+        "hw": 0.2852
+      },
+      "px": {
+        "d32": 351,
+        "meanAbs": 0.186,
+        "maxAbs": 66
+      },
+      "hlRatio": 0.954,
+      "hlDiffShare": 0.0347,
+      "within": false
+    },
+    {
+      "frame": 438,
+      "id": "c-0004",
+      "local": 78,
+      "t": 2.6,
+      "osr": {
+        "ink": 0.005106,
+        "hl": 3770,
+        "cx": 0.5028,
+        "cy": 0.8918,
+        "w": 0.2906,
+        "h": 0.05,
+        "hcx": 0.4978,
+        "hcy": 0.8919,
+        "hw": 0.2875
+      },
+      "gpu": {
+        "ink": 0.005154,
+        "hl": 3725,
+        "cx": 0.5027,
+        "cy": 0.8917,
+        "w": 0.2898,
+        "h": 0.05,
+        "hcx": 0.4943,
+        "hcy": 0.8918,
+        "hw": 0.2859
+      },
+      "px": {
+        "d32": 317,
+        "meanAbs": 0.185,
+        "maxAbs": 66
+      },
+      "hlRatio": 0.988,
+      "hlDiffShare": 0.0096,
+      "within": false
+    },
+    {
+      "frame": 492,
+      "id": "c-0005",
+      "local": 12,
+      "t": 0.4,
+      "osr": {
+        "ink": 0.005105,
+        "hl": 296,
+        "cx": 0.5024,
+        "cy": 0.8918,
+        "w": 0.2891,
+        "h": 0.0486,
+        "hcx": 0.3661,
+        "hcy": 0.8876,
+        "hw": 0.0188
+      },
+      "gpu": {
+        "ink": 0.005097,
+        "hl": 266,
+        "cx": 0.5028,
+        "cy": 0.8916,
+        "w": 0.2883,
+        "h": 0.0486,
+        "hcx": 0.3652,
+        "hcy": 0.8865,
+        "hw": 0.018
+      },
+      "px": {
+        "d32": 249,
+        "meanAbs": 0.136,
+        "maxAbs": 138
+      },
+      "hlRatio": 0.899,
+      "hlDiffShare": 0.0064,
+      "within": false
+    },
+    {
+      "frame": 601,
+      "id": "c-0006",
+      "local": 1,
+      "t": 0.033,
+      "osr": {
+        "ink": 0.001256,
+        "hl": 0,
+        "cx": 0.5095,
+        "cy": 0.8987,
+        "w": 0.2727,
+        "h": 0.0444
+      },
+      "gpu": {
+        "ink": 0.001098,
+        "hl": 0,
+        "cx": 0.513,
+        "cy": 0.8986,
+        "w": 0.1555,
+        "h": 0.0458
+      },
+      "px": {
+        "d32": 0,
+        "meanAbs": 0.09,
+        "maxAbs": 30
+      },
+      "hlRatio": 1,
+      "hlDiffShare": 0,
+      "within": false
+    },
+    {
+      "frame": 603,
+      "id": "c-0006",
+      "local": 3,
+      "t": 0.1,
+      "osr": {
+        "ink": 0.003377,
+        "hl": 1366,
+        "cx": 0.5105,
+        "cy": 0.8944,
+        "w": 0.2883,
+        "h": 0.0472,
+        "hcx": 0.4208,
+        "hcy": 0.8939,
+        "hw": 0.1391
+      },
+      "gpu": {
+        "ink": 0.003236,
+        "hl": 1158,
+        "cx": 0.5112,
+        "cy": 0.8942,
+        "w": 0.2883,
+        "h": 0.0472,
+        "hcx": 0.4197,
+        "hcy": 0.8934,
+        "hw": 0.1352
+      },
+      "px": {
+        "d32": 82,
+        "meanAbs": 0.144,
+        "maxAbs": 60
+      },
+      "hlRatio": 0.848,
+      "hlDiffShare": 0.0668,
+      "within": false
+    }
+  ]
+}
