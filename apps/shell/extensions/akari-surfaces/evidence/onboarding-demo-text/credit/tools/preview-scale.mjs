@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-const WT = "C:/Users/kyach/akari-wt/onboarding-demo-rich";
+const WT = "<WORKTREE>";
 const require = createRequire(`${WT}/packages/render-cut/`);
 const puppeteer = require("puppeteer-core");
 const [fragPath, bgPath, seek, out, scaleArg] = process.argv.slice(2);

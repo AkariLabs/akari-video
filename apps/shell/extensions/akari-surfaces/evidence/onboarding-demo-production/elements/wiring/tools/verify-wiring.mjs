@@ -7,7 +7,7 @@ import { copyFile, cp, mkdir, readFile, rm, writeFile, readdir, stat } from 'nod
 import { join, dirname, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const WT = 'C:/Users/kyach/akari-wt/onboarding-demo-rich';
+const WT = '<WORKTREE>';
 const EXT = `${WT}/apps/shell/extensions/akari-surfaces`;
 const { AkariOnboardingServiceImpl } = await import(pathToFileURL(`${EXT}/lib/node/onboarding-service.js`).href);
 const { splitOnboardingTokens } = await import(pathToFileURL(`${EXT}/lib/onboarding/model.js`).href);

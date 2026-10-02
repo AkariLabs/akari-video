@@ -4,7 +4,7 @@
 # 差し戻し前（C:/t/integ）と後（C:/t/sfxtap-1001）の書き出しで、タップの大きさ・位置・かぶりを実測する
 import subprocess, json, re, sys
 import numpy as np
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 SR = 48000
 OLD = {"full": "C:/t/integ/full/exports/full.mp4", "sfx": "C:/t/integ/sfxonly/exports/sfxonly.mp4"}
 NEW = {"full": "C:/t/sfxtap-1001/full/exports/full.mp4", "sfx": "C:/t/sfxtap-1001/sfxonly/exports/sfxonly.mp4"}
@@ -41,7 +41,7 @@ def ebur(path, s, d):
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     I = re.findall(r"I:\s+(-?[0-9.]+) LUFS", r.stderr); TP = re.findall(r"Peak:\s+(-?[0-9.]+) dBFS", r.stderr)
     return {"I_lufs": float(I[-1]) if I else None, "true_peak_dbfs": float(TP[-1]) if TP else None}
-WT = "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/"
+WT = "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/"
 _v = pcm(WT + "clip.mp4", 1); _bg = pcm(WT + "bgm.m4a", 1); _k = min(len(_v), len(_bg))
 MASK = _v[:_k] + _bg[:_k] * 10 ** (-14 / 20)   # 声（clip.mp4・書き出しとずれ 0）＋ BGM（この区間の gain_db -14・keyframe 0）。書き出しの full−sfxonly と -47〜-51 dB で一致し、AAC の符号化雑音を含まない
 out = {"what": "phone-tap（画面点灯のタップ）の差し戻しの直し: 書き出しの実測（前 = 組み込み時の C:/t/integ、後 = C:/t/sfxtap-1001。違いはタップのファイルだけ）"}

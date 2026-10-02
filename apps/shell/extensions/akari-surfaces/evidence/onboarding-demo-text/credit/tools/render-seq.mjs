@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-const WT = "C:/Users/kyach/akari-wt/onboarding-demo-rich";
+const WT = "<WORKTREE>";
 const require = createRequire(`${WT}/packages/render-cut/`);
 const puppeteer = require("puppeteer-core");
 const [fragmentPath, outDir, spec] = process.argv.slice(2);

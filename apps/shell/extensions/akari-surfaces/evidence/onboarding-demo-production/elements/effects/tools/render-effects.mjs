@@ -10,10 +10,10 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const REPO = "C:/Users/kyach/akari-wt/onboarding-demo-rich";
+const REPO = "<WORKTREE>";
 const require = createRequire(`${REPO}/packages/render-cut/`);
 const puppeteer = require("puppeteer-core");
-const CHROME = "C:/Users/kyach/AppData/Local/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-win64/chrome-headless-shell.exe";
+const CHROME = "<LOCALAPPDATA>/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-win64/chrome-headless-shell.exe";
 
 const [fragmentPath, outDir, prefix] = process.argv.slice(2);
 const arg = (name, fallback) => {

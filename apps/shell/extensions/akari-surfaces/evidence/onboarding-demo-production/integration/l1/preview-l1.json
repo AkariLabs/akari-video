@@ -1606,7 +1606,7 @@
  "errors": [
   "window Error: Browser.getWindowForTarget {\"code\":-32601,\"message\":\"'Browser.getWindowForTarget' wasn't found\"}"
  ],
- "projectUri": "file:///C:/t/integ/l1/home/Akari/channels/my-channel/videos/2026-09-30-first-video",
+ "projectUri": "file:///<TMP>/integ/l1/<HOME>/Akari/channels/my-channel/videos/2026-09-30-first-video",
  "tourEdit": {
   "tracks": [
    {

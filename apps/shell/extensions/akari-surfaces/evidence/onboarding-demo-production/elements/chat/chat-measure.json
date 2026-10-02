@@ -96,7 +96,7 @@
   "note": "プレビュー経路（CSS animation を currentTime=ローカル秒で seek）と書き出し経路（rasterize.mjs と同じ paused WAAPI クローン化・delay+start・合成秒で seek、12 本すべてクローン成功）の全フレーム比較"
  },
  "voice_envelope_note": "clip.mp4 を 16kHz モノ・10ms RMS で実測: 「AI」の立ち上がり 8.53→8.54（-55→-21 dBFS）、「対話」9.24→9.25、「だけ」は d の閉鎖 9.88–9.91 の直後 9.91",
- "renderer": "scratchpad の render-seq.mjs（harness/render-fragment.mjs と同じ入れ子とモーション語彙 + 容器に data-akari-active + rasterize.mjs と同じクローン化 + 本編フレームの背景）。静的 fallback は harness/render-fragment.mjs をパスだけ Windows に直して実行（ゲート無し = base の見た目）",
+ "renderer": "<TMP>/render-seq.mjs（harness/render-fragment.mjs と同じ入れ子とモーション語彙 + 容器に data-akari-active + rasterize.mjs と同じクローン化 + 本編フレームの背景）。静的 fallback は harness/render-fragment.mjs をパスだけ Windows に直して実行（ゲート無し = base の見た目）",
  "lint": {
   "tool": "packages/edit-lint の lintProject（隔離プロジェクト C:/t/demo-chat-lint・この断片 1 件の v2 edit.json）",
   "findings": "[\"warning geometry.fit-compat\"]",

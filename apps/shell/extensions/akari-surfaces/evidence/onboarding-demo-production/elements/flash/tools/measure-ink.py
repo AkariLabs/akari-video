@@ -2,7 +2,7 @@
 # python measure_ink.py <before.mp4> <after.mp4> <src.mp4> <out.json>
 import subprocess, sys, json
 import numpy as np
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 before, after, src, out = sys.argv[1:5]
 N0, N1 = 586, 606
 def grab(path, n0=N0, n1=N1):

@@ -2,7 +2,7 @@
 # 入力の書き出し（リポの外）: 直す前 = C:/t/integ/{full,sfxonly}/exports、直した後 = C:/t/sfxtap-1001/{full,sfxonly}/exports
 # （後は前の edit.json から exports/ の自己参照 source を外し、assets/onboarding/sfx-click-mouse-single.m4a だけ差し替えて render-cut で書き出したもの）
 import subprocess, numpy as np, json
-FF="C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"; SR=48000
+FF="<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"; SR=48000
 def pcm(p):
     r=subprocess.run([FF,"-v","error","-i",p,"-vn","-ac","2","-ar",str(SR),"-f","f32le","-"],capture_output=True).stdout
     return np.frombuffer(r,dtype=np.float32).reshape(-1,2).astype(np.float64)

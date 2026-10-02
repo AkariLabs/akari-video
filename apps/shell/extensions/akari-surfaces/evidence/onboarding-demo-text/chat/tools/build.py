@@ -10,7 +10,7 @@ from fontTools.varLib import instancer
 from fontTools import subset
 
 TPL, OUT = sys.argv[1], sys.argv[2]
-SRC = sys.argv[3] if len(sys.argv) > 3 else r"C:/Users/kyach/akari-wt/onboarding-demo-rich/assets/font/noto-sans-jp/NotoSansJP-Variable.ttf"
+SRC = sys.argv[3] if len(sys.argv) > 3 else r"<WORKTREE>/assets/font/noto-sans-jp/NotoSansJP-Variable.ttf"
 FAMILY = "AKARI Demo Sans"
 WEIGHT = 800
 

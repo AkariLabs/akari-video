@@ -3,9 +3,9 @@
 # 語頭ごとに「元素材との差が箱の中で立ち上がる最初のフレーム」、最後に見えるフレーム、人物・字幕帯の差を出す
 import subprocess, json, sys
 import numpy as np
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 EXP = sys.argv[3] if len(sys.argv) > 3 else "C:/t/done-r2/proj/exports/done-osr.mp4"
-SRC = "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"
+SRC = "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"
 def frames(path, start, count):
     cmd = [FF, "-v", "error", "-i", path, "-vf", f"select='between(n,{start},{start+count-1})',format=rgb24", "-vsync", "0", "-f", "rawvideo", "-"]
     raw = subprocess.run(cmd, capture_output=True).stdout

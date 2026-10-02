@@ -1,6 +1,6 @@
 # K 特性（BS.1770 の 2 段 biquad を ffmpeg で掛ける）で 50/100/400 ms 窓のラウドネス最大を、パッの whoosh と ほら のキラッで比べる
 import subprocess, numpy as np, json
-FF="C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"; SR=48000
+FF="<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"; SR=48000
 KW=("biquad=b0=1.53512485958697:b1=-2.69169618940638:b2=1.19839281085285:a0=1:a1=-1.69065929318241:a2=0.73248077421585,"
     "biquad=b0=1:b1=-2:b2=1:a0=1:a1=-1.99004745483398:a2=0.99007225036621")
 def kpcm(p,t0,t1):

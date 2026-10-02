@@ -1,6 +1,6 @@
 import { cp, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-const WT = "C:/Users/kyach/akari-wt/onboarding-demo-rich";
+const WT = "<WORKTREE>";
 const { lintProject } = await import(pathToFileURL(WT + "/packages/edit-lint/src/edit-lint.mjs").href);
 const { migrateFixtureTree } = await import(pathToFileURL(WT + "/packages/edit-lint/test/helpers/v2-fixture.mjs").href);
 const project = "C:/t/chat-text/lint/proj";

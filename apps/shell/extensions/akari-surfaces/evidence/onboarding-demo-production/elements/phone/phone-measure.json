@@ -19,7 +19,7 @@
  },
  "base_asset": {
   "id": "phone-2d",
-  "path": "akari-video-internal/assets/overlay/phone-2d",
+  "path": "内部リポの phone-2d オーバーレイ素材",
   "license": "CC0-1.0",
   "used": "外形 px・内側は短辺比・チタン調の枠のグラデ・センサー窓・側面ボタンの比率・ガラスの反射を移植。画面は切り抜き（下の段を透かす）"
  },

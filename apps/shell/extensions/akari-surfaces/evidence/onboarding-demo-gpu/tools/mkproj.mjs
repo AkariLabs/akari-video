@@ -2,7 +2,7 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-const WT = 'C:/Users/kyach/akari-wt/onboarding-demo-rich';
+const WT = '<WORKTREE>';
 const EXT = `${WT}/apps/shell/extensions/akari-surfaces`;
 const sample = `${WT}/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01`;
 const { AkariOnboardingServiceImpl } = await import(pathToFileURL(`${EXT}/lib/node/onboarding-service.js`));

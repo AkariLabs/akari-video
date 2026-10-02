@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-const WT = 'C:/Users/kyach/akari-wt/integrate-2026-09-29';
+const WT = '<WORKTREE>';
 const rc = await import(pathToFileURL(`${WT}/packages/render-cut/src/render-cut.mjs`));
 const { evaluateGpuEligibility } = await import(pathToFileURL(`${WT}/packages/gpu-export/src/eligibility.mjs`));
 import { createRequire } from 'node:module';

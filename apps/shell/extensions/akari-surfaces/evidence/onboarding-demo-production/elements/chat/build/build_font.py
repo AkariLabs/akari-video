@@ -6,7 +6,7 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 from fontTools import subset
 
-SRC = r"C:/Users/kyach/akari-wt/onboarding-demo-rich/assets/font/noto-sans-jp/NotoSansJP-Variable.ttf"
+SRC = r"<WORKTREE>/assets/font/noto-sans-jp/NotoSansJP-Variable.ttf"
 OUT_DIR = sys.argv[1]
 TEXT = sys.argv[2]
 WEIGHTS = [int(w) for w in sys.argv[3].split(",")]

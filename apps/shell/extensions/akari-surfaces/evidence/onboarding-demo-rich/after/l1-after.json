@@ -909,7 +909,7 @@
  "errors": [
   "window Error: Browser.getWindowForTarget {\"code\":-32601,\"message\":\"'Browser.getWindowForTarget' wasn't found\"}"
  ],
- "projectUri": "file:///C:/t/odr/a3/home/Akari/channels/my-channel/videos/2026-09-30-first-video",
+ "projectUri": "file:///<TMP>/odr/a3/<HOME>/Akari/channels/my-channel/videos/2026-09-30-first-video",
  "tourEdit": {
   "tracks": [
    {

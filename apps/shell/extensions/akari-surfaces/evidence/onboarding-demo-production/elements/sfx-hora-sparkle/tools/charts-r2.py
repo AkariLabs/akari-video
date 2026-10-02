@@ -1,12 +1,12 @@
 import subprocess, json, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 SR = 48000
 OUT = sys.argv[1]
 P = {"r1_sfx": "C:/t/integ/sfxonly/exports/sfxonly.mp4", "r2_sfx": "C:/t/hora-r2/sfxonly/exports/sfxonly-2.mp4",
      "r1_full": "C:/t/integ/full/exports/full.mp4", "r2_mix": "C:/t/hora-r2/mix/exports/mix-2.mp4",
-     "clip": "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"}
+     "clip": "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"}
 M = json.load(open(sys.argv[2], encoding="utf-8"))
 
 

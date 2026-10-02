@@ -24,7 +24,7 @@
   "author": "AKARI Labs",
   "license": {
     "spdx": "LicenseRef-AKARI-Assets-v0",
-    "scope": "無料・商用可・クレジット不要・改変可。素材ファイル単体の再配布/再販/他素材集への再収録は禁止。登場人物は AI 生成の架空の人物であり、実在の人物として提示する用途・実在人物に似せる加工・本人の発言や推薦を装う用途は禁止。著作権は AKARI Labs 保有（planning/contract-2026-08-22-asset-license-v0.md §2）",
+    "scope": "無料・商用可・クレジット不要・改変可。素材ファイル単体の再配布/再販/他素材集への再収録は禁止。登場人物は AI 生成の架空の人物であり、実在の人物として提示する用途・実在人物に似せる加工・本人の発言や推薦を装う用途は禁止。著作権は AKARI Labs 保有（AKARI Assets ライセンス v0 §2）",
     "attribution_required": false,
     "ai_training_allowed": false
   },

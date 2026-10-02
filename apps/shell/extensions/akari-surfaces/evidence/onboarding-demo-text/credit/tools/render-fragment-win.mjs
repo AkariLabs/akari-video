@@ -13,17 +13,17 @@ import { createRequire } from "node:module";
 import { dirname, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const require = createRequire("C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/render-cut/");
+const require = createRequire("<WORKTREE>/packages/render-cut/");
 const puppeteer = require("puppeteer-core");
 
 // 3D（特に texts[] の troika SDF）は chrome-headless-shell + SwiftShader だと draw call は
 // 走るのに出力が空になる（2026-08-12 実測）。sequence ツールと同じくフル Chrome を優先し、
 // 無いときだけ shell へ落とす
 const FULL_CHROME =
-  "/Users/ryoma/.cache/puppeteer/chrome/mac_arm-149.0.7827.22/chrome-mac-arm64/" +
+  "<HOME>/.cache/puppeteer/chrome/mac_arm-149.0.7827.22/chrome-mac-arm64/" +
   "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
 const SHELL_CHROME =
-  "/Users/ryoma/.cache/puppeteer/chrome-headless-shell/mac_arm-149.0.7827.22/" +
+  "<HOME>/.cache/puppeteer/chrome-headless-shell/mac_arm-149.0.7827.22/" +
   "chrome-headless-shell-mac-arm64/chrome-headless-shell";
 const CHROME = "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
 
@@ -51,7 +51,7 @@ const fragment = readFileSync(fragmentPath, "utf8");
 // ブランチにいることがあるので、--repo で当て先を切り替えられるようにしてある
 const PUBLIC_REPO = (() => {
   const i = process.argv.indexOf("--repo");
-  return i === -1 ? "C:/Users/kyach/akari-wt/onboarding-demo-rich" : process.argv[i + 1];
+  return i === -1 ? "<WORKTREE>" : process.argv[i + 1];
 })();
 const is3d = fragment.includes("data-akari-3d-scene");
 // texts[]/physics（3D テキスト）は追加 vendor バンドルが要る。読み込み順は

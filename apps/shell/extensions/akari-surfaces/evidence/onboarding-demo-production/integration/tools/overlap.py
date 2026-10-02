@@ -3,7 +3,7 @@
 # 字幕の画素   = nooverlay と元素材の差 > 24（パンチイン中は除く）
 import subprocess, sys, json
 import numpy as np
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 full, noov, src, out = sys.argv[1:5]
 W, H = 640, 360  # 半分に縮めて全フレームを流す（座標は ×2）
 def reader(path):
