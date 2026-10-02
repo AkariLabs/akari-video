@@ -4,7 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 const source = (await readFile(join(import.meta.dirname, "..", "src", "page-runtime.js"), "utf8")).replace(/\r\n/gu, "\n");
-const frameEngineSource = await readFile(join(import.meta.dirname, "..", "generated", "frame-engine.js"), "utf8");
+const frameEngineSource = await readFile(join(import.meta.dirname, "..", "..", "frame-engine", "generated", "frame-engine.iife.js"), "utf8");
 
 function functionSource(name) {
   const start = source.indexOf(`function ${name}(`);

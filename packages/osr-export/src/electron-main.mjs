@@ -17,12 +17,10 @@ import {
   captureNonEmptyBitmap,
   classifyStampSamples,
   createEmptyPaintRecorder,
-  deviceEmulationParameters,
   osrPageSize,
   readPaintBitmap,
   retryUntilVerified,
   stampVerifyFailureMessage,
-  viewportMatches,
   viewportRecord,
   warmUpFailureMessage,
   warmUpOffscreenPaint,
@@ -32,6 +30,7 @@ import { encodeBgraPng } from "./png.mjs";
 import { installParentPipeGuard } from "./parent-pipe-guard.mjs";
 import { startStaticServer } from "./static-server.mjs";
 import { stripStampRow, verifyStamp } from "./stamp.mjs";
+import { deviceEmulationParameters, measurePageViewport, VIEWPORT_SETTLE_TIMEOUT_MS, viewportMatches } from "./viewport.mjs";
 
 const { app, BrowserWindow, screen } = electron;
 
@@ -760,32 +759,9 @@ async function settle(windowRef) {
  * - `enableDeviceEmulation` alone changes innerWidth / innerHeight but not the paint size, so it is
  *   only the fallback after setContentSize; the frame loop (readPaintBitmap) is the final guard.
  */
-const VIEWPORT_SETTLE_TIMEOUT_MS = 2_000;
 const VIEWPORT_SETTLE_POLL_MS = 50;
 
-// Runs inside the page. setContentSize / device emulation reach the renderer asynchronously, so the
-// re-measurement waits for the viewport to reach the expected size (resize event + 50 ms polling,
-// up to the timeout) before reporting.
-const PAGE_VIEWPORT_PROBE = String((expected, timeoutMs) => new Promise((resolve) => {
-  const read = () => [window.innerWidth, window.innerHeight, window.devicePixelRatio];
-  const matches = () => expected !== null
-    && window.innerWidth === expected.width && window.innerHeight === expected.height && window.devicePixelRatio === 1;
-  if (expected === null || timeoutMs <= 0 || matches()) { resolve(read()); return; }
-  const started = performance.now();
-  let timer = null;
-  const finish = () => { window.removeEventListener("resize", check); clearInterval(timer); resolve(read()); };
-  const check = () => { if (matches() || performance.now() - started >= timeoutMs) finish(); };
-  window.addEventListener("resize", check);
-  timer = setInterval(check, 50);
-}));
 const PAGE_SETTLE_FRAMES = "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))";
-
-async function measurePageViewport(webContents, { expected = null, timeoutMs = 0 } = {}) {
-  const [width, height, devicePixelRatio] = await webContents.executeJavaScript(
-    `(${PAGE_VIEWPORT_PROBE})(${JSON.stringify(expected)}, ${Number(timeoutMs)})`,
-  );
-  return { width, height, devicePixelRatio };
-}
 
 function contentSizeOf(windowRef) {
   const [width, height] = windowRef.getContentSize();
