@@ -1,0 +1,391 @@
+<div class="demo-credit" lang="ja">
+<style>
+/*
+  クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」
+  33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後にエンドロール風のクレジットで落とす。
+  edit.json では段 demo-stage、at 1068 / duration 60（35.600〜37.600 秒 = 動画の終わりまで）。
+  時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 1068) / 30）。
+  声の 10ms 包絡の実測: 「ね」の声は 35.62 で −40 dB を割り、35.64 で −59 dB（言い切り）。
+    1 行目   0.000 → 0.28   「出演 僕」が右から（translateX 30→0、--ease-smooth）。不透明度は 0.12 秒で立てる。
+                             言い切った直後のフレーム 1069（35.633）で最初に見える。効果音「チーン」も 1069
+    2 行目   0.117 → 0.40   「編集 AI」が同じ動きで 0.117 秒遅れて（フレーム 1072 から見える）
+    キラッ   0.317 → 0.74   「AI」の右上の 4 芒星が回りながら開く（scale 0→1.18→1）
+    区切り   0.567 → 0.89   クレジットと名札のあいだの橙の短い線が右から引かれる
+    名札     0.667 → 1.07   「✦ AKARI Video」が下から（translateY 12→0）。✦ は冒頭の名札と同じく回りながら開く
+    惹句     0.767 → 1.13   「AI と話すだけで動画編集」が下から（translateY 8→0）
+    瞬き     1.300 → 1.75   キラッがもう一度光る（scale 1→1.3→1・90° 回って同じ形に戻る）
+  抜けは無い（37.6 で動画が終わる）。base（アニメ無しの見た目）は全部が見えている最終の静止状態。
+
+  配置: 壁に直に置く右寄せ（右端 1200px）。役職は右揃え・名前は左揃えで、同じ軸に並べる（エンドロールの組み）。
+  人物の届く範囲（y<470 で x<690、y 470〜660 で x<815）と字幕帯（x 300〜980・y≥628）には入らない
+  （白フチ・影まで含めた画素の外接 ≈ x 871〜1225・y 116〜474。y 460 より下は惹句だけで x 871 から）。
+
+  文字の大きさ（2026-10-01 作り直し）: アプリのプレビュー枠は縮小表示（幅 640px 程度 = 半分）なので、
+  そこで読めることを基準にした。一番小さい惹句が 28px（縮小で 14px）、役職が 32px（16px）。
+  前の版（役職 24 / 僕 58 / AI 84 / 名札 30 / 惹句 20px）から、名前と AI は 1.24 倍、
+  読みにくいと言われた役職・名札は 1.33 倍、いちばん小さかった惹句は 1.4 倍。白フチは 8 → 9px（小さい字 6 → 7px）。
+  動き・時刻は前の版と同じ（大きさだけ変えた）。
+
+  書体: AKARI Demo Sans = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font Name
+  'Source'）の wght 700 / 900 を、この断片で使う字だけに切り出した改変版（別名で埋め込み、フォント内に
+  著作権表示と許諾を保持）。@font-face の family はこの断片専用の「AKARI Demo Sans Credit」にし、
+  unicode-range で自分の字（＋空白）だけを受け持つ。書き出しとプレビューは全断片を 1 枚の文書に
+  並べるため、共通名の面と混ざらないようにしてある。作り直しは
+  apps/shell/extensions/akari-surfaces/evidence/onboarding-demo-text/credit/make-demo-credit.py
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --credit-right                右端から画面右までの距離（既定 80px = 右端 1200px）
+    --credit-top / --credit-row-gap
+                                  1 行目の上端・1 行目と 2 行目のあいだ（既定 120px / 20px。2 行目の上端 212px）
+    --credit-gap                  役職と名前のあいだ（既定 22px）
+    --credit-label-size / --credit-name-size / --credit-hero-size
+                                  役職・1 行目の名前・2 行目の名前の文字サイズ（既定 32px / 72px / 104px）
+    --credit-spark-size           「AI」の右上のキラッの大きさ（既定 34px）
+    --credit-rule-top / --credit-rule-width
+                                  区切りの線の上端と長さ（既定 346px / 64px。太さ 5px）
+    --credit-plate-top / --credit-plate-size / --credit-tagline-size / --credit-tagline-gap
+                                  名札の上端・名札と惹句の文字サイズ・その間（既定 378px / 40px / 28px / 14px）
+    --credit-halo / --credit-halo-small / --credit-halo-color / --credit-shadow-color
+                                  白フチの太さ（大きい字 9px / 小さい字 7px）・色・暖色の影
+    --demo-ink / --demo-ink-sub / --demo-accent / --demo-spark
+                                  墨（名前・名札）・補助（役職・惹句）・橙（AI・✦・線）・黄（キラッの地）
+    --credit-font                 書体（既定 AKARI Demo Sans Credit → Hiragino Sans → Yu Gothic UI …）
+    --credit-row1-delay / --credit-row2-delay / --credit-spark-delay / --credit-rule-delay /
+    --credit-plate-delay / --credit-glint-delay
+                                  各段の発火時刻（ローカル秒。惹句は名札 + 0.10 秒、✦ は名札 + 0.03 秒に従う）
+*/
+@font-face {
+  font-family: "AKARI Demo Sans Credit";
+  src: url(data:font/woff2;base64,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) format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020, U+0041, U+0049, U+3051, U+3059, U+3060, U+3067-3068, U+51FA, U+52D5, U+6F14, U+753B, U+7DE8, U+8A71, U+96C6;
+}
+@font-face {
+  font-family: "AKARI Demo Sans Credit";
+  src: url(data:font/woff2;base64,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) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020, U+0041, U+0049, U+004B, U+0052, U+0056, U+0064-0065, U+0069, U+006F, U+50D5;
+}
+
+.demo-credit,
+.demo-credit *,
+.demo-credit *::before,
+.demo-credit *::after { box-sizing: border-box; }
+
+.demo-credit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--credit-font, "AKARI Demo Sans Credit", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-feature-settings: "palt" 1;
+  font-synthesis: none;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 白フチ（壁に直に置く文字）──────────────────────
+   半径ぶんの円周 32 点へ文字の形を白でずらし置きした輪（角が丸く出る。-webkit-text-stroke は
+   HTML の文字では角が尖る）。その下に同じ円周 8 点から暖色の柔らかい影を落として壁から浮かせる。
+   編集完了（demo-done）と同じ作りにそろえてある */
+.demo-credit__halo {
+  text-shadow:
+    calc(var(--credit-halo, 9px) * 1.0000) calc(var(--credit-halo, 9px) * 0.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.9808) calc(var(--credit-halo, 9px) * 0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.9239) calc(var(--credit-halo, 9px) * 0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.8315) calc(var(--credit-halo, 9px) * 0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.7071) calc(var(--credit-halo, 9px) * 0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.5556) calc(var(--credit-halo, 9px) * 0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.3827) calc(var(--credit-halo, 9px) * 0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.1951) calc(var(--credit-halo, 9px) * 0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.0000) calc(var(--credit-halo, 9px) * 1.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.1951) calc(var(--credit-halo, 9px) * 0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.3827) calc(var(--credit-halo, 9px) * 0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.5556) calc(var(--credit-halo, 9px) * 0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.7071) calc(var(--credit-halo, 9px) * 0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.8315) calc(var(--credit-halo, 9px) * 0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.9239) calc(var(--credit-halo, 9px) * 0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.9808) calc(var(--credit-halo, 9px) * 0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -1.0000) calc(var(--credit-halo, 9px) * 0.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.9808) calc(var(--credit-halo, 9px) * -0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.9239) calc(var(--credit-halo, 9px) * -0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.8315) calc(var(--credit-halo, 9px) * -0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.7071) calc(var(--credit-halo, 9px) * -0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.5556) calc(var(--credit-halo, 9px) * -0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.3827) calc(var(--credit-halo, 9px) * -0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * -0.1951) calc(var(--credit-halo, 9px) * -0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.0000) calc(var(--credit-halo, 9px) * -1.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.1951) calc(var(--credit-halo, 9px) * -0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.3827) calc(var(--credit-halo, 9px) * -0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.5556) calc(var(--credit-halo, 9px) * -0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.7071) calc(var(--credit-halo, 9px) * -0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.8315) calc(var(--credit-halo, 9px) * -0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.9239) calc(var(--credit-halo, 9px) * -0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 0.9808) calc(var(--credit-halo, 9px) * -0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo, 9px) * 1.0000) calc(var(--credit-halo, 9px) * 0.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo, 9px) * 0.7071) calc(var(--credit-halo, 9px) * 0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo, 9px) * 0.0000) calc(var(--credit-halo, 9px) * 1.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo, 9px) * -0.7071) calc(var(--credit-halo, 9px) * 0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo, 9px) * -1.0000) calc(var(--credit-halo, 9px) * 0.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo, 9px) * -0.7071) calc(var(--credit-halo, 9px) * -0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo, 9px) * 0.0000) calc(var(--credit-halo, 9px) * -1.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo, 9px) * 0.7071) calc(var(--credit-halo, 9px) * -0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085));
+}
+.demo-credit__halo-s {
+  text-shadow:
+    calc(var(--credit-halo-small, 7px) * 1.0000) calc(var(--credit-halo-small, 7px) * 0.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.9808) calc(var(--credit-halo-small, 7px) * 0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.9239) calc(var(--credit-halo-small, 7px) * 0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.8315) calc(var(--credit-halo-small, 7px) * 0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.7071) calc(var(--credit-halo-small, 7px) * 0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.5556) calc(var(--credit-halo-small, 7px) * 0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.3827) calc(var(--credit-halo-small, 7px) * 0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.1951) calc(var(--credit-halo-small, 7px) * 0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.0000) calc(var(--credit-halo-small, 7px) * 1.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.1951) calc(var(--credit-halo-small, 7px) * 0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.3827) calc(var(--credit-halo-small, 7px) * 0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.5556) calc(var(--credit-halo-small, 7px) * 0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.7071) calc(var(--credit-halo-small, 7px) * 0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.8315) calc(var(--credit-halo-small, 7px) * 0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.9239) calc(var(--credit-halo-small, 7px) * 0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.9808) calc(var(--credit-halo-small, 7px) * 0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -1.0000) calc(var(--credit-halo-small, 7px) * 0.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.9808) calc(var(--credit-halo-small, 7px) * -0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.9239) calc(var(--credit-halo-small, 7px) * -0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.8315) calc(var(--credit-halo-small, 7px) * -0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.7071) calc(var(--credit-halo-small, 7px) * -0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.5556) calc(var(--credit-halo-small, 7px) * -0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.3827) calc(var(--credit-halo-small, 7px) * -0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * -0.1951) calc(var(--credit-halo-small, 7px) * -0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.0000) calc(var(--credit-halo-small, 7px) * -1.0000) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.1951) calc(var(--credit-halo-small, 7px) * -0.9808) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.3827) calc(var(--credit-halo-small, 7px) * -0.9239) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.5556) calc(var(--credit-halo-small, 7px) * -0.8315) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.7071) calc(var(--credit-halo-small, 7px) * -0.7071) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.8315) calc(var(--credit-halo-small, 7px) * -0.5556) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.9239) calc(var(--credit-halo-small, 7px) * -0.3827) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 0.9808) calc(var(--credit-halo-small, 7px) * -0.1951) 0 var(--credit-halo-color, #FFFFFF),
+    calc(var(--credit-halo-small, 7px) * 1.0000) calc(var(--credit-halo-small, 7px) * 0.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo-small, 7px) * 0.7071) calc(var(--credit-halo-small, 7px) * 0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo-small, 7px) * 0.0000) calc(var(--credit-halo-small, 7px) * 1.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo-small, 7px) * -0.7071) calc(var(--credit-halo-small, 7px) * 0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo-small, 7px) * -1.0000) calc(var(--credit-halo-small, 7px) * 0.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo-small, 7px) * -0.7071) calc(var(--credit-halo-small, 7px) * -0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo-small, 7px) * 0.0000) calc(var(--credit-halo-small, 7px) * -1.0000 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085)),
+    calc(var(--credit-halo-small, 7px) * 0.7071) calc(var(--credit-halo-small, 7px) * -0.7071 + 4px) 14px var(--credit-shadow-color, rgba(58, 38, 20, .085));
+}
+
+/* ── クレジット（役職 | 名前 の 2 列、軸をそろえる）──────── */
+.demo-credit__credits {
+  position: absolute;
+  right: var(--credit-right, 80px);
+  top: var(--credit-top, 120px);
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: var(--credit-gap, 22px);
+  row-gap: var(--credit-row-gap, 20px);
+  align-items: baseline;
+}
+
+.demo-credit__label {
+  justify-self: end;
+  /* 字間 .3em の最後の 1 字ぶんを右へ逃がし、字の右端を軸にそろえる */
+  margin-right: -.3em;
+  font-size: var(--credit-label-size, 32px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .3em;
+  color: var(--demo-ink-sub, #6B5E52);
+  white-space: nowrap;
+}
+
+.demo-credit__name {
+  position: relative;
+  justify-self: start;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+.demo-credit__name--cast {
+  font-size: var(--credit-name-size, 72px);
+}
+.demo-credit__name--editor {
+  font-size: var(--credit-hero-size, 104px);
+  letter-spacing: .01em;
+  color: var(--demo-accent, #F97316);
+}
+
+/* 「AI」の右上のキラッ（効果音とエフェクトのキラッと同じ絵柄: 黄の地・橙の縁・白い芯） */
+.demo-credit__spark {
+  position: absolute;
+  right: calc(var(--credit-spark-size, 34px) * -.74);
+  top: calc(var(--credit-spark-size, 34px) * -.06);
+  width: var(--credit-spark-size, 34px);
+  height: var(--credit-spark-size, 34px);
+}
+.demo-credit__spark-pop,
+.demo-credit__spark-glint {
+  position: absolute;
+  inset: 0;
+}
+.demo-credit__spark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── 区切りの線 ───────────────────────── */
+.demo-credit__rule {
+  position: absolute;
+  right: var(--credit-right, 80px);
+  top: var(--credit-rule-top, 346px);
+  width: var(--credit-rule-width, 64px);
+  height: 5px;
+  border-radius: 2.5px;
+  background: var(--demo-accent, #F97316);
+  box-shadow: 0 0 0 4px var(--credit-halo-color, #FFFFFF), 0 4px 12px var(--credit-shadow-color, rgba(58, 38, 20, .085));
+  transform-origin: right center;
+}
+
+/* ── 終わりの名札 ─────────────────────── */
+.demo-credit__plate {
+  position: absolute;
+  right: var(--credit-right, 80px);
+  top: var(--credit-plate-top, 378px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.demo-credit__brand {
+  display: flex;
+  align-items: center;
+  gap: .3em;
+  font-size: var(--credit-plate-size, 40px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+.demo-credit__star {
+  display: block;
+  flex: none;
+  width: .9em;
+  height: .9em;
+  overflow: visible;
+}
+.demo-credit__star-halo {
+  fill: var(--credit-halo-color, #FFFFFF);
+  stroke: var(--credit-halo-color, #FFFFFF);
+  stroke-width: calc(var(--credit-halo, 9px) * 1.8);
+  stroke-linejoin: round;
+}
+.demo-credit__star-body {
+  fill: var(--demo-accent, #F97316);
+}
+
+.demo-credit__tagline {
+  margin-top: var(--credit-tagline-gap, 14px);
+  margin-right: -.06em;
+  font-size: var(--credit-tagline-size, 28px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .06em;
+  color: var(--demo-ink-sub, #6B5E52);
+  white-space: nowrap;
+}
+
+/* ── 動き（活性区間だけ宣言する）──────────────
+   イージングはモーション語彙（packages/overlay-runtime/src/motion-vocab.css）の名前で呼ぶ。
+   var() の 2 つ目は語彙と同じ値の控え: GPU 書き出し（render-cut --engine gpu / auto の既定）の
+   ページは語彙を読み込まないため、控えが無いと animation の宣言ごと無効になり、書き出しでは
+   区間の頭から最終の静止状態のまま動かない（2026-10-01 実測。OSR・プレビューは語彙あり）。
+   語彙を変えたら控えも合わせる */
+[data-akari-active] .demo-credit__row1 {
+  animation:
+    demo-credit-slide-30 .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-row1-delay, 0s) both,
+    demo-credit-fade .12s var(--ease-linear, linear) var(--credit-row1-delay, 0s) both;
+}
+[data-akari-active] .demo-credit__row2 {
+  animation:
+    demo-credit-slide-30 .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-row2-delay, .117s) both,
+    demo-credit-fade .12s var(--ease-linear, linear) var(--credit-row2-delay, .117s) both;
+}
+[data-akari-active] .demo-credit__spark-pop {
+  animation: demo-credit-spark-pop .42s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-spark-delay, .317s) both;
+}
+[data-akari-active] .demo-credit__spark-glint {
+  animation: demo-credit-spark-glint .45s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-glint-delay, 1.30s) forwards;
+}
+[data-akari-active] .demo-credit__rule {
+  animation: demo-credit-rule .32s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-rule-delay, .567s) both;
+}
+[data-akari-active] .demo-credit__brand {
+  animation:
+    demo-credit-rise-12 .40s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-plate-delay, .667s) both,
+    demo-credit-fade .16s var(--ease-linear, linear) var(--credit-plate-delay, .667s) both;
+}
+[data-akari-active] .demo-credit__star {
+  animation: demo-credit-star-open .50s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--credit-plate-delay, .667s) + .03s) both;
+}
+[data-akari-active] .demo-credit__tagline {
+  animation:
+    demo-credit-rise-8 .36s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--credit-plate-delay, .667s) + .10s) both,
+    demo-credit-fade .16s var(--ease-linear, linear) calc(var(--credit-plate-delay, .667s) + .10s) both;
+}
+
+@keyframes demo-credit-slide-30 {
+  0%   { transform: translateX(30px); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-credit-rise-12 {
+  0%   { transform: translateY(12px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-credit-rise-8 {
+  0%   { transform: translateY(8px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-credit-fade {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes demo-credit-spark-pop {
+  0%   { transform: scale(0) rotate(-70deg);   opacity: 0; }
+  55%  { transform: scale(1.18) rotate(8deg);  opacity: 1; }
+  100% { transform: scale(1) rotate(0deg);     opacity: 1; }
+}
+@keyframes demo-credit-spark-glint {
+  0%   { transform: scale(1) rotate(0deg); }
+  45%  { transform: scale(1.3) rotate(45deg); }
+  100% { transform: scale(1) rotate(90deg); }
+}
+@keyframes demo-credit-rule {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes demo-credit-star-open {
+  0%   { transform: rotate(-90deg) scale(.3); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+</style>
+<div class="demo-credit__credits">
+  <span class="demo-credit__label demo-credit__row1 demo-credit__halo-s" data-akari-slot="cast-role">出演</span>
+  <span class="demo-credit__name demo-credit__name--cast demo-credit__row1 demo-credit__halo" data-akari-slot="cast-name">僕</span>
+  <span class="demo-credit__label demo-credit__row2 demo-credit__halo-s" data-akari-slot="editor-role">編集</span>
+  <span class="demo-credit__name demo-credit__name--editor demo-credit__row2 demo-credit__halo"><span data-akari-slot="editor-name">AI</span><i class="demo-credit__spark"><b class="demo-credit__spark-pop"><b class="demo-credit__spark-glint"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark, #FFD94A)" stroke="var(--demo-accent, #F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></b></i></span>
+</div>
+<i class="demo-credit__rule"></i>
+<div class="demo-credit__plate">
+  <div class="demo-credit__brand demo-credit__halo">
+    <svg class="demo-credit__star" viewBox="0 0 24 24" aria-hidden="true"><path class="demo-credit__star-halo" d="M12 0C12.9 6.6 17.4 11.1 24 12C17.4 12.9 12.9 17.4 12 24C11.1 17.4 6.6 12.9 0 12C6.6 11.1 11.1 6.6 12 0Z"/><path class="demo-credit__star-body" d="M12 0C12.9 6.6 17.4 11.1 24 12C17.4 12.9 12.9 17.4 12 24C11.1 17.4 6.6 12.9 0 12C6.6 11.1 11.1 6.6 12 0Z"/></svg>
+    <span data-akari-slot="brand">AKARI Video</span>
+  </div>
+  <span class="demo-credit__tagline demo-credit__halo-s" data-akari-slot="tagline">AI と話すだけで動画編集</span>
+</div>
+</div>

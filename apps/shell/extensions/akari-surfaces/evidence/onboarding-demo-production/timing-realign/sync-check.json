@@ -1,0 +1,432 @@
+{
+ "schema": "akari-onboarding-timing-check/v1",
+ "created": "2026-10-01",
+ "by": "制作担当 timing-realign",
+ "summary": {
+  "legacy_captions_off_by_0.3s_or_more": 14,
+  "legacy_max_early_s": 1.46,
+  "initial_vs_final_captions_changed": [
+   "c-0016",
+   "c-0021"
+  ],
+  "plan_sync_rows_out_of_tolerance_after_recheck": [
+   "done 判子",
+   "diagram ② AI",
+   "diagram ③ 完成"
+  ]
+ },
+ "captions": [
+  {
+   "id": "c-0001",
+   "text": "こんにちは。",
+   "legacy_start": 0.59,
+   "initial_start": 0.29,
+   "final_start": 0.29,
+   "final_end": 1.26,
+   "legacy_minus_final_s": 0.3,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0002",
+   "text": "今日はですね、",
+   "legacy_start": 0.89,
+   "initial_start": 2.35,
+   "final_start": 2.35,
+   "final_end": 3.59,
+   "legacy_minus_final_s": -1.46,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0003",
+   "text": "アカリビデオっていう",
+   "legacy_start": 2.24,
+   "initial_start": 3.59,
+   "final_start": 3.59,
+   "final_end": 5.01,
+   "legacy_minus_final_s": -1.35,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0004",
+   "text": "動画編集ツールを",
+   "legacy_start": 4.16,
+   "initial_start": 5.1,
+   "final_start": 5.1,
+   "final_end": 6.36,
+   "legacy_minus_final_s": -0.94,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0005",
+   "text": "試してみてます。",
+   "legacy_start": 5.7,
+   "initial_start": 6.43,
+   "final_start": 6.43,
+   "final_end": 7.17,
+   "legacy_minus_final_s": -0.73,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0006",
+   "text": "これ、AIと対話する",
+   "legacy_start": 7.82,
+   "initial_start": 7.84,
+   "final_start": 7.84,
+   "final_end": 9.9,
+   "legacy_minus_final_s": -0.02,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0007",
+   "text": "だけでいいんですよ。",
+   "legacy_start": 8.8,
+   "initial_start": 9.9,
+   "final_start": 9.9,
+   "final_end": 10.72,
+   "legacy_minus_final_s": -1.1,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0008",
+   "text": "喋ってるだけで、",
+   "legacy_start": 11.34,
+   "initial_start": 11.3,
+   "final_start": 11.3,
+   "final_end": 12.57,
+   "legacy_minus_final_s": 0.04,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0009",
+   "text": "編集はもう終わってる",
+   "legacy_start": 12.03,
+   "initial_start": 12.57,
+   "final_start": 12.57,
+   "final_end": 14.05,
+   "legacy_minus_final_s": -0.54,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0010",
+   "text": "感じです。",
+   "legacy_start": 13.71,
+   "initial_start": 14.05,
+   "final_start": 14.05,
+   "final_end": 14.49,
+   "legacy_minus_final_s": -0.34,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0011",
+   "text": "例えば、喋ってる",
+   "legacy_start": 15.36,
+   "initial_start": 15.31,
+   "final_start": 15.31,
+   "final_end": 16.9,
+   "legacy_minus_final_s": 0.05,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0012",
+   "text": "途中に効果音とか",
+   "legacy_start": 16.11,
+   "initial_start": 16.9,
+   "final_start": 16.9,
+   "final_end": 18.44,
+   "legacy_minus_final_s": -0.79,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0013",
+   "text": "エフェクトをパッと、",
+   "legacy_start": 17.74,
+   "initial_start": 18.74,
+   "final_start": 18.74,
+   "final_end": 20.55,
+   "legacy_minus_final_s": -1.0,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0014",
+   "text": "ほら、こんな感じで。",
+   "legacy_start": 19.7,
+   "initial_start": 20.55,
+   "final_start": 20.55,
+   "final_end": 21.68,
+   "legacy_minus_final_s": -0.85,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0015",
+   "text": "あと、こういう",
+   "legacy_start": 22.62,
+   "initial_start": 22.64,
+   "final_start": 22.64,
+   "final_end": 23.78,
+   "legacy_minus_final_s": -0.02,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0016",
+   "text": "図解も出せますし、",
+   "legacy_start": 23.26,
+   "initial_start": 23.58,
+   "final_start": 23.78,
+   "final_end": 25.01,
+   "legacy_minus_final_s": -0.52,
+   "initial_minus_final_s": -0.2,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0017",
+   "text": "スマホの",
+   "legacy_start": 26.89,
+   "initial_start": 27.07,
+   "final_start": 27.07,
+   "final_end": 27.77,
+   "legacy_minus_final_s": -0.18,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0018",
+   "text": "モックアップとかも、",
+   "legacy_start": 27.53,
+   "initial_start": 27.77,
+   "final_start": 27.77,
+   "final_end": 29.45,
+   "legacy_minus_final_s": -0.24,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0019",
+   "text": "BGMも、字幕のカラオケ",
+   "legacy_start": 29.28,
+   "initial_start": 29.45,
+   "final_start": 29.45,
+   "final_end": 31.82,
+   "legacy_minus_final_s": -0.17,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0020",
+   "text": "表示もいけます。",
+   "legacy_start": 30.99,
+   "initial_start": 31.88,
+   "final_start": 31.88,
+   "final_end": 32.54,
+   "legacy_minus_final_s": -0.89,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  },
+  {
+   "id": "c-0021",
+   "text": "まあ、僕は喋ってる",
+   "legacy_start": 33.18,
+   "initial_start": 33.2,
+   "final_start": 33.3,
+   "final_end": 34.79,
+   "legacy_minus_final_s": -0.12,
+   "initial_minus_final_s": -0.1,
+   "final_start_cue": "声の立ち上がり"
+  },
+  {
+   "id": "c-0022",
+   "text": "だけなんですけどね。",
+   "legacy_start": 33.95,
+   "initial_start": 34.79,
+   "final_start": 34.79,
+   "final_end": 35.64,
+   "legacy_minus_final_s": -0.84,
+   "initial_minus_final_s": 0.0,
+   "final_start_cue": "連続発話の中（閉鎖・摩擦・フォルマント）"
+  }
+ ],
+ "plan_sync_table_recheck": [
+  {
+   "element": "title 名札",
+   "word": "アカリビデオ",
+   "word_s_plan": 3.59,
+   "word_s_final": 3.59,
+   "planned_first_visible_s": 3.5667,
+   "planned_minus_final_word_s": -0.023,
+   "within_0.15": true
+  },
+  {
+   "element": "chat あなた",
+   "word": "AI",
+   "word_s_plan": 8.55,
+   "word_s_final": 8.55,
+   "planned_first_visible_s": 8.5333,
+   "planned_minus_final_word_s": -0.017,
+   "within_0.15": true
+  },
+  {
+   "element": "chat AI 入力中",
+   "word": "対話",
+   "word_s_plan": 9.26,
+   "word_s_final": 9.26,
+   "planned_first_visible_s": 9.2333,
+   "planned_minus_final_word_s": -0.027,
+   "within_0.15": true
+  },
+  {
+   "element": "chat 返事",
+   "word": "だけ",
+   "word_s_plan": 9.9,
+   "word_s_final": 9.9,
+   "planned_first_visible_s": 9.9,
+   "planned_minus_final_word_s": 0.0,
+   "within_0.15": true
+  },
+  {
+   "element": "done 2 行目",
+   "word": "編集",
+   "word_s_plan": 12.57,
+   "word_s_final": 12.57,
+   "planned_first_visible_s": 12.5667,
+   "planned_minus_final_word_s": -0.003,
+   "within_0.15": true
+  },
+  {
+   "element": "done 判子",
+   "word": "終わってる",
+   "word_s_plan": 13.18,
+   "word_s_final": 13.42,
+   "planned_first_visible_s": 13.1667,
+   "planned_minus_final_word_s": -0.253,
+   "within_0.15": false
+  },
+  {
+   "element": "effects 札 効果音",
+   "word": "効果音",
+   "word_s_plan": 17.5,
+   "word_s_final": 17.5,
+   "planned_first_visible_s": 17.5,
+   "planned_minus_final_word_s": 0.0,
+   "within_0.15": true
+  },
+  {
+   "element": "effects 札 エフェクト",
+   "word": "エフェクト",
+   "word_s_plan": 18.74,
+   "word_s_final": 18.74,
+   "planned_first_visible_s": 18.7333,
+   "planned_minus_final_word_s": -0.007,
+   "within_0.15": true
+  },
+  {
+   "element": "effects パッ！＋flash＋punch-in",
+   "word": "パッ",
+   "word_s_plan": 19.7,
+   "word_s_final": 19.7,
+   "planned_first_visible_s": 19.7,
+   "planned_minus_final_word_s": 0.0,
+   "within_0.15": true
+  },
+  {
+   "element": "effects キラッ",
+   "word": "ほら",
+   "word_s_plan": 20.55,
+   "word_s_final": 20.55,
+   "planned_first_visible_s": 20.5667,
+   "planned_minus_final_word_s": 0.017,
+   "within_0.15": true
+  },
+  {
+   "element": "diagram ① 話す",
+   "word": "こういう",
+   "word_s_plan": 23.27,
+   "word_s_final": 23.27,
+   "planned_first_visible_s": 23.2667,
+   "planned_minus_final_word_s": -0.003,
+   "within_0.15": true
+  },
+  {
+   "element": "diagram ② AI",
+   "word": "図解",
+   "word_s_plan": 23.58,
+   "word_s_final": 23.78,
+   "planned_first_visible_s": 23.5667,
+   "planned_minus_final_word_s": -0.213,
+   "within_0.15": false
+  },
+  {
+   "element": "diagram ③ 完成",
+   "word": "出せます",
+   "word_s_plan": 24.02,
+   "word_s_final": 24.37,
+   "planned_first_visible_s": 24.0,
+   "planned_minus_final_word_s": -0.37,
+   "within_0.15": false
+  },
+  {
+   "element": "phone 本体",
+   "word": "スマホ",
+   "word_s_plan": 27.07,
+   "word_s_final": 27.07,
+   "planned_first_visible_s": 26.9667,
+   "planned_minus_final_word_s": -0.103,
+   "within_0.15": true
+  },
+  {
+   "element": "phone 画面点灯",
+   "word": "モックアップ",
+   "word_s_plan": 27.77,
+   "word_s_final": 27.77,
+   "planned_first_visible_s": 27.7667,
+   "planned_minus_final_word_s": -0.003,
+   "within_0.15": true
+  },
+  {
+   "element": "bgm-chip＋BGM 立ち上がり",
+   "word": "BGM",
+   "word_s_plan": 29.45,
+   "word_s_final": 29.45,
+   "planned_first_visible_s": 29.4333,
+   "planned_minus_final_word_s": -0.017,
+   "within_0.15": true
+  },
+  {
+   "element": "karaoke 塗り開始",
+   "word": "字幕の",
+   "word_s_plan": 30.63,
+   "word_s_final": 30.63,
+   "planned_first_visible_s": 30.63,
+   "planned_minus_final_word_s": 0.0,
+   "within_0.15": true
+  },
+  {
+   "element": "credit",
+   "word": "ね（言い切り）",
+   "word_s_plan": 35.63,
+   "word_s_final": 35.63,
+   "planned_first_visible_s": 35.6333,
+   "planned_minus_final_word_s": 0.003,
+   "within_0.15": true
+  }
+ ],
+ "images": [
+  "timeline.png",
+  "mouth-12.8-13.8.jpg",
+  "mouth-23.6-24.8.jpg",
+  "export-caption-switch.jpg"
+ ]
+}

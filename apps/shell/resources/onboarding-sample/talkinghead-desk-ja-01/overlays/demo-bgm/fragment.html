@@ -1,0 +1,86 @@
+<div class="demo-bgm" lang="ja">
+<style>
+/*
+  BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。
+  スマホ（demo-phone）の左上に付く橙のピル。♪・「BGM」・拍で跳ねるイコライザ 5 本。
+  右端をスマホの左の縁（x 891）へ 17px 重ねて、スマホに貼った札に見せる（スマホは段 demo-stage、
+  札はその上の段 demo-accents なので札が手前に来る）。
+  edit.json では段 demo-accents、at 883 / duration 105（29.4333〜32.9333 秒）。
+  大きさ（2026-10-01 作り直し）: アプリのプレビュー枠は幅 640px 程度の縮小表示なので、「BGM」を
+  22→28px（1.27 倍。640px 枠で 14px 相当）、札を 136×48→170×58、♪ を 20→24px、棒を 4×22→5×27px にした。
+  大きくなったぶん左へ伸びると右の舞台の左端 x 720 を越えるので、右端をスマホの縁に重ねる位置
+  （738 / 113）へ寄せ、入りの拡大を .5→1 から .7→1 にして行き過ぎ（約 +10%）の左端も 720 の内側に
+  収める（不透明度 25% 以上の本体は全フレームで舞台の中。影の薄い裾だけが入りの 6 フレームで
+  x 704 まで出る。人物の届く範囲 x<690 と字幕帯には 0px）。
+  時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 883) / 30）。
+    札       -0.016 → 0.304  「BGM」の語頭 29.45 に向けて 1 フレーム前から開き始め、フレーム 883（29.433）
+                             で見え始める。scale .7→1・傾き -10°→-4°・不透明度 0→1（0.32 秒、
+                             --ease-overshoot-soft、右端＝スマホの側を起点に開く）
+    拍の輪    0.149 → 0.599  最初の拍（29.582）で橙の輪が 1 回だけ横 1.2・縦 1.7 倍まで広がって消える
+                             （BGM が持ち上がる瞬間）
+    棒        常時           scaleY .35→1→.35 を 1 拍（85 BPM = 0.7059 秒）周期で繰り返す（下端起点）。
+                             棒ごとに 0 / .18 / .09 / .27 / .13 秒ずらし、左端の棒の最初の山を
+                             ローカル 0.149 秒 = 29.582（BGM の拍 19.70 + 14 × 0.70588）に置く。
+                             山の手前 0.085 秒で一気に上がり、残りで落ちる（メーターの立ち上がり）
+    抜け     3.167 → 3.467   スマホ（demo-phone）の抜けと同じ動きで、札もスマホに付いたまま下へ 150px
+                             沈む（--ease-accelerate、0.30 秒）。不透明度は最後の 0.15 秒（3.317 → 3.467）で
+                             1→0（線形）。どちらも forwards。32.600 → 32.900、区間の終わり 32.933 の前に消え切る
+  base（アニメ無しの見た目）は最終の静止状態（傾いた札・棒はまちまちの高さ）。拍の輪だけは最終状態も
+  不可視の過渡なので base で隠す。
+  イージングは語彙（--ease-*）を名前で呼び、語彙と同じ値をフォールバックに添える。GPU 書き出し
+  （gpu-export の DOM 層）のページは motion-vocab.css を読み込まないため、フォールバックが無いと
+  animation の宣言ごと無効になり、札が静止画のまま出る（2026-10-01 実測）。
+
+  書体: AKARI Demo Sans BGM = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
+  Name 'Source'）の wght 900 を「B」「G」「M」と空白だけに切り出した改変版（別名で埋め込み、フォント内に
+  著作権表示と許諾を保持）。家族名はこの断片専用にし、unicode-range で自分の字だけを受け持つ
+  （書き出しとプレビューは全断片を 1 枚の文書に並べるため、共通名だと他の断片の面が同じ太さの字を先に取る）。
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --bgm-left / --bgm-top / --bgm-width / --bgm-height   札の位置と大きさ（既定 738px / 113px / 170px / 58px）
+    --bgm-radius / --bgm-tilt                             角丸と傾き（既定 29px / -4deg）
+    --bgm-gap                                             ♪・文字・棒の間隔（既定 9px）
+    --bgm-font-size / --bgm-font                          「BGM」の文字サイズと書体（既定 28px / AKARI Demo Sans BGM → Hiragino Sans …）
+    --demo-accent                                         札の地（既定 #F97316 = アプリの主色）
+    --bgm-ink                                             ♪・文字・棒の色（既定 #FFFFFF）
+    --bgm-glow / --demo-shadow                            札の近い影（橙）と遠い影（既定 rgba(249,115,22,.30) /
+                                                          0 18px 44px rgba(58,38,20,.22)）
+    --bgm-ring                                            拍の輪の色（既定 #FDBA74 = 淡橙。transparent で輪なし）
+    --bgm-lead                                            入りの前倒し（既定 .033s = 1 フレーム）
+    --bgm-at-in / --bgm-at-out                            札の入りと抜けの時刻（ローカル秒。既定 .017s / 3.167s）
+    --bgm-out-y                                           抜けで沈む距離（既定 150px = スマホの --phone-rise と同じ）
+    --bgm-beat / --bgm-beat-peak                          拍の長さと、左端の棒の最初の山の時刻（既定 .7059s / .149s）
+*/
+@font-face{font-family:"AKARI Demo Sans BGM";src:url(data:font/woff2;base64,d09GMgABAAAAAASAABEAAAAACYQAAAQkAAIBBgAAAAAAAAAAAAAAAAAAAAAAAAAAGYFSG3YcQgZgP1NUQVQqAEwRCAqCRIItATYCJAMUCwwABCAFh0gHIBckGAwbOggIHoPjbolhaIvJ0srzR8Tv9XiI3+/bmTv3/RVFRKOI942oN0vmoZEIiU1IydDMq+X3U579m9bpfnpWXafpSp4k0zop9AHeAByJK6TD5R93818U8X+uqcvQgUQJHU1nFvkvaHi30C6KEtjz4UDCOsVGGyWNlPc2RWP6bJALWxIiETE6eiiBbkcMU+nsqG7sBOPRxT4X5J70USfkniKSHYxniUTAeI4EJMilAUU1UwyjPTogVf2GTbdKtIvsBtSmmkh1WrDwsj8CdpHKPtktRSIn02bzTYXHJY3Qlc5eG9RHMY3IxkwjFZzC0rPUJ4EOrmRVkN4dPwwwWdAVWNxkCiIi3HCTUibH5Jgck+Ny9mwXar7NddBQHip6Aewvh8YBSI8qgNKnANAPz751R3kLlMKa0jMe9T7CQECZVT5hNo0QugXGQ5hOcdlqCyAEFAExNtcBFCTGUwqMp7IG6NWtKGYrV6OpBe2m28/uutleEQAI0TKE0IBeNDgFPAFUACnEuB597GyDesLWV6/g+pu7cfAIB75k+g1bn6DVjxlGcdHe0F7LyJbXr51vkrHie1XUea7FuaXdB9ffvuKNr8xCDJqguPnSoDb07X21wHD4zbwBg4rpyl3EdPYy/d3MQbgvMPJb1bQc17XURs8qPfZBtaKhq76xaXQt20bv1uc1GRPbc+vf9JWVshxbmlDWBycGrKe6+LMrhvJ2icLajIb2YH7XkPfqV1NOZzZnqatPtfVnV03vuxoJ7ZkxKK7Jgu7f94Jll6dV7lYffZ1y2Ft2/9/x8XjtADNYoS4aFSbx4qSCUVWFfrD2L4gfB2sglNDcv+P5ODKp8H93Kv/Cu+cxiwD48eX3VljR/snJ5T/QUUBQ7499JX9ZIT5nQwCAJv865hflBYyUT1akG7ohNBZQgpDNG/BMiqoHnqLJw0wH5EWv1/K0y0N5tTQYeeNMZMo7FsYh+UDExEP5oBXld/NwjHQMHYSgP+e60NTv6YsJkmDpOGaZ0hRI167FyohkPApLZBMQ4JHPxCQsvCxifWKWQOZmkiQVFmYXYIO1o/wonxBKhFWTSQKwZoQbhSXoIAvyEVAJWGUalGlXB6tEucmwDoTEr5wLIXCy28mBzWngLiCa/Gl41kcd8wvi26ECoc2Yse6Zkv3sZNIKgWUmB7VQXMBGFiDYgiGYmYEtfWa5MNmNcKJmsKA7gvpBFvZGtizZOBkTdu9kY+df7/wOMouAMMKHwkZwlaSAeln/BIKEiZMFsQAb/tqhTiOshQclBbQ2OtFSy6+FZrbIJjxguXj7UMlECGGfqJPnQvcHI4ks06ZFA/LhbST8PN1P4GPnEeDH8rvOZcl8rExaVGvUXT9K7kHZWT2+qgTatZbJkmMY+jfWf0a6XePIFQBMAwF+eQk22tCN) format("woff2");font-weight:900;font-style:normal;font-display:block;unicode-range:U+0020,U+0042,U+0047,U+004D}
+.demo-bgm,.demo-bgm *,.demo-bgm *::before,.demo-bgm *::after{box-sizing:border-box}
+.demo-bgm{position:absolute;inset:0;font-family:var(--bgm-font,"AKARI Demo Sans BGM","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif);font-weight:900;color:var(--bgm-ink,#FFFFFF);-webkit-font-smoothing:antialiased}
+.demo-bgm svg{display:block;flex:none}
+.demo-bgm__stage{position:absolute;left:var(--bgm-left,738px);top:var(--bgm-top,113px);width:var(--bgm-width,170px);height:var(--bgm-height,58px)}
+.demo-bgm__tilt{position:absolute;inset:0;transform:rotate(var(--bgm-tilt,-4deg))}
+.demo-bgm__chip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:var(--bgm-gap,9px);padding:0 15px 0 14px;border-radius:var(--bgm-radius,29px);background:var(--demo-accent,#F97316);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 6px 14px var(--bgm-glow,rgba(249,115,22,.30)),var(--demo-shadow,0 18px 44px rgba(58,38,20,.22));transform-origin:100% 50%}
+.demo-bgm__ring{position:absolute;inset:0;border-radius:var(--bgm-radius,29px);border:3px solid var(--bgm-ring,#FDBA74);opacity:0}
+.demo-bgm__note{width:24px;height:24px;color:var(--bgm-ink,#FFFFFF)}
+.demo-bgm__label{display:block;font-size:var(--bgm-font-size,28px);line-height:1;letter-spacing:.01em;white-space:nowrap}
+.demo-bgm__eq{display:flex;align-items:flex-end;gap:3px;height:27px;flex:none}
+.demo-bgm__bar{display:block;width:5px;height:27px;border-radius:2.5px;background:var(--bgm-ink,#FFFFFF);transform-origin:50% 100%;transform:scaleY(var(--bar-rest,.6))}
+[data-akari-active] .demo-bgm__stage{animation:demo-bgm-sink .3s var(--ease-accelerate,cubic-bezier(1,0,.98,.8)) forwards,demo-bgm-vanish .15s var(--ease-linear,linear) forwards;animation-delay:var(--bgm-at-out,3.167s),calc(var(--bgm-at-out,3.167s) + .15s)}
+[data-akari-active] .demo-bgm__chip{animation:demo-bgm-pop .32s var(--ease-overshoot-soft,cubic-bezier(.17,2.21,.17,.97)) both;animation-delay:calc(var(--bgm-at-in,.017s) - var(--bgm-lead,.033s))}
+[data-akari-active] .demo-bgm__ring{animation:demo-bgm-ring .45s var(--ease-smooth,cubic-bezier(.38,0,.1,1.1)) forwards;animation-delay:var(--bgm-beat-peak,.149s)}
+[data-akari-active] .demo-bgm__bar{animation:demo-bgm-bar var(--bgm-beat,.7059s) var(--ease-linear,linear) infinite both;animation-delay:calc(var(--bgm-beat-peak,.149s) - var(--bgm-beat,.7059s) * 1.5 + var(--bar-offset,0s))}
+@keyframes demo-bgm-pop{0%{transform:scale(.7) rotate(-6deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes demo-bgm-sink{0%{transform:translateY(0)}100%{transform:translateY(var(--bgm-out-y,150px))}}
+@keyframes demo-bgm-vanish{0%{opacity:1}100%{opacity:0}}
+@keyframes demo-bgm-ring{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.2,1.7);opacity:0}}
+@keyframes demo-bgm-bar{0%{transform:scaleY(.35)}38%{transform:scaleY(.42)}50%{transform:scaleY(1)}62%{transform:scaleY(.78)}80%{transform:scaleY(.52)}100%{transform:scaleY(.35)}}
+</style>
+<div class="demo-bgm__stage">
+<div class="demo-bgm__tilt">
+<i class="demo-bgm__ring"></i>
+<div class="demo-bgm__chip">
+<svg class="demo-bgm__note" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><ellipse cx="7.2" cy="15.1" rx="4" ry="3.05" transform="rotate(-22 7.2 15.1)"/><rect x="9.55" y="2.3" width="2.15" height="13.1" rx=".4"/><path d="M11.7 2.3c.2 2.2 1.6 3.3 3 4.4 1.4 1.1 2.4 2.5 1.9 4.9-.1.5-.8.5-.8 0 .1-1.6-.8-2.6-2.1-3.2-.8-.4-1.4-.5-2-.5z"/></svg>
+<span class="demo-bgm__label">BGM</span>
+<span class="demo-bgm__eq" aria-hidden="true"><i class="demo-bgm__bar" style="--bar-offset:0s;--bar-rest:.55"></i><i class="demo-bgm__bar" style="--bar-offset:.18s;--bar-rest:.9"></i><i class="demo-bgm__bar" style="--bar-offset:.09s;--bar-rest:.7"></i><i class="demo-bgm__bar" style="--bar-offset:.27s;--bar-rest:1"></i><i class="demo-bgm__bar" style="--bar-offset:.13s;--bar-rest:.62"></i></span>
+</div>
+</div>
+</div>
+</div>

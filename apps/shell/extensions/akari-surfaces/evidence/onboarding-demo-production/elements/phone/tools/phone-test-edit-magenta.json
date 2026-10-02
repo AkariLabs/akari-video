@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "geometry": "source"
+  },
+  "sources": [
+    {
+      "id": "sample",
+      "path": "assets/sample.mp4"
+    },
+    {
+      "id": "magenta",
+      "path": "assets/magenta.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "video",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        {
+          "id": "sample",
+          "at": 0,
+          "duration": 179,
+          "source": {
+            "kind": "media",
+            "src": "sample",
+            "in": 26.966667,
+            "out": 32.933333
+          }
+        }
+      ]
+    },
+    {
+      "id": "demo-phone-screen",
+      "lane": "visual",
+      "name": "スマホの画面",
+      "items": [
+        {
+          "id": "demo-phone-screen",
+          "name": "スマホの画面",
+          "at": 24,
+          "duration": 144,
+          "crop": {
+            "x": 0.208,
+            "y": 0,
+            "w": 0.2645,
+            "h": 1
+          },
+          "transform": {
+            "x": 372,
+            "y": -24,
+            "scale": 0.6607
+          },
+          "source": {
+            "kind": "media",
+            "src": "magenta",
+            "in": 27.766667,
+            "out": 32.566667
+          }
+        }
+      ]
+    },
+    {
+      "id": "demo-stage",
+      "lane": "visual",
+      "name": "右の演出",
+      "items": [
+        {
+          "id": "demo-phone",
+          "name": "スマホ",
+          "at": 0,
+          "duration": 179,
+          "source": {
+            "kind": "html",
+            "path": "overlays/demo-phone/fragment.html"
+          }
+        }
+      ]
+    }
+  ]
+}

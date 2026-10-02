@@ -1,0 +1,162 @@
+{
+ "element": "sfx-chat-pops",
+ "plan_row": 4,
+ "kind": "効果音",
+ "words": "AI(8.55)／対話(9.26)",
+ "file": {
+  "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-pop-bubble-big.m4a",
+  "md5": "549003034b7909765d269e0edf1fb83d",
+  "sha256": "e25ef0215b8136fd8e027cec4228d3b6cf768b6473c60b0aecfd2b1b10b5a46e",
+  "bytes": 3587,
+  "codec": "AAC-LC 128 kbps / 48 kHz / stereo (L=R) / m4a",
+  "duration_s": 0.15,
+  "samples": 7200,
+  "sample_peak_dBFS": -12.09,
+  "true_peak_dBFS": -12.1,
+  "rms_peak_dBFS": -23.58,
+  "tags": "なし（-map_metadata -1）"
+ },
+ "source": {
+  "id": "sfx-pop-bubble-big",
+  "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-bubble-big.mp3",
+  "md5": "0a4a1d03782415ea48a9996cd829217e",
+  "ledger": "akari-video-internal assets/audio/sfx-pop-bubble-big/meta.json",
+  "author": "AKARI Sounds（Suno v5.5 生成・オーナー選別）",
+  "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布/配信登録/Content ID 登録は禁止）",
+  "price": 0,
+  "duration_s": 1.801,
+  "peak_L_dBFS": -1.75,
+  "peak_R_dBFS": -8.24,
+  "energy_band": "400〜1000 Hz に 94〜99%",
+  "sound_ends_s": 0.081,
+  "note": "2026-10-01 オーナーの了承で正式に同梱（単体再配布禁止の条件は変えない）"
+ },
+ "processing": {
+  "script": "make-sfx-pop-bubble-big.sh（同じ ffmpeg で再実行してバイト一致を確認）",
+  "ffmpeg": "n8.1.2（packages/media-bin/vendor/win32-x64）",
+  "steps": [
+   "0〜0.15 s を切り出し（頭は切らない）",
+   "左右を中央へ寄せる pan 0.5/0.5（元は左に 8 dB 偏り・L/R 相関 0.73・位相ずれ 0 サンプル）",
+   "ピークを −12 dBFS へ（−6.975 dB）",
+   "末尾 30 ms フェード（0.12〜0.15 s。音は 0.08 s で −40 dB 以下に減衰済み）",
+   "AAC 128 kbps / 48 kHz m4a"
+  ],
+  "why_normalize": "構成表の edit_item は gain_db −4、目安は書き出しでピーク −16 dBFS。元のまま（L −1.7 dBFS）だと −5.7 dBFS になり、本編で一番大きいはずの「パッ」の whoosh（目安 −8）より大きくなる。音量の正本は edit.json の gain_db に残し、ファイル側を『gain_db −4 で −16』に合わせた",
+  "why_center": "吹き出しは画面右のカードに出るのに、元の音は左へ 8 dB 寄っている。左右の向きが逆にならないよう中央に置いた"
+ },
+ "attack_check": {
+  "criterion": "最初にピーク −12 dB を超えるサンプル",
+  "source_mp3_mono_s": 0.018,
+  "m4a_ffmpeg_decode_s": 0.018,
+  "m4a_chromium_decodeAudioData_s": 0.018,
+  "chromium_length_samples": 7200,
+  "lag_m4a_vs_pre_encode_samples": 0,
+  "lag_chromium_vs_ffmpeg_samples": 0,
+  "pre_onset_s": 0.005,
+  "pre_onset_note": "5 ms から −20 dB 程度の前触れ、18 ms から本体",
+  "aac_priming": "elst で 1024 サンプルを落とす。ffmpeg と Chromium（preview の decodeAudioData）の両方で頭のずれ 0"
+ },
+ "edit_items_as_planned": [
+  {
+   "id": "demo-sfx-chat-pop-1",
+   "track": "demo-sfx",
+   "at": 256,
+   "duration": 5,
+   "role": "sfx",
+   "gain_db": -4,
+   "source": {
+    "kind": "media",
+    "src": "demo-sfx-pop-bubble-big",
+    "in": 0,
+    "out": 0.15
+   }
+  },
+  {
+   "id": "demo-sfx-chat-pop-2",
+   "track": "demo-sfx",
+   "at": 277,
+   "duration": 5,
+   "role": "sfx",
+   "gain_db": -4,
+   "source": {
+    "kind": "media",
+    "src": "demo-sfx-pop-bubble-big",
+    "in": 0,
+    "out": 0.15
+   }
+  }
+ ],
+ "project_target": "assets/onboarding/sfx-pop-bubble-big.m4a（source id demo-sfx-pop-bubble-big）",
+ "word_onsets_from_clip": {
+  "method": "clip.mp4 を ffmpeg で全体 decode（elst どおり）→ 5 ms RMS 包絡。「AI」は無音からの立ち上がり、「対話」は t の閉鎖（9.165〜9.255 の無音）の後の破裂",
+  "AI_s": 8.548,
+  "taiwa_s": 9.257,
+  "director_word_timing": {
+   "AI": 8.55,
+   "対話": 9.26
+  }
+ },
+ "export_measure": {
+  "how": "隔離プロジェクト（C:/t/sfxchat/proj = 本編 + この 2 個 / proj0 = 本編だけ）を render-cut で書き出し、差分（効果音の寄与）に音源の波形を当てて置き位置を求めた。edit-lint PASS・render-cut PASS",
+  "ffmpeg_vendor_n8.1.2": {
+   "voice_offset_vs_clip_samples": 0,
+   "items": [
+    {
+     "item": "pop-1",
+     "planned_start_s": 8.5333,
+     "measured_start_s": 8.533,
+     "start_err_ms": -0.33,
+     "attack_s": 8.551,
+     "word": "AI",
+     "word_onset_s": 8.548,
+     "attack_minus_word_ms": 3.0,
+     "match_corr": 0.9931,
+     "sfx_peak_in_mix_dBFS": -16.06,
+     "mix_peak_in_window_dBFS": -5.01,
+     "pop_vs_voice_400_1000Hz_dB": 5.1,
+     "pop_vs_voice_broadband_rms_dB": -7.7
+    },
+    {
+     "item": "pop-2",
+     "planned_start_s": 9.2333,
+     "measured_start_s": 9.233,
+     "start_err_ms": -0.33,
+     "attack_s": 9.251,
+     "word": "対話",
+     "word_onset_s": 9.257,
+     "attack_minus_word_ms": -6.0,
+     "match_corr": 0.9887,
+     "sfx_peak_in_mix_dBFS": -15.95,
+     "mix_peak_in_window_dBFS": -12.5,
+     "pop_vs_voice_400_1000Hz_dB": 5.9,
+     "pop_vs_voice_broadband_rms_dB": -0.1
+    }
+   ]
+  },
+  "ffmpeg_PATH_9.0": {
+   "voice_offset_vs_clip_ms": -23.23,
+   "attack_minus_word_ms": [
+    26.0,
+    17.0
+   ],
+   "note": "render-cut の本編の音（cut_audio 段: -ss 0 … atrim=start=0）を PATH の ffmpeg 9.0（Gyan）で作ると、元の AAC の priming（44.1 kHz の 1024 サンプル）を二重に落として声だけ 23.2 ms 早まる。映像フレームはずれない。media-bin は PATH 優先なので、この機械では何も指定しないと 9.0 が使われる。同梱 n8.1.2 では 0。効果音側（-ss なし）はどちらでもずれない"
+  }
+ },
+ "audibility": {
+  "window": "アタックから 60 ms",
+  "pop1_vs_voice_400_1000Hz_dB": 5.1,
+  "pop1_vs_voice_broadband_dB": -7.7,
+  "pop2_vs_voice_400_1000Hz_dB": 5.9,
+  "pop2_vs_voice_broadband_dB": -0.1,
+  "reading": "① は「エ」の頭に重なるが、ポコの帯域（400〜1000 Hz）では声より +5 dB で聞こえる。② は「た」の閉鎖の無音に落ちるので、はっきり聞こえる。大きすぎれば gain_db だけで下げられる（ファイルは作り直さなくてよい）"
+ },
+ "listen": {
+  "with_pops": "C:/t/sfxchat/listen-8.20-9.80-with-pops.m4a",
+  "voice_only": "C:/t/sfxchat/listen-8.20-9.80-voice-only.m4a",
+  "note": "試聴用の抜粋（リポの外）"
+ },
+ "renders": [
+  "sfx-chat-pops-mix.png",
+  "sfx-chat-pops-file.png"
+ ]
+}

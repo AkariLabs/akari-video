@@ -1,0 +1,112 @@
+{
+  "element": "sfx-title-whoosh",
+  "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-whoosh-air-soft.m4a",
+  "file_md5": "22414e491599b17dfb7582e0564bfe6d",
+  "file_format": "AAC-LC 128 kbps / 48 kHz / stereo / 0.950 s（45600 サンプル）/ start_time 0 / faststart",
+  "source": {
+    "id": "sfx-whoosh-air-soft",
+    "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-air-soft.mp3",
+    "md5": "060cc41b7c924a052f539ad778fa0fab",
+    "suno_id": "454be71a-d0e6-420b-9865-47b96e0814ce",
+    "license": "LicenseRef-AKARI-Sounds-v0（単体再配布・配信登録・Content ID 登録は禁止）",
+    "price": 0
+  },
+  "cut": "asetpts=N/SR/TB,atrim=end_sample=45600,afade=t=out:start_sample=44160:nb_samples=1440:curve=qsin（0〜0.95 s・頭は切らない・末尾 30 ms）",
+  "alignment_vs_source": {
+    "xcorr_lag_samples": 0,
+    "env10ms_peak_s_file": 0.49,
+    "env10ms_peak_s_source": 0.49,
+    "onset_-40dBFS_s_file": 0.0242,
+    "onset_-40dBFS_s_source": 0.0242,
+    "tail_level_at_cut_0.92s": "約 −36 dBFS（山より約 35 dB 下。フェードは聞こえない）"
+  },
+  "render_cut_chain": {
+    "filter": "atrim=start=0:end=0.95,asetpts=PTS-STARTPTS,volume=-10dB,adelay=0:all=1",
+    "env10ms_peak_dbfs": -17.5,
+    "env10ms_peak_s": 0.49,
+    "sample_peak_dbfs": -10.5,
+    "target_from_plan": "ピーク目安 −16 dBFS（構成表の「ピーク」は 10 ms 包絡の山。他の効果音 7 行で検算して ±2 dB で一致）"
+  },
+  "preview_decode_electron": {
+    "electron_ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a",
+    "decodeAudioData_length": 45599,
+    "env10ms_peak_s": 0.49,
+    "onset_s": 0.0242,
+    "note": "原音 mp3 と同じ位置（AAC の priming は正しく落ちている）"
+  },
+  "band_voice_minus_whoosh_db_0.40_0.62": {
+    "60-300Hz": 5.9,
+    "300-1000Hz": 5.6,
+    "1000-4000Hz": 2.1,
+    "4000-8000Hz": 6.0
+  },
+  "window_konnichiwa_0.29_1.06": {
+    "voice_lufs": -13.3,
+    "whoosh_lufs_at_gain_-10": -23.1,
+    "bgm_lufs_ducked": -34.1,
+    "voice_rms_db": -15.813583126119257,
+    "whoosh_rms_db": -25.65600756553742,
+    "bgm_rms_db": -36.72727081568274
+  },
+  "window_whoosh_body_0.40_0.62": {
+    "voice_rms_db": -15.589980079791498,
+    "whoosh_rms_db": -20.900639849525817,
+    "bgm_rms_db": -46.092878131650465
+  },
+  "window_tail_cut_0.90_0.97": {
+    "whoosh_rms_db": -48.58713497638141,
+    "bgm_rms_db": -38.31539821840477,
+    "voice_rms_db": -15.679157719002214
+  },
+  "whoosh_at_gain_-10": {
+    "sample_peak_dbfs": -10.482595581772195,
+    "env10ms_peak_dbfs": -17.497125972332658,
+    "env10ms_peak_s": 0.49
+  },
+  "mix_sample_peak_dbfs_0_2.5": -2.57401967154107,
+  "note": "BGM は計画値（gain -9・fade_in 0.6・duck -8 / attack 0.15 / release 0.5・切り出し +0.080 s）の近似。書き出しの実測ではない",
+  "card_plan": {
+    "0.2333": {
+      "progress": 0.07857142857142858,
+      "eased": 0.019439897452343372,
+      "dx": 47.066884922287514,
+      "opacity": 0.019439897452343372
+    },
+    "0.3000": {
+      "progress": 0.2373015873015873,
+      "eased": 0.3123373386500994,
+      "dx": 33.00780774479523,
+      "opacity": 0.3123373386500994
+    },
+    "0.4000": {
+      "progress": 0.4753968253968255,
+      "eased": 0.8462852541786456,
+      "dx": 7.378307799425009,
+      "opacity": 0.8462852541786456
+    },
+    "0.4900": {
+      "progress": 0.6896825396825396,
+      "eased": 0.9787945607467134,
+      "dx": 1.0178610841577544,
+      "opacity": 0.9787945607467134
+    },
+    "0.5000": {
+      "progress": 0.7134920634920634,
+      "eased": 0.9855535578651773,
+      "dx": 0.6934292224714902,
+      "opacity": 0.9855535578651773
+    },
+    "0.6200": {
+      "progress": 0.9992063492063492,
+      "eased": 1.0000879061938146,
+      "dx": -0.004219497303100894,
+      "opacity": 1
+    },
+    "0.6333": {
+      "progress": 1,
+      "eased": 1.0,
+      "dx": 0.0,
+      "opacity": 1.0
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "element": "sfx-kouka-pop",
+  "measured": "2026-10-01",
+  "word": { "text": "効果音", "onset_s": 17.50, "source": "analysis/word-timing.json（声の 10 ms 包絡: 17.36〜17.495 は −85 dB の閉鎖、17.50〜17.51 で「こ」の破裂）" },
+  "file": {
+    "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-pop-cork.m4a",
+    "md5": "44e3cab12c25b36853d73d428ac12159",
+    "bytes": 5134,
+    "codec": "AAC-LC 192 kbps / 48 kHz / stereo（ffmpeg 内蔵 aac・bitexact）",
+    "duration_s": 0.15,
+    "samples": 7200,
+    "processing": "素材の 0〜0.15 s（先頭 7200 サンプル。頭は切らない）× −7.51 dB、末尾 30 ms を raised cosine でフェード",
+    "reproduce": "python cut-sfx-pop-cork.py <ffmpeg> <sfx-pop-cork.mp3> <out.m4a>（ffmpeg n8.1 の vendor で同じ md5 を再現済み）"
+  },
+  "source": {
+    "id": "sfx-pop-cork",
+    "title": "Cork Pop From A Bottle, Hollow And Cheerful, Iso",
+    "md5": "e3b43e06fa616ac0738662d89d8d8e47",
+    "read_from": "C:/Users/kyach/akari-wt/perf-pv-v2/assets/audio/sfx/sfx-pop-cork.mp3（~/Akari/library/audio/akari-sounds-sfx/ と同一 md5）",
+    "meta": "akari-video-internal assets/audio/sfx-pop-cork/meta.json",
+    "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布 / 音楽配信 / Content ID 登録は禁止）",
+    "price": 0,
+    "origin": "Suno v5.5（AKARI Sounds）生成 2026-08-02・オーナー試聴選別",
+    "duration_s": 1.801,
+    "sample_peak_dbfs": -0.49,
+    "onset_minus20db_ms": 26.90,
+    "onset_minus30db_ms": 24.33,
+    "peak_ms": 31.21,
+    "spectrum": "2〜4 kHz に 59.5 %、500 Hz〜2 kHz に 26.5 %（重心 2.0 kHz）",
+    "dropped_tail_after_0.15s": { "rms10ms_max_db": -55.8, "sample_peak_dbfs": -43.1 }
+  },
+  "decode_alignment": {
+    "tolerance_ms": 5,
+    "ffmpeg_n8.1_vendor": { "lag_samples": 0, "onset_minus20db_ms": 26.90, "peak_dbfs": -8.01, "peak_ms": 31.21, "snr_db": 32.4, "decoded_samples": 8192, "note": "7200 以降は −111 dB の無音。書き出しは atrim end=0.15 で切る" },
+    "ffmpeg_9.0_path": { "lag_samples": 0, "onset_minus20db_ms": 26.90, "peak_dbfs": -8.01, "decoded_samples": 7200 },
+    "electron_decodeAudioData": { "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a", "length": 7200, "onset_minus20db_ms": 26.90, "onset_minus30db_ms": 24.33, "peak_dbfs": -8.01, "peak_ms": 31.21 },
+    "verdict": "AAC の priming で頭はずれていない（3 経路とも 0 ms）"
+  },
+  "encoder_choice": {
+    "aac_128k": { "snr_db": 12.1, "peak_dbfs": -6.58, "note": "鋭い立ち上がりで崩れる（ピーク +1.4 dB）" },
+    "aac_192k": { "snr_db": 30.2, "peak_dbfs": -7.96 },
+    "aac_256k": { "snr_db": 37.4, "peak_dbfs": -8.05 },
+    "aac_mf_128k": { "snr_db": 26.7, "peak_dbfs": -7.85, "note": "Windows 専用エンコーダ。再現性のため不採用" },
+    "chosen": "aac 192k（計画の 128 kbps からの逸脱。0.15 s で 5 KB）"
+  },
+  "placement_render_chain": {
+    "edit_item": { "track": "demo-sfx", "id": "demo-sfx-kouka-pop", "at": 524, "duration": 5, "role": "sfx", "gain_db": -4, "source": { "kind": "media", "src": "demo-sfx-pop-cork", "in": 0, "out": 0.15 } },
+    "chain": "[sfx]atrim=start=0:end=0.15,asetpts=PTS-STARTPTS,volume=-4dB,adelay=17467:all=1 → amix normalize=0（packages/render-cut/src/plan.mjs の sfx の鎖と同じ）",
+    "first_sample_s": 17.4670,
+    "attack_minus30db_s": 17.4913,
+    "attack_minus20db_s": 17.4939,
+    "attack_vs_word_onset_ms": -6.1,
+    "peak_dbfs": -12.01,
+    "peak_s": 17.4982,
+    "last_nonzero_s": 17.6170,
+    "card_first_visible": "札「♪ 効果音」525 f = 17.500（plan の effects 要素）。音が 6 ms 先行（知覚できない差）",
+    "local_10ms_rms_db": [
+      { "t": 17.48, "pop": -63.0, "voice_plus_bgm": -34.5, "diff": -28.6 },
+      { "t": 17.49, "pop": -20.7, "voice_plus_bgm": -37.1, "diff": 16.4 },
+      { "t": 17.50, "pop": -29.2, "voice_plus_bgm": -35.4, "diff": 6.2 },
+      { "t": 17.51, "pop": -38.8, "voice_plus_bgm": -27.9, "diff": -10.8 }
+    ],
+    "momentary_lufs_400ms_max": { "pop_only": -30.9, "voice_plus_bgm": -14.6, "mix": -14.5 },
+    "voice_vowel_peak_dbfs_17.3_17.8": -5.5,
+    "bgm_note": "BGM は今の bgm.m4a を −17 dB（gain −9 + duck −8）で一定に近似。書き出しの実測ではない"
+  }
+}

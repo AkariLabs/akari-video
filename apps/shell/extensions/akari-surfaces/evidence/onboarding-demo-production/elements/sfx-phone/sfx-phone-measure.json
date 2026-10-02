@@ -1,0 +1,434 @@
+{
+  "element": "sfx-phone",
+  "kind": "効果音",
+  "words": "スマホ（27.07・本体がせり上がる）／モックアップ（27.77・画面点灯）",
+  "files": [
+    {
+      "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-swoosh-up.m4a",
+      "md5": "7f7a901405b0d563e6051bf006009105",
+      "sha256": "c83510fc544a97f18a9aa26a9ed8636cefa06896f3c80b7cd526c021853a98e6",
+      "bytes": 11156,
+      "format": "AAC-LC 128 kbps / 48 kHz / stereo / m4a（faststart・bitexact・タグなし・movie_timescale 48000）",
+      "samples": 32000,
+      "duration_s": 0.6667,
+      "content": "素材 0.113〜0.763 s（31200 サンプル）＋ 無音 800 サンプル。頭 20 ms / 尾 30 ms を raised cosine でフェード",
+      "sample_peak_dbfs": -7.0
+    },
+    {
+      "path": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-click-mouse-single.m4a",
+      "md5": "51647a546088d74d0c6dcbefe7bdb5d8",
+      "bytes": 4814,
+      "format": "AAC-LC 192 kbps / 48 kHz / stereo / m4a（同上）",
+      "samples": 8000,
+      "duration_s": 0.1667,
+      "content": "素材 0〜0.15 s（7200 サンプル・頭は切らない）＋ 無音 800 サンプル。尾 30 ms フェード",
+      "sample_peak_dbfs": -3.4,
+      "sha256": "bfbc36d2391168b065149b56099f8c28298da58273f13fc5c0a9cd04713d40c0",
+      "decoded_sample_peak_dbfs": -3.71,
+      "revised": "2026-10-01 目利きの差し戻しで +8.6 dB（下の revision_2026_10_01_tap）",
+      "previous_round1": {
+        "md5": "d0059a4189ec5a35d2db7fc79fa7b9d5",
+        "sha256": "f0a7619ae93090d6fede6e866a21406aaf621fb5fc85ae9f3892703624c034df",
+        "bytes": 4876,
+        "sample_peak_dbfs": -12.0
+      }
+    }
+  ],
+  "recipe": "make-sfx-phone.py（worktree のルートで引数なし実行 → 上の 2 本を同じ md5 で再生成。2 回実行して一致を確認）",
+  "sources": [
+    {
+      "id": "sfx-swoosh-up",
+      "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-swoosh-up.mp3",
+      "md5": "2fb7e5d0b19d31246ac7df64c2ae5756",
+      "ledger": "akari-video-internal assets/audio/sfx-swoosh-up/meta.json（Suno chirp-sfx 68c2f721-e28e-4cf6-9809-fc9d911594e4・オーナー試聴選別で採用）",
+      "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布/音楽配信登録/Content ID 登録は禁止・AI 学習不可）",
+      "price": 0,
+      "duration_s": 2.001,
+      "used_s": "0.113〜0.763（0.65 s）",
+      "character": "250〜1000 Hz が主体の吹き上げ。重心 350 Hz → 山で 1050 Hz。L/R 相関 0.49（広がりのある音・左右の偏りなし）",
+      "peak_s": {
+        "sample_max": 0.364,
+        "env_minus3db_center": 0.34,
+        "env10_max": 0.326
+      }
+    },
+    {
+      "id": "sfx-click-mouse-single",
+      "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-mouse-single.mp3",
+      "md5": "234994de14759ab6d79c8300846b6acb",
+      "ledger": "akari-video-internal assets/audio/sfx-click-mouse-single/meta.json（Suno chirp-sfx d543012e-8bb4-4ebd-bc4c-e8d3c9a82492・オーナー試聴選別で採用）",
+      "license": "LicenseRef-AKARI-Sounds-v0（同上）",
+      "price": 0,
+      "duration_s": 2.001,
+      "used_s": "0〜0.15",
+      "character": "押し込み（アタック 0.005 s・標本最大 0.014 s）と離し（0.085 s・−8 dB）の 2 打。1〜6 kHz 主体（重心 3 kHz）。L/R 相関 0.99"
+    }
+  ],
+  "edit_items_unchanged_from_plan": [
+    {
+      "track": "demo-sfx",
+      "id": "demo-sfx-phone-swoosh",
+      "at": 805,
+      "duration": 20,
+      "role": "sfx",
+      "gain_db": -5,
+      "source": {
+        "kind": "media",
+        "src": "demo-sfx-swoosh-up",
+        "in": 0,
+        "out": 0.65
+      }
+    },
+    {
+      "track": "demo-sfx",
+      "id": "demo-sfx-phone-tap",
+      "at": 833,
+      "duration": 5,
+      "role": "sfx",
+      "gain_db": -6,
+      "source": {
+        "kind": "media",
+        "src": "demo-sfx-click-mouse-single",
+        "in": 0,
+        "out": 0.15
+      }
+    }
+  ],
+  "project_target": "assets/onboarding/sfx-swoosh-up.m4a（source id demo-sfx-swoosh-up）/ assets/onboarding/sfx-click-mouse-single.m4a（source id demo-sfx-click-mouse-single）",
+  "decisions": {
+    "swoosh_head_trim": {
+      "what": "素材の頭 0.113 s を落とした（item の at / in / out / gain は構成表のまま）",
+      "why": "構成表の置き方（素材を頭から 805 f）だと山は 27.173（標本最大 27.197）で、「ス」の語頭 27.073 より +0.10〜0.12 s 遅い。demo-phone の計画（translateY 150→0・0.433 s・--ease-smooth・delay −33 ms）では本体が一番速く動くのは 27.033〜27.067 で、27.17 にはもう 9 割着地している。全体の統一ルール「whoosh の山を語頭 ±0.03 s」に合わせ、山を 27.060 に置いた",
+      "cost": "落とした 0〜0.113 s は素材の山より 23〜54 dB 小さい前触れで、BGM（無音の間 25.00〜27.07 は下げない）の下では聞こえない。頭 20 ms のフェードで段差もない"
+    },
+    "levels": {
+      "swoosh": "書き出しで標本ピーク −12 dBFS（ファイル −7.0 ＋ gain −5）。構成表の「ピーク目安 −17」は制作担当ごとに読みが割れていた（標本ピークと読む担当と 10 ms 包絡と読む担当。構成表の数値は素材そのまま＋gain_db の 10 ms 包絡の山と ±2 dB で一致する）。標本 −17 だと momentary −29.4 LUFS で、下げない BGM（近似 −28 LUFS）と同じ大きさになり吹き上げが埋もれる。10 ms 包絡 −17 だと momentary −19.7 LUFS で「パッ」の whoosh（−19.7）と並んでしまう。間を取って、全体ルールの「主役の効果音 −8〜−12」の下端 −12 にした: momentary 最大 −24.6 LUFS ＝ 冒頭の whoosh（−21.3）と「パッ」（−19.7）より下、BGM 近似より +3.4 LU",
+      "tap": "【2026-10-01 差し戻しで改訂】書き出しで各チャンネルの標本ピーク −9.7 / −10.3 dBFS、measure_audio.py の peak_5ms_dbfs −18.2（ファイル −3.4 ＋ gain −6）。目利きの指示「−18 dBFS 前後（gain +8 dB）」に合わせた。旧: 標本 −18 dBFS（ファイル −12.0）は、5 ms 包絡で −26.6 と声の中に埋もれていた",
+      "adjust": "大きさの調整は edit.json の gain_db でもファイルでもよいが、2026-10-01 の直しはファイル側で行った（gain_db −6 は onboarding-service.ts の DEMO_PLAN と onboarding-demo.test.mjs の expectedPlan に固定されていて、配線の担当の持ち物。ファイルは制作の持ち物で、差し替えだけで配線と試験に触れずに済む）。make-sfx-phone.py --tap-peak-db で作り直せる"
+    },
+    "bitrate": "whoosh 128 kbps（1/3 オクターブ帯域の包絡誤差 平均 0.35 dB・p95 1.6 dB）。タップは立ち上がりが鋭いので 192 kbps（128 kbps だと p95 2.0 dB → 192 kbps で 1.1 dB）",
+    "no_pan": "左右は素材のまま（whoosh は偏りなし、タップは L/R 相関 0.99）。ほかの効果音と同じく中央"
+  },
+  "word_onsets_from_clip": {
+    "method": "clip.mp4 の音声（48 kHz）。「スマホ」は 25.00〜27.07 の完全な無音（0 標本）からの最初の標本、「モ」は「の」の母音 → m の閉鎖で 2 ms RMS が −13 dB 前後から −25〜−33 dB に落ちる点。口元（f831〜833 で唇が閉じ、f834 で開く）でも確認",
+    "su_s": 27.073,
+    "su_minus50dbfs_s": 27.079,
+    "mo_s": 27.765,
+    "director_word_timing": {
+      "スマホ": 27.07,
+      "モックアップ": 27.77
+    }
+  },
+  "file_decode_check": {
+    "criterion": "作る前の PCM との相互相関のずれ・先頭の位置",
+    "ffmpeg_n8.1.2_vendor": {
+      "lag_samples": [
+        0,
+        0
+      ],
+      "decoded_length": [
+        32768,
+        8192
+      ],
+      "note": "パイプ出力では edit list の尾を切らず AAC フレーム単位の長さ。先頭のずれ 0"
+    },
+    "ffmpeg_9.0_PATH": {
+      "lag_samples": [
+        0,
+        0
+      ],
+      "decoded_length": [
+        32000,
+        8000
+      ]
+    },
+    "electron_39.8.7_decodeAudioData": {
+      "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a",
+      "lag_samples": [
+        0,
+        0
+      ],
+      "decoded_length": [
+        31999,
+        7999
+      ],
+      "max_abs_diff_vs_ffmpeg": 1.49e-08,
+      "note": "尾が 1 標本短いのは既知（sfx-pa-whoosh と同じ）。out 0.65 / 0.15 は復号長の内側"
+    },
+    "aac_priming": "書き出し（render-cut: atrim → volume → adelay）とプレビュー（decodeAudioData）の両方で先頭ずれ 0"
+  },
+  "export_measure": {
+    "how": "隔離プロジェクト C:/t/sfxphone/proj（本編 ＋ この 2 個）と proj0（本編だけ）を render-cut で書き出し（AKARI_HOME・TMP 隔離・作業フォルダは空の C:/t/sfxphone/cwd・edit-lint PASS・render-cut PASS）、差分に同梱ファイル×gain を当てて置き位置と山を求めた",
+    "ffmpeg_vendor_n8.1.2": {
+      "voice_offset_vs_clip_samples": 0,
+      "swoosh": {
+        "planned_start_s": 26.8333,
+        "measured_start_s": 26.833,
+        "start_err_ms": -0.33,
+        "match_corr": 0.979,
+        "peak_env30_minus3db_center_s": 27.065,
+        "peak_minus_su_ms": -8,
+        "sample_peak_s": 27.084,
+        "sample_peak_minus_su_ms": 11,
+        "at_phone_first_frame_26.967_rel_peak_db": -6.3,
+        "at_phone_landing_27.37_rel_peak_db": -30,
+        "sample_peak_dbfs": -12.5,
+        "env10_max_dbfs": -22.4,
+        "momentary_max_lufs": -24.6
+      },
+      "tap": {
+        "planned_start_s": 27.7667,
+        "measured_start_s": 27.767,
+        "start_err_ms": 0.33,
+        "match_corr": 0.982,
+        "attack_s": 27.7725,
+        "attack_minus_mo_ms": 7.5,
+        "sample_peak_s": 27.781,
+        "sample_peak_dbfs": -18.45,
+        "env10_max_dbfs": -32.1
+      },
+      "mix_peak_dbfs": {
+        "26.80-27.50": -8.43,
+        "27.70-27.95": -6.06,
+        "whole": -3.35,
+        "note": "声＋この 2 個（BGM なし）。この区間で効果音はミックスの最大を上げない"
+      }
+    },
+    "ffmpeg_9.0_PATH": {
+      "voice_offset_vs_clip_ms": -23.23,
+      "swoosh_peak_minus_su_ms": 18,
+      "tap_attack_minus_mo_ms": 30,
+      "note": "既知（sfx-chat-pops の記録どおり）: PATH の ffmpeg 9.0 だと本編の声だけが 23 ms 早まり、効果音の位置は変わらない。同梱の n8.1.2 では 0。どちらでも ±0.03 s に収まる（タップは境界）"
+    }
+  },
+  "audibility": {
+    "bgm_assumption": "BGM は計画値の近似（bgm-lofi-minimal-085 を +0.080 s で切り出し・gain −9・fade_in 0.6・声（word-timing の voiced_runs）の下で −8 dB / attack 0.15 / release 0.5）。書き出しの実測ではない",
+    "swoosh_peak_27.011-27.119": {
+      "250-1000Hz_vs_voice_bgm_db": 9.1,
+      "1000-4000Hz_vs_voice_bgm_db": 30.9,
+      "broadband_vs_voice_bgm_db": 4.9,
+      "momentary_swoosh_lufs": -24.6,
+      "momentary_bgm_mock_lufs": -28.0
+    },
+    "su_fricative_27.073-27.25": {
+      "4000-12000Hz_voice_minus_swoosh_db": 16.2,
+      "reading": "「ス」の摩擦は whoosh より 16 dB 大きく、語頭は隠れない（whoosh の胴は 250〜1000 Hz）"
+    },
+    "tap_27.7725-27.7925": {
+      "1000-4000Hz_vs_voice_bgm_db": 36.9,
+      "4000-12000Hz_vs_voice_bgm_db": 31.8,
+      "reading": "m の閉鎖で声が細い（1〜8 kHz が −70 dB）瞬間に当たるので、標本 −18 dBFS でもはっきり「カチッ」と聞こえる"
+    },
+    "tap_release_27.852-27.872": {
+      "1000-4000Hz_vs_voice_bgm_db": 31.0
+    },
+    "mix_with_bgm_mock_peak_dbfs": {
+      "26.80-27.50": -8.28,
+      "27.70-27.95": -6.05
+    },
+    "note_2026_10_01": "この節は BGM 近似と full−sfxonly による round 1 の読み。差し戻し後の帯域の実測は revision_2026_10_01_tap.export_measure"
+  },
+  "levels_all_sfx_at_plan_gain": {
+    "note": "同梱ファイル（2026-10-01 01:28 時点）× 構成表の gain_db。標本ピーク dBFS / 10 ms 包絡 dBFS / momentary 最大 LUFS",
+    "sfx-whoosh-punchy（パッ）": [
+      -8.0,
+      -12.0,
+      -19.7
+    ],
+    "sfx-pop-ding（名札）": [
+      -7.1,
+      -12.3,
+      -14.4
+    ],
+    "sfx-ding-single（オチ）": [
+      -4.4,
+      -14.1,
+      -20.2
+    ],
+    "sfx-shimmer-sparkle（ほら）": [
+      -10.2,
+      -20.6,
+      -20.3
+    ],
+    "sfx-whoosh-air-soft（冒頭）": [
+      -10.5,
+      -16.5,
+      -21.3
+    ],
+    "sfx-correct-tone（判子）": [
+      -12.1,
+      -18.6,
+      -21.7
+    ],
+    "sfx-pop-cork（効果音）": [
+      -12.0,
+      -20.2,
+      -30.9
+    ],
+    "sfx-swoosh-up（スマホ・本要素）": [
+      -12.0,
+      -22.4,
+      -24.6
+    ],
+    "sfx-pop-bubble-big（吹き出し）": [
+      -16.1,
+      -23.1,
+      -31.8
+    ],
+    "sfx-click-mouse-single（タップ・本要素）": [
+      -18.0,
+      -31.9,
+      -40.4
+    ],
+    "sfx-click-soft-ui（図解のコッ）": [
+      -20.1,
+      -30.8,
+      -43.8
+    ],
+    "observation": "「ピーク目安」の読みが担当ごとに割れ、pop-ding（名札）と ding-single（オチ）は素材の大きさのまま（標本ピークが「パッ」より大きい）。目利きで全体の並びを耳で確かめる価値がある",
+    "note_2026_10_01": "この表は 01:28 時点。タップは差し戻しで −9.7 / −23.4 / −31.9（同じ測り方: ファイル×gain の標本ピーク・左右平均の 10 ms 包絡、momentary は書き出しの効果音だけの実測。revision_2026_10_01_tap を正とする）"
+  },
+  "no_overlap_with_other_sfx": "demo-sfx 段の前は sfx-diagram-ticks（〜24.2）、後ろは sfx-punchline-ding（35.6〜）。whoosh 26.833〜27.500 とタップ 27.767〜27.933 も互いに重ならない",
+  "listen": {
+    "with_sfx": "C:/t/sfxphone/listen-26.20-28.60-with-sfx-bgm-mock.m4a",
+    "without_sfx": "C:/t/sfxphone/listen-26.20-28.60-voice-only-bgm-mock.m4a",
+    "note": "試聴用の抜粋（リポの外）。書き出しの声＋効果音に BGM 近似を足したもの"
+  },
+  "renders": [
+    "sfx-phone-sync.png（26.6〜28.05 s: 実フレーム＋demo-phone の計画位置、本体の動き、声・BGM 近似・whoosh・タップの包絡、語頭・山・アタックの印）",
+    "sfx-phone-file.png（素材と同梱ファイルの包絡。ffmpeg と Electron の復号が重なる）",
+    "sfx-phone-tap-r2.png（2026-10-01 差し戻しの直し: 5 ms 包絡の前後・帯域の前後・点灯のフレーム・数値の表）"
+  ],
+  "not_verified": [
+    "demo-phone の断片は並行制作中で、まだ無い。本体の位置は構成表の計画値で描いた（断片の出が計画とずれたら、whoosh は item の at だけで合わせ直せる）（2026-10-01: 断片は組み込み済み。点灯のフレームは sfx-phone-tap-r2.png）",
+    "BGM は近似（BGM の担当の切り出し・ducking の実装が決まったら、組み込み後の書き出しで再確認）",
+    "L1（シェルのプレビュー）での再生は組み込み後。decodeAudioData の復号が ffmpeg と一致することは確認済み"
+  ],
+  "revision_2026_10_01_tap": {
+    "trigger": "目利きの差し戻し: モックアップの画面点灯のタップ（27.768）がピーク −26.6 dBFS（measure_audio.py の 5 ms 包絡）で、声に埋もれて聞こえない → −18 dBFS 前後に上げる（gain +8 dB）か、高域の立った「カチッ」に替える。アタックは 27.77 ±0.03 のまま",
+    "choice": "音色は替えず、大きさだけ上げた（+8.6 dB・ファイルの標本ピーク −12.0 → −3.4）",
+    "why_not_swap_sound": "当たりの 20 ms で、タップはもともと 1〜16 kHz のどの帯域でも声＋BGM より 27〜35 dB 上にあった（「モ」の m の閉鎖で声の高域が細い瞬間）。帯域で隠れていたのではなく、10 ms ほどの短い音として小さすぎた（momentary −40.4 LUFS）。高域を立てる・別の音に替えるより、構成表と所有者の試聴選別で選ばれた音のまま大きさを戻すのが確実。src とファイル名も変えずに済む",
+    "why_8_6_not_8_0": "AAC 192 kbps は大きさに対して線形でない。ファイルの標本ピーク −4.0（+8.0 dB）だと書き出しの peak_5ms_dbfs 予測は −18.8、−3.4 で −18.1、−3.2 で −17.8（ファイル単体の -ac 1 復号＋gain −6 で予測し、書き出しの旧値 −26.6 と予測 −26.59 が一致することを先に確かめた）。−18 に一番近い −3.4 を採った",
+    "file": {
+      "md5_before": "d0059a4189ec5a35d2db7fc79fa7b9d5",
+      "md5_after": "51647a546088d74d0c6dcbefe7bdb5d8",
+      "swoosh_unchanged_md5": "7f7a901405b0d563e6051bf006009105",
+      "deterministic": "make-sfx-phone.py を 2 回実行して同じ md5。--tap-peak-db -12.0 で旧版 d0059a41… がそのまま出る",
+      "decode": {
+        "ffmpeg_n8.1.2_vendor": {
+          "lag_samples": 0,
+          "decoded_length": 8192,
+          "sample_peak_dbfs": -3.71
+        },
+        "ffmpeg_9.0_PATH": {
+          "lag_samples": 0,
+          "decoded_length": 8000
+        },
+        "electron_39.8.7_decodeAudioData": {
+          "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a",
+          "lag_samples": 0,
+          "decoded_length": 7999,
+          "max_abs_diff_vs_ffmpeg": 0.0,
+          "attack_minus20db_s_in_file": 0.0052,
+          "sample_peak_s_in_file": 0.0141
+        }
+      }
+    },
+    "export_measure": {
+      "how": "組み込み時の書き出しプロジェクト C:/t/integ/{full,sfxonly} を C:/t/sfxtap-1001/ に写し、assets/onboarding/sfx-click-mouse-single.m4a だけ差し替えて edit-lint PASS → render-cut（full は --engine auto、sfxonly は osr・AKARI_HOME / TMP 隔離・作業フォルダは空の C:/t/sfxtap-1001/cwd）。スクリプトと出力は tap-r2/",
+      "before": {
+        "peak_5ms_dbfs": -26.62,
+        "measured_s": 27.768,
+        "delta_vs_word_s": -0.002,
+        "attack_minus20db_s": 27.7722,
+        "attack_minus_word_ms": 2.2,
+        "sample_peak_dbfs_LR": [
+          -18.01,
+          -18.08
+        ],
+        "mix_sample_peak_dbfs_27.70-28.00": -6.29,
+        "mix_sample_peak_dbfs_whole": -2.29
+      },
+      "after": {
+        "peak_5ms_dbfs": -18.16,
+        "measured_s": 27.768,
+        "delta_vs_word_s": -0.002,
+        "attack_minus20db_s": 27.7722,
+        "attack_minus_word_ms": 2.2,
+        "sample_peak_dbfs_LR": [
+          -9.74,
+          -10.34
+        ],
+        "mix_sample_peak_dbfs_27.70-28.00": -6.29,
+        "mix_sample_peak_dbfs_whole": -2.28
+      },
+      "momentary_max_lufs": {
+        "tap_before": -40.4,
+        "tap_after": -31.9,
+        "swoosh_unchanged": -24.8
+      },
+      "loudness_full_0-37.6": {
+        "before": {
+          "I_lufs": -16.0,
+          "true_peak_dbfs": -2.3
+        },
+        "after": {
+          "I_lufs": -16.0,
+          "true_peak_dbfs": -2.3
+        }
+      },
+      "band_tap_minus_voice_bgm_db_at_attack_20ms": {
+        "before": {
+          "250-500Hz": -20.1,
+          "500-1000Hz": -12.1,
+          "1000-2000Hz": 30.8,
+          "2000-4000Hz": 35.3,
+          "4000-8000Hz": 29.4,
+          "8000-16000Hz": 26.9
+        },
+        "after": {
+          "250-500Hz": -11.5,
+          "500-1000Hz": -3.9,
+          "1000-2000Hz": 39.7,
+          "2000-4000Hz": 43.8,
+          "4000-8000Hz": 37.7,
+          "8000-16000Hz": 34.5
+        }
+      },
+      "band_note": "声＋BGM は clip.mp4 ＋ bgm.m4a × −14 dB（この区間の gain_db・keyframe 0）で作った。書き出しの full − sfxonly と −47〜−51 dB で一致し、別々に符号化した 2 本の差に乗る AAC の雑音を含まない（full − sfxonly で測ると、直した後は高域がタップ自身の符号化雑音で埋まって見かけ上 +8 dB 伸びない）",
+      "ab_diff": {
+        "identical_until_s": 27.738,
+        "after_tap_rel_db": "28.0〜37.3 の差は信号比 −35〜−37 dB（AAC の符号化状態がタップの後でずれるだけ。中身は同じ）",
+        "sfxonly_max_abs_outside_27.76-27.95": 0.00020091421902179718
+      },
+      "all_sfx_peak_5ms_dbfs_after": {
+        "title-whoosh": -13.1,
+        "name-pop": -9.0,
+        "chat-pop-1": -19.4,
+        "chat-pop-2": -19.6,
+        "done-tone": -16.9,
+        "kouka-pop": -15.0,
+        "pa-whoosh": -6.9,
+        "hora-sparkle": -17.9,
+        "diagram-tick-1": -25.9,
+        "diagram-tick-2": -25.8,
+        "diagram-tick-3": -25.8,
+        "phone-swoosh": -19.3,
+        "phone-tap": -18.2,
+        "punchline-ding": -10.9
+      },
+      "reading": "タップは −26.6 → −18.2（目標 −18 前後）。当たりは 27.772（語 27.77 に +2.2 ms・「モ」語頭 27.765 に +7 ms）で変わらず。ミックスの山（27.7〜28.0 は −6.3・全体 −2.3）も全体のラウドネス（−16.0 LUFS）も変わらない。並びは 吹き出しのポン（−19.4）と「終わってる」のチャイム（−16.9）の間、スマホの吹き上げ（−19.3）と同じ段。momentary では吹き上げ（−24.8）の 7 LU 下で、主役を食わない細かい音のまま"
+    },
+    "listen": {
+      "before": "C:/t/sfxtap-1001/listen/listen-26.20-28.60-tap-before.m4a",
+      "after": "C:/t/sfxtap-1001/listen/listen-26.20-28.60-tap-after.m4a",
+      "note": "書き出し（full・BGM 込み）の 26.20〜28.60 の抜粋（リポの外）"
+    },
+    "frames": "書き出し（直した後）の 27.667 / 27.767 / 27.800 / 27.867 を sfx-phone-tap-r2.png の下段に。27.767 でスマホの画面が点く（demo-phone-screen の at 833）のとタップが同じフレーム",
+    "render": "sfx-phone-tap-r2.png",
+    "not_verified": [
+      "シェルの開発起動（L1）のプレビューでの再生は、組み込みの担当の通しに委ねる（decodeAudioData の復号が ffmpeg と標本単位で一致し、item は変えていないので、プレビューの大きさも同じ比で上がる見込み）",
+      "耳での試聴はしていない（この環境では再生できない）。聞こえ方は帯域と momentary の実測で判断した"
+    ]
+  }
+}

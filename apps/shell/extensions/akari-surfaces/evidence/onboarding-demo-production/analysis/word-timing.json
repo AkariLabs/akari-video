@@ -1,0 +1,1755 @@
+{
+ "schema": "akari-onboarding-word-timing/v1",
+ "created": "2026-10-01",
+ "source": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4",
+ "method": [
+  "clip.mp4 の音声を 16 kHz モノラルにし、10 ms 窓の RMS 包絡（dBFS）を取った",
+  "有声区間（-45 dBFS 超・60 ms 未満の谷は結合）を列挙し、閉鎖音・促音（っ）の谷と読点の間を語境界の手がかりにした",
+  "区間内はモーラ数で配分し、閉鎖音の谷（例: 「パッ」の p 破裂 19.70・促音の閉鎖 19.81-19.97）で語頭を確定した",
+  "「パッ」「ほら」は 30 fps の口元の切り出し（mouth-19.40-20.80s-30fps.jpg）で唇の閉じ→開きを確認した",
+  "トークンの文字列・個数は transcript.json と同一（131 個）。字幕の区切りは文字だけで決まるため、区切りは変わらず時刻だけが正しくなる"
+ ],
+ "precision": "語頭の誤差の目安 ±0.05 s（閉鎖音・無音の直後の語）/ ±0.10 s（連続発話の途中をモーラ配分した語）",
+ "finding": "元のトークン時刻は最大 1.46 s 早かった（「今日は」0.89→2.35）。字幕 22 行のうち 13 行が 0.3 s 以上早く出ていた（最大 1.46 s） = 「字幕に全然合っていない」の根本原因",
+ "key_words": {
+  "こんにちは": 0.29,
+  "アカリビデオ": 3.59,
+  "動画編集ツール": 5.1,
+  "AI": 8.55,
+  "対話": 9.26,
+  "だけ(1)": 9.9,
+  "喋ってるだけで": 11.3,
+  "編集": 12.57,
+  "終わってる": 13.42,
+  "効果音": 17.5,
+  "エフェクト": 18.74,
+  "パッ": 19.7,
+  "と(パッと)": 19.97,
+  "ほら": 20.55,
+  "こんな感じで": 21.1,
+  "あと": 22.64,
+  "こういう": 23.27,
+  "図解": 23.78,
+  "出せます": 24.37,
+  "し": 24.78,
+  "スマホ": 27.07,
+  "モックアップ": 27.77,
+  "BGM": 29.45,
+  "字幕の": 30.63,
+  "カラオケ": 31.33,
+  "表示": 31.88,
+  "いけます": 32.18,
+  "まあ": 33.3,
+  "僕は": 33.77,
+  "喋ってる(2)": 34.1,
+  "だけ(2)": 34.79,
+  "ね(終わり)": 35.63
+ },
+ "gesture_notes": {
+  "18.0": "右手を右へ差し出す（「エフェクトを」）",
+  "23.0-23.5": "右手を右へ差し出す（「こういう」）— 図解はこの手の先（右の舞台）に出す",
+  "27.5-28.0": "胸の前で手を広げる（「モックアップ」）"
+ },
+ "voiced_runs_minus45dB": [
+  "0.29-1.26",
+  "2.35-3.16",
+  "3.59-3.73",
+  "3.80-4.48",
+  "4.67-6.37",
+  "6.43-7.17",
+  "7.84-8.07",
+  "8.55-9.16",
+  "9.26-10.71",
+  "11.30-11.59",
+  "11.75-12.27",
+  "12.59-13.74",
+  "13.88-14.48",
+  "15.31-15.79",
+  "16.18-16.48",
+  "16.66-17.35",
+  "17.51-17.76",
+  "17.85-18.44",
+  "18.74-19.36",
+  "19.70-19.81",
+  "19.97-20.05",
+  "20.55-20.73",
+  "21.10-21.67",
+  "22.64-22.94",
+  "23.27-23.96",
+  "24.02-25.00",
+  "27.08-27.95",
+  "28.13-28.33",
+  "28.44-28.74",
+  "29.45-30.25",
+  "30.65-31.00",
+  "31.06-31.24",
+  "31.33-32.53",
+  "33.10-33.20",
+  "33.31-33.70",
+  "33.78-33.90",
+  "33.97-34.50",
+  "34.62-35.63"
+ ],
+ "silences_designed": [
+  {
+   "start": 1.26,
+   "end": 2.35,
+   "note": "こんにちは！の後の間（残す）"
+  },
+  {
+   "start": 25,
+   "end": 27.07,
+   "note": "死なせた間（図解の余韻に使う）"
+  },
+  {
+   "start": 35.63,
+   "end": 37.6,
+   "note": "音声なしの尻尾（オチと終わりの名札に使う）"
+  }
+ ],
+ "tokens": [
+  {
+   "t": "こんにちは",
+   "start": 0.29,
+   "end": 1.06,
+   "original_t": "こんにちは",
+   "original_start": 0.59,
+   "delta_s": -0.3
+  },
+  {
+   "t": "。",
+   "start": 1.06,
+   "end": 1.26,
+   "original_t": "。",
+   "original_start": 0.7,
+   "delta_s": 0.36
+  },
+  {
+   "t": "今日は",
+   "start": 2.35,
+   "end": 2.75,
+   "original_t": "今日は",
+   "original_start": 0.89,
+   "delta_s": 1.46
+  },
+  {
+   "t": "ですね",
+   "start": 2.75,
+   "end": 3.16,
+   "original_t": "ですね",
+   "original_start": 1.4,
+   "delta_s": 1.35
+  },
+  {
+   "t": "、",
+   "start": 3.16,
+   "end": 3.59,
+   "original_t": "、",
+   "original_start": 2.05,
+   "delta_s": 1.11
+  },
+  {
+   "t": "ア",
+   "start": 3.59,
+   "end": 3.73,
+   "original_t": "あ",
+   "original_start": 2.24,
+   "delta_s": 1.35
+  },
+  {
+   "t": "カ",
+   "start": 3.8,
+   "end": 3.95,
+   "original_t": "か",
+   "original_start": 2.62,
+   "delta_s": 1.18
+  },
+  {
+   "t": "リ",
+   "start": 3.95,
+   "end": 4.13,
+   "original_t": "り",
+   "original_start": 2.67,
+   "delta_s": 1.28
+  },
+  {
+   "t": "ビ",
+   "start": 4.13,
+   "end": 4.24,
+   "original_t": "ビ",
+   "original_start": 2.81,
+   "delta_s": 1.32
+  },
+  {
+   "t": "デ",
+   "start": 4.24,
+   "end": 4.36,
+   "original_t": "デ",
+   "original_start": 3,
+   "delta_s": 1.24
+  },
+  {
+   "t": "オ",
+   "start": 4.36,
+   "end": 4.48,
+   "original_t": "オ",
+   "original_start": 3.19,
+   "delta_s": 1.17
+  },
+  {
+   "t": "っていう",
+   "start": 4.62,
+   "end": 5.01,
+   "original_t": "っていう",
+   "original_start": 3.38,
+   "delta_s": 1.24
+  },
+  {
+   "t": "動画",
+   "start": 5.1,
+   "end": 5.45,
+   "original_t": "動画",
+   "original_start": 4.16,
+   "delta_s": 0.94
+  },
+  {
+   "t": "編",
+   "start": 5.45,
+   "end": 5.62,
+   "original_t": "編",
+   "original_start": 4.55,
+   "delta_s": 0.9
+  },
+  {
+   "t": "集",
+   "start": 5.62,
+   "end": 5.91,
+   "original_t": "集",
+   "original_start": 4.74,
+   "delta_s": 0.88
+  },
+  {
+   "t": "ツ",
+   "start": 5.97,
+   "end": 6.05,
+   "original_t": "ツ",
+   "original_start": 4.98,
+   "delta_s": 0.99
+  },
+  {
+   "t": "ール",
+   "start": 6.05,
+   "end": 6.25,
+   "original_t": "ール",
+   "original_start": 5.12,
+   "delta_s": 0.93
+  },
+  {
+   "t": "を",
+   "start": 6.25,
+   "end": 6.36,
+   "original_t": "を",
+   "original_start": 5.51,
+   "delta_s": 0.74
+  },
+  {
+   "t": "試",
+   "start": 6.43,
+   "end": 6.62,
+   "original_t": "試",
+   "original_start": 5.7,
+   "delta_s": 0.73
+  },
+  {
+   "t": "して",
+   "start": 6.62,
+   "end": 6.8,
+   "original_t": "して",
+   "original_start": 5.89,
+   "delta_s": 0.73
+  },
+  {
+   "t": "み",
+   "start": 6.8,
+   "end": 6.9,
+   "original_t": "み",
+   "original_start": 6.32,
+   "delta_s": 0.48
+  },
+  {
+   "t": "て",
+   "start": 6.9,
+   "end": 7,
+   "original_t": "て",
+   "original_start": 6.47,
+   "delta_s": 0.43
+  },
+  {
+   "t": "ます",
+   "start": 7,
+   "end": 7.15,
+   "original_t": "ます",
+   "original_start": 6.73,
+   "delta_s": 0.27
+  },
+  {
+   "t": "。",
+   "start": 7.15,
+   "end": 7.17,
+   "original_t": "。",
+   "original_start": 7.16,
+   "delta_s": -0.01
+  },
+  {
+   "t": "これ",
+   "start": 7.84,
+   "end": 8.07,
+   "original_t": "これ",
+   "original_start": 7.82,
+   "delta_s": 0.02
+  },
+  {
+   "t": "、",
+   "start": 8.07,
+   "end": 8.55,
+   "original_t": "、",
+   "original_start": 7.82,
+   "delta_s": 0.25
+  },
+  {
+   "t": "AI",
+   "start": 8.55,
+   "end": 9.02,
+   "original_t": "AI",
+   "original_start": 7.85,
+   "delta_s": 0.7
+  },
+  {
+   "t": "と",
+   "start": 9.05,
+   "end": 9.16,
+   "original_t": "と",
+   "original_start": 8.04,
+   "delta_s": 1.01
+  },
+  {
+   "t": "対",
+   "start": 9.26,
+   "end": 9.52,
+   "original_t": "対",
+   "original_start": 8.11,
+   "delta_s": 1.15,
+   "revised_2026_10_01": {
+    "director_start": 9.26,
+    "director_end": 9.42,
+    "evidence": "次の語「話」の語頭に合わせて語尾だけ移動"
+   }
+  },
+  {
+   "t": "話",
+   "start": 9.52,
+   "end": 9.62,
+   "original_t": "話",
+   "original_start": 8.23,
+   "delta_s": 1.29,
+   "revised_2026_10_01": {
+    "director_start": 9.42,
+    "director_end": 9.62,
+    "evidence": "「対」の i（F2≈2250 Hz）が 9.52 まで続き、9.53 から w の F2 下降（2280→1060 Hz）"
+   }
+  },
+  {
+   "t": "する",
+   "start": 9.62,
+   "end": 9.9,
+   "original_t": "する",
+   "original_start": 8.46,
+   "delta_s": 1.16
+  },
+  {
+   "t": "だけ",
+   "start": 9.9,
+   "end": 10.12,
+   "original_t": "だけ",
+   "original_start": 8.8,
+   "delta_s": 1.1
+  },
+  {
+   "t": "で",
+   "start": 10.12,
+   "end": 10.2,
+   "original_t": "で",
+   "original_start": 9.37,
+   "delta_s": 0.75
+  },
+  {
+   "t": "いい",
+   "start": 10.2,
+   "end": 10.36,
+   "original_t": "いい",
+   "original_start": 9.37,
+   "delta_s": 0.83
+  },
+  {
+   "t": "んです",
+   "start": 10.36,
+   "end": 10.55,
+   "original_t": "んです",
+   "original_start": 10.17,
+   "delta_s": 0.19
+  },
+  {
+   "t": "よ",
+   "start": 10.55,
+   "end": 10.71,
+   "original_t": "よ",
+   "original_start": 10.32,
+   "delta_s": 0.23
+  },
+  {
+   "t": "。",
+   "start": 10.71,
+   "end": 10.72,
+   "original_t": "。",
+   "original_start": 10.51,
+   "delta_s": 0.2
+  },
+  {
+   "t": "喋",
+   "start": 11.3,
+   "end": 11.59,
+   "original_t": "喋",
+   "original_start": 11.34,
+   "delta_s": -0.04
+  },
+  {
+   "t": "ってる",
+   "start": 11.75,
+   "end": 11.95,
+   "original_t": "ってる",
+   "original_start": 11.37,
+   "delta_s": 0.38
+  },
+  {
+   "t": "だけ",
+   "start": 11.95,
+   "end": 12.16,
+   "original_t": "だけ",
+   "original_start": 11.63,
+   "delta_s": 0.32
+  },
+  {
+   "t": "で",
+   "start": 12.16,
+   "end": 12.27,
+   "original_t": "で",
+   "original_start": 11.71,
+   "delta_s": 0.45
+  },
+  {
+   "t": "、",
+   "start": 12.27,
+   "end": 12.57,
+   "original_t": "、",
+   "original_start": 11.87,
+   "delta_s": 0.4
+  },
+  {
+   "t": "編",
+   "start": 12.57,
+   "end": 12.82,
+   "original_t": "編",
+   "original_start": 12.03,
+   "delta_s": 0.54,
+   "revised_2026_10_01": {
+    "director_start": 12.57,
+    "director_end": 12.68,
+    "evidence": "次の語「集」の語頭に合わせて語尾だけ移動"
+   }
+  },
+  {
+   "t": "集",
+   "start": 12.82,
+   "end": 13.06,
+   "original_t": "集",
+   "original_start": 12.18,
+   "delta_s": 0.64,
+   "revised_2026_10_01": {
+    "director_start": 12.68,
+    "director_end": 12.85,
+    "evidence": "しゅ の摩擦 12.82–12.97（3.5 kHz 以上が主）。12.66–12.81 は ん（F1≈250 Hz）"
+   }
+  },
+  {
+   "t": "は",
+   "start": 13.06,
+   "end": 13.16,
+   "original_t": "は",
+   "original_start": 12.34,
+   "delta_s": 0.72,
+   "revised_2026_10_01": {
+    "director_start": 12.85,
+    "director_end": 12.95,
+    "evidence": "しゅう の u（12.98–13.05・F2 1930→1050 Hz）の後、13.06 から F1 上昇（わ）"
+   }
+  },
+  {
+   "t": "もう",
+   "start": 13.16,
+   "end": 13.42,
+   "original_t": "もう",
+   "original_start": 12.44,
+   "delta_s": 0.72,
+   "revised_2026_10_01": {
+    "director_start": 12.95,
+    "director_end": 13.18,
+    "evidence": "m の閉鎖 13.16–13.20（包絡の谷・F1≈220 Hz）。口元 13.167 で唇が閉じる"
+   }
+  },
+  {
+   "t": "終",
+   "start": 13.42,
+   "end": 13.58,
+   "original_t": "終",
+   "original_start": 12.98,
+   "delta_s": 0.44,
+   "revised_2026_10_01": {
+    "director_start": 13.18,
+    "director_end": 13.32,
+    "evidence": "もう の長い o（F1≈400・F2≈600 Hz）13.21–13.42 の後、13.43 に声門の谷（−33 dBFS）→ お"
+   }
+  },
+  {
+   "t": "わ",
+   "start": 13.58,
+   "end": 13.73,
+   "original_t": "わ",
+   "original_start": 12.98,
+   "delta_s": 0.6,
+   "revised_2026_10_01": {
+    "director_start": 13.32,
+    "director_end": 13.73,
+    "evidence": "13.60–13.71 に F1≈700–950 Hz の a。口元 13.60 で大きく開く。13.73 から っ の閉鎖"
+   }
+  },
+  {
+   "t": "ってる",
+   "start": 13.88,
+   "end": 14.05,
+   "original_t": "ってる",
+   "original_start": 13.62,
+   "delta_s": 0.26
+  },
+  {
+   "t": "感じ",
+   "start": 14.05,
+   "end": 14.3,
+   "original_t": "感じ",
+   "original_start": 13.71,
+   "delta_s": 0.34
+  },
+  {
+   "t": "です",
+   "start": 14.3,
+   "end": 14.48,
+   "original_t": "です",
+   "original_start": 13.94,
+   "delta_s": 0.36
+  },
+  {
+   "t": "。",
+   "start": 14.48,
+   "end": 14.49,
+   "original_t": "。",
+   "original_start": 14.26,
+   "delta_s": 0.22
+  },
+  {
+   "t": "例えば",
+   "start": 15.31,
+   "end": 15.79,
+   "original_t": "例えば",
+   "original_start": 15.36,
+   "delta_s": -0.05
+  },
+  {
+   "t": "、",
+   "start": 15.79,
+   "end": 16.18,
+   "original_t": "、",
+   "original_start": 15.36,
+   "delta_s": 0.43
+  },
+  {
+   "t": "喋",
+   "start": 16.18,
+   "end": 16.48,
+   "original_t": "喋",
+   "original_start": 15.39,
+   "delta_s": 0.79
+  },
+  {
+   "t": "ってる",
+   "start": 16.66,
+   "end": 16.9,
+   "original_t": "ってる",
+   "original_start": 15.65,
+   "delta_s": 1.01
+  },
+  {
+   "t": "途",
+   "start": 16.9,
+   "end": 16.97,
+   "original_t": "途",
+   "original_start": 16.11,
+   "delta_s": 0.79,
+   "revised_2026_10_01": {
+    "director_start": 16.9,
+    "director_end": 17.05,
+    "evidence": "次の語「中」の語頭に合わせて語尾だけ移動"
+   }
+  },
+  {
+   "t": "中",
+   "start": 16.97,
+   "end": 17.2,
+   "original_t": "中",
+   "original_start": 16.3,
+   "delta_s": 0.67,
+   "revised_2026_10_01": {
+    "director_start": 17.05,
+    "director_end": 17.2,
+    "evidence": "ch の閉鎖 16.95–16.97・摩擦 16.98–17.05"
+   }
+  },
+  {
+   "t": "に",
+   "start": 17.2,
+   "end": 17.35,
+   "original_t": "に",
+   "original_start": 16.49,
+   "delta_s": 0.71
+  },
+  {
+   "t": "効",
+   "start": 17.5,
+   "end": 17.75,
+   "original_t": "効",
+   "original_start": 16.64,
+   "delta_s": 0.86
+  },
+  {
+   "t": "果",
+   "start": 17.85,
+   "end": 18,
+   "original_t": "果",
+   "original_start": 16.89,
+   "delta_s": 0.96
+  },
+  {
+   "t": "音",
+   "start": 18,
+   "end": 18.15,
+   "original_t": "音",
+   "original_start": 17.09,
+   "delta_s": 0.91
+  },
+  {
+   "t": "とか",
+   "start": 18.15,
+   "end": 18.44,
+   "original_t": "とか",
+   "original_start": 17.7,
+   "delta_s": 0.45
+  },
+  {
+   "t": "エ",
+   "start": 18.74,
+   "end": 18.86,
+   "original_t": "エ",
+   "original_start": 17.74,
+   "delta_s": 1
+  },
+  {
+   "t": "フ",
+   "start": 18.86,
+   "end": 18.92,
+   "original_t": "フ",
+   "original_start": 17.9,
+   "delta_s": 0.96
+  },
+  {
+   "t": "ェ",
+   "start": 18.92,
+   "end": 18.98,
+   "original_t": "ェ",
+   "original_start": 18.09,
+   "delta_s": 0.83
+  },
+  {
+   "t": "ク",
+   "start": 18.98,
+   "end": 19.1,
+   "original_t": "ク",
+   "original_start": 18.29,
+   "delta_s": 0.69
+  },
+  {
+   "t": "ト",
+   "start": 19.1,
+   "end": 19.22,
+   "original_t": "ト",
+   "original_start": 18.49,
+   "delta_s": 0.61
+  },
+  {
+   "t": "を",
+   "start": 19.22,
+   "end": 19.36,
+   "original_t": "を",
+   "original_start": 18.9,
+   "delta_s": 0.32
+  },
+  {
+   "t": "パ",
+   "start": 19.7,
+   "end": 19.81,
+   "original_t": "パ",
+   "original_start": 18.95,
+   "delta_s": 0.75
+  },
+  {
+   "t": "ッ",
+   "start": 19.81,
+   "end": 19.97,
+   "original_t": "ッ",
+   "original_start": 19.16,
+   "delta_s": 0.65
+  },
+  {
+   "t": "と",
+   "start": 19.97,
+   "end": 20.05,
+   "original_t": "と",
+   "original_start": 19.3,
+   "delta_s": 0.67
+  },
+  {
+   "t": "、",
+   "start": 20.05,
+   "end": 20.55,
+   "original_t": "、",
+   "original_start": 19.5,
+   "delta_s": 0.55
+  },
+  {
+   "t": "ほ",
+   "start": 20.55,
+   "end": 20.64,
+   "original_t": "ほ",
+   "original_start": 19.7,
+   "delta_s": 0.85
+  },
+  {
+   "t": "ら",
+   "start": 20.64,
+   "end": 20.73,
+   "original_t": "ら",
+   "original_start": 20.04,
+   "delta_s": 0.6
+  },
+  {
+   "t": "、",
+   "start": 20.73,
+   "end": 21.1,
+   "original_t": "、",
+   "original_start": 20.1,
+   "delta_s": 0.63
+  },
+  {
+   "t": "こんな",
+   "start": 21.1,
+   "end": 21.3,
+   "original_t": "こんな",
+   "original_start": 20.3,
+   "delta_s": 0.8
+  },
+  {
+   "t": "感じ",
+   "start": 21.3,
+   "end": 21.52,
+   "original_t": "感じ",
+   "original_start": 20.92,
+   "delta_s": 0.38
+  },
+  {
+   "t": "で",
+   "start": 21.52,
+   "end": 21.67,
+   "original_t": "で",
+   "original_start": 21.38,
+   "delta_s": 0.14
+  },
+  {
+   "t": "。",
+   "start": 21.67,
+   "end": 21.68,
+   "original_t": "。",
+   "original_start": 21.52,
+   "delta_s": 0.15
+  },
+  {
+   "t": "あと",
+   "start": 22.64,
+   "end": 22.94,
+   "original_t": "あと",
+   "original_start": 22.62,
+   "delta_s": 0.02
+  },
+  {
+   "t": "、",
+   "start": 22.94,
+   "end": 23.27,
+   "original_t": "、",
+   "original_start": 22.62,
+   "delta_s": 0.32
+  },
+  {
+   "t": "こう",
+   "start": 23.27,
+   "end": 23.44,
+   "original_t": "こう",
+   "original_start": 22.85,
+   "delta_s": 0.42
+  },
+  {
+   "t": "いう",
+   "start": 23.44,
+   "end": 23.78,
+   "original_t": "いう",
+   "original_start": 22.91,
+   "delta_s": 0.53,
+   "revised_2026_10_01": {
+    "director_start": 23.44,
+    "director_end": 23.58,
+    "evidence": "次の語「図」の語頭に合わせて語尾だけ移動"
+   }
+  },
+  {
+   "t": "図",
+   "start": 23.78,
+   "end": 24.0,
+   "original_t": "図",
+   "original_start": 23.26,
+   "delta_s": 0.52,
+   "revised_2026_10_01": {
+    "director_start": 23.58,
+    "director_end": 23.7,
+    "evidence": "いう の u（F2≈1200 Hz）が 23.72 まで、閉鎖 23.75–23.79、ず の摩擦 23.80–23.94。口元 23.60–23.87 はすぼまったまま"
+   }
+  },
+  {
+   "t": "解",
+   "start": 24.0,
+   "end": 24.23,
+   "original_t": "解",
+   "original_start": 23.43,
+   "delta_s": 0.57,
+   "revised_2026_10_01": {
+    "director_start": 23.7,
+    "director_end": 23.85,
+    "evidence": "k の閉鎖 23.96–24.01・破裂 24.02。口元 24.03–24.07 で大きく開く（か）"
+   }
+  },
+  {
+   "t": "も",
+   "start": 24.23,
+   "end": 24.37,
+   "original_t": "も",
+   "original_start": 23.62,
+   "delta_s": 0.61,
+   "revised_2026_10_01": {
+    "director_start": 23.85,
+    "director_end": 23.96,
+    "evidence": "m 24.23–24.30（F1≈290 Hz）。口元 24.20–24.30 で唇が閉じる"
+   }
+  },
+  {
+   "t": "出",
+   "start": 24.37,
+   "end": 24.47,
+   "original_t": "出",
+   "original_start": 23.72,
+   "delta_s": 0.65,
+   "revised_2026_10_01": {
+    "director_start": 24.02,
+    "director_end": 24.2,
+    "evidence": "d の閉鎖 24.37–24.38・破裂 24.39"
+   }
+  },
+  {
+   "t": "せ",
+   "start": 24.47,
+   "end": 24.59,
+   "original_t": "せ",
+   "original_start": 24.19,
+   "delta_s": 0.28,
+   "revised_2026_10_01": {
+    "director_start": 24.2,
+    "director_end": 24.35,
+    "evidence": "s の摩擦 24.47–24.54"
+   }
+  },
+  {
+   "t": "ます",
+   "start": 24.59,
+   "end": 24.78,
+   "original_t": "ます",
+   "original_start": 24.19,
+   "delta_s": 0.4,
+   "revised_2026_10_01": {
+    "director_start": 24.35,
+    "director_end": 24.7,
+    "evidence": "m 24.59–24.62（口元で唇が閉じる）・a 24.63–24.67"
+   }
+  },
+  {
+   "t": "し",
+   "start": 24.78,
+   "end": 25,
+   "original_t": "し",
+   "original_start": 24.58,
+   "delta_s": 0.2,
+   "revised_2026_10_01": {
+    "director_start": 24.7,
+    "director_end": 25,
+    "evidence": "す＋し の摩擦 24.69–24.86 をモーラ配分、i 24.87–24.98"
+   }
+  },
+  {
+   "t": "、",
+   "start": 25,
+   "end": 25.01,
+   "original_t": "、",
+   "original_start": 24.97,
+   "delta_s": 0.03
+  },
+  {
+   "t": "ス",
+   "start": 27.07,
+   "end": 27.2,
+   "original_t": "ス",
+   "original_start": 26.89,
+   "delta_s": 0.18
+  },
+  {
+   "t": "マ",
+   "start": 27.2,
+   "end": 27.44,
+   "original_t": "マ",
+   "original_start": 27.15,
+   "delta_s": 0.05
+  },
+  {
+   "t": "ホ",
+   "start": 27.44,
+   "end": 27.65,
+   "original_t": "ホ",
+   "original_start": 27.2,
+   "delta_s": 0.24
+  },
+  {
+   "t": "の",
+   "start": 27.65,
+   "end": 27.77,
+   "original_t": "の",
+   "original_start": 27.37,
+   "delta_s": 0.28
+  },
+  {
+   "t": "モ",
+   "start": 27.77,
+   "end": 27.95,
+   "original_t": "モ",
+   "original_start": 27.53,
+   "delta_s": 0.24
+  },
+  {
+   "t": "ック",
+   "start": 27.95,
+   "end": 28.2,
+   "original_t": "ック",
+   "original_start": 27.71,
+   "delta_s": 0.24
+  },
+  {
+   "t": "ア",
+   "start": 28.2,
+   "end": 28.33,
+   "original_t": "ア",
+   "original_start": 27.96,
+   "delta_s": 0.24
+  },
+  {
+   "t": "ップ",
+   "start": 28.33,
+   "end": 28.5,
+   "original_t": "ップ",
+   "original_start": 28.58,
+   "delta_s": -0.25
+  },
+  {
+   "t": "とか",
+   "start": 28.5,
+   "end": 28.68,
+   "original_t": "とか",
+   "original_start": 28.58,
+   "delta_s": -0.08
+  },
+  {
+   "t": "も",
+   "start": 28.68,
+   "end": 28.74,
+   "original_t": "も",
+   "original_start": 29.1,
+   "delta_s": -0.42
+  },
+  {
+   "t": "、",
+   "start": 28.74,
+   "end": 29.45,
+   "original_t": "、",
+   "original_start": 29.23,
+   "delta_s": -0.49
+  },
+  {
+   "t": "B",
+   "start": 29.45,
+   "end": 29.75,
+   "original_t": "B",
+   "original_start": 29.28,
+   "delta_s": 0.17,
+   "revised_2026_10_01": {
+    "director_start": 29.45,
+    "director_end": 29.62,
+    "evidence": "次の語「GM」の語頭に合わせて語尾だけ移動"
+   }
+  },
+  {
+   "t": "GM",
+   "start": 29.75,
+   "end": 30.14,
+   "original_t": "GM",
+   "original_start": 29.32,
+   "delta_s": 0.43,
+   "revised_2026_10_01": {
+    "director_start": 29.62,
+    "director_end": 30.05,
+    "evidence": "ジ の摩擦 29.76–29.84。29.53–29.75 は「ビー」の i（F2≈2200 Hz）"
+   }
+  },
+  {
+   "t": "も",
+   "start": 30.14,
+   "end": 30.25,
+   "original_t": "も",
+   "original_start": 29.43,
+   "delta_s": 0.71,
+   "revised_2026_10_01": {
+    "director_start": 30.05,
+    "director_end": 30.25,
+    "evidence": "エム の e（29.99–30.03）・m/u（30.04–30.13）の後、30.14 から も（o は 30.19–30.24）"
+   }
+  },
+  {
+   "t": "、",
+   "start": 30.25,
+   "end": 30.63,
+   "original_t": "、",
+   "original_start": 29.59,
+   "delta_s": 0.66
+  },
+  {
+   "t": "字",
+   "start": 30.63,
+   "end": 30.82,
+   "original_t": "字",
+   "original_start": 29.77,
+   "delta_s": 0.86
+  },
+  {
+   "t": "幕",
+   "start": 30.82,
+   "end": 31.15,
+   "original_t": "幕",
+   "original_start": 29.94,
+   "delta_s": 0.88
+  },
+  {
+   "t": "の",
+   "start": 31.15,
+   "end": 31.24,
+   "original_t": "の",
+   "original_start": 30.24,
+   "delta_s": 0.91
+  },
+  {
+   "t": "カ",
+   "start": 31.33,
+   "end": 31.43,
+   "original_t": "カ",
+   "original_start": 30.45,
+   "delta_s": 0.88
+  },
+  {
+   "t": "ラ",
+   "start": 31.43,
+   "end": 31.55,
+   "original_t": "ラ",
+   "original_start": 30.45,
+   "delta_s": 0.98
+  },
+  {
+   "t": "オ",
+   "start": 31.55,
+   "end": 31.7,
+   "original_t": "オ",
+   "original_start": 30.66,
+   "delta_s": 0.89
+  },
+  {
+   "t": "ケ",
+   "start": 31.76,
+   "end": 31.82,
+   "original_t": "ケ",
+   "original_start": 30.79,
+   "delta_s": 0.97
+  },
+  {
+   "t": "表示",
+   "start": 31.88,
+   "end": 32.1,
+   "original_t": "表示",
+   "original_start": 30.99,
+   "delta_s": 0.89
+  },
+  {
+   "t": "も",
+   "start": 32.1,
+   "end": 32.18,
+   "original_t": "も",
+   "original_start": 31.31,
+   "delta_s": 0.79
+  },
+  {
+   "t": "い",
+   "start": 32.18,
+   "end": 32.26,
+   "original_t": "い",
+   "original_start": 31.54,
+   "delta_s": 0.64
+  },
+  {
+   "t": "け",
+   "start": 32.26,
+   "end": 32.33,
+   "original_t": "け",
+   "original_start": 31.65,
+   "delta_s": 0.61
+  },
+  {
+   "t": "ます",
+   "start": 32.33,
+   "end": 32.53,
+   "original_t": "ます",
+   "original_start": 31.82,
+   "delta_s": 0.51
+  },
+  {
+   "t": "。",
+   "start": 32.53,
+   "end": 32.54,
+   "original_t": "。",
+   "original_start": 32.17,
+   "delta_s": 0.36
+  },
+  {
+   "t": "まあ",
+   "start": 33.3,
+   "end": 33.7,
+   "original_t": "まあ",
+   "original_start": 33.18,
+   "delta_s": 0.12,
+   "revised_2026_10_01": {
+    "director_start": 33.2,
+    "director_end": 33.7,
+    "evidence": "33.09–33.19 は息（フォルマントなし）、m のつぶやき 33.30、a 33.45–33.62"
+   }
+  },
+  {
+   "t": "、",
+   "start": 33.7,
+   "end": 33.77,
+   "original_t": "、",
+   "original_start": 33.18,
+   "delta_s": 0.52
+  },
+  {
+   "t": "僕",
+   "start": 33.77,
+   "end": 33.96,
+   "original_t": "僕",
+   "original_start": 33.18,
+   "delta_s": 0.59
+  },
+  {
+   "t": "は",
+   "start": 33.96,
+   "end": 34.1,
+   "original_t": "は",
+   "original_start": 33.21,
+   "delta_s": 0.75
+  },
+  {
+   "t": "喋",
+   "start": 34.1,
+   "end": 34.5,
+   "original_t": "喋",
+   "original_start": 33.42,
+   "delta_s": 0.68
+  },
+  {
+   "t": "ってる",
+   "start": 34.62,
+   "end": 34.79,
+   "original_t": "ってる",
+   "original_start": 33.47,
+   "delta_s": 1.15
+  },
+  {
+   "t": "だけ",
+   "start": 34.79,
+   "end": 35,
+   "original_t": "だけ",
+   "original_start": 33.95,
+   "delta_s": 0.84
+  },
+  {
+   "t": "なんです",
+   "start": 35,
+   "end": 35.3,
+   "original_t": "なんです",
+   "original_start": 34.29,
+   "delta_s": 0.71
+  },
+  {
+   "t": "けど",
+   "start": 35.3,
+   "end": 35.5,
+   "original_t": "けど",
+   "original_start": 34.91,
+   "delta_s": 0.39
+  },
+  {
+   "t": "ね",
+   "start": 35.5,
+   "end": 35.63,
+   "original_t": "ね",
+   "original_start": 35.23,
+   "delta_s": 0.27
+  },
+  {
+   "t": "。",
+   "start": 35.63,
+   "end": 35.64,
+   "original_t": "。",
+   "original_start": 35.55,
+   "delta_s": 0.08
+  }
+ ],
+ "captions_after_realign": [
+  {
+   "id": "c-0001",
+   "start": 0.29,
+   "end": 1.26,
+   "text": "こんにちは。"
+  },
+  {
+   "id": "c-0002",
+   "start": 2.35,
+   "end": 3.59,
+   "text": "今日はですね、"
+  },
+  {
+   "id": "c-0003",
+   "start": 3.59,
+   "end": 5.01,
+   "text": "アカリビデオっていう"
+  },
+  {
+   "id": "c-0004",
+   "start": 5.1,
+   "end": 6.36,
+   "text": "動画編集ツールを"
+  },
+  {
+   "id": "c-0005",
+   "start": 6.43,
+   "end": 7.17,
+   "text": "試してみてます。"
+  },
+  {
+   "id": "c-0006",
+   "start": 7.84,
+   "end": 9.9,
+   "text": "これ、AIと対話する"
+  },
+  {
+   "id": "c-0007",
+   "start": 9.9,
+   "end": 10.72,
+   "text": "だけでいいんですよ。"
+  },
+  {
+   "id": "c-0008",
+   "start": 11.3,
+   "end": 12.57,
+   "text": "喋ってるだけで、"
+  },
+  {
+   "id": "c-0009",
+   "start": 12.57,
+   "end": 14.05,
+   "text": "編集はもう終わってる"
+  },
+  {
+   "id": "c-0010",
+   "start": 14.05,
+   "end": 14.49,
+   "text": "感じです。"
+  },
+  {
+   "id": "c-0011",
+   "start": 15.31,
+   "end": 16.9,
+   "text": "例えば、喋ってる"
+  },
+  {
+   "id": "c-0012",
+   "start": 16.9,
+   "end": 18.44,
+   "text": "途中に効果音とか"
+  },
+  {
+   "id": "c-0013",
+   "start": 18.74,
+   "end": 20.55,
+   "text": "エフェクトをパッと、"
+  },
+  {
+   "id": "c-0014",
+   "start": 20.55,
+   "end": 21.68,
+   "text": "ほら、こんな感じで。"
+  },
+  {
+   "id": "c-0015",
+   "start": 22.64,
+   "end": 23.78,
+   "text": "あと、こういう"
+  },
+  {
+   "id": "c-0016",
+   "start": 23.78,
+   "end": 25.01,
+   "text": "図解も出せますし、"
+  },
+  {
+   "id": "c-0017",
+   "start": 27.07,
+   "end": 27.77,
+   "text": "スマホの"
+  },
+  {
+   "id": "c-0018",
+   "start": 27.77,
+   "end": 29.45,
+   "text": "モックアップとかも、"
+  },
+  {
+   "id": "c-0019",
+   "start": 29.45,
+   "end": 31.82,
+   "text": "BGMも、字幕のカラオケ"
+  },
+  {
+   "id": "c-0020",
+   "start": 31.88,
+   "end": 32.54,
+   "text": "表示もいけます。"
+  },
+  {
+   "id": "c-0021",
+   "start": 33.3,
+   "end": 34.79,
+   "text": "まあ、僕は喋ってる"
+  },
+  {
+   "id": "c-0022",
+   "start": 34.79,
+   "end": 35.64,
+   "text": "だけなんですけどね。"
+  }
+ ],
+ "revision_2026_10_01": {
+  "by": "制作担当 timing-realign（transcript.json の時刻の正本を仕上げる要素）",
+  "why": "全 131 トークンを声の特徴点で検算したところ、連続発話の途中をモーラ配分した 2 か所（「編集はもう終わってる」「図解も出せますし」）で語頭が最大 0.35 s 早かった。ほかの語は ±0.07 s 以内で一致",
+  "method": [
+   "10 ms ごとに包絡（dBFS）・3.5 kHz 以上の摩擦の比率・LPC（10 kHz・12 次）の F1/F2 を取り、無音・閉鎖（っ・k・t・d・b）・摩擦（s・sh・ch・z・j・h）・鼻音（m・n、F1≈200–300 Hz）・母音の形（a は F1≥700 Hz、o は F2≈500–800 Hz、i は F2≈2000 Hz）を語境界の手がかりにした",
+   "30 fps の口元の切り出しで、両唇の閉じ（m）と大きな開き（a）を確認した（timing-realign/mouth-*.png）",
+   "区間ごとのモーラ速度（約 0.13 s／モーラ）で配分した予測とも ±0.03 s で一致することを確かめた",
+   "直したのは差が 0.08 s 以上で、特徴点が 2 つ以上そろう語だけ（17 語 + 語尾だけ動かした 5 語）"
+  ],
+  "changed_tokens": [
+   {
+    "index": 28,
+    "t": "対",
+    "start": {
+     "from": 9.26,
+     "to": 9.26
+    },
+    "end": {
+     "from": 9.42,
+     "to": 9.52
+    },
+    "evidence": "次の語「話」の語頭に合わせて語尾だけ移動"
+   },
+   {
+    "index": 29,
+    "t": "話",
+    "start": {
+     "from": 9.42,
+     "to": 9.52
+    },
+    "end": {
+     "from": 9.62,
+     "to": 9.62
+    },
+    "evidence": "「対」の i（F2≈2250 Hz）が 9.52 まで続き、9.53 から w の F2 下降（2280→1060 Hz）"
+   },
+   {
+    "index": 42,
+    "t": "編",
+    "start": {
+     "from": 12.57,
+     "to": 12.57
+    },
+    "end": {
+     "from": 12.68,
+     "to": 12.82
+    },
+    "evidence": "次の語「集」の語頭に合わせて語尾だけ移動"
+   },
+   {
+    "index": 43,
+    "t": "集",
+    "start": {
+     "from": 12.68,
+     "to": 12.82
+    },
+    "end": {
+     "from": 12.85,
+     "to": 13.06
+    },
+    "evidence": "しゅ の摩擦 12.82–12.97（3.5 kHz 以上が主）。12.66–12.81 は ん（F1≈250 Hz）"
+   },
+   {
+    "index": 44,
+    "t": "は",
+    "start": {
+     "from": 12.85,
+     "to": 13.06
+    },
+    "end": {
+     "from": 12.95,
+     "to": 13.16
+    },
+    "evidence": "しゅう の u（12.98–13.05・F2 1930→1050 Hz）の後、13.06 から F1 上昇（わ）"
+   },
+   {
+    "index": 45,
+    "t": "もう",
+    "start": {
+     "from": 12.95,
+     "to": 13.16
+    },
+    "end": {
+     "from": 13.18,
+     "to": 13.42
+    },
+    "evidence": "m の閉鎖 13.16–13.20（包絡の谷・F1≈220 Hz）。口元 13.167 で唇が閉じる"
+   },
+   {
+    "index": 46,
+    "t": "終",
+    "start": {
+     "from": 13.18,
+     "to": 13.42
+    },
+    "end": {
+     "from": 13.32,
+     "to": 13.58
+    },
+    "evidence": "もう の長い o（F1≈400・F2≈600 Hz）13.21–13.42 の後、13.43 に声門の谷（−33 dBFS）→ お"
+   },
+   {
+    "index": 47,
+    "t": "わ",
+    "start": {
+     "from": 13.32,
+     "to": 13.58
+    },
+    "end": {
+     "from": 13.73,
+     "to": 13.73
+    },
+    "evidence": "13.60–13.71 に F1≈700–950 Hz の a。口元 13.60 で大きく開く。13.73 から っ の閉鎖"
+   },
+   {
+    "index": 56,
+    "t": "途",
+    "start": {
+     "from": 16.9,
+     "to": 16.9
+    },
+    "end": {
+     "from": 17.05,
+     "to": 16.97
+    },
+    "evidence": "次の語「中」の語頭に合わせて語尾だけ移動"
+   },
+   {
+    "index": 57,
+    "t": "中",
+    "start": {
+     "from": 17.05,
+     "to": 16.97
+    },
+    "end": {
+     "from": 17.2,
+     "to": 17.2
+    },
+    "evidence": "ch の閉鎖 16.95–16.97・摩擦 16.98–17.05"
+   },
+   {
+    "index": 83,
+    "t": "いう",
+    "start": {
+     "from": 23.44,
+     "to": 23.44
+    },
+    "end": {
+     "from": 23.58,
+     "to": 23.78
+    },
+    "evidence": "次の語「図」の語頭に合わせて語尾だけ移動"
+   },
+   {
+    "index": 84,
+    "t": "図",
+    "start": {
+     "from": 23.58,
+     "to": 23.78
+    },
+    "end": {
+     "from": 23.7,
+     "to": 24.0
+    },
+    "evidence": "いう の u（F2≈1200 Hz）が 23.72 まで、閉鎖 23.75–23.79、ず の摩擦 23.80–23.94。口元 23.60–23.87 はすぼまったまま"
+   },
+   {
+    "index": 85,
+    "t": "解",
+    "start": {
+     "from": 23.7,
+     "to": 24.0
+    },
+    "end": {
+     "from": 23.85,
+     "to": 24.23
+    },
+    "evidence": "k の閉鎖 23.96–24.01・破裂 24.02。口元 24.03–24.07 で大きく開く（か）"
+   },
+   {
+    "index": 86,
+    "t": "も",
+    "start": {
+     "from": 23.85,
+     "to": 24.23
+    },
+    "end": {
+     "from": 23.96,
+     "to": 24.37
+    },
+    "evidence": "m 24.23–24.30（F1≈290 Hz）。口元 24.20–24.30 で唇が閉じる"
+   },
+   {
+    "index": 87,
+    "t": "出",
+    "start": {
+     "from": 24.02,
+     "to": 24.37
+    },
+    "end": {
+     "from": 24.2,
+     "to": 24.47
+    },
+    "evidence": "d の閉鎖 24.37–24.38・破裂 24.39"
+   },
+   {
+    "index": 88,
+    "t": "せ",
+    "start": {
+     "from": 24.2,
+     "to": 24.47
+    },
+    "end": {
+     "from": 24.35,
+     "to": 24.59
+    },
+    "evidence": "s の摩擦 24.47–24.54"
+   },
+   {
+    "index": 89,
+    "t": "ます",
+    "start": {
+     "from": 24.35,
+     "to": 24.59
+    },
+    "end": {
+     "from": 24.7,
+     "to": 24.78
+    },
+    "evidence": "m 24.59–24.62（口元で唇が閉じる）・a 24.63–24.67"
+   },
+   {
+    "index": 90,
+    "t": "し",
+    "start": {
+     "from": 24.7,
+     "to": 24.78
+    },
+    "end": {
+     "from": 25,
+     "to": 25
+    },
+    "evidence": "す＋し の摩擦 24.69–24.86 をモーラ配分、i 24.87–24.98"
+   },
+   {
+    "index": 103,
+    "t": "B",
+    "start": {
+     "from": 29.45,
+     "to": 29.45
+    },
+    "end": {
+     "from": 29.62,
+     "to": 29.75
+    },
+    "evidence": "次の語「GM」の語頭に合わせて語尾だけ移動"
+   },
+   {
+    "index": 104,
+    "t": "GM",
+    "start": {
+     "from": 29.62,
+     "to": 29.75
+    },
+    "end": {
+     "from": 30.05,
+     "to": 30.14
+    },
+    "evidence": "ジ の摩擦 29.76–29.84。29.53–29.75 は「ビー」の i（F2≈2200 Hz）"
+   },
+   {
+    "index": 105,
+    "t": "も",
+    "start": {
+     "from": 30.05,
+     "to": 30.14
+    },
+    "end": {
+     "from": 30.25,
+     "to": 30.25
+    },
+    "evidence": "エム の e（29.99–30.03）・m/u（30.04–30.13）の後、30.14 から も（o は 30.19–30.24）"
+   },
+   {
+    "index": 120,
+    "t": "まあ",
+    "start": {
+     "from": 33.2,
+     "to": 33.3
+    },
+    "end": {
+     "from": 33.7,
+     "to": 33.7
+    },
+    "evidence": "33.09–33.19 は息（フォルマントなし）、m のつぶやき 33.30、a 33.45–33.62"
+   }
+  ],
+  "changed_key_words": {
+   "終わってる": {
+    "from": 13.18,
+    "to": 13.42
+   },
+   "図解": {
+    "from": 23.58,
+    "to": 23.78
+   },
+   "出せます": {
+    "from": 24.02,
+    "to": 24.37
+   },
+   "し": {
+    "from": 24.7,
+    "to": 24.78
+   },
+   "まあ": {
+    "from": 33.2,
+    "to": 33.3
+   }
+  },
+  "changed_captions": [
+   {
+    "id": "c-0015",
+    "end": {
+     "from": 23.58,
+     "to": 23.78
+    }
+   },
+   {
+    "id": "c-0016",
+    "start": {
+     "from": 23.58,
+     "to": 23.78
+    }
+   },
+   {
+    "id": "c-0021",
+    "start": {
+     "from": 33.2,
+     "to": 33.3
+    }
+   }
+  ],
+  "unchanged_verified": "アカリビデオ 3.59 / 動画編集ツール 5.10 / AI 8.55 / 対話 9.26 / だけ 9.90 / 喋ってるだけで 11.30 / 編集 12.57 / 効果音 17.50 / エフェクト 18.74 / パッ 19.70 / ほら 20.55 / こんな感じで 21.10 / こういう 23.27 / スマホ 27.07 / モックアップ 27.77 / BGM 29.45 / 字幕の 30.63 / カラオケ 31.33（カラオケ行の 13 トークンはすべて ±0.05 s）/ 僕は 33.77 / ね（言い切り）35.63",
+  "plan_impact": [
+   "編集完了の判子「完了」と正解音（sfx-correct-tone）: 語頭 13.18 → 13.42（+0.24 s）。構成表の 13.167 のままだと「もう」に着地する",
+   "図解 ② AI ノードとクリック音: 語頭 23.58 → 23.78（+0.20 s）",
+   "図解 ③ 完成ノードとクリック音: 語頭 24.02 → 24.37（+0.35 s）",
+   "図解の完成が光る「し」: 24.70 → 24.78（+0.08 s・許容内）",
+   "字幕 c-0015／c-0016 の境目 23.58 → 23.78、c-0021 の出始め 33.20 → 33.30（行数・文字は同じ）"
+  ]
+ }
+}

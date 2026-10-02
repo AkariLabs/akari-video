@@ -1,0 +1,732 @@
+{
+ "element": "wiring",
+ "measured": "2026-10-01",
+ "codex": {
+  "cli": "0.156.0",
+  "model": "gpt-6-sol",
+  "effort": "high",
+  "session": "01a0f323-5d82-7c70-849e-f0964250a0f7",
+  "rounds": 3,
+  "r1": "段階表・同梱 21 本・captions 後加工（区切り直し・runs・カラオケ）・reset・controller の PROMPT/LOG/startWork/play・テスト",
+  "r2": "500 行の JSON 表を簡潔な宣言表に・worktree 外のファイルを指すコメントの修正・reset のディレクトリ削除を best-effort に",
+  "r3": "BGM を ducking なし・gain -14・keyframes 7 点（+8 / +10 の加算）に"
+ },
+ "l0": {
+  "akari_surfaces_tests": {
+   "before": "428 件 / 400 pass / 28 fail",
+   "after": "429 件 / 402 pass / 27 fail",
+   "new_fail": 0,
+   "fixed": "図解の要素は書き起こしの語時刻で現れ…（旧 demo-rich のテスト。語の時刻の合わせ直しで落ちていた。新しいテストに置換）"
+  },
+  "tsc_akari_surfaces": 0,
+  "build_ext": 0,
+  "eslint": "0 errors / 5 warnings（いずれも他の拡張の既存）",
+  "edit_lint_each_stage": "count-0・字幕 22 行・stage 1〜8 の全段で verdict pass（error 0）。stage 8 の warning 13 = 字幕の短さ 6（既存）・demo-flash 12 フレーム 1（意図どおり）・BGM keyframes の t を秒と取り違える edit-lint の誤検知 6"
+ },
+ "export_cli": {
+  "engine": "OSR（c-0020 の karaoke fill: smooth で GPU 不適格）",
+  "seconds": 56,
+  "sync_table_raw": [
+   {
+    "element": "title カード",
+    "word": "こんにちは",
+    "word_s": 0.29,
+    "first_visible_s": 0.1667,
+    "delta_s": -0.123,
+    "within_0.15": true
+   },
+   {
+    "element": "title 名札",
+    "word": "アカリビデオ",
+    "word_s": 3.59,
+    "first_visible_s": 3.5667,
+    "delta_s": -0.023,
+    "within_0.15": true
+   },
+   {
+    "element": "chat カード",
+    "word": "AI",
+    "word_s": 8.55,
+    "first_visible_s": 8.5333,
+    "delta_s": -0.017,
+    "within_0.15": true
+   },
+   {
+    "element": "done 1 行目",
+    "word": "喋ってる",
+    "word_s": 11.3,
+    "first_visible_s": 10.9333,
+    "delta_s": -0.367,
+    "within_0.15": false
+   },
+   {
+    "element": "done 2 行目",
+    "word": "編集",
+    "word_s": 12.57,
+    "first_visible_s": 12.5667,
+    "delta_s": -0.003,
+    "within_0.15": true
+   },
+   {
+    "element": "done 判子",
+    "word": "終わってる",
+    "word_s": 13.18,
+    "first_visible_s": 13.1333,
+    "delta_s": -0.047,
+    "within_0.15": true
+   },
+   {
+    "element": "effects 札 効果音",
+    "word": "効果音",
+    "word_s": 17.5,
+    "first_visible_s": 17.5,
+    "delta_s": 0.0,
+    "within_0.15": true
+   },
+   {
+    "element": "effects 札 エフェクト",
+    "word": "エフェクト",
+    "word_s": 18.74,
+    "first_visible_s": 18.7333,
+    "delta_s": -0.007,
+    "within_0.15": true
+   },
+   {
+    "element": "effects パッ！",
+    "word": "パッ",
+    "word_s": 19.7,
+    "first_visible_s": 19.7,
+    "delta_s": 0.0,
+    "within_0.15": true
+   },
+   {
+    "element": "flash",
+    "word": "パッ",
+    "word_s": 19.7,
+    "first_visible_s": 19.7,
+    "delta_s": 0.0,
+    "within_0.15": true
+   },
+   {
+    "element": "punch-in（人物側）",
+    "word": "パッ",
+    "word_s": 19.7,
+    "first_visible_s": 19.7,
+    "delta_s": 0.0,
+    "within_0.15": true
+   },
+   {
+    "element": "diagram カード",
+    "word": "こういう",
+    "word_s": 23.27,
+    "first_visible_s": 23.2333,
+    "delta_s": -0.037,
+    "within_0.15": true
+   },
+   {
+    "element": "diagram ② AI",
+    "word": "図解",
+    "word_s": 23.58,
+    "first_visible_s": 23.2333,
+    "delta_s": -0.347,
+    "within_0.15": false
+   },
+   {
+    "element": "diagram ③ 完成",
+    "word": "出せます",
+    "word_s": 24.02,
+    "first_visible_s": 24.0,
+    "delta_s": -0.02,
+    "within_0.15": true
+   },
+   {
+    "element": "phone 本体",
+    "word": "スマホ",
+    "word_s": 27.07,
+    "first_visible_s": 26.9667,
+    "delta_s": -0.103,
+    "within_0.15": true
+   },
+   {
+    "element": "phone 画面点灯",
+    "word": "モックアップ",
+    "word_s": 27.77,
+    "first_visible_s": 27.5667,
+    "delta_s": -0.203,
+    "within_0.15": false
+   },
+   {
+    "element": "bgm-chip",
+    "word": "BGM",
+    "word_s": 29.45,
+    "first_visible_s": 29.4333,
+    "delta_s": -0.017,
+    "within_0.15": true
+   },
+   {
+    "element": "credit",
+    "word": "ね（言い切り）",
+    "word_s": 35.63,
+    "first_visible_s": 35.7,
+    "delta_s": 0.07,
+    "within_0.15": true
+   }
+  ],
+  "sync_refined": {
+   "done 1 行目（11.30 喋ってる）": {
+    "first_visible_s": 11.3,
+    "delta_s": 0.0,
+    "how": "chat の抜け(10.97)の後から、元の素材との差（箱 840-1190×170-210）"
+   },
+   "diagram ② AI（23.58 図解）": {
+    "first_visible_s": 23.6,
+    "delta_s": 0.02,
+    "how": "箱 938-1032×254-346 の橙の画素（R>220, 80<G<160, B<80）が現れた最初のフレーム 708"
+   },
+   "diagram ③ 完成（24.02 出せます）": {
+    "first_visible_s": 24.0333,
+    "delta_s": 0.013,
+    "how": "箱 1098-1190×254-346 の墨の画素が現れた最初のフレーム 721"
+   },
+   "phone 画面点灯（27.77 モックアップ）": {
+    "first_visible_s": 27.7667,
+    "delta_s": -0.003,
+    "how": "画面の箱 930-1090×200-480 の平均輝度が 33→66（起動画面→映像）に跳ねた最初のフレーム 833"
+   },
+   "title カード（0.29 こんにちは）": {
+    "first_visible_s": 0.2667,
+    "delta_s": -0.023,
+    "how": "measure-export.py は窓の開始が負になり 3 フレームずれて 0.1667 と出る（道具の不具合）。フレーム 8 で出始める"
+   }
+  },
+  "punch_in_best_scale": {
+   "19.600": 1.0,
+   "19.667": 1.0,
+   "19.700": 1.07,
+   "19.733": 1.07,
+   "19.833": 1.06,
+   "20.400": 1.06,
+   "20.667": 1.05,
+   "21.100": 1.0,
+   "21.200": 1.0
+  },
+  "phone_screen_28.5": {
+   "inside_left_col_x902": [
+    81,
+    55,
+    36
+   ],
+   "inside_right_col_x1121": [
+    189,
+    154,
+    137
+   ],
+   "inside_top_row_y100": [
+    178,
+    136,
+    98
+   ],
+   "inside_bottom_row_y571": [
+    65,
+    54,
+    52
+   ],
+   "frame_left_x897": [
+    9,
+    7,
+    1
+   ],
+   "frame_right_x1127": [
+    149,
+    149,
+    144
+   ],
+   "frame_top_y95": [
+    7,
+    2,
+    0
+   ],
+   "frame_bottom_y577": [
+    174,
+    172,
+    164
+   ]
+  },
+  "karaoke_fill": [
+   {
+    "t": 30.6,
+    "orange_px": 4813,
+    "white_px": 1002,
+    "fill": 0.828
+   },
+   {
+    "t": 30.7,
+    "orange_px": 1987,
+    "white_px": 958,
+    "fill": 0.675
+   },
+   {
+    "t": 31.0,
+    "orange_px": 4379,
+    "white_px": 13202,
+    "fill": 0.249
+   },
+   {
+    "t": 31.3,
+    "orange_px": 6190,
+    "white_px": 11328,
+    "fill": 0.353
+   },
+   {
+    "t": 31.6,
+    "orange_px": 8181,
+    "white_px": 9313,
+    "fill": 0.468
+   },
+   {
+    "t": 31.9,
+    "orange_px": 9938,
+    "white_px": 7615,
+    "fill": 0.566
+   },
+   {
+    "t": 32.2,
+    "orange_px": 14272,
+    "white_px": 3655,
+    "fill": 0.796
+   },
+   {
+    "t": 32.5,
+    "orange_px": 17401,
+    "white_px": 259,
+    "fill": 0.985
+   },
+   {
+    "t": 32.55,
+    "orange_px": 17512,
+    "white_px": 8,
+    "fill": 1.0
+   }
+  ],
+  "sfx_attack_from_sfx_only_render": [
+   {
+    "sfx": "title-whoosh",
+    "item_at_s": 0.0,
+    "expected_s": 0.49,
+    "measured_s": 0.49,
+    "delta_s": 0.0,
+    "peak_dbfs": -13.1
+   },
+   {
+    "sfx": "name-pop",
+    "item_at_s": 3.5667,
+    "expected_s": 3.5817,
+    "measured_s": 3.565,
+    "delta_s": -0.017,
+    "peak_dbfs": -9.3
+   },
+   {
+    "sfx": "chat-pop-1",
+    "item_at_s": 8.5333,
+    "expected_s": 8.5533,
+    "measured_s": 8.535,
+    "delta_s": -0.018,
+    "peak_dbfs": -19.4
+   },
+   {
+    "sfx": "chat-pop-2",
+    "item_at_s": 9.2333,
+    "expected_s": 9.2533,
+    "measured_s": 9.235,
+    "delta_s": -0.018,
+    "peak_dbfs": -19.6
+   },
+   {
+    "sfx": "done-tone",
+    "item_at_s": 13.1667,
+    "expected_s": 13.1717,
+    "measured_s": 13.17,
+    "delta_s": -0.002,
+    "peak_dbfs": -17.6
+   },
+   {
+    "sfx": "kouka-pop",
+    "item_at_s": 17.4667,
+    "expected_s": 17.4917,
+    "measured_s": 17.49,
+    "delta_s": -0.002,
+    "peak_dbfs": -15.1
+   },
+   {
+    "sfx": "pa-whoosh",
+    "item_at_s": 19.3667,
+    "expected_s": 19.6967,
+    "measured_s": 19.76,
+    "delta_s": 0.063,
+    "peak_dbfs": -6.9
+   },
+   {
+    "sfx": "hora-sparkle",
+    "item_at_s": 20.5667,
+    "expected_s": 20.5717,
+    "measured_s": 20.57,
+    "delta_s": -0.002,
+    "peak_dbfs": -25.3
+   },
+   {
+    "sfx": "diagram-tick-1",
+    "item_at_s": 23.2667,
+    "expected_s": 23.2717,
+    "measured_s": 23.27,
+    "delta_s": -0.002,
+    "peak_dbfs": -27.2
+   },
+   {
+    "sfx": "diagram-tick-2",
+    "item_at_s": 23.5667,
+    "expected_s": 23.5717,
+    "measured_s": 23.57,
+    "delta_s": -0.002,
+    "peak_dbfs": -27.3
+   },
+   {
+    "sfx": "diagram-tick-3",
+    "item_at_s": 24.0333,
+    "expected_s": 24.0383,
+    "measured_s": 24.035,
+    "delta_s": -0.003,
+    "peak_dbfs": -27.0
+   },
+   {
+    "sfx": "phone-swoosh",
+    "item_at_s": 26.8333,
+    "expected_s": 27.1933,
+    "measured_s": 27.08,
+    "delta_s": -0.113,
+    "peak_dbfs": -19.9
+   },
+   {
+    "sfx": "phone-tap",
+    "item_at_s": 27.7667,
+    "expected_s": 27.7767,
+    "measured_s": 27.77,
+    "delta_s": -0.007,
+    "peak_dbfs": -26.6
+   },
+   {
+    "sfx": "punchline-ding",
+    "item_at_s": 35.6333,
+    "expected_s": 35.6483,
+    "measured_s": 35.635,
+    "delta_s": -0.013,
+    "peak_dbfs": -11.5
+   }
+  ],
+  "bgm_applied_gain_db（書き出し − BGM ファイル、声なし版）": {
+   "speech 5.2-6.3": -14.02,
+   "speech 15.4-16.8": -14.01,
+   "speech 33.4-34.7": -14.0,
+   "gap 1.3-2.3": -14.02,
+   "gap 25.1-26.8": -14.01,
+   "pause 28.80-29.25": -14.01,
+   "lifted pause 30.25-30.63": -6.02,
+   "tail 36.2-36.8": -4.63
+  },
+  "loudness_lufs": {
+   "full 0-37.6": -15.9,
+   "novoice(BGM+SFX) 0-37.6": -26.1,
+   "full speech 15.4-16.8": -16.7,
+   "novoice speech 15.4-16.8": -31.0,
+   "full speech 5.2-6.3": -14.5,
+   "novoice speech 5.2-6.3": -30.0,
+   "novoice gap 25.1-26.8": -29.8,
+   "novoice lift 29.6-30.6": -20.9,
+   "full lift 29.6-30.6": -13.5,
+   "novoice end 36.0-36.6": -25.2
+  }
+ },
+ "export_in_app_L1": {
+  "file": "final.mp4 8.8MB",
+  "ui_seconds": 63,
+  "sync_same_as_cli": true,
+  "onsets": [
+   {
+    "element": "title カード",
+    "first_visible_s": 0.1667,
+    "delta_s": -0.123
+   },
+   {
+    "element": "title 名札",
+    "first_visible_s": 3.5667,
+    "delta_s": -0.023
+   },
+   {
+    "element": "chat カード",
+    "first_visible_s": 8.5333,
+    "delta_s": -0.017
+   },
+   {
+    "element": "done 1 行目",
+    "first_visible_s": 10.9333,
+    "delta_s": -0.367
+   },
+   {
+    "element": "done 2 行目",
+    "first_visible_s": 12.5667,
+    "delta_s": -0.003
+   },
+   {
+    "element": "done 判子",
+    "first_visible_s": 13.1333,
+    "delta_s": -0.047
+   },
+   {
+    "element": "effects 札 効果音",
+    "first_visible_s": 17.5,
+    "delta_s": 0.0
+   },
+   {
+    "element": "effects 札 エフェクト",
+    "first_visible_s": 18.7333,
+    "delta_s": -0.007
+   },
+   {
+    "element": "effects パッ！",
+    "first_visible_s": 19.7,
+    "delta_s": 0.0
+   },
+   {
+    "element": "flash",
+    "first_visible_s": 19.7,
+    "delta_s": 0.0
+   },
+   {
+    "element": "punch-in（人物側）",
+    "first_visible_s": 19.7,
+    "delta_s": 0.0
+   },
+   {
+    "element": "diagram カード",
+    "first_visible_s": 23.2333,
+    "delta_s": -0.037
+   },
+   {
+    "element": "diagram ② AI",
+    "first_visible_s": 23.2333,
+    "delta_s": -0.347
+   },
+   {
+    "element": "diagram ③ 完成",
+    "first_visible_s": 24.0,
+    "delta_s": -0.02
+   },
+   {
+    "element": "phone 本体",
+    "first_visible_s": 26.9667,
+    "delta_s": -0.103
+   },
+   {
+    "element": "phone 画面点灯",
+    "first_visible_s": 27.5667,
+    "delta_s": -0.203
+   },
+   {
+    "element": "bgm-chip",
+    "first_visible_s": 29.4333,
+    "delta_s": -0.017
+   },
+   {
+    "element": "credit",
+    "first_visible_s": 35.7,
+    "delta_s": 0.07
+   }
+  ],
+  "integrated_lufs": -16.0
+ },
+ "preview_L1": {
+  "work_seconds": 17.3,
+  "tour_tracks": [
+   "video:1",
+   "demo-phone-screen:1",
+   "demo-stage:7",
+   "demo-accents:2",
+   "captions:1",
+   "onboarding-bgm:1",
+   "demo-sfx:14"
+  ],
+  "after_tour_reset_tracks": [],
+  "final_tracks": [
+   "video:1",
+   "demo-phone-screen:1",
+   "demo-stage:7",
+   "demo-accents:2",
+   "captions:1",
+   "onboarding-bgm:1",
+   "demo-sfx:14"
+  ],
+  "seek_stills": [
+   {
+    "label": "title-badge",
+    "t": 3.75,
+    "seek": 3.767
+   },
+   {
+    "label": "chat-reply",
+    "t": 10.1,
+    "seek": 10.1
+   },
+   {
+    "label": "done-stamp",
+    "t": 13.4,
+    "seek": 13.4
+   },
+   {
+    "label": "effects-pa",
+    "t": 19.8,
+    "seek": 19.8
+   },
+   {
+    "label": "punch-in",
+    "t": 20.3,
+    "seek": 20.3
+   },
+   {
+    "label": "kira",
+    "t": 20.9,
+    "seek": 20.9
+   },
+   {
+    "label": "diagram",
+    "t": 24.8,
+    "seek": 24.8
+   },
+   {
+    "label": "phone",
+    "t": 28.6,
+    "seek": 28.6
+   },
+   {
+    "label": "bgm-chip",
+    "t": 30.2,
+    "seek": 30.2
+   },
+   {
+    "label": "karaoke",
+    "t": 31.9,
+    "seek": 31.9
+   },
+   {
+    "label": "credit",
+    "t": 36.6,
+    "seek": 36.6
+   }
+  ],
+  "analyser_windows": {
+   "samples": 9202,
+   "speech": [
+    {
+     "a": 3,
+     "b": 7,
+     "n": 1034,
+     "rmsDb": -18.2
+    },
+    {
+     "a": 8,
+     "b": 10.5,
+     "n": 628,
+     "rmsDb": -17.7
+    },
+    {
+     "a": 11.5,
+     "b": 14.3,
+     "n": 724,
+     "rmsDb": -17
+    },
+    {
+     "a": 15.5,
+     "b": 21.5,
+     "n": 1564,
+     "rmsDb": -19
+    },
+    {
+     "a": 22.7,
+     "b": 24.9,
+     "n": 570,
+     "rmsDb": -18
+    },
+    {
+     "a": 33.3,
+     "b": 35.5,
+     "n": 620,
+     "rmsDb": -17.8
+    }
+   ],
+   "gaps": [
+    {
+     "a": 1.45,
+     "b": 2.25,
+     "n": 208,
+     "rmsDb": -40.2
+    },
+    {
+     "a": 25.2,
+     "b": 26.9,
+     "n": 406,
+     "rmsDb": -28.9
+    }
+   ],
+   "lift": [
+    {
+     "a": 29.6,
+     "b": 30.6,
+     "n": 162,
+     "rmsDb": -17.9
+    },
+    {
+     "a": 36,
+     "b": 36.6,
+     "n": 150,
+     "rmsDb": -35.1
+    }
+   ],
+   "tail": {
+    "n": 332,
+    "rmsDb": -33.5
+   }
+  },
+  "note": "窓は画面外（x=-2600）・--mute-audio で起動。見た目は書き出しと一致（phone の画面の穴・パンチイン・カラオケ・判子）。判子はシーク直後の静止画 1 枚だけ文字が大きく見切れた（再生中は正常＝埋め込みフォントの読み込み待ちと推定）"
+ },
+ "findings_outside_boundary": [
+  {
+   "id": "preview-audio-keyframes-dropped",
+   "severity": "high",
+   "what": "出力プレビュー（シェル）で音声 item の keyframes が全部捨てられる。akari-preview の keyframes() 正規化が {t, gainDb} を返し、edit-store の audioKeyframeEnvelope（audio-schedule.ts）は point.gain_db だけを読むため envelopeEvents が 0 件になる（node で buildWebAudioSchedule に同じ形を渡して 0 件・gain_db 形なら 77 件を確認）。書き出しは効く",
+   "effect": "お手本の『BGM も』の +8 dB と締めの +10 dB がプレビューでは鳴らない（BGM は -14 dB のまま）",
+   "fix": "audioKeyframeEnvelope が gainDb も読む、または正規化が gain_db を返す（1 行）"
+  },
+  {
+   "id": "no-speech-duck-key",
+   "severity": "medium",
+   "what": "声の下のダッキングは、書き出しはプロジェクト直下の analysis.json、プレビューは narration だけを鍵にする。お手本（sidecar だけ）ではどちらも効かない",
+   "effect": "構成表の ducking（発話中 -8）は実現できないので使わず、定常 -14 dB にした"
+  },
+  {
+   "id": "audio-keyframes-bag",
+   "severity": "medium",
+   "what": "edit-store の保存（project.ts distributeKeyframes）は 9 点以上の keyframes を motion 袋へ出すが、音声 item の袋参照は edit-lint が error（audio keyframes must contain at least two points）にする",
+   "effect": "BGM の keyframes は 7 点に抑えた"
+  },
+  {
+   "id": "edit-lint-audio-keyframe-units",
+   "severity": "low",
+   "what": "edit-lint の legacy 側 audio.bgm 検査（projectLegacyEdit）は v2 の keyframes をフレームのまま秒の尺と比べ、『keyframe t 879s exceeds effective duration 37.6s』の warning を 6 件出す（projectLegacyAudioView は秒に直しており書き出しとプレビューは正しい）",
+   "effect": "お手本の Lint 件数が 6 増える"
+  },
+  {
+   "id": "gpu-export-static-fragments",
+   "severity": "high",
+   "what": "GPU 書き出し経路では demo-* の断片が最終状態の静止画で出る（名札・下線・判子などの入りのアニメーションが無くなる。3.40s の比較画像）。OSR は正しい",
+   "effect": "今はカラオケの fill: smooth が GPU 不適格なので OSR が選ばれて正しく出る。karaoke の fill を外すと GPU が選ばれて全部の演出が止まる"
+  }
+ ]
+}
