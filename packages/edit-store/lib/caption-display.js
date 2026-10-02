@@ -46,14 +46,27 @@ exports.CAPTION_DISPLAY_ALGORITHM = 'a4-ja-two-fragment-v1';
 exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
 /** Place each token's image in the coordinate system of its complete line. */
 function alignCaptionRichFillPhase(root) {
-    const gradient = root.getAttribute('data-rich-fill-type') === 'gradient';
+    const fillType = root.getAttribute('data-rich-fill-type');
+    const gradient = fillType === 'gradient';
+    const pattern = fillType === 'pattern';
+    const patternGradient = pattern && root.getAttribute('data-rich-pattern-bg') === 'gradient';
+    const thunder = root.getAttribute('data-rich-pattern-id') === 'thunder';
     for (const line of root.querySelectorAll('.akari-caption__line,.akari-caption__resolved-line')) {
         const lineRect = line.getBoundingClientRect();
         for (const fill of line.querySelectorAll('.akari-caption__rich-fill')) {
             const rect = fill.getBoundingClientRect();
-            fill.style.setProperty('--caption-rich-fill-position', `${Number((lineRect.left - rect.left).toFixed(3))}px ${Number((lineRect.top - rect.top).toFixed(3))}px`);
+            const x = Number((lineRect.left - rect.left).toFixed(3));
+            const y = Number((lineRect.top - rect.top).toFixed(3));
+            const patternPosition = `${Number((x + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y + (thunder ? 2 : 0)).toFixed(3))}px`;
+            fill.style.setProperty('--caption-rich-fill-position', patternGradient
+                ? `${patternPosition}, ${x}px ${y}px`
+                : pattern ? patternPosition : `${x}px ${y}px`);
             if (gradient)
                 fill.style.setProperty('--caption-rich-fill-size', `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            if (patternGradient) {
+                const tile = globalThis.getComputedStyle(fill).backgroundSize.split(',')[0];
+                fill.style.setProperty('--caption-rich-fill-size', `${tile}, ${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            }
         }
     }
 }
@@ -759,13 +772,18 @@ function validateCaptionRichFill(value, label) {
         if (!isRecord(pattern))
             fail('INVALID_TEXT_STYLE', `${label}.pattern must be an object`);
         rejectStyleUnknown(pattern, new Set(['id', 'scale', 'fg', 'bg']), `${label}.pattern`);
-        if (!['diamond', 'dot', 'stripe', 'gingham', 'skull', 'hazard', 'night'].includes(pattern.id)) {
+        if (!['diamond', 'dot', 'stripe', 'gingham', 'skull', 'hazard', 'night', 'heart', 'thunder'].includes(pattern.id)) {
             fail('INVALID_TEXT_STYLE', `${label}.pattern.id is unknown`);
         }
         if (!finitePositive(pattern.scale))
             fail('INVALID_TEXT_STYLE', `${label}.pattern.scale must be positive`);
         validateHexColor(pattern.fg, `${label}.pattern.fg`);
-        validateHexColor(pattern.bg, `${label}.pattern.bg`);
+        if (isRecord(pattern.bg)) {
+            rejectStyleUnknown(pattern.bg, new Set(['stops', 'angle_deg']), `${label}.pattern.bg`);
+            validateCaptionRichFill({ type: 'gradient', stops: pattern.bg.stops, angle_deg: pattern.bg.angle_deg }, `${label}.pattern.bg`);
+        }
+        else
+            validateHexColor(pattern.bg, `${label}.pattern.bg`);
     }
 }
 function validateCaptionBackground(value, label) {
@@ -1838,11 +1856,37 @@ const RICH_PATTERN_SHAPES = {
     gingham: { size: 22, viewBox: 22, shape: '<path d="M0 0h9v22H0zM0 0h22v9H0z" fill="FG" opacity=".55"/>' },
     skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
     hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
-    night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' }
+    night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' },
+    // Geometry, intrinsic SVG size, and opacity follow the source fragment data URIs.
+    heart: { size: 14, viewBox: 24, shape: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="FG" fill-opacity="0.6"/>' },
+    thunder: { size: 30, viewBox: 24, shape: '<path d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="FG" fill-opacity="0.95"/>' }
 };
-function richPatternImage(pattern) {
+// Exact encoded SVGs from telop-pop-heart / telop-pop-thunder fragment.html.
+// Only the encoded fill color is substituted; geometry and fill-opacity stay fixed.
+const RICH_SOURCE_PATTERN_URIS = {
+    heart: {
+        uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"%3E%3Cpath d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="%23e8a0f8" fill-opacity="0.6"/%3E%3C/svg%3E',
+        sourceColor: '%23e8a0f8'
+    },
+    thunder: {
+        uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30"%3E%3Cpath d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="%23fff26a" fill-opacity="0.95"/%3E%3C/svg%3E',
+        sourceColor: '%23fff26a'
+    }
+};
+function richPatternImage(pattern, layered) {
+    const source = RICH_SOURCE_PATTERN_URIS[pattern.id];
+    if (source) {
+        const uri = source.uri.replace(source.sourceColor, encodeURIComponent(pattern.fg));
+        if (layered)
+            return `url('${uri}')`;
+        const svg = decodeURIComponent(uri.slice('data:image/svg+xml,'.length))
+            .replace('>', `><rect width="100%" height="100%" fill="${pattern.bg}"/>`);
+        return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    }
     const template = RICH_PATTERN_SHAPES[pattern.id];
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}"><rect width="100%" height="100%" fill="${pattern.bg}"/>${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, pattern.bg)}</svg>`;
+    const rect = layered ? '' : `<rect width="100%" height="100%" fill="${pattern.bg}"/>`;
+    const bg = layered ? 'transparent' : pattern.bg;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}">${rect}${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, bg)}</svg>`;
     return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 function resolveCaptionRichFillVars(fill, scale = 1) {
@@ -1855,11 +1899,22 @@ function resolveCaptionRichFillVars(fill, scale = 1) {
             '--caption-rich-fill-size': '100% 100%', '--caption-rich-fill-position': '0 0'
         };
     const pattern = fill.pattern;
+    const bg = pattern.bg;
+    const tile = formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale);
+    const offset = pattern.id === 'thunder' ? '4px 2px' : '0 0';
+    if (typeof bg === 'string')
+        return {
+            '--caption-rich-fill-color': 'transparent',
+            '--caption-rich-fill-image': richPatternImage(pattern, false),
+            '--caption-rich-fill-size': `${tile}px ${tile}px`,
+            '--caption-rich-fill-position': offset
+        };
+    const background = `linear-gradient(${bg.angle_deg}deg, ${bg.stops.map(stop => `${stop.color} ${stop.at}%`).join(', ')})`;
     return {
         '--caption-rich-fill-color': 'transparent',
-        '--caption-rich-fill-image': richPatternImage(pattern),
-        '--caption-rich-fill-size': `${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px ${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px`,
-        '--caption-rich-fill-position': '0 0'
+        '--caption-rich-fill-image': `${richPatternImage(pattern, true)}, ${background}`,
+        '--caption-rich-fill-size': `${tile}px ${tile}px, 100% 100%`,
+        '--caption-rich-fill-position': `${offset}, 0 0`
     };
 }
 function resolveCaptionRichStrokes(style, output) {

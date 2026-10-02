@@ -5844,11 +5844,33 @@ var AkariEditKernel = (() => {
     gingham: { size: 22, viewBox: 22, shape: '<path d="M0 0h9v22H0zM0 0h22v9H0z" fill="FG" opacity=".55"/>' },
     skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
     hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
-    night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' }
+    night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' },
+    // Geometry, intrinsic SVG size, and opacity follow the source fragment data URIs.
+    heart: { size: 14, viewBox: 24, shape: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="FG" fill-opacity="0.6"/>' },
+    thunder: { size: 30, viewBox: 24, shape: '<path d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="FG" fill-opacity="0.95"/>' }
   };
-  function richPatternImage(pattern) {
+  var RICH_SOURCE_PATTERN_URIS = {
+    heart: {
+      uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"%3E%3Cpath d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="%23e8a0f8" fill-opacity="0.6"/%3E%3C/svg%3E',
+      sourceColor: "%23e8a0f8"
+    },
+    thunder: {
+      uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30"%3E%3Cpath d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="%23fff26a" fill-opacity="0.95"/%3E%3C/svg%3E',
+      sourceColor: "%23fff26a"
+    }
+  };
+  function richPatternImage(pattern, layered) {
+    const source = RICH_SOURCE_PATTERN_URIS[pattern.id];
+    if (source) {
+      const uri = source.uri.replace(source.sourceColor, encodeURIComponent(pattern.fg));
+      if (layered) return `url('${uri}')`;
+      const svg3 = decodeURIComponent(uri.slice("data:image/svg+xml,".length)).replace(">", `><rect width="100%" height="100%" fill="${pattern.bg}"/>`);
+      return `url("data:image/svg+xml,${encodeURIComponent(svg3)}")`;
+    }
     const template = RICH_PATTERN_SHAPES[pattern.id];
-    const svg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}"><rect width="100%" height="100%" fill="${pattern.bg}"/>${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, pattern.bg)}</svg>`;
+    const rect = layered ? "" : `<rect width="100%" height="100%" fill="${pattern.bg}"/>`;
+    const bg = layered ? "transparent" : pattern.bg;
+    const svg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}">${rect}${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, bg)}</svg>`;
     return `url("data:image/svg+xml,${encodeURIComponent(svg2)}")`;
   }
   function resolveCaptionRichFillVars(fill, scale = 1) {
@@ -5860,11 +5882,21 @@ var AkariEditKernel = (() => {
       "--caption-rich-fill-position": "0 0"
     };
     const pattern = fill.pattern;
+    const bg = pattern.bg;
+    const tile = formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale);
+    const offset = pattern.id === "thunder" ? "4px 2px" : "0 0";
+    if (typeof bg === "string") return {
+      "--caption-rich-fill-color": "transparent",
+      "--caption-rich-fill-image": richPatternImage(pattern, false),
+      "--caption-rich-fill-size": `${tile}px ${tile}px`,
+      "--caption-rich-fill-position": offset
+    };
+    const background = `linear-gradient(${bg.angle_deg}deg, ${bg.stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ")})`;
     return {
       "--caption-rich-fill-color": "transparent",
-      "--caption-rich-fill-image": richPatternImage(pattern),
-      "--caption-rich-fill-size": `${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px ${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px`,
-      "--caption-rich-fill-position": "0 0"
+      "--caption-rich-fill-image": `${richPatternImage(pattern, true)}, ${background}`,
+      "--caption-rich-fill-size": `${tile}px ${tile}px, 100% 100%`,
+      "--caption-rich-fill-position": `${offset}, 0 0`
     };
   }
   function resolveCaptionLineStyleVarsAtScale(style, scale) {
