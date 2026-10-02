@@ -1,0 +1,20 @@
+{
+  "id": "neon",
+  "category": "textstyle",
+  "title": "衝突確認用ネオン",
+  "description": "組み込み id との衝突確認に使うテスト素材。",
+  "when_to_use": "プリセット衝突のテストに使用する。",
+  "tags": ["test"],
+  "knobs": [],
+  "ai_usage": "テストにのみ使用する。",
+  "requires": [],
+  "provenance": { "origin": "B-3 テスト fixture", "generator": null },
+  "author": "AKARI Video",
+  "license": {
+    "spdx": "LicenseRef-AKARI-Assets-v0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": 1980
+}

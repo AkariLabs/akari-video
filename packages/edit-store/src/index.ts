@@ -7,6 +7,7 @@ export * from './edit-store';
 export * from './caption-store';
 export * from './caption-sample-text';
 export * from './caption-style-preset';
+export * from './textstyle-catalog-merge';
 export * from './generated/textstyle-catalog';
 export * from './caption-words-rederive';
 export * from './caption-window';

@@ -1,0 +1,26 @@
+{
+  "format": "akari-textstyle",
+  "version": "1.0",
+  "id": "library-gold-sample",
+  "name": "ライブラリ金文字",
+  "category": "metallic",
+  "sample_text": "あア12",
+  "style": {
+    "size_px": 72,
+    "reference_height_px": 1080,
+    "weight": 800,
+    "strokes": [
+      { "color": "#382400", "width_px": 9, "offset_x": 2, "offset_y": 3 },
+      { "color": "#f3d36d", "width_px": 4 }
+    ],
+    "fill": {
+      "type": "gradient",
+      "angle_deg": 180,
+      "stops": [
+        { "at": 0, "color": "#8e681d" },
+        { "at": 50, "color": "#fff3c4" },
+        { "at": 100, "color": "#9c7020" }
+      ]
+    }
+  }
+}
