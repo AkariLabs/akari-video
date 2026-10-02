@@ -31,7 +31,7 @@ test('A/B event, engine projection and DOM bypass are connected', () => {
   assert.match(source, /refreshAdjustBypass\(\)[\s\S]+queueEngineSummaryUpdate\(current => current, false\)/u);
   assert.match(source, /computeAdjustCssVisualFn\(adjustOfItem\(item\)/u);
   assert.match(source, /const adjust = adjustOfItem\(segment\)/u);
-  const handler = source.slice(source.indexOf("if (message && message.type === 'akari-preview-adjust-bypass'"));
+  const handler = sliceBetween("if (message && message.type === 'akari-preview-adjust-bypass'", "if (message && message.type === 'akari-preview-live-transform'");
   assert.match(handler, /setAdjustBaseFilter\(entry.video, entry.spec\)/u);
   assert.match(handler, /setAdjustBaseFilter\(entry.element, entry.spec\)/u);
 });
@@ -57,7 +57,7 @@ test('A/B widget state seeds both webview scripts across setHTML and edit change
   assert.ok(messageId);
   const resolveWebviewId = new Function('summary', 'target', messageId[0] + '\nreturn id;');
   assert.equal(resolveWebviewId(widget.akariPreviewSummary, { kind: 'cut', index: 1 }), 'cut-b');
-  const sessionBlock = source.slice(source.indexOf('model.session = {'));
+  const sessionBlock = sliceBetween('model.session = {', 'if (model.editUri)');
   const sessionValue = sessionBlock.match(/adjustBypassIds: (\[\.\.\.\(widget.akariPreviewAdjustBypassIds \?\? \[\]\)\])/u);
   assert.ok(sessionValue);
   const seedSession = new Function('widget', 'return ' + sessionValue[1]);

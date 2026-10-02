@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -12,10 +13,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const widget = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
-const preview = readFileSync(
-    join(here, '..', '..', 'akari-preview', 'src', 'browser', 'akari-preview-open-handler.ts'),
-    'utf8'
-);
+const preview = readHandlerSource();
 const audioDialog = readFileSync(
     join(here, '..', 'src', 'browser', 'akari-audio-keyframe-dialog.ts'),
     'utf8'

@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -6,10 +7,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const compiled = readFileSync(
-    join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const compiled = readHandlerCompiled();
 
 function extractTemplate(methodName) {
     const methodAt = compiled.lastIndexOf(`${methodName}()`);

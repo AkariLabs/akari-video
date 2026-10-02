@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
-import { readHandlerSource } from './helpers/handler-source.mjs';
+import { readHandlerSource, readHandlerCompiled } from './helpers/handler-source.mjs';
 
 const compiledUrl = new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url);
-const compiled = readFileSync(compiledUrl, 'utf8');
+const compiled = readHandlerCompiled();
 const require = createRequire(compiledUrl);
 const handlerSource = readHandlerSource();
 

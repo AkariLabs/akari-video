@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../../apps/shell/extensions/akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -109,7 +110,7 @@ test('gradient filter grows outlines in logarithmic steps and keeps outer stroke
 test('render-cut, shell, Web UI, and GPU input share gradient CSS contract', () => {
   const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
   const render = read('../../render-cut/src/captions.mjs');
-  const shell = read('../../../apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts');
+  const shell = readHandlerSource();
   const web = read('../../preview-server/public/app.js');
   const gpu = read('../../gpu-export/src/page-runtime.js');
   for (const css of [render, shell, web]) {

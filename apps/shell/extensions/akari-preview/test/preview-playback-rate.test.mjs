@@ -13,7 +13,7 @@ import {
     PREVIEW_RATE_PRESETS,
     wallClockOutputTime
 } from '../lib/common/preview-playback-rate.js';
-import { readHandlerSource } from './helpers/handler-source.mjs';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const handlerSource = readHandlerSource();
@@ -83,7 +83,7 @@ test('p5 rate UI は zoom の直前にあり、契約どおりの 7 プリセッ
     const start = handlerSource.indexOf('<div class="transport-right">');
     const end = handlerSource.indexOf('<script>window.__akariPreview', start);
     assert.ok(start >= 0 && end > start, 'transport-right HTML が見つからない');
-    const transport = handlerSource.slice(start, end);
+    const transport = sliceBetween('<div class="transport-right">', '<script>window.__akariPreview', { source: handlerSource, from: start });
     const ids = ['pen-toggle', 'rate-toggle', 'zoom-toggle', 'fullscreen-toggle'];
     const positions = ids.map(id => transport.indexOf(`id="${id}"`));
     assert.ok(positions.every(position => position >= 0));

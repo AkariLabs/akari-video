@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../../apps/shell/extensions/akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -67,7 +68,9 @@ test('非 JSON 消費者は正準表の import を使い手書き enum を持た
   for (const [relativePath, expected] of consumers) {
     const source = relativePath === 'packages/edit-lint/src (concatenated)'
       ? readLintSourceSync()
-      : readFileSync(join(repoRoot, relativePath), 'utf8');
+      : relativePath === 'apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts'
+        ? readHandlerSource()
+        : readFileSync(join(repoRoot, relativePath), 'utf8');
     assert.match(source, expected, relativePath);
   }
 });

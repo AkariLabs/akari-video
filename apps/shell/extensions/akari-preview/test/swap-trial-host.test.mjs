@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,7 +9,7 @@ import * as refresh from '../lib/common/preview-refresh-state.js';
 const previousStorage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
 test.before(()=>Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=> '1'}}));
 test.after(()=>{if(previousStorage)Object.defineProperty(globalThis,'localStorage',previousStorage);else delete globalThis.localStorage;});
-const source=readFileSync(new URL('../lib/browser/akari-preview-open-handler.js',import.meta.url),'utf8');
+const source=readHandlerCompiled();
 const method=name=>{const start=source.search(new RegExp('    (async )?'+name+'\\('));assert.notEqual(start,-1);const rest=source.slice(start);return rest.slice(0,rest.indexOf('\n    }')+6);};
 const forwarded=[];
 class CustomEvent { constructor(type,options){this.type=type;this.detail=options.detail;} }

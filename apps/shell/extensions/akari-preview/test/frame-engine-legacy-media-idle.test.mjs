@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -6,10 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const extensionRoot = resolve(here, '..');
-const compiledHandler = readFileSync(
-    join(extensionRoot, 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const compiledHandler = readHandlerCompiled();
 
 function section(start, end) {
     const startAt = compiledHandler.indexOf(start);

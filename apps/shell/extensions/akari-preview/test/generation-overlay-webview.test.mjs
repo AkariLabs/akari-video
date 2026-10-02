@@ -9,7 +9,7 @@ const source = readHandlerSource();
 const ast = ts.createSourceFile('akari-preview-open-handler.ts', source, ts.ScriptTarget.Latest, true);
 const methods = new Map();
 function visit(node) {
-    if (ts.isMethodDeclaration(node)) methods.set(node.name.getText(ast), node.getText(ast));
+    if ((ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) && node.name) methods.set(node.name.getText(ast), node.getText(ast));
     ts.forEachChild(node, visit);
 }
 visit(ast);

@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -11,7 +12,7 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readHandlerSource();
-const compiled = readFileSync(join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'), 'utf8');
+const compiled = readHandlerCompiled();
 const { TRANSITION_BY_ID, TRANSITION_VOCABULARY } = createRequire(import.meta.url)(
   '../../../../../packages/edit-store/lib/index.js'
 );

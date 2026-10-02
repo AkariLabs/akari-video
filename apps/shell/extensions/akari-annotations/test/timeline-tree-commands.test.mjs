@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -12,9 +13,7 @@ const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widg
 const interactionSource = readFileSync(
   new URL('../../../../../packages/overlay-runtime/src/interaction.js', import.meta.url), 'utf8'
 );
-const previewSource = readFileSync(
-  new URL('../src/../../akari-preview/src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8'
-);
+const previewSource = readHandlerSource();
 
 const item = (id, at, duration) => ({
   id, at, duration, source: { kind: 'filter', filter: { type: 'invert' } }

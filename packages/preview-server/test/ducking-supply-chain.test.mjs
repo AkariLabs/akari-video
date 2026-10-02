@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../../apps/shell/extensions/akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -12,7 +13,7 @@ test('shell と Web UI は edit-store の同一 ducking kernel だけを使う',
   const [kernel, webConsumer, shellConsumer, bundle] = await Promise.all([
     read(join(repositoryRoot, 'packages/edit-store/src/ducking.ts')),
     read(join(packageRoot, 'public/app.js')),
-    read(join(repositoryRoot, 'apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts')),
+    readHandlerSource(),
     read(join(packageRoot, 'public/edit-kernel.bundle.js')),
   ]);
 

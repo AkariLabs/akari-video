@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { readHandlerSource } from './helpers/handler-source.mjs';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 const handlerSource = readHandlerSource();
 const protocolSource = await readFile(new URL('../src/common/akari-preview-protocol.ts', import.meta.url), 'utf8');
-const audioSource = handlerSource.slice(handlerSource.indexOf('    protected async resolveAudioAssets('));
+const audioSource = sliceBetween('    protected async resolveAudioAssets(', '    protected async readGltfHeaderBytes(');
 const resolveSource = audioSource.slice(audioSource.indexOf('        const resolveSource = async ('), audioSource.indexOf('        const gainDb ='));
 
 // main 合流（2026-09-06）: クリップ FX の配線は、非ブロッキングの sidecar 要求

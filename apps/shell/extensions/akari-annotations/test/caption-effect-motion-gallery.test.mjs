@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -143,7 +144,7 @@ test('アニメーターのひな形は必要な欄だけを案内する', () =>
 
 test('カードは可視範囲だけループし、プレビューはタイプライターにキャレットを付ける', () => {
     const panel = readFileSync(new URL('../src/browser/inspector/caption-motion-panel.ts', import.meta.url), 'utf8');
-    const preview = readFileSync(new URL('../../akari-preview/src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const preview = readHandlerSource();
     assert.match(panel, /new IntersectionObserver/u);
     assert.match(panel, /animationPlayState = entry\.isIntersecting \? 'running' : 'paused'/u);
     assert.match(panel, /item\.slot === 'out' \? 'reverse'/u);

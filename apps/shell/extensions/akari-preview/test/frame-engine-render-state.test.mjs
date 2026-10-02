@@ -11,7 +11,7 @@ function extractTemplate(methodName) {
     const ast = ts.createSourceFile('handler.ts', source, ts.ScriptTarget.Latest, true);
     let template;
     function visit(node) {
-        if (ts.isMethodDeclaration(node) && node.name.getText(ast) === methodName) {
+        if ((ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) && node.name?.getText(ast) === methodName) {
             template = node.body.statements.find(ts.isReturnStatement)?.expression;
         } else {
             ts.forEachChild(node, visit);

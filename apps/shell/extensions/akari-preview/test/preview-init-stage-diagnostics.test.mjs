@@ -400,5 +400,5 @@ test('prepareHtml はページへ Webview ID と用途と配信オリジンを�
     assert.match(html, /webviewId: pageDiagnostics\.webviewId/u);
     assert.match(html, /webviewRole: pageDiagnostics\.webviewRole/u);
     assert.match(html, /assetOrigin: pageDiagnostics\.assetOrigin/u);
-    assert.match(html, /this\.previewDiagnosticsTailScript\(\)/u);
+    assert.match(html, /previewDiagnosticsTailScript\(\)/u);
 });

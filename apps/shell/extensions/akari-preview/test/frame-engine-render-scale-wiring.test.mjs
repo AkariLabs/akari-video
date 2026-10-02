@@ -1,12 +1,15 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan } from '../lib/common/frame-engine-render-scale.js';
 
-const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
+const compiled = readHandlerCompiled();
 const frontend = readFileSync(new URL('../lib/browser/akari-preview-frontend-module.js', import.meta.url), 'utf8');
-const bootstrap = compiled.slice(compiled.lastIndexOf('frameEngineBootstrapScript()'));
+const bootstrapStart = compiled.lastIndexOf('function frameEngineBootstrapScript()');
+assert.notEqual(bootstrapStart, -1);
+const bootstrap = compiled.slice(bootstrapStart);
 
 test('host gives the environment priority, parses invalid values and passes the mode to initial state', () => {
   for (const token of ['frameEngineRenderScaleMode', 'AKARI_FRAME_ENGINE_RENDER_SCALE', 'akari.preview.renderScale']) {

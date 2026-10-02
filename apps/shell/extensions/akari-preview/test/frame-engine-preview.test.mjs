@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,10 +13,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const extensionRoot = resolve(here, '..');
 const repoRoot = resolve(extensionRoot, '../../../..');
-const compiledHandler = readFileSync(
-    join(extensionRoot, 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const compiledHandler = readHandlerCompiled();
 const compiledFrontendModule = readFileSync(
     join(extensionRoot, 'lib', 'browser', 'akari-preview-frontend-module.js'),
     'utf8'
@@ -78,7 +76,7 @@ test('フラグ off の注入は空文字で既存 HTML 末尾を変えない', 
     );
     assert.match(
         compiledHandler,
-        /\$\{frameEngineScripts\}<script>\$\{this\.previewDiagnosticsTailScript\(\)\}<\/script>\s*<\/body>/
+        /\$\{frameEngineScripts\}<script>\$\{\(0, preview_script_diagnostics_1\.previewDiagnosticsTailScript\)\(\)\}<\/script>\s*<\/body>/
     );
 });
 
