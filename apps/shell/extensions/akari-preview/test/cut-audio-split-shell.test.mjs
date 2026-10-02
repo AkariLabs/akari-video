@@ -11,7 +11,7 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 const source = readHandlerSource();
 // Use the same checked-in bundle as the shell; package dist may belong to an older build.
 const createPreviewAudioSupply = vm.runInNewContext(readFileSync(
-    new URL('../generated/frame-engine.js', import.meta.url), 'utf8') + '\nAkariFrameEngine.createPreviewAudioSupply;', {
+    new URL('../../../../../packages/frame-engine/generated/frame-engine.iife.js', import.meta.url), 'utf8') + '\nAkariFrameEngine.createPreviewAudioSupply;', {
     console, performance, setTimeout, clearTimeout, setInterval, clearInterval, AbortController,
     URL, Headers, TextDecoder
 });

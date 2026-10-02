@@ -19,7 +19,7 @@ const compiledFrontendModule = readFileSync(
     'utf8'
 );
 const sourceHandler = readHandlerSource();
-const generatedBundle = join(extensionRoot, 'generated', 'frame-engine.js');
+const generatedBundle = join(repoRoot, 'packages', 'frame-engine', 'generated', 'frame-engine.iife.js');
 const generatedWorkletBundle = join(extensionRoot, 'generated', 'preview-audio-worklet.js');
 
 // webview 内で実行する文字列は tsc の構文検査外なので、compiled lib のテンプレートを
@@ -122,7 +122,8 @@ test('frame-engine runtime は crop を含むライブ値を再構築なしで�
 });
 
 test('追跡済み frame-engine IIFE は必要な engine 部品を含む', () => {
-    assert.ok(existsSync(generatedBundle), 'generated/frame-engine.js が存在しない');
+    assert.ok(existsSync(generatedBundle), 'packages/frame-engine/generated/frame-engine.iife.js が存在しない');
+    assert.equal(existsSync(join(extensionRoot, 'generated', 'frame-engine.js')), false);
     const bundle = readFileSync(generatedBundle, 'utf8');
     assert.match(bundle, /^\/\/ このファイルは生成物です。[^\n]+\n(?:"use strict";\n)?var AkariFrameEngine = \(\(\) => \{/);
     assert.match(bundle, /evaluationPlanFromResolvedTimeline/);
@@ -224,7 +225,7 @@ test('配布スクリプトが frame-engine bundle を asar 内へ登録する',
         join(repoRoot, 'apps', 'shell', 'resources', 'scripts', 'verify-asar-contents.mjs'),
         'utf8'
     );
-    assert.match(copyScript, /extensions', 'akari-preview', 'generated', 'frame-engine\.js'/);
+    assert.match(copyScript, /'packages', 'frame-engine', 'generated', 'frame-engine\.iife\.js'/);
     assert.match(copyScript, /overlayRuntimeDestination, 'frame-engine\.js'/);
     assert.match(verifyScript, /'\/lib\/overlay-runtime\/frame-engine\.js'/);
 });

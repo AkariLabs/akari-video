@@ -47,12 +47,6 @@ const banner = '// このファイルは生成物です。正本は packages/fra
 // preview-audio-worklet.js は AudioWorklet 専用エントリなので global-name を持たない。
 const bundles = [
   {
-    entry: path.join(repoRoot, 'packages', 'frame-engine', 'src', 'index.ts'),
-    output: path.join(outputDirectory, 'frame-engine.js'),
-    globalName: 'AkariFrameEngine',
-    label: 'frame-engine bundle'
-  },
-  {
     entry: path.join(repoRoot, 'packages', 'frame-engine', 'src', 'audio', 'pitch-shift-worklet.ts'),
     output: path.join(outputDirectory, 'preview-audio-worklet.js'),
     label: 'preview-audio-worklet bundle'

@@ -42,7 +42,7 @@ await copyFile(
   path.join(overlayRuntimeDestination, 'webview-kernel.js')
 );
 await copyFile(
-  path.join(shellRoot, 'extensions', 'akari-preview', 'generated', 'frame-engine.js'),
+  path.join(repoRoot, 'packages', 'frame-engine', 'generated', 'frame-engine.iife.js'),
   path.join(overlayRuntimeDestination, 'frame-engine.js')
 );
 await copyFile(

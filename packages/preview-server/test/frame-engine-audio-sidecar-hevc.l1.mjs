@@ -75,7 +75,7 @@ test('10bit HEVC 200 MB 原本だけでも speech は FLAC sidecar から全数 
     await page.setContent('<button id="start">start</button>');
     await page.addScriptTag({
       path: path.resolve(import.meta.dirname,
-        '../../../apps/shell/extensions/akari-preview/generated/frame-engine.js'),
+        '../../frame-engine/generated/frame-engine.iife.js'),
     });
     await page.evaluate(meta => {
       document.querySelector('#start').addEventListener('click', async () => {
