@@ -148,7 +148,7 @@ test('all 36 v0 presets keep their HTML bytes and OSR pixels at 1080x1920', { ti
   } finally { await browser.close(); }
 });
 
-test('six v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1080x1920', { timeout: 360_000 }, async t => {
+test('eight v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1080x1920', { timeout: 360_000 }, async t => {
   let browser;
   try { browser = await chromium.launch({ headless: true }); }
   catch { t.skip('Chromium is unavailable in this sandbox'); return; }
@@ -220,7 +220,7 @@ test('v1.1 pattern schema, validation, two-layer background, and alpha match the
   assert.ok(pattern.id.enum.includes('thunder'));
   assert.equal(pattern.bg.oneOf.length, 2);
   const ids = ['diamond', 'dot', 'stripe', 'gingham', 'skull', 'hazard', 'night', 'heart', 'thunder'];
-  for (const id of ids) {
+  for (const id of ids.filter(id => !['diamond', 'dot', 'gingham'].includes(id))) {
     const fill = { type: 'pattern', pattern: { id, scale: 1, fg: '#ffffff80', bg: '#123456' } };
     assert.doesNotThrow(() => validateCaptionTextStyle({ fill }));
     const vars = resolveCaptionRichFillVars(fill);
@@ -245,7 +245,6 @@ test('v1.1 pattern schema, validation, two-layer background, and alpha match the
     '--caption-rich-fill-position': '0 0',
   }, 'v1 skull variables must retain their a166bfd67 bytes');
   for (const [id, filename] of [
-    ['diamond', 'pattern-diamond-bg-gradient.json'],
     ['heart', 'telop-pop-heart.json'],
     ['thunder', 'telop-pop-thunder.json'],
   ]) {
@@ -270,6 +269,31 @@ test('v1.1 pattern schema, validation, two-layer background, and alpha match the
       ] }
     } } }), /stops/u);
   }
+  const diamond = JSON.parse(readFileSync(join(fixtures, 'pattern-diamond-bg-gradient.json'), 'utf8'));
+  const diamondVars = resolveCaptionRichFillVars(diamond.style.fill);
+  assert.match(diamondVars['--caption-rich-fill-image'], /^repeating-linear-gradient\(45deg,/u);
+  assert.match(diamondVars['--caption-rich-fill-image'], /repeating-linear-gradient\(-45deg,/u);
+  assert.match(diamondVars['--caption-rich-fill-image'], /transparent 2px 13px\)/u);
+  const diamondSvg = decodeURIComponent(diamondVars['--caption-rich-fill-image'].match(/url\("data:image\/svg\+xml,(.*?)"\)/u)?.[1] ?? '');
+  assert.match(diamondSvg, /width="46" height="46" viewBox="0 0 24 24"/u);
+  assert.match(diamondSvg, /fill="#ffffff80" fill-opacity="0\.5"/u);
+  assert.doesNotMatch(diamondSvg, /<rect/u);
+  assert.equal(diamondVars['--caption-rich-fill-size'], '100% 100%, 100% 100%, 26px 26px, 100% 100%');
+  assert.match(overlay(diamond.style, diamond.text).html, /data-rich-pattern-bg="gradient"/u);
+  const css = (id, scale = 1) => resolveCaptionRichFillVars({ type: 'pattern', pattern: {
+    id, scale, fg: '#ffffff80', bg: '#123456'
+  } });
+  const dot = css('dot');
+  assert.match(dot['--caption-rich-fill-image'], /color-mix\(in srgb, #ffffff80 50%, transparent\) 2px, transparent 3px/u);
+  assert.match(dot['--caption-rich-fill-image'], /color-mix\(in srgb, #ffffff80 35%, transparent\) 1\.6px, transparent 2\.6px/u);
+  assert.equal(dot['--caption-rich-fill-size'], '16px 16px, 16px 16px, 100% 100%');
+  assert.equal(dot['--caption-rich-fill-position'], '0 0, 8px 8px, 0 0');
+  const gingham = css('gingham');
+  assert.match(gingham['--caption-rich-fill-image'], /^repeating-linear-gradient\(90deg,/u);
+  assert.match(gingham['--caption-rich-fill-image'], /repeating-linear-gradient\(0deg,/u);
+  assert.equal((gingham['--caption-rich-fill-image'].match(/#ffffff80 55%/gu) ?? []).length, 2);
+  assert.equal(gingham['--caption-rich-fill-size'], '100% 100%, 100% 100%, 100% 100%');
+  assert.equal(css('dot', 2)['--caption-rich-fill-position'], '0 0, 16px 16px, 0 0');
   assert.doesNotMatch(overlay({ fill: { type: 'solid', color: '#ffffff' } }).html, /data-rich-pattern-id=/u);
   assert.doesNotMatch(overlay({ fill: { type: 'gradient', angle_deg: 180, stops: [
     { at: 0, color: '#ffffff' }, { at: 100, color: '#000000' },
@@ -277,7 +301,7 @@ test('v1.1 pattern schema, validation, two-layer background, and alpha match the
 });
 
 test('one-layer pattern phase does not replace its tile size', () => {
-  for (const id of ['diamond', 'thunder']) {
+  for (const id of ['thunder']) {
     const assigned = {};
     const fill = {
       getBoundingClientRect: () => ({ left: 12, top: 22, width: 30, height: 20 }),
@@ -294,6 +318,37 @@ test('one-layer pattern phase does not replace its tile size', () => {
     assert.equal(assigned['--caption-rich-fill-position'], id === 'thunder' ? '2px 0px' : '-2px -2px');
     assert.equal(Object.hasOwn(assigned, '--caption-rich-fill-size'), false);
   }
+});
+
+test('fragment pattern layers keep the line origin and the scaled dot offset', () => {
+  const original = globalThis.getComputedStyle;
+  try {
+    for (const id of ['diamond', 'dot', 'gingham']) {
+      const vars = resolveCaptionRichFillVars({ type: 'pattern', pattern: {
+        id, scale: 2, fg: '#ffffff', bg: '#123456'
+      } });
+      globalThis.getComputedStyle = () => ({ backgroundSize: vars['--caption-rich-fill-size'] });
+      const assigned = {};
+      const fill = {
+        getBoundingClientRect: () => ({ left: 12, top: 22, width: 30, height: 20 }),
+        style: { setProperty: (name, value) => { assigned[name] = value; } },
+      };
+      const line = {
+        getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 25 }),
+        querySelectorAll: () => [fill],
+      };
+      alignCaptionRichFillPhase({
+        getAttribute: name => ({ 'data-rich-fill-type': 'pattern', 'data-rich-pattern-id': id })[name] ?? null,
+        querySelectorAll: () => [line],
+      });
+      const expectedPosition = id === 'diamond' ? Array(4).fill('-2px -2px').join(', ')
+        : id === 'dot' ? '-2px -2px, 14px 14px, -2px -2px'
+          : Array(3).fill('-2px -2px').join(', ');
+      assert.equal(assigned['--caption-rich-fill-position'], expectedPosition, id);
+      assert.equal(assigned['--caption-rich-fill-size'], vars['--caption-rich-fill-size']
+        .replaceAll('100% 100%', '100px 25px'), id);
+    }
+  } finally { globalThis.getComputedStyle = original; }
 });
 
 test('karaoke, run, and emphasis may share one rich cue without cloning source text into run projection', () => {

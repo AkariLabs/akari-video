@@ -27,7 +27,9 @@ export function alignCaptionRichFillPhase(root: {
     const gradient = fillType === 'gradient';
     const pattern = fillType === 'pattern';
     const patternGradient = pattern && root.getAttribute('data-rich-pattern-bg') === 'gradient';
-    const thunder = root.getAttribute('data-rich-pattern-id') === 'thunder';
+    const patternId = root.getAttribute('data-rich-pattern-id');
+    const thunder = patternId === 'thunder';
+    const fragmentPattern = pattern && (patternId === 'diamond' || patternId === 'dot' || patternId === 'gingham');
     for (const line of root.querySelectorAll('.akari-caption__line,.akari-caption__resolved-line')) {
         const lineRect = line.getBoundingClientRect();
         for (const fill of line.querySelectorAll('.akari-caption__rich-fill')) {
@@ -35,6 +37,18 @@ export function alignCaptionRichFillPhase(root: {
             const x = Number((lineRect.left - rect.left).toFixed(3));
             const y = Number((lineRect.top - rect.top).toFixed(3));
             const patternPosition = `${Number((x + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y + (thunder ? 2 : 0)).toFixed(3))}px`;
+            if (fragmentPattern) {
+                const position = `${x}px ${y}px`;
+                const sizes = (globalThis as any).getComputedStyle(fill).backgroundSize.split(',').map((part: string) => part.trim());
+                const halfTile = Number.parseFloat(sizes[0]) / 2;
+                const positions = patternId === 'diamond' ? [position, position, position, position]
+                    : patternId === 'dot' ? [position, `${Number((x + halfTile).toFixed(3))}px ${Number((y + halfTile).toFixed(3))}px`, position]
+                        : [position, position, position];
+                fill.style.setProperty('--caption-rich-fill-position', positions.join(', '));
+                const lineSize = `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`;
+                fill.style.setProperty('--caption-rich-fill-size', sizes.map((size: string) => size === '100% 100%' ? lineSize : size).join(', '));
+                continue;
+            }
             fill.style.setProperty('--caption-rich-fill-position', patternGradient
                 ? `${patternPosition}, ${x}px ${y}px`
                 : pattern ? patternPosition : `${x}px ${y}px`);
@@ -1962,11 +1976,11 @@ export function readMetallicHue(stops: unknown): { hue: string; variant: 'gold' 
         ? { hue, variant } : null;
 }
 
-const RICH_PATTERN_SHAPES: Record<string, { size: number; viewBox: number; shape: string }> = {
-    diamond: { size: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity=".5"/><path d="M-12 24 24-12M0 36 36 0" stroke="FG" stroke-width="2" opacity=".32"/>' },
-    dot: { size: 16, viewBox: 16, shape: '<circle cx="3" cy="3" r="2.5" fill="FG" opacity=".5"/><circle cx="11" cy="11" r="2" fill="FG" opacity=".35"/>' },
+const RICH_PATTERN_SHAPES: Record<string, { size: number; viewBox: number; shape: string; svgSize?: number }> = {
+    diamond: { size: 26, svgSize: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity="0.5"/>' },
+    dot: { size: 16, viewBox: 16, shape: '' },
     stripe: { size: 14, viewBox: 14, shape: '<path d="M0 0h14v7H0z" fill="FG"/>' },
-    gingham: { size: 22, viewBox: 22, shape: '<path d="M0 0h9v22H0zM0 0h22v9H0z" fill="FG" opacity=".55"/>' },
+    gingham: { size: 22, viewBox: 22, shape: '' },
     skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
     hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
     night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' },
@@ -2000,7 +2014,7 @@ function richPatternImage(pattern: UnknownRecord, layered: boolean): string {
     const template = RICH_PATTERN_SHAPES[pattern.id as string];
     const rect = layered ? '' : `<rect width="100%" height="100%" fill="${pattern.bg}"/>`;
     const bg = layered ? 'transparent' : pattern.bg as string;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}">${rect}${template.shape.replace(/FG/g, pattern.fg as string).replace(/BG/g, bg)}</svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.svgSize ?? template.size}" height="${template.svgSize ?? template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}">${rect}${template.shape.replace(/FG/g, pattern.fg as string).replace(/BG/g, bg)}</svg>`;
     return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
@@ -2015,6 +2029,41 @@ export function resolveCaptionRichFillVars(fill: UnknownRecord, scale = 1): Reco
     const bg = pattern.bg as string | { stops: Array<{ at: number; color: string }>; angle_deg: number };
     const tile = formatCssNumber(RICH_PATTERN_SHAPES[pattern.id as string].size * (pattern.scale as number) * scale);
     const offset = pattern.id === 'thunder' ? '4px 2px' : '0 0';
+    if (pattern.id === 'diamond' || pattern.id === 'dot' || pattern.id === 'gingham') {
+        const factor = (pattern.scale as number) * scale;
+        const px = (value: number): string => `${formatCssNumber(value * factor)}px`;
+        const fg = pattern.fg as string;
+        const tint = (percent: number): string => `color-mix(in srgb, ${fg} ${percent}%, transparent)`;
+        const ground = typeof bg === 'string' ? `linear-gradient(${bg}, ${bg})`
+            : `linear-gradient(${bg.angle_deg}deg, ${bg.stops.map(stop => `${stop.color} ${stop.at}%`).join(', ')})`;
+        const stripe = (angle: number, width: number, period: number, alpha: number): string =>
+            `repeating-linear-gradient(${angle}deg, ${tint(alpha)} 0 ${px(width)}, transparent ${px(width)} ${px(period)})`;
+        let images: string[];
+        let sizes: string[];
+        let positions: string[];
+        if (pattern.id === 'diamond') {
+            images = [stripe(45, 2, 13, 32), stripe(-45, 2, 13, 32), richPatternImage(pattern, true)];
+            sizes = ['100% 100%', '100% 100%', `${tile}px ${tile}px`];
+            positions = ['0 0', '0 0', '0 0'];
+        } else if (pattern.id === 'dot') {
+            images = [
+                `radial-gradient(circle, ${tint(50)} ${px(2)}, transparent ${px(3)})`,
+                `radial-gradient(circle, ${tint(35)} ${px(1.6)}, transparent ${px(2.6)})`
+            ];
+            sizes = [`${tile}px ${tile}px`, `${tile}px ${tile}px`];
+            positions = ['0 0', `${px(8)} ${px(8)}`];
+        } else {
+            images = [stripe(90, 9, 22, 55), stripe(0, 9, 22, 55)];
+            sizes = ['100% 100%', '100% 100%'];
+            positions = ['0 0', '0 0'];
+        }
+        return {
+            '--caption-rich-fill-color': 'transparent',
+            '--caption-rich-fill-image': [...images, ground].join(', '),
+            '--caption-rich-fill-size': [...sizes, '100% 100%'].join(', '),
+            '--caption-rich-fill-position': [...positions, '0 0'].join(', ')
+        };
+    }
     if (typeof bg === 'string') return {
         '--caption-rich-fill-color': 'transparent',
         '--caption-rich-fill-image': richPatternImage(pattern, false),

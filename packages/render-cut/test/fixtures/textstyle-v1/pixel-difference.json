@@ -22,6 +22,18 @@
       "osr": 0,
       "gpu": 0
     },
+    "telop-pattern-dot": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
+    "telop-pattern-gingham": {
+      "shell": 0,
+      "preview": 0,
+      "osr": 0,
+      "gpu": 0
+    },
     "telop-pattern-skull": {
       "shell": 0,
       "preview": 0,

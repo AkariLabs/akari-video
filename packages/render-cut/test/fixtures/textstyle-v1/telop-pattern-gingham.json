@@ -1,0 +1,15 @@
+{
+  "id": "telop-pattern-gingham",
+  "text": "チェック柄",
+  "style": {
+    "size_px": 72,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#ffffff", "width_px": 2.52 }
+    ],
+    "fill": {
+      "type": "pattern",
+      "pattern": { "id": "gingham", "scale": 1, "fg": "#ffffff", "bg": "#5b9b35" }
+    }
+  }
+}
