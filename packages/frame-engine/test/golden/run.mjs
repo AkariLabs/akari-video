@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 
 const goldenDirectory = dirname(fileURLToPath(import.meta.url));
 const packageDirectory = resolve(goldenDirectory, '../..');
@@ -16,11 +17,15 @@ execFileSync(process.execPath, [resolve(goldenDirectory, 'generate-fixture.mjs')
   stdio: 'inherit'
 });
 
-execFileSync(process.execPath, [resolve(repository, 'node_modules/esbuild/bin/esbuild'),
-  resolve(goldenDirectory, 'renderer.ts'),
-  '--bundle', '--format=iife', '--platform=browser', '--target=chrome122',
-  `--outfile=${resolve(generated, 'renderer.js')}`
-], { cwd: packageDirectory, stdio: 'inherit' });
+await build({
+  absWorkingDir: packageDirectory,
+  entryPoints: [resolve(goldenDirectory, 'renderer.ts')],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'chrome122',
+  outfile: resolve(generated, 'renderer.js'),
+});
 
 const windowsElectron = resolve(repository, 'node_modules/electron/dist/electron.exe');
 const macElectron = resolve(repository, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
