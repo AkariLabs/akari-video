@@ -258,7 +258,7 @@ npm run bundle:frame-engine
 npm run check:frame-engine-drift
 ```
 
-The frame-engine bundle is generated. Do not edit `generated/frame-engine.js` directly.
+The frame-engine bundle is generated at `packages/frame-engine/generated/frame-engine.iife.js`. Do not edit it directly.
 Frame hashing is available only through the isolated verification module and cannot be combined
 with the runtime readback trap. DOM frame verification uses an isolated texture sentinel and
 records the selected settle policy (`raf2-paint-event` or `sync-layout`) in the receipt.

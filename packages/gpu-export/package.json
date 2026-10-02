@@ -8,8 +8,8 @@
     "akari-gpu-export": "bin/akari-gpu-export.mjs"
   },
   "scripts": {
-    "bundle:frame-engine": "node scripts/bundle-frame-engine.mjs",
-    "check:frame-engine-drift": "node scripts/bundle-frame-engine.mjs --check",
+    "bundle:frame-engine": "node ../../scripts/gen-frame-engine-bundles.mjs",
+    "check:frame-engine-drift": "node ../../scripts/gen-frame-engine-bundles.mjs --check",
     "assert-zero-readback": "node scripts/assert-zero-readback.mjs",
     "test": "node --test test/*.test.mjs",
     "ci:required": "npm test && npm run assert-zero-readback"

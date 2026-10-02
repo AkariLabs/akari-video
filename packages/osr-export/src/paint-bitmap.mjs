@@ -113,22 +113,7 @@ export function osrPageSize(width, height) {
   return { width: Number(width), height: Number(height) + 1 };
 }
 
-export function viewportMatches(requested, measured) {
-  return Number(measured?.width) === Number(requested?.width)
-    && Number(measured?.height) === Number(requested?.height)
-    && Number(measured?.devicePixelRatio ?? 1) === 1;
-}
-
-export function deviceEmulationParameters({ width, height }) {
-  return {
-    screenPosition: "desktop",
-    screenSize: { width, height },
-    viewPosition: { x: 0, y: 0 },
-    viewSize: { width, height },
-    deviceScaleFactor: 1,
-    scale: 1,
-  };
-}
+export { deviceEmulationParameters, viewportMatches } from "./viewport.mjs";
 
 export function viewportRecord({ requested, measured, emulated = false, display = null, workArea = null }) {
   return {
