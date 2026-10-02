@@ -19034,6 +19034,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!root) return;
                 root.classList.add('akari-caption--rich');
                 root.dataset.richFillType = style.fill?.type || 'solid';
+                if (style.fill?.type === 'pattern') {
+                    root.dataset.richPatternId = style.fill.pattern.id;
+                    if (typeof style.fill.pattern.bg === 'object') root.dataset.richPatternBg = 'gradient';
+                    else delete root.dataset.richPatternBg;
+                } else {
+                    delete root.dataset.richPatternId;
+                    delete root.dataset.richPatternBg;
+                }
                 const css = document.createElement('style');
                 css.textContent = ${JSON.stringify(CAPTION_RICH_LAYER_CSS)};
                 root.appendChild(css);
