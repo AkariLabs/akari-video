@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { withInspectorDom as withFakeDocument } from './helpers/inspector-dom.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -5,9 +6,7 @@ import test from 'node:test';
 
 import { createKeyframeSeat } from '../lib/browser/inspector/number-field.js';
 
-const inspectorSource = readFileSync(
-    new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8'
-);
+const inspectorSource = readInspectorSource();
 const timelineSource = readFileSync(
     new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
 );

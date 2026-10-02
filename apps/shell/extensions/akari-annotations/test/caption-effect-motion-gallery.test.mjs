@@ -1,4 +1,5 @@
 import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -179,7 +180,7 @@ test('強調の対象語はテーマ色を使う選択可能なチップ', () =>
 });
 
 test('アニメーターの説明は全幅で折り返す', () => {
-    const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const widget = readInspectorSource();
     const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
     assert.match(widget, /name: 'animator-explain', className: 'akari-inspector-animator-explain'/u);
     assert.match(css, /\.akari-inspector-animator-explain \{ display: block; \}/u);

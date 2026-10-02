@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -68,7 +69,7 @@ test('(d) 語彙 9 種を順に追加すると 8 個まで成功し 9 個目を�
 });
 
 // 既存テストと同様、AST から実際のフィールド生成関数を取り出して DOM 非依存で検査する。
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
 const factory = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'ADJUST_SECTIONS');
 assert.ok(factory);

@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
@@ -92,7 +93,7 @@ test('素材の下書きは edit.json が無くても画像の sidecar の next 
   finally { await removeFixture(root, failure); }
 });
 
-const widgetSource = await readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const widgetSource = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = widget.members.find(node => node.name?.getText(ast) === 'confirmAndStartGeneration').getText(ast);

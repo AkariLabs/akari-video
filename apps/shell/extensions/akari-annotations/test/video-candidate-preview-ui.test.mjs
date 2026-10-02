@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,7 +7,7 @@ import ts from 'typescript';
 import { clearVideoPlayer, replaceVideoInEdit, shouldClearVideoCandidatePreview,
   videoCandidatePreviewDetail } from '../lib/browser/inspector/ai-video-candidates-panel.js';
 
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(row => ts.isClassDeclaration(row) && row.name?.text === 'AkariInspectorWidget');
 const methods = ['clearVideoCandidatePreview', 'pickVideoCandidate', 'adoptVideoCandidate']

@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
@@ -21,7 +22,7 @@ const engines = [
   { id: 'fal-qwen3', label: 'Qwen', place: 'cloud', availability: { state: 'available' }, price: { value: 0.2, unit: 'usd_per_1000_chars' } }
 ];
 function harness(methodNames, dependencies) {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
   const klass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
   const methods = methodNames.map(name => {

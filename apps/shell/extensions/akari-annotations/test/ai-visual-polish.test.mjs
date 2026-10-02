@@ -1,3 +1,4 @@
+import { readInspectorSource, readInspectorSourceWithStyle } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -106,8 +107,9 @@ test('素材タブはクリップの appendTabStrip と同じクラスを使う'
   assert.deepEqual(strip.children.map(child => child.className), ['akari-inspector-tab is-active', 'akari-inspector-tab']);
   assert.deepEqual(strip.children.map(child => child.attributes.get('aria-selected')), ['true', 'false']);
   assert.deepEqual(strip.children.map(child => child.attributes.get('data-akari-inspector-ai-tab')), ['generation', 'info']);
-  const clipTabs = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  let clipTabs = readInspectorSource();
   assert.match(clipTabs, /protected appendTabStrip\([\s\S]*strip\.className = 'akari-inspector-tab-strip'[\s\S]*button\.className = 'akari-inspector-tab'[\s\S]*classList\.add\('is-active'\)/u);
   assert.doesNotMatch(root.children.map(child => child.className + child.children.map(item => item.className).join('')).join(''), /akari-inspector-ai-material-tab/u);
+  clipTabs = readInspectorSourceWithStyle();
   assert.doesNotMatch(clipTabs, /\.akari-inspector-ai-material-tabs|button\.akari-inspector-ai-material-tab/u);
 }));

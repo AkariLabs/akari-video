@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -93,7 +94,7 @@ test('彩の生成には呼び出し元の接続先を渡す', async () => {
 });
 
 test('widget: 同じ item の素材が undo / redo で変わると planned と置き先表示を更新する', async () => {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
   const klass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
   const method = name => klass.members.find(node => node.name?.getText(ast) === name).getText(ast);
@@ -148,7 +149,7 @@ test('widget: 同じ item の素材が undo / redo で変わると planned と�
 });
 
 test('widget: 音声選択が残っていても素材表示中は edit.json の変更で描き直さない', () => {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
   const klass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
   const method = name => klass.members.find(node => node.name?.getText(ast) === name).getText(ast);

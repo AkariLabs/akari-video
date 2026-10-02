@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -14,9 +15,7 @@ import { composeInspectorSections } from '../lib/browser/inspector/section-model
 import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { updateItem, updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
 
-const inspectorSource = readFileSync(
-  new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8'
-);
+const inspectorSource = readInspectorSource();
 const timelineSource = readFileSync(
   new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
 );

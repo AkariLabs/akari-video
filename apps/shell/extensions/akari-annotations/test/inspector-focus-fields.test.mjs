@@ -1,10 +1,11 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { createInspectorIcon } from '../lib/browser/inspector/icons.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
 const widgetClass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const methods = ['focusField', 'pulseField', 'pulse', 'appendRow', 'appendSection'];

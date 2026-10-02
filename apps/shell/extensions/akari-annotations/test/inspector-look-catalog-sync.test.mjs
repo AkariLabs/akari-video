@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -79,7 +80,7 @@ test('compare releases once on selection change, tab departure and disposal', ()
 });
 
 test('look row sends exactly one replacement request and custom sends none', async () => {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const start = source.indexOf('function ADJUST_SECTIONS(');
   const factory = source.slice(start, source.indexOf('\n/**', start));
   const dependencies = { readInspectorAdjustSnapshot: fields.readInspectorAdjustSnapshot,

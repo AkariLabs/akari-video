@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -109,7 +110,7 @@ test('画像 AI と widget の近日専用節を描かない', () => withDom(() 
         state: { itemId: 'photo-1', phase: 'closed' }, service: {}, openSettings: () => {}, adopt: async () => ({ ok: true }) });
     assert.ok(find(root, node => node.textContent === '高画質化'));
     assert.equal(find(root, node => node.textContent.includes('近日')), undefined);
-    const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const source = readInspectorSource();
     const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
     const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
     const method = widget.members.find(node => node.name?.getText(ast) === 'appendAdjustPreviewSection').getText(ast);

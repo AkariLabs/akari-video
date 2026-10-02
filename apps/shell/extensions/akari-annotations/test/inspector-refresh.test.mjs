@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
@@ -5,7 +6,7 @@ import { createNumberField, createKeyframeSeat } from '../lib/browser/inspector/
 import { createSelectionHeader } from '../lib/browser/inspector/selection-header.js';
 import { withInspectorDom } from './helpers/inspector-dom.mjs';
 
-const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const widget = readInspectorSource();
 const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 const sourceDir = new URL('../src/browser/inspector/', import.meta.url);
 const keyframe = { active: true, hasKeyframes: true, onToggle() {}, onPrevious() {}, onNext() {}, onReveal() {} };
