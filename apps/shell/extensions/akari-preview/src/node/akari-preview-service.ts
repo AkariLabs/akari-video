@@ -2126,7 +2126,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     // frame-engine の webview 用 IIFE。配布時は overlay-runtime と同居し、開発時は
-    // akari-preview の追跡済み generated/ を読む。legacy 明示時は呼ばれない任意資産。
+    // 中央の追跡済み frame-engine IIFE を読む。legacy 明示時は呼ばれない任意資産。
     protected findFrameEngineBundle(): string | undefined {
         const fileName = 'frame-engine.js';
         const packagedCandidate = resolve(__dirname, '../overlay-runtime', fileName);
@@ -2138,8 +2138,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         for (let depth = 0; depth < 10; depth++) {
             const candidate = resolve(
                 ancestor,
-                'apps/shell/extensions/akari-preview/generated',
-                fileName
+                'packages/frame-engine/generated',
+                'frame-engine.iife.js'
             );
             if (this.isFile(candidate)) {
                 return candidate;

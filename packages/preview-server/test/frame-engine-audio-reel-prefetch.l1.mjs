@@ -142,7 +142,7 @@ test('akari-reel は ready 後に全 speech を先読みし、再生開始を 30
     await page.setContent('<button id="play">play</button>');
     await page.addScriptTag({
       path: path.resolve(import.meta.dirname,
-        '../../../apps/shell/extensions/akari-preview/generated/frame-engine.js'),
+        '../../frame-engine/generated/frame-engine.iife.js'),
     });
     const speech = warm.results.map(({ declaration, result }, index) => ({
       ...declaration,

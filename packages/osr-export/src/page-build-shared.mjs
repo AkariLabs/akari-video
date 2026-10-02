@@ -71,18 +71,7 @@ export function inlineScript(value) {
 }
 
 export function inferDuration(edit) {
-  let duration = 0;
-  for (const cut of edit.cuts ?? []) {
-    const speed = Number(cut.speed ?? 1) || 1;
-    const freeze = Number(cut.freeze?.duration_sec ?? 0) || 0;
-    const transition = Number(cut.transition_out?.duration ?? 0) || 0;
-    duration += Math.max(0, (Number(cut.out ?? 0) - Number(cut.in ?? 0)) / speed + freeze - transition);
-  }
-  return duration;
-}
-
-// GPU keeps its reduce traversal; unlike for...of, it skips holes in sparse cuts arrays.
-export function inferDurationGpu(edit) {
+  // reduce skips holes in sparse cuts arrays.
   return (edit.cuts ?? []).reduce((total, cut) => {
     const speed = Number(cut.speed ?? 1) || 1;
     const freeze = Number(cut.freeze?.duration_sec ?? 0) || 0;

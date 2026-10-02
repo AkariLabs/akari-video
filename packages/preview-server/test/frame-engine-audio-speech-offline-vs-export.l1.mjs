@@ -405,7 +405,7 @@ test('2 sources / 4 cuts・FLAC sidecar・0.5s acrossfade の OfflineAudioContex
     generate(['-f', 'lavfi', '-i', 'color=size=64x64:rate=30:duration=1', '-an',
       '-c:v', 'libx264', '-pix_fmt', 'yuv420p', silent], 'silent source');
     const runtimeBundle = path.resolve(import.meta.dirname,
-      '../../../apps/shell/extensions/akari-preview/generated/frame-engine.js');
+      '../../frame-engine/generated/frame-engine.iife.js');
     const probe = await browser.newPage();
     const probeFiles = await routeMediaFixtures(probe, {
       silent,

@@ -16,7 +16,7 @@ export const source = readHandlerSource();
 // packages/frame-engine/dist は CI の shell レーンでは作られないため、そこへの直 import は
 // ERR_MODULE_NOT_FOUND になる（webview が実際に読むのもこのバンドル）。
 export const frameEngine = vm.runInNewContext(
-    readFileSync(new URL('../generated/frame-engine.js', import.meta.url), 'utf8') + ';AkariFrameEngine',
+    readFileSync(new URL('../../../../../packages/frame-engine/generated/frame-engine.iife.js', import.meta.url), 'utf8') + ';AkariFrameEngine',
     { console }
 );
 
