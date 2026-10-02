@@ -7,6 +7,7 @@ test("逐次 cut の source 時刻を speed 込みで render-cut と同じタイ
   const runs = sourceCutRuns([{ in: 0, out: 2 }, { in: 4, out: 8, speed: 2 }]);
   assert.equal(runs.length, 2);
   assert.equal(sourceTimeToTimeline(runs[1], 6), 3);
+  assert.equal(sourceTimeToTimeline(runs[1], 9), null);
 });
 
 test("gap-aware の上位 track に隠れる区間は visible run から除く", () => {
