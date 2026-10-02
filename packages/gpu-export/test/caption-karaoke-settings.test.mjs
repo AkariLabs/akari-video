@@ -36,6 +36,9 @@ const karaokeEpsilonDeclaration = source.match(/const CAPTION_KARAOKE_TIME_EPSIL
 const extract = names => new Function(`${karaokeEpsilonDeclaration}\n${names.map(name => functions.get(name)).join('\n')}\nreturn { ${names.join(',')} };`)();
 const { karaokeSmoothTilesAt, karaokeWordMixAt, tokenRole, tokenTiming } = extract(
   ['karaokeSmoothTilesAt', 'karaokeWordMixAt', 'karaokeDelayReached', 'tokenRole', 'tokenTiming', 'cssSeconds']);
+const measureCaptionUnit = new Function('getComputedStyle',
+  `${['measureCaptionUnit', 'relativeRect', 'tokenRole', 'tokenStyle', 'tokenTiming', 'cssSeconds']
+    .map(name => functions.get(name)).join('\n')}\nreturn measureCaptionUnit;`)(() => ({ fontSize: '40px' }));
 
 test('all three fills, start_index, and done_color stay GPU eligible', () => {
   assert.equal(classify().classification, 'same');
@@ -103,6 +106,51 @@ test('smooth wipe partitions the token into base, highlighted, and fractional-ed
     [[8, 2, 0], [10, 1, 0.75], [11, 4, 1], [15, 7, 0]]);
   assert.equal(at(2).reduce((sum, part) => sum + part.width, 0), tile.static.width);
   assert.ok(at(2).some(part => part.mix === 1));
+});
+
+test('smooth fill advances across the whole word while character tiles keep their own bounds', () => {
+  const fillRect = { x: 10, width: 27 };
+  const timing = { role: 'karaoke-smooth', delaySec: 0, durationSec: 2 };
+  const chars = [[10, 8], [18, 8], [26, 11]].map(([x, width]) => ({
+    static: { x, y: 20, width, height: 24 },
+    token: { rect: { x, width }, fillRect }, timing,
+  }));
+  const [first, middle, last] = chars.map(tile => karaokeSmoothTilesAt(tile, 1));
+  assert.deepEqual(first.map(({ x, width, mix }) => [x, width, mix]), [[10, 8, 1]]);
+  assert.deepEqual(middle.map(({ x, width, mix }) => [x, width, mix]),
+    [[18, 5, 1], [23, 1, 0.5], [24, 2, 0]]);
+  assert.deepEqual(last.map(({ x, width, mix }) => [x, width, mix]), [[26, 11, 0]]);
+  assert.equal(middle.find(part => part.mix === 0.5).x + 0.5,
+    fillRect.x + fillRect.width * 0.5);
+});
+
+test('character measurement assigns the matching smooth span line as each fill rect', () => {
+  const rect = (left, top, width, height) => ({ left, top, width, height,
+    right: left + width, bottom: top + height });
+  const span = {
+    classList: { contains: name => name === 'akari-caption__tok--karaoke-smooth' },
+    style: { getPropertyValue: () => '' },
+    getClientRects: () => [rect(110, 220, 16, 24), rect(110, 250, 8, 24)],
+  };
+  const chars = [rect(110, 220, 8, 24), rect(118, 220, 8, 24), rect(110, 250, 8, 24)]
+    .map((bounds, index) => ({
+      closest: selector => selector === '.akari-caption__line' ? null : span,
+      getClientRects: () => [bounds],
+      getAttribute: () => String(index),
+    }));
+  const root = {
+    getBoundingClientRect: () => rect(100, 200, 100, 100),
+    querySelectorAll: selector => selector === '.akari-caption__char' ? chars
+      : selector === '.akari-caption__tok' ? [span] : [],
+    querySelector: () => null,
+  };
+  const measured = measureCaptionUnit(root, 0).tokens;
+  assert.deepEqual(measured.map(token => token.rect.x), [10, 18, 10]);
+  assert.deepEqual(measured.map(token => token.fillRect), [
+    { x: 10, y: 20, width: 16, height: 24, right: 26, bottom: 44 },
+    { x: 10, y: 20, width: 16, height: 24, right: 26, bottom: 44 },
+    { x: 10, y: 50, width: 8, height: 24, right: 18, bottom: 74 },
+  ]);
 });
 
 test('split tiles retain one-to-one source pixels and the original animator transform', () => {

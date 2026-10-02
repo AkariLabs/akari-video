@@ -735,19 +735,24 @@
       const role = tokenRole(parent);
       const line = element.closest(".akari-caption__line");
       const lineIndex = line ? [...unitElement.querySelectorAll(".akari-caption__line")].indexOf(line) : 0;
-      return [...element.getClientRects()].map((rect, rectIndex) => ({
-        tokenIndex: chars.length ? Number(element.getAttribute("data-akari-char")) : tokenIndex,
-        ...(chars.length ? {
-          charIndex: Number(element.getAttribute("data-akari-char")),
-          wordIndex: words.indexOf(element.closest(".akari-caption__tok")),
-        } : {}),
-        rectIndex,
-        role,
-        style: tokenStyle(parent, role),
-        timing: tokenTiming(parent, role, emPx),
-        rect: relativeRect(rect, origin),
-        lineIndex: Math.max(0, lineIndex),
-      }));
+      const fillRects = chars.length && role === "karaoke-smooth" ? [...parent.getClientRects()] : [];
+      return [...element.getClientRects()].map((rect, rectIndex) => {
+        const fillRect = fillRects.find((fill) => fill.top < rect.bottom && fill.bottom > rect.top);
+        return {
+          tokenIndex: chars.length ? Number(element.getAttribute("data-akari-char")) : tokenIndex,
+          ...(chars.length ? {
+            charIndex: Number(element.getAttribute("data-akari-char")),
+            wordIndex: words.indexOf(element.closest(".akari-caption__tok")),
+          } : {}),
+          rectIndex,
+          role,
+          style: tokenStyle(parent, role),
+          timing: tokenTiming(parent, role, emPx),
+          rect: relativeRect(rect, origin),
+          ...(fillRect ? { fillRect: relativeRect(fillRect, origin) } : {}),
+          lineIndex: Math.max(0, lineIndex),
+        };
+      });
     });
     const lines = [...unitElement.querySelectorAll(".akari-caption__line")]
       .map((line) => relativeRect(line.getBoundingClientRect(), origin));
@@ -1576,7 +1581,7 @@
 
   function karaokeSmoothTilesAt(tile, localSeconds, state = tile.static, canvasSize = null) {
     const { timing, token } = tile;
-    const rect = token.rect;
+    const rect = token.fillRect ?? token.rect;
     const duration = Math.max(0, timing.durationSec);
     const progress = !karaokeDelayReached(timing, localSeconds) ? 0
       : duration === 0 ? 1
