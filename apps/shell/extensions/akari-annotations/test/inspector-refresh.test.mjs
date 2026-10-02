@@ -6,12 +6,13 @@ import { createSelectionHeader } from '../lib/browser/inspector/selection-header
 import { withInspectorDom } from './helpers/inspector-dom.mjs';
 
 const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 const sourceDir = new URL('../src/browser/inspector/', import.meta.url);
 const keyframe = { active: true, hasKeyframes: true, onToggle() {}, onPrevious() {}, onNext() {}, onReveal() {} };
 
 function columns(selector) {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const rules = [...widget.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
+    const rules = [...css.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
     const declaration = rules.map(match => match[1].match(/grid-template-columns:\s*([^;]+);/u)?.[1]).filter(Boolean).at(-1);
     assert.ok(declaration, selector);
     return declaration.match(/minmax\([^)]*\)|[^\s]+/g);
@@ -44,17 +45,17 @@ test('KF ナビと打点の操作は既存コールバックを一度だけ呼�
     seat.children.slice(0, 3).forEach(button => button.emit('click'));
     assert.deepEqual(calls, ['previous', 'toggle', 'next']);
     assert.equal(seat.children[1].attributes.get('aria-pressed'), 'true');
-    assert.match(widget, /kf-seat\[aria-pressed="true"\] svg\s*\{\s*fill: currentColor/u);
+    assert.match(css, /kf-seat\[aria-pressed="true"\] svg\s*\{\s*fill: currentColor/u);
 }));
 
 test('横幅ガード・カード・トークンを固定し、狭幅は縦に並べる', () => {
     assert.match(widget, /overflowX: 'hidden'/u);
     assert.match(widget, /overflowY: 'auto'/u);
     assert.match(widget, /containerType: 'inline-size'/u);
-    assert.match(widget, /@container \(max-width: 300px\)/u);
-    assert.match(widget, /grid-template-columns: 64px minmax\(0, 1fr\)/u);
-    assert.match(widget, /\.akari-inspector-section\s*\{[^}]*border: 1px solid var\(--akari-line\);[^}]*border-radius: 8px;[^}]*background: var\(--akari-card\)/u);
-    assert.doesNotMatch(widget, /#(?:634398|b89aff|a78bfa)|--theia-(?:input|button|panel|foreground|focusBorder|editor-background)/iu);
+    assert.match(css, /@container \(max-width: 300px\)/u);
+    assert.match(css, /grid-template-columns: 64px minmax\(0, 1fr\)/u);
+    assert.match(css, /\.akari-inspector-section\s*\{[^}]*border: 1px solid var\(--akari-line\);[^}]*border-radius: 8px;[^}]*background: var\(--akari-card\)/u);
+    assert.doesNotMatch(widget + css, /#(?:634398|b89aff|a78bfa)|--theia-(?:input|button|panel|foreground|focusBorder|editor-background)/iu);
 });
 
 test('選択帯は既存スナップショットから名前・範囲・種別とサムネを表示する', () => withInspectorDom(async () => {

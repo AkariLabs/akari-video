@@ -179,9 +179,10 @@ test('強調の対象語はテーマ色を使う選択可能なチップ', () =>
 
 test('アニメーターの説明は全幅で折り返す', () => {
     const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
     assert.match(widget, /name: 'animator-explain', className: 'akari-inspector-animator-explain'/u);
-    assert.match(widget, /\.akari-inspector-animator-explain \{ display: block; \}/u);
-    assert.match(widget, /\.akari-inspector-animator-explain \.akari-inspector-row-label \{\s*white-space: normal/u);
+    assert.match(css, /\.akari-inspector-animator-explain \{ display: block; \}/u);
+    assert.match(css, /\.akari-inspector-animator-explain \.akari-inspector-row-label \{\s*white-space: normal/u);
 });
 
 test('ライブラリ widget の activate は検索欄か自分の node に focus する', () => {

@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 
 test('section-body の hidden 規則は grid の後で詳細度により非表示にする', () => {
-    const style = source.match(/style\.textContent\s*=\s*`([^`]+)`/u)?.[1];
-    assert.ok(style, 'インライン <style> テンプレートがある');
+    const style = source.match(/INSPECTOR_WIDGET_CSS\s*=\s*`([^`]+)`/u)?.[1];
+    assert.ok(style, 'inspector の CSS テンプレートがある');
     const grid = /\.akari-inspector-widget\s+\.akari-inspector-section-body\s*\{([^}]+)\}/u.exec(style);
     const hidden = /\.akari-inspector-widget\s+\.akari-inspector-section-body\[hidden\]\s*\{([^}]+)\}/u.exec(style);
     assert.ok(grid, '通常の section-body 規則がある');

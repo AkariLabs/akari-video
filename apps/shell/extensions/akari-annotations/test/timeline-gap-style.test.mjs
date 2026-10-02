@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
-const css = widget.slice(widget.indexOf('style.textContent = `') + 'style.textContent = `'.length,
-  widget.indexOf('`;', widget.indexOf('style.textContent = `')));
+const styleSource = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
+const css = styleSource.slice(styleSource.indexOf('INSPECTOR_WIDGET_CSS = `') + 'INSPECTOR_WIDGET_CSS = `'.length,
+  styleSource.indexOf('`;', styleSource.indexOf('INSPECTOR_WIDGET_CSS = `')));
 // Read the real source rules, including the later generic resets. Restrict this small
 // cascade evaluator to the ancestor/button selectors that can match a gap button.
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap((match, order) =>
