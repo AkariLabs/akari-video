@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLintSource } from "../../packages/edit-lint/test/helpers/read-lint-source.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
@@ -99,7 +100,7 @@ if (baselineRoot) {
 }
 
 // edit-lint
-const editLintSource = await readFile(join(repoRoot, "packages/edit-lint/src/edit-lint.mjs"), "utf8");
+const editLintSource = await readLintSource();
 surfaces.edit_lint_message = /'style must be [^']*'/u.exec(editLintSource)?.[0] ?? null;
 surfaces.edit_lint_accepts_reveal_word = /caption\.style !== "reveal-word"/u.test(editLintSource);
 report.contract_surfaces = surfaces;
