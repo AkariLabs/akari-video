@@ -1,0 +1,1857 @@
+{
+  "label": "after",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "electronPid": 14892,
+  "startedAt": "2026-09-30T02:50:22.111Z",
+  "shots": [
+    "01-welcome.jpg",
+    "02-first.jpg",
+    "03-invite.jpg",
+    "04-invite-preparing.jpg",
+    "05-tour0-fog.jpg",
+    "06-tour0-fog-after8s.jpg",
+    "07-tour0-clear.jpg",
+    "08-tour0-next.jpg",
+    "09-tour1-assets.jpg",
+    "10-tour2-preview.jpg",
+    "11-tour2-after-10s.jpg",
+    "12-tour2-timeline.jpg",
+    "13-tour3-partner.jpg",
+    "14-tour3-sub1.jpg",
+    "15-drag.jpg",
+    "16-matpreview-card.jpg",
+    "17-matpreview-open.jpg",
+    "18-matpreview-playing.jpg",
+    "19-ask.jpg",
+    "20-ask-answered.jpg",
+    "21-prompt.jpg",
+    "22-prompt-partner-fallback.jpg",
+    "23-work-mid.jpg",
+    "24-play-before.jpg",
+    "25-play-running.jpg",
+    "26-caption.jpg",
+    "27-caption-adjusted.jpg",
+    "28-daihon.jpg",
+    "29-daihon-seek.jpg",
+    "30-caption-back-from-daihon.jpg",
+    "31-caption-adjusted-again.jpg",
+    "32-export.jpg",
+    "33-export-dialog.jpg",
+    "34-export-result.jpg",
+    "35-done.jpg"
+  ],
+  "checks": {
+    "spot": [
+      {
+        "name": "tour0-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 635,
+          "y": 389.59375,
+          "width": 650,
+          "height": 128.1875
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 25894,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour0-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 635,
+          "y": 648.796875,
+          "width": 650,
+          "height": 128.1875
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 25894,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 379.71875,
+          "y": 453,
+          "width": 340,
+          "height": 184.375
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:① 素材"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour2-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 286.5,
+          "width": 340,
+          "height": 162.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:② 上: プレビュー"
+        ],
+        "coachChatOverlapPx2": 55176,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour2-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 800.171875,
+          "width": 340,
+          "height": 162.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:② 下: タイムライン"
+        ],
+        "coachChatOverlapPx2": 55176,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour3-sub0",
+        "expectedTargetsChat": true,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 729,
+          "y": 456,
+          "width": 340,
+          "height": 213.46875
+        },
+        "topAtChatCenter": "P",
+        "chatAboveDim": true,
+        "chatFramed": true,
+        "chatHostZ": "4",
+        "holes": [
+          "ao-hole:③ AI パートナー",
+          "ao-hole ao-chat-frame:"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "tour3-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 635,
+          "y": 389.59375,
+          "width": 650,
+          "height": 128.1875
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 25894,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "prompt",
+        "expectedTargetsChat": true,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 689,
+          "y": 818,
+          "width": 390,
+          "height": 244.765625
+        },
+        "topAtChatCenter": "ao-chat-log",
+        "chatAboveDim": true,
+        "chatFramed": true,
+        "chatHostZ": "4",
+        "holes": [
+          "ao-hole ao-chat-frame:"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "work",
+        "expectedTargetsChat": true,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 20,
+          "y": 572.390625,
+          "width": 300,
+          "height": 212.25
+        },
+        "topAtChatCenter": "ao-chat-log",
+        "chatAboveDim": true,
+        "chatFramed": true,
+        "chatHostZ": "4",
+        "holes": [
+          "ao-hole ao-chat-frame:"
+        ],
+        "coachChatOverlapPx2": 0,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "play-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 292,
+          "width": 340,
+          "height": 151.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 51436,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "play-sub1",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 275.5,
+          "width": 340,
+          "height": 184.375
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [
+          "ao-hole:"
+        ],
+        "coachChatOverlapPx2": 62688,
+        "crispOverlapPx2": 0
+      },
+      {
+        "name": "caption-sub0",
+        "expectedTargetsChat": false,
+        "ok": true,
+        "chat": {
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983
+        },
+        "coach": {
+          "x": 1087.71875,
+          "y": 292,
+          "width": 340,
+          "height": 151.28125
+        },
+        "topAtChatCenter": "ao-input-blocker",
+        "chatAboveDim": false,
+        "chatFramed": false,
+        "chatHostZ": "1",
+        "holes": [],
+        "coachChatOverlapPx2": 51436,
+        "crispOverlapPx2": 0
+      }
+    ],
+    "welcome": {
+      "images": [
+        {
+          "cls": "",
+          "parent": "ao-hero",
+          "alt": "",
+          "x": 667,
+          "y": 295.890625,
+          "width": 586,
+          "height": 329.625,
+          "natural": "1000x563"
+        }
+      ],
+      "heroes": 1,
+      "brand": 1,
+      "chip": 0,
+      "buttons": [
+        {
+          "ao": "next",
+          "text": "次へ",
+          "x": 924,
+          "y": 730.109375,
+          "width": 72,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(235, 119, 49)",
+          "border": "1px"
+        }
+      ],
+      "text": "AKARI VIDEO AKARI Video へようこそ 次へ",
+      "headings": [
+        "AKARI Video へようこそ"
+      ],
+      "topElement": {
+        "tag": "DIV",
+        "cls": "ao-hero",
+        "text": ""
+      },
+      "textChildren": [
+        "DIV.ao-brand",
+        "H2.",
+        "DIV.ao-actions"
+      ]
+    },
+    "first": {
+      "images": [],
+      "heroes": 0,
+      "brand": 0,
+      "chip": 0,
+      "buttons": [
+        {
+          "ao": "yes",
+          "text": "はじめて",
+          "x": 820,
+          "y": 548.296875,
+          "width": 104,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(235, 119, 49)",
+          "border": "1px"
+        },
+        {
+          "ao": "no",
+          "text": "使ったことがある",
+          "x": 932,
+          "y": 548.296875,
+          "width": 168,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(49, 58, 59)",
+          "border": "1px"
+        }
+      ],
+      "text": "AKARI Video を使うのは、はじめてですか？ はじめて 使ったことがある",
+      "headings": [
+        "AKARI Video を使うのは、はじめてですか？"
+      ],
+      "topElement": {
+        "tag": "DIV",
+        "cls": "ao-text in",
+        "text": "AKARI Video を使うのは、はじめてですか？はじめて使ったことがある"
+      },
+      "textChildren": [
+        "H2.",
+        "DIV.ao-actions"
+      ]
+    },
+    "invite": {
+      "images": [
+        {
+          "cls": "",
+          "parent": "ao-hero before-after",
+          "alt": "左は素材そのままの動画、右はタイトル・字幕・図解・BGM が入った仕上がり",
+          "x": 580,
+          "y": 211.6875,
+          "width": 760,
+          "height": 316.65625,
+          "natural": "1200x500"
+        }
+      ],
+      "heroes": 1,
+      "brand": 0,
+      "chip": 0,
+      "buttons": [
+        {
+          "ao": "start",
+          "text": "やってみる",
+          "x": 900.390625,
+          "y": 770.3125,
+          "width": 119.203125,
+          "height": 46,
+          "fontSize": "16px",
+          "background": "rgb(235, 119, 49)",
+          "border": "1px"
+        },
+        {
+          "ao": "later",
+          "text": "後で自分で始める",
+          "x": 912,
+          "y": 843.3125,
+          "width": 96,
+          "height": 17,
+          "fontSize": "12px",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px"
+        }
+      ],
+      "text": "ビフォー アフター タイトル・字幕・図解・BGM 一緒に 1 本、つくってみませんか？ 用意した動画に、AI でタイトルと字幕を入れて、書き出すところまで。5 分ほどです。途中でやめても大丈夫です。 やってみる 後で自分で始める",
+      "headings": [
+        "一緒に 1 本、つくってみませんか？"
+      ],
+      "topElement": {
+        "tag": "DIV",
+        "cls": "ao-hero before-after",
+        "text": "ビフォーアフタータイトル・字幕・図解・BGM"
+      },
+      "textChildren": [
+        "H2.",
+        "P.",
+        "DIV.ao-actions",
+        "DIV.ao-secondary"
+      ]
+    },
+    "preparingSnapshot": {
+      "images": [],
+      "heroes": 0,
+      "brand": 0,
+      "chip": 0,
+      "buttons": [],
+      "text": "準備しています…",
+      "headings": [],
+      "topElement": {
+        "tag": "DIV",
+        "cls": "ao-text in",
+        "text": "準備しています…"
+      },
+      "textChildren": [
+        "P."
+      ]
+    },
+    "tour0Sub0After8s": "画面の構成を知りましょう",
+    "tour0Titles": [
+      "画面の構成を知りましょう",
+      "これが AKARI Video の画面です"
+    ],
+    "blockTour1": [
+      {
+        "name": "menu-button",
+        "selector": "[data-akari-onboarding-target=\"menu-button\"]",
+        "point": {
+          "x": 24,
+          "y": 170
+        },
+        "before": {
+          "topmost": "DIV.ao-input-blocker",
+          "topmostInsideGuide": true,
+          "menuPanelOpen": false
+        },
+        "after": {
+          "pointerdown": 0,
+          "mousedown": 0,
+          "click": 0,
+          "menuPanelOpen": false
+        },
+        "blocked": true
+      },
+      {
+        "name": "timeline-button",
+        "selector": "[data-akari-onboarding-target=\"timeline\"] button",
+        "point": {
+          "x": 393,
+          "y": 723
+        },
+        "before": {
+          "topmost": "DIV.ao-input-blocker",
+          "topmostInsideGuide": true,
+          "menuPanelOpen": false
+        },
+        "after": {
+          "pointerdown": 0,
+          "mousedown": 0,
+          "click": 0,
+          "menuPanelOpen": false
+        },
+        "blocked": true
+      },
+      {
+        "name": "output-preview-play",
+        "point": {
+          "x": 724,
+          "y": 646
+        },
+        "topmost": "DIV.ao-input-blocker",
+        "clicks": 0,
+        "videoPausedAfter": true,
+        "blocked": true
+      }
+    ],
+    "keysTour1": {
+      "commandPaletteOpenedByCtrlShiftP": false,
+      "commandPaletteOpenedByF1": false,
+      "focusTrail": [
+        {
+          "tag": "BUTTON",
+          "cls": "primary",
+          "insideGuide": true,
+          "ao": "next"
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "primary",
+          "insideGuide": true,
+          "ao": "next"
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "primary",
+          "insideGuide": true,
+          "ao": "next"
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "primary",
+          "insideGuide": true,
+          "ao": "next"
+        }
+      ],
+      "focusReachedApp": false,
+      "outsideClicks": [],
+      "guideStillOpen": true,
+      "stepAfter": "tour1"
+    },
+    "tour2AutoAdvance": {
+      "at0": "② 上は「プレビュー」です",
+      "at5": "② 上は「プレビュー」です",
+      "at10": "② 上は「プレビュー」です",
+      "stayedOnPreview": true
+    },
+    "partnerTour3": {
+      "stage": "tour3",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": {
+        "x": 1079,
+        "y": 67,
+        "width": 797,
+        "height": 991,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": 4
+    },
+    "tour3Sub1After9s": {
+      "step": "tour3",
+      "title": "では、これを一緒につくってみましょう"
+    },
+    "tour3Bridge": {
+      "waitedMs": 4803,
+      "clickedNext": true
+    },
+    "blockDrag": [
+      {
+        "name": "menu-button",
+        "selector": "[data-akari-onboarding-target=\"menu-button\"]",
+        "point": {
+          "x": 24,
+          "y": 170
+        },
+        "before": {
+          "topmost": "DIV.ao-input-blocker",
+          "topmostInsideGuide": true,
+          "menuPanelOpen": false
+        },
+        "after": {
+          "pointerdown": 0,
+          "mousedown": 0,
+          "click": 0,
+          "menuPanelOpen": false
+        },
+        "blocked": true
+      }
+    ],
+    "dragDrop": {
+      "reachedMatpreview": true
+    },
+    "sampleCardHit": {
+      "rect": [
+        52,
+        119,
+        96,
+        96
+      ],
+      "topmost": "SPAN.codicon codicon-device-camera-video",
+      "topmostIsTarget": true,
+      "blockerClip": "path(\"M 0 0 H 1920 V 36 H 0 Z M 0 36 H 48 V 119 H 0 Z M 365.719 36 H 1920 V 119 H 365.719 Z M 0 119 H 48 V 214.563 H 0 Z M 365.719 119 H 1920 V 214.563 H 365.719 Z M 0 214.563 H 48 V 1054 H 0 Z M 365.719 214.563 H 1920 V 1054 H 365.719 Z M 0 1054 H 1920 V 1080 H 0 Z\")"
+    },
+    "sampleCardClick": "real-click",
+    "matpreviewRing": {
+      "play": {
+        "x": 708.21875,
+        "y": 630,
+        "width": 32,
+        "height": 32
+      },
+      "ring": {
+        "x": 369.71875,
+        "y": 617,
+        "width": 709,
+        "height": 52,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "body": "下の ▶ で再生できます。確かめたら次へ。",
+      "ringContainsPlay": true,
+      "ringVsPlay": 338.5
+    },
+    "matpreviewPlay": {
+      "paused": false,
+      "time": 1.487132
+    },
+    "partnerAsk": {
+      "stage": "ask",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": null,
+      "hole": {
+        "x": 1079,
+        "y": 67,
+        "width": 797,
+        "height": 991,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": null,
+      "holeVsPartner": 4
+    },
+    "partnerAskAnswered": {
+      "stage": "ask-answered",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": null,
+      "hole": {
+        "x": 1275.5,
+        "y": 311.140625,
+        "width": 213,
+        "height": 64,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": null,
+      "holeVsPartner": 678.859375
+    },
+    "partnerPrompt": {
+      "stage": "prompt",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": {
+        "x": 1079,
+        "y": 67,
+        "width": 797,
+        "height": 991,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": {
+        "x": 1088,
+        "y": 932.40625,
+        "width": 779,
+        "height": 71.59375,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": 4
+    },
+    "partnerFallback": {
+      "chat": {
+        "x": 1082,
+        "y": 35,
+        "width": 790,
+        "height": 1020
+      },
+      "chatHidden": false,
+      "fallbackClass": true,
+      "rightContent": {
+        "x": 1082,
+        "y": 35,
+        "width": 838,
+        "height": 1020
+      },
+      "partnerNode": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983
+      },
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    "partnerAfterFallback": {
+      "stage": "prompt-after-fallback",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": {
+        "x": 1079,
+        "y": 67,
+        "width": 797,
+        "height": 991,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": {
+        "x": 1088,
+        "y": 932.40625,
+        "width": 779,
+        "height": 71.59375,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": 4
+    },
+    "chatStyle": {
+      "root": {
+        "cls": "ao-chat",
+        "fontSize": "16px",
+        "lineHeight": "normal",
+        "color": "rgb(246, 242, 236)",
+        "background": "rgb(17, 17, 17)",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+      },
+      "log": {
+        "cls": "ao-chat-log",
+        "fontSize": "13px",
+        "lineHeight": "20.8px",
+        "color": "rgb(246, 242, 236)",
+        "background": "rgba(0, 0, 0, 0)",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+      },
+      "children": [
+        {
+          "cls": "",
+          "fontSize": "14px",
+          "lineHeight": "normal",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgba(0, 0, 0, 0)",
+          "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+        },
+        {
+          "cls": "ao-chat-log",
+          "fontSize": "13px",
+          "lineHeight": "20.8px",
+          "color": "rgb(246, 242, 236)",
+          "background": "rgba(0, 0, 0, 0)",
+          "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+        },
+        {
+          "cls": "ao-chat-input",
+          "fontSize": "13px",
+          "lineHeight": "20.8px",
+          "color": "rgb(233, 237, 239)",
+          "background": "rgb(42, 48, 54)",
+          "fontFamily": "monospace"
+        },
+        {
+          "cls": "",
+          "fontSize": "16px",
+          "lineHeight": "normal",
+          "color": "rgb(255, 255, 255)",
+          "background": "rgb(231, 119, 49)",
+          "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+        }
+      ]
+    },
+    "partnerWork": {
+      "stage": "work",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": {
+        "x": 1079,
+        "y": 67,
+        "width": 797,
+        "height": 991,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": 4
+    },
+    "blockPlay": [
+      {
+        "name": "menu-button",
+        "selector": "[data-akari-onboarding-target=\"menu-button\"]",
+        "point": {
+          "x": 24,
+          "y": 170
+        },
+        "before": {
+          "topmost": "DIV.ao-input-blocker",
+          "topmostInsideGuide": true,
+          "menuPanelOpen": false
+        },
+        "after": {
+          "pointerdown": 0,
+          "mousedown": 0,
+          "click": 0,
+          "menuPanelOpen": false
+        },
+        "blocked": true
+      }
+    ],
+    "partnerCaption": {
+      "stage": "caption",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": null,
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": null
+    },
+    "captionPath": [
+      "help-next(size)",
+      "help-next(slider)",
+      "help-next(size)",
+      "help-next(slider)"
+    ],
+    "daihonButtonHit": {
+      "rect": [
+        1872,
+        529,
+        48,
+        48
+      ],
+      "topmost": "DIV.lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-daihon",
+      "topmostIsTarget": true,
+      "blockerClip": "path(\"M 0 0 H 1920 V 529 H 0 Z M 0 529 H 1872 V 577 H 0 Z M 0 577 H 1920 V 1080 H 0 Z\")"
+    },
+    "daihonRowHit": {
+      "rect": [
+        1088,
+        153,
+        764,
+        68
+      ],
+      "topmost": "DIV.akari-daihon-row-text",
+      "topmostIsTarget": true,
+      "blockerClip": "path(\"M 0 0 H 1920 V 71 H 0 Z M 0 71 H 374.719 V 153 H 0 Z M 1073.72 71 H 1083 V 153 H 1073.72 Z M 1872 71 H 1920 V 153 H 1872 Z M 0 153 H 374.719 V 220.938 H 0 Z M 1073.72 153 H 1083 V 220.938 H 1073.72 Z M 1872 153 H 1920 V 220.938 H 1872 Z M 0 220.938 H 374.719 V 664 H 0 Z M 1073.72 220.938 H 108"
+    },
+    "partnerBackFromDaihon": {
+      "stage": "caption-back-from-daihon",
+      "partner": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "block"
+      },
+      "chat": {
+        "x": 1083,
+        "y": 71,
+        "width": 789,
+        "height": 983,
+        "visibility": "visible",
+        "display": "flex"
+      },
+      "hole": null,
+      "ring": null,
+      "tabs": [
+        {
+          "target": "partner",
+          "id": "akari-partner-onboarding",
+          "x": 1083,
+          "y": 71,
+          "width": 789,
+          "height": 983,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-claude",
+          "id": "",
+          "x": 1279.5,
+          "y": 234.140625,
+          "width": 205,
+          "height": 52,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-codex",
+          "id": "",
+          "x": 1279.5,
+          "y": 315.140625,
+          "width": 205,
+          "height": 56,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-opencode",
+          "id": "",
+          "x": 1279.5,
+          "y": 381.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-commandcode",
+          "id": "",
+          "x": 1279.5,
+          "y": 437.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-pi",
+          "id": "",
+          "x": 1279.5,
+          "y": 493.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-devin",
+          "id": "",
+          "x": 1279.5,
+          "y": 549.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-copilot",
+          "id": "",
+          "x": 1279.5,
+          "y": 605.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-cursor",
+          "id": "",
+          "x": 1279.5,
+          "y": 661.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-antigravity",
+          "id": "",
+          "x": 1279.5,
+          "y": 717.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        },
+        {
+          "target": "partner-grok",
+          "id": "",
+          "x": 1279.5,
+          "y": 773.140625,
+          "width": 420,
+          "height": 46,
+          "visibility": "visible"
+        }
+      ],
+      "chatVsPartner": 0,
+      "holeVsPartner": null
+    },
+    "exportMenuHit": {
+      "rect": [
+        0,
+        146,
+        48,
+        48
+      ],
+      "topmost": "DIV.lm-TabBar-tabIcon codicon codicon-menu",
+      "topmostIsTarget": true,
+      "blockerClip": "path(\"M 0 0 H 1920 V 146 H 0 Z M 48 146 H 1920 V 194 H 48 Z M 0 194 H 1920 V 1080 H 0 Z\")"
+    },
+    "exportMs": 20342,
+    "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ",
+    "spotAllOk": true
+  },
+  "pageErrors": [],
+  "finishedAt": "2026-09-30T02:53:36.627Z"
+}

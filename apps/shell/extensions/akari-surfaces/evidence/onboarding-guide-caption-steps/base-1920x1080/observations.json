@@ -1,0 +1,3800 @@
+{
+  "label": "base",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "electronPid": 30136,
+  "startedAt": "2026-09-30T14:56:32.167Z",
+  "shots": [
+    "01-play-waiting-help.jpg",
+    "02-caption-enter.jpg",
+    "03-caption-3s-ring.jpg",
+    "04-caption-help.jpg",
+    "05-caption-selected.jpg",
+    "06-caption-position.jpg",
+    "07-daihon.jpg",
+    "08-daihon-help.jpg",
+    "09-back-from-daihon0.jpg",
+    "10-daihon-row.jpg",
+    "11-back-from-daihon1.jpg",
+    "12-daihon-seek.jpg",
+    "13-back-from-daihon2.jpg",
+    "14-export.jpg",
+    "15-export-result.jpg",
+    "16-done.jpg"
+  ],
+  "checks": {
+    "sampleCardClick": "help-next",
+    "playWait": {
+      "waitedMs": 4811,
+      "style": {
+        "help": {
+          "text": "プレビューの ▶ を押してください。",
+          "color": "rgb(221, 221, 221)",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "background": "rgba(0, 0, 0, 0)",
+          "borderLeft": "0px none rgb(221, 221, 221)",
+          "before": "none"
+        },
+        "body": {
+          "text": "▶ を押してください。",
+          "color": "rgb(221, 221, 221)",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "background": "rgba(0, 0, 0, 0)",
+          "borderLeft": "0px none rgb(221, 221, 221)",
+          "before": "none"
+        }
+      }
+    },
+    "captionEnter": {
+      "previewTime": 0,
+      "subtitle": {
+        "x": 589.65625,
+        "y": 446.828125,
+        "width": 269.125,
+        "height": 43.328125,
+        "text": "これ，AIと対話する"
+      }
+    },
+    "captionAt3s": {
+      "ring": null,
+      "subtitle": {
+        "x": 589.65625,
+        "y": 446.828125,
+        "width": 269.125,
+        "height": 43.328125,
+        "text": "これ，AIと対話する"
+      },
+      "previewTime": 0,
+      "ringOverlapsSubtitle": false,
+      "ringContainsSubtitle": false
+    },
+    "captionHelp": {
+      "help": {
+        "text": "プレビューの字幕を押してください。",
+        "color": "rgb(221, 221, 221)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderLeft": "0px none rgb(221, 221, 221)",
+        "before": "none"
+      },
+      "body": {
+        "text": "プレビューの字幕を押してください。",
+        "color": "rgb(221, 221, 221)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderLeft": "0px none rgb(221, 221, 221)",
+        "before": "none"
+      }
+    },
+    "captionPath": [
+      {
+        "title": "大きさを変えてみましょう",
+        "ringed": null
+      },
+      "next(大きさを変えてみましょう)",
+      {
+        "title": "つまみを動かしてみてください",
+        "ringed": null
+      },
+      "next(つまみを動かしてみてください)"
+    ],
+    "captionTitles": [
+      "大きさを変えてみましょう",
+      "つまみを動かしてみてください",
+      "位置も動かせます"
+    ],
+    "captionBarItems": [
+      "captionFont",
+      "captionSize",
+      "captionSizeDec",
+      "captionSizeInc",
+      "captionTextColor",
+      "captionBold",
+      "captionItalic",
+      "captionUnderline",
+      "captionStrike",
+      "captionCase",
+      "captionAlign",
+      "captionBullet",
+      "captionSpacing",
+      "captionVertical",
+      "captionOpacity",
+      "captionEffect",
+      "captionStyle",
+      "overflow"
+    ],
+    "daihonSub0": {
+      "title": "字幕の全文は「台本」で見られます",
+      "body": "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+    },
+    "daihonHelp": {
+      "help": {
+        "text": "右端の紙のアイコンを押してください。",
+        "color": "rgb(221, 221, 221)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderLeft": "0px none rgb(221, 221, 221)",
+        "before": "none"
+      },
+      "body": {
+        "text": "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "color": "rgb(221, 221, 221)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderLeft": "0px none rgb(221, 221, 221)",
+        "before": "none"
+      }
+    },
+    "backFromDaihon0": {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます"
+    },
+    "daihonButtonHit": {
+      "rect": [
+        1872,
+        529,
+        48,
+        48
+      ],
+      "topmost": "DIV.lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-daihon",
+      "topmostIsTarget": true
+    },
+    "backFromDaihon1": {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "daihonButtonHit": {
+        "rect": [
+          1872,
+          529,
+          48,
+          48
+        ],
+        "topmost": "DIV.ao-input-blocker",
+        "topmostIsTarget": false
+      },
+      "redo": "landed outside daihon; walking forward"
+    },
+    "daihonRowHit": {
+      "rect": [
+        1088,
+        153,
+        764,
+        68
+      ],
+      "topmost": "DIV.akari-daihon-row-text",
+      "topmostIsTarget": true
+    },
+    "backFromDaihon2": {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "rowHit": {
+        "rect": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "topmost": "DIV.ao-input-blocker",
+        "topmostIsTarget": false
+      }
+    },
+    "exportNextAt2s": [
+      "back"
+    ],
+    "exportMs": 18675,
+    "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ"
+  },
+  "pageErrors": [
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません"
+  ],
+  "recorder": [
+    {
+      "step": "tour0",
+      "title": "画面の構成を知りましょう",
+      "body": [],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 7038
+    },
+    {
+      "step": "tour0",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 7652
+    },
+    {
+      "step": "tour0",
+      "title": "これが AKARI Video の画面です",
+      "body": [],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 7822
+    },
+    {
+      "step": "tour1",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 9125
+    },
+    {
+      "step": "tour1",
+      "title": "① 左は「素材」です",
+      "body": [
+        "使う動画や写真を、ここに入れます。入れたものはカードで並びます。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 9307
+    },
+    {
+      "step": "tour2",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 10630
+    },
+    {
+      "step": "tour2",
+      "title": "② 上は「プレビュー」です",
+      "body": [
+        "仕上がりを再生して確かめる場所です。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 10811
+    },
+    {
+      "step": "tour2",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 12111
+    },
+    {
+      "step": "tour2",
+      "title": "② 下は「タイムライン」です",
+      "body": [
+        "動画・字幕・音が、時間の順に並びます。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 12293
+    },
+    {
+      "step": "tour3",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 13781
+    },
+    {
+      "step": "tour3",
+      "title": "③ 右は「AI パートナー」です",
+      "body": [
+        "やりたいことを文章で頼むと、AI が編集を進めます。",
+        "右のように、頼んだことと AI の返事が並びます。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 13969
+    },
+    {
+      "step": "tour3",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 15294
+    },
+    {
+      "step": "tour3",
+      "title": "では、これを一緒につくってみましょう",
+      "body": [],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 15465
+    },
+    {
+      "step": "drag",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 17288
+    },
+    {
+      "step": "drag",
+      "title": "まず素材を入れます",
+      "body": [
+        "用意した動画を、左の「素材」へドラッグしてください。",
+        "エクスプローラーの右側で、中身を再生して確かめられます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 17475
+    },
+    {
+      "step": "matpreview",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 19604
+    },
+    {
+      "step": "matpreview",
+      "title": "素材を押すと、中身が見られます",
+      "body": [
+        "入った動画を押してみてください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 19779
+    },
+    {
+      "step": "matpreview",
+      "title": "素材を押すと、中身が見られます",
+      "body": [
+        "入った動画を押してみてください。"
+      ],
+      "help": "左のサンプル動画カードを押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 23613
+    },
+    {
+      "step": "matpreview",
+      "title": "素材を押すと、中身が見られます",
+      "body": [
+        "入った動画を押してみてください。"
+      ],
+      "help": "左のサンプル動画カードを押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 29611
+    },
+    {
+      "step": "matpreview",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 32472
+    },
+    {
+      "step": "matpreview",
+      "title": "ここは「素材プレビュー」です",
+      "body": [
+        "下の ▶ で再生できます。確かめたら次へ。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 32642
+    },
+    {
+      "step": "ask",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 33959
+    },
+    {
+      "step": "ask",
+      "title": "編集は、右の AI に頼みます",
+      "body": [
+        "やりたいことを文章で伝えると、AI がタイムラインを組み立てます。いま使っている AI はありますか？"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 34162
+    },
+    {
+      "step": "ask",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 35271
+    },
+    {
+      "step": "ask",
+      "title": "今回は、お手本で流れを見ます",
+      "body": [
+        "ChatGPT なら、つなぐのは「Codex CLI」です（光っているところ）。無料のアカウントでも使えます。",
+        "このあとは AI を使わずに、頼んでから仕上がるまでをお手本で再生します。本物の AI とは、最後につなげます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 35459
+    },
+    {
+      "step": "prompt",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36246
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36433
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「こ▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36586
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36630
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36676
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36722
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36774
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36824
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36875
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集し▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36940
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集した▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 36986
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したい▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37040
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいで▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37093
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37141
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37179
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37216
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右上▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37257
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右上に▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37298
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右上に動▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37333
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右上に動画▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37375
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右上に動画の▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37413
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右上に動画のタ▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37451
+    },
+    {
+      "step": "prompt",
+      "title": "AI には、こう頼みます",
+      "body": [
+        "「この動画を編集したいです。右上に動画のタイ▍」",
+        "自分で打っても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37488
+    },
+    {
+      "step": "prompt",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37528
+    },
+    {
+      "step": "prompt",
+      "title": "「送る」を押してください",
+      "body": [
+        "ここから先は、用意したお手本を再生します。AI は使いません。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1088,
+        932,
+        779,
+        72
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 37698
+    },
+    {
+      "step": "prompt",
+      "title": "「送る」を押してください",
+      "body": [
+        "ここから先は、用意したお手本を再生します。AI は使いません。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 38234
+    },
+    {
+      "step": "work",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 38275
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "素材を確認しています…",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 38451
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "書き起こしを探しています…",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 42028
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "本編を置いています…",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 44652
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（1/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 45178
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（2/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 46224
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（3/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 47417
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（4/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 47597
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（5/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 47769
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（6/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 47940
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（7/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 48111
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（8/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 48284
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（9/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 48456
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（10/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 48627
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（11/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 48799
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（12/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 48985
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（13/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 49161
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（14/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 49339
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（15/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 49514
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（16/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 49688
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（17/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 49859
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（18/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 50041
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（19/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 50224
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（20/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 50409
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（21/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 50590
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "字幕を置いています…（22/22）",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 50777
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "タイトルを考えています…",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 50809
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "タイトルを置いています…",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 52114
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "確認しています…",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 53589
+    },
+    {
+      "step": "work",
+      "title": "AI が編集しています",
+      "body": [
+        "できました",
+        "下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。",
+        "試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 54935
+    },
+    {
+      "step": "play",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 56450
+    },
+    {
+      "step": "play",
+      "title": "できました。再生してみましょう",
+      "body": [
+        "▶ を押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 56627
+    },
+    {
+      "step": "play",
+      "title": "できました。再生してみましょう",
+      "body": [
+        "▶ を押してください。"
+      ],
+      "help": "プレビューの ▶ を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 60451
+    },
+    {
+      "step": "play",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 63443
+    },
+    {
+      "step": "play",
+      "title": "タイトルと字幕が入りました",
+      "body": [
+        "止めるときは、もう一度 ▶ を押します。見終わったら次へ。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 63620
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 67309
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 67480
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "プレビューの字幕を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 71312
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 73039
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 73329
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 77041
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 83045
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 83411
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 83586
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 87416
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 93423
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 93948
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 94121
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 95720
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 95755
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 95918
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 98923
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "右端の紙のアイコンを押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 99759
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "右端の紙のアイコンを押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        519,
+        58,
+        58
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 100426
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "右端の紙のアイコンを押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 101033
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "右端の紙のアイコンを押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 101153
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 101169
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 101344
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "プレビューの字幕を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 105173
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "プレビューの字幕を押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 111175
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 111513
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 111684
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 115519
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 121520
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 121821
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 121993
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 125826
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 131826
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 132142
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 132313
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 133240
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 133254
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 133437
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 136438
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        522,
+        58,
+        58
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 136990
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1083,
+        146,
+        774,
+        78
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 137080
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1083,
+        148,
+        774,
+        78
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 137228
+    },
+    {
+      "step": "daihon",
+      "title": "この行を押してみてください",
+      "body": [
+        "右の台本の最初の行を押すと、その場面へ飛びます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1083,
+        148,
+        774,
+        78
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 137270
+    },
+    {
+      "step": "daihon",
+      "title": "この行を押してみてください",
+      "body": [
+        "右の台本の最初の行を押すと、その場面へ飛びます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1083,
+        147,
+        774,
+        78
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 137704
+    },
+    {
+      "step": "daihon",
+      "title": "この行を押してみてください",
+      "body": [
+        "右の台本の最初の行を押すと、その場面へ飛びます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1083,
+        148,
+        774,
+        78
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 138092
+    },
+    {
+      "step": "daihon",
+      "title": "この行を押してみてください",
+      "body": [
+        "右の台本の最初の行を押すと、その場面へ飛びます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 138137
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 138213
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 138376
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "プレビューの字幕を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 142215
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "プレビューの字幕を押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 148215
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 148553
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 148724
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 152555
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 158556
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 158858
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 159028
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 162861
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 168861
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 169160
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 169333
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 170229
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 170257
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 170440
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1083,
+        148,
+        774,
+        78
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 172239
+    },
+    {
+      "step": "daihon",
+      "title": "この行を押してみてください",
+      "body": [
+        "右の台本の最初の行を押すと、その場面へ飛びます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1083,
+        148,
+        774,
+        78
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 172416
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 173232
+    },
+    {
+      "step": "daihon",
+      "title": "プレビューがこの場面へ飛びました",
+      "body": [
+        "ダブルクリックで文字も直せます。AI パートナーへは右端のいちばん上のアイコンから戻れます。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 173407
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 174225
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 174368
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "プレビューの字幕を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 178229
+    },
+    {
+      "step": "caption",
+      "title": "字幕を押すと、その場で直せます",
+      "body": [
+        "プレビューの字幕を押してください。"
+      ],
+      "help": "プレビューの字幕を押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 184228
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 184546
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 184717
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 188548
+    },
+    {
+      "step": "caption",
+      "title": "大きさを変えてみましょう",
+      "body": [
+        "上に出たメニューの「大きさ」を押します。"
+      ],
+      "help": "上の「大きさ」を押してください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 194549
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 194831
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 195000
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 198834
+    },
+    {
+      "step": "caption",
+      "title": "つまみを動かしてみてください",
+      "body": [
+        "いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。"
+      ],
+      "help": "つまみを動かしてください。",
+      "nexts": [
+        "help-next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 204833
+    },
+    {
+      "step": "caption",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 205205
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 205381
+    },
+    {
+      "step": "caption",
+      "title": "位置も動かせます",
+      "body": [
+        "字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 206284
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 206311
+    },
+    {
+      "step": "daihon",
+      "title": "字幕の全文は「台本」で見られます",
+      "body": [
+        "字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。",
+        "右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1867,
+        524,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 206488
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1083,
+        148,
+        774,
+        78
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 207463
+    },
+    {
+      "step": "daihon",
+      "title": "この行を押してみてください",
+      "body": [
+        "右の台本の最初の行を押すと、その場面へ飛びます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1083,
+        148,
+        774,
+        78
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 207657
+    },
+    {
+      "step": "daihon",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 208605
+    },
+    {
+      "step": "daihon",
+      "title": "プレビューがこの場面へ飛びました",
+      "body": [
+        "ダブルクリックで文字も直せます。AI パートナーへは右端のいちばん上のアイコンから戻れます。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 208781
+    },
+    {
+      "step": "daihon",
+      "title": "プレビューがこの場面へ飛びました",
+      "body": [
+        "ダブルクリックで文字も直せます。AI パートナーへは右端のいちばん上のアイコンから戻れます。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": [
+        -5,
+        141,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 210180
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        -5,
+        141,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 210209
+    },
+    {
+      "step": "export",
+      "title": "書き出しは、左のメニューから",
+      "body": [
+        "≡ を押してください。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        -5,
+        141,
+        58,
+        58
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 210372
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        69,
+        554,
+        285,
+        45
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 213266
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        69,
+        554,
+        285,
+        45
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 213390
+    },
+    {
+      "step": "export",
+      "title": "「書き出し…」を押します",
+      "body": [
+        "編集データ（edit.json）ができていると押せます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        69,
+        554,
+        285,
+        45
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 213445
+    },
+    {
+      "step": "export",
+      "title": "「書き出し…」を押します",
+      "body": [
+        "編集データ（edit.json）ができていると押せます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        69,
+        547,
+        285,
+        45
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 213597
+    },
+    {
+      "step": "export",
+      "title": "「書き出し…」を押します",
+      "body": [
+        "編集データ（edit.json）ができていると押せます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        69,
+        548,
+        285,
+        45
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 213672
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 213999
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        1192,
+        812,
+        192,
+        48
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 214178
+    },
+    {
+      "step": "export",
+      "title": "標準のまま「書き出す」",
+      "body": [
+        "画質や保存先は、ここで変えられます。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        1192,
+        812,
+        192,
+        48
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 214200
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 214970
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        910,
+        560,
+        464,
+        39
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 215062
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        560,
+        464,
+        39
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 215143
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 215604
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 216448
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        530,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 216760
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 216900
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        529,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 219035
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        532,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 219537
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        529,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 221545
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 222031
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        530,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 222617
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 222865
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        529,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 223843
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        534,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 224033
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        531,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 224989
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 225364
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        528,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 226259
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        534,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 226429
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        528,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 227503
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 227678
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        530,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 228778
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        535,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 228940
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        528,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 229902
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        534,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 230034
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        529,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 231039
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        532,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 231197
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        529,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 232260
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": [
+        910,
+        532,
+        464,
+        39
+      ],
+      "ringBounce": true,
+      "ringAnim": "ao-glow, ao-ping",
+      "t": 232406
+    },
+    {
+      "step": "export",
+      "title": "書き出しています",
+      "body": [
+        "進み具合は右下に出ます。そのまま作業を続けても大丈夫です。"
+      ],
+      "help": "",
+      "nexts": [],
+      "back": true,
+      "ring": null,
+      "ringBounce": false,
+      "ringAnim": "",
+      "t": 232558
+    },
+    {
+      "step": "export",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        53,
+        757,
+        308,
+        51
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 233259
+    },
+    {
+      "step": "export",
+      "title": "書き出せました",
+      "body": [
+        "できたファイルは「できたもの」に並びます。",
+        "AI パートナーに「書き出して」と頼んでも書き出せます（中身を見せて、確認してから実行します）。"
+      ],
+      "help": "",
+      "nexts": [
+        "next"
+      ],
+      "back": true,
+      "ring": [
+        53,
+        757,
+        308,
+        51
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 233447
+    },
+    {
+      "step": "done",
+      "title": "",
+      "body": [],
+      "help": "",
+      "nexts": [],
+      "back": false,
+      "ring": [
+        53,
+        757,
+        308,
+        51
+      ],
+      "ringBounce": false,
+      "ringAnim": "ao-glow",
+      "t": 234957
+    }
+  ],
+  "finishedAt": "2026-09-30T15:00:45.277Z"
+}

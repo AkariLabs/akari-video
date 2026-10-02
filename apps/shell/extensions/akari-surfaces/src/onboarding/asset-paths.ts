@@ -1,6 +1,7 @@
 import { dirname, join } from 'path';
 
 const WELCOME_IMAGE = join('src', 'onboarding', 'welcome.webp');
+export const BEFORE_AFTER_IMAGE = join('src', 'onboarding', 'before-after.webp');
 
 /** The backend bundle and the extension source live in different places inside an asar and a checkout. */
 export function welcomeImageCandidates(backendDir: string, cwd: string, resourcesPath?: string): string[] {
