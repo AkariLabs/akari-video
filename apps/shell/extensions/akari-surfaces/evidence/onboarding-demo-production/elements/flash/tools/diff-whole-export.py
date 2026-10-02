@@ -1,5 +1,5 @@
 import subprocess, numpy as np, sys
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 def load(p):
     raw = subprocess.run([FF, "-v", "error", "-i", p, "-vf", "scale=320:180,format=gray", "-vsync", "0", "-f", "rawvideo", "-"], capture_output=True).stdout
     return np.frombuffer(raw, dtype=np.uint8).reshape(-1, 180, 320).astype(np.int16)

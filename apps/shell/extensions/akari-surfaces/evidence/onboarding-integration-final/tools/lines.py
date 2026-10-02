@@ -3,7 +3,7 @@
 import json, subprocess, os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-FF = 'C:/Users/kyach/akari-wt/integrate-2026-09-29/packages/media-bin/vendor/win32-x64/ffmpeg.exe'
+FF = '<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe'
 VIDS = {'after': 'C:/t/oif/demo/exports/demo.mp4', 'before': 'C:/t/odt-1001/full/exports/full.mp4'}
 caps = json.load(open('C:/t/oif/demo/captions.json', encoding='utf8'))['captions']
 Y0, Y1, X0, X1 = 430, 700, 60, 1220

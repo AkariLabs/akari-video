@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-const WT = "C:/Users/kyach/akari-wt/onboarding-demo-rich";
+const WT = "<WORKTREE>";
 const require = createRequire(`${WT}/packages/render-cut/`);
 const puppeteer = require("puppeteer-core");
 const CHROME = `${process.env.LOCALAPPDATA}/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-win64/chrome-headless-shell.exe`;

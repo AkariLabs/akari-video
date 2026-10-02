@@ -19,7 +19,7 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const WT = process.env.AKARI_WT || "C:/Users/kyach/akari-wt/onboarding-demo-rich";
+const WT = process.env.AKARI_WT || "<WORKTREE>";
 const require = createRequire(`${WT}/packages/render-cut/`);
 const puppeteer = require("puppeteer-core");
 const CHROME = `${process.env.LOCALAPPDATA}/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-win64/chrome-headless-shell.exe`;

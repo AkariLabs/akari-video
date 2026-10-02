@@ -1,7 +1,7 @@
 # 検証用（ラッパー所掌）: 前段（OSR）と今回（GPU）の書き出しを全フレーム比較し、目に見える変化（16px ブロックの平均差 > 24）の場所と時刻を出す
 import subprocess, json
 import numpy as np
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 W, H = 1280, 720
 def frames(path):
     p = subprocess.Popen([FF, '-v', 'error', '-i', path, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], stdout=subprocess.PIPE)

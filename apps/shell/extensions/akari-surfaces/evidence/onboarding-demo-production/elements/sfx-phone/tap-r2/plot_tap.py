@@ -6,9 +6,9 @@ import json, subprocess, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 SR = 48000
-WT = "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/"
+WT = "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/"
 M = json.load(open("measure.json", encoding="utf-8"))
 MO = json.load(open("momentary.json", encoding="utf-8"))
 MOK = "tap_momentary_max_lufs(400ms windows inside 27.52-28.40)"

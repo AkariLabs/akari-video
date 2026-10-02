@@ -1,7 +1,7 @@
 // 検証用（ラッパー所掌）: render-cut の行分け関数（統合ブランチ）にお手本の字幕 22 件をかけて行数を数える
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-const WT = 'C:/Users/kyach/akari-wt/integrate-2026-09-29';
+const WT = '<WORKTREE>';
 const { splitCaptionLines } = await import(pathToFileURL(`${WT}/packages/render-cut/src/captions.mjs`));
 const caps = JSON.parse(await readFile('C:/t/oif/demo/captions.json', 'utf8')).captions;
 const rows = caps.map(c => { const t = c.display_text ?? c.text; const lines = splitCaptionLines(t); return { id: c.id, text: t, lines }; });

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # 検証用（ラッパー所掌）: edit-lint と render-cut を隔離環境で回す。bash render.sh <name...>
 set -u
-WT="C:/Users/kyach/akari-wt/onboarding-demo-rich"
+WT="<WORKTREE>"
 export PATH="$HOME/.local/node:$PATH"
 export AKARI_HOME='C:\t\odg-1002\home' TMP='C:\t\odg-1002\tmp' TEMP='C:\t\odg-1002\tmp'
-export ELECTRON_OVERRIDE_DIST_PATH="C:/Users/kyach/akari-wt/inspector-tabs-v1/apps/shell/node_modules/electron/dist"  # 同版 39.8.7・HKCU に GpuPreference=2 登録済みの dist を読み取り専用で借りる（HKCU は書かない）
+export ELECTRON_OVERRIDE_DIST_PATH="<WORKTREE>/apps/shell/node_modules/electron/dist"  # 同版 39.8.7・HKCU に GpuPreference=2 登録済みの dist を読み取り専用で借りる（HKCU は書かない）
 export AKARI_FFMPEG_BIN="$WT/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 mkdir -p /c/t/odg-1002/home /c/t/odg-1002/tmp /c/t/odg-1002/cwd
 cd /c/t/odg-1002/cwd

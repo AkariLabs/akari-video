@@ -1604,7 +1604,7 @@
   }
  },
  "errors": [],
- "projectUri": "file:///C:/t/i2l1/home/Akari/channels/my-channel/videos/2026-09-30-first-video",
+ "projectUri": "file:///<TMP>/i2l1/<HOME>/Akari/channels/my-channel/videos/2026-09-30-first-video",
  "tourEdit": {
   "tracks": [
    {

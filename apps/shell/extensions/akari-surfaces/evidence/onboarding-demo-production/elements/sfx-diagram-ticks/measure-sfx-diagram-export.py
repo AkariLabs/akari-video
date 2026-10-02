@@ -7,7 +7,7 @@ python measure_export.py <proj-root> <out.json>
 import glob, json, subprocess, sys
 import numpy as np
 
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 SR = 48000
 root, out = sys.argv[1], sys.argv[2]
 

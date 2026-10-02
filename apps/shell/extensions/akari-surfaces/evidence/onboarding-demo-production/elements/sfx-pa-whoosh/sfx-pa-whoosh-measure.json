@@ -6,7 +6,7 @@
   "duration_s": 0.768,
   "source": {
     "id": "sfx-whoosh-punchy",
-    "path_read": "C:/Users/kyach/akari-wt/perf-pv-v2/assets/audio/sfx/sfx-whoosh-punchy.mp3（~/Akari/library/audio/akari-sounds-sfx/ と同一）",
+    "path_read": "<WORKTREE>/assets/audio/sfx/sfx-whoosh-punchy.mp3（~/Akari/library/audio/akari-sounds-sfx/ と同一）",
     "md5": "df86b3f68a24dddadb0f96b7c252babe",
     "meta": "akari-video-internal assets/audio/sfx-whoosh-punchy/meta.json",
     "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布/音楽配信登録/Content ID 登録は禁止）、price 0",

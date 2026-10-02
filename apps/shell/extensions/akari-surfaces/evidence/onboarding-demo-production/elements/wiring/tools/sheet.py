@@ -1,6 +1,6 @@
 import subprocess, sys, io
 from PIL import Image, ImageDraw, ImageFont
-FF="C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF="<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 src, out, cols = sys.argv[1], sys.argv[2], int(sys.argv[3]); times=[float(x) for x in sys.argv[4].split(',')]
 W,H=426,240
 font=ImageFont.truetype("C:/Windows/Fonts/arial.ttf",20)

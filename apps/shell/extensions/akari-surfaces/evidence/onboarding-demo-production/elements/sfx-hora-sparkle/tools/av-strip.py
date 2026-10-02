@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 clip_dir, fx_dir, sfx_mp4, measure_path, out_path = sys.argv[1:6]
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 SR = 48000
 AT = 524  # demo-effects の at（コマ）
 FRAMES = list(range(616, 624))

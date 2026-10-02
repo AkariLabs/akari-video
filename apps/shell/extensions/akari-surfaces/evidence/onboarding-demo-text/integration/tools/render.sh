@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 検証用（ラッパー所掌）: edit-lint と render-cut を隔離環境で回す。bash render.sh <name...>
 set -u
-WT="C:/Users/kyach/akari-wt/onboarding-demo-rich"
+WT="<WORKTREE>"
 export PATH="$HOME/.local/node:$PATH"
 export AKARI_HOME='C:\t\odt-1001\home' TMP='C:\t\odt-1001\tmp' TEMP='C:\t\odt-1001\tmp'
 export AKARI_FFMPEG_BIN="$WT/packages/media-bin/vendor/win32-x64/ffmpeg.exe"

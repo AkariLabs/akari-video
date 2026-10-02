@@ -2,7 +2,7 @@
 # python sheet640.py <after.mp4> <before.mp4> <out_dir>
 import subprocess, sys, os
 from PIL import Image, ImageDraw, ImageFont
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 after, before, out = sys.argv[1:4]
 os.makedirs(os.path.join(out, "frames"), exist_ok=True)
 SHOTS = [  # (id, 秒, ラベル)

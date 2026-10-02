@@ -157,7 +157,7 @@
     ],
     "commands": {
       "cut_audio": {
-        "command": "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe",
+        "command": "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe",
         "warnings": [
           "cut sample: audio stream ends at 35.920998s before out=37.6s; padded 1.679002s of silence"
         ],
@@ -188,7 +188,7 @@
       "tail_pad_audio": null,
       "audio_mix": {
         "operation": "ffmpeg",
-        "command": "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe",
+        "command": "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe",
         "args": [
           "-hide_banner",
           "-loglevel",

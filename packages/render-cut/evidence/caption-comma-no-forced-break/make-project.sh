@@ -1,7 +1,7 @@
 #!/bin/bash
 # make isolated test project at $1
 set -e
-P=$1; W=C:/Users/kyach/akari-wt/caption-comma-no-forced-break
+P=$1; W=<WORKTREE>
 rm -rf "$P"; mkdir -p "$P"
 cp "$W/test-project/source.mp4" "$P/"
 cat > "$P/edit.json" <<'J'

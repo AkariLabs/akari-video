@@ -708,7 +708,7 @@
   }
  },
  "errors": [],
- "projectUri": "file:///C:/t/odr/b1/home/Akari/channels/my-channel/videos/2026-09-30-first-video",
+ "projectUri": "file:///<TMP>/odr/b1/<HOME>/Akari/channels/my-channel/videos/2026-09-30-first-video",
  "tourEdit": {
   "tracks": [],
   "audio": null

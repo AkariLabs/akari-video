@@ -3,14 +3,14 @@
 # 書き出し（render-cut）の音で r1 / r2 を測る
 import subprocess, json, re, sys, importlib.util
 import numpy as np
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
 SR = 48000
 P = {
  "r1_sfx": "C:/t/integ/sfxonly/exports/sfxonly.mp4",
  "r1_full": "C:/t/integ/full/exports/full.mp4",
  "r2_sfx": "C:/t/hora-r2/sfxonly/exports/sfxonly-2.mp4",
  "r2_mix": "C:/t/hora-r2/mix/exports/mix-2.mp4",
- "clip": "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4",
+ "clip": "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4",
 }
 def pcm(path, ch=2):
     raw = subprocess.run([FF,"-v","error","-i",path,"-vn","-ac",str(ch),"-ar",str(SR),"-f","f32le","-"],capture_output=True,check=True).stdout
@@ -82,9 +82,9 @@ outside=np.concatenate([d[:int(20.5*SR)], d[int(22.1*SR):]])
 res["r2_sfx_vs_r1_sfx_outside_20.5-22.1_max_abs_dbfs"]=round(db(np.abs(outside).max()),1)
 
 # r2 の中身の成分（build の浮動小数）を at 617 に置いたときの時刻と、書き出しとのずれ
-E="C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/extensions/akari-surfaces/evidence/onboarding-demo-production/elements/sfx-hora-sparkle/make-sfx-hora-sparkle.py"
+E="<WORKTREE>/apps/shell/extensions/akari-surfaces/evidence/onboarding-demo-production/elements/sfx-hora-sparkle/make-sfx-hora-sparkle.py"
 spec=importlib.util.spec_from_file_location("mk",E); mk=importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
-LIB="C:/Users/kyach/Akari/library/audio/akari-sounds-sfx/"
+LIB="<HOME>/Akari/library/audio/akari-sounds-sfx/"
 dsrc=mk.decode(FF,LIB+"sfx-pop-ding.mp3"); ssrc=mk.decode(FF,LIB+"sfx-shimmer-sparkle.mp3")
 full,ding_only,sh_only=[p*10**(2/20) for p in mk.build(dsrc,ssrc,parts=True)]
 at_s=int(round(617/30*SR))

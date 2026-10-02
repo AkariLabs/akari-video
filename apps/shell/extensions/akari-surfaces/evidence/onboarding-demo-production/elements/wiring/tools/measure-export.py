@@ -3,10 +3,10 @@
 import subprocess, sys, json, re
 import numpy as np
 
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
-SRC = "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+SRC = "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"
 full, novoice, sfxonly, out = sys.argv[1:5]
-BGMFILE = "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/bgm.m4a"
+BGMFILE = "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/bgm.m4a"
 FPS = 30
 
 def gray_frames(path, start, count, box):

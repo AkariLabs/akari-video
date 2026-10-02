@@ -1,8 +1,8 @@
 # 音の実測: python measure_audio.py <full.mp4> <novoice.mp4> <sfxonly.mp4> <out.json>
 import subprocess, sys, json, re
 import numpy as np
-FF = "C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
-BGMFILE = "C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/bgm.m4a"
+FF = "<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+BGMFILE = "<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/bgm.m4a"
 full, novoice, sfxonly, out = sys.argv[1:5]
 SR = 48000
 def pcm(path):

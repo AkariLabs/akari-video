@@ -1,6 +1,6 @@
 import subprocess, numpy as np, json, sys
-FF="C:/Users/kyach/akari-wt/onboarding-demo-rich/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
-SRC="C:/Users/kyach/akari-wt/onboarding-demo-rich/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"
+FF="<WORKTREE>/packages/media-bin/vendor/win32-x64/ffmpeg.exe"
+SRC="<WORKTREE>/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4"
 V=sys.argv[1]
 def rgb(path, start, count, box):
     x0,y0,x1,y1=box

@@ -1623,7 +1623,7 @@
   }
  },
  "errors": [],
- "projectUri": "file:///C:/t/odgl1/home/Akari/channels/my-channel/videos/2026-10-02-first-video",
+ "projectUri": "file:///<TMP>/odgl1/<HOME>/Akari/channels/my-channel/videos/2026-10-02-first-video",
  "tourEdit": {
   "tracks": [
    {

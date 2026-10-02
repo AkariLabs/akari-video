@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const shellRoot = 'C:/Users/kyach/akari-wt/integrate-2026-09-29/apps/shell';
+const shellRoot = '<WORKTREE>/apps/shell';
 const [label, size, scratch, portText, outRoot] = process.argv.slice(2);
 if (!label || !size || !scratch || !portText) throw new Error('label, WxH, isolated root and port required');
 const [width, height] = size.split('x').map(Number);
