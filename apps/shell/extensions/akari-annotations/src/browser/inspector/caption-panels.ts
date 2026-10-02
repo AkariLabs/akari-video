@@ -4,7 +4,7 @@ import { filterCaptionPanelFonts } from '../../common/caption-font-label';
 import { captionFontRowDetail, captionFontWeights, captionPanelTextStyle,
     renderableCaptionFonts, type CaptionPanel } from '../../common/caption-panel-state';
 import type { CaptionTextStyle } from '../../common/caption-store';
-import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
+import { CAPTION_SAMPLE_TEXT, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 
 export const CAPTION_PANEL_STYLES = Object.values(TEXTSTYLE_CATALOG);
 
@@ -40,7 +40,6 @@ const TAG_LABELS: Record<string, string> = {
     japanese: '日本語', handwriting: '手書き', mincho: '明朝', gothic: 'ゴシック',
     rounded: '丸', display: '見出し', emphasis: '太い', pixel: 'ドット'
 };
-const SAMPLE = 'Abc あいう 漢字';
 
 export const CAPTION_PANEL_CSS = `
 .akari-inspector-widget .akari-caption-panel { display:grid;gap:11px;padding:6px 3px 20px;min-width:0;color:var(--akari-ink); }
@@ -110,7 +109,7 @@ function sampleCard(document: Document, id: string, name: string, raw: Record<st
     const card = button(document, '', () => { actions.confirm(); action(); }, ['data-akari-style-card', id]);
     card.className = 'akari-caption-style-card';
     const textStyle: CaptionTextStyle = captionPanelTextStyle(raw);
-    const sample = createCaptionHoverPreview(document, { text: SAMPLE, textStyle, width: 640, height: 240,
+    const sample = createCaptionHoverPreview(document, { text: CAPTION_SAMPLE_TEXT, textStyle, width: 640, height: 240,
         bounds: { left: 0, right: 0, top: 0, bottom: 0 }, innerWidth: 640, innerHeight: 400,
         maxImageSize: 160 });
     const label = document.createElement('span');
