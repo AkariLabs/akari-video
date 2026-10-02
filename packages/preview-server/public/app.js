@@ -56,6 +56,16 @@ import { relocateCutIndex } from '/cut-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
 import { computeAdjustCssVisual } from '/edit-kernel.bundle.js';
+import {
+  groupWordsIntoLines,
+  isPortraitOutput,
+  captionLineBudget,
+  captionLineBudgetFor,
+  defaultCaptionFontSize,
+  splitCaptionLines,
+  groupWordsIntoDisplayLines,
+} from '/caption-line-layout.js';
+import { isImageLayerSrc, isImageLayer } from '/layer-source.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -684,21 +694,6 @@ function layerPlaybackPath(layer) {
   return /\.mov$/i.test(layer.src)
     ? layer.src.replace(/\.mov$/i, '.preview.webm')
     : `${layer.src}.preview.webm`;
-}
-
-// task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
-// （schema の kind は 'video' のまま不変）。render-cut 側の同じ判定
-// （packages/render-cut/src/layers.mjs の isImageLayerSource, plan.mjs の画像判定と同一集合）と
-// 対象拡張子を完全に揃える。'baked' はここでは常に false 扱い -- layerPlaybackPath() が baked を
-// 元の拡張子に関わらず常に .preview.webm サイドカーへ差し替えるため（上の layerPlaybackPath 参照）、
-// 実際に配信されるバイト列は常に動画。'video' kind のみ元ファイルをそのまま配信するので、
-// layer.src の拡張子判定がそのまま安全に使える。
-const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
-function isImageLayerSrc(src) {
-  return typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
-}
-function isImageLayer(layer) {
-  return layer.kind !== 'baked' && isImageLayerSrc(layer.src);
 }
 
 // ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。contract-2026-08-02-preview-parity.md）。
@@ -4347,7 +4342,7 @@ function applyCaptionStyle(caption, captionPlate) {
   const merged = mergeCaptionLineTextStyles(dts, ts);
   vars = resolveCaptionLineStyleVars(merged, summary?.output);
   if (!Object.prototype.hasOwnProperty.call(vars, '--caption-font-size')) {
-    vars['--caption-font-size'] = defaultCaptionFontSize() + 'px';
+    vars['--caption-font-size'] = defaultCaptionFontSize(summary) + 'px';
   }
   const scale = merged?.scale;
   const rotate = merged?.rotate;
@@ -4412,143 +4407,6 @@ function findMatchingEmphasis(word, list) {
 }
 function resolveEmphasisStyle(emphasis) {
   return emphasis.style_hint || EMPHASIS_STYLE_MAP[emphasis.emotion] || 'color-accent';
-}
-function groupWordsIntoLines(words, maxLen = 13) {
-  const lines = [];
-  let cur = [], len = 0;
-  for (const w of words) {
-    const wlen = Array.from(w.text).length;
-    if (len + wlen > maxLen && cur.length > 0) { lines.push(cur); cur = []; len = 0; }
-    cur.push(w); len += wlen;
-  }
-  if (cur.length > 0) lines.push(cur);
-  return lines;
-}
-// --- render-cut とのパリティ層（正本: packages/render-cut/src/captions.mjs）---
-// 縦長出力では「行を短く（10 字）・文字を大きく（幅 6%）・複数行字幕は行単位の順送り（reveal）」
-// が焼き込み側の既定。プレビューも同じ既定で描く。ロジックは意図的な文字列/コード重複
-// （render-cut は CLI パッケージで相互 import しない方針）。
-function isPortraitOutput() {
-  const os = summary?.output || {};
-  return Number(os.height) > Number(os.width);
-}
-function captionLineBudget() { return isPortraitOutput() ? 10 : 20; }
-function captionLineBudgetFor(caption) {
-  // render-cut mergeCaptionTextStyles と同じく各段を先に検証し、不正値は次の段へ落とす。
-  for (const value of [caption?.text_style?.max_characters, summary?.default_text_style?.max_characters]) {
-    if (Number.isInteger(value) && value > 0) return value;
-  }
-  return captionLineBudget();
-}
-function defaultCaptionFontSize() {
-  const os = summary?.output || {};
-  return isPortraitOutput() ? Math.round(Number(os.width) * 0.06) : 38;
-}
-const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
-function splitCaptionLines(text, maximum) {
-  const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : 20;
-  const lines = [];
-  for (const value of String(text).split(/\r?\n/u)) {
-    if (value.length === 0) { lines.push(''); continue; }
-    for (const segment of splitAfterPunctuation(value)) {
-      lines.push(...splitAtNaturalBoundaries(segment, limit));
-    }
-  }
-  return lines;
-}
-function splitAfterPunctuation(value) {
-  const characters = Array.from(value);
-  const segments = [];
-  let start = 0;
-  for (let index = 0; index < characters.length; index += 1) {
-    if (characters[index] === '。' && index + 1 < characters.length) {
-      segments.push(characters.slice(start, index + 1).join(''));
-      start = index + 1;
-    }
-  }
-  segments.push(characters.slice(start).join(''));
-  return segments;
-}
-function splitAtNaturalBoundaries(value, maximum) {
-  const lines = [];
-  let remaining = Array.from(value);
-  while (remaining.length > maximum) {
-    const commaBoundary = findLastCommaBoundary(remaining, maximum);
-    const spaceBoundary = commaBoundary ?? findLastSpaceBoundary(remaining, maximum);
-    const phraseBoundary = spaceBoundary ?? findLastPhraseBoundary(remaining, maximum);
-    const boundary = phraseBoundary ?? maximum;
-    lines.push(remaining.slice(0, boundary).join(''));
-    remaining = remaining.slice(boundary);
-  }
-  if (remaining.length > 0) lines.push(remaining.join(''));
-  return lines;
-}
-function findLastCommaBoundary(characters, maximum) {
-  for (let index = maximum - 1; index > 0; index -= 1) {
-    if (characters[index] === '、') return index + 1;
-  }
-  return null;
-}
-function findLastSpaceBoundary(characters, maximum) {
-  for (let index = maximum - 1; index > 0; index -= 1) {
-    if (characters[index] === ' ' || characters[index] === '　') return index + 1;
-  }
-  return null;
-}
-function findLastPhraseBoundary(characters, maximum) {
-  const prefix = characters.slice(0, maximum).join('');
-  let best = null;
-  for (const boundary of CAPTION_BOUNDARIES) {
-    const index = prefix.lastIndexOf(boundary);
-    if (index >= 0) {
-      const candidate = Array.from(prefix.slice(0, index + boundary.length)).length;
-      if (candidate > 0 && (best === null || candidate > best)) best = candidate;
-    }
-  }
-  return best;
-}
-// splitCaptionLines の分割点を word 境界へスナップして words を行へ配る
-// （captions.mjs groupDisplayTokensIntoLines の words 専用ポート）。
-function groupWordsIntoDisplayLines(words, maximum) {
-  if (words.length === 0) return [];
-  const text = words.map(w => w.text).join('');
-  const desiredBoundaries = [];
-  let desiredOffset = 0;
-  for (const line of splitCaptionLines(text, maximum).slice(0, -1)) {
-    desiredOffset += Array.from(line).length;
-    desiredBoundaries.push(desiredOffset);
-  }
-  const ranges = [];
-  let offset = 0;
-  for (const word of words) {
-    const start = offset;
-    offset += Array.from(word.text).length;
-    ranges.push({ word, start, end: offset });
-  }
-  const boundaries = [];
-  let previous = 0;
-  for (const desired of desiredBoundaries) {
-    const containing = ranges.find(({ start, end }) => start < desired && desired < end);
-    let snapped = desired;
-    if (containing) {
-      const candidates = [containing.start, containing.end]
-        .filter(candidate => candidate > previous && candidate < offset);
-      const withinTolerance = candidates.filter(candidate => candidate - previous <= maximum + 2);
-      const eligible = withinTolerance.length > 0 ? withinTolerance : candidates;
-      if (eligible.length === 0) continue;
-      snapped = eligible.reduce((best, candidate) =>
-        Math.abs(candidate - desired) < Math.abs(best - desired) ? candidate : best);
-    }
-    if (snapped > previous && snapped < offset) { boundaries.push(snapped); previous = snapped; }
-  }
-  const lines = [];
-  let start = 0;
-  for (const end of [...boundaries, offset]) {
-    const line = ranges.filter(r => r.end > start && r.start < end).map(r => r.word);
-    if (line.length > 0) lines.push(line);
-    start = end;
-  }
-  return lines;
 }
 // 行グループを開始時刻ごとに束ねて順送り表示の markup を作る
 // （captions.mjs renderRevealGroups のポート。preview は速度リマップ無しの source 秒）。
@@ -4758,8 +4616,8 @@ function renderCaptionRow(active, captionPlate) {
   // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
   const displayText = active.display_text || active.text || '';
   const wantsReveal = hasWords && (style === 'reveal'
-    || (!style && isPortraitOutput()
-      && splitCaptionLines(displayText, captionLineBudgetFor(active)).length > 1));
+    || (!style && isPortraitOutput(summary)
+      && splitCaptionLines(displayText, captionLineBudgetFor(active, summary)).length > 1));
   const wordStyle = explicitStyle ?? (hasEmphasis ? 'emphasis' : null);
   // 座布団 block モード: 行群を 1 枚板ラッパーで包む（shell / render-cut と同じ構造）
   const blockMode = (active.text_style?.background?.mode
@@ -4779,7 +4637,7 @@ function renderCaptionRow(active, captionPlate) {
   if (wantsReveal) {
     const start = Number(active.start) || 0;
     const end = Number(active.end) || (words[words.length - 1]?.end ?? start);
-    const lines = groupWordsIntoDisplayLines(words, captionLineBudget());
+    const lines = groupWordsIntoDisplayLines(words, captionLineBudget(summary));
     captionPlate.innerHTML = `<div class="akari-caption akari-caption--reveal${frameClass}"><div class="akari-caption__plate">${
       wrapPlate(renderRevealGroupsMarkup(lines, start, end, line =>
         line.map(w => {
@@ -4791,7 +4649,7 @@ function renderCaptionRow(active, captionPlate) {
     captionPlate.dataset.captionStart = String(start);
   } else if (wordStyle && hasWords) {
     const start = Number(active.start) || 0;
-    const lines = groupWordsIntoLines(words, captionLineBudget());
+    const lines = groupWordsIntoLines(words, captionLineBudget(summary));
     captionPlate.innerHTML = `<div class="akari-caption akari-caption--${wordStyle}${frameClass}"><div class="akari-caption__plate">${
       wrapPlate(lines.map(line => `<p class="akari-caption__line">${
         line.map(w => {
@@ -4807,7 +4665,7 @@ function renderCaptionRow(active, captionPlate) {
       captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${esc(active.text || '')}</span>`;
     } else {
       // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
-      const lines = splitCaptionLines(displayText, captionLineBudgetFor(active));
+      const lines = splitCaptionLines(displayText, captionLineBudgetFor(active, summary));
       captionPlate.innerHTML = `<div class="akari-caption${frameClass}"><div class="akari-caption__plate">${
         wrapPlate(lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join(''))
       }</div></div>`;
