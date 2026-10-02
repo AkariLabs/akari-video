@@ -19,6 +19,7 @@ const expectedSources = [
   'caption-display.ts',
   'caption-line-diff.ts',
   'caption-runs.ts',
+  'caption-sample-text.ts',
   'caption-store.ts',
   'caption-style-preset.ts',
   'caption-window.ts',

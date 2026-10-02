@@ -4660,6 +4660,16 @@ var require_caption_store = __commonJS({
   }
 });
 
+// ../edit-store/lib/caption-sample-text.js
+var require_caption_sample_text = __commonJS({
+  "../edit-store/lib/caption-sample-text.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CAPTION_SAMPLE_TEXT = void 0;
+    exports.CAPTION_SAMPLE_TEXT = "\u3042\u30A212";
+  }
+});
+
 // ../edit-store/lib/caption-window.js
 var require_caption_window = __commonJS({
   "../edit-store/lib/caption-window.js"(exports) {
@@ -15793,6 +15803,7 @@ var require_lib = __commonJS({
     exports.withNewerVersionLintPrefix = withNewerVersionLintPrefix;
     __exportStar(require_edit_store(), exports);
     __exportStar(require_caption_store(), exports);
+    __exportStar(require_caption_sample_text(), exports);
     __exportStar(require_caption_style_preset(), exports);
     __exportStar(require_textstyle_catalog(), exports);
     __exportStar(require_caption_words_rederive(), exports);
