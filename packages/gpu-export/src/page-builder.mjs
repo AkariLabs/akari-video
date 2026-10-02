@@ -28,7 +28,7 @@ const {
   toAnchorCaptions,
 } = require("../../edit-store/lib/index.js");
 const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
-const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
+const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "..", "frame-engine", "generated", "frame-engine.iife.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 // data-akari-slot への文言注入。legacy（render-cut rasterize）・プレビュー（overlay-runtime）と同じ
 // 1 実装をページへ読み込み、静的スプライトと DOM 層の両方で source.params を適用する（issue #32）。

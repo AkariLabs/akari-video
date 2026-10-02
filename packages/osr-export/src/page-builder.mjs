@@ -26,7 +26,7 @@ const {
   toAnchorCaptions,
 } = require("../../edit-store/lib/index.js");
 const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
-const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
+const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "..", "frame-engine", "generated", "frame-engine.iife.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 
 export function buildOsrPage({

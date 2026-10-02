@@ -211,7 +211,6 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
     // フラグ on の frame-engine 評価台へ注入する正本。欠けると canvas 面を起動できない。
     '/lib/overlay-runtime/frame-engine.js',
     '/lib/overlay-runtime/preview-audio-worklet.js',
-    '/lib/overlay-runtime/osr-frame-engine.js',
     // F5「新しい動画を始める」/ U5「チャンネルに入れる」の実処理本体（動的 import）。
     // 同梱が漏れると .app をリポの外へ置いた瞬間に上方探索が空振りして
     // 「新しい動画の作成に失敗しました。」で必ず失敗する（実機で再現済み）。
@@ -331,7 +330,7 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
   const analysisReportRuntimeFiles = [
     path.join('packages', 'osr-export', 'package.json'),
     path.join('packages', 'osr-export', 'src', 'electron-main.mjs'),
-    path.join('packages', 'osr-export', 'generated', 'frame-engine.js'),
+    path.join('packages', 'frame-engine', 'generated', 'frame-engine.iife.js'),
     path.join('packages', 'analysis-report', 'render-analysis-report.mjs'),
     path.join('packages', 'analysis-report', 'template.html'),
     // 判断記録レポートも同じく extraResources（asar 外）で renderer とテンプレートを同居させる。

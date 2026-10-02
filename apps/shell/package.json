@@ -196,13 +196,19 @@
         ]
       },
       {
+        "from": "../../packages/frame-engine",
+        "to": "packages/frame-engine",
+        "filter": [
+          "generated/**/*"
+        ]
+      },
+      {
         "from": "../../packages/osr-export",
         "to": "packages/osr-export",
         "filter": [
           "package.json",
           "bin/**/*",
-          "src/**/*",
-          "generated/**/*"
+          "src/**/*"
         ]
       },
       {
@@ -211,8 +217,7 @@
         "filter": [
           "package.json",
           "bin/**/*",
-          "src/**/*",
-          "generated/**/*"
+          "src/**/*"
         ]
       },
       {

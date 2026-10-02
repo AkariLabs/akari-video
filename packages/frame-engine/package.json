@@ -8,6 +8,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "bundle:frame-engine": "node ../../scripts/gen-frame-engine-bundles.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.golden.json",
     "bundle:golden": "mkdir -p test/golden/.generated && esbuild test/golden/renderer.ts --bundle --format=iife --platform=browser --target=chrome122 --outfile=test/golden/.generated/renderer.js",
     "test:unit": "node --test test/*.test.mjs",

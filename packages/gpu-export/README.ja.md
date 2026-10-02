@@ -232,7 +232,7 @@ npm run bundle:frame-engine
 npm run check:frame-engine-drift
 ```
 
-frame-engine bundle は生成物です。`generated/frame-engine.js` を直接編集しないでください。
+frame-engine bundle は `packages/frame-engine/generated/frame-engine.iife.js` に生成されます。直接編集しないでください。
 生フレーム hash は隔離した検証専用 module からだけ利用でき、実行時 readback trap とは同時に
 有効化できません。DOM frame 検証は隔離した texture sentinel を使い、選択した settle policy
 （`raf2-paint-event` または `sync-layout`）を receipt に記録します。

@@ -8,8 +8,8 @@
     "akari-osr-export": "bin/akari-osr-export.mjs"
   },
   "scripts": {
-    "bundle:frame-engine": "node scripts/bundle-frame-engine.mjs",
-    "check:frame-engine-drift": "node scripts/bundle-frame-engine.mjs --check",
+    "bundle:frame-engine": "node ../../scripts/gen-frame-engine-bundles.mjs",
+    "check:frame-engine-drift": "node ../../scripts/gen-frame-engine-bundles.mjs --check",
     "build-fixture": "node scripts/build-fixture.mjs",
     "assert-no-intermediates": "node scripts/assert-no-intermediates.mjs",
     "test": "node --test test/*.test.mjs",
