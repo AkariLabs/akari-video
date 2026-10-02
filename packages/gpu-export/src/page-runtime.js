@@ -659,7 +659,9 @@
         const gradient = fillType === 'gradient';
         const pattern = fillType === 'pattern';
         const patternGradient = pattern && caption.getAttribute('data-rich-pattern-bg') === 'gradient';
-        const thunder = caption.getAttribute('data-rich-pattern-id') === 'thunder';
+        const patternId = caption.getAttribute('data-rich-pattern-id');
+        const thunder = patternId === 'thunder';
+        const fragmentPattern = pattern && (patternId === 'diamond' || patternId === 'dot' || patternId === 'gingham');
         for (const line of caption.querySelectorAll('.akari-caption__line,.akari-caption__resolved-line')) {
           const lineRect = line.getBoundingClientRect();
           for (const fill of line.querySelectorAll('.akari-caption__rich-fill')) {
@@ -667,6 +669,18 @@
             const x = Number((lineRect.left - rect.left).toFixed(3));
             const y = Number((lineRect.top - rect.top).toFixed(3));
             const patternPosition = `${Number((x + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y + (thunder ? 2 : 0)).toFixed(3))}px`;
+            if (fragmentPattern) {
+              const position = `${x}px ${y}px`;
+              const sizes = getComputedStyle(fill).backgroundSize.split(',').map(part => part.trim());
+              const halfTile = Number.parseFloat(sizes[0]) / 2;
+              const positions = patternId === 'diamond' ? [position, position, position, position]
+                : patternId === 'dot' ? [position, `${Number((x + halfTile).toFixed(3))}px ${Number((y + halfTile).toFixed(3))}px`, position]
+                  : [position, position, position];
+              fill.style.setProperty('--caption-rich-fill-position', positions.join(', '));
+              const lineSize = `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`;
+              fill.style.setProperty('--caption-rich-fill-size', sizes.map(size => size === '100% 100%' ? lineSize : size).join(', '));
+              continue;
+            }
             fill.style.setProperty('--caption-rich-fill-position', patternGradient
               ? `${patternPosition}, ${x}px ${y}px`
               : pattern ? patternPosition : `${x}px ${y}px`);

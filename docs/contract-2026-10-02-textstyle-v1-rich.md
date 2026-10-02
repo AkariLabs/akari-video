@@ -62,7 +62,7 @@ v1.1（2026-10-02）では pattern に限り `id` に `heart` / `thunder` を追
 
 ## 3. 柄の定義と変換元
 
-初期 7 id の図形、タイルの位相・基準寸法・重ね順は素材側 `assets/overlay/telop-pattern-*/fragment.html` の `--i-fill` と SVG データ URI を正本として固定する。`diamond` は斜め筋と菱形、`dot` はずれた水玉、`stripe` は帯、`gingham` は格子、`skull` は髑髏、`hazard` は警告三角、`night` は星点と星形を持つ。描画側は id から固定テンプレートを選び、検証済み `fg` / `bg` と `scale` を埋めて自己完結した CSS 画像を作る。同じ id と 3 値は 4 経路で同じ画素入力とする。素材の多色グラデや複数の独立した色を単一 `fg` / `bg` に縮約できないときは、変換プリセットに別の展開済み色を追加する改訂契約を起こすか §9 の残留とする。CSS `mask` による切り抜きはこの v1 pattern に含めない。
+初期 7 id の図形、タイルの位相・基準寸法・重ね順は素材側 `assets/overlay/telop-pattern-*/fragment.html` の `--i-fill` と SVG データ URI を正本として固定する。`diamond` は 45deg / -45deg の筋（各 2px / 13px 周期、`fg` 32%）を菱形 SVG（幅 26px、図形 opacity .5）の上に重ねる。`dot` は 16px タイルの radial 2 層で、中心 (8,8) は 2→3px のフェードと `fg` 50%、中心 (0,0) は 1.6→2.6px のフェードと `fg` 35% を持つ。`gingham` は 90deg / 0deg の格子 2 層（各 9px / 22px 周期、`fg` 55%）で、0deg 層は下端起点、交差部の合成 opacity は .7975 とする。`stripe` は帯、`skull` は髑髏、`hazard` は警告三角、`night` は星点と星形を持つ。描画側は id から固定テンプレートを選び、検証済み `fg` / `bg` と `scale` を埋めて自己完結した CSS 画像を作る。これら 3 柄の筋・水玉・格子は fragment と同じ CSS gradient 層で作り、菱形だけ SVG データ URI を使う。同じ id と 3 値は 4 経路で同じ画素入力とする。素材の多色グラデや複数の独立した色を単一 `fg` / `bg` に縮約できないときは、変換プリセットに別の展開済み色を追加する改訂契約を起こすか §9 の残留とする。CSS `mask` による切り抜きはこの v1 pattern に含めない。
 
 v1.1 の `heart` / `thunder` は別の正本 URI を §11 で追加する。透過柄の下に `bg` のグラデーションを敷く 2 層合成を用いるため、上記の 2 色縮約条件はこの 2 id には適用しない。
 
@@ -263,14 +263,14 @@ TODO（B-2 所有外）: インスペクタの「文字色」操作は `fill` �
 
 ## 11. v1.1（2026-10-02）
 
-素材側の仕分けで、`telop-pop-heart` と `telop-pop-thunder` は地がグラデーションであり、単色 `pattern.bg` では原画を表せないと確定した。`pattern.bg` の gradient は保存時に停止点と角度を展開し、描画時は `background-image: <透過 pattern SVG>, linear-gradient(...)` の順に合成する。**`bg` 文字列は v1 の 1 層（SVG 内の `<rect>`）をバイト不変で維持し、2 層は `bg` がグラデーションオブジェクトのときだけ使う。**第 1 層のサイズは基準タイル × `scale`、第 2 層のグラデーションは行全体の描画矩形とする。両層の位置は行の共通原点に合わせ、`words[]` 分割後も位相を戻さない。2 層の SVG に地色を焼き込まない。
+素材側の仕分けで、`telop-pop-heart` は地がグラデーション、`telop-pop-thunder` は地が繰り返し縞（`repeating-linear-gradient`）であり、単色 `pattern.bg` では原画を表せないと確定した。v1.1 の `thunder` は縞を 2 色グラデーションで近似する。`pattern.bg` の gradient は保存時に停止点と角度を展開し、描画時は `background-image: <透過 pattern SVG>, linear-gradient(...)` の順に合成する。**`diamond` / `dot` / `gingham` 以外の `bg` 文字列は v1 の 1 層（SVG 内の `<rect>`）をバイト不変で維持し、2 層は `bg` がグラデーションオブジェクトのときだけ使う。**3 柄は §3 の CSS gradient 層を保つため、`bg` が文字列でも最背面に単色の CSS gradient を敷く。第 1 層のサイズは基準タイル × `scale`、地のグラデーションは行全体の描画矩形とする。各層の位置は行の共通原点に合わせ、`words[]` 分割後も位相を戻さない。透過 SVG に地色を焼き込まない。
 
 | 項目 | v1 | v1.1 |
 |---|---|---|
 | `pattern.id` enum | `diamond` / `dot` / `stripe` / `gingham` / `skull` / `hazard` / `night` | 左記に `heart` / `thunder` を追加 |
 | `pattern.bg` の型 | `hexColor` 文字列 | `hexColor` 文字列または `{stops,angle_deg}` |
 | `fg` の alpha | `hexColor` の `#RRGGBBAA` を受理 | 9 id とも SVG の `fill` に alpha を保持し、図形固有の opacity と合成 |
-| CSS 合成式 `background-image` | `url("<rect を持つ pattern SVG>")` の 1 層 | `bg` 文字列は v1 とバイト一致。`bg` グラデのみ `<透過 pattern>, linear-gradient(...)` の 2 層 |
+| CSS 合成式 `background-image` | `url("<rect を持つ pattern SVG>")` の 1 層 | `diamond` / `dot` / `gingham` は §3 の CSS gradient 層 + 地の CSS gradient。他の id は `bg` 文字列で v1 とバイト一致し、`bg` グラデのみ `<透過 pattern>, linear-gradient(...)` の 2 層 |
 | 位相・タイル寸法 | 初期 7 id の既定タイルと位相 | `heart` は 14px、`thunder` は 30px。`thunder` の位相は 4px 2px。1 層は位置 1 組・サイズ 1 組、2 層は位置 2 組・サイズはタイルと行全体 |
 | 対象外の `night` / `skull` / `stripe` | id は受理 | 素材の textstyle 変換は対象外。`night` は星点が別色、`skull` は SVG 2 色、`stripe` は独立した斜線グラデーションが必要 |
 

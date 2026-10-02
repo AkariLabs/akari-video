@@ -1,0 +1,15 @@
+{
+  "id": "telop-pattern-dot",
+  "text": "ドット柄",
+  "style": {
+    "size_px": 72,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#ffffff", "width_px": 2.52 }
+    ],
+    "fill": {
+      "type": "pattern",
+      "pattern": { "id": "dot", "scale": 1, "fg": "#ffffff", "bg": "#2676ad" }
+    }
+  }
+}
