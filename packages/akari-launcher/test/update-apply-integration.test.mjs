@@ -197,6 +197,7 @@ serverTest('akari update: app 外（モノレポ checkout 相当）から実行�
       log,
       env,
       currentVersion: '0.1.0',
+      npmAvailable: true,
       fetchImpl: async (url) => {
         assert.equal(url, UPDATE_FEED_URL);
         return { ok: true, json: async () => feed };

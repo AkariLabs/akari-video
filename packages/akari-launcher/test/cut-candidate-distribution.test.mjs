@@ -7,6 +7,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { installProjectSkills, installSkillAdapters } from "../../project-scaffold/src/index.mjs";
+import { commandAvailable } from "./helpers/command-availability.mjs";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 const CHECKOUT_SKILL = path.join(REPO_ROOT, "skills", "edit-plan");
@@ -95,7 +96,8 @@ async function generateAt(root) {
   return Promise.all(files.map(async (relative) => [relative, await sha(path.join(generatedRoot, relative))]));
 }
 
-test("cut candidate bridge has byte-identical checkout, npm, scaffold, and copied-plugin surfaces", async () => {
+test("cut candidate bridge has byte-identical checkout, npm, scaffold, and copied-plugin surfaces", async (t) => {
+  if (!commandAvailable("npm")) { t.skip("npm 不在（配布物の pack 検証には npm が必要）"); return; }
   const temporary = await mkdtemp(path.join(tmpdir(), "akari-cut-distribution-"));
   try {
     const expected = new Map();
