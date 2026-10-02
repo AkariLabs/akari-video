@@ -45,7 +45,7 @@ test('section inventory, normalization and insertion follow original order', () 
   } finally {
     rmSync(browserDir, { recursive: true, force: true });
   }
-  assert.deepEqual(INSPECTOR_SECTION_FILES, []);
+  assert.deepEqual(INSPECTOR_SECTION_FILES, ['types.ts', 'shared-helpers.ts']);
 });
 
 test('sliceBetween reports missing and reversed anchors', () => {

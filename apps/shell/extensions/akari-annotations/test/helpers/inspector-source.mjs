@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
-export const INSPECTOR_SECTION_FILES = [];
+export const INSPECTOR_SECTION_FILES = ['types.ts', 'shared-helpers.ts'];
 
 const defaultBrowserDir = fileURLToPath(new URL('../../src/browser/', import.meta.url));
 
