@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildCaptionWordTiles,
   captionMeasurementsEqual,
+  captionRichInkExtentEm,
   captionRevealGroupStateAt,
   captionWordTextureRect,
   captionWordStateAt,
@@ -159,6 +160,15 @@ test("one-line four-word partition uses line strips and adjacent-word midpoints"
 
 test("caption word tile builder returns null when no words were measured", () => {
   assert.equal(buildCaptionWordTiles({ emPx: 38, lines: [], tokens: [] }, { width: 1920, height: 1080 }), null);
+});
+
+test('rich ink beyond the 0.35em tile margin uses a full texture', () => {
+  const measured = measurement();
+  assert.equal(captionRichInkExtentEm({ fill: { type: 'solid', color: '#fff' },
+    strokes: [{ color: '#000', width_px: 18, offset_y: 2 }] }, 40), .5);
+  assert.ok(buildCaptionWordTiles(measured, { width: 1080, height: 1920, inkExtentEm: .35 }));
+  assert.equal(buildCaptionWordTiles(measured, { width: 1080, height: 1920, inkExtentEm: .350001 }), null);
+  assert.deepEqual(measured.tokens[0].rect, rect(10, 44, 30, 20), 'rich child layers do not change token geometry');
 });
 
 test("caption texture crop includes the plate and a one-em vertical safety margin", () => {

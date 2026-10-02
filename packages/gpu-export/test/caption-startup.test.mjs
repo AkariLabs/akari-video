@@ -103,7 +103,9 @@ test("caption measurement settles every variant within the shared measurement-ro
   assert.match(source, /root\.className = CAPTION_MEASURE_ROOT_CLASS/u);
   assert.match(builder, /const measureSettleCss = `\.\$\{CAPTION_MEASURE_ROOT_CLASS\} \*\{animation-play-state:paused!important;animation-delay:-\$\{Math\.max\(0, Number\(settled\) \|\| 0\)\}s!important\}`/u);
   assert.doesNotMatch(builder, /const measureSettleCss = `\*\{/u);
-  assert.equal(builder.match(/\$\{measureSettleCss\}/gu)?.length, 6);
+  // Rich fill phase resolution uses the same settled root CSS before rasterization.
+  assert.equal(builder.match(/\$\{measureSettleCss\}/gu)?.length, 7);
+  assert.match(builder, /captionRichPhaseHtml\(value, config, html,\s*`\$\{CAPTION_WORD_FREEZE_CSS\}\$\{motionFreezeCss\}\$\{measureSettleCss\}`\)/u);
   assert.match(builder, /captionRoot\(value, config, html, `\$\{CAPTION_WORD_FREEZE_CSS\}\$\{motionFreezeCss\}\$\{measureSettleCss\}`\)/u);
   assert.match(builder, /const unitCss = `\$\{CAPTION_WORD_FREEZE_CSS\}\$\{motionFreezeCss\}\$\{measureSettleCss\}\$\{captionUnitCss\(revealIndex\)\}`/u);
   assert.match(builder, /`\$\{CAPTION_WORD_FREEZE_CSS\}\$\{motionFreezeCss\}\$\{measureSettleCss\}\$\{baseCss\}`/u);

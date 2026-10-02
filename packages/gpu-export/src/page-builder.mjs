@@ -173,6 +173,8 @@ export function buildGpuPage({
         // page-runtime の caption 計測（emPx）と CSS の font-size が同じ実効 px を指すための単一経路。
         emPx: captionFontSizePx(overlay.vars) ?? Number(textStyle?.size_px ?? (portrait ? Math.round(width * 0.06) : 38)),
         motion: textStyle?.animation ?? null,
+        ...(textStyle && (textStyle.fill !== undefined || textStyle.strokes !== undefined)
+          ? { richTextStyle: textStyle } : {}),
         wordMode: word.wordMode,
         styleId: word.effectiveStyle,
         emphasisStyles: word.emphasisStyles,
