@@ -14,7 +14,8 @@ import { AkariFragmentPreviewOpenHandler } from './akari-fragment-preview-open-h
 import { AkariFontSpecimenOpenHandler } from './akari-font-specimen-open-handler';
 import { AkariImageOpenHandler } from './akari-image-open-handler';
 import { AkariGpuPreferenceContribution } from './akari-gpu-preference-contribution';
-import { AkariOutputPreviewOpenHandler, AkariPreviewOpenHandler } from './akari-preview-open-handler';
+import { AkariPreviewOpenHandler } from './akari-preview-open-handler';
+import { AkariOutputPreviewOpenHandler } from './akari-output-preview-open-handler';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariAudioMeterWidget).toSelf();
