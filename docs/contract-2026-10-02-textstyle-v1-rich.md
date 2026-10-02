@@ -94,6 +94,8 @@ CSS mask、`feTurbulence` を用いる質感、断片ネイティブの独自 `@
 
 karaoke `char` / `word` / `smooth` の進行は既存の tok に掛ける。未発火・完了色の差は最前面 fill 層だけに適用し、輪郭と影の色は固定する。`done_color` が必要な箇所は、そのフレームの solid fill として扱う。smooth の wipe は fill 層の内部で字形をクリップし、複製層の上に独立した全文テキストを置かない。`emphasis_words` のプリセット解決は従来どおり行い、同じ文字に run があれば run 優先とする。
 
+B-2 テスト追加（2026-10-02）: karaoke / run / emphasis を同一 cue に重ね、run 投影後に `__rich-shadow` → `__rich-stroke` → `__rich-fill` を構築すること、複製文字が run の書記素数に再入力されないことを `captions-textstyle-v1.test.mjs` で検査する。1080×1920 の画素比較は同テストで render-cut / shell preview / preview-server / OSR / GPU ラスタ化前 HTML の 5 画像を比較する。インク外延が 0.35em を超える場合の全文フレーム矩形とタイル不使用は `caption-words.test.mjs` / `caption-display-policy.test.mjs` で検査する。GPU 合成フレームそのものの画素比較と実行結果は委託元による実行待ち（このサンドボックスの子プロセス起動は EPERM）。
+
 ## 6. 4 経路 + GPU の DOM 契約
 
 render-cut の `renderStyledCaptionFragment` と単一行断片、shell webview の複製、preview-server、OSR が同じ解決値と CSS を用いる。v1 フィールドを持つ単一行字幕にも 1 語 = 1 `.akari-caption__tok` を作り、内側だけを積層する。v1 フィールドの無い字幕は既存 HTML を維持する。
