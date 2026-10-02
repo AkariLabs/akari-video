@@ -1,0 +1,4 @@
+demo lint EXIT 0
+demo render EXIT 2 secs=9
+demo lint EXIT 0
+demo render EXIT 0 secs=105

@@ -1,0 +1,5 @@
+
+> @akari-video/shell@0.1.99 build:ext
+> tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-partner extensions/akari-surfaces extensions/akari-world-view extensions/akari-tabs extensions/akari-transcript extensions/akari-companion
+
+buildext=0

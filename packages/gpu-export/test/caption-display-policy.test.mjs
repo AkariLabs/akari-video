@@ -9,8 +9,8 @@ import { buildOsrPage } from "../../osr-export/src/page-builder.mjs";
 import { buildGpuPage, loadAndBuildGpuPage } from "../src/page-builder.mjs";
 
 // captions.json の display_policy（1 行ずつ順送り）は edit-store の resolveCaptionDisplay が唯一の解決器。
-// 書き出しが旧 generateCaptionOverlays で字幕を焼き直すと、読点の直後で必ず割られて
-// プレビュー 1 行 / 納品物 2 行になる（プレビュー parity 違反）。このファイルはその退行を捕まえる。
+// 書き出しが display_policy を通さず generateCaptionOverlays で字幕を焼き直すと、
+// 20 字の既定上限で 2 行になり、プレビュー 1 行 / 納品物 2 行になる。この退行を捕まえる。
 const displayPolicy = {
   mode: "single_line_sequential",
   algorithm: "a4-ja-two-fragment-v1",
@@ -73,7 +73,7 @@ test("display_policy の読点字幕は書き出しでも 1 行で焼く", () =>
   assert.match(sprite.html, /AKARI Noto Sans JP/u);
   assert.equal(sprite.id, "c-0007-occ-0001-part-1");
 
-  // 同じ文面を display_policy 抜きで通すと旧経路の splitCaptionLines が読点で割る = 退行時の姿。
+  // display_policy 抜きでは同じ文面が既定の 20 字上限を超え、読点を優先して折れる。
   const legacy = gpuPage([punctuated]);
   assert.equal(captionLines(legacy.spriteManifest.captions[0].html), 2);
 });

@@ -19,7 +19,7 @@
 // 失敗した場合は実際の不具合なのでエラーを投げる。
 
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, realpathSync } from "node:fs";
 import { chmod, copyFile, mkdir, readdir, rm, stat } from "node:fs/promises";
 import https from "node:https";
 import os from "node:os";
@@ -206,7 +206,17 @@ export async function buildWhisperCli({ target = currentTarget(), force = false,
   };
 }
 
-const isMainModule = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+// 両辺 realpath（AGENTS.md の規約）。失敗時は false = 実行しない（fail-closed）
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+const isMainModule = isDirectRun();
 if (isMainModule) {
   const forceFlag = process.argv.includes("--force");
   buildWhisperCli({ force: forceFlag, log: (msg) => console.log(msg) })

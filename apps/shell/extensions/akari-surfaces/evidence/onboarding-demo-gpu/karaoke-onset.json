@@ -1,0 +1,224 @@
+{
+ "before": {
+  "rows": [
+   {
+    "glyph": "字",
+    "word_start": 30.63,
+    "onset": 30.733,
+    "full": 30.8,
+    "delta_onset": 0.103
+   },
+   {
+    "glyph": "幕",
+    "word_start": 30.82,
+    "onset": 30.933,
+    "full": 31.133,
+    "delta_onset": 0.113
+   },
+   {
+    "glyph": "の",
+    "word_start": 31.15,
+    "onset": 31.2,
+    "full": 31.233,
+    "delta_onset": 0.05
+   },
+   {
+    "glyph": "カ",
+    "word_start": 31.33,
+    "onset": 31.367,
+    "full": 31.433,
+    "delta_onset": 0.037
+   },
+   {
+    "glyph": "ラ",
+    "word_start": 31.43,
+    "onset": 31.5,
+    "full": 31.533,
+    "delta_onset": 0.07
+   },
+   {
+    "glyph": "オ",
+    "word_start": 31.55,
+    "onset": 31.6,
+    "full": 31.667,
+    "delta_onset": 0.05
+   },
+   {
+    "glyph": "ケ",
+    "word_start": 31.76,
+    "onset": 31.8,
+    "full": 31.8,
+    "delta_onset": 0.04
+   },
+   {
+    "glyph": "表",
+    "word_start": 31.88,
+    "onset": 31.933,
+    "full": 31.967,
+    "delta_onset": 0.053
+   },
+   {
+    "glyph": "示",
+    "word_start": 31.99,
+    "onset": 32.0,
+    "full": 32.067,
+    "delta_onset": 0.01
+   },
+   {
+    "glyph": "も",
+    "word_start": 32.1,
+    "onset": 32.1,
+    "full": 32.167,
+    "delta_onset": 0.0
+   },
+   {
+    "glyph": "い",
+    "word_start": 32.18,
+    "onset": 32.167,
+    "full": 32.233,
+    "delta_onset": -0.013
+   },
+   {
+    "glyph": "け",
+    "word_start": 32.26,
+    "onset": 32.267,
+    "full": 32.3,
+    "delta_onset": 0.007
+   },
+   {
+    "glyph": "ま",
+    "word_start": 32.33,
+    "onset": 32.333,
+    "full": 32.367,
+    "delta_onset": 0.003
+   },
+   {
+    "glyph": "す",
+    "word_start": 32.43,
+    "onset": 32.4,
+    "full": 32.467,
+    "delta_onset": -0.03
+   },
+   {
+    "glyph": "。",
+    "word_start": 32.53,
+    "onset": 32.5,
+    "full": 32.5,
+    "delta_onset": -0.03
+   }
+  ],
+  "max_abs_delta_onset": 0.113,
+  "missing": []
+ },
+ "after": {
+  "rows": [
+   {
+    "glyph": "字",
+    "word_start": 30.63,
+    "onset": 30.733,
+    "full": 30.833,
+    "delta_onset": 0.103
+   },
+   {
+    "glyph": "幕",
+    "word_start": 30.82,
+    "onset": 30.933,
+    "full": null,
+    "delta_onset": 0.113
+   },
+   {
+    "glyph": "の",
+    "word_start": 31.15,
+    "onset": 31.2,
+    "full": 31.233,
+    "delta_onset": 0.05
+   },
+   {
+    "glyph": "カ",
+    "word_start": 31.33,
+    "onset": 31.367,
+    "full": 31.433,
+    "delta_onset": 0.037
+   },
+   {
+    "glyph": "ラ",
+    "word_start": 31.43,
+    "onset": 31.467,
+    "full": 31.567,
+    "delta_onset": 0.037
+   },
+   {
+    "glyph": "オ",
+    "word_start": 31.55,
+    "onset": 31.6,
+    "full": 31.7,
+    "delta_onset": 0.05
+   },
+   {
+    "glyph": "ケ",
+    "word_start": 31.76,
+    "onset": 31.8,
+    "full": 31.833,
+    "delta_onset": 0.04
+   },
+   {
+    "glyph": "表",
+    "word_start": 31.88,
+    "onset": 31.967,
+    "full": 32.1,
+    "delta_onset": 0.087
+   },
+   {
+    "glyph": "示",
+    "word_start": 31.99,
+    "onset": 31.967,
+    "full": 32.1,
+    "delta_onset": -0.023
+   },
+   {
+    "glyph": "も",
+    "word_start": 32.1,
+    "onset": 32.067,
+    "full": 32.2,
+    "delta_onset": -0.033
+   },
+   {
+    "glyph": "い",
+    "word_start": 32.18,
+    "onset": 32.167,
+    "full": 32.267,
+    "delta_onset": -0.013
+   },
+   {
+    "glyph": "け",
+    "word_start": 32.26,
+    "onset": 32.267,
+    "full": 32.333,
+    "delta_onset": 0.007
+   },
+   {
+    "glyph": "ま",
+    "word_start": 32.33,
+    "onset": 32.3,
+    "full": 32.5,
+    "delta_onset": -0.03
+   },
+   {
+    "glyph": "す",
+    "word_start": 32.43,
+    "onset": 32.4,
+    "full": 32.533,
+    "delta_onset": -0.03
+   },
+   {
+    "glyph": "。",
+    "word_start": 32.53,
+    "onset": 32.4,
+    "full": 32.533,
+    "delta_onset": -0.13
+   }
+  ],
+  "max_abs_delta_onset": 0.13,
+  "missing": []
+ }
+}

@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rimraf lib",
-    "test": "node --test test/*.mjs"
+    "test": "tsc -b && node --test test/*.mjs"
   },
   "dependencies": {
     "@theia/core": "1.73.1",

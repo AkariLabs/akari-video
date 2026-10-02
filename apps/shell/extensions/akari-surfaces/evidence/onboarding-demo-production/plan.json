@@ -1,0 +1,494 @@
+{
+  "schema": "akari-onboarding-demo-plan/v1",
+  "task": "2026-09-30-onboarding-demo-production",
+  "created": "2026-10-01",
+  "role": "director",
+  "source": {
+    "clip": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/clip.mp4",
+    "size": "1280x720",
+    "fps": 30,
+    "frames": 1128,
+    "duration_s": 37.6,
+    "voice_end_s": 35.63,
+    "audio_stream_end_s": 35.92,
+    "loudness": { "voice_lufs": -16.0, "bgm_clip_lufs_at_0db": -15.9 }
+  },
+  "concept": "話し手が「いまからやって見せます」のつもりで言った語の、その語頭のフレームで機能が本当に起きる 37.6 秒。語の時刻を声の波形と口の開閉で取り直し（元のトークンは最大 1.46 秒早かった）、右 45% の舞台に見せ場を 1 つずつ出す: タイトル → AI との対話 → 編集完了の判子 → 「パッ」（閃光・ズーム・擬音・効果音が BGM の拍に同時着地）→ 「こういう」図解 → スマホの画面にこの動画自体 → 「BGM も」で音楽が立ち上がる → カラオケ字幕 → 「編集 AI」のクレジットに「チーン」。派手さは 19.70 の一点に集め、ほかは品よく。",
+  "style_guide": {
+    "tone": "明るい部屋の基調講演。白いカード＋墨の文字＋AKARI の橙。壁のベージュに暖色の影で馴染ませる。擬音「パッ！」だけはバラエティ番組の文法（太い縁・グラデ・放射線）で振り切る",
+    "color_tokens": {
+      "--demo-ink": "#17130F",
+      "--demo-ink-sub": "#6B5E52",
+      "--demo-card": "#FFFFFF（不透明度 0.97）",
+      "--demo-card-line": "rgba(23,19,15,.07)（カードの縁 1px）",
+      "--demo-shadow": "0 18px 44px rgba(58,38,20,.22)",
+      "--demo-accent": "#F97316（アプリの主色・橙）",
+      "--demo-accent-soft": "#FDBA74（線・淡い面）",
+      "--demo-accent-hot": "#FB923C（字幕の強調語・カラオケの塗り）",
+      "--demo-spark": "#FFD94A（閃光・キラッの芯だけ）",
+      "--demo-stamp": "#E8541E（判子の朱）",
+      "--demo-halo": "#FFFFFF（壁に直に置く文字の白フチ 8〜10px）"
+    },
+    "type": {
+      "sans": "Noto Sans JP 700 / 900（assets/font/noto-sans-jp、OFL）。断片ごとに使う文字だけ切り出して data URI で埋め込む。family 名は別名 \"AKARI Demo Sans\"（OFL の Reserved Font Name 'Source' を名乗らない）",
+      "display": "Dela Gothic One（assets/font/dela-gothic-one、OFL・RFN なし）。擬音「パッ！」と判子「完了」だけ。別名 \"AKARI Demo Display\"",
+      "fallback": "\"Hiragino Sans\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", sans-serif",
+      "subset_tool": "python -m fontTools.subset（fontTools 4.66.1 はこの機械にある）。可変フォントは fontTools.varLib.instancer で wght=700 / 900 の静的体にしてから切る。woff2 が作れなければ ttf の data URI で可",
+      "sizes_px_at_720p": "見出し 40〜84 / ラベル 20〜26 / 補助 14〜18 / 擬音 168"
+    },
+    "layout": {
+      "design_canvas": "1280x720 の px で作る（edit.json の output と同じ）",
+      "stage": "右の舞台 = y<460 は x 720〜1240、y 460〜610 は x 830〜1240",
+      "keep_out": "人物の届く範囲（実測・パンチイン 1.06 込み）= y<470 で x<690、y 470〜660 で x<815（ノート PC）。字幕帯 = x 300〜980・y≥628",
+      "exception": "画面効果の閃光（全画面・0.4 秒以内の過渡）と本編のパンチインだけは全画面にかかってよい",
+      "one_at_a_time": "右の舞台の主役は同時に 1 つ（スマホに付く BGM 札だけ例外）。主役どうしの間は 0.3 秒以上空ける"
+    },
+    "motion": {
+      "sync_rule": "要素の最初に見えるフレーム = その語の語頭（下の key_words）の −1〜0 フレーム。許容 ±0.15 s、狙い ±0.05 s",
+      "enter": "0.30〜0.45 s。移動は --ease-smooth、ポップ（scale 0.5〜0.7→1）は --ease-overshoot-soft。開始フレームから見せるため animation-delay は −33.333ms 起点",
+      "exit": "0.25 s、--ease-accelerate、fill forwards（backwards を付けない）",
+      "authoring": "skills/overlay-authoring の FORBIDDEN 6 条と motion.md に従う: ルート 1 つ・ルートに data-start/duration を置かない・--x/--y/--scale/--rotate を使わない・animation は [data-akari-active] 付きのルールに書き、delay は断片内ローカル秒の CSS 変数で・base は最終の静止状態・多段 keyframes は全段に全プロパティ・transform / opacity だけ動かす・blur / backdrop-filter / JS タイマー / 乱数禁止・@keyframes 名は demo-<id>- で始める・box-sizing: border-box を一括"
+    },
+    "audio": {
+      "voice": "−16 LUFS。常に主役",
+      "bgm": "発話中 ≈ −33 LUFS（声の 15〜18 LU 下）、間 ≈ −25 LUFS。「BGM も」で +7 dB 立ち上がる",
+      "sfx": "主役の効果音はピーク −8〜−12 dBFS、UI の細かい音は −18〜−21 dBFS。効果音のアタック（または whoosh の山）を語頭 ±0.03 s に置く"
+    },
+    "captions": "標準字幕（subtitle-standard）のまま、時刻だけ正す。デモの名詞 8 語を橙で色付け（runs）。「字幕のカラオケ表示もいけます。」の 1 行だけカラオケ（橙で塗る・少し大きく）"
+  },
+  "key_words": {
+    "こんにちは": 0.29, "アカリビデオ": 3.59, "動画編集ツール": 5.10, "AI": 8.55, "対話": 9.26, "だけ(1)": 9.90,
+    "喋ってるだけで": 11.30, "編集": 12.57, "終わってる": 13.18, "効果音": 17.50, "エフェクト": 18.74, "パッ": 19.70,
+    "ほら": 20.55, "こんな感じで": 21.10, "こういう": 23.27, "図解": 23.58, "出せます": 24.02, "し": 24.70,
+    "スマホ": 27.07, "モックアップ": 27.77, "BGM": 29.45, "字幕の": 30.63, "カラオケ": 31.33, "僕は": 33.77,
+    "だけ(2)": 34.79, "ね(終わり)": 35.63
+  },
+  "word_timing_file": "analysis/word-timing.json",
+  "storyboard": "storyboard/storyboard-grid.jpg（各要素の置き場所を実フレームに描いたもの。赤 = 人物の届く範囲、青 = 字幕帯、緑 = 舞台）",
+  "tracks_final_order": {
+    "visual_bottom_to_top": [
+      { "id": "video", "name": "本編", "items": ["sample（punch-in の keyframes を足す）"] },
+      { "id": "demo-phone-screen", "name": "スマホの画面", "items": ["phone-screen"] },
+      { "id": "demo-flash", "name": "閃光", "items": ["flash（2026-10-01 目利きの差し戻しで demo-accents から移設。擬音「パッ！」より下に敷き、19.70 で擬音の墨の縁を白く飛ばさない）"] },
+      { "id": "demo-stage", "name": "右の演出", "items": ["title", "chat", "done", "effects", "diagram", "phone", "credit"] },
+      { "id": "demo-accents", "name": "札", "items": ["bgm-chip"] },
+      { "id": "captions", "name": "字幕", "items": ["captions（model.ts が作る袋。最上段に置く）"] }
+    ],
+    "audio": [
+      { "id": "onboarding-bgm", "name": "BGM", "items": ["bgm"] },
+      { "id": "demo-sfx", "name": "効果音", "items": ["sfx-* 14 個（互いに重ならない）"] }
+    ],
+    "note": "tracks[] は下から上の順（契約 v2 §2-4）。model.ts の createOnboardingEdit は [video, captions] を返すので、新しい段は video と captions の間に差し込む。段階表示の途中では items が空の段を作らない"
+  },
+  "elements": [
+    {
+      "id": "timing-realign",
+      "kind": "字幕（時刻の正本）",
+      "start": 0, "end": 37.6,
+      "words": "全文（131 トークン）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/transcript.json",
+      "needs_production": true,
+      "spec": "tokens.items の start/end を analysis/word-timing.json の tokens[].start/end に置き換える（文字列・個数・順序は同じ。ただし index 5〜7 の「あ・か・り」を「ア・カ・リ」に）。tokens.precision を「2026-10-01 声の 10ms 包絡と口の開閉で合わせ直し。語頭の誤差 ±0.05〜0.10 s」に。segments.items[0].text の「あかりビデオ」も「アカリビデオ」に。model.ts は触らない（並走レーン所有）。字幕の区切りは文字だけで決まるので 22 行のまま時刻だけ正しくなる（word-timing.json の captions_after_realign と一致することをテストで固定）。既存ユーザーのライブラリ（library/broll/talkinghead-desk-ja-01/transcript.json）は COPYFILE_EXCL で上書きされないので、ensureSample で「宛先の sha256 が旧版 b384cae62959224be1c65d036da836ce53023169f0aa778afc1dffd307696c69 と一致するときだけ上書き」する。meta.json の provenance に「語の時刻を合わせ直した」旨を追記"
+    },
+    {
+      "id": "title",
+      "kind": "タイトル",
+      "start": 0.2333, "end": 7.4667,
+      "words": "こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。（名札 3.59「アカリビデオ」／下線 5.10「動画編集ツール」）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-title/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-stage", "id": "demo-title", "name": "タイトル", "at": 7, "duration": 217, "source": { "kind": "html", "path": "overlays/demo-title/fragment.html" } },
+      "spec": "白いカード（left 760 / top 60 / width 460 / 高さ約 176、角丸 22、--demo-shadow、縁 1px --demo-card-line、内側余白 22px 28px）に 2 行: 1 行目「AI と話すだけで」40px/900 墨、2 行目「動画編集」64px/900 墨（字間 .02em）。2 行目の下に橙の下線（高さ 8px・角丸 4・幅は文字幅）。カードの下（left 760 / top 250）に橙の名札ピル「✦ AKARI Video」（高さ 46・左右 22px・白 26px/900・✦ は SVG 4 芒星）。ローカル秒: カード入り 0→0.42（translateX 48→0・opacity 0→1・--ease-smooth、delay −0.033）、1 行目 0.10→0.45・2 行目 0.18→0.55（translateY 14〜18→0 + opacity）、名札 3.357（=3.59−0.2333）で scale .55→1・opacity 0→1（0.32 s・--ease-overshoot-soft）＋名札の上を白い斜めの光が 3.45→3.85 で横切る（overflow hidden の中で translateX −120%→120%、opacity 0→.8→0）、下線 4.867（=5.10−0.2333）で scaleX 0→1（0.35 s・origin left）、抜け 6.98→7.23（translateX 0→40・opacity→0・--ease-accelerate・forwards）。ツマミ: --title-left / --title-top / --title-width / --demo-accent / --demo-ink / --title-badge-delay / --title-underline-delay / --title-exit-delay。確認: render-fragment.mjs --size 1280x720 --backdrop none を --seek 0.05 / 0.6 / 3.40 / 3.70 / 5.30 / 7.10 で撮り、clip.mp4 の同時刻（ローカル＋0.2333）のフレームに重ねて目視。名札が 3.59 のフレームで見えていること",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 1 行目 48px・2 行目 80px・名札 34px。カード left 730 / width 502（右端 1232）・高さ約 214.5、下線 10px、名札はカードの下 11.5px、名札のポップの拡大の中心は 13%（✦ の位置）。時刻・イージング・色・書体は同じ。測定: evidence/onboarding-demo-text/title/title-measure.json"
+    },
+    {
+      "id": "sfx-title-whoosh",
+      "kind": "効果音",
+      "start": 0.0, "end": 0.9667,
+      "words": "（冒頭・タイトルの入り）こんにちは",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-whoosh-air-soft.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "demo-sfx", "id": "demo-sfx-title-whoosh", "at": 0, "duration": 29, "role": "sfx", "gain_db": -10, "source": { "kind": "media", "src": "demo-sfx-whoosh-air-soft", "in": 0, "out": 0.95 } },
+      "spec": "AKARI Sounds sfx-whoosh-air-soft（~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-air-soft.mp3、md5 060cc41b… = akari-wt/perf-pv-v2/assets/audio/sfx/ と同一）。頭は切らずに 0〜0.95 s を切り出し、末尾 30 ms フェード、AAC 128 kbps / 48 kHz の m4a。山 0.49 s がカードの着地とそろう。ピーク目安 −16 dBFS（控えめ）"
+    },
+    {
+      "id": "sfx-name-pop",
+      "kind": "効果音",
+      "start": 3.5667, "end": 4.0667,
+      "words": "アカリビデオ",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-pop-ding.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "demo-sfx", "id": "demo-sfx-name-pop", "at": 107, "duration": 15, "role": "sfx", "gain_db": -6, "source": { "kind": "media", "src": "demo-sfx-pop-ding", "in": 0, "out": 0.5 } },
+      "spec": "AKARI Sounds sfx-pop-ding（md5 5ff54570…、アタック 0.015 s）。0〜0.5 s を切り出し。107 フレーム（3.567）に置くとアタックが 3.582 で「ア」3.59 と名札の出にそろう。ピーク目安 −12 dBFS"
+    },
+    {
+      "id": "chat",
+      "kind": "強調テロップ（AI との対話）",
+      "start": 8.5333, "end": 10.9667,
+      "words": "これ、AIと対話するだけでいいんですよ。（あなたの吹き出し 8.55「AI」／AI の入力中 9.26「対話」／返事 9.90「だけ」）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-chat/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-stage", "id": "demo-chat", "name": "AI との対話", "at": 256, "duration": 73, "source": { "kind": "html", "path": "overlays/demo-chat/fragment.html" } },
+      "spec": "アプリの「AI パートナー」欄を模した白いカード（left 770 / top 140 / width 440 / height 270、角丸 22、--demo-shadow）。見出し行「✦ AI パートナー」20px/800 --demo-ink-sub＋細い区切り線。あなたの吹き出し（右寄せ・最大幅 300・橙 #F97316 地・白 24px/800・角丸 18、右下だけ 6）「話に合わせて編集して」。AI の吹き出し（左寄せ・36px の丸アイコン＝#FFF3E8 地に橙の ✦・吹き出し地 #F4EFE9・墨 24px/800）は最初「入力中の点 3 つ」→「できました！」＋橙の丸いチェック。ローカル秒: カード入り 0→0.30（translateX 40→0＋opacity、delay −0.033）、あなた 0.017（=8.55−8.5333）で scale .7→1＋opacity（0.28 s・overshoot-soft・origin 右下）、AI の吹き出し 0.727（=9.26−8.5333）で同様（origin 左下）＋点 3 つが 0.6 s 周期・0.12 s ずらしで上下（translateY 0→−5→0、両端明示）、1.367（=9.90−8.5333）で点が 0.1 s で消え「できました！」が 0.2 s で出て、チェックが 1.40 で scale .4→1（overshoot）。抜け 2.18→2.43（translateX 0→36・opacity→0）。確認 --seek 0.05 / 0.40 / 0.80 / 1.45 / 2.0（実時刻 8.58 / 8.93 / 9.33 / 9.98 / 10.53）",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 見出し 26px・吹き出し 30px、アイコン 44・チェック 34・点 11。カード 470×248 @(740,130)（旧 440×270 @(770,140)）。入力欄（案内文と送信ボタン）は外した。書体は wght 800 のみ。動き・時刻・色は同じ。測定: evidence/onboarding-demo-text/chat/chat-measure.json"
+    },
+    {
+      "id": "sfx-chat-pops",
+      "kind": "効果音",
+      "start": 8.5333, "end": 9.4000,
+      "words": "AI（8.55）／対話（9.26）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-pop-bubble-big.m4a",
+      "needs_production": true,
+      "edit_item": [
+        { "track": "demo-sfx", "id": "demo-sfx-chat-pop-1", "at": 256, "duration": 5, "role": "sfx", "gain_db": -4, "source": { "kind": "media", "src": "demo-sfx-pop-bubble-big", "in": 0, "out": 0.15 } },
+        { "track": "demo-sfx", "id": "demo-sfx-chat-pop-2", "at": 277, "duration": 5, "role": "sfx", "gain_db": -4, "source": { "kind": "media", "src": "demo-sfx-pop-bubble-big", "in": 0, "out": 0.15 } }
+      ],
+      "spec": "AKARI Sounds sfx-pop-bubble-big（md5 0a4a1d03…、アタック 0.02 s・実長 0.07 s）を 0〜0.15 s で 1 本切り出し、吹き出し 2 つに同じ音を使う（256 f = 8.533 → 8.553、277 f = 9.233 → 9.253）。ピーク目安 −16 dBFS"
+    },
+    {
+      "id": "done",
+      "kind": "キーワード（編集完了の判子）",
+      "start": 11.2667, "end": 14.8667,
+      "words": "喋ってるだけで、編集はもう終わってる感じです。（1 行目 11.30「喋」／2 行目 12.57「編集」／判子 13.18「終わ」）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-done/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-stage", "id": "demo-done", "name": "編集完了", "at": 338, "duration": 108, "source": { "kind": "html", "path": "overlays/demo-done/fragment.html" } },
+      "spec": "カードなし・壁に直に置く大きな文字（白フチ 8〜10px を paint-order: stroke fill で、影 0 4px 14px rgba(58,38,20,.25)）。1 行目「喋ってるだけで」38px/800 墨、右端 1190・top 170 の右寄せ。2 行目「編集は」84px/900 墨、left 780・top 250。判子「完了」: 直径 164 の円（中心 1110, 300）・朱 #E8541E の太線 7px＋内側 2px の二重円（inset 10px）・中の文字 Dela Gothic One 58px 朱・全体 rotate −12°。ローカル秒: 1 行目 0.033（=11.30−11.2667）で translateY 14→0＋opacity（0.30 s、delay −0.033 起点）、2 行目 1.303（=12.57−11.2667）で translateY 20→0＋opacity（0.32 s）、判子 1.913（=13.18−11.2667）で叩きつけ: 0% scale 1.9・opacity 0 → 55%（0.11 s）scale .92・opacity 1 → 100%（0.20 s）scale 1（rotate −12° は全段に含める）。同時に朱の輪が scale 1→1.35・opacity .5→0（0.30 s）、2 行目が translateX 0→−3→2→0（0.14 s）で小さく揺れる。抜け 3.28→3.53（opacity→0・translateY 0→−10）。確認 --seek 0.10 / 1.40 / 1.95 / 2.10 / 3.0"
+    },
+    {
+      "id": "sfx-done-tone",
+      "kind": "効果音",
+      "start": 13.1667, "end": 13.7333,
+      "words": "終わってる（13.18）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-correct-tone.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "demo-sfx", "id": "demo-sfx-done-tone", "at": 395, "duration": 17, "role": "sfx", "gain_db": -3, "source": { "kind": "media", "src": "demo-sfx-correct-tone", "in": 0, "out": 0.55 } },
+      "spec": "AKARI Sounds sfx-correct-tone（md5 b4353a6d…、立ち上がり 0.005 s・実長 0.5 s）。0〜0.55 s。395 f = 13.167 に置き、判子の叩きつけと同時。ピーク目安 −12 dBFS"
+    },
+    {
+      "id": "effects",
+      "kind": "キーワード＋画面効果（効果音・エフェクト・パッ！）",
+      "start": 17.4667, "end": 21.9667,
+      "words": "喋ってる途中に効果音とか、エフェクトを、パッと。ほら、こんな感じで。（札 17.50「効果音」・18.74「エフェクト」／擬音 19.70「パッ」／キラッ 20.55「ほら」）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-effects/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-stage", "id": "demo-effects", "name": "効果音とエフェクト", "at": 524, "duration": 135, "source": { "kind": "html", "path": "overlays/demo-effects/fragment.html" } },
+      "spec": "本編の頂点。(1) 札 2 枚（白いピル・高さ 48・22px/800 墨・--demo-shadow）: 「♪ 効果音」left 780 top 92 width 170（♪ は橙の SVG・横に音の弧 2 本）、「✦ エフェクト」left 966 top 92 width 214。(2) 擬音「パッ！」: Dela Gothic One 168px、中心 (1005, 330)、rotate −6°、塗り = 上 #FFD94A→下 #F97316 のグラデ（background-clip: text）、縁 -webkit-text-stroke 12px #17130F（paint-order stroke fill）、厚み text-shadow 0 8px 0 #17130F, 0 14px 26px rgba(58,38,20,.35)。(3) 放射線 14 本（幅 6・長さ 60〜110・角丸、#F97316 と #FFD94A を交互）を擬音の中心から放つ。人物側に入らないよう、画面座標で右を 0° とした時計回り 120°〜150° の向きの線は置かない。(4) 衝撃の輪（直径 120・線 6px #FFD94A）。(5) キラッ 7 個（4 芒星 SVG、#FFD94A に白い芯、18〜34px）を (850,250) (1165,245) (1180,395) (880,430) (1010,215) (1110,440) (820,340) に固定配置。ローカル秒: 札 1 = 0.033（=17.50−17.4667）で scale .6→1＋opacity（0.28 s・overshoot-soft）＋音の弧が 1 回だけ広がって消える、札 2 = 1.273（=18.74−17.4667）で同様。擬音 = 2.233（=19.70−17.4667）: 0% scale .3・opacity 0 → 40%（0.11 s）scale 1.14・opacity 1 → 70% scale .96 → 100%（0.28 s）scale 1（delay 2.20 起点で 2.233 のフレームに見えている）。放射線 = 2.20 から 0.45 s（半径 70→120→190・scaleY .2→1→.4・opacity 0→1→0）。輪 = 2.20 から 0.40 s（scale .3→2.4・opacity 1→0）。札 2 枚は 2.233 で translateY 0→−6→0（0.2 s）と小さく跳ねる。キラッ = 3.05＋i×0.045（i=0..6）から各 0.6 s（scale 0→1.15→0・rotate 0→30→60・opacity 0→1→0）、同時に擬音が scale 1→1.06→1（0.25 s）。抜け 4.233→4.483（21.70→21.95）: 全体 scale 1→.92・opacity→0・--ease-accelerate。確認 --seek 0.05 / 1.30 / 2.24 / 2.30 / 2.50 / 3.20 / 3.90（実時刻 17.52 / 18.77 / 19.71 / 19.77 / 19.97 / 20.67 / 21.37）"
+    },
+    {
+      "id": "sfx-kouka-pop",
+      "kind": "効果音",
+      "start": 17.4667, "end": 17.6333,
+      "words": "効果音（17.50）— 言った瞬間に本当に「ポン」と鳴らす",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-pop-cork.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "demo-sfx", "id": "demo-sfx-kouka-pop", "at": 524, "duration": 5, "role": "sfx", "gain_db": -4, "source": { "kind": "media", "src": "demo-sfx-pop-cork", "in": 0, "out": 0.15 } },
+      "spec": "AKARI Sounds sfx-pop-cork（md5 e3b43e06…、アタック 0.025 s）。0〜0.15 s。524 f = 17.467 → アタック 17.49。札「♪ 効果音」の出と同時。ピーク目安 −12 dBFS"
+    },
+    {
+      "id": "sfx-pa-whoosh",
+      "kind": "効果音",
+      "start": 19.3667, "end": 20.1333,
+      "words": "（読点の間 19.36〜19.70 で溜めて）パッ（19.70）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-whoosh-punchy.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "demo-sfx", "id": "demo-sfx-pa-whoosh", "at": 581, "duration": 23, "role": "sfx", "gain_db": -4, "source": { "kind": "media", "src": "demo-sfx-whoosh-punchy", "in": 0, "out": 0.75 } },
+      "spec": "AKARI Sounds sfx-whoosh-punchy（md5 df86b3f6…、立ち上がり 0.195 s・山 0.33 s）。0〜0.75 s。581 f = 19.367 に置くと山が 19.697 で「パ」の破裂 19.70 に一致し、無音の読点の間で溜めて弾ける。本編で一番大きい効果音: ピーク目安 −8 dBFS。BGM の打点も 19.70 に来る（bgm 要素参照）"
+    },
+    {
+      "id": "flash",
+      "kind": "画面効果（閃光）",
+      "start": 19.6667, "end": 20.0667,
+      "words": "パッ（19.70）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-flash/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-flash", "id": "demo-flash", "name": "閃光", "at": 590, "duration": 12, "source": { "kind": "html", "path": "overlays/demo-flash/fragment.html" } },
+      "revision_2026_10_01": "目利きの差し戻し: 段 demo-accents（右の演出より上）だと、見せ場の 19.70 で擬音「パッ！」自体が白く飛んだ（輪郭の暗画素 0 px）。閃光専用の段 demo-flash を本編・スマホの画面と demo-stage の間に新設して移した（配線は codex）。時刻・opacity の曲線・断片は不変。書き出しで 19.70 の擬音の墨（最大チャネル < 60）0 → 14,328 px（静止時 ≈ 14,500 px）、壁で逆算した閃光の α は 0.520 のまま（elements/flash/flash-measure.json の layer_fix_2026_10_01）",
+      "spec": "全画面の 1 枚（position absolute; inset 0）。radial-gradient(circle at 78% 46%, rgba(255,250,235,1) 0%, rgba(255,250,235,.85) 30%, rgba(255,250,235,.35) 75%) で、光源が右の擬音にあるように見せる。opacity の keyframes（全段明示）: 0 s = 0 → 0.033 s = 0.62 → 0.133 s = 0.30 → 0.40 s = 0（linear）。過渡 FX なので base opacity 0 を許す（motion.md の例外）。字幕は上の段なので白く飛ばない。確認 --seek 0.00 / 0.033 / 0.10 / 0.30 を実フレーム 19.667 / 19.70 / 19.767 / 19.967 に重ねる"
+    },
+    {
+      "id": "punch-in",
+      "kind": "画面効果（ズーム）",
+      "start": 19.6667, "end": 21.1,
+      "words": "パッ（19.70）→ こんな感じで（21.10）で戻る",
+      "file": "apps/shell/extensions/akari-surfaces/src/node/onboarding-service.ts",
+      "needs_production": false,
+      "edit_item": { "track": "video", "id": "sample", "keyframes": [
+        { "t": 590, "transform": { "scale": 1 } },
+        { "t": 592, "transform": { "scale": 1.06 }, "easing": "out-expo" },
+        { "t": 612, "transform": { "scale": 1.06 } },
+        { "t": 633, "transform": { "scale": 1 }, "easing": "in-out-cubic" }
+      ] },
+      "spec": "本編のメディアアイテム（id sample）に keyframes を 4 点足すだけ（素材は作らない）。2 フレームで 1.06 倍に寄り、20.40 まで保持、21.10 で戻る。output.geometry は source なので出力中心を基点に拡大（顔は左上へ約 17px 動く＝人物の届く範囲の見積もりに込み済み）。プレビューと書き出しの両方で効くことを 19.60 / 19.80 / 20.30 / 21.20 のフレームで実測（人物の頭の幅が 1.06 倍）。効かない経路があれば report に書き、パンチインだけ外して閃光と擬音で成立させる"
+    },
+    {
+      "id": "sfx-hora-sparkle",
+      "kind": "効果音",
+      "start": 20.5667, "end": 22.0333,
+      "words": "ほら（20.55）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-shimmer-sparkle.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "demo-sfx", "id": "demo-sfx-hora-sparkle", "at": 617, "duration": 44, "role": "sfx", "gain_db": 2, "source": { "kind": "media", "src": "demo-sfx-shimmer-sparkle", "in": 0, "out": 1.45 } },
+      "spec": "AKARI Sounds sfx-shimmer-sparkle（md5 1fce76d7…、立ち上がり 0.005 s・実長 1.39 s・素材が小さい −17.5 dBFS のため +2 dB）。0〜1.45 s。617 f = 20.567。キラッ 7 個と同時。ピーク目安 −14 dBFS"
+    },
+    {
+      "id": "diagram",
+      "kind": "図解",
+      "start": 23.2333, "end": 26.9,
+      "words": "あと、こういう図解も出せますし、（カード＋話す 23.27「こういう」／AI 23.58「図解」／完成 24.02「出せます」／完成の強調 24.70「し」／25.00〜27.07 の無音は流れの点が動いて余韻）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-diagram/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-stage", "id": "demo-diagram", "name": "図解", "at": 697, "duration": 110, "source": { "kind": "html", "path": "overlays/demo-diagram/fragment.html" } },
+      "spec": "話し手が 23.0〜23.5 に右へ手を差し出す、その手の先に出す流れ図。白いカード（left 740 / top 150 / width 490 / height 290、角丸 22）。見出し「話すだけで、動画ができるまで」24px/900 墨（頭に橙の丸 8px）。ノード 3 つ（直径 96 の円、中心 x = 826 / 985 / 1144、y = 300）: ① マイクの線画アイコン（44px・線 3.5px）＝地 #FFF3E8・橙の輪 3px、ラベル「話す」② 4 芒星アイコン＝地 #F97316・白アイコン、ラベル「AI が編集」＋小さな補助「テロップ・図解・音」16px/700 --demo-ink-sub ③ 再生三角＝地 墨・白アイコン、ラベル「完成！」。ラベル 22px/800 墨、円の下 12px。コネクタ 2 本（x 880→932 / 1039→1090、y 300、高さ 6・角丸・#FDBA74、先に三角の矢じり）。ローカル秒: カード 0→0.30（translateX 36→0＋opacity、delay −0.033）、① 0.037（=23.27−23.2333）scale .5→1＋opacity（0.30 s・overshoot-soft）、コネクタ 1 0.19→0.34（scaleX 0→1・origin left）、② 0.347（=23.58−23.2333）で同様＋アイコンが 0→90° 回る（0.5 s）、コネクタ 2 0.62→0.77、③ 0.787（=24.02−23.2333）、完成 1.467（=24.70−23.2333）: ③ の地が墨→橙（上に重ねた橙の円の opacity 0→1、0.25 s）＋右上に白地に橙チェックのバッジ（22px）scale .4→1＋カードに橙 3px の輪郭（別要素の opacity 0→1）。余韻 1.77→3.35: 各コネクタの上を橙の点（8px）が translateX 0→44px を 0.9 s 周期で流れる（linear・infinite）。抜け 3.367→3.617（26.60→26.85、translateX 0→40・opacity→0）。connector は stroke-dashoffset ではなく scaleX で描く。確認 --seek 0.05 / 0.36 / 0.80 / 1.50 / 2.40 / 3.50（実時刻 23.28 / 23.59 / 24.03 / 24.73 / 25.63 / 26.73）"
+    },
+    {
+      "id": "sfx-diagram-ticks",
+      "kind": "効果音",
+      "start": 23.2667, "end": 24.2,
+      "words": "こういう（23.27）／図解（23.58）／出せます（24.02）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-click-soft-ui.m4a",
+      "needs_production": true,
+      "edit_item": [
+        { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-1", "at": 698, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } },
+        { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-2", "at": 707, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } },
+        { "track": "demo-sfx", "id": "demo-sfx-diagram-tick-3", "at": 721, "duration": 5, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-click-soft-ui", "in": 0, "out": 0.16 } }
+      ],
+      "spec": "AKARI Sounds sfx-click-soft-ui（md5 9d833215…、アタック 0.005 s・実長 0.12 s）を 0〜0.16 s で 1 本。ノードが 1 つ出るたびに小さく「コッ」（698 / 707 / 721 f = 23.267 / 23.567 / 24.033）。ピーク目安 −20 dBFS（聞こえるが目立たない）"
+    },
+    {
+      "id": "phone",
+      "kind": "スマホ（モックアップの枠）",
+      "start": 26.9667, "end": 32.9333,
+      "words": "スマホのモックアップとかも、BGMも、字幕のカラオケ表示もいけます。（入り 27.07「スマホ」／画面点灯 27.77「モックアップ」）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-phone/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-stage", "id": "demo-phone", "name": "スマホ", "at": 809, "duration": 179, "source": { "kind": "html", "path": "overlays/demo-phone/fragment.html" } },
+      "spec": "工房の assets/overlay/phone-2d（CC0-1.0）を元に作る（外形 px・内側 cqmin の規約、画面は切り抜き）。本体 236×488（left 894 / top 92）、--frame-color #8a8578 のチタン調・センサー窓・側面ボタンあり・--corner-radius 11・--frame-thickness 2.6 → 画面の穴 = x 900.1〜1123.8 / y 98.1〜573.8・角丸約 19.8px。画面は透明（下の段の phone-screen が透ける）。画面の中の層: (a) 起動画面（不透明 #101319、中央に橙の ✦ 40px と「AKARI Video」14px/800 白 70%）(b) 短尺動画アプリ風の UI（下 30% に黒 0→.45 のグラデ、左下「@akari_video」11px/800 白、右列にハート・吹き出し・矢印の汎用線画 18px 白 85%、最下部に幅 80% の進捗バー 3px＝白 35% 地に橙の塗り）。実在アプリのロゴ・固有 UI は描かない。本体の下に接地影（楕円・墨 20%）。ローカル秒: 入り 0→0.433（26.967→27.40、translateY 150→0・--ease-smooth、opacity は最初の 0.15 s で 0→1 → 27.07 のフレームで 6 割以上見えている）、起動画面は最初から表示、0.80（=27.77−26.967）→0.92 で起動画面 opacity 1→0（下のこの動画が現れる）＋画面中央にタップの波紋（白・scale .2→1.6・opacity .5→0・0.35 s）、UI 層は 0.80 から opacity 0→1（0.2 s）、進捗バー 0.80→5.60 で scaleX 0→1（linear）、5.50→5.60（32.467→32.567）で起動画面が opacity 0→1 に戻り画面を隠す（phone-screen が 32.567 で終わる前に覆う）、抜け 5.633→5.933（32.60→32.90、translateY 0→150・最後の 0.15 s で opacity→0・--ease-accelerate）。27.40〜32.60 の間、本体は 1px も動かさない（下の映像と位置がずれるため）。確認 --seek 0.10 / 0.45 / 0.85 / 1.20 / 5.55 / 5.80 と、書き出しの 28.5 のフレームで画面の穴と下の映像の境目に隙間・はみ出しが無いこと"
+    },
+    {
+      "id": "phone-screen",
+      "kind": "スマホ（画面に映すこの動画）",
+      "start": 27.7667, "end": 32.5667,
+      "words": "モックアップ（27.77）から、話し手自身が縦長の短尺動画としてスマホの中で喋る",
+      "file": "apps/shell/extensions/akari-surfaces/src/node/onboarding-service.ts",
+      "needs_production": false,
+      "edit_item": { "track": "demo-phone-screen", "id": "demo-phone-screen", "name": "スマホの画面", "at": 833, "duration": 144,
+        "crop": { "x": 0.2080, "y": 0, "w": 0.2645, "h": 1 },
+        "transform": { "x": 372, "y": -24, "scale": 0.6607 },
+        "source": { "kind": "media", "src": "sample", "in": 27.7667, "out": 32.5667, "mute": true } },
+      "spec": "素材は作らない（本編と同じ sample を 2 本目の映像段に置く）。in = at の秒（27.7667）なので口の動きは本編と同期。mute: true（埋め込み音声を二重に鳴らさない）。幾何は layer-style（box = crop × 素材 px × scale、出力中心 + (x, y)）: crop 幅 0.2645 × 1280 = 338.6px・高さ 720 を 0.6607 倍 → 223.7 × 475.7、中心 (640+372, 360−24) = (1012, 336) → 画面の穴 x 900.2〜1123.8 / y 98.2〜573.8 と一致。四隅の直角は本体の縁（不透明）の下に隠れる。crop の x 0.2080 は顔（x≈435）を中央に置く値。プレビューと書き出しの両方で 28.5 のフレームを撮り、穴の縁に映像の地が 1px も見えない・穴から映像がはみ出さないことを確認（ずれたら x / y / scale を実測で直す）。どうしても合わない経路がある場合の代替: phone の画面に 29.0 のフレームを縦に切った静止画（overlays/demo-phone/screen.jpg・約 40KB）を <img> で入れ、この段を消す（report に書く）"
+    },
+    {
+      "id": "sfx-phone",
+      "kind": "効果音",
+      "start": 26.8333, "end": 27.9333,
+      "words": "スマホ（27.07・本体がせり上がる）／モックアップ（27.77・画面点灯）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-swoosh-up.m4a, audio/sfx-click-mouse-single.m4a",
+      "needs_production": true,
+      "edit_item": [
+        { "track": "demo-sfx", "id": "demo-sfx-phone-swoosh", "at": 805, "duration": 20, "role": "sfx", "gain_db": -5, "source": { "kind": "media", "src": "demo-sfx-swoosh-up", "in": 0, "out": 0.65 } },
+        { "track": "demo-sfx", "id": "demo-sfx-phone-tap", "at": 833, "duration": 5, "role": "sfx", "gain_db": -6, "source": { "kind": "media", "src": "demo-sfx-click-mouse-single", "in": 0, "out": 0.15 } }
+      ],
+      "spec": "sfx-swoosh-up（md5 2fb7e5d0…、立ち上がり 0.115・山 0.36 s）0〜0.65 s を 805 f = 26.833 に → 山 27.19 が本体のせり上がりの中ほど。sfx-click-mouse-single（md5 234994de…、アタック 0.01 s）0〜0.15 s を 833 f = 27.767 に → 画面点灯のタップ。ピーク目安 −17 / −18 dBFS"
+    },
+    {
+      "id": "bgm",
+      "kind": "BGM",
+      "start": 0, "end": 37.6,
+      "words": "全編（声の下）。BGMも（29.45）で音量が立ち上がる。声が終わった 35.63 以降は少し上げて終わる",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/bgm.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "onboarding-bgm", "id": "onboarding-bgm", "at": 0, "duration": 1128, "role": "bgm", "gain_db": -9,
+        "fade_in": 0.6, "fade_out": 1.2, "ducking": true, "duck_db": -8, "duck_attack": 0.15, "duck_release": 0.5,
+        "keyframes": [
+          { "t": 0, "gain_db": -9 },
+          { "t": 879, "gain_db": -9 },
+          { "t": 888, "gain_db": -2, "easing": "out-cubic" },
+          { "t": 918, "gain_db": -2 },
+          { "t": 942, "gain_db": -9, "easing": "in-out-cubic" },
+          { "t": 1070, "gain_db": -9 },
+          { "t": 1080, "gain_db": -4, "easing": "out-cubic" }
+        ],
+        "source": { "kind": "media", "src": "onboarding-bgm", "in": 0, "out": 37.6 } },
+      "spec": "曲は前段と同じ AKARI Sounds bgm-lofi-minimal-085（Midnight Notepad、85 BPM、~/Akari/library/audio/akari-sounds-bgm/bgm-lofi-minimal-085.mp3・md5 982faf7a…）。切り出しを 0.080 s ずらして作り直す（ffmpeg -ss 0.080 -t 37.6、AAC 96 kbps）: 今の bgm.m4a は 19.78 に打点があるので、ずらすと「パッ」19.70 が拍に乗る（作り直したら 19.70±0.02 に打点があることを包絡で確認）。音量: 前段（−12 dB＋ダッキング既定 −12）は計算上、声の下で約 −40 LUFS（声より 24 LU 下）まで落ちる（書き出しでの実測ではない）。今回は gain −9・duck −8 → 発話中 ≈ −33 LUFS（声の 17 LU 下）・間 ≈ −25 LUFS。keyframes の 879→888 f（29.30→29.60）で −9→−2 に上げて「BGM」の語頭 29.45 で音楽が持ち上がり、918→942 f（30.60→31.40）で戻す。1070→1080 f（35.67→36.00）で −4 に上げて締め、fade_out 1.2 s で 37.6 に消える。keyframes と item の gain_db / ducking の合成規則（置換か加算か）を実装で確かめ、書き出しで「読点の間 30.25〜30.63 の BGM 音量が、自然な間 28.80〜29.25 より 6 dB 以上大きい」「発話中の BGM が声より 14 LU 以上小さい」を実測する"
+    },
+    {
+      "id": "bgm-chip",
+      "kind": "BGM（札）",
+      "start": 29.4333, "end": 32.9333,
+      "words": "BGMも（29.45）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-bgm/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-accents", "id": "demo-bgm-chip", "name": "BGM", "at": 883, "duration": 105, "source": { "kind": "html", "path": "overlays/demo-bgm/fragment.html" } },
+      "spec": "スマホの左上に付く橙のピル（left 748 / top 118 / width 136 / height 48、角丸 24、地 #F97316、--demo-shadow、rotate −4°）。中身: ♪（白 SVG 20px）＋「BGM」22px/900 白＋イコライザの棒 5 本（幅 4・高さ 8〜22・白・角丸 2）。ローカル秒: 0.017（=29.45−29.4333）で scale .5→1・rotate −10°→−4°・opacity 0→1（0.32 s・overshoot-soft、delay −0.016）。棒は scaleY .35→1→.35（origin bottom、両端明示）を 0.706 s 周期（85 BPM の 4 分）で、棒ごとに 0 / .18 / .09 / .27 / .13 s ずらす。拍に合わせるため、最初の山をローカル 0.149 s（= 29.582、BGM の拍 19.70＋14×0.70588）に置く（animation-delay で位相を合わせる）。抜けはスマホと一緒に 3.167→3.467（32.60→32.90、translateY 0→40・opacity→0）。確認 --seek 0.05 / 0.15 / 0.50 / 3.30",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 「BGM」28px、札 170×58 @(738,113)（右端をスマホの左の縁へ 17px 重ねる）、♪ 24px、棒 5×27、入りの拡大は .7 から、拍の輪の最大 1.2×1.7。時刻・色・書体は同じ。測定: evidence/onboarding-demo-text/bgm-label/bgm-label-measure.json"
+    },
+    {
+      "id": "caption-keywords",
+      "kind": "字幕（強調の色）",
+      "start": 3.59, "end": 30.63,
+      "words": "アカリビデオ／AIと対話／効果音／エフェクト・パッと／図解／スマホ／モックアップ／BGM",
+      "file": "apps/shell/extensions/akari-surfaces/src/node/onboarding-service.ts",
+      "needs_production": false,
+      "edit_item": { "captions.json": "model.ts の createOnboardingCaptions の結果に runs を足す（書記素オフセット・display_text 基準）",
+        "runs": {
+          "c-0003": [{ "from": 0, "to": 6, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }],
+          "c-0006": [{ "from": 3, "to": 8, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }],
+          "c-0012": [{ "from": 3, "to": 6, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }],
+          "c-0013": [{ "from": 0, "to": 5, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }, { "from": 6, "to": 9, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900, "scale": 1.15 } }],
+          "c-0016": [{ "from": 0, "to": 2, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }],
+          "c-0017": [{ "from": 0, "to": 3, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }],
+          "c-0018": [{ "from": 0, "to": 6, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }],
+          "c-0019": [{ "from": 0, "to": 3, "role": "emphasis", "style": { "color": "#FB923C", "font_weight": 900 } }]
+        } },
+      "spec": "素材は作らない（onboarding-service.ts で captions.json を組むときに足す）。字幕の本文（display_text）はそれぞれ c-0003「アカリビデオっていう」・c-0006「これ，AIと対話する」・c-0012「途中に効果音とか」・c-0013「エフェクトをパッと，」・c-0016「図解も出せますし，」・c-0017「スマホの」・c-0018「モックアップとかも，」・c-0019「BGMも，」（カラオケの区切り直し後）。from/to は書き込む直前に display_text から語を検索して求め、見つからなければ付けない（固定オフセットに頼らない）。色は --demo-accent-hot #FB923C。字幕の段で利用者が色を変えても runs はそのまま残る（並走レーンの字幕の段とは衝突しない）"
+    },
+    {
+      "id": "karaoke",
+      "kind": "カラオケ字幕",
+      "start": 30.63, "end": 32.54,
+      "words": "字幕のカラオケ表示もいけます。",
+      "file": "apps/shell/extensions/akari-surfaces/src/node/onboarding-service.ts",
+      "needs_production": false,
+      "edit_item": {
+        "c-0019": { "start": 29.45, "end": 30.63, "text": "BGMも、", "display_text": "BGMも，" },
+        "c-0020": { "start": 30.63, "end": 32.54, "text": "字幕のカラオケ表示もいけます。", "display_text": "字幕のカラオケ表示もいけます。", "style": "karaoke",
+          "words": [
+            { "text": "字", "start": 30.63, "end": 30.82 }, { "text": "幕", "start": 30.82, "end": 31.15 }, { "text": "の", "start": 31.15, "end": 31.24 },
+            { "text": "カ", "start": 31.33, "end": 31.43 }, { "text": "ラ", "start": 31.43, "end": 31.55 }, { "text": "オ", "start": 31.55, "end": 31.70 },
+            { "text": "ケ", "start": 31.76, "end": 31.82 }, { "text": "表示", "start": 31.88, "end": 32.10 }, { "text": "も", "start": 32.10, "end": 32.18 },
+            { "text": "い", "start": 32.18, "end": 32.26 }, { "text": "け", "start": 32.26, "end": 32.33 }, { "text": "ます", "start": 32.33, "end": 32.53 },
+            { "text": "。", "start": 32.53, "end": 32.54 }
+          ],
+          "text_style": { "karaoke": { "fill": "smooth", "done_color": "#FB923C" }, "size_px": 62 } } },
+      "spec": "素材は作らない。model.ts の区切りでは c-0019 が「BGMも、字幕のカラオケ」・c-0020 が「表示もいけます。」になり、カラオケの始まりが「BGM」とまざる。onboarding-service.ts で字幕を組むときに、この 2 行だけ上の値に置き換える（行数 22 は変わらない・sourceRef はそのまま）。words は transcript.json（合わせ直し後）の該当トークンから作る（上の表は期待値）。塗りは smooth（語の区間で左から右へ）・橙 #FB923C、ほかの字幕より少し大きい 62px（標準 56）。30.63 のフレームで塗り 0%、31.33 で「字幕の」まで、32.53 で全文が塗られていることをプレビューと書き出しで確認"
+    },
+    {
+      "id": "credit",
+      "kind": "オチ（クレジット＋終わりの名札）",
+      "start": 35.6, "end": 37.6,
+      "words": "まあ、僕は喋ってるだけなんですけどね。（言い切った 35.63 の直後にクレジット／36.30 に終わりの名札）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-credit/fragment.html",
+      "needs_production": true,
+      "edit_item": { "track": "demo-stage", "id": "demo-credit", "name": "クレジット", "at": 1068, "duration": 60, "source": { "kind": "html", "path": "overlays/demo-credit/fragment.html" } },
+      "spec": "33.2〜35.6 は右の舞台を空けて「僕は喋ってるだけ」を素で言わせ、言い切った直後にエンドロール風のクレジットで落とす。壁に直に置く右寄せの文字（白フチ 8px）、右端 1200: 1 行目 top 206「出演」22px/700 --demo-ink-sub（字間 .3em）＋「僕」46px/900 墨、2 行目 top 276「編集」同じラベル＋「AI」64px/900 橙 #F97316（右上に 4 芒星のキラッ 20px）。終わりの名札 top 386: 「✦ AKARI Video」28px/900 墨＋下に「AI と話すだけで動画編集」18px/700 --demo-ink-sub。ローカル秒: 1 行目 0.03（=35.63−35.60）で translateX 30→0＋opacity（0.28 s・--ease-smooth）、2 行目 0.15 で同様、キラッ 0.35 で scale 0→1.1→1、名札 0.70（=36.30−35.60）で translateY 12→0＋opacity（0.40 s）。抜けは無し（37.6 で動画が終わる）。base は全部見えている状態。確認 --seek 0.05 / 0.30 / 0.60 / 1.20 / 1.95",
+      "revision_2026_10_01": "文字の作り直し（onboarding-demo-text）: 役職 32px・僕 72px・AI 104px・名札 40px・惹句 28px、白フチ 9/7px、キラッ 34px、区切り線 64×5。白フチ込みの外接 x 871〜1225・y 116〜477。動き・時刻・文言は同じ。測定: evidence/onboarding-demo-text/credit/credit-measure.json"
+    },
+    {
+      "id": "sfx-punchline-ding",
+      "kind": "効果音（オチ）",
+      "start": 35.6333, "end": 37.0333,
+      "words": "…けどね。（35.63）",
+      "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-ding-single.m4a",
+      "needs_production": true,
+      "edit_item": { "track": "demo-sfx", "id": "demo-sfx-punchline-ding", "at": 1069, "duration": 42, "role": "sfx", "gain_db": -2, "source": { "kind": "media", "src": "demo-sfx-ding-single", "in": 0, "out": 1.4 } },
+      "spec": "AKARI Sounds sfx-ding-single（md5 f3dec257…、アタック 0.015 s・余韻 1.36 s）= 素で言い切った後の「チーン」。0〜1.4 s。1069 f = 35.633。クレジットの 1 行目と同時。ピーク目安 −14 dBFS"
+    },
+    {
+      "id": "wiring",
+      "kind": "組み込み（edit.json・captions.json・作業ログ）",
+      "start": 0, "end": 37.6,
+      "words": "PROMPT「この動画を編集したいです。話している内容に合わせて、テロップ・図解・効果音・BGM を入れてください。」",
+      "file": "apps/shell/extensions/akari-surfaces/src/node/onboarding-service.ts",
+      "needs_production": true,
+      "spec": "codex（gpt-6-sol / high）の担当。wiring 節の通り: (1) 上の edit_item を tracks_final_order の段に書く（新しい段は video と captions の間。空の段は作らない）(2) captions.json は model.ts の結果を後加工（title=true でも model の字幕タイトル行は捨て、タイトルは demo-title の HTML で出す／runs／カラオケの 2 行）(3) 段階表示 progress = { stage: 0〜8 }（STAGES 表）(4) 同梱ファイル一覧 EXTRA_SAMPLE_FILES と写し先、ensureSample の transcript.json 旧版の上書き、resetTourExample の片付け (5) controller.ts の PROMPT / LOG / startWork の seek / play 段の本文。旧 overlays（automatic / dialogue / effects / diagram / finishing）は resources から消す（名前を demo-* にしたのは、旧版の写しが残ったプロジェクトで COPYFILE_EXCL により古い図解が出続けるのを避けるため）"
+    }
+  ],
+  "sfx_sources": {
+    "note": "同梱は 2026-10-01 にオーナーが了承（AKARI Sounds の条件: 単体再配布禁止は変えない）。全て LicenseRef-AKARI-Sounds-v0・price 0。切り出しは頭を切らない（アタック位置がずれるため）。AAC 128 kbps / 48 kHz / m4a、末尾 30 ms フェード。切り出し後に包絡を取り、アタックの位置が元の mp3 と ±5 ms で一致することを確認（AAC の priming で頭がずれていないか）",
+    "files": [
+      { "id": "sfx-whoosh-air-soft", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-air-soft.mp3", "md5_8": "060cc41b", "cut_s": 0.95, "attack_or_peak_s": 0.49 },
+      { "id": "sfx-pop-ding", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3", "md5_8": "5ff54570", "cut_s": 0.5, "attack_or_peak_s": 0.015 },
+      { "id": "sfx-pop-bubble-big", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-bubble-big.mp3", "md5_8": "0a4a1d03", "cut_s": 0.15, "attack_or_peak_s": 0.02 },
+      { "id": "sfx-correct-tone", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-correct-tone.mp3", "md5_8": "b4353a6d", "cut_s": 0.55, "attack_or_peak_s": 0.005 },
+      { "id": "sfx-pop-cork", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-cork.mp3", "md5_8": "e3b43e06", "cut_s": 0.15, "attack_or_peak_s": 0.025 },
+      { "id": "sfx-whoosh-punchy", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-punchy.mp3", "md5_8": "df86b3f6", "cut_s": 0.75, "attack_or_peak_s": 0.33 },
+      { "id": "sfx-shimmer-sparkle", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-shimmer-sparkle.mp3", "md5_8": "1fce76d7", "cut_s": 1.45, "attack_or_peak_s": 0.005 },
+      { "id": "sfx-click-soft-ui", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3", "md5_8": "9d833215", "cut_s": 0.16, "attack_or_peak_s": 0.005, "retired_2026_10_01": "図解の 4 本（sfx-diagram-*）に置き換え" },
+      { "id": "sfx-diagram-pon", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-blip-marimba.mp3", "md5_8": "62f8b9c9", "cut_s": 0.482, "attack_or_peak_s": 0.023 },
+      { "id": "sfx-diagram-stack", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-soft-ui.mp3", "md5_8": "9d833215", "cut_s": 0.147, "attack_or_peak_s": 0.007 },
+      { "id": "sfx-diagram-playhead", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-whoosh-paper.mp3", "md5_8": "a520ac79", "cut_s": 0.216, "attack_or_peak_s": 0.137 },
+      { "id": "sfx-diagram-count", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3", "md5_8": "5ff54570", "cut_s": 0.567, "attack_or_peak_s": 0.008 },
+      { "id": "sfx-swoosh-up", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-swoosh-up.mp3", "md5_8": "2fb7e5d0", "cut_s": 0.65, "attack_or_peak_s": 0.36 },
+      { "id": "sfx-click-mouse-single", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-click-mouse-single.mp3", "md5_8": "234994de", "cut_s": 0.15, "attack_or_peak_s": 0.01 },
+      { "id": "sfx-ding-single", "source": "~/Akari/library/audio/akari-sounds-sfx/sfx-ding-single.mp3", "md5_8": "f3dec257", "cut_s": 1.4, "attack_or_peak_s": 0.015 },
+      { "id": "bgm-lofi-minimal-085", "source": "~/Akari/library/audio/akari-sounds-bgm/bgm-lofi-minimal-085.mp3", "md5_8": "982faf7a", "cut_s": 37.6, "offset_s": 0.08, "note": "85 BPM。19.70 に打点が来るようにずらす" }
+    ],
+    "read_only_note": "~/Akari/library は読むだけ（コピー元）。akari-wt/perf-pv-v2/assets/audio/sfx/ に同一 md5 の写しがあるものはそちらから読んでもよい"
+  },
+  "wiring": {
+    "prompt": "この動画を編集したいです。話している内容に合わせて、テロップ・図解・効果音・BGM を入れてください。",
+    "stages": [
+      { "stage": 1, "key": "title", "adds": ["title", "sfx-title-whoosh", "sfx-name-pop"], "seek": 4.2 },
+      { "stage": 2, "key": "telops", "adds": ["chat", "done", "sfx-chat-pops", "sfx-done-tone", "caption-keywords"], "seek": 13.5 },
+      { "stage": 3, "key": "effects", "adds": ["effects", "flash", "punch-in", "sfx-kouka-pop", "sfx-pa-whoosh", "sfx-hora-sparkle"], "seek": 20.25 },
+      { "stage": 4, "key": "diagram", "adds": ["diagram", "sfx-diagram-ticks"], "seek": 24.9 },
+      { "stage": 5, "key": "phone", "adds": ["phone", "phone-screen", "sfx-phone"], "seek": 28.6 },
+      { "stage": 6, "key": "bgm", "adds": ["bgm", "bgm-chip"], "seek": 30.1 },
+      { "stage": 7, "key": "karaoke", "adds": ["karaoke"], "seek": 31.9 },
+      { "stage": 8, "key": "credit", "adds": ["credit", "sfx-punchline-ding"], "seek": 36.9 }
+    ],
+    "write_example_contract": "writeExample(projectUri, sourcePath, segments, count, title, progress?: { stage: number })。progress 省略かつ count === segments.length かつ title のとき = stage 8（ツアーの完成例の 5 引数呼び出しもこれ）。title だけ true = stage 1。stage ≥ 1 のとき model の字幕タイトル行は捨てる",
+    "log": [
+      { "t": 500, "live": "素材を確認しています…", "lines": ["素材を確認します。"] },
+      { "t": 1300, "lines": ["akari media probe assets/サンプル動画.mp4", "37.6 秒 · 1280×720 · 30fps · 音声あり"] },
+      { "t": 2300, "live": "声の区切りを調べています…", "lines": ["書き起こしの語の時刻を、声の波形に合わせ直しました。"] },
+      { "t": 3000, "live": "本編を置いています…", "lines": ["edit.json", "本編を置きました"], "count": 0 },
+      { "t": 4000, "live": "字幕を置いています…", "lines": ["字幕を短く分けてつくりました → captions.json"], "captions": true },
+      { "t": 7400, "live": "タイトルを置いています…", "lines": ["冒頭にタイトル、「アカリビデオ」で名札を出しました"], "stage": 1 },
+      { "t": 8400, "live": "テロップを置いています…", "lines": ["「AI と対話」「編集はもう終わってる」をテロップにしました"], "stage": 2 },
+      { "t": 9500, "live": "効果音を合わせています…", "lines": ["「パッと」に合わせて、効果音・フラッシュ・ズームを入れました"], "stage": 3 },
+      { "t": 10700, "live": "図解を置いています…", "lines": ["「こういう図解」と言った瞬間に、流れ図を出しました"], "stage": 4 },
+      { "t": 11800, "live": "スマホの画面をつくっています…", "lines": ["スマホのモックアップに、この動画を縦にして映しました"], "stage": 5 },
+      { "t": 12900, "live": "BGM を入れています…", "lines": ["声の下に BGM を入れ、「BGM も」で音を持ち上げました"], "stage": 6 },
+      { "t": 13900, "live": "字幕を仕上げています…", "lines": ["「カラオケ表示」の字幕を、声に合わせて塗られるようにしました"], "stage": 7 },
+      { "t": 14900, "live": "オチをつけています…", "lines": ["最後に「編集 AI」のクレジットを入れました"], "stage": 8 },
+      { "t": 15800, "live": "確認しています…", "lines": ["edit-lint .", "問題なし"], "lint": true },
+      { "t": 16400, "live": "できました", "lines": ["できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。"] }
+    ],
+    "log_total_s": "約 17.1 s（＋完了後 0.7 s）",
+    "play_text": { "sub1_title": "テロップ・図解・効果音・BGM が入りました", "sub1_body": "<p>話に合わせて、言ったその瞬間に出ます。止めるときは、もう一度 ▶ を押します。見終わったら次へ。</p>" },
+    "files": {
+      "resources_add": ["overlays/demo-title/fragment.html", "overlays/demo-chat/fragment.html", "overlays/demo-done/fragment.html", "overlays/demo-effects/fragment.html", "overlays/demo-flash/fragment.html", "overlays/demo-diagram/fragment.html", "overlays/demo-phone/fragment.html", "overlays/demo-bgm/fragment.html", "overlays/demo-credit/fragment.html", "audio/sfx-*.m4a（11 本）", "bgm.m4a（0.08 s ずらして作り直し）"],
+      "resources_remove": ["overlays/automatic", "overlays/dialogue", "overlays/effects", "overlays/diagram", "overlays/finishing"],
+      "project_targets": "overlays/* は同じ相対パスへ。audio/<id>.m4a → assets/onboarding/<id>.m4a（source id = demo-<id>）。bgm.m4a → assets/onboarding-bgm.m4a（source id onboarding-bgm、据え置き）",
+      "transcript_upgrade": "ensureSample で library の transcript.json の sha256 が b384cae62959224be1c65d036da836ce53023169f0aa778afc1dffd307696c69（旧版）なら同梱版で上書き"
+    },
+    "coordination": [
+      "並走レーン 2026-09-30-onboarding-guide-caption-steps へ: (a) 字幕の時刻が約 0.3〜1.5 s 後ろへ直る（字幕の出る秒を探して合わせる作りならそのまま動く）(b) 右上に全編出ていた字幕タイトル行が無くなる（タイトルは HTML）(c) c-0019 / c-0020 の本文が「BGMも、」「字幕のカラオケ表示もいけます。」に変わる (d) 字幕の段はどの行を押しても同じ体験になるよう、カラオケ行（30.63〜32.54）以外にシークするのが無難（例: c-0006 の中ほど 8.9 s）",
+      "model.ts の splitOnboardingTokens / createOnboardingCaptions は変えない（所有外）。必要な差分はすべて onboarding-service.ts の後加工で吸収する"
+    ]
+  },
+  "acceptance_measure": {
+    "sync_table": [
+      { "element": "title 名札", "word": "アカリビデオ", "word_s": 3.59, "planned_first_visible_s": 3.5667 },
+      { "element": "chat あなた", "word": "AI", "word_s": 8.55, "planned_first_visible_s": 8.5333 },
+      { "element": "chat AI 入力中", "word": "対話", "word_s": 9.26, "planned_first_visible_s": 9.2333 },
+      { "element": "chat 返事", "word": "だけ", "word_s": 9.90, "planned_first_visible_s": 9.9 },
+      { "element": "done 2 行目", "word": "編集", "word_s": 12.57, "planned_first_visible_s": 12.5667 },
+      { "element": "done 判子", "word": "終わってる", "word_s": 13.18, "planned_first_visible_s": 13.1667 },
+      { "element": "effects 札 効果音", "word": "効果音", "word_s": 17.50, "planned_first_visible_s": 17.5 },
+      { "element": "effects 札 エフェクト", "word": "エフェクト", "word_s": 18.74, "planned_first_visible_s": 18.7333 },
+      { "element": "effects パッ！＋flash＋punch-in", "word": "パッ", "word_s": 19.70, "planned_first_visible_s": 19.7 },
+      { "element": "effects キラッ", "word": "ほら", "word_s": 20.55, "planned_first_visible_s": 20.5667 },
+      { "element": "diagram ① 話す", "word": "こういう", "word_s": 23.27, "planned_first_visible_s": 23.2667 },
+      { "element": "diagram ② AI", "word": "図解", "word_s": 23.58, "planned_first_visible_s": 23.5667 },
+      { "element": "diagram ③ 完成", "word": "出せます", "word_s": 24.02, "planned_first_visible_s": 24.0 },
+      { "element": "phone 本体", "word": "スマホ", "word_s": 27.07, "planned_first_visible_s": 26.9667 },
+      { "element": "phone 画面点灯", "word": "モックアップ", "word_s": 27.77, "planned_first_visible_s": 27.7667 },
+      { "element": "bgm-chip＋BGM 立ち上がり", "word": "BGM", "word_s": 29.45, "planned_first_visible_s": 29.4333 },
+      { "element": "karaoke 塗り開始", "word": "字幕の", "word_s": 30.63, "planned_first_visible_s": 30.63 },
+      { "element": "credit", "word": "ね（言い切り）", "word_s": 35.63, "planned_first_visible_s": 35.6333 }
+    ],
+    "how": "書き出した mp4 を 30 fps で全フレーム抜き、各要素の舞台の箱（storyboard の座標）の画素差（前フレーム比・閾値）で最初に変化したフレームを要素の出た時刻とし、word_s との差を表にする。効果音は書き出しの音声から声を引いた差分（または声を消した書き出し）で各効果音のアタック時刻を取り、同じ表に並べる。phone 本体だけは 26.97 から出始めて 27.07 のフレームで 6 割以上見えていることを合格とする",
+    "no_overlap": "各要素の中点のフレームで、人物の届く範囲（y<470 で x<690、y 470〜660 で x<815）と字幕の箱に要素の画素が無いこと（閃光・パンチインは除外）",
+    "verify_frames_for_meekiki": [0.6, 3.7, 5.4, 8.7, 9.4, 10.0, 11.5, 12.8, 13.35, 17.6, 18.9, 19.71, 19.8, 20.7, 21.4, 23.35, 23.7, 24.1, 24.8, 25.8, 27.1, 27.5, 27.9, 28.6, 29.55, 30.2, 30.8, 31.5, 32.3, 32.75, 34.0, 35.7, 36.0, 36.6, 37.4]
+  },
+  "risks": [
+    "phone-screen（2 本目の映像段の crop / transform）がシェルのプレビューで書き出しと同じ位置に来ない可能性 → 28.5 のフレームで両経路を比べ、合わなければ静止画の代替に切り替える",
+    "媒体アイテムの keyframes（パンチイン）がプレビューで効かない経路 → 効かなければパンチインだけ外す（閃光と擬音で成立する）",
+    "BGM の keyframes と gain_db / ducking の合成規則が想定（置換）と違う → 書き出しの実測で gain を合わせ直す",
+    "AAC の priming で効果音の頭が数十 ms ずれる → 切り出し後に包絡でアタック位置を実測",
+    "埋め込みフォントの data URI が edit-lint / GPU 適格性に引っかかる → 引っかかる場合はフォールバックの書体で見た目を確認し report に書く"
+  ]
+}

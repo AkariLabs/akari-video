@@ -10,9 +10,9 @@
 // （口パク・文分割・表情キャップ・ビート間隔の全リバースエンジニアリング根拠）
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 
 import { flattenMoras, mouthKeyframesForBeat, round3 } from "./lib/mora.mjs";
@@ -227,7 +227,17 @@ async function main() {
   console.log(`[generate-timeline] wrote ${outPath} (beats=${timeline.beats.length}, mouth=${timeline.mouth.length}, total=${timeline.total}s)`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// 両辺 realpath（AGENTS.md の規約）。失敗時は false = 実行しない（fail-closed）
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   main().catch((err) => {
     console.error("[generate-timeline] FAILED:", err);
     process.exit(1);

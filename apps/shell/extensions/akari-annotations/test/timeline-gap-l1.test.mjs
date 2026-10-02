@@ -7,8 +7,10 @@ import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 import { createFixture } from '../evidence/timeline-gap-generate/gen-fixture.mjs';
+import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
 const runner = readFileSync(new URL('../evidence/timeline-gap-generate/l1-timeline-gap-generate.mjs', import.meta.url), 'utf8');
 test('L1 fixture copies project-default, produces two real videos and passes edit-lint without Electron', async t => {
+  if (!requireFfmpeg(t)) return;
   const root = await mkdtemp(join(tmpdir(), 'akari-gap-fixture-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = join(root, 'project'), { edit } = await createFixture(project);

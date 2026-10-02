@@ -1,0 +1,573 @@
+<div class="demo-diagram" lang="ja">
+<style>
+/*
+  図解（demo-diagram）:「あと、こういう図解も出せますし、」
+  この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、編集タイムラインの形で見せる。
+  中身は構成表（evidence/onboarding-demo-production/plan.json）と onboarding-service.ts の DEMO_PLAN、
+  字幕 22 行の実時刻をそのまま使う（build/build_diagram.py が生成。手で数値を足さない）。
+  edit.json では段 demo-stage、at 697 / duration 110（23.2333〜26.9 秒）。
+  時刻はすべてクリップ先頭 0 のローカル秒（実時刻 = 23.2333 + ローカル秒。30 fps）。
+    カード       0.004 → 0.304  「こういう」の語頭 23.27（= 0.037）の 1 フレーム前から、右から滑り込む
+                                （translateX 28→0、--ease-smooth。不透明度は 0.12 秒で立ち上げ）。
+                                段のラベル 4 つは 0.06 秒遅れて 35 ms ずつ下から入る
+    積み上げ     0.480 → 1.03   「図解」の語頭 23.78（= 0.547）の直前のフレーム 713 で最初の部品が見え始めるよう、
+                                2 フレーム前から（scaleX の --ease-smooth は立ち上がりが遅く、1 フレーム目は 1px 未満）、段ごと（25 ms ずらし）・
+                                左から順に（位置に比例して 0.29 秒で掃く）部品が scaleX 0→1 で積み上がる
+                                （1 個 0.18 秒。効果音の点は scale 0→1 のポップ、BGM の帯は左から伸びる）
+    再生ヘッド   1.103 → 1.453  「出せます」の語頭 24.37（= 1.137）の 1 フレーム前から、墨の線と丸い頭が
+                                0 秒の位置から走り、実時刻（24.687 秒）の位置に着く（0.35 秒、--ease-smooth）。
+                                通り過ぎたテロップと効果音が、ヘッドが触れた瞬間に 1 回だけ跳ねる
+    いまここ     1.42           図解のブロック（太い縁）が脈打って輪が広がり、ヘッドの上に橙の「いまここ」が付く
+    件数         1.514 → 1.96   「し」の語頭 24.78（= 1.547）の 1 フレーム前から、レーンの下に
+                                「テロップ 7・効果音 15・BGM 1・字幕 22」の数字が overshoot で並ぶ（50 ms ずらし）
+    余韻         1.453 → 3.617  ヘッドは実時間の速さ（約 10.2 px/s）で進み続ける（外側の入れ物が区間全体を
+                                実時刻どおりに等速で動く）。2.967（= 26.20）でスマホのブロックと BGM の山が
+                                軽く光って次を予告する
+    抜け         3.367 → 3.617  右へ 40px 抜けて消える（--ease-accelerate、forwards。26.60 → 26.85）
+  base（アニメ無しの見た目）は最終の静止状態（全部品が並び、ヘッドが 26.85 秒の位置、件数あり）。
+  輪・光・跳ねのような最終状態も不可視の過渡だけ base で隠す。
+  イージングは語彙（--ease-*）を名前で呼び、語彙と同じ値をフォールバックに添える（GPU 書き出しの
+  ページは motion-vocab.css を読まないため）。
+
+  書体: AKARI Demo Sans Diagram = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
+  Name 'Source'）の wght 800 / 900 を、この断片で使う文字だけに切り出した改変版（別名で埋め込み、
+  フォント内に著作権表示と許諾を保持）。書き出しとプレビューは全断片を 1 枚の文書に並べるため、
+  家族名はこの断片専用にしてある。
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --diagram-left / --diagram-top / --diagram-width / --diagram-height
+                                  カードの位置と大きさ（既定 724px / 112px / 516px / 340px）
+    --diagram-radius              カードの角丸（既定 22px）
+    --demo-card / --demo-card-line / --demo-shadow
+                                  カードの地・縁・影
+    --diagram-axis-left / --diagram-axis-width
+                                  時間軸の左端（カードの内側から）と幅（既定 105px / 382px = 画面の x 830〜1212）
+    --diagram-lanes-top / --diagram-lane-h / --diagram-lane-gap
+                                  1 段目の上端・段の高さ・段の間隔（既定 65px / 46px / 12px）
+    --diagram-track               段の地（既定 #F6F1EB）
+    --diagram-title-size / --diagram-label-size / --diagram-count-size
+                                  見出し・段のラベル・件数の数字の文字サイズ（既定 26px / 18px / 20px）
+    --demo-ink / --demo-ink-sub / --demo-accent / --demo-accent-soft
+                                  墨・補助の墨・橙・淡い橙
+    --diagram-pill-bg             見出しの「37 秒」の地（既定 #F3EDE7）
+    --diagram-sfx                 効果音の点の色（既定 = --demo-ink）
+    --diagram-font                書体（既定 AKARI Demo Sans Diagram → Hiragino Sans → Yu Gothic UI …）
+    --diagram-lead                語頭の何秒前から出し始めるか（既定 .033s = 1 フレーム）
+    --diagram-at-card / --diagram-at-build / --diagram-at-play / --diagram-at-here /
+    --diagram-at-count / --diagram-at-hint / --diagram-at-out
+                                  カード・積み上げ・再生ヘッド・いまここ・件数・予告・抜けの時刻（ローカル秒）
+    --diagram-build-sweep / --diagram-build-lane / --diagram-build-lead
+                                  積み上げが左端から右端まで掃く時間・段ごとのずらし・語頭より前倒しする時間
+                                  （既定 .29s / 25ms / .067s）
+  再生ヘッドの位置（着地 24.687 秒・区間の終わり 26.85 秒）は区間が at 697 に置かれている前提の実時刻で、
+  keyframes に焼いてある（build_diagram.py の PLACE_AT を変えて再生成する）。
+*/
+@font-face {
+  font-family: "AKARI Demo Sans Diagram";
+  src: url(data:font/woff2;base64,@@FONT800@@) format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+  unicode-range: @@RANGE@@;
+}
+@font-face {
+  font-family: "AKARI Demo Sans Diagram";
+  src: url(data:font/woff2;base64,@@FONT900@@) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: @@RANGE@@;
+}
+
+.demo-diagram,
+.demo-diagram *,
+.demo-diagram *::before,
+.demo-diagram *::after { box-sizing: border-box; }
+
+.demo-diagram {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--diagram-font, "AKARI Demo Sans Diagram", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-weight: 800;
+  font-feature-settings: "palt" 1;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+.demo-diagram svg { display: block; overflow: visible; }
+.demo-diagram i { display: block; font-style: normal; }
+
+.demo-diagram__group,
+.demo-diagram__enter { position: absolute; inset: 0; }
+
+/* ── カード ─────────────────────────────── */
+.demo-diagram__card {
+  position: absolute;
+  left: var(--diagram-left, 724px);
+  top: var(--diagram-top, 112px);
+  width: var(--diagram-width, 516px);
+  height: var(--diagram-height, 340px);
+  border-radius: var(--diagram-radius, 22px);
+  background: var(--demo-card, rgba(255, 255, 255, .97));
+  border: 1px solid var(--demo-card-line, rgba(23, 19, 15, .07));
+  box-shadow: var(--demo-shadow, 0 18px 44px rgba(58, 38, 20, .22));
+}
+
+.demo-diagram__head {
+  position: absolute;
+  left: 23px;
+  top: 15px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.demo-diagram__title {
+  font-size: var(--diagram-title-size, 26px);
+  font-weight: 900;
+  line-height: 36px;
+  letter-spacing: .02em;
+}
+.demo-diagram__len {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px 0 10px;
+  border-radius: 14px;
+  background: var(--diagram-pill-bg, #F3EDE7);
+  color: var(--demo-ink-sub, #6B5E52);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .02em;
+}
+.demo-diagram__len svg { width: 10px; height: 12px; }
+
+/* ── 段（字幕・テロップ・効果音・BGM）────────── */
+.demo-diagram__lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--diagram-lanes-top, 65px) + var(--lane) * (var(--diagram-lane-h, 46px) + var(--diagram-lane-gap, 12px)));
+  height: var(--diagram-lane-h, 46px);
+}
+.demo-diagram__label {
+  position: absolute;
+  left: 23px;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: var(--diagram-label-size, 18px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  color: var(--demo-ink-sub, #6B5E52);
+}
+.demo-diagram__track {
+  position: absolute;
+  left: calc(var(--diagram-axis-left, 105px) - 6px);
+  width: calc(var(--diagram-axis-width, 382px) + 12px);
+  top: 0;
+  height: 100%;
+  border-radius: 12px;
+  background: var(--diagram-track, #F6F1EB);
+}
+.demo-diagram__grid {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  margin-left: -.5px;
+  background: rgba(23, 19, 15, .07);
+}
+.demo-diagram__axis {
+  position: absolute;
+  left: var(--diagram-axis-left, 105px);
+  width: var(--diagram-axis-width, 382px);
+  top: 0;
+  height: 100%;
+}
+
+/* 区間もの（字幕・テロップ）: 時刻から位置と幅を出す（1px ずつ内側へ詰めて隣と分ける）*/
+.demo-diagram__span {
+  position: absolute;
+  left: calc(var(--t0) / 37.6 * 100% + 1px);
+  width: calc((var(--t1) - var(--t0)) / 37.6 * 100% - 2px);
+  transform-origin: 0 50%;
+}
+.demo-diagram__cap {
+  top: 17px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--demo-accent-soft, #FDBA74);
+}
+.demo-diagram__cap--karaoke { background: var(--demo-accent, #F97316); }
+
+.demo-diagram__block { top: 9px; height: 28px; }
+.demo-diagram__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  background: var(--demo-accent, #F97316);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+/* 図解（いま再生している区間）だけ太い縁 */
+.demo-diagram__block--now .demo-diagram__fill {
+  border: 3px solid var(--demo-ink, #17130F);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 3px 8px rgba(58, 38, 20, .22);
+}
+.demo-diagram__ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 9px;
+  border: 3px solid var(--demo-accent, #F97316);
+  opacity: 0;
+}
+/* 予告の光（最終状態も不可視の過渡）*/
+.demo-diagram__glow {
+  position: absolute;
+  inset: -5px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--demo-accent-soft, #FDBA74) 55%, transparent);
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--demo-accent, #F97316) 45%, transparent);
+  opacity: 0;
+}
+
+/* 点もの（効果音）: 鳴った瞬間（音の頭）に直径 10 の点 */
+.demo-diagram__dot {
+  position: absolute;
+  left: calc(var(--t0) / 37.6 * 100% - 5px);
+  top: calc(18px + var(--dy, 0px));
+  width: 10px;
+  height: 10px;
+}
+.demo-diagram__dot-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--diagram-sfx, var(--demo-ink, #17130F));
+  box-shadow: 0 0 0 2px var(--diagram-track, #F6F1EB);
+}
+
+/* BGM: 実際の音量の包絡（フェードイン・「BGM も」の山・締めの持ち上げ・フェードアウト）*/
+.demo-diagram__bgm {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+}
+.demo-diagram__bgm svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.demo-diagram__wave {
+  fill: none;
+  stroke: var(--demo-accent-soft, #FDBA74);
+  stroke-width: 2.2px;
+  stroke-linecap: round;
+}
+/*「BGM も」で持ち上げた山（gain keyframes が 0 dB から上がって戻るまで）だけ橙 */
+.demo-diagram__hump {
+  stroke: var(--demo-accent, #F97316);
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.demo-diagram__bgm-glow {
+  position: absolute;
+  left: calc(@@HUMP_MID@@ / 37.6 * 100% - 34px);
+  top: -4px;
+  width: 68px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--demo-accent, #F97316) 42%, transparent), transparent);
+  opacity: 0;
+}
+
+/* ── 再生ヘッド ─────────────────────────────── */
+/* 外側（__clock）は区間全体を実時刻どおりに等速で進む。内側（__scrub）が 0 秒の位置から実時刻へ走る。
+   どちらも時間軸と同じ幅の入れ物なので、translateX の % がそのまま「動画の長さに対する割合」になる */
+.demo-diagram__clock,
+.demo-diagram__scrub {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+.demo-diagram__head-wrap {
+  position: absolute;
+  left: var(--diagram-axis-left, 105px);
+  width: var(--diagram-axis-width, 382px);
+  top: 0;
+  height: 100%;
+}
+.demo-diagram__clock { left: 0; transform: translateX(@@CLOCK_END@@%); }
+.demo-diagram__line {
+  position: absolute;
+  left: -1px;
+  top: calc(var(--diagram-lanes-top, 65px) - 7px);
+  width: 2px;
+  height: calc(4 * var(--diagram-lane-h, 46px) + 3 * var(--diagram-lane-gap, 12px) + 12px);
+  border-radius: 1px;
+  background: var(--demo-ink, #17130F);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .75);
+}
+.demo-diagram__knob {
+  position: absolute;
+  left: -7px;
+  top: calc(var(--diagram-lanes-top, 65px) - 14px);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--demo-ink, #17130F);
+  box-shadow: 0 0 0 2.5px #FFFFFF, 0 2px 6px rgba(58, 38, 20, .3);
+}
+/* 「いまここ」: ヘッドの上に付く橙のピル（位置合わせの入れ物と、ポップする中身を分ける）*/
+.demo-diagram__here {
+  position: absolute;
+  left: 0;
+  top: 17px;
+  width: 0;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+}
+.demo-diagram__here-pop {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 14px;
+  background: var(--demo-accent, #F97316);
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 5px 12px color-mix(in srgb, var(--demo-accent, #F97316) 32%, transparent);
+  transform-origin: 50% 120%;
+}
+.demo-diagram__here-pop::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 2px;
+  background: var(--demo-accent, #F97316);
+  transform: rotate(45deg);
+}
+
+/* ── 件数 ─────────────────────────────── */
+.demo-diagram__counts {
+  position: absolute;
+  left: 23px;
+  right: 23px;
+  top: calc(var(--diagram-lanes-top, 65px) + 4 * var(--diagram-lane-h, 46px) + 3 * var(--diagram-lane-gap, 12px) + 11px);
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  white-space: nowrap;
+}
+.demo-diagram__count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.demo-diagram__count-label {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: var(--demo-ink-sub, #6B5E52);
+}
+.demo-diagram__count-num {
+  display: block;
+  font-size: var(--diagram-count-size, 20px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--demo-accent, #F97316);
+  transform-origin: 30% 80%;
+}
+.demo-diagram__count-sep {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(23, 19, 15, .18);
+}
+
+/* ── 動き（活性区間だけ宣言する）────────────── */
+[data-akari-active] .demo-diagram__group {
+  animation: demo-diagram-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--diagram-at-out, 3.367s) forwards;
+}
+[data-akari-active] .demo-diagram__enter {
+  animation: demo-diagram-fade-in .12s var(--ease-linear, linear) calc(var(--diagram-at-card, .037s) - var(--diagram-lead, .033s)) both;
+}
+[data-akari-active] .demo-diagram__card {
+  animation: demo-diagram-card-in .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-card, .037s) - var(--diagram-lead, .033s)) both;
+}
+[data-akari-active] .demo-diagram__label {
+  animation: demo-diagram-rise .3s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-card, .037s) - var(--diagram-lead, .033s) + .06s + var(--lane) * 35ms);
+}
+/* 積み上げ: 段ごとに 25 ms、段の中は左端からの位置に比例して掃く */
+[data-akari-active] .demo-diagram__span {
+  animation: demo-diagram-grow .18s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-build, .547s) - var(--diagram-build-lead, .067s) + var(--lane) * var(--diagram-build-lane, 25ms) + var(--t0) / 37.6 * var(--diagram-build-sweep, .29s));
+}
+[data-akari-active] .demo-diagram__dot {
+  animation: demo-diagram-pop-in .18s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both;
+  animation-delay: calc(var(--diagram-at-build, .547s) - var(--diagram-build-lead, .067s) + var(--lane) * var(--diagram-build-lane, 25ms) + var(--t0) / 37.6 * var(--diagram-build-sweep, .29s));
+}
+[data-akari-active] .demo-diagram__bgm {
+  animation: demo-diagram-grow .4s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) both;
+  animation-delay: calc(var(--diagram-at-build, .547s) - var(--diagram-build-lead, .067s) + 3 * var(--diagram-build-lane, 25ms));
+}
+/* 再生ヘッド: 外側は区間の頭から終わりまで実時刻どおり（等速）、内側が 0 秒の位置から走る */
+[data-akari-active] .demo-diagram__clock {
+  animation: demo-diagram-clock @@CLOCK_DUR@@s var(--ease-linear, linear) 0s both;
+}
+[data-akari-active] .demo-diagram__scrub {
+  animation:
+    demo-diagram-scrub .35s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--diagram-at-play, 1.137s) - var(--diagram-lead, .033s)) both,
+    demo-diagram-fade-in .06s var(--ease-linear, linear) calc(var(--diagram-at-play, 1.137s) - var(--diagram-lead, .033s)) both;
+}
+/* ヘッドが触れた瞬間に 1 回だけ跳ねる（--hit はヘッドが部品の位置を通る時刻。build_diagram.py が計算）*/
+[data-akari-active] .demo-diagram__block .demo-diagram__fill {
+  animation: demo-diagram-hit-block .24s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--hit, 99s) none;
+}
+[data-akari-active] .demo-diagram__dot-fill {
+  animation: demo-diagram-hit-dot .24s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--hit, 99s) none;
+}
+[data-akari-active] .demo-diagram__block--now .demo-diagram__fill {
+  animation: demo-diagram-beat .4s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-here, 1.42s) none;
+}
+[data-akari-active] .demo-diagram__block--now .demo-diagram__ring {
+  animation: demo-diagram-ring .55s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) var(--diagram-at-here, 1.42s) forwards;
+}
+[data-akari-active] .demo-diagram__here-pop {
+  animation: demo-diagram-here .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--diagram-at-here, 1.42s) both;
+}
+/* 件数 */
+[data-akari-active] .demo-diagram__count-label,
+[data-akari-active] .demo-diagram__count-sep {
+  animation: demo-diagram-fade-in .16s var(--ease-linear, linear) both;
+  animation-delay: calc(var(--diagram-at-count, 1.547s) - var(--diagram-lead, .033s) + var(--k) * 50ms);
+}
+[data-akari-active] .demo-diagram__count-num {
+  animation: demo-diagram-num .3s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) both;
+  animation-delay: calc(var(--diagram-at-count, 1.547s) - var(--diagram-lead, .033s) + var(--k) * 50ms);
+}
+/* 予告（26.20）: スマホのブロックと BGM の山を軽く光らせる */
+[data-akari-active] .demo-diagram__block--next .demo-diagram__fill {
+  animation: demo-diagram-hit-block .36s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-hint, 2.967s) none;
+}
+[data-akari-active] .demo-diagram__block--next .demo-diagram__glow,
+[data-akari-active] .demo-diagram__bgm-glow {
+  animation: demo-diagram-glow .6s var(--ease-linear, linear) var(--diagram-at-hint, 2.967s) forwards;
+}
+[data-akari-active] .demo-diagram__hump {
+  animation: demo-diagram-hump .6s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--diagram-at-hint, 2.967s) none;
+}
+
+@keyframes demo-diagram-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes demo-diagram-card-in {
+  0%   { transform: translateX(28px); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-diagram-rise {
+  0%   { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0);   opacity: 1; }
+}
+@keyframes demo-diagram-grow {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes demo-diagram-pop-in {
+  0%   { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-diagram-clock {
+  0%   { transform: translateX(@@CLOCK_START@@%); }
+  100% { transform: translateX(@@CLOCK_END@@%); }
+}
+@keyframes demo-diagram-scrub {
+  0%   { transform: translateX(-@@SCRUB_FROM@@%); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-diagram-hit-block {
+  0%   { transform: scaleY(1); }
+  35%  { transform: scaleY(1.32); }
+  100% { transform: scaleY(1); }
+}
+@keyframes demo-diagram-hit-dot {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.7); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-diagram-beat {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-diagram-ring {
+  0%   { transform: scale(1);   opacity: .9; }
+  100% { transform: scale(1.7, 1.9); opacity: 0; }
+}
+@keyframes demo-diagram-here {
+  0%   { transform: scale(.4); opacity: 0; }
+  100% { transform: scale(1);  opacity: 1; }
+}
+@keyframes demo-diagram-num {
+  0%   { transform: scale(.4); opacity: 0; }
+  100% { transform: scale(1);  opacity: 1; }
+}
+@keyframes demo-diagram-glow {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes demo-diagram-hump {
+  0%   { transform: scaleY(1); }
+  25%  { transform: scaleY(1.28); }
+  100% { transform: scaleY(1); }
+}
+@keyframes demo-diagram-exit {
+  0%   { transform: translateX(0);    opacity: 1; }
+  100% { transform: translateX(40px); opacity: 0; }
+}
+</style>
+<div class="demo-diagram__group">
+ <div class="demo-diagram__enter">
+  <div class="demo-diagram__card">
+   <div class="demo-diagram__head"><span class="demo-diagram__title">この動画の中身</span><span class="demo-diagram__len"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M1.6 1.4v9.2c0 .7.8 1.1 1.4.7l6.4-4.6c.5-.4.5-1.1 0-1.5L3 .7c-.6-.4-1.4 0-1.4.7Z" fill="currentColor"/></svg>37 秒</span></div>
+@@LANES@@
+   <div class="demo-diagram__head-wrap">
+    <div class="demo-diagram__clock"><div class="demo-diagram__scrub">
+     <i class="demo-diagram__line"></i>
+     <i class="demo-diagram__knob"></i>
+     <div class="demo-diagram__here"><span class="demo-diagram__here-pop">いまここ</span></div>
+    </div></div>
+   </div>
+   <div class="demo-diagram__counts">
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 0">テロップ</span><span class="demo-diagram__count-num" style="--k: 0">@@N_TELOP@@</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 1"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 1">効果音</span><span class="demo-diagram__count-num" style="--k: 1">@@N_SFX@@</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 2"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 2">BGM</span><span class="demo-diagram__count-num" style="--k: 2">@@N_BGM@@</span></span>
+    <i class="demo-diagram__count-sep" style="--k: 3"></i>
+    <span class="demo-diagram__count"><span class="demo-diagram__count-label" style="--k: 3">字幕</span><span class="demo-diagram__count-num" style="--k: 3">@@N_CAP@@</span></span>
+   </div>
+  </div>
+ </div>
+</div>
+</div>

@@ -1,0 +1,7 @@
+ℹ tests 516
+ℹ pass 513
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 1
+✖ GPU Electron parses dump frames and uses raw/frame-N.rgba
+✖ tier 2 uses the GPU main and product flags

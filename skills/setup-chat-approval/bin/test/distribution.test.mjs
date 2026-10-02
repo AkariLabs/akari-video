@@ -18,7 +18,9 @@ test('配布先の doctor と find-chat-id は遅延ロードする', t => {
     }
   }
   const repo = path.resolve(source, '..', '..', '..');
-  const env = { ...process.env, AKARI_MONOREPO: repo, AKARI_INSTALL_DIR: path.join(scratch, 'missing-app'), AKARI_HOME: path.join(scratch, 'home') };
+  const env = { ...process.env, HOME: scratch, USERPROFILE: scratch,
+    AKARI_MONOREPO: repo, AKARI_INSTALL_DIR: path.join(scratch, 'missing-app'),
+    AKARI_HOME: path.join(scratch, 'home'), AKARI_CREDENTIALS_FILE: path.join(scratch, 'missing-credentials.env') };
   for (const name of ['doctor.mjs', 'find-chat-id.mjs']) {
     const entry = path.join(target, name);
     const imported = spawnSync(process.execPath, ['--input-type=module', '-e', 'await import(process.argv[1])', pathToFileURL(entry).href], { env, encoding: 'utf8' });

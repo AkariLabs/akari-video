@@ -1,0 +1,278 @@
+{
+ "schema": "akari-onboarding-integration/v1",
+ "task": "2026-10-01-onboarding-demo-text",
+ "created": "2026-10-01",
+ "by": "組み込み担当（Claude Opus 5.5）。音源の記録・meta.json・テスト・evidence の説明は codex gpt-6-sol/high（workspace-write・1 往復）",
+ "export": {
+  "tool": "render-cut --engine auto（カラオケで OSR）--gpu-preference off・AKARI_FFMPEG_BIN=vendor n8.1・隔離（AKARI_HOME/TMP=C:/t/odt-1001・作業フォルダ空）",
+  "frames": 1128,
+  "verdict": "PASS",
+  "mp4_md5": "411904dfa5e26e174826c50c8ddac696",
+  "variants": [
+   "full",
+   "noov（演出の段なし）",
+   "novoice（本編の音をミュート）",
+   "sfxonly（本編と BGM をミュート）"
+  ]
+ },
+ "edit_lint": "full / noov / novoice / sfxonly とも PASS（error 0・warning 13 は前段と同じ既知のもの）",
+ "timing_table_visual": [
+  {
+   "id": "title-card",
+   "element": "タイトルのカード",
+   "word": "こんにちは",
+   "word_s": 0.29,
+   "first_visible_s": 0.267,
+   "delta_s": -0.023,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "title-badge",
+   "element": "タイトルの名札 ✦ AKARI Video",
+   "word": "アカリビデオ",
+   "word_s": 3.59,
+   "first_visible_s": 3.567,
+   "delta_s": -0.023,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "chat-card",
+   "element": "AI との対話カード",
+   "word": "AI",
+   "word_s": 8.55,
+   "first_visible_s": 8.533,
+   "delta_s": -0.017,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "chat-typing",
+   "element": "AI の行（入力中）",
+   "word": "対話",
+   "word_s": 9.26,
+   "first_visible_s": 9.267,
+   "delta_s": 0.007,
+   "within_0.15": true,
+   "method": "self"
+  },
+  {
+   "id": "chat-reply",
+   "element": "返事「できました！」",
+   "word": "だけ",
+   "word_s": 9.9,
+   "first_visible_s": 9.9,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "self"
+  },
+  {
+   "id": "done-lead",
+   "element": "強調テロップ「喋ってるだけで」＋マイク＋波形",
+   "word": "喋ってる",
+   "word_s": 11.3,
+   "first_visible_s": 11.3,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "done-head",
+   "element": "テロップ「編集は」",
+   "word": "編集",
+   "word_s": 12.57,
+   "first_visible_s": 12.567,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "done-stamp",
+   "element": "判子「完了」",
+   "word": "終わってる",
+   "word_s": 13.42,
+   "first_visible_s": 13.367,
+   "delta_s": -0.053,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-chip-sfx",
+   "element": "札「♪ 効果音」＋音の輪",
+   "word": "効果音",
+   "word_s": 17.5,
+   "first_visible_s": 17.5,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-chip-fx",
+   "element": "札「✦ エフェクト」＋軌跡のキラッ",
+   "word": "エフェクト",
+   "word_s": 18.74,
+   "first_visible_s": 18.733,
+   "delta_s": -0.007,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-pa",
+   "element": "擬音「パッ!」",
+   "word": "パッ",
+   "word_s": 19.7,
+   "first_visible_s": 19.7,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "flash",
+   "element": "閃光（擬音より下の段）",
+   "word": "パッ",
+   "word_s": 19.7,
+   "first_visible_s": 19.7,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "punch-in",
+   "element": "パンチイン（人物側 1.10 倍＋揺れ）",
+   "word": "パッ",
+   "word_s": 19.7,
+   "first_visible_s": 19.7,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-hora",
+   "element": "ほら: 擬音の跳ね＋キラッ放射＋紙吹雪",
+   "word": "ほら",
+   "word_s": 20.55,
+   "first_visible_s": 20.567,
+   "delta_s": 0.017,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-check",
+   "element": "こんな感じで: ✓ バッジ",
+   "word": "こんな感じで",
+   "word_s": 21.1,
+   "first_visible_s": 21.1,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "diagram-card",
+   "element": "図解カード＋段のラベル",
+   "word": "こういう",
+   "word_s": 23.27,
+   "first_visible_s": 23.267,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "diagram-build",
+   "element": "図解 ブロックの積み上げ",
+   "word": "図解",
+   "word_s": 23.78,
+   "first_visible_s": 23.767,
+   "delta_s": -0.013,
+   "within_0.15": true,
+   "method": "self"
+  },
+  {
+   "id": "diagram-playhead",
+   "element": "図解 再生ヘッド（0 秒から走る）",
+   "word": "出せます",
+   "word_s": 24.37,
+   "first_visible_s": 24.4,
+   "delta_s": 0.03,
+   "within_0.15": true,
+   "method": "dark"
+  },
+  {
+   "id": "diagram-count",
+   "element": "図解 件数「テロップ 7・効果音 15・BGM 1・字幕 22」",
+   "word": "し",
+   "word_s": 24.78,
+   "first_visible_s": 24.8,
+   "delta_s": 0.02,
+   "within_0.15": true,
+   "method": "orange"
+  },
+  {
+   "id": "phone-body",
+   "element": "スマホ本体",
+   "word": "スマホ",
+   "word_s": 27.07,
+   "first_visible_s": 26.967,
+   "delta_s": -0.103,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "phone-screen",
+   "element": "スマホ画面点灯（この動画）",
+   "word": "モックアップ",
+   "word_s": 27.77,
+   "first_visible_s": 27.767,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "method": "lum"
+  },
+  {
+   "id": "bgm-chip",
+   "element": "BGM の札",
+   "word": "BGM",
+   "word_s": 29.45,
+   "first_visible_s": 29.433,
+   "delta_s": -0.017,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "karaoke",
+   "element": "カラオケ字幕の塗り始め",
+   "word": "字幕の",
+   "word_s": 30.63,
+   "first_visible_s": 30.633,
+   "delta_s": 0.003,
+   "within_0.15": true,
+   "method": "karaoke"
+  },
+  {
+   "id": "credit",
+   "element": "クレジット「出演 僕／編集 AI」",
+   "word": "ね（言い切り）",
+   "word_s": 35.63,
+   "first_visible_s": 35.633,
+   "delta_s": 0.003,
+   "within_0.15": true,
+   "method": "src"
+  }
+ ],
+ "overlap": {
+  "person_region": "x < 55%（704px）",
+  "overlay_pixels_in_person_region": {
+   "frames_with_hits": 0,
+   "worst": []
+  },
+  "overlay_pixels_on_caption_pixels": {
+   "frames_with_hits": 0,
+   "worst": []
+  },
+  "exempt_frames": "588-644（閃光・パンチインは全画面の例外）"
+ },
+ "sheet_640": [
+  "sheet-640.jpg",
+  "sheet-640-before-after.jpg"
+ ],
+ "measure_boxes_changed": "tools/measure.py の title-card / title-badge / chat-card / chat-typing / chat-reply / bgm-chip / credit の箱を新寸法へ（他は前段のまま）"
+}

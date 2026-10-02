@@ -1,0 +1,733 @@
+{
+ "element": "flash",
+ "kind": "画面効果（閃光）",
+ "word": "パッ",
+ "word_s": 19.7,
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-flash/fragment.html",
+ "edit_item_from_plan": {
+  "track": "demo-flash",
+  "id": "demo-flash",
+  "name": "閃光",
+  "at": 590,
+  "duration": 12,
+  "source": {
+   "kind": "html",
+   "path": "overlays/demo-flash/fragment.html"
+  }
+ },
+ "design": {
+  "light": "radial-gradient(circle at 78% 46%, rgb(255 250 235 / 1) 0%, / .85 30%, / .35 75%)（構成表どおり。光源 = 擬音の中心 1005,330 付近）",
+  "core": "光源の芯として黄 #FFD94A を半径 170px・.5 で重ねる（統一ルール「黄は閃光とキラッの芯だけ」の枠内の追加。--flash-core-alpha:0 で構成表の素の白だけに戻せる）",
+  "keyframes": "demo-flash-burst（linear・全段 opacity のみ）: 0%=0 / 8.333%(0.033s)=.62 / 33.333%(0.133s)=.30 / 100%(0.40s)=0。base は opacity 0（過渡 FX の例外）",
+  "gate": "[data-akari-active] .demo-flash__light にだけ animation。delay は var(--flash-delay, 0s)（ローカル秒）",
+  "hit": "ルートに data-akari-hit=\"pass\"（全画面の過渡 FX がクリックを奪わない）",
+  "knobs": [
+   "--flash-origin-x",
+   "--flash-origin-y",
+   "--flash-rgb",
+   "--flash-mid-alpha",
+   "--flash-mid-stop",
+   "--flash-edge-alpha",
+   "--flash-edge-stop",
+   "--flash-core-rgb",
+   "--flash-core-alpha",
+   "--flash-core-size",
+   "--flash-strength",
+   "--flash-delay",
+   "--flash-duration"
+  ],
+  "first_visible_frame": "591 = 19.700（語頭と 0 フレーム差）。590 = 19.667 は 0"
+ },
+ "harness_fragment_render": {
+  "tool": "harness/render-fragment.mjs の Windows 用写し（Chrome の場所・headless・PUBLIC_REPO・file URL だけ差し替え、外側コンテナに data-akari-active を立てた＝実行時と同じ活性状態）。1280x720 / --backdrop none",
+  "frames": [
+   {
+    "frame": 590,
+    "t": 19.667,
+    "local": 0.0,
+    "alpha_at_source_1005_330": 0.0,
+    "expected_opacity": 0.0
+   },
+   {
+    "frame": 591,
+    "t": 19.7,
+    "local": 0.033,
+    "alpha_at_source_1005_330": 0.616,
+    "expected_opacity": 0.62
+   },
+   {
+    "frame": 592,
+    "t": 19.733,
+    "local": 0.067,
+    "alpha_at_source_1005_330": 0.506,
+    "expected_opacity": 0.513
+   },
+   {
+    "frame": 593,
+    "t": 19.767,
+    "local": 0.1,
+    "alpha_at_source_1005_330": 0.404,
+    "expected_opacity": 0.407
+   },
+   {
+    "frame": 594,
+    "t": 19.8,
+    "local": 0.133,
+    "alpha_at_source_1005_330": 0.298,
+    "expected_opacity": 0.3
+   },
+   {
+    "frame": 595,
+    "t": 19.833,
+    "local": 0.167,
+    "alpha_at_source_1005_330": 0.259,
+    "expected_opacity": 0.262
+   },
+   {
+    "frame": 596,
+    "t": 19.867,
+    "local": 0.2,
+    "alpha_at_source_1005_330": 0.224,
+    "expected_opacity": 0.225
+   },
+   {
+    "frame": 597,
+    "t": 19.9,
+    "local": 0.233,
+    "alpha_at_source_1005_330": 0.184,
+    "expected_opacity": 0.187
+   },
+   {
+    "frame": 598,
+    "t": 19.933,
+    "local": 0.267,
+    "alpha_at_source_1005_330": 0.149,
+    "expected_opacity": 0.15
+   },
+   {
+    "frame": 599,
+    "t": 19.967,
+    "local": 0.3,
+    "alpha_at_source_1005_330": 0.11,
+    "expected_opacity": 0.113
+   },
+   {
+    "frame": 600,
+    "t": 20.0,
+    "local": 0.333,
+    "alpha_at_source_1005_330": 0.075,
+    "expected_opacity": 0.075
+   },
+   {
+    "frame": 601,
+    "t": 20.033,
+    "local": 0.367,
+    "alpha_at_source_1005_330": 0.035,
+    "expected_opacity": 0.038
+   },
+   {
+    "frame": 602,
+    "t": 20.067,
+    "local": 0.4,
+    "alpha_at_source_1005_330": 0.0,
+    "expected_opacity": 0.0
+   }
+  ]
+ },
+ "preview_runtime": {
+  "tool": "packages/overlay-runtime/src/overlay-runtime.js を mount し tick(t,false) で停止シーク",
+  "opacity_by_frame": {
+   "588": 0,
+   "589": 0,
+   "590": 0,
+   "591": 0.62,
+   "592": 0.5133,
+   "593": 0.4067,
+   "594": 0.3,
+   "595": 0.2625,
+   "596": 0.225,
+   "597": 0.1875,
+   "598": 0.15,
+   "599": 0.1125,
+   "600": 0.075,
+   "601": 0.0375,
+   "602": "非表示"
+  }
+ },
+ "export_sheet": {
+  "tool": "packages/render-cut/src/rasterize.mjs の renderOverlaySheet（OSR と共通のシート）→ __akariSeek",
+  "opacity_by_frame": {
+   "589": "非表示",
+   "590": 0,
+   "591": 0.62,
+   "592": 0.5133,
+   "593": 0.4067,
+   "594": 0.3,
+   "595": 0.2625,
+   "596": 0.225,
+   "597": 0.1875,
+   "598": 0.15,
+   "599": 0.1125,
+   "600": 0.075,
+   "601": 0.0375,
+   "602": "非表示"
+  },
+  "match_vs_harness_composite": "最大 2/255"
+ },
+ "osr_export": {
+  "tool": "render-cut --engine osr --no-audio（2 秒の隔離プロジェクト 19.0〜21.0、AKARI_HOME 隔離、AKARI_EXPORT_ALLOW_DESKTOP=0）。右下の壁 1230-1270×560-600 で (出力−元)/(光の色−元) から閃光の α を逆算",
+  "stamp_verify_default": [
+   {
+    "timeline_frame": 588,
+    "t": 19.6,
+    "measured_flash_alpha": 0.007,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 589,
+    "t": 19.633,
+    "measured_flash_alpha": 0.008,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 590,
+    "t": 19.667,
+    "measured_flash_alpha": 0.007,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 591,
+    "t": 19.7,
+    "measured_flash_alpha": 0.505,
+    "expected": 0.506
+   },
+   {
+    "timeline_frame": 592,
+    "t": 19.733,
+    "measured_flash_alpha": 0.417,
+    "expected": 0.419
+   },
+   {
+    "timeline_frame": 593,
+    "t": 19.767,
+    "measured_flash_alpha": 0.329,
+    "expected": 0.332
+   },
+   {
+    "timeline_frame": 594,
+    "t": 19.8,
+    "measured_flash_alpha": 0.243,
+    "expected": 0.245
+   },
+   {
+    "timeline_frame": 595,
+    "t": 19.833,
+    "measured_flash_alpha": 0.216,
+    "expected": 0.214
+   },
+   {
+    "timeline_frame": 596,
+    "t": 19.867,
+    "measured_flash_alpha": 0.184,
+    "expected": 0.184
+   },
+   {
+    "timeline_frame": 597,
+    "t": 19.9,
+    "measured_flash_alpha": 0.162,
+    "expected": 0.153
+   },
+   {
+    "timeline_frame": 598,
+    "t": 19.933,
+    "measured_flash_alpha": 0.13,
+    "expected": 0.122
+   },
+   {
+    "timeline_frame": 599,
+    "t": 19.967,
+    "measured_flash_alpha": 0.101,
+    "expected": 0.092
+   },
+   {
+    "timeline_frame": 600,
+    "t": 20.0,
+    "measured_flash_alpha": 0.071,
+    "expected": 0.061
+   },
+   {
+    "timeline_frame": 601,
+    "t": 20.033,
+    "measured_flash_alpha": 0.044,
+    "expected": 0.031
+   },
+   {
+    "timeline_frame": 602,
+    "t": 20.067,
+    "measured_flash_alpha": 0.01,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 603,
+    "t": 20.1,
+    "measured_flash_alpha": 0.012,
+    "expected": 0.0
+   }
+  ],
+  "verdict": "既定の stamp 検証では最大が f591 = 19.700 に来る（実測 .505 / 期待 .506）。以降も ±0.02 で一致",
+  "warning_for_checker": "AKARI_OSR_VERIFY=off で書き出すと、活性化直後の 2 フレームが 0% の姿勢のまま撮れ、閃光の最大が 19.767 へ 2 フレーム遅れて見えた（stamp では再現しない）。目利きの同期実測は既定の stamp で書き出すこと",
+  "stamp_verify_off": [
+   {
+    "timeline_frame": 588,
+    "t": 19.6,
+    "measured_flash_alpha": 0.007,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 589,
+    "t": 19.633,
+    "measured_flash_alpha": 0.008,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 590,
+    "t": 19.667,
+    "measured_flash_alpha": 0.002,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 591,
+    "t": 19.7,
+    "measured_flash_alpha": -0.025,
+    "expected": 0.506
+   },
+   {
+    "timeline_frame": 592,
+    "t": 19.733,
+    "measured_flash_alpha": -0.027,
+    "expected": 0.419
+   },
+   {
+    "timeline_frame": 593,
+    "t": 19.767,
+    "measured_flash_alpha": 0.416,
+    "expected": 0.332
+   },
+   {
+    "timeline_frame": 594,
+    "t": 19.8,
+    "measured_flash_alpha": 0.411,
+    "expected": 0.245
+   },
+   {
+    "timeline_frame": 595,
+    "t": 19.833,
+    "measured_flash_alpha": 0.324,
+    "expected": 0.214
+   },
+   {
+    "timeline_frame": 596,
+    "t": 19.867,
+    "measured_flash_alpha": 0.216,
+    "expected": 0.184
+   },
+   {
+    "timeline_frame": 597,
+    "t": 19.9,
+    "measured_flash_alpha": 0.192,
+    "expected": 0.153
+   },
+   {
+    "timeline_frame": 598,
+    "t": 19.933,
+    "measured_flash_alpha": 0.164,
+    "expected": 0.122
+   },
+   {
+    "timeline_frame": 599,
+    "t": 19.967,
+    "measured_flash_alpha": 0.133,
+    "expected": 0.092
+   },
+   {
+    "timeline_frame": 600,
+    "t": 20.0,
+    "measured_flash_alpha": 0.07,
+    "expected": 0.061
+   },
+   {
+    "timeline_frame": 601,
+    "t": 20.033,
+    "measured_flash_alpha": 0.043,
+    "expected": 0.031
+   },
+   {
+    "timeline_frame": 602,
+    "t": 20.067,
+    "measured_flash_alpha": 0.009,
+    "expected": 0.0
+   },
+   {
+    "timeline_frame": 603,
+    "t": 20.1,
+    "measured_flash_alpha": 0.011,
+    "expected": 0.0
+   }
+  ]
+ },
+ "edit_lint": {
+  "project": "隔離プロジェクト（本編 + パンチインの keyframes + demo-accents に閃光）",
+  "verdict": "PASS",
+  "findings": [
+   "warning v2.item-duration-short（12 フレームは意図どおり）"
+  ],
+  "engine_auto": "PASS（追加はパンチインの easing 近似の warning だけ）",
+  "fragment_rules": "keyframes-sparse / base-hidden-state / reserved-css-var のいずれも出ない"
+ },
+ "layer_order": {
+  "plan": "demo-accents（demo-stage より上・字幕より下）",
+  "observation": "構成表どおり閃光が擬音より上だと、擬音が最も大きく跳ねる 19.767〜19.867 に .41→.22 の白が擬音の上に乗り、墨の太縁が灰色に、黄→橙の塗りが淡くなる（flash-layer-order.jpg の A 段）",
+  "recommendation": "閃光だけを demo-stage より下の段（例: video の直上に demo-fx を新設）へ置くと、擬音は太縁のまま光の前に立ち、光源が擬音の後ろにある見え方になる（B 段）。断片は同じまま、edit.json の段だけの変更。判断はディレクター / 組み込み担当",
+  "note": "擬音は demo-effects がまだ無いため、構成表の寸法・時刻どおりの QA 用モック（Dela Gothic One 168px・グラデ・太縁・放射線・輪）で代用。断片には含めない"
+ },
+ "images": [
+  "flash-seek-on-clip.jpg",
+  "flash-every-frame.jpg",
+  "flash-peak-19.700.jpg",
+  "flash-layer-order.jpg",
+  "flash-export-osr.jpg",
+  "flash-render-seek-0.033.png",
+  "flash-under-pa-before-after.jpg",
+  "flash-export-19.700-demo-flash-track.jpg"
+ ],
+ "layer_fix_2026_10_01": {
+  "why": "目利きの差し戻し: 閃光が demo-accents（右の演出 demo-stage より上）にあり、「パッ」の見せ場 19.70 で擬音「パッ！」自体が白く飛んだ（目利きの実測: 輪郭の暗画素 19.70 で 0 px・19.733 で 7 px）",
+  "choice": "① 閃光専用の段 demo-flash を本編・スマホの画面と demo-stage の間に新設して移す（② の effects 断片の中に描く案は、他要素の断片に触ることになり、閃光を利用者が単独で消す・動かすこともできなくなるので採らない）。断片の見た目・時刻・opacity の曲線（19.667→.62→.30→0、0.40 s）は不変",
+  "tracks_bottom_to_top": [
+   "video",
+   "demo-phone-screen",
+   "demo-flash",
+   "demo-stage",
+   "demo-accents（名前を『札』に。BGM 札だけが残る）",
+   "captions"
+  ],
+  "wiring": {
+   "by": "codex gpt-6-sol / reasoning high（-s workspace-write・1 往復・50 s）",
+   "session_id": "01a0f391-e3c4-7e72-98fa-84ee625e9f0b",
+   "files": [
+    "apps/shell/extensions/akari-surfaces/src/node/onboarding-service.ts（DEMO_TRACKS に demo-flash を追加・閃光の段・demo-accents の名前・1 行コメント）",
+    "apps/shell/extensions/akari-surfaces/src/node/onboarding-demo.test.mjs（期待する段の並びと閃光の段）"
+   ],
+   "producer_edit": "overlays/demo-flash/fragment.html は冒頭コメントの段の記述だけ直した（CSS・DOM は不変）"
+  },
+  "l0": {
+   "onboarding_demo_test": "node --test src/node/onboarding-demo.test.mjs → 6/6 pass",
+   "akari_surfaces_suite": "415 件中 fail 27（既存の Windows 環境差 = ffmpeg / whisper / credentials / symlink 系。お手本関連 0）",
+   "build_ext": "exit 0",
+   "lint": "exit 0（warning 5 件は他の拡張のもの）",
+   "edit_lint_by_stage": {
+    "count-0": "pass error 0 warning 0",
+    "captions-22": "pass error 0 warning 6",
+    "stage-1": "pass error 0 warning 6",
+    "stage-2": "pass error 0 warning 6",
+    "stage-3": "pass error 0 warning 7",
+    "stage-4": "pass error 0 warning 7",
+    "stage-5": "pass error 0 warning 7",
+    "stage-6": "pass error 0 warning 13",
+    "stage-7": "pass error 0 warning 13",
+    "stage-8": "pass error 0 warning 13"
+   },
+   "edit_lint_note": "warning 数は直す前（integration/stages-lint.json）と全段で同じ"
+  },
+  "export": {
+   "how": "evidence/.../elements/wiring/tools/verify-wiring.mjs で実物の AkariOnboardingServiceImpl（tsc -b 後の lib）に stage 8 まで書かせた隔離プロジェクト（AKARI_HOME・TMP = C:/t/flash-fix、作業フォルダは空）を render-cut --engine auto（字幕のカラオケで OSR）・AKARI_EXPORT_ALLOW_DESKTOP=0（tier 2 = worktree の electron.exe）で 1128 フレーム書き出し → PASS",
+   "whole_video_diff_vs_18a2aa3e3": "直す前の書き出し（out/demo-export-osr.mp4）と 320x180 の灰色で全 1128 フレームを比べ、差（最大 > 24）が出たのは f591〜599（19.700〜19.967）だけ = 閃光の区間以外は変わっていない",
+   "ink_box": [
+    780,
+    220,
+    1230,
+    440
+   ],
+   "flash_alpha_wall": [
+    1230,
+    560,
+    1270,
+    600
+   ],
+   "ink_definition": "擬音の箱の中で最大チャネル < 60（墨 #17130F の縁と字の芯）の画素数。元素材の同じ箱は全フレーム 0 px なので、数えた画素はすべて擬音のもの",
+   "rows": [
+    {
+     "frame": 586,
+     "t": 19.533,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 0,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 0,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 168.6,
+     "darkest_luma_after": 168.6,
+     "flash_alpha_wall_before": 0.009,
+     "flash_alpha_wall_after": 0.007
+    },
+    {
+     "frame": 587,
+     "t": 19.567,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 0,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 0,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 168.6,
+     "darkest_luma_after": 168.6,
+     "flash_alpha_wall_before": 0.008,
+     "flash_alpha_wall_after": 0.008
+    },
+    {
+     "frame": 588,
+     "t": 19.6,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 0,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 0,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 168.6,
+     "darkest_luma_after": 168.6,
+     "flash_alpha_wall_before": 0.007,
+     "flash_alpha_wall_after": 0.007
+    },
+    {
+     "frame": 589,
+     "t": 19.633,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 0,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 0,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 168.6,
+     "darkest_luma_after": 168.6,
+     "flash_alpha_wall_before": 0.008,
+     "flash_alpha_wall_after": 0.008
+    },
+    {
+     "frame": 590,
+     "t": 19.667,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 0,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 0,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 168.6,
+     "darkest_luma_after": 168.6,
+     "flash_alpha_wall_before": 0.008,
+     "flash_alpha_wall_after": 0.006
+    },
+    {
+     "frame": 591,
+     "t": 19.7,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 14328,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 16164,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 153.4,
+     "darkest_luma_after": 33.6,
+     "flash_alpha_wall_before": 0.52,
+     "flash_alpha_wall_after": 0.52
+    },
+    {
+     "frame": 592,
+     "t": 19.733,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 17928,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 19414,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 124.1,
+     "darkest_luma_after": 15.0,
+     "flash_alpha_wall_before": 0.436,
+     "flash_alpha_wall_after": 0.437
+    },
+    {
+     "frame": 593,
+     "t": 19.767,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 18788,
+     "ink_px_lt90_before": 0,
+     "ink_px_lt90_after": 20465,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 100.4,
+     "darkest_luma_after": 12.6,
+     "flash_alpha_wall_before": 0.352,
+     "flash_alpha_wall_after": 0.353
+    },
+    {
+     "frame": 594,
+     "t": 19.8,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 14384,
+     "ink_px_lt90_before": 6449,
+     "ink_px_lt90_after": 15857,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 78.7,
+     "darkest_luma_after": 13.8,
+     "flash_alpha_wall_before": 0.271,
+     "flash_alpha_wall_after": 0.27
+    },
+    {
+     "frame": 595,
+     "t": 19.833,
+     "ink_px_lt60_before": 0,
+     "ink_px_lt60_after": 13716,
+     "ink_px_lt90_before": 11121,
+     "ink_px_lt90_after": 15219,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 69.8,
+     "darkest_luma_after": 14.0,
+     "flash_alpha_wall_before": 0.244,
+     "flash_alpha_wall_after": 0.245
+    },
+    {
+     "frame": 596,
+     "t": 19.867,
+     "ink_px_lt60_before": 8,
+     "ink_px_lt60_after": 13905,
+     "ink_px_lt90_before": 12916,
+     "ink_px_lt90_after": 15202,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 63.6,
+     "darkest_luma_after": 14.1,
+     "flash_alpha_wall_before": 0.217,
+     "flash_alpha_wall_after": 0.216
+    },
+    {
+     "frame": 597,
+     "t": 19.9,
+     "ink_px_lt60_before": 402,
+     "ink_px_lt60_after": 14281,
+     "ink_px_lt90_before": 13818,
+     "ink_px_lt90_after": 15379,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 54.3,
+     "darkest_luma_after": 14.2,
+     "flash_alpha_wall_before": 0.189,
+     "flash_alpha_wall_after": 0.188
+    },
+    {
+     "frame": 598,
+     "t": 19.933,
+     "ink_px_lt60_before": 10237,
+     "ink_px_lt60_after": 14498,
+     "ink_px_lt90_before": 14557,
+     "ink_px_lt90_after": 15516,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 45.8,
+     "darkest_luma_after": 14.1,
+     "flash_alpha_wall_before": 0.151,
+     "flash_alpha_wall_after": 0.151
+    },
+    {
+     "frame": 599,
+     "t": 19.967,
+     "ink_px_lt60_before": 12754,
+     "ink_px_lt60_after": 14496,
+     "ink_px_lt90_before": 14825,
+     "ink_px_lt90_after": 15513,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 38.7,
+     "darkest_luma_after": 14.2,
+     "flash_alpha_wall_before": 0.122,
+     "flash_alpha_wall_after": 0.121
+    },
+    {
+     "frame": 600,
+     "t": 20.0,
+     "ink_px_lt60_before": 13578,
+     "ink_px_lt60_after": 14498,
+     "ink_px_lt90_before": 15081,
+     "ink_px_lt90_after": 15513,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 31.0,
+     "darkest_luma_after": 14.3,
+     "flash_alpha_wall_before": 0.091,
+     "flash_alpha_wall_after": 0.091
+    },
+    {
+     "frame": 601,
+     "t": 20.033,
+     "ink_px_lt60_before": 14052,
+     "ink_px_lt60_after": 14498,
+     "ink_px_lt90_before": 15292,
+     "ink_px_lt90_after": 15515,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 23.3,
+     "darkest_luma_after": 14.3,
+     "flash_alpha_wall_before": 0.067,
+     "flash_alpha_wall_after": 0.067
+    },
+    {
+     "frame": 602,
+     "t": 20.067,
+     "ink_px_lt60_before": 14452,
+     "ink_px_lt60_after": 14503,
+     "ink_px_lt90_before": 15522,
+     "ink_px_lt90_after": 15524,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 15.0,
+     "darkest_luma_after": 14.2,
+     "flash_alpha_wall_before": 0.032,
+     "flash_alpha_wall_after": 0.032
+    },
+    {
+     "frame": 603,
+     "t": 20.1,
+     "ink_px_lt60_before": 14453,
+     "ink_px_lt60_after": 14504,
+     "ink_px_lt90_before": 15522,
+     "ink_px_lt90_after": 15524,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 15.0,
+     "darkest_luma_after": 14.2,
+     "flash_alpha_wall_before": 0.032,
+     "flash_alpha_wall_after": 0.031
+    },
+    {
+     "frame": 604,
+     "t": 20.133,
+     "ink_px_lt60_before": 14454,
+     "ink_px_lt60_after": 14505,
+     "ink_px_lt90_before": 15522,
+     "ink_px_lt90_after": 15524,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 15.0,
+     "darkest_luma_after": 14.2,
+     "flash_alpha_wall_before": 0.031,
+     "flash_alpha_wall_after": 0.031
+    },
+    {
+     "frame": 605,
+     "t": 20.167,
+     "ink_px_lt60_before": 14454,
+     "ink_px_lt60_after": 14505,
+     "ink_px_lt90_before": 15523,
+     "ink_px_lt90_after": 15525,
+     "ink_px_lt60_source": 0,
+     "darkest_luma_before": 15.0,
+     "darkest_luma_after": 14.2,
+     "flash_alpha_wall_before": 0.035,
+     "flash_alpha_wall_after": 0.035
+    }
+   ],
+   "verdict": "19.70（f591）で擬音の墨の画素 0 → 14,328 px（静止した 20.1 s 以降 ≈ 14,500 px の 99%）。箱の最暗 0.5% 輝度 153.4 → 33.6（擬音がまだ跳ねの途中）、19.733 で 15.0 = 静止時と同じ黒。壁で逆算した閃光の α は全フレームで直す前と ±0.001 以内（19.70 = 0.520）= 曲線は不変"
+  },
+  "preview_same_order": "プレビューも段の配列順が z の権威（apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts「宣言トラック（z の権威 = 配列順）」、packages/edit-store/src/media-planes.ts の zOfTrack）なので、書き出しと同じく閃光は擬音の下に来る。L1 の再実行はしていない（同じ worktree で他の要素の担当が書き出しを並走させており、theia build で bundle を差し替えると巻き込むため）",
+  "images": [
+   "flash-under-pa-before-after.jpg（直す前／直した後の書き出し、f590・591・592・594・598 の右の舞台）",
+   "flash-export-19.700-demo-flash-track.jpg（直した後の書き出し 19.700 の全画面）"
+  ],
+  "tools": [
+   "tools/measure-ink.py",
+   "tools/sheet-before-after.py",
+   "tools/diff-whole-export.py"
+  ]
+ }
+}

@@ -1,0 +1,18 @@
+ℹ tests 1798
+ℹ pass 1785
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+✖ (c) a stream target cannot escape a requested root through a symbolic link
+✖ 1 MB 超、ワークスペース外、symlink のサイドカーを読まない
+✖ an existing filename symlink is a collision, never an overwrite
+✖ caption and edit retarget races never return outside content across 10k RPC calls each
+✖ caption display rejects static symlinks for both captions and edit inputs
+✖ L1 証跡 redaction は raw/realpath と入れ子値を伏せ HTTP URL を保持する
+✖ merge CLI writes complete results and fails closed on a newer blocked capture
+✖ rejects outside files, symlink escapes, non-HTML groups and invalid times
+✖ save rejects symlink directory escapes and malformed payload before writing
+✖ three transform implementations agree on rotated parent and anisotropic leaves
+✖ trial banner lives only above output, routes three actions and disappears when cleared
+✖ 参照動画: 代表ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206
+✖ 参照動画: 追加ソースに frame-engine 用 /media/ URL を渡し GET 200 / Range 206

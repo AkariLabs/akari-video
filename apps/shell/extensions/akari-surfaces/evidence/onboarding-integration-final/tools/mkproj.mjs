@@ -1,0 +1,21 @@
+// 検証用（ラッパー所掌・統合 preview/2026-10-02-all）: お手本の段 8 を隔離プロジェクトへ書き出す。node mkproj.mjs <out-dir>
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const WT = 'C:/Users/kyach/akari-wt/integrate-2026-09-29';
+const EXT = `${WT}/apps/shell/extensions/akari-surfaces`;
+const sample = `${WT}/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01`;
+const { AkariOnboardingServiceImpl } = await import(pathToFileURL(`${EXT}/lib/node/onboarding-service.js`));
+const { splitOnboardingTokens } = await import(pathToFileURL(`${EXT}/lib/onboarding/model.js`));
+const root = process.argv[2];
+await mkdir(join(root, 'assets'), { recursive: true });
+await mkdir(join(root, '.akari'), { recursive: true });
+await copyFile(join(sample, 'clip.mp4'), join(root, 'assets', 'サンプル動画.mp4'));
+await writeFile(join(root, 'edit.json'), '{}');
+const uri = pathToFileURL(root).toString();
+const service = new AkariOnboardingServiceImpl();
+service.load = async () => ({ schema: 1, step: 'work', sub: 0, projectUri: uri, imported: true, exampleActive: true });
+const segments = splitOnboardingTokens(JSON.parse(await readFile(join(sample, 'transcript.json'), 'utf8')).tokens.items);
+await service.writeExample(uri, join(sample, 'clip.mp4'), segments, segments.length, true, { stage: 8 });
+const edit = JSON.parse(await readFile(join(root, 'edit.json'), 'utf8'));
+console.log(JSON.stringify(edit.tracks.map(t => [t.id, t.lane ?? t.kind, t.items.length])));

@@ -1,0 +1,1256 @@
+{
+ "mode": "after",
+ "startedAt": "2026-09-30T01:44:05.504Z",
+ "steps": [
+  {
+   "at": 8.1,
+   "label": "welcome",
+   "step": null,
+   "sub": null
+  },
+  {
+   "at": 9.5,
+   "label": "first",
+   "step": "first",
+   "sub": 0
+  },
+  {
+   "at": 10.9,
+   "label": "invite",
+   "step": "invite",
+   "sub": 0
+  },
+  {
+   "at": 19.9,
+   "label": "tour0:0",
+   "step": "tour0",
+   "sub": 0
+  },
+  {
+   "at": 24.2,
+   "label": "tour0:1",
+   "step": "tour0",
+   "sub": 1
+  },
+  {
+   "at": 26.8,
+   "label": "tour1:0",
+   "step": "tour1",
+   "sub": 0
+  },
+  {
+   "at": 29.4,
+   "label": "tour2:0",
+   "step": "tour2",
+   "sub": 0
+  },
+  {
+   "at": 31.9,
+   "label": "tour2:1",
+   "step": "tour2",
+   "sub": 1
+  },
+  {
+   "at": 34.5,
+   "label": "tour3:0",
+   "step": "tour3",
+   "sub": 0
+  },
+  {
+   "at": 37.1,
+   "label": "tour3:1",
+   "step": "tour3",
+   "sub": 1
+  },
+  {
+   "at": 39.8,
+   "label": "drag",
+   "step": "drag",
+   "sub": 0
+  },
+  {
+   "at": 42,
+   "label": "matpreview-0",
+   "step": "matpreview",
+   "sub": 0
+  },
+  {
+   "at": 45.7,
+   "label": "ask-0",
+   "step": "ask",
+   "sub": 0
+  },
+  {
+   "at": 54.1,
+   "label": "prompt-0",
+   "step": "prompt",
+   "sub": 0
+  },
+  {
+   "at": 74.1,
+   "label": "play-0",
+   "step": "play",
+   "sub": 0
+  },
+  {
+   "at": 114.8,
+   "label": "play:1",
+   "step": "play",
+   "sub": 1
+  },
+  {
+   "at": 117.1,
+   "label": "caption:0",
+   "step": "caption",
+   "sub": 0
+  },
+  {
+   "at": 129.9,
+   "label": "caption:1",
+   "step": "caption",
+   "sub": 1
+  },
+  {
+   "at": 140.5,
+   "label": "caption:2",
+   "step": "caption",
+   "sub": 2
+  },
+  {
+   "at": 151,
+   "label": "caption:3",
+   "step": "caption",
+   "sub": 3
+  },
+  {
+   "at": 153.3,
+   "label": "daihon:0",
+   "step": "daihon",
+   "sub": 0
+  },
+  {
+   "at": 163.9,
+   "label": "daihon:1",
+   "step": "daihon",
+   "sub": 1
+  },
+  {
+   "at": 174.5,
+   "label": "daihon:2",
+   "step": "daihon",
+   "sub": 2
+  },
+  {
+   "at": 176.7,
+   "label": "export:0",
+   "step": "export",
+   "sub": 0
+  },
+  {
+   "at": 180.4,
+   "label": "export:1",
+   "step": "export",
+   "sub": 1
+  },
+  {
+   "at": 184.1,
+   "label": "export:2",
+   "step": "export",
+   "sub": 2
+  },
+  {
+   "at": 187.8,
+   "label": "export:3",
+   "step": "export",
+   "sub": 3
+  },
+  {
+   "at": 227.4,
+   "label": "export:4",
+   "step": "export",
+   "sub": 4
+  },
+  {
+   "at": 231.1,
+   "label": "done",
+   "step": "done",
+   "sub": 0
+  }
+ ],
+ "shots": [
+  "after-01-welcome.png",
+  "after-02-first.png",
+  "after-03-invite.png",
+  "after-04-tour0-0.png",
+  "after-05-tour0-1.png",
+  "after-06-tour1-0.png",
+  "after-07-tour2-0.png",
+  "after-08-tour2-1.png",
+  "after-09-tour3-0.png",
+  "after-10-tour3-1.png",
+  "after-11-drag.png",
+  "after-12-matpreview-0.png",
+  "after-13-matpreview-1.png",
+  "after-14-ask-0.png",
+  "after-15-ask-1.png",
+  "after-16-prompt-typed.png",
+  "after-17-prompt-input.png",
+  "after-18-work-0s.png",
+  "after-19-work-3s.png",
+  "after-20-work-6s.png",
+  "after-21-work-10s.png",
+  "after-22-work-13s.png",
+  "after-23-play-0.png",
+  "after-24-playing-figure-dialogue-9.0s.png",
+  "after-25-zoom-figure-dialogue-9.0s.png",
+  "after-26-playing-figure-automatic-12.6s.png",
+  "after-27-zoom-figure-automatic-12.6s.png",
+  "after-28-playing-figure-effects-16.6s.png",
+  "after-29-zoom-figure-effects-16.6s.png",
+  "after-30-playing-figure-diagram-23.9s.png",
+  "after-31-zoom-figure-diagram-23.9s.png",
+  "after-32-playing-figure-finishing-28.1s.png",
+  "after-33-zoom-figure-finishing-28.1s.png",
+  "after-34-play-1.png",
+  "after-35-play-1.png",
+  "after-36-caption-0.png",
+  "after-37-caption-1.png",
+  "after-38-caption-2.png",
+  "after-39-caption-3.png",
+  "after-40-daihon-0.png",
+  "after-41-daihon-1.png",
+  "after-42-daihon-2.png",
+  "after-43-export-0.png",
+  "after-44-export-1.png",
+  "after-45-export-2.png",
+  "after-46-export-3.png",
+  "after-47-export-4.png",
+  "after-48-done.png"
+ ],
+ "work": [
+  {
+   "t": 0,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "> この動画を編集したいです。タイトルと字幕を入れて、話している内容に合わせて図解と BGM も入れてください。",
+   "trackHeaders": "",
+   "editAudio": ""
+  },
+  {
+   "t": 1.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "akari media probe assets/サンプル動画.mp4 / 37.6 秒 · 1280×720 · 30fps · 音声あり",
+   "trackHeaders": "",
+   "editAudio": ""
+  },
+  {
+   "t": 2.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "書き起こしを探しています…",
+   "logTail": "37.6 秒 · 1280×720 · 30fps · 音声あり / 素材の書き起こしを使い、話の要点を確認しました。",
+   "trackHeaders": "",
+   "editAudio": ""
+  },
+  {
+   "t": 3.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 1,
+   "kinds": "video:media",
+   "captions": 0,
+   "live": "書き起こしを探しています…",
+   "logTail": "37.6 秒 · 1280×720 · 30fps · 音声あり / 素材の書き起こしを使い、話の要点を確認しました。",
+   "trackHeaders": "本編",
+   "editAudio": ""
+  },
+  {
+   "t": 4.4,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 1,
+   "live": "字幕を置いています…（1/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 5.4,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 2,
+   "live": "字幕を置いています…（2/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 6.4,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 7,
+   "live": "字幕を置いています…（7/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 7.7,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 12,
+   "live": "字幕を置いています…（12/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 8.7,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 15,
+   "live": "字幕を置いています…（15/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 9.7,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 20,
+   "live": "字幕を置いています…（20/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 10.9,
+   "step": "work",
+   "html": 1,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions,figures:html",
+   "captions": 23,
+   "live": "タイトルを置いています…",
+   "logTail": "字幕を短く分けてつくりました → captions.json / 右上にタイトルを置きました",
+   "trackHeaders": "話に合わせた図解 / 文字 / 字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 12,
+   "step": "work",
+   "html": 2,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions,figures:html,figures:html",
+   "captions": 23,
+   "live": "図解を置いています…",
+   "logTail": "「AI と対話」を図にしました / 「話すだけで編集」を図にしました",
+   "trackHeaders": "話に合わせた図解 / 文字 / 字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 13,
+   "step": "work",
+   "html": 4,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions,figures:html,figures:html,figures:html,figures:html",
+   "captions": 23,
+   "live": "図解を置いています…",
+   "logTail": "「話すだけで編集」を図にしました / 「効果音とエフェクト」を図にしました",
+   "trackHeaders": "話に合わせた図解 / 文字 / 字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 14.2,
+   "step": "work",
+   "html": 5,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions,figures:html,figures:html,figures:html,figures:html,figures:html",
+   "captions": 23,
+   "live": "図解を置いています…",
+   "logTail": "「効果音とエフェクト」を図にしました / 「図解とモックアップ」を図にしました",
+   "trackHeaders": "話に合わせた図解 / 文字 / 字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 15.2,
+   "step": "work",
+   "html": 5,
+   "audio": 1,
+   "captionsItem": 1,
+   "media": 2,
+   "kinds": "video:media,captions:captions,figures:html,figures:html,figures:html,figures:html,figures:html,onboarding-bgm:media",
+   "captions": 23,
+   "live": "できました",
+   "logTail": "問題なし / できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。",
+   "trackHeaders": "話に合わせた図解 / 文字 / 字幕とタイトル / 本編 / BGM",
+   "editAudio": ""
+  },
+  {
+   "t": 16.3,
+   "step": "play",
+   "html": 5,
+   "audio": 1,
+   "captionsItem": 1,
+   "media": 2,
+   "kinds": "video:media,captions:captions,figures:html,figures:html,figures:html,figures:html,figures:html,onboarding-bgm:media",
+   "captions": 23,
+   "live": "",
+   "logTail": "問題なし / できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。",
+   "trackHeaders": "話に合わせた図解 / 文字 / 字幕とタイトル / 本編 / BGM",
+   "editAudio": ""
+  }
+ ],
+ "play": {
+  "clockProbe": {
+   "seek": 0,
+   "playing": false
+  },
+  "figures": [
+   {
+    "id": "figure-dialogue",
+    "path": "overlays/dialogue/fragment.html",
+    "start": 7.8,
+    "end": 11.3
+   },
+   {
+    "id": "figure-automatic",
+    "path": "overlays/automatic/fragment.html",
+    "start": 11.333333333333334,
+    "end": 15.3
+   },
+   {
+    "id": "figure-effects",
+    "path": "overlays/effects/fragment.html",
+    "start": 15.366666666666667,
+    "end": 22.6
+   },
+   {
+    "id": "figure-diagram",
+    "path": "overlays/diagram/fragment.html",
+    "start": 22.633333333333333,
+    "end": 26.866666666666667
+   },
+   {
+    "id": "figure-finishing",
+    "path": "overlays/finishing/fragment.html",
+    "start": 26.866666666666667,
+    "end": 35.6
+   }
+  ],
+  "atFigures": [
+   {
+    "label": "figure-dialogue",
+    "t": 9.033,
+    "shot": "after-24-playing-figure-dialogue-9.0s.png",
+    "geom": {
+     "stage": {
+      "w": 392,
+      "h": 220.5
+     },
+     "figures": [
+      {
+       "id": "figure-dialogue",
+       "opacity": "1",
+       "box": {
+        "x0": 0.56,
+        "x1": 0.97,
+        "y0": 0.25,
+        "y1": 0.508
+       },
+       "text": "対話だけで編集 あなた AI 完成動画"
+      },
+      {
+       "id": "figure-automatic",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-finishing",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "figure-automatic",
+    "t": 12.567,
+    "shot": "after-26-playing-figure-automatic-12.6s.png",
+    "geom": {
+     "stage": {
+      "w": 392,
+      "h": 220.5
+     },
+     "figures": [
+      {
+       "id": "figure-dialogue",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-automatic",
+       "opacity": "1",
+       "box": {
+        "x0": 0.56,
+        "x1": 0.97,
+        "y0": 0.25,
+        "y1": 0.545
+       },
+       "text": "話すだけで完成 話す カット 字幕 タイトル"
+      },
+      {
+       "id": "figure-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-finishing",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "figure-effects",
+    "t": 16.6,
+    "shot": "after-28-playing-figure-effects-16.6s.png",
+    "geom": {
+     "stage": {
+      "w": 392,
+      "h": 220.5
+     },
+     "figures": [
+      {
+       "id": "figure-dialogue",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-automatic",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-effects",
+       "opacity": "1",
+       "box": {
+        "x0": 0.56,
+        "x1": 0.97,
+        "y0": 0.25,
+        "y1": 0.54
+       },
+       "text": "効果音と演出 効果音 パッと変化"
+      },
+      {
+       "id": "figure-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-finishing",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "figure-diagram",
+    "t": 23.867,
+    "shot": "after-30-playing-figure-diagram-23.9s.png",
+    "geom": {
+     "stage": {
+      "w": 392,
+      "h": 220.5
+     },
+     "figures": [
+      {
+       "id": "figure-dialogue",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-automatic",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-diagram",
+       "opacity": "1",
+       "box": {
+        "x0": 0.56,
+        "x1": 0.97,
+        "y0": 0.25,
+        "y1": 0.582
+       },
+       "text": "図が組み上がる 話の要点が、ひと目でわかる"
+      },
+      {
+       "id": "figure-finishing",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "figure-finishing",
+    "t": 28.067,
+    "shot": "after-32-playing-figure-finishing-28.1s.png",
+    "geom": {
+     "stage": {
+      "w": 392,
+      "h": 220.5
+     },
+     "figures": [
+      {
+       "id": "figure-dialogue",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-automatic",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " .akari-figure{position:absolute;inset:0;pointer-events:none;font-family:var(--f"
+      },
+      {
+       "id": "figure-finishing",
+       "opacity": "1",
+       "box": {
+        "x0": 0.56,
+        "x1": 0.97,
+        "y0": 0.25,
+        "y1": 0.55
+       },
+       "text": "仕上げを一度に スマホ BGM カラオケ字幕"
+      }
+     ],
+     "texts": []
+    }
+   }
+  ],
+  "wallSeconds": 37.2,
+  "audio": {
+   "samples": 7360,
+   "speech": [
+    {
+     "a": 3,
+     "b": 7,
+     "n": 960,
+     "rmsDb": -18.5
+    },
+    {
+     "a": 8,
+     "b": 10.5,
+     "n": 394,
+     "rmsDb": -17.8
+    },
+    {
+     "a": 11.5,
+     "b": 14.3,
+     "n": 502,
+     "rmsDb": -17
+    },
+    {
+     "a": 15.5,
+     "b": 21.5,
+     "n": 1138,
+     "rmsDb": -19.5
+    },
+    {
+     "a": 22.7,
+     "b": 24.9,
+     "n": 306,
+     "rmsDb": -17.5
+    },
+    {
+     "a": 29.6,
+     "b": 32.4,
+     "n": 644,
+     "rmsDb": -17.2
+    },
+    {
+     "a": 33.3,
+     "b": 35.5,
+     "n": 438,
+     "rmsDb": -17.3
+    }
+   ],
+   "gaps": [
+    {
+     "a": 1.45,
+     "b": 2.25,
+     "n": 190,
+     "rmsDb": -37.3
+    },
+    {
+     "a": 25.2,
+     "b": 26.9,
+     "n": 224,
+     "rmsDb": -28.7
+    }
+   ],
+   "tail": {
+    "n": 210,
+    "rmsDb": -40.6
+   }
+  }
+ },
+ "export": {
+  "uiSeconds": 40.6,
+  "files": [
+   {
+    "path": "C:\\t\\odr\\a3\\home\\Akari\\channels\\my-channel\\videos\\2026-09-30-first-video\\exports\\final.mp4",
+    "bytes": 3561667
+   }
+  ],
+  "ffprobe": {
+   "programs": [],
+   "stream_groups": [],
+   "streams": [
+    {
+     "index": 0,
+     "codec_name": "h264",
+     "codec_type": "video",
+     "width": 1280,
+     "height": 720,
+     "r_frame_rate": "30/1"
+    },
+    {
+     "index": 1,
+     "codec_name": "aac",
+     "codec_type": "audio",
+     "sample_rate": "48000",
+     "channels": 2,
+     "r_frame_rate": "0/0"
+    }
+   ],
+   "format": {
+    "duration": "37.600000",
+    "size": "3561667"
+   }
+  },
+  "frames": [
+   "C:\\t\\odr\\shots-after-final\\after-export-frame-figure-dialogue-9.0s.png",
+   "C:\\t\\odr\\shots-after-final\\after-export-frame-figure-automatic-12.5s.png",
+   "C:\\t\\odr\\shots-after-final\\after-export-frame-figure-effects-16.6s.png",
+   "C:\\t\\odr\\shots-after-final\\after-export-frame-figure-diagram-23.8s.png",
+   "C:\\t\\odr\\shots-after-final\\after-export-frame-figure-finishing-28.1s.png"
+  ],
+  "levels": {
+   "speech": [
+    {
+     "a": 3,
+     "b": 7,
+     "mean": -18.4,
+     "max": -3.5
+    },
+    {
+     "a": 8,
+     "b": 10.5,
+     "mean": -17.6,
+     "max": -4.8
+    },
+    {
+     "a": 11.5,
+     "b": 14.3,
+     "mean": -17.2,
+     "max": -3
+    },
+    {
+     "a": 15.5,
+     "b": 21.5,
+     "mean": -19,
+     "max": -2.7
+    },
+    {
+     "a": 22.7,
+     "b": 24.9,
+     "mean": -17.7,
+     "max": -3
+    },
+    {
+     "a": 29.6,
+     "b": 32.4,
+     "mean": -17.3,
+     "max": -3.7
+    },
+    {
+     "a": 33.3,
+     "b": 35.5,
+     "mean": -18,
+     "max": -3.4
+    }
+   ],
+   "gaps": [
+    {
+     "a": 1.45,
+     "b": 2.25,
+     "mean": -33.7,
+     "max": -15.1
+    },
+    {
+     "a": 25.2,
+     "b": 26.9,
+     "mean": -27.7,
+     "max": -12.7
+    }
+   ]
+  }
+ },
+ "errors": [
+  "window Error: Browser.getWindowForTarget {\"code\":-32601,\"message\":\"'Browser.getWindowForTarget' wasn't found\"}"
+ ],
+ "projectUri": "file:///C:/t/odr/a3/home/Akari/channels/my-channel/videos/2026-09-30-first-video",
+ "tourEdit": {
+  "tracks": [
+   {
+    "id": "video",
+    "lane": "visual",
+    "name": "本編",
+    "items": [
+     {
+      "id": "sample",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "sample"
+     }
+    ]
+   },
+   {
+    "id": "captions",
+    "lane": "visual",
+    "name": "字幕とタイトル",
+    "items": [
+     {
+      "id": "captions",
+      "at": 0,
+      "duration": 1128,
+      "kind": "captions",
+      "path": "captions.json"
+     }
+    ]
+   },
+   {
+    "id": "figures",
+    "lane": "visual",
+    "name": "話に合わせた図解",
+    "items": [
+     {
+      "id": "figure-dialogue",
+      "at": 234,
+      "duration": 105,
+      "kind": "html",
+      "path": "overlays/dialogue/fragment.html"
+     },
+     {
+      "id": "figure-automatic",
+      "at": 340,
+      "duration": 119,
+      "kind": "html",
+      "path": "overlays/automatic/fragment.html"
+     },
+     {
+      "id": "figure-effects",
+      "at": 461,
+      "duration": 217,
+      "kind": "html",
+      "path": "overlays/effects/fragment.html"
+     },
+     {
+      "id": "figure-diagram",
+      "at": 679,
+      "duration": 127,
+      "kind": "html",
+      "path": "overlays/diagram/fragment.html"
+     },
+     {
+      "id": "figure-finishing",
+      "at": 806,
+      "duration": 262,
+      "kind": "html",
+      "path": "overlays/finishing/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "onboarding-bgm",
+    "lane": "audio",
+    "name": "BGM",
+    "items": [
+     {
+      "id": "onboarding-bgm",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "onboarding-bgm"
+     }
+    ]
+   }
+  ],
+  "audio": null
+ },
+ "tourEditRaw": {
+  "version": 2,
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30,
+   "geometry": "source"
+  },
+  "sources": [
+   {
+    "id": "sample",
+    "path": "assets/サンプル動画.mp4"
+   },
+   {
+    "id": "onboarding-bgm",
+    "path": "assets/onboarding-bgm.m4a"
+   }
+  ],
+  "tracks": [
+   {
+    "id": "video",
+    "lane": "visual",
+    "name": "本編",
+    "items": [
+     {
+      "id": "sample",
+      "at": 0,
+      "duration": 1128,
+      "source": {
+       "kind": "media",
+       "src": "sample",
+       "in": 0,
+       "out": 37.6
+      }
+     }
+    ]
+   },
+   {
+    "id": "captions",
+    "lane": "visual",
+    "name": "字幕とタイトル",
+    "items": [
+     {
+      "id": "captions",
+      "at": 0,
+      "duration": 1128,
+      "source": {
+       "kind": "captions",
+       "path": "captions.json"
+      }
+     }
+    ]
+   },
+   {
+    "id": "figures",
+    "lane": "visual",
+    "name": "話に合わせた図解",
+    "items": [
+     {
+      "id": "figure-dialogue",
+      "at": 234,
+      "duration": 105,
+      "source": {
+       "kind": "html",
+       "path": "overlays/dialogue/fragment.html"
+      }
+     },
+     {
+      "id": "figure-automatic",
+      "at": 340,
+      "duration": 119,
+      "source": {
+       "kind": "html",
+       "path": "overlays/automatic/fragment.html"
+      }
+     },
+     {
+      "id": "figure-effects",
+      "at": 461,
+      "duration": 217,
+      "source": {
+       "kind": "html",
+       "path": "overlays/effects/fragment.html"
+      }
+     },
+     {
+      "id": "figure-diagram",
+      "at": 679,
+      "duration": 127,
+      "source": {
+       "kind": "html",
+       "path": "overlays/diagram/fragment.html"
+      }
+     },
+     {
+      "id": "figure-finishing",
+      "at": 806,
+      "duration": 262,
+      "source": {
+       "kind": "html",
+       "path": "overlays/finishing/fragment.html"
+      }
+     }
+    ]
+   },
+   {
+    "id": "onboarding-bgm",
+    "lane": "audio",
+    "name": "BGM",
+    "items": [
+     {
+      "id": "onboarding-bgm",
+      "at": 0,
+      "duration": 1128,
+      "role": "bgm",
+      "gain_db": -12,
+      "fade_in": 1,
+      "fade_out": 2.8,
+      "ducking": true,
+      "source": {
+       "kind": "media",
+       "src": "onboarding-bgm",
+       "in": 0,
+       "out": 37.6
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "afterTourReset": {
+  "tracks": [],
+  "audio": null
+ },
+ "afterTourResetFiles": [
+  ".agents",
+  ".akari",
+  ".claude",
+  ".codex",
+  ".cursor",
+  ".devin",
+  ".git",
+  ".gitignore",
+  ".opencode",
+  "AGENTS.md",
+  "akari.sh",
+  "assets",
+  "cache",
+  "CLAUDE.md",
+  "edit.json",
+  "exports",
+  "overlays",
+  "planning"
+ ],
+ "promptTyped": "この動画を編集したいです。タイトルと字幕を入れて、話している内容に合わせて図解と BGM も入れてください。",
+ "promptInput": "この動画を編集したいです。タイトルと字幕を入れて、話している内容に合わせて図解と BGM も入れてください。",
+ "workSeconds": 16.3,
+ "finalEdit": {
+  "tracks": [
+   {
+    "id": "video",
+    "lane": "visual",
+    "name": "本編",
+    "items": [
+     {
+      "id": "sample",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "sample"
+     }
+    ]
+   },
+   {
+    "id": "captions",
+    "lane": "visual",
+    "name": "字幕とタイトル",
+    "items": [
+     {
+      "id": "captions",
+      "at": 0,
+      "duration": 1128,
+      "kind": "captions",
+      "path": "captions.json"
+     }
+    ]
+   },
+   {
+    "id": "figures",
+    "lane": "visual",
+    "name": "話に合わせた図解",
+    "items": [
+     {
+      "id": "figure-dialogue",
+      "at": 234,
+      "duration": 105,
+      "kind": "html",
+      "path": "overlays/dialogue/fragment.html"
+     },
+     {
+      "id": "figure-automatic",
+      "at": 340,
+      "duration": 119,
+      "kind": "html",
+      "path": "overlays/automatic/fragment.html"
+     },
+     {
+      "id": "figure-effects",
+      "at": 461,
+      "duration": 217,
+      "kind": "html",
+      "path": "overlays/effects/fragment.html"
+     },
+     {
+      "id": "figure-diagram",
+      "at": 679,
+      "duration": 127,
+      "kind": "html",
+      "path": "overlays/diagram/fragment.html"
+     },
+     {
+      "id": "figure-finishing",
+      "at": 806,
+      "duration": 262,
+      "kind": "html",
+      "path": "overlays/finishing/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "onboarding-bgm",
+    "lane": "audio",
+    "name": "BGM",
+    "items": [
+     {
+      "id": "onboarding-bgm",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "onboarding-bgm"
+     }
+    ]
+   }
+  ],
+  "audio": null
+ },
+ "playCoach0": {
+  "step": "play",
+  "title": "できました。再生してみましょう",
+  "body": "▶ を押してください。",
+  "buttons": [
+   "back"
+  ]
+ }
+}

@@ -1,0 +1,282 @@
+{
+ "schema": "akari-onboarding-demo-element-measure/v1",
+ "element": "diagram（図解）",
+ "role": "producer",
+ "created": "2026-10-01",
+ "revision": "目利きの差し戻し（2026-10-01）の作り直し: 汎用の流れ図（話す→AI が編集→完成！）を捨て、この動画そのものの中身をタイムラインで見せる図解にした",
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-diagram/fragment.html",
+ "file_md5": "9475c9ce9c9aa561fa0ded1bfeaa80d8",
+ "file_sha256": "575d250b1bcd36002c9987f001b91c218f162ec4a7709b840781dd4760561c60",
+ "file_bytes": 47566,
+ "edit_item": {
+  "track": "demo-stage",
+  "id": "demo-diagram",
+  "name": "図解",
+  "at": 697,
+  "duration": 110,
+  "source": {
+   "kind": "html",
+   "path": "overlays/demo-diagram/fragment.html"
+  }
+ },
+ "generator": "build/build_diagram.py（テンプレート build/fragment.tpl.html に実データを流し込む。再生成は同じバイト = フォントの更新時刻も固定）",
+ "content_from_real_data": {
+  "telop_7": "onboarding-service.ts DEMO_PLAN の demo-stage の item（title 7/217・chat 256/73・done 338/108・effects 524/135・diagram 697/110・phone 809/179・credit 1068/60 フレーム）。diagram だけ 3px の墨の縁",
+  "sfx_14": "DEMO_PLAN の demo-sfx の item の at + 素材の音の頭（plan.json sfx_sources.attack_or_peak_s）。11 px 未満で並ぶ点は上下 ±6px に振り分け（23.27/23.77/24.37 の 3 連など）",
+  "bgm_1": "同梱 bgm.m4a の 1.0 秒窓の音量（曲の抑揚。0.55 倍に圧縮）＋ item の gain keyframes（加算 dB を 2 px/dB）×フェード。109 本の縦棒。山 = keyframes が 0 dB から上がって戻る 29.30〜31.40 秒を橙（「BGM も」29.45）。締めの +10 dB（35.67〜）とフェードアウトも実データどおり",
+  "captions_22": "analysis/word-timing.json captions_after_realign に onboarding-service.ts と同じカラオケの区切り直し（c-0019 = 29.45〜30.63・c-0020 = 30.63〜32.54）を当てたもの。カラオケ行だけ濃い橙",
+  "rows": "diagram-data.json"
+ },
+ "layout": {
+  "card": "x 724〜1240・y 112〜452（516×340、角丸 22）",
+  "axis": "x 830〜1212 = 0〜37.6 秒（10.16 px/s）",
+  "lanes": "字幕／テロップ／効果音／BGM、段 46px・間隔 12px",
+  "counts_row": "y 409〜439",
+  "rest_bbox_alpha_gt_64_at_f760": [
+   724,
+   112,
+   1239,
+   451
+  ],
+  "caption_band_pixels": 0,
+  "person_zone_max_alpha": {
+   "value": 27,
+   "where": "カードの影の裾だけ（x 722〜814・y 470〜487、最大 27/255 ≈ 11%）。上の範囲（y<470・x<690）は最大 2/255。絵としては見えない"
+  },
+  "transient_outside_stage": "入り f699〜702（translateX 28→0 の途中、右端最大 x=1261）と抜け f801〜805（translateX 0→40、右端最大 x=1262）だけ。静止中は舞台の内"
+ },
+ "sync_rule": "最初に見えるコマ = 語頭の −1〜0 フレーム（許容 ±0.15 s・狙い ±0.05 s）。語頭は analysis/word-timing.json key_words（こういう 23.27・図解 23.78・出せます 24.37・し 24.78）",
+ "sync_harness": [
+  {
+   "element": "カード＋段のラベル",
+   "word": "こういう",
+   "word_s": 23.27,
+   "word_frame": 698.1,
+   "first_visible_frame": 698,
+   "first_visible_s": 23.2667,
+   "diff_s": -0.0033,
+   "diff_frames": -0.1,
+   "within_0_15": true,
+   "within_target_0_05": true
+  },
+  {
+   "element": "積み上げ（最初の部品）",
+   "word": "図解",
+   "word_s": 23.78,
+   "word_frame": 713.4,
+   "first_visible_frame": 713,
+   "first_visible_s": 23.7667,
+   "diff_s": -0.0133,
+   "diff_frames": -0.4,
+   "within_0_15": true,
+   "within_target_0_05": true
+  },
+  {
+   "element": "再生ヘッド",
+   "word": "出せます",
+   "word_s": 24.37,
+   "word_frame": 731.1,
+   "first_visible_frame": 731,
+   "first_visible_s": 24.3667,
+   "diff_s": -0.0033,
+   "diff_frames": -0.1,
+   "within_0_15": true,
+   "within_target_0_05": true
+  },
+  {
+   "element": "件数",
+   "word": "し",
+   "word_s": 24.78,
+   "word_frame": 743.4,
+   "first_visible_frame": 743,
+   "first_visible_s": 24.7667,
+   "diff_s": -0.0133,
+   "diff_frames": -0.4,
+   "within_0_15": true,
+   "within_target_0_05": true
+  }
+ ],
+ "sync_export_osr": [
+  {
+   "element": "カード＋段のラベル",
+   "word": "こういう",
+   "word_s": 23.27,
+   "first_visible_frame": 698,
+   "first_visible_s": 23.2667,
+   "diff_s": -0.0033,
+   "diff_frames": -0.1,
+   "within_0_15": true
+  },
+  {
+   "element": "積み上げ（最初の部品）",
+   "word": "図解",
+   "word_s": 23.78,
+   "first_visible_frame": 713,
+   "first_visible_s": 23.7667,
+   "diff_s": -0.0133,
+   "diff_frames": -0.4,
+   "within_0_15": true
+  },
+  {
+   "element": "再生ヘッド",
+   "word": "出せます",
+   "word_s": 24.37,
+   "first_visible_frame": 731,
+   "first_visible_s": 24.3667,
+   "diff_s": -0.0033,
+   "diff_frames": -0.1,
+   "within_0_15": true
+  },
+  {
+   "element": "件数",
+   "word": "し",
+   "word_s": 24.78,
+   "first_visible_frame": 743,
+   "first_visible_s": 24.7667,
+   "diff_s": -0.0133,
+   "diff_frames": -0.4,
+   "within_0_15": true
+  }
+ ],
+ "sync_export_gpu": [
+  {
+   "element": "カード＋段のラベル",
+   "word": "こういう",
+   "word_s": 23.27,
+   "first_visible_frame": 698,
+   "first_visible_s": 23.2667,
+   "diff_s": -0.0033,
+   "diff_frames": -0.1,
+   "within_0_15": true
+  },
+  {
+   "element": "積み上げ（最初の部品）",
+   "word": "図解",
+   "word_s": 23.78,
+   "first_visible_frame": 713,
+   "first_visible_s": 23.7667,
+   "diff_s": -0.0133,
+   "diff_frames": -0.4,
+   "within_0_15": true
+  },
+  {
+   "element": "再生ヘッド",
+   "word": "出せます",
+   "word_s": 24.37,
+   "first_visible_frame": 731,
+   "first_visible_s": 24.3667,
+   "diff_s": -0.0033,
+   "diff_frames": -0.1,
+   "within_0_15": true
+  },
+  {
+   "element": "件数",
+   "word": "し",
+   "word_s": 24.78,
+   "first_visible_frame": 743,
+   "first_visible_s": 24.7667,
+   "diff_s": -0.0133,
+   "diff_frames": -0.4,
+   "within_0_15": true
+  }
+ ],
+ "sync_judgement": "4 部品とも、ハーネス・OSR 書き出し・GPU 書き出しの 3 経路で同じコマ（語頭の −0.4〜−0.1 フレーム）",
+ "other_beats": {
+  "build_window": {
+   "first_frame": 713,
+   "settled_frame": 727,
+   "duration_s": 0.5
+  },
+  "flag_here_first_visible": {
+   "frame": 740,
+   "s": 24.6667,
+   "note": "「いまここ」は語ではなくヘッドの着地（24.687）に合わせる"
+  },
+  "playhead_landing": "24.687 秒（ローカル 1.453）に実時刻の位置 x=1081 へ着き、以後 26.85 まで実時間の速さで進む（DOM の頭の中心と 830 + t×10.16 の差: f741〜f796 で 0.00 px）",
+  "hint": "26.20（ローカル 2.967）にスマホのブロックが 1 回跳ねて光り、BGM の山が縦に 1.28 倍脈打つ（0.6 秒で消える過渡）",
+  "exit": "26.60 → 26.85（translateX 0→40・不透明度 1→0、--ease-accelerate）"
+ },
+ "last_visible": {
+  "frame": 805,
+  "s": 26.8333,
+  "next_star": "スマホ（demo-phone）の最初に見えるコマ f809 = 26.967（elements/phone/phone-measure.json）。空きは f806〜808 の 3 コマ（0.133 s）"
+ },
+ "export": {
+  "how": "隔離プロジェクト C:/t/diag2-rc/proj（本編 clip.mp4 の 22.9〜27.2333 を 130 コマ、demo-diagram を at 10 / duration 110 = 本番 at 697 と同じローカル時刻、クリック音 3 本 at 11/26/44 = 本番 698/713/731）。render-cut --engine osr と --engine gpu（AKARI_EXPORT_ALLOW_DESKTOP=0 = worktree の electron.exe、AKARI_HOME・TMP 隔離、作業フォルダは空の C:/t/diag2-rc/cwd、media-bin 同梱の ffmpeg 8.1.2 を PATH 先頭）。どちらも PASS",
+  "parity_osr_vs_harness": {
+   "frames": 110,
+   "worst_mean_abs": {
+    "frame": 801,
+    "mean_abs": 2.681,
+    "ratio_gt40": 0.02567
+   },
+   "worst_ratio_gt40": {
+    "frame": 746,
+    "mean_abs": 2.231,
+    "ratio_gt40": 0.02876
+   },
+   "mean_of_mean_abs": 1.971
+  },
+  "parity_gpu_vs_harness": {
+   "frames": 110,
+   "worst_mean_abs": {
+    "frame": 800,
+    "mean_abs": 3.009,
+    "ratio_gt40": 0.03055
+   },
+   "worst_ratio_gt40": {
+    "frame": 746,
+    "mean_abs": 2.968,
+    "ratio_gt40": 0.03733
+   },
+   "mean_of_mean_abs": 2.568
+  },
+  "parity_note": "書き出しは H.264・ハーネスは PNG なので文字の縁の符号化誤差を含む（大きく違う画素は文字の縁のみ、目視で同一: diagram-export-osr-moments.jpg）。GPU 経路は橙がわずかに濃く出る（色の扱いの差・diagram-export-gpu-vs-osr-f790.png）。お手本全体はカラオケ字幕で auto → OSR",
+  "exported_fragment_md5": "9475c9ce9c9aa561fa0ded1bfeaa80d8"
+ },
+ "edit_lint": "隔離プロジェクトで edit-lint --engine auto → PASS（0 findings、6 skipped = analysis/captions/intake/media/review/music-grid が無いだけ）",
+ "tests": "apps/shell/extensions/akari-surfaces: node --test src/node/onboarding-demo.test.mjs → 6/6 pass（easing フォールバック・段階 0〜8 の edit-lint を含む）",
+ "authoring_rules": [
+  "ルート 1 つ（.demo-diagram）・ルートに data-start/duration なし",
+  "--x/--y/--scale/--rotate 不使用",
+  "animation は全て [data-akari-active] 付きのルール、delay はローカル秒の CSS 変数（部品ごとは inline の --t0 / --lane / --hit / --k）",
+  "base = 最終の静止状態（diagram-static-base.jpg。輪・光・跳ねの過渡だけ base で隠す）",
+  "多段 keyframes は全段に全プロパティ",
+  "動かすのは transform / opacity だけ。blur・backdrop-filter・JS・乱数なし",
+  "@keyframes 名は全て demo-diagram- で始まる",
+  "var(--ease-*) は全て語彙と同じ値のフォールバック付き"
+ ],
+ "knobs_checked": "--diagram-left/top、--demo-accent / --demo-accent-soft / --diagram-sfx、--diagram-title-size、--diagram-lane-h を振った描画で位置・色・大きさが追随（SVG の波形の色も CSS クラス経由で追随）",
+ "fonts": {
+  "family": "AKARI Demo Sans Diagram（この断片専用の別名。書き出しは全断片を 1 文書に並べるため）",
+  "source": "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf（OFL 1.1、RFN 'Source'）",
+  "weights": "800 / 900 を wght で静的体にし、この断片で使う文字（この動画の中身・37 秒・字幕テロップ効果音BGM・いまここ・数字 0〜9・空白の 32 字）だけに切り出し",
+  "woff2_bytes": {
+   "800": 5000,
+   "900": 4992
+  },
+  "names": "nameID 0/13/14（著作権・許諾）は保持、1/4/6/16 を別名に"
+ },
+ "deviations_from_spec": [
+  "再生ヘッドの着地: 指示は「0 秒から 23.3 秒の位置まで」。実際は 0 秒から、走り終わる瞬間の実時刻 24.687 秒の位置（x=1081、図解ブロック 23.23〜26.90 の中）へ着け、以後そのまま実時間で進めた。着地点が 23.3 だと以後ずっと実時刻より 1.4 秒遅れた「いまここ」になるため（外側の入れ物が区間全体を実時刻どおりに等速で動き、内側が 0 秒から走る 2 段の transform で実現）",
+  "「いまここ」のピル: 図解ブロックの上に置くと字幕の段（c-0016 など）を隠すので、再生ヘッドの頭の上（見出しの行の右側）に付けてヘッドと一緒に動かした。ブロックは同時に脈打つ（scale 1.22）＋輪が広がる",
+  "BGM の段: 「長いバー 1 本で山」を、同梱 bgm.m4a の実際の波形（縦棒 109 本）に gain keyframes をかけた帯で描いた。包絡だけの帯は両端のフェードが矢印に見えたため。山（29.30〜31.40）だけ橙。締めの +10 dB（35.67〜）も実データなので残した",
+  "積み上げの開始を語頭の 2 フレーム前（--diagram-build-lead .067s）にした。scaleX を --ease-smooth で伸ばすと 1 フレーム目が 1px 未満で見えず、最初に見えるコマが語頭の +0.6 フレームになったため。直して −0.4 フレーム",
+  "抜け 26.60→26.85 は指示どおり。統一ルールの「主役どうし 0.3 秒以上」に対し、次のスマホ（f809 = 26.967）までの空きは 0.133 秒（同時に 2 つ出るコマは無い）。--diagram-at-out で早められる（3.10s にすると空き 0.38 秒）",
+  "足したもの: 走る再生ヘッドが通り過ぎたテロップ（縦 1.32 倍）と効果音の点（1.7 倍）がヘッドの触れたコマで 1 回だけ跳ねる（--hit は build_diagram.py がヘッドの動きを逆算）、時間軸の 10/20/30 秒に薄い目盛り線、見出しの「37 秒」に再生の三角"
+ ],
+ "renders": [
+  "diagram-export-osr-moments.jpg",
+  "diagram-export-osr-every-3rd-frame.jpg",
+  "diagram-export-osr-f760-hold.png",
+  "diagram-export-osr-22.90-27.23.mp4",
+  "diagram-export-gpu-vs-osr-f790.png",
+  "diagram-harness-seeks.jpg",
+  "diagram-static-base.jpg"
+ ],
+ "harness": "build/render-seq.mjs（内部リポ harness/render-fragment.mjs と同じ入れ子とモーション語彙の Windows 版。活性化と同じタスクで全アニメを止め、2 回の rAF のあとに撮る。止めないと走ったままの compositor の値が最初の数コマに残り、区間の前のコマにカードが 9% の濃さで写ることがあった — ハーネス側の問題で断片ではない）",
+ "follow_ups_for_integrator": [
+  "controller.ts の LOG（t 10700）の本文「『こういう図解』と言った瞬間に、流れ図を出しました」が古い。例:「『こういう図解』と言った瞬間に、この動画の中身をタイムラインで出しました」",
+  "plan.json の diagram の spec / words（流れ図・23.58/24.02/24.70 の旧語頭）が古い（本ファイルと build/fragment.tpl.html の冒頭の注記が現行）"
+ ]
+}

@@ -1,0 +1,2741 @@
+{
+ "mode": "after",
+ "startedAt": "2026-10-02T00:08:27.910Z",
+ "steps": [
+  {
+   "at": 8.7,
+   "label": "welcome",
+   "step": null,
+   "sub": null
+  },
+  {
+   "at": 11.8,
+   "label": "first",
+   "step": "first",
+   "sub": 0
+  },
+  {
+   "at": 13.2,
+   "label": "invite",
+   "step": "invite",
+   "sub": 0
+  },
+  {
+   "at": 30.6,
+   "label": "tour0:0",
+   "step": "tour0",
+   "sub": 0
+  },
+  {
+   "at": 39.6,
+   "label": "tour0:1",
+   "step": "tour0",
+   "sub": 1
+  },
+  {
+   "at": 42.3,
+   "label": "tour1:0",
+   "step": "tour1",
+   "sub": 0
+  },
+  {
+   "at": 44.9,
+   "label": "tour2:0",
+   "step": "tour2",
+   "sub": 0
+  },
+  {
+   "at": 47.6,
+   "label": "tour2:1",
+   "step": "tour2",
+   "sub": 1
+  },
+  {
+   "at": 50.3,
+   "label": "tour3:0",
+   "step": "tour3",
+   "sub": 0
+  },
+  {
+   "at": 53.1,
+   "label": "tour3:1",
+   "step": "tour3",
+   "sub": 1
+  },
+  {
+   "at": 56.3,
+   "label": "drag",
+   "step": "drag",
+   "sub": 0
+  },
+  {
+   "at": 59.4,
+   "label": "matpreview-0",
+   "step": "matpreview",
+   "sub": 0
+  },
+  {
+   "at": 63,
+   "label": "ask-0",
+   "step": "ask",
+   "sub": 0
+  },
+  {
+   "at": 71.9,
+   "label": "prompt-0",
+   "step": "prompt",
+   "sub": 0
+  },
+  {
+   "at": 94.3,
+   "label": "play-0",
+   "step": "play",
+   "sub": 0
+  },
+  {
+   "at": 170.2,
+   "label": "play:1",
+   "step": "play",
+   "sub": 1
+  },
+  {
+   "at": 172.8,
+   "label": "caption:0",
+   "step": "caption",
+   "sub": 0
+  },
+  {
+   "at": 186,
+   "label": "caption:1",
+   "step": "caption",
+   "sub": 1
+  },
+  {
+   "at": 196.4,
+   "label": "caption:2",
+   "step": "caption",
+   "sub": 2
+  },
+  {
+   "at": 207.1,
+   "label": "caption:3",
+   "step": "caption",
+   "sub": 3
+  },
+  {
+   "at": 209.4,
+   "label": "daihon:0",
+   "step": "daihon",
+   "sub": 0
+  },
+  {
+   "at": 220.2,
+   "label": "daihon:1",
+   "step": "daihon",
+   "sub": 1
+  },
+  {
+   "at": 240,
+   "label": "daihon:2",
+   "step": "daihon",
+   "sub": 2
+  },
+  {
+   "at": 242.5,
+   "label": "export:0",
+   "step": "export",
+   "sub": 0
+  },
+  {
+   "at": 247.4,
+   "label": "export:1",
+   "step": "export",
+   "sub": 1
+  },
+  {
+   "at": 252.5,
+   "label": "export:2",
+   "step": "export",
+   "sub": 2
+  },
+  {
+   "at": 256.2,
+   "label": "export:3",
+   "step": "export",
+   "sub": 3
+  },
+  {
+   "at": 305.7,
+   "label": "export:4",
+   "step": "export",
+   "sub": 4
+  },
+  {
+   "at": 309.5,
+   "label": "done",
+   "step": "done",
+   "sub": 0
+  }
+ ],
+ "shots": [
+  "after-01-welcome.png",
+  "after-02-first.png",
+  "after-03-invite.png",
+  "after-04-tour0-0.png",
+  "after-05-tour0-1.png",
+  "after-06-tour1-0.png",
+  "after-07-tour2-0.png",
+  "after-08-tour2-1.png",
+  "after-09-tour3-0.png",
+  "after-10-tour3-1.png",
+  "after-11-drag.png",
+  "after-12-matpreview-0.png",
+  "after-13-matpreview-1.png",
+  "after-14-ask-0.png",
+  "after-15-ask-1.png",
+  "after-16-prompt-typed.png",
+  "after-17-prompt-input.png",
+  "after-18-work-0s.png",
+  "after-19-work-3s.png",
+  "after-20-work-7s.png",
+  "after-21-work-10s.png",
+  "after-22-work-13s.png",
+  "after-23-work-17s.png",
+  "after-24-play-0.png",
+  "after-25-seek-title-badge-3.75s.png",
+  "after-26-seek-chat-reply-10.10s.png",
+  "after-27-seek-done-stamp-13.40s.png",
+  "after-28-seek-effects-pa-19.80s.png",
+  "after-29-seek-punch-in-20.30s.png",
+  "after-30-seek-kira-20.90s.png",
+  "after-31-seek-diagram-24.80s.png",
+  "after-32-seek-phone-28.60s.png",
+  "after-33-seek-bgm-chip-30.20s.png",
+  "after-34-seek-karaoke-31.90s.png",
+  "after-35-seek-credit-36.60s.png",
+  "after-36-playing-title-badge-3.8s.png",
+  "after-37-zoom-title-badge-3.8s.png",
+  "after-38-playing-chat-reply-10.1s.png",
+  "after-39-zoom-chat-reply-10.1s.png",
+  "after-40-playing-done-stamp-13.4s.png",
+  "after-41-zoom-done-stamp-13.4s.png",
+  "after-42-playing-effects-pa-19.8s.png",
+  "after-43-zoom-effects-pa-19.8s.png",
+  "after-44-playing-punch-in-20.7s.png",
+  "after-45-zoom-punch-in-20.7s.png",
+  "after-46-playing-kira-21.4s.png",
+  "after-47-zoom-kira-21.4s.png",
+  "after-48-playing-diagram-24.8s.png",
+  "after-49-zoom-diagram-24.8s.png",
+  "after-50-playing-phone-28.6s.png",
+  "after-51-zoom-phone-28.6s.png",
+  "after-52-playing-bgm-chip-30.2s.png",
+  "after-53-zoom-bgm-chip-30.2s.png",
+  "after-54-playing-karaoke-32.0s.png",
+  "after-55-zoom-karaoke-32.0s.png",
+  "after-56-playing-credit-36.6s.png",
+  "after-57-zoom-credit-36.6s.png",
+  "after-58-play-1.png",
+  "after-59-play-1.png",
+  "after-60-caption-0.png",
+  "after-61-caption-1.png",
+  "after-62-caption-2.png",
+  "after-63-caption-3.png",
+  "after-64-daihon-0.png",
+  "after-65-daihon-1.png",
+  "after-66-daihon-2.png",
+  "after-67-export-0.png",
+  "after-68-export-1.png",
+  "after-69-export-2.png",
+  "after-70-export-3.png",
+  "after-71-export-4.png",
+  "after-72-done.png"
+ ],
+ "work": [
+  {
+   "t": 0.1,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "> この動画を編集したいです。話している内容に合わせて、テロップ・図解・効果音・BGM を入れてください。",
+   "trackHeaders": "",
+   "editAudio": ""
+  },
+  {
+   "t": 1.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "素材を確認しています…",
+   "logTail": "akari media probe assets/サンプル動画.mp4 / 37.6 秒 · 1280×720 · 30fps · 音声あり",
+   "trackHeaders": "",
+   "editAudio": ""
+  },
+  {
+   "t": 2.2,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 0,
+   "kinds": "",
+   "captions": 0,
+   "live": "声の区切りを調べています…",
+   "logTail": "37.6 秒 · 1280×720 · 30fps · 音声あり / 書き起こしの語の時刻を、声の波形に合わせ直しました。",
+   "trackHeaders": "",
+   "editAudio": ""
+  },
+  {
+   "t": 3.3,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 0,
+   "media": 1,
+   "kinds": "video:media",
+   "captions": 0,
+   "live": "本編を置いています…",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "本編",
+   "editAudio": ""
+  },
+  {
+   "t": 4.7,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 2,
+   "live": "字幕を置いています…（2/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 5.7,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 5,
+   "live": "字幕を置いています…（5/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 6.8,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 12,
+   "live": "字幕を置いています…（12/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 7.9,
+   "step": "work",
+   "html": 0,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 1,
+   "kinds": "video:media,captions:captions",
+   "captions": 18,
+   "live": "字幕を置いています…（18/22）",
+   "logTail": "edit.json / 本編を置きました",
+   "trackHeaders": "字幕とタイトル / 本編",
+   "editAudio": ""
+  },
+  {
+   "t": 9,
+   "step": "work",
+   "html": 1,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 3,
+   "kinds": "video:media,demo-stage:html,captions:captions,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "字幕を置いています…（22/22）",
+   "logTail": "本編を置きました / 字幕を短く分けてつくりました → captions.json",
+   "trackHeaders": "字幕 / 右の演出 / 本編 / 効果音",
+   "editAudio": ""
+  },
+  {
+   "t": 10,
+   "step": "work",
+   "html": 5,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 9,
+   "kinds": "video:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,captions:captions,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "テロップを置いています…",
+   "logTail": "冒頭にタイトル、「アカリビデオ」で名札を出しました / 「AI と対話」「編集はもう終わってる」をテロップにしました",
+   "trackHeaders": "字幕 / 右の演出 / 閃光 / 本編 / 効果音",
+   "editAudio": ""
+  },
+  {
+   "t": 11.3,
+   "step": "work",
+   "html": 6,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 13,
+   "kinds": "video:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,captions:captions,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "効果音を合わせています…",
+   "logTail": "「AI と対話」「編集はもう終わってる」をテロップにしました / 「パッと」に合わせて、効果音・フラッシュ・ズームを入れました",
+   "trackHeaders": "字幕 / 右の演出 / 閃光 / 本編 / 効果音",
+   "editAudio": ""
+  },
+  {
+   "t": 12.4,
+   "step": "work",
+   "html": 7,
+   "audio": 0,
+   "captionsItem": 1,
+   "media": 16,
+   "kinds": "video:media,demo-phone-screen:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,captions:captions,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "図解を置いています…",
+   "logTail": "「パッと」に合わせて、効果音・フラッシュ・ズームを入れました / 「こういう図解」と言った瞬間に、この動画の中身をタイムラインで出しました",
+   "trackHeaders": "字幕 / 右の演出 / 閃光 / スマホの画面 / 本編 / 効果音",
+   "editAudio": ""
+  },
+  {
+   "t": 13.4,
+   "step": "work",
+   "html": 8,
+   "audio": 1,
+   "captionsItem": 1,
+   "media": 17,
+   "kinds": "video:media,demo-phone-screen:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-accents:html,captions:captions,onboarding-bgm:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "スマホの画面をつくっています…",
+   "logTail": "「こういう図解」と言った瞬間に、この動画の中身をタイムラインで出しました / スマホのモックアップに、この動画を縦にして映しました",
+   "trackHeaders": "字幕 / 札 / 右の演出 / 閃光 / スマホの画面 / 本編 / 効果音 / BGM",
+   "editAudio": ""
+  },
+  {
+   "t": 14.7,
+   "step": "work",
+   "html": 8,
+   "audio": 1,
+   "captionsItem": 1,
+   "media": 17,
+   "kinds": "video:media,demo-phone-screen:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-accents:html,captions:captions,onboarding-bgm:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "BGM を入れています…",
+   "logTail": "スマホのモックアップに、この動画を縦にして映しました / 声の下に BGM を入れ、「BGM も」で音を持ち上げました",
+   "trackHeaders": "字幕 / 札 / 右の演出 / 閃光 / スマホの画面 / 本編 / 効果音 / BGM",
+   "editAudio": ""
+  },
+  {
+   "t": 15.8,
+   "step": "work",
+   "html": 9,
+   "audio": 1,
+   "captionsItem": 1,
+   "media": 18,
+   "kinds": "video:media,demo-phone-screen:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-accents:html,captions:captions,onboarding-bgm:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "字幕を仕上げています…",
+   "logTail": "声の下に BGM を入れ、「BGM も」で音を持ち上げました / 「カラオケ表示」の字幕を、声に合わせて塗られるようにしました",
+   "trackHeaders": "字幕 / 札 / 右の演出 / 閃光 / スマホの画面 / 本編 / 効果音 / BGM",
+   "editAudio": ""
+  },
+  {
+   "t": 16.9,
+   "step": "work",
+   "html": 9,
+   "audio": 1,
+   "captionsItem": 1,
+   "media": 18,
+   "kinds": "video:media,demo-phone-screen:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-accents:html,captions:captions,onboarding-bgm:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "字幕を仕上げています…",
+   "logTail": "声の下に BGM を入れ、「BGM も」で音を持ち上げました / 「カラオケ表示」の字幕を、声に合わせて塗られるようにしました",
+   "trackHeaders": "字幕 / 札 / 右の演出 / 閃光 / スマホの画面 / 本編 / 効果音 / BGM",
+   "editAudio": ""
+  },
+  {
+   "t": 18.3,
+   "step": "play",
+   "html": 9,
+   "audio": 1,
+   "captionsItem": 1,
+   "media": 18,
+   "kinds": "video:media,demo-phone-screen:media,demo-flash:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-stage:html,demo-accents:html,captions:captions,onboarding-bgm:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media,demo-sfx:media",
+   "captions": 22,
+   "live": "",
+   "logTail": "問題なし / できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。",
+   "trackHeaders": "字幕 / 札 / 右の演出 / 閃光 / スマホの画面 / 本編 / 効果音 / BGM",
+   "editAudio": ""
+  }
+ ],
+ "play": {
+  "clockProbe": {
+   "seek": 0,
+   "playing": false
+  },
+  "seekStills": [
+   {
+    "label": "title-badge",
+    "t": 3.75,
+    "clock": {
+     "seek": 3.767,
+     "playing": false
+    },
+    "shot": "after-25-seek-title-badge-3.75s.png"
+   },
+   {
+    "label": "chat-reply",
+    "t": 10.1,
+    "clock": {
+     "seek": 10.1,
+     "playing": false
+    },
+    "shot": "after-26-seek-chat-reply-10.10s.png"
+   },
+   {
+    "label": "done-stamp",
+    "t": 13.4,
+    "clock": {
+     "seek": 13.4,
+     "playing": false
+    },
+    "shot": "after-27-seek-done-stamp-13.40s.png"
+   },
+   {
+    "label": "effects-pa",
+    "t": 19.8,
+    "clock": {
+     "seek": 19.8,
+     "playing": false
+    },
+    "shot": "after-28-seek-effects-pa-19.80s.png"
+   },
+   {
+    "label": "punch-in",
+    "t": 20.3,
+    "clock": {
+     "seek": 20.3,
+     "playing": false
+    },
+    "shot": "after-29-seek-punch-in-20.30s.png"
+   },
+   {
+    "label": "kira",
+    "t": 20.9,
+    "clock": {
+     "seek": 20.9,
+     "playing": false
+    },
+    "shot": "after-30-seek-kira-20.90s.png"
+   },
+   {
+    "label": "diagram",
+    "t": 24.8,
+    "clock": {
+     "seek": 24.8,
+     "playing": false
+    },
+    "shot": "after-31-seek-diagram-24.80s.png"
+   },
+   {
+    "label": "phone",
+    "t": 28.6,
+    "clock": {
+     "seek": 28.6,
+     "playing": false
+    },
+    "shot": "after-32-seek-phone-28.60s.png"
+   },
+   {
+    "label": "bgm-chip",
+    "t": 30.2,
+    "clock": {
+     "seek": 30.2,
+     "playing": false
+    },
+    "shot": "after-33-seek-bgm-chip-30.20s.png"
+   },
+   {
+    "label": "karaoke",
+    "t": 31.9,
+    "clock": {
+     "seek": 31.9,
+     "playing": false
+    },
+    "shot": "after-34-seek-karaoke-31.90s.png"
+   },
+   {
+    "label": "credit",
+    "t": 36.6,
+    "clock": {
+     "seek": 36.6,
+     "playing": false
+    },
+    "shot": "after-35-seek-credit-36.60s.png"
+   }
+  ],
+  "atFigures": [
+   {
+    "label": "title-badge",
+    "t": 3.8,
+    "shot": "after-36-playing-title-badge-3.8s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": {
+        "x0": 0.57,
+        "x1": 0.999,
+        "y0": 0.083,
+        "y1": 0.484
+       },
+       "text": "AI と話すだけで 動画編集 AKARI Video"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "chat-reply",
+    "t": 10.133,
+    "shot": "after-38-playing-chat-reply-10.1s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": {
+        "x0": 0.578,
+        "x1": 0.945,
+        "y0": 0.181,
+        "y1": 0.525
+       },
+       "text": "AI パートナー 話に合わせて編集して できました！"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "done-stamp",
+    "t": 13.4,
+    "shot": "after-40-playing-done-stamp-13.4s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": {
+        "x0": 0.601,
+        "x1": 0.968,
+        "y0": 0.194,
+        "y1": 0.566
+       },
+       "text": "喋ってるだけで 編集は 完了"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "effects-pa",
+    "t": 19.833,
+    "shot": "after-42-playing-effects-pa-19.8s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": {
+        "x0": 0.562,
+        "x1": 0.971,
+        "y0": 0.089,
+        "y1": 0.776
+       },
+       "text": "パッ! パッ! パッ! 効果音 エフェクト"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "punch-in",
+    "t": 20.667,
+    "shot": "after-44-playing-punch-in-20.7s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": {
+        "x0": 0.562,
+        "x1": 0.964,
+        "y0": 0.089,
+        "y1": 0.776
+       },
+       "text": "パッ! パッ! パッ! 効果音 エフェクト"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "kira",
+    "t": 21.433,
+    "shot": "after-46-playing-kira-21.4s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "diagram",
+    "t": 24.8,
+    "shot": "after-48-playing-diagram-24.8s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": {
+        "x0": 0.566,
+        "x1": 1.148,
+        "y0": 0.156,
+        "y1": 0.628
+       },
+       "text": "この動画の中身 37 秒 字幕 テロップ 効果音 BGM いまここ テロップ 7 効果音 15 BGM 1 字幕 22"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "phone",
+    "t": 28.633,
+    "shot": "after-50-playing-phone-28.6s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": {
+        "x0": 0.694,
+        "x1": 1.016,
+        "y0": 0.004,
+        "y1": 0.929
+       },
+       "text": "@akari_video AKARI Video"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "bgm-chip",
+    "t": 30.2,
+    "shot": "after-52-playing-bgm-chip-30.2s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": {
+        "x0": 0.694,
+        "x1": 1.016,
+        "y0": 0.004,
+        "y1": 0.929
+       },
+       "text": "@akari_video AKARI Video"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": {
+        "x0": 0.561,
+        "x1": 0.725,
+        "y0": 0.119,
+        "y1": 0.275
+       },
+       "text": "BGM"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "karaoke",
+    "t": 32.033,
+    "shot": "after-54-playing-karaoke-32.0s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": {
+        "x0": 0.694,
+        "x1": 1.016,
+        "y0": 0.012,
+        "y1": 0.937
+       },
+       "text": "@akari_video AKARI Video"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": {
+        "x0": 0.561,
+        "x1": 0.725,
+        "y0": 0.126,
+        "y1": 0.283
+       },
+       "text": "BGM"
+      }
+     ],
+     "texts": []
+    }
+   },
+   {
+    "label": "credit",
+    "t": 36.633,
+    "shot": "after-56-playing-credit-36.6s.png",
+    "geom": {
+     "stage": {
+      "w": 627,
+      "h": 352.6875
+     },
+     "figures": [
+      {
+       "id": "demo-flash",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 閃光（demo-flash）: 「パッ」の語頭（19.70 秒）に、右の擬音「パッ！」を光源として 画面全体を一瞬だけ白く飛ばす過渡 FX。 edit."
+      },
+      {
+       "id": "demo-title",
+       "opacity": "1",
+       "box": null,
+       "text": " /* タイトル（demo-title）: 冒頭「こんにちは！ 今日はですね、アカリビデオっていう動画編集ツールを、試してみてます。」 edit.json では"
+      },
+      {
+       "id": "demo-chat",
+       "opacity": "1",
+       "box": null,
+       "text": " /* AI との対話（demo-chat）:「これ、AI と対話するだけでいいんですよ。」 edit.json では段 demo-stage、at 256 /"
+      },
+      {
+       "id": "demo-done",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」 edit.json では段 demo-stage、at 338 /"
+      },
+      {
+       "id": "demo-effects",
+       "opacity": "1",
+       "box": null,
+       "text": " /* * demo-effects — 初回ガイドのお手本「効果音とか、エフェクトを、パッと。ほら、こんな感じで。」（17.4667〜21.9667 s） *"
+      },
+      {
+       "id": "demo-diagram",
+       "opacity": "1",
+       "box": null,
+       "text": " /* 図解（demo-diagram）:「あと、こういう図解も出せますし、」 この動画そのものの中身（テロップ 7・効果音 15・BGM 1・字幕 22）を、"
+      },
+      {
+       "id": "demo-phone",
+       "opacity": "1",
+       "box": null,
+       "text": " @font-face{font-family:\"AKARI Demo Sans\";src:url(data:font/woff2;base64,d09GMgA"
+      },
+      {
+       "id": "demo-credit",
+       "opacity": "1",
+       "box": null,
+       "text": " /* クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」 33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後"
+      },
+      {
+       "id": "demo-bgm-chip",
+       "opacity": "1",
+       "box": null,
+       "text": " /* BGM の札（demo-bgm）: 「BGMも、字幕のカラオケ表示もいけます。」の「BGM」（語頭 29.45 秒）。 スマホ（demo-phone）の"
+      }
+     ],
+     "texts": []
+    }
+   }
+  ],
+  "wallSeconds": 37.7,
+  "audio": {
+   "samples": 8726,
+   "speech": [
+    {
+     "a": 3,
+     "b": 7,
+     "n": 1014,
+     "rmsDb": -18.4
+    },
+    {
+     "a": 8,
+     "b": 10.5,
+     "n": 656,
+     "rmsDb": -17.6
+    },
+    {
+     "a": 11.5,
+     "b": 14.3,
+     "n": 674,
+     "rmsDb": -16.9
+    },
+    {
+     "a": 15.5,
+     "b": 21.5,
+     "n": 1434,
+     "rmsDb": -19.2
+    },
+    {
+     "a": 22.7,
+     "b": 24.9,
+     "n": 558,
+     "rmsDb": -17.7
+    },
+    {
+     "a": 33.3,
+     "b": 35.5,
+     "n": 532,
+     "rmsDb": -17.5
+    }
+   ],
+   "gaps": [
+    {
+     "a": 1.45,
+     "b": 2.25,
+     "n": 190,
+     "rmsDb": -40.8
+    },
+    {
+     "a": 25.2,
+     "b": 26.9,
+     "n": 380,
+     "rmsDb": -29.1
+    }
+   ],
+   "lift": [
+    {
+     "a": 29.6,
+     "b": 30.6,
+     "n": 92,
+     "rmsDb": -30.6
+    },
+    {
+     "a": 36,
+     "b": 36.6,
+     "n": 98,
+     "rmsDb": -35.6
+    }
+   ],
+   "tail": {
+    "n": 264,
+    "rmsDb": -35.1
+   }
+  }
+ },
+ "export": {
+  "uiSeconds": 50.5,
+  "files": [
+   {
+    "path": "C:\\t\\odgl1\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\exports\\final.mp4",
+    "bytes": 4141214
+   }
+  ],
+  "akariFiles": [
+   "cache",
+   "connections.json",
+   "diffs",
+   "events",
+   "gpu-run.json",
+   "intake.json",
+   "lint.json",
+   "render-pins.json",
+   "render-tmp",
+   "render.json",
+   "reports",
+   "sidecars",
+   "work",
+   "workflow.json"
+  ],
+  "record": {
+   "warnings": [
+    "cut sample: audio stream ends at 35.920998s before out=37.6s; padded 1.679002s of silence"
+   ],
+   "rasterizer": {
+    "selected": "gpu",
+    "order": [
+     "gpu"
+    ]
+   },
+   "provenance": null
+  },
+  "gpuRenderer": null,
+  "ffprobe": {
+   "programs": [],
+   "stream_groups": [],
+   "streams": [
+    {
+     "index": 0,
+     "codec_name": "h264",
+     "codec_type": "video",
+     "width": 1280,
+     "height": 720,
+     "r_frame_rate": "30/1"
+    },
+    {
+     "index": 1,
+     "codec_name": "aac",
+     "codec_type": "audio",
+     "sample_rate": "48000",
+     "channels": 2,
+     "r_frame_rate": "0/0"
+    }
+   ],
+   "format": {
+    "duration": "37.600000",
+    "size": "4141214"
+   }
+  },
+  "frames": [
+   "C:\\t\\odg-1002\\l1\\after-export-frame-title-badge-3.8s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-chat-reply-10.1s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-done-stamp-13.4s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-effects-pa-19.8s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-punch-in-20.3s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-kira-20.9s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-diagram-24.8s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-phone-28.6s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-bgm-chip-30.2s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-karaoke-31.9s.png",
+   "C:\\t\\odg-1002\\l1\\after-export-frame-credit-36.6s.png"
+  ],
+  "levels": {
+   "speech": [
+    {
+     "a": 3,
+     "b": 7,
+     "mean": -18.3,
+     "max": -2.8
+    },
+    {
+     "a": 8,
+     "b": 10.5,
+     "mean": -17.7,
+     "max": -4.8
+    },
+    {
+     "a": 11.5,
+     "b": 14.3,
+     "mean": -17.1,
+     "max": -3.1
+    },
+    {
+     "a": 15.5,
+     "b": 21.5,
+     "mean": -18.8,
+     "max": -1.5
+    },
+    {
+     "a": 22.7,
+     "b": 24.9,
+     "mean": -17.6,
+     "max": -3.1
+    },
+    {
+     "a": 33.3,
+     "b": 35.5,
+     "mean": -18.2,
+     "max": -3.8
+    }
+   ],
+   "gaps": [
+    {
+     "a": 1.45,
+     "b": 2.25,
+     "mean": -37.6,
+     "max": -25.3
+    },
+    {
+     "a": 25.2,
+     "b": 26.9,
+     "mean": -28.9,
+     "max": -14.7
+    }
+   ],
+   "lift": [
+    {
+     "a": 29.6,
+     "b": 30.6,
+     "mean": -16,
+     "max": -2.3
+    },
+    {
+     "a": 36,
+     "b": 36.6,
+     "mean": -27.4,
+     "max": -15.1
+    }
+   ]
+  }
+ },
+ "errors": [],
+ "projectUri": "file:///C:/t/odgl1/home/Akari/channels/my-channel/videos/2026-10-02-first-video",
+ "tourEdit": {
+  "tracks": [
+   {
+    "id": "video",
+    "lane": "visual",
+    "name": "本編",
+    "items": [
+     {
+      "id": "sample",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "sample"
+     }
+    ]
+   },
+   {
+    "id": "demo-phone-screen",
+    "lane": "visual",
+    "name": "スマホの画面",
+    "items": [
+     {
+      "id": "demo-phone-screen",
+      "at": 833,
+      "duration": 144,
+      "kind": "media",
+      "path": "sample"
+     }
+    ]
+   },
+   {
+    "id": "demo-flash",
+    "lane": "visual",
+    "name": "閃光",
+    "items": [
+     {
+      "id": "demo-flash",
+      "at": 590,
+      "duration": 12,
+      "kind": "html",
+      "path": "overlays/demo-flash/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "demo-stage",
+    "lane": "visual",
+    "name": "右の演出",
+    "items": [
+     {
+      "id": "demo-title",
+      "at": 7,
+      "duration": 217,
+      "kind": "html",
+      "path": "overlays/demo-title/fragment.html"
+     },
+     {
+      "id": "demo-chat",
+      "at": 256,
+      "duration": 73,
+      "kind": "html",
+      "path": "overlays/demo-chat/fragment.html"
+     },
+     {
+      "id": "demo-done",
+      "at": 338,
+      "duration": 108,
+      "kind": "html",
+      "path": "overlays/demo-done/fragment.html"
+     },
+     {
+      "id": "demo-effects",
+      "at": 524,
+      "duration": 135,
+      "kind": "html",
+      "path": "overlays/demo-effects/fragment.html"
+     },
+     {
+      "id": "demo-diagram",
+      "at": 697,
+      "duration": 110,
+      "kind": "html",
+      "path": "overlays/demo-diagram/fragment.html"
+     },
+     {
+      "id": "demo-phone",
+      "at": 809,
+      "duration": 179,
+      "kind": "html",
+      "path": "overlays/demo-phone/fragment.html"
+     },
+     {
+      "id": "demo-credit",
+      "at": 1068,
+      "duration": 60,
+      "kind": "html",
+      "path": "overlays/demo-credit/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "demo-accents",
+    "lane": "visual",
+    "name": "札",
+    "items": [
+     {
+      "id": "demo-bgm-chip",
+      "at": 883,
+      "duration": 105,
+      "kind": "html",
+      "path": "overlays/demo-bgm/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "captions",
+    "lane": "visual",
+    "name": "字幕",
+    "items": [
+     {
+      "id": "captions",
+      "at": 0,
+      "duration": 1128,
+      "kind": "captions",
+      "path": "captions.json"
+     }
+    ]
+   },
+   {
+    "id": "onboarding-bgm",
+    "lane": "audio",
+    "name": "BGM",
+    "items": [
+     {
+      "id": "onboarding-bgm",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "onboarding-bgm"
+     }
+    ]
+   },
+   {
+    "id": "demo-sfx",
+    "lane": "audio",
+    "name": "効果音",
+    "items": [
+     {
+      "id": "demo-sfx-title-whoosh",
+      "at": 0,
+      "duration": 29,
+      "kind": "media",
+      "path": "demo-sfx-whoosh-air-soft"
+     },
+     {
+      "id": "demo-sfx-name-pop",
+      "at": 107,
+      "duration": 15,
+      "kind": "media",
+      "path": "demo-sfx-pop-ding"
+     },
+     {
+      "id": "demo-sfx-chat-pop-1",
+      "at": 256,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-pop-bubble-big"
+     },
+     {
+      "id": "demo-sfx-chat-pop-2",
+      "at": 277,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-pop-bubble-big"
+     },
+     {
+      "id": "demo-sfx-done-tone",
+      "at": 402,
+      "duration": 17,
+      "kind": "media",
+      "path": "demo-sfx-correct-tone"
+     },
+     {
+      "id": "demo-sfx-kouka-pop",
+      "at": 524,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-pop-cork"
+     },
+     {
+      "id": "demo-sfx-pa-whoosh",
+      "at": 581,
+      "duration": 23,
+      "kind": "media",
+      "path": "demo-sfx-whoosh-punchy"
+     },
+     {
+      "id": "demo-sfx-hora-sparkle",
+      "at": 617,
+      "duration": 44,
+      "kind": "media",
+      "path": "demo-sfx-shimmer-sparkle"
+     },
+     {
+      "id": "demo-sfx-diagram-pon",
+      "at": 697,
+      "duration": 15,
+      "kind": "media",
+      "path": "demo-sfx-diagram-pon"
+     },
+     {
+      "id": "demo-sfx-diagram-stack",
+      "at": 713,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-diagram-stack"
+     },
+     {
+      "id": "demo-sfx-diagram-playhead",
+      "at": 727,
+      "duration": 7,
+      "kind": "media",
+      "path": "demo-sfx-diagram-playhead"
+     },
+     {
+      "id": "demo-sfx-diagram-count",
+      "at": 743,
+      "duration": 18,
+      "kind": "media",
+      "path": "demo-sfx-diagram-count"
+     },
+     {
+      "id": "demo-sfx-phone-swoosh",
+      "at": 805,
+      "duration": 20,
+      "kind": "media",
+      "path": "demo-sfx-swoosh-up"
+     },
+     {
+      "id": "demo-sfx-phone-tap",
+      "at": 833,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-click-mouse-single"
+     },
+     {
+      "id": "demo-sfx-punchline-ding",
+      "at": 1069,
+      "duration": 42,
+      "kind": "media",
+      "path": "demo-sfx-ding-single"
+     }
+    ]
+   }
+  ],
+  "audio": null
+ },
+ "tourEditRaw": {
+  "version": 2,
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30,
+   "geometry": "source"
+  },
+  "sources": [
+   {
+    "id": "sample",
+    "path": "assets/サンプル動画.mp4"
+   },
+   {
+    "id": "demo-sfx-whoosh-air-soft",
+    "path": "assets/onboarding/sfx-whoosh-air-soft.m4a"
+   },
+   {
+    "id": "demo-sfx-pop-ding",
+    "path": "assets/onboarding/sfx-pop-ding.m4a"
+   },
+   {
+    "id": "demo-sfx-pop-bubble-big",
+    "path": "assets/onboarding/sfx-pop-bubble-big.m4a"
+   },
+   {
+    "id": "demo-sfx-correct-tone",
+    "path": "assets/onboarding/sfx-correct-tone.m4a"
+   },
+   {
+    "id": "demo-sfx-pop-cork",
+    "path": "assets/onboarding/sfx-pop-cork.m4a"
+   },
+   {
+    "id": "demo-sfx-whoosh-punchy",
+    "path": "assets/onboarding/sfx-whoosh-punchy.m4a"
+   },
+   {
+    "id": "demo-sfx-shimmer-sparkle",
+    "path": "assets/onboarding/sfx-shimmer-sparkle.m4a"
+   },
+   {
+    "id": "demo-sfx-diagram-pon",
+    "path": "assets/onboarding/sfx-diagram-pon.m4a"
+   },
+   {
+    "id": "demo-sfx-diagram-stack",
+    "path": "assets/onboarding/sfx-diagram-stack.m4a"
+   },
+   {
+    "id": "demo-sfx-diagram-playhead",
+    "path": "assets/onboarding/sfx-diagram-playhead.m4a"
+   },
+   {
+    "id": "demo-sfx-diagram-count",
+    "path": "assets/onboarding/sfx-diagram-count.m4a"
+   },
+   {
+    "id": "demo-sfx-swoosh-up",
+    "path": "assets/onboarding/sfx-swoosh-up.m4a"
+   },
+   {
+    "id": "demo-sfx-click-mouse-single",
+    "path": "assets/onboarding/sfx-click-mouse-single.m4a"
+   },
+   {
+    "id": "demo-sfx-ding-single",
+    "path": "assets/onboarding/sfx-ding-single.m4a"
+   },
+   {
+    "id": "onboarding-bgm",
+    "path": "assets/onboarding-bgm.m4a"
+   }
+  ],
+  "tracks": [
+   {
+    "id": "video",
+    "lane": "visual",
+    "name": "本編",
+    "items": [
+     {
+      "id": "sample",
+      "at": 0,
+      "duration": 1128,
+      "source": {
+       "kind": "media",
+       "src": "sample",
+       "in": 0,
+       "out": 37.6
+      },
+      "keyframes": [
+       {
+        "t": 590,
+        "transform": {
+         "x": 0,
+         "scale": 1
+        }
+       },
+       {
+        "t": 592,
+        "transform": {
+         "x": 0,
+         "scale": 1.1
+        },
+        "easing": "out-expo"
+       },
+       {
+        "t": 593,
+        "transform": {
+         "x": 4,
+         "scale": 1.1
+        }
+       },
+       {
+        "t": 594,
+        "transform": {
+         "x": -4,
+         "scale": 1.1
+        }
+       },
+       {
+        "t": 595,
+        "transform": {
+         "x": 0,
+         "scale": 1.1
+        }
+       },
+       {
+        "t": 633,
+        "transform": {
+         "x": 0,
+         "scale": 1.1
+        }
+       },
+       {
+        "t": 642,
+        "transform": {
+         "x": 0,
+         "scale": 1
+        },
+        "easing": "in-out-cubic"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "demo-phone-screen",
+    "lane": "visual",
+    "name": "スマホの画面",
+    "items": [
+     {
+      "id": "demo-phone-screen",
+      "name": "スマホの画面",
+      "at": 833,
+      "duration": 144,
+      "crop": {
+       "x": 0.208,
+       "y": 0,
+       "w": 0.2645,
+       "h": 1
+      },
+      "transform": {
+       "x": 372,
+       "y": -24,
+       "scale": 0.6607
+      },
+      "source": {
+       "kind": "media",
+       "src": "sample",
+       "in": 27.7667,
+       "out": 32.5667,
+       "mute": true
+      },
+      "captions": "off"
+     }
+    ]
+   },
+   {
+    "id": "demo-flash",
+    "lane": "visual",
+    "name": "閃光",
+    "items": [
+     {
+      "id": "demo-flash",
+      "name": "閃光",
+      "at": 590,
+      "duration": 12,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-flash/fragment.html"
+      }
+     }
+    ]
+   },
+   {
+    "id": "demo-stage",
+    "lane": "visual",
+    "name": "右の演出",
+    "items": [
+     {
+      "id": "demo-title",
+      "name": "タイトル",
+      "at": 7,
+      "duration": 217,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-title/fragment.html"
+      }
+     },
+     {
+      "id": "demo-chat",
+      "name": "AI との対話",
+      "at": 256,
+      "duration": 73,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-chat/fragment.html"
+      }
+     },
+     {
+      "id": "demo-done",
+      "name": "編集完了",
+      "at": 338,
+      "duration": 108,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-done/fragment.html"
+      }
+     },
+     {
+      "id": "demo-effects",
+      "name": "効果音とエフェクト",
+      "at": 524,
+      "duration": 135,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-effects/fragment.html"
+      }
+     },
+     {
+      "id": "demo-diagram",
+      "name": "図解",
+      "at": 697,
+      "duration": 110,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-diagram/fragment.html"
+      }
+     },
+     {
+      "id": "demo-phone",
+      "name": "スマホ",
+      "at": 809,
+      "duration": 179,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-phone/fragment.html"
+      }
+     },
+     {
+      "id": "demo-credit",
+      "name": "クレジット",
+      "at": 1068,
+      "duration": 60,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-credit/fragment.html"
+      }
+     }
+    ]
+   },
+   {
+    "id": "demo-accents",
+    "lane": "visual",
+    "name": "札",
+    "items": [
+     {
+      "id": "demo-bgm-chip",
+      "name": "BGM",
+      "at": 883,
+      "duration": 105,
+      "source": {
+       "kind": "html",
+       "path": "overlays/demo-bgm/fragment.html"
+      }
+     }
+    ]
+   },
+   {
+    "id": "captions",
+    "lane": "visual",
+    "name": "字幕",
+    "items": [
+     {
+      "id": "captions",
+      "at": 0,
+      "duration": 1128,
+      "source": {
+       "kind": "captions",
+       "path": "captions.json"
+      }
+     }
+    ]
+   },
+   {
+    "id": "onboarding-bgm",
+    "lane": "audio",
+    "name": "BGM",
+    "items": [
+     {
+      "id": "onboarding-bgm",
+      "at": 0,
+      "duration": 1128,
+      "role": "bgm",
+      "gain_db": -14,
+      "fade_in": 0.6,
+      "fade_out": 1.2,
+      "keyframes": [
+       {
+        "t": 0,
+        "gain_db": 0
+       },
+       {
+        "t": 879,
+        "gain_db": 0
+       },
+       {
+        "t": 888,
+        "gain_db": 8,
+        "easing": "out-cubic"
+       },
+       {
+        "t": 918,
+        "gain_db": 8
+       },
+       {
+        "t": 942,
+        "gain_db": 0,
+        "easing": "in-out-cubic"
+       },
+       {
+        "t": 1070,
+        "gain_db": 0
+       },
+       {
+        "t": 1080,
+        "gain_db": 10,
+        "easing": "out-cubic"
+       }
+      ],
+      "source": {
+       "kind": "media",
+       "src": "onboarding-bgm",
+       "in": 0,
+       "out": 37.6
+      }
+     }
+    ]
+   },
+   {
+    "id": "demo-sfx",
+    "lane": "audio",
+    "name": "効果音",
+    "items": [
+     {
+      "id": "demo-sfx-title-whoosh",
+      "at": 0,
+      "duration": 29,
+      "role": "sfx",
+      "gain_db": -10,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-whoosh-air-soft",
+       "in": 0,
+       "out": 0.95
+      }
+     },
+     {
+      "id": "demo-sfx-name-pop",
+      "at": 107,
+      "duration": 15,
+      "role": "sfx",
+      "gain_db": -6,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-pop-ding",
+       "in": 0,
+       "out": 0.5
+      }
+     },
+     {
+      "id": "demo-sfx-chat-pop-1",
+      "at": 256,
+      "duration": 5,
+      "role": "sfx",
+      "gain_db": -4,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-pop-bubble-big",
+       "in": 0,
+       "out": 0.15
+      }
+     },
+     {
+      "id": "demo-sfx-chat-pop-2",
+      "at": 277,
+      "duration": 5,
+      "role": "sfx",
+      "gain_db": -4,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-pop-bubble-big",
+       "in": 0,
+       "out": 0.15
+      }
+     },
+     {
+      "id": "demo-sfx-done-tone",
+      "at": 402,
+      "duration": 17,
+      "role": "sfx",
+      "gain_db": -3,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-correct-tone",
+       "in": 0,
+       "out": 0.55
+      }
+     },
+     {
+      "id": "demo-sfx-kouka-pop",
+      "at": 524,
+      "duration": 5,
+      "role": "sfx",
+      "gain_db": -4,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-pop-cork",
+       "in": 0,
+       "out": 0.15
+      }
+     },
+     {
+      "id": "demo-sfx-pa-whoosh",
+      "at": 581,
+      "duration": 23,
+      "role": "sfx",
+      "gain_db": -4,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-whoosh-punchy",
+       "in": 0,
+       "out": 0.75
+      }
+     },
+     {
+      "id": "demo-sfx-hora-sparkle",
+      "at": 617,
+      "duration": 44,
+      "role": "sfx",
+      "gain_db": 2,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-shimmer-sparkle",
+       "in": 0,
+       "out": 1.45
+      }
+     },
+     {
+      "id": "demo-sfx-diagram-pon",
+      "at": 697,
+      "duration": 15,
+      "role": "sfx",
+      "gain_db": -3,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-diagram-pon",
+       "in": 0,
+       "out": 0.482
+      }
+     },
+     {
+      "id": "demo-sfx-diagram-stack",
+      "at": 713,
+      "duration": 5,
+      "role": "sfx",
+      "gain_db": -3,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-diagram-stack",
+       "in": 0,
+       "out": 0.147
+      }
+     },
+     {
+      "id": "demo-sfx-diagram-playhead",
+      "at": 727,
+      "duration": 7,
+      "role": "sfx",
+      "gain_db": -3,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-diagram-playhead",
+       "in": 0,
+       "out": 0.216
+      }
+     },
+     {
+      "id": "demo-sfx-diagram-count",
+      "at": 743,
+      "duration": 18,
+      "role": "sfx",
+      "gain_db": -3,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-diagram-count",
+       "in": 0,
+       "out": 0.567
+      }
+     },
+     {
+      "id": "demo-sfx-phone-swoosh",
+      "at": 805,
+      "duration": 20,
+      "role": "sfx",
+      "gain_db": -5,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-swoosh-up",
+       "in": 0,
+       "out": 0.65
+      }
+     },
+     {
+      "id": "demo-sfx-phone-tap",
+      "at": 833,
+      "duration": 5,
+      "role": "sfx",
+      "gain_db": -6,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-click-mouse-single",
+       "in": 0,
+       "out": 0.15
+      }
+     },
+     {
+      "id": "demo-sfx-punchline-ding",
+      "at": 1069,
+      "duration": 42,
+      "role": "sfx",
+      "gain_db": -2,
+      "source": {
+       "kind": "media",
+       "src": "demo-sfx-ding-single",
+       "in": 0,
+       "out": 1.4
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "afterTourReset": {
+  "tracks": [],
+  "audio": null
+ },
+ "afterTourResetFiles": [
+  ".agents",
+  ".akari",
+  ".claude",
+  ".codex",
+  ".cursor",
+  ".devin",
+  ".git",
+  ".gitignore",
+  ".opencode",
+  "AGENTS.md",
+  "akari.sh",
+  "assets",
+  "cache",
+  "CLAUDE.md",
+  "edit.json",
+  "exports",
+  "overlays",
+  "planning"
+ ],
+ "promptTyped": "この動画を編集したいです。話している内容に合わせて、テロップ・図解・効果音・BGM を入れてください。",
+ "promptInput": "この動画を編集したいです。話している内容に合わせて、テロップ・図解・効果音・BGM を入れてください。",
+ "workSeconds": 18.3,
+ "finalEdit": {
+  "tracks": [
+   {
+    "id": "video",
+    "lane": "visual",
+    "name": "本編",
+    "items": [
+     {
+      "id": "sample",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "sample"
+     }
+    ]
+   },
+   {
+    "id": "demo-phone-screen",
+    "lane": "visual",
+    "name": "スマホの画面",
+    "items": [
+     {
+      "id": "demo-phone-screen",
+      "at": 833,
+      "duration": 144,
+      "kind": "media",
+      "path": "sample"
+     }
+    ]
+   },
+   {
+    "id": "demo-flash",
+    "lane": "visual",
+    "name": "閃光",
+    "items": [
+     {
+      "id": "demo-flash",
+      "at": 590,
+      "duration": 12,
+      "kind": "html",
+      "path": "overlays/demo-flash/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "demo-stage",
+    "lane": "visual",
+    "name": "右の演出",
+    "items": [
+     {
+      "id": "demo-title",
+      "at": 7,
+      "duration": 217,
+      "kind": "html",
+      "path": "overlays/demo-title/fragment.html"
+     },
+     {
+      "id": "demo-chat",
+      "at": 256,
+      "duration": 73,
+      "kind": "html",
+      "path": "overlays/demo-chat/fragment.html"
+     },
+     {
+      "id": "demo-done",
+      "at": 338,
+      "duration": 108,
+      "kind": "html",
+      "path": "overlays/demo-done/fragment.html"
+     },
+     {
+      "id": "demo-effects",
+      "at": 524,
+      "duration": 135,
+      "kind": "html",
+      "path": "overlays/demo-effects/fragment.html"
+     },
+     {
+      "id": "demo-diagram",
+      "at": 697,
+      "duration": 110,
+      "kind": "html",
+      "path": "overlays/demo-diagram/fragment.html"
+     },
+     {
+      "id": "demo-phone",
+      "at": 809,
+      "duration": 179,
+      "kind": "html",
+      "path": "overlays/demo-phone/fragment.html"
+     },
+     {
+      "id": "demo-credit",
+      "at": 1068,
+      "duration": 60,
+      "kind": "html",
+      "path": "overlays/demo-credit/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "demo-accents",
+    "lane": "visual",
+    "name": "札",
+    "items": [
+     {
+      "id": "demo-bgm-chip",
+      "at": 883,
+      "duration": 105,
+      "kind": "html",
+      "path": "overlays/demo-bgm/fragment.html"
+     }
+    ]
+   },
+   {
+    "id": "captions",
+    "lane": "visual",
+    "name": "字幕",
+    "items": [
+     {
+      "id": "captions",
+      "at": 0,
+      "duration": 1128,
+      "kind": "captions",
+      "path": "captions.json"
+     }
+    ]
+   },
+   {
+    "id": "onboarding-bgm",
+    "lane": "audio",
+    "name": "BGM",
+    "items": [
+     {
+      "id": "onboarding-bgm",
+      "at": 0,
+      "duration": 1128,
+      "kind": "media",
+      "path": "onboarding-bgm"
+     }
+    ]
+   },
+   {
+    "id": "demo-sfx",
+    "lane": "audio",
+    "name": "効果音",
+    "items": [
+     {
+      "id": "demo-sfx-title-whoosh",
+      "at": 0,
+      "duration": 29,
+      "kind": "media",
+      "path": "demo-sfx-whoosh-air-soft"
+     },
+     {
+      "id": "demo-sfx-name-pop",
+      "at": 107,
+      "duration": 15,
+      "kind": "media",
+      "path": "demo-sfx-pop-ding"
+     },
+     {
+      "id": "demo-sfx-chat-pop-1",
+      "at": 256,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-pop-bubble-big"
+     },
+     {
+      "id": "demo-sfx-chat-pop-2",
+      "at": 277,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-pop-bubble-big"
+     },
+     {
+      "id": "demo-sfx-done-tone",
+      "at": 402,
+      "duration": 17,
+      "kind": "media",
+      "path": "demo-sfx-correct-tone"
+     },
+     {
+      "id": "demo-sfx-kouka-pop",
+      "at": 524,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-pop-cork"
+     },
+     {
+      "id": "demo-sfx-pa-whoosh",
+      "at": 581,
+      "duration": 23,
+      "kind": "media",
+      "path": "demo-sfx-whoosh-punchy"
+     },
+     {
+      "id": "demo-sfx-hora-sparkle",
+      "at": 617,
+      "duration": 44,
+      "kind": "media",
+      "path": "demo-sfx-shimmer-sparkle"
+     },
+     {
+      "id": "demo-sfx-diagram-pon",
+      "at": 697,
+      "duration": 15,
+      "kind": "media",
+      "path": "demo-sfx-diagram-pon"
+     },
+     {
+      "id": "demo-sfx-diagram-stack",
+      "at": 713,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-diagram-stack"
+     },
+     {
+      "id": "demo-sfx-diagram-playhead",
+      "at": 727,
+      "duration": 7,
+      "kind": "media",
+      "path": "demo-sfx-diagram-playhead"
+     },
+     {
+      "id": "demo-sfx-diagram-count",
+      "at": 743,
+      "duration": 18,
+      "kind": "media",
+      "path": "demo-sfx-diagram-count"
+     },
+     {
+      "id": "demo-sfx-phone-swoosh",
+      "at": 805,
+      "duration": 20,
+      "kind": "media",
+      "path": "demo-sfx-swoosh-up"
+     },
+     {
+      "id": "demo-sfx-phone-tap",
+      "at": 833,
+      "duration": 5,
+      "kind": "media",
+      "path": "demo-sfx-click-mouse-single"
+     },
+     {
+      "id": "demo-sfx-punchline-ding",
+      "at": 1069,
+      "duration": 42,
+      "kind": "media",
+      "path": "demo-sfx-ding-single"
+     }
+    ]
+   }
+  ],
+  "audio": null
+ },
+ "playCoach0": {
+  "step": "play",
+  "title": "できました。再生してみましょう",
+  "body": "▶ を押してください。\n\nプレビューの ▶ を押してください。",
+  "buttons": [
+   "back",
+   "help-next"
+  ]
+ }
+}

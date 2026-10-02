@@ -1,0 +1,185 @@
+{
+ "branch": "preview/2026-10-02-all",
+ "base_commit": "dd88554e9",
+ "head_before": "9e29cf5e9",
+ "baseline_method": "git worktree add --detach C:/t/oif/base-wt dd88554e9 + node_modules をジャンクションで借用（workspace 内リンクは base-wt 側へ張り替え。tools/mkfarm.ps1）。akari-annotations は ai-still-routes.test.mjs（Windows で既存のハング）を両側とも除外",
+ "l0": {
+  "render-cut": {
+   "base": {
+    "tests": 699,
+    "pass": 654,
+    "fail": 44
+   },
+   "after": {
+    "tests": 704,
+    "pass": 659,
+    "fail": 44
+   },
+   "new_fail": [],
+   "fixed_or_flaky_in_after": []
+  },
+  "gpu-export": {
+   "base": {
+    "tests": 507,
+    "pass": 505,
+    "fail": 2
+   },
+   "after": {
+    "tests": 516,
+    "pass": 513,
+    "fail": 2
+   },
+   "new_fail": [],
+   "fixed_or_flaky_in_after": []
+  },
+  "osr-export": {
+   "base": {
+    "tests": 241,
+    "pass": 236,
+    "fail": 5
+   },
+   "after": {
+    "tests": 241,
+    "pass": 236,
+    "fail": 5
+   },
+   "new_fail": [],
+   "fixed_or_flaky_in_after": []
+  },
+  "preview-server": {
+   "base": {
+    "tests": 378,
+    "pass": 368,
+    "fail": 8
+   },
+   "after": {
+    "tests": 378,
+    "pass": 367,
+    "fail": 8
+   },
+   "new_fail": [
+    "実 Web UI は transition_out だけを保存し、汚染キーを浄化して 5 種を往復する"
+   ],
+   "fixed_or_flaky_in_after": [],
+   "note": "「実 Web UI は transition_out だけを保存し…」は全体実行で 45 秒のタイムアウト（render-cut 等と並走の負荷下）。単独の再実行は 1・2 回目 FAIL（約 2〜3 秒で失敗・直前の全体実行の直後）→ 以後 7 回連続 PASS（l0/twg-repeat.txt に 6 回）。基点も単独 6/6 PASS。caption-comma レーンの基点 dd88554e9 の失敗集合（同ブランチの記録 cmp-baseB-preview-server.txt）にも同じテストが入っている負荷フレーク。統合の差分は preview-server の public/app.js の行分けだけで、遷移の保存とは無関係"
+  },
+  "akari-preview": {
+   "base": {
+    "tests": 1787,
+    "pass": 1773,
+    "fail": 14
+   },
+   "after": {
+    "tests": 1798,
+    "pass": 1785,
+    "fail": 13
+   },
+   "new_fail": [],
+   "fixed_or_flaky_in_after": [
+    "frame-engine bundle は生成元から再生成しても byte drift がない"
+   ],
+   "note": "基点側だけの drift FAIL は、基点 worktree に統合側の frame-engine dist を写したため（統合側の drift 3 本は exit 0: l0/after-drift.txt）"
+  },
+  "akari-annotations": {
+   "base": {
+    "tests": 2795,
+    "pass": 2780,
+    "fail": 15
+   },
+   "after": {
+    "tests": 2795,
+    "pass": 2780,
+    "fail": 15
+   },
+   "new_fail": [],
+   "fixed_or_flaky_in_after": []
+  },
+  "akari-surfaces": {
+   "base": {
+    "tests": 434,
+    "pass": 407,
+    "fail": 27
+   },
+   "after": {
+    "tests": 449,
+    "pass": 422,
+    "fail": 27
+   },
+   "new_fail": [],
+   "fixed_or_flaky_in_after": []
+  }
+ },
+ "export": {
+  "engine_requested": "auto",
+  "engine": "gpu",
+  "rasterizer": "gpu",
+  "launcher_tier": 2,
+  "renderer": "ANGLE NVIDIA GeForce RTX 5060 Laptop GPU",
+  "ineligible_warnings": 0,
+  "note": "ELECTRON_OVERRIDE_DIST_PATH=inspector-tabs-v1/apps/shell/node_modules/electron/dist（契約記載の inspector-tabs-v1/node_modules/electron/dist は Intel UHD に載り exit 2。export/render-cut-igpu-refusal-tail.log）"
+ },
+ "karaoke_wipe": {
+  "interval_s": [
+   30.4,
+   33.0
+  ],
+  "frames_with_front_both": 55,
+  "front_abs_diff_px_max": 2,
+  "front_identical_frames": 45,
+  "excluded": "31.13 s（OSR 側の背景のオレンジ系画素の誤検出 1 フレーム）",
+  "gpu_front_monotonic": true,
+  "front_x_range": [
+   207,
+   1063
+  ],
+  "app_export_vs_render_cut_gpu_max_px": 0
+ },
+ "caption_lines": {
+  "captions": 22,
+  "one_line_gpu": 22,
+  "with_ideographic_comma": 11,
+  "note": "契約の「23 件」は guide-final 時点の件数。統合（demo-rich 以降）のお手本は 22 件（onboarding-demo.test.mjs も 22 を固定）"
+ },
+ "l1": {
+  "viewport": {
+   "width": 1920,
+   "height": 1080
+  },
+  "error": null,
+  "renderRecords": [
+   {
+    "path": "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\.akari\\render.json",
+    "engine_requested": "auto",
+    "engine": "gpu",
+    "launcher_tier": 2,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D19) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "warnings": [
+     "cut sample: audio stream ends at 35.920998s before out=37.6s; padded 1.679002s of silence"
+    ],
+    "ineligibleWarnings": []
+   }
+  ],
+  "exportMs": 46191,
+  "r1_back": {
+   "from3": true,
+   "from2": true,
+   "redoMenu": null,
+   "redoExport": null,
+   "from2Again": true,
+   "from1": true,
+   "nextFromDaihon": null,
+   "assistSub0": null
+  },
+  "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ",
+  "captionFiles": [
+   {
+    "path": "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-02-first-video\\captions.json",
+    "count": 22,
+    "fullwidthComma": 0,
+    "ideographicComma": 11,
+    "displayDiffersFromText": 0
+   }
+  ],
+  "pageErrors": 19
+ }
+}

@@ -1,0 +1,306 @@
+<div class="demo-credit" lang="ja">
+<style>
+/*
+  クレジット（demo-credit）: オチ「まあ、僕は喋ってるだけなんですけどね。」
+  33.2〜35.6 は右の舞台を空けて素で言わせ、言い切った直後にエンドロール風のクレジットで落とす。
+  edit.json では段 demo-stage、at 1068 / duration 60（35.600〜37.600 秒 = 動画の終わりまで）。
+  時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 1068) / 30）。
+  声の 10ms 包絡の実測: 「ね」の声は 35.62 で −40 dB を割り、35.64 で −59 dB（言い切り）。
+    1 行目   0.000 → 0.28   「出演 僕」が右から（translateX 30→0、--ease-smooth）。不透明度は 0.12 秒で立てる。
+                             言い切った直後のフレーム 1069（35.633）で最初に見える。効果音「チーン」も 1069
+    2 行目   0.117 → 0.40   「編集 AI」が同じ動きで 0.117 秒遅れて（フレーム 1072 から見える）
+    キラッ   0.317 → 0.74   「AI」の右上の 4 芒星が回りながら開く（scale 0→1.18→1）
+    区切り   0.567 → 0.89   クレジットと名札のあいだの橙の短い線が右から引かれる
+    名札     0.667 → 1.07   「✦ AKARI Video」が下から（translateY 12→0）。✦ は冒頭の名札と同じく回りながら開く
+    惹句     0.767 → 1.13   「AI と話すだけで動画編集」が下から（translateY 8→0）
+    瞬き     1.300 → 1.75   キラッがもう一度光る（scale 1→1.3→1・90° 回って同じ形に戻る）
+  抜けは無い（37.6 で動画が終わる）。base（アニメ無しの見た目）は全部が見えている最終の静止状態。
+
+  配置: 壁に直に置く右寄せ（右端 1200px）。役職は右揃え・名前は左揃えで、同じ軸に並べる（エンドロールの組み）。
+  人物の届く範囲（y<470 で x<690）と字幕帯（y≥628）には入らない（x 1030〜1217・y 206〜445）。
+
+  書体: AKARI Demo Sans = Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font Name
+  'Source'）の wght 700 / 900 を、この断片で使う字だけに切り出した改変版（別名で埋め込み、フォント内に
+  著作権表示と許諾を保持）。@font-face の family はこの断片専用の「AKARI Demo Sans Credit」にし、
+  unicode-range で自分の字（＋空白）だけを受け持つ。書き出しとプレビューは全断片を 1 枚の文書に
+  並べるため、共通名の面と混ざらないようにしてある。作り直しは
+  apps/shell/extensions/akari-surfaces/evidence/onboarding-demo-production/elements/credit/make-demo-credit.py
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --credit-right                右端から画面右までの距離（既定 80px = 右端 1200px）
+    --credit-top / --credit-row-gap
+                                  1 行目の上端・1 行目と 2 行目のあいだ（既定 206px / 24px。2 行目の上端 276px）
+    --credit-gap                  役職と名前のあいだ（既定 18px）
+    --credit-label-size / --credit-name-size / --credit-hero-size
+                                  役職・1 行目の名前・2 行目の名前の文字サイズ（既定 22px / 46px / 64px）
+    --credit-spark-size           「AI」の右上のキラッの大きさ（既定 20px）
+    --credit-rule-top / --credit-rule-width
+                                  区切りの線の上端と長さ（既定 360px / 44px）
+    --credit-plate-top / --credit-plate-size / --credit-tagline-size / --credit-tagline-gap
+                                  名札の上端・名札と惹句の文字サイズ・その間（既定 386px / 28px / 18px / 10px）
+    --credit-halo / --credit-halo-small / --credit-halo-color / --credit-shadow-color
+                                  白フチの太さ（大きい字 8px / 小さい字 6px）・色・暖色の影
+    --demo-ink / --demo-ink-sub / --demo-accent / --demo-spark
+                                  墨（名前・名札）・補助（役職・惹句）・橙（AI・✦・線）・黄（キラッの地）
+    --credit-font                 書体（既定 AKARI Demo Sans Credit → Hiragino Sans → Yu Gothic UI …）
+    --credit-row1-delay / --credit-row2-delay / --credit-spark-delay / --credit-rule-delay /
+    --credit-plate-delay / --credit-glint-delay
+                                  各段の発火時刻（ローカル秒。惹句は名札 + 0.10 秒、✦ は名札 + 0.03 秒に従う）
+*/
+@font-face {
+  font-family: "AKARI Demo Sans Credit";
+  src: url(data:font/woff2;base64,{{FONT_700}}) format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  unicode-range: {{RANGE_700}};
+}
+@font-face {
+  font-family: "AKARI Demo Sans Credit";
+  src: url(data:font/woff2;base64,{{FONT_900}}) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: {{RANGE_900}};
+}
+
+.demo-credit,
+.demo-credit *,
+.demo-credit *::before,
+.demo-credit *::after { box-sizing: border-box; }
+
+.demo-credit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--credit-font, "AKARI Demo Sans Credit", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-feature-settings: "palt" 1;
+  font-synthesis: none;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 白フチ（壁に直に置く文字）──────────────────────
+   半径ぶんの円周 32 点へ文字の形を白でずらし置きした輪（角が丸く出る。-webkit-text-stroke は
+   HTML の文字では角が尖る）。その下に同じ円周 8 点から暖色の柔らかい影を落として壁から浮かせる。
+   編集完了（demo-done）と同じ作りにそろえてある */
+.demo-credit__halo {
+  text-shadow:
+    {{HALO}};
+}
+.demo-credit__halo-s {
+  text-shadow:
+    {{HALO_SMALL}};
+}
+
+/* ── クレジット（役職 | 名前 の 2 列、軸をそろえる）──────── */
+.demo-credit__credits {
+  position: absolute;
+  right: var(--credit-right, 80px);
+  top: var(--credit-top, 160px);
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: var(--credit-gap, 18px);
+  row-gap: var(--credit-row-gap, 16px);
+  align-items: baseline;
+}
+
+.demo-credit__label {
+  justify-self: end;
+  /* 字間 .3em の最後の 1 字ぶんを右へ逃がし、字の右端を軸にそろえる */
+  margin-right: -.3em;
+  font-size: var(--credit-label-size, 24px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .3em;
+  color: var(--demo-ink-sub, #6B5E52);
+  white-space: nowrap;
+}
+
+.demo-credit__name {
+  position: relative;
+  justify-self: start;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+.demo-credit__name--cast {
+  font-size: var(--credit-name-size, 58px);
+}
+.demo-credit__name--editor {
+  font-size: var(--credit-hero-size, 84px);
+  letter-spacing: .01em;
+  color: var(--demo-accent, #F97316);
+}
+
+/* 「AI」の右上のキラッ（効果音とエフェクトのキラッと同じ絵柄: 黄の地・橙の縁・白い芯） */
+.demo-credit__spark {
+  position: absolute;
+  right: calc(var(--credit-spark-size, 28px) * -.74);
+  top: calc(var(--credit-spark-size, 28px) * -.06);
+  width: var(--credit-spark-size, 28px);
+  height: var(--credit-spark-size, 28px);
+}
+.demo-credit__spark-pop,
+.demo-credit__spark-glint {
+  position: absolute;
+  inset: 0;
+}
+.demo-credit__spark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── 区切りの線 ───────────────────────── */
+.demo-credit__rule {
+  position: absolute;
+  right: var(--credit-right, 80px);
+  top: var(--credit-rule-top, 342px);
+  width: var(--credit-rule-width, 52px);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--demo-accent, #F97316);
+  box-shadow: 0 0 0 3px var(--credit-halo-color, #FFFFFF), 0 4px 12px var(--credit-shadow-color, rgba(58, 38, 20, .085));
+  transform-origin: right center;
+}
+
+/* ── 終わりの名札 ─────────────────────── */
+.demo-credit__plate {
+  position: absolute;
+  right: var(--credit-right, 80px);
+  top: var(--credit-plate-top, 368px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.demo-credit__brand {
+  display: flex;
+  align-items: center;
+  gap: .3em;
+  font-size: var(--credit-plate-size, 30px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+.demo-credit__star {
+  display: block;
+  flex: none;
+  width: .9em;
+  height: .9em;
+  overflow: visible;
+}
+.demo-credit__star-halo {
+  fill: var(--credit-halo-color, #FFFFFF);
+  stroke: var(--credit-halo-color, #FFFFFF);
+  stroke-width: calc(var(--credit-halo, 8px) * 1.8);
+  stroke-linejoin: round;
+}
+.demo-credit__star-body {
+  fill: var(--demo-accent, #F97316);
+}
+
+.demo-credit__tagline {
+  margin-top: var(--credit-tagline-gap, 12px);
+  margin-right: -.06em;
+  font-size: var(--credit-tagline-size, 20px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .06em;
+  color: var(--demo-ink-sub, #6B5E52);
+  white-space: nowrap;
+}
+
+/* ── 動き（活性区間だけ宣言する）──────────────
+   イージングはモーション語彙（packages/overlay-runtime/src/motion-vocab.css）の名前で呼ぶ。
+   var() の 2 つ目は語彙と同じ値の控え: GPU 書き出し（render-cut --engine gpu / auto の既定）の
+   ページは語彙を読み込まないため、控えが無いと animation の宣言ごと無効になり、書き出しでは
+   区間の頭から最終の静止状態のまま動かない（2026-10-01 実測。OSR・プレビューは語彙あり）。
+   語彙を変えたら控えも合わせる */
+[data-akari-active] .demo-credit__row1 {
+  animation:
+    demo-credit-slide-30 .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-row1-delay, 0s) both,
+    demo-credit-fade .12s var(--ease-linear, linear) var(--credit-row1-delay, 0s) both;
+}
+[data-akari-active] .demo-credit__row2 {
+  animation:
+    demo-credit-slide-30 .28s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-row2-delay, .117s) both,
+    demo-credit-fade .12s var(--ease-linear, linear) var(--credit-row2-delay, .117s) both;
+}
+[data-akari-active] .demo-credit__spark-pop {
+  animation: demo-credit-spark-pop .42s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-spark-delay, .317s) both;
+}
+[data-akari-active] .demo-credit__spark-glint {
+  animation: demo-credit-spark-glint .45s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-glint-delay, 1.30s) forwards;
+}
+[data-akari-active] .demo-credit__rule {
+  animation: demo-credit-rule .32s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-rule-delay, .567s) both;
+}
+[data-akari-active] .demo-credit__brand {
+  animation:
+    demo-credit-rise-12 .40s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--credit-plate-delay, .667s) both,
+    demo-credit-fade .16s var(--ease-linear, linear) var(--credit-plate-delay, .667s) both;
+}
+[data-akari-active] .demo-credit__star {
+  animation: demo-credit-star-open .50s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) calc(var(--credit-plate-delay, .667s) + .03s) both;
+}
+[data-akari-active] .demo-credit__tagline {
+  animation:
+    demo-credit-rise-8 .36s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) calc(var(--credit-plate-delay, .667s) + .10s) both,
+    demo-credit-fade .16s var(--ease-linear, linear) calc(var(--credit-plate-delay, .667s) + .10s) both;
+}
+
+@keyframes demo-credit-slide-30 {
+  0%   { transform: translateX(30px); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-credit-rise-12 {
+  0%   { transform: translateY(12px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-credit-rise-8 {
+  0%   { transform: translateY(8px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-credit-fade {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes demo-credit-spark-pop {
+  0%   { transform: scale(0) rotate(-70deg);   opacity: 0; }
+  55%  { transform: scale(1.18) rotate(8deg);  opacity: 1; }
+  100% { transform: scale(1) rotate(0deg);     opacity: 1; }
+}
+@keyframes demo-credit-spark-glint {
+  0%   { transform: scale(1) rotate(0deg); }
+  45%  { transform: scale(1.3) rotate(45deg); }
+  100% { transform: scale(1) rotate(90deg); }
+}
+@keyframes demo-credit-rule {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes demo-credit-star-open {
+  0%   { transform: rotate(-90deg) scale(.3); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+</style>
+<div class="demo-credit__credits">
+  <span class="demo-credit__label demo-credit__row1 demo-credit__halo-s" data-akari-slot="cast-role">出演</span>
+  <span class="demo-credit__name demo-credit__name--cast demo-credit__row1 demo-credit__halo" data-akari-slot="cast-name">僕</span>
+  <span class="demo-credit__label demo-credit__row2 demo-credit__halo-s" data-akari-slot="editor-role">編集</span>
+  <span class="demo-credit__name demo-credit__name--editor demo-credit__row2 demo-credit__halo"><span data-akari-slot="editor-name">AI</span><i class="demo-credit__spark"><b class="demo-credit__spark-pop"><b class="demo-credit__spark-glint"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" fill="var(--demo-spark, #FFD94A)" stroke="var(--demo-accent, #F97316)" stroke-width="7" paint-order="stroke fill"/><path d="M50 2C53.5 33 67 46.5 98 50 67 53.5 53.5 67 50 98 46.5 67 33 53.5 2 50 33 46.5 46.5 33 50 2Z" transform="translate(50 50) scale(.42) translate(-50 -50)" fill="#FFFFFF"/></svg></b></b></i></span>
+</div>
+<i class="demo-credit__rule"></i>
+<div class="demo-credit__plate">
+  <div class="demo-credit__brand demo-credit__halo">
+    <svg class="demo-credit__star" viewBox="0 0 24 24" aria-hidden="true"><path class="demo-credit__star-halo" d="M12 0C12.9 6.6 17.4 11.1 24 12C17.4 12.9 12.9 17.4 12 24C11.1 17.4 6.6 12.9 0 12C6.6 11.1 11.1 6.6 12 0Z"/><path class="demo-credit__star-body" d="M12 0C12.9 6.6 17.4 11.1 24 12C17.4 12.9 12.9 17.4 12 24C11.1 17.4 6.6 12.9 0 12C6.6 11.1 11.1 6.6 12 0Z"/></svg>
+    <span data-akari-slot="brand">AKARI Video</span>
+  </div>
+  <span class="demo-credit__tagline demo-credit__halo-s" data-akari-slot="tagline">AI と話すだけで動画編集</span>
+</div>
+</div>

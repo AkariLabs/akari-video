@@ -1,0 +1,22 @@
+{
+ "eligible": false,
+ "summary": {
+  "same": 21,
+  "three": 0,
+  "dom": 9,
+  "degraded": 0,
+  "unsupported": 1
+ },
+ "entries": 31,
+ "bad": [
+  {
+   "kind": "caption",
+   "id": "c-0020",
+   "classification": "unsupported",
+   "reason": "caption-karaoke-fill-osr",
+   "conditions": [
+    "text_style.karaoke"
+   ]
+  }
+ ]
+}

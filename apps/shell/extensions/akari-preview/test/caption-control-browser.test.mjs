@@ -11,8 +11,15 @@ const to = handler.indexOf('.caption-row-plate.akari-caption-host--editing,', fr
 assert.ok(from >= 0 && to > from);
 const baseCss = handler.slice(from, to);
 
-test('caption handles stay at display sizes when the output stage is scaled to 332×187', async () => {
-  const browser = await launchBrowser();
+test('caption handles stay at display sizes when the output stage is scaled to 332×187', async t => {
+  let browser;
+  try {
+    browser = await launchBrowser();
+  } catch (error) {
+    if (error?.message !== 'headless Chrome が見つかりません') throw error;
+    t.skip('headless Chrome 不在（Chrome のある環境でのみ実行）');
+    return;
+  }
   try {
     const page = await browser.newPage();
     const widthScale = 332 / 1920, heightScale = 187 / 1080;

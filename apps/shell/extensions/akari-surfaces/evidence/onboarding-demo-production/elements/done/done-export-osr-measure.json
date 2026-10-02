@@ -1,0 +1,217 @@
+{
+ "element": "done（編集完了の判子）",
+ "revision": "r2 — 目利きの差し戻し（(a) 1 行目を強調テロップへ格上げ / (b) 判子を直径 176・中心 (1132,300)・透明地・「完了」64px を円の中心へ）の直し",
+ "export_osr": {
+  "export": "render-cut --engine osr（隔離プロジェクト C:/t/done-r2/proj。本編 11.0〜15.0 秒を 120 フレームに切り出し、demo-done を at 8 / duration 108 = 本番 at 338 と同じ局所時刻。正解音 at 72 = 本番 402）。edit-lint PASS（0 findings）→ render-cut PASS",
+  "rows": [
+   {
+    "part": "lead",
+    "label": "喋ってるだけで（強調テロップ・マイク・波形）",
+    "word_onset_s": 11.3,
+    "first_visible_frame": 339,
+    "first_visible_s": 11.3,
+    "delta_s": 0.0
+   },
+   {
+    "part": "head",
+    "label": "編集は",
+    "word_onset_s": 12.57,
+    "first_visible_frame": 377,
+    "first_visible_s": 12.5667,
+    "delta_s": -0.0033
+   },
+   {
+    "part": "stamp",
+    "label": "判子「完了」（終わってる 13.42）",
+    "word_onset_s": 13.42,
+    "first_visible_frame": 401,
+    "first_visible_s": 13.3667,
+    "delta_s": -0.0533
+   }
+  ],
+  "last_visible_frame": 443,
+  "last_visible_s": 14.7667,
+  "item_end_frame": 446,
+  "keepout": {
+   "person_mean_abs_diff_max": {
+    "outside_item_f330_337_f446_449": 3.81,
+    "active_f338_445": 3.83
+   },
+   "caption_band_mean_abs_diff_max": {
+    "outside_item": 3.72,
+    "active": 3.79
+   },
+   "person_pixels_over_40_percent_max": {
+    "outside_item": 0.0023,
+    "active": 0.0008
+   },
+   "note": "出力と元素材の差（画素ごとの RGB 最大差）。人物・字幕帯とも区間の外（圧縮ノイズだけ）と同じ水準 = 重なり無し"
+  }
+ },
+ "footprint_harness": {
+  "method": "ハーネス（render-seq.mjs --mode export --transparent、rasterize.mjs と同じ WAAPI 化）で f338〜446 の全 109 フレームを透過で描き、不透明度 > 8/255 の画素を集計",
+  "first_visible_frame": 339,
+  "last_visible_frame": 443,
+  "union_bbox_all_frames": [
+   757,
+   131,
+   1280,
+   457
+  ],
+  "steady_bbox_f413_435": [
+   760,
+   135,
+   1229,
+   389
+  ],
+  "person_keepout_frames": [],
+  "caption_band_frames": [],
+  "outside_stage_frames": [
+   [
+    401,
+    3264
+   ],
+   [
+    402,
+    918
+   ]
+  ],
+  "outside_stage_note": "f401・402 は判子の叩きつけの 1〜2 コマ目（scale 1.78→1.37・不透明度 .17→.72 の過渡。構成表どおりの曲線で、目利きの指定は「今のまま」）。右へ画面の端まではみ出す。人物・字幕帯には入らない。着地の輪は scale 1.22 に抑えたので舞台の内側"
+ },
+ "stamp_geometry": {
+  "harness_rotate0": {
+   "ring_center": [
+    1132.0,
+    300.0
+   ],
+   "ring_size": [
+    176,
+    176
+   ],
+   "text_ink_bbox_unrotated": [
+    1069.5,
+    1194.5,
+    275.5,
+    323.5
+   ],
+   "text_ink_center_unrotated": [
+    1132.0,
+    299.5
+   ],
+   "text_offset_from_circle_center": [
+    0.0,
+    -0.5
+   ],
+   "text_ink_max_radius": 64.5,
+   "gap_text_to_inner_ring_px": 11.5
+  },
+  "harness_rotate-12": {
+   "ring_center": [
+    1132.0,
+    300.0
+   ],
+   "ring_size": [
+    176,
+    176
+   ],
+   "text_ink_bbox_unrotated": [
+    1069.8,
+    1194.7,
+    275.1,
+    323.9
+   ],
+   "text_ink_center_unrotated": [
+    1132.28,
+    299.49
+   ],
+   "text_offset_from_circle_center": [
+    0.28,
+    -0.51
+   ],
+   "text_ink_max_radius": 64.5,
+   "gap_text_to_inner_ring_px": 11.5
+  },
+  "export_osr_f420": {
+   "ring_center": [
+    1132.0,
+    300.0
+   ],
+   "ring_size": [
+    176,
+    176
+   ],
+   "text_ink_bbox_unrotated": [
+    1069.8,
+    1195.5,
+    274.7,
+    324.3
+   ],
+   "text_ink_center_unrotated": [
+    1132.67,
+    299.49
+   ],
+   "text_offset_from_circle_center": [
+    0.67,
+    -0.51
+   ],
+   "text_ink_max_radius": 64.8,
+   "gap_text_to_inner_ring_px": 11.2
+  },
+  "clearance_harness": {
+   "ha_halo_to_ring": 13.9,
+   "lead_halo_to_ring": 10.0
+  },
+  "clearance_export_f420": {
+   "ha_halo_to_ring": 14.1,
+   "lead_halo_to_ring": 9.8
+  },
+  "note": "朱の画素（R−G > 70）を円の中心 (1132, 300) からの距離で輪（78〜92）と文字（< 74）に分け、文字は −12° の回転を戻してから外形の中心を取る。間隔は画素の中心間距離 − 1（隣り合う画素 = 0）。白フチは RGB すべて > 235"
+ },
+ "layout": {
+  "lead_row": {
+   "box": [
+    770,
+    140,
+    1220,
+    196
+   ],
+   "mic_ink": [
+    770,
+    148,
+    802,
+    188
+   ],
+   "text": "喋ってるだけで 56px/900 墨（box 811〜1169）",
+   "wave_ink": [
+    1178,
+    150,
+    1220,
+    186
+   ],
+   "note": "マイクの左端 770 = 2 行目「編」の墨の左端 771、波形の右端 1220 = 判子の輪の右端 1220 にそろえた。目利きの指定 760〜1200 から左 +10・右 +20（56px の文字 358px ＋ マイク 32 ＋ 波形 42 は 440px に入らず、入れると字間を詰めるか間隔 2px になる）"
+  },
+  "head": {
+   "left": 770,
+   "note": "指定の 780 だと「は」の白フチと判子の輪の間が 5px（実測）。10px 左へ出して 14px"
+  },
+  "stamp": {
+   "center": [
+    1132,
+    300
+   ],
+   "diameter": 176,
+   "rotate_deg": -12,
+   "text": "Dela Gothic One 64px・墨の外形の中心を円の中心へ（build-demo-done.py が書体の輪郭から x 89.5 / 基線 112.13 を計算）",
+   "ground": "透明（白い紙の円と落ち影をやめた）",
+   "landing_ring_scale": "1→1.22（1.35 だと f407〜411 に右端が舞台 1240 を越える）"
+  }
+ },
+ "wave_phase": {
+  "beat_s": 0.7059,
+  "first_peak_local_s": 0.6686,
+  "first_peak_composition_s": 11.9353,
+  "note": "BGM 札（demo-bgm）と同じ 85 BPM の格子（19.70 − 11 拍）。棒 1 の線長が 0.6686 / 1.3746 で最大（ハーネスの getBoundingClientRect で確認）"
+ },
+ "lint": "edit-lint PASS（0 findings・隔離プロジェクト C:/t/done-r2/proj）→ render-cut --engine osr PASS",
+ "determinism": "build-demo-done.py を 2 回回して同じバイト列（書体の head.modified を書き換えない設定を追加）"
+}

@@ -1,0 +1,224 @@
+{
+  "task": "2026-10-02-caption-comma-no-forced-break",
+  "measured": "2026-10-02",
+  "machine": "Windows 11 (Intel UHD iGPU, tier 2 electron 39.8.7)",
+  "project": "make-project.sh (1280x720 / 30fps, captions c-0001 ほら、こんな感じで。 / c-0002 この字幕はとても長いので、読点のあとで折り返されるはずです / c-0003 一文目です。二文目です。)",
+  "paths": {
+    "gpu": "gpu-export electron-main.mjs --capture-frames 45,135,240 (tier 2, no HKCU write)",
+    "osr": "render-cut --engine osr --gpu-preference off --no-audio (AKARI_EXPORT_ALLOW_DESKTOP=0, AKARI_OSR_VERIFY=off)",
+    "preview": "apps/shell dev build (theia build --mode production) + CDP, isolated user-data-dir / AKARI_HOME / HOME / THEIA_CONFIG_DIR"
+  },
+  "frameTextBands": [
+    {
+      "file": "before/proj/out/gpu-cap/frame-45.png",
+      "lines": 2,
+      "bands": [
+        [
+          562,
+          593
+        ],
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        514,
+        747
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "before/frames/osr-1.5.png",
+      "lines": 2,
+      "bands": [
+        [
+          562,
+          593
+        ],
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        514,
+        747
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "after/proj/out/gpu-cap/frame-45.png",
+      "lines": 1,
+      "bands": [
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        454,
+        804
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "after/frames/osr-1.5.png",
+      "lines": 1,
+      "bands": [
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        454,
+        804
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "before/proj/out/gpu-cap/frame-135.png",
+      "lines": 2,
+      "bands": [
+        [
+          560,
+          594
+        ],
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        338,
+        940
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "after/proj/out/gpu-cap/frame-135.png",
+      "lines": 2,
+      "bands": [
+        [
+          560,
+          594
+        ],
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        338,
+        940
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "after/frames/osr-4.5.png",
+      "lines": 2,
+      "bands": [
+        [
+          560,
+          594
+        ],
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        338,
+        940
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "after/proj/out/gpu-cap/frame-240.png",
+      "lines": 2,
+      "bands": [
+        [
+          560,
+          594
+        ],
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        530,
+        726
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    },
+    {
+      "file": "after/frames/osr-8.0.png",
+      "lines": 2,
+      "bands": [
+        [
+          560,
+          594
+        ],
+        [
+          624,
+          658
+        ]
+      ],
+      "x": [
+        530,
+        726
+      ],
+      "note": "rows with luma>200 grouped into line bands (y ranges), x = text extent"
+    }
+  ],
+  "previewCaptionDom": [
+    {
+      "t": "1.5s",
+      "lines": [
+        "ほら、こんな感じで。"
+      ],
+      "boxes": [
+        [
+          233,
+          251
+        ]
+      ]
+    },
+    {
+      "t": "4.5s",
+      "lines": [
+        "この字幕はとても長いので、",
+        "読点のあとで折り返されるはずです"
+      ],
+      "boxes": [
+        [
+          213,
+          232
+        ],
+        [
+          233,
+          251
+        ]
+      ]
+    },
+    {
+      "t": "8.0s",
+      "lines": [
+        "一文目です。",
+        "二文目です。"
+      ],
+      "boxes": [
+        [
+          213,
+          232
+        ],
+        [
+          233,
+          251
+        ]
+      ]
+    }
+  ]
+}
