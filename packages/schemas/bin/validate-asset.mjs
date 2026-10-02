@@ -295,6 +295,12 @@ function validateKnobs(knobs) {
     if (hasOwn(knob, "unit") && typeof knob.unit !== "string") {
       fail(`${label}.unit は文字列である必要があります`);
     }
+    if (hasOwn(knob, "default")) {
+      const valid = knob.type === "slider"
+        ? isFiniteNumber(knob.default)
+        : typeof knob.default === "string";
+      if (!valid) fail(`${label}.default は ${knob.type === "slider" ? "有限数" : "文字列"}である必要があります`);
+    }
   }
 }
 

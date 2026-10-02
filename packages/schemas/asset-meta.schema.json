@@ -135,6 +135,10 @@
         { "required": ["cssVar"], "not": { "required": ["param"] } },
         { "required": ["param"], "not": { "required": ["cssVar"] } }
       ],
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "slider" } }, "required": ["type"] }, "then": { "properties": { "default": { "type": "number" } } } },
+        { "if": { "properties": { "type": { "enum": ["text", "color", "dropdown", "checkbox", "media"] } }, "required": ["type"] }, "then": { "properties": { "default": { "type": "string" } } } }
+      ],
       "properties": {
         "cssVar": {
           "type": "string",
@@ -166,6 +170,9 @@
         },
         "unit": {
           "type": "string"
+        },
+        "default": {
+          "type": ["number", "string"]
         }
       }
     },
