@@ -1,6 +1,6 @@
 {
   "label": "after",
-  "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/home-empty-and-mode-selected/apps/shell",
+  "shell": "<WORKTREE>/home-empty-and-mode-selected/apps/shell",
   "runs": {
     "empty-dark": {
       "band": {

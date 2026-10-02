@@ -1,6 +1,6 @@
 {
   "startedAt": "2026-09-23T01:31:28.281Z",
-  "executable": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+  "executable": "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
   "port": 9837,
   "tolerancePx": 1,
   "pass": true,
@@ -51,13 +51,13 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-x-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-x-frame-0.png"
         }
       ],
       "startedAt": "2026-09-23T01:31:28.285Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-hDhBre/project",
       "editSha256": "a486f41702fe55b92b08f693b1b18e7dd96427dc73d1510db9ee572c08970cec",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-x-electron.log",
+      "electronLog": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-x-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -112,13 +112,13 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-y-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-y-frame-0.png"
         }
       ],
       "startedAt": "2026-09-23T01:31:44.343Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-hc55tK/project",
       "editSha256": "8711851f950f4c8fb28f6c50eb919d44f9128be5b36663e42ecc8fce4cf18f76",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-y-electron.log",
+      "electronLog": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-y-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -185,13 +185,13 @@
           },
           "angleErrorDeg": 0.000013781510520401661,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-rotated-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-rotated-frame-0.png"
         }
       ],
       "startedAt": "2026-09-23T01:31:55.462Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-EGaJm7/project",
       "editSha256": "ccd53e3832c1eafbde38030ef2ec65e9019d9e0ed9b9b54338d2dc5fd693508e",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-rotated-electron.log",
+      "electronLog": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-rotated-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -258,13 +258,13 @@
           },
           "angleErrorDeg": 0.0000016573146422558511,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-group-leaf-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-group-leaf-frame-0.png"
         }
       ],
       "startedAt": "2026-09-23T01:32:07.609Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-nmLf0L/project",
       "editSha256": "dcf309bc47e2ba24a6f9fdfc02142778e6fbe0b11c4a148107dd18e0a933b9d4",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-group-leaf-electron.log",
+      "electronLog": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-group-leaf-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -331,13 +331,13 @@
           },
           "angleErrorDeg": 9.187669597366382e-7,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-uniform-rotated-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-uniform-rotated-frame-0.png"
         }
       ],
       "startedAt": "2026-09-23T01:32:18.187Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-4pxJL4/project",
       "editSha256": "4e57999d506470f7710cdb13a2e596434e79721d9fc17260b91ae259ec12ac31",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-uniform-rotated-electron.log",
+      "electronLog": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-uniform-rotated-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -395,7 +395,7 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-0.png"
         },
         {
           "frame": 30,
@@ -436,7 +436,7 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-30.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-30.png"
         },
         {
           "frame": 45,
@@ -477,7 +477,7 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-45.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-45.png"
         },
         {
           "frame": 58,
@@ -518,13 +518,13 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-58.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-58.png"
         }
       ],
       "startedAt": "2026-09-23T01:32:28.564Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-DC9sXi/project",
       "editSha256": "49041ae50385781d1e164f918cf0461231aa3734db7cd04fcbc7aa10f113126a",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-electron.log",
+      "electronLog": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-electron.log",
       "editUnchanged": true,
       "terminalSeekDiagnostic": {
         "frame": 59,
@@ -598,7 +598,7 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-0.png"
         },
         {
           "frame": 30,
@@ -639,7 +639,7 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-30.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-30.png"
         },
         {
           "frame": 45,
@@ -680,7 +680,7 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-45.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-45.png"
         },
         {
           "frame": 58,
@@ -721,13 +721,13 @@
           },
           "angleErrorDeg": null,
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-58.png"
+          "screenshot": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-58.png"
         }
       ],
       "startedAt": "2026-09-23T01:32:48.409Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-SEsdUT/project",
       "editSha256": "ab2f6f7ee3de229ea0f910fab33742e48c48dda65bcd1477ebf868d7a17a907e",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-electron.log",
+      "electronLog": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-electron.log",
       "editUnchanged": true,
       "terminalSeekDiagnostic": {
         "frame": 59,

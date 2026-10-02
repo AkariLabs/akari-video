@@ -135,13 +135,13 @@
   },
   "cacheConfirmationPaths": {
     "dark": [
-      "消すもの: キャッシュ（/private/tmp/akari-settings-v3-r1.rDiOJH/workspace/.akari/cache）",
+      "消すもの: キャッシュ（<TMP>/akari-settings-v3-r1.rDiOJH/workspace/.akari/cache）",
       "消すもの: キャッシュ（/tmp/akari-settings-v3-r1.rDiOJH/akari/cache）",
       "必要になったら自動で作り直します",
       "消さないもの: プロジェクト・素材・書き出し・最近の編集履歴"
     ],
     "light": [
-      "消すもの: キャッシュ（/private/tmp/akari-settings-v3-r1.rDiOJH/workspace/.akari/cache）",
+      "消すもの: キャッシュ（<TMP>/akari-settings-v3-r1.rDiOJH/workspace/.akari/cache）",
       "消すもの: キャッシュ（/tmp/akari-settings-v3-r1.rDiOJH/akari/cache）",
       "必要になったら自動で作り直します",
       "消さないもの: プロジェクト・素材・書き出し・最近の編集履歴"

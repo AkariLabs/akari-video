@@ -84,10 +84,10 @@
  },
  "oldToastUrl": {
   "ok": false,
-  "src": "file:///Users/ryoma/_edit/30_products/akari-video-wt/balance-and-app-icon/apps/shell/electron-builder-out/mac-arm64/AKARI%20Video.app/Contents/Resources/app.asar/resources/icons/icon-512.png",
+  "src": "file://<WORKTREE>/balance-and-app-icon/apps/shell/electron-builder-out/mac-arm64/AKARI%20Video.app/Contents/Resources/app.asar/resources/icons/icon-512.png",
   "w": 0
  },
- "pageUrl": "file:///Users/ryoma/_edit/30_products/akari-video-wt/balance-and-app-icon/apps/shell/electron-builder-out/mac-arm64/AKARI%20Video.app/Contents/Resources/app.asar/lib/frontend/index.html?port=59703#/private/tmp/balance-and-app-icon-l1/ws",
+ "pageUrl": "file://<WORKTREE>/balance-and-app-icon/apps/shell/electron-builder-out/mac-arm64/AKARI%20Video.app/Contents/Resources/app.asar/lib/frontend/index.html?port=59703#<TMP>/balance-and-app-icon-l1/ws",
  "toast": {
   "naturalWidth": 512,
   "complete": true,

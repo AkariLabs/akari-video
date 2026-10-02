@@ -58,6 +58,19 @@ jobs:
             "apps/shell/extensions/akari-preview/evidence/item-keyframes/prepare-fixture.mjs:14|realpath guard: asserts the fixture dir is under /private/tmp/ (macOS /tmp symlink breaks the Theia workspace boundary) — generic prefix, identifies no machine"
             "apps/shell/extensions/akari-preview/evidence/item-keyframes/run-l1.mjs:21|same realpath guard as prepare-fixture.mjs:14 — generic /private/tmp/ prefix, identifies no machine"
             "apps/shell/extensions/akari-preview/evidence/item-keyframes/compare-html-sha.cjs:146|synthetic source URI (/private/tmp/<name>/source.mp4) fed to prepareHtml for sha comparison — identifies no machine"
+            "apps/shell/extensions/akari-preview/evidence/preview-drop-materials/README.md:23|generic macOS /tmp and /private/tmp symlink example needed to explain the URI mismatch; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:22|synthetic expected URI verifies macOS /tmp symlink normalization; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:24|synthetic URI verifies encoded Unicode and macOS /tmp symlink equivalence; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:28|synthetic URI verifies project path case sensitivity after symlink normalization; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:34|synthetic URI verifies media paths under a normalized project root; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:184|synthetic drag URI verifies material drop behavior with a macOS realpath; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:51|synthetic home path in log fixture verifies diagnostics redaction; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:53|synthetic home path in project fixture verifies diagnostics redaction; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:92|synthetic home path verifies text redaction while preserving the filename; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:98|synthetic home path verifies redaction inside JSON; identifies no machine"
+            "evidence/f1a-crop-and-frame/l1/run-l1.mjs:18|generic macOS temp directory used by a capture script; the suffix is generated at runtime and identifies no machine"
+            "evidence/fx4-photo-preview-select/run-l1.mjs:25|generic macOS temp directory used by a capture script; the suffix is generated at runtime and identifies no machine"
+            "packages/render-cut/evidence/caption-export-fonts/scripts/bytes-eq.mjs:9|generic macOS realpath prefix is required to normalize /tmp aliases in byte comparisons; identifies no machine"
           )
 
           is_allowed() {

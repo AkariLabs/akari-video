@@ -1,6 +1,6 @@
 {
   "startedAt": "2026-09-22T21:21:18.736Z",
-  "executable": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+  "executable": "<WORKTREE>/transform-anisotropic-scale-contract/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
   "port": 9837,
   "tolerancePx": 1,
   "pass": true,
@@ -44,13 +44,13 @@
             "height": 0.000004008877525052412
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-x-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-x-frame-0.png"
         }
       ],
       "startedAt": "2026-09-22T21:21:18.739Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-Igmzpy/project",
       "editSha256": "a486f41702fe55b92b08f693b1b18e7dd96427dc73d1510db9ee572c08970cec",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-x-electron.log",
+      "electronLog": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-x-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -98,13 +98,13 @@
             "height": 0.000014031071341236157
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-y-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-y-frame-0.png"
         }
       ],
       "startedAt": "2026-09-22T21:21:26.131Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-sm4FUa/project",
       "editSha256": "8711851f950f4c8fb28f6c50eb919d44f9128be5b36663e42ecc8fce4cf18f76",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-y-electron.log",
+      "electronLog": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-scale-y-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -152,13 +152,13 @@
             "height": -0.00001640912468303668
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-rotated-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-rotated-frame-0.png"
         }
       ],
       "startedAt": "2026-09-22T21:21:33.182Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-O1q5Mu/project",
       "editSha256": "ccd53e3832c1eafbde38030ef2ec65e9019d9e0ed9b9b54338d2dc5fd693508e",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-rotated-electron.log",
+      "electronLog": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-rotated-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -206,13 +206,13 @@
             "height": 0.000005011096902762802
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-group-leaf-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-group-leaf-frame-0.png"
         }
       ],
       "startedAt": "2026-09-22T21:21:40.279Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-AuE9bA/project",
       "editSha256": "d129e455ac2c2b4c3d9a7affdae3b04ebca85d080544176eb57a988c600eb65b",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-group-leaf-electron.log",
+      "electronLog": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-group-leaf-electron.log",
       "editUnchanged": true,
       "electronExit": {
         "code": 0,
@@ -263,7 +263,7 @@
             "height": 0.000004008877525052412
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-0.png"
         },
         {
           "frame": 30,
@@ -297,7 +297,7 @@
             "height": 0.000004008877525052412
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-30.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-30.png"
         },
         {
           "frame": 45,
@@ -331,7 +331,7 @@
             "height": 0.000004008877525052412
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-45.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-45.png"
         },
         {
           "frame": 58,
@@ -365,13 +365,13 @@
             "height": 0.000004008877525052412
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-58.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-frame-58.png"
         }
       ],
       "startedAt": "2026-09-22T21:21:47.556Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-4nNxrg/project",
       "editSha256": "49041ae50385781d1e164f918cf0461231aa3734db7cd04fcbc7aa10f113126a",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-electron.log",
+      "electronLog": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-keyframes-electron.log",
       "editUnchanged": true,
       "terminalSeekDiagnostic": {
         "frame": 59,
@@ -438,7 +438,7 @@
             "height": 0.000004008877525052412
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-0.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-0.png"
         },
         {
           "frame": 30,
@@ -472,7 +472,7 @@
             "height": 0.000006013316294684046
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-30.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-30.png"
         },
         {
           "frame": 45,
@@ -506,7 +506,7 @@
             "height": 0.000007015535672394435
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-45.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-45.png"
         },
         {
           "frame": 58,
@@ -540,13 +540,13 @@
             "height": 0.0000030734727687331542
           },
           "pass": true,
-          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-58.png"
+          "screenshot": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-frame-58.png"
         }
       ],
       "startedAt": "2026-09-22T21:22:06.469Z",
       "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-Tb4DAy/project",
       "editSha256": "ab2f6f7ee3de229ea0f910fab33742e48c48dda65bcd1477ebf868d7a17a907e",
-      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-electron.log",
+      "electronLog": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/shell-legacy-keyframes-electron.log",
       "editUnchanged": true,
       "terminalSeekDiagnostic": {
         "frame": 59,

@@ -30,7 +30,7 @@
   },
   "previous_icon_reference_in_packaged_renderer": {
     "src_attribute": "../../resources/icons/icon-512.png",
-    "currentSrc": "file:///Users/ryoma/_edit/30_products/akari-video-wt/balance-and-app-icon/apps/shell/electron-builder-out/mac-arm64/AKARI%20Video.app/Contents/Resources/app.asar/resources/icons/icon-512.png",
+    "currentSrc": "file://<WORKTREE>/balance-and-app-icon/apps/shell/electron-builder-out/mac-arm64/AKARI%20Video.app/Contents/Resources/app.asar/resources/icons/icon-512.png",
     "image_event": "error",
     "naturalWidth": 0,
     "cdp_network_error": "net::ERR_FILE_NOT_FOUND",
