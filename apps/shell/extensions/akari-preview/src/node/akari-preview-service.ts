@@ -347,6 +347,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
     protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
     protected bundledCaptionFontBuffers?: Map<string, Buffer>;
+    protected readonly bundledCaptionFontWarnings = new Set<string>();
     protected libraryCaptionFontWarningReported = false;
     protected frameEngineSource: Buffer | null | undefined;
     protected previewAudioWorkletSource: Buffer | null | undefined;
@@ -515,9 +516,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 scrubAudioJavaScriptUrl: url('scrub-audio.js', scrubAudio, javascript)
             } : {}),
             captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf'),
-            bundledCaptionFontFaces: [...BUNDLED_CAPTION_FONT_FACES.map(face => ({ ...face,
-                url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`,
-                    fontBuffers.get(`${face.sourceId ?? face.id}/${face.file}`)!, 'font/ttf') })),
+            bundledCaptionFontFaces: [...BUNDLED_CAPTION_FONT_FACES.flatMap(face => {
+                const body = fontBuffers.get(`${face.sourceId ?? face.id}/${face.file}`);
+                return body ? [{ ...face, url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`, body, 'font/ttf') }] : [];
+            }),
                 ...libraryFontFaces]
         };
     }
@@ -542,14 +544,22 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     protected loadBundledCaptionFontBuffers(): Map<string, Buffer> {
-        if (!this.bundledCaptionFontBuffers) {
-            this.bundledCaptionFontBuffers = new Map(BUNDLED_CAPTION_FONT_FACES.map(face => {
-                const sourceId = face.sourceId ?? face.id;
-                const key = `${sourceId}/${face.file}`;
-                return [key, readFileSync(this.findFontAssetPath(join('assets', 'font', sourceId, face.file)))] as const;
-            }));
+        const buffers = this.bundledCaptionFontBuffers ?? new Map<string, Buffer>();
+        for (const face of BUNDLED_CAPTION_FONT_FACES) {
+            const sourceId = face.sourceId ?? face.id;
+            const key = `${sourceId}/${face.file}`;
+            if (buffers.has(key)) continue;
+            try {
+                buffers.set(key, readFileSync(this.findFontAssetPath(join('assets', 'font', sourceId, face.file))));
+            } catch (error) {
+                if (!this.bundledCaptionFontWarnings.has(key)) {
+                    this.bundledCaptionFontWarnings.add(key);
+                    console.warn(`[akari-preview] bundled caption font unavailable: ${key}`, error);
+                }
+            }
         }
-        return this.bundledCaptionFontBuffers;
+        if (buffers.size > 0) this.bundledCaptionFontBuffers = buffers;
+        return buffers;
     }
 
     protected registerStaticAsset(name: string, body: Buffer, mimeType: string): string {
