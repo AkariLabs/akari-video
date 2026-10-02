@@ -53,9 +53,10 @@ test('decoded frame coverage uses nearest half-frame boundaries and prefers the 
   const frame = { timestamp: 400_000, duration: 33_333 };
   assert.equal(frameCoversTimestamp(frame, 400_000), true);
   assert.equal(frameCoversTimestamp(frame, 416_666), true);
-  assert.equal(frameCoversTimestamp(frame, 416_667), false);
-  assert.equal(frameCoversTimestamp(frame, 383_334), true);
-  assert.equal(frameCoversTimestamp(frame, 383_333), false);
+  assert.equal(frameCoversTimestamp(frame, 416_667), true);
+  assert.equal(frameCoversTimestamp(frame, 416_668), false);
+  assert.equal(frameCoversTimestamp(frame, 383_335), true);
+  assert.equal(frameCoversTimestamp(frame, 383_334), false);
   assert.equal(frameCoversTimestamp(frame, 433_332), false);
   assert.equal(frameCoversTimestamp(frame, 433_333), false);
   assert.equal(frameCoversTimestamp({ timestamp: 433_334, duration: 33_334 }, 416_667), false);

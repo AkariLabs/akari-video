@@ -30182,6 +30182,17 @@ var RetainedSourceBytes = class {
   }
 };
 
+// ../frame-engine/src/decode/nearest-frame.ts
+function prefersEarlierFrame(earlierTimestampUs, laterTimestampUs, targetUs) {
+  return targetUs - earlierTimestampUs <= laterTimestampUs - targetUs + 1;
+}
+function nearestFrameCovers(frame, targetUs) {
+  if (targetUs >= frame.timestamp) {
+    return prefersEarlierFrame(frame.timestamp, frame.timestamp + frame.duration, targetUs);
+  }
+  return !prefersEarlierFrame(frame.timestamp - frame.duration, frame.timestamp, targetUs);
+}
+
 // ../frame-engine/src/decode/sample-table.ts
 var MP4BoxNamespace2 = __toESM(require_mp4box_all(), 1);
 var MP4Box2 = MP4BoxNamespace2.default ?? MP4BoxNamespace2;
@@ -30374,7 +30385,7 @@ function sampleAtPresentationTime(table, targetUs) {
   const previous = table.samples[order[low]];
   if (!resolveNearestFrameDefault() || low === order.length - 1) return previous;
   const next = table.samples[order[low + 1]];
-  return targetUs - previous.timestampUs <= next.timestampUs - targetUs ? previous : next;
+  return prefersEarlierFrame(previous.timestampUs, next.timestampUs, targetUs) ? previous : next;
 }
 function resolveNearestFrameDefault() {
   const runtime = globalThis;
@@ -30751,9 +30762,7 @@ function frameCovers(frame, targetUs) {
   if (!resolveNearestFrameDefault()) {
     return targetUs >= frame.timestamp && targetUs < frame.timestamp + frame.duration;
   }
-  const distance = Math.abs(targetUs - frame.timestamp);
-  const halfDuration = frame.duration / 2;
-  return distance < halfDuration || distance === halfDuration && frame.timestamp <= targetUs;
+  return nearestFrameCovers({ timestamp: frame.timestamp, duration: frame.duration }, targetUs);
 }
 var DecoderExecutionError = class extends Error {
   constructor(message, cause) {
@@ -32264,9 +32273,7 @@ function frameCoversTimestamp(frame, targetUs) {
   if (!resolveNearestFrameDefault()) {
     return targetUs >= frame.timestamp && targetUs < frame.timestamp + duration;
   }
-  const distance = Math.abs(targetUs - frame.timestamp);
-  const halfDuration = duration / 2;
-  return distance < halfDuration || distance === halfDuration && frame.timestamp <= targetUs;
+  return nearestFrameCovers({ timestamp: frame.timestamp, duration }, targetUs);
 }
 function presentationFrameTiming(frame, decoderTimestampOffsetUs, nextFrameStartUs = null) {
   const offsetUs = Math.max(0, decoderTimestampOffsetUs);
