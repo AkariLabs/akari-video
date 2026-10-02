@@ -43,7 +43,7 @@ export interface CatalogItemMeta {
  * thumbnail→still）。telop テンプレと luts は同日 presets/ へ移設した（コードが id で引く
  * 参照表であり素材カタログではないため）。
  */
-export const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'] as const;
+export const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font', 'textstyle'] as const;
 
 export type CatalogAudioClassification = 'bgm' | 'sfx';
 
@@ -99,6 +99,7 @@ export function deriveCatalogCategoryChips(
 ): CatalogCategoryChip[] {
     const counts = new Map<string, number>();
     for (const item of items) {
+        if (item.category === 'textstyle') continue;
         counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
     }
     const known = CATALOG_CATEGORY_CHIP_DEFINITIONS.map(definition => ({
