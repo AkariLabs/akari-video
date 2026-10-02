@@ -46,7 +46,7 @@ export class AkariWorldViewContribution implements CommandContribution {
         widget.title.label = '地図'; widget.title.caption = 'ワールド地図'; widget.title.iconClass = 'codicon codicon-map';
         widget.setContentOptions({ allowScripts: true });
         const initial = await this.commands.executeCommand<number>('akari.timeline.playhead').catch(() => 0);
-        this.currentTime = Number.isFinite(initial) ? initial : 0;
+        this.currentTime = typeof initial === 'number' && Number.isFinite(initial) ? initial : 0;
         const document = await this.service.readWorldOverviewHtml(root.toString());
         const error = this.scope.worldMap.error ?? document.error;
         widget.setHTML(error ? errorHtml(error) : document.html);
@@ -83,7 +83,7 @@ export class AkariWorldViewContribution implements CommandContribution {
                 const document = await this.service.readWorldOverviewHtml(root.toString());
                 if (document.error) throw new Error(document.error);
                 const playhead = await this.commands.executeCommand<number>('akari.timeline.playhead').catch(() => this.currentTime);
-                if (Number.isFinite(playhead)) this.currentTime = playhead;
+                if (typeof playhead === 'number' && Number.isFinite(playhead)) this.currentTime = playhead;
                 widget.setHTML(document.html);
                 widget.sendMessage({ type: 'akari-world-seek', time: this.currentTime });
             } catch (error) {

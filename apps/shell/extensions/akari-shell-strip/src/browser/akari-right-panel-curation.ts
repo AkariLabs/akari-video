@@ -54,7 +54,7 @@ export class AkariRightPanelCuration implements FrontendApplicationContribution 
         if (this.developerMode.isEnabled) {
             const outline = this.hiddenOutline;
             if (!outline || outline.isDisposed || rightWidgets.includes(outline) || this.restoringOutline) {
-                if (outline?.isDisposed || rightWidgets.includes(outline)) {
+                if (outline?.isDisposed || (outline && rightWidgets.includes(outline))) {
                     this.hiddenOutline = undefined;
                 }
                 return;

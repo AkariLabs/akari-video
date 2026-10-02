@@ -1,9 +1,13 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2021", "module": "commonjs", "moduleResolution": "node",
-    "lib": ["ES2021", "DOM"], "declaration": true, "outDir": "lib", "rootDir": "src",
-    "experimentalDecorators": true, "emitDecoratorMetadata": true, "skipLibCheck": true, "strict": false
+    "outDir": "lib",
+    "rootDir": "src"
   },
   "include": ["src"],
-  "references": [{ "path": "../akari-theme" }]
+  "references": [
+    {
+      "path": "../akari-theme"
+    }
+  ]
 }
