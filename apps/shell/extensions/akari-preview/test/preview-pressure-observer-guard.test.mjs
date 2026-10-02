@@ -84,7 +84,7 @@ test('neutralizePressureObserver は純粋関数としても同じ結論を返�
 
 test('ガードはどの外部スクリプトよりも先に、権限を広げずに入る', () => {
     const html = prepareHtmlSource();
-    const guardAt = html.indexOf('this.previewDiagnosticsGuardScript()');
+    const guardAt = html.indexOf('previewDiagnosticsGuardScript()');
     assert.ok(guardAt > 0, 'prepareHtml がガードを注入していない');
     const cspAt = html.indexOf('Content-Security-Policy');
     assert.ok(cspAt > 0 && cspAt < guardAt, 'ガードは CSP の直後（head の先頭）に置く');
@@ -92,7 +92,7 @@ test('ガードはどの外部スクリプトよりも先に、権限を広げ�
         'this.externalScriptTag(assets.threeJavaScriptUrl)',
         'this.externalScriptTag(assets.runtimeJavaScriptUrl)',
         'this.externalScriptTag(assets.webviewKernelJavaScriptUrl)',
-        'this.hostAdapterScript()',
+        'hostAdapterScript()',
         // frame-engine のバンドル（WebAV 同梱）の挿入位置。定義位置ではなく使用位置を見る。
         '${frameEngineScripts}<script>'
     ]) {

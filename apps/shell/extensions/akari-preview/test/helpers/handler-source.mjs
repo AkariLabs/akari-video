@@ -2,38 +2,57 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// 読み先リスト。F-49/F-50 が新モジュールを作ったら、ここに 1 行足すだけにする（今日は handler 1 本）。
-export const HANDLER_SOURCE_FILES = ['src/browser/akari-preview-open-handler.ts'];
+// 読み先リスト。後続の分割では対象モジュールをここに追加する。
+export const HANDLER_SOURCE_FILES = [
+  'src/browser/akari-preview-open-handler.ts',
+  'src/browser/preview-script-diagnostics.ts',
+  'src/browser/preview-script-frame-engine-watchdog.ts',
+  'src/browser/preview-script-frame-engine-bootstrap.ts',
+  'src/browser/preview-script-host-adapter.ts',
+  'src/browser/preview-script-bootstrap.ts',
+];
+export const HANDLER_COMPILED_FILES = HANDLER_SOURCE_FILES.map(relative => relative.replace(/^src\//u, 'lib/').replace(/\.ts$/u, '.js'));
 
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 let cachedSource;
+let cachedCompiled;
 
-export function readHandlerSource() {
-  if (cachedSource !== undefined) return cachedSource;
-  const source = HANDLER_SOURCE_FILES.map(relative => {
+function readFiles(files, kind, marker) {
+  const content = files.map(relative => {
     const path = join(extensionRoot, relative);
     try {
       return readFileSync(path, 'utf8');
     } catch (error) {
-      throw new Error(`Cannot read handler source ${path}: ${error.message}`, { cause: error });
+      throw new Error(`Cannot read handler ${kind} ${path}: ${error.message}`, { cause: error });
     }
   }).join('\n');
-  if (!source || !source.includes('class AkariPreviewOpenHandler')) {
-    throw new Error(`Invalid handler source: ${HANDLER_SOURCE_FILES.join(', ')}`);
+  if (!content || !content.includes(marker)) {
+    throw new Error(`Invalid handler ${kind}: ${files.join(', ')}`);
   }
-  cachedSource = source;
+  return content;
+}
+
+export function readHandlerSource() {
+  if (cachedSource !== undefined) return cachedSource;
+  cachedSource = readFiles(HANDLER_SOURCE_FILES, 'source', 'class AkariPreviewOpenHandler');
   return cachedSource;
+}
+
+export function readHandlerCompiled() {
+  if (cachedCompiled !== undefined) return cachedCompiled;
+  cachedCompiled = readFiles(HANDLER_COMPILED_FILES, 'compiled', 'AkariPreviewOpenHandler');
+  return cachedCompiled;
 }
 
 export function methodBody(name, { source = readHandlerSource() } = {}) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const declaration = new RegExp(`^    (?:(?:protected|private|public|async|static)\\s+)*${escaped}\\s*\\(`, 'gm');
+  const declaration = new RegExp(`^(?:    (?:(?:protected|private|public|async|static)\\s+)*|export function )${escaped}\\s*\\(`, 'gm');
   const matches = [...source.matchAll(declaration)];
   if (matches.length !== 1) {
     throw new Error(`Expected one handler method ${name}; found ${matches.length}`);
   }
   const start = matches[0].index;
-  const close = /^    }(?=\r?$)/gm;
+  const close = matches[0][0].startsWith('export function ') ? /^}(?=\r?$)/gm : /^    }(?=\r?$)/gm;
   close.lastIndex = start + matches[0][0].length;
   const ending = close.exec(source);
   if (!ending) throw new Error(`Cannot find end of handler method ${name}`);

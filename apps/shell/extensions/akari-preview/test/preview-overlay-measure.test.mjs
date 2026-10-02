@@ -204,12 +204,14 @@ test('注入関数の本体はモジュール外の関数名に依存しない',
 
 test('別 script の返答口だけを window 経由で呼ぶ', async () => {
     const text = readHandlerSource();
-    assert.match(text, /<script>\$\{this\.hostAdapterScript\(\)\}<\/script>/u);
-    assert.match(text, /<script>\$\{this\.previewBootstrapScript\(\)\}<\/script>/u);
+    assert.match(text, /<script>\$\{hostAdapterScript\(\)\}<\/script>/u);
+    assert.match(text, /<script>\$\{previewBootstrapScript\(\)\}<\/script>/u);
     const ast = ts.createSourceFile('preview.ts', text, ts.ScriptTarget.Latest, true);
-    const owner = ast.statements.find(node => ts.isClassDeclaration(node)
-        && node.members.some(member => member.name?.getText(ast) === 'hostAdapterScript'));
-    const method = name => owner.members.find(member => member.name?.getText(ast) === name).getText(ast);
+    const method = name => {
+        const declaration = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.getText(ast) === name);
+        assert.ok(declaration, name);
+        return declaration.getText(ast);
+    };
     const adapter = method('hostAdapterScript');
     const bootstrap = method('previewBootstrapScript');
     assert.match(adapter, /const vscode = acquireVsCodeApi\(\);/u);

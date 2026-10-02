@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
-import { readHandlerSource } from './helpers/handler-source.mjs';
+import { readHandlerSource, methodBody } from './helpers/handler-source.mjs';
 
 const source = readHandlerSource();
 
 test('caption tools reach the host through a bridge defined in the adapter scope', () => {
-    const adapterStart = source.indexOf('protected hostAdapterScript(): string');
-    const bootstrapStart = source.indexOf('protected previewBootstrapScript(): string');
-    const adapter = source.slice(adapterStart, bootstrapStart);
-    const bootstrap = source.slice(bootstrapStart);
+    const adapterStart = source.indexOf('export function hostAdapterScript(): string');
+    const bootstrapStart = source.indexOf('export function previewBootstrapScript(): string');
+    const adapter = methodBody('hostAdapterScript');
+    const bootstrap = methodBody('previewBootstrapScript');
     const bridgeStart = adapter.indexOf('window.akari.requestCaptionInspector = field =>');
     const bridgeEnd = adapter.indexOf('};', bridgeStart) + 2;
     const toolStart = bootstrap.indexOf('const requestCaptionInspector = field =>');

@@ -24,7 +24,7 @@ const handlerFile = ts.createSourceFile(handlerPath, handlerSource, ts.ScriptTar
 export function methodTemplateSource(name) {
     let found;
     const visit = node => {
-        if (ts.isMethodDeclaration(node) && node.name && ts.isIdentifier(node.name) && node.name.text === name) {
+        if ((ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) && node.name && ts.isIdentifier(node.name) && node.name.text === name) {
             const body = node.body;
             if (body) {
                 ts.forEachChild(body, child => {

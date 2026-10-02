@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -14,10 +15,7 @@ test('プレビューの cut ID 選択がタイムライン選択と inspector s
     assert.match(widget, /handleCutSelection\(editUri: string, cutId: string \| null\)/);
     assert.match(widget, /const index = this\.cutItemIds\.indexOf\(cutId\)/);
     assert.match(widget, /this\.applySelection\(\{ kind: 'cut', index \}, false\)/);
-    const previewSource = readFileSync(
-        join(here, '..', '..', 'akari-preview', 'src', 'browser', 'akari-preview-open-handler.ts'),
-        'utf8'
-    );
+    const previewSource = readHandlerSource();
     assert.match(
         previewSource,
         /if \(cutSelected\) \{\s*updateCutSelectBox\(\);\s*if \(report\) window\.akari\.reportCutSelection\(cutSelectionVideo\(\)\.dataset\.akariCutId \|\| null\)/

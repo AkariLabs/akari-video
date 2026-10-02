@@ -1,19 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { readHandlerSource, methodBody, sliceBetween } from './helpers/handler-source.mjs';
+import { HANDLER_SOURCE_FILES, HANDLER_COMPILED_FILES, readHandlerSource, readHandlerCompiled, methodBody, sliceBetween } from './helpers/handler-source.mjs';
 
 test('handler source is byte-for-byte the original source', () => {
-  const original = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const original = HANDLER_SOURCE_FILES.map(relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')).join('\n');
   assert.equal(readHandlerSource(), original);
 });
 
 test('methodBody extracts a real method and rejects a missing method', () => {
   const source = readHandlerSource();
   const body = methodBody('hostAdapterScript');
-  assert.match(body, /^    protected hostAdapterScript\(\): string/u);
+  assert.match(body, /^export function hostAdapterScript\(\): string/u);
   assert.ok(source.includes(body));
   assert.throws(() => methodBody('missingHandlerMethod'), /missingHandlerMethod/u);
+});
+
+test('all extracted scripts and compiled files are present and nonempty', () => {
+  const names = ['previewDiagnosticsGuardScript', 'previewDiagnosticsTailScript', 'frameEngineWatchdogScript', 'frameEngineBootstrapScript', 'hostAdapterScript', 'previewBootstrapScript'];
+  for (const name of names) {
+    const body = methodBody(name);
+    assert.match(body, new RegExp(`^export function ${name}\\(\\): string`, 'u'));
+    assert.match(body, /\n\}$/u);
+    assert.ok(body.length > `export function ${name}(): string {\n}`.length);
+  }
+  for (const relative of [...HANDLER_SOURCE_FILES, ...HANDLER_COMPILED_FILES]) {
+    assert.ok(readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8').length > 0, relative);
+  }
+  assert.match(readHandlerCompiled(), /function hostAdapterScript\(\)/u);
 });
 
 test('sliceBetween matches the original range and rejects missing or reversed anchors', () => {

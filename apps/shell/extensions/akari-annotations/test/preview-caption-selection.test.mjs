@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -16,9 +17,6 @@ test('preview caption ID selection reaches the caption inspector snapshot', () =
     assert.match(widget, /kind: 'caption', id: caption\.id, text: caption\.text/);
     assert.match(widget, /sourceStart: caption\.start, sourceEnd: caption\.end/);
     assert.match(widget, /effectiveTextStyle/);
-    const preview = readFileSync(
-        join(here, '..', '..', 'akari-preview', 'src', 'browser', 'akari-preview-open-handler.ts'),
-        'utf8'
-    );
+    const preview = readHandlerSource();
     assert.match(preview, /if \(captionId === selectedCaptionId\) \{\s*updateCaptionSelectBox\(\);\s*if \(report\) window\.akari\.reportCaptionSelection\(selectedCaptionId\)/);
 });

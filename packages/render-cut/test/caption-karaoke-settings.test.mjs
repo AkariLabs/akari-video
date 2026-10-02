@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../../apps/shell/extensions/akari-preview/test/helpers/handler-source.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderStyledCaptionFragment, captionTextStyleVars, generateCaptionOverlays } from '../src/captions.mjs';
@@ -56,7 +57,7 @@ test('default karaoke settings merge with a cue override before export', () => {
 });
 
 test('shell preview and Web UI divide graphemes at the same delays as render-cut', () => {
-  const shell = readFileSync(new URL('../../../apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const shell = readHandlerSource();
   const shellFunction = shell.slice(shell.indexOf('const renderCaptionToken = ('),
     shell.indexOf('// Mirrors render-cut/src/captions.mjs buildCaptionAnimation'));
   const shellToken = new Function('escapeCaptionHtml', 'formatCaptionSeconds', 'findMatchingEmphasis',

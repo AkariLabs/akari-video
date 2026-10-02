@@ -6,9 +6,9 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const source = readHandlerSource();
 const injected = { resolveLayerDeclaredSize, layerDeclaredGeometryHitAt, previewPhotoSourcePoint, frontmostPreviewHit };
-const bootstrapStart = source.indexOf('    protected previewBootstrapScript(): string {');
+const bootstrapStart = source.indexOf('export function previewBootstrapScript(): string {');
 assert.notEqual(bootstrapStart, -1);
-const bootstrapEnd = source.indexOf('\n    }', bootstrapStart);
+const bootstrapEnd = source.indexOf('\n}', bootstrapStart);
 assert.ok(bootstrapEnd > bootstrapStart);
 const bootstrapSource = source.slice(bootstrapStart, bootstrapEnd);
 function expandInjectedFunctions(text) {

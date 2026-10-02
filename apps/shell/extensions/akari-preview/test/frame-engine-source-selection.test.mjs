@@ -1,13 +1,11 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const compiled = readFileSync(
-  path.resolve(import.meta.dirname, '../lib/browser/akari-preview-open-handler.js'),
-  'utf8',
-);
+const compiled = readHandlerCompiled();
 
 test('shell frame-engine state and bootstrap include capability-based source selection', () => {
   for (const token of [
@@ -31,7 +29,9 @@ test('shell frame-engine state and bootstrap include capability-based source sel
 });
 
 function helper(name) {
-  const start = compiled.indexOf(`const ${name} = `, compiled.lastIndexOf('frameEngineBootstrapScript()'));
+  const bootstrapStart = compiled.lastIndexOf('function frameEngineBootstrapScript()');
+  assert.notEqual(bootstrapStart, -1);
+  const start = compiled.indexOf(`const ${name} = `, bootstrapStart);
   assert.ok(start >= 0, name);
   if (name === 'sameCodecSupport') return compiled.slice(start, compiled.indexOf(';', start) + 1);
   const end = compiled.indexOf('\n                };', start);

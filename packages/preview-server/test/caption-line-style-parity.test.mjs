@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../../apps/shell/extensions/akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -33,10 +34,7 @@ const METRIC_KEYS = [
 ];
 
 test('12 presets expose the same authored line-style variables on all four surfaces', async () => {
-  const shellSource = await readFile(join(
-    repositoryRoot,
-    'apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts',
-  ), 'utf8');
+  const shellSource = await readHandlerSource();
   const shellCss = extractShellPlainCaptionCss(shellSource);
   assert.match(shellCss, /^\.akari-caption\{/u);
   assert.match(shellCss, /\.akari-caption__plate\{/u);
@@ -90,10 +88,7 @@ test('12 line presets keep render, shell, Web UI, and display_policy styles in p
   }
   try {
     const appSource = await readFile(join(repositoryRoot, 'packages/preview-server/public/app.js'), 'utf8');
-    const shellSource = await readFile(join(
-      repositoryRoot,
-      'apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts',
-    ), 'utf8');
+    const shellSource = await readHandlerSource();
     const appCss = appSource.match(/function injectCaptionStyles\(\)[\s\S]*?style\.textContent = `([\s\S]*?)`;/u)?.[1];
     const shellCss = extractShellPlainCaptionCss(shellSource);
     assert.ok(appCss, 'Web UI caption CSS must be extractable from injectCaptionStyles');
@@ -194,8 +189,8 @@ function legacyFragment(text, css) {
 }
 
 function extractShellPlainCaptionCss(source) {
-  const start = source.indexOf('const renderPlainCaptionFragment = caption =>');
-  const legacyReturn = source.indexOf('return \'<div class="akari-caption"><style>\'', start);
+  const start = source.indexOf('const renderPlainCaptionFragment = (caption, captionAnimation = null) =>');
+  const legacyReturn = source.indexOf("+ '.akari-caption{position:absolute", start);
   const end = source.indexOf('+ blockCss', legacyReturn);
   if (start < 0 || legacyReturn < 0 || end < 0) return '';
   const literals = source.slice(legacyReturn, end).matchAll(/\+ ('(?:\\.|[^'\\])*')/gu);

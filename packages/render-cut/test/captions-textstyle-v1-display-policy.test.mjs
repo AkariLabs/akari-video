@@ -1,3 +1,4 @@
+import { readHandlerSource } from '../../../apps/shell/extensions/akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -57,8 +58,7 @@ function documentFor(html, vars) {
 }
 
 function shellLayerCode() {
-  const source = readFileSync(join(root,
-    'apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts'), 'utf8');
+  const source = readHandlerSource();
   const begin = source.indexOf('const applyRichCaptionLayers =');
   const end = source.indexOf('const captionHasScaledRun =', begin);
   assert.ok(begin > 0 && end > begin);

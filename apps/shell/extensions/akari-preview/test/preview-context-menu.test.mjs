@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -7,13 +8,13 @@ import { buildPreviewContextMenuMessage } from '../lib/common/preview-context-me
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
-const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
+const compiled = readHandlerCompiled();
 const ast = ts.createSourceFile('akari-preview-open-handler.js', compiled,
     ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
 
 const methods = new Map();
 function visit(node) {
-    if (ts.isMethodDeclaration(node)) methods.set(node.name.getText(ast), node.getText(ast));
+    if ((ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) && node.name) methods.set(node.name.getText(ast), node.getText(ast));
     ts.forEachChild(node, visit);
 }
 visit(ast);
@@ -23,7 +24,7 @@ const prepareHtmlMethod = methods.get('prepareHtml');
 assert.ok(hostAdapterMethod);
 assert.ok(prepareHtmlMethod);
 
-const hostAdapterScript = vm.runInNewContext(`({ ${hostAdapterMethod} }).hostAdapterScript`, {
+const hostAdapterScript = vm.runInNewContext(`(() => { ${hostAdapterMethod}; return hostAdapterScript; })()`, {
     preview_playback_rate_1: require('../lib/common/preview-playback-rate.js'),
     preview_context_menu_1: require('../lib/common/preview-context-menu.js'),
     layer_perspective_visual_1: require('../lib/common/layer-perspective-visual.js'),
@@ -58,10 +59,10 @@ test('generated host adapter embeds the context menu payload builder function bo
 });
 
 test('compiled prepareHtml embeds the shared host adapter independently of frame-engine scripts', () => {
-    assert.equal(prepareHtmlMethod.split('this.hostAdapterScript()').length - 1, 1);
+    assert.equal(prepareHtmlMethod.split('preview_script_host_adapter_1.hostAdapterScript)()').length - 1, 1);
     const conditionalStart = prepareHtmlMethod.indexOf('const frameEngineScripts =');
     const conditionalEnd = prepareHtmlMethod.indexOf('const frameEngineCsp =', conditionalStart);
-    const hostAdapterPosition = prepareHtmlMethod.indexOf('${this.hostAdapterScript()}');
+    const hostAdapterPosition = prepareHtmlMethod.indexOf('${(0, preview_script_host_adapter_1.hostAdapterScript)()}');
     assert.ok(conditionalStart >= 0 && conditionalEnd > conditionalStart);
     assert.ok(hostAdapterPosition > conditionalEnd);
     assert.ok(!prepareHtmlMethod.slice(conditionalStart, conditionalEnd).includes('hostAdapterScript'));
