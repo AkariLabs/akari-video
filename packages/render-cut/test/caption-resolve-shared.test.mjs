@@ -21,7 +21,7 @@ const POLICY = {
 
 const output = { width: 1920, height: 1080, fps: 30 };
 
-// 読点を含み、19 units に収まる本文。旧経路は「、」の直後で必ず割るので 2 行になる。
+// 読点を含み、19 units に収まる本文。display_policy 未宣言なら既定の 20 字上限を超え 2 行になる。
 const COMMA_TEXT = "実際に動くのは、入力8B・出力16Bだけ。";
 
 const captionsRoot = (extra = {}) => ({

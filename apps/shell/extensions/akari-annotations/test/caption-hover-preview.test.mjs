@@ -123,11 +123,15 @@ for (const [width, height, innerWidth, innerHeight, expectedWidth, expectedHeigh
     });
 }
 
-test('改行・句読点・縦横の文字数上限で本文を折り返す', () => {
+test('明示改行・句点・上限超過時の読点と文字数上限で本文を折り返す', () => {
     const text = 'ABCDEFGHIJABCDEFGHIJABCDE';
     assert.deepEqual(render({ text }).plate.children.map(line => line.textContent), ['ABCDEFGHIJABCDEFGHIJ', 'ABCDE']);
     assert.deepEqual(render({ text, width: 1080, height: 1920 }).plate.children.map(line => line.textContent),
         ['ABCDEFGHIJ', 'ABCDEFGHIJ', 'ABCDE']);
     assert.deepEqual(render({ text: 'はい、次です。\r\n\n末尾' }).plate.children.map(line => line.textContent),
-        ['はい、', '次です。', '', '末尾']);
+        ['はい、次です。', '', '末尾']);
+    assert.deepEqual(render({ text: 'はい。次です。' }).plate.children.map(line => line.textContent),
+        ['はい。', '次です。']);
+    assert.deepEqual(render({ text: 'あいう、かきく、けこさしすせそ', width: 1080, height: 1920 }).plate.children.map(line => line.textContent),
+        ['あいう、かきく、', 'けこさしすせそ']);
 });
