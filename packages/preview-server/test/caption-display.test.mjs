@@ -4,11 +4,20 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { replaceCaptionStyleVariables } from '../public/caption-style.js';
+import { replaceCaptionStyleVariables, CAPTION_RICH_LAYER_CSS } from '../public/caption-style.js';
 import { resolveCaptionApiPayload } from '../src/caption-api.mjs';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(packageRoot, '../..');
+
+test('preview rich layer CSS is byte-identical to the edit-store renderer contract', async () => {
+  const source = await readFile(join(repositoryRoot, 'packages/edit-store/src/caption-display.ts'), 'utf8');
+  const publicSource = await readFile(join(packageRoot, 'public/caption-style.js'), 'utf8');
+  const line = source.split('\n').find(value => value.startsWith('export const CAPTION_RICH_LAYER_CSS = '));
+  const publicLine = publicSource.split('\n').find(value => value.startsWith('export const CAPTION_RICH_LAYER_CSS = '));
+  assert.ok(CAPTION_RICH_LAYER_CSS.length > 100);
+  assert.equal(publicLine?.trimEnd(), line?.trimEnd());
+});
 const styleParity = JSON.parse(await readFile(join(
   repositoryRoot, 'packages/edit-store/test/fixtures/caption-style-validation-parity.json'
 ), 'utf8'));
@@ -129,6 +138,8 @@ test('managed CSS variables are replaced between resolved cues without style lea
     '--caption-left': '261px',
     '--caption-width': '1120px',
     '--caption-bottom': '29px',
+    '--caption-rich-fill-image': 'linear-gradient(red, blue)',
+    '--caption-tok-rich-fill-position': '-42px 0',
   });
   replaceCaptionStyleVariables(style, { '--caption-color': '#00ff00' });
   assert.deepEqual(Object.fromEntries(values), { '--caption-color': '#00ff00' });
