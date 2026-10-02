@@ -27,7 +27,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
-import { CAPTION_SAMPLE_TEXT, TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
+import { CAPTION_SAMPLE_TEXT, registerLibraryTextstylePresets, TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import {
     AKARI_BORDER,
     AKARI_FAINT,
@@ -2235,21 +2235,24 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
-        const [view, presetShowcase, usage, myStyles, favorites, transitionPreviews] = await Promise.all([
+        const [view, presetShowcase, libraryTextstyles, usage, myStyles, favorites, transitionPreviews] = await Promise.all([
             this.projectService.getAssetCatalogView(preferenceRoot),
             this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
+            this.projectService.getLibraryTextstylePresets().catch(() => []),
             this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>)),
             this.projectService.listMyStyles().catch(() => [] as MyStyle[]),
             this.projectService.getLibraryFavorites().catch(() => [] as string[]),
             this.projectService.getTransitionPreviewUrls().catch(() => ({} as Record<string, { preview: string; strip: string }>))
         ]);
         this.libraryFavorites = new Set(favorites);
-        this.assetCatalogItems = view.items.map(item => ({ ...item, favorite: this.libraryFavorites.has(item.key),
+        this.assetCatalogItems = view.items.filter(item => item.category !== 'textstyle')
+            .map(item => ({ ...item, favorite: this.libraryFavorites.has(item.key),
             usageCount: usage[item.key]?.count ?? 0, lastUsedAt: usage[item.key]?.lastUsedAt }));
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
         this.catalogEntitlementsStatus = view.entitlementsStatus;
         this.presetShowcase = presetShowcase;
+        registerLibraryTextstylePresets(libraryTextstyles);
         this.transitionPreviewUrls = transitionPreviews;
         this.myStyles = myStyles;
         this.catalogLoading = false;
@@ -2319,7 +2322,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return {
             valid: false,
             reason: '選んだフォルダーにカタログの内容が見つかりません'
-                + '（scene3d・overlay・still・audio・broll・font のいずれかのフォルダー、または INDEX.md が必要です）。'
+                + '（scene3d・overlay・still・audio・broll・font・textstyle のいずれかのフォルダー、または INDEX.md が必要です）。'
         };
     }
 
@@ -5068,8 +5071,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 'data-akari-catalog-preset-item': key,
                 'data-akari-catalog-item': textstyle ? `textstyle/${item.id}` : undefined,
                 'data-akari-style-card': textstyle ? item.id : undefined,
+                'data-akari-preset-origin': item.origin === 'library' ? 'library' : undefined,
                 'data-akari-catalog-preset-list-row': layout === 'list' ? true : undefined
             }}
+            badge={item.origin === 'library' ? 'ライブラリ' : undefined}
             draggable
             onDragStart={event => this.handleTextStyleDragStart(event, item)}
             onDragEnd={() => this.handleLibraryTransitionDragEnd()}

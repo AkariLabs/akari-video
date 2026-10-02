@@ -5,6 +5,8 @@ import { AssetSite, AssetSiteListing, AssetSiteRecommendation, siteUrlAllowed } 
 import { libraryImportScript, libraryPacksScript, libraryImportWaveformScript } from './library-import-scripts';
 import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
 import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
+import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
+import type { LibraryTextstylePreset } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
 import { interpretCaptionsResult } from '../common/captions-result';
 import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
@@ -69,7 +71,7 @@ import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-read
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
-import { parsePresetShowcaseJsonl } from '../common/preset-showcase';
+import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import { shelfPreviewPath } from '../common/library-shelf-visuals';
 import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
 import { parseShapeShelfJsonl, ShapeShelfPreset } from '../common/shape-shelf';
@@ -377,7 +379,14 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             this.loadPresetShowcaseIndex('textanim'),
             this.loadPresetShowcaseIndex('textstyle')
         ]);
-        return { lut, textanim, textstyle };
+        const library = loadTextstyleCatalogSync({ env: process.env }).library;
+        return { lut, textanim, textstyle: appendLibraryTextstyleShowcaseItems(textstyle, library,
+            item => item.previewPath && existsSync(item.previewPath)
+                ? pathToFileURL(item.previewPath).toString() : undefined) };
+    }
+
+    async getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]> {
+        return loadTextstyleCatalogSync({ env: process.env }).library;
     }
 
     async getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>> {
