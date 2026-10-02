@@ -735,6 +735,15 @@
       }
       return frame;
     }
+    function isTelopOverlay(container) {
+      if (!container) return false;
+      if (container.dataset.akariTelop === "true") return true;
+      const overlay = window.akari.state?.summary?.overlays?.find(
+        (item) => item.id === container.dataset.overlayId
+      );
+      const source = overlay?.sourcePath || container.dataset.sourcePath || container.dataset.akariSourcePath || "";
+      return /(?:^|[\\/])overlay[\\/]telop-[^\\/]+(?:[\\/]|$)/i.test(source) || /^telop-/.test(container.dataset.overlayId || "");
+    }
     function refreshSelectionFrame() {
       if (collectiveSelection()) {
         refreshGroupFrame();
@@ -755,6 +764,7 @@
       selectionFrame.classList.toggle("is-busy", Boolean(activeDrag || activeResize || activeRotate || activeLine));
       selectionFrame.classList.toggle("is-moving", Boolean(activeDrag || activeRotate));
       selectionFrame.classList.toggle("is-text", selectedOverlay.dataset.role === "text");
+      selectionFrame.classList.toggle("is-telop", isTelopOverlay(selectedOverlay));
       selectionFrame.classList.toggle("is-line", selectedOverlay.dataset.role === "shape-line");
       for (const endpoint of selectionFrame.querySelectorAll(".is-line-start, .is-line-end")) {
         endpoint.hidden = selectedOverlay.dataset.role !== "shape-line";
@@ -1970,6 +1980,7 @@
       return record;
     }
     function beginResize(event, container, handleEl) {
+      if (isTelopOverlay(container) && handleEdge(handleEl)) return;
       if (activeEdit) void commitEdit();
       const visualRect = fragmentBounds(container) ?? container.getBoundingClientRect();
       const corner = handleCorner(handleEl);
@@ -2019,7 +2030,7 @@
       handleHint = document.createElement("div");
       handleHint.className = "akari-interaction-hint";
       handleHint.setAttribute("data-akari-interaction", "handle-hint");
-      handleHint.textContent = edge ? container.dataset.role === "text" ? "\u6298\u308A\u8FD4\u3057\u5E45" : "\u5F62\u3092\u4F38\u3070\u3059" : "\u5927\u304D\u3055";
+      handleHint.textContent = isTelopOverlay(container) ? "\u30B5\u30A4\u30BA" : edge ? container.dataset.role === "text" ? "\u6298\u308A\u8FD4\u3057\u5E45" : "\u5F62\u3092\u4F38\u3070\u3059" : "\u5927\u304D\u3055";
       handleHint.style.left = `${event.clientX + 12}px`;
       handleHint.style.top = `${event.clientY + 12}px`;
       document.body.appendChild(handleHint);
@@ -2317,6 +2328,12 @@
       return solved.scale;
     }
     function applyResizeTransformAt(resize, scaleValue) {
+      if (isTelopOverlay(resize.container)) {
+        const uniform = clampScale(Math.sqrt(resize.startScaleX * resize.startScaleY) * scaleValue / resize.startScale);
+        applyAxisResize(resize, uniform, uniform);
+        resize.container.style.setProperty("--scale", String(uniform));
+        return true;
+      }
       const translate = anchorPreservingTranslate({
         startX: resize.startX,
         startY: resize.startY,
@@ -2398,6 +2415,7 @@
       return best?.scale ?? (axis === "x" ? scaleX : scaleY);
     }
     function updateAxisResize(resize, event, pointer) {
+      if (isTelopOverlay(resize.container)) return;
       const cosine = Math.cos(resize.rotation), sine = Math.sin(resize.rotation);
       const dx = pointer.x + resize.pointerOffsetX - resize.anchorStageX;
       const dy = pointer.y + resize.pointerOffsetY - resize.anchorStageY;
@@ -2437,13 +2455,16 @@
           scaleX: resize.startScaleX,
           scaleY: resize.startScaleY
         });
-        applyAxisResize(resize, scales.scaleX, scales.scaleY);
-        resize.moved = Math.abs(scales.scaleX - resize.startScaleX) > 1e-6 || Math.abs(scales.scaleY - resize.startScaleY) > 1e-6;
+        const uniform = isTelopOverlay(resize.container) ? Math.sqrt(scales.scaleX * scales.scaleY) : null;
+        const nextX = uniform ?? scales.scaleX;
+        const nextY = uniform ?? scales.scaleY;
+        applyAxisResize(resize, nextX, nextY);
+        resize.moved = Math.abs(nextX - resize.startScaleX) > 1e-6 || Math.abs(nextY - resize.startScaleY) > 1e-6;
         hideSnapGuides();
         if (event.cancelable) event.preventDefault();
         return;
       }
-      if (!resize.group && resize.edge) {
+      if (!resize.group && resize.edge && !isTelopOverlay(resize.container)) {
         updateAxisResize(resize, event, pointer);
         return;
       }
