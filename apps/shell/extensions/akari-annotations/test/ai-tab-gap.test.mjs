@@ -8,11 +8,12 @@ import { tabsForKind, initialTabFor, assignSectionToTab } from '../lib/browser/i
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 test('gap button CSS excludes AI tiles from every matching rule', () => {
-  const start = source.indexOf('.akari-inspector-generation-gap {');
-  const end = source.indexOf('.akari-generation-batch {', start);
+  const start = css.indexOf('.akari-inspector-generation-gap {');
+  const end = css.indexOf('.akari-generation-batch {', start);
   assert.ok(start >= 0 && end > start);
-  const gapCss = source.slice(start, end);
+  const gapCss = css.slice(start, end);
   const buttonSelectors = [...gapCss.matchAll(/([^{}]+)\{[^{}]*\}/g)]
     .flatMap(([, selectors]) => selectors.split(',').map(selector => selector.trim()))
     .filter(selector => selector.includes('.akari-inspector-generation-gap') && /\bbutton\b/.test(selector));

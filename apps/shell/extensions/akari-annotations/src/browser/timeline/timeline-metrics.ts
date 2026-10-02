@@ -1,0 +1,9 @@
+export const EDGE_ZONE_PX = 6;
+export const SNAP_GUIDE_COLOR_DEFAULT = '#06b6d4';
+export const RULER_BAND_HEIGHT_PX = 14;
+export const REVIEW_SESSION_LANE_HEIGHT_PX = 18;
+export const STRIP_BACKGROUND = '#1a1d22';
+export const CLIP_HEADER_HEIGHT = 14;
+export const SUBROW_HEIGHT = 22;
+export const TRANSITION_BADGE_WARNING_COLOR = '#f97316';
+export const TRANSITION_DROP_TARGET_SIZE_PX = 36;

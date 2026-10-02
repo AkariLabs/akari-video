@@ -16,6 +16,7 @@ import {
 } from '../lib/browser/inspector/caption-style-effects.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 const contribution = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
 const companionFocus = readFileSync(new URL(
     '../../../../../packages/akari-vibe/live/companion/inspector-focus.mjs', import.meta.url
@@ -109,7 +110,7 @@ test('字幕の全種類と複数選択に同じ五枚のスタイルカード�
     assert.equal(field(plain, 'caption-font-weight').getEditValue(), '700');
     assert.equal(field(plain, 'caption-line-height').getValue(), '1.42（既定）');
     assert.equal(field(plain, 'caption-letter-spacing').getValue(), '0（既定）');
-    assert.match(source, /\.akari-caption-effect-choices\s*\{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
+    assert.match(css, /\.akari-caption-effect-choices\s*\{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
     assert.match(source, /case 'caption':\s+sections = CAPTION_SECTIONS/u);
     assert.match(source, /sections = MULTI_CAPTION_SECTIONS/u);
 });
@@ -202,16 +203,16 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
     }
     assert.match(source, /角丸を最大にすると文字に沿った丸い座布団（カプセル）になる/u);
     assert.match(source, /valueGroup\.append\(number, unit, defaultNote\)/u);
-    assert.match(source, /\.akari-caption-slider-value\s*\{[^}]*display: inline-flex;[^}]*white-space: nowrap;/u);
+    assert.match(css, /\.akari-caption-slider-value\s*\{[^}]*display: inline-flex;[^}]*white-space: nowrap;/u);
 });
 
 test('スライダー数値欄は符号付き小数五文字と上下ボタンを収める幅を持つ', () => {
-    const rule = source.match(/\.akari-inspector-widget \.akari-caption-slider-number input\[type="number"\] \{([^}]+)\}/u)?.[1];
+    const rule = css.match(/\.akari-inspector-widget \.akari-caption-slider-number input\[type="number"\] \{([^}]+)\}/u)?.[1];
     assert.ok(rule);
     const width = Number(rule.match(/width:\s*(\d+)px/u)?.[1]);
     assert.ok(width >= 72, `number input width: ${width}px`);
     assert.match(rule, new RegExp(`flex:\\s*0 0 ${width}px`, 'u'));
-    assert.match(source, /\.akari-caption-slider-number\s*\{[^}]*flex-wrap: wrap;/u);
+    assert.match(css, /\.akari-caption-slider-number\s*\{[^}]*flex-wrap: wrap;/u);
     for (const value of ['2.20', '-0.10', '3.00', '160', '100']) {
         assert.ok(value.length <= 5);
     }

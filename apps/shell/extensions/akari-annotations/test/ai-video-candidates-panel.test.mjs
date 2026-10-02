@@ -108,7 +108,7 @@ test('待ち・生成中の秒数・失敗の理由と再試行行', () => withI
 }));
 
 test('動画候補は 160px のサムネイルと 2 列のコンパクトな行を使う', () => {
-  const css = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
   const row = css.match(/\.akari-inspector-ai-video-candidate\s*\{([^}]*)\}/u)?.[1];
   const thumbnail = css.match(/\.akari-inspector-ai-video-candidate-thumbnail\s*\{([^}]*)\}/u)?.[1];
   assert.match(row, /display:\s*grid/u);

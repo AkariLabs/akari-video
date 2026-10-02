@@ -3,12 +3,15 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import * as geometry from "../lib/common/filmstrip-geometry.js";
+import { CLIP_HEADER_HEIGHT } from "../lib/browser/timeline/timeline-metrics.js";
 
 import {
   WAVEFORM_BAND_MIN_HEIGHT_PX,
   waveformBandLayout,
   waveformBucketsForDuration,
 } from "../lib/common/waveform-band.js";
+
+assert.equal(CLIP_HEADER_HEIGHT, 14);
 
 // Theia 全体を起動せず、コンパイル済みの実描画メソッドへ canvas 境界を注入する。
 const widgetSource = readFileSync(new URL("../lib/browser/akari-annotations-widget.js", import.meta.url), "utf8");
@@ -31,7 +34,7 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
   }
   const window = { devicePixelRatio: 2 };
   const widget = runInNewContext(`({${widgetMethod("updateWaveformCanvas", "segmentLabel")}})`, {
-    window, Path2D: Path, CLIP_HEADER_HEIGHT: 14,
+    window, Path2D: Path, timeline_metrics_1: { CLIP_HEADER_HEIGHT },
     waveform_band_1: { waveformBandLayout }, filmstrip_geometry_1: geometry,
   });
   const identities = new WeakMap();
@@ -98,7 +101,7 @@ test("音声専用レーンはDPRごとのmaster高さと転送元を使いCSS�
     [name, (...args) => calls.push([name, ...args])]));
   const canvas = { style: {}, dataset: {}, getContext: () => context };
   const widget = runInNewContext(`({${widgetMethod("updateAudioWaveformCanvas", "audioWaveformMaster")}})`, {
-    window, CLIP_HEADER_HEIGHT: 14, filmstrip_geometry_1: geometry,
+    window, timeline_metrics_1: { CLIP_HEADER_HEIGHT }, filmstrip_geometry_1: geometry,
   });
   widget.audioWaveformPeakIdentity = () => 1;
   widget.audioWaveformMaster = (key, factory, height) => {

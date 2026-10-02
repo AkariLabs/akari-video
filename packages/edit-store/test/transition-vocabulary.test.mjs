@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { readLintSourceSync } from '../../edit-lint/test/helpers/read-lint-source.mjs';
 
 import {
   TRANSITION_BY_ID,
@@ -56,7 +57,7 @@ test('legacy テキスト手術は正準 29 種をすべて保存し、未知種
 test('非 JSON 消費者は正準表の import を使い手書き enum を持たない', () => {
   const consumers = [
     ['packages/edit-store/src/edit-store.ts', /isTransitionType/u],
-    ['packages/edit-lint/src/edit-lint.mjs', /TRANSITION_TYPE_IDS/u],
+    ['packages/edit-lint/src (concatenated)', /TRANSITION_TYPE_IDS/u],
     ['packages/schemas/bin/validate-edit.mjs', /TRANSITION_TYPE_IDS/u],
     ['apps/shell/extensions/akari-preview/src/common/edit-summary-fields.ts', /isTransitionType/u],
     ['apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts', /TRANSITION_VOCABULARY/u],
@@ -64,6 +65,9 @@ test('非 JSON 消費者は正準表の import を使い手書き enum を持た
     ['apps/shell/extensions/akari-annotations/src/common/akari-annotations-protocol.ts', /TransitionType/u],
   ];
   for (const [relativePath, expected] of consumers) {
-    assert.match(readFileSync(join(repoRoot, relativePath), 'utf8'), expected, relativePath);
+    const source = relativePath === 'packages/edit-lint/src (concatenated)'
+      ? readLintSourceSync()
+      : readFileSync(join(repoRoot, relativePath), 'utf8');
+    assert.match(source, expected, relativePath);
   }
 });

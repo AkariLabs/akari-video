@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { createNumberField } from '../lib/browser/inspector/number-field.js';
@@ -7,6 +8,8 @@ import { objectKeyframeValue } from '../lib/browser/timeline/object-keyframe-val
 import { keyframeRowPropertyOf, keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 import { setV2Keyframe, removeV2Keyframe } from '../lib/common/edit-v2-mutations.js';
 import { inspectorSource, timelineMethod, perspectiveFields, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+const inspectorCssSource = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 
 const crop = { x: 0, y: 0, w: 1, h: 1 };
 const perspective = { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] };
@@ -227,6 +230,6 @@ test('only seatless rows collapse the fifth grid column', () => dom(() => {
     const field = createNumberField({ name: 'speed', label: 'Speed', value: 1, step: 0.1, onCommit: async () => true });
     assert.equal(field.children.length, 4);
     assert.equal(field.className.includes('akari-inspector-number-field-seatless'), true);
-    assert.match(inspectorSource, /\.akari-inspector-number-field\s*\{[^}]*grid-template-columns: 18px minmax\(0, 1fr\) auto 12px 80px;/u);
-    assert.match(inspectorSource, /\.akari-inspector-number-field-seatless\s*\{\s*grid-template-columns: 18px minmax\(0, 1fr\) auto 12px;/u);
+    assert.match(inspectorCssSource, /\.akari-inspector-number-field\s*\{[^}]*grid-template-columns: 18px minmax\(0, 1fr\) auto 12px 80px;/u);
+    assert.match(inspectorCssSource, /\.akari-inspector-number-field-seatless\s*\{\s*grid-template-columns: 18px minmax\(0, 1fr\) auto 12px;/u);
 }));
