@@ -35,8 +35,5 @@
 /plugins-unpacked/
 /plugins-empty/
 
-# scratch project used for S18 startup-failsafe test
-/dev-fixtures/**/node_modules/
-
 # OS
 .DS_Store

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isMainModule } from "../src/common/main-module.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const VALIDATOR = path.resolve(HERE, "../../schemas/bin/validate-world-map.mjs");
@@ -82,7 +82,7 @@ function parseMoveStopArgs(args) {
   return { ok: true, project, stopId, c, json };
 }
 
-if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+if (isMainModule(import.meta.url)) {
   const result = await runWorldCommand(process.argv.slice(2));
   process.exitCode = result.exitCode;
 }

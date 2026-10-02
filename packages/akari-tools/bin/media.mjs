@@ -1,15 +1,9 @@
 #!/usr/bin/env node
 
-import { readFileSync, realpathSync } from "node:fs";
-import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
-const writerVersion = (() => {
-  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
-  catch { return undefined; }
-})();
 
+import { isMainModule } from "../src/common/main-module.mjs";
+import { stampSavedBy } from "../src/common/writer-stamp.mjs";
 import { filmstripMedia } from "../src/media/filmstrip.mjs";
 import { grabMedia } from "../src/media/grab.mjs";
 import { parseTime } from "../src/media/common.mjs";
@@ -53,7 +47,7 @@ export async function runMediaCli(argv, options = {}) {
     if (subcommand === "audio-level") {
       const result = await audioLevelProject(target, commandOptions);
       if (commandOptions.write && result.rows.some(row => row.written)) {
-        await writeSavedByStamp(resolve(target), writerVersion);
+        await stampSavedBy(resolve(target));
       }
       for (const warning of result.warnings) stderr(warning);
       if (commandOptions.json) stdout(JSON.stringify(result.rows));
@@ -218,15 +212,6 @@ function validateOptionCombinations(subcommand, options) {
   }
 }
 
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = await runMediaCli(process.argv.slice(2));
 }

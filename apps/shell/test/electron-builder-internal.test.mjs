@@ -47,7 +47,7 @@ test('extraResources は akari internal 系 5 本の実行体を同梱する', a
   }
 });
 
-test('akari internal 系 4 本の相対 import 閉包は同梱される場所だけを参照する', async () => {
+test('akari internal 系 5 本の相対 import 閉包は同梱される場所だけを参照する', async () => {
   const pkg = await readShellPackageJson();
   const roots = packagedRoots(pkg.build.extraResources);
   const problems = [];
@@ -98,7 +98,7 @@ test('akari internal 系 4 本の相対 import 閉包は同梱される場所だ
   assert.deepEqual(problems, [], `同梱されない場所を参照する import がある:\n${problems.join('\n')}`);
 });
 
-test('render-when-idle.sh の render-cut 相対参照は同梱後レイアウトで解決できる', async () => {
+test('render-when-idle.mjs の render-cut 相対参照は同梱後レイアウトで解決できる', async () => {
   const pkg = await readShellPackageJson();
   const roots = packagedRoots(pkg.build.extraResources);
   const relative = RENDER_WHEN_IDLE_SCRIPT_RELATIVE.split(path.sep).join('/');
@@ -106,7 +106,7 @@ test('render-when-idle.sh の render-cut 相対参照は同梱後レイアウト
   const source = await readFile(sourcePath, 'utf8');
   const renderCutSpecifier = '../../render-cut/bin/render-cut.mjs';
 
-  assert.match(source, /RENDER_CUT="\$SCRIPT_DIR\/\.\.\/\.\.\/render-cut\/bin\/render-cut\.mjs"/u);
+  assert.match(source, /path\.resolve\(HERE, '\.\.\/\.\.\/render-cut\/bin\/render-cut\.mjs'\)/u);
   const result = resolvePackagedSpecifier(renderCutSpecifier, {
     fromPackagedPath: path.posix.join('resources', relative),
     roots,

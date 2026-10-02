@@ -189,7 +189,7 @@
           "bin/avatar-vrm/find-chrome.mjs",
           "bin/media.mjs",
           "bin/probe-frame.mjs",
-          "bin/render-when-idle.sh",
+          "bin/render-when-idle.mjs",
           "bin/word-book.mjs",
           "bin/world.mjs",
           "src/**/*"

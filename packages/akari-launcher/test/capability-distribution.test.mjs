@@ -6,10 +6,12 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { createIntegrityFixture } from "./helpers/integrity-fixture.mjs";
+import { commandAvailable } from "./helpers/command-availability.mjs";
 
 const REAL_REPO_ROOT = resolve(import.meta.dirname, "../../..");
 
-test("npm prepack keeps only runnable vendored bins and marks omitted capability bins reference-only", async () => {
+test("npm prepack keeps only runnable vendored bins and marks omitted capability bins reference-only", async (t) => {
+  if (!commandAvailable("npm")) { t.skip("npm 不在（配布物の pack 検証には npm が必要）"); return; }
   const temporary = await mkdtemp(join(tmpdir(), "akari-capability-pack-"));
   try {
     const fakeRepo = join(temporary, "repo");
@@ -137,7 +139,8 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
   }
 });
 
-test("npm pack vendors a runnable analysis-report CLI with its adjacent template", async () => {
+test("npm pack vendors a runnable analysis-report CLI with its adjacent template", async (t) => {
+  if (!commandAvailable("npm")) { t.skip("npm 不在（配布物の pack 検証には npm が必要）"); return; }
   const temporary = await mkdtemp(join(tmpdir(), "akari-analysis-report-pack-"));
   try {
     const packageRoot = join(REAL_REPO_ROOT, "packages", "akari-launcher");

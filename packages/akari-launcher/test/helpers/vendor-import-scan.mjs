@@ -4,6 +4,10 @@ import path from 'node:path';
 // These test-only references ship under VENDOR_SOURCES but are not runtime
 // imports. Keep every source file in the scan and pin each exception exactly.
 export const ALLOWED_MISSING = new Map([
+  // This preview generator is a development-only bake script, never a launcher runtime entry.
+  ['presets/luts/bake-previews.mjs: ../transitions/preview-art.mjs', 'development-only preview baker'],
+  // The preview test is shipped as source but is not run by the launcher.
+  ['presets/luts/previews.test.mjs: ../transitions/preview-art.mjs', 'test-only preview import'],
   // This skill test reuses a launcher test file; launcher tests are not vendored.
   ['skills/akari/test/skills-command.test.mjs: ../../../packages/akari-launcher/test/skills-command.test.mjs', 'test-only launcher entry'],
   // These three strings are written into scratch JS files by the test.

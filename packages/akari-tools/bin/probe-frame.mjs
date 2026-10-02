@@ -11,6 +11,12 @@ import { join, resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { resolveFfmpeg } from '../../media-bin/src/index.mjs';
+
+const ffmpegBinary = (() => {
+  try { return { command: resolveFfmpeg() }; }
+  catch (error) { return { error }; }
+})();
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RENDER_CUT_SRC = resolve(HERE, '../../render-cut/src');
@@ -96,7 +102,8 @@ try {
     console.log(out);
     if (flatten) {
       const flat = join(outDir, `t-${t}-on${flatten.replace('#', '')}.png`);
-      execFileSync('ffmpeg', ['-v', 'error',
+      if (Object.hasOwn(ffmpegBinary, 'error')) throw ffmpegBinary.error;
+      execFileSync(ffmpegBinary.command, ['-v', 'error',
         '-f', 'lavfi', '-i', `color=${flatten}:s=${edit.output?.width ?? 1920}x${edit.output?.height ?? 1080}`,
         '-i', out, '-filter_complex', '[0][1]overlay=format=auto', '-frames:v', '1', '-y', flat]);
       console.log(flat);

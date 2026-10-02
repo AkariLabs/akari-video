@@ -39,7 +39,7 @@ function fixtureZip(ctx, {
   if (manifest && !invalid) {
     const manifestPath = path.join(source, 'manifest.json');
     const value = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    if (compatible) value.requires.cli = '>=0.1.0';
+    value.requires.cli = compatible ? '>=0.1.0' : '>=999.0.0';
     value.id = id;
     value.skills[0].name = skillName;
     writeFileSync(manifestPath, `${JSON.stringify(value, null, 2)}\n`);
@@ -107,7 +107,7 @@ test('kit install --from: 素の fixture は cli blocker で symlink を作ら�
   try {
     const result = await runStoreCommand(['install', 'sample-kit', '--from', fixtureZip(ctx)], ctx.options);
     assert.equal(result.exitCode, 1);
-    assert.ok(ctx.lines.some((line) => line.includes('CLI >=0.1.70')));
+    assert.ok(ctx.lines.some((line) => line.includes('CLI >=999.0.0')));
     assert.equal(existsSync(path.join(ctx.home, 'kits', 'plugin', 'skills', 'sample-kit-skill')), false);
     assert.ok(existsSync(path.join(ctx.home, 'assets', 'store', 'sample-kit', 'manifest.json')));
   } finally { ctx.cleanup(); }

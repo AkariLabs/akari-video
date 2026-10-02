@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { runVoiceCommand, checkVoiceRecording, readFalKey, resolveVoiceProfile, VOICE_SCRIPTS } from '../src/voice-command.mjs';
+import { commandAvailable } from './helpers/command-availability.mjs';
 
 function sandbox() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-voice-test-'));
@@ -112,7 +113,11 @@ test('Gemini は 40 秒の正本を先頭 30 秒に制限し、9 秒の正本は
   } finally { box.cleanup(); }
 });
 
-test('Gemini の実 ffmpeg 変換は 40 秒の正本を 30 秒・24 kHz mono 16bit にする', async () => {
+test('Gemini の実 ffmpeg 変換は 40 秒の正本を 30 秒・24 kHz mono 16bit にする', async (t) => {
+  if (!commandAvailable('ffmpeg', ['-version']) || !commandAvailable('ffprobe', ['-version'])) {
+    t.skip('ffmpeg/ffprobe 不在（unit-media 相当の環境でのみ実行）');
+    return;
+  }
   const box = sandbox();
   try {
     const { dir } = writeMeta(box.env, 'person', 'sample', {

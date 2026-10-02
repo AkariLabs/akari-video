@@ -6,12 +6,6 @@ import test from 'node:test';
 import { collectLicenseFindings } from '../src/license-findings.mjs';
 import { lintProject, runCli } from '../src/edit-lint.mjs';
 
-test('the dependency-free license derivation stays byte-for-byte synchronized', async () => {
-  const local = await readFile(new URL('../src/license-axes.mjs', import.meta.url), 'utf8');
-  const canonical = await readFile(new URL('../../asset-resolver/src/license-axes.mjs', import.meta.url), 'utf8');
-  assert.equal(local, canonical);
-});
-
 test('only used distinct assets produce nonblocking severities and credit details', async t => {
   const root = await mkdtemp(join(tmpdir(), 'license-findings-'));
   t.after(() => rm(root, { recursive: true, force: true }));

@@ -9,7 +9,21 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
+import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 
+function captureBinary(resolver) {
+  try { return { command: resolver() }; }
+  catch (error) { return { error }; }
+}
+const ffmpegBinary = captureBinary(resolveFfmpeg);
+const ffprobeBinary = captureBinary(resolveFfprobe);
+
+function commandFor(binary) {
+  if (Object.hasOwn(binary, 'error')) throw binary.error;
+  return binary.command;
+}
+
+function main() {
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
   const i = args.indexOf(`--${name}`);
@@ -62,7 +76,7 @@ if (!trackPath || !existsSync(trackPath)) {
   process.exit(1);
 }
 
-const ffprobe = (a) => execFileSync('ffprobe', a, { encoding: 'utf8' }).trim();
+const ffprobe = (a) => execFileSync(commandFor(ffprobeBinary), a, { encoding: 'utf8' }).trim();
 const duration = Number(ffprobe(['-v', 'error', '-show_entries', 'format=duration',
   '-of', 'default=noprint_wrappers=1:nokey=1', trackPath]));
 if (!Number.isFinite(duration) || duration <= 0) {
@@ -72,7 +86,7 @@ if (!Number.isFinite(duration) || duration <= 0) {
 
 // --- 30fps の RMS エンベロープ（mono 8kHz へ落として十分）
 const FPS = 30, SR = 8000;
-const pcm = execFileSync('ffmpeg',
+const pcm = execFileSync(commandFor(ffmpegBinary),
   ['-v', 'error', '-i', trackPath, '-ac', '1', '-ar', String(SR), '-f', 's16le', '-'],
   { maxBuffer: 1 << 28 });
 const samplesPerFrame = Math.floor(SR / FPS);
@@ -140,3 +154,10 @@ writeFileSync(outPath, JSON.stringify({
   env30,
 }));
 console.log(outPath);
+}
+
+try { main(); }
+catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}

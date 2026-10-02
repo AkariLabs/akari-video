@@ -6,7 +6,7 @@ import { runInternalCommand } from '../src/internal-command.mjs';
 const assets = {
   beatmapScript: '/repo/packages/akari-tools/bin/beatmap.mjs',
   probeFrameScript: '/repo/packages/akari-tools/bin/probe-frame.mjs',
-  renderWhenIdleScript: '/repo/packages/akari-tools/bin/render-when-idle.sh',
+  renderWhenIdleScript: '/repo/packages/akari-tools/bin/render-when-idle.mjs',
   eyeBarScript: '/repo/packages/akari-tools/bin/eye-bar.mjs'
 };
 
@@ -42,9 +42,9 @@ test('akari internal beat-sync-probe-frame: node 子プロセスへ引数を転�
   assert.deepEqual(calls[0], [process.execPath, [assets.probeFrameScript, 'project', '1.5'], { stdio: 'inherit' }]);
 });
 
-test('akari internal beat-sync-render-when-idle: shebang 実行へ引数を転送する', async () => {
+test('akari internal beat-sync-render-when-idle: node 子プロセスへ引数を転送する', async () => {
   const { calls } = await runAndCapture(['beat-sync-render-when-idle', 'project', '--max-load', '2']);
-  assert.deepEqual(calls[0], [assets.renderWhenIdleScript, ['project', '--max-load', '2'], { stdio: 'inherit' }]);
+  assert.deepEqual(calls[0], [process.execPath, [assets.renderWhenIdleScript, 'project', '--max-load', '2'], { stdio: 'inherit' }]);
 });
 
 test('akari internal eye-bar: node 子プロセスへ引数を転送する', async () => {

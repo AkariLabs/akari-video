@@ -112,7 +112,7 @@ export class AkariBottomPanelCuration implements FrontendApplicationContribution
                 button.innerHTML = original.html;
                 button.title = original.title;
                 original.parent?.insertBefore(button, original.next?.parentNode === original.parent ? original.next : null);
-                for (const [name, value] of [['style', original.style], ['aria-label', original.label], ['role', original.role], ['tabindex', original.tabindex]]) {
+                for (const [name, value] of ([['style', original.style], ['aria-label', original.label], ['role', original.role], ['tabindex', original.tabindex]] as Array<[string, string | null]>)) {
                     if (value === null) button.removeAttribute(name);
                     else button.setAttribute(name, value);
                 }

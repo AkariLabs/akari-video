@@ -48,7 +48,7 @@ export function resolveCaptionStylePreset<T extends Record<string, unknown>>(
     const preset = catalog instanceof Map
         ? catalog.get(presetId)
         : Object.prototype.hasOwnProperty.call(catalog, presetId)
-            ? catalog[presetId]
+            ? (catalog as Record<string, TextstylePreset>)[presetId]
             : undefined;
     if (!preset) return { record, resolved: false };
     return {

@@ -12,7 +12,7 @@
     "test": "node --test test/*.test.mjs",
     "test:frame-engine-browser": "node --test test/frame-engine-preview-browser.l1.mjs",
     "start": "node src/server.mjs",
-    "typecheck": "echo 'pure ESM, no TS'"
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "esbuild": "^0.24.0"

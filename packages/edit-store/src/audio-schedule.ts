@@ -963,7 +963,7 @@ function normalizedTrack(value: unknown): number {
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
-function finitePositive(value: unknown): boolean {
+function finitePositive(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
 

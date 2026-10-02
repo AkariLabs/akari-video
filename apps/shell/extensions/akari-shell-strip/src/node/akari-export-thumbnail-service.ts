@@ -1,8 +1,9 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { type ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { type ChildProcessByStdio, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import type { Readable } from 'stream';
 import {
     AkariExportThumbnailService,
     ExportThumbnailStrip,
@@ -13,6 +14,7 @@ import { childNodeEnvironment, electronResourcesPath } from './child-node-proces
 
 const EMPTY_STRIP: ExportThumbnailStrip = { durationSeconds: 0, frames: [] };
 const CHILD_TIMEOUT_MS = 8000;
+type ScriptChild = ChildProcessByStdio<null, Readable, Readable>;
 
 interface CliFrame {
     readonly outputSeconds?: unknown;
@@ -102,7 +104,7 @@ export class AkariExportThumbnailServiceImpl implements AkariExportThumbnailServ
         return new Promise(resolvePromise => {
             let stdout = '';
             let settled = false;
-            let child: ChildProcessWithoutNullStreams;
+            let child: ScriptChild;
             const settle = (result: SpawnResult): void => {
                 if (settled) return;
                 settled = true;
