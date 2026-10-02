@@ -89,10 +89,23 @@
               "additionalProperties": false,
               "required": ["id", "scale", "fg", "bg"],
               "properties": {
-                "id": { "enum": ["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night"] },
+                "id": { "enum": ["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night", "heart", "thunder"] },
                 "scale": { "type": "number", "exclusiveMinimum": 0 },
                 "fg": { "$ref": "#/$defs/hexColor" },
-                "bg": { "$ref": "#/$defs/hexColor" }
+                "bg": {
+                  "oneOf": [
+                    { "$ref": "#/$defs/hexColor" },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["stops", "angle_deg"],
+                      "properties": {
+                        "stops": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/textFillStop" } },
+                        "angle_deg": { "type": "number" }
+                      }
+                    }
+                  ]
+                }
               }
             }
           }

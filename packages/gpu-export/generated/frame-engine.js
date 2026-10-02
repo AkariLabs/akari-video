@@ -2900,6 +2900,39 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/textstyle-catalog-merge.js
+  var require_textstyle_catalog_merge = __commonJS({
+    "packages/edit-store/lib/textstyle-catalog-merge.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.registerLibraryTextstylePresets = registerLibraryTextstylePresets;
+      exports.registeredLibraryTextstylePresets = registeredLibraryTextstylePresets;
+      exports.resolveTextstyleCatalog = resolveTextstyleCatalog;
+      var textstyle_catalog_1 = require_textstyle_catalog();
+      var registered = [];
+      function registerLibraryTextstylePresets(presets) {
+        registered = [...presets];
+      }
+      function registeredLibraryTextstylePresets() {
+        return [...registered];
+      }
+      function resolveTextstyleCatalog({ builtin = textstyle_catalog_1.TEXTSTYLE_CATALOG, library = registered } = {}) {
+        const catalog = { ...builtin };
+        const conflicts = [];
+        const warnings2 = [];
+        for (const preset of library) {
+          if (Object.prototype.hasOwnProperty.call(builtin, preset.id)) {
+            conflicts.push(preset.id);
+            warnings2.push(`captions.style-preset-library-shadowed: ${preset.id} \u306F\u30E9\u30A4\u30D6\u30E9\u30EA\u7531\u6765\u3067\u3059\u304C\u7D44\u307F\u8FBC\u307F\u30D7\u30EA\u30BB\u30C3\u30C8\u3068\u540C\u3058 id \u306E\u305F\u3081\u7D44\u307F\u8FBC\u307F\u3092\u4F7F\u3044\u307E\u3059`);
+          } else if (!Object.prototype.hasOwnProperty.call(catalog, preset.id)) {
+            catalog[preset.id] = preset;
+          }
+        }
+        return { catalog, conflicts, warnings: warnings2 };
+      }
+    }
+  });
+
   // packages/edit-store/lib/caption-store.js
   var require_caption_store = __commonJS({
     "packages/edit-store/lib/caption-store.js"(exports) {
@@ -2926,7 +2959,7 @@ ${indent}`);
       var caption_words_rederive_1 = require_caption_words_rederive();
       var caption_runs_1 = require_caption_runs();
       var caption_style_preset_1 = require_caption_style_preset();
-      var textstyle_catalog_1 = require_textstyle_catalog();
+      var textstyle_catalog_merge_1 = require_textstyle_catalog_merge();
       exports.CAPTION_ZONES = [
         "top-left",
         "top",
@@ -2939,9 +2972,9 @@ ${indent}`);
         "bottom-right"
       ];
       var JSON_NUMBER = "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?";
-      function parseCaptions(source) {
+      function parseCaptions(source, options = {}) {
         let root = JSON.parse(source);
-        root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, textstyle_catalog_1.TEXTSTYLE_CATALOG).root;
+        root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog).root;
         const values = Array.isArray(root) ? root : isRecord2(root) && Array.isArray(root.captions) ? root.captions : void 0;
         if (!values) {
           throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
@@ -3293,7 +3326,7 @@ ${indent}`);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
       }
-      function updateCaptionStylePresetInSource(source, captionIds, presetId) {
+      function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
         if (captionIds.length === 0) {
           throw new Error("\u5B57\u5E55 ID \u3092 1 \u4EF6\u4EE5\u4E0A\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
@@ -3331,7 +3364,7 @@ ${indent}`);
             changed++;
             continue;
           }
-          const shadowed = shadowedPresetStyleKeys(presetId, record2.text_style);
+          const shadowed = shadowedPresetStyleKeys(presetId, record2.text_style, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
           if (hasPreset && record2.style_preset === presetId && shadowed.length === 0)
             continue;
           let nextElement;
@@ -3353,8 +3386,8 @@ ${indent}`);
         }
         return { source: output, changed };
       }
-      function shadowedPresetStyleKeys(presetId, textStyle) {
-        const preset = Object.prototype.hasOwnProperty.call(textstyle_catalog_1.TEXTSTYLE_CATALOG, presetId) ? textstyle_catalog_1.TEXTSTYLE_CATALOG[presetId] : void 0;
+      function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
+        const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
         if (!preset || textStyle === null || typeof textStyle !== "object" || Array.isArray(textStyle)) {
           return [];
         }
@@ -5216,14 +5249,25 @@ ${indent}`);
       exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
       exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
       function alignCaptionRichFillPhase(root) {
-        const gradient = root.getAttribute("data-rich-fill-type") === "gradient";
+        const fillType = root.getAttribute("data-rich-fill-type");
+        const gradient = fillType === "gradient";
+        const pattern = fillType === "pattern";
+        const patternGradient = pattern && root.getAttribute("data-rich-pattern-bg") === "gradient";
+        const thunder = root.getAttribute("data-rich-pattern-id") === "thunder";
         for (const line of root.querySelectorAll(".akari-caption__line,.akari-caption__resolved-line")) {
           const lineRect = line.getBoundingClientRect();
           for (const fill of line.querySelectorAll(".akari-caption__rich-fill")) {
             const rect = fill.getBoundingClientRect();
-            fill.style.setProperty("--caption-rich-fill-position", `${Number((lineRect.left - rect.left).toFixed(3))}px ${Number((lineRect.top - rect.top).toFixed(3))}px`);
+            const x3 = Number((lineRect.left - rect.left).toFixed(3));
+            const y2 = Number((lineRect.top - rect.top).toFixed(3));
+            const patternPosition = `${Number((x3 + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y2 + (thunder ? 2 : 0)).toFixed(3))}px`;
+            fill.style.setProperty("--caption-rich-fill-position", patternGradient ? `${patternPosition}, ${x3}px ${y2}px` : pattern ? patternPosition : `${x3}px ${y2}px`);
             if (gradient)
               fill.style.setProperty("--caption-rich-fill-size", `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            if (patternGradient) {
+              const tile = globalThis.getComputedStyle(fill).backgroundSize.split(",")[0];
+              fill.style.setProperty("--caption-rich-fill-size", `${tile}, ${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            }
           }
         }
       }
@@ -5941,13 +5985,17 @@ ${indent}`);
           if (!isRecord2(pattern))
             fail("INVALID_TEXT_STYLE", `${label}.pattern must be an object`);
           rejectStyleUnknown(pattern, /* @__PURE__ */ new Set(["id", "scale", "fg", "bg"]), `${label}.pattern`);
-          if (!["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night"].includes(pattern.id)) {
+          if (!["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night", "heart", "thunder"].includes(pattern.id)) {
             fail("INVALID_TEXT_STYLE", `${label}.pattern.id is unknown`);
           }
           if (!finitePositive4(pattern.scale))
             fail("INVALID_TEXT_STYLE", `${label}.pattern.scale must be positive`);
           validateHexColor(pattern.fg, `${label}.pattern.fg`);
-          validateHexColor(pattern.bg, `${label}.pattern.bg`);
+          if (isRecord2(pattern.bg)) {
+            rejectStyleUnknown(pattern.bg, /* @__PURE__ */ new Set(["stops", "angle_deg"]), `${label}.pattern.bg`);
+            validateCaptionRichFill({ type: "gradient", stops: pattern.bg.stops, angle_deg: pattern.bg.angle_deg }, `${label}.pattern.bg`);
+          } else
+            validateHexColor(pattern.bg, `${label}.pattern.bg`);
         }
       }
       function validateCaptionBackground(value, label) {
@@ -6895,11 +6943,34 @@ ${indent}`);
         gingham: { size: 22, viewBox: 22, shape: '<path d="M0 0h9v22H0zM0 0h22v9H0z" fill="FG" opacity=".55"/>' },
         skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
         hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
-        night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' }
+        night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' },
+        // Geometry, intrinsic SVG size, and opacity follow the source fragment data URIs.
+        heart: { size: 14, viewBox: 24, shape: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="FG" fill-opacity="0.6"/>' },
+        thunder: { size: 30, viewBox: 24, shape: '<path d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="FG" fill-opacity="0.95"/>' }
       };
-      function richPatternImage(pattern) {
+      var RICH_SOURCE_PATTERN_URIS = {
+        heart: {
+          uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"%3E%3Cpath d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="%23e8a0f8" fill-opacity="0.6"/%3E%3C/svg%3E',
+          sourceColor: "%23e8a0f8"
+        },
+        thunder: {
+          uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30"%3E%3Cpath d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="%23fff26a" fill-opacity="0.95"/%3E%3C/svg%3E',
+          sourceColor: "%23fff26a"
+        }
+      };
+      function richPatternImage(pattern, layered) {
+        const source = RICH_SOURCE_PATTERN_URIS[pattern.id];
+        if (source) {
+          const uri = source.uri.replace(source.sourceColor, encodeURIComponent(pattern.fg));
+          if (layered)
+            return `url('${uri}')`;
+          const svg2 = decodeURIComponent(uri.slice("data:image/svg+xml,".length)).replace(">", `><rect width="100%" height="100%" fill="${pattern.bg}"/>`);
+          return `url("data:image/svg+xml,${encodeURIComponent(svg2)}")`;
+        }
         const template = RICH_PATTERN_SHAPES[pattern.id];
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}"><rect width="100%" height="100%" fill="${pattern.bg}"/>${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, pattern.bg)}</svg>`;
+        const rect = layered ? "" : `<rect width="100%" height="100%" fill="${pattern.bg}"/>`;
+        const bg = layered ? "transparent" : pattern.bg;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.size}" height="${template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}">${rect}${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, bg)}</svg>`;
         return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
       }
       function resolveCaptionRichFillVars(fill, scale = 1) {
@@ -6913,11 +6984,22 @@ ${indent}`);
             "--caption-rich-fill-position": "0 0"
           };
         const pattern = fill.pattern;
+        const bg = pattern.bg;
+        const tile = formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale);
+        const offset = pattern.id === "thunder" ? "4px 2px" : "0 0";
+        if (typeof bg === "string")
+          return {
+            "--caption-rich-fill-color": "transparent",
+            "--caption-rich-fill-image": richPatternImage(pattern, false),
+            "--caption-rich-fill-size": `${tile}px ${tile}px`,
+            "--caption-rich-fill-position": offset
+          };
+        const background = `linear-gradient(${bg.angle_deg}deg, ${bg.stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ")})`;
         return {
           "--caption-rich-fill-color": "transparent",
-          "--caption-rich-fill-image": richPatternImage(pattern),
-          "--caption-rich-fill-size": `${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px ${formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale)}px`,
-          "--caption-rich-fill-position": "0 0"
+          "--caption-rich-fill-image": `${richPatternImage(pattern, true)}, ${background}`,
+          "--caption-rich-fill-size": `${tile}px ${tile}px, 100% 100%`,
+          "--caption-rich-fill-position": `${offset}, 0 0`
         };
       }
       function resolveCaptionRichStrokes(style, output) {
@@ -15998,6 +16080,7 @@ ${indent}`);
       __exportStar(require_caption_store(), exports);
       __exportStar(require_caption_sample_text(), exports);
       __exportStar(require_caption_style_preset(), exports);
+      __exportStar(require_textstyle_catalog_merge(), exports);
       __exportStar(require_textstyle_catalog(), exports);
       __exportStar(require_caption_words_rederive(), exports);
       __exportStar(require_caption_window(), exports);

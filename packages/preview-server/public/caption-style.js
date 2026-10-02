@@ -61,10 +61,20 @@ export const CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{
 export function applyRichCaptionLayers(host, style) {
   if (!style || (style.fill === undefined && style.strokes === undefined)) {
     host.classList.remove('akari-caption--rich');
+    delete host.dataset.richPatternId;
+    delete host.dataset.richPatternBg;
     return;
   }
   host.classList.add('akari-caption--rich');
   host.dataset.richFillType = style.fill?.type || 'solid';
+  if (style.fill?.type === 'pattern') {
+    host.dataset.richPatternId = style.fill.pattern.id;
+    if (typeof style.fill.pattern.bg === 'object') host.dataset.richPatternBg = 'gradient';
+    else delete host.dataset.richPatternBg;
+  } else {
+    delete host.dataset.richPatternId;
+    delete host.dataset.richPatternBg;
+  }
   let css = host.querySelector('style[data-akari-rich-caption]');
   if (!css) {
     css = document.createElement('style');
@@ -130,15 +140,28 @@ export function applyRichCaptionLayers(host, style) {
 }
 
 function alignRichFillPhase(root) {
-  const gradient = root.getAttribute('data-rich-fill-type') === 'gradient';
+  const fillType = root.getAttribute('data-rich-fill-type');
+  const gradient = fillType === 'gradient';
+  const pattern = fillType === 'pattern';
+  const patternGradient = pattern && root.getAttribute('data-rich-pattern-bg') === 'gradient';
+  const thunder = root.getAttribute('data-rich-pattern-id') === 'thunder';
   for (const line of root.querySelectorAll('.akari-caption__line,.akari-caption__resolved-line')) {
     const lineRect = line.getBoundingClientRect();
     for (const fill of line.querySelectorAll('.akari-caption__rich-fill')) {
       const rect = fill.getBoundingClientRect();
-      fill.style.setProperty('--caption-rich-fill-position',
-        `${Number((lineRect.left - rect.left).toFixed(3))}px ${Number((lineRect.top - rect.top).toFixed(3))}px`);
+      const x = Number((lineRect.left - rect.left).toFixed(3));
+      const y = Number((lineRect.top - rect.top).toFixed(3));
+      const patternPosition = `${Number((x + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y + (thunder ? 2 : 0)).toFixed(3))}px`;
+      fill.style.setProperty('--caption-rich-fill-position', patternGradient
+        ? `${patternPosition}, ${x}px ${y}px`
+        : pattern ? patternPosition : `${x}px ${y}px`);
       if (gradient) fill.style.setProperty('--caption-rich-fill-size',
         `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+      if (patternGradient) {
+        const tile = getComputedStyle(fill).backgroundSize.split(',')[0];
+        fill.style.setProperty('--caption-rich-fill-size',
+          `${tile}, ${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+      }
     }
   }
 }

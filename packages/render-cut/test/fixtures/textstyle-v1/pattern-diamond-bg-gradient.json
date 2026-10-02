@@ -1,0 +1,28 @@
+{
+  "id": "pattern-diamond-bg-gradient",
+  "text": "きらめくダイヤ",
+  "style": {
+    "size_px": 76,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#1f1745", "width_px": 8 },
+      { "color": "#fff3c4", "width_px": 2 }
+    ],
+    "fill": {
+      "type": "pattern",
+      "pattern": {
+        "id": "diamond",
+        "scale": 1,
+        "fg": "#ffffff80",
+        "bg": {
+          "angle_deg": 180,
+          "stops": [
+            { "at": 0, "color": "#322076" },
+            { "at": 48, "color": "#a476d8" },
+            { "at": 100, "color": "#241658" }
+          ]
+        }
+      }
+    }
+  }
+}

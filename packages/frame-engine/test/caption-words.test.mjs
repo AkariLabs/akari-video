@@ -171,6 +171,33 @@ test('rich ink beyond the 0.35em tile margin uses a full texture', () => {
   assert.deepEqual(measured.tokens[0].rect, rect(10, 44, 30, 20), 'rich child layers do not change token geometry');
 });
 
+test('pattern bg gradients, alpha, heart, and thunder do not change rich ink extent', () => {
+  const decoration = {
+    size_px: 72,
+    reference_height_px: 1080,
+    strokes: [
+      { color: '#1f1745', width_px: 9, offset_x: 2, offset_y: 3 },
+      { color: '#ffffff', width_px: 3 },
+    ],
+    shadow: { color: '#000000', blur_px: 5, distance_px: 4, angle_deg: 90 },
+  };
+  const solid = captionRichInkExtentEm({ ...decoration,
+    fill: { type: 'solid', color: '#ffffff' } }, 72);
+  for (const id of ['diamond', 'heart', 'thunder']) {
+    const base = { id, scale: 1, fg: '#ffffff80' };
+    const oneLayer = captionRichInkExtentEm({ ...decoration,
+      fill: { type: 'pattern', pattern: { ...base, bg: '#322076' } } }, 72);
+    const twoLayers = captionRichInkExtentEm({ ...decoration,
+      fill: { type: 'pattern', pattern: { ...base, bg: {
+        angle_deg: 180,
+        stops: [{ at: 0, color: '#322076' }, { at: 50, color: '#a476d8' },
+          { at: 100, color: '#241658' }],
+      } } } }, 72);
+    assert.equal(oneLayer, solid, `${id}: a single pattern layer must not expand ink`);
+    assert.equal(twoLayers, solid, `${id}: gradient ground and fg alpha must not expand ink`);
+  }
+});
+
 test("caption texture crop includes the plate and a one-em vertical safety margin", () => {
   const measurement = {
     emPx: 30,

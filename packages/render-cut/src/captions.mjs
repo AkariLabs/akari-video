@@ -64,7 +64,9 @@ export function applyCaptionRichLayers(html, style, output) {
   });
   const decorated = layered.replace('<div class="akari-caption', '<div class="akari-caption akari-caption--rich')
     .replace('</style>', `${CAPTION_RICH_LAYER_CSS}</style>`)
-    .replace(/^(<div class="[^"]*")/u, `$1 data-rich-fill-type="${style.fill?.type ?? 'solid'}"`);
+    .replace(/^(<div class="[^"]*")/u, `$1 data-rich-fill-type="${style.fill?.type ?? 'solid'}"${style.fill?.type === 'pattern'
+      ? ` data-rich-pattern-id="${style.fill.pattern.id}"${typeof style.fill.pattern.bg === 'object' ? ' data-rich-pattern-bg="gradient"' : ''}`
+      : ''}`);
   const close = decorated.lastIndexOf('</div>');
   const script = `<script data-akari-rich-phase>{const root=document.currentScript.closest('.akari-caption');document.fonts.ready.then(()=>(${alignCaptionRichFillPhase.toString()})(root));}</script>`;
   return close < 0 ? decorated : decorated.slice(0, close) + script + decorated.slice(close);
@@ -392,12 +394,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
  * Opt-in single-line policy renderer. Cues are already projected and split by
  * edit-store's Node kernel; this consumer never segments text again.
  */
-export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces()) {
+export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces(), output) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
     html: applyCaptionRichLayers(
       applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
-      cue.text_style
+      cue.text_style, output
     ),
     start: cue.start,
     duration: cue.end - cue.start,
