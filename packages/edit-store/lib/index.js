@@ -28,6 +28,7 @@ exports.withNewerVersionLintPrefix = withNewerVersionLintPrefix;
  */
 __exportStar(require("./edit-store"), exports);
 __exportStar(require("./caption-store"), exports);
+__exportStar(require("./caption-sample-text"), exports);
 __exportStar(require("./caption-style-preset"), exports);
 __exportStar(require("./generated/textstyle-catalog"), exports);
 __exportStar(require("./caption-words-rederive"), exports);

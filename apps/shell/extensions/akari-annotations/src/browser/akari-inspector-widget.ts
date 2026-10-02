@@ -6,7 +6,7 @@ import { createCaptionPanel, CAPTION_PANEL_CSS, type CaptionPanelMyStyle, type C
 import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
 import { captionRevealDestination } from '../common/caption-reveal-destination';
 import { captionRevealScrollTop } from '../common/caption-reveal-scroll';
-import { captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
+import { captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, nextCaptionPanel, renderableCaptionFonts, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
 import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
     type CaptionPanelPreviewAction, type CaptionPanelPreviewState } from '../common/caption-panel-preview-state';
 import { CAPTION_FONT_FAMILY, CAPTION_FONT_LOAD_DESCRIPTOR, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
@@ -189,6 +189,7 @@ import {
 } from './inspector/solo-model';
 import {
     findKnobForVar,
+    isFontFamilyKnob,
     InspectorKnob,
     knobControlKind,
     overlayMetaPath,
@@ -2301,7 +2302,8 @@ function OVERLAY_SECTIONS(
     snapshot: TimelineOverlaySelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
     knobs: readonly InspectorKnob[] = [],
-    openMotion?: () => void
+    openMotion?: () => void,
+    fontFaces: ReadonlyMap<string, string> = new Map()
 ): InspectorSection[] {
     const transform = snapshot.payload.transform && typeof snapshot.payload.transform === 'object'
         && !Array.isArray(snapshot.payload.transform)
@@ -2310,6 +2312,12 @@ function OVERLAY_SECTIONS(
         typeof transform[key] === 'number' ? transform[key] as number : fallback;
     const overallScale = (): number => Math.sqrt(number('scaleX', number('scale', 1))
         * number('scaleY', number('scale', 1)));
+    const source = snapshot.payload.source && typeof snapshot.payload.source === 'object'
+        ? snapshot.payload.source as Record<string, unknown> : {};
+    const sourcePath = typeof source.html === 'string' ? source.html
+        : typeof source.path === 'string' ? source.path : '';
+    const isTelop = /^telop-/u.test(snapshot.id)
+        || /(?:^|[\\/])overlay[\\/]telop-[^\\/]+(?:[\\/]|$)/iu.test(sourcePath);
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
     const transformFields: InspectorFieldDef<TimelineOverlaySelection>[] = [
         {
@@ -2325,13 +2333,26 @@ function OVERLAY_SECTIONS(
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.y', value: null })
         },
         {
-            name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
+            name: 'transform-scale', label: isTelop ? '倍率' : '拡縮', unit: '%', removable: true,
             getValue: () => String(overallScale() * 100), getEditValue: () => String(overallScale() * 100),
             inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
-            write: async (_snapshot, value) => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: Number(value) / 100 }),
-            reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null })
+            write: async (_snapshot, value) => {
+                const scale = Number(value) / 100;
+                if (isTelop && (transform.scaleX !== undefined || transform.scaleY !== undefined)) {
+                    await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleX', value: scale });
+                    return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleY', value: scale });
+                }
+                return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: scale });
+            },
+            reset: async () => {
+                if (isTelop) {
+                    await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleX', value: null });
+                    await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scaleY', value: null });
+                }
+                return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null });
+            }
         },
-        ...(['scaleX', 'scaleY'] as const).map((axis, index): InspectorFieldDef<TimelineOverlaySelection> => ({
+        ...(!isTelop ? (['scaleX', 'scaleY'] as const).map((axis, index): InspectorFieldDef<TimelineOverlaySelection> => ({
             name: `transform-${axis}`, label: index === 0 ? '幅' : '高さ', unit: '%', removable: true,
             getValue: () => String(number(axis, number('scale', 1)) * 100),
             getEditValue: () => String(number(axis, number('scale', 1)) * 100),
@@ -2340,7 +2361,7 @@ function OVERLAY_SECTIONS(
                 kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: Number(value) / 100
             }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: null })
-        })),
+        })) : []),
         {
             name: 'transform-rotate', label: '回転', unit: '°', removable: true,
             getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
@@ -2355,9 +2376,10 @@ function OVERLAY_SECTIONS(
         ? Object.entries(rawVars as Record<string, unknown>) : [];
     for (const knob of knobs) {
         if (variableEntries.some(([name]) => findKnobForVar([knob], name))) continue;
-        const fallback = knob.type === 'slider' ? knob.min ?? 0
+        // The preview fragment lives in a separate webview; its computed CSS is unavailable here.
+        const fallback = knob.default ?? (knob.type === 'slider' ? knob.min ?? 0
             : knob.type === 'checkbox' ? false : knob.type === 'color' ? '#000000'
-                : knob.type === 'dropdown' ? knob.options?.[0] ?? '' : '';
+                : knob.type === 'dropdown' ? knob.options?.[0] ?? '' : '');
         variableEntries.push([knob.name, fallback]);
     }
     for (const [name, value] of variableEntries) {
@@ -2366,15 +2388,19 @@ function OVERLAY_SECTIONS(
             const group = knob?.group ?? 'ツマミ';
             const fields = groups.get(group) ?? [];
             const kind = knob ? knobControlKind(knob.type) : 'text';
+            const fontKnob = knob ? isFontFamilyKnob(knob) : false;
+            const fontOptions = fontKnob ? renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces)
+                .map(font => fontFaces.get(font.id) ?? font.family) : [];
+            if (fontKnob && typeof value === 'string' && value && !fontOptions.includes(value)) fontOptions.unshift(value);
             fields.push({
                 name: `var-${name.replace(/[^a-z0-9_-]+/giu, '-')}`,
                 label: knob?.label ?? `vars.${name}`,
                 getValue: () => formatPayloadValue(value),
                 getEditValue: () => knob?.type === 'slider' && typeof value === 'string'
                     ? String(Number.parseFloat(value)) : String(value ?? ''),
-                inputKind: kind === 'readonly' ? 'media'
+                inputKind: fontKnob ? 'select' : kind === 'readonly' ? 'media'
                     : kind === 'slider' ? 'scrub-number' : kind as InspectorFieldDef['inputKind'],
-                ...(knob?.options ? { options: knob.options } : {}),
+                ...(fontKnob ? { options: fontOptions } : knob?.options ? { options: knob.options } : {}),
                 ...(knob?.min !== undefined ? { min: knob.min } : {}),
                 ...(knob?.max !== undefined ? { max: knob.max } : {}),
                 ...(knob?.unit ? { unit: knob.unit } : {}),
@@ -3179,6 +3205,7 @@ export class AkariInspectorWidget extends BaseWidget {
             } catch { /* A failed font is not offered as an applicable row. */ }
         })).then(() => {
             if (this.captionPanel === 'font' || this.model.snapshot?.kind === 'caption'
+                || this.model.snapshot?.kind === 'overlay'
                 || this.model.snapshot?.kind === 'multi') this.render();
         });
     }
@@ -5285,7 +5312,9 @@ export class AkariInspectorWidget extends BaseWidget {
                     sections = AUDIO_SECTIONS(snapshot as AudioInspectorSnapshot, request => this.commitWrite(request));
                     break;
                 case 'overlay':
-                    sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot), openMotion);
+                    this.ensureCaptionRowFontFace();
+                    sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot), openMotion,
+                        this.captionPanelFontFaces);
                     break;
                 case 'item':
                     sections = TREE_ITEM_SECTIONS(snapshot, requestWrite, openMotion,

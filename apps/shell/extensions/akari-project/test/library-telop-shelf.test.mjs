@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { isTextTelop, textTelopItems } from '../lib/common/library-telop-shelf.js';
+import { catalogItemsWithoutShelvedTelops, isTelopAsset, textTelopItems } from '../lib/common/library-telop-shelf.js';
 import { isPremiumLocked } from '../lib/common/library-filter.js';
 import { storeProductUrl } from '../lib/common/asset-catalog-view.js';
 
@@ -15,7 +15,15 @@ test('テロップ棚は overlay のタグまたは telop- ID だけを選ぶ', 
     ];
     assert.deepEqual(textTelopItems(items).map(item => item.key),
         ['overlay/telop-rich-one', 'overlay/caption-plate']);
-    assert.equal(isTextTelop(items[2]), false);
+    assert.equal(isTelopAsset(items[2]), false);
+});
+
+test('overlay category excludes telops but search can find them', () => {
+    const telop = { category: 'overlay', id: 'telop-title', tags: ['telop'] };
+    const frame = { category: 'overlay', id: 'frame', tags: [] };
+    assert.deepEqual(catalogItemsWithoutShelvedTelops([telop, frame], 'overlay', ''), [frame]);
+    assert.deepEqual(catalogItemsWithoutShelvedTelops([telop, frame], 'overlay', 'telop'), [telop, frame]);
+    assert.deepEqual(catalogItemsWithoutShelvedTelops([telop, frame], 'all', ''), [telop, frame]);
 });
 
 test('パックの Lab 導線は素材 id でなく product_id を開く', () => {

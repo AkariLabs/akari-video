@@ -27,7 +27,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
-import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
+import { CAPTION_SAMPLE_TEXT, TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import {
     AKARI_BORDER,
     AKARI_FAINT,
@@ -104,12 +104,12 @@ import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
-import { libraryTextStyleSample } from '../common/library-shelf-visuals';
+import { fitStyleSpecimen, libraryTextStyleSample } from '../common/library-shelf-visuals';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
 import { LibraryTextTelopPage } from './library-text-telop-page';
-import { textTelopItems } from '../common/library-telop-shelf';
+import { catalogItemsWithoutShelvedTelops, textTelopItems } from '../common/library-telop-shelf';
 import { libraryTextstyleApplyPayload } from '../common/library-textstyle-apply';
 import { LibraryShapeShelf } from './library-shape-shelf-view';
 import { ShapeShelfService } from './shape-shelf-service';
@@ -394,6 +394,32 @@ interface OutputEntry {
  * （AkariRoleBucketsWidget.ID）は akari-shell-strip 側が文字列リテラルで参照して
  * いるため変更しない。
  */
+function StyleSpecimen(props: { style: React.CSSProperties; myStyle?: boolean }): React.ReactElement {
+    const stage = React.useRef<HTMLSpanElement>(null);
+    const sample = React.useRef<HTMLSpanElement>(null);
+    const [scale, setScale] = React.useState(1);
+    React.useLayoutEffect(() => {
+        const fit = (): void => {
+            if (!stage.current || !sample.current) return;
+            const width = Math.max(1, sample.current.offsetWidth);
+            const height = Math.max(1, sample.current.offsetHeight);
+            setScale(fitStyleSpecimen(stage.current.clientWidth, stage.current.clientHeight, width, height));
+        };
+        fit();
+        const observer = new ResizeObserver(fit);
+        if (stage.current) observer.observe(stage.current);
+        if (sample.current) observer.observe(sample.current);
+        return () => observer.disconnect();
+    }, [props.style]);
+    return <span ref={stage} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', overflow: 'hidden' }}>
+        <span ref={sample} draggable={false} data-akari-preset-sample-text={!props.myStyle || undefined}
+            data-akari-my-style-preview={props.myStyle || undefined}
+            style={{ ...props.style, display: 'inline-block', flex: '0 0 auto', whiteSpace: 'nowrap',
+                lineHeight: 1.2, transform: `scale(${scale})` }}>{CAPTION_SAMPLE_TEXT}</span>
+    </span>;
+}
+
 @injectable()
 export class AkariRoleBucketsWidget extends ReactWidget {
     protected override onActivateRequest(msg: Message): void {
@@ -4064,7 +4090,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderCatalogBody(): React.ReactNode {
-        const filtered = this.filteredCatalogItems();
+        const filtered = catalogItemsWithoutShelvedTelops(this.filteredCatalogItems(), this.catalogCategory, this.catalogQuery);
         let content: React.ReactNode;
         if (this.catalogLoading) {
             content = <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
@@ -4862,10 +4888,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                         onContextMenu={event => this.openLibraryMenuAt(event, target)}
                         onInfo={anchor => this.openLibraryInfo(target, anchor)}
-                        face={<span data-akari-my-style-preview style={{ ...sampleStyle, maxWidth: '94%',
-                            maxHeight: '100%', overflow: 'hidden', textAlign: 'center', fontSize: 12, lineHeight: 1.2 }}>
-                            Abc あいう 漢字
-                        </span>} />;
+                        face={<StyleSpecimen style={sampleStyle} myStyle />} />;
                 })}
             </div>
         </section>;
@@ -5037,6 +5060,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const textstyle = item.kind === 'textstyle';
         const info = this.libraryInfo?.target;
         return <LibrarySimpleCard key={key} cardKey={key} name={item.name} layout={layout}
+            faceHeight={textstyle && layout === 'grid' ? '48px' : undefined}
             title={this.presetShowcaseTitle(item)}
             favorite={this.libraryFavorites.has(key)}
             infoOpen={info?.kind === item.kind && info.key === key}
@@ -5057,10 +5081,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             face={item.kind === 'lut'
                 ? <LutPreview url={item.previewUrl} />
                 : textstyle
-                ? <span draggable={false} data-akari-preset-sample-text
-                    style={{ ...libraryTextStyleSample(item.style ?? {}) as React.CSSProperties,
-                        maxWidth: '94%', maxHeight: '100%', overflow: 'hidden', textAlign: 'center',
-                        fontSize: layout === 'list' ? 11 : 12, lineHeight: 1.2 }}>Abc あいう 漢字</span>
+                ? <StyleSpecimen style={libraryTextStyleSample(item.style ?? {}) as React.CSSProperties} />
                 : item.sampleText
                 ? <span draggable={false} data-akari-preset-sample-text data-akari-textanim-sample={item.kind === 'textanim' ? true : undefined}
                     style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

@@ -931,6 +931,16 @@ function marqueeHits(candidates, rect) {
     return frame;
   }
 
+  function isTelopOverlay(container) {
+    if (!container) return false;
+    if (container.dataset.akariTelop === 'true') return true;
+    const overlay = window.akari.state?.summary?.overlays?.find(
+      item => item.id === container.dataset.overlayId);
+    const source = overlay?.sourcePath || container.dataset.sourcePath || container.dataset.akariSourcePath || '';
+    return /(?:^|[\\/])overlay[\\/]telop-[^\\/]+(?:[\\/]|$)/i.test(source)
+      || /^telop-/.test(container.dataset.overlayId || '');
+  }
+
   function refreshSelectionFrame() {
     if (collectiveSelection()) { refreshGroupFrame(); return; }
     if (!stage || !isSelectable(selectedOverlay)) return;
@@ -969,6 +979,7 @@ function marqueeHits(candidates, rect) {
     selectionFrame.classList.toggle('is-busy', Boolean(activeDrag || activeResize || activeRotate || activeLine));
     selectionFrame.classList.toggle('is-moving', Boolean(activeDrag || activeRotate));
     selectionFrame.classList.toggle('is-text', selectedOverlay.dataset.role === 'text');
+    selectionFrame.classList.toggle('is-telop', isTelopOverlay(selectedOverlay));
     selectionFrame.classList.toggle('is-line', selectedOverlay.dataset.role === 'shape-line');
     for (const endpoint of selectionFrame.querySelectorAll('.is-line-start, .is-line-end')) {
       endpoint.hidden = selectedOverlay.dataset.role !== 'shape-line';
@@ -2169,6 +2180,7 @@ function marqueeHits(candidates, rect) {
   }
 
   function beginResize(event, container, handleEl) {
+    if (isTelopOverlay(container) && handleEdge(handleEl)) return;
     if (activeEdit) void commitEdit();
 
     // 断片の実表示矩形（ステージ全体=コンテナの矩形ではなく、実際に見えている
@@ -2220,7 +2232,8 @@ function marqueeHits(candidates, rect) {
     handleHint = document.createElement('div');
     handleHint.className = 'akari-interaction-hint';
     handleHint.setAttribute('data-akari-interaction', 'handle-hint');
-    handleHint.textContent = edge ? (container.dataset.role === 'text' ? '折り返し幅' : '形を伸ばす') : '大きさ';
+    handleHint.textContent = isTelopOverlay(container) ? 'サイズ'
+      : edge ? (container.dataset.role === 'text' ? '折り返し幅' : '形を伸ばす') : '大きさ';
     handleHint.style.left = `${event.clientX + 12}px`;
     handleHint.style.top = `${event.clientY + 12}px`;
     document.body.appendChild(handleHint);
@@ -2508,6 +2521,13 @@ function marqueeHits(candidates, rect) {
     // pointerdown 時に確定した対角コーナー（stage-local）と開始 transform だけを使う。
     // stage-local 値なので、ズームや全画面切替で client 矩形が変われば表示位置は自然に
     // 追従する一方、断片自身の前フレームの変形結果は次の基準へ混ざらない。
+    if (isTelopOverlay(resize.container)) {
+      const uniform = clampScale(Math.sqrt(resize.startScaleX * resize.startScaleY)
+        * scaleValue / resize.startScale);
+      applyAxisResize(resize, uniform, uniform);
+      resize.container.style.setProperty('--scale', String(uniform));
+      return true;
+    }
     const translate = anchorPreservingTranslate({
       startX: resize.startX,
       startY: resize.startY,
@@ -2592,6 +2612,7 @@ function marqueeHits(candidates, rect) {
   }
 
   function updateAxisResize(resize, event, pointer) {
+    if (isTelopOverlay(resize.container)) return;
     const cosine = Math.cos(resize.rotation), sine = Math.sin(resize.rotation);
     const dx = pointer.x + resize.pointerOffsetX - resize.anchorStageX;
     const dy = pointer.y + resize.pointerOffsetY - resize.anchorStageY;
@@ -2633,14 +2654,18 @@ function marqueeHits(candidates, rect) {
         rotation: resize.rotation * 180 / Math.PI,
         scaleX: resize.startScaleX, scaleY: resize.startScaleY,
       });
-      applyAxisResize(resize, scales.scaleX, scales.scaleY);
-      resize.moved = Math.abs(scales.scaleX - resize.startScaleX) > 1e-6
-        || Math.abs(scales.scaleY - resize.startScaleY) > 1e-6;
+      const uniform = isTelopOverlay(resize.container)
+        ? Math.sqrt(scales.scaleX * scales.scaleY) : null;
+      const nextX = uniform ?? scales.scaleX;
+      const nextY = uniform ?? scales.scaleY;
+      applyAxisResize(resize, nextX, nextY);
+      resize.moved = Math.abs(nextX - resize.startScaleX) > 1e-6
+        || Math.abs(nextY - resize.startScaleY) > 1e-6;
       hideSnapGuides();
       if (event.cancelable) event.preventDefault();
       return;
     }
-    if (!resize.group && resize.edge) {
+    if (!resize.group && resize.edge && !isTelopOverlay(resize.container)) {
       updateAxisResize(resize, event, pointer);
       return;
     }

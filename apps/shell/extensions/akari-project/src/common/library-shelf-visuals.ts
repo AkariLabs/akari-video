@@ -19,3 +19,8 @@ export function libraryTextStyleSample(raw: Record<string, unknown>): Record<str
     if (typeof raw.letter_spacing_em === 'number') result.letterSpacing = `${raw.letter_spacing_em}em`;
     return result;
 }
+
+export function fitStyleSpecimen(stageWidth: number, stageHeight: number, width: number, height: number): number {
+    return Math.min(1, Math.max(0.05, (stageWidth - 26) / Math.max(1, width)),
+        Math.max(0.05, (stageHeight - 8) / Math.max(1, height)));
+}

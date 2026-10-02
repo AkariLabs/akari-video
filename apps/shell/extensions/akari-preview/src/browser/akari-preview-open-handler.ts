@@ -314,6 +314,7 @@ export interface OverlayTransform {
 
 interface EditSummaryOverlay {
     id: string;
+    sourcePath?: string;
     html: string;
     start: number;
     duration: number;
@@ -5983,6 +5984,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 overlays.push({
                     id: String(value?.id ?? ''),
+                    sourcePath: typeof value?.html === 'string' && !value.html.trimStart().startsWith('<') ? value.html : undefined,
                     html: resolvedOverlayHtml[index],
                     start: this.finiteNumber(value?.start, 0),
                     duration: this.finiteNumber(value?.duration, 0),
