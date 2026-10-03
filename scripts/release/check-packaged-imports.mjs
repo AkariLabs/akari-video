@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// パッケージ版 Resources の静的 import グラフ検査 — 同梱漏れを CI で機械検出する。
+// パッケージ版 Resources の静的参照グラフ検査 — 同梱漏れを CI で機械検出する。
 //
 // なぜ要るか: extraResources で配る CLI / ランタイム（skills/**/bin・render-cut・osr-export・
 // gpu-export・edit-lint・akari-launcher）は、モノレポでは隣の packages/ や skills/ を相対 import で参照できてしまう。
@@ -11,15 +11,16 @@
 //
 // やること:
 //   1. apps/shell/package.json の build.extraResources を読み、from → to を filter どおり模擬 Resources に
-//      symlink で組む（実ファイルはコピーしない。相対 import の解決は論理パスで行うので symlink で足りる）
+//      リンクで組む（symlink が EPERM の環境だけ hardlink / junction / copy へ落とす）
 //   2. 入口 = 模擬 Resources 内の packages/*/bin/*.mjs と packages/*/src/cli/*.mjs 全部 +
 //      skills/**/bin/**/*.mjs + osr-export / gpu-export の src/electron-main.mjs
-//   3. 静的 import（import … from / export … from / import "x"）を再帰的に辿る。相対は存在検査、
+//   3. 静的 import と相対 require('…') を再帰的に辿る。相対は存在検査、
 //      bare は packages/node_modules（= resources/cli-node-modules）から解決。node: と electron は対象外
 //   4. リポジトリのソースツリーにある package 解決関数の文字列リテラル引数を走査し、模擬 Resources
 //      の packages/<pkg>/<rel> に実体があるか検査する。非リテラル引数は参考情報に留める
-//   5. 動的 import("x") は参考情報（hyperframes のように意図的に同梱しない依存があるため fail にしない）
-//   6. launcher が宣言するサブコマンド実行体を、模擬 Resources または npm vendor の同梱規則と照合する
+//   5. backend の findGenerationAsset / findAsset の文字列リテラルを検査し、非リテラルは参考にする
+//   6. 動的 import("x") は参考情報（hyperframes のように意図的に同梱しない依存があるため fail にしない）
+//   7. launcher が宣言するサブコマンド実行体を、模擬 Resources または npm vendor の同梱規則と照合する
 //
 // 前提: resources/cli-node-modules が staging 済み（scripts/release/install-bundled-cli-deps.mjs →
 // apps/shell/resources/scripts/bundle-cli-node-modules.mjs）。無ければ bare import は全部 missing になる。
@@ -27,7 +28,7 @@
 // 使い方:
 //   node scripts/release/check-packaged-imports.mjs [--shell-package apps/shell/package.json] [--keep]
 // 終了コード: 欠け 0 なら 0、1 件以上なら 1。
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, rmdirSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,6 +83,48 @@ export function globToRegExp(pattern) {
   return new RegExp(`^${source}$`);
 }
 
+// 生成物は checkout に存在しない場合がある。宣言された配置先と filter で判定し、
+// electron-builder の実行前に packaging build が元ファイルを用意する。
+export function isDeclaredResource(relativePath, extraResources) {
+  const normalized = relativePath.replaceAll('\\', '/').replace(/^\/+|\/+$/gu, '');
+  return extraResources.some((entry) => {
+    const to = (typeof entry === 'string' ? '.' : entry.to ?? '.').replaceAll('\\', '/').replace(/^\/+|\/+$/gu, '').replace(/^\.$/u, '');
+    if (to && normalized !== to && !normalized.startsWith(`${to}/`)) return false;
+    const inside = to ? normalized.slice(to.length).replace(/^\//u, '') : normalized;
+    const filters = typeof entry === 'string' ? null : entry.filter ?? null;
+    return filters === null || filters.some((pattern) => globToRegExp(pattern).test(inside));
+  });
+}
+
+function linkDirectory(source, target, linkedDirectories) {
+  try {
+    symlinkSync(source, target, 'dir');
+  } catch (error) {
+    if (error.code !== 'EPERM') throw error;
+    try {
+      symlinkSync(source, target, 'junction');
+    } catch {
+      cpSync(source, target, { recursive: true });
+      return;
+    }
+  }
+  linkedDirectories.push(target);
+}
+
+// 再帰削除が元の checkout に入らないよう、先にディレクトリのリンクを外す。
+export function removeAssembledResources(resourcesRoot, linkedDirectories = []) {
+  for (const target of linkedDirectories.reverse()) {
+    if (existsSync(target)) {
+      try { rmdirSync(target); }
+      catch (error) {
+        if (error.code !== 'ENOTDIR' && error.code !== 'EINVAL') throw error;
+        rmSync(target, { force: true });
+      }
+    }
+  }
+  rmSync(dirname(resourcesRoot), { recursive: true, force: true });
+}
+
 function walkFiles(root) {
   const out = [];
   const stack = [root];
@@ -101,6 +144,7 @@ function walkFiles(root) {
 export function assembleResources(shellPackage, { shellDir = SHELL_DIR, resourcesRoot } = {}) {
   const entries = shellPackage.build?.extraResources ?? [];
   const skipped = [];
+  const linkedDirectories = [];
   for (const entry of entries) {
     const from = resolve(shellDir, typeof entry === 'string' ? entry : entry.from);
     const to = resolve(resourcesRoot, typeof entry === 'string' ? '.' : (entry.to ?? '.'));
@@ -112,7 +156,7 @@ export function assembleResources(shellPackage, { shellDir = SHELL_DIR, resource
         // 同じ to に複数エントリが重なる場合（resources/generated-notices -> . など）は中身を個別に張る
         for (const file of walkFiles(from)) linkFile(file, join(to, relative(from, file)));
       } else {
-        symlinkSync(from, to, 'dir');
+        linkDirectory(from, to, linkedDirectories);
       }
       continue;
     }
@@ -122,17 +166,28 @@ export function assembleResources(shellPackage, { shellDir = SHELL_DIR, resource
       if (regexps.some((regexp) => regexp.test(rel))) linkFile(file, join(to, rel));
     }
   }
-  return { resourcesRoot, skipped };
+  return { resourcesRoot, skipped, linkedDirectories };
 }
 
 function linkFile(source, target) {
   if (existsSync(target)) return;
   mkdirSync(dirname(target), { recursive: true });
-  symlinkSync(source, target, 'file');
+  try {
+    symlinkSync(source, target, 'file');
+  } catch (error) {
+    if (error.code !== 'EPERM') throw error;
+    try { linkSync(source, target); }
+    catch { copyFileSync(source, target); }
+  }
 }
 
 const STATIC_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^'"\n;]*?\bfrom\s*['"]([^'"]+)['"]|(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
 const DYNAMIC_IMPORT = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+export function relativeRequires(source) {
+  return syntaxCalls(source, new Set(['require'])).map((call) => call.literal)
+    .filter((specifier) => specifier?.startsWith('.'));
+}
 
 function resolveBare(specifier, fromDir, resourcesRoot) {
   const name = specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0];
@@ -166,14 +221,14 @@ export function walkImports(entries, resourcesRoot) {
     seen.add(file);
     if (!existsSync(file)) { missing.push({ specifier: relative(resourcesRoot, file), from: '(entry)' }); continue; }
     const source = readFileSync(file, 'utf8');
-    const fromLabel = relative(resourcesRoot, file);
-    for (const match of source.matchAll(STATIC_IMPORT)) {
-      const specifier = match[1] ?? match[2];
+    const fromLabel = relative(resourcesRoot, file).split('\\').join('/');
+    for (const specifier of [...source.matchAll(STATIC_IMPORT)].map((match) => match[1] ?? match[2]).concat(relativeRequires(source))) {
       if (!specifier || specifier.startsWith('node:') || specifier === 'electron') continue;
       if (specifier.startsWith('.')) {
         const target = resolveRelative(specifier, file);
-        if (target) queue.push(target);
-        else missing.push({ specifier: relative(resourcesRoot, resolve(dirname(file), specifier)), from: fromLabel });
+        if (target && /\.(?:mjs|cjs|js)$/u.test(target)) queue.push(target);
+        else if (target) continue;
+        else missing.push({ specifier: relative(resourcesRoot, resolve(dirname(file), specifier)).split('\\').join('/'), from: fromLabel });
       } else if (!resolveBare(specifier, dirname(file), resourcesRoot)) {
         missing.push({ specifier: `(bare) ${specifier}`, from: fromLabel });
       }
@@ -329,6 +384,66 @@ function resolverCalls(source) {
   return calls;
 }
 
+const ASSET_FINDER_NAMES = new Set(['findGenerationAsset', 'findAsset']);
+
+// 名前で呼び出しを探し、第 1 引数だけを見る。ファイル内の別の正規表現やテンプレートで
+// 後続の呼び出しが隠れないようにする。上の package resolver 走査と検出結果はそのまま保つ。
+function syntaxCalls(source, names) {
+  const calls = [];
+  const pattern = names.has('require')
+    ? /(?<![\w$.])require\s*\(/gu
+    : /(?<![\w$])(?:findGenerationAsset|findAsset)\s*\(/gu;
+  for (const match of source.matchAll(pattern)) {
+    const start = match.index;
+    const lineStart = source.lastIndexOf('\n', start - 1) + 1;
+    const before = source.slice(lineStart, start);
+    if (/^\s*(?:\/\/|\/\*|\*)/u.test(before)) continue;
+    if (/\b(?:function|protected|private|public|static|async)\s+$/u.test(before)) continue;
+    const resolver = match[0].slice(0, match[0].indexOf('(')).trim();
+    let argumentStart = start + match[0].length;
+    while (/\s/u.test(source[argumentStart] ?? '')) argumentStart += 1;
+    const quoted = source[argumentStart] === "'" || source[argumentStart] === '"'
+      ? readQuoted(source, argumentStart) : null;
+    let afterQuoted = quoted?.next ?? -1;
+    if (quoted) while (/\s/u.test(source[afterQuoted] ?? '')) afterQuoted += 1;
+    const literal = quoted && (source[afterQuoted] === ',' || source[afterQuoted] === ')')
+      ? quoted.value : null;
+    const end = argumentEnd(source, argumentStart);
+    calls.push({ resolver, literal,
+      expression: source.slice(argumentStart, end).trim().replace(/\s+/gu, ' ').slice(0, 160),
+      line: source.slice(0, start).split('\n').length });
+  }
+  return calls;
+}
+
+function sourceFilesForAssetFinders(repoRoot) {
+  const extensions = join(repoRoot, 'apps', 'shell', 'extensions');
+  if (!existsSync(extensions)) return [];
+  return walkFiles(extensions).filter((file) => file.endsWith('.ts')
+    && file.replaceAll('\\', '/').includes('/src/node/')).sort();
+}
+
+export function scanAssetFinderCalls({ repoRoot = REPO_ROOT, resourcesRoot, generatedResources = [] }) {
+  const missing = [];
+  const dynamic = [];
+  let found = 0;
+  const files = sourceFilesForAssetFinders(repoRoot);
+  for (const file of files) {
+    const from = relative(repoRoot, file).split('\\').join('/');
+    for (const call of syntaxCalls(readFileSync(file, 'utf8'), ASSET_FINDER_NAMES)) {
+      if (!call.literal || call.literal.includes('..') || call.literal.startsWith('/')) {
+        dynamic.push({ ...call, from });
+        continue;
+      }
+      found += 1;
+      const item = { specifier: call.literal, from, line: call.line, finder: call.resolver };
+      if (!existsSync(join(resourcesRoot, ...call.literal.split('/')))
+        && !isDeclaredResource(call.literal, generatedResources)) missing.push(item);
+    }
+  }
+  return { scanned: files.length, found, missing, dynamic };
+}
+
 // 実ソースツリーの package 解決呼び出しを、組み上げ済みの模擬 Resources と照合する。
 export function scanPackageResolverCalls({ repoRoot = REPO_ROOT, resourcesRoot }) {
   const missing = [];
@@ -430,10 +545,16 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
   const shellPackage = JSON.parse(readFileSync(shellPackagePath, 'utf8'));
   const resourcesRoot = join(mkdtempSync(join(tmpdir(), 'akari-packaged-')), 'Resources');
   mkdirSync(resourcesRoot, { recursive: true });
-  const { skipped } = assembleResources(shellPackage, { resourcesRoot });
+  const { skipped, linkedDirectories } = assembleResources(shellPackage, { resourcesRoot });
   const entries = defaultEntries(resourcesRoot);
   const { walked, missing, dynamic } = walkImports(entries, resourcesRoot);
   const packageResolvers = scanPackageResolverCalls({ resourcesRoot });
+  const generatedResources = (shellPackage.build?.extraResources ?? []).filter((entry) =>
+    skipped.includes(typeof entry === 'string' ? entry : entry.from)
+    // filter の無いルート宣言では、任意の finder 対象が生成元に属するとは確認できない。
+    // その宣言は資産欠落の免除対象から外す。
+    && typeof entry !== 'string' && ((entry.to ?? '.') !== '.' || !!entry.filter?.length));
+  const assetFinders = scanAssetFinderCalls({ resourcesRoot, generatedResources });
   const launcherSubcommands = scanLauncherSubcommands({ resourcesRoot });
   console.log(`check-packaged-imports: entries ${entries.length} / walked ${walked} files / Resources = ${resourcesRoot}`);
   if (skipped.length > 0) console.log(`  skipped (from が存在しない・生成物など): ${skipped.join(', ')}`);
@@ -446,6 +567,18 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
     console.log(`  package resolver の非リテラル引数（参考・fail にしない）: ${packageResolvers.dynamic.length}`);
     for (const item of packageResolvers.dynamic) {
       console.log(`    (${item.resolver}) ${item.expression}  <- ${item.from}:${item.line}`);
+    }
+  }
+  if (assetFinders.dynamic.length > 0) {
+    console.log(`  asset finder の非リテラル引数（参考・fail にしない）: ${assetFinders.dynamic.length}`);
+    for (const item of assetFinders.dynamic) {
+      console.log(`    (${item.resolver}) ${item.expression}  <- ${item.from}:${item.line}`);
+    }
+  }
+  if (assetFinders.missing.length > 0) {
+    console.error(`check-packaged-imports: ASSET FINDER MISSING ${assetFinders.missing.length}`);
+    for (const item of assetFinders.missing) {
+      console.error(`    ${item.specifier}  <- ${item.from}:${item.line}`);
     }
   }
   if (packageResolvers.excluded.length > 0) {
@@ -478,11 +611,11 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
     console.error(`check-packaged-imports: MISSING ${missing.length}（パッケージ版で ERR_MODULE_NOT_FOUND になる）`);
     for (const item of missing) console.error(`    ${item.specifier}  <- imported from ${item.from}`);
   }
-  if (missing.length > 0 || packageResolvers.missing.length > 0
+  if (missing.length > 0 || packageResolvers.missing.length > 0 || assetFinders.missing.length > 0
     || launcherSubcommands.missing.length > 0 || launcherSubcommands.staleKnownUnpackaged.length > 0) {
-    if (!keep) rmSync(dirname(resourcesRoot), { recursive: true, force: true });
+    if (!keep) removeAssembledResources(resourcesRoot, linkedDirectories);
     process.exit(1);
   }
   console.log('check-packaged-imports: OK（欠け 0）');
-  if (!keep) rmSync(dirname(resourcesRoot), { recursive: true, force: true });
+  if (!keep) removeAssembledResources(resourcesRoot, linkedDirectories);
 }

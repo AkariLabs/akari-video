@@ -344,6 +344,7 @@
           "bin/validate-word-book.mjs",
           "word-book.schema.json",
           "gen-models.json",
+          "ai-models.json",
           "gen-models.schema.json",
           "generation-meta.schema.json",
           "connections.schema.json",

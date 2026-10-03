@@ -208,6 +208,7 @@ export const LANES = {
         files: PREVIEW_SERVER_PURE_TESTS
       },
       { id: 'scripts/test', cwd: '.', files: ['scripts/test/*.test.mjs'] },
+      { id: 'scripts/release/check-packaged-imports', cwd: '.', files: ['scripts/release/test/check-packaged-imports.test.mjs'] },
       {
         id: 'skills/* (package.json を持たないスキル同梱テスト)',
         cwd: '.',
