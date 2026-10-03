@@ -34,7 +34,7 @@ test("file-backed overlay images embed before page construction", async (t) => {
   assert.equal(dom.spriteManifest.dom.length, 1);
   assert.ok(dom.html.includes("data:image/png;base64,"));
   await writeFile(join(projectRoot, "assets", "model.glb"), "model");
-  const three = `${html}<canvas></canvas><script type="application/json" data-akari-3d-scene>{"model":"assets/model.glb"}</script>`;
+  const three = `<div>${html}<canvas></canvas><script type="application/json" data-akari-3d-scene>{"model":"assets/model.glb"}</script></div>`;
   await writeFile(join(projectRoot, "overlays", "fragment.html"), three);
   const scene = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
   assert.equal(scene.spriteManifest.three.length, 1);
