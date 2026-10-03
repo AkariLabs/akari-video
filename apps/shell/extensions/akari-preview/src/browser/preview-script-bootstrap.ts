@@ -6367,66 +6367,18 @@ export function previewBootstrapScript(): string {
                 if (Math.abs(sliderValue - zoomToSlider(1)) <= SNAP_TOLERANCE) return 1;
                 return Math.pow(2, logMin + (logMax - logMin) * sliderValue);
             };
-            const computeStageClearance = (${computePreviewStageClearance.toString()});
             const computePanLimits = (${computePreviewPanLimits.toString()});
             const computePinchPan = (${pinchPreviewPan.toString()});
-            let contextBarRect = null;
-            let stageClearance = { top: 16, barHeight: 0, holdUntil: 0, retryAfter: null };
-            let clearanceTimer = 0;
-            let clearanceAnimation = 0;
-            let clearanceTransitionTimer = 0;
-            const refreshStageGeometry = () => {
-                window.akari.updateLayerLayout?.();
-                updateLayerSelectBox();
-                if (cropModeActive) updateLayerCropBox();
-                updateCutSelectBox();
-                updateCaptionSelectBox();
-                renderZoom();
-            };
-            const animateStageGeometry = () => {
-                cancelAnimationFrame(clearanceAnimation);
-                const until = performance.now() + 200;
-                const frame = () => {
-                    refreshStageGeometry();
-                    if (performance.now() < until) clearanceAnimation = requestAnimationFrame(frame);
-                    else clearanceAnimation = 0;
-                };
-                clearanceAnimation = requestAnimationFrame(frame);
-            };
-            previewStage.addEventListener('transitionend', event => {
-                if (event.target === previewStage && (event.propertyName === 'top' || event.propertyName === 'width')) {
-                    refreshStageGeometry();
-                }
-            });
-            const applyStageClearance = () => {
-                clearTimeout(clearanceTimer);
-                const next = computeStageClearance(stageClearance, contextBarRect, Date.now(), isPlaying);
-                const layoutChanged = next.top !== stageClearance.top;
-                const changed = layoutChanged || next.barHeight !== stageClearance.barHeight;
-                stageClearance = next;
-                if (changed) {
-                    if (layoutChanged) {
-                        clearTimeout(clearanceTransitionTimer);
-                        previewStage.classList.add('akari-clearance-animating');
-                        // Commit the transition property before changing top/width in this task.
-                        void previewStage.offsetWidth;
-                        previewStage.style.setProperty('--akari-preview-gutter-top', next.top + 'px');
-                        previewStage.classList.toggle('akari-clearance-active', next.top > 16);
-                        animateStageGeometry();
-                        clearanceTransitionTimer = window.setTimeout(() => {
-                            previewStage.classList.remove('akari-clearance-animating');
-                            refreshStageGeometry();
-                        }, 200);
-                    }
+            let stageClearance = { barHeight: 0 };
+            window.addEventListener('message', event => {
+                if (event.data?.type !== 'akari-preview-context-bar-rect') return;
+                const rect = event.data.rect;
+                const nextHeight = rect && Number.isFinite(rect.height) ? Math.max(0, rect.height) : 0;
+                if (nextHeight !== stageClearance.barHeight) {
+                    stageClearance = { barHeight: nextHeight };
                     pan = clampPan(pan);
                     renderZoom();
                 }
-                if (next.retryAfter !== null) clearanceTimer = window.setTimeout(applyStageClearance, next.retryAfter);
-            };
-            window.addEventListener('message', event => {
-                if (event.data?.type !== 'akari-preview-context-bar-rect') return;
-                contextBarRect = event.data.rect;
-                applyStageClearance();
             });
             const panLimits = () => computePanLimits(previewPane.clientWidth, previewPane.clientHeight,
                 previewStage.offsetWidth, previewStage.offsetHeight, zoom, stageClearance.barHeight);

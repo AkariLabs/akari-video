@@ -102,22 +102,53 @@ test('embedded pure functions have no module dependencies', () => {
     }
 });
 
-test('webview receives bar rectangle and refreshes geometry during stage transition', () => {
+test('output stage uses a fixed 40px top gutter while material preview keeps 16px', () => {
     const source = readHandlerSource();
     const host = readFileSync(new URL('../src/browser/preview-context-bar.ts', import.meta.url), 'utf8');
     assert.match(host, /akari-preview-context-bar-rect/);
     assert.match(source, /event\.data\?\.type !== 'akari-preview-context-bar-rect'/);
-    assert.match(source, /previewStage\.addEventListener\('transitionend'/);
-    assert.match(source, /animateStageGeometry\(\)/);
-    assert.match(source, /window\.akari\.updateLayerLayout\?\.\(\)/);
     assert.match(source, /previewStage\.getBoundingClientRect\(\)[\s\S]*reportLibraryDropGeometry/);
     const base = source.match(/^#preview-stage \{ (.+) \}$/m)?.[1];
     assert.ok(base);
     assert.doesNotMatch(base, /transition:/);
-    assert.match(source, /^#preview-stage\.akari-clearance-animating \{ transition: top 150ms ease, width 150ms ease; \}$/m);
-    assert.match(source, /previewStage\.classList\.add\('akari-clearance-animating'\)[\s\S]*previewStage\.style\.setProperty\('--akari-preview-gutter-top'/);
-    assert.match(source, /previewStage\.classList\.remove\('akari-clearance-animating'\)/);
     assert.match(source, /^html\.akari-gen-capture-fit #preview-stage \{[^\n]*transition: none;/m);
+    const css = source.slice(source.indexOf('#preview-stage {'), source.indexOf('html.akari-gen-capture-fit #preview-stage'));
+    const renderCss = kind => vm.runInNewContext('`' + css + '`', { kind, width: 1920, height: 1080 });
+    assert.match(renderCss('output'), /#preview-stage \{ --akari-preview-gutter-top: 40px; top: calc\(/);
+    assert.doesNotMatch(renderCss('raw'), /--akari-preview-gutter-top: 40px/);
+    assert.match(renderCss('raw'), /#preview-stage \{ --akari-preview-gutter: 16px; --akari-preview-gutter-top: 16px;/);
+    assert.doesNotMatch(renderCss('output'), /\$\{(?:width|height)\}/);
+});
+
+test('menu rectangle reports never change output stage position or size', () => {
+    const source = readHandlerSource();
+    const start = source.indexOf('let stageClearance = { barHeight: 0 };');
+    const end = source.indexOf('const panLimits = () =>', start);
+    assert.ok(start > 0 && end > start);
+    let onMessage;
+    const stage = { top: 40, width: 800, writes: 0 };
+    const context = {
+        window: { addEventListener: (_type, callback) => { onMessage = callback; } },
+        pan: { x: 0, y: 0 }, clampPan: value => value, renderZoom() {},
+        previewStage: { style: { setProperty() { stage.writes++; } }, classList: { add() { stage.writes++; }, toggle() { stage.writes++; } } }
+    };
+    vm.runInNewContext(source.slice(start, end), context);
+    for (const rect of [{ top: 5, height: 30 }, null, { top: 5, height: 60 }, { top: 5, height: 90 }, null]) {
+        onMessage({ data: { type: 'akari-preview-context-bar-rect', rect } });
+        assert.deepEqual([stage.top, stage.width, stage.writes], [40, 800, 0]);
+    }
+});
+
+test('write failure banner overlays the bottom of the picture pane', () => {
+    const source = readHandlerSource();
+    const bannerCss = source.match(/^\.write-error-banner \{ ([^\n]+) \}$/m)?.[1];
+    assert.ok(bannerCss);
+    const output = vm.runInNewContext('`' + bannerCss + '`', { kind: 'output' });
+    const material = vm.runInNewContext('`' + bannerCss + '`', { kind: 'raw' });
+    assert.match(output, /position: absolute; bottom: 0;/);
+    assert.doesNotMatch(output, /(?:^|;) top:/);
+    assert.match(material, /position: absolute; top: 8px;/);
+    assert.match(source, /<div id="write-error-banner" class="write-error-banner" hidden role="alert"/);
 });
 
 test('wheel pans in pixel and line modes without intercepting scrollable controls', () => {

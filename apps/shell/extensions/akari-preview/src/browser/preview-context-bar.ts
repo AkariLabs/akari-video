@@ -5,7 +5,7 @@ import {
     elementMenuPosition, formatRange, geometryValues, parseContextBarState, shortcutLabel, windowValues
 } from '../common/context-bar-view';
 import { CAPTION_BAR_ORDER, CAPTION_COLORS, captionEscapeClosesPopup, captionItemPressed,
-    captionOverflowKeys, captionOverflowPressed, captionValueChanged, nextCaptionAlign,
+    captionOverflowKeys, captionOverflowPressed, captionValueChanged, contextBarOverflowKeys, nextCaptionAlign,
     nextCaptionWindow } from '../common/caption-context-bar';
 
 /**
@@ -103,6 +103,8 @@ export class PreviewContextBar implements Disposable {
     protected report: PreviewContextBoxReport = { box: null, busy: false, stage: null };
     protected openWindow: string | null = null;
     protected moreOpen = false;
+    protected barOverflowOpen = false;
+    protected barOverflow: BarItem[] = [];
     protected captionOverflow: string[] = [];
     protected captionPanel: 'font' | 'style' | null = null;
     protected captionPending = new Map<string, unknown>();
@@ -160,6 +162,7 @@ export class PreviewContextBar implements Disposable {
                 this.openWindow = null;
             }
             this.moreOpen = false;
+            this.barOverflowOpen = false;
             this.render();
         };
         document.addEventListener('mousedown', onDown, true);
@@ -169,11 +172,13 @@ export class PreviewContextBar implements Disposable {
         document.addEventListener('mouseup', onUp, true);
         this.toDispose.push(Disposable.create(() => document.removeEventListener('mouseup', onUp, true)));
         this.root.addEventListener('keydown', event => {
-            if (event.key !== 'Escape' || !captionEscapeClosesPopup(this.state?.kind, this.openWindow, this.moreOpen)) return;
+            if (event.key !== 'Escape' || !captionEscapeClosesPopup(this.state?.kind, this.openWindow,
+                this.moreOpen || this.barOverflowOpen)) return;
             event.preventDefault();
             event.stopImmediatePropagation();
             this.openWindow = null;
             this.moreOpen = false;
+            this.barOverflowOpen = false;
             this.render();
         });
         this.bar.addEventListener('click', event => this.onBarClick(event));
@@ -240,6 +245,7 @@ export class PreviewContextBar implements Disposable {
             if (this.state?.styleCopy) void this.run({ action: 'cancelStyle' });
             this.openWindow = null;
             this.moreOpen = false;
+            this.barOverflowOpen = false;
             this.render();
             return;
         }
@@ -247,9 +253,10 @@ export class PreviewContextBar implements Disposable {
             // 選択を自分で外したのか（akari-annotations の選び直しの安全網が見る）
             window.dispatchEvent(new CustomEvent(USER_INPUT_EVENT));
             // プレビューを押したら窓と ⋯ を閉じる（配置の窓はレイヤー一覧を見ながら選べるよう開いたまま）
-            if (message.user === 'pointer' && ((this.openWindow && this.openWindow !== 'arrange') || this.moreOpen)) {
+            if (message.user === 'pointer' && ((this.openWindow && this.openWindow !== 'arrange') || this.moreOpen || this.barOverflowOpen)) {
                 if (this.openWindow !== 'arrange') this.openWindow = null;
                 this.moreOpen = false;
+                this.barOverflowOpen = false;
                 this.render();
             }
             return;
@@ -286,10 +293,12 @@ export class PreviewContextBar implements Disposable {
         const editUri = this.host.editUri();
         if (state && editUri && state.editUri !== editUri) return;
         const previous = this.state?.selectedId;
+        const previousKind = this.state?.kind;
         this.state = state;
-        if (state?.selectedId !== previous) {
+        if (state?.selectedId !== previous || state?.kind !== previousKind) {
             this.captionPending.clear();
             this.moreOpen = false;
+            this.barOverflowOpen = false;
             // 配置の窓だけは選び直しても開いたまま（レイヤー一覧を見ながら選べる）。選び直しの途中で一瞬
             // 「選択なし」を挟むので、ここでは閉じない（選択が無い間は窓を描かないだけ）
             if (this.openWindow !== 'arrange') this.openWindow = null;
@@ -316,7 +325,7 @@ export class PreviewContextBar implements Disposable {
     }
 
     protected windowOpen(): boolean {
-        return (!!this.openWindow && !!this.state?.selectedId) || this.moreOpen;
+        return (!!this.openWindow && !!this.state?.selectedId) || this.moreOpen || this.barOverflowOpen;
     }
 
     protected lockMessageSignature(): string {
@@ -376,25 +385,55 @@ export class PreviewContextBar implements Disposable {
             this.renderCaptionBar();
             return;
         }
-        const signature = JSON.stringify([items, this.openWindow, this.moreOpen]);
+        const signature = JSON.stringify([items, this.openWindow, this.barOverflowOpen]);
         if (signature === this.barSignature) return;
         this.barSignature = signature;
         this.bar.hidden = items.length === 0;
-        this.bar.innerHTML = items.map(item => {
-            if (item.kind === 'separator') return '<span class="akari-ctx-sep" aria-hidden="true"></span>';
-            const open = item.key === 'captionMore' ? this.moreOpen : this.openWindow === item.key;
-            const attrs = `data-akari-bar-item="${item.key}" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.title ?? item.label)}"`
-                + (item.key === 'captionSize' ? ' data-akari-onboarding-target="caption-size"' : '')
-                + (item.kind === 'window' ? ` aria-expanded="${open}"` : '') + (item.disabled ? ' disabled aria-disabled="true"' : '');
-            if (item.kind === 'color') {
-                const none = item.paint === 'none';
-                return `<button type="button" class="akari-ctx-item is-color" ${attrs}><span class="akari-ctx-dot${none ? ' is-none' : ''}"`
-                    + `${none ? '' : ` style="background:${escapeHtml(item.paint ?? '')}"`}></span></button>`;
-            }
-            const icon = ICON[item.key === 'photoRadius' ? 'radius' : item.key] ?? '';
-            const text = item.text || !icon ? `<span>${escapeHtml(item.label)}</span>` : '';
-            return `<button type="button" class="akari-ctx-item${open ? ' is-open' : ''}" ${attrs}>${item.text ? '' : icon}${text}</button>`;
-        }).join('');
+        this.barOverflow = [];
+        this.bar.innerHTML = items.map((item, index) => this.barItemHtml(item, index)).join('')
+            + (items.length ? `<button type="button" class="akari-ctx-item akari-ctx-overflow" data-akari-bar-item="overflow" aria-label="もっと見る" aria-expanded="${this.barOverflowOpen}" hidden>…</button>` : '');
+        if (!items.length) return;
+        const outerWidth = (element: HTMLElement | null): number => {
+            if (!element) return 0;
+            const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+            return element.getBoundingClientRect().width + (parseFloat(style?.marginLeft ?? '') || 0)
+                + (parseFloat(style?.marginRight ?? '') || 0);
+        };
+        const keys = items.map((_, index) => String(index));
+        const widths = Object.fromEntries(keys.map(key => [key,
+            outerWidth(this.bar.querySelector<HTMLElement>(`[data-akari-bar-index="${key}"]`)) + 2]));
+        const area = this.host.node.querySelector('iframe')?.getBoundingClientRect().width ?? this.host.node.getBoundingClientRect().width;
+        const overflowButton = this.bar.querySelector<HTMLElement>('[data-akari-bar-item="overflow"]');
+        if (overflowButton) overflowButton.hidden = false;
+        const overflowWidth = Math.max(28, outerWidth(overflowButton)) + 2;
+        if (overflowButton) overflowButton.hidden = true;
+        const hidden = contextBarOverflowKeys(keys, widths, Math.max(0, area - 16), overflowWidth);
+        // A divider next to the overflow button has no item on its right.
+        while (hidden.length && items[items.length - hidden.length - 1]?.kind === 'separator') {
+            hidden.unshift(String(items.length - hidden.length - 1));
+        }
+        this.barOverflow = hidden.map(key => items[Number(key)]).filter(item => item.kind !== 'separator');
+        for (const key of hidden) {
+            const element = this.bar.querySelector<HTMLElement>(`[data-akari-bar-index="${key}"]`);
+            if (element) element.hidden = true;
+        }
+        if (overflowButton) {
+            overflowButton.hidden = this.barOverflow.length === 0;
+            overflowButton.classList.toggle('is-open', this.barOverflowOpen
+                || this.barOverflow.some(item => item.key === this.openWindow));
+        }
+        if (!this.barOverflow.length) this.barOverflowOpen = false;
+    }
+
+    protected barItemHtml(item: BarItem, index: number, overflow = false): string {
+        if (item.kind === 'separator') return `<span class="akari-ctx-sep" data-akari-bar-index="${index}" aria-hidden="true"></span>`;
+        const open = this.openWindow === item.key;
+        const attrs = `data-akari-bar-item="${item.key}" data-akari-bar-index="${index}" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.title ?? item.label)}"`
+            + (item.kind === 'window' ? ` aria-expanded="${open}"` : '') + (item.disabled ? ' disabled aria-disabled="true"' : '');
+        const icon = ICON[item.key === 'photoRadius' ? 'radius' : item.key] ?? '';
+        const dot = item.kind === 'color' ? `<span class="akari-ctx-dot${item.paint === 'none' ? ' is-none' : ''}"${item.paint === 'none' ? '' : ` style="background:${escapeHtml(item.paint ?? '')}"`}></span>` : '';
+        const content = item.kind === 'color' ? dot : `${item.text ? '' : icon}${item.text || !icon ? `<span>${escapeHtml(item.label)}</span>` : ''}`;
+        return `<button type="button" class="akari-ctx-item${item.kind === 'color' ? ' is-color' : ''}${open ? ' is-open' : ''}" ${attrs}>${overflow ? `${item.kind === 'color' ? dot : icon}<span>${escapeHtml(item.label)}</span>` : content}</button>`;
     }
 
     protected captionButton(key: string, overflow = false): string {
@@ -486,7 +525,7 @@ export class PreviewContextBar implements Disposable {
 
     protected renderMore(): void {
         const state = this.state;
-        const show = this.moreOpen && !!state?.selectedId;
+        const show = (this.moreOpen || this.barOverflowOpen) && !!state?.selectedId;
         this.more.hidden = !show;
         if (!show || !state) return;
         const row = (key: string, label: string, icon: string, keys: string, disabled = false): string =>
@@ -496,6 +535,11 @@ export class PreviewContextBar implements Disposable {
             this.more.innerHTML = this.captionOverflow.map(key => key === 'captionSize'
                 ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button><input type="number" data-akari-caption-size min="1" max="160" value="${Math.round(Number((state.item?.textStyle as Record<string, any>)?.sizePx) || 48)}" aria-label="サイズ"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
                 : this.captionButton(key, true)).join('');
+            return;
+        }
+        if (this.barOverflowOpen) {
+            const items = barItems(state);
+            this.more.innerHTML = this.barOverflow.map(item => this.barItemHtml(item, items.indexOf(item), true)).join('');
             return;
         }
         this.more.innerHTML = [
@@ -625,14 +669,16 @@ export class PreviewContextBar implements Disposable {
         const areaBox = { left: offset.left, top: offset.top, width: area.width, height: area.height };
         // 上のバー: webview の中央上に固定
         this.bar.style.left = `${offset.left + area.width / 2}px`;
-        this.bar.style.top = `${offset.top + 8}px`;
-        this.bar.style.maxWidth = `${Math.max(160, area.width - 16)}px`;
+        this.bar.style.top = `${offset.top + 5}px`;
+        this.bar.style.maxWidth = `${Math.max(0, area.width - 16)}px`;
         const barRect = this.bar.hidden ? undefined : this.bar.getBoundingClientRect();
         const barBottom = barRect ? barRect.bottom - node.top : offset.top;
         this.hint.style.left = `${offset.left + area.width / 2}px`;
         this.hint.style.top = `${barBottom + 6}px`;
         if (!this.pop.hidden) {
-            const anchor = this.bar.querySelector(`[data-akari-bar-item="${this.captionOverflow.includes(this.openWindow ?? '') ? 'overflow' : this.openWindow}"]`)?.getBoundingClientRect();
+            const windowInOverflow = this.captionOverflow.includes(this.openWindow ?? '')
+                || this.barOverflow.some(item => item.key === this.openWindow);
+            const anchor = this.bar.querySelector(`[data-akari-bar-item="${windowInOverflow ? 'overflow' : this.openWindow}"]`)?.getBoundingClientRect();
             const width = this.pop.offsetWidth;
             const center = anchor ? anchor.left - node.left + anchor.width / 2 : offset.left + area.width / 2;
             this.pop.style.left = `${Math.max(offset.left + 6, Math.min(center - width / 2, offset.left + area.width - width - 6))}px`;
@@ -661,15 +707,15 @@ export class PreviewContextBar implements Disposable {
                 this.more.style.top = `${below + height <= node.height - 4 ? below : above >= barBottom + 4 ? above : Math.max(4, node.height - height - 4)}px`;
             }
         }
-        const captionMoreShown = this.state?.kind === 'caption' && !this.more.hidden;
-        if (captionMoreShown) {
+        const barMoreShown = (this.state?.kind === 'caption' || this.barOverflowOpen) && !this.more.hidden;
+        if (barMoreShown) {
             const anchor = this.bar.querySelector('[data-akari-bar-item="overflow"]')?.getBoundingClientRect();
             const width = this.more.offsetWidth || 240;
             const center = anchor ? anchor.left - node.left + anchor.width / 2 : offset.left + area.width / 2;
             this.more.style.left = `${Math.max(offset.left + 6, Math.min(center - width / 2, offset.left + area.width - width - 6))}px`;
             this.more.style.top = `${barBottom + 6}px`;
         }
-        this.more.classList.toggle('is-placed', showMenu || captionMoreShown);
+        this.more.classList.toggle('is-placed', showMenu || barMoreShown);
         const menuBox = showMenu ? this.menu.getBoundingClientRect() : null;
         const visibleBar = !this.bar.hidden && !this.report.busy ? this.bar.getBoundingClientRect() : null;
         const barRectInFrame = visibleBar ? { left: visibleBar.left - area.left, top: visibleBar.top - area.top,
@@ -697,14 +743,16 @@ export class PreviewContextBar implements Disposable {
         const key = button.dataset.akariBarItem!;
         if (button instanceof HTMLButtonElement) button.focus({ preventScroll: true });
         if (state.kind === 'caption') { this.onCaptionBarAction(key); return; }
-        const item = barItems(state).find(entry => entry.key === key);
-        if (!item) return;
-        if (key === 'captionMore') {
-            this.moreOpen = !this.moreOpen;
+        if (key === 'overflow') {
+            this.barOverflowOpen = !this.barOverflowOpen;
+            this.moreOpen = false;
             this.openWindow = null;
             this.render();
             return;
         }
+        const item = barItems(state).find(entry => entry.key === key);
+        if (!item) return;
+        this.barOverflowOpen = false;
         this.moreOpen = false;
         if (item.kind === 'color') {
             this.openWindow = null;
@@ -793,6 +841,7 @@ export class PreviewContextBar implements Disposable {
         const key = button.dataset.akariMenuItem!;
         if (key === 'more') {
             this.moreOpen = !this.moreOpen;
+            this.barOverflowOpen = false;
             this.openWindow = null;
             this.render();
             if (this.moreOpen) {
@@ -813,6 +862,11 @@ export class PreviewContextBar implements Disposable {
         if (this.state?.kind === 'caption') {
             const button = (event.target as Element).closest<HTMLElement>('[data-akari-bar-item]');
             if (button && button.dataset.akariBarItem !== 'captionSize') this.onCaptionBarAction(button.dataset.akariBarItem!);
+            return;
+        }
+        if (this.barOverflowOpen) {
+            this.barOverflowOpen = false;
+            this.onBarClick(event);
             return;
         }
         const button = (event.target as Element).closest<HTMLButtonElement>('[data-akari-menu-item]');
@@ -995,8 +1049,8 @@ const PREVIEW_CONTEXT_BAR_STYLE = `
 [data-akari-ui="preview-context-bar"], [data-akari-ui="preview-context-window"], [data-akari-ui="preview-element-menu"], [data-akari-ui="preview-element-more"], [data-akari-ui="preview-style-copy-hint"] {
   position: absolute; box-sizing: border-box; background: var(--theia-editorWidget-background); border: 1px solid var(--theia-editorWidget-border, var(--theia-widget-border, transparent));
   box-shadow: 0 8px 24px var(--theia-widget-shadow, rgba(0,0,0,.35)); }
-[data-akari-ui="preview-context-bar"] { transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px; row-gap: 2px; width: max-content; padding: 4px 6px; border-radius: 12px; }
-[data-akari-ui="preview-context-bar"]:has(.akari-ctx-caption-item) { flex-wrap: nowrap; max-height: 38px; overflow: hidden; }
+[data-akari-ui="preview-context-bar"] { transform: translateX(-50%); display: flex; flex-wrap: nowrap; justify-content: center; align-items: center; gap: 2px; width: max-content; height: 30px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--theia-editor-foreground); }
+[data-akari-ui="preview-context-bar"] > * { flex: none; }
 [data-akari-ui="preview-context-bar"] [hidden] { display: none !important; }
 [data-akari-ui="preview-context-bar"] .akari-ctx-caption-item { flex: none; box-sizing: border-box; width: 28px; min-width: 28px; height: 28px; padding: 0; gap: 2px; }
 .akari-ctx-caption-item[data-font-button] { width: 92px; justify-content: space-between; padding: 0 5px; font-size: 11px; font-weight: 400; }
