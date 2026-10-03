@@ -871,6 +871,28 @@ export function removeItem(doc: EditV2Document, itemId: string): EditV2Document 
     return value;
 }
 
+/** 楽観配置を取り消し、残る item が参照しない source だけを同時に消す。 */
+export function removePlacedMaterialAndUnusedSource(doc: EditV2Document, itemId: string): EditV2Document {
+    const edit = editTree(doc);
+    const sourceIdsOf = (item: ProjectItemV2): string[] => {
+        const mask = (item as unknown as UnknownRecord).mask;
+        return [
+            ...(item.source.kind === 'media' ? [item.source.src] : []),
+            ...(typeof mask === 'string' ? [mask] : [])
+        ];
+    };
+    const removedLocations = allLocations(edit).filter(location => location.item.id === itemId
+        || location.ancestors.some(ancestor => ancestor.id === itemId));
+    if (removedLocations.length === 0) throw new Error(`item が見つかりません: ${itemId}`);
+    const removedSources = new Set(removedLocations.flatMap(location => sourceIdsOf(location.item)));
+    removeTreeItem(edit, itemId);
+    if (removedSources.size > 0) {
+        const usedSources = new Set(allLocations(edit).flatMap(location => sourceIdsOf(location.item)));
+        edit.sources = edit.sources.filter(source => !removedSources.has(source.id) || usedSources.has(source.id));
+    }
+    return edit as unknown as EditV2Document;
+}
+
 export function insertItem(
     doc: EditV2Document,
     trackId: string,
