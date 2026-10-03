@@ -24,6 +24,8 @@
 //   shell 7 か所 全 pass（akari-preview はブラウザ 1 ファイル除外で 509 pass）/
 //   quarantine: export-nle 20/21・akari-launcher 317/332 / media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
 //   Chrome があるため緑だが、CI Linux では /tmp プロファイルの rmdir ENOTEMPTY で落ち d5f2a7b6 以降 required unit を赤にしていた）
+//   2026-10-04: release 4 本・presets 2 本を ffmpeg 無しで全緑と実測し pure へ追加。
+//   Playwright 形式の server.spec.mjs は実行主体が無いため NOT_COVERED に明記する。
 //
 // Windows 対応（2026-09-19・Windows 11 / Node 24.20.0 実測）:
 //   上の実測は macOS 前提で、Windows 開発機ではレーンランナー自体が起動できていなかった
@@ -208,7 +210,8 @@ export const LANES = {
         files: PREVIEW_SERVER_PURE_TESTS
       },
       { id: 'scripts/test', cwd: '.', files: ['scripts/test/*.test.mjs'] },
-      { id: 'scripts/release/check-packaged-imports', cwd: '.', files: ['scripts/release/test/check-packaged-imports.test.mjs'] },
+      { id: 'scripts/release/test', cwd: '.', files: ['scripts/release/test/*.test.mjs'] },
+      { id: 'presets/*', cwd: '.', files: ['presets/luts/previews.test.mjs', 'presets/shapes/generate.test.mjs'] },
       {
         id: 'skills/* (package.json を持たないスキル同梱テスト)',
         cwd: '.',
@@ -296,6 +299,11 @@ export const NOT_COVERED = [
     why: '実 Chrome を要する上、loadPuppeteer が .git を「ファイル」として読むため通常 checkout（.git がディレクトリ）では EISDIR で落ちる。テスト側の修正待ち'
   },
   { what: 'packages/preview-server test:frame-engine-browser（*.l1.mjs）', why: 'L1（実機観測）。CI の対象外' },
+  {
+    what: 'packages/preview-server/test/server.spec.mjs',
+    why: 'Playwright 形式の .spec.mjs で npm test の test/*.test.mjs にも入らず実行主体が無い。@playwright/test の実行が要る',
+    paths: ['packages/preview-server/test/server.spec.mjs']
+  },
   ...PREVIEW_SERVER_PURE_EXCLUSIONS.map(item => ({
     what: `packages/preview-server/${item.file}（required には載せない。media レーンの npm test では走る）`,
     why: item.why
