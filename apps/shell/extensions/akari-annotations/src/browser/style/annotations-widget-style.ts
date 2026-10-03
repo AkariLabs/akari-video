@@ -98,6 +98,16 @@ export const ANNOTATIONS_WIDGET_CSS = `
         opacity: .74;
         border-radius: 5px;
     }
+    .akari-annotations-widget .akari-annotations-strip-overlay[data-akari-clip-face] {
+        background: #303640;
+        border: 1px solid #79828f;
+        box-sizing: border-box;
+        opacity: 1;
+    }
+    .akari-annotations-widget .akari-annotations-strip-overlay[data-akari-clip-face="shape"],
+    .akari-annotations-widget .akari-annotations-strip-overlay[data-akari-clip-face="html"][data-akari-clip-face-preview="true"]:not([data-akari-visual-thumbnail="ready"]) {
+        overflow: hidden;
+    }
     .akari-annotations-widget .akari-annotations-strip-layer,
     .akari-annotations-widget .akari-annotations-strip-audio {
         border-radius: 5px;
@@ -401,6 +411,51 @@ export const ANNOTATIONS_WIDGET_CSS = `
     }
     .akari-annotations-widget :has(> .akari-clip-kind-badge) > .akari-annotations-strip-clip-header {
         padding-left: 44px;
+    }
+    .akari-annotations-widget .akari-clip-face-icon,
+    .akari-annotations-widget .akari-clip-face-preview {
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        width: var(--akari-clip-face-width);
+        height: calc(100% - 4px);
+        box-sizing: border-box;
+        border: 1px solid #87909d;
+        border-radius: 3px;
+        background: repeating-conic-gradient(#5b6470 0% 25%, #4a525d 0% 50%) 0/8px 8px;
+        object-fit: contain;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .akari-annotations-widget .akari-clip-face-icon svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+    .akari-annotations-widget .akari-clip-face-preview[hidden] { display: none; }
+    .akari-annotations-widget .akari-annotations-strip-overlay[data-akari-clip-face="shape"] > .akari-annotations-segment-label {
+        position: absolute;
+        top: 2px;
+        bottom: auto;
+        left: calc(var(--akari-clip-face-width) + 6px);
+        max-width: calc(100% - var(--akari-clip-face-width) - 6px);
+        box-sizing: border-box;
+        margin: 0;
+    }
+    .akari-annotations-widget .akari-annotations-strip-overlay[data-akari-clip-face="html"][data-akari-clip-face-preview="true"]:not([data-akari-visual-thumbnail="ready"]) > .akari-clip-kind-badge {
+        top: 2px;
+        left: calc(var(--akari-clip-face-width) + 6px);
+        width: 36px;
+        text-align: center;
+    }
+    .akari-annotations-widget .akari-annotations-strip-overlay[data-akari-clip-face="html"][data-akari-clip-face-preview="true"]:not([data-akari-visual-thumbnail="ready"]) > .akari-annotations-segment-label {
+        position: absolute;
+        top: 2px;
+        bottom: auto;
+        left: calc(var(--akari-clip-face-width) + 46px);
+        max-width: calc(100% - var(--akari-clip-face-width) - 46px);
+        box-sizing: border-box;
+        margin: 0;
     }
     .akari-annotations-widget .akari-annotations-selected {
         outline: 2px solid var(--theia-focusBorder, #fff);

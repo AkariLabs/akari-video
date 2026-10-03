@@ -42,10 +42,12 @@ export async function prepareVisualThumbnailPage(
     const htmlPathById = new Map<string, string>();
     const readHtml = async (item: InternalItem): Promise<void> => {
         if (item.source.kind === 'html') {
-            const ref = item.source.html;
-            htmlPathById.set(item.id, ref);
-            if (!htmlByPath.has(ref)) htmlByPath.set(ref, ref.trimStart().startsWith('<')
-                ? ref : await readFile(await localPath(ref), 'utf8'));
+            const ref = typeof item.source.html === 'string' ? item.source.html : item.declaration.html;
+            if (typeof ref === 'string') {
+                htmlPathById.set(item.id, ref);
+                if (!htmlByPath.has(ref)) htmlByPath.set(ref, ref.trimStart().startsWith('<')
+                    ? ref : await readFile(await localPath(ref), 'utf8'));
+            }
         }
         for (const child of item.children) await readHtml(child);
     };

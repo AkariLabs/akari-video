@@ -108,6 +108,7 @@ import {
 } from '../common/review-tool-mode';
 import {
     describeOverlay,
+    generationOverlaysAtTime,
     generationStateHelperV1,
     generationNextDraftHelperV1,
     resolveGenerationState
@@ -134,6 +135,7 @@ export function previewBootstrapScript(): string {
             const resolveGenerationStateFn = (${resolveGenerationState.toString()});
             const describeNextDraftV1 = (${generationNextDraftHelperV1.toString()});
             const describeOverlayFn = (${describeOverlay.toString()});
+            const generationOverlaysAtTimeFn = (${generationOverlaysAtTime.toString()});
             const previewDomOpacityFn = (${previewDomOpacity.toString()});
             const videoCandidatePreviewTimeFn = (${videoCandidatePreviewTime.toString()});
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
@@ -9303,9 +9305,12 @@ export function previewBootstrapScript(): string {
             };
             if (generationOverlay) window.akari.updateGenerationOverlayLayout = updateGenerationOverlayLayout;
             let generationClips = [];
+            const generationExtras = new Map();
             let generationExportLook = typeof initial !== 'undefined' && initial.exportLook === true;
             const hideGenerationOverlay = () => {
                 if (!generationOverlay) return;
+                for (const extra of generationExtras.values()) extra.remove();
+                generationExtras.clear();
                 generationOverlay.hidden = true;
                 generationPip.hidden = true;
                 generationBlur.hidden = true;
@@ -9326,17 +9331,30 @@ export function previewBootstrapScript(): string {
                     hideGenerationOverlay();
                     return;
                 }
-                const clip = generationClips.find(candidate => Number.isFinite(candidate.start)
+                const firstClip = generationClips.find(candidate => Number.isFinite(candidate.start)
                     && Number.isFinite(candidate.end) && candidate.start <= timelineTime && timelineTime < candidate.end);
-                if (!clip) {
+                if (!firstClip) {
                     hideGenerationOverlay();
                     return;
                 }
-                if (window.akari.stillCandidatePreviewItemId === String(clip.id)
-                    || typeof videoCandidatePreview !== 'undefined' && videoCandidatePreview?.itemId === String(clip.id)) {
+                if ((window.akari.stillCandidatePreviewItemId === String(firstClip.id)
+                    || typeof videoCandidatePreview !== 'undefined' && videoCandidatePreview?.itemId === String(firstClip.id))
+                    && generationClips.filter(candidate => Number.isFinite(candidate.start)
+                        && Number.isFinite(candidate.end) && candidate.start <= timelineTime && timelineTime < candidate.end).length === 1) {
                     hideGenerationOverlay();
                     return;
                 }
+                const active = generationOverlaysAtTimeFn(generationClips, timelineTime, candidate => {
+                    const candidateState = resolveGenerationStateFn(candidate.meta, Date.now(), candidate.binding, resolveGenerationStateV1);
+                    return describeOverlayFn(candidateState, candidate.meta, String(candidate.name || candidate.id || ''), {
+                        sourcePath: typeof candidate.sourcePath === 'string' ? candidate.sourcePath : undefined,
+                        localTimeSec: timelineTime - candidate.start,
+                        clipDurationSec: candidate.end - candidate.start
+                    }, describeNextDraftV1);
+                }, candidate => window.akari.stillCandidatePreviewItemId === String(candidate.id)
+                    || typeof videoCandidatePreview !== 'undefined' && videoCandidatePreview?.itemId === String(candidate.id));
+                const clip = active[0]?.clip;
+                if (!clip) { hideGenerationOverlay(); return; }
                 const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding, resolveGenerationStateV1);
                 const description = describeOverlayFn(state, clip.meta, String(clip.name || clip.id || ''), {
                     sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
@@ -9377,11 +9395,60 @@ export function previewBootstrapScript(): string {
                 generationOverlay.style.height = boxHeight + 'px';
                 generationOverlay.style.transform = 'rotate(' + (finite(transform.rotate, 0)
                     + (clip.kind === 'layer' ? finite(crop.rotate, 0) : 0)) + 'deg)';
+                function updateExtras() {
+                const extraIds = new Set();
+                for (const entry of active.slice(1)) {
+                    const other = entry.clip;
+                    const key = String(other.id);
+                    extraIds.add(key);
+                    let extra = generationExtras.get(key);
+                    if (!extra) {
+                        extra = document.createElement('div');
+                        extra.className = 'akari-gen-extra';
+                        extra.setAttribute('aria-hidden', 'true');
+                        extra.innerHTML = '<span class="akari-gen-extra-icon">✦</span><span class="akari-gen-extra-tag"></span>';
+                        generationOverlay.parentNode.appendChild(extra);
+                        generationExtras.set(key, extra);
+                    }
+                    extra.dataset.akariGenAurora = entry.description.aurora || '';
+                    extra.dataset.akariGenMedia = other.kind || 'visual';
+                    extra.querySelector('.akari-gen-extra-icon').textContent = other.kind === 'audio' ? '♫' : '✦';
+                    extra.querySelector('.akari-gen-extra-tag').textContent = entry.description.tag || '';
+                    const otherTransform = other.transform || {};
+                    const otherCrop = other.crop || {};
+                    const otherScale = Math.max(.01, finite(otherTransform.scale, 1));
+                    const otherMedia = other.kind === 'layer'
+                        ? Array.from(layersStage.querySelectorAll('[data-akari-layer-id]'))
+                            .find(media => media.dataset.akariLayerId === key) : null;
+                    const otherWidth = Number(otherMedia?.videoWidth || otherMedia?.naturalWidth);
+                    const otherHeight = Number(otherMedia?.videoHeight || otherMedia?.naturalHeight);
+                    const otherBoxWidth = other.kind === 'audio' ? stageWidth * .7
+                        : (Number.isFinite(otherWidth) && otherWidth > 0 ? otherWidth : stageWidth)
+                            * Math.max(.01, finite(otherCrop.w, 1)) * Math.max(.01, finite(otherTransform.scaleX, otherScale));
+                    const otherBoxHeight = other.kind === 'audio' ? stageHeight * .34
+                        : (Number.isFinite(otherHeight) && otherHeight > 0 ? otherHeight : stageHeight)
+                            * Math.max(.01, finite(otherCrop.h, 1)) * Math.max(.01, finite(otherTransform.scaleY, otherScale));
+                    extra.style.left = (stageWidth / 2 + finite(otherTransform.x, 0) - otherBoxWidth / 2) + 'px';
+                    extra.style.top = (stageHeight / 2 + finite(otherTransform.y, 0) - otherBoxHeight / 2) + 'px';
+                    extra.style.width = otherBoxWidth + 'px';
+                    extra.style.height = otherBoxHeight + 'px';
+                    extra.style.transform = 'rotate(' + (finite(otherTransform.rotate, 0)
+                        + (other.kind === 'layer' ? finite(otherCrop.rotate, 0) : 0)) + 'deg)';
+                    const displayScale = layersStage.getBoundingClientRect().width / layersStage.offsetWidth;
+                    if (Number.isFinite(displayScale) && displayScale > 0) {
+                        extra.style.setProperty('--akari-gen-inv-scale', String(1 / displayScale));
+                    }
+                }
+                for (const [key, extra] of generationExtras) {
+                    if (!extraIds.has(key)) { extra.remove(); generationExtras.delete(key); }
+                }
+                }
                 const setGenerationImage = (container, image, path, uri) => {
                     container.hidden = !path || typeof uri !== 'string' || !uri;
                     if (container.hidden) image.removeAttribute('src');
                     else if (image.getAttribute('src') !== uri) image.setAttribute('src', uri);
                 };
+                updateExtras();
                 setGenerationImage(generationPip, generationPipImage, description.pip, clip.pipUri);
                 setGenerationImage(generationBlur, generationBlurImage, description.blurBackground, clip.blurBackgroundUri);
                 generationTag.hidden = description.tag === null;

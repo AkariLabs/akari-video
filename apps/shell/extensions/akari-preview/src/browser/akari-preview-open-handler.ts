@@ -8414,6 +8414,15 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #akari-gen-mask { position: absolute; box-sizing: border-box; border: 2px dashed #D6402B; border-radius: 3px; }
 #akari-gen-mask-label { position: absolute; left: 0; top: calc(-18px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #D6402B; }
 #akari-gen-overlay[hidden], #akari-gen-overlay [hidden] { display: none; }
+.akari-gen-extra { --akari-gen-inv-scale: 1; position: absolute; z-index: 2099; overflow: hidden; box-sizing: border-box; pointer-events: none; border: 1.5px dashed rgba(200,210,255,.55); border-radius: 14px; }
+.akari-gen-extra:not([data-akari-gen-media="audio"])::before { content: ''; position: absolute; inset: 0; background-color: rgba(14,17,36,.96); background-image: linear-gradient(115deg, rgba(111,120,240,.55), rgba(56,189,248,.42) 45%, rgba(192,132,252,.50), rgba(111,120,240,.55)); }
+.akari-gen-extra-icon { position: absolute; z-index: 2; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: calc(36px * var(--akari-gen-inv-scale)); color: #e9ecff; text-shadow: 0 0 18px rgba(111,120,240,.8); }
+.akari-gen-extra:not([data-akari-gen-media="audio"]) .akari-gen-extra-icon { font-size: calc(56px * var(--akari-gen-inv-scale)); }
+.akari-gen-extra-tag { position: absolute; z-index: 2; left: calc(10px * var(--akari-gen-inv-scale)); top: calc(10px * var(--akari-gen-inv-scale)); padding: calc(2px * var(--akari-gen-inv-scale)) calc(8px * var(--akari-gen-inv-scale)); border: calc(1px * var(--akari-gen-inv-scale)) dashed #8FA3B4; border-radius: calc(4px * var(--akari-gen-inv-scale)); background: rgba(10,12,20,.72); color: #DCE6EE; font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; }
+.akari-gen-extra[data-akari-gen-media="audio"] { background: rgba(20,25,45,.76); }
+.akari-gen-extra[data-akari-gen-media="audio"]::before { display: none; }
+.akari-gen-extra .akari-gen-extra-icon, .akari-gen-extra .akari-gen-extra-tag { pointer-events: none; }
+.akari-gen-extra[hidden] { display: none; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
 #transition-plate { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
@@ -8509,6 +8518,7 @@ html.akari-gen-capturing [data-akari-caption-edit-hint] { display: none !importa
 html.akari-gen-capture-fit #zoom-layer { transform: none !important; }
 html.akari-gen-capturing #preview-stage > :not(#preview-layers):not(#frame-engine-preview),
 html.akari-gen-capturing [id^="akari-gen-"],
+html.akari-gen-capturing .akari-gen-extra,
 html.akari-gen-capturing [data-akari-interaction],
 html.akari-gen-capturing #frame-engine-preview > :not(#frame-engine-canvas),
 html.akari-gen-capturing #indicator-toggle,

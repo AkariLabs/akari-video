@@ -15,6 +15,14 @@ vm.runInNewContext(compiled, { exports, require: () => ({
 }) });
 const { classifyPreviewModelUpdate, isOwnAssetReferenceChange } = exports;
 
+test('生成 PNG の差分では生成情報を新しい layer より先に送る', () => {
+    const handler = readHandlerSource();
+    const start = handler.indexOf('const generatedAssetUrls =');
+    const generation = handler.indexOf('await this.sendGenerationUpdate(widget)', start);
+    const layer = handler.indexOf("widget.sendMessage({ type: 'akari-preview-model-update', summary })", start);
+    assert.ok(start >= 0 && generation > start && layer > generation);
+});
+
 const model = () => ({
     sourceUris: ['first=file:///first.png'], assetUris: ['file:///first.png'],
     overlayUris: [], output: { width: 1920, height: 1080, fps: 30 },
