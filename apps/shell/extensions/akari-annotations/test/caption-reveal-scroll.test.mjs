@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -6,7 +7,7 @@ import { captionRevealDestination } from '../lib/common/caption-reveal-destinati
 import { captionRevealScrollTop } from '../lib/common/caption-reveal-scroll.js';
 import { inspectorScrollPin } from '../lib/browser/inspector/live-state.js';
 
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
 const widgetClass = ast.statements.find(node => ts.isClassDeclaration(node)
     && node.name?.text === 'AkariInspectorWidget');

@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { appendAiTiles, appendAiBack, aiTabAvailabilityFor, aiTabViewFor, aiTarg
 import { tabsForKind, initialTabFor, assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 test('gap button CSS excludes AI tiles from every matching rule', () => {
   const start = css.indexOf('.akari-inspector-generation-gap {');

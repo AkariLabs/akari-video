@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { createAudioClipFxWriteRequest, updateAudioClipFxDocument } from '../../lib/browser/inspector/audio-clip-fx.js';
 import { composeInspectorSections } from '../../lib/browser/inspector/section-model.js';
+import { readInspectorSource } from './inspector-source.mjs';
 
 // Theia の DOM / DI を起動せず、実ソースの factory と handler を実行する。
 function sourceFile(name) {
@@ -9,7 +10,7 @@ function sourceFile(name) {
         ts.ScriptTarget.Latest, true);
 }
 
-const inspector = sourceFile('akari-inspector-widget.ts');
+const inspector = ts.createSourceFile('inspector.ts', readInspectorSource(), ts.ScriptTarget.Latest, true);
 const functions = new Map(inspector.statements.filter(ts.isFunctionDeclaration)
     .map(statement => [statement.name.text, statement.getText(inspector)]));
 const names = [

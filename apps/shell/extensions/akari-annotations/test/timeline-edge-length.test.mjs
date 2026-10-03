@@ -5,11 +5,12 @@ import store from '@akari-video/edit-store';
 import * as lengths from '../lib/common/still-cut-length.js';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const widget = read('../lib/browser/akari-annotations-widget.js');
 const inspector = read('../lib/browser/akari-inspector-widget.js');
 const source = read('../src/browser/akari-annotations-widget.ts');
-const inspectorSource = read('../src/browser/akari-inspector-widget.ts');
+const inspectorSource = readInspectorSource();
 function between(text, start, end, offset = 0) {
     const a = text.indexOf(start, offset);
     assert.ok(a >= 0, start);

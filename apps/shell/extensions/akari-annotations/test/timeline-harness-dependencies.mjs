@@ -14,5 +14,6 @@ Object.assign(globalThis, {
   currentTimelineEditUri, currentTimelineCaptionsUri, activeEditRequest,
   editUriForVisibleTimeline, timelineEditPath,
   active_timeline_1: { currentTimelineEditUri, currentTimelineCaptionsUri },
+  types_1: { activeEditRequest },
   uri_1: { default: URI }
 });

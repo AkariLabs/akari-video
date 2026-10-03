@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import { createSelectionHeader } from '../lib/browser/inspector/selection-header.js';
 import assert from 'node:assert/strict';
@@ -98,7 +99,7 @@ import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalo
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 import { cutSections, layerSections, cutSnapshot, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
-const widgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const widgetSource = readInspectorSource();
 const widgetAst = ts.createSourceFile('inspector.ts', widgetSource, ts.ScriptTarget.Latest, true);
 const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widgetClass.members.find(node => node.name?.getText(widgetAst) === name).getText(widgetAst);

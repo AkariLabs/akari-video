@@ -8,6 +8,7 @@ import { updateItem } from '../lib/common/edit-v2-mutations.js';
 import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
 import { readCutFreeze } from '../lib/browser/inspector/freeze-fields.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 
 // audio-clip-fx-fixture と同じく、Theia の DOM / DI を起動せず実 factory / handler を実行する。
 function sourceFile(name) {
@@ -22,7 +23,7 @@ function compile(code, bindings, result) {
   return new Function(...Object.keys(bindings), `${output}\nreturn ${result};`)(...Object.values(bindings));
 }
 
-const inspector = sourceFile('akari-inspector-widget.ts');
+const inspector = ts.createSourceFile('inspector.ts', readInspectorSource(), ts.ScriptTarget.Latest, true);
 const cutFactory = inspector.statements.find(statement => ts.isFunctionDeclaration(statement)
   && statement.name.text === 'CUT_SECTIONS');
 const cutSections = compile(cutFactory.getText(inspector), {

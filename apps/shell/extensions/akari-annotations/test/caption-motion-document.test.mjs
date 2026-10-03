@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -72,7 +73,7 @@ test('袋の組は item-field motion の一回書き込み、袋なしは字幕 
 });
 
 test('編集パネルは語の表示と強調の保存先、カラオケ未終了色を接続する', () => {
-    const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const widget = readInspectorSource();
     const panel = readFileSync(new URL('../src/browser/inspector/caption-motion-panel.ts', import.meta.url), 'utf8');
     assert.match(widget, /layerAudioService\.setCaptionFields\(/u);
     assert.match(widget, /captionsSource = upsertCaptionEmphasis/u);
@@ -93,7 +94,7 @@ test('編集パネルは語の表示と強調の保存先、カラオケ未終�
 });
 
 test('inspector のカラオケは 1 操作 1 履歴で undo/redo でき、外部変更を拒否する', async () => {
-    const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const source = readInspectorSource();
     const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
     const widget = ast.statements.find(node => ts.isClassDeclaration(node)
         && node.name?.text === 'AkariInspectorWidget');

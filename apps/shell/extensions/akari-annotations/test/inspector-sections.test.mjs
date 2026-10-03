@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -136,7 +137,7 @@ test('mask 候補0件の行は disabled と理由を表示し、書き込みを�
 });
 
 test('調整タブの A/B ボタンはイージング節より前に追加し、イージング節を隠さない', () => {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const start = source.indexOf("if (activeTab === 'adjust' && compareTarget)");
   assert.ok(start >= 0);
   const render = source.slice(start, source.indexOf('protected syncAdjustCompare'));
@@ -195,10 +196,10 @@ test('キャンバス欄と図形の外観欄は映像タブに一度ずつ置�
 });
 
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const inspectorWidgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const inspectorWidgetSource = readInspectorSource();
 
 // Theia の DOM / DI を起動せず、実ソースの行描画・KF 判定・メニューを実行する。
-const inspectorAst = ts.createSourceFile('akari-inspector-widget.ts', inspectorWidgetSource,
+const inspectorAst = ts.createSourceFile('inspector.ts', inspectorWidgetSource,
   ts.ScriptTarget.Latest, true);
 const inspectorClass = inspectorAst.statements.find(statement => ts.isClassDeclaration(statement)
   && statement.name?.text === 'AkariInspectorWidget');
