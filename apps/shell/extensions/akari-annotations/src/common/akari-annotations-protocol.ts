@@ -148,7 +148,11 @@ export interface GenerationCatalogRow {
     [key: string]: unknown;
 }
 
-export interface ReadGenerationCatalogResult { models: GenerationCatalogRow[]; }
+export interface ReadGenerationCatalogResult {
+    models: GenerationCatalogRow[];
+    stillEstimate?: { prices: { low: number; medium: number; high: number }; asOf: string };
+    stillEstimateError?: string;
+}
 export interface ReadGenerationDefaultsResult { video: string; }
 export interface ValidateGenerationInputsRequest {
     modelId: string;

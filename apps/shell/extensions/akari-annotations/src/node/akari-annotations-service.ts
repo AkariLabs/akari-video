@@ -1081,21 +1081,32 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const path = await this.findGenerationAsset('packages/schemas/gen-models.json');
         const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as ReadGenerationCatalogResult;
         if (!Array.isArray(parsed.models)) throw new Error('生成モデルカタログの models[] がありません。');
+        let stillPath: string;
         try {
-            const stillPath = await this.findGenerationAsset('packages/schemas/ai-models.json');
-            const stillModels = JSON.parse(await fs.readFile(stillPath, 'utf8')) as { models?: Array<{
+            stillPath = await this.findGenerationAsset('packages/schemas/ai-models.json');
+        } catch (error) {
+            console.warn('[akari-annotations] ai-models.json was not found:', error);
+            return { models: parsed.models, stillEstimateError: '料金表がないため見積を出せません' };
+        }
+        let stillModels: { models?: Array<{
                 id: string; price?: { unit?: string; by_quality_1024?: { low: number; medium: number; high: number }; as_of?: string }
             }> };
-            const price = stillModels.models?.find(row => row.id === 'fal:gpt-image-2.5-flare')?.price;
-            const prices = price?.by_quality_1024;
-            if (price?.unit === 'usd_per_image' && typeof price.as_of === 'string' && price.as_of
-                && prices && (['low', 'medium', 'high'] as const).every(key =>
-                    typeof prices[key] === 'number' && Number.isFinite(prices[key]))) {
-                const catalog = { models: parsed.models, stillEstimate: { prices, asOf: price.as_of } };
-                return catalog;
-            }
-        } catch { /* The optional still estimate must not hide the generation catalog. */ }
-        return { models: parsed.models };
+        try {
+            stillModels = JSON.parse(await fs.readFile(stillPath, 'utf8'));
+        } catch (error) {
+            console.warn('[akari-annotations] ai-models.json could not be parsed:', error);
+            return { models: parsed.models, stillEstimateError: '料金表を読めないため見積を出せません' };
+        }
+        const price = Array.isArray(stillModels?.models)
+            ? stillModels.models.find(row => row?.id === 'fal:gpt-image-2.5-flare')?.price : undefined;
+        const prices = price?.by_quality_1024;
+        if (price?.unit === 'usd_per_image' && typeof price.as_of === 'string' && price.as_of
+            && prices && (['low', 'medium', 'high'] as const).every(key =>
+                typeof prices[key] === 'number' && Number.isFinite(prices[key]) && prices[key] >= 0)) {
+            return { models: parsed.models, stillEstimate: { prices, asOf: price.as_of } };
+        }
+        console.warn('[akari-annotations] ai-models.json has no valid fal still price');
+        return { models: parsed.models, stillEstimateError: '料金の形式が不正なため見積を出せません' };
     }
 
     async readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult> {
