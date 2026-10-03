@@ -41,6 +41,8 @@ export interface NormalizedAdjustBasic {
   saturation: number;
 }
 
+export interface AdjustRgbOutput { r: number; g: number; b: number }
+
 const RGB_CHANNELS = ['r', 'g', 'b'] as const;
 const CURVE_CHANNELS = ['master', 'r', 'g', 'b'] as const;
 const HUE_CHANNELS = ['hue', 'sat', 'luma'] as const;
@@ -70,11 +72,19 @@ export function normalizeAdjustHue(hue: AdjustHueCurvesV1 | null | undefined): R
 }
 
 export function isAdjustWheelsIdentity(wheels: AdjustWheelsV1 | null | undefined): boolean {
-  return Object.values(normalizeAdjustWheels(wheels)).every(wheel => Object.values(wheel).every(value => value === 0));
+  return normalizedWheelsIdentity(normalizeAdjustWheels(wheels));
 }
 
 export function isAdjustCurvesIdentity(curves: AdjustCurvesV1 | null | undefined): boolean {
-  return Object.values(normalizeAdjustCurves(curves)).every(points => points.length === 2
+  return normalizedCurvesIdentity(normalizeAdjustCurves(curves));
+}
+
+function normalizedWheelsIdentity(wheels: ReturnType<typeof normalizeAdjustWheels>): boolean {
+  return Object.values(wheels).every(wheel => Object.values(wheel).every(value => value === 0));
+}
+
+function normalizedCurvesIdentity(curves: ReturnType<typeof normalizeAdjustCurves>): boolean {
+  return Object.values(curves).every(points => points.length === 2
     && Math.abs(points[0]!.in) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON
     && Math.abs(points[0]!.out) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON
     && Math.abs(points[1]!.in - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON
@@ -82,18 +92,44 @@ export function isAdjustCurvesIdentity(curves: AdjustCurvesV1 | null | undefined
 }
 
 export function isAdjustHueIdentity(hue: AdjustHueCurvesV1 | null | undefined): boolean {
-  return Object.values(normalizeAdjustHue(hue)).every(points => points.every(point => Math.abs(point.value - 0.5) <= ADJUST_CONSTANTS.HUE_EPSILON));
+  return normalizedHueIdentity(normalizeAdjustHue(hue));
+}
+
+function normalizedHueIdentity(hue: ReturnType<typeof normalizeAdjustHue>): boolean {
+  return Object.values(hue).every(points => points.every(point => Math.abs(point.value - 0.5) <= ADJUST_CONSTANTS.HUE_EPSILON));
 }
 
 /** CDL order and clamp positions match legacy color-grade.ts:487-503. */
 export function applyAdjustWheels(r: number, g: number, b: number, wheels: AdjustWheelsV1 | null | undefined): [number, number, number] {
-  const p = normalizeAdjustWheels(wheels);
-  return RGB_CHANNELS.map((channel, index) => {
-    let c = [r, g, b][index]! * (1 - p.lift[channel]) + p.lift[channel];
-    c = Math.pow(Math.max(0, c), 1 / (1 + p.gamma[channel]));
-    c *= 1 + p.gain[channel];
-    return clamp01(c + p.offset[channel]);
-  }) as [number, number, number];
+  return applyNormalizedWheels(r, g, b, normalizeAdjustWheels(wheels));
+}
+
+function applyNormalizedWheels(r: number, g: number, b: number, p: ReturnType<typeof normalizeAdjustWheels>): [number, number, number] {
+  const out: AdjustRgbOutput = { r: 0, g: 0, b: 0 };
+  applyPreparedWheels(r, g, b, prepareWheels(p), out);
+  return [out.r, out.g, out.b];
+}
+
+function prepareWheels(p: ReturnType<typeof normalizeAdjustWheels>) {
+  const channel = (key: 'r' | 'g' | 'b') => ({
+    lift: p.lift[key], liftFactor: 1 - p.lift[key],
+    exponent: 1 / (1 + p.gamma[key]), gainFactor: 1 + p.gain[key], offset: p.offset[key],
+  });
+  return { r: channel('r'), g: channel('g'), b: channel('b') };
+}
+
+function applyPreparedWheels(r: number, g: number, b: number, p: ReturnType<typeof prepareWheels>, out: AdjustRgbOutput): void {
+  out.r = applyWheelChannel(r, p.r);
+  out.g = applyWheelChannel(g, p.g);
+  out.b = applyWheelChannel(b, p.b);
+}
+
+function applyWheelChannel(value: number, p: ReturnType<typeof prepareWheels>['r']): number {
+  let c = value * p.liftFactor + p.lift;
+  c = Math.max(0, c);
+  c = p.exponent === 1 ? c : Math.pow(c, p.exponent);
+  c *= p.gainFactor;
+  return clamp01(c + p.offset);
 }
 
 function evalCurve(points: AdjustCurvePointV1[], x: number): number {
@@ -114,9 +150,33 @@ function evalCurve(points: AdjustCurvePointV1[], x: number): number {
 }
 
 export function applyAdjustCurves(r: number, g: number, b: number, curves: AdjustCurvesV1 | null | undefined): [number, number, number] {
-  if (isAdjustCurvesIdentity(curves)) return [r, g, b];
   const p = normalizeAdjustCurves(curves);
-  return [evalCurve(p.r, evalCurve(p.master, r)), evalCurve(p.g, evalCurve(p.master, g)), evalCurve(p.b, evalCurve(p.master, b))];
+  return applyNormalizedCurves(r, g, b, p, normalizedCurvesIdentity(p));
+}
+
+function applyNormalizedCurves(r: number, g: number, b: number, p: ReturnType<typeof normalizeAdjustCurves>, identity: boolean): [number, number, number] {
+  const out: AdjustRgbOutput = { r: 0, g: 0, b: 0 };
+  applyNormalizedCurvesInto(r, g, b, p, identity, out);
+  return [out.r, out.g, out.b];
+}
+
+function applyNormalizedCurvesInto(r: number, g: number, b: number, p: ReturnType<typeof normalizeAdjustCurves>, identity: boolean, out: AdjustRgbOutput): void {
+  if (identity) { out.r = r; out.g = g; out.b = b; return; }
+  out.r = evalCurve(p.r, evalCurve(p.master, r));
+  out.g = evalCurve(p.g, evalCurve(p.master, g));
+  out.b = evalCurve(p.b, evalCurve(p.master, b));
+}
+
+function isExactLinearCurve(points: AdjustCurvePointV1[]): boolean {
+  return points.length === 2 && points[0]!.in === 0 && points[0]!.out === 0
+    && points[1]!.in === 1 && points[1]!.out === 1;
+}
+
+function applyPreparedCurvesInto(r: number, g: number, b: number, p: ReturnType<typeof normalizeAdjustCurves>, linear: readonly [boolean, boolean, boolean], out: AdjustRgbOutput): void {
+  const mr = evalCurve(p.master, r), mg = evalCurve(p.master, g), mb = evalCurve(p.master, b);
+  out.r = linear[0] ? mr : evalCurve(p.r, mr);
+  out.g = linear[1] ? mg : evalCurve(p.g, mg);
+  out.b = linear[2] ? mb : evalCurve(p.b, mb);
 }
 
 function sampleHue(points: AdjustHuePointV1[], x: number): number {
@@ -137,8 +197,18 @@ function sampleHue(points: AdjustHuePointV1[], x: number): number {
 }
 
 export function applyAdjustHue(r: number, g: number, b: number, hue: AdjustHueCurvesV1 | null | undefined): [number, number, number] {
-  if (isAdjustHueIdentity(hue)) return [r, g, b];
   const p = normalizeAdjustHue(hue);
+  return applyNormalizedHue(r, g, b, p, normalizedHueIdentity(p));
+}
+
+function applyNormalizedHue(r: number, g: number, b: number, p: ReturnType<typeof normalizeAdjustHue>, identity: boolean): [number, number, number] {
+  const out: AdjustRgbOutput = { r: 0, g: 0, b: 0 };
+  applyNormalizedHueInto(r, g, b, p, identity, out);
+  return [out.r, out.g, out.b];
+}
+
+function applyNormalizedHueInto(r: number, g: number, b: number, p: ReturnType<typeof normalizeAdjustHue>, identity: boolean, out: AdjustRgbOutput, satEmpty = false, lumaEmpty = false): void {
+  if (identity) { out.r = r; out.g = g; out.b = b; return; }
   const cmax = Math.max(r, g, b), cmin = Math.min(r, g, b), d = cmax - cmin;
   let h = 0;
   if (d > ADJUST_CONSTANTS.HUE_EPSILON) {
@@ -150,9 +220,9 @@ export function applyAdjustHue(r: number, g: number, b: number, hue: AdjustHueCu
   const s = cmax > ADJUST_CONSTANTS.HUE_EPSILON ? d / cmax : 0;
   const shift = (sampleHue(p.hue, h) - 0.5) * 2;
   const newH = (h + shift + 1) % 1;
-  const satGain = sampleHue(p.sat, h) * 2;
+  const satGain = satEmpty ? 1 : sampleHue(p.sat, h) * 2;
   const newS = clamp01(s * satGain);
-  const lumaGain = sampleHue(p.luma, h) * 2;
+  const lumaGain = lumaEmpty ? 1 : sampleHue(p.luma, h) * 2;
   const newV = clamp01(cmax * lumaGain);
   const c = newS * newV, hh = newH * 6;
   const x = c * (1 - Math.abs((hh % 2) - 1)), m = newV - c;
@@ -164,10 +234,13 @@ export function applyAdjustHue(r: number, g: number, b: number, hue: AdjustHueCu
   else if (sector === 3) { cg = x; cb = c; }
   else if (sector === 4) { cr = x; cb = c; }
   else { cr = c; cb = x; }
-  return [clamp01(cr + m), clamp01(cg + m), clamp01(cb + m)];
+  out.r = clamp01(cr + m);
+  out.g = clamp01(cg + m);
+  out.b = clamp01(cb + m);
 }
 
 export type AdjustLutSampler = (r: number, g: number, b: number) => [number, number, number];
+export type AdjustLutSamplerInto = (r: number, g: number, b: number, out: AdjustRgbOutput) => void;
 
 /** Fixed per-item order; only explicit false disables a section. */
 export function applyItemAdjust(r: number, g: number, b: number, adjust: AdjustV1 | null | undefined, lutSampler?: AdjustLutSampler): [number, number, number] {
@@ -183,6 +256,89 @@ export function applyItemAdjust(r: number, g: number, b: number, adjust: AdjustV
   if (adjust?.sections?.curves !== false) rgb = applyAdjustCurves(...rgb, adjust?.curves);
   if (adjust?.sections?.hue !== false) rgb = applyAdjustHue(...rgb, adjust?.hue);
   return rgb;
+}
+
+/** Prepare the fixed adjustment once before evaluating a LUT grid. */
+export function prepareItemAdjust(adjust: AdjustV1 | null | undefined, lutSampler?: AdjustLutSamplerInto) {
+  const normalized: AdjustV1 = {
+    basic: normalizeAdjustBasic(adjust?.basic),
+    lut: adjust?.lut ? { ...adjust.lut, intensity: Number.isFinite(adjust.lut.intensity ?? 1) ? clamp01(adjust.lut.intensity ?? 1) : 1 } : null,
+    wheels: normalizeAdjustWheels(adjust?.wheels),
+    curves: normalizeAdjustCurves(adjust?.curves),
+    hue: normalizeAdjustHue(adjust?.hue),
+    sections: adjust?.sections,
+  };
+  const basic = normalized.basic as NormalizedAdjustBasic;
+  const wheels = normalized.wheels as ReturnType<typeof normalizeAdjustWheels>;
+  const curves = normalized.curves as ReturnType<typeof normalizeAdjustCurves>;
+  const hue = normalized.hue as ReturnType<typeof normalizeAdjustHue>;
+  const preparedWheels = prepareWheels(wheels);
+  const curvesIdentity = normalizedCurvesIdentity(curves);
+  const hueIdentity = normalizedHueIdentity(hue);
+  // Baked inputs are the [0, 1] cube grid; exact neutral basic only clamps them.
+  const basicEnabled = normalized.sections?.basic !== false && !Object.values(basic).every(value => value === 0);
+  const lutEnabled = normalized.sections?.lut !== false && !!normalized.lut && !!lutSampler;
+  const wheelsEnabled = normalized.sections?.wheels !== false;
+  const curvesEnabled = normalized.sections?.curves !== false && !curvesIdentity;
+  const hueEnabled = normalized.sections?.hue !== false && !hueIdentity;
+  const lutIntensity = normalized.lut?.intensity ?? 1;
+  const linearCurves = [isExactLinearCurve(curves.r), isExactLinearCurve(curves.g), isExactLinearCurve(curves.b)] as const;
+  const hueSatEmpty = hue.sat.length === 0, hueLumaEmpty = hue.luma.length === 0;
+  const separableBeforeHue = !basicEnabled && !lutEnabled;
+  return {
+    normalized,
+    /** The grid's pre-hue stages are independent across RGB when basic/LUT are absent. */
+    prepareSeparableGrid(size: number) {
+      if (!separableBeforeHue) return undefined;
+      const red = new Float64Array(size), green = new Float64Array(size), blue = new Float64Array(size);
+      for (let i = 0; i < size; i += 1) {
+        let r = i / (size - 1), g = r, b = r;
+        if (wheelsEnabled) {
+          r = applyWheelChannel(r, preparedWheels.r);
+          g = applyWheelChannel(g, preparedWheels.g);
+          b = applyWheelChannel(b, preparedWheels.b);
+        }
+        if (curvesEnabled) {
+          const mr = evalCurve(curves.master, r), mg = evalCurve(curves.master, g), mb = evalCurve(curves.master, b);
+          r = linearCurves[0] ? mr : evalCurve(curves.r, mr);
+          g = linearCurves[1] ? mg : evalCurve(curves.g, mg);
+          b = linearCurves[2] ? mb : evalCurve(curves.b, mb);
+        }
+        red[i] = r; green[i] = g; blue[i] = b;
+      }
+      return { red, green, blue };
+    },
+    applyHueInto(r: number, g: number, b: number, out: AdjustRgbOutput): void {
+      if (hueEnabled) applyNormalizedHueInto(r, g, b, hue, false, out, hueSatEmpty, hueLumaEmpty);
+      else { out.r = r; out.g = g; out.b = b; }
+    },
+    applyInto(r: number, g: number, b: number, out: AdjustRgbOutput): void {
+      let cr = r, cg = g, cb = b;
+      if (basicEnabled) {
+        applyNormalizedBasicInto(cr, cg, cb, basic, out);
+        cr = out.r; cg = out.g; cb = out.b;
+      }
+      if (lutEnabled && lutSampler) {
+        lutSampler(cr, cg, cb, out);
+        cr = cr + (out.r - cr) * lutIntensity;
+        cg = cg + (out.g - cg) * lutIntensity;
+        cb = cb + (out.b - cb) * lutIntensity;
+      }
+      if (wheelsEnabled) {
+        applyPreparedWheels(cr, cg, cb, preparedWheels, out);
+        cr = out.r; cg = out.g; cb = out.b;
+      }
+      if (curvesEnabled) {
+        applyPreparedCurvesInto(cr, cg, cb, curves, linearCurves, out);
+        cr = out.r; cg = out.g; cb = out.b;
+      }
+      if (hueEnabled) {
+        applyNormalizedHueInto(cr, cg, cb, hue, false, out, hueSatEmpty, hueLumaEmpty);
+        cr = out.r; cg = out.g; cb = out.b;
+      }
+      out.r = cr; out.g = cg; out.b = cb;
+    },
+  };
 }
 
 function clamp(value: number, low: number, high: number): number {
@@ -223,7 +379,11 @@ export function normalizeAdjustBasic(basic: AdjustBasicV0 | null | undefined): N
 
 export function isAdjustBasicIdentity(basic: AdjustBasicV0 | null | undefined): boolean {
   const normalized = normalizeAdjustBasic(basic);
-  return Object.values(normalized).every(value => Math.abs(value) <= ADJUST_CONSTANTS.IDENTITY_EPSILON);
+  return normalizedBasicIdentity(normalized);
+}
+
+function normalizedBasicIdentity(basic: NormalizedAdjustBasic): boolean {
+  return Object.values(basic).every(value => Math.abs(value) <= ADJUST_CONSTANTS.IDENTITY_EPSILON);
 }
 
 /** Apply the clip-adjust v0 basic correction in gamma-encoded video space. */
@@ -233,7 +393,12 @@ export function applyAdjustBasic(
   b: number,
   basic: AdjustBasicV0 | null | undefined,
 ): [number, number, number] {
-  const p = normalizeAdjustBasic(basic);
+  const out: AdjustRgbOutput = { r: 0, g: 0, b: 0 };
+  applyNormalizedBasicInto(r, g, b, normalizeAdjustBasic(basic), out);
+  return [out.r, out.g, out.b];
+}
+
+function applyNormalizedBasicInto(r: number, g: number, b: number, p: NormalizedAdjustBasic, out: AdjustRgbOutput): void {
   let cr = r;
   let cg = g;
   let cb = b;
@@ -325,5 +490,7 @@ export function applyAdjustBasic(
     cb = clamp01(currentLuma + (cb - currentLuma) * (1 + amount));
   }
 
-  return [cr, cg, cb];
+  out.r = cr;
+  out.g = cg;
+  out.b = cb;
 }

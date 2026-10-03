@@ -929,6 +929,7 @@ const BASE_RGBA_UNITS = [6, 7] as const;
 const LAYER_RGBA_UNIT = 8;
 const MASK_RGBA_UNIT = 10;
 const LUT_UNIT = 11;
+const MAX_LOOK_TEXTURES = 64;
 const DISSOLVE_NOISE_UNIT = 12;
 const BASE_ADJUST_LUT_UNITS = [LUT_UNIT, 13] as const;
 const FX_ORIGINAL_UNIT = 14;
@@ -1197,7 +1198,7 @@ export class WebGL2Compositor implements CompositorBackend {
     WebGLTexture
   >();
   private readonly ownedImageTextures = new Set<WebGLTexture>();
-  private readonly lookTextures = new WeakMap<ParsedCubeLut, WebGLTexture>();
+  private readonly lookTextures = new Map<ParsedCubeLut, WebGLTexture>();
   private readonly ownedLookTextures = new Set<WebGLTexture>();
   private readonly dissolveNoiseTextures = new Map<string, WebGLTexture>();
   private disposed = false;
@@ -1375,7 +1376,11 @@ export class WebGL2Compositor implements CompositorBackend {
 
   private lookTexture(lut: ParsedCubeLut, allocationUnit = LUT_UNIT): WebGLTexture {
     const cached = this.lookTextures.get(lut);
-    if (cached) return cached;
+    if (cached) {
+      this.lookTextures.delete(lut);
+      this.lookTextures.set(lut, cached);
+      return cached;
+    }
     const texture = this.gl.createTexture();
     if (!texture) throw new Error('WebGL2 could not allocate a 3D LUT texture');
     const gl = this.gl;
@@ -1400,6 +1405,13 @@ export class WebGL2Compositor implements CompositorBackend {
     );
     this.lookTextures.set(lut, texture);
     this.ownedLookTextures.add(texture);
+    if (this.lookTextures.size > MAX_LOOK_TEXTURES) {
+      const oldest = this.lookTextures.keys().next().value!;
+      const stale = this.lookTextures.get(oldest)!;
+      this.gl.deleteTexture(stale);
+      this.ownedLookTextures.delete(stale);
+      this.lookTextures.delete(oldest);
+    }
     return texture;
   }
   private dissolveNoiseTexture(width: number, height: number): WebGLTexture {
@@ -2500,6 +2512,8 @@ export class WebGL2Compositor implements CompositorBackend {
       this.gl.deleteProgram(value.program);
     this.basePrograms.clear();
     this.dissolveNoiseTextures.clear();
+    this.lookTextures.clear();
+    this.ownedLookTextures.clear();
     this.gl.deleteProgram(this.layerProgram);
     this.gl.deleteProgram(this.filterProgram);
     this.gl.deleteProgram(this.copyProgram);
