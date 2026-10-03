@@ -11,10 +11,22 @@ export interface ToolSelectionSnapshot {
     unavailableIds: ReadonlySet<AkariToolId>;
 }
 
+export const TOOL_INSTALL_NOTICE = 'Windows では winget、Mac では Homebrew で導入します。導入すると各ソフトの利用規約に同意したことになります。';
+
+export const TOOL_PROVIDERS: Record<AkariToolId, { provider: string; termsUrl: string }> = {
+    ffmpeg: { provider: 'FFmpeg 開発チーム', termsUrl: 'https://ffmpeg.org/legal.html' },
+    whisper: { provider: 'ggml 開発チーム', termsUrl: 'https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE' },
+    'yt-dlp': { provider: 'yt-dlp 開発チーム', termsUrl: 'https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE' },
+    voicevox: { provider: 'VOICEVOX', termsUrl: 'https://voicevox.hiroshiba.jp/term/' },
+    blender: { provider: 'Blender Foundation', termsUrl: 'https://www.blender.org/about/license/' },
+    'xcode-clt': { provider: 'Apple', termsUrl: 'https://www.apple.com/legal/sla/' },
+    'speech-analyzer': { provider: 'Apple', termsUrl: 'https://www.apple.com/legal/sla/' }
+};
+
 /**
- * 未導入の道具にチェック（既定 ON）を導出する（裁定 A2）。
+ * 未導入の道具に対する選択を導出する。
  * 直前の結果でも未導入だった道具は、ユーザーが外したチェックを再チェック後も尊重する。
- * 新たに未導入と分かった道具（初回・または導入済みから未導入へ戻った道具）は既定で ON。
+ * 初回と新たに未導入と分かった道具は未選択にする。
  */
 export function deriveToolSelection(
     tools: ReadonlyArray<Pick<AkariToolCheckResult, 'id' | 'available' | 'unsupported'>>,
@@ -26,7 +38,7 @@ export function deriveToolSelection(
             continue;
         }
         const wasUnavailableBefore = previous?.unavailableIds.has(tool.id) ?? false;
-        const shouldCheck = wasUnavailableBefore ? previous!.selectedIds.has(tool.id) : true;
+        const shouldCheck = wasUnavailableBefore && previous!.selectedIds.has(tool.id);
         if (shouldCheck) {
             next.add(tool.id);
         }

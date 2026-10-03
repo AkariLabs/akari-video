@@ -42,6 +42,7 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();
     bind(PreferenceContribution).toService(AkariExportPreferenceContribution);
     bind(AkariExportSessionService).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariExportSessionService);
     bind(AkariExportThumbnailService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH)
     ).inSingletonScope();

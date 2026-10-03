@@ -13,8 +13,19 @@ import {
     determineRenderOutcome,
     nextAvailableOutputName,
     sanitizeQuickExportOutputName,
+    shouldAskTemporaryGpuPreference,
     summarizeStderrTail
 } from '../lib/common/quick-export-cli.js';
+
+test('一時 GPU 設定の確認は Windows の GPU 候補で未選択の場合だけ出す', () => {
+    for (const engine of ['auto', 'gpu']) {
+        assert.equal(shouldAskTemporaryGpuPreference(true, engine, undefined), true);
+        assert.equal(shouldAskTemporaryGpuPreference(false, engine, undefined), false);
+        assert.equal(shouldAskTemporaryGpuPreference(true, engine, false), false);
+        assert.equal(shouldAskTemporaryGpuPreference(true, engine, true), false);
+    }
+    assert.equal(shouldAskTemporaryGpuPreference(true, 'osr', undefined), false);
+});
 
 test('buildQuickExportEncoderChoices: OS ごとに対応エンコーダだけを順序どおり返す', () => {
     assert.deepEqual(buildQuickExportEncoderChoices('darwin'), [
@@ -100,7 +111,7 @@ test('buildRenderCutOutputPath: outputDirectory 指定時はその絶対パス�
 test('buildRenderCutArgs: 既定設定でも --engine auto と --encoder auto を明示する', () => {
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'my-square-export.mp4' }),
-        ['/tmp/project', '--out', 'exports/my-square-export.mp4', '--engine', 'auto', '--encoder', 'auto', '--progress']
+        ['/tmp/project', '--out', 'exports/my-square-export.mp4', '--engine', 'auto', '--encoder', 'auto', '--gpu-preference', 'off', '--progress']
     );
 });
 
@@ -110,7 +121,7 @@ test('buildRenderCutArgs: encoder 未指定と auto 明示は同じ引数列に�
     assert.deepEqual(encoderUnspecified, autoExplicit);
     assert.deepEqual(
         autoExplicit,
-        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--gpu-preference', 'off', '--progress']
     );
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', quality: 'standard', encoder: 'auto' }),
@@ -124,46 +135,53 @@ test('buildRenderCutArgs: engine 未指定と auto 明示は同じ引数列に�
     assert.deepEqual(engineUnspecified, autoExplicit);
 });
 
+test('GPU 設定の許可は render-cut の引数で常に固定する', () => {
+    const allowed = buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', gpuPreference: 'auto' });
+    const declined = buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', gpuPreference: 'off' });
+    assert.deepEqual(allowed.slice(allowed.indexOf('--gpu-preference'), -1), ['--gpu-preference', 'auto']);
+    assert.deepEqual(declined.slice(declined.indexOf('--gpu-preference'), -1), ['--gpu-preference', 'off']);
+});
+
 test('buildRenderCutArgs: gpu 明示時は --engine gpu を渡す', () => {
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', engine: 'gpu' }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'gpu', '--encoder', 'auto', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'gpu', '--encoder', 'auto', '--gpu-preference', 'off', '--progress']
     );
 });
 
 test('buildRenderCutArgs: osr 明示時は --engine osr を渡す', () => {
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', engine: 'osr' }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'osr', '--encoder', 'auto', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'osr', '--encoder', 'auto', '--gpu-preference', 'off', '--progress']
     );
 });
 
 test('buildRenderCutArgs: quality は既定値以外で増え、encoder の明示選択は維持される', () => {
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', quality: 'high' }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--quality', 'high', '--engine', 'auto', '--encoder', 'auto', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--quality', 'high', '--engine', 'auto', '--encoder', 'auto', '--gpu-preference', 'off', '--progress']
     );
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', encoder: 'videotoolbox' }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'videotoolbox', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'videotoolbox', '--gpu-preference', 'off', '--progress']
     );
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', quality: 'light', encoder: 'x264' }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--quality', 'light', '--engine', 'auto', '--encoder', 'x264', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--quality', 'light', '--engine', 'auto', '--encoder', 'x264', '--gpu-preference', 'off', '--progress']
     );
 });
 
 test('buildRenderCutArgs: fps 指定時のみ --fps が付く', () => {
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', fps: 30 }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--fps', '30', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--gpu-preference', 'off', '--fps', '30', '--progress']
     );
 });
 
 test('buildRenderCutArgs: scaleTo 指定時だけ --scale-to WxH が付く', () => {
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', scaleTo: { width: 1280, height: 720 } }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--scale-to', '1280x720', '--progress']
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--gpu-preference', 'off', '--scale-to', '1280x720', '--progress']
     );
 });
 
@@ -178,7 +196,7 @@ test('buildRenderCutArgs: --progress は全オプションの末尾に付く', (
         args,
         [
             '/tmp/project', '--out', 'exports/x.mp4',
-            '--quality', 'light', '--engine', 'auto', '--encoder', 'videotoolbox', '--fps', '60', '--progress'
+            '--quality', 'light', '--engine', 'auto', '--encoder', 'videotoolbox', '--gpu-preference', 'off', '--fps', '60', '--progress'
         ]
     );
     assert.equal(args.at(-1), '--progress');
@@ -187,7 +205,7 @@ test('buildRenderCutArgs: --progress は全オプションの末尾に付く', (
 test('buildRenderCutArgs: outputDirectory 指定時は絶対パスの --out になる', () => {
     assert.deepEqual(
         buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', outputDirectory: '/Volumes/Backup/exports' }),
-        ['/tmp/project', '--out', '/Volumes/Backup/exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--progress']
+        ['/tmp/project', '--out', '/Volumes/Backup/exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--gpu-preference', 'off', '--progress']
     );
 });
 

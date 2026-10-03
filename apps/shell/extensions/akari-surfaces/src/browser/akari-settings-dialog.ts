@@ -31,7 +31,7 @@ import {
 import { generationOptions, generationSourceLabel } from '../common/generation-defaults-view';
 import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../common/store-entitlements-visibility';
 import { dialogOutsideClick } from '../common/dialog-outside-click';
-import { describeToolInstallOutcome, formatInstallProgressLabel } from '../common/tool-install-ui';
+import { describeToolInstallOutcome, formatInstallProgressLabel, TOOL_INSTALL_NOTICE, TOOL_PROVIDERS } from '../common/tool-install-ui';
 import { computeDownloadPercent, formatDownloadProgressLabel } from '../common/tool-install-progress';
 import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
 import { AKARI_VIDEO_LICENSE_URL, AKARI_VIDEO_NEW_ISSUE_URL, AKARI_VIDEO_REPO_URL } from '../common/repo-links';
@@ -49,6 +49,7 @@ import {
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     AKARI_TIMELINE_VISUAL_THUMBNAILS,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
+    AKARI_EXPORT_GPU_PREFERENCE_CONSENT, showTemporaryGpuPreferenceSetting,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, TRANSCRIBE_MODE_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
@@ -193,7 +194,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
         this.toDispose.push(this.storeController);
         this.toolsView = new SettingsToolsView({ title: '道具', onWorkspaceCreated: async () => undefined, onFinished: () => undefined },
-            files, env, toolsService, commands);
+            files, env, toolsService, commands, windows);
         this.toolsView.onToolsChanged = () => { if (!this.isDisposed) { this.renderSection('start'); } };
         this.toDispose.push(this.toolsView);
         this.buildDom();
@@ -546,6 +547,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                         this.close();
                         void this.commands.executeCommand(CommonCommands.OPEN_PREFERENCES.id);
                     }, { small: true }))),
+                ...(showTemporaryGpuPreferenceSetting(platform) ? [groupCard('Windows の GPU 設定',
+                    this.preferenceSwitch(AKARI_EXPORT_GPU_PREFERENCE_CONSENT, '一時的に高性能 GPU を使う', false,
+                        '書き出しの間だけ AKARI Video に高性能 GPU を割り当て、終了後に元へ戻します。'))] : []),
                 groupCard('書き出しのあと',
                     this.preferenceSwitch('akari.export.openFolderAfter', '終わったらフォルダを開く', false, 'Finder で書き出したファイルを選んだ状態に'),
                     this.preferenceSwitch('akari.export.notifyAfter', '終わったら知らせる', true, 'ウィンドウが背面のときだけ'),
@@ -1985,6 +1989,8 @@ class SettingsToolsView extends AkariFirstRunSetupDialog {
         recheck.setAttribute('data-akari-tool-recheck', 'true');
         recheck.disabled = this.checkingTools || this.installingTools;
         const card = groupCard('道具', ...rows);
+        const installNotice = settingsNote(`${TOOL_INSTALL_NOTICE} Blender などでは管理者の確認が表示される場合があります。`);
+        card.prepend(installNotice);
         if (!this.toolCheck && this.checkingTools) {
             const status = settingsNote('道具を確認しています…');
             status.setAttribute('role', 'status');
@@ -2019,6 +2025,17 @@ class SettingsToolsView extends AkariFirstRunSetupDialog {
         const purpose = element('span', info.purpose);
         purpose.className = 'akari-set-tool-desc';
         body.append(name, purpose);
+        const providerLine = element('span', `提供元: ${TOOL_PROVIDERS[tool.id].provider} · `);
+        providerLine.className = 'akari-set-tool-extra';
+        const terms = document.createElement('a');
+        terms.href = TOOL_PROVIDERS[tool.id].termsUrl;
+        terms.textContent = '利用規約・ライセンス';
+        terms.addEventListener('click', event => {
+            event.preventDefault();
+            this.openExternalToolUrl(terms.href);
+        });
+        providerLine.append(terms);
+        body.append(providerLine);
         const extra = (text: string, tone?: 'error'): void => {
             const line = element('span', text);
             line.className = 'akari-set-tool-extra';

@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateRawSync, gzipSync } from 'node:zlib';
-import { bootstrapRunner } from '../../lib/node/bootstrap-runner.js';
+import { bootstrapRunner, partnerInstallDisclosure } from '../../lib/node/bootstrap-runner.js';
 import { spawnBootstrapProcess } from '../../lib/node/bootstrap-process.js';
 import { partnerCliCandidates } from '../../lib/node/partner-cli-candidates.js';
 
@@ -117,7 +117,7 @@ async function startFixtureServer(fixtures) {
     }
 }
 
-async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', arch = 'arm64', force = false, pathEnv = '', extraEnv = {} }) {
+async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', arch = 'arm64', force = false, pathEnv = '', extraEnv = {}, consent = '1' }) {
     const sourceLines = [
         `const hostPlatform = process.platform;`,
         `Object.defineProperty(require('os'), 'platform', { value: () => hostPlatform });`,
@@ -147,6 +147,10 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
             `};`
         );
     }
+    if (mock.spawnLogPath) {
+        sourceLines.push(`const originalSpawn = require('child_process').spawn;`);
+        sourceLines.push(`require('child_process').spawn = (...args) => { require('fs').appendFileSync(${JSON.stringify(mock.spawnLogPath)}, String(args[0]) + '\\n'); return originalSpawn(...args); };`);
+    }
     sourceLines.push(`(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`);
     const source = sourceLines.join('\n');
     const env = {
@@ -155,11 +159,13 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
         LOCALAPPDATA: path.join(home, 'local-app-data'),
         PATH: pathEnv,
         AKARI_HOME: home,
+        ...(consent === 'unset' ? {} : { AKARI_PARTNER_INSTALL_CONSENT: consent }),
         AKARI_PARTNER_CODEX_RELEASE_API_URL: `${mock.origin}/latest`,
         AKARI_PARTNER_CODEX_RELEASE_TAG_API_URL_TEMPLATE: `${mock.origin}/tags/{tag}`,
         ...(force ? { AKARI_PARTNER_FORCE_REINSTALL: '1' } : {}),
         ...extraEnv
     };
+    if (consent === 'unset') delete env.AKARI_PARTNER_INSTALL_CONSENT;
     if (!Object.hasOwn(extraEnv, 'AKARI_PARTNER_NODE_DIST_BASE_URL')) {
         delete env.AKARI_PARTNER_NODE_DIST_BASE_URL;
     }
@@ -175,6 +181,90 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
 }
 
 const NODE_VERSION = '24.21.0';
+
+test('全パートナーの導入情報には提供元とプラットフォーム別の取得元などがある', () => {
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    const runnerSource = bootstrapRunner.toString();
+    for (const platform of ['win32', 'darwin']) {
+        for (const agent of agents) {
+            const entry = partnerInstallDisclosure(agent, platform);
+            for (const field of ['name', 'provider', 'sourceUrl', 'location', 'environment', 'termsUrl']) {
+                assert.ok(entry[field]?.length, `${platform}/${agent}/${field}`);
+            }
+            assert.match(entry.sourceUrl, /^https:\/\//u);
+            assert.match(entry.termsUrl, /^https:\/\//u);
+            assert.match(entry.environment, /PATH/u);
+            if (agent === 'commandcode' || agent === 'pi') {
+                assert.ok(runnerSource.includes(agent === 'pi' ? '@earendil-works/pi-coding-agent' : 'command-code'));
+            } else {
+                assert.ok(runnerSource.includes(entry.sourceUrl), `${platform}/${agent}/sourceUrl`);
+            }
+        }
+    }
+});
+
+test('未導入で同意がなければ全エージェントで子プロセスも取得も始めない', async () => {
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    for (const platform of ['win32', 'darwin']) {
+        for (const agent of agents) {
+            for (const consent of ['unset', '0']) {
+                const home = await makeHome('akari-partner-consent-');
+                try {
+                    const spawnLogPath = path.join(home, 'spawn.log');
+                    const requestLogPath = path.join(home, 'request.log');
+                    const mock = { origin: 'http://example.test', fixtures: {}, spawnLogPath, requestLogPath };
+                    const result = await runBootstrap({ home, mock, platform, agent, consent });
+                    if (agent === 'cursor' && platform === 'win32') {
+                        assert.notEqual(result.code, 0);
+                        assert.match(result.stderr, /手動でインストール/u);
+                    } else {
+                        assert.equal(result.code, 0, `${platform}/${agent}/${consent}: ${result.stderr}`);
+                        assert.match(result.stdout, /"consentRequired":true/u);
+                    }
+                    await assert.rejects(readFile(spawnLogPath), `${platform}/${agent}/${consent}/spawn`);
+                    await assert.rejects(readFile(requestLogPath), `${platform}/${agent}/${consent}/request`);
+                } finally {
+                    await rm(home, { recursive: true, force: true });
+                }
+            }
+        }
+    }
+});
+
+test('同意ありでは取得とインストーラー子プロセスの記録が残る', async () => {
+    const home = await makeHome('akari-partner-install-');
+    try {
+        const spawnLogPath = path.join(home, 'spawn.log');
+        const requestLogPath = path.join(home, 'request.log');
+        const script = '#!/bin/sh\nmkdir -p "$HOME/.local/bin"\nprintf "#!/bin/sh\\nexit 0\\n" > "$HOME/.local/bin/claude"\nchmod +x "$HOME/.local/bin/claude"\n';
+        const mock = { origin: 'http://example.test', fixtures: { '/claude-install': fixture(script, 200, 'text/plain') }, spawnLogPath, requestLogPath };
+        const result = await runBootstrap({ home, mock, agent: 'claude', consent: '1',
+            extraEnv: { AKARI_PARTNER_CLAUDE_INSTALL_URL: 'http://example.test/claude-install' } });
+        assert.equal(result.code, 0, result.stderr);
+        assert.match(await readFile(spawnLogPath, 'utf8'), /\/bin\/sh/u);
+        assert.match(await readFile(requestLogPath, 'utf8'), /claude-install/u);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('既存 npm エージェントに Node.js が無ければ同意まで取得しない', async () => {
+    const home = await makeHome('akari-partner-node-consent-');
+    try {
+        const executable = path.join(home, '.local', 'bin', 'command-code');
+        await mkdir(path.dirname(executable), { recursive: true });
+        await writeFile(executable, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+        const requestLogPath = path.join(home, 'request.log');
+        const result = await runBootstrap({ home, agent: 'commandcode', consent: '0',
+            mock: { origin: 'http://example.test', fixtures: {}, requestLogPath },
+            extraEnv: { AKARI_PARTNER_IGNORE_SYSTEM_NODE: '1' } });
+        assert.equal(result.code, 0, result.stderr);
+        assert.match(result.stdout, /"consentRequired":true/u);
+        await assert.rejects(readFile(requestLogPath));
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
 const NODE_ASSET = `node-v${NODE_VERSION}-darwin-arm64.tar.gz`;
 const NODE_ROOT = `node-v${NODE_VERSION}-darwin-arm64`;
 const fakeNodeScript = `#!/bin/sh
@@ -872,6 +962,28 @@ test('同版 host のタグ取得に失敗したら既存本体を触らず公�
         const executable = await realpath(codex);
         assert.match(executable, /share\/akari-video\/codex\/0\.149\.1\/bin\/codex$/);
         assert.equal(await readFile(path.join(path.dirname(executable), 'codex-code-mode-host'), 'utf8'), 'matching host');
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows の既存 Codex に host が無ければ既存フォルダを変えず管理フォルダへ導入する', async () => {
+    const home = await makeHome('akari-codex-win-host-');
+    const existing = path.join(home, '.local', 'bin', 'codex.exe');
+    await mkdir(path.dirname(existing), { recursive: true });
+    await writeFile(existing, '#!/bin/sh\necho codex-cli 0.149.1\n', { mode: 0o755 });
+    const asset = 'codex-package-aarch64-pc-windows-msvc.tar.gz';
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json'),
+        [`/assets/${asset}`]: fixture(bundleArchive('win32'))
+    });
+    try {
+        const result = await runBootstrap({ home, mock, platform: 'win32', arch: 'arm64' });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.equal(await readFile(existing, 'utf8'), '#!/bin/sh\necho codex-cli 0.149.1\n');
+        await assert.rejects(readFile(path.join(path.dirname(existing), 'codex-code-mode-host.exe')));
+        assert.equal(await readFile(path.join(home, 'local-app-data', 'AKARI Video', 'codex', 'current', 'bin', 'codex-code-mode-host.exe'), 'utf8'), 'matching host');
     } finally {
         await mock.close();
         await rm(home, { recursive: true, force: true });

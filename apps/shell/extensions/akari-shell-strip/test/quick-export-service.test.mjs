@@ -1,11 +1,65 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate as waitForImmediate } from 'node:timers/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
     AkariQuickExportServiceImpl,
-    buildRevealArtifactCommand
+    buildRevealArtifactCommand,
+    recoverGpuPreferenceAtStartup,
+    shouldPromptForGpuConsent
 } from '../lib/node/akari-quick-export-service.js';
 import { resolveExportPreviewPath } from '../lib/node/akari-quick-export-service.js';
+import { recoverStaleGpuPreference } from '../../../../../packages/osr-export/src/gpu-preference.mjs';
+
+test('許可の設定変更監視は書き出し画面を開く前から起動する', () => {
+    const moduleSource = readFileSync(new URL('../src/browser/akari-shell-strip-frontend-module.ts', import.meta.url), 'utf8');
+    assert.match(moduleSource, /bind\(FrontendApplicationContribution\)\.toService\(AkariExportSessionService\)/u);
+});
+
+test('macOS の確認画面検証フラグは表示判定だけを変える', () => {
+    assert.equal(shouldPromptForGpuConsent('darwin', {}), false);
+    assert.equal(shouldPromptForGpuConsent('darwin', { AKARI_TEST_WINDOWS_GPU_CONSENT: '1' }), true);
+    assert.equal(shouldPromptForGpuConsent('win32', {}), true);
+});
+
+test('書き出しの許可は隔離したアプリ領域へ保存する', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-gpu-consent-'));
+    class IsolatedService extends AkariQuickExportServiceImpl {
+        gpuPreferenceConsentEnv() { return { AKARI_HOME: root }; }
+    }
+    try {
+        const service = new IsolatedService();
+        await service.saveGpuPreferenceConsent(true);
+        assert.deepEqual(JSON.parse(await readFile(join(root, 'gpu-preference-consent.json'), 'utf8')),
+            { version: 1, allowed: true });
+        await service.saveGpuPreferenceConsent(false);
+        assert.equal(JSON.parse(await readFile(join(root, 'gpu-preference-consent.json'), 'utf8')).allowed, false);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('Windows 起動時に残った GPU 設定を注入したレジストリで復元する', async () => {
+    const calls = [];
+    const module = {
+        createRegistryAccess: () => ({
+            read: () => 'GpuPreference=2;',
+            write: (_executable, value) => calls.push(['write', value]),
+            remove: () => calls.push(['remove'])
+        }),
+        createSidecarAccess: () => ({
+            read: async () => ({ version: 1, executable: 'C:\\AKARI Video.exe', previous: null }),
+            remove: async () => calls.push(['sidecar.remove'])
+        }),
+        recoverStaleGpuPreference
+    };
+    assert.equal(await recoverGpuPreferenceAtStartup({ platform: 'win32', load: async () => module }), true);
+    assert.deepEqual(calls, [['remove'], ['sidecar.remove']]);
+    assert.equal(await recoverGpuPreferenceAtStartup({ platform: 'darwin', load: () => assert.fail('読み込まない') }), false);
+});
 
 test('start: バックエンドの予期しない例外を failed へ終端させる', async () => {
     class ThrowingService extends AkariQuickExportServiceImpl {

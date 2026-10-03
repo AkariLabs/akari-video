@@ -23,6 +23,14 @@ export type QuickExportEngine = 'auto' | 'gpu' | 'osr';
 export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
 export type QuickExportCodec = 'h264' | 'hevc' | 'prores422' | 'png';
 
+export function shouldAskTemporaryGpuPreference(
+    windowsSupported: boolean,
+    engine: QuickExportEngine,
+    savedConsent: boolean | undefined
+): boolean {
+    return windowsSupported && savedConsent === undefined && (engine === 'auto' || engine === 'gpu');
+}
+
 export function buildQuickExportEncoderChoices(
     platform: 'darwin' | 'win32' | 'linux'
 ): Array<{ label: string; value: QuickExportEncoder }> {
@@ -53,6 +61,7 @@ export const QUICK_EXPORT_DEFAULT_ENCODER: QuickExportEncoder = 'auto';
 
 export interface QuickExportRenderSettings {
     readonly outputName: string;
+    readonly gpuPreference?: 'auto' | 'off';
     /** 既定（'standard'）なら --quality を付けない。 */
     readonly quality?: QuickExportQuality;
     /** 未指定でも --engine auto を明示送信する。 */
@@ -149,6 +158,7 @@ export function buildRenderCutArgs(projectRoot: string, settings: QuickExportRen
     }
     args.push('--engine', settings.engine ?? QUICK_EXPORT_DEFAULT_ENGINE);
     args.push('--encoder', settings.encoder ?? QUICK_EXPORT_DEFAULT_ENCODER);
+    args.push('--gpu-preference', settings.gpuPreference ?? 'off');
     if (settings.codec !== undefined && settings.codec !== QUICK_EXPORT_DEFAULT_CODEC) {
         args.push('--codec', settings.codec);
     }

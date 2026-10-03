@@ -29,6 +29,7 @@ export interface QuickExportStartRequest {
     readonly scaleTo?: { readonly width: number; readonly height: number };
     /** フォルダ選択ダイアログで得た絶対パスの URI 文字列。未指定なら既定の exports/ を使う。 */
     readonly outputDirectoryUri?: string;
+    readonly gpuPreference: 'auto' | 'off';
 }
 
 export type QuickExportStartOutcome =
@@ -153,6 +154,8 @@ export interface QuickExportDiscardLeftoverResult {
 }
 
 export interface AkariQuickExportService {
+    shouldPromptGpuPreference(): Promise<boolean>;
+    saveGpuPreferenceConsent(allowed: boolean): Promise<void>;
     getLicenseFindings(projectRootUri: string): Promise<readonly QuickExportLicenseFinding[]>;
     start(request: QuickExportStartRequest): Promise<QuickExportStartOutcome>;
     getStatus(): Promise<QuickExportStatus>;
