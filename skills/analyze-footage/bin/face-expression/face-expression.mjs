@@ -12,6 +12,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { importPackage } from "../person-matte/resolve-packages.mjs";
 import {
   FACE_LANDMARKER_MODEL,
   TASKS_VISION_VERSION,
@@ -26,6 +27,14 @@ const DEFAULT_FPS = 24;
 const DEFAULT_DECODE_WIDTH = 1280;
 const TOOL_ID = "face-expression.mjs v0";
 const PROVIDER_NAME = "mediapipe-face-landmarker";
+
+let mediaToolsPromise;
+
+function ensureMediaTools() {
+  mediaToolsPromise ??= importPackage("media-bin/src/index.mjs", { from: import.meta.url })
+    .then((media) => ({ resolveFfmpeg: media.resolveFfmpeg, resolveFfprobe: media.resolveFfprobe }));
+  return mediaToolsPromise;
+}
 
 function printJson(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
@@ -80,15 +89,25 @@ function run(command, args) {
   }
 }
 
-function commandAvailable(command) {
-  const result = run(command, ["-version"]);
-  return !result.error && result.status === 0;
-}
-
 async function checkAvailability(env = process.env) {
   const reasons = [];
-  for (const command of ["ffmpeg", "ffprobe"]) {
-    if (!commandAvailable(command)) reasons.push(`${command} が利用できません`);
+  let mediaTools;
+  try {
+    mediaTools = await ensureMediaTools();
+  } catch {
+    // ローダが使えない場合も各ツールの従来の reason にまとめる。
+  }
+  for (const [label, resolver] of [
+    ["ffmpeg", mediaTools?.resolveFfmpeg],
+    ["ffprobe", mediaTools?.resolveFfprobe],
+  ]) {
+    try {
+      const command = resolver();
+      const result = run(command, ["-version"]);
+      if (result.error || result.status !== 0) reasons.push(`${label} が利用できません`);
+    } catch {
+      reasons.push(`${label} が利用できません`);
+    }
   }
   const chrome = findChrome(env);
   if (!chrome) reasons.push("この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）");
@@ -125,8 +144,8 @@ async function checkAvailability(env = process.env) {
   };
 }
 
-function ffprobeJson(input) {
-  const result = run("ffprobe", [
+function ffprobeJson(input, ffprobeBin) {
+  const result = run(ffprobeBin, [
     "-v", "error", "-select_streams", "v:0",
     "-show_entries", "stream=width,height,duration:stream_side_data=rotation:format=duration",
     "-of", "json", input,
@@ -141,8 +160,8 @@ function ffprobeJson(input) {
   }
 }
 
-function probeSource(input) {
-  const result = ffprobeJson(input);
+function probeSource(input, ffprobeBin) {
+  const result = ffprobeJson(input, ffprobeBin);
   const stream = result.streams?.[0];
   if (!stream) throw new Error("映像ストリームが見つかりません");
   const rawWidth = Number(stream.width);
@@ -166,9 +185,9 @@ function outputSize(source, decodeWidth) {
   return { width, height };
 }
 
-function decodeFrames(input, frameDir, fps, size) {
+function decodeFrames(input, frameDir, fps, size, ffmpegBin) {
   const pattern = path.join(frameDir, "frame-%08d.png");
-  const result = run("ffmpeg", [
+  const result = run(ffmpegBin, [
     "-y", "-hide_banner", "-nostdin", "-loglevel", "error",
     "-i", input, "-map", "0:v:0",
     "-vf", `fps=${fps},scale=${size.width}:${size.height}:flags=bicubic`,
@@ -242,6 +261,9 @@ async function detectFrames({ frames, fps, modelPath }) {
 }
 
 async function generate(options) {
+  const { resolveFfmpeg, resolveFfprobe } = await ensureMediaTools();
+  const ffmpegBin = resolveFfmpeg();
+  const ffprobeBin = resolveFfprobe();
   if (!fs.existsSync(options.input)) throw new Error(`input が見つかりません: ${options.input}`);
   if (!fs.existsSync(options.analysis)) throw new Error(`analysis.json が見つかりません: ${options.analysis}`);
   const analysis = JSON.parse(fs.readFileSync(options.analysis, "utf8"));
@@ -250,7 +272,7 @@ async function generate(options) {
   }
 
   const started = process.hrtime.bigint();
-  const source = probeSource(options.input);
+  const source = probeSource(options.input, ffprobeBin);
   const size = outputSize(source, options.decodeWidth);
   const model = await ensureFaceLandmarkerModel({
     log: (message) => process.stderr.write(`${message}\n`),
@@ -258,7 +280,7 @@ async function generate(options) {
   const frameDir = await mkdtemp(path.join(os.tmpdir(), "akari-face-expression-frames-"));
   let samples;
   try {
-    const frames = decodeFrames(options.input, frameDir, options.fps, size);
+    const frames = decodeFrames(options.input, frameDir, options.fps, size, ffmpegBin);
     samples = await detectFrames({ frames, fps: options.fps, modelPath: model.path });
   } finally {
     await rm(frameDir, { recursive: true, force: true });
