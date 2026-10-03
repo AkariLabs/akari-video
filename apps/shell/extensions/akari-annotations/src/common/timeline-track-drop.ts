@@ -96,16 +96,27 @@ function containsPoint(rect: TimelineDropRect, x: number, y: number): boolean {
 export function hitTestTimelineTrackDrop(
     localY: number,
     layouts: readonly TimelineTrackDropLayout[],
-    originalTrack: number
+    originalTrack: number,
+    isLocked?: (id: string) => boolean,
+    lane: 'visual' | 'audio' = 'visual'
 ): TimelineTrackDropHit {
+    if (lane === 'audio') return hitTestAudioTrackDrop(localY, layouts, isLocked)
+        ?? { track: originalTrack, top: 0, height: 0, rejected: true };
     const ordered = [...layouts]
         .filter(layout => Number.isFinite(layout.top) && layout.height > 0 && layout.rawIndex >= 0)
         .sort((left, right) => left.top - right.top);
     const visual = ordered.filter(layout => layout.lane === 'visual');
-    const eligible = visual.filter(layout => layout.acceptsItems);
+    const eligible = visual.filter(layout => layout.acceptsItems && !isLocked?.(layout.id));
     const fallback = eligible.find(layout => layout.track === originalTrack) ?? eligible[0];
     if (!fallback || visual.length === 0) {
         return { track: originalTrack, top: 0, height: 0, rejected: true };
+    }
+
+    const containing = ordered.find(layout =>
+        localY >= layout.top && localY < layout.top + layout.height);
+    if (isLocked && (containing?.lane === 'audio'
+        || (containing?.lane === 'visual' && isLocked(containing.id)))) {
+        return targetHit(nearestLayout(localY, eligible));
     }
 
     for (let index = 0; index < visual.length - 1; index++) {
@@ -118,10 +129,8 @@ export function hitTestTimelineTrackDrop(
         }
     }
 
-    const containing = ordered.find(layout =>
-        localY >= layout.top && localY < layout.top + layout.height);
     if (containing) {
-        if (containing.lane === 'visual' && containing.acceptsItems) {
+        if (containing.lane === 'visual' && eligible.includes(containing)) {
             return targetHit(containing);
         }
         return rejectedHit(fallback);
@@ -152,11 +161,25 @@ export function hitTestTimelineTrackDrop(
 
     // visual 群の内側にある LANE_GAP は挿入帯にしない。最も近い通常段へ吸着させる。
     if (localY >= topmost.top && localY < bottomEdge) {
-        const nearest = eligible.reduce((best, candidate) =>
-            distanceToLayout(localY, candidate) < distanceToLayout(localY, best) ? candidate : best);
-        return targetHit(nearest);
+        return targetHit(nearestLayout(localY, eligible));
     }
     return rejectedHit(fallback);
+}
+
+/** Audio drops use the nearest unlocked audio row, regardless of the pointer's lane. */
+export function hitTestAudioTrackDrop(
+    localY: number,
+    layouts: readonly TimelineTrackDropLayout[],
+    isLocked?: (id: string) => boolean
+): TimelineTrackDropHit | undefined {
+    const eligible = layouts.filter(layout => layout.lane === 'audio' && layout.acceptsItems
+        && Number.isFinite(layout.top) && layout.height > 0 && !isLocked?.(layout.id));
+    return eligible.length > 0 ? targetHit(nearestLayout(localY, eligible)) : undefined;
+}
+
+function nearestLayout(localY: number, layouts: readonly TimelineTrackDropLayout[]): TimelineTrackDropLayout {
+    return layouts.reduce((best, candidate) =>
+        distanceToLayout(localY, candidate) < distanceToLayout(localY, best) ? candidate : best);
 }
 
 function targetHit(layout: TimelineTrackDropLayout): TimelineTrackDropHit {

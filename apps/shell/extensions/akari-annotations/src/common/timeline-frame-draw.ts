@@ -44,7 +44,7 @@ export interface FrameDrawOptions {
     occupied: readonly { at: number; duration: number }[];
 }
 
-/** Frame-tool-only half-second grid. All occupied ranges and results use integer frames. */
+/** Frame-tool ranges and occupied ranges use integer frames. */
 export function calculateFrameDraw(options: FrameDrawOptions): FrameDrawRange | null {
     const { start, end, fps, distancePx, candidates, thresholdSeconds, occupied } = options;
     if (![start, end, fps, distancePx].every(Number.isFinite) || fps <= 0 || distancePx < 3
@@ -56,7 +56,7 @@ export function calculateFrameDraw(options: FrameDrawOptions): FrameDrawRange | 
     const upper = Math.min(Infinity, ...occupied.filter(item => item.at >= origin).map(item => item.at));
     const snap = (seconds: number): number => {
         const edge = resolveSnapTime(seconds, candidates, thresholdSeconds);
-        const time = edge.snapped ? edge.time : Math.round(seconds * 2) / 2;
+        const time = edge.snapped ? edge.time : seconds;
         return Math.min(upper, Math.max(lower, Math.round(time * fps)));
     };
     const a = snap(start), b = snap(end);

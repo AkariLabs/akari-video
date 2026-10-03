@@ -1861,7 +1861,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const playheadLineHit = document.createElement('div');
         playheadLineHit.dataset.testid = 'akari-playhead-line-hit';
         Object.assign(playheadLineHit.style, {
-            position: 'absolute', top: '16px', bottom: '0', left: '-3px', width: '8px',
+            position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, left: '-3px', width: '8px',
             pointerEvents: 'auto', cursor: 'ew-resize'
         });
         playheadLineHit.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
@@ -2414,9 +2414,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && !this.libraryLockedDragKey && !this.libraryShapeDragPayload) || event.relatedTarget !== null) return;
             const outsideViewport = event.clientX <= 0 || event.clientY <= 0
                 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
-            if (outsideViewport) this.clearLibraryTransitionDragState();
+            if (outsideViewport) { this.stopMaterialDragAutoScroll(); this.hideMaterialGhost(); }
         };
-        const onWindowBlur = (): void => this.clearLibraryTransitionDragState();
+        const onWindowBlur = (): void => { this.stopMaterialDragAutoScroll(); this.hideMaterialGhost(); };
         window.addEventListener(LIBRARY_DRAG_START_EVENT, onLibraryDragStart);
         window.addEventListener(LIBRARY_DRAG_END_EVENT, onLibraryDragEnd);
         window.addEventListener('drop', onWindowLibraryDrop, true);
@@ -2457,6 +2457,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected resolveFocusSelection(itemId: string): TimelineSelectionItem | undefined {
         const index = this.cutItemIds.indexOf(itemId);
         if (index >= 0) return { kind: 'cut', index };
+        if (this.audioBgm?.id === itemId || this.audioNarration.some(item => item.id === itemId)
+            || this.audioSfx.some(item => item.id === itemId)) return { kind: 'audio', id: itemId };
         const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
         if (row) return {
             kind: 'item', id: row.id, itemKind: row.itemKind, trackId: row.trackId,
@@ -2465,8 +2467,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.overlays.some(item => item.id === itemId)) return { kind: 'overlay', id: itemId };
         if (this.layers.some(item => item.id === itemId)) return { kind: 'layer', id: itemId };
         if (this.captions.some(item => item.id === itemId)) return { kind: 'caption', id: itemId };
-        if (this.audioBgm?.id === itemId || this.audioNarration.some(item => item.id === itemId)
-            || this.audioSfx.some(item => item.id === itemId)) return { kind: 'audio', id: itemId };
         return undefined;
     }
 
@@ -4628,6 +4628,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.playhead.style.left = `${this.percent(caption.start)}%`;
             await this.requestSeek(caption.start, { domain: 'output' });
             this.publishPrimaryPreviewSelection({ kind: 'caption', id: caption.id });
+            await this.focusTimelineItem?.(caption.id, { reveal: true, pulse: true });
             const notice = options.myStyle && myStyleApplyNotice(options.myStyle.parts);
             if ((look || motion || attachedParts.length) && options.myStyle) await this.recordMyStyleUsage(options.myStyle,
                 [caption.id], appliedMyStyleKinds(options.myStyle.parts, ['look', 'motion', 'sfx', 'fx', 'decor']));
@@ -6177,7 +6178,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                 });
             if (!placed || !placedId) return undefined;
-            await this.focusTimelineItem(placedId, { seek: false });
+            await this.focusTimelineItem(placedId, { seek: false, reveal: true, pulse: true });
             this.footer.textContent = 'オーバーレイを置きました。';
             return placedId;
         } catch (error) {
@@ -6406,6 +6407,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 this.hideNotice();
                 this.footer.textContent = `${overlapNote}${autoLevelNotice || `${successNote}${fallbackNote}`}`;
+                await this.focusTimelineItem?.(itemId, { reveal: true, pulse: true });
                 this.revealOutputPreview();
                 return itemId;
             }
@@ -6500,7 +6502,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                 }
             });
-            if (options?.placeOnTop) this.applySelection({ kind: 'layer', id: String(item.id) });
+            const focused = await this.focusTimelineItem?.(String(item.id), { reveal: true, pulse: true });
+            if (options?.placeOnTop && !focused) this.applySelection({ kind: 'layer', id: String(item.id) });
             this.hideNotice();
             this.footer.textContent = `${successNote}${overlapNote}${beyondNote}${fallbackNote}`;
             this.revealOutputPreview();
@@ -6552,17 +6555,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isMaterialDragTransfer(transfer: DataTransfer | null): boolean {
-        if (this.libraryLockedDragKey && transfer?.types.includes(LIBRARY_DRAG_MIME)) return true;
-        if (transfer?.types.includes(LIBRARY_DRAG_MIME)) {
-            try {
-                const candidate = JSON.parse(transfer.getData(LIBRARY_DRAG_MIME)) as { locked?: boolean; key?: string };
-                if (candidate?.locked === true && typeof candidate.key === 'string') return true;
-            } catch { /* invalid payload */ }
-        }
-        return !!transfer && (transfer.types.includes(MATERIAL_DRAG_MIME)
-            || (transfer.types.includes(LIBRARY_DRAG_MIME)
-                && (this.readLibraryAssetDropPayload(transfer) !== undefined || this.readLibraryTextStyleDropPayload?.(transfer) !== undefined
-                    || this.readLibraryShapeDropPayload?.(transfer) !== undefined)));
+        if (!transfer) return false;
+        if (transfer.types.includes(MATERIAL_DRAG_MIME)) return true;
+        if (!transfer.types.includes(LIBRARY_DRAG_MIME)) return false;
+        if (this.libraryDragPayload) return false;
+        const raw = transfer.getData(LIBRARY_DRAG_MIME);
+        if (!raw) return true;
+        try { return JSON.parse(raw)?.kind !== 'transition'; }
+        catch { return true; }
     }
 
     protected materialPanelDropPoint(pointerX: number, pointerY: number): TimelinePanelDropPoint {
@@ -6683,6 +6683,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateTextStyleDropGhost(point.x, point.y);
             return;
         }
+        if (this.readLibraryOverlayDropPayload?.(event.dataTransfer)) {
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            this.hideMaterialGhost();
+            return;
+        }
         if (this.readLibraryShapeDropPayload?.(event.dataTransfer)) {
             const target = this.resolveMaterialDropTarget('image', point.y);
             if (event.dataTransfer) event.dataTransfer.dropEffect = target.rejected ? 'none' : 'copy';
@@ -6769,6 +6774,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.hideMaterialGhost();
             void this.commands.executeCommand('akari.library.showPremiumPrompt', { key: lockedKey })
                 .catch(() => this.messages.warn('この素材を使うには購入が必要です。'));
+            return;
+        }
+        const overlayPayload = this.readLibraryOverlayDropPayload?.(event.dataTransfer);
+        if (overlayPayload) {
+            this.hideMaterialGhost();
+            this.clearLibraryTransitionDragState();
+            const t = point.zone === 'header-column'
+                ? Math.max(0, this.playheadT)
+                : this.materialDropTime(point.x, 'layers', 0, 0);
+            void this.addOverlayAtOutputPoint({ key: overlayPayload.key, t,
+                editUri: this.location?.editUri?.toString() });
             return;
         }
         const shapePayload = this.readLibraryShapeDropPayload?.(event.dataTransfer);
@@ -6922,6 +6938,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return payload?.kind === 'asset' ? payload : undefined;
     }
 
+    protected readLibraryOverlayDropPayload(transfer: DataTransfer | null) {
+        if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
+        const raw = transfer.getData(LIBRARY_DRAG_MIME);
+        const payload = raw ? parseLibraryDragPayload(raw) : undefined;
+        return payload?.kind === 'overlay' ? payload : undefined;
+    }
+
     protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryApplyDragPayload | undefined {
         if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
         const raw = transfer.getData(LIBRARY_DRAG_MIME);
@@ -6998,7 +7021,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const placed = placement.placed;
             if (!placed) return undefined;
             window.dispatchEvent(new CustomEvent(SHAPE_PLACED_EVENT, { detail: { preset: options.preset, id: placed.id } }));
-            await this.focusTimelineItem(placed.id, { seek: !timelineTarget });
+            await this.focusTimelineItem(placed.id, { seek: !timelineTarget, reveal: true, pulse: true });
             this.hideNotice();
             this.footer.textContent = placed.createdTrack ? '図形を置きました（新しいトラックに置きました）。' : '図形を置きました。';
             this.revealOutputPreview();
@@ -7079,9 +7102,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isLibraryTransitionDragTransfer(transfer: DataTransfer | null): boolean {
-        return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME)
-            && !this.readLibraryAssetDropPayload(transfer) && !this.readLibraryTextStyleDropPayload?.(transfer)
-            && !this.readLibraryShapeDropPayload?.(transfer);
+        if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return false;
+        if (this.libraryDragPayload) return true;
+        const raw = transfer.getData(LIBRARY_DRAG_MIME);
+        if (!raw) return false;
+        try { return JSON.parse(raw)?.kind === 'transition'; }
+        catch { return false; }
     }
 
     protected handleLibraryTransitionDragEnter(event: DragEvent): void {
@@ -7245,50 +7271,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
         createAudioTrack?: boolean; reason?: string; overlapInsert?: boolean;
     } {
         const localY = clientY - this.strip.getBoundingClientRect().top;
-        const lockedLayout = this.laneLayout.tracks.find(layout =>
-            localY >= layout.top && localY < layout.top + layout.height && this.isTrackLocked(layout.id));
-        if (lockedLayout && kind !== 'audio') {
-            const track = this.displayTimelineTracks.find(candidate => candidate.id === lockedLayout.id);
-            return {
-                zone: 'layers', track: lockedLayout.track,
-                top: lockedLayout.top, height: lockedLayout.height, rejected: true,
-                targetTrackId: lockedLayout.id,
-                reason: lockedTrackMessage(track?.label || this.computeTrackAutoNames().get(lockedLayout.id!) || lockedLayout.id!)
-            };
-        }
+        const rawTracks = Array.isArray(this.editDocument?.tracks)
+            ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
+        const dropLayouts = this.timelineTrackDropLayouts(rawTracks);
         if (kind === 'audio') {
-            const audioTrackIds = new Set((Array.isArray(this.editDocument?.tracks)
-                ? this.editDocument!.tracks as Array<Record<string, unknown>> : [])
-                .filter(track => track.lane === 'audio').map(track => track.id));
-            const layouts = this.laneLayout.audioTracks.filter(layout => audioTrackIds.has(layout.id));
-            if (layouts.length === 0) {
+            const eligible = dropLayouts.filter(layout => layout.lane === 'audio' && layout.acceptsItems
+                && !this.isTrackLocked(layout.id));
+            if (eligible.length === 0) {
                 const bottom = Math.max(0, ...this.laneLayout.tracks.map(layout => layout.top + layout.height));
                 return {
                     zone: 'audio', track: 0, top: bottom + LANE_GAP,
                     height: SUBROW_STRIDE, rejected: false, createAudioTrack: true
                 };
             }
-            const hit = layouts.find(layout =>
-                localY >= layout.top && localY < layout.top + layout.height + LANE_GAP);
-            const destination = hit ?? layouts[0];
+            const destination = hitTestTimelineTrackDrop(localY, dropLayouts, eligible[0].track,
+                id => this.isTrackLocked(id), 'audio');
             return {
                 zone: 'audio', track: destination.track, top: destination.top, height: destination.height,
-                rejected: this.isTrackLocked(destination.id), targetTrackId: destination.id,
-                ...(this.isTrackLocked(destination.id) ? { reason: '音の行はロック中です。' } : {})
+                rejected: false, targetTrackId: destination.targetTrackId
             };
         }
         const zone: MaterialDropZone = 'layers';
-        const rawTracks = Array.isArray(this.editDocument?.tracks)
-            ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
-        const dropLayouts = this.timelineTrackDropLayouts(rawTracks);
-        const eligible = dropLayouts.filter(layout => layout.lane === 'visual' && layout.acceptsItems);
+        const eligible = dropLayouts.filter(layout => layout.lane === 'visual' && layout.acceptsItems
+            && !this.isTrackLocked(layout.id));
         if (eligible.length === 0) {
             return {
                 zone, track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2), height: SUBROW_STRIDE,
                 rejected: false, insertIndex: rawTracks.length
             };
         }
-        const hit = hitTestTimelineTrackDrop(localY, dropLayouts, eligible[0].track);
+        const hit = hitTestTimelineTrackDrop(localY, dropLayouts, eligible[0].track,
+            id => this.isTrackLocked(id));
         if (!hit.rejected) return {
             zone,
             track: hit.track,
@@ -18147,6 +18160,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             // Drawing a frame explicitly requests its inspector; passive selection sync only attaches it.
             await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+            this.playheadT = range.at / fps;
+            this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+            await this.requestSeek(this.playheadT, { domain: 'output' });
             this.showNotice('空の枠を置きました。');
         } catch (error) {
             this.showNotice(`空の枠を置けません: ${this.errorMessage(error)}`);

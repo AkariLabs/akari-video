@@ -153,15 +153,17 @@ for (const kind of ['video', 'image', 'audio']) {
     });
 }
 
-test('ロック行・レーン違いの拒否と本編・行間・音0本のターゲットを保つ', () => {
+test('ロック行・音の行から近い映像行へ寄せ、本編・行間・音0本のターゲットを保つ', () => {
     const f = fixture([track('a1', 'audio', [item('sound')]), track('v1', 'visual', [item('clip')]), track('v2', 'visual')]);
     f.handler.lockedId = 'v1';
-    assert.equal(drag(f, 'video', 3, 'v1').dataTransfer.dropEffect, 'none');
+    assert.equal(drag(f, 'video', 3, 'v1').dataTransfer.dropEffect, 'copy');
     assert.equal(f.handler.materialGhost.style.display, 'block');
-    assert.equal(f.handler.materialGhost.textContent, '置けません');
+    assert.equal(f.handler.resolveMaterialDropTarget('video', 56).targetTrackId, 'v2');
+    assert.equal(f.handler.materialGhost.textContent, '');
     f.handler.lockedId = undefined;
     assert.equal(drag(f, 'audio', 3, 'v1').dataTransfer.dropEffect, 'copy');
-    assert.equal(drag(f, 'video', 3, 'a1').dataTransfer.dropEffect, 'none');
+    assert.equal(drag(f, 'video', 3, 'a1').dataTransfer.dropEffect, 'copy');
+    assert.equal(f.handler.resolveMaterialDropTarget('video', 96).targetTrackId, 'v1');
     const gap = f.handler.resolveMaterialDropTarget('video', 36);
     assert.equal(gap.insertIndex, 2);
     assert.equal(f.handler.materialDropTargetWithoutOverlap(gap, 3, 3), gap);
@@ -225,6 +227,16 @@ test('プレビュー着地は 1/4 幅・出力中心からの位置・最上段
     assert.deepEqual(placed.transform, { x: 430, y: -220, scale: 0.12 });
     assert.deepEqual(f.handler.selection, { kind: 'layer', id: placed.id });
     await assertOneUndo(f);
+});
+
+test('プレビュー着地の focus が id を解決できないときは従来の layer 選択へ戻す', async () => {
+    const f = fixture([track('lower', 'visual'), track('upper', 'visual', [item('existing')])]);
+    const calls = [];
+    f.handler.focusTimelineItem = async (...args) => { calls.push(args); return false; };
+    await f.handler.addMaterialAtOutputPoint('assets/new.png', 'image', 3, { x: 430, y: -220 });
+    const placed = f.doc().tracks[2].items[0];
+    assert.deepEqual(calls, [[placed.id, { reveal: true, pulse: true }]]);
+    assert.deepEqual(f.handler.selection, { kind: 'layer', id: placed.id });
 });
 
 test('プレビュー着地は最上段が空いていれば同じ段を使う', async () => {
@@ -450,9 +462,9 @@ test('仮尺では重なっていても実尺が短ければ不要なトラッ�
 });
 
 test('hideMaterialGhost は挿入のオレンジへ初期化する', () => {
-    const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
+    const f = fixture([track('a1', 'audio'), track('v1', 'visual'), { id: 'v2', lane: 'visual', items: null }]);
     const h = f.handler;
-    drag(f, 'image', 3, 'a1');
+    drag(f, 'image', 3, 'v2');
     assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), true);
     assert.equal(h.materialGhost.style.outline, '2px solid #f14c4c');
     h.hideMaterialGhost();
@@ -467,14 +479,14 @@ test('hideMaterialGhost は挿入のオレンジへ初期化する', () => {
 });
 
 test('拒否理由は枠内で1行にし、受理時と hide 後は文字スタイルを消す', () => {
-    const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
+    const f = fixture([track('a1', 'audio'), track('v1', 'visual'), { id: 'v2', lane: 'visual', items: null }]);
     const h = f.handler;
     const rejectedStyles = {
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2',
         padding: '2px 4px', fontSize: '11px'
     };
     for (const reset of [() => drag(f, 'image', 3, 'v1'), () => h.hideMaterialGhost()]) {
-        drag(f, 'image', 3, 'a1');
+        drag(f, 'image', 3, 'v2');
         for (const [key, value] of Object.entries(rejectedStyles)) {
             assert.equal(h.materialGhost.style[key], value, `拒否中: ${key}`);
         }
@@ -513,11 +525,11 @@ for (const kind of ['video', 'image']) {
     });
     for (const origin of ['material', 'asset']) {
         for (const locked of [false, true]) {
-            test(`${origin} / ${kind}: ${locked ? 'ロック行' : '異種レーン'}の赤い枠・理由から通常表示へ戻り、拒否 drop は保存しない`, () => {
-                const lane = kind === 'audio' ? 'audio' : 'visual';
-                const otherLane = lane === 'audio' ? 'visual' : 'audio';
-                const f = fixture([track('valid', lane, [item('existing')]),
-                    track('reject', locked ? lane : otherLane), track('top', otherLane)]);
+            test(`${origin} / ${kind}: ${locked ? 'ロック行' : '異種レーン'}から近い映像行へ寄せて保存し、ロック行は変えない`, async () => {
+                const tracks = locked
+                    ? [track('a1', 'audio'), track('valid', 'visual', [item('existing')]), track('reject', 'visual')]
+                    : [track('reject', 'audio'), track('valid', 'visual', [item('existing')])];
+                const f = fixture(tracks);
                 const h = f.handler;
                 h.lockedId = locked ? 'reject' : undefined;
                 h.stripScroll.scrollTop = 7;
@@ -535,22 +547,21 @@ for (const kind of ['video', 'image']) {
                 };
                 hover('valid');
                 assert.equal(h.trackInsertIndicator.style.display, 'block');
-                const rejectedEvent = hover('reject');
-                const reason = locked ? 'locked: reject' : '音のレーンには映像を置けません。';
-                assert.equal(rejectedEvent.dataTransfer.dropEffect, 'none');
+                const redirectedEvent = hover('reject');
+                const destination = h.resolveMaterialDropTarget(kind, redirectedEvent.clientY);
+                assert.equal(destination.targetTrackId, 'valid');
+                assert.equal(destination.rejected, false);
+                assert.equal(redirectedEvent.dataTransfer.dropEffect, 'copy');
                 assert.equal(h.materialGhost.style.display, 'block');
-                assert.equal(h.materialGhost.style.top, '47px', '最上段への fallback ではなく実際の行に描く');
+                assert.equal(h.materialGhost.style.top, `${Math.max(16, 14 + destination.top - 7)}px`, '寄せ先の行に描く');
+                assert.equal(h.trackInsertIndicator.style.top, `${14 + destination.top - 7}px`, '挿入線も寄せ先に描く');
                 assert.equal(h.materialGhost.style.height, '32px');
                 assert.deepEqual(h.materialGhost.range, [3, kind === 'image' ? 8 : 6]);
-                assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), true);
-                assert.equal(h.materialGhost.style.border, '2px solid #f14c4c');
-                assert.equal(h.materialGhost.style.outline, '2px solid #f14c4c');
-                assert.equal(h.materialGhost.style.color, '#f14c4c');
-                assert.equal(h.materialGhost.style.background, 'rgba(241, 76, 76, .25)');
-                assert.equal(h.materialGhost.textContent, locked ? '置けません' : 'レーン違い');
-                assert.equal(h.footer.textContent, reason);
-                assert.equal(h.materialGhost.dataset.akariInsertionPreview, undefined);
-                assert.equal(h.trackInsertIndicator.style.display, 'none');
+                assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
+                assert.equal(h.materialGhost.style.background, 'rgba(249, 115, 22, .2)');
+                assert.equal(h.materialGhost.textContent, '');
+                assert.equal(h.trackInsertIndicator.style.display, 'block');
+                assert.equal(f.text(), f.before, 'ドラッグ表示では保存しない');
 
                 hover('valid');
                 assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
@@ -564,24 +575,30 @@ for (const kind of ['video', 'image']) {
                 assert.equal(h.materialGhost.style.border, '2px solid #f97316');
                 assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
 
-                hover('reject');
                 h.stopMaterialDragAutoScroll = () => {};
                 h.readLibraryAssetDropPayload = () => origin === 'asset' ? asset : undefined;
                 h.readMaterialDropPayload = () => payload;
                 h.clearLibraryTransitionDragState = () => {};
-                h.placeLibraryAssetAtTarget = () => assert.fail('拒否時はライブラリから取り込まない');
+                h.placeLibraryAssetAtTarget = async (_asset, target, x, zone) =>
+                    h.placeMaterialAtTarget(payload, target, x, zone);
                 f.errors.length = 0;
-                h.handleMaterialDrop(rejectedEvent);
+                const dropEvent = hover('reject');
+                h.handleMaterialDrop(dropEvent);
+                for (let attempt = 0; attempt < 20 && f.writes.length === 0; attempt++) {
+                    await new Promise(resolve => setImmediate(resolve));
+                }
                 assert.equal(h.materialGhost.style.display, 'none');
                 assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
                 assert.equal(h.materialGhost.textContent, '');
                 assert.equal(h.materialGhost.style.border, '1px dashed #f97316');
                 assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
                 assert.equal(h.materialGhost.style.background, 'rgba(249, 115, 22, .2)');
-                assert.equal(f.text(), f.before);
-                assert.equal(f.writes.length, 0);
-                assert.equal(f.probes(), 0);
-                assert.deepEqual(f.errors, locked || origin === 'asset' ? [reason] : []);
+                assert.equal(f.writes.length, 1);
+                assert.equal(f.doc().tracks.find(row => row.id === 'reject').items.length, 0);
+                const placedTrack = f.doc().tracks.find(row => row.items.some(placed => placed.id.startsWith(kind === 'image' ? 'image-' : 'clip-')));
+                assert.ok(placedTrack && placedTrack.id !== 'reject');
+                assert.deepEqual(f.errors, []);
+                h.materialDropTime = () => 20;
                 hover('valid');
                 assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
                 assert.equal(h.materialGhost.style.border, '2px solid #f97316');
