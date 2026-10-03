@@ -1062,6 +1062,13 @@ function marqueeHits(candidates, rect) {
 
   function handleSelectedOverlayUnavailable(container) {
     if (selectedOverlay !== container) return;
+    const replacement = selectedId && containerById(selectedId);
+    if (replacement && replacement !== container) {
+      selectedOverlay = replacement;
+      replacement.setAttribute('data-akari-interaction-selected', 'true');
+      startSelectionTracking();
+      return;
+    }
     if (selectionTree().length && !container.isConnected && treeNode(selectedId)) {
       selectedOverlay = null;
       if (selectionFrame) selectionFrame.hidden = true;
