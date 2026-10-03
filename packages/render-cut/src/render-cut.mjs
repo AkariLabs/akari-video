@@ -1,14 +1,13 @@
 import { settleDecisionLog } from "../../akari-tools/src/decision-log/settle.mjs";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants, createReadStream, existsSync } from "node:fs";
+import { constants as fsConstants, existsSync } from "node:fs";
 import {
   access,
   copyFile,
   lstat,
   mkdir,
   open,
-  readdir,
   readFile,
   realpath,
   rename,
@@ -60,10 +59,12 @@ import { ExecutionError, RefusalError, messageOf, parseJson } from "./errors.mjs
 import { RETIRED_ENGINE, applyOutputScaleToPlan, assertCodecEngine, assertGpuEligibility, assertHevcPresetSupported, assertOsrLauncherAvailable, buildEngineProvenance, formatGpuEligibilityFailures, parseArguments, readForceGpu, resolveEngineChoice } from "./cli-arguments.mjs";
 import { cleanupFailedRunTemporaryDirectory, createRunTemporaryDirectory } from "./run-directory.mjs";
 import { parseRate, prescanBlankFramesWithProgress, probeMedia, resolveVideoEvidenceReuse, verifyArtifact } from "./verify-artifact.mjs";
+import { addWarning, additionalBgmInputs, isNonEmptyString, relativeOrAbsolute, sha256, sha256File, sha256PngDirectory } from "./render-support.mjs";
 export { ExecutionError, RefusalError } from "./errors.mjs";
 export { applyOutputScaleToPlan, assertCodecEngine, assertGpuEligibility, assertHevcPresetSupported, assertOsrLauncherAvailable, buildEngineProvenance, parseArguments, parseScaleToValue, readForceGpu, resolveEngineChoice } from "./cli-arguments.mjs";
 export { cleanupFailedRunTemporaryDirectory, cleanupStaleRunDirectories, createRunTemporaryDirectory, isProcessAlive, parseRunDirectoryOwner } from "./run-directory.mjs";
 export { VIDEO_STREAM_IDENTITY_FIELDS, fpsWithinOneFrameTolerance, hashVideoBitstream, oneFrameFpsTolerance, proveVideoStreamIdentity, resolveVideoEvidenceReuse, reusableGpuVerificationResult, verifyArtifact } from "./verify-artifact.mjs";
+export { sha256PngDirectory } from "./render-support.mjs";
 
 const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
@@ -1007,23 +1008,6 @@ export async function enumerateProjectRenderInputs({
   });
 }
 
-async function additionalBgmInputs({ projectRoot, edit, editText, internalEdit, env }) {
-  const bgms = projectLegacyAudioView(internalEdit).bgms ?? [];
-  const extra = [];
-  for (const [index, bgm] of bgms.slice(1).entries()) {
-    const single = await enumerateDeclaredRenderInputs({
-      projectRoot,
-      edit: { ...edit, cuts: [], sources: [], overlays: [], layers: [], audio: { bgm } },
-      editText,
-      internalEdit: null,
-      env,
-    });
-    const input = single.find(value => value.role === "audio:bgm");
-    if (input) extra.push({ ...input, role: `audio:bgm:${index + 1}` });
-  }
-  return extra;
-}
-
 async function collectInputReceipts(projectRoot, edit, editText) {
   const files = new Map([["edit.json", { path: join(projectRoot, "edit.json"), text: editText }]]);
   for (const source of usedSources(edit)) {
@@ -1294,11 +1278,6 @@ export function ffmpegInstallHint(platform = process.platform) {
   return `set the FFMPEG environment variable to its path, or install it (${install})`;
 }
 
-function addWarning(state, warning) {
-  state.warnings ??= [];
-  if (!state.warnings.includes(warning)) state.warnings.push(warning);
-}
-
 export function logVerificationResult(state, io = console) {
   for (const finding of state.verify?.findings ?? []) {
     if (finding.severity === "warning") {
@@ -1489,41 +1468,4 @@ async function isRegularFile(path) {
 
 function positive(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
-
-function isNonEmptyString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-
-async function sha256File(path) {
-  const hash = createHash("sha256");
-  await new Promise((resolvePromise, rejectPromise) => {
-    const stream = createReadStream(path);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("error", rejectPromise);
-    stream.on("end", resolvePromise);
-  });
-  return hash.digest("hex");
-}
-
-export async function sha256PngDirectory(directory) {
-  const frames = (await readdir(directory))
-    .filter((name) => /^frame-\d{5}\.png$/u.test(name))
-    .sort();
-  if (frames.length === 0) throw new ExecutionError("PNG sequence contains no frames");
-  const digests = await Promise.all([
-    sha256File(join(directory, frames[0])),
-    sha256File(join(directory, frames.at(-1))),
-    sha256File(join(directory, "audio.wav")),
-  ]);
-  return sha256(digests.join("\n"));
-}
-
-function sha256(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function relativeOrAbsolute(root, value) {
-  const result = relative(root, value);
-  return result.startsWith("..") ? value : result;
 }
