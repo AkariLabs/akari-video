@@ -240,13 +240,16 @@ test("GPU export muxes audio by stream copy contract and removes the video-only 
   await rm(projectRoot, { recursive: true, force: true });
 });
 
-test("GPU export without an audio source copies the video-only result and records audio mode none", async () => {
+test("GPU export without an audio source tags the video-only result and records audio mode none", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "gpu-index-video-only-"));
   const renderDirectory = join(projectRoot, "render");
   const out = join(renderDirectory, "composite.mp4");
   await mkdir(renderDirectory, { recursive: true });
   try {
+    const { COLOR_ARGS, H264_COLOR_TAG_BSF } = await import("../../render-cut/src/encode-preset.mjs");
     let muxCalls = 0;
+    let tagCalls = 0;
+    let tagOptions;
     let finalVerifyOptions;
     const result = await exportWithGpu({
       projectRoot, out, fps: 30, width: 320, height: 180, duration: 1, frames: 30,
@@ -255,6 +258,11 @@ test("GPU export without an audio source copies the video-only result and record
       launcherRunner: async (_launcher, options) => {
         await writeFile(options.out, "encoded-video");
         await writeFile(join(renderDirectory, "run.json"), JSON.stringify({ status: "completed", gpu: {}, memory: {} }));
+      },
+      videoTagger: async (options) => {
+        tagCalls += 1;
+        tagOptions = options;
+        await writeFile(options.outputPath, "tagged-video");
       },
       audioMuxer: async () => { muxCalls += 1; },
       finalVerifier: async (options) => {
@@ -269,7 +277,11 @@ test("GPU export without an audio source copies the video-only result and record
     const expectedAudio = { mode: "none", source: null, source_has_audio: null };
     assert.equal(muxCalls, 0);
     assert.equal(finalVerifyOptions.requireAudio, false);
-    assert.equal(await readFile(out, "utf8"), "encoded-video");
+    assert.equal(tagCalls, 1);
+    assert.equal(tagOptions.videoPath, `${out}.gpu-video.mp4`);
+    assert.equal(tagOptions.outputPath, out);
+    assert.deepEqual(tagOptions.videoTagArgs, [...H264_COLOR_TAG_BSF, ...COLOR_ARGS]);
+    assert.equal(await readFile(out, "utf8"), "tagged-video");
     assert.deepEqual(result.run.audio, expectedAudio);
     assert.deepEqual(result.receipt.audio, expectedAudio);
     assert.deepEqual(result.run.finalVerify.avTermination, { matched: true, skipped: "no-audio" });
@@ -389,6 +401,7 @@ test("GPU export forwards gpuPreference to the launcher and records its return v
           platform: "win32", policy: "force", exit: "gpu", executable: "C:\\x\\electron.exe", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
         } };
       },
+      videoTagger: async (options) => { await writeFile(options.outputPath, "tagged-video"); },
       audioMuxer: async (options) => { await writeFile(options.outputPath, "final"); return true; },
       finalVerifier: async () => ({ matched: true, checks: {}, measured: { streams: [{ codec_type: "video", duration: "1" }, { codec_type: "audio", duration: "1" }] } }),
     });
