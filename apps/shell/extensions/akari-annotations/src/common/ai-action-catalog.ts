@@ -81,13 +81,13 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
         visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
         accepts: ['still', 'video', 'generated-video'],
         reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
-        routes: [{ id: 'on-device', label: 'この Mac', kind: 'local', cost: 'free' }]
+        routes: [{ id: 'on-device', label: 'このパソコン', kind: 'local', cost: 'free' }]
     }, {
         id: 'eraser', group: 'refine', label: '消しゴム', image: 'eraser',
         visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
         accepts: ['still', 'video', 'generated-video'],
         reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
-        routes: [{ id: 'on-device', label: 'この Mac', kind: 'local', cost: 'free' }]
+        routes: [{ id: 'on-device', label: 'このパソコン', kind: 'local', cost: 'free' }]
     }, {
         id: 'transcribe', group: 'refine', label: '文字起こし', image: 'transcribe',
         visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame',

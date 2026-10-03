@@ -1111,6 +1111,7 @@ export interface AkariAnnotationsService {
     importAdjustLut(request: ImportAdjustLutRequest): Promise<ImportAdjustLutResult>;
     generatePhotoMask(request: { projectRootUri: string; sourceUri: string }): Promise<
         { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }>;
+    photoMaskAvailability(): Promise<{ available: boolean }>;
     photoCandidates(request: { projectRootUri: string; sourceUri: string; mode: 'foreground' | 'people' }): Promise<
         { ok: true; inputSha256: string; candidates: Array<{ id: string; label: string; png: string; area?: number; score?: number }> }
         | { ok: false; message: string }>;

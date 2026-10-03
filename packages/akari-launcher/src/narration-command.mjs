@@ -60,7 +60,7 @@ const commandUsage = [
   "  start     VOICEVOX エンジンを起動する",
   "  stop      AKARI が起動した VOICEVOX エンジンを止める",
   "  voices    声一覧を表示する",
-  "  verify    生成音声をこの Mac で聞き取り、字幕と照合する",
+  "  verify    生成音声をこのパソコンで聞き取り、字幕と照合する",
   "",
   usage,
 ].join("\n");
@@ -149,7 +149,7 @@ function verifyBackend(requested, runtime, transcribe) {
   if (requested === "speechanalyzer" && speech || requested === "whisper" && whisper || requested === "auto" && (speech || whisper)) {
     return requested === "auto" ? speech ? "speech-analyzer" : "whisper-cpp" : requested === "whisper" ? "whisper-cpp" : "speech-analyzer";
   }
-  throw new PublicError(requested === "speechanalyzer" ? "SpeechAnalyzer を利用できません" : requested === "whisper" ? "whisper.cpp の実行ファイルまたはモデルが見つかりません" : "この Mac に利用できる文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）", 3);
+  throw new PublicError(requested === "speechanalyzer" ? "SpeechAnalyzer を利用できません" : requested === "whisper" ? "whisper.cpp の実行ファイルまたはモデルが見つかりません" : "このパソコンに利用できる文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）", 3);
 }
 
 async function runVerify(options, io, runtime = {}) {

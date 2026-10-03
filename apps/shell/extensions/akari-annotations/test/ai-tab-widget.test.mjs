@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { cutSnapshot, photoMaskFields } from './helpers/perspective-transition-fixture.mjs';
 import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
@@ -24,7 +24,7 @@ const dependencies = {
   layerAudioControls: new WeakMap(),
   tabsForKind, initialTabFor, assignSectionToTab,
   aiActionCatalog, describeAiTiles,
-  aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor,
+  aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor,
   appendImageAiPanel,
   appendAiStillNotice, stillMismatchNotice, isInspectorStillImage,
   openPhotoEditPanel: options => { openedPhotoPanel = options; },
@@ -32,7 +32,7 @@ const dependencies = {
   ADJUST_PREVIEW_SECTIONS: [],
   MASK_FIELDS: photoMaskFields
 };
-const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\nclass Harness {
+const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\n${factory('photoMaskSectionsForAvailability')}\nclass Harness {
 ${method('renderContent').replace('renderContent', 'render')}
 ${['tabSourceHint', 'generationIdentity', 'appendTabStrip', 'loadAiCatalog'].map(method).join('\n')}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
@@ -81,6 +81,7 @@ function fixture(options = {}) {
   instance.generationCatalog = options.routes === false ? [] : [route];
   instance.aiStillStates = new Map();
   instance.aiCatalogLoaded = true;
+  instance.photoMaskAvailable = options.maskAvailable ?? true;
   instance.aiCatalogFailed = false;
   instance.generationStates = new Map([[clip.itemId, options.state ?? 'none']]);
   instance.generationDone = new Map(options.done ? [[clip.itemId, { sourcePath: clip.sourcePath, meta: {} }]] : []);
@@ -335,6 +336,20 @@ test('写真の直すタイルは端末処理の専用パネルを開き、カ�
   instance.explicitTabId = 'edit';
   instance.render();
   assert.equal(instance.aiView, 'tiles');
+}));
+
+test('使えない機械では背景透過タイルだけ理由つきで押せず、消しゴムは押せる', () => withDom(() => {
+  const instance = fixture({ maskAvailable: false });
+  instance.render();
+  const cutout = find(instance.body, byData('data-akari-inspector-ai-tile', 'cutout'));
+  const eraser = find(instance.body, byData('data-akari-inspector-ai-tile', 'eraser'));
+  assert.equal(cutout.attributes.get('aria-disabled'), 'true');
+  assert.equal(find(cutout, byClass('akari-inspector-ai-reason')).textContent, '背景透過は Mac でだけ使えます');
+  assert.equal(eraser.attributes.get('aria-disabled'), 'false');
+  cutout.click();
+  assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-photo-cutout')), undefined);
+  eraser.click();
+  assert.ok(instance.sections.find(section => section.id === 'photo-eraser'));
 }));
 
 for (const [label, options, reason] of [

@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { editCorrectionVisible } from '../lib/browser/inspector/edit-correction-visibility.js';
 import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
@@ -32,12 +32,12 @@ const dependencies = {
   CAPTION_ZONE_HOVER_EVENT: '', createSelectionHeader: () => new FakeNode('header'),
   CUT_SECTIONS: () => [], LAYER_SECTIONS: () => [], TREE_ITEM_SECTIONS: () => [],
   layerAudioControls: new WeakMap(), tabsForKind, initialTabFor, assignSectionToTab,
-  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, photoToolAvailabilityFor,
+  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, cutoutAvailabilityFor, photoToolAvailabilityFor,
   appendAiBack, appendAiTiles, appendAiStillNotice, stillMismatchNotice,
   isInspectorStillImage, editCorrectionVisible,
   ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }]
 };
-const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\nclass Harness {
+const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\n${factory('photoMaskSectionsForAvailability')}\nclass Harness {
 ${method('renderContent').replace('renderContent', 'render')}
 ${['tabSourceHint', 'generationIdentity', 'appendTabStrip', 'loadAiCatalog'].map(method).join('\n')}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;

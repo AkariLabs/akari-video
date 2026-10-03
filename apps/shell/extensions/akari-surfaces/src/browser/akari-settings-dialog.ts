@@ -84,7 +84,7 @@ import { makerBadge } from './settings/maker-badge';
 const CONNECTION_MAKERS = require('../../../../../../packages/schemas/ai-makers.json');
 
 const ENGINE_LABELS: Record<string, string> = {
-    'speech-analyzer': 'SpeechAnalyzer（この Mac）', 'whisper-cpp': 'Whisper.cpp（ローカル）',
+    'speech-analyzer': 'SpeechAnalyzer（このパソコン）', 'whisper-cpp': 'Whisper.cpp（ローカル）',
     'cloud:scribe': 'Scribe（クラウド）', 'cloud:groq': 'Groq（クラウド）'
 };
 const ENGINE_DESCRIPTIONS: Record<string, string> = {
@@ -640,7 +640,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const { entries, freeBytes } = this.storageSnapshot;
             const total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
             const summary = element('div'); summary.className = 'akari-set-storage-total';
-            summary.append(element('b', formatBytes(total)), element('span', `AKARI 全体 · Mac の空き ${freeBytes ? formatBytes(freeBytes) : '調べられませんでした'}`));
+            summary.append(element('b', formatBytes(total)), element('span', `AKARI 全体 · このパソコンの空き ${freeBytes ? formatBytes(freeBytes) : '調べられませんでした'}`));
             const usage = element('div'); usage.className = 'akari-set-storage-usage';
             const legend = element('div'); legend.className = 'akari-set-storage-legend';
             entries.forEach((entry, index) => {
@@ -757,7 +757,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
         section.append(groupCard('macOS のアクセス許可', ...rows),
         groupCard('外へ送るもの', settingRow('利用状況の送信', 'AKARI Video は利用状況を送っていません', statusPill('送っていない')),
-            settingRow('API キー', `鍵は ${this.credentialsPath || (OS.type() === OS.Type.Windows ? '%USERPROFILE%\\.akari\\credentials.env' : '~/.akari/credentials.env')} に保存します（この PC だけ・600）。AKARI のサーバーには送りません`, action('場所を開く', () => {
+            settingRow('API キー', `鍵は ${this.credentialsPath || (OS.type() === OS.Type.Windows ? '%USERPROFILE%\\.akari\\credentials.env' : '~/.akari/credentials.env')} に保存します（このパソコンだけ・600）。AKARI のサーバーには送りません`, action('場所を開く', () => {
                 if (this.credentialsPath) { void this.maintenance.openPath(this.credentialsPath.replace(/[\\/][^\\/]+$/, '')); }
             }, { small: true }))));
     }
@@ -1107,7 +1107,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             return { card, actions };
         };
         const vv = engineCard('voicevox', 'VOICEVOX', voicevoxPill,
-            'この Mac · 無料 · 使う声のクレジット（VOICEVOX:キャラ名）が必要');
+            'このパソコン · 無料 · 使う声のクレジット（VOICEVOX:キャラ名）が必要');
         if (!this.narrationLoading && !voicevoxFound && !voicevoxRunning) {
             if (this.narrationState?.voicevoxCaskAvailable) {
                 const install = action(this.narrationBusy === 'install' ? '入れています…' : '入れる', () => void this.installVoicevox(), { small: true });
@@ -1305,7 +1305,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             }
             defaultEngineSelect.append(group);
         };
-        addGroup('この Mac', [['voicevox', 'VOICEVOX'], ['irodori', '彩（お試し）']]);
+        addGroup('このパソコン', [['voicevox', 'VOICEVOX'], ['irodori', '彩（お試し）']]);
         addGroup('クラウド', [['gemini-3.8-flash-tts', 'Gemini 3.8 Flash TTS'],
             ['gemini-3.1-flash-tts', 'Gemini 3.1 Flash TTS'], ['gemini-tts', 'Gemini 2.5 Flash TTS'],
             ['elevenlabs-v3', 'ElevenLabs v3'], ['fish-s2.1-pro', 'Fish Audio S2.1-Pro'],
@@ -1367,7 +1367,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const panel = element('div'); Object.assign(panel.style, { background: '#242832', border: '1px solid #777',
                 borderRadius: '10px', padding: '20px', width: 'min(560px, calc(100vw - 32px))', display: 'flex', flexDirection: 'column', gap: '12px' });
             const phrase = createGeminiConsentPrompt();
-            const note = element('p', '本人の声で読んで録音してください。照合はこの PC で行います。');
+            const note = element('p', '本人の声で読んで録音してください。照合はこのパソコンで行います。');
             const input = element('input') as HTMLInputElement; input.type = 'file'; input.accept = '.wav,.m4a,.mp3,.webm'; input.setAttribute('aria-label', '同意録音ファイル');
             let blob: Blob | undefined; let recorder: MediaRecorder | undefined; let stream: MediaStream | undefined;
             let checkedPath: string | undefined; let consentCheck: GeminiConsentCheck | undefined;
@@ -1390,7 +1390,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const finish = (path?: string): void => { recorder?.state === 'recording' && recorder.stop(); stream?.getTracks().forEach(track => track.stop());
                 overlay.remove(); resolve(path); };
             const cancel = action('キャンセル', () => { resetCheck(); finish(); }, { small: true });
-            const next = action('この PC で照合', () => void (async () => {
+            const next = action('このパソコンで照合', () => void (async () => {
                 if (checkedPath && geminiConsentCanNext(true, consentCheck)) { finish(checkedPath); return; }
                 if (!blob) { note.textContent = '同意録音が必要です。'; return; }
                 next.disabled = true;
@@ -1525,7 +1525,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 .finally(() => { check.disabled = false; });
         }, { small: true });
         const card = element('div');
-        card.append(status, settingRow('画像の AI のキー', 'この PC の鍵の保存先に記録します。', input, save));
+        card.append(status, settingRow('画像の AI のキー', 'このパソコンの鍵の保存先に記録します。', input, save));
         if (state.narrationKeyAvailable) {
             const reuse = action(state.useNarrationKey ? '同じキーを使用中' : '同じキーを使う', () => {
                 reuse.disabled = true;
@@ -1703,9 +1703,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const detail = !credentials.exists ? `${credentials.path} · 登録すると作成します。平文・自分だけ読める権限（600）。CLI やスキルもこのファイルを読みます。`
             : credentials.secure_permissions ? `${credentials.path} · 平文・自分だけ読める権限（600）。CLI やスキルもこのファイルを読みます。`
                 : `${credentials.path} · 現在のファイル権限は 600 ではありません。次の登録・削除時に修正します。`;
-        this.storage.replaceChildren(groupCard('キーの保存先', settingRow('保存場所', `鍵は ${credentials.path} に保存します（この PC だけ・600）。${detail}`, segmentedControl<'file' | 'encrypted'>({
+        this.storage.replaceChildren(groupCard('キーの保存先', settingRow('保存場所', `鍵は ${credentials.path} に保存します（このパソコンだけ・600）。${detail}`, segmentedControl<'file' | 'encrypted'>({
             label: 'キーの保存先', value: 'file', onChange: () => undefined,
-            options: [{ value: 'file', label: 'このファイル' }, { value: 'encrypted', label: '暗号化', disabled: true, title: '暗号化して保存（この Mac のログイン鍵で）は準備中です' }]
+            options: [{ value: 'file', label: 'このファイル' }, { value: 'encrypted', label: '暗号化', disabled: true, title: '暗号化して保存（このパソコンのログイン鍵で）は準備中です' }]
         }))), settingsNote('登録後は末尾 4 桁だけを表示します。鍵はレポート・差分・チャットへ出しません。'));
     }
 

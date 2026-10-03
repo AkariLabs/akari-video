@@ -48,8 +48,8 @@ async function candidatesFrom(folder: string, values: Array<{ id: string; label?
 
 export async function visionCandidates(projectRoot: string, input: string, helper: string | undefined,
     mode: 'foreground' | 'people'): Promise<PhotoCandidates> {
-    if (!helper || !await fs.stat(helper).then(value => value.isFile()).catch(() => false))
-        return { ok: false, message: 'この Mac では使えません' };
+    if (process.platform !== 'darwin' || !helper || !await fs.stat(helper).then(value => value.isFile()).catch(() => false))
+        return { ok: false, message: '背景透過は Mac でだけ使えます' };
     const hash = await sourceHash(input);
     const folder = await cacheFolder(projectRoot, hash);
     const target = join(folder, `vision-${mode}`);
@@ -68,7 +68,7 @@ export async function visionCandidates(projectRoot: string, input: string, helpe
 
 export async function ensurePhotoModels(onProgress?: (done: number, total: number) => void,
     root = photoModelDirectory()): Promise<string> {
-    if (process.platform !== 'darwin') throw new Error('この Mac では使えません');
+    if (process.platform !== 'darwin') throw new Error('背景透過は Mac でだけ使えます');
     let done = 0;
     for (const name of MODEL_NAMES) for (const relative of MODEL_FILES) {
         const target = join(root, `SAM2_1Tiny${name}FLOAT16.mlpackage`, relative);
@@ -120,14 +120,14 @@ class SamConnection {
             child.on('error', error => { clearTimeout(timer); rejectStart(error); this.pending.splice(0).forEach(p => p.reject(error)); this.child = undefined; });
             child.on('exit', () => {
                 clearTimeout(timer);
-                const error = new Error('この Mac では使えません');
+                const error = new Error('背景透過を実行できませんでした');
                 rejectStart(error); this.pending.splice(0).forEach(p => p.reject(error)); this.child = undefined;
             });
         }).finally(() => { this.startPromise = undefined; });
         return this.startPromise;
     }
     request(value: Record<string, unknown>): Promise<any> {
-        if (!this.child) return Promise.reject(new Error('この Mac では使えません'));
+        if (!this.child) return Promise.reject(new Error('背景透過を実行できませんでした'));
         return new Promise((resolveRequest, reject) => {
             this.pending.push({ resolve: resolveRequest, reject });
             this.child!.stdin.write(JSON.stringify(value) + '\n');
@@ -140,8 +140,8 @@ let preparedHash = '';
 let preparingHash = '';
 let preparing: Promise<{ ok: boolean; message?: string; inputSha256?: string }> | undefined;
 export async function preparePhotoClick(input: string, helper: string | undefined): Promise<{ ok: boolean; message?: string; inputSha256?: string }> {
-    if (!helper || !await fs.stat(helper).then(value => value.isFile()).catch(() => false))
-        return { ok: false, message: 'この Mac では使えません' };
+    if (process.platform !== 'darwin' || !helper || !await fs.stat(helper).then(value => value.isFile()).catch(() => false))
+        return { ok: false, message: '背景透過は Mac でだけ使えます' };
     const hash = await sourceHash(input);
     if (preparedHash === hash) return { ok: true, inputSha256: hash };
     if (preparingHash === hash && preparing) return preparing;
@@ -154,7 +154,7 @@ export async function preparePhotoClick(input: string, helper: string | undefine
             if (!result.ok || await sourceHash(input) !== hash) return { ok: false, message: '処理中に写真が変わりました' };
             preparedHash = hash;
             return { ok: true, inputSha256: hash };
-        } catch { return { ok: false, message: 'この Mac では使えません' }; }
+        } catch { return { ok: false, message: '背景透過を実行できませんでした' }; }
     })();
     const result = await preparing;
     if (preparingHash === hash) { preparing = undefined; preparingHash = ''; }
@@ -168,7 +168,7 @@ export async function clickPhoto(projectRoot: string, input: string, x: number, 
     const hash = await sourceHash(input);
     if (preparedHash !== hash) {
         const ready = await preparePhotoClick(input, helper);
-        if (!ready.ok) return { ok: false, message: ready.message ?? 'この Mac では使えません' };
+        if (!ready.ok) return { ok: false, message: ready.message ?? '背景透過を実行できませんでした' };
     }
     const folder = join(await cacheFolder(projectRoot, hash), `sam-${randomUUID()}`);
     const result = await sam.request({ op: 'click', hash, x, y, output: folder });
@@ -195,8 +195,10 @@ export async function adoptPhotoCandidate(projectRoot: string, input: string, ca
 export async function adoptPhotoCandidates(projectRoot: string, input: string, candidates: string[],
     inputSha256: string, engine: 'apple-vision' | 'sam2.1-tiny', helper: string | undefined,
     invert = false): Promise<Awaited<ReturnType<typeof commitPhotoMask>>> {
-    if (!helper || !candidates.length || candidates.length > 32 || !/^[a-f0-9]{64}$/u.test(inputSha256))
-        return { ok: false, message: 'この Mac では使えません' };
+    if (process.platform !== 'darwin' || !helper)
+        return { ok: false, message: '背景透過は Mac でだけ使えます' };
+    if (!candidates.length || candidates.length > 32 || !/^[a-f0-9]{64}$/u.test(inputSha256))
+        return { ok: false, message: '背景透過を実行できませんでした' };
     const folder = await cacheFolder(projectRoot, inputSha256);
     const paths: string[] = [];
     for (const candidate of candidates) {

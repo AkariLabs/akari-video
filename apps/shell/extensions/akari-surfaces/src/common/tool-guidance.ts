@@ -77,7 +77,7 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
     'speech-analyzer': {
         osProvided: true,
         hideNoteWhenAvailable: true,
-        name: 'SpeechAnalyzer', badge: '推奨', purpose: 'この Mac で高速に文字起こしします。',
+        name: 'SpeechAnalyzer', badge: '推奨', purpose: 'このパソコンで高速に文字起こしします。',
         sizeLabel: 'macOS に付属', note: SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE
     },
     'xcode-clt': {
