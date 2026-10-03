@@ -1740,6 +1740,21 @@ export function previewBootstrapScript(): string {
             const layerSelectBox = document.getElementById('layer-select-box');
             const layerHandleElements = Array.from(layerSelectBox.querySelectorAll('[data-akari-handle]'));
             let floatingMenuRect = null;
+            let hostMenuRect = null;
+            let floatingBarRect = null;
+            const updateFloatingMenuRect = () => {
+                if (!hostMenuRect || !floatingBarRect) {
+                    floatingMenuRect = hostMenuRect || floatingBarRect;
+                    return;
+                }
+                const left = Math.min(hostMenuRect.left, floatingBarRect.left);
+                const top = Math.min(hostMenuRect.top, floatingBarRect.top);
+                floatingMenuRect = { left, top,
+                    width: Math.max(hostMenuRect.left + hostMenuRect.width,
+                        floatingBarRect.left + floatingBarRect.width) - left,
+                    height: Math.max(hostMenuRect.top + hostMenuRect.height,
+                        floatingBarRect.top + floatingBarRect.height) - top };
+            };
             const previewMotionGeometryTransformFn = (${previewMotionGeometryTransform.toString()});
             const previewMotionBoxHitAtFn = (${previewMotionBoxHitAt.toString()});
             const previewMotionLiveItemFn = (${previewMotionLiveItem.toString()});
@@ -2081,9 +2096,8 @@ export function previewBootstrapScript(): string {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
                 const engineGeometry = Boolean(frameEngineMediaIdle || window.akari.frameEngineClock);
                 const resolveDeclaredSize = (${resolveLayerDeclaredSize.toString()});
-                const size = entry && (engineGeometry
-                    ? resolveDeclaredSize(entry.video.videoWidth, entry.video.videoHeight, summary.output)
-                    : { width: entry.video.videoWidth, height: entry.video.videoHeight });
+                const size = entry && resolveDeclaredSize(entry.video.videoWidth || entry.video.naturalWidth,
+                    entry.video.videoHeight || entry.video.naturalHeight, summary.output);
                 if (entry && engineGeometry && !entry.selectBoxMetadataBound) {
                     entry.selectBoxMetadataBound = true;
                     entry.video.addEventListener('loadedmetadata', () => {
@@ -2091,15 +2105,35 @@ export function previewBootstrapScript(): string {
                         updateLayerSelectBox();
                     });
                 }
-                if (!entry || entry.video.style.display === 'none' || !(size.width > 0)
-                    || (engineGeometry && !(size.height > 0))) {
+                if (!entry || entry.spec?.proxyMissing || entry.spec?.retiredTelop
+                    || !(size.width > 0) || !(size.height > 0)
+                    || (typeof allTracksHiddenByScope !== 'undefined'
+                        && (allTracksHiddenByScope.layers
+                            || hiddenTracksByScope.layers?.has(entry.spec.track)))
+                    || (!engineGeometry && !Number.isFinite(entry.spec?.t)
+                        && !(entry.video.videoWidth > 0 && entry.video.videoHeight > 0))) {
                     layerSelectBox.classList.remove('is-active');
+                    layerSelectBox.classList.remove('akari-selected-invisible');
                     positionLayerCropToggle(null);
                     positionLayerPerspectiveToggle(null);
                     return;
                 }
-                const transform = typeof layerVisualTransformNow === 'function'
-                    ? layerVisualTransformNow(entry) : layerTransformNow(entry);
+                const inWindow = !Number.isFinite(entry.spec?.t)
+                    || outputTime >= entry.spec.t && outputTime < entry.spec.t + entry.spec.duration;
+                const motionOpacity = typeof motionAtForSpec === 'function'
+                    ? motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible?.opacity : undefined;
+                const invisible = !inWindow || (entry.spec.opacity ?? 1) <= 0
+                    || (Number.isFinite(motionOpacity) && motionOpacity <= 0);
+                const declaredTransform = entry.spec.transform || {};
+                const baseScale = Number(declaredTransform.scale) || 1;
+                const plainTransform = { x: Number(declaredTransform.x) || 0,
+                    y: Number(declaredTransform.y) || 0, scale: baseScale,
+                    scaleX: Number(declaredTransform.scaleX) || baseScale,
+                    scaleY: Number(declaredTransform.scaleY) || baseScale,
+                    rotate: Number(declaredTransform.rotate) || 0 };
+                const transform = invisible ? plainTransform
+                    : typeof layerVisualTransformNow === 'function'
+                        ? layerVisualTransformNow(entry) : layerTransformNow(entry);
                 const crop = layerCropNow(entry);
                 if (engineGeometry && entry.video.readyState < 2) entry.opaqueBox = undefined;
                 if (frameEngineMediaIdle) {
@@ -2109,16 +2143,17 @@ export function previewBootstrapScript(): string {
                 // 枠は要素の箱ではなく不透明領域（コンテンツ）にフィットさせる（未計測なら計測）。
                 // Engine media can remain undecoded: use the crop window until pixels arrive.
                 // Legacy media still waits for loadeddata before displaying its alpha bounds.
-                if (entry.opaqueBox === undefined) {
+                if (!invisible && entry.opaqueBox === undefined) {
                     if (entry.video.readyState >= 2) {
                         syncLayerHitRegion(entry);
-                    } else if (!engineGeometry) {
+                    } else if (!engineGeometry && !Number.isFinite(entry.spec?.t)) {
                         layerSelectBox.classList.remove('is-active');
                         entry.video.addEventListener('loadeddata', () => updateLayerSelectBox(), { once: true });
                         return;
                     }
                 }
                 const naturalBox = entry.opaqueBox || { x: 0, y: 0, w: size.width, h: size.height };
+                const boxSource = invisible ? { x: 0, y: 0, w: size.width, h: size.height } : naturalBox;
                 // ㉔ クロップ窓（ソース px 空間）と不透明領域の交差 = 実際に見えている範囲。交差が無い
                 // （クロップが不透明領域を完全に外した）場合はクロップ窓そのものへフォールバックする。
                 const cropBoxPx = {
@@ -2127,10 +2162,10 @@ export function previewBootstrapScript(): string {
                     w: crop.w * size.width,
                     h: crop.h * size.height
                 };
-                const ix0 = Math.max(naturalBox.x, cropBoxPx.x);
-                const iy0 = Math.max(naturalBox.y, cropBoxPx.y);
-                const ix1 = Math.min(naturalBox.x + naturalBox.w, cropBoxPx.x + cropBoxPx.w);
-                const iy1 = Math.min(naturalBox.y + naturalBox.h, cropBoxPx.y + cropBoxPx.h);
+                const ix0 = Math.max(boxSource.x, cropBoxPx.x);
+                const iy0 = Math.max(boxSource.y, cropBoxPx.y);
+                const ix1 = Math.min(boxSource.x + boxSource.w, cropBoxPx.x + cropBoxPx.w);
+                const iy1 = Math.min(boxSource.y + boxSource.h, cropBoxPx.y + cropBoxPx.h);
                 const cb = (ix1 > ix0 && iy1 > iy0) ? { x: ix0, y: iy0, w: ix1 - ix0, h: iy1 - iy0 } : cropBoxPx;
                 // ピボット（拡縮・回転の基準点）は実際の合成と同じくクロップ矩形の中心
                 // （render-cut は crop→scale→rotate→overlay の順で合成し、overlay の中心合わせは
@@ -2149,6 +2184,12 @@ export function previewBootstrapScript(): string {
                 layerSelectBox.dataset.akariPivotOffX = String(box.rotOffX);
                 layerSelectBox.dataset.akariPivotOffY = String(box.rotOffY);
                 layerSelectBox.classList.add('is-active');
+                layerSelectBox.classList.toggle('akari-selected-invisible', invisible);
+                if (invisible) {
+                    positionLayerCropToggle(null);
+                    positionLayerPerspectiveToggle(null);
+                    return;
+                }
                 // ホストの浮いたメニューと段の外を避けて、写真の回転・移動ボタンを置く。
                 if (typeof previewStage !== 'undefined' && previewStage?.getBoundingClientRect
                     && layerSelectBox.getBoundingClientRect
@@ -2176,8 +2217,17 @@ export function previewBootstrapScript(): string {
             };
             window.addEventListener('message', event => {
                 if (event.data?.type !== 'akari-preview-context-menu-rect') return;
-                floatingMenuRect = event.data.rect;
+                hostMenuRect = event.data.rect;
+                updateFloatingMenuRect();
                 updateLayerSelectBox();
+                updateCutSelectBox();
+            });
+            window.addEventListener('message', event => {
+                if (event.data?.type !== 'akari-preview-context-bar-rect') return;
+                floatingBarRect = event.data.rect;
+                updateFloatingMenuRect();
+                updateLayerSelectBox();
+                updateCutSelectBox();
             });
             // クロップトグルボタンは通常枠/クロップ枠のどちらが出ていても常に同じ場所（右上角の外側）
             // に留まり続ける（モード切替のたびに探し直させない）。box=null でレイヤー未選択として隠す。
@@ -2788,7 +2838,7 @@ export function previewBootstrapScript(): string {
                 gestureLabel.className = rotating ? 'akari-interaction-angle' : 'akari-interaction-hint';
                 gestureLabel.setAttribute('data-akari-interaction', rotating ? 'rotation-angle' : 'handle-hint');
                 gestureLabel.textContent = rotating ? '回転'
-                    : ['n', 'e', 's', 'w'].includes(handleKind) ? '形を伸ばす'
+                    : ['n', 'e', 's', 'w'].includes(handleKind) ? '切り取る'
                     : ['nw', 'ne', 'sw', 'se'].includes(handleKind) ? '大きさ' : '移動';
                 gestureLabel.style.left = startEvent.clientX + 12 + 'px';
                 gestureLabel.style.top = startEvent.clientY + 12 + 'px';
@@ -2980,7 +3030,9 @@ export function previewBootstrapScript(): string {
                     const declaredSize = typeof summary === 'undefined' ? null : summary.output;
                     let order = 0;
                     for (const entry of layerEntries) {
-                        if (entry.video.style.display === 'none' || entry.video.style.visibility === 'hidden'
+                        if (entry.spec?.proxyMissing || entry.spec?.retiredTelop
+                            || entry.video.style.visibility === 'hidden'
+                            || (entry.video.style.display === 'none' && !Number.isFinite(entry.spec?.t))
                             || (entry.spec && typeof outputTime === 'number' && Number.isFinite(entry.spec.t)
                                 && (outputTime < entry.spec.t || outputTime >= entry.spec.t + entry.spec.duration))
                             || (entry.spec && (allTracksHiddenByScope.layers
@@ -2988,7 +3040,8 @@ export function previewBootstrapScript(): string {
                                 || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(entry.spec.track))))) continue;
                         const motionOpacity = entry.spec && typeof motionAtForSpec === 'function'
                             ? motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible?.opacity : undefined;
-                        if ((Number.isFinite(motionOpacity) ? motionOpacity : entry.spec?.opacity ?? 1) <= 0) continue;
+                        if ((entry.spec?.opacity ?? 1) <= 0
+                            || (Number.isFinite(motionOpacity) && motionOpacity <= 0)) continue;
                         const hasSourceSize = (entry.video.videoWidth || entry.video.naturalWidth) > 0
                             && (entry.video.videoHeight || entry.video.naturalHeight) > 0;
                         const size = hasSourceSize
@@ -3007,10 +3060,17 @@ export function previewBootstrapScript(): string {
                         } else if (!layerGeometryHitAt(entry, event.clientX, event.clientY, hasSourceSize ? undefined : size)) continue;
                         hits.push({ element: entry.video, z: Number(entry.video.style.zIndex) || 0, order: order++ });
                     }
-                    const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
                     const segment = segments[activeSegmentIndex];
-                    if (hasCut && segment?.kind === 'src' && !allTracksHiddenByScope.cuts
+                    const hasCut = Number.isInteger(segment?.cutIndex)
+                        || (video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined);
+                    if (segment?.kind === 'src' && hasCut
+                        && !allTracksHiddenByScope.cuts
                         && !hiddenTracksByScope.cuts.has(segment.track)) {
+                        if (Number.isInteger(segment.cutIndex)
+                            && video.dataset.akariCutIndex !== String(segment.cutIndex)) {
+                            video.dataset.akariCutIndex = String(segment.cutIndex);
+                            video.dataset.akariCutId = typeof segment.id === 'string' ? segment.id : '';
+                        }
                         const point = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
                         if (typeof cutSelectBoxGeometry === 'function'
                             && typeof previewMotionBoxHitAtFn === 'function' && point) {
@@ -3044,7 +3104,8 @@ export function previewBootstrapScript(): string {
                         const motionOpacity = candidateEntry.spec && typeof motionAtForSpec === 'function'
                             ? motionAtForSpec(candidateEntry.spec, candidateEntry.spec.t,
                                 candidateEntry.spec.duration)?.visible?.opacity : undefined;
-                        if ((Number.isFinite(motionOpacity) ? motionOpacity : candidateEntry.spec?.opacity ?? 1) <= 0) return false;
+                        if ((candidateEntry.spec?.opacity ?? 1) <= 0
+                            || (Number.isFinite(motionOpacity) && motionOpacity <= 0)) return false;
                         const size = { width: candidate.videoWidth || candidate.naturalWidth,
                             height: candidate.videoHeight || candidate.naturalHeight };
                         if (!(size.width > 0 && size.height > 0)) {
@@ -3315,8 +3376,9 @@ export function previewBootstrapScript(): string {
                 // 掛かる。初めて crop を書く瞬間に fit を scale へ焼き込み、layer-style（ソース
                 // 実寸 × scale）へ移っても画面上の位置・大きさが変わらないようにする。
                 const startTransform = target.cropEntryTransform(target.transformNow(), natural);
-                const pivotPx = { x: natural.width / 2, y: natural.height / 2 };
                 const original = target.cropNow();
+                const pivotPx = { x: (original.x + original.w / 2) * natural.width,
+                    y: (original.y + original.h / 2) * natural.height };
                 event.preventDefault();
                 event.stopPropagation();
                 const gesture = beginSelectionGesture(target);
@@ -3371,12 +3433,19 @@ export function previewBootstrapScript(): string {
                 // 動かさない）ため、書き戻し用の完全な transform には startTransform の
                 // scale/rotate を必ずマージする（欠けると dataset に "undefined" が書かれ
                 // NaN → 既定値 1/0 へフォールバックし、スケール/回転が消し飛ぶ）。
-                const correctedTransformFor = nextCrop => ({
-                    ...startTransform,
-                    ...cropAnchorCorrectedTransformFn(
+                const correctedTransformFor = nextCrop => {
+                    const corrected = cropAnchorCorrectedTransformFn(
                         original, nextCrop, startTransform, natural.width, natural.height
-                    )
-                });
+                    );
+                    const dx = (nextCrop.x + nextCrop.w / 2 - original.x - original.w / 2)
+                        * natural.width * ((startTransform.scaleX ?? startTransform.scale) - startTransform.scale);
+                    const dy = (nextCrop.y + nextCrop.h / 2 - original.y - original.h / 2)
+                        * natural.height * ((startTransform.scaleY ?? startTransform.scale) - startTransform.scale);
+                    const radians = startTransform.rotate * Math.PI / 180;
+                    return { ...startTransform,
+                        x: corrected.x + dx * Math.cos(radians) - dy * Math.sin(radians),
+                        y: corrected.y + dx * Math.sin(radians) + dy * Math.cos(radians) };
+                };
                 const onMove = moveEvent => {
                     if (finished || moveEvent.pointerId !== pointerId) return;
                     if (moveEvent.clientX === lastClientX && moveEvent.clientY === lastClientY) return;
@@ -4127,48 +4196,10 @@ export function previewBootstrapScript(): string {
                     if (!cutSelected || !cutCropEditable()) return;
                     target = cutDragTarget();
                 } else {
-                    if (!selectedLayerId || cropModeActive) return;
+                    if (!selectedLayerId || cropModeActive || layerSelectBox.classList.contains('akari-selected-invisible')) return;
                     const entry = findLayerEntry(selectedLayerId);
                     if (!entry) return;
-                    const geometry = window.akariHandleGeometry;
-                    if (!geometry) return;
-                    const side = edge.element.getAttribute('data-akari-crop-edge');
-                    const rect = layerSelectBox.getBoundingClientRect();
-                    const boxZoom = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
-                    const width = (Number.parseFloat(layerSelectBox.style.width) || rect.width) * boxZoom;
-                    const height = (Number.parseFloat(layerSelectBox.style.height) || rect.height) * boxZoom;
-                    const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
-                    const radians = layerVisualTransformNow(entry).rotate * Math.PI / 180;
-                    const c = Math.cos(radians), s = Math.sin(radians);
-                    const edgePoint = (x, y) => ({ x: center.x + c * x - s * y,
-                        y: center.y + s * x + c * y });
-                    const pair = side === 'e' ? [edgePoint(-width / 2, 0), edgePoint(width / 2, 0)]
-                        : side === 'w' ? [edgePoint(width / 2, 0), edgePoint(-width / 2, 0)]
-                        : side === 'n' ? [edgePoint(0, height / 2), edgePoint(0, -height / 2)]
-                        : [edgePoint(0, -height / 2), edgePoint(0, height / 2)];
-                    const anchor = window.akari.interaction?.stageLocalPoint?.(pair[0].x, pair[0].y);
-                    const dragged = window.akari.interaction?.stageLocalPoint?.(pair[1].x, pair[1].y);
-                    const pointer = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
-                    if (!anchor || !dragged || !pointer) return;
-                    const offset = { x: dragged.x - pointer.x, y: dragged.y - pointer.y };
-                    beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {
-                        const now = window.akari.interaction.stageLocalPoint(moveEvent.clientX, moveEvent.clientY);
-                        if (!now) return original;
-                        const scales = geometry.anchoredScales({ anchor, dragged,
-                            pointer: { x: now.x + offset.x, y: now.y + offset.y },
-                            rotation: original.rotate, scaleX: original.scaleX ?? original.scale,
-                            scaleY: original.scaleY ?? original.scale, edge: side, min: .01, max: 10 });
-                        const stageCenter = { x: Number(summary.output?.width) / 2 || 640,
-                            y: Number(summary.output?.height) / 2 || 360 };
-                        const pivot = { x: stageCenter.x + original.x, y: stageCenter.y + original.y };
-                        const next = geometry.anchorPreservingPosition({ anchor, pivot,
-                            rotation: original.rotate,
-                            ratioX: scales.scaleX / (original.scaleX ?? original.scale),
-                            ratioY: scales.scaleY / (original.scaleY ?? original.scale) });
-                        return { ...original, x: next.x - stageCenter.x, y: next.y - stageCenter.y,
-                            scaleX: scales.scaleX, scaleY: scales.scaleY };
-                    });
-                    return;
+                    target = layerDragTarget(entry);
                 }
                 beginMediaCropDrag(target, edge.element.getAttribute('data-akari-crop-edge'), event);
                 });

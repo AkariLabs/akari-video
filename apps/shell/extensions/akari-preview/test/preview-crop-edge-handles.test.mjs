@@ -66,13 +66,13 @@ test('辺バーは 14×5 の白いつまみと 6px 広い当たりを持つ', ()
     assert.match(source, /\.akari-crop-edges-off \.akari-crop-edge \{ display: none; \}/u);
 });
 
-test('画像の辺は片軸伸縮、cut の辺は切り抜き、角と回転は共通ドラッグへ入る', () => {
+test('画像と cut の辺は切り抜き、角と回転は共通ドラッグへ入る', () => {
     const edgeWiring = section('const cropEdgeHandleElements = [', '// 通常ドラッグは cue 固有位置');
     assert.match(edgeWiring, /layerSelectBox\.querySelectorAll\('\[data-akari-crop-edge\]'\)/u);
     assert.match(edgeWiring, /cutSelectBox\.querySelectorAll\('\[data-akari-crop-edge\]'\)/u);
     assert.match(edgeWiring, /target = cutDragTarget\(\);/u);
-    assert.match(edgeWiring, /geometry\.anchoredScales\(\{ anchor, dragged,/u);
-    assert.match(edgeWiring, /beginMediaTransformDrag\(layerDragTarget\(entry\), event,/u);
+    assert.match(edgeWiring, /target = layerDragTarget\(entry\);/u);
+    assert.doesNotMatch(edgeWiring, /anchoredScales|beginMediaTransformDrag/u);
     assert.match(edgeWiring, /beginMediaCropDrag\(target, edge\.element\.getAttribute\('data-akari-crop-edge'\), event\)/u);
     assert.equal((source.match(/const beginMediaCropDrag = /gu) || []).length, 1);
 
