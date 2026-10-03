@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { isImageLayerSource } from '../../render-cut/src/layers.mjs';
-import { isImageLayerSrc, isImageLayer } from '../public/layer-source.js';
+import { isImageLayerSrc, isImageLayer, layerPlaybackPath } from '../public/layer-source.js';
 
 // task 2026-08-10-image-layer-parity 司令塔裁定1: public/layer-source.js の isImageLayerSrc/isImageLayer
 // (setupLayers が <img> vs <video> の要素種別を決めるのに使う) は render-cut 側の
@@ -40,4 +40,10 @@ test('isImageLayer treats "baked" kind as never-image regardless of extension (l
     assert.equal(isImageLayer({ kind: 'baked', src: 'photo.png' }), false);
     assert.equal(isImageLayer({ kind: 'video', src: 'clip.mp4' }), false);
     assert.equal(isImageLayer({ kind: 'baked', src: 'matte.mov' }), false);
+});
+
+test('layerPlaybackPath uses a preview sidecar for baked layers and keeps video sources', () => {
+    assert.equal(layerPlaybackPath({ kind: 'baked', src: 'matte.mov' }), 'matte.preview.webm');
+    assert.equal(layerPlaybackPath({ kind: 'baked', src: 'matte' }), 'matte.preview.webm');
+    assert.equal(layerPlaybackPath({ kind: 'video', src: 'clip.mov' }), 'clip.mov');
 });
