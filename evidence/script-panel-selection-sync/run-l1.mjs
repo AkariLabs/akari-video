@@ -207,11 +207,26 @@ try {
   })()`);
   await sleep(500);
   result.manual.afterWait = await snapshot();
+  try {
+    result.stage = 'preview-click'; console.error('[l1] click preview caption');
+    const seek = await command('akari.preview.seekOutput', { editUri, time: 39.4, waitForReady: true });
+    await sleep(500);
+    const point = { x: 480, y: 260 };
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
+    await sleep(600);
+    result.previewClick = { seek, point, state: await snapshot() };
+    const previewClickPng = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await writeFile(path.join(out, 'preview-click-row.png'), Buffer.from(previewClickPng.data, 'base64'));
+  } catch (error) { result.previewClick = { error: String(error?.message ?? error) }; }
   if (result.rowCount !== 120 || !result.final.fullyVisible || result.final.selected[0] !== 'c-0120'
     || result.preview.selected[0] !== 'c-0040' || !result.preview.focused
     || !result.preview.dockTitle?.includes('確認用字幕 40')
     || !result.timeline.clicked || result.timeline.state?.selected[0] !== 'c-0060'
     || !result.timeline.state?.fullyVisible || !result.timeline.state?.dockTitle?.includes('確認用字幕 60')
+    || result.previewClick?.seek !== 'seeked' || result.previewClick.state?.selected[0] !== 'c-0040'
+    || !result.previewClick.state?.fullyVisible || !result.previewClick.state?.focused
+    || !result.previewClick.state?.dockTitle?.includes('確認用字幕 40')
     || result.manual.afterScroll !== result.manual.afterWait.scrollTop) {
     throw new Error('selection acceptance assertion failed');
   }
