@@ -48,7 +48,6 @@ import {
 import { StoreConnectionFlowController } from '../common/store-connection-flow';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { isEditDataFileName } from '../common/edit-data-file';
-import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
 import {
     CatalogCategoryChip,
     CatalogItemMeta,
@@ -116,7 +115,7 @@ import {
     searchLibraryHome
 } from '../common/library-home-view';
 import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../common/library-tile-art';
-import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
+import { AKARI_REVEAL_IN_FILE_MANAGER } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
@@ -660,6 +659,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get commandService() { return widget().commandService; },
             get materialPreviewService() { return widget().materialPreviewService; },
             get workspaceService() { return widget().workspaceService; },
+            get quickInputService() { return widget().quickInputService; },
             update: () => widget().update(),
             classifyKind: name => widget().classifyKind(name),
             toAssetBinChildren: node => widget().toAssetBinChildren(node),
@@ -668,6 +668,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             openMaterialContextMenu: (event, entry) => widget().openMaterialContextMenu(event, entry),
             generationPickCardProps: candidate => widget().generationPickCardProps(candidate),
             renderGenerationPickBadge: candidate => widget().renderGenerationPickBadge(candidate),
+            reportLibraryImportResult: result => widget().reportLibraryImportResult(result),
+            loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent),
             get materialQuery() { return widget().materialQuery; },
             get generationPick() { return widget().generationPick; },
             get assetCatalogItems() { return widget().assetCatalogItems; },
@@ -939,30 +941,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
-    /**
-     * 素材カード「エージェントに頼む」アクション。ファイルパスも文脈説明も
-     * ユーザーに書かせず、カードが知っている情報から文脈パケットを組み立てて
-     * パートナーへ注入する（輸入リスト④）。入力キャンセル時は何もしない。
-     */
-    protected async askAgent(entry: MaterialCardEntry): Promise<void> {
-        const request = await this.quickInputService.input({
-            placeHolder: 'この素材について何を頼みますか'
-        });
-        if (!request || !request.trim()) {
-            return;
-        }
-        const packet = composeMaterialAskAgentPrompt(
-            {
-                relativePath: entry.relativePath,
-                analyzed: entry.analyzed,
-                durationSeconds: entry.durationSeconds,
-                analysisRelativePath: entry.analysisRelativePath
-            },
-            request
-        );
-        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
-    }
-
     // --- 右クリックメニュー（素材カード・できたもの共通。task 2026-08-09-material-context-menu-mvp） ---
 
     /**
@@ -1015,7 +993,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.openFile(entry.uri);
                 break;
             case 'add-to-timeline':
-                void this.addMaterialToTimeline(entry);
+                void this.materialsPane.addMaterialToTimeline(entry);
                 break;
             case 'reveal':
                 void this.revealInFileManagerCommand(entry.uri);
@@ -1030,23 +1008,23 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.transcribeMaterial(entry);
                 break;
             case 'show-info':
-                void this.showAssetInfo(entry.uri);
+                void this.materialsPane.showAssetInfo(entry.uri);
                 break;
             case 'store-library':
-                void this.storeMaterialInLibrary(entry);
+                void this.materialsPane.storeMaterialInLibrary(entry);
                 break;
             case 'rename': {
-                const renameTarget = this.materialFileSystemTarget(entry);
+                const renameTarget = this.materialsPane.materialFileSystemTarget(entry);
                 void this.renameEntry(renameTarget.uri, entry.name, entry.relativePath, renameTarget.isDirectory, () => this.loadMaterials());
                 break;
             }
             case 'delete': {
-                const deleteTarget = this.materialFileSystemTarget(entry);
+                const deleteTarget = this.materialsPane.materialFileSystemTarget(entry);
                 void this.deleteEntry(deleteTarget.uri, entry.name, entry.relativePath, deleteTarget.isDirectory, () => this.loadMaterials());
                 break;
             }
             case 'ask-agent':
-                void this.askAgent(entry);
+                void this.materialsPane.askAgent(entry);
                 break;
             case 'move-to-assets':
                 void this.materialsPane.moveToAssets(entry);
@@ -1054,19 +1032,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             default:
                 break;
         }
-    }
-
-    protected async storeMaterialInLibrary(entry: MaterialCardEntry): Promise<void> {
-        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
-        if (entry.reference) return;
-        try {
-            const uri = entry.mediaRelativePath && this.workflow.workspaceRoot
-                ? this.workflow.workspaceRoot.resolve(entry.mediaRelativePath) : entry.uri;
-            const plan = await this.projectService.planLibraryImport([uri.path.fsPath()]);
-            const result = await this.projectService.applyLibraryImport(plan);
-            this.reportLibraryImportResult(result);
-            await this.loadAssetCatalogView('user');
-        } catch (error) { this.messages.error(`ライブラリに保管できませんでした: ${String(error)}`); }
     }
 
     protected reportLibraryImportResult(result: LibraryImportResult): void {
@@ -1111,41 +1076,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.selectTopView('catalog');
         const paths = await this.pickLibraryImport('folders');
         if (paths.length) { this.libraryImportRequest = { paths }; this.update(); }
-    }
-
-    /**
-     * 「タイムラインに追加」（送信側のみ、task 2026-08-10-material-menu-r2 指示2）。
-     * 受け側（姉妹タスク 2026-08-10-timeline-clip-menu）のコマンド未登録も含め、失敗は
-     * 握って messages.error に落とす（司令塔裁定2 — 実機ではほぼ同時に合流するため雑でよい）。
-     */
-    protected async addMaterialToTimeline(entry: MaterialCardEntry): Promise<void> {
-        try {
-            await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
-                relativePath: entry.mediaRelativePath ?? entry.relativePath,
-                kind: entry.kind
-            });
-        } catch {
-            this.messages.error('タイムライン機能の更新が必要です。');
-        }
-    }
-
-    /**
-     * 「素材の情報を表示」（task 2026-08-10-material-menu-r2 指示2・3）。実処理
-     * （パネルの reveal/activate・showAsset）は `AkariProjectContribution#showAssetInfo`
-     * に委ねる（司令塔裁定5 — ApplicationShell 経由の widget 操作は akari-project 側に集約）。
-     */
-    protected async showAssetInfo(uri: URI): Promise<void> {
-        await this.commandService.executeCommand(AKARI_SHOW_ASSET_INFO.id, uri);
-    }
-
-    /**
-     * リネーム/削除の実操作対象を求める。素材グループ（`entry.assetGroup` あり）は
-     * `entry.uri` がグループディレクトリ直下の preview.png / meta.json（`buildAssetGroupEntry`
-     * 参照）のため、対象はその親ディレクトリになる（指示5「ディレクトリ名の変更になる」）。
-     * それ以外（通常素材・未整理）は `entry.uri` 自身がファイル。
-     */
-    protected materialFileSystemTarget(entry: MaterialCardEntry): { uri: URI; isDirectory: boolean } {
-        return entry.assetGroup ? { uri: entry.uri.parent, isDirectory: true } : { uri: entry.uri, isDirectory: false };
     }
 
     protected async revealInFileManagerCommand(uri: URI): Promise<void> {
