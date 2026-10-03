@@ -23,7 +23,7 @@ test('A/B event, engine projection and DOM bypass are connected', () => {
   const source = readHandlerSource();
   assert.match(source, /TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass'/u);
   assert.match(source, /const onAdjustBypass[\s\S]+type: 'akari-preview-adjust-bypass'/u);
-  assert.match(source, /removeEventListener\(TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass\)/u);
+  assert.match(source, /lifecycleDisposables\.push\(listen\(window, TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass\)\)/u);
   assert.ok(source.includes('${applyAdjustBypass.toString()}'));
   assert.match(source, /message.type === 'akari-preview-adjust-bypass'[\s\S]+adjustBypassIds.add\(String\(id\)\)[\s\S]+adjustBypassIds.delete\(String\(id\)\)/u);
   assert.match(source, /effectiveSummary = applyAdjustBypassFn\(nextSummary, \[\.\.\.adjustBypassIds\]\)/u);
@@ -40,7 +40,7 @@ test('A/B widget state seeds both webview scripts across setHTML and edit change
   const source = readHandlerSource();
   const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
   assert.match(source, /akariPreviewAdjustBypassIds\?: Set<string>/u);
-  const handler = sliceBetween('const onAdjustBypass', 'window.addEventListener(TIMELINE_ADJUST_BYPASS_EVENT');
+  const handler = sliceBetween('const onAdjustBypass', 'listen(window, TIMELINE_ADJUST_BYPASS_EVENT');
   assert.ok(handler.indexOf('ids.add(String(id))') < handler.indexOf('widget.sendMessage'));
   assert.match(handler, /else ids.delete\(String\(id\)\)/u);
   const compiledHandler = compiled.slice(compiled.indexOf('const onAdjustBypass'));

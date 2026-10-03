@@ -6,6 +6,7 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
+const { listen } = require('../lib/browser/akari-preview-listen.js');
 const preview_host_constants_1 = require('../lib/browser/preview-host-constants.js');
 const source = readHandlerSource();
 const ast = ts.createSourceFile('akari-preview-open-handler.ts', source, ts.ScriptTarget.Latest, true);
@@ -36,8 +37,8 @@ function fixture() {
   const window = new EventTarget();
   window.setTimeout = setTimeout;
   window.clearTimeout = clearTimeout;
-  const Handler = new Function('window', 'CustomEvent', 'URI', 'WebviewWidget', 'preview_host_constants_1', `${code}\nreturn Handler;`)(
-    window, CustomEvent, URI, { FACTORY_ID: 'webview' }, preview_host_constants_1
+  const Handler = new Function('window', 'CustomEvent', 'URI', 'WebviewWidget', 'preview_host_constants_1', 'listen', `${code}\nreturn Handler;`)(
+    window, CustomEvent, URI, { FACTORY_ID: 'webview' }, preview_host_constants_1, listen
   );
   const context = new Handler();
   context.openOutputPreviews = new Map();
