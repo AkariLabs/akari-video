@@ -9,7 +9,21 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { resolveFfmpeg, resolveFfprobe } from "../src/index.mjs";
-import { packagedBinaryPath, vendorBinaryPath } from "../src/binary-manifest.mjs";
+import { packagedBinaryPath, vendorBinaryPath, ffmpegSourceNotice, BUNDLED_LICENSE_TEXTS } from "../src/binary-manifest.mjs";
+
+test("FFmpeg source notice は mac と Windows で各ビルドの正しいソースを示す", () => {
+  const mac = ffmpegSourceNotice("darwin-arm64");
+  const win = ffmpegSourceNotice("win32-x64");
+  assert.match(mac, /martin-riedl\.de release 8\.1\.2/u);
+  assert.match(mac, /github\.com\/FFmpeg\/FFmpeg\/tree\/n8\.1\.2/u);
+  assert.match(win, /BtbN\/FFmpeg-Builds autobuild-2026-07-31-14-10/u);
+  assert.match(win, /n8\.1\.2-34-g9b6c8969e0/u);
+  for (const notice of [mac, win]) {
+    assert.match(notice, /GPL-3\.0-or-later/u);
+    assert.ok(notice.includes(BUNDLED_LICENSE_TEXTS.ffmpeg.fileName));
+  }
+  assert.throws(() => ffmpegSourceNotice("unknown"));
+});
 
 // システムに ffmpeg/ffprobe が入っていても影響を受けないよう、実行の度に
 // AKARI_*_BIN / FFMPEG_PATH を明示的に undefined へ倒したベース env を組み立てる。

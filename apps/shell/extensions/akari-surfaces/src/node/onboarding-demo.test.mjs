@@ -147,7 +147,7 @@ test('同梱の音源 15 本は出所・ライセンス・price・秒数が記�
     const audioItems = edit.tracks.filter(track => ['demo-sfx', 'onboarding-bgm'].includes(track.id))
         .flatMap(track => track.items);
     for (const record of sources.files) {
-        assert.equal(record.license, 'LicenseRef-AKARI-Sounds-v0', record.file);
+        assert.equal(record.license, 'MIT', record.file);
         assert.equal(record.price, 0, record.file);
         assert.ok(typeof record.akari_sounds_id === 'string' && record.akari_sounds_id.length > 0 ||
             Array.isArray(record.akari_sounds_id) && record.akari_sounds_id.length > 0 &&

@@ -1,4 +1,5 @@
-import { chmod, copyFile, mkdir, readdir, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +44,54 @@ const shellRoot = path.resolve(scriptDir, '../..');
 const outDir = path.join(shellRoot, 'resources', 'vendor-ffmpeg');
 
 const { ensureVendorBinaries } = await import('../../../../packages/media-bin/scripts/fetch-binaries.mjs');
-const { vendorBinaryPath, currentTarget } = await import('../../../../packages/media-bin/src/binary-manifest.mjs');
+const { vendorBinaryPath, currentTarget, VENDOR_ROOT, BUNDLED_LICENSE_TEXTS, ffmpegSourceNotice } =
+  await import('../../../../packages/media-bin/src/binary-manifest.mjs');
+
+function verifyLicenseText(entry, bytes) {
+  const actual = createHash('sha256').update(bytes).digest('hex');
+  if (actual !== entry.sha256) throw new Error(`ライセンス本文の sha256 が一致しません: ${entry.url} (${actual})`);
+  return bytes;
+}
+
+async function pinnedLicenseText(entry) {
+  const cacheDir = path.join(VENDOR_ROOT, 'licenses');
+  const cachePath = path.join(cacheDir, entry.fileName);
+  let cached;
+  try {
+    cached = await readFile(cachePath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  if (cached) {
+    verifyLicenseText(entry, cached); // キャッシュ破損は再取得せず即失敗
+    console.log(`BUNDLE-MEDIA-BIN: ${entry.fileName} は検証済みキャッシュを利用`);
+    return cached;
+  }
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    let bytes;
+    try {
+      const response = await fetch(entry.url, { signal: AbortSignal.timeout(30000) });
+      if (!response.ok) {
+        const error = new Error(`ライセンス本文を取得できません: ${entry.url} (${response.status})`);
+        if (response.status < 500 && response.status !== 429) throw Object.assign(error, { permanent: true });
+        throw error;
+      }
+      bytes = Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      if (error.permanent || attempt === 3) throw error;
+      console.log(`BUNDLE-MEDIA-BIN: ${entry.fileName} の取得を再試行 (${attempt}/3): ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, attempt * 500));
+      continue;
+    }
+    verifyLicenseText(entry, bytes); // sha256 不一致は再試行しない
+    await mkdir(cacheDir, { recursive: true });
+    const temporary = `${cachePath}.${process.pid}.tmp`;
+    await writeFile(temporary, bytes);
+    await rename(temporary, cachePath);
+    console.log(`BUNDLE-MEDIA-BIN: ${entry.fileName} を取得・検証してキャッシュへ保存`);
+    return bytes;
+  }
+}
 
 const result = await ensureVendorBinaries({ log: msg => console.log(msg) }).catch(error => {
   console.error(`BUNDLE-MEDIA-BIN FAILED — ffmpeg/ffprobe 同梱バイナリの取得に失敗しました。\n${error.message}`);
@@ -72,6 +120,16 @@ const exeName = name => (process.platform === 'win32' ? `${name}.exe` : name);
 
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
+
+try {
+  for (const entry of Object.values(BUNDLED_LICENSE_TEXTS)) {
+    await writeFile(path.join(outDir, entry.fileName), await pinnedLicenseText(entry));
+  }
+  await writeFile(path.join(outDir, 'FFMPEG-SOURCE.txt'), ffmpegSourceNotice(currentTarget()));
+} catch (error) {
+  console.error(`BUNDLE-MEDIA-BIN FAILED — ライセンス・ソース情報を同梱できません: ${error.message}`);
+  process.exit(1);
+}
 
 for (const [source, name] of [[ffmpegSource, 'ffmpeg'], [ffprobeSource, 'ffprobe']]) {
   const destination = path.join(outDir, exeName(name));
