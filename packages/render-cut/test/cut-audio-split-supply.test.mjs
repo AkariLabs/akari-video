@@ -67,7 +67,7 @@ test('render item mute and audio track mute suppress all audio roles; visual mut
 });
 
 test('both export exits retain the shared cut_audio carrier mux wiring', () => {
-  const render = readFileSync(new URL('../src/render-cut.mjs', import.meta.url), 'utf8');
+  const render = readFileSync(new URL('../src/render-cut.mjs', import.meta.url), 'utf8') + '\n' + readFileSync(new URL('../src/render-stages.mjs', import.meta.url), 'utf8');
   assert.match(render, /const audioSourcePath = plan.commands.tail_pad_audio \? tailPaddedAudioPath : cutAudioPath/);
   for (const engine of ['gpu', 'osr']) {
     const source = readFileSync(new URL(`../../${engine}-export/src/index.mjs`, import.meta.url), 'utf8');
