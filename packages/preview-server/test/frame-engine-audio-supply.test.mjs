@@ -49,7 +49,7 @@ test('音声状態の通知は runtime を作り直さず updateAudio へ渡し�
   assert.match(source, /updateAudio: edit => runtime\.updateAudio\(edit\)/u);
   assert.match(app, /m\.type === 'preview-audio'/u);
   assert.match(app, /setTimeout\(refreshAudioSummary, 150\)/u);
-  const refresh = app.split('async function refreshAudioSummary()')[1].split('async function apiReadError')[0];
+  const refresh = app.split('async function refreshAudioSummary()')[1].split('// --- P1-2: ステージ座標系をビデオ枠')[0];
   assert.match(refresh, /fetch\(api\.summary\)/u);
   assert.match(refresh, /window\.akari\.state\.summary = summary/u);
   assert.match(refresh, /frameEnginePreview\?\.updateAudio\(summary\)/u);

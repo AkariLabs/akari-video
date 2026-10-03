@@ -68,7 +68,7 @@ import {
 import { isImageLayerSrc, isImageLayer, layerPlaybackPath } from '/layer-source.js';
 import { cropOf, layerIntrinsicSize, perspectiveOf, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
 import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup } from '/caption-markup.js';
-import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange } from '/preview-format.js';
+import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -512,14 +512,6 @@ async function refreshAudioSummary() {
 }
 
 if (frameEngineEnabled) setInterval(updateAudioStatus, 250);
-
-async function apiReadError(response, label) {
-  try {
-    const body = await response.json();
-    if (body?.error) return body.error;
-  } catch {}
-  return `${label}: HTTP ${response.status}`;
-}
 
 // --- P1-2: ステージ座標系をビデオ枠（出力フレーム矩形）に一致させる ---
 // 正本は shell の updateStageScale（akari-preview-open-handler.ts）。stage / layer-container を
@@ -3703,10 +3695,6 @@ function ensureItemMotionRuntime() {
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
-// 辺あたり倍率。座標・時刻・ツマミ値は等倍の書き出しと共有する。
-function normalizeVgpuPreviewScale(value) {
-  return value === 1 || value === 0.5 || value === 0.25 ? value : 0.5;
-}
 let previewVgpuScale = 0.5;
 previewVgpuScale = normalizeVgpuPreviewScale(savedSettings.vgpuPreviewScale);
 const vgpuScalePresets = document.querySelectorAll('#zoom-popup .vgpu-scale-preset');
