@@ -53,6 +53,16 @@ export function opencodeMissingGuidance() {
   ].join('\n');
 }
 
+/** 入口で第 1 引数の打ち間違いを検出したときの案内。 */
+export function firstArgumentTypoError(argument, suggestion) {
+  return `第 1 引数「${argument}」は打ち間違いかもしれません。${suggestion} のことですか？プロジェクトの作成も AI エージェントの起動もしていません。`;
+}
+
+/** 非対話の未作成フォルダーで、作成を明示する引数がないときの案内。 */
+export function nonInteractiveUninitializedGuidance() {
+  return 'プロジェクトではないフォルダーなので何もしませんでした。作る場合は `--yes` を付けてください。このフォルダーに作る場合は `--here` を付けてください。';
+}
+
 /**
  * `akari` 起動時、claude 起動直前に出す 1 行通知（契約 §4-1）。
  * `checkForUpdateSync` が返す状態から組み立てる。新版が無ければ null。

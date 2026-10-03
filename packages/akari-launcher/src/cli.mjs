@@ -6,7 +6,7 @@ import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable, findExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCacheFallback, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCacheFallback, describeUpdateCommand, describeVersionStatus, formatUpdateNotice, nonInteractiveUninitializedGuidance } from './messages.mjs';
 import { defaultLoadCreatorRootModule, resolveEffectiveProjectRoot } from './first-run.mjs';
 import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
@@ -75,12 +75,14 @@ export async function run(args, options = {}) {
   );
 
   let projectRoot = options.projectRoot ?? process.cwd();
-  const bareNonInteractive = args.length === 0
-    && !(options.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY));
-  if (bareNonInteractive && !detectProjectState(projectRoot).scaffolded) {
+  const isTTY = options.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const bareNonInteractive = args.length === 0 && !isTTY;
+  if (!isTTY && !autoConfirm && !hereOnly && !detectProjectState(projectRoot).scaffolded) {
     log(`このフォルダーは AKARI Video プロジェクトとしてまだセットアップされていません: ${projectRoot}`);
-    log('非対話シェルのため状態確認のみで終了します。');
-    return { exitCode: 0, scaffolded: false, claudeLaunched: false, opencodeLaunched: false };
+    log(bareNonInteractive
+      ? '非対話シェルのため状態確認のみで終了します。'
+      : nonInteractiveUninitializedGuidance());
+    return { exitCode: bareNonInteractive ? 0 : 2, scaffolded: false, claudeLaunched: false, opencodeLaunched: false };
   }
 
   // 作業場（creator-root）の初回動線（契約 §5・§6-1）。`--here` はお試しモード強制
