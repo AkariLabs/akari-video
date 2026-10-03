@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { BINARY_MANIFEST, currentTarget } from '../../packages/media-bin/src/binary-manifest.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const generator = join(repo, 'apps/shell/resources/scripts/generate-third-party-notices.mjs');
@@ -35,7 +36,9 @@ test('frame-engine・overlay vendor・メディアのライセンスを通知に
   assert.match(notices, /^%% BudouX@0\.9\.0 — Apache-2\.0$/mu);
   assert.match(notices, /^%% FFmpeg@8\.1\.2 — GPL-3\.0-or-later$/mu);
   assert.match(notices, /^%% @webav\/av-cliper@1\.2\.8 — MIT$/mu);
-  assert.match(notices, /^   source: https:\/\/github\.com\/FFmpeg\/FFmpeg\/tree\/n8\.1\.2\n   build: /mu);
+  // ソースの入手先は同梱ターゲットごとに違う（mac は n8.1.2 のタグ、win / linux は BtbN ビルドのコミット）
+  const ffmpegSource = BINARY_MANIFEST[currentTarget()].source;
+  assert.ok(notices.includes(`   source: ${ffmpegSource.ffmpegSource}\n   build: ${ffmpegSource.distributor}\n`), ffmpegSource.ffmpegSource);
   assert.match(notices, /GPLv3 fixture/u);
   assert.match(notices, /MIT fixture/u);
   assert.equal(readFileSync(join(output, 'LICENSE.akari-video.txt'), 'utf8'), readFileSync(join(repo, 'LICENSE'), 'utf8'));
