@@ -2,7 +2,7 @@
 // 「このアカウントで使える素材 = 無料全部 + 購入済み」の 1 ビュー（設計契約 §8）の核。
 
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
-import { loadCatalog } from './catalog.mjs';
+import { loadCatalog, catalogNetworkAllowed } from './catalog.mjs';
 import { resolveAkariHome, resolveEffectiveBase, resolveEntitlementsUrl } from './env.mjs';
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
 import { scanLocalLibrary, readLocalLibraryItem, sourceFields } from './library.mjs';
@@ -39,11 +39,12 @@ async function fetchEntitledProducts({ env, fetchImpl }) {
  * @returns {Promise<{ home: string, base: string, catalogVersion: string|null, entitlementsStatus: 'ok'|'no_credentials'|'unauthorized'|'error', items: Array }>}
  * items の各要素はカタログ項目に `state`（'cached' | 'available' | 'locked'）を足したもの。
  */
-export async function composeState({ env = process.env, fetchImpl = fetch } = {}) {
+export async function composeState({ env = process.env, fetchImpl = fetch, intent = 'user' } = {}) {
   const home = resolveAkariHome(env);
+  const networkAllowed = await catalogNetworkAllowed(intent, env);
   const warnings = [];
   let remoteCatalog;
-  try { remoteCatalog = await loadCatalog({ env, fetchImpl, includeInstalled: false }); }
+  try { remoteCatalog = await loadCatalog({ env, fetchImpl, includeInstalled: false, intent }); }
   catch (error) {
     warnings.push(error.message);
     remoteCatalog = { items: [], version: null };
@@ -63,12 +64,12 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
 
   // entitlements API は有料商品が無ければ叩く必要がない（無駄な認証リクエストを避ける）
   const hasPaidItems = catalog.items.some((item) => (item.price ?? 0) > 0);
-  const entitlementsResult = hasPaidItems
-    ? await fetchEntitlements({ env, fetchImpl })
+  const entitlementsResult = hasPaidItems && networkAllowed
+    ? await fetchEntitlements({ env, fetchImpl, intent })
     : { ids: new Set(), status: await readStoreCredentials(env) ? 'ok' : 'no_credentials' };
   // entitlements.mjs は id/status だけを返し編集できないため、商品 kind/version は
   // 同じ API への 2 回目の fail-soft 取得で補う。
-  const entitledProducts = await fetchEntitledProducts({ env, fetchImpl });
+  const entitledProducts = networkAllowed ? await fetchEntitledProducts({ env, fetchImpl }) : [];
 
   const localItems = new Map([...installed].map(key => {
     const [category, id] = key.split('/');

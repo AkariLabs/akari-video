@@ -5,6 +5,7 @@ import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, OpenerService, open, QuickInputService, WidgetManager } from '@theia/core/lib/browser';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
@@ -69,6 +70,9 @@ import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
 import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
+import { AkariPrivacyNoticeDialog } from './akari-privacy-notice-dialog';
+import { runAutomaticNetworkCheck } from '../common/automatic-network-check';
+import { AkariSettingsMaintenanceService } from '../common/settings-maintenance-protocol';
 import { AkariOnboardingService } from '../onboarding/protocol';
 import { OnboardingController } from '../onboarding/controller';
 import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
@@ -275,6 +279,12 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(EnvVariablesServer)
     protected readonly envVariables: EnvVariablesServer;
 
+    @inject(PreferenceService)
+    protected readonly preferences: PreferenceService;
+
+    @inject(AkariSettingsMaintenanceService)
+    protected readonly updateSettings: AkariSettingsMaintenanceService;
+
     @inject(AkariNewProjectService)
     protected readonly newProjectService: AkariNewProjectService;
 
@@ -457,6 +467,7 @@ export class AkariHomeWidget extends ReactWidget {
         // F11: ウェルカム判定は roots の有無だけを見る軽い判定なので最初に済ませる
         // （後続のロードが終わるのを待たせない）。
         await measureStep('refreshWelcomeMode', () => this.refreshWelcomeMode());
+        await measureStep('showPrivacyNotice', () => this.showPrivacyNotice());
         await measureStep('loadHomeFlow', () => this.loadHomeFlow());
         await measureStep('loadCreatorRootProjects', () => this.loadCreatorRootProjects());
         // U3: 履歴由来の「単体」プロジェクトは creatorRootProjects（重複除外に使う）の後に読む。
@@ -536,6 +547,16 @@ export class AkariHomeWidget extends ReactWidget {
         const roots = await this.workspaceService.roots;
         this.welcomeMode = roots.length === 0;
         this.update();
+    }
+
+    protected async showPrivacyNotice(): Promise<void> {
+        try {
+            const dialog = new AkariPrivacyNoticeDialog(this.fileService, this.envVariables,
+                this.updateSettings, this.preferences, this.windowService);
+            await dialog.openNotice();
+        } catch (error) {
+            console.warn('[akari-surfaces] privacy notice could not be shown:', error);
+        }
     }
 
     /**
@@ -960,7 +981,7 @@ export class AkariHomeWidget extends ReactWidget {
         entitledProducts: Array<{ id: string; kind: string | null; currentVersion: number | null }>;
     }> {
         try {
-            const catalog = await this.storeService.getAssetCatalogView(undefined);
+            const catalog = await this.storeService.getAssetCatalogView(undefined, 'automatic');
             return {
                 entitlementsStatus: catalog.entitlementsStatus,
                 entitledProducts: catalog.entitledProducts ?? []
@@ -1721,39 +1742,41 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected async triggerUpdateBackgroundFetch(): Promise<void> {
         try {
-            const feedUrlVar = await this.envVariables.getValue('AKARI_UPDATE_FEED_URL');
-            const feedUrl = feedUrlVar?.value || DEFAULT_UPDATE_FEED_URL;
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
-            let response: Response;
-            try {
-                response = await fetch(feedUrl, { signal: controller.signal });
-            } finally {
-                clearTimeout(timeout);
-            }
-            if (!response.ok) {
-                return;
-            }
-            const feed = await response.json();
-            if (!feed || typeof feed !== 'object' || typeof feed.schema !== 'number' || typeof feed.product !== 'string') {
-                return;
-            }
-            const cacheUri = this.updateCacheUri ?? await this.resolveUpdateCacheUri();
-            const nowIso = new Date().toISOString();
-            const next: UpdateCache = { schema: 1, fetched_at: nowIso, feed, dismissed: this.updateRawCache?.dismissed ?? {} };
-            try {
-                await this.fileService.createFolder(cacheUri.parent);
-            } catch {
-                // 既に存在する場合は無視する。
-            }
-            await this.fileService.writeFile(cacheUri, BinaryBuffer.fromString(`${JSON.stringify(next, null, 2)}\n`));
-            // このセッション内でも次回のホーム表示から反映されるよう、状態を更新しておく
-            // （契約は「次回セッションで効く」を許容するが、ここでは追加コストなく即時反映できる）。
-            this.updateRawCache = next;
-            const appInfo = await this.applicationServer.getApplicationInfo().catch(() => undefined);
-            this.updateStatus = evaluateUpdateStatus(appInfo?.version ?? '0.0.0', next, this.resolveShellPlatformKey());
-            this.syncUpdateToast();
-            this.update();
+            await runAutomaticNetworkCheck(() => this.updateSettings.getUpdateSettings(), async () => {
+                const feedUrlVar = await this.envVariables.getValue('AKARI_UPDATE_FEED_URL');
+                const feedUrl = feedUrlVar?.value || DEFAULT_UPDATE_FEED_URL;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                let response: Response;
+                try {
+                    response = await fetch(feedUrl, { signal: controller.signal });
+                } finally {
+                    clearTimeout(timeout);
+                }
+                if (!response.ok) {
+                    return;
+                }
+                const feed = await response.json();
+                if (!feed || typeof feed !== 'object' || typeof feed.schema !== 'number' || typeof feed.product !== 'string') {
+                    return;
+                }
+                const cacheUri = this.updateCacheUri ?? await this.resolveUpdateCacheUri();
+                const nowIso = new Date().toISOString();
+                const next: UpdateCache = { schema: 1, fetched_at: nowIso, feed, dismissed: this.updateRawCache?.dismissed ?? {} };
+                try {
+                    await this.fileService.createFolder(cacheUri.parent);
+                } catch {
+                    // 既に存在する場合は無視する。
+                }
+                await this.fileService.writeFile(cacheUri, BinaryBuffer.fromString(`${JSON.stringify(next, null, 2)}\n`));
+                // このセッション内でも次回のホーム表示から反映されるよう、状態を更新しておく
+                // （契約は「次回セッションで効く」を許容するが、ここでは追加コストなく即時反映できる）。
+                this.updateRawCache = next;
+                const appInfo = await this.applicationServer.getApplicationInfo().catch(() => undefined);
+                this.updateStatus = evaluateUpdateStatus(appInfo?.version ?? '0.0.0', next, this.resolveShellPlatformKey());
+                this.syncUpdateToast();
+                this.update();
+            });
         } catch {
             // オフライン・タイムアウト・JSON パース失敗などをすべてここで沈黙する。
         }

@@ -48,7 +48,7 @@ for (const [input, lab] of [
         let hook = 0;
         const react = {
             useState: () => [hook++ === 0 ? state : 'ok', () => {}],
-            useMemo: fn => fn(), useEffect() {},
+            useMemo: fn => fn(), useEffect() {}, useRef: value => ({ current: value }),
             createElement: (tag, props, ...children) => {
                 if (tag === 'button') buttons.push({ props, children });
                 return { tag, props, children };

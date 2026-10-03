@@ -82,7 +82,7 @@ export class AkariCatalogCommandContribution implements CommandContribution {
         getWorkspaceRoot: () => this.workflow.workspaceRoot?.toString(),
         getCatalogItems: async () => {
             const preferenceRoot = this.preferences.get<string>('akari.catalog.root', '');
-            return (await this.projectService.getAssetCatalogView(preferenceRoot)).items;
+            return (await this.projectService.getAssetCatalogView(preferenceRoot, 'user')).items;
         },
         resolveAsset: (id, projectRoot) => this.projectService.resolveAsset(id, projectRoot),
         fileExists: (projectRoot, relativePath) => this.files.exists(new URI(projectRoot).resolve(relativePath)),
@@ -128,21 +128,21 @@ export class AkariCatalogCommandContribution implements CommandContribution {
         registry.registerCommand({ id: 'akari.catalog.planMaterial' }, {
             execute: async (key: string) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
-                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView('user');
                 return widget.planCatalogMaterial(key);
             }
         });
         registry.registerCommand({ id: 'akari.catalog.resolveOverlay' }, {
             execute: async (key: string) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
-                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView('user');
                 return widget.resolveCatalogOverlay(key);
             }
         });
         registry.registerCommand({ id: 'akari.catalog.readOverlayMeta' }, {
             execute: async (key: string) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
-                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView('automatic');
                 return widget.readCatalogOverlayMeta(key);
             }
         });
@@ -152,7 +152,7 @@ export class AkariCatalogCommandContribution implements CommandContribution {
                 const key = typeof args === 'string' ? args : args?.key;
                 if (!key) return false;
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
-                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView('user');
                 return widget.showPremiumPrompt(key);
             }
         });
@@ -181,7 +181,7 @@ export class AkariCatalogCommandContribution implements CommandContribution {
         registry.registerCommand(AkariCatalogCommands.LIST_CATEGORIES, {
             execute: async (): Promise<AkariCatalogCategorySummary[]> => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
-                await widget.loadAssetCatalogView();
+                await widget.loadAssetCatalogView('automatic');
                 return widget.catalogCategorySummaries();
             }
         });

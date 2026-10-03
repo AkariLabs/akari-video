@@ -6,6 +6,7 @@
 // 自体は別途 fail-closed で拒否するので、ここで例外を投げて全体を止める必要はない）。
 
 import { readFile } from 'node:fs/promises';
+import { automaticChecksEnabled } from './catalog.mjs';
 import { resolveCredentialsPath, resolveEntitlementsUrl } from './env.mjs';
 
 export async function readStoreCredentials(env = process.env) {
@@ -23,7 +24,10 @@ export async function readStoreCredentials(env = process.env) {
  * （= 無料のみ使える）のままで、既存のフォールバックを変えない。
  * @returns {Promise<{ ids: Set<string>, status: 'ok'|'no_credentials'|'unauthorized'|'error' }>}
  */
-export async function fetchEntitlements({ env = process.env, fetchImpl = fetch } = {}) {
+export async function fetchEntitlements({ env = process.env, fetchImpl = fetch, intent = 'user' } = {}) {
+  if (intent === 'automatic' && !await automaticChecksEnabled(env)) {
+    return { ids: new Set(), status: 'no_credentials' };
+  }
   const credentials = await readStoreCredentials(env);
   if (!credentials) return { ids: new Set(), status: 'no_credentials' };
 

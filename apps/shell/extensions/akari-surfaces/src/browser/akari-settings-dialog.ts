@@ -60,7 +60,7 @@ import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AK
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
-import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
+import { AkariSettingsMaintenanceService, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
 import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai-models-protocol';
 import { AiModelsView } from './ai-models/ai-models-view';
 import { parseUpdateCache, resolveUpdateDownloadUrl } from '../common/update-feed';
@@ -129,6 +129,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected storeState: StoreConnectionFlowState = { connection: { connected: false }, connectionLoading: true, phase: 'idle' };
     protected storeReconnect = false;
     protected storeStatusGeneration = 0;
+    protected storeConnectPending = false;
     protected readonly notice = element('p');
     protected preferenceWrites: Promise<unknown> = Promise.resolve();
     protected readonly localPreferenceWrites = new Set<string>();
@@ -188,7 +189,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 if (this.isDisposed) { return; }
                 this.storeState = state;
                 this.renderStore();
-                void this.refreshStoreEntitlements();
+                if (state.phase === 'error' || state.phase === 'expired') this.storeConnectPending = false;
+                const intent = this.storeConnectPending && state.connection.connected && state.phase === 'idle' ? 'user' : 'automatic';
+                if (intent === 'user') this.storeConnectPending = false;
+                void this.refreshStoreEntitlements(intent);
             }
         });
         this.toDispose.push(this.storeController);
@@ -858,7 +862,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                         this.savePreference('akari.update.channel', value);
                         void this.maintenance.setUpdateSettings({ channel: value });
                     } })),
-                settingRow('自動で確認する', '起動したときに右下の通知でお知らせ', switchControl({ label: '自動で確認する',
+                settingRow('更新と素材の自動確認', '新しい版・素材の一覧・購入済み素材・拡張の更新を自動で確認します', switchControl({ label: '更新と素材の自動確認',
                     checked: updateSettings?.autoCheck ?? this.preferences.get<boolean>('akari.update.autoCheck', true), onChange: checked => {
                         this.savePreference('akari.update.autoCheck', checked);
                         void this.maintenance.setUpdateSettings({ autoCheck: checked });
@@ -1586,7 +1590,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.renderSection('start');
     }
 
-    protected async refreshStoreEntitlements(): Promise<void> {
+    protected async refreshStoreEntitlements(intent: 'automatic' | 'user' = 'automatic'): Promise<void> {
         const generation = ++this.storeStatusGeneration;
         if (!this.storeState.connection.connected || this.storeState.phase !== 'idle') {
             this.storeReconnect = false;
@@ -1594,7 +1598,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             return;
         }
         try {
-            const view = await this.storeService.getAssetCatalogView(undefined);
+            const view = await this.storeService.getAssetCatalogView(undefined, intent);
             if (this.isDisposed || generation !== this.storeStatusGeneration) { return; }
             this.storeReconnect = storeReconnectRequired(true, view.entitlementsStatus);
             this.renderStore();
@@ -1638,10 +1642,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const controls = element('div');
         controls.className = 'akari-set-store-controls';
         if (busy) {
-            controls.append(action('キャンセル', () => this.storeController.cancel(), { small: true }));
+            controls.append(action('キャンセル', () => { this.storeConnectPending = false; this.storeController.cancel(); }, { small: true }));
         } else {
             if (!state.connection.connected || this.storeReconnect) {
-                const connect = action(this.storeReconnect ? '再接続する' : '接続する', () => void this.storeController.start(), { variant: 'primary' });
+                const connect = action(this.storeReconnect ? '再接続する' : '接続する', () => {
+                    this.storeConnectPending = true;
+                    void this.storeController.start();
+                }, { variant: 'primary' });
                 connect.disabled = state.connectionLoading;
                 controls.append(connect);
             }
@@ -2102,12 +2109,15 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(WidgetManager) protected readonly widgetManager!: WidgetManager;
     @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
     @inject(PluginServer) protected readonly pluginServer!: PluginServer;
-    protected maintenance?: AkariSettingsMaintenanceService;
+    @inject(AkariSettingsMaintenanceService) protected readonly maintenance!: AkariSettingsMaintenanceService;
     protected dialog: AkariSettingsDialog | undefined;
     protected requestedSection: SettingsSectionId | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand({ id: 'akari.update.isAutoCheckEnabled' }, {
+            execute: async () => (await this.maintenance.getUpdateSettings()).autoCheck === true
+        });
         commands.registerCommand({ id: 'akari.library.isMoving' }, { execute: () => this.tools.isLibraryMoving() });
         commands.registerCommand({ id: 'akari.library.changeLocation', label: '素材の置き場を変える…' }, {
             execute: async () => {
@@ -2220,7 +2230,6 @@ export class AkariSettingsCommandContribution implements CommandContribution {
 
     protected async openSettings(): Promise<void> {
         await this.preferences.ready;
-        this.maintenance ??= this.connectionsProvider.createProxy<AkariSettingsMaintenanceService>(AKARI_SETTINGS_MAINTENANCE_PATH);
         const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
         const aiModels = this.connectionsProvider.createProxy<AkariAiModelsService>(AKARI_AI_MODELS_SERVICE_PATH);
         const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.requestedSection);

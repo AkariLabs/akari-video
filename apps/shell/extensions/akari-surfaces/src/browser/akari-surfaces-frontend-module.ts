@@ -27,6 +27,7 @@ import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from 'akari-s
 import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-protocol';
 import { AkariNarrationEnginesService, AKARI_NARRATION_ENGINES_SERVICE_PATH } from '../common/narration-engines-protocol';
 import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboarding/protocol';
+import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH } from '../common/settings-maintenance-protocol';
 
 export default new ContainerModule(bind => {
     bind(AkariOnboardingService).toDynamicValue(ctx =>
@@ -40,6 +41,9 @@ export default new ContainerModule(bind => {
     ).inSingletonScope();
     bind(AkariKitsService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_KITS_SERVICE_PATH)
+    ).inSingletonScope();
+    bind(AkariSettingsMaintenanceService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_SETTINGS_MAINTENANCE_PATH)
     ).inSingletonScope();
     bind(AkariSettingsCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariSettingsCommandContribution);
