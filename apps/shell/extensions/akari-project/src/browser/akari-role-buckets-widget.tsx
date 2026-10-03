@@ -1,9 +1,10 @@
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
+import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { referencePresentation } from '../common/project-asset-reference';
 import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
-import { ProjectAssetReference, AssetBundleOutcome } from '../common/akari-project-protocol';
+import { AssetBundleOutcome } from '../common/akari-project-protocol';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
 import {
     GENERATION_PICK_PRIMARY_SELECTED_EVENT, GenerationPickCandidate, GenerationPickController,
@@ -19,7 +20,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
+import { CommandService, MessageService } from '@theia/core/lib/common';
 import { OpenerService, QuickInputService, open } from '@theia/core/lib/browser';
 import { ConfirmDialog, SingleTextInputDialog } from '@theia/core/lib/browser/dialogs';
 import { isOSX } from '@theia/core/lib/common/os';
@@ -27,7 +28,7 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
-import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
+import { FileStat } from '@theia/filesystem/lib/common/files';
 import { CAPTION_SAMPLE_TEXT, registerLibraryTextstylePresets, TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import {
     AKARI_BORDER,
@@ -50,11 +51,9 @@ import {
 } from '../common/akari-project-protocol';
 import { StoreConnectionFlowController } from '../common/store-connection-flow';
 import { AkariWorkflowService } from './akari-workflow-service';
-import { shouldShowProjectPath } from '../common/project-tree-policy';
-import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { nextCandidateAssetName } from '../common/asset-naming';
 import { isEditDataFileName } from '../common/edit-data-file';
-import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
+import { formatDurationBadge } from '../common/analysis-summary';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
 import {
     CATALOG_CATEGORIES,
@@ -64,8 +63,7 @@ import {
     catalogItemCategoryChipKey,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
-    normalizeCatalogViewMode,
-    parseCatalogItemMeta
+    normalizeCatalogViewMode
 } from '../common/catalog-reader';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import {
@@ -96,9 +94,9 @@ import {
     LibraryAssetCard, LibraryCardStyles, LibraryDotsCorner, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
 } from './library-card-view';
-import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
+import { AssetBinChildNode } from '../common/asset-bin-grouping';
 import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
-import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
+import { classifyMaterialKind, MaterialKind } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { CatalogPack } from '../common/catalog-packs';
@@ -130,7 +128,6 @@ import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../common/library-ti
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuItem, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
-import { assetGroupOpenTarget } from '../common/asset-group-open-target';
 import { countReferences } from '../common/project-reference-check';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { isOsFileDropInput } from '../common/delegated-drop';
@@ -301,39 +298,6 @@ const ROOT_PLAN_FILES: ReadonlyArray<string> = ['README.md', 'decision-log.md'];
 
 /** 「レポート」グループに出すルート直下の契約ファイル。 */
 const ROOT_REPORT_FILES: ReadonlyArray<string> = ['analysis-report.html'];
-
-/**
- * プロジェクト直下の契約ファイル（edit.json 等）・アトミック書き込みの一時ファイル・
- * .akari/ 配下は素材一覧に無関係（素材一覧は assets/ 配下しか見ない）。
- * これらの変更で素材パネルを再読込しない（task 2026-08-18-shell-panel-reload-spinner 指示1）。
- */
-const MATERIALS_IRRELEVANT_ROOT_FILES = new Set(['edit.json', 'captions.json', 'analysis.json', '.akari']);
-function isMaterialsIrrelevantRootFile(baseName: string): boolean {
-    return isEditDataFileName(baseName) || MATERIALS_IRRELEVANT_ROOT_FILES.has(baseName) || baseName.endsWith('.tmp');
-}
-
-interface MaterialCardEntry {
-    uri: URI;
-    relativePath: string;
-    /** グループの主メディア。ドラッグとタイムライン追加だけに使う。 */
-    mediaRelativePath?: string;
-    name: string;
-    kind: MaterialKind;
-    analyzed: boolean;
-    durationSeconds?: number;
-    thumbnailUri?: URI;
-    /** analysis.json のプロジェクト相対パス。analyzed のときのみ設定される。 */
-    analysisRelativePath?: string;
-    /** true = プロジェクトルート直下（非再帰）の未整理素材。「assets へ移動」アクションを持つ。 */
-    unorganized: boolean;
-    /**
-     * meta.json を含むディレクトリ = 1 素材グループのときのみ設定される（task.md 決定事項2）。
-     * 設定されている場合、タイトル/サムネ/種別バッジは meta.json 由来の値で表示する。
-     */
-    assetGroup?: { category: string };
-    reference?: ProjectAssetReference;
-    missing?: boolean;
-}
 
 /**
  * 非開発者モード向けの「素材」差し替えビュー。
@@ -565,18 +529,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected topView: TopView = 'materials';
     /** ファイルをドラッグ中か（取り込み可能であることを枠で見せる。renderDropOverlay 参照）。 */
     protected dragActive = false;
-    protected materials: MaterialCardEntry[] = [];
-    protected unorganizedMaterials: MaterialCardEntry[] = [];
-    protected materialsLoading = false;
-    protected materialsLoadedOnce = false;
-    protected materialsGeneration = 0;
-    protected materialsWatch = new DisposableCollection();
-    protected materialsWatchRootKey?: string;
-    protected materialsWatchTimer?: ReturnType<typeof setTimeout>;
     protected lintAvailable = false;
     protected lintCount?: number;
     protected lintRunning = false;
     protected outputsPane!: AkariOutputsPane;
+    protected materialsPane!: AkariMaterialsPane;
 
 
     /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
@@ -746,6 +703,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get rootReportFiles() { return ROOT_REPORT_FILES; }
         };
         this.outputsPane = new AkariOutputsPane(host);
+        const materialsHost: MaterialsPaneHost = {
+            get workflow() { return widget().workflow; },
+            get files() { return widget().files; },
+            get projectService() { return widget().projectService; },
+            update: () => widget().update(),
+            classifyKind: name => widget().classifyKind(name),
+            toAssetBinChildren: node => widget().toAssetBinChildren(node),
+            get assetCatalogItems() { return widget().assetCatalogItems; },
+            get transcriptStateByPath() { return widget().transcriptStateByPath; },
+            set transcriptStateByPath(value) { widget().transcriptStateByPath = value; },
+            get projectCreditLines() { return widget().projectCreditLines; },
+            set projectCreditLines(value) { widget().projectCreditLines = value; }
+        };
+        this.materialsPane = new AkariMaterialsPane(materialsHost);
         this.toDispose.push(this.shapeShelf.onDidChange(() => this.update()));
         const saveMyStyle = (event: Event): void => {
             const detail = (event as CustomEvent<{ style: MyStyle; resolve: () => void; reject: (error: unknown) => void }>).detail;
@@ -781,7 +752,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const changeLibraryLocation = (): void => { void this.commandService.executeCommand('akari.library.changeLocation'); };
         this.node.addEventListener('akari.library.changeLocation', changeLibraryLocation);
         this.toDispose.push({ dispose: () => this.node.removeEventListener('akari.library.changeLocation', changeLibraryLocation) });
-        this.toDispose.push({ dispose: () => this.referenceWatches.dispose() });
+        this.toDispose.push({ dispose: () => this.materialsPane.referenceWatches.dispose() });
         installCatalogFocusPulseStyle();
         installCatalogAudioDockStyle();
         window.addEventListener('keydown', this.handleGenerationPickKey, true);
@@ -851,11 +822,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             if (this.generationPickRoot !== this.workflow.workspaceRoot?.toString()) {
                 this.generationPick.cancel();
             }
-            this.ensureMaterialsWatch();
+            this.materialsPane.ensureMaterialsWatch();
             this.outputsPane.ensureOutputsWatch();
             this.refresh();
         }));
-        this.ensureMaterialsWatch();
+        this.materialsPane.ensureMaterialsWatch();
         this.outputsPane.ensureOutputsWatch();
         this.catalogViewMode = this.readCatalogViewMode();
         this.libraryDetailsOpen = this.readLibraryDetailsOpen();
@@ -968,321 +939,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     // --- 素材カード ---------------------------------------------------------
 
-    protected referenceWatches = new DisposableCollection();
-    protected referenceWatchRoot = '';
-    protected referenceWatchParents = new Set<string>();
-
     protected transcriptStateByPath: Record<string, TranscriptState> = {};
 
     protected async loadMaterials(): Promise<void> {
-        const root = this.workflow.workspaceRoot;
-        const generation = ++this.materialsGeneration;
-        if (!root) {
-            this.referenceWatches.dispose();
-            this.materials = [];
-            this.projectCreditLines = [];
-            this.unorganizedMaterials = [];
-            this.materialsLoadedOnce = false;
-            this.update();
-            return;
-        }
-        this.materialsLoading = true;
-        this.update();
-        const [assetEntries, rootFiles, references, credits] = await Promise.all([
-            this.collectAssetEntries(root.resolve('assets')),
-            this.collectUnorganizedRootFiles(root),
-            this.projectService.listProjectAssetReferences(root.toString()),
-            this.projectService.projectCredits(root.toString()).catch(() => [] as string[])
-        ]);
-        const [fileMaterials, groupMaterials, unorganizedMaterials] = await Promise.all([
-            Promise.all(assetEntries.files.map(file => this.buildMaterialEntry(root, file, false))),
-            Promise.all(assetEntries.assetGroups.map(dir => this.buildAssetGroupEntry(root, dir))),
-            Promise.all(rootFiles.map(file => this.buildMaterialEntry(root, file, true)))
-        ]);
-        const states = await this.projectService.transcriptStates({
-            projectRoot: root.toString(),
-            relativePaths: [...fileMaterials, ...groupMaterials, ...unorganizedMaterials]
-                .filter(entry => !entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio')).map(entry => entry.relativePath)
-        });
-        if (generation !== this.materialsGeneration) {
-            return; // A newer load superseded this one (e.g. rapid watch events); discard stale results.
-        }
-        this.referenceWatches.dispose();
-        this.referenceWatches = new DisposableCollection();
-        if (this.referenceWatchRoot !== root.toString()) this.referenceWatchParents.clear();
-        this.referenceWatchRoot = root.toString();
-        for (const ref of references) if (ref.libraryDir) this.referenceWatchParents.add(URI.fromFilePath(ref.libraryDir).parent.toString());
-        const libraryParents = [...this.referenceWatchParents];
-        for (const parent of libraryParents) this.referenceWatches.push(this.files.watch(new URI(parent), { recursive: true, excludes: [] }));
-        this.referenceWatches.push(this.files.onDidFilesChange(event => {
-            if (libraryParents.some(parent => event.changes.some(change => new URI(parent).isEqualOrParent(change.resource)))) void this.loadMaterials();
-        }));
-        const referenceMaterials = await this.buildReferenceMaterials(root, references);
-        if (generation !== this.materialsGeneration) return;
-        const referencedDirectories = new Set(referenceMaterials.map(entry => entry.relativePath));
-        const materials = [...fileMaterials.filter(entry => !referenceMaterials.some(ref => entry.relativePath.startsWith(`${ref.relativePath}/`))),
-            ...groupMaterials.filter(entry => !referencedDirectories.has(entry.relativePath)), ...referenceMaterials];
-        materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
-        this.transcriptStateByPath = states;
-        this.materials = materials;
-        this.projectCreditLines = credits;
-        this.unorganizedMaterials = unorganizedMaterials;
-        this.materialsLoading = false;
-        this.materialsLoadedOnce = true;
-        this.update();
-        void this.hydrateCachedThumbnails(root, generation, [...materials, ...unorganizedMaterials]);
-    }
-
-    /**
-     * `assets/` を再帰 walk し、ファイル単位の従来素材（`files`）と
-     * 「meta.json を含むディレクトリ = 1 素材」のグループ（`assetGroups`）に分ける
-     * （task.md 決定事項2）。判定そのものは深さに依存しない純関数
-     * （asset-bin-grouping.ts の isAssetBinGroupDirectory）に委ねる — この walk は
-     * 訪れたディレクトリごとにその直下の子一覧を渡して判定させているだけなので、
-     * 旧配置 `assets/<id>/` 直下・新配置 `assets/<category>/<id>/` のどちらでも同じ
-     * ロジックで 1 カードに集約される（受入2）。meta.json が見つかったディレクトリは
-     * そこで打ち切り、配下（fragment.html 等）は展開しない。見つからなければ従来どおり
-     * ファイル単位まで再帰する（受入3: 撮影素材の挙動は無変更）。
-     */
-    protected async collectAssetEntries(assetsRoot: URI): Promise<{ files: FileStat[]; assetGroups: FileStat[] }> {
-        let stat: FileStat;
-        try {
-            stat = await this.files.resolve(assetsRoot);
-        } catch {
-            return { files: [], assetGroups: [] };
-        }
-        const files: FileStat[] = [];
-        const assetGroups: FileStat[] = [];
-        const walk = async (node: FileStat): Promise<void> => {
-            for (const child of node.children ?? []) {
-                const relative = this.workflow.relativePath(child.resource);
-                if (!shouldShowProjectPath(relative, this.workflow.current.tree, false)) {
-                    continue;
-                }
-                if (!child.isDirectory) {
-                    files.push(child);
-                    continue;
-                }
-                let resolvedChild: FileStat;
-                try {
-                    resolvedChild = await this.files.resolve(child.resource);
-                } catch {
-                    continue; // Directory disappeared mid-walk; skip it.
-                }
-                if (isAssetBinGroupDirectory(this.toAssetBinChildren(resolvedChild))) {
-                    assetGroups.push(resolvedChild);
-                    continue;
-                }
-                await walk(resolvedChild);
-            }
-        };
-        await walk(stat);
-        files.sort((left, right) => left.resource.path.base.localeCompare(right.resource.path.base, 'ja'));
-        assetGroups.sort((left, right) => left.resource.path.base.localeCompare(right.resource.path.base, 'ja'));
-        return { files, assetGroups };
+        return this.materialsPane.loadMaterials();
     }
 
     protected toAssetBinChildren(node: FileStat): AssetBinChildNode[] {
         return (node.children ?? []).map(child => ({ name: child.resource.path.base, isDirectory: child.isDirectory }));
-    }
-
-    /**
-     * プロジェクトルート**直下**（非再帰）の未整理素材を集める。判定は
-     * unorganized-materials.ts の純関数（project-tree-policy.ts の既存ノイズ判定 +
-     * ルート直下契約 JSON の除外）に委ねる。
-     */
-    protected async collectUnorganizedRootFiles(root: URI): Promise<FileStat[]> {
-        let stat: FileStat;
-        try {
-            stat = await this.files.resolve(root);
-        } catch {
-            return [];
-        }
-        const policy = this.workflow.current.tree;
-        const result = (stat.children ?? []).filter(child =>
-            isUnorganizedRootEntry({ name: child.resource.path.base, isDirectory: child.isDirectory }, policy)
-        );
-        result.sort((left, right) => left.resource.path.base.localeCompare(right.resource.path.base, 'ja'));
-        return result;
-    }
-
-    protected async buildMaterialEntry(root: URI, file: FileStat, unorganized: boolean): Promise<MaterialCardEntry> {
-        const relativePath = this.workflow.relativePath(file.resource) ?? file.resource.path.base;
-        const kind = this.classifyKind(file.resource.path.base);
-        const analysisRelativePath = `.akari/sidecars/${relativePath}.analysis/analysis.json`;
-        const analysisUri = root.resolve(analysisRelativePath);
-        const analysis = await this.readAnalysis(analysisUri);
-        if (!analysis) {
-            return { uri: file.resource, relativePath, name: file.resource.path.base, kind, analyzed: false, unorganized };
-        }
-        return {
-            uri: file.resource,
-            relativePath,
-            name: file.resource.path.base,
-            kind,
-            analyzed: true,
-            durationSeconds: deriveAnalysisDurationSeconds(analysis),
-            thumbnailUri: this.resolveThumbnail(analysisUri, analysis),
-            analysisRelativePath,
-            unorganized
-        };
-    }
-
-    /**
-     * meta.json を含むディレクトリ = 1 素材グループのカードを組み立てる。
-     * タイトル = meta.title（読めなければディレクトリ名）/ サムネ = 同ディレクトリの
-     * preview.png（あれば）/ 種別バッジ = meta.category（task.md 決定事項2）。
-     * クリック対象（uri）はディレクトリ自体を開けないため、preview.png → meta.json →
-     * ディレクトリ自身の順にフォールバックする（最低限、素材として選択できること）。
-     */
-    protected async buildReferenceMaterials(root: URI, references: ProjectAssetReference[]): Promise<MaterialCardEntry[]> {
-        const result: MaterialCardEntry[] = [];
-        for (const reference of references) {
-            const state = referencePresentation(reference);
-            // Old copy-era groups keep their cards and actions unchanged.
-            try {
-                const local = await this.files.resolve(root.resolve(state.relativePath));
-                const files = this.toAssetBinChildren(local).filter(child => !child.isDirectory)
-                    .map(child => ({ name: child.name, path: '', bytes: 0 }));
-                if (!referencePresentation({ ...reference, files }).missing) continue;
-            } catch { /* No local group: use the ledger. */ }
-            let card: MaterialCardEntry | undefined;
-            if (reference.libraryDir) {
-                try {
-                    const directory = await this.files.resolve(URI.fromFilePath(reference.libraryDir));
-                    // Only expose files accepted by the node containment check.
-                    const allowed = new Set(reference.files.filter(file => !file.name.includes('/')).map(file => file.name));
-                    card = await this.buildAssetGroupEntry(root, { ...directory,
-                        children: directory.children?.filter(child => !child.isDirectory && allowed.has(child.resource.path.base)) });
-                }
-                catch { /* A disappeared directory stays visible as a missing reference. */ }
-            }
-            const known = this.assetCatalogItems.find(item => item.key === `${reference.category}/${reference.id}`);
-            const media = resolveLibraryAssetMedia(known ?? { category: reference.category },
-                reference.files.filter(file => !file.name.includes('/')).map(file => ({ name: file.name, isDirectory: false })));
-            const openName = media.mediaName ?? assetGroupOpenTarget(
-                reference.files.map(file => ({ name: file.name, isDirectory: false })), reference.category);
-            const openFile = reference.files.find(file => file.name === openName);
-            const preview = reference.files.find(file => file.name === 'preview.png');
-            result.push({
-                ...(card ?? { uri: root.resolve(`${state.relativePath}/meta.json`), kind: 'other', analyzed: false, unorganized: false }),
-                ...(openFile ? { uri: URI.fromFilePath(openFile.path) } : {}),
-                thumbnailUri: preview ? URI.fromFilePath(preview.path) : undefined,
-                name: reference.title ?? known?.title ?? reference.id,
-                relativePath: state.relativePath,
-                mediaRelativePath: media.mediaName ? `${state.relativePath}/${media.mediaName}` : undefined,
-                kind: media.kind === 'other' ? card?.kind ?? 'other' : media.kind,
-                assetGroup: { category: reference.category }, reference,
-                missing: state.missing
-            });
-        }
-        return result;
-    }
-
-    protected async buildAssetGroupEntry(root: URI, dirStat: FileStat): Promise<MaterialCardEntry> {
-        const relativePath = this.workflow.relativePath(dirStat.resource) ?? dirStat.resource.path.base;
-        const dirName = dirStat.resource.path.base;
-        const meta = await this.readAssetGroupMeta(dirStat);
-        const media = resolveAssetGroupMedia(meta?.category, this.toAssetBinChildren(dirStat));
-        const children = dirStat.children ?? [];
-        const previewChild = children.find(child => !child.isDirectory && child.resource.path.base === 'preview.png');
-        const metaChild = children.find(child => !child.isDirectory && child.resource.path.base === 'meta.json');
-        const openUri = dirStat.resource.resolve(assetGroupOpenTarget(this.toAssetBinChildren(dirStat), meta?.category)
-            ?? metaChild?.resource.path.base ?? 'meta.json');
-        return {
-            uri: openUri,
-            relativePath,
-            mediaRelativePath: media.mediaName ? `${relativePath}/${media.mediaName}` : undefined,
-            name: meta?.title || dirName,
-            kind: media.kind,
-            analyzed: false,
-            thumbnailUri: previewChild?.resource,
-            unorganized: false,
-            assetGroup: { category: meta?.category ?? '' }
-        };
-    }
-
-    /** グループ対象ディレクトリの meta.json を寛容リーダーで読む。無い/壊れていれば undefined（呼び出し側でディレクトリ名にフォールバック）。 */
-    protected async readAssetGroupMeta(dirStat: FileStat): Promise<CatalogItemMeta | undefined> {
-        const metaChild = (dirStat.children ?? []).find(
-            child => !child.isDirectory && child.resource.path.base === 'meta.json'
-        );
-        if (!metaChild) {
-            return undefined;
-        }
-        try {
-            const content = await this.files.readFile(metaChild.resource);
-            return parseCatalogItemMeta(content.value.toString());
-        } catch {
-            return undefined;
-        }
-    }
-
-    /**
-     * 分析済みでない動画/画像/音声素材について、`.akari/cache/thumbnails/` のサムネキャッシュを
-     * バックエンドへ問い合わせる（優先順位: analysis keyframe > cache > プレースホルダ）。
-     * 音声は波形を生成し、分析済みは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
-     */
-    protected async hydrateCachedThumbnails(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
-        const candidates = entries.filter(entry => !entry.assetGroup && !entry.analyzed
-            && (entry.kind === 'video' || entry.kind === 'image' || entry.kind === 'audio'));
-        await Promise.all(candidates.map(async entry => {
-            let outcome;
-            try {
-                outcome = await this.projectService.resolveMaterialThumbnail(root.toString(), entry.relativePath, entry.kind as 'video' | 'image' | 'audio');
-            } catch {
-                return;
-            }
-            if (generation !== this.materialsGeneration || !outcome.available || !outcome.cacheRelativePath) {
-                return;
-            }
-            entry.thumbnailUri = root.resolve(outcome.cacheRelativePath);
-            this.update();
-        }));
-    }
-
-    // --- ライブ反映（assets/ とルート直下の watch） ---------------------------
-
-    protected ensureMaterialsWatch(): void {
-        const root = this.workflow.workspaceRoot;
-        const rootKey = root?.toString();
-        if (rootKey === this.materialsWatchRootKey) {
-            return;
-        }
-        this.materialsWatch.dispose();
-        this.materialsWatch = new DisposableCollection();
-        this.materialsWatchRootKey = rootKey;
-        if (!root) {
-            return;
-        }
-        const assetsUri = root.resolve('assets');
-        this.materialsWatch.push(this.files.watch(root));
-        this.materialsWatch.push(this.files.watch(root.resolve('.akari'), { recursive: true, excludes: [] }));
-        this.materialsWatch.push(this.files.watch(assetsUri, { recursive: true, excludes: [] }));
-        this.materialsWatch.push(this.files.onDidFilesChange(event => this.handleMaterialsFileChange(root, assetsUri, event)));
-    }
-
-    protected handleMaterialsFileChange(root: URI, assetsUri: URI, event: FileChangesEvent): void {
-        const rootKey = root.toString();
-        const relevant = event.changes.some(change => {
-            if (change.resource.toString() === root.resolve('.akari/asset-references.json').toString()
-                || root.resolve('.akari/sidecars').isEqualOrParent(change.resource)
-                || root.resolve('.akari/events').isEqualOrParent(change.resource)) return true;
-            if (assetsUri.isEqualOrParent(change.resource)) {
-                return true;
-            }
-            return change.resource.parent.toString() === rootKey && !isMaterialsIrrelevantRootFile(change.resource.path.base);
-        });
-        if (!relevant) {
-            return;
-        }
-        if (this.materialsWatchTimer) {
-            clearTimeout(this.materialsWatchTimer);
-        }
-        this.materialsWatchTimer = setTimeout(() => {
-            this.materialsWatchTimer = undefined;
-            void this.loadMaterials();
-        }, 300);
     }
 
     // --- 未整理 → assets へ移動 ------------------------------------------------
@@ -1325,25 +989,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             candidate = nextCandidateAssetName(requestedName, index++);
         }
         return candidate;
-    }
-
-    protected async readAnalysis(analysisUri: URI): Promise<AnalysisJson | undefined> {
-        try {
-            const content = await this.files.readFile(analysisUri);
-            const parsed = JSON.parse(content.value.toString()) as Partial<AnalysisJson>;
-            if (!parsed || parsed.version !== 0) {
-                return undefined;
-            }
-            return parsed as AnalysisJson;
-        } catch {
-            // 未分析（未生成/壊れた sidecar）は正常系のプレースホルダ状態として扱う。
-            return undefined;
-        }
-    }
-
-    protected resolveThumbnail(analysisUri: URI, analysis: AnalysisJson): URI | undefined {
-        const first = analysis.keyframes?.[0];
-        return first?.path ? analysisUri.parent.resolve(first.path) : undefined;
     }
 
     protected classifyKind(name: string): MaterialKind {
@@ -3065,10 +2710,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!this.workflow.workspaceRoot) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>プロジェクトを開いてください。</p>;
         }
-        if (this.materialsLoading && !this.materialsLoadedOnce) {
+        if (this.materialsPane.materialsLoading && !this.materialsPane.materialsLoadedOnce) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
-        if (!this.materials.length && !this.unorganizedMaterials.length) {
+        if (!this.materialsPane.materials.length && !this.materialsPane.unorganizedMaterials.length) {
             return (
                 <p style={{ opacity: 0.7, padding: '16px' }}>
                     ここにはまだ素材がありません。動画・音声・画像をこのパネルへドラッグすると取り込めます。
@@ -3077,11 +2722,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const normalizedQuery = this.materialQuery.trim().toLowerCase();
         const materials = normalizedQuery
-            ? this.materials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
-            : this.materials;
+            ? this.materialsPane.materials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
+            : this.materialsPane.materials;
         const unorganizedMaterials = normalizedQuery
-            ? this.unorganizedMaterials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
-            : this.unorganizedMaterials;
+            ? this.materialsPane.unorganizedMaterials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
+            : this.materialsPane.unorganizedMaterials;
         if (!materials.length && !unorganizedMaterials.length) {
             return <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>;
         }
