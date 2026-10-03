@@ -3291,6 +3291,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected aiVideoWorkspaceKey?: string;
     protected aiVideoPlayerItemKey?: string;
     protected stillFalEstimate?: StillFalEstimate;
+    protected stillFalEstimateError?: string;
     protected stillFalEstimateLoading?: Promise<void>;
     protected previewedStillItemId?: string;
     protected previewedVideoCandidate?: { editUri: string; itemId: string; key: string };
@@ -5718,17 +5719,32 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected ensureStillFalEstimate(): void {
-        if (this.stillFalEstimateLoading) return;
+        if (this.stillFalEstimate || this.stillFalEstimateLoading) return;
+        this.stillFalEstimateError = undefined;
+        for (const state of this.aiStillStates.values()) {
+            state.falEstimateError = undefined;
+        }
         this.stillFalEstimateLoading = this.layerAudioService.readGenerationCatalog().then(catalog => {
-            const estimate = (catalog as typeof catalog & { stillEstimate?: StillFalEstimate }).stillEstimate;
-            if (!estimate) return;
-            this.stillFalEstimate = estimate;
+            this.stillFalEstimate = catalog.stillEstimate;
+            this.stillFalEstimateError = catalog.stillEstimate ? undefined
+                : catalog.stillEstimateError ?? '料金表を読めないため見積を出せません';
             const current = this.aiView === 'still' ? this.generationIdentity(this.model.snapshot) : undefined;
             const visibleState = current && this.aiStillStates.get(current.key);
-            const shouldRender = !!visibleState && !visibleState.falEstimate;
-            for (const state of this.aiStillStates.values()) state.falEstimate = estimate;
+            const shouldRender = !!visibleState && (!visibleState.falEstimate || !!visibleState.falEstimateError);
+            for (const state of this.aiStillStates.values()) {
+                state.falEstimate = catalog.stillEstimate;
+                state.falEstimateError = this.stillFalEstimateError;
+            }
             if (shouldRender) this.render();
-        }).catch(() => undefined);
+        }).catch(error => {
+            console.warn('[akari-annotations] still estimate read failed:', error);
+            this.stillFalEstimateError = '料金表を読めないため見積を出せません';
+            for (const state of this.aiStillStates.values()) {
+                state.falEstimate = undefined;
+                state.falEstimateError = this.stillFalEstimateError;
+            }
+            if (this.aiView === 'still') this.render();
+        }).finally(() => { this.stillFalEstimateLoading = undefined; });
     }
 
     protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
@@ -5742,7 +5758,8 @@ export class AkariInspectorWidget extends BaseWidget {
             state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true,
                 selectedRoutes: new Set(),
                 running: false, references: (meta?.inputs?.reference_images ?? []).filter(ref => !!ref?.path)
-                    .map(ref => ({ path: ref.path })), cropToAspect: savedStillCrop(), falEstimate: this.stillFalEstimate };
+                    .map(ref => ({ path: ref.path })), cropToAspect: savedStillCrop(), falEstimate: this.stillFalEstimate,
+                falEstimateError: this.stillFalEstimateError };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
@@ -6019,6 +6036,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected async probeStillRoute(key: string): Promise<void> {
         const state = this.aiStillStates.get(key);
         if (!state || state.probingRoutes?.size) return;
+        if (!this.stillFalEstimate) this.ensureStillFalEstimate();
         state.probing = true;
         const probingRoutes = new Set(stillRouteIds);
         state.probingRoutes = probingRoutes;
@@ -6052,7 +6070,11 @@ export class AkariInspectorWidget extends BaseWidget {
             || !routes.length || !input.prompt.trim()
             || routes.some(route => stillRouteAvailability(route, input.references.length).disabled
                 || !['ready', 'unknown'].includes(state.routes?.find(row => row.id === route)?.state ?? ''))) return;
-        if (routes.includes('fal') && !state.falEstimate) return;
+        if (routes.includes('fal') && !state.falEstimate) {
+            state.falEstimateError ??= '料金表を読めないため見積を出せません';
+            this.render();
+            return;
+        }
         const estimate = routes.includes('fal') ? state.falEstimate!.prices[input.quality] : 0;
         if (estimate > 0) {
             const approved = await new ConfirmDialog({ title: '費用承認',

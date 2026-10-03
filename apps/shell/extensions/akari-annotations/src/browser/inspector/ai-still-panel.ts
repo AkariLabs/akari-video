@@ -59,6 +59,7 @@ export interface AiStillState {
     cropToAspect?: boolean; croppedNotice?: string;
     quality?: 'low' | 'medium' | 'high';
     falEstimate?: StillFalEstimate;
+    falEstimateError?: string;
     detailsOpen?: boolean;
 }
 export interface AiStillActions {
@@ -156,7 +157,7 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     prompt.rows = 5;
     prompt.value = state.prompt;
     prompt.placeholder = '作りたい絵を言葉で書いてください';
-    prompt.addEventListener('input', () => { state.prompt = prompt.value; state.error = undefined; submit.disabled = !state.prompt.trim() || !canGenerate() || state.running; });
+    prompt.addEventListener('input', () => { state.prompt = prompt.value; state.error = undefined; submit.disabled = !canSubmit(); });
     promptLabel.appendChild(prompt);
     panel.appendChild(promptLabel);
     const references = make('div', 'akari-inspector-ai-still-references');
@@ -257,7 +258,14 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     const selected = (): StillRoute[] => [...(state.selectedRoutes ?? new Set<StillRoute>())].filter(id =>
         !stillRouteAvailability(id, state.references?.length ?? 0).disabled
         && ['ready', 'unknown'].includes(state.routes?.find(row => row.id === id)?.state ?? ''));
-    const canGenerate = (): boolean => !selectedChecking() && selected().length > 0;
+    const canSubmit = (routes: StillRoute[] = [...(state.selectedRoutes ?? [])],
+        input = { prompt: state.prompt, referenceCount: state.references?.length ?? 0 },
+        checkSelection = true): boolean =>
+        !!input.prompt.trim() && !state.running && routes.length > 0 && (!checkSelection || !selectedChecking())
+        && routes.every(id => !state.probingRoutes?.has(id)
+            && !stillRouteAvailability(id, input.referenceCount).disabled
+            && ['ready', 'unknown'].includes(state.routes?.find(row => row.id === id)?.state ?? ''))
+        && (!routes.includes('fal') || !!state.falEstimate);
     const routes = make('div', 'akari-inspector-ai-still-routes');
     for (const [group, groupRoutes] of Object.entries(stillRouteGroups)) {
         const section = make('div', 'akari-inspector-ai-still-route-group');
@@ -306,7 +314,8 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
         }
         if (id === 'fal') {
             label.appendChild(make('span', 'akari-inspector-ai-still-route-price', state.falEstimate
-                ? `見積もり $${state.falEstimate.prices[state.quality ?? 'high'].toFixed(3)} / 枚` : '見積もりを確認中'));
+                ? `見積もり $${state.falEstimate.prices[state.quality ?? 'high'].toFixed(3)} / 枚`
+                : state.falEstimateError ?? '見積もりを確認中'));
             if (routeState?.state !== 'ready') {
                 const link = make('button', 'akari-inspector-ai-still-secondary', 'キーを設定すると使えます →');
                 link.type = 'button'; link.setAttribute('data-akari-inspector-ai-fal-settings', 'true');
@@ -350,13 +359,20 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     const selectedCount = selected().length;
     const needsEstimate = selected().includes('fal');
     const estimate = needsEstimate ? state.falEstimate?.prices[state.quality ?? 'high'] : 0;
-    const submit = make('button', 'akari-inspector-ai-still-primary', `${selectedCount} 案を作る · ${estimate === undefined ? '見積確認中' : estimate ? `見積 $${estimate.toFixed(3)}` : '追加料金なし'}`);
+    const submit = make('button', 'akari-inspector-ai-still-primary', `${selectedCount} 案を作る · ${estimate === undefined
+        ? state.falEstimateError ? '見積不可' : '見積確認中'
+        : estimate ? `見積 $${estimate.toFixed(3)}` : '追加料金なし'}`);
     submit.type = 'button';
-    submit.disabled = !state.prompt.trim() || !canGenerate() || state.running || needsEstimate && !state.falEstimate;
+    submit.disabled = !canSubmit();
     submit.setAttribute('data-akari-inspector-ai-create', 'true');
     submit.setAttribute('data-akari-inspector-ai-create-count', String(selectedCount));
     submit.addEventListener('click', actions.generate);
     panel.appendChild(submit);
+    if (needsEstimate && state.falEstimateError) {
+        const notice = make('p', 'akari-inspector-ai-still-error', `${state.falEstimateError}。「状態を確かめ直す」で読み直せます`);
+        notice.setAttribute('data-akari-inspector-ai-estimate-error', 'true');
+        panel.appendChild(notice);
+    }
     if (state.batch?.routes.length) {
         const progress = make('div', 'akari-inspector-ai-still-progress');
         progress.setAttribute('data-akari-inspector-ai-progress', `${state.batch.completed}/${state.batch.routes.length}`);
@@ -397,7 +413,10 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
                 failed.setAttribute('data-akari-inspector-ai-failed-route', candidate.route);
                 const retry = make('button', 'akari-inspector-ai-still-secondary', '同じ入力でもう一度');
                 retry.type = 'button'; retry.setAttribute('data-akari-inspector-ai-retry-route', candidate.route);
-                retry.disabled = state.running; retry.addEventListener('click', () => actions.retry(candidate.route));
+                retry.disabled = !canSubmit([candidate.route], state.batchInput
+                    ? { prompt: state.batchInput.prompt, referenceCount: state.batchInput.references.length }
+                    : { prompt: state.prompt, referenceCount: state.references?.length ?? 0 }, false);
+                retry.addEventListener('click', () => actions.retry(candidate.route));
                 failed.appendChild(retry); candidates.appendChild(failed); continue;
             }
             const button = make('button', 'akari-inspector-ai-still-candidate');
@@ -435,7 +454,7 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
         const retry = make('button', 'akari-inspector-ai-still-secondary', 'もう一度');
         retry.type = 'button';
         retry.setAttribute('data-akari-inspector-ai-retry', 'true');
-        retry.disabled = !state.prompt.trim() || !canGenerate() || state.running;
+        retry.disabled = !canSubmit();
         retry.addEventListener('click', actions.generate);
         panel.appendChild(retry);
     }
