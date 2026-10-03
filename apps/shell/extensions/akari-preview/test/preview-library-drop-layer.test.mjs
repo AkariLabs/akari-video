@@ -93,7 +93,7 @@ test('ジオメトリが未取得でも層を即表示し、応答後に仮枠�
         assert.match(ghost.children.at(-1).textContent, /導入 に入ります/);
         layer.listeners.get('dragover')({ ...over, altKey: true });
         assert.equal(ghost.children.at(-1).dataset.akariCanvasDropHint, 'false');
-        window.setTimeout = (callback, delay) => setTimeout(callback, delay === 2500 ? 0 : delay);
+        window.setTimeout = (callback, delay) => setTimeout(callback, delay === 300 ? 0 : delay);
         layer.listeners.get('drop')({ clientX: 670, clientY: 190, altKey: true,
             dataTransfer: { getData: () => JSON.stringify({ kind: 'asset', key: 'still/photo', category: 'still' }) },
             preventDefault() {}, stopPropagation() {} });

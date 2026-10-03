@@ -51,9 +51,14 @@ test('cut/layer の時刻・track・transform・opacity・crop と tracks/audio 
     assert.equal(classifyPreviewModelUpdate(previous, next), 'incremental');
 });
 
-test('ソース URI の増減、fps、解像度、overlay runtime 資産は全再構築になる', () => {
+test('ソース URI の追加は差分、削除・既存行の変更・出力条件の変更は全再構築になる', () => {
+    const previous = base();
+    const added = structuredClone(previous);
+    added.sourceUris.push('alt=file:///project/alt.mp4');
+    assert.equal(classifyPreviewModelUpdate(previous, added), 'incremental');
     for (const mutate of [
-        model => model.sourceUris.push('alt=file:///project/alt.mp4'),
+        model => model.sourceUris.pop(),
+        model => { model.sourceUris[0] = 'main=file:///project/replaced.mp4'; },
         model => { model.output.fps = 60; },
         model => { model.output.width = 1080; },
         model => { model.overlayRuntimeAssets[3] = 'runtime-v2'; }

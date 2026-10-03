@@ -590,7 +590,12 @@ export class PreviewLibraryDrop {
         const insideWidget = !bounds || position.x >= left! && position.y >= top!
             && position.x <= left! + bounds.width && position.y <= top! + bounds.height;
         const point = geometry && nearestOutputPoint(position, geometry.rect, geometry.output);
-        if (!geometry || !point || !insideWidget) { this.clear(); return; }
+        if (!geometry || !point || !insideWidget) {
+            if (previewOverlayKind(payload) === 'overlay') console.warn('[akari-preview] overlay drop skipped', {
+                geometry: Boolean(geometry), point: Boolean(point), insideWidget
+            });
+            this.clear(); return;
+        }
         if (payload.outsideProject) {
             this.clear();
             this.messages.warn('プロジェクトの中のファイルだけ置けます');
@@ -715,7 +720,10 @@ export class PreviewLibraryDrop {
                 key: payload.key, t: geometry.time, center: point, editUri,
                 outsideCanvas: event.altKey
             });
-            if (!placed && heldGhost) return;
+            if (!placed) {
+                console.warn('[akari-preview] overlay drop command returned no item', payload.key);
+                return;
+            }
             keepGhost = true;
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true

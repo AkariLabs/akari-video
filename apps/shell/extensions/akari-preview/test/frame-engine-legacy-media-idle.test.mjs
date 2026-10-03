@@ -37,7 +37,7 @@ test('engine 面の enterSegment は土台 video にインライン visibility=h
 });
 
 test('engine 面の layer video は src より先に metadata-only を宣言する', () => {
-    const layerSetup = section('const layerEntries =', '// video FX rail');
+    const layerSetup = section('const createLayerEntry =', '// video FX rail');
     const preloadAt = layerSetup.indexOf("layerVideo.preload = frameEngineMediaIdle ? 'metadata' : 'auto';");
     const sourceAt = layerSetup.indexOf('layerVideo.src = layer.src;');
     assert.notEqual(preloadAt, -1);

@@ -4746,6 +4746,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (model.motionBagUris?.length || widget.akariPreviewMotionBagResources?.size) {
                     Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
                 }
+                const previousLayerCount = widget.akariPreviewSummary?.layers.length ?? 0;
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 const previousAssetUrls = widget.akariPreviewAssetUrlByUri ?? new Map<string, string>();
                 const acquiredAssets = [...(model.assetUrlByUri ?? new Map<string, string>())];
@@ -4782,6 +4783,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 model.assetStreamIds = model.assetStreamIds.filter(id => !addedAssetIds.has(id));
                 this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
                 widget.akariPreviewExcludedCaptionIds = new Set(model.excludedCaptionIds ?? []);
+                // A generated frame's PNG is a plain dark card. Its visual treatment comes
+                // from generation sidecars; deliver that treatment before showing the new layer.
+                const generatedAssetUrls = new Set([...(model.assetUrlByUri ?? new Map<string, string>())]
+                    .filter(([uri]) => /\/assets\/generated\/[^/]+\.png$/iu.test(uri))
+                    .map(([, url]) => url));
+                if (summary.layers.slice(previousLayerCount).some(layer => generatedAssetUrls.has(layer.src))) {
+                    await this.sendGenerationUpdate(widget);
+                }
                 // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
                 // 読込で正規化した cue を先に送り、model-update 内の同期 tick が古い字幕を
                 // 1 フレーム描く余地を残さない。

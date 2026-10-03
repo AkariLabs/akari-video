@@ -26,6 +26,7 @@ test('同じ 3D ドロップを複数の出力層が受けても一言は 1 回'
         output: { width: 1280, height: 720 } };
     const notices = [];
     const receiver = () => ({ active: session, dragSession: session, geometry,
+        pendingGeometryRequests: new Set(),
         fullscreen: () => false, editUri: () => 'file:///edit.json',
         queryGeometry: async () => geometry,
         clear() { this.active = undefined; },
@@ -48,6 +49,7 @@ test('オーバーレイは落下点とキャンバス内外の指定を配置�
         output: { width: 1280, height: 720 } };
     const calls = [];
     const receiver = { active: payload, geometry, fullscreen: () => false,
+        pendingGeometryRequests: new Set(),
         editUri: () => 'file:///edit.json', queryGeometry: async () => geometry,
         clear() { this.active = undefined; },
         commands: { executeCommand: async (id, request) => {
