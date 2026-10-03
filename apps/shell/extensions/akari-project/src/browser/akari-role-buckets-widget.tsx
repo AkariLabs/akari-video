@@ -1,5 +1,6 @@
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
+import { AKARI_CATALOG_ROOT_PREFERENCE, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
@@ -20,7 +21,7 @@ import { CommandService, MessageService } from '@theia/core/lib/common';
 import { OpenerService, QuickInputService, open } from '@theia/core/lib/browser';
 import { ConfirmDialog, SingleTextInputDialog } from '@theia/core/lib/browser/dialogs';
 import { isOSX } from '@theia/core/lib/common/os';
-import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -49,7 +50,6 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { isEditDataFileName } from '../common/edit-data-file';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
 import {
-    CATALOG_CATEGORIES,
     CatalogCategoryChip,
     CatalogItemMeta,
     CatalogViewMode,
@@ -183,7 +183,6 @@ function installCatalogAudioDockStyle(): void {
     document.head.appendChild(style);
 }
 
-const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
 const AKARI_LIBRARY_DETAILS_STORAGE_KEY = 'akari.library.detailsOpen';
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
@@ -491,6 +490,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected lintRunning = false;
     protected outputsPane!: AkariOutputsPane;
     protected materialsPane!: AkariMaterialsPane;
+    protected libraryPane!: AkariLibraryPane;
 
 
     /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
@@ -606,14 +606,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogCategory = 'all';
     protected catalogViewMode: CatalogViewMode = 'grid';
     protected readonly catalogBrokenThumbnails = new Set<string>();
-    protected catalogPickError?: string;
-    protected catalogPicking = false;
-    /**
-     * 「開発者向け: ローカルカタログを追加」折りたたみの開閉状態。空状態内の `<details>` と
-     * 一覧表示中のヘッダ小リンク（renderCatalogDeveloperLinkRow）が同じ状態を共有する
-     * （task.md 指示3「同じ導線に到達できる」）。既定は閉。
-     */
-    protected developerCatalogOpen = false;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
@@ -683,6 +675,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             set transcriptStateByPath(value) { widget().transcriptStateByPath = value; },
         };
         this.materialsPane = new AkariMaterialsPane(materialsHost);
+        const libraryHost: LibraryPaneHost = {
+            get dialogs() { return widget().dialogs; },
+            get preferences() { return widget().preferences; },
+            get files() { return widget().files; },
+            update: () => widget().update(),
+            loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent)
+        };
+        this.libraryPane = new AkariLibraryPane(libraryHost);
         this.toDispose.push(this.shapeShelf.onDidChange(() => this.update()));
         const saveMyStyle = (event: Event): void => {
             const detail = (event as CustomEvent<{ style: MyStyle; resolve: () => void; reject: (error: unknown) => void }>).detail;
@@ -1239,7 +1239,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
-        this.catalogPickError = undefined;
+        this.libraryPane.catalogPickError = undefined;
         const [view, presetShowcase, libraryTextstyles, usage, myStyles, favorites, transitionPreviews] = await Promise.all([
             this.projectService.getAssetCatalogView(preferenceRoot, intent),
             this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
@@ -1271,64 +1271,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     public async refreshStoreConnectionStatus(): Promise<void> {
         await this.storeConnectionFlow.refreshStatus();
-    }
-
-    /**
-     * 空状態の「フォルダを選ぶ」ボタン。ネイティブフォルダ選択 → 妥当性検証 →
-     * 合格なら preference（akari.catalog.root）を User スコープへ書き込む
-     * （再起動後も効くように — ワークスペース依存にしない）。書き込み後は
-     * onPreferenceChanged 経由でも loadAssetCatalogView() が走るが、体感を待たせないよう
-     * ここでも明示的に再読込する。不合格・キャンセル時は preference を書き換えない。
-     */
-    protected async pickCatalogFolder(): Promise<void> {
-        const destination = await this.dialogs.showOpenDialog({
-            title: 'カタログの場所を選ぶ',
-            canSelectFiles: false,
-            canSelectFolders: true
-        });
-        if (!destination) {
-            return;
-        }
-        this.catalogPicking = true;
-        this.catalogPickError = undefined;
-        this.update();
-        const validation = await this.validateCatalogFolder(destination);
-        if (validation.valid === false) {
-            this.catalogPicking = false;
-            this.catalogPickError = validation.reason;
-            this.update();
-            return;
-        }
-        await this.preferences.set(AKARI_CATALOG_ROOT_PREFERENCE, destination.path.fsPath(), PreferenceScope.User);
-        this.catalogPicking = false;
-        void this.loadAssetCatalogView('user');
-    }
-
-    /**
-     * 直下に task.md 指定のカテゴリディレクトリ（3d/telop/audio/broll/font/luts）が
-     * 1 つでもある、または INDEX.md があれば合格とする。どちらもなければ日本語の
-     * 理由を返す（呼び出し側がそのまま画面に出す）。
-     */
-    protected async validateCatalogFolder(uri: URI): Promise<{ valid: true } | { valid: false; reason: string }> {
-        let stat: FileStat;
-        try {
-            stat = await this.files.resolve(uri);
-        } catch {
-            return { valid: false, reason: '選んだフォルダーを読み込めませんでした。もう一度お試しください。' };
-        }
-        const children = stat.children ?? [];
-        const hasIndex = children.some(child => !child.isDirectory && child.resource.path.base === 'INDEX.md');
-        const hasCategoryDirectory = children.some(
-            child => child.isDirectory && (CATALOG_CATEGORIES as readonly string[]).includes(child.resource.path.base)
-        );
-        if (hasIndex || hasCategoryDirectory) {
-            return { valid: true };
-        }
-        return {
-            valid: false,
-            reason: '選んだフォルダーにカタログの内容が見つかりません'
-                + '（scene3d・overlay・still・audio・broll・font・textstyle のいずれかのフォルダー、または INDEX.md が必要です）。'
-        };
     }
 
     protected filteredCatalogItems(): AssetCatalogViewItem[] {
@@ -2865,7 +2807,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 {this.renderCatalogResolverRetry()}
                 {content}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>
-                    {this.renderCatalogDeveloperLinkRow()}
+                    {this.libraryPane.renderCatalogDeveloperLinkRow()}
                 </div>
             </div>
         );
@@ -2897,7 +2839,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         {this.renderPresetShowcase(kind)}
                     </section>
                 ))}
-                <div style={{ padding: '0 10px 10px' }}>{this.renderCatalogDeveloperLinkRow()}</div>
+                <div style={{ padding: '0 10px 10px' }}>{this.libraryPane.renderCatalogDeveloperLinkRow()}</div>
             </div>
         );
     }
@@ -2916,7 +2858,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             {groups.map(group => this.renderCatalogPackSection(group))}
                         </div>
                         : <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するパックがありません。</p>}
-                <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>{this.renderCatalogDeveloperLinkRow()}</div>
+                <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>{this.libraryPane.renderCatalogDeveloperLinkRow()}</div>
             </div>
         );
     }
@@ -3102,74 +3044,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 </p>
             </div>
         );
-    }
-
-    /**
-     * ローカルカタログ追加パネルの中身（フォルダ選択ボタン + 現在の設定値 + 妥当性エラー）。
-     * 折りたたみ内のみで使う語彙なので `akari.catalog.root` の表記可（task.md 指示3）。
-     * pickCatalogFolder() / validateCatalogFolder() 自体は無変更（2026-07-25-catalog-root-fix
-     * の既存挙動をそのまま流用）。
-     */
-    protected renderDeveloperCatalogPanelBody(): React.ReactNode {
-        const currentValue = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px' }}>
-                <p data-akari-catalog-root-value style={{ margin: 0, fontSize: '0.8em', opacity: 0.7 }}>
-                    現在の設定（{AKARI_CATALOG_ROOT_PREFERENCE}）: {currentValue || '未設定'}
-                </p>
-                <button
-                    type='button'
-                    className='theia-button secondary'
-                    disabled={this.catalogPicking}
-                    onClick={() => void this.pickCatalogFolder()}
-                >
-                    フォルダを選ぶ
-                </button>
-                {this.catalogPickError && (
-                    <p
-                        data-akari-catalog-pick-error
-                        style={{ margin: 0, color: 'var(--theia-errorForeground)', fontSize: '0.85em' }}
-                    >
-                        {this.catalogPickError}
-                    </p>
-                )}
-            </div>
-        );
-    }
-
-    /**
-     * 一覧表示中（=空状態が出ない）でもローカルカタログ追加へ到達できる、控えめな開発者向け行
-     * （task.md 指示3「目立たせない」）。developerCatalogOpen を空状態側と共有し、開いていれば
-     * 同じパネル本体をこの行の下に展開する。
-     */
-    protected renderCatalogDeveloperLinkRow(): React.ReactNode {
-        return (
-            <div style={{ paddingTop: '2px' }}>
-                <button
-                    type='button'
-                    data-akari-developer-catalog-toggle
-                    onClick={() => this.toggleDeveloperCatalogSection()}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        color: 'var(--theia-descriptionForeground, var(--theia-sideBar-foreground))',
-                        opacity: 0.6,
-                        fontSize: '0.75em',
-                        cursor: 'pointer',
-                        textDecoration: 'underline'
-                    }}
-                >
-                    開発者向け: ローカルカタログ…
-                </button>
-                {this.developerCatalogOpen && this.renderDeveloperCatalogPanelBody()}
-            </div>
-        );
-    }
-
-    protected toggleDeveloperCatalogSection(): void {
-        this.developerCatalogOpen = !this.developerCatalogOpen;
-        this.update();
     }
 
     /** 一覧のスクロール領域の外へ置く共有試聴ドック。 */
