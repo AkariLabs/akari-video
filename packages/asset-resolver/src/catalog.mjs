@@ -5,6 +5,7 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { catalogCachePath, resolveAkariHome, resolveCatalogSource } from './env.mjs';
 import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
+import { fetchTimed, readTimedJson } from './fetch-file.mjs';
 
 function normalizeCatalog(catalog) {
   if (!catalog || !Array.isArray(catalog.items)) {
@@ -31,7 +32,7 @@ export async function cacheCatalog(env = process.env, catalog) {
  * カタログを読む。リモート取得が失敗した場合（オフライン等）はローカルキャッシュへ
  * フォールバックする（黙って劣化させるのではなく、キャッシュが無ければ明示的に失敗する）。
  */
-export async function loadCatalog({ env = process.env, fetchImpl = fetch, includeInstalled = true } = {}) {
+export async function loadCatalog({ env = process.env, fetchImpl = fetch, includeInstalled = true, timeouts, fallbackToCache = true } = {}) {
   const source = resolveCatalogSource(env);
   const installedItems = includeInstalled ? await loadInstalledItems(env) : [];
   let catalog;
@@ -41,11 +42,12 @@ export async function loadCatalog({ env = process.env, fetchImpl = fetch, includ
     catalog = normalizeCatalog(JSON.parse(raw));
   } else {
     try {
-      const res = await fetchImpl(source.value);
+      const { response: res, controller } = await fetchTimed(source.value, { fetchImpl, timeouts, label: 'カタログ' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      catalog = normalizeCatalog(await res.json());
+      catalog = normalizeCatalog(await readTimedJson(res, controller, { timeouts, label: 'カタログ' }));
       await cacheCatalog(env, catalog);
     } catch (error) {
+      if (!fallbackToCache) throw new Error('カタログの取得に失敗しました: ' + (error instanceof Error ? error.message : String(error)));
       const cached = await readCatalogCache(env);
       if (cached) {
         catalog = cached;
@@ -62,6 +64,21 @@ export async function loadCatalog({ env = process.env, fetchImpl = fetch, includ
   }
 
   return includeInstalled ? mergeInstalledItems(catalog, installedItems) : catalog;
+}
+
+/** Resolve uses a valid local cache first; listing/sync remains responsible for freshness. */
+export async function loadCatalogForResolve(id, { env = process.env, fetchImpl = fetch, timeouts } = {}) {
+  const installedItems = await loadInstalledItems(env);
+  if (installedItems.some(item => item.id === id)) {
+    return { schema: 'akari-assets-catalog/v0', version: null, base: null, items: installedItems };
+  }
+  if (resolveCatalogSource(env).kind === 'url') {
+    const cached = await readCatalogCache(env);
+    if (cached && cached.items.some(item => item.id === id)) {
+      return mergeInstalledItems(cached, installedItems);
+    }
+  }
+  return loadCatalog({ env, fetchImpl, timeouts, fallbackToCache: false });
 }
 
 export { resolveEffectiveBase } from './env.mjs';

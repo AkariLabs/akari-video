@@ -827,7 +827,7 @@ try {
   process.stdout.write(JSON.stringify({ success: false, error: error && error.message ? error.message : String(error) }));
 }
 `;
-        const { code, stdout, stderr } = await this.runResolverScript(script);
+        const { code, stdout, stderr } = await this.runResolverScript(script, undefined, 5 * 60_000);
         if (code !== 0) {
             return { success: false, error: (stderr || stdout || `resolver スクリプトが異常終了しました (exit ${code})`).trim() };
         }
@@ -1064,7 +1064,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
      * process.execPath が Electron 実行体を指す場合に必要）。spawn 自体が失敗した
      * 場合も例外を投げず code=2 として返す（呼び出し側の fail-soft 処理を単純にする）。
      */
-    protected async runResolverScript(script: string, input?: string): Promise<{ code: number; stdout: string; stderr: string }> {
+    protected async runResolverScript(script: string, input?: string, timeoutMs?: number): Promise<{ code: number; stdout: string; stderr: string }> {
         return new Promise(resolvePromise => {
             const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
                 env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
@@ -1076,8 +1076,12 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             let stderr = '';
             child.stdout.on('data', chunk => stdout += chunk.toString());
             child.stderr.on('data', chunk => stderr += chunk.toString());
-            child.on('error', error => resolvePromise({ code: 2, stdout, stderr: String(error) }));
-            child.on('close', code => resolvePromise({ code: code ?? 2, stdout, stderr }));
+            const timer = timeoutMs ? setTimeout(() => {
+                child.kill();
+                resolvePromise({ code: 2, stdout, stderr: '素材の取り寄せ全体が時間切れになりました（5 分）' });
+            }, timeoutMs) : undefined;
+            child.on('error', error => { if (timer) clearTimeout(timer); resolvePromise({ code: 2, stdout, stderr: String(error) }); });
+            child.on('close', code => { if (timer) clearTimeout(timer); resolvePromise({ code: code ?? 2, stdout, stderr }); });
         });
     }
 

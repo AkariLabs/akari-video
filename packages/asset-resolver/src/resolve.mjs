@@ -16,7 +16,7 @@ import { constants, existsSync, realpathSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCatalog } from './catalog.mjs';
+import { loadCatalogForResolve } from './catalog.mjs';
 import { resolveEffectiveBase } from './env.mjs';
 import { AssetResolverError } from './errors.mjs';
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
@@ -87,10 +87,10 @@ async function moveIntoLibrary(tempDir, destDir) {
  */
 export async function resolve(
   id,
-  { env = process.env, fetchImpl = fetch, project = null, force = false, reference = false } = {},
+  { env = process.env, fetchImpl = fetch, project = null, force = false, reference = false, timeouts } = {},
 ) {
   const home = resolveAssetLibraryRoots(env).write;
-  const catalog = await loadCatalog({ env, fetchImpl });
+  const catalog = await loadCatalogForResolve(id, { env, fetchImpl, timeouts });
   const item = catalog.items.find((entry) => entry.id === id);
   if (!item) {
     throw new AssetResolverError(`未知の素材 id です: ${id}`, 'not_found');
@@ -115,7 +115,8 @@ export async function resolve(
   const price = item.price ?? 0;
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;
   if (price > 0) {
-    const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
+    const { ids: entitlements, error: entitlementError } = await fetchEntitlements({ env, fetchImpl, timeouts });
+    if (entitlementError?.includes('時間切れ')) throw new AssetResolverError(entitlementError, 'timeout');
     if (!entitlements.has(item.id) && !entitlements.has(item.product_id)) {
       throw new AssetResolverError(
         `未購入の素材です（¥${price.toLocaleString()}）。AKARI Video Lab で購入してから再度お試しください: ${item.id}`,
@@ -125,7 +126,7 @@ export async function resolve(
     // 有料カタログ item は files[] を持たない設計（実体は非公開 R2 のまま。tools/publish-free.mjs
     // 側の掲載規律の裏返し）。entitled 済みなら zip ダウンロード経路（契約 §6/§8）で取得する。
     if (!hasFiles) {
-      return resolvePaidZip(item, { env, fetchImpl, project, reference, home, destDir });
+      return resolvePaidZip(item, { env, fetchImpl, project, reference, home, destDir, timeouts });
     }
   }
 
@@ -143,26 +144,30 @@ export async function resolve(
 
   try {
     await mkdir(tempAssetDir, { recursive: true });
-    let hasMeta = false;
+    const hasMeta = item.files.some(file => file.name === 'meta.json');
     for (const file of item.files) {
       if (typeof file.name !== 'string' || !file.name) {
         throw new AssetResolverError(`files[] エントリに name がありません: ${item.id}`, 'invalid_catalog_item');
       }
-      if (file.name === 'meta.json') hasMeta = true;
-
-      const destPath = path.join(tempAssetDir, file.name);
-      const resolved = resolveFileLocation(base, file);
-      await materialize(resolved, destPath, { fetchImpl });
-
-      if (file.sha256) {
-        const actual = await sha256File(destPath);
-        if (actual !== file.sha256) {
-          throw new AssetResolverError(
-            `sha256 が一致しません（改竄または破損の可能性）: ${item.id}/${file.name}（期待 ${file.sha256} / 実際 ${actual}）`,
-            'integrity',
-          );
+    }
+    for (let start = 0; start < item.files.length; start += 4) {
+      const batch = item.files.slice(start, start + 4);
+      const results = await Promise.allSettled(batch.map(async file => {
+        const destPath = path.join(tempAssetDir, file.name);
+        const resolved = resolveFileLocation(base, file);
+        await materialize(resolved, destPath, { fetchImpl, timeouts });
+        if (file.sha256) {
+          const actual = await sha256File(destPath);
+          if (actual !== file.sha256) {
+            throw new AssetResolverError(
+              `sha256 が一致しません（改竄または破損の可能性）: ${item.id}/${file.name}（期待 ${file.sha256} / 実際 ${actual}）`,
+              'integrity',
+            );
+          }
         }
-      }
+      }));
+      const failed = results.find(result => result.status === 'rejected');
+      if (failed) throw failed.reason;
     }
 
     // still / scene3d 等、meta.json を実体に持つ素材は validate-asset で契約検証してから登録する
@@ -195,7 +200,7 @@ export async function resolve(
  * コピー → （meta.json があれば）validate-asset → 全部通ってから登録先へ原子的に move する。
  * 無料経路（files[] ベース）と同じ fail-closed・一時ディレクトリ破棄の規律を踏襲する。
  */
-async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, destDir }) {
+async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, destDir, timeouts }) {
   const credentials = await readStoreCredentials(env);
   if (!credentials) {
     // entitled 判定（fetchEntitlements）が通った直後にここへ来るので通常は発生しないが、
@@ -210,7 +215,7 @@ async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, 
   try {
     const productId = item.product_id ?? item.id;
     const zipPath = path.join(tempRoot, `${productId}.zip`);
-    await downloadPaidZip(productId, credentials, zipPath, { env, fetchImpl });
+    await downloadPaidZip(productId, credentials, zipPath, { env, fetchImpl, timeouts });
 
     const extractedRoot = path.join(tempRoot, 'extracted');
     extractZip(zipPath, extractedRoot);

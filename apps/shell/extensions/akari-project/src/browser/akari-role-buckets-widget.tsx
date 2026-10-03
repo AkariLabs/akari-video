@@ -2475,10 +2475,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.messages.warn('この素材は直接置けません');
             return undefined;
         }
+        const flights = this.resolvingAssetKeys as Set<string> & {
+            fetchPromises?: Map<string, Promise<{ relativePath: string; kind: MaterialKind; cached?: boolean } | undefined>>
+        };
+        const inFlight = flights.fetchPromises ??= new Map();
+        const running = inFlight.get(key);
+        if (running) return running;
         if (this.resolvingAssetKeys.has(key)) {
             this.messages.warn('素材を取得中です。完了してからもう一度追加してください。');
             return undefined;
         }
+        const work = (async () => {
         this.resolvingAssetKeys.add(key);
         this.update();
         try {
@@ -2547,6 +2554,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.resolvingAssetKeys.delete(key);
             this.update();
         }
+        })();
+        inFlight.set(key, work);
+        try { return await work; } finally { inFlight.delete(key); }
     }
 
     /** 未購入のプレミアムもドラッグできる（payload に locked を載せ、受け口が促しのシートへ分岐する）。 */
