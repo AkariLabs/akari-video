@@ -19,8 +19,8 @@ export function geminiConsentCanNext(audioPresent: boolean, check?: GeminiConsen
 
 export function geminiConsentStatus(check?: GeminiConsentCheck): string {
     if (!check) return '';
-    if (geminiConsentReady(check)) return `✓ 同意文との一致 ${Math.round((check.checks?.script?.score ?? 0) * 100)}% · この PC で照合しました`;
-    if (check.checks?.script?.ok === 'unavailable') return 'この PC で聞き取りができないため送信できません。';
+    if (geminiConsentReady(check)) return `✓ 同意文との一致 ${Math.round((check.checks?.script?.score ?? 0) * 100)}% · このパソコン で照合しました`;
+    if (check.checks?.script?.ok === 'unavailable') return 'このパソコン で聞き取りができないため送信できません。';
     if (check.checks?.script?.ok === false || (check.checks?.script?.score ?? 0) < 0.8) return '同意文との一致が 80% 未満です。録り直してください。';
     return check.reasons?.[0] ?? '同意録音のチェックに合格していません。';
 }
@@ -104,6 +104,6 @@ export function voiceCheckRows(check: VoiceCheckResult): Array<{ label: string; 
         { label: '音の大きさ', mark: level.ok ? '✓' : '✗', detail: `ピーク ${level.peak_db} dB · 平均 ${level.mean_db} dB` },
         { label: 'まわりの音', mark: noise.warn ? '!' : '✓', detail: `無音部分 ${noise.floor_db} dB` },
         { label: '原稿どおりか', mark: script.ok === false ? '✗' : script.ok === 'unavailable' ? '!' : '✓',
-            detail: script.ok === 'unavailable' ? 'この PC では聞き取りができません' : `聞き取り一致 ${Math.round((script.score ?? 0) * 100)}%（${script.backend ?? 'ローカル'}）` }
+            detail: script.ok === 'unavailable' ? 'このパソコン では聞き取りができません' : `聞き取り一致 ${Math.round((script.score ?? 0) * 100)}%（${script.backend ?? 'ローカル'}）` }
     ];
 }

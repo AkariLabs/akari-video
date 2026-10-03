@@ -40,9 +40,9 @@ test('Gemini の段は同意録音とローカル照合 0.8 を要求する', ()
   assert.equal(geminiConsentCanNext(false, check), false);
   assert.equal(geminiConsentCanNext(true, check), true);
   assert.equal(geminiConsentReady(check), true);
-  assert.equal(geminiConsentStatus(check), '✓ 同意文との一致 94% · この PC で照合しました');
+  assert.equal(geminiConsentStatus(check), '✓ 同意文との一致 94% · このパソコン で照合しました');
   assert.equal(geminiConsentStatus({ ...check, checks: { ...check.checks, script: { ok: 'unavailable' } } }),
-    'この PC で聞き取りができないため送信できません。');
+    'このパソコン で聞き取りができないため送信できません。');
   assert.equal(GEMINI_WATERMARK_NOTICE, '写しには Google の透かしが入ります');
 });
 
