@@ -522,7 +522,67 @@ export class PreviewLibraryDrop {
         const position = { x: event.clientX, y: event.clientY };
         const latest = this.geometry;
         if (!payload || this.fullscreen()) { this.clear(); return; }
-        const fresh = this.queryGeometry(2500);
+        // Keep this copy outside the drag layer before the first await: dragend may clear
+        // the layer in the same task as drop.
+        const ghostRect = this.ghost?.getBoundingClientRect();
+        const heldGhost = ghostRect && this.ghost?.style.display !== 'none' && this.ghost?.cloneNode
+            ? this.ghost.cloneNode(true) as HTMLDivElement : undefined;
+        const pageId = (this.widget as (WebviewWidget & { akariPreviewPlaybackPageId?: string }) | undefined)
+            ?.akariPreviewPlaybackPageId;
+        let placementStarted = false;
+        let keepGhost = false;
+        let finished = false;
+        let ghostTimer: number | undefined;
+        let paintListener: { dispose(): void } | undefined;
+        const finishGhost = (): void => {
+            if (finished) return;
+            finished = true;
+            if (typeof window !== 'undefined') window.clearTimeout(ghostTimer);
+            paintListener?.dispose();
+            heldGhost?.remove();
+        };
+        if (heldGhost && ghostRect) {
+            heldGhost.dataset.akariPlacedGhost = 'true';
+            Object.assign(heldGhost.style, { position: 'fixed', left: `${ghostRect.left}px`,
+                top: `${ghostRect.top}px`, zIndex: '2147483647' });
+            document.body.appendChild(heldGhost);
+            ghostTimer = window.setTimeout(finishGhost, 2000);
+            paintListener = this.widget.onMessage(message => {
+                if (!placementStarted || finished) return;
+                const visualAsset = payload.kind === 'asset' && payload.category !== 'audio';
+                const paintedLayer = Array.isArray(message?.layerIds) && message.layerIds.length > 0;
+                const currentPageId = (this.widget as WebviewWidget & { akariPreviewPlaybackPageId?: string })
+                    .akariPreviewPlaybackPageId;
+                if (message?.type === 'akari-preview-model-painted' && (!visualAsset || paintedLayer)
+                    && ((message.pageId === pageId && message.initialPaint !== true)
+                        || (message.initialPaint === true && message.pageId !== pageId
+                            && message.pageId === currentPageId))) {
+                    finishGhost();
+                } else if (message?.type === 'akari-preview-ready-seeked' && message.pageId !== pageId
+                    && !visualAsset) {
+                    window.requestAnimationFrame(() => window.requestAnimationFrame(finishGhost));
+                }
+            });
+        }
+        const placementKey = payload.key && (payload.kind === 'asset' || previewOverlayKind(payload) === 'overlay')
+            ? payload.key : undefined;
+        const placementEditUri = this.editUri();
+        const notifyPlacement = (phase: 'begin' | 'end'): void => {
+            if (placementKey && placementEditUri && typeof window !== 'undefined'
+                && typeof CustomEvent !== 'undefined' && window.dispatchEvent)
+                window.dispatchEvent(new CustomEvent('akari-preview-placement', {
+                detail: { phase, editUri: placementEditUri, key: placementKey }
+                }));
+        };
+        notifyPlacement('begin');
+        try {
+        const earlierGeometryRequests = new Set(this.pendingGeometryRequests);
+        const fresh = this.queryGeometry(300);
+        // dragend clears hover requests in this task; keep the drop request alive
+        // until its reply or its own 300 ms timeout.
+        for (const request of this.pendingGeometryRequests) {
+            if (!earlierGeometryRequests.has(request)) this.pendingGeometryRequests.delete(request);
+        }
         const geometry = await fresh ?? latest;
         const bounds = this.widget?.node.getBoundingClientRect();
         const left = bounds && (bounds.left ?? bounds.x);
@@ -530,7 +590,12 @@ export class PreviewLibraryDrop {
         const insideWidget = !bounds || position.x >= left! && position.y >= top!
             && position.x <= left! + bounds.width && position.y <= top! + bounds.height;
         const point = geometry && nearestOutputPoint(position, geometry.rect, geometry.output);
-        if (!geometry || !point || !insideWidget) { this.clear(); return; }
+        if (!geometry || !point || !insideWidget) {
+            if (previewOverlayKind(payload) === 'overlay') console.warn('[akari-preview] overlay drop skipped', {
+                geometry: Boolean(geometry), point: Boolean(point), insideWidget
+            });
+            this.clear(); return;
+        }
         if (payload.outsideProject) {
             this.clear();
             this.messages.warn('プロジェクトの中のファイルだけ置けます');
@@ -566,25 +631,34 @@ export class PreviewLibraryDrop {
         if (!editUri) return;
         if (payload.source === 'material' || payload.source === 'explorer') {
             if (!payload.relativePath) return;
-            await this.commands.executeCommand('akari.timeline.addMaterialAtOutputPoint', {
+            placementStarted = true;
+            const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addMaterialAtOutputPoint', {
                 relativePath: payload.relativePath, kind: payload.kind, t: geometry.time,
                 ...(payload.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
+                ...(payload.kind === 'image' && Number.isFinite(payload.width) && (payload.width ?? 0) > 0
+                    && Number.isFinite(payload.height) && (payload.height ?? 0) > 0
+                    ? { sourceWidth: payload.width } : {}),
                 editUri, outsideCanvas: event.altKey,
                 ...(!event.altKey ? { canvasAware: true } : {})
             });
+            if (!placed && heldGhost) { placementStarted = false; return; }
+            keepGhost = payload.kind !== 'audio';
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
+            if (payload.kind === 'audio') finishGhost();
             return;
         }
         if (payload.kind === 'shape') {
             const shape = previewShapePayload(payload);
             if (!shape) return;
+            placementStarted = true;
             const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addShapeAt', {
                 preset: shape.preset, t: geometry.time, center: point, editUri,
                 ...(!event.altKey ? { canvasAware: true } : {}), outsideCanvas: event.altKey
             });
-            if (!placed) return;
+            if (!placed && heldGhost) return;
+            keepGhost = true;
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
@@ -605,6 +679,8 @@ export class PreviewLibraryDrop {
             const plan = await this.commands.executeCommand<PlannedMaterial | undefined>(
                 'akari.catalog.planMaterial', payload.key).catch(() => undefined);
             if (plan?.relativePath && this.canPlaceOptimistically(plan, payload)) {
+                placementStarted = true;
+                keepGhost = true;
                 await this.placeThenFetch(plan, payload, geometry, point, editUri, event.altKey);
                 return;
             }
@@ -615,7 +691,8 @@ export class PreviewLibraryDrop {
                 this.messages.warn('この素材は取り寄せできませんでした。');
                 return;
             }
-            await this.commands.executeCommand('akari.timeline.addMaterialAtOutputPoint', {
+            placementStarted = true;
+            const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addMaterialAtOutputPoint', {
                 relativePath: material.relativePath, kind: material.kind, t: geometry.time,
                 ...(material.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
                 // カタログは解像度を知っている。渡すと probe を省けて速く、原寸で置かれる事故も防げる。
@@ -623,9 +700,12 @@ export class PreviewLibraryDrop {
                 editUri, outsideCanvas: event.altKey,
                 ...(!event.altKey ? { canvasAware: true } : {})
             });
+            if (!placed && heldGhost) { placementStarted = false; return; }
+            keepGhost = material.kind !== 'audio';
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
+            if (material.kind === 'audio') finishGhost();
             return;
         }
         const overlayKind = previewOverlayKind(payload);
@@ -635,18 +715,24 @@ export class PreviewLibraryDrop {
             return;
         }
         if (overlayKind === 'overlay') {
+            placementStarted = true;
             const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addOverlayAtOutputPoint', {
                 key: payload.key, t: geometry.time, center: point, editUri,
                 outsideCanvas: event.altKey
             });
-            if (!placed) return;
+            if (!placed) {
+                console.warn('[akari-preview] overlay drop command returned no item', payload.key);
+                return;
+            }
+            keepGhost = true;
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
             return;
         }
         if (PLACE_KINDS.has(payload.kind)) {
-            await this.commands.executeCommand('akari.caption.placeText', {
+            placementStarted = true;
+            const placedText = await this.commands.executeCommand<string | undefined>('akari.caption.placeText', {
                 start: geometry.time, center: { x: point.x / geometry.output.width,
                     y: point.y / geometry.output.height },
                 ...(payload.kind === 'textstyle' ? { stylePreset: payload.id } : {}),
@@ -654,6 +740,23 @@ export class PreviewLibraryDrop {
                 ...(!event.altKey ? { canvasAware: true } : {}),
                 outsideCanvas: event.altKey
             }, editUri);
+            if (!placedText && heldGhost) return;
+            keepGhost = true;
+            if (heldGhost) {
+                await this.commands.executeCommand('akari.preview.seekOutput', {
+                    editUri, time: geometry.time, waitForReady: true
+                });
+                void (async () => {
+                    while (!finished) {
+                        const hit = await this.queryHit(point, geometry, payload, false);
+                        if (hit?.kind === 'caption' && hit.id === placedText) {
+                            window.requestAnimationFrame(() => window.requestAnimationFrame(finishGhost));
+                            return;
+                        }
+                        await new Promise(resolve => window.setTimeout(resolve, 50));
+                    }
+                })().catch(finishGhost);
+            }
             return;
         }
         if (payload.kind !== 'asset' || !payload.key) return;
@@ -672,6 +775,13 @@ export class PreviewLibraryDrop {
             });
         } catch {
             this.messages.warn('再生位置を戻せませんでした。');
+        }
+        } catch (error) {
+            keepGhost = false;
+            throw error;
+        } finally {
+            notifyPlacement('end');
+            if (!keepGhost) finishGhost();
         }
     }
 

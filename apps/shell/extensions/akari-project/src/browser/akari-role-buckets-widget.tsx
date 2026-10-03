@@ -3132,10 +3132,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * CustomEvent もミラー送信する（受け側のゴースト計算・実尺プローブ用、司令塔裁定4）。
      */
     protected handleMaterialDragStart(event: React.DragEvent<HTMLDivElement>, entry: MaterialCardEntry): void {
-        const payload: { relativePath: string; kind: MaterialKind; durationSeconds?: number; name: string; thumb?: string } = {
+        const known = entry.reference && this.assetCatalogItems.find(item =>
+            item.key === `${entry.reference!.category}/${entry.reference!.id}`) as
+            (AssetCatalogViewItem & { width?: number; height?: number }) | undefined;
+        const payload: { relativePath: string; kind: MaterialKind; durationSeconds?: number;
+            name: string; thumb?: string; width?: number; height?: number } = {
             relativePath: entry.mediaRelativePath ?? entry.relativePath,
             kind: entry.kind,
             name: entry.name,
+            ...(known && Number.isFinite(known.width) && (known.width ?? 0) > 0
+                && Number.isFinite(known.height) && (known.height ?? 0) > 0
+                ? { width: known.width, height: known.height } : {}),
             ...(entry.thumbnailUri ? { thumb: entry.thumbnailUri.toString() } : {}),
             ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
         };

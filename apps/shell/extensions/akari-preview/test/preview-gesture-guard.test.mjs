@@ -220,7 +220,7 @@ function dragFixture(crop = false) {
     const api = vm.runInContext(`${flags}\n${drag}\n({
         begin: ${crop ? 'beginMediaCropDrag' : 'beginMediaTransformDrag'},
         active: () => selectionDragActive,
-        applyCut: ${section('            const applyCutVisual =', '            const layerEntries =').trim().replace(/^const applyCutVisual = /u, '').replace(/;$/u, '')},
+        applyCut: ${section('            const applyCutVisual =', '            const createLayerEntry =').trim().replace(/^const applyCutVisual = /u, '').replace(/;$/u, '')},
         setTarget: beginSelectionGesture,
         protected: () => selectionGestureProtects('cut'),
         applyLayer: ${section('            const applyIncrementalLayerSpec =', '            // CF-select + transform').trim().replace(/^const applyIncrementalLayerSpec = /u, '').replace(/;$/u, '')}
