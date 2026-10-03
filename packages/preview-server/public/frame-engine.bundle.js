@@ -2925,2278 +2925,6 @@ var require_textstyle_catalog_merge = __commonJS({
   }
 });
 
-// ../edit-store/lib/caption-store.js
-var require_caption_store = __commonJS({
-  "../edit-store/lib/caption-store.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CAPTION_ZONES = void 0;
-    exports.parseCaptions = parseCaptions;
-    exports.mergeCaptionTextStyles = mergeCaptionTextStyles;
-    exports.shiftCaptionLine = shiftCaptionLine;
-    exports.setCaptionTimingLine = setCaptionTimingLine;
-    exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
-    exports.updateCaptionFieldsInSourceWithReport = updateCaptionFieldsInSourceWithReport;
-    exports.updateCaptionRunsInSource = updateCaptionRunsInSource;
-    exports.captionEmphasisRemovedNotice = captionEmphasisRemovedNotice;
-    exports.captionEditNotices = captionEditNotices;
-    exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
-    exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
-    exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
-    exports.insertCaptionLine = insertCaptionLine;
-    exports.removeCaptionLine = removeCaptionLine;
-    exports.splitCaptionLine = splitCaptionLine;
-    exports.mergeCaptionLines = mergeCaptionLines;
-    var edit_store_1 = require_edit_store();
-    var caption_words_rederive_1 = require_caption_words_rederive();
-    var caption_runs_1 = require_caption_runs();
-    var caption_style_preset_1 = require_caption_style_preset();
-    var textstyle_catalog_merge_1 = require_textstyle_catalog_merge();
-    exports.CAPTION_ZONES = [
-      "top-left",
-      "top",
-      "top-right",
-      "left",
-      "center",
-      "right",
-      "bottom-left",
-      "bottom",
-      "bottom-right"
-    ];
-    var JSON_NUMBER = "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?";
-    function parseCaptions(source, options = {}) {
-      let root = JSON.parse(source);
-      root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog).root;
-      const values = Array.isArray(root) ? root : isRecord2(root) && Array.isArray(root.captions) ? root.captions : void 0;
-      if (!values) {
-        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      const warnings = [];
-      const defaultTextStyle = !Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 ? normalizeTextStyle(root.default_text_style, (keys) => warnings.push(`\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`)) : void 0;
-      if (!Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 && defaultTextStyle === void 0) {
-        throw new Error("\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      const captions = [];
-      const seenIds = /* @__PURE__ */ new Set();
-      for (let index = 0; index < values.length; index++) {
-        const caption = normalizeCaption(values[index], (keys) => warnings.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306E text_style \u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`));
-        if (!caption) {
-          warnings.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306F\u6642\u523B\u307E\u305F\u306F\u5185\u5BB9\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
-          continue;
-        }
-        if (seenIds.has(caption.id)) {
-          warnings.push(`\u5B57\u5E55 ${caption.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u884C\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
-          continue;
-        }
-        seenIds.add(caption.id);
-        captions.push(caption);
-      }
-      return {
-        captions,
-        ...defaultTextStyle !== void 0 ? { defaultTextStyle } : {},
-        warnings
-      };
-    }
-    function mergeCaptionTextStyles(defaultStyle, captionStyle) {
-      const merged = {
-        ...defaultStyle,
-        ...captionStyle
-      };
-      const stroke = mergeNestedStyle(defaultStyle?.stroke, captionStyle?.stroke);
-      if (stroke && Object.keys(stroke).length > 0) {
-        merged.stroke = stroke;
-      } else {
-        delete merged.stroke;
-      }
-      for (const key of ["strokeInner", "fillGradient", "extrude"]) {
-        const value = mergeNestedStyle(defaultStyle?.[key], captionStyle?.[key]);
-        if (value && Object.keys(value).length > 0)
-          merged[key] = value;
-        else
-          delete merged[key];
-      }
-      const background = mergeNestedStyle(defaultStyle?.background, captionStyle?.background);
-      if (background && Object.keys(background).length > 0) {
-        merged.background = background;
-      } else {
-        delete merged.background;
-      }
-      const position = mergeNestedStyle(defaultStyle?.position, captionStyle?.position);
-      if (position && Object.keys(position).length > 0) {
-        merged.position = position;
-      } else {
-        delete merged.position;
-      }
-      const shadow = mergeNestedStyle(defaultStyle?.shadow, captionStyle?.shadow);
-      if (shadow && Object.keys(shadow).length > 0) {
-        merged.shadow = shadow;
-      } else {
-        delete merged.shadow;
-      }
-      const glow = mergeNestedStyle(defaultStyle?.glow, captionStyle?.glow);
-      if (glow && Object.keys(glow).length > 0) {
-        merged.glow = glow;
-      } else {
-        delete merged.glow;
-      }
-      const animation = mergeNestedStyle(defaultStyle?.animation, captionStyle?.animation);
-      if (animation && Object.keys(animation).length > 0) {
-        merged.animation = animation;
-      } else {
-        delete merged.animation;
-      }
-      const karaoke = mergeNestedStyle(defaultStyle?.karaoke, captionStyle?.karaoke);
-      if (karaoke && Object.keys(karaoke).length > 0)
-        merged.karaoke = karaoke;
-      else
-        delete merged.karaoke;
-      const layout = mergeNestedStyle(defaultStyle?.layout, captionStyle?.layout);
-      if (layout && Object.keys(layout).length > 0) {
-        merged.layout = layout;
-      } else {
-        delete merged.layout;
-      }
-      return Object.keys(merged).length > 0 ? merged : void 0;
-    }
-    function shiftCaptionLine(source, captionId, deltaStart, deltaEnd) {
-      if (!captionId || !Number.isFinite(deltaStart) || !Number.isFinite(deltaEnd)) {
-        throw new Error("\u5B57\u5E55\u306E\u8ABF\u6574\u5024\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      const array = locateCaptionArray(source);
-      const element = findCaptionElement(array.elements, captionId);
-      const start = readCaptionNumberProperty(element.text, "start", captionId);
-      const end = readCaptionNumberProperty(element.text, "end", captionId);
-      const nextStart = start + deltaStart;
-      const nextEnd = end + deltaEnd;
-      if (!Number.isFinite(nextStart) || !Number.isFinite(nextEnd) || nextStart < 0 || nextEnd - nextStart < 0.15) {
-        throw new Error("\u5B57\u5E55\u304C\u77ED\u3059\u304E\u307E\u3059\uFF080.15 \u79D2\u672A\u6E80\u306B\u306F\u3067\u304D\u307E\u305B\u3093\uFF09");
-      }
-      let nextElement = replaceCaptionProperty(element.text, "start", nextStart, captionId);
-      nextElement = replaceCaptionProperty(nextElement, "end", nextEnd, captionId);
-      nextElement = replaceCaptionProperty(nextElement, "edited", true, captionId);
-      return replaceElement(source, array.openIndex + 1, element, nextElement);
-    }
-    function setCaptionTimingLine(source, captionId, start, end, timeDomain, edited) {
-      if (!captionId || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end - start < 0.15) {
-        throw new Error("\u5B57\u5E55\u304C\u77ED\u3059\u304E\u307E\u3059\uFF080.15 \u79D2\u672A\u6E80\u306B\u306F\u3067\u304D\u307E\u305B\u3093\uFF09");
-      }
-      const array = locateCaptionArray(source);
-      const element = findCaptionElement(array.elements, captionId);
-      let nextElement = replaceCaptionProperty(element.text, "start", start, captionId);
-      nextElement = replaceCaptionProperty(nextElement, "end", end, captionId);
-      nextElement = replaceCaptionProperty(nextElement, "edited", edited, captionId);
-      nextElement = updateOptionalStyleProperty(nextElement, "time_domain", timeDomain, `\u5B57\u5E55 ${captionId}`);
-      return replaceElement(source, array.openIndex + 1, element, nextElement);
-    }
-    function updateCaptionFieldsInSource(source, captionId, updates) {
-      return updateCaptionFieldsInSourceWithReport(source, captionId, updates).source;
-    }
-    function updateCaptionFieldsInSourceWithReport(source, captionId, updates) {
-      if (!captionId) {
-        throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.text === void 0 && updates.speaker === void 0 && updates.unrecognized === void 0 && updates.style === void 0 && updates.displayTiming === void 0) {
-        throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.text !== void 0 && (typeof updates.text !== "string" || !updates.text.trim())) {
-        throw new Error("\u5B57\u5E55\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u7A7A\u306B\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      if (updates.speaker !== void 0 && updates.speaker !== null && typeof updates.speaker !== "string") {
-        throw new Error("\u5B57\u5E55\u306E\u8A71\u8005\u306F\u6587\u5B57\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.style !== void 0 && updates.style !== null && !["karaoke", "pop", "reveal", "reveal-word"].includes(updates.style)) {
-        throw new Error("\u5B57\u5E55\u306E\u30B9\u30BF\u30A4\u30EB\uFF08\u6F14\u51FA\uFF09\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.displayTiming !== void 0 && updates.displayTiming !== null && updates.displayTiming !== "full" && updates.displayTiming !== "speech-tight") {
-        throw new Error("\u5B57\u5E55\u306E\u8868\u793A\u30BF\u30A4\u30DF\u30F3\u30B0\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      let unrecognized;
-      if (updates.unrecognized !== void 0 && updates.unrecognized !== null) {
-        if (!Array.isArray(updates.unrecognized)) {
-          throw new Error("\u5B57\u5E55\u306E\u672A\u8A8D\u8B58\u533A\u9593\u306F\u914D\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-        }
-        unrecognized = updates.unrecognized.map((span) => {
-          if (!span || typeof span !== "object" || typeof span.start !== "number" || !Number.isFinite(span.start) || typeof span.end !== "number" || !Number.isFinite(span.end) || span.end <= span.start) {
-            throw new Error("\u5B57\u5E55\u306E\u672A\u8A8D\u8B58\u533A\u9593\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-          }
-          return { start: span.start, end: span.end };
-        }).sort((left, right) => left.start - right.start || left.end - right.end);
-      }
-      const array = locateCaptionArray(source);
-      const element = findCaptionElement(array.elements, captionId);
-      let nextElement = element.text;
-      let removedRuns = [];
-      let removedEmphasis = [];
-      let nextEmphasis;
-      let oldEmphasis;
-      if (updates.text !== void 0) {
-        const parsed = JSON.parse(nextElement);
-        const applied = (0, caption_words_rederive_1.applyCaptionTextEdit)(parsed, updates.text);
-        removedRuns = applied.removedRuns ?? [];
-        if (applied.record !== parsed) {
-          const root = JSON.parse(source);
-          if (!Array.isArray(root) && isRecord2(root) && Array.isArray(root.emphasis_words) && Array.isArray(parsed.words) && applied.rederive) {
-            oldEmphasis = root.emphasis_words;
-            const rebased = (0, caption_words_rederive_1.rebaseCaptionEmphasis)({
-              emphasis: oldEmphasis,
-              oldWords: parsed.words,
-              result: applied.rederive,
-              oldText: parsed.text,
-              newText: applied.record.text,
-              ...typeof parsed.src === "string" ? { src: parsed.src } : {}
-            });
-            removedEmphasis = rebased.removed;
-            if (rebased.removed.length || rebased.emphasis.some((entry, index) => entry !== oldEmphasis[index]))
-              nextEmphasis = rebased.emphasis;
-          }
-          nextElement = replaceCaptionJsonProperty(nextElement, "text", applied.record.text, captionId);
-          nextElement = replaceCaptionJsonProperty(nextElement, "edited", applied.record.edited, captionId);
-          nextElement = syncOptionalCaptionProperty(nextElement, "words", applied.record.words, captionId);
-          nextElement = syncOptionalCaptionProperty(nextElement, "display_text", applied.record.display_text, captionId);
-          nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", applied.record.display_fragments, captionId);
-          nextElement = syncOptionalCaptionProperty(nextElement, "runs", applied.record.runs, captionId);
-        }
-      }
-      if (updates.speaker !== void 0) {
-        nextElement = replaceCaptionProperty(nextElement, "speaker", updates.speaker, captionId);
-        nextElement = replaceCaptionProperty(nextElement, "edited", true, captionId);
-      }
-      if (updates.unrecognized !== void 0) {
-        nextElement = syncOptionalCaptionProperty(nextElement, "unrecognized", updates.unrecognized === null || unrecognized?.length === 0 ? void 0 : unrecognized, captionId);
-      }
-      if (updates.style !== void 0) {
-        nextElement = syncOptionalCaptionProperty(nextElement, "style", updates.style ?? void 0, captionId);
-      }
-      if (updates.displayTiming !== void 0) {
-        const next = updates.displayTiming === "speech-tight" ? "speech-tight" : void 0;
-        nextElement = syncOptionalCaptionProperty(nextElement, "display_timing", next, captionId);
-      }
-      let updated = replaceElement(source, array.openIndex + 1, element, nextElement);
-      if (nextEmphasis && oldEmphasis) {
-        const property = locateTopLevelProperty(updated, "emphasis_words");
-        if (!property)
-          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
-        const colon = property.text.indexOf(":");
-        const open = updated.indexOf("[", property.start + colon + 1);
-        if (open < 0 || open >= property.end)
-          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
-        const close = (0, edit_store_1.findMatchingBracket)(updated, open);
-        const inner = updated.slice(open + 1, close);
-        const elements = (0, edit_store_1.splitTopLevelElements)(inner);
-        if (elements.length !== oldEmphasis.length)
-          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
-        const byId = new Map(nextEmphasis.map((entry) => [entry.id, entry]));
-        const kept = elements.flatMap((entry, index) => {
-          const old = oldEmphasis[index];
-          const next = byId.get(old.id);
-          return next ? [{ index, text: next === old ? entry.text : JSON.stringify(next) }] : [];
-        });
-        let nextInner = "";
-        kept.forEach((entry, keptIndex) => {
-          const originalIndex = entry.index;
-          const separator = originalIndex === 0 ? inner.slice(0, elements[0].start) : inner.slice(elements[originalIndex - 1].end, elements[originalIndex].start);
-          nextInner += (keptIndex === 0 ? separator.replace(/^,/u, "") : separator) + entry.text;
-        });
-        if (kept.length)
-          nextInner += inner.slice(elements[elements.length - 1].end);
-        updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
-      }
-      return { source: updated, removedRuns, removedEmphasis };
-    }
-    function updateCaptionRunsInSource(source, captionId, edit) {
-      const array = locateCaptionArray(source);
-      const element = findCaptionElement(array.elements, captionId);
-      const caption = JSON.parse(element.text);
-      const display = caption.display_text ?? caption.text;
-      const runs = edit.kind === "style" ? (0, caption_runs_1.setCaptionRunStyle)(display, caption.runs, edit.from, edit.to, edit.style) : edit.kind === "role" ? (0, caption_runs_1.setCaptionRunRole)(display, caption.runs, edit.from, edit.to, edit.role) : edit.kind === "remove" ? (0, caption_runs_1.removeCaptionRun)(caption.runs, edit.index) : (() => {
-        if (!Number.isInteger(edit.index) || edit.index < 0 || edit.index > (caption.runs?.length ?? 0) || !Number.isInteger(edit.run.from) || !Number.isInteger(edit.run.to) || edit.run.from < 0 || edit.run.to <= edit.run.from || edit.run.to > (0, caption_runs_1.captionGraphemes)(display).length) {
-          throw new Error("\u623B\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-        }
-        const restored = [...caption.runs ?? []];
-        restored.splice(edit.index, 0, edit.run);
-        return restored;
-      })();
-      return replaceElement(source, array.openIndex + 1, element, syncOptionalCaptionProperty(element.text, "runs", runs.length ? runs : void 0, captionId));
-    }
-    function captionEmphasisRemovedNotice(removed) {
-      if (!removed.length)
-        return void 0;
-      const first = removed[0];
-      const word = typeof first.word === "string" ? first.word.trim() : "";
-      return `\u5F37\u8ABF ${removed.length} \u4EF6${word ? `\uFF08\u300C${(0, caption_runs_1.captionGraphemes)(word).slice(0, 16).join("")}\u300D\uFF09` : ""}\u304C\u5916\u308C\u307E\u3057\u305F`;
-    }
-    function captionEditNotices(result, oldDisplayText) {
-      return [
-        (0, caption_runs_1.captionRunsRemovedNotice)(result.removedRuns, oldDisplayText),
-        captionEmphasisRemovedNotice(result.removedEmphasis)
-      ].filter((notice) => !!notice);
-    }
-    function applyWordBookToCaptionsInSource(source, changes) {
-      if (changes.length === 0) {
-        return source;
-      }
-      let output = source;
-      for (const change of changes) {
-        const array = locateCaptionArray(output);
-        const element = findCaptionElement(array.elements, change.id);
-        let nextElement = element.text;
-        nextElement = replaceCaptionJsonProperty(nextElement, "text", change.text, change.id);
-        nextElement = syncOptionalCaptionProperty(nextElement, "words", change.words, change.id);
-        nextElement = syncOptionalCaptionProperty(nextElement, "display_text", change.display_text, change.id);
-        nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", change.display_fragments, change.id);
-        output = replaceElement(output, array.openIndex + 1, element, nextElement);
-      }
-      return output;
-    }
-    function updateCaptionTextStyleInSource(source, captionId, updates) {
-      if (!captionId) {
-        throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      validateTextStylePatch(updates);
-      const array = locateCaptionArray(source);
-      const element = findCaptionElement(array.elements, captionId);
-      let nextElement = element.text;
-      const existing = locateTopLevelProperty(nextElement, "text_style");
-      if (!existing) {
-        const created = textStylePatchToJson(updates);
-        if (Object.keys(created).length === 0) {
-          return source;
-        }
-        nextElement = appendJsonProperty(nextElement, "text_style", created);
-      } else {
-        const located = locateTopLevelObjectProperty(nextElement, "text_style", `\u5B57\u5E55 ${captionId}`);
-        let textStyle = located.text;
-        textStyle = updateOptionalStyleProperty(textStyle, "color", updates.color, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalStyleProperty(textStyle, "size_px", updates.sizePx, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalStyleProperty(textStyle, "wrap_width_pct", updates.wrapWidthPct, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalStyleProperty(textStyle, "font_weight", updates.fontWeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalStyleProperty(textStyle, "weight", updates.weight === void 0 && updates.fontWeight !== void 0 ? null : updates.weight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalStyleProperty(textStyle, "line_height", updates.lineHeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalStyleProperty(textStyle, "letter_spacing_em", updates.letterSpacingEm, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalStyleProperty(textStyle, "font_family", updates.fontFamily, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        for (const [key, value] of [
-          ["stroke_inner", updates.strokeInner],
-          ["fill_gradient", updates.fillGradient],
-          ["extrude", updates.extrude]
-        ]) {
-          if (value === void 0)
-            continue;
-          const json = value === null ? null : richStyleToJson(key, value);
-          const existingRich = locateTopLevelProperty(textStyle, key);
-          textStyle = json === null ? existingRich ? removeObjectProperty(textStyle, key) : textStyle : existingRich ? (() => {
-            const object = locateTopLevelObjectProperty(textStyle, key, key);
-            return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
-          })() : appendJsonProperty(textStyle, key, json);
-        }
-        textStyle = updateOptionalStyleProperty(textStyle, "zone", updates.zone, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateNestedStyleObject(textStyle, "stroke", {
-          color: updates.stroke?.color,
-          width_px: updates.stroke?.widthPx
-        }, `\u5B57\u5E55 ${captionId} \u306E text_style.stroke`);
-        textStyle = updateNestedStyleObject(textStyle, "background", {
-          color: updates.background?.color,
-          opacity: updates.background?.opacity,
-          radius_px: updates.background?.radiusPx,
-          padding_px: updates.background?.paddingPx,
-          mode: updates.background?.mode,
-          fit: updates.background?.fit
-        }, `\u5B57\u5E55 ${captionId} \u306E text_style.background`);
-        textStyle = updateAnimationStyleObject(textStyle, updates.animation, `\u5B57\u5E55 ${captionId} \u306E text_style.animation`);
-        if (updates.karaoke === null) {
-          if (locateTopLevelProperty(textStyle, "karaoke"))
-            textStyle = removeObjectProperty(textStyle, "karaoke");
-        } else if (updates.karaoke) {
-          textStyle = updateNestedStyleObject(textStyle, "karaoke", {
-            done_color: updates.karaoke.doneColor,
-            fill: updates.karaoke.fill,
-            start_index: updates.karaoke.startIndex
-          }, `\u5B57\u5E55 ${captionId} \u306E text_style.karaoke`);
-        }
-        nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
-      }
-      return replaceElement(source, array.openIndex + 1, element, nextElement);
-    }
-    function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
-      if (captionIds.length === 0) {
-        throw new Error("\u5B57\u5E55 ID \u3092 1 \u4EF6\u4EE5\u4E0A\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
-        throw new Error("\u5B57\u5E55\u30C6\u30F3\u30D7\u30EC ID \u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      const ids = [...new Set(captionIds)];
-      const array = locateCaptionArray(source);
-      const elementsById = /* @__PURE__ */ new Map();
-      for (const entry of captionElementEntries(array.elements)) {
-        if (!entry.id)
-          continue;
-        const matches = elementsById.get(entry.id) ?? [];
-        matches.push(entry.element);
-        elementsById.set(entry.id, matches);
-      }
-      const targets = [];
-      for (const captionId of ids) {
-        const matches = elementsById.get(captionId) ?? [];
-        if (matches.length !== 1) {
-          throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
-        }
-        targets.push({ captionId, element: matches[0] });
-      }
-      let output = source;
-      let changed = 0;
-      for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
-        const record = JSON.parse(element.text);
-        const hasPreset = Object.prototype.hasOwnProperty.call(record, "style_preset");
-        if (presetId === null) {
-          if (!hasPreset)
-            continue;
-          const nextElement2 = removeObjectProperty(element.text, "style_preset");
-          output = replaceElement(output, array.openIndex + 1, element, nextElement2);
-          changed++;
-          continue;
-        }
-        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
-        if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
-          continue;
-        let nextElement;
-        if (hasPreset) {
-          nextElement = replaceCaptionJsonProperty(element.text, "style_preset", presetId, captionId);
-        } else {
-          const textStyle = locateTopLevelProperty(element.text, "text_style");
-          if (!textStyle) {
-            nextElement = appendJsonProperty(element.text, "style_preset", presetId);
-          } else {
-            const lineStart = Math.max(element.text.lastIndexOf("\n", textStyle.start - 1), element.text.lastIndexOf("\r", textStyle.start - 1));
-            const separator = lineStart >= 0 ? `${element.text.includes("\r\n") ? "\r\n" : "\n"}${element.text.slice(lineStart + 1, textStyle.start)}` : " ";
-            nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
-          }
-        }
-        nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
-        output = replaceElement(output, array.openIndex + 1, element, nextElement);
-        changed++;
-      }
-      return { source: output, changed };
-    }
-    function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
-      const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
-      if (!preset || textStyle === null || typeof textStyle !== "object" || Array.isArray(textStyle)) {
-        return [];
-      }
-      const style = textStyle;
-      return Object.keys(preset.style).filter((key) => Object.prototype.hasOwnProperty.call(style, key));
-    }
-    function pruneShadowedTextStyle(element, keys, captionId) {
-      if (keys.length === 0) {
-        return element;
-      }
-      const located = locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`);
-      let textStyle = located.text;
-      for (const key of keys) {
-        textStyle = removeObjectProperty(textStyle, key);
-      }
-      return Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(element, "text_style") : element.slice(0, located.start) + textStyle + element.slice(located.end);
-    }
-    function insertCaptionLine(source, caption) {
-      const parsed = parseCaptions(source);
-      if (!normalizeCaption(caption)) {
-        throw new Error("\u8FFD\u52A0\u3059\u308B\u5B57\u5E55\u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      const array = locateCaptionArray(source);
-      const entries = captionElementEntries(array.elements);
-      if (entries.some((candidate) => candidate.id === caption.id)) {
-        throw new Error(`\u5B57\u5E55 ${caption.id} \u306F\u65E2\u306B\u3042\u308A\u307E\u3059\u3002`);
-      }
-      validateCaptionElements(entries, parsed.captions);
-      const lineEnding = source.includes("\r\n") ? "\r\n" : "\n";
-      const serialized = serializeCaption(caption);
-      const before = entries.find((entry) => entry.start > caption.start);
-      if (before) {
-        const index = entries.indexOf(before);
-        const separator = whitespaceBeforeElement(array.inner, array.elements, index);
-        const nextInner = array.inner.slice(0, before.element.start) + serialized + "," + separator + array.inner.slice(before.element.start);
-        return replaceArrayInner(source, array, nextInner);
-      }
-      if (entries.length > 0) {
-        const last = entries[entries.length - 1];
-        const index = array.elements.indexOf(last.element);
-        const separator = whitespaceBeforeElement(array.inner, array.elements, index);
-        const nextInner = array.inner.slice(0, last.element.end) + "," + separator + serialized + array.inner.slice(last.element.end);
-        return replaceArrayInner(source, array, nextInner);
-      }
-      return replaceArrayInner(source, array, insertIntoEmptyArray(array.inner, serialized, lineEnding));
-    }
-    function removeCaptionLine(source, captionId) {
-      const parsed = parseCaptions(source);
-      const array = locateCaptionArray(source);
-      const entries = captionElementEntries(array.elements);
-      validateCaptionElements(entries, parsed.captions);
-      const index = entries.findIndex((entry2) => entry2.id === captionId);
-      if (index < 0) {
-        throw new Error(`\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002`);
-      }
-      const entry = entries[index];
-      let nextInner;
-      if (entries.length === 1) {
-        nextInner = array.inner.slice(0, entry.element.start) + array.inner.slice(entry.element.end);
-      } else if (index < entries.length - 1) {
-        nextInner = array.inner.slice(0, entry.element.start) + array.inner.slice(entries[index + 1].element.start);
-      } else {
-        nextInner = array.inner.slice(0, entries[index - 1].element.end) + array.inner.slice(entry.element.end);
-      }
-      return replaceArrayInner(source, array, nextInner);
-    }
-    function splitCaptionLine(source, captionId, wordIndex, newCaptionId) {
-      const array = locateCaptionArray(source);
-      const entries = captionElementEntries(array.elements);
-      if (entries.some((entry) => entry.id === newCaptionId)) {
-        throw new Error(`\u5B57\u5E55 ${newCaptionId} \u306F\u65E2\u306B\u3042\u308A\u307E\u3059\u3002`);
-      }
-      const element = findCaptionElement(array.elements, captionId);
-      const record = JSON.parse(element.text);
-      if (!Array.isArray(record.words) || record.words.length < 2 || !Number.isInteger(wordIndex) || wordIndex <= 0 || wordIndex >= record.words.length) {
-        throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
-      }
-      const words = record.words;
-      const wordsA = words.slice(0, wordIndex);
-      const wordsB = words.slice(wordIndex);
-      const textA = wordsA.map((word) => String(word.text ?? "")).join("");
-      const textB = wordsB.map((word) => String(word.text ?? "")).join("");
-      if (textA + textB !== record.text) {
-        throw new Error("\u3053\u306E\u884C\u306E\u30C6\u30AD\u30B9\u30C8\u3068\u8A9E\u306E\u30BF\u30A4\u30DF\u30F3\u30B0\u304C\u4E00\u81F4\u3057\u3066\u3044\u306A\u3044\u305F\u3081\u5206\u5272\u3067\u304D\u307E\u305B\u3093");
-      }
-      const splitEnd = wordsA[wordsA.length - 1].end;
-      if (typeof splitEnd !== "number") {
-        throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
-      }
-      const unrecognized = Array.isArray(record.unrecognized) ? record.unrecognized : [];
-      const recordA = {
-        ...record,
-        end: splitEnd,
-        text: textA,
-        words: wordsA,
-        edited: true
-      };
-      const recordB = {
-        ...record,
-        id: newCaptionId,
-        start: wordsB[0].start,
-        text: textB,
-        words: wordsB,
-        edited: true,
-        sourceRef: null
-      };
-      if (Array.isArray(record.runs)) {
-        const split = textA.length;
-        const rawText = String(record.text);
-        const displayText = typeof record.display_text === "string" ? record.display_text : rawText;
-        const runs = (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs;
-        const runsA = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, 0, split);
-        const runsB = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, split, rawText.length);
-        if (runsA)
-          recordA.runs = runsA;
-        else
-          delete recordA.runs;
-        if (runsB)
-          recordB.runs = runsB;
-        else
-          delete recordB.runs;
-      }
-      recordA.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start < splitEnd);
-      recordB.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start >= splitEnd);
-      for (const output of [recordA, recordB]) {
-        delete output.display_text;
-        delete output.display_fragments;
-        if (Array.isArray(output.words) && output.words.length === 0)
-          delete output.words;
-        if (Array.isArray(output.unrecognized) && output.unrecognized.length === 0)
-          delete output.unrecognized;
-      }
-      const index = array.elements.indexOf(element);
-      const separator = whitespaceBeforeElement(array.inner, array.elements, index);
-      const replacement = `${serializeCaptionRaw(recordA)},${separator}${serializeCaptionRaw(recordB)}`;
-      const nextInner = array.inner.slice(0, element.start) + replacement + array.inner.slice(element.end);
-      return replaceArrayInner(source, array, nextInner);
-    }
-    function mergeCaptionLines(source, captionIds) {
-      if (captionIds.length < 2) {
-        throw new Error("\u7D50\u5408\u3059\u308B\u5B57\u5E55\u3092 2 \u884C\u4EE5\u4E0A\u9078\u3093\u3067\u304F\u3060\u3055\u3044");
-      }
-      if (new Set(captionIds).size !== captionIds.length) {
-        throw new Error("\u540C\u3058\u5B57\u5E55\u3092\u91CD\u8907\u3057\u3066\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
-      }
-      const array = locateCaptionArray(source);
-      const elements = captionIds.map((id) => findCaptionElement(array.elements, id));
-      const records = elements.map((element) => JSON.parse(element.text));
-      const domains = records.map((record) => record.time_domain ?? "source");
-      if (domains.some((domain) => domain !== domains[0])) {
-        throw new Error("\u30BF\u30A4\u30E0\u30C9\u30E1\u30A4\u30F3\u304C\u7570\u306A\u308B\u884C\u306F\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
-      }
-      const words = records.flatMap((record) => Array.isArray(record.words) ? record.words : []);
-      const unrecognized = records.flatMap((record) => Array.isArray(record.unrecognized) ? record.unrecognized : []);
-      const survivor = {
-        ...records[0],
-        end: records[records.length - 1].end,
-        text: records.map((record) => String(record.text ?? "")).join(""),
-        words,
-        unrecognized,
-        edited: true
-      };
-      if (records.some((record) => Array.isArray(record.runs))) {
-        let offset = 0;
-        const mergedRuns = (0, caption_runs_1.joinAdjacentCaptionRuns)(records.flatMap((record) => {
-          const rawText = String(record.text ?? "");
-          const displayText = typeof record.display_text === "string" ? record.display_text : rawText;
-          const runs = Array.isArray(record.runs) ? (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs : [];
-          const projected = runs.map((run) => ({ ...run, from: run.from + offset, to: run.to + offset }));
-          offset += (0, caption_runs_1.captionGraphemes)(rawText).length;
-          return projected;
-        }));
-        if (mergedRuns.length > 0)
-          survivor.runs = mergedRuns;
-        else
-          delete survivor.runs;
-      }
-      delete survivor.display_text;
-      delete survivor.display_fragments;
-      if (words.length === 0)
-        delete survivor.words;
-      if (unrecognized.length === 0)
-        delete survivor.unrecognized;
-      const selected = new Set(elements);
-      const survivorElement = elements[0];
-      const kept = array.elements.flatMap((element, index) => {
-        if (!selected.has(element))
-          return [{ element, index, text: element.text }];
-        return element === survivorElement ? [{ element, index, text: serializeCaptionRaw(survivor) }] : [];
-      });
-      const prefix = array.elements.length ? array.inner.slice(0, array.elements[0].start) : array.inner;
-      const suffix = array.elements.length ? array.inner.slice(array.elements[array.elements.length - 1].end) : "";
-      const nextInner = kept.reduce((result, item, index) => result + (index === 0 ? "" : `,${whitespaceBeforeElement(array.inner, array.elements, item.index)}`) + item.text, prefix) + suffix;
-      return replaceArrayInner(source, array, nextInner);
-    }
-    function normalizeCaption(value, onTextStyleUnknownKeys) {
-      if (!value || typeof value !== "object" || typeof value.id !== "string" || !value.id || typeof value.text !== "string" || typeof value.edited !== "boolean") {
-        return void 0;
-      }
-      const start = value.start;
-      const end = value.end;
-      if (typeof start !== "number" || typeof end !== "number" || !Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-        return void 0;
-      }
-      const sourceRef = value.sourceRef === null ? null : Number.isInteger(value.sourceRef?.segment) && value.sourceRef.segment >= 0 ? { segment: value.sourceRef.segment } : void 0;
-      const textStyle = value.text_style === void 0 ? void 0 : normalizeTextStyle(value.text_style, onTextStyleUnknownKeys);
-      if (sourceRef === void 0 || value.speaker !== null && typeof value.speaker !== "string" || value.text_style !== void 0 && textStyle === void 0) {
-        return void 0;
-      }
-      const unrecognized = normalizeUnrecognized(value.unrecognized);
-      return {
-        id: value.id,
-        start,
-        end,
-        text: value.text,
-        speaker: value.speaker,
-        sourceRef,
-        edited: value.edited,
-        ...typeof value.display_text === "string" ? { displayText: value.display_text } : {},
-        ...Array.isArray(value.runs) ? { runs: value.runs } : {},
-        ...unrecognized !== void 0 ? { unrecognized } : {},
-        ...value.time_domain === "source" || value.time_domain === "output" ? { timeDomain: value.time_domain } : {},
-        ...textStyle !== void 0 ? { textStyle } : {}
-      };
-    }
-    function locateCaptionArray(source) {
-      const value = JSON.parse(source);
-      const rootStart = source.search(/\S/);
-      if (rootStart < 0) {
-        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      let openIndex;
-      if (Array.isArray(value) && source[rootStart] === "[") {
-        openIndex = rootStart;
-      } else if (isRecord2(value) && Array.isArray(value.captions) && source[rootStart] === "{") {
-        const rootClose = (0, edit_store_1.findMatchingBracket)(source, rootStart);
-        if (source.slice(rootClose + 1).trim()) {
-          throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
-        }
-        const rootInner = source.slice(rootStart + 1, rootClose);
-        const captionsProperties = (0, edit_store_1.splitTopLevelElements)(rootInner).filter((element) => /^"captions"\s*:/.test(element.text));
-        if (captionsProperties.length !== 1) {
-          throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E captions \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
-        }
-        const property = captionsProperties[0];
-        const propertyOffset = rootStart + 1 + property.start;
-        const colonIndex = property.text.indexOf(":");
-        openIndex = source.indexOf("[", propertyOffset + colonIndex + 1);
-        if (openIndex < 0 || openIndex >= rootStart + 1 + property.end) {
-          throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E captions \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
-        }
-      } else {
-        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      const closeIndex = (0, edit_store_1.findMatchingBracket)(source, openIndex);
-      if (Array.isArray(value) && source.slice(closeIndex + 1).trim()) {
-        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      const inner = source.slice(openIndex + 1, closeIndex);
-      return {
-        openIndex,
-        closeIndex,
-        inner,
-        elements: (0, edit_store_1.splitTopLevelElements)(inner)
-      };
-    }
-    function captionElementEntries(elements) {
-      return elements.map((element) => {
-        const value = JSON.parse(element.text);
-        return {
-          id: value && typeof value === "object" && typeof value.id === "string" ? value.id : void 0,
-          start: value && typeof value === "object" && typeof value.start === "number" ? value.start : Number.POSITIVE_INFINITY,
-          element
-        };
-      });
-    }
-    function validateCaptionElements(entries, captions) {
-      for (const caption of captions) {
-        const matches = entries.filter((entry) => entry.id === caption.id);
-        if (matches.length !== 1) {
-          throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${caption.id} \u306E\u30EC\u30B3\u30FC\u30C9\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${caption.id} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
-        }
-      }
-    }
-    function findCaptionElement(elements, captionId) {
-      const entries = captionElementEntries(elements);
-      const matches = entries.filter((entry) => entry.id === captionId);
-      if (matches.length !== 1) {
-        throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
-      }
-      return matches[0].element;
-    }
-    function locateCaptionProperty(source, property, captionId) {
-      const openIndex = source.search(/\S/);
-      if (openIndex < 0 || source[openIndex] !== "{") {
-        throw new Error(`\u5B57\u5E55 ${captionId} \u306E\u30EC\u30B3\u30FC\u30C9\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      const closeIndex = (0, edit_store_1.findMatchingBracket)(source, openIndex);
-      if (source.slice(closeIndex + 1).trim()) {
-        throw new Error(`\u5B57\u5E55 ${captionId} \u306E\u30EC\u30B3\u30FC\u30C9\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      const inner = source.slice(openIndex + 1, closeIndex);
-      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const matches = (0, edit_store_1.splitTopLevelElements)(inner).filter((element) => new RegExp(`^"${escapedProperty}"\\s*:`).test(element.text));
-      if (matches.length !== 1) {
-        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      const match = matches[0];
-      return {
-        text: match.text,
-        start: openIndex + 1 + match.start,
-        end: openIndex + 1 + match.end
-      };
-    }
-    function replaceCaptionProperty(source, property, value, captionId) {
-      const located = locateCaptionProperty(source, property, captionId);
-      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`);
-      if (!pattern.test(located.text)) {
-        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      const nextProperty = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
-      return source.slice(0, located.start) + nextProperty + source.slice(located.end);
-    }
-    function replaceCaptionJsonProperty(source, property, value, captionId) {
-      const located = locateCaptionProperty(source, property, captionId);
-      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)[\\s\\S]*$`);
-      if (!pattern.test(located.text)) {
-        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      const nextProperty = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
-      return source.slice(0, located.start) + nextProperty + source.slice(located.end);
-    }
-    function syncOptionalCaptionProperty(source, property, value, captionId) {
-      const exists = locateTopLevelProperty(source, property) !== void 0;
-      if (value === void 0) {
-        return exists ? removeObjectProperty(source, property) : source;
-      }
-      return exists ? replaceCaptionJsonProperty(source, property, value, captionId) : appendJsonProperty(source, property, value);
-    }
-    function readCaptionNumberProperty(source, property, captionId) {
-      const located = locateCaptionProperty(source, property, captionId);
-      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const match = new RegExp(`^"${escapedProperty}"\\s*:\\s*(${JSON_NUMBER})`).exec(located.text);
-      if (!match) {
-        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      return Number(match[1]);
-    }
-    function replaceElement(source, innerOffset, element, nextText) {
-      const start = innerOffset + element.start;
-      const end = innerOffset + element.end;
-      return source.slice(0, start) + nextText + source.slice(end);
-    }
-    function replaceArrayInner(source, array, nextInner) {
-      return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
-    }
-    function whitespaceBeforeElement(inner, elements, index) {
-      if (index <= 0) {
-        return inner.slice(0, elements[0].start);
-      }
-      const between = inner.slice(elements[index - 1].end, elements[index].start);
-      const commaIndex = between.indexOf(",");
-      return commaIndex >= 0 ? between.slice(commaIndex + 1) : "";
-    }
-    function insertIntoEmptyArray(inner, serialized, lineEnding) {
-      if (!inner.includes("\n")) {
-        return inner ? `${inner}${serialized}${inner}` : serialized;
-      }
-      const lastLineStart = inner.lastIndexOf("\n") + 1;
-      const closingIndent = inner.slice(lastLineStart);
-      const beforeClosingIndent = inner.slice(0, lastLineStart);
-      return `${beforeClosingIndent}${closingIndent}  ${serialized}${lineEnding}${closingIndent}`;
-    }
-    function serializeCaption(caption) {
-      const parts = [
-        `"id": ${JSON.stringify(caption.id)}`,
-        `"start": ${JSON.stringify(caption.start)}`,
-        `"end": ${JSON.stringify(caption.end)}`,
-        `"text": ${JSON.stringify(caption.text)}`,
-        `"speaker": ${JSON.stringify(caption.speaker)}`,
-        `"sourceRef": ${JSON.stringify(caption.sourceRef)}`,
-        `"edited": ${JSON.stringify(caption.edited)}`
-      ];
-      if (caption.src !== void 0) {
-        parts.push(`"src": ${JSON.stringify(caption.src)}`);
-      }
-      if (caption.timeDomain !== void 0) {
-        parts.push(`"time_domain": ${JSON.stringify(caption.timeDomain)}`);
-      }
-      if (caption.words !== void 0) {
-        parts.push(`"words": ${JSON.stringify(caption.words)}`);
-      }
-      const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
-      if (normalizedUnrecognized !== void 0) {
-        parts.push(`"unrecognized": ${JSON.stringify(normalizedUnrecognized)}`);
-      }
-      if (caption.style !== void 0) {
-        parts.push(`"style": ${JSON.stringify(caption.style)}`);
-      }
-      if (caption.displayText !== void 0) {
-        parts.push(`"display_text": ${JSON.stringify(caption.displayText)}`);
-      }
-      if (caption.displayFragments !== void 0) {
-        parts.push(`"display_fragments": ${JSON.stringify(caption.displayFragments)}`);
-      }
-      if (caption.stylePreset !== void 0) {
-        parts.push(`"style_preset": ${JSON.stringify(caption.stylePreset)}`);
-      }
-      if (caption.textStyle !== void 0) {
-        parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
-      }
-      if (caption.extra?.display_timing !== void 0) {
-        parts.push(`"display_timing": ${JSON.stringify(caption.extra.display_timing)}`);
-      }
-      if (caption.runs?.length) {
-        parts.push(`"runs": ${JSON.stringify(caption.runs)}`);
-      }
-      const schemaKeys = /* @__PURE__ */ new Set([
-        "id",
-        "start",
-        "end",
-        "text",
-        "speaker",
-        "sourceRef",
-        "edited",
-        "src",
-        "time_domain",
-        "words",
-        "unrecognized",
-        "style",
-        "display_text",
-        "display_fragments",
-        "style_preset",
-        "text_style",
-        "display_timing",
-        "runs"
-      ]);
-      for (const [key, value] of Object.entries(caption.extra ?? {})) {
-        if (value !== void 0 && !schemaKeys.has(key)) {
-          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
-        }
-      }
-      return `{ ${parts.join(", ")} }`;
-    }
-    function serializeCaptionRaw(value) {
-      const schemaKeys = [
-        "id",
-        "start",
-        "end",
-        "text",
-        "speaker",
-        "sourceRef",
-        "edited",
-        "src",
-        "time_domain",
-        "words",
-        "unrecognized",
-        "style",
-        "display_text",
-        "display_fragments",
-        "style_preset",
-        "text_style",
-        "display_timing",
-        "runs"
-      ];
-      const known = new Set(schemaKeys);
-      const parts = [];
-      for (const key of schemaKeys) {
-        if (value[key] !== void 0 && (key !== "runs" || Array.isArray(value[key]) && value[key].length > 0)) {
-          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
-        }
-      }
-      for (const [key, item] of Object.entries(value)) {
-        if (!known.has(key) && item !== void 0)
-          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(item)}`);
-      }
-      return `{ ${parts.join(", ")} }`;
-    }
-    function normalizeUnrecognized(value) {
-      if (!Array.isArray(value))
-        return void 0;
-      if (!value.every((span) => isRecord2(span) && isFiniteNumber(span.start) && isFiniteNumber(span.end) && span.end > span.start)) {
-        return void 0;
-      }
-      const spans = value.map((span) => {
-        const record = span;
-        return { start: record.start, end: record.end };
-      });
-      return spans.length > 0 ? spans : void 0;
-    }
-    function isRecord2(value) {
-      return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-    }
-    function isFiniteNumber(value) {
-      return typeof value === "number" && Number.isFinite(value);
-    }
-    function isFinitePositive(value) {
-      return isFiniteNumber(value) && value > 0;
-    }
-    function isFiniteNonNegative(value) {
-      return isFiniteNumber(value) && value >= 0;
-    }
-    function isFiniteInRange(value, min, max) {
-      return isFiniteNumber(value) && value >= min && value <= max;
-    }
-    var TEXT_STYLE_KEYS = /* @__PURE__ */ new Set([
-      "color",
-      "size_px",
-      "reference_height_px",
-      "font_family",
-      "font_weight",
-      "weight",
-      "italic",
-      "underline",
-      "strikethrough",
-      "list",
-      "opacity",
-      "letter_spacing_em",
-      "line_height",
-      "align",
-      "vertical_align",
-      "vertical",
-      "text_transform",
-      "max_width_pct",
-      "wrap_width_pct",
-      "max_characters",
-      "text_anchor",
-      "position",
-      "scale",
-      "rotate",
-      "shadow",
-      "glow",
-      "animation",
-      "stroke",
-      "background",
-      "zone",
-      "layout",
-      "karaoke",
-      "stroke_inner",
-      "fill_gradient",
-      "extrude",
-      "strokes",
-      "fill"
-    ]);
-    var TEXT_TRANSFORM_VALUES = /* @__PURE__ */ new Set(["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"]);
-    var TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
-    function normalizeTextStyle(value, onUnknownKeys) {
-      if (!isRecord2(value)) {
-        return void 0;
-      }
-      const unknownKeys = Object.keys(value).filter((key) => !TEXT_STYLE_KEYS.has(key));
-      if (unknownKeys.length > 0) {
-        onUnknownKeys?.(unknownKeys);
-      }
-      const style = {};
-      if (isHexColor(value.color)) {
-        style.color = value.color;
-      }
-      if (isRecord2(value.karaoke)) {
-        const karaoke = {};
-        if (isHexColor(value.karaoke.done_color))
-          karaoke.doneColor = value.karaoke.done_color;
-        if (value.karaoke.fill === "char" || value.karaoke.fill === "word" || value.karaoke.fill === "smooth")
-          karaoke.fill = value.karaoke.fill;
-        if (Number.isInteger(value.karaoke.start_index) && value.karaoke.start_index >= 0)
-          karaoke.startIndex = value.karaoke.start_index;
-        if (Object.keys(karaoke).length)
-          style.karaoke = karaoke;
-      }
-      if (isFinitePositive(value.size_px)) {
-        style.sizePx = value.size_px;
-      }
-      if (Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1) {
-        style.referenceHeightPx = value.reference_height_px;
-      }
-      if (typeof value.font_family === "string" && value.font_family !== "") {
-        style.fontFamily = value.font_family;
-      }
-      if (Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1e3) {
-        style.fontWeight = value.font_weight;
-      }
-      if (Number.isInteger(value.weight) && value.weight >= 100 && value.weight <= 900) {
-        style.weight = value.weight;
-      }
-      if (typeof value.italic === "boolean") {
-        style.italic = value.italic;
-      }
-      if (typeof value.underline === "boolean") {
-        style.underline = value.underline;
-      }
-      if (typeof value.strikethrough === "boolean")
-        style.strikethrough = value.strikethrough;
-      if (value.list === "bullet" || value.list === null)
-        style.list = value.list;
-      if (isFiniteNumber(value.opacity) && value.opacity >= 0 && value.opacity <= 1)
-        style.opacity = value.opacity;
-      if (isFiniteNumber(value.letter_spacing_em)) {
-        style.letterSpacingEm = value.letter_spacing_em;
-      }
-      if (isFinitePositive(value.line_height)) {
-        style.lineHeight = value.line_height;
-      }
-      if (value.align === "left" || value.align === "center" || value.align === "right") {
-        style.align = value.align;
-      }
-      if (value.vertical_align === "top" || value.vertical_align === "middle" || value.vertical_align === "bottom") {
-        style.verticalAlign = value.vertical_align;
-      }
-      if (typeof value.vertical === "boolean") {
-        style.vertical = value.vertical;
-      }
-      if (typeof value.text_transform === "string" && TEXT_TRANSFORM_VALUES.has(value.text_transform)) {
-        style.textTransform = value.text_transform;
-      }
-      if (isFiniteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100) {
-        style.maxWidthPct = value.max_width_pct;
-      }
-      if (isFiniteNumber(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100) {
-        style.wrapWidthPct = value.wrap_width_pct;
-      }
-      if (Number.isInteger(value.max_characters) && value.max_characters > 0) {
-        style.maxCharacters = value.max_characters;
-      }
-      if (typeof value.text_anchor === "string" && TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
-        style.textAnchor = value.text_anchor;
-      }
-      const position = normalizeCaptionPosition(value.position);
-      if (position) {
-        style.position = position;
-      }
-      const shadow = normalizeCaptionShadow(value.shadow);
-      if (shadow) {
-        style.shadow = shadow;
-      }
-      const glow = normalizeCaptionGlow(value.glow);
-      if (glow) {
-        style.glow = glow;
-      }
-      const animation = normalizeCaptionAnimation(value.animation);
-      if (animation) {
-        style.animation = animation;
-      }
-      if (isRecord2(value.stroke)) {
-        const stroke = {};
-        if (value.stroke.method === "webkit-outline") {
-          stroke.method = "webkit-outline";
-        }
-        if (isHexColor(value.stroke.color)) {
-          stroke.color = value.stroke.color;
-        }
-        if (isFiniteNonNegative(value.stroke.width_px)) {
-          stroke.widthPx = value.stroke.width_px;
-        }
-        if (Object.keys(stroke).length > 0) {
-          style.stroke = stroke;
-        }
-      }
-      if (isRecord2(value.stroke_inner)) {
-        const inner = {};
-        if (isHexColor(value.stroke_inner.color))
-          inner.color = value.stroke_inner.color;
-        if (isFiniteNonNegative(value.stroke_inner.width_px))
-          inner.widthPx = value.stroke_inner.width_px;
-        if (Object.keys(inner).length > 0)
-          style.strokeInner = inner;
-      }
-      if (isRecord2(value.fill_gradient) && Array.isArray(value.fill_gradient.colors) && value.fill_gradient.colors.length >= 2 && value.fill_gradient.colors.length <= 3 && value.fill_gradient.colors.every(isHexColor) && isFiniteNumber(value.fill_gradient.angle_deg)) {
-        style.fillGradient = { colors: value.fill_gradient.colors, angleDeg: value.fill_gradient.angle_deg };
-      }
-      if (isRecord2(value.extrude) && Number.isInteger(value.extrude.depth_px) && value.extrude.depth_px >= 1 && value.extrude.depth_px <= 32 && isHexColor(value.extrude.color) && isFiniteNumber(value.extrude.angle_deg) && (value.extrude.color_end === void 0 || isHexColor(value.extrude.color_end))) {
-        style.extrude = {
-          depthPx: value.extrude.depth_px,
-          color: value.extrude.color,
-          ...value.extrude.color_end ? { colorEnd: value.extrude.color_end } : {},
-          angleDeg: value.extrude.angle_deg
-        };
-      }
-      if (isRecord2(value.background)) {
-        const background = {};
-        if (isHexColor(value.background.color)) {
-          background.color = value.background.color;
-        }
-        if (isFiniteInRange(value.background.opacity, 0, 1)) {
-          background.opacity = value.background.opacity;
-        }
-        if (isFiniteNonNegative(value.background.radius_px)) {
-          background.radiusPx = value.background.radius_px;
-        }
-        if (isFiniteNonNegative(value.background.padding_px)) {
-          background.paddingPx = value.background.padding_px;
-        }
-        if (isFiniteNonNegative(value.background.width_pct)) {
-          background.widthPct = value.background.width_pct;
-        }
-        if (isFiniteNonNegative(value.background.height_pct)) {
-          background.heightPct = value.background.height_pct;
-        }
-        if (isFiniteNumber(value.background.offset_x)) {
-          background.offsetX = value.background.offset_x;
-        }
-        if (isFiniteNumber(value.background.offset_y)) {
-          background.offsetY = value.background.offset_y;
-        }
-        if (value.background.mode === "per-line" || value.background.mode === "block") {
-          background.mode = value.background.mode;
-        }
-        if (value.background.fit === "text" || value.background.fit === "frame") {
-          background.fit = value.background.fit;
-        }
-        if (Object.keys(background).length > 0) {
-          style.background = background;
-        }
-      }
-      const layout = normalizeCaptionLayout(value.layout);
-      if (value.zone !== void 0 && exports.CAPTION_ZONES.includes(value.zone)) {
-        style.zone = value.zone;
-      } else if (layout && style.referenceHeightPx === void 0) {
-        style.layout = layout;
-      }
-      return style;
-    }
-    function normalizeCaptionPosition(value) {
-      if (!isRecord2(value)) {
-        return void 0;
-      }
-      const position = {};
-      if (isFiniteNumber(value.x)) {
-        position.x = value.x;
-      }
-      if (isFiniteNumber(value.y)) {
-        position.y = value.y;
-      }
-      return Object.keys(position).length > 0 ? position : void 0;
-    }
-    function normalizeCaptionShadow(value) {
-      if (!isRecord2(value) || !isHexColor(value.color)) {
-        return void 0;
-      }
-      const shadow = { color: value.color };
-      if (isFiniteInRange(value.opacity, 0, 1)) {
-        shadow.opacity = value.opacity;
-      }
-      if (isFiniteNonNegative(value.blur_px)) {
-        shadow.blurPx = value.blur_px;
-      }
-      if (isFiniteNonNegative(value.distance_px)) {
-        shadow.distancePx = value.distance_px;
-      }
-      if (isFiniteNumber(value.angle_deg)) {
-        shadow.angleDeg = value.angle_deg;
-      }
-      return shadow;
-    }
-    function normalizeCaptionGlow(value) {
-      if (!isRecord2(value) || !isHexColor(value.color)) {
-        return void 0;
-      }
-      const glow = { color: value.color };
-      if (isFiniteNonNegative(value.density)) {
-        glow.density = value.density;
-      }
-      if (isFiniteNonNegative(value.spread)) {
-        glow.spread = value.spread;
-      }
-      if (isFiniteNumber(value.offset_x)) {
-        glow.offsetX = value.offset_x;
-      }
-      if (isFiniteNumber(value.offset_y)) {
-        glow.offsetY = value.offset_y;
-      }
-      return glow;
-    }
-    function normalizeCaptionAnimationSlot(value) {
-      if (!isRecord2(value) || typeof value.id !== "string" || value.id === "") {
-        return void 0;
-      }
-      const slot = { id: value.id };
-      if (isFinitePositive(value.duration_sec)) {
-        slot.durationSec = value.duration_sec;
-      }
-      if (typeof value.ease === "string" && value.ease !== "") {
-        slot.ease = value.ease;
-      }
-      if (isFinitePositive(value.amp)) {
-        slot.amp = value.amp;
-      }
-      return slot;
-    }
-    function normalizeCaptionAnimation(value) {
-      if (!isRecord2(value)) {
-        return void 0;
-      }
-      const animation = {};
-      const inSlot = normalizeCaptionAnimationSlot(value.in);
-      if (inSlot) {
-        animation.in = inSlot;
-      }
-      const loopSlot = normalizeCaptionAnimationSlot(value.loop);
-      if (loopSlot) {
-        animation.loop = loopSlot;
-      }
-      const outSlot = normalizeCaptionAnimationSlot(value.out);
-      if (outSlot) {
-        animation.out = outSlot;
-      }
-      return Object.keys(animation).length > 0 ? animation : void 0;
-    }
-    function normalizeCaptionLayout(value) {
-      if (!isRecord2(value)) {
-        return void 0;
-      }
-      const validReferenceWidth = Number.isInteger(value.reference_width_px) && value.reference_width_px >= 1;
-      const validReferenceHeight = Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1;
-      const validWidth = isFiniteNumber(value.width_px) && value.width_px > 0;
-      if (value.mode !== "reference-pixel" || !validReferenceWidth || !validReferenceHeight || !isFiniteNonNegative(value.left_px) || !validWidth || !isFiniteNonNegative(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
-        return void 0;
-      }
-      return {
-        mode: "reference-pixel",
-        referenceWidthPx: value.reference_width_px,
-        referenceHeightPx: value.reference_height_px,
-        leftPx: value.left_px,
-        widthPx: value.width_px,
-        bottomPx: value.bottom_px,
-        textAlign: "center",
-        maxLines: 1
-      };
-    }
-    function textStyleToJson(style) {
-      return {
-        ...style.karaoke ? { karaoke: karaokeToJson(style.karaoke) } : {},
-        ...style.color !== void 0 ? { color: style.color } : {},
-        ...style.sizePx !== void 0 ? { size_px: style.sizePx } : {},
-        ...style.referenceHeightPx !== void 0 ? { reference_height_px: style.referenceHeightPx } : {},
-        ...style.fontFamily !== void 0 ? { font_family: style.fontFamily } : {},
-        ...style.fontWeight !== void 0 ? { font_weight: style.fontWeight } : {},
-        ...style.weight !== void 0 ? { weight: style.weight } : {},
-        ...style.italic !== void 0 ? { italic: style.italic } : {},
-        ...style.underline !== void 0 ? { underline: style.underline } : {},
-        ...style.strikethrough !== void 0 ? { strikethrough: style.strikethrough } : {},
-        ...style.list !== void 0 ? { list: style.list } : {},
-        ...style.opacity !== void 0 ? { opacity: style.opacity } : {},
-        ...style.letterSpacingEm !== void 0 ? { letter_spacing_em: style.letterSpacingEm } : {},
-        ...style.lineHeight !== void 0 ? { line_height: style.lineHeight } : {},
-        ...style.align !== void 0 ? { align: style.align } : {},
-        ...style.verticalAlign !== void 0 ? { vertical_align: style.verticalAlign } : {},
-        ...style.vertical !== void 0 ? { vertical: style.vertical } : {},
-        ...style.textTransform !== void 0 ? { text_transform: style.textTransform } : {},
-        ...style.maxWidthPct !== void 0 ? { max_width_pct: style.maxWidthPct } : {},
-        ...style.wrapWidthPct !== void 0 ? { wrap_width_pct: style.wrapWidthPct } : {},
-        ...style.maxCharacters !== void 0 ? { max_characters: style.maxCharacters } : {},
-        ...style.textAnchor !== void 0 ? { text_anchor: style.textAnchor } : {},
-        ...style.position !== void 0 ? {
-          position: {
-            ...style.position.x !== void 0 ? { x: style.position.x } : {},
-            ...style.position.y !== void 0 ? { y: style.position.y } : {}
-          }
-        } : {},
-        ...style.shadow !== void 0 ? {
-          shadow: {
-            color: style.shadow.color,
-            ...style.shadow.opacity !== void 0 ? { opacity: style.shadow.opacity } : {},
-            ...style.shadow.blurPx !== void 0 ? { blur_px: style.shadow.blurPx } : {},
-            ...style.shadow.distancePx !== void 0 ? { distance_px: style.shadow.distancePx } : {},
-            ...style.shadow.angleDeg !== void 0 ? { angle_deg: style.shadow.angleDeg } : {}
-          }
-        } : {},
-        ...style.glow !== void 0 ? {
-          glow: {
-            color: style.glow.color,
-            ...style.glow.density !== void 0 ? { density: style.glow.density } : {},
-            ...style.glow.spread !== void 0 ? { spread: style.glow.spread } : {},
-            ...style.glow.offsetX !== void 0 ? { offset_x: style.glow.offsetX } : {},
-            ...style.glow.offsetY !== void 0 ? { offset_y: style.glow.offsetY } : {}
-          }
-        } : {},
-        ...style.animation !== void 0 ? {
-          animation: {
-            ...style.animation.in !== void 0 ? { in: animationSlotToJson(style.animation.in) } : {},
-            ...style.animation.loop !== void 0 ? { loop: animationSlotToJson(style.animation.loop) } : {},
-            ...style.animation.out !== void 0 ? { out: animationSlotToJson(style.animation.out) } : {}
-          }
-        } : {},
-        ...style.stroke !== void 0 ? {
-          stroke: {
-            ...style.stroke.method !== void 0 ? { method: style.stroke.method } : {},
-            ...style.stroke.color !== void 0 ? { color: style.stroke.color } : {},
-            ...style.stroke.widthPx !== void 0 ? { width_px: style.stroke.widthPx } : {}
-          }
-        } : {},
-        ...style.strokeInner !== void 0 ? { stroke_inner: richStyleToJson("stroke_inner", style.strokeInner) } : {},
-        ...style.fillGradient !== void 0 ? { fill_gradient: richStyleToJson("fill_gradient", style.fillGradient) } : {},
-        ...style.extrude !== void 0 ? { extrude: richStyleToJson("extrude", style.extrude) } : {},
-        ...style.background !== void 0 ? {
-          background: {
-            ...style.background.color !== void 0 ? { color: style.background.color } : {},
-            ...style.background.opacity !== void 0 ? { opacity: style.background.opacity } : {},
-            ...style.background.radiusPx !== void 0 ? { radius_px: style.background.radiusPx } : {},
-            ...style.background.paddingPx !== void 0 ? { padding_px: style.background.paddingPx } : {},
-            ...style.background.widthPct !== void 0 ? { width_pct: style.background.widthPct } : {},
-            ...style.background.heightPct !== void 0 ? { height_pct: style.background.heightPct } : {},
-            ...style.background.offsetX !== void 0 ? { offset_x: style.background.offsetX } : {},
-            ...style.background.offsetY !== void 0 ? { offset_y: style.background.offsetY } : {},
-            ...style.background.mode !== void 0 ? { mode: style.background.mode } : {},
-            ...style.background.fit !== void 0 ? { fit: style.background.fit } : {}
-          }
-        } : {},
-        ...style.zone !== void 0 ? { zone: style.zone } : {},
-        ...style.layout !== void 0 ? {
-          layout: {
-            mode: style.layout.mode,
-            reference_width_px: style.layout.referenceWidthPx,
-            reference_height_px: style.layout.referenceHeightPx,
-            left_px: style.layout.leftPx,
-            width_px: style.layout.widthPx,
-            bottom_px: style.layout.bottomPx,
-            text_align: style.layout.textAlign,
-            max_lines: style.layout.maxLines
-          }
-        } : {}
-      };
-    }
-    function animationSlotToJson(slot) {
-      return {
-        id: slot.id,
-        ...slot.durationSec !== void 0 ? { duration_sec: slot.durationSec } : {},
-        ...slot.ease !== void 0 ? { ease: slot.ease } : {},
-        ...slot.amp !== void 0 ? { amp: slot.amp } : {}
-      };
-    }
-    function karaokeToJson(karaoke) {
-      return {
-        ...karaoke.doneColor !== void 0 ? { done_color: karaoke.doneColor } : {},
-        ...karaoke.fill !== void 0 ? { fill: karaoke.fill } : {},
-        ...karaoke.startIndex !== void 0 ? { start_index: karaoke.startIndex } : {}
-      };
-    }
-    function mergeNestedStyle(base, override) {
-      if (!base && !override) {
-        return void 0;
-      }
-      return { ...base, ...override };
-    }
-    function isHexColor(value) {
-      return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
-    }
-    function validateTextStylePatch(updates) {
-      const hasUpdate = updates.karaoke !== void 0 || updates.color !== void 0 || updates.sizePx !== void 0 || updates.wrapWidthPct !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.strokeInner !== void 0 || updates.fillGradient !== void 0 || updates.extrude !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
-      if (!hasUpdate) {
-        throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.karaoke) {
-        if (Object.keys(updates.karaoke).some((key) => !["doneColor", "fill", "startIndex"].includes(key)))
-          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u8A2D\u5B9A\u306B\u672A\u77E5\u306E\u9805\u76EE\u304C\u3042\u308A\u307E\u3059\u3002");
-        if (updates.karaoke.doneColor !== void 0 && !isHexColor(updates.karaoke.doneColor))
-          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u8272\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-        if (updates.karaoke.fill !== void 0 && !["char", "word", "smooth"].includes(updates.karaoke.fill))
-          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u5857\u308A\u65B9\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-        if (updates.karaoke.startIndex !== void 0 && (!Number.isInteger(updates.karaoke.startIndex) || updates.karaoke.startIndex < 0))
-          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u958B\u59CB\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      for (const color of [updates.color, updates.stroke?.color, updates.background?.color]) {
-        if (color !== void 0 && color !== null && !isHexColor(color)) {
-          throw new Error("\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u8272\u306F #RGB / #RRGGBB / #RRGGBBAA \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-        }
-      }
-      if (updates.strokeInner !== void 0 && updates.strokeInner !== null && (updates.strokeInner.color !== void 0 && !isHexColor(updates.strokeInner.color) || updates.strokeInner.widthPx !== void 0 && !isFiniteNonNegative(updates.strokeInner.widthPx))) {
-        throw new Error("stroke_inner \u306E\u8272\u304B\u592A\u3055\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.fillGradient !== void 0 && updates.fillGradient !== null && (!Array.isArray(updates.fillGradient.colors) || updates.fillGradient.colors.length < 2 || updates.fillGradient.colors.length > 3 || !updates.fillGradient.colors.every(isHexColor) || !isFiniteNumber(updates.fillGradient.angleDeg))) {
-        throw new Error("fill_gradient \u306E\u8272\u304B\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.extrude !== void 0 && updates.extrude !== null && (!Number.isInteger(updates.extrude.depthPx) || updates.extrude.depthPx < 1 || updates.extrude.depthPx > 32 || !isHexColor(updates.extrude.color) || updates.extrude.colorEnd !== void 0 && !isHexColor(updates.extrude.colorEnd) || !isFiniteNumber(updates.extrude.angleDeg))) {
-        throw new Error("extrude \u306E\u5965\u884C\u304D\u30FB\u8272\u30FB\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.sizePx !== void 0 && updates.sizePx !== null && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
-        throw new Error("\u5B57\u5E55\u30B5\u30A4\u30BA\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.wrapWidthPct !== void 0 && updates.wrapWidthPct !== null && (!Number.isFinite(updates.wrapWidthPct) || updates.wrapWidthPct <= 0 || updates.wrapWidthPct > 100)) {
-        throw new Error("\u6587\u5B57\u306E\u6298\u308A\u8FD4\u3057\u5E45\u306F 0 \u3088\u308A\u5927\u304D\u304F 100% \u4EE5\u4E0B\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      for (const [value, min, max, label] of [
-        [updates.fontWeight, 1, 1e3, "font_weight"],
-        [updates.weight, 100, 900, "weight"]
-      ]) {
-        if (value !== void 0 && value !== null && (!Number.isInteger(value) || value < min || value > max)) {
-          throw new Error(`${label} \u306E\u5024\u304C\u4E0D\u6B63\u3067\u3059\u3002`);
-        }
-      }
-      if (updates.lineHeight !== void 0 && updates.lineHeight !== null && (!Number.isFinite(updates.lineHeight) || updates.lineHeight <= 0)) {
-        throw new Error("\u5B57\u5E55\u306E\u884C\u9593\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.letterSpacingEm !== void 0 && updates.letterSpacingEm !== null && !Number.isFinite(updates.letterSpacingEm)) {
-        throw new Error("\u5B57\u5E55\u306E\u5B57\u9593\u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.fontFamily !== void 0 && updates.fontFamily !== null && (typeof updates.fontFamily !== "string" || !updates.fontFamily.trim())) {
-        throw new Error("\u5B57\u5E55\u30D5\u30A9\u30F3\u30C8\u540D\u306F\u7A7A\u306B\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      if (updates.background?.paddingPx !== void 0 && updates.background.paddingPx !== null && (!Number.isFinite(updates.background.paddingPx) || updates.background.paddingPx < 0)) {
-        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u4F59\u767D\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      for (const [name, effect, fields] of [
-        ["shadow", updates.shadow, ["blurPx", "distancePx"]],
-        ["glow", updates.glow, ["density", "spread"]]
-      ]) {
-        if (effect === void 0 || effect === null)
-          continue;
-        if (typeof effect !== "object" || Array.isArray(effect) || !isHexColor(effect.color)) {
-          throw new Error(`${name} \u306E\u8272\u306F hex \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
-        }
-        const allowedKeys = name === "shadow" ? ["color", "opacity", "blurPx", "distancePx", "angleDeg"] : ["color", "density", "spread", "offsetX", "offsetY"];
-        if (Object.keys(effect).some((key) => !allowedKeys.includes(key))) {
-          throw new Error(`${name} \u306B\u672A\u5BFE\u5FDC\u306E\u9805\u76EE\u304C\u3042\u308A\u307E\u3059\u3002`);
-        }
-        for (const key of fields) {
-          const value = effect[key];
-          if (value !== void 0 && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
-            throw new Error(`${name}.${key} \u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
-          }
-        }
-      }
-      if (updates.shadow) {
-        const { opacity, angleDeg } = updates.shadow;
-        if (opacity !== void 0 && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
-          throw new Error("shadow.opacity \u306F 0\u301C1 \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-        }
-        if (angleDeg !== void 0 && !Number.isFinite(angleDeg)) {
-          throw new Error("shadow.angleDeg \u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-        }
-      }
-      if (updates.glow && [updates.glow.offsetX, updates.glow.offsetY].some((value) => value !== void 0 && !Number.isFinite(value))) {
-        throw new Error("glow \u306E\u4F4D\u7F6E\u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.stroke?.widthPx !== void 0 && updates.stroke.widthPx !== null && (!Number.isFinite(updates.stroke.widthPx) || updates.stroke.widthPx < 0)) {
-        throw new Error("\u5B57\u5E55\u306E\u7E01\u53D6\u308A\u592A\u3055\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.background?.opacity !== void 0 && updates.background.opacity !== null && (!Number.isFinite(updates.background.opacity) || updates.background.opacity < 0 || updates.background.opacity > 1)) {
-        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u4E0D\u900F\u660E\u5EA6\u306F 0\u301C1 \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.background?.radiusPx !== void 0 && updates.background.radiusPx !== null && (!Number.isFinite(updates.background.radiusPx) || updates.background.radiusPx < 0)) {
-        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u89D2\u4E38\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      if (updates.background?.mode !== void 0 && updates.background.mode !== null && updates.background.mode !== "per-line" && updates.background.mode !== "block") {
-        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.background?.fit !== void 0 && updates.background.fit !== null && updates.background.fit !== "text" && updates.background.fit !== "frame") {
-        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5E45\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.zone !== void 0 && updates.zone !== null && !exports.CAPTION_ZONES.includes(updates.zone)) {
-        throw new Error("\u5B57\u5E55\u306E\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.animation !== void 0 && updates.animation !== null && (typeof updates.animation !== "object" || Array.isArray(updates.animation))) {
-        throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u8A2D\u5B9A\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-      }
-      if (updates.animation && typeof updates.animation === "object") {
-        for (const slot of [updates.animation.in, updates.animation.out]) {
-          if (slot === void 0 || slot === null)
-            continue;
-          if (!slot || typeof slot !== "object" || typeof slot.id !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(slot.id)) {
-            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E ID \u304C\u4E0D\u6B63\u3067\u3059\u3002");
-          }
-          if (slot.durationSec !== void 0 && (!Number.isFinite(slot.durationSec) || slot.durationSec <= 0)) {
-            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u9577\u3055\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-          }
-          if (slot.ease !== void 0 && slot.ease !== null && (typeof slot.ease !== "string" || !slot.ease.trim())) {
-            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u30A4\u30FC\u30B8\u30F3\u30B0\u304C\u4E0D\u6B63\u3067\u3059\u3002");
-          }
-          if (slot.amp !== void 0 && slot.amp !== null && (!Number.isFinite(slot.amp) || slot.amp <= 0)) {
-            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u5F37\u3055\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-          }
-        }
-      }
-    }
-    function textStylePatchToJson(updates) {
-      return {
-        ...updates.karaoke ? { karaoke: karaokeToJson(updates.karaoke) } : {},
-        ...updates.color !== void 0 && updates.color !== null ? { color: updates.color } : {},
-        ...updates.sizePx !== void 0 && updates.sizePx !== null ? { size_px: updates.sizePx } : {},
-        ...updates.wrapWidthPct !== void 0 && updates.wrapWidthPct !== null ? { wrap_width_pct: updates.wrapWidthPct } : {},
-        ...updates.fontWeight !== void 0 && updates.fontWeight !== null ? { font_weight: updates.fontWeight } : {},
-        ...updates.weight !== void 0 && updates.weight !== null ? { weight: updates.weight } : {},
-        ...updates.lineHeight !== void 0 && updates.lineHeight !== null ? { line_height: updates.lineHeight } : {},
-        ...updates.letterSpacingEm !== void 0 && updates.letterSpacingEm !== null ? { letter_spacing_em: updates.letterSpacingEm } : {},
-        ...updates.fontFamily !== void 0 && updates.fontFamily !== null ? { font_family: updates.fontFamily } : {},
-        ...updates.shadow ? { shadow: shadowPatchToJson(updates.shadow) } : {},
-        ...updates.glow ? { glow: glowPatchToJson(updates.glow) } : {},
-        ...updates.strokeInner ? { stroke_inner: richStyleToJson("stroke_inner", updates.strokeInner) } : {},
-        ...updates.fillGradient ? { fill_gradient: richStyleToJson("fill_gradient", updates.fillGradient) } : {},
-        ...updates.extrude ? { extrude: richStyleToJson("extrude", updates.extrude) } : {},
-        ...updates.stroke && Object.values(updates.stroke).some((value) => value !== void 0 && value !== null) ? {
-          stroke: {
-            ...updates.stroke.color !== void 0 && updates.stroke.color !== null ? { color: updates.stroke.color } : {},
-            ...updates.stroke.widthPx !== void 0 && updates.stroke.widthPx !== null ? { width_px: updates.stroke.widthPx } : {}
-          }
-        } : {},
-        ...updates.background && Object.values(updates.background).some((value) => value !== void 0 && value !== null) ? {
-          background: {
-            ...updates.background.color !== void 0 && updates.background.color !== null ? { color: updates.background.color } : {},
-            ...updates.background.opacity !== void 0 && updates.background.opacity !== null ? { opacity: updates.background.opacity } : {},
-            ...updates.background.radiusPx !== void 0 && updates.background.radiusPx !== null ? { radius_px: updates.background.radiusPx } : {},
-            ...updates.background.paddingPx !== void 0 && updates.background.paddingPx !== null ? { padding_px: updates.background.paddingPx } : {},
-            ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {},
-            ...updates.background.fit !== void 0 && updates.background.fit !== null ? { fit: updates.background.fit } : {}
-          }
-        } : {},
-        ...updates.animation && Object.values(updates.animation).some((value) => value !== void 0 && value !== null) ? {
-          animation: {
-            ...updates.animation.in ? { in: animationSlotToJson(updates.animation.in) } : {},
-            ...updates.animation.out ? { out: animationSlotToJson(updates.animation.out) } : {}
-          }
-        } : {},
-        ...updates.zone !== void 0 && updates.zone !== null ? { zone: updates.zone } : {}
-      };
-    }
-    function shadowPatchToJson(shadow) {
-      return {
-        color: shadow.color,
-        ...shadow.opacity !== void 0 ? { opacity: shadow.opacity } : {},
-        ...shadow.blurPx !== void 0 ? { blur_px: shadow.blurPx } : {},
-        ...shadow.distancePx !== void 0 ? { distance_px: shadow.distancePx } : {},
-        ...shadow.angleDeg !== void 0 ? { angle_deg: shadow.angleDeg } : {}
-      };
-    }
-    function richStyleToJson(key, value) {
-      if (key === "stroke_inner") {
-        const inner = value;
-        return {
-          ...inner.color !== void 0 ? { color: inner.color } : {},
-          ...inner.widthPx !== void 0 ? { width_px: inner.widthPx } : {}
-        };
-      }
-      if (key === "fill_gradient") {
-        const gradient = value;
-        return { colors: gradient.colors, angle_deg: gradient.angleDeg };
-      }
-      const extrude = value;
-      return {
-        depth_px: extrude.depthPx,
-        color: extrude.color,
-        ...extrude.colorEnd !== void 0 ? { color_end: extrude.colorEnd } : {},
-        angle_deg: extrude.angleDeg
-      };
-    }
-    function glowPatchToJson(glow) {
-      return {
-        color: glow.color,
-        ...glow.density !== void 0 ? { density: glow.density } : {},
-        ...glow.spread !== void 0 ? { spread: glow.spread } : {},
-        ...glow.offsetX !== void 0 ? { offset_x: glow.offsetX } : {},
-        ...glow.offsetY !== void 0 ? { offset_y: glow.offsetY } : {}
-      };
-    }
-    function updateOptionalObjectStyleProperty(source, property, value, label) {
-      if (value === void 0)
-        return source;
-      const existing = locateTopLevelProperty(source, property);
-      if (value === null)
-        return existing ? removeObjectProperty(source, property) : source;
-      const json = property === "shadow" ? shadowPatchToJson(value) : glowPatchToJson(value);
-      if (!existing)
-        return appendJsonProperty(source, property, json);
-      const located = locateTopLevelObjectProperty(source, property, label);
-      return source.slice(0, located.start) + JSON.stringify(json) + source.slice(located.end);
-    }
-    function locateTopLevelProperty(scopeText, key) {
-      const openIndex = scopeText.search(/\S/);
-      if (openIndex < 0 || scopeText[openIndex] !== "{") {
-        return void 0;
-      }
-      const closeIndex = (0, edit_store_1.findMatchingBracket)(scopeText, openIndex);
-      const inner = scopeText.slice(openIndex + 1, closeIndex);
-      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const matches = (0, edit_store_1.splitTopLevelElements)(inner).filter((element) => new RegExp(`^"${escapedKey}"\\s*:`).test(element.text));
-      if (matches.length !== 1) {
-        return void 0;
-      }
-      return {
-        text: matches[0].text,
-        start: openIndex + 1 + matches[0].start,
-        end: openIndex + 1 + matches[0].end
-      };
-    }
-    function locateTopLevelObjectProperty(scopeText, key, label) {
-      const property = locateTopLevelProperty(scopeText, key);
-      if (!property) {
-        throw new Error(`${label} \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
-      }
-      const colonIndex = property.text.indexOf(":");
-      const openIndex = scopeText.indexOf("{", property.start + colonIndex + 1);
-      if (openIndex < 0 || openIndex >= property.end) {
-        throw new Error(`${label} \u304C object \u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002`);
-      }
-      const closeIndex = (0, edit_store_1.findMatchingBracket)(scopeText, openIndex);
-      return { start: openIndex, end: closeIndex + 1, text: scopeText.slice(openIndex, closeIndex + 1) };
-    }
-    function updateNestedStyleObject(source, property, updates, label) {
-      if (Object.values(updates).every((value) => value === void 0)) {
-        return source;
-      }
-      const located = locateTopLevelProperty(source, property);
-      if (!located) {
-        const created = Object.fromEntries(Object.entries(updates).filter((entry) => entry[1] !== void 0 && entry[1] !== null));
-        return Object.keys(created).length > 0 ? appendJsonProperty(source, property, created) : source;
-      }
-      const object = locateTopLevelObjectProperty(source, property, label);
-      let next = object.text;
-      for (const [key, value] of Object.entries(updates)) {
-        next = updateOptionalStyleProperty(next, key, value, label);
-      }
-      return Object.keys(JSON.parse(next)).length === 0 ? removeObjectProperty(source, property) : source.slice(0, object.start) + next + source.slice(object.end);
-    }
-    function updateAnimationStyleObject(source, updates, label) {
-      if (updates === void 0)
-        return source;
-      const located = locateTopLevelProperty(source, "animation");
-      if (updates === null)
-        return located ? removeObjectProperty(source, "animation") : source;
-      if (!located) {
-        const created = {
-          ...updates.in ? { in: animationSlotToJson(updates.in) } : {},
-          ...updates.out ? { out: animationSlotToJson(updates.out) } : {}
-        };
-        return Object.keys(created).length > 0 ? appendJsonProperty(source, "animation", created) : source;
-      }
-      const object = locateTopLevelObjectProperty(source, "animation", label);
-      let next = object.text;
-      for (const [slotName, slot] of [["in", updates.in], ["out", updates.out]]) {
-        if (slot === void 0)
-          continue;
-        if (slot === null) {
-          next = removeObjectProperty(next, slotName);
-          continue;
-        }
-        const value = animationSlotToJson(slot);
-        const slotProperty = locateTopLevelProperty(next, slotName);
-        if (!slotProperty) {
-          next = appendJsonProperty(next, slotName, value);
-          continue;
-        }
-        const escaped = slotName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const pattern = new RegExp(`^("${escaped}"\\s*:\\s*)[\\s\\S]*?(\\s*)$`);
-        const replaced = slotProperty.text.replace(pattern, (_match, prefix, suffix) => `${prefix}${JSON.stringify(value)}${suffix}`);
-        next = next.slice(0, slotProperty.start) + replaced + next.slice(slotProperty.end);
-      }
-      return Object.keys(JSON.parse(next)).length === 0 ? removeObjectProperty(source, "animation") : source.slice(0, object.start) + next + source.slice(object.end);
-    }
-    function updateOptionalStyleProperty(source, property, value, label) {
-      if (value === void 0) {
-        return source;
-      }
-      const exists = locateTopLevelProperty(source, property) !== void 0;
-      if (value === null) {
-        return exists ? removeObjectProperty(source, property) : source;
-      }
-      return exists ? replaceTopLevelPropertyValue(source, property, value, label) : appendJsonProperty(source, property, value);
-    }
-    function appendJsonProperty(source, property, value) {
-      const closeIndex = source.lastIndexOf("}");
-      if (closeIndex < 0) {
-        throw new Error("\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      const beforeClose = source.slice(0, closeIndex);
-      const trailingWhitespace = beforeClose.match(/\s*$/)?.[0] ?? "";
-      const body = beforeClose.slice(0, beforeClose.length - trailingWhitespace.length);
-      if (!body.trim().endsWith("{")) {
-        if (source.includes("\n")) {
-          const lineEnding = source.includes("\r\n") ? "\r\n" : "\n";
-          const propertyIndent = source.match(/(?:^|\r?\n)([ \t]+)"[^"\r\n]+"\s*:/)?.[1] ?? "  ";
-          return `${body},${lineEnding}${propertyIndent}"${property}": ${JSON.stringify(value)}${trailingWhitespace}${source.slice(closeIndex)}`;
-        }
-        return `${body}, "${property}": ${JSON.stringify(value)}${trailingWhitespace}${source.slice(closeIndex)}`;
-      }
-      return `${body}"${property}": ${JSON.stringify(value)}${trailingWhitespace}${source.slice(closeIndex)}`;
-    }
-    function replaceTopLevelPropertyValue(source, property, value, label) {
-      const located = locateTopLevelProperty(source, property);
-      if (!located) {
-        throw new Error(`${label} \u306E ${property} \u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`);
-      if (!pattern.test(located.text)) {
-        throw new Error(`${label} \u306E ${property} \u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
-      }
-      const updated = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
-      return source.slice(0, located.start) + updated + source.slice(located.end);
-    }
-    function removeObjectProperty(source, property) {
-      const openIndex = source.search(/\S/);
-      const closeIndex = openIndex >= 0 ? (0, edit_store_1.findMatchingBracket)(source, openIndex) : -1;
-      if (openIndex < 0 || source[openIndex] !== "{" || closeIndex < 0) {
-        throw new Error("\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      const inner = source.slice(openIndex + 1, closeIndex);
-      const elements = (0, edit_store_1.splitTopLevelElements)(inner);
-      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const index = elements.findIndex((element) => new RegExp(`^"${escapedProperty}"\\s*:`).test(element.text));
-      if (index < 0) {
-        return source;
-      }
-      let nextInner;
-      if (elements.length === 1) {
-        nextInner = inner.slice(elements[0].end);
-      } else if (index < elements.length - 1) {
-        nextInner = inner.slice(0, elements[index].start) + inner.slice(elements[index + 1].start);
-      } else {
-        nextInner = inner.slice(0, elements[index - 1].end) + inner.slice(elements[index].end);
-      }
-      return source.slice(0, openIndex + 1) + nextInner + source.slice(closeIndex);
-    }
-  }
-});
-
-// ../edit-store/lib/caption-sample-text.js
-var require_caption_sample_text = __commonJS({
-  "../edit-store/lib/caption-sample-text.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CAPTION_SAMPLE_TEXT = void 0;
-    exports.CAPTION_SAMPLE_TEXT = "\u3042\u30A212";
-  }
-});
-
-// ../edit-store/lib/caption-window.js
-var require_caption_window = __commonJS({
-  "../edit-store/lib/caption-window.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.captionSpeechWindow = captionSpeechWindow;
-    exports.captionWindowSeconds = captionWindowSeconds;
-    exports.captionFragmentWindows = captionFragmentWindows;
-    exports.expandCaptionDisplayFragments = expandCaptionDisplayFragments;
-    exports.findActiveCaption = findActiveCaption;
-    exports.findActiveCaptions = findActiveCaptions;
-    function baseCaptionWindowSeconds(caption) {
-      const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
-      const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
-      const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
-      return { start, end };
-    }
-    function captionSpeechWindow(caption) {
-      if (caption.display_timing !== "speech-tight" || !Array.isArray(caption.words) || caption.words.length === 0) {
-        return null;
-      }
-      const words = caption.words.flatMap((value) => {
-        if (!value || typeof value !== "object")
-          return [];
-        const word = value;
-        return typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start ? [{ start: word.start, end: word.end }] : [];
-      });
-      if (words.length === 0)
-        return null;
-      const base = baseCaptionWindowSeconds(caption);
-      const tightStart = Math.max(base.start, Math.min(...words.map((word) => word.start)));
-      const tightEnd = Math.min(base.end, Math.max(...words.map((word) => word.end)));
-      if (tightEnd - tightStart <= 0 || tightStart <= base.start && tightEnd >= base.end)
-        return null;
-      return { start: tightStart, end: tightEnd };
-    }
-    function captionWindowSeconds(caption) {
-      return captionSpeechWindow(caption) ?? baseCaptionWindowSeconds(caption);
-    }
-    function captionFragmentWindows(caption) {
-      const sourceText = caption.display_text ?? caption.text;
-      const text = typeof sourceText === "string" ? sourceText : null;
-      const fragments = caption.display_fragments;
-      if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.join("") !== text) {
-        return null;
-      }
-      const window2 = captionWindowSeconds(caption);
-      const words = Array.isArray(caption.words) ? caption.words : null;
-      const validWords = words?.every((word) => isCaptionFragmentWord(word)) === true ? words : null;
-      const wordText = validWords?.map((word) => word.text).join("");
-      const fragmentEnds = [];
-      fragments.reduce((offset, fragment) => {
-        fragmentEnds.push(offset + fragment.length);
-        return offset + fragment.length;
-      }, 0);
-      let wordLength = 0;
-      const wordEnds = validWords ? validWords.map((word) => wordLength += word.text.length) : [];
-      const useWords = validWords !== null && wordText === text && fragmentEnds.slice(0, -1).every((end) => wordEnds.includes(end));
-      let characterStart = 0;
-      return fragments.map((fragment, index) => {
-        const characterEnd = characterStart + fragment.length;
-        let start;
-        let end;
-        if (useWords) {
-          const firstWord = characterStart === 0 ? 0 : wordEnds.indexOf(characterStart) + 1;
-          const lastWord = wordEnds.indexOf(characterEnd);
-          start = clamp5(validWords[firstWord].start, window2.start, window2.end);
-          end = clamp5(validWords[lastWord].end, window2.start, window2.end);
-        } else {
-          const duration = window2.end - window2.start;
-          start = window2.start + duration * (characterStart / text.length);
-          end = window2.start + duration * (characterEnd / text.length);
-        }
-        characterStart = characterEnd;
-        return { text: fragment, start, end, index: index + 1, count: fragments.length };
-      });
-    }
-    function expandCaptionDisplayFragments(captions) {
-      return captions.flatMap((caption) => {
-        const windows = captionFragmentWindows(caption);
-        if (windows === null) {
-          const speechWindow = captionSpeechWindow(caption);
-          return speechWindow === null ? [caption] : [{ ...caption, ...speechWindow }];
-        }
-        let characterStart = 0;
-        return windows.map((window2) => {
-          const characterEnd = characterStart + window2.text.length;
-          const expanded = {
-            ...caption,
-            text: window2.text,
-            start: window2.start,
-            end: window2.end,
-            fragmentIndex: window2.index,
-            fragmentCount: window2.count,
-            fragmentKey: `${String(caption.id)}#f${window2.index}`
-          };
-          if (Object.prototype.hasOwnProperty.call(caption, "display_text"))
-            expanded.display_text = window2.text;
-          if (Array.isArray(caption.runs)) {
-            const sourceText = String(caption.display_text ?? caption.text ?? "");
-            expanded.runSourceText = sourceText;
-            expanded.runTextStart = characterStart;
-            expanded.runTextEnd = characterEnd;
-          }
-          if (Array.isArray(caption.words)) {
-            let offset = 0;
-            expanded.words = caption.words.flatMap((word) => {
-              if (!isCaptionFragmentWord(word))
-                return [];
-              const wordStart = offset;
-              const wordEnd = offset + word.text.length;
-              offset = wordEnd;
-              if (wordStart < characterStart || wordEnd > characterEnd)
-                return [];
-              return [{
-                ...word,
-                start: clamp5(word.start, window2.start, window2.end),
-                end: clamp5(word.end, window2.start, window2.end)
-              }];
-            });
-          }
-          delete expanded.display_fragments;
-          characterStart = characterEnd;
-          return expanded;
-        });
-      });
-    }
-    function isCaptionFragmentWord(value) {
-      if (!value || typeof value !== "object")
-        return false;
-      const word = value;
-      return typeof word.text === "string" && typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start;
-    }
-    function clamp5(value, minimum, maximum) {
-      return Math.min(maximum, Math.max(minimum, value));
-    }
-    function findActiveCaption(captions, sourceSeconds) {
-      return captions.find((caption) => {
-        const window2 = captionWindowSeconds(caption);
-        return window2.start <= sourceSeconds && sourceSeconds < window2.end;
-      });
-    }
-    function findActiveCaptions(captions, seconds) {
-      return captions.filter((caption) => {
-        const window2 = captionWindowSeconds(caption);
-        return window2.start <= seconds && seconds < window2.end;
-      });
-    }
-  }
-});
-
-// ../edit-store/lib/caption-clock.js
-var require_caption_clock = __commonJS({
-  "../edit-store/lib/caption-clock.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.normalizeCaptionClock = normalizeCaptionClock;
-    exports.captionClockDomainOf = captionClockDomainOf;
-    var EPSILON = 1e-6;
-    function normalizeCaptionClock(captions, segments) {
-      const output = [];
-      for (const caption of captions) {
-        const legacyOutputCue = caption.clockDomain === "legacy" && segments.some((segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON);
-        const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
-        if (domain === "output" || segments.length === 0) {
-          output.push({ ...caption, clockDomain: "output" });
-          continue;
-        }
-        let occurrence = 0;
-        for (const segment of segments) {
-          if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0)
-            continue;
-          if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId)
-            continue;
-          const sourceStart = Math.max(caption.start, segment.in);
-          const sourceEnd = Math.min(caption.end, segment.out);
-          if (!(sourceEnd - sourceStart > EPSILON))
-            continue;
-          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
-          const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
-          occurrence += 1;
-          const sourceCueId = caption.sourceCueId ?? caption.id;
-          const words = caption.words?.flatMap((word) => {
-            const wordStart = Math.max(word.start, sourceStart);
-            const wordEnd = Math.min(word.end, sourceEnd);
-            return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
-          });
-          output.push({
-            ...caption,
-            ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
-            ...sourceCueId ? { sourceCueId } : {},
-            start: projectTime(sourceStart),
-            end: projectTime(sourceEnd),
-            ...words && words.length > 0 ? { words } : { words: void 0 },
-            clockDomain: "output"
-          });
-        }
-      }
-      return output.sort((left, right) => left.start - right.start || left.end - right.end);
-    }
-    function captionClockDomainOf(raw) {
-      const clockDomain = raw?.time_domain === "source" || raw?.time_domain === "output" ? raw.time_domain : "legacy";
-      return {
-        clockDomain,
-        ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
-      };
-    }
-  }
-});
-
-// ../edit-store/lib/cut-adjacency.js
-var require_cut_adjacency = __commonJS({
-  "../edit-store/lib/cut-adjacency.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
-    exports.effectiveCutFps = effectiveCutFps;
-    exports.cutOverlapFrames = cutOverlapFrames;
-    exports.planTransitionHandleWindow = planTransitionHandleWindow;
-    exports.isStillImageSourcePath = isStillImageSourcePath2;
-    exports.areCutsAdjacent = areCutsAdjacent;
-    exports.DEFAULT_CUT_ADJACENCY_FPS = 30;
-    function effectiveCutFps(fps) {
-      return Number.isFinite(fps) && fps > 0 ? fps : exports.DEFAULT_CUT_ADJACENCY_FPS;
-    }
-    function cutOverlapFrames(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
-      const resolvedFps = effectiveCutFps(fps);
-      return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
-    }
-    var nonNegativeRoom = (value) => value === Number.POSITIVE_INFINITY ? value : Number.isFinite(value) && value > 0 ? value : 0;
-    function planTransitionHandleWindow(input) {
-      const declaredSeconds = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0 ? input.declaredSeconds : 0;
-      const effectiveSeconds = Math.max(0, Math.min(declaredSeconds, 2 * nonNegativeRoom(input.outgoingTailRoomSeconds), 2 * nonNegativeRoom(input.incomingHeadRoomSeconds), 2 * nonNegativeRoom(input.outgoingDurationSeconds), 2 * nonNegativeRoom(input.incomingDurationSeconds)));
-      return {
-        effectiveSeconds,
-        halfSeconds: effectiveSeconds / 2,
-        outcome: effectiveSeconds <= 0 ? "none" : effectiveSeconds < declaredSeconds ? "clamped" : "full"
-      };
-    }
-    exports.STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
-    function isStillImageSourcePath2(path) {
-      return typeof path === "string" && exports.STILL_IMAGE_SOURCE_PATTERN.test(path);
-    }
-    function areCutsAdjacent(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
-      const resolvedFps = effectiveCutFps(fps);
-      const overlapFrames = cutOverlapFrames(earlier, later, resolvedFps);
-      const declaredDuration = earlier.transitionOut?.duration;
-      const declaredOverlapFrames = typeof declaredDuration === "number" && Number.isFinite(declaredDuration) && declaredDuration > 0 ? Math.round(declaredDuration * resolvedFps) : 0;
-      return overlapFrames === 0 || overlapFrames > 0 && overlapFrames <= declaredOverlapFrames;
-    }
-  }
-});
-
-// ../edit-store/lib/timeline-map.js
-var require_timeline_map = __commonJS({
-  "../edit-store/lib/timeline-map.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
-    exports.transitionProgressAt = transitionProgressAt2;
-    exports.buildTimelineMap = buildTimelineMap2;
-    exports.outputToSource = outputToSource2;
-    exports.sourceToOutput = sourceToOutput;
-    var edit_store_1 = require_edit_store();
-    var cut_adjacency_1 = require_cut_adjacency();
-    function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
-      const normalizedCuts2 = cuts.map((cut) => ({
-        ...cut,
-        transitionOut: cut.transitionOut ?? cut.transition_out
-      }));
-      const hasExplicitSources = normalizedCuts2.some((cut) => typeof cut.src === "string" && cut.src.length > 0);
-      if (hasExplicitSources && !options.sourceId)
-        return { intervals: [], droppedShortIntervals: 0 };
-      const map = buildTimelineMap2(normalizedCuts2, { fps: options.fps });
-      const projected = [];
-      for (const segment of map.segments) {
-        if (segment.kind !== "src" || typeof segment.in !== "number" || typeof segment.out !== "number")
-          continue;
-        if (hasExplicitSources && segment.src !== options.sourceId)
-          continue;
-        if (segment.cutIndex !== null && normalizedCuts2[segment.cutIndex]?.audio === false)
-          continue;
-        const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
-        for (const entry of transcript) {
-          if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start)
-            continue;
-          const sourceStart = Math.max(segment.in, entry.start);
-          const sourceEnd = Math.min(segment.out, entry.end);
-          if (!(sourceEnd > sourceStart))
-            continue;
-          projected.push({
-            startSec: segment.outStart + (sourceStart - segment.in) / speed,
-            endSec: segment.outStart + (sourceEnd - segment.in) / speed
-          });
-        }
-      }
-      projected.sort((left, right) => left.startSec - right.startSec || left.endSec - right.endSec);
-      const merged = [];
-      for (const interval of projected) {
-        const last = merged[merged.length - 1];
-        if (last && interval.startSec - last.endSec < 0.35)
-          last.endSec = Math.max(last.endSec, interval.endSec);
-        else
-          merged.push({ ...interval });
-      }
-      const intervals = merged.filter((interval) => interval.endSec - interval.startSec >= 0.15);
-      return { intervals, droppedShortIntervals: merged.length - intervals.length };
-    }
-    function transitionProgressAt2(window2, outputT) {
-      if (!(window2.duration > 0))
-        return 0;
-      return Math.max(0, Math.min(1, (outputT - window2.start) / window2.duration));
-    }
-    function buildTimelineMap2(cuts, options) {
-      const usable = [];
-      cuts.forEach((cut, index) => {
-        if (typeof cut?.in === "number" && Number.isFinite(cut.in) && typeof cut?.out === "number" && Number.isFinite(cut.out) && cut.in < cut.out) {
-          usable.push({ cut, index });
-        }
-      });
-      const usableCuts = usable.map((entry) => entry.cut);
-      const trackSegments = (0, edit_store_1.computeCutTrackSegments)(usableCuts);
-      const trackZ = options?.trackZ ?? ((track) => -track);
-      const resolved = trackSegments.map((segment) => ({
-        start: segment.at,
-        end: segment.end,
-        baseStart: segment.at,
-        baseEnd: segment.end,
-        track: segment.track,
-        cut: usableCuts[segment.index],
-        cutIndex: usable[segment.index].index
-      }));
-      const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
-      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-        const outgoing = resolved[outgoingIndex];
-        const transition = outgoing.cut.transitionOut;
-        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
-          continue;
-        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
-        if (!incoming || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.end }, { tlStart: incoming.start }, fps) !== 0)
-          continue;
-        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
-        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
-        const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
-        const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
-          declaredSeconds: transition.duration,
-          outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
-          incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
-          outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
-          incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
-        });
-        if (plan.effectiveSeconds <= 0)
-          continue;
-        const cutPoint = outgoing.end;
-        outgoing.end = cutPoint + plan.halfSeconds;
-        outgoing.cut = {
-          ...outgoing.cut,
-          transitionOut: { ...transition, duration: plan.effectiveSeconds }
-        };
-        incoming.start = cutPoint - plan.halfSeconds;
-        incoming.cut = {
-          ...incoming.cut,
-          in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
-        };
-      }
-      const segmentSlice = (entry, start, end, transitionOut = null) => {
-        const cut = entry.cut;
-        const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
-        return {
-          kind: "src",
-          outStart: start,
-          outEnd: end,
-          cutIndex: entry.cutIndex,
-          ...cut.src !== void 0 ? { src: cut.src } : {},
-          in: cut.in + (start - entry.start) * speed,
-          out: cut.in + (end - entry.start) * speed,
-          speed,
-          track: entry.track,
-          transitionOut
-        };
-      };
-      const transitionWindows = [];
-      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-        const outgoing = resolved[outgoingIndex];
-        const transition = outgoing.cut.transitionOut;
-        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
-          continue;
-        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
-        if (!incoming)
-          continue;
-        const start = incoming.start;
-        const actualOverlap = outgoing.end - start;
-        if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6)
-          continue;
-        const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
-        if (!(end - start > 1e-6))
-          continue;
-        transitionWindows.push({
-          start,
-          end,
-          duration: end - start,
-          type: transition.type,
-          outgoing: segmentSlice(outgoing, start, end, transition),
-          incoming: segmentSlice(incoming, start, end)
-        });
-      }
-      const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
-      const boundarySet = /* @__PURE__ */ new Set([0, outputDuration]);
-      for (const segment of resolved) {
-        boundarySet.add(segment.start);
-        boundarySet.add(segment.end);
-      }
-      const boundaries = [...boundarySet].sort((left, right) => left - right);
-      const runs = [];
-      for (let index = 0; index < boundaries.length - 1; index++) {
-        const start = boundaries[index];
-        const end = boundaries[index + 1];
-        if (end - start <= 1e-6) {
-          continue;
-        }
-        const midpoint = (start + end) / 2;
-        let winner = null;
-        for (const segment of resolved) {
-          if (segment.start <= midpoint && segment.end > midpoint && (!winner || trackZ(segment.track) > trackZ(winner.track))) {
-            winner = segment;
-          }
-        }
-        const last = runs[runs.length - 1];
-        const sameWinner = last && (last.winner === null && winner === null || last.winner !== null && winner !== null && last.winner.cutIndex === winner.cutIndex);
-        if (sameWinner && Math.abs(last.end - start) <= 1e-6) {
-          last.end = end;
-        } else {
-          runs.push({ start, end, winner });
-        }
-      }
-      const segments = runs.map((run) => {
-        if (!run.winner) {
-          return { kind: "gap", outStart: run.start, outEnd: run.end, cutIndex: null };
-        }
-        return segmentSlice(run.winner, run.start, run.end, run.winner.cut.transitionOut ?? null);
-      });
-      const transitionPlates = transitionWindows.flatMap((window2) => window2.type === "fade-black" || window2.type === "fade-white" ? [{
-        start: window2.start,
-        end: window2.end,
-        mid: (window2.start + window2.end) / 2,
-        color: window2.type === "fade-white" ? "#fff" : "#000",
-        type: window2.type
-      }] : []);
-      return {
-        segments,
-        totalDuration: outputDuration,
-        transitionPlates,
-        transitionWindows,
-        usesGapsOrTracks: true
-      };
-    }
-    function outputToSource2(segments, outputT) {
-      if (segments.length === 0) {
-        return { segment: null, sourceT: null };
-      }
-      for (let index = 0; index < segments.length; index++) {
-        const segment = segments[index];
-        if (outputT <= segment.outEnd || index === segments.length - 1) {
-          if (segment.kind !== "src") {
-            return { segment, sourceT: null };
-          }
-          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
-          const clamped = Math.max(segment.outStart, Math.min(outputT, segment.outEnd));
-          return { segment, sourceT: (segment.in ?? 0) + (clamped - segment.outStart) * speed };
-        }
-      }
-      return { segment: null, sourceT: null };
-    }
-    function sourceToOutput(segments, sourceT) {
-      const sources = segments.filter((segment) => segment.kind === "src" && typeof segment.in === "number" && typeof segment.out === "number");
-      if (sources.length === 0 || !Number.isFinite(sourceT)) {
-        return null;
-      }
-      for (const segment of sources) {
-        const start = segment.in;
-        const end = segment.out;
-        if (start <= sourceT && sourceT < end) {
-          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
-          return segment.outStart + (sourceT - start) / speed;
-        }
-      }
-      const next = sources.find((segment) => segment.in > sourceT);
-      return next?.outStart ?? sources[sources.length - 1].outEnd;
-    }
-  }
-});
-
 // ../edit-store/lib/caption-display.js
 var require_caption_display = __commonJS({
   "../edit-store/lib/caption-display.js"(exports) {
@@ -7457,6 +5185,2290 @@ var require_caption_display = __commonJS({
     }
     function fail(code, message) {
       throw new CaptionDisplayError(code, message);
+    }
+  }
+});
+
+// ../edit-store/lib/caption-store.js
+var require_caption_store = __commonJS({
+  "../edit-store/lib/caption-store.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CAPTION_ZONES = void 0;
+    exports.parseCaptions = parseCaptions;
+    exports.mergeCaptionTextStyles = mergeCaptionTextStyles;
+    exports.shiftCaptionLine = shiftCaptionLine;
+    exports.setCaptionTimingLine = setCaptionTimingLine;
+    exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+    exports.updateCaptionFieldsInSourceWithReport = updateCaptionFieldsInSourceWithReport;
+    exports.updateCaptionRunsInSource = updateCaptionRunsInSource;
+    exports.captionEmphasisRemovedNotice = captionEmphasisRemovedNotice;
+    exports.captionEditNotices = captionEditNotices;
+    exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
+    exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
+    exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
+    exports.insertCaptionLine = insertCaptionLine;
+    exports.removeCaptionLine = removeCaptionLine;
+    exports.splitCaptionLine = splitCaptionLine;
+    exports.mergeCaptionLines = mergeCaptionLines;
+    var edit_store_1 = require_edit_store();
+    var caption_words_rederive_1 = require_caption_words_rederive();
+    var caption_runs_1 = require_caption_runs();
+    var caption_style_preset_1 = require_caption_style_preset();
+    var textstyle_catalog_merge_1 = require_textstyle_catalog_merge();
+    var caption_display_1 = require_caption_display();
+    exports.CAPTION_ZONES = [
+      "top-left",
+      "top",
+      "top-right",
+      "left",
+      "center",
+      "right",
+      "bottom-left",
+      "bottom",
+      "bottom-right"
+    ];
+    var JSON_NUMBER = "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?";
+    function parseCaptions(source, options = {}) {
+      let root = JSON.parse(source);
+      root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog).root;
+      const values = Array.isArray(root) ? root : isRecord2(root) && Array.isArray(root.captions) ? root.captions : void 0;
+      if (!values) {
+        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const warnings = [];
+      const defaultTextStyle = !Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 ? normalizeTextStyle(root.default_text_style, (keys) => warnings.push(`\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`)) : void 0;
+      if (!Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 && defaultTextStyle === void 0) {
+        throw new Error("\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const captions = [];
+      const seenIds = /* @__PURE__ */ new Set();
+      for (let index = 0; index < values.length; index++) {
+        const caption = normalizeCaption(values[index], (keys) => warnings.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306E text_style \u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`));
+        if (!caption) {
+          warnings.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306F\u6642\u523B\u307E\u305F\u306F\u5185\u5BB9\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+          continue;
+        }
+        if (seenIds.has(caption.id)) {
+          warnings.push(`\u5B57\u5E55 ${caption.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u884C\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+          continue;
+        }
+        seenIds.add(caption.id);
+        captions.push(caption);
+      }
+      return {
+        captions,
+        ...defaultTextStyle !== void 0 ? { defaultTextStyle } : {},
+        warnings
+      };
+    }
+    function mergeCaptionTextStyles(defaultStyle, captionStyle) {
+      const merged = {
+        ...defaultStyle,
+        ...captionStyle
+      };
+      const stroke = mergeNestedStyle(defaultStyle?.stroke, captionStyle?.stroke);
+      if (stroke && Object.keys(stroke).length > 0) {
+        merged.stroke = stroke;
+      } else {
+        delete merged.stroke;
+      }
+      for (const key of ["strokeInner", "fillGradient", "extrude"]) {
+        const value = mergeNestedStyle(defaultStyle?.[key], captionStyle?.[key]);
+        if (value && Object.keys(value).length > 0)
+          merged[key] = value;
+        else
+          delete merged[key];
+      }
+      const background = mergeNestedStyle(defaultStyle?.background, captionStyle?.background);
+      if (background && Object.keys(background).length > 0) {
+        merged.background = background;
+      } else {
+        delete merged.background;
+      }
+      const position = mergeNestedStyle(defaultStyle?.position, captionStyle?.position);
+      if (position && Object.keys(position).length > 0) {
+        merged.position = position;
+      } else {
+        delete merged.position;
+      }
+      const shadow = mergeNestedStyle(defaultStyle?.shadow, captionStyle?.shadow);
+      if (shadow && Object.keys(shadow).length > 0) {
+        merged.shadow = shadow;
+      } else {
+        delete merged.shadow;
+      }
+      const glow = mergeNestedStyle(defaultStyle?.glow, captionStyle?.glow);
+      if (glow && Object.keys(glow).length > 0) {
+        merged.glow = glow;
+      } else {
+        delete merged.glow;
+      }
+      const animation = mergeNestedStyle(defaultStyle?.animation, captionStyle?.animation);
+      if (animation && Object.keys(animation).length > 0) {
+        merged.animation = animation;
+      } else {
+        delete merged.animation;
+      }
+      const karaoke = mergeNestedStyle(defaultStyle?.karaoke, captionStyle?.karaoke);
+      if (karaoke && Object.keys(karaoke).length > 0)
+        merged.karaoke = karaoke;
+      else
+        delete merged.karaoke;
+      const layout = mergeNestedStyle(defaultStyle?.layout, captionStyle?.layout);
+      if (layout && Object.keys(layout).length > 0) {
+        merged.layout = layout;
+      } else {
+        delete merged.layout;
+      }
+      return Object.keys(merged).length > 0 ? merged : void 0;
+    }
+    function shiftCaptionLine(source, captionId, deltaStart, deltaEnd) {
+      if (!captionId || !Number.isFinite(deltaStart) || !Number.isFinite(deltaEnd)) {
+        throw new Error("\u5B57\u5E55\u306E\u8ABF\u6574\u5024\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      const array = locateCaptionArray(source);
+      const element = findCaptionElement(array.elements, captionId);
+      const start = readCaptionNumberProperty(element.text, "start", captionId);
+      const end = readCaptionNumberProperty(element.text, "end", captionId);
+      const nextStart = start + deltaStart;
+      const nextEnd = end + deltaEnd;
+      if (!Number.isFinite(nextStart) || !Number.isFinite(nextEnd) || nextStart < 0 || nextEnd - nextStart < 0.15) {
+        throw new Error("\u5B57\u5E55\u304C\u77ED\u3059\u304E\u307E\u3059\uFF080.15 \u79D2\u672A\u6E80\u306B\u306F\u3067\u304D\u307E\u305B\u3093\uFF09");
+      }
+      let nextElement = replaceCaptionProperty(element.text, "start", nextStart, captionId);
+      nextElement = replaceCaptionProperty(nextElement, "end", nextEnd, captionId);
+      nextElement = replaceCaptionProperty(nextElement, "edited", true, captionId);
+      return replaceElement(source, array.openIndex + 1, element, nextElement);
+    }
+    function setCaptionTimingLine(source, captionId, start, end, timeDomain, edited) {
+      if (!captionId || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end - start < 0.15) {
+        throw new Error("\u5B57\u5E55\u304C\u77ED\u3059\u304E\u307E\u3059\uFF080.15 \u79D2\u672A\u6E80\u306B\u306F\u3067\u304D\u307E\u305B\u3093\uFF09");
+      }
+      const array = locateCaptionArray(source);
+      const element = findCaptionElement(array.elements, captionId);
+      let nextElement = replaceCaptionProperty(element.text, "start", start, captionId);
+      nextElement = replaceCaptionProperty(nextElement, "end", end, captionId);
+      nextElement = replaceCaptionProperty(nextElement, "edited", edited, captionId);
+      nextElement = updateOptionalStyleProperty(nextElement, "time_domain", timeDomain, `\u5B57\u5E55 ${captionId}`);
+      return replaceElement(source, array.openIndex + 1, element, nextElement);
+    }
+    function updateCaptionFieldsInSource(source, captionId, updates) {
+      return updateCaptionFieldsInSourceWithReport(source, captionId, updates).source;
+    }
+    function updateCaptionFieldsInSourceWithReport(source, captionId, updates) {
+      if (!captionId) {
+        throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.text === void 0 && updates.speaker === void 0 && updates.unrecognized === void 0 && updates.style === void 0 && updates.displayTiming === void 0) {
+        throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.text !== void 0 && (typeof updates.text !== "string" || !updates.text.trim())) {
+        throw new Error("\u5B57\u5E55\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u7A7A\u306B\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      if (updates.speaker !== void 0 && updates.speaker !== null && typeof updates.speaker !== "string") {
+        throw new Error("\u5B57\u5E55\u306E\u8A71\u8005\u306F\u6587\u5B57\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.style !== void 0 && updates.style !== null && !["karaoke", "pop", "reveal", "reveal-word"].includes(updates.style)) {
+        throw new Error("\u5B57\u5E55\u306E\u30B9\u30BF\u30A4\u30EB\uFF08\u6F14\u51FA\uFF09\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.displayTiming !== void 0 && updates.displayTiming !== null && updates.displayTiming !== "full" && updates.displayTiming !== "speech-tight") {
+        throw new Error("\u5B57\u5E55\u306E\u8868\u793A\u30BF\u30A4\u30DF\u30F3\u30B0\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      let unrecognized;
+      if (updates.unrecognized !== void 0 && updates.unrecognized !== null) {
+        if (!Array.isArray(updates.unrecognized)) {
+          throw new Error("\u5B57\u5E55\u306E\u672A\u8A8D\u8B58\u533A\u9593\u306F\u914D\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        unrecognized = updates.unrecognized.map((span) => {
+          if (!span || typeof span !== "object" || typeof span.start !== "number" || !Number.isFinite(span.start) || typeof span.end !== "number" || !Number.isFinite(span.end) || span.end <= span.start) {
+            throw new Error("\u5B57\u5E55\u306E\u672A\u8A8D\u8B58\u533A\u9593\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+          }
+          return { start: span.start, end: span.end };
+        }).sort((left, right) => left.start - right.start || left.end - right.end);
+      }
+      const array = locateCaptionArray(source);
+      const element = findCaptionElement(array.elements, captionId);
+      let nextElement = element.text;
+      let removedRuns = [];
+      let removedEmphasis = [];
+      let nextEmphasis;
+      let oldEmphasis;
+      if (updates.text !== void 0) {
+        const parsed = JSON.parse(nextElement);
+        const applied = (0, caption_words_rederive_1.applyCaptionTextEdit)(parsed, updates.text);
+        removedRuns = applied.removedRuns ?? [];
+        if (applied.record !== parsed) {
+          const root = JSON.parse(source);
+          if (!Array.isArray(root) && isRecord2(root) && Array.isArray(root.emphasis_words) && Array.isArray(parsed.words) && applied.rederive) {
+            oldEmphasis = root.emphasis_words;
+            const rebased = (0, caption_words_rederive_1.rebaseCaptionEmphasis)({
+              emphasis: oldEmphasis,
+              oldWords: parsed.words,
+              result: applied.rederive,
+              oldText: parsed.text,
+              newText: applied.record.text,
+              ...typeof parsed.src === "string" ? { src: parsed.src } : {}
+            });
+            removedEmphasis = rebased.removed;
+            if (rebased.removed.length || rebased.emphasis.some((entry, index) => entry !== oldEmphasis[index]))
+              nextEmphasis = rebased.emphasis;
+          }
+          nextElement = replaceCaptionJsonProperty(nextElement, "text", applied.record.text, captionId);
+          nextElement = replaceCaptionJsonProperty(nextElement, "edited", applied.record.edited, captionId);
+          nextElement = syncOptionalCaptionProperty(nextElement, "words", applied.record.words, captionId);
+          nextElement = syncOptionalCaptionProperty(nextElement, "display_text", applied.record.display_text, captionId);
+          nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", applied.record.display_fragments, captionId);
+          nextElement = syncOptionalCaptionProperty(nextElement, "runs", applied.record.runs, captionId);
+        }
+      }
+      if (updates.speaker !== void 0) {
+        nextElement = replaceCaptionProperty(nextElement, "speaker", updates.speaker, captionId);
+        nextElement = replaceCaptionProperty(nextElement, "edited", true, captionId);
+      }
+      if (updates.unrecognized !== void 0) {
+        nextElement = syncOptionalCaptionProperty(nextElement, "unrecognized", updates.unrecognized === null || unrecognized?.length === 0 ? void 0 : unrecognized, captionId);
+      }
+      if (updates.style !== void 0) {
+        nextElement = syncOptionalCaptionProperty(nextElement, "style", updates.style ?? void 0, captionId);
+      }
+      if (updates.displayTiming !== void 0) {
+        const next = updates.displayTiming === "speech-tight" ? "speech-tight" : void 0;
+        nextElement = syncOptionalCaptionProperty(nextElement, "display_timing", next, captionId);
+      }
+      let updated = replaceElement(source, array.openIndex + 1, element, nextElement);
+      if (nextEmphasis && oldEmphasis) {
+        const property = locateTopLevelProperty(updated, "emphasis_words");
+        if (!property)
+          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        const colon = property.text.indexOf(":");
+        const open = updated.indexOf("[", property.start + colon + 1);
+        if (open < 0 || open >= property.end)
+          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        const close = (0, edit_store_1.findMatchingBracket)(updated, open);
+        const inner = updated.slice(open + 1, close);
+        const elements = (0, edit_store_1.splitTopLevelElements)(inner);
+        if (elements.length !== oldEmphasis.length)
+          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        const byId = new Map(nextEmphasis.map((entry) => [entry.id, entry]));
+        const kept = elements.flatMap((entry, index) => {
+          const old = oldEmphasis[index];
+          const next = byId.get(old.id);
+          return next ? [{ index, text: next === old ? entry.text : JSON.stringify(next) }] : [];
+        });
+        let nextInner = "";
+        kept.forEach((entry, keptIndex) => {
+          const originalIndex = entry.index;
+          const separator = originalIndex === 0 ? inner.slice(0, elements[0].start) : inner.slice(elements[originalIndex - 1].end, elements[originalIndex].start);
+          nextInner += (keptIndex === 0 ? separator.replace(/^,/u, "") : separator) + entry.text;
+        });
+        if (kept.length)
+          nextInner += inner.slice(elements[elements.length - 1].end);
+        updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
+      }
+      return { source: updated, removedRuns, removedEmphasis };
+    }
+    function updateCaptionRunsInSource(source, captionId, edit) {
+      const array = locateCaptionArray(source);
+      const element = findCaptionElement(array.elements, captionId);
+      const caption = JSON.parse(element.text);
+      const display = caption.display_text ?? caption.text;
+      const runs = edit.kind === "style" ? (0, caption_runs_1.setCaptionRunStyle)(display, caption.runs, edit.from, edit.to, edit.style) : edit.kind === "role" ? (0, caption_runs_1.setCaptionRunRole)(display, caption.runs, edit.from, edit.to, edit.role) : edit.kind === "remove" ? (0, caption_runs_1.removeCaptionRun)(caption.runs, edit.index) : (() => {
+        if (!Number.isInteger(edit.index) || edit.index < 0 || edit.index > (caption.runs?.length ?? 0) || !Number.isInteger(edit.run.from) || !Number.isInteger(edit.run.to) || edit.run.from < 0 || edit.run.to <= edit.run.from || edit.run.to > (0, caption_runs_1.captionGraphemes)(display).length) {
+          throw new Error("\u623B\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        const restored = [...caption.runs ?? []];
+        restored.splice(edit.index, 0, edit.run);
+        return restored;
+      })();
+      return replaceElement(source, array.openIndex + 1, element, syncOptionalCaptionProperty(element.text, "runs", runs.length ? runs : void 0, captionId));
+    }
+    function captionEmphasisRemovedNotice(removed) {
+      if (!removed.length)
+        return void 0;
+      const first = removed[0];
+      const word = typeof first.word === "string" ? first.word.trim() : "";
+      return `\u5F37\u8ABF ${removed.length} \u4EF6${word ? `\uFF08\u300C${(0, caption_runs_1.captionGraphemes)(word).slice(0, 16).join("")}\u300D\uFF09` : ""}\u304C\u5916\u308C\u307E\u3057\u305F`;
+    }
+    function captionEditNotices(result, oldDisplayText) {
+      return [
+        (0, caption_runs_1.captionRunsRemovedNotice)(result.removedRuns, oldDisplayText),
+        captionEmphasisRemovedNotice(result.removedEmphasis)
+      ].filter((notice) => !!notice);
+    }
+    function applyWordBookToCaptionsInSource(source, changes) {
+      if (changes.length === 0) {
+        return source;
+      }
+      let output = source;
+      for (const change of changes) {
+        const array = locateCaptionArray(output);
+        const element = findCaptionElement(array.elements, change.id);
+        let nextElement = element.text;
+        nextElement = replaceCaptionJsonProperty(nextElement, "text", change.text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, "words", change.words, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, "display_text", change.display_text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", change.display_fragments, change.id);
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+      }
+      return output;
+    }
+    function updateCaptionTextStyleInSource(source, captionId, updates) {
+      if (!captionId) {
+        throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      validateTextStylePatch(updates);
+      const array = locateCaptionArray(source);
+      const element = findCaptionElement(array.elements, captionId);
+      let nextElement = element.text;
+      const existing = locateTopLevelProperty(nextElement, "text_style");
+      if (!existing) {
+        const created = textStylePatchToJson(updates);
+        if (Object.keys(created).length === 0) {
+          return source;
+        }
+        nextElement = appendJsonProperty(nextElement, "text_style", created);
+      } else {
+        const located = locateTopLevelObjectProperty(nextElement, "text_style", `\u5B57\u5E55 ${captionId}`);
+        let textStyle = located.text;
+        textStyle = updateOptionalStyleProperty(textStyle, "color", updates.color, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "size_px", updates.sizePx, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "wrap_width_pct", updates.wrapWidthPct, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "font_weight", updates.fontWeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "weight", updates.weight === void 0 && updates.fontWeight !== void 0 ? null : updates.weight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "line_height", updates.lineHeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "letter_spacing_em", updates.letterSpacingEm, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "font_family", updates.fontFamily, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        for (const [key, value] of [
+          ["stroke_inner", updates.strokeInner],
+          ["fill_gradient", updates.fillGradient],
+          ["extrude", updates.extrude]
+        ]) {
+          if (value === void 0)
+            continue;
+          const json = value === null ? null : richStyleToJson(key, value);
+          const existingRich = locateTopLevelProperty(textStyle, key);
+          textStyle = json === null ? existingRich ? removeObjectProperty(textStyle, key) : textStyle : existingRich ? (() => {
+            const object = locateTopLevelObjectProperty(textStyle, key, key);
+            return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
+          })() : appendJsonProperty(textStyle, key, json);
+        }
+        textStyle = updateOptionalStyleProperty(textStyle, "zone", updates.zone, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateNestedStyleObject(textStyle, "stroke", {
+          color: updates.stroke?.color,
+          width_px: updates.stroke?.widthPx
+        }, `\u5B57\u5E55 ${captionId} \u306E text_style.stroke`);
+        textStyle = updateNestedStyleObject(textStyle, "background", {
+          color: updates.background?.color,
+          opacity: updates.background?.opacity,
+          radius_px: updates.background?.radiusPx,
+          padding_px: updates.background?.paddingPx,
+          mode: updates.background?.mode,
+          fit: updates.background?.fit
+        }, `\u5B57\u5E55 ${captionId} \u306E text_style.background`);
+        textStyle = updateAnimationStyleObject(textStyle, updates.animation, `\u5B57\u5E55 ${captionId} \u306E text_style.animation`);
+        if (updates.karaoke === null) {
+          if (locateTopLevelProperty(textStyle, "karaoke"))
+            textStyle = removeObjectProperty(textStyle, "karaoke");
+        } else if (updates.karaoke) {
+          textStyle = updateNestedStyleObject(textStyle, "karaoke", {
+            done_color: updates.karaoke.doneColor,
+            fill: updates.karaoke.fill,
+            start_index: updates.karaoke.startIndex
+          }, `\u5B57\u5E55 ${captionId} \u306E text_style.karaoke`);
+        }
+        nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
+      }
+      return replaceElement(source, array.openIndex + 1, element, nextElement);
+    }
+    function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
+      if (captionIds.length === 0) {
+        throw new Error("\u5B57\u5E55 ID \u3092 1 \u4EF6\u4EE5\u4E0A\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
+        throw new Error("\u5B57\u5E55\u30C6\u30F3\u30D7\u30EC ID \u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      const ids = [...new Set(captionIds)];
+      const array = locateCaptionArray(source);
+      const elementsById = /* @__PURE__ */ new Map();
+      for (const entry of captionElementEntries(array.elements)) {
+        if (!entry.id)
+          continue;
+        const matches = elementsById.get(entry.id) ?? [];
+        matches.push(entry.element);
+        elementsById.set(entry.id, matches);
+      }
+      const targets = [];
+      for (const captionId of ids) {
+        const matches = elementsById.get(captionId) ?? [];
+        if (matches.length !== 1) {
+          throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
+        }
+        targets.push({ captionId, element: matches[0] });
+      }
+      let output = source;
+      let changed = 0;
+      for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
+        const record = JSON.parse(element.text);
+        const hasPreset = Object.prototype.hasOwnProperty.call(record, "style_preset");
+        if (presetId === null) {
+          if (!hasPreset)
+            continue;
+          const nextElement2 = removeObjectProperty(element.text, "style_preset");
+          output = replaceElement(output, array.openIndex + 1, element, nextElement2);
+          changed++;
+          continue;
+        }
+        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
+        if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
+          continue;
+        let nextElement;
+        if (hasPreset) {
+          nextElement = replaceCaptionJsonProperty(element.text, "style_preset", presetId, captionId);
+        } else {
+          const textStyle = locateTopLevelProperty(element.text, "text_style");
+          if (!textStyle) {
+            nextElement = appendJsonProperty(element.text, "style_preset", presetId);
+          } else {
+            const lineStart = Math.max(element.text.lastIndexOf("\n", textStyle.start - 1), element.text.lastIndexOf("\r", textStyle.start - 1));
+            const separator = lineStart >= 0 ? `${element.text.includes("\r\n") ? "\r\n" : "\n"}${element.text.slice(lineStart + 1, textStyle.start)}` : " ";
+            nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
+          }
+        }
+        nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+        changed++;
+      }
+      return { source: output, changed };
+    }
+    function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
+      const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
+      if (!preset || textStyle === null || typeof textStyle !== "object" || Array.isArray(textStyle)) {
+        return [];
+      }
+      const style = textStyle;
+      return Object.keys(preset.style).filter((key) => Object.prototype.hasOwnProperty.call(style, key));
+    }
+    function pruneShadowedTextStyle(element, keys, captionId) {
+      if (keys.length === 0) {
+        return element;
+      }
+      const located = locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`);
+      let textStyle = located.text;
+      for (const key of keys) {
+        textStyle = removeObjectProperty(textStyle, key);
+      }
+      return Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(element, "text_style") : element.slice(0, located.start) + textStyle + element.slice(located.end);
+    }
+    function insertCaptionLine(source, caption) {
+      const parsed = parseCaptions(source);
+      if (!normalizeCaption(caption)) {
+        throw new Error("\u8FFD\u52A0\u3059\u308B\u5B57\u5E55\u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      const array = locateCaptionArray(source);
+      const entries = captionElementEntries(array.elements);
+      if (entries.some((candidate) => candidate.id === caption.id)) {
+        throw new Error(`\u5B57\u5E55 ${caption.id} \u306F\u65E2\u306B\u3042\u308A\u307E\u3059\u3002`);
+      }
+      validateCaptionElements(entries, parsed.captions);
+      const lineEnding = source.includes("\r\n") ? "\r\n" : "\n";
+      const serialized = serializeCaption(caption);
+      const before = entries.find((entry) => entry.start > caption.start);
+      if (before) {
+        const index = entries.indexOf(before);
+        const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+        const nextInner = array.inner.slice(0, before.element.start) + serialized + "," + separator + array.inner.slice(before.element.start);
+        return replaceArrayInner(source, array, nextInner);
+      }
+      if (entries.length > 0) {
+        const last = entries[entries.length - 1];
+        const index = array.elements.indexOf(last.element);
+        const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+        const nextInner = array.inner.slice(0, last.element.end) + "," + separator + serialized + array.inner.slice(last.element.end);
+        return replaceArrayInner(source, array, nextInner);
+      }
+      return replaceArrayInner(source, array, insertIntoEmptyArray(array.inner, serialized, lineEnding));
+    }
+    function removeCaptionLine(source, captionId) {
+      const parsed = parseCaptions(source);
+      const array = locateCaptionArray(source);
+      const entries = captionElementEntries(array.elements);
+      validateCaptionElements(entries, parsed.captions);
+      const index = entries.findIndex((entry2) => entry2.id === captionId);
+      if (index < 0) {
+        throw new Error(`\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002`);
+      }
+      const entry = entries[index];
+      let nextInner;
+      if (entries.length === 1) {
+        nextInner = array.inner.slice(0, entry.element.start) + array.inner.slice(entry.element.end);
+      } else if (index < entries.length - 1) {
+        nextInner = array.inner.slice(0, entry.element.start) + array.inner.slice(entries[index + 1].element.start);
+      } else {
+        nextInner = array.inner.slice(0, entries[index - 1].element.end) + array.inner.slice(entry.element.end);
+      }
+      return replaceArrayInner(source, array, nextInner);
+    }
+    function splitCaptionLine(source, captionId, wordIndex, newCaptionId) {
+      const array = locateCaptionArray(source);
+      const entries = captionElementEntries(array.elements);
+      if (entries.some((entry) => entry.id === newCaptionId)) {
+        throw new Error(`\u5B57\u5E55 ${newCaptionId} \u306F\u65E2\u306B\u3042\u308A\u307E\u3059\u3002`);
+      }
+      const element = findCaptionElement(array.elements, captionId);
+      const record = JSON.parse(element.text);
+      if (!Array.isArray(record.words) || record.words.length < 2 || !Number.isInteger(wordIndex) || wordIndex <= 0 || wordIndex >= record.words.length) {
+        throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
+      }
+      const words = record.words;
+      const wordsA = words.slice(0, wordIndex);
+      const wordsB = words.slice(wordIndex);
+      const textA = wordsA.map((word) => String(word.text ?? "")).join("");
+      const textB = wordsB.map((word) => String(word.text ?? "")).join("");
+      if (textA + textB !== record.text) {
+        throw new Error("\u3053\u306E\u884C\u306E\u30C6\u30AD\u30B9\u30C8\u3068\u8A9E\u306E\u30BF\u30A4\u30DF\u30F3\u30B0\u304C\u4E00\u81F4\u3057\u3066\u3044\u306A\u3044\u305F\u3081\u5206\u5272\u3067\u304D\u307E\u305B\u3093");
+      }
+      const splitEnd = wordsA[wordsA.length - 1].end;
+      if (typeof splitEnd !== "number") {
+        throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
+      }
+      const unrecognized = Array.isArray(record.unrecognized) ? record.unrecognized : [];
+      const recordA = {
+        ...record,
+        end: splitEnd,
+        text: textA,
+        words: wordsA,
+        edited: true
+      };
+      const recordB = {
+        ...record,
+        id: newCaptionId,
+        start: wordsB[0].start,
+        text: textB,
+        words: wordsB,
+        edited: true,
+        sourceRef: null
+      };
+      if (Array.isArray(record.runs)) {
+        const split = textA.length;
+        const rawText = String(record.text);
+        const displayText = typeof record.display_text === "string" ? record.display_text : rawText;
+        const runs = (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs;
+        const runsA = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, 0, split);
+        const runsB = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, split, rawText.length);
+        if (runsA)
+          recordA.runs = runsA;
+        else
+          delete recordA.runs;
+        if (runsB)
+          recordB.runs = runsB;
+        else
+          delete recordB.runs;
+      }
+      recordA.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start < splitEnd);
+      recordB.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start >= splitEnd);
+      for (const output of [recordA, recordB]) {
+        delete output.display_text;
+        delete output.display_fragments;
+        if (Array.isArray(output.words) && output.words.length === 0)
+          delete output.words;
+        if (Array.isArray(output.unrecognized) && output.unrecognized.length === 0)
+          delete output.unrecognized;
+      }
+      const index = array.elements.indexOf(element);
+      const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+      const replacement = `${serializeCaptionRaw(recordA)},${separator}${serializeCaptionRaw(recordB)}`;
+      const nextInner = array.inner.slice(0, element.start) + replacement + array.inner.slice(element.end);
+      return replaceArrayInner(source, array, nextInner);
+    }
+    function mergeCaptionLines(source, captionIds) {
+      if (captionIds.length < 2) {
+        throw new Error("\u7D50\u5408\u3059\u308B\u5B57\u5E55\u3092 2 \u884C\u4EE5\u4E0A\u9078\u3093\u3067\u304F\u3060\u3055\u3044");
+      }
+      if (new Set(captionIds).size !== captionIds.length) {
+        throw new Error("\u540C\u3058\u5B57\u5E55\u3092\u91CD\u8907\u3057\u3066\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
+      }
+      const array = locateCaptionArray(source);
+      const elements = captionIds.map((id) => findCaptionElement(array.elements, id));
+      const records = elements.map((element) => JSON.parse(element.text));
+      const domains = records.map((record) => record.time_domain ?? "source");
+      if (domains.some((domain) => domain !== domains[0])) {
+        throw new Error("\u30BF\u30A4\u30E0\u30C9\u30E1\u30A4\u30F3\u304C\u7570\u306A\u308B\u884C\u306F\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
+      }
+      const words = records.flatMap((record) => Array.isArray(record.words) ? record.words : []);
+      const unrecognized = records.flatMap((record) => Array.isArray(record.unrecognized) ? record.unrecognized : []);
+      const survivor = {
+        ...records[0],
+        end: records[records.length - 1].end,
+        text: records.map((record) => String(record.text ?? "")).join(""),
+        words,
+        unrecognized,
+        edited: true
+      };
+      if (records.some((record) => Array.isArray(record.runs))) {
+        let offset = 0;
+        const mergedRuns = (0, caption_runs_1.joinAdjacentCaptionRuns)(records.flatMap((record) => {
+          const rawText = String(record.text ?? "");
+          const displayText = typeof record.display_text === "string" ? record.display_text : rawText;
+          const runs = Array.isArray(record.runs) ? (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs : [];
+          const projected = runs.map((run) => ({ ...run, from: run.from + offset, to: run.to + offset }));
+          offset += (0, caption_runs_1.captionGraphemes)(rawText).length;
+          return projected;
+        }));
+        if (mergedRuns.length > 0)
+          survivor.runs = mergedRuns;
+        else
+          delete survivor.runs;
+      }
+      delete survivor.display_text;
+      delete survivor.display_fragments;
+      if (words.length === 0)
+        delete survivor.words;
+      if (unrecognized.length === 0)
+        delete survivor.unrecognized;
+      const selected = new Set(elements);
+      const survivorElement = elements[0];
+      const kept = array.elements.flatMap((element, index) => {
+        if (!selected.has(element))
+          return [{ element, index, text: element.text }];
+        return element === survivorElement ? [{ element, index, text: serializeCaptionRaw(survivor) }] : [];
+      });
+      const prefix = array.elements.length ? array.inner.slice(0, array.elements[0].start) : array.inner;
+      const suffix = array.elements.length ? array.inner.slice(array.elements[array.elements.length - 1].end) : "";
+      const nextInner = kept.reduce((result, item, index) => result + (index === 0 ? "" : `,${whitespaceBeforeElement(array.inner, array.elements, item.index)}`) + item.text, prefix) + suffix;
+      return replaceArrayInner(source, array, nextInner);
+    }
+    function normalizeCaption(value, onTextStyleUnknownKeys) {
+      if (!value || typeof value !== "object" || typeof value.id !== "string" || !value.id || typeof value.text !== "string" || typeof value.edited !== "boolean") {
+        return void 0;
+      }
+      const start = value.start;
+      const end = value.end;
+      if (typeof start !== "number" || typeof end !== "number" || !Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+        return void 0;
+      }
+      const sourceRef = value.sourceRef === null ? null : Number.isInteger(value.sourceRef?.segment) && value.sourceRef.segment >= 0 ? { segment: value.sourceRef.segment } : void 0;
+      const textStyle = value.text_style === void 0 ? void 0 : normalizeTextStyle(value.text_style, onTextStyleUnknownKeys);
+      if (sourceRef === void 0 || value.speaker !== null && typeof value.speaker !== "string" || value.text_style !== void 0 && textStyle === void 0) {
+        return void 0;
+      }
+      const unrecognized = normalizeUnrecognized(value.unrecognized);
+      return {
+        id: value.id,
+        start,
+        end,
+        text: value.text,
+        speaker: value.speaker,
+        sourceRef,
+        edited: value.edited,
+        ...typeof value.display_text === "string" ? { displayText: value.display_text } : {},
+        ...Array.isArray(value.runs) ? { runs: value.runs } : {},
+        ...unrecognized !== void 0 ? { unrecognized } : {},
+        ...value.time_domain === "source" || value.time_domain === "output" ? { timeDomain: value.time_domain } : {},
+        ...textStyle !== void 0 ? { textStyle } : {}
+      };
+    }
+    function locateCaptionArray(source) {
+      const value = JSON.parse(source);
+      const rootStart = source.search(/\S/);
+      if (rootStart < 0) {
+        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      let openIndex;
+      if (Array.isArray(value) && source[rootStart] === "[") {
+        openIndex = rootStart;
+      } else if (isRecord2(value) && Array.isArray(value.captions) && source[rootStart] === "{") {
+        const rootClose = (0, edit_store_1.findMatchingBracket)(source, rootStart);
+        if (source.slice(rootClose + 1).trim()) {
+          throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+        }
+        const rootInner = source.slice(rootStart + 1, rootClose);
+        const captionsProperties = (0, edit_store_1.splitTopLevelElements)(rootInner).filter((element) => /^"captions"\s*:/.test(element.text));
+        if (captionsProperties.length !== 1) {
+          throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E captions \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        }
+        const property = captionsProperties[0];
+        const propertyOffset = rootStart + 1 + property.start;
+        const colonIndex = property.text.indexOf(":");
+        openIndex = source.indexOf("[", propertyOffset + colonIndex + 1);
+        if (openIndex < 0 || openIndex >= rootStart + 1 + property.end) {
+          throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E captions \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        }
+      } else {
+        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const closeIndex = (0, edit_store_1.findMatchingBracket)(source, openIndex);
+      if (Array.isArray(value) && source.slice(closeIndex + 1).trim()) {
+        throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const inner = source.slice(openIndex + 1, closeIndex);
+      return {
+        openIndex,
+        closeIndex,
+        inner,
+        elements: (0, edit_store_1.splitTopLevelElements)(inner)
+      };
+    }
+    function captionElementEntries(elements) {
+      return elements.map((element) => {
+        const value = JSON.parse(element.text);
+        return {
+          id: value && typeof value === "object" && typeof value.id === "string" ? value.id : void 0,
+          start: value && typeof value === "object" && typeof value.start === "number" ? value.start : Number.POSITIVE_INFINITY,
+          element
+        };
+      });
+    }
+    function validateCaptionElements(entries, captions) {
+      for (const caption of captions) {
+        const matches = entries.filter((entry) => entry.id === caption.id);
+        if (matches.length !== 1) {
+          throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${caption.id} \u306E\u30EC\u30B3\u30FC\u30C9\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${caption.id} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
+        }
+      }
+    }
+    function findCaptionElement(elements, captionId) {
+      const entries = captionElementEntries(elements);
+      const matches = entries.filter((entry) => entry.id === captionId);
+      if (matches.length !== 1) {
+        throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
+      }
+      return matches[0].element;
+    }
+    function locateCaptionProperty(source, property, captionId) {
+      const openIndex = source.search(/\S/);
+      if (openIndex < 0 || source[openIndex] !== "{") {
+        throw new Error(`\u5B57\u5E55 ${captionId} \u306E\u30EC\u30B3\u30FC\u30C9\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      const closeIndex = (0, edit_store_1.findMatchingBracket)(source, openIndex);
+      if (source.slice(closeIndex + 1).trim()) {
+        throw new Error(`\u5B57\u5E55 ${captionId} \u306E\u30EC\u30B3\u30FC\u30C9\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      const inner = source.slice(openIndex + 1, closeIndex);
+      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matches = (0, edit_store_1.splitTopLevelElements)(inner).filter((element) => new RegExp(`^"${escapedProperty}"\\s*:`).test(element.text));
+      if (matches.length !== 1) {
+        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      const match = matches[0];
+      return {
+        text: match.text,
+        start: openIndex + 1 + match.start,
+        end: openIndex + 1 + match.end
+      };
+    }
+    function replaceCaptionProperty(source, property, value, captionId) {
+      const located = locateCaptionProperty(source, property, captionId);
+      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`);
+      if (!pattern.test(located.text)) {
+        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      const nextProperty = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+      return source.slice(0, located.start) + nextProperty + source.slice(located.end);
+    }
+    function replaceCaptionJsonProperty(source, property, value, captionId) {
+      const located = locateCaptionProperty(source, property, captionId);
+      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)[\\s\\S]*$`);
+      if (!pattern.test(located.text)) {
+        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      const nextProperty = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+      return source.slice(0, located.start) + nextProperty + source.slice(located.end);
+    }
+    function syncOptionalCaptionProperty(source, property, value, captionId) {
+      const exists = locateTopLevelProperty(source, property) !== void 0;
+      if (value === void 0) {
+        return exists ? removeObjectProperty(source, property) : source;
+      }
+      return exists ? replaceCaptionJsonProperty(source, property, value, captionId) : appendJsonProperty(source, property, value);
+    }
+    function readCaptionNumberProperty(source, property, captionId) {
+      const located = locateCaptionProperty(source, property, captionId);
+      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const match = new RegExp(`^"${escapedProperty}"\\s*:\\s*(${JSON_NUMBER})`).exec(located.text);
+      if (!match) {
+        throw new Error(`\u5B57\u5E55 ${captionId} \u306E ${property} \u30D7\u30ED\u30D1\u30C6\u30A3\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      return Number(match[1]);
+    }
+    function replaceElement(source, innerOffset, element, nextText) {
+      const start = innerOffset + element.start;
+      const end = innerOffset + element.end;
+      return source.slice(0, start) + nextText + source.slice(end);
+    }
+    function replaceArrayInner(source, array, nextInner) {
+      return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
+    }
+    function whitespaceBeforeElement(inner, elements, index) {
+      if (index <= 0) {
+        return inner.slice(0, elements[0].start);
+      }
+      const between = inner.slice(elements[index - 1].end, elements[index].start);
+      const commaIndex = between.indexOf(",");
+      return commaIndex >= 0 ? between.slice(commaIndex + 1) : "";
+    }
+    function insertIntoEmptyArray(inner, serialized, lineEnding) {
+      if (!inner.includes("\n")) {
+        return inner ? `${inner}${serialized}${inner}` : serialized;
+      }
+      const lastLineStart = inner.lastIndexOf("\n") + 1;
+      const closingIndent = inner.slice(lastLineStart);
+      const beforeClosingIndent = inner.slice(0, lastLineStart);
+      return `${beforeClosingIndent}${closingIndent}  ${serialized}${lineEnding}${closingIndent}`;
+    }
+    function serializeCaption(caption) {
+      const parts = [
+        `"id": ${JSON.stringify(caption.id)}`,
+        `"start": ${JSON.stringify(caption.start)}`,
+        `"end": ${JSON.stringify(caption.end)}`,
+        `"text": ${JSON.stringify(caption.text)}`,
+        `"speaker": ${JSON.stringify(caption.speaker)}`,
+        `"sourceRef": ${JSON.stringify(caption.sourceRef)}`,
+        `"edited": ${JSON.stringify(caption.edited)}`
+      ];
+      if (caption.src !== void 0) {
+        parts.push(`"src": ${JSON.stringify(caption.src)}`);
+      }
+      if (caption.timeDomain !== void 0) {
+        parts.push(`"time_domain": ${JSON.stringify(caption.timeDomain)}`);
+      }
+      if (caption.words !== void 0) {
+        parts.push(`"words": ${JSON.stringify(caption.words)}`);
+      }
+      const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
+      if (normalizedUnrecognized !== void 0) {
+        parts.push(`"unrecognized": ${JSON.stringify(normalizedUnrecognized)}`);
+      }
+      if (caption.style !== void 0) {
+        parts.push(`"style": ${JSON.stringify(caption.style)}`);
+      }
+      if (caption.displayText !== void 0) {
+        parts.push(`"display_text": ${JSON.stringify(caption.displayText)}`);
+      }
+      if (caption.displayFragments !== void 0) {
+        parts.push(`"display_fragments": ${JSON.stringify(caption.displayFragments)}`);
+      }
+      if (caption.stylePreset !== void 0) {
+        parts.push(`"style_preset": ${JSON.stringify(caption.stylePreset)}`);
+      }
+      if (caption.textStyle !== void 0) {
+        parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
+      }
+      if (caption.extra?.display_timing !== void 0) {
+        parts.push(`"display_timing": ${JSON.stringify(caption.extra.display_timing)}`);
+      }
+      if (caption.runs?.length) {
+        parts.push(`"runs": ${JSON.stringify(caption.runs)}`);
+      }
+      const schemaKeys = /* @__PURE__ */ new Set([
+        "id",
+        "start",
+        "end",
+        "text",
+        "speaker",
+        "sourceRef",
+        "edited",
+        "src",
+        "time_domain",
+        "words",
+        "unrecognized",
+        "style",
+        "display_text",
+        "display_fragments",
+        "style_preset",
+        "text_style",
+        "display_timing",
+        "runs"
+      ]);
+      for (const [key, value] of Object.entries(caption.extra ?? {})) {
+        if (value !== void 0 && !schemaKeys.has(key)) {
+          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
+        }
+      }
+      return `{ ${parts.join(", ")} }`;
+    }
+    function serializeCaptionRaw(value) {
+      const schemaKeys = [
+        "id",
+        "start",
+        "end",
+        "text",
+        "speaker",
+        "sourceRef",
+        "edited",
+        "src",
+        "time_domain",
+        "words",
+        "unrecognized",
+        "style",
+        "display_text",
+        "display_fragments",
+        "style_preset",
+        "text_style",
+        "display_timing",
+        "runs"
+      ];
+      const known = new Set(schemaKeys);
+      const parts = [];
+      for (const key of schemaKeys) {
+        if (value[key] !== void 0 && (key !== "runs" || Array.isArray(value[key]) && value[key].length > 0)) {
+          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
+        }
+      }
+      for (const [key, item] of Object.entries(value)) {
+        if (!known.has(key) && item !== void 0)
+          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(item)}`);
+      }
+      return `{ ${parts.join(", ")} }`;
+    }
+    function normalizeUnrecognized(value) {
+      if (!Array.isArray(value))
+        return void 0;
+      if (!value.every((span) => isRecord2(span) && isFiniteNumber(span.start) && isFiniteNumber(span.end) && span.end > span.start)) {
+        return void 0;
+      }
+      const spans = value.map((span) => {
+        const record = span;
+        return { start: record.start, end: record.end };
+      });
+      return spans.length > 0 ? spans : void 0;
+    }
+    function isRecord2(value) {
+      return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    }
+    function isFiniteNumber(value) {
+      return typeof value === "number" && Number.isFinite(value);
+    }
+    function isFinitePositive(value) {
+      return isFiniteNumber(value) && value > 0;
+    }
+    function isFiniteNonNegative(value) {
+      return isFiniteNumber(value) && value >= 0;
+    }
+    function isFiniteInRange(value, min, max) {
+      return isFiniteNumber(value) && value >= min && value <= max;
+    }
+    var TEXT_STYLE_KEYS = /* @__PURE__ */ new Set([
+      "color",
+      "size_px",
+      "reference_height_px",
+      "font_family",
+      "font_weight",
+      "weight",
+      "italic",
+      "underline",
+      "strikethrough",
+      "list",
+      "opacity",
+      "letter_spacing_em",
+      "line_height",
+      "align",
+      "vertical_align",
+      "vertical",
+      "text_transform",
+      "max_width_pct",
+      "wrap_width_pct",
+      "max_characters",
+      "text_anchor",
+      "position",
+      "scale",
+      "rotate",
+      "shadow",
+      "glow",
+      "animation",
+      "stroke",
+      "background",
+      "zone",
+      "layout",
+      "karaoke",
+      "stroke_inner",
+      "fill_gradient",
+      "extrude",
+      "strokes",
+      "fill"
+    ]);
+    var TEXT_TRANSFORM_VALUES = /* @__PURE__ */ new Set(["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"]);
+    var TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
+    function normalizeTextStyle(value, onUnknownKeys) {
+      if (!isRecord2(value)) {
+        return void 0;
+      }
+      const unknownKeys = Object.keys(value).filter((key) => !TEXT_STYLE_KEYS.has(key));
+      if (unknownKeys.length > 0) {
+        onUnknownKeys?.(unknownKeys);
+      }
+      const style = {};
+      for (const key of ["fill", "strokes"]) {
+        if (value[key] === void 0)
+          continue;
+        try {
+          (0, caption_display_1.validateCaptionTextStyle)({ [key]: value[key] });
+          style[key] = value[key];
+        } catch {
+        }
+      }
+      if (isHexColor(value.color)) {
+        style.color = value.color;
+      }
+      if (isRecord2(value.karaoke)) {
+        const karaoke = {};
+        if (isHexColor(value.karaoke.done_color))
+          karaoke.doneColor = value.karaoke.done_color;
+        if (value.karaoke.fill === "char" || value.karaoke.fill === "word" || value.karaoke.fill === "smooth")
+          karaoke.fill = value.karaoke.fill;
+        if (Number.isInteger(value.karaoke.start_index) && value.karaoke.start_index >= 0)
+          karaoke.startIndex = value.karaoke.start_index;
+        if (Object.keys(karaoke).length)
+          style.karaoke = karaoke;
+      }
+      if (isFinitePositive(value.size_px)) {
+        style.sizePx = value.size_px;
+      }
+      if (Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1) {
+        style.referenceHeightPx = value.reference_height_px;
+      }
+      if (typeof value.font_family === "string" && value.font_family !== "") {
+        style.fontFamily = value.font_family;
+      }
+      if (Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1e3) {
+        style.fontWeight = value.font_weight;
+      }
+      if (Number.isInteger(value.weight) && value.weight >= 100 && value.weight <= 900) {
+        style.weight = value.weight;
+      }
+      if (typeof value.italic === "boolean") {
+        style.italic = value.italic;
+      }
+      if (typeof value.underline === "boolean") {
+        style.underline = value.underline;
+      }
+      if (typeof value.strikethrough === "boolean")
+        style.strikethrough = value.strikethrough;
+      if (value.list === "bullet" || value.list === null)
+        style.list = value.list;
+      if (isFiniteNumber(value.opacity) && value.opacity >= 0 && value.opacity <= 1)
+        style.opacity = value.opacity;
+      if (isFiniteNumber(value.letter_spacing_em)) {
+        style.letterSpacingEm = value.letter_spacing_em;
+      }
+      if (isFinitePositive(value.line_height)) {
+        style.lineHeight = value.line_height;
+      }
+      if (value.align === "left" || value.align === "center" || value.align === "right") {
+        style.align = value.align;
+      }
+      if (value.vertical_align === "top" || value.vertical_align === "middle" || value.vertical_align === "bottom") {
+        style.verticalAlign = value.vertical_align;
+      }
+      if (typeof value.vertical === "boolean") {
+        style.vertical = value.vertical;
+      }
+      if (typeof value.text_transform === "string" && TEXT_TRANSFORM_VALUES.has(value.text_transform)) {
+        style.textTransform = value.text_transform;
+      }
+      if (isFiniteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100) {
+        style.maxWidthPct = value.max_width_pct;
+      }
+      if (isFiniteNumber(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100) {
+        style.wrapWidthPct = value.wrap_width_pct;
+      }
+      if (Number.isInteger(value.max_characters) && value.max_characters > 0) {
+        style.maxCharacters = value.max_characters;
+      }
+      if (typeof value.text_anchor === "string" && TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
+        style.textAnchor = value.text_anchor;
+      }
+      const position = normalizeCaptionPosition(value.position);
+      if (position) {
+        style.position = position;
+      }
+      const shadow = normalizeCaptionShadow(value.shadow);
+      if (shadow) {
+        style.shadow = shadow;
+      }
+      const glow = normalizeCaptionGlow(value.glow);
+      if (glow) {
+        style.glow = glow;
+      }
+      const animation = normalizeCaptionAnimation(value.animation);
+      if (animation) {
+        style.animation = animation;
+      }
+      if (isRecord2(value.stroke)) {
+        const stroke = {};
+        if (value.stroke.method === "webkit-outline") {
+          stroke.method = "webkit-outline";
+        }
+        if (isHexColor(value.stroke.color)) {
+          stroke.color = value.stroke.color;
+        }
+        if (isFiniteNonNegative(value.stroke.width_px)) {
+          stroke.widthPx = value.stroke.width_px;
+        }
+        if (Object.keys(stroke).length > 0) {
+          style.stroke = stroke;
+        }
+      }
+      if (isRecord2(value.stroke_inner)) {
+        const inner = {};
+        if (isHexColor(value.stroke_inner.color))
+          inner.color = value.stroke_inner.color;
+        if (isFiniteNonNegative(value.stroke_inner.width_px))
+          inner.widthPx = value.stroke_inner.width_px;
+        if (Object.keys(inner).length > 0)
+          style.strokeInner = inner;
+      }
+      if (isRecord2(value.fill_gradient) && Array.isArray(value.fill_gradient.colors) && value.fill_gradient.colors.length >= 2 && value.fill_gradient.colors.length <= 3 && value.fill_gradient.colors.every(isHexColor) && isFiniteNumber(value.fill_gradient.angle_deg)) {
+        style.fillGradient = { colors: value.fill_gradient.colors, angleDeg: value.fill_gradient.angle_deg };
+      }
+      if (isRecord2(value.extrude) && Number.isInteger(value.extrude.depth_px) && value.extrude.depth_px >= 1 && value.extrude.depth_px <= 32 && isHexColor(value.extrude.color) && isFiniteNumber(value.extrude.angle_deg) && (value.extrude.color_end === void 0 || isHexColor(value.extrude.color_end))) {
+        style.extrude = {
+          depthPx: value.extrude.depth_px,
+          color: value.extrude.color,
+          ...value.extrude.color_end ? { colorEnd: value.extrude.color_end } : {},
+          angleDeg: value.extrude.angle_deg
+        };
+      }
+      if (isRecord2(value.background)) {
+        const background = {};
+        if (isHexColor(value.background.color)) {
+          background.color = value.background.color;
+        }
+        if (isFiniteInRange(value.background.opacity, 0, 1)) {
+          background.opacity = value.background.opacity;
+        }
+        if (isFiniteNonNegative(value.background.radius_px)) {
+          background.radiusPx = value.background.radius_px;
+        }
+        if (isFiniteNonNegative(value.background.padding_px)) {
+          background.paddingPx = value.background.padding_px;
+        }
+        if (isFiniteNonNegative(value.background.width_pct)) {
+          background.widthPct = value.background.width_pct;
+        }
+        if (isFiniteNonNegative(value.background.height_pct)) {
+          background.heightPct = value.background.height_pct;
+        }
+        if (isFiniteNumber(value.background.offset_x)) {
+          background.offsetX = value.background.offset_x;
+        }
+        if (isFiniteNumber(value.background.offset_y)) {
+          background.offsetY = value.background.offset_y;
+        }
+        if (value.background.mode === "per-line" || value.background.mode === "block") {
+          background.mode = value.background.mode;
+        }
+        if (value.background.fit === "text" || value.background.fit === "frame") {
+          background.fit = value.background.fit;
+        }
+        if (Object.keys(background).length > 0) {
+          style.background = background;
+        }
+      }
+      const layout = normalizeCaptionLayout(value.layout);
+      if (value.zone !== void 0 && exports.CAPTION_ZONES.includes(value.zone)) {
+        style.zone = value.zone;
+      } else if (layout && style.referenceHeightPx === void 0) {
+        style.layout = layout;
+      }
+      return style;
+    }
+    function normalizeCaptionPosition(value) {
+      if (!isRecord2(value)) {
+        return void 0;
+      }
+      const position = {};
+      if (isFiniteNumber(value.x)) {
+        position.x = value.x;
+      }
+      if (isFiniteNumber(value.y)) {
+        position.y = value.y;
+      }
+      return Object.keys(position).length > 0 ? position : void 0;
+    }
+    function normalizeCaptionShadow(value) {
+      if (!isRecord2(value) || !isHexColor(value.color)) {
+        return void 0;
+      }
+      const shadow = { color: value.color };
+      if (isFiniteInRange(value.opacity, 0, 1)) {
+        shadow.opacity = value.opacity;
+      }
+      if (isFiniteNonNegative(value.blur_px)) {
+        shadow.blurPx = value.blur_px;
+      }
+      if (isFiniteNonNegative(value.distance_px)) {
+        shadow.distancePx = value.distance_px;
+      }
+      if (isFiniteNumber(value.angle_deg)) {
+        shadow.angleDeg = value.angle_deg;
+      }
+      return shadow;
+    }
+    function normalizeCaptionGlow(value) {
+      if (!isRecord2(value) || !isHexColor(value.color)) {
+        return void 0;
+      }
+      const glow = { color: value.color };
+      if (isFiniteNonNegative(value.density)) {
+        glow.density = value.density;
+      }
+      if (isFiniteNonNegative(value.spread)) {
+        glow.spread = value.spread;
+      }
+      if (isFiniteNumber(value.offset_x)) {
+        glow.offsetX = value.offset_x;
+      }
+      if (isFiniteNumber(value.offset_y)) {
+        glow.offsetY = value.offset_y;
+      }
+      return glow;
+    }
+    function normalizeCaptionAnimationSlot(value) {
+      if (!isRecord2(value) || typeof value.id !== "string" || value.id === "") {
+        return void 0;
+      }
+      const slot = { id: value.id };
+      if (isFinitePositive(value.duration_sec)) {
+        slot.durationSec = value.duration_sec;
+      }
+      if (typeof value.ease === "string" && value.ease !== "") {
+        slot.ease = value.ease;
+      }
+      if (isFinitePositive(value.amp)) {
+        slot.amp = value.amp;
+      }
+      return slot;
+    }
+    function normalizeCaptionAnimation(value) {
+      if (!isRecord2(value)) {
+        return void 0;
+      }
+      const animation = {};
+      const inSlot = normalizeCaptionAnimationSlot(value.in);
+      if (inSlot) {
+        animation.in = inSlot;
+      }
+      const loopSlot = normalizeCaptionAnimationSlot(value.loop);
+      if (loopSlot) {
+        animation.loop = loopSlot;
+      }
+      const outSlot = normalizeCaptionAnimationSlot(value.out);
+      if (outSlot) {
+        animation.out = outSlot;
+      }
+      return Object.keys(animation).length > 0 ? animation : void 0;
+    }
+    function normalizeCaptionLayout(value) {
+      if (!isRecord2(value)) {
+        return void 0;
+      }
+      const validReferenceWidth = Number.isInteger(value.reference_width_px) && value.reference_width_px >= 1;
+      const validReferenceHeight = Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1;
+      const validWidth = isFiniteNumber(value.width_px) && value.width_px > 0;
+      if (value.mode !== "reference-pixel" || !validReferenceWidth || !validReferenceHeight || !isFiniteNonNegative(value.left_px) || !validWidth || !isFiniteNonNegative(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
+        return void 0;
+      }
+      return {
+        mode: "reference-pixel",
+        referenceWidthPx: value.reference_width_px,
+        referenceHeightPx: value.reference_height_px,
+        leftPx: value.left_px,
+        widthPx: value.width_px,
+        bottomPx: value.bottom_px,
+        textAlign: "center",
+        maxLines: 1
+      };
+    }
+    function textStyleToJson(style) {
+      return {
+        ...style.karaoke ? { karaoke: karaokeToJson(style.karaoke) } : {},
+        ...style.color !== void 0 ? { color: style.color } : {},
+        ...style.sizePx !== void 0 ? { size_px: style.sizePx } : {},
+        ...style.referenceHeightPx !== void 0 ? { reference_height_px: style.referenceHeightPx } : {},
+        ...style.fontFamily !== void 0 ? { font_family: style.fontFamily } : {},
+        ...style.fontWeight !== void 0 ? { font_weight: style.fontWeight } : {},
+        ...style.weight !== void 0 ? { weight: style.weight } : {},
+        ...style.italic !== void 0 ? { italic: style.italic } : {},
+        ...style.underline !== void 0 ? { underline: style.underline } : {},
+        ...style.strikethrough !== void 0 ? { strikethrough: style.strikethrough } : {},
+        ...style.list !== void 0 ? { list: style.list } : {},
+        ...style.opacity !== void 0 ? { opacity: style.opacity } : {},
+        ...style.letterSpacingEm !== void 0 ? { letter_spacing_em: style.letterSpacingEm } : {},
+        ...style.lineHeight !== void 0 ? { line_height: style.lineHeight } : {},
+        ...style.align !== void 0 ? { align: style.align } : {},
+        ...style.verticalAlign !== void 0 ? { vertical_align: style.verticalAlign } : {},
+        ...style.vertical !== void 0 ? { vertical: style.vertical } : {},
+        ...style.textTransform !== void 0 ? { text_transform: style.textTransform } : {},
+        ...style.maxWidthPct !== void 0 ? { max_width_pct: style.maxWidthPct } : {},
+        ...style.wrapWidthPct !== void 0 ? { wrap_width_pct: style.wrapWidthPct } : {},
+        ...style.maxCharacters !== void 0 ? { max_characters: style.maxCharacters } : {},
+        ...style.textAnchor !== void 0 ? { text_anchor: style.textAnchor } : {},
+        ...style.position !== void 0 ? {
+          position: {
+            ...style.position.x !== void 0 ? { x: style.position.x } : {},
+            ...style.position.y !== void 0 ? { y: style.position.y } : {}
+          }
+        } : {},
+        ...style.shadow !== void 0 ? {
+          shadow: {
+            color: style.shadow.color,
+            ...style.shadow.opacity !== void 0 ? { opacity: style.shadow.opacity } : {},
+            ...style.shadow.blurPx !== void 0 ? { blur_px: style.shadow.blurPx } : {},
+            ...style.shadow.distancePx !== void 0 ? { distance_px: style.shadow.distancePx } : {},
+            ...style.shadow.angleDeg !== void 0 ? { angle_deg: style.shadow.angleDeg } : {}
+          }
+        } : {},
+        ...style.glow !== void 0 ? {
+          glow: {
+            color: style.glow.color,
+            ...style.glow.density !== void 0 ? { density: style.glow.density } : {},
+            ...style.glow.spread !== void 0 ? { spread: style.glow.spread } : {},
+            ...style.glow.offsetX !== void 0 ? { offset_x: style.glow.offsetX } : {},
+            ...style.glow.offsetY !== void 0 ? { offset_y: style.glow.offsetY } : {}
+          }
+        } : {},
+        ...style.animation !== void 0 ? {
+          animation: {
+            ...style.animation.in !== void 0 ? { in: animationSlotToJson(style.animation.in) } : {},
+            ...style.animation.loop !== void 0 ? { loop: animationSlotToJson(style.animation.loop) } : {},
+            ...style.animation.out !== void 0 ? { out: animationSlotToJson(style.animation.out) } : {}
+          }
+        } : {},
+        ...style.stroke !== void 0 ? {
+          stroke: {
+            ...style.stroke.method !== void 0 ? { method: style.stroke.method } : {},
+            ...style.stroke.color !== void 0 ? { color: style.stroke.color } : {},
+            ...style.stroke.widthPx !== void 0 ? { width_px: style.stroke.widthPx } : {}
+          }
+        } : {},
+        ...style.strokes !== void 0 ? { strokes: style.strokes } : {},
+        ...style.strokeInner !== void 0 ? { stroke_inner: richStyleToJson("stroke_inner", style.strokeInner) } : {},
+        ...style.fillGradient !== void 0 ? { fill_gradient: richStyleToJson("fill_gradient", style.fillGradient) } : {},
+        ...style.fill !== void 0 ? { fill: style.fill } : {},
+        ...style.extrude !== void 0 ? { extrude: richStyleToJson("extrude", style.extrude) } : {},
+        ...style.background !== void 0 ? {
+          background: {
+            ...style.background.color !== void 0 ? { color: style.background.color } : {},
+            ...style.background.opacity !== void 0 ? { opacity: style.background.opacity } : {},
+            ...style.background.radiusPx !== void 0 ? { radius_px: style.background.radiusPx } : {},
+            ...style.background.paddingPx !== void 0 ? { padding_px: style.background.paddingPx } : {},
+            ...style.background.widthPct !== void 0 ? { width_pct: style.background.widthPct } : {},
+            ...style.background.heightPct !== void 0 ? { height_pct: style.background.heightPct } : {},
+            ...style.background.offsetX !== void 0 ? { offset_x: style.background.offsetX } : {},
+            ...style.background.offsetY !== void 0 ? { offset_y: style.background.offsetY } : {},
+            ...style.background.mode !== void 0 ? { mode: style.background.mode } : {},
+            ...style.background.fit !== void 0 ? { fit: style.background.fit } : {}
+          }
+        } : {},
+        ...style.zone !== void 0 ? { zone: style.zone } : {},
+        ...style.layout !== void 0 ? {
+          layout: {
+            mode: style.layout.mode,
+            reference_width_px: style.layout.referenceWidthPx,
+            reference_height_px: style.layout.referenceHeightPx,
+            left_px: style.layout.leftPx,
+            width_px: style.layout.widthPx,
+            bottom_px: style.layout.bottomPx,
+            text_align: style.layout.textAlign,
+            max_lines: style.layout.maxLines
+          }
+        } : {}
+      };
+    }
+    function animationSlotToJson(slot) {
+      return {
+        id: slot.id,
+        ...slot.durationSec !== void 0 ? { duration_sec: slot.durationSec } : {},
+        ...slot.ease !== void 0 ? { ease: slot.ease } : {},
+        ...slot.amp !== void 0 ? { amp: slot.amp } : {}
+      };
+    }
+    function karaokeToJson(karaoke) {
+      return {
+        ...karaoke.doneColor !== void 0 ? { done_color: karaoke.doneColor } : {},
+        ...karaoke.fill !== void 0 ? { fill: karaoke.fill } : {},
+        ...karaoke.startIndex !== void 0 ? { start_index: karaoke.startIndex } : {}
+      };
+    }
+    function mergeNestedStyle(base, override) {
+      if (!base && !override) {
+        return void 0;
+      }
+      return { ...base, ...override };
+    }
+    function isHexColor(value) {
+      return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
+    }
+    function validateTextStylePatch(updates) {
+      const hasUpdate = updates.karaoke !== void 0 || updates.color !== void 0 || updates.sizePx !== void 0 || updates.wrapWidthPct !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.strokeInner !== void 0 || updates.fillGradient !== void 0 || updates.extrude !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
+      if (!hasUpdate) {
+        throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.karaoke) {
+        if (Object.keys(updates.karaoke).some((key) => !["doneColor", "fill", "startIndex"].includes(key)))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u8A2D\u5B9A\u306B\u672A\u77E5\u306E\u9805\u76EE\u304C\u3042\u308A\u307E\u3059\u3002");
+        if (updates.karaoke.doneColor !== void 0 && !isHexColor(updates.karaoke.doneColor))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u8272\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        if (updates.karaoke.fill !== void 0 && !["char", "word", "smooth"].includes(updates.karaoke.fill))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u5857\u308A\u65B9\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        if (updates.karaoke.startIndex !== void 0 && (!Number.isInteger(updates.karaoke.startIndex) || updates.karaoke.startIndex < 0))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u958B\u59CB\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      for (const color of [updates.color, updates.stroke?.color, updates.background?.color]) {
+        if (color !== void 0 && color !== null && !isHexColor(color)) {
+          throw new Error("\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u8272\u306F #RGB / #RRGGBB / #RRGGBBAA \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+      }
+      if (updates.strokeInner !== void 0 && updates.strokeInner !== null && (updates.strokeInner.color !== void 0 && !isHexColor(updates.strokeInner.color) || updates.strokeInner.widthPx !== void 0 && !isFiniteNonNegative(updates.strokeInner.widthPx))) {
+        throw new Error("stroke_inner \u306E\u8272\u304B\u592A\u3055\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.fillGradient !== void 0 && updates.fillGradient !== null && (!Array.isArray(updates.fillGradient.colors) || updates.fillGradient.colors.length < 2 || updates.fillGradient.colors.length > 3 || !updates.fillGradient.colors.every(isHexColor) || !isFiniteNumber(updates.fillGradient.angleDeg))) {
+        throw new Error("fill_gradient \u306E\u8272\u304B\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.extrude !== void 0 && updates.extrude !== null && (!Number.isInteger(updates.extrude.depthPx) || updates.extrude.depthPx < 1 || updates.extrude.depthPx > 32 || !isHexColor(updates.extrude.color) || updates.extrude.colorEnd !== void 0 && !isHexColor(updates.extrude.colorEnd) || !isFiniteNumber(updates.extrude.angleDeg))) {
+        throw new Error("extrude \u306E\u5965\u884C\u304D\u30FB\u8272\u30FB\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.sizePx !== void 0 && updates.sizePx !== null && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
+        throw new Error("\u5B57\u5E55\u30B5\u30A4\u30BA\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.wrapWidthPct !== void 0 && updates.wrapWidthPct !== null && (!Number.isFinite(updates.wrapWidthPct) || updates.wrapWidthPct <= 0 || updates.wrapWidthPct > 100)) {
+        throw new Error("\u6587\u5B57\u306E\u6298\u308A\u8FD4\u3057\u5E45\u306F 0 \u3088\u308A\u5927\u304D\u304F 100% \u4EE5\u4E0B\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      for (const [value, min, max, label] of [
+        [updates.fontWeight, 1, 1e3, "font_weight"],
+        [updates.weight, 100, 900, "weight"]
+      ]) {
+        if (value !== void 0 && value !== null && (!Number.isInteger(value) || value < min || value > max)) {
+          throw new Error(`${label} \u306E\u5024\u304C\u4E0D\u6B63\u3067\u3059\u3002`);
+        }
+      }
+      if (updates.lineHeight !== void 0 && updates.lineHeight !== null && (!Number.isFinite(updates.lineHeight) || updates.lineHeight <= 0)) {
+        throw new Error("\u5B57\u5E55\u306E\u884C\u9593\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.letterSpacingEm !== void 0 && updates.letterSpacingEm !== null && !Number.isFinite(updates.letterSpacingEm)) {
+        throw new Error("\u5B57\u5E55\u306E\u5B57\u9593\u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.fontFamily !== void 0 && updates.fontFamily !== null && (typeof updates.fontFamily !== "string" || !updates.fontFamily.trim())) {
+        throw new Error("\u5B57\u5E55\u30D5\u30A9\u30F3\u30C8\u540D\u306F\u7A7A\u306B\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      if (updates.background?.paddingPx !== void 0 && updates.background.paddingPx !== null && (!Number.isFinite(updates.background.paddingPx) || updates.background.paddingPx < 0)) {
+        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u4F59\u767D\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      for (const [name, effect, fields] of [
+        ["shadow", updates.shadow, ["blurPx", "distancePx"]],
+        ["glow", updates.glow, ["density", "spread"]]
+      ]) {
+        if (effect === void 0 || effect === null)
+          continue;
+        if (typeof effect !== "object" || Array.isArray(effect) || !isHexColor(effect.color)) {
+          throw new Error(`${name} \u306E\u8272\u306F hex \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+        }
+        const allowedKeys = name === "shadow" ? ["color", "opacity", "blurPx", "distancePx", "angleDeg"] : ["color", "density", "spread", "offsetX", "offsetY"];
+        if (Object.keys(effect).some((key) => !allowedKeys.includes(key))) {
+          throw new Error(`${name} \u306B\u672A\u5BFE\u5FDC\u306E\u9805\u76EE\u304C\u3042\u308A\u307E\u3059\u3002`);
+        }
+        for (const key of fields) {
+          const value = effect[key];
+          if (value !== void 0 && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+            throw new Error(`${name}.${key} \u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+          }
+        }
+      }
+      if (updates.shadow) {
+        const { opacity, angleDeg } = updates.shadow;
+        if (opacity !== void 0 && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+          throw new Error("shadow.opacity \u306F 0\u301C1 \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        if (angleDeg !== void 0 && !Number.isFinite(angleDeg)) {
+          throw new Error("shadow.angleDeg \u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+      }
+      if (updates.glow && [updates.glow.offsetX, updates.glow.offsetY].some((value) => value !== void 0 && !Number.isFinite(value))) {
+        throw new Error("glow \u306E\u4F4D\u7F6E\u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.stroke?.widthPx !== void 0 && updates.stroke.widthPx !== null && (!Number.isFinite(updates.stroke.widthPx) || updates.stroke.widthPx < 0)) {
+        throw new Error("\u5B57\u5E55\u306E\u7E01\u53D6\u308A\u592A\u3055\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.background?.opacity !== void 0 && updates.background.opacity !== null && (!Number.isFinite(updates.background.opacity) || updates.background.opacity < 0 || updates.background.opacity > 1)) {
+        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u4E0D\u900F\u660E\u5EA6\u306F 0\u301C1 \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.background?.radiusPx !== void 0 && updates.background.radiusPx !== null && (!Number.isFinite(updates.background.radiusPx) || updates.background.radiusPx < 0)) {
+        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u89D2\u4E38\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.background?.mode !== void 0 && updates.background.mode !== null && updates.background.mode !== "per-line" && updates.background.mode !== "block") {
+        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.background?.fit !== void 0 && updates.background.fit !== null && updates.background.fit !== "text" && updates.background.fit !== "frame") {
+        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5E45\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.zone !== void 0 && updates.zone !== null && !exports.CAPTION_ZONES.includes(updates.zone)) {
+        throw new Error("\u5B57\u5E55\u306E\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.animation !== void 0 && updates.animation !== null && (typeof updates.animation !== "object" || Array.isArray(updates.animation))) {
+        throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u8A2D\u5B9A\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (updates.animation && typeof updates.animation === "object") {
+        for (const slot of [updates.animation.in, updates.animation.out]) {
+          if (slot === void 0 || slot === null)
+            continue;
+          if (!slot || typeof slot !== "object" || typeof slot.id !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(slot.id)) {
+            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E ID \u304C\u4E0D\u6B63\u3067\u3059\u3002");
+          }
+          if (slot.durationSec !== void 0 && (!Number.isFinite(slot.durationSec) || slot.durationSec <= 0)) {
+            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u9577\u3055\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+          }
+          if (slot.ease !== void 0 && slot.ease !== null && (typeof slot.ease !== "string" || !slot.ease.trim())) {
+            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u30A4\u30FC\u30B8\u30F3\u30B0\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+          }
+          if (slot.amp !== void 0 && slot.amp !== null && (!Number.isFinite(slot.amp) || slot.amp <= 0)) {
+            throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u5F37\u3055\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+          }
+        }
+      }
+    }
+    function textStylePatchToJson(updates) {
+      return {
+        ...updates.karaoke ? { karaoke: karaokeToJson(updates.karaoke) } : {},
+        ...updates.color !== void 0 && updates.color !== null ? { color: updates.color } : {},
+        ...updates.sizePx !== void 0 && updates.sizePx !== null ? { size_px: updates.sizePx } : {},
+        ...updates.wrapWidthPct !== void 0 && updates.wrapWidthPct !== null ? { wrap_width_pct: updates.wrapWidthPct } : {},
+        ...updates.fontWeight !== void 0 && updates.fontWeight !== null ? { font_weight: updates.fontWeight } : {},
+        ...updates.weight !== void 0 && updates.weight !== null ? { weight: updates.weight } : {},
+        ...updates.lineHeight !== void 0 && updates.lineHeight !== null ? { line_height: updates.lineHeight } : {},
+        ...updates.letterSpacingEm !== void 0 && updates.letterSpacingEm !== null ? { letter_spacing_em: updates.letterSpacingEm } : {},
+        ...updates.fontFamily !== void 0 && updates.fontFamily !== null ? { font_family: updates.fontFamily } : {},
+        ...updates.shadow ? { shadow: shadowPatchToJson(updates.shadow) } : {},
+        ...updates.glow ? { glow: glowPatchToJson(updates.glow) } : {},
+        ...updates.strokeInner ? { stroke_inner: richStyleToJson("stroke_inner", updates.strokeInner) } : {},
+        ...updates.fillGradient ? { fill_gradient: richStyleToJson("fill_gradient", updates.fillGradient) } : {},
+        ...updates.extrude ? { extrude: richStyleToJson("extrude", updates.extrude) } : {},
+        ...updates.stroke && Object.values(updates.stroke).some((value) => value !== void 0 && value !== null) ? {
+          stroke: {
+            ...updates.stroke.color !== void 0 && updates.stroke.color !== null ? { color: updates.stroke.color } : {},
+            ...updates.stroke.widthPx !== void 0 && updates.stroke.widthPx !== null ? { width_px: updates.stroke.widthPx } : {}
+          }
+        } : {},
+        ...updates.background && Object.values(updates.background).some((value) => value !== void 0 && value !== null) ? {
+          background: {
+            ...updates.background.color !== void 0 && updates.background.color !== null ? { color: updates.background.color } : {},
+            ...updates.background.opacity !== void 0 && updates.background.opacity !== null ? { opacity: updates.background.opacity } : {},
+            ...updates.background.radiusPx !== void 0 && updates.background.radiusPx !== null ? { radius_px: updates.background.radiusPx } : {},
+            ...updates.background.paddingPx !== void 0 && updates.background.paddingPx !== null ? { padding_px: updates.background.paddingPx } : {},
+            ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {},
+            ...updates.background.fit !== void 0 && updates.background.fit !== null ? { fit: updates.background.fit } : {}
+          }
+        } : {},
+        ...updates.animation && Object.values(updates.animation).some((value) => value !== void 0 && value !== null) ? {
+          animation: {
+            ...updates.animation.in ? { in: animationSlotToJson(updates.animation.in) } : {},
+            ...updates.animation.out ? { out: animationSlotToJson(updates.animation.out) } : {}
+          }
+        } : {},
+        ...updates.zone !== void 0 && updates.zone !== null ? { zone: updates.zone } : {}
+      };
+    }
+    function shadowPatchToJson(shadow) {
+      return {
+        color: shadow.color,
+        ...shadow.opacity !== void 0 ? { opacity: shadow.opacity } : {},
+        ...shadow.blurPx !== void 0 ? { blur_px: shadow.blurPx } : {},
+        ...shadow.distancePx !== void 0 ? { distance_px: shadow.distancePx } : {},
+        ...shadow.angleDeg !== void 0 ? { angle_deg: shadow.angleDeg } : {}
+      };
+    }
+    function richStyleToJson(key, value) {
+      if (key === "stroke_inner") {
+        const inner = value;
+        return {
+          ...inner.color !== void 0 ? { color: inner.color } : {},
+          ...inner.widthPx !== void 0 ? { width_px: inner.widthPx } : {}
+        };
+      }
+      if (key === "fill_gradient") {
+        const gradient = value;
+        return { colors: gradient.colors, angle_deg: gradient.angleDeg };
+      }
+      const extrude = value;
+      return {
+        depth_px: extrude.depthPx,
+        color: extrude.color,
+        ...extrude.colorEnd !== void 0 ? { color_end: extrude.colorEnd } : {},
+        angle_deg: extrude.angleDeg
+      };
+    }
+    function glowPatchToJson(glow) {
+      return {
+        color: glow.color,
+        ...glow.density !== void 0 ? { density: glow.density } : {},
+        ...glow.spread !== void 0 ? { spread: glow.spread } : {},
+        ...glow.offsetX !== void 0 ? { offset_x: glow.offsetX } : {},
+        ...glow.offsetY !== void 0 ? { offset_y: glow.offsetY } : {}
+      };
+    }
+    function updateOptionalObjectStyleProperty(source, property, value, label) {
+      if (value === void 0)
+        return source;
+      const existing = locateTopLevelProperty(source, property);
+      if (value === null)
+        return existing ? removeObjectProperty(source, property) : source;
+      const json = property === "shadow" ? shadowPatchToJson(value) : glowPatchToJson(value);
+      if (!existing)
+        return appendJsonProperty(source, property, json);
+      const located = locateTopLevelObjectProperty(source, property, label);
+      return source.slice(0, located.start) + JSON.stringify(json) + source.slice(located.end);
+    }
+    function locateTopLevelProperty(scopeText, key) {
+      const openIndex = scopeText.search(/\S/);
+      if (openIndex < 0 || scopeText[openIndex] !== "{") {
+        return void 0;
+      }
+      const closeIndex = (0, edit_store_1.findMatchingBracket)(scopeText, openIndex);
+      const inner = scopeText.slice(openIndex + 1, closeIndex);
+      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matches = (0, edit_store_1.splitTopLevelElements)(inner).filter((element) => new RegExp(`^"${escapedKey}"\\s*:`).test(element.text));
+      if (matches.length !== 1) {
+        return void 0;
+      }
+      return {
+        text: matches[0].text,
+        start: openIndex + 1 + matches[0].start,
+        end: openIndex + 1 + matches[0].end
+      };
+    }
+    function locateTopLevelObjectProperty(scopeText, key, label) {
+      const property = locateTopLevelProperty(scopeText, key);
+      if (!property) {
+        throw new Error(`${label} \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
+      }
+      const colonIndex = property.text.indexOf(":");
+      const openIndex = scopeText.indexOf("{", property.start + colonIndex + 1);
+      if (openIndex < 0 || openIndex >= property.end) {
+        throw new Error(`${label} \u304C object \u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002`);
+      }
+      const closeIndex = (0, edit_store_1.findMatchingBracket)(scopeText, openIndex);
+      return { start: openIndex, end: closeIndex + 1, text: scopeText.slice(openIndex, closeIndex + 1) };
+    }
+    function updateNestedStyleObject(source, property, updates, label) {
+      if (Object.values(updates).every((value) => value === void 0)) {
+        return source;
+      }
+      const located = locateTopLevelProperty(source, property);
+      if (!located) {
+        const created = Object.fromEntries(Object.entries(updates).filter((entry) => entry[1] !== void 0 && entry[1] !== null));
+        return Object.keys(created).length > 0 ? appendJsonProperty(source, property, created) : source;
+      }
+      const object = locateTopLevelObjectProperty(source, property, label);
+      let next = object.text;
+      for (const [key, value] of Object.entries(updates)) {
+        next = updateOptionalStyleProperty(next, key, value, label);
+      }
+      return Object.keys(JSON.parse(next)).length === 0 ? removeObjectProperty(source, property) : source.slice(0, object.start) + next + source.slice(object.end);
+    }
+    function updateAnimationStyleObject(source, updates, label) {
+      if (updates === void 0)
+        return source;
+      const located = locateTopLevelProperty(source, "animation");
+      if (updates === null)
+        return located ? removeObjectProperty(source, "animation") : source;
+      if (!located) {
+        const created = {
+          ...updates.in ? { in: animationSlotToJson(updates.in) } : {},
+          ...updates.out ? { out: animationSlotToJson(updates.out) } : {}
+        };
+        return Object.keys(created).length > 0 ? appendJsonProperty(source, "animation", created) : source;
+      }
+      const object = locateTopLevelObjectProperty(source, "animation", label);
+      let next = object.text;
+      for (const [slotName, slot] of [["in", updates.in], ["out", updates.out]]) {
+        if (slot === void 0)
+          continue;
+        if (slot === null) {
+          next = removeObjectProperty(next, slotName);
+          continue;
+        }
+        const value = animationSlotToJson(slot);
+        const slotProperty = locateTopLevelProperty(next, slotName);
+        if (!slotProperty) {
+          next = appendJsonProperty(next, slotName, value);
+          continue;
+        }
+        const escaped = slotName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const pattern = new RegExp(`^("${escaped}"\\s*:\\s*)[\\s\\S]*?(\\s*)$`);
+        const replaced = slotProperty.text.replace(pattern, (_match, prefix, suffix) => `${prefix}${JSON.stringify(value)}${suffix}`);
+        next = next.slice(0, slotProperty.start) + replaced + next.slice(slotProperty.end);
+      }
+      return Object.keys(JSON.parse(next)).length === 0 ? removeObjectProperty(source, "animation") : source.slice(0, object.start) + next + source.slice(object.end);
+    }
+    function updateOptionalStyleProperty(source, property, value, label) {
+      if (value === void 0) {
+        return source;
+      }
+      const exists = locateTopLevelProperty(source, property) !== void 0;
+      if (value === null) {
+        return exists ? removeObjectProperty(source, property) : source;
+      }
+      return exists ? replaceTopLevelPropertyValue(source, property, value, label) : appendJsonProperty(source, property, value);
+    }
+    function appendJsonProperty(source, property, value) {
+      const closeIndex = source.lastIndexOf("}");
+      if (closeIndex < 0) {
+        throw new Error("\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const beforeClose = source.slice(0, closeIndex);
+      const trailingWhitespace = beforeClose.match(/\s*$/)?.[0] ?? "";
+      const body = beforeClose.slice(0, beforeClose.length - trailingWhitespace.length);
+      if (!body.trim().endsWith("{")) {
+        if (source.includes("\n")) {
+          const lineEnding = source.includes("\r\n") ? "\r\n" : "\n";
+          const propertyIndent = source.match(/(?:^|\r?\n)([ \t]+)"[^"\r\n]+"\s*:/)?.[1] ?? "  ";
+          return `${body},${lineEnding}${propertyIndent}"${property}": ${JSON.stringify(value)}${trailingWhitespace}${source.slice(closeIndex)}`;
+        }
+        return `${body}, "${property}": ${JSON.stringify(value)}${trailingWhitespace}${source.slice(closeIndex)}`;
+      }
+      return `${body}"${property}": ${JSON.stringify(value)}${trailingWhitespace}${source.slice(closeIndex)}`;
+    }
+    function replaceTopLevelPropertyValue(source, property, value, label) {
+      const located = locateTopLevelProperty(source, property);
+      if (!located) {
+        throw new Error(`${label} \u306E ${property} \u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`);
+      if (!pattern.test(located.text)) {
+        throw new Error(`${label} \u306E ${property} \u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002`);
+      }
+      const updated = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+      return source.slice(0, located.start) + updated + source.slice(located.end);
+    }
+    function removeObjectProperty(source, property) {
+      const openIndex = source.search(/\S/);
+      const closeIndex = openIndex >= 0 ? (0, edit_store_1.findMatchingBracket)(source, openIndex) : -1;
+      if (openIndex < 0 || source[openIndex] !== "{" || closeIndex < 0) {
+        throw new Error("\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const inner = source.slice(openIndex + 1, closeIndex);
+      const elements = (0, edit_store_1.splitTopLevelElements)(inner);
+      const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const index = elements.findIndex((element) => new RegExp(`^"${escapedProperty}"\\s*:`).test(element.text));
+      if (index < 0) {
+        return source;
+      }
+      let nextInner;
+      if (elements.length === 1) {
+        nextInner = inner.slice(elements[0].end);
+      } else if (index < elements.length - 1) {
+        nextInner = inner.slice(0, elements[index].start) + inner.slice(elements[index + 1].start);
+      } else {
+        nextInner = inner.slice(0, elements[index - 1].end) + inner.slice(elements[index].end);
+      }
+      return source.slice(0, openIndex + 1) + nextInner + source.slice(closeIndex);
+    }
+  }
+});
+
+// ../edit-store/lib/caption-sample-text.js
+var require_caption_sample_text = __commonJS({
+  "../edit-store/lib/caption-sample-text.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CAPTION_SAMPLE_TEXT = void 0;
+    exports.CAPTION_SAMPLE_TEXT = "\u3042\u30A212";
+  }
+});
+
+// ../edit-store/lib/caption-window.js
+var require_caption_window = __commonJS({
+  "../edit-store/lib/caption-window.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.captionSpeechWindow = captionSpeechWindow;
+    exports.captionWindowSeconds = captionWindowSeconds;
+    exports.captionFragmentWindows = captionFragmentWindows;
+    exports.expandCaptionDisplayFragments = expandCaptionDisplayFragments;
+    exports.findActiveCaption = findActiveCaption;
+    exports.findActiveCaptions = findActiveCaptions;
+    function baseCaptionWindowSeconds(caption) {
+      const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
+      const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
+      const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
+      return { start, end };
+    }
+    function captionSpeechWindow(caption) {
+      if (caption.display_timing !== "speech-tight" || !Array.isArray(caption.words) || caption.words.length === 0) {
+        return null;
+      }
+      const words = caption.words.flatMap((value) => {
+        if (!value || typeof value !== "object")
+          return [];
+        const word = value;
+        return typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start ? [{ start: word.start, end: word.end }] : [];
+      });
+      if (words.length === 0)
+        return null;
+      const base = baseCaptionWindowSeconds(caption);
+      const tightStart = Math.max(base.start, Math.min(...words.map((word) => word.start)));
+      const tightEnd = Math.min(base.end, Math.max(...words.map((word) => word.end)));
+      if (tightEnd - tightStart <= 0 || tightStart <= base.start && tightEnd >= base.end)
+        return null;
+      return { start: tightStart, end: tightEnd };
+    }
+    function captionWindowSeconds(caption) {
+      return captionSpeechWindow(caption) ?? baseCaptionWindowSeconds(caption);
+    }
+    function captionFragmentWindows(caption) {
+      const sourceText = caption.display_text ?? caption.text;
+      const text = typeof sourceText === "string" ? sourceText : null;
+      const fragments = caption.display_fragments;
+      if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.join("") !== text) {
+        return null;
+      }
+      const window2 = captionWindowSeconds(caption);
+      const words = Array.isArray(caption.words) ? caption.words : null;
+      const validWords = words?.every((word) => isCaptionFragmentWord(word)) === true ? words : null;
+      const wordText = validWords?.map((word) => word.text).join("");
+      const fragmentEnds = [];
+      fragments.reduce((offset, fragment) => {
+        fragmentEnds.push(offset + fragment.length);
+        return offset + fragment.length;
+      }, 0);
+      let wordLength = 0;
+      const wordEnds = validWords ? validWords.map((word) => wordLength += word.text.length) : [];
+      const useWords = validWords !== null && wordText === text && fragmentEnds.slice(0, -1).every((end) => wordEnds.includes(end));
+      let characterStart = 0;
+      return fragments.map((fragment, index) => {
+        const characterEnd = characterStart + fragment.length;
+        let start;
+        let end;
+        if (useWords) {
+          const firstWord = characterStart === 0 ? 0 : wordEnds.indexOf(characterStart) + 1;
+          const lastWord = wordEnds.indexOf(characterEnd);
+          start = clamp5(validWords[firstWord].start, window2.start, window2.end);
+          end = clamp5(validWords[lastWord].end, window2.start, window2.end);
+        } else {
+          const duration = window2.end - window2.start;
+          start = window2.start + duration * (characterStart / text.length);
+          end = window2.start + duration * (characterEnd / text.length);
+        }
+        characterStart = characterEnd;
+        return { text: fragment, start, end, index: index + 1, count: fragments.length };
+      });
+    }
+    function expandCaptionDisplayFragments(captions) {
+      return captions.flatMap((caption) => {
+        const windows = captionFragmentWindows(caption);
+        if (windows === null) {
+          const speechWindow = captionSpeechWindow(caption);
+          return speechWindow === null ? [caption] : [{ ...caption, ...speechWindow }];
+        }
+        let characterStart = 0;
+        return windows.map((window2) => {
+          const characterEnd = characterStart + window2.text.length;
+          const expanded = {
+            ...caption,
+            text: window2.text,
+            start: window2.start,
+            end: window2.end,
+            fragmentIndex: window2.index,
+            fragmentCount: window2.count,
+            fragmentKey: `${String(caption.id)}#f${window2.index}`
+          };
+          if (Object.prototype.hasOwnProperty.call(caption, "display_text"))
+            expanded.display_text = window2.text;
+          if (Array.isArray(caption.runs)) {
+            const sourceText = String(caption.display_text ?? caption.text ?? "");
+            expanded.runSourceText = sourceText;
+            expanded.runTextStart = characterStart;
+            expanded.runTextEnd = characterEnd;
+          }
+          if (Array.isArray(caption.words)) {
+            let offset = 0;
+            expanded.words = caption.words.flatMap((word) => {
+              if (!isCaptionFragmentWord(word))
+                return [];
+              const wordStart = offset;
+              const wordEnd = offset + word.text.length;
+              offset = wordEnd;
+              if (wordStart < characterStart || wordEnd > characterEnd)
+                return [];
+              return [{
+                ...word,
+                start: clamp5(word.start, window2.start, window2.end),
+                end: clamp5(word.end, window2.start, window2.end)
+              }];
+            });
+          }
+          delete expanded.display_fragments;
+          characterStart = characterEnd;
+          return expanded;
+        });
+      });
+    }
+    function isCaptionFragmentWord(value) {
+      if (!value || typeof value !== "object")
+        return false;
+      const word = value;
+      return typeof word.text === "string" && typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start;
+    }
+    function clamp5(value, minimum, maximum) {
+      return Math.min(maximum, Math.max(minimum, value));
+    }
+    function findActiveCaption(captions, sourceSeconds) {
+      return captions.find((caption) => {
+        const window2 = captionWindowSeconds(caption);
+        return window2.start <= sourceSeconds && sourceSeconds < window2.end;
+      });
+    }
+    function findActiveCaptions(captions, seconds) {
+      return captions.filter((caption) => {
+        const window2 = captionWindowSeconds(caption);
+        return window2.start <= seconds && seconds < window2.end;
+      });
+    }
+  }
+});
+
+// ../edit-store/lib/caption-clock.js
+var require_caption_clock = __commonJS({
+  "../edit-store/lib/caption-clock.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.normalizeCaptionClock = normalizeCaptionClock;
+    exports.captionClockDomainOf = captionClockDomainOf;
+    var EPSILON = 1e-6;
+    function normalizeCaptionClock(captions, segments) {
+      const output = [];
+      for (const caption of captions) {
+        const legacyOutputCue = caption.clockDomain === "legacy" && segments.some((segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON);
+        const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
+        if (domain === "output" || segments.length === 0) {
+          output.push({ ...caption, clockDomain: "output" });
+          continue;
+        }
+        let occurrence = 0;
+        for (const segment of segments) {
+          if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0)
+            continue;
+          if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId)
+            continue;
+          const sourceStart = Math.max(caption.start, segment.in);
+          const sourceEnd = Math.min(caption.end, segment.out);
+          if (!(sourceEnd - sourceStart > EPSILON))
+            continue;
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+          occurrence += 1;
+          const sourceCueId = caption.sourceCueId ?? caption.id;
+          const words = caption.words?.flatMap((word) => {
+            const wordStart = Math.max(word.start, sourceStart);
+            const wordEnd = Math.min(word.end, sourceEnd);
+            return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
+          });
+          output.push({
+            ...caption,
+            ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
+            ...sourceCueId ? { sourceCueId } : {},
+            start: projectTime(sourceStart),
+            end: projectTime(sourceEnd),
+            ...words && words.length > 0 ? { words } : { words: void 0 },
+            clockDomain: "output"
+          });
+        }
+      }
+      return output.sort((left, right) => left.start - right.start || left.end - right.end);
+    }
+    function captionClockDomainOf(raw) {
+      const clockDomain = raw?.time_domain === "source" || raw?.time_domain === "output" ? raw.time_domain : "legacy";
+      return {
+        clockDomain,
+        ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
+      };
+    }
+  }
+});
+
+// ../edit-store/lib/cut-adjacency.js
+var require_cut_adjacency = __commonJS({
+  "../edit-store/lib/cut-adjacency.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
+    exports.effectiveCutFps = effectiveCutFps;
+    exports.cutOverlapFrames = cutOverlapFrames;
+    exports.planTransitionHandleWindow = planTransitionHandleWindow;
+    exports.isStillImageSourcePath = isStillImageSourcePath2;
+    exports.areCutsAdjacent = areCutsAdjacent;
+    exports.DEFAULT_CUT_ADJACENCY_FPS = 30;
+    function effectiveCutFps(fps) {
+      return Number.isFinite(fps) && fps > 0 ? fps : exports.DEFAULT_CUT_ADJACENCY_FPS;
+    }
+    function cutOverlapFrames(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
+      const resolvedFps = effectiveCutFps(fps);
+      return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
+    }
+    var nonNegativeRoom = (value) => value === Number.POSITIVE_INFINITY ? value : Number.isFinite(value) && value > 0 ? value : 0;
+    function planTransitionHandleWindow(input) {
+      const declaredSeconds = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0 ? input.declaredSeconds : 0;
+      const effectiveSeconds = Math.max(0, Math.min(declaredSeconds, 2 * nonNegativeRoom(input.outgoingTailRoomSeconds), 2 * nonNegativeRoom(input.incomingHeadRoomSeconds), 2 * nonNegativeRoom(input.outgoingDurationSeconds), 2 * nonNegativeRoom(input.incomingDurationSeconds)));
+      return {
+        effectiveSeconds,
+        halfSeconds: effectiveSeconds / 2,
+        outcome: effectiveSeconds <= 0 ? "none" : effectiveSeconds < declaredSeconds ? "clamped" : "full"
+      };
+    }
+    exports.STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+    function isStillImageSourcePath2(path) {
+      return typeof path === "string" && exports.STILL_IMAGE_SOURCE_PATTERN.test(path);
+    }
+    function areCutsAdjacent(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
+      const resolvedFps = effectiveCutFps(fps);
+      const overlapFrames = cutOverlapFrames(earlier, later, resolvedFps);
+      const declaredDuration = earlier.transitionOut?.duration;
+      const declaredOverlapFrames = typeof declaredDuration === "number" && Number.isFinite(declaredDuration) && declaredDuration > 0 ? Math.round(declaredDuration * resolvedFps) : 0;
+      return overlapFrames === 0 || overlapFrames > 0 && overlapFrames <= declaredOverlapFrames;
+    }
+  }
+});
+
+// ../edit-store/lib/timeline-map.js
+var require_timeline_map = __commonJS({
+  "../edit-store/lib/timeline-map.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
+    exports.transitionProgressAt = transitionProgressAt2;
+    exports.buildTimelineMap = buildTimelineMap2;
+    exports.outputToSource = outputToSource2;
+    exports.sourceToOutput = sourceToOutput;
+    var edit_store_1 = require_edit_store();
+    var cut_adjacency_1 = require_cut_adjacency();
+    function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
+      const normalizedCuts2 = cuts.map((cut) => ({
+        ...cut,
+        transitionOut: cut.transitionOut ?? cut.transition_out
+      }));
+      const hasExplicitSources = normalizedCuts2.some((cut) => typeof cut.src === "string" && cut.src.length > 0);
+      if (hasExplicitSources && !options.sourceId)
+        return { intervals: [], droppedShortIntervals: 0 };
+      const map = buildTimelineMap2(normalizedCuts2, { fps: options.fps });
+      const projected = [];
+      for (const segment of map.segments) {
+        if (segment.kind !== "src" || typeof segment.in !== "number" || typeof segment.out !== "number")
+          continue;
+        if (hasExplicitSources && segment.src !== options.sourceId)
+          continue;
+        if (segment.cutIndex !== null && normalizedCuts2[segment.cutIndex]?.audio === false)
+          continue;
+        const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+        for (const entry of transcript) {
+          if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start)
+            continue;
+          const sourceStart = Math.max(segment.in, entry.start);
+          const sourceEnd = Math.min(segment.out, entry.end);
+          if (!(sourceEnd > sourceStart))
+            continue;
+          projected.push({
+            startSec: segment.outStart + (sourceStart - segment.in) / speed,
+            endSec: segment.outStart + (sourceEnd - segment.in) / speed
+          });
+        }
+      }
+      projected.sort((left, right) => left.startSec - right.startSec || left.endSec - right.endSec);
+      const merged = [];
+      for (const interval of projected) {
+        const last = merged[merged.length - 1];
+        if (last && interval.startSec - last.endSec < 0.35)
+          last.endSec = Math.max(last.endSec, interval.endSec);
+        else
+          merged.push({ ...interval });
+      }
+      const intervals = merged.filter((interval) => interval.endSec - interval.startSec >= 0.15);
+      return { intervals, droppedShortIntervals: merged.length - intervals.length };
+    }
+    function transitionProgressAt2(window2, outputT) {
+      if (!(window2.duration > 0))
+        return 0;
+      return Math.max(0, Math.min(1, (outputT - window2.start) / window2.duration));
+    }
+    function buildTimelineMap2(cuts, options) {
+      const usable = [];
+      cuts.forEach((cut, index) => {
+        if (typeof cut?.in === "number" && Number.isFinite(cut.in) && typeof cut?.out === "number" && Number.isFinite(cut.out) && cut.in < cut.out) {
+          usable.push({ cut, index });
+        }
+      });
+      const usableCuts = usable.map((entry) => entry.cut);
+      const trackSegments = (0, edit_store_1.computeCutTrackSegments)(usableCuts);
+      const trackZ = options?.trackZ ?? ((track) => -track);
+      const resolved = trackSegments.map((segment) => ({
+        start: segment.at,
+        end: segment.end,
+        baseStart: segment.at,
+        baseEnd: segment.end,
+        track: segment.track,
+        cut: usableCuts[segment.index],
+        cutIndex: usable[segment.index].index
+      }));
+      const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
+      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+        const outgoing = resolved[outgoingIndex];
+        const transition = outgoing.cut.transitionOut;
+        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
+          continue;
+        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
+        if (!incoming || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.end }, { tlStart: incoming.start }, fps) !== 0)
+          continue;
+        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
+        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
+        const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
+        const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
+          declaredSeconds: transition.duration,
+          outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
+          incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
+          outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
+          incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+        });
+        if (plan.effectiveSeconds <= 0)
+          continue;
+        const cutPoint = outgoing.end;
+        outgoing.end = cutPoint + plan.halfSeconds;
+        outgoing.cut = {
+          ...outgoing.cut,
+          transitionOut: { ...transition, duration: plan.effectiveSeconds }
+        };
+        incoming.start = cutPoint - plan.halfSeconds;
+        incoming.cut = {
+          ...incoming.cut,
+          in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
+        };
+      }
+      const segmentSlice = (entry, start, end, transitionOut = null) => {
+        const cut = entry.cut;
+        const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
+        return {
+          kind: "src",
+          outStart: start,
+          outEnd: end,
+          cutIndex: entry.cutIndex,
+          ...cut.src !== void 0 ? { src: cut.src } : {},
+          in: cut.in + (start - entry.start) * speed,
+          out: cut.in + (end - entry.start) * speed,
+          speed,
+          track: entry.track,
+          transitionOut
+        };
+      };
+      const transitionWindows = [];
+      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+        const outgoing = resolved[outgoingIndex];
+        const transition = outgoing.cut.transitionOut;
+        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
+          continue;
+        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
+        if (!incoming)
+          continue;
+        const start = incoming.start;
+        const actualOverlap = outgoing.end - start;
+        if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6)
+          continue;
+        const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
+        if (!(end - start > 1e-6))
+          continue;
+        transitionWindows.push({
+          start,
+          end,
+          duration: end - start,
+          type: transition.type,
+          outgoing: segmentSlice(outgoing, start, end, transition),
+          incoming: segmentSlice(incoming, start, end)
+        });
+      }
+      const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
+      const boundarySet = /* @__PURE__ */ new Set([0, outputDuration]);
+      for (const segment of resolved) {
+        boundarySet.add(segment.start);
+        boundarySet.add(segment.end);
+      }
+      const boundaries = [...boundarySet].sort((left, right) => left - right);
+      const runs = [];
+      for (let index = 0; index < boundaries.length - 1; index++) {
+        const start = boundaries[index];
+        const end = boundaries[index + 1];
+        if (end - start <= 1e-6) {
+          continue;
+        }
+        const midpoint = (start + end) / 2;
+        let winner = null;
+        for (const segment of resolved) {
+          if (segment.start <= midpoint && segment.end > midpoint && (!winner || trackZ(segment.track) > trackZ(winner.track))) {
+            winner = segment;
+          }
+        }
+        const last = runs[runs.length - 1];
+        const sameWinner = last && (last.winner === null && winner === null || last.winner !== null && winner !== null && last.winner.cutIndex === winner.cutIndex);
+        if (sameWinner && Math.abs(last.end - start) <= 1e-6) {
+          last.end = end;
+        } else {
+          runs.push({ start, end, winner });
+        }
+      }
+      const segments = runs.map((run) => {
+        if (!run.winner) {
+          return { kind: "gap", outStart: run.start, outEnd: run.end, cutIndex: null };
+        }
+        return segmentSlice(run.winner, run.start, run.end, run.winner.cut.transitionOut ?? null);
+      });
+      const transitionPlates = transitionWindows.flatMap((window2) => window2.type === "fade-black" || window2.type === "fade-white" ? [{
+        start: window2.start,
+        end: window2.end,
+        mid: (window2.start + window2.end) / 2,
+        color: window2.type === "fade-white" ? "#fff" : "#000",
+        type: window2.type
+      }] : []);
+      return {
+        segments,
+        totalDuration: outputDuration,
+        transitionPlates,
+        transitionWindows,
+        usesGapsOrTracks: true
+      };
+    }
+    function outputToSource2(segments, outputT) {
+      if (segments.length === 0) {
+        return { segment: null, sourceT: null };
+      }
+      for (let index = 0; index < segments.length; index++) {
+        const segment = segments[index];
+        if (outputT <= segment.outEnd || index === segments.length - 1) {
+          if (segment.kind !== "src") {
+            return { segment, sourceT: null };
+          }
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          const clamped = Math.max(segment.outStart, Math.min(outputT, segment.outEnd));
+          return { segment, sourceT: (segment.in ?? 0) + (clamped - segment.outStart) * speed };
+        }
+      }
+      return { segment: null, sourceT: null };
+    }
+    function sourceToOutput(segments, sourceT) {
+      const sources = segments.filter((segment) => segment.kind === "src" && typeof segment.in === "number" && typeof segment.out === "number");
+      if (sources.length === 0 || !Number.isFinite(sourceT)) {
+        return null;
+      }
+      for (const segment of sources) {
+        const start = segment.in;
+        const end = segment.out;
+        if (start <= sourceT && sourceT < end) {
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          return segment.outStart + (sourceT - start) / speed;
+        }
+      }
+      const next = sources.find((segment) => segment.in > sourceT);
+      return next?.outStart ?? sources[sources.length - 1].outEnd;
     }
   }
 });

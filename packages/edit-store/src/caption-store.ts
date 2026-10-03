@@ -4,6 +4,7 @@ import { captionGraphemes, captionRunsRemovedNotice, joinAdjacentCaptionRuns, re
     setCaptionRunRole, removeCaptionRun, type CaptionRun, type CaptionRunStyle } from './caption-runs';
 import { applyCaptionStylePresets, type TextstyleCatalog } from './caption-style-preset';
 import { resolveTextstyleCatalog } from './textstyle-catalog-merge';
+import { validateCaptionTextStyle } from './caption-display';
 
 export const CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -98,8 +99,13 @@ export interface CaptionTextStyle {
         color?: string;
         widthPx?: number;
     };
+    strokes?: Array<{ color: string; width_px: number; offset_x?: number; offset_y?: number }>;
     strokeInner?: { color?: string; widthPx?: number };
     fillGradient?: { colors: string[]; angleDeg: number };
+    fill?: { type: 'solid'; color: string }
+        | { type: 'gradient'; stops: Array<{ at: number; color: string }>; angle_deg: number }
+        | { type: 'pattern'; pattern: { id: string; scale: number; fg: string;
+            bg: string | { stops: Array<{ at: number; color: string }>; angle_deg: number } } };
     extrude?: { depthPx: number; color: string; colorEnd?: string; angleDeg: number };
     background?: {
         color?: string;
@@ -1339,6 +1345,15 @@ function normalizeTextStyle(
         onUnknownKeys?.(unknownKeys);
     }
     const style: CaptionTextStyle = {};
+    // Use the display contract's v1 validator for each rich field independently.
+    // A malformed field must not discard its sibling or the rest of the caption.
+    for (const key of ['fill', 'strokes'] as const) {
+        if (value[key] === undefined) continue;
+        try {
+            validateCaptionTextStyle({ [key]: value[key] });
+            (style as Record<string, unknown>)[key] = value[key];
+        } catch { /* ignore this field only */ }
+    }
     if (isHexColor(value.color)) {
         style.color = value.color;
     }
@@ -1689,8 +1704,10 @@ function textStyleToJson(style: CaptionTextStyle): Record<string, unknown> {
                 ...(style.stroke.widthPx !== undefined ? { width_px: style.stroke.widthPx } : {})
             }
         } : {}),
+        ...(style.strokes !== undefined ? { strokes: style.strokes } : {}),
         ...(style.strokeInner !== undefined ? { stroke_inner: richStyleToJson('stroke_inner', style.strokeInner) } : {}),
         ...(style.fillGradient !== undefined ? { fill_gradient: richStyleToJson('fill_gradient', style.fillGradient) } : {}),
+        ...(style.fill !== undefined ? { fill: style.fill } : {}),
         ...(style.extrude !== undefined ? { extrude: richStyleToJson('extrude', style.extrude) } : {}),
         ...(style.background !== undefined ? {
             background: {
