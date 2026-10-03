@@ -45,7 +45,7 @@ test('section inventory, normalization and insertion follow original order', () 
   } finally {
     rmSync(browserDir, { recursive: true, force: true });
   }
-  assert.deepEqual(INSPECTOR_SECTION_FILES, ['types.ts', 'shared-helpers.ts', 'transform-fields.ts', 'cut-sections.ts', 'photo-fields.ts', 'motion-sections.ts', 'layer-sections.ts', 'caption-sections.ts', 'audio-sections.ts', 'overlay-sections.ts', 'animator-section.ts', 'tree-item-sections.ts']);
+  assert.deepEqual(INSPECTOR_SECTION_FILES, ['types.ts', 'shared-helpers.ts', 'transform-fields.ts', 'cut-sections.ts', 'photo-fields.ts', 'motion-sections.ts', 'layer-sections.ts', 'caption-sections.ts', 'audio-sections.ts', 'overlay-sections.ts', 'animator-section.ts', 'tree-item-sections.ts', 'adjust-sections.ts']);
 });
 
 test('sliceBetween reports missing and reversed anchors', () => {
