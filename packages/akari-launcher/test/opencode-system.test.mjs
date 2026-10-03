@@ -54,7 +54,7 @@ test('システムテスト: opencode モードでプロジェクト作成から
         opencodeCall = { opencodePath, args, cwd };
         return { status: 0 };
       },
-      ...isolatedUpdateOptions(root)
+      ...isolatedUpdateOptions(root), isTTY: true, prompt: async () => 'n'
     });
 
     // プロジェクトが作成されていることを確認
