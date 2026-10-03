@@ -357,6 +357,45 @@ async function runContactSheetStage({ edit, loadedOverlays, captionOverlays, pla
   emitTiming("contact_sheet", contactSheetStarted);
 }
 
+async function runReceiptStage({ editPath, outputPath, projectRoot, edit, internalEdit, captionFontAsset, env, state, plan, verification, capabilities, captionLayout, options, emitTiming, declaredInputs, inputSnapshot }) {
+  let receiptDeclaredInputs = declaredInputs;
+  let receiptInputSnapshot = inputSnapshot;
+  await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
+  const receiptEditText = await readFile(editPath, "utf8");
+  receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
+    projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit, env,
+  });
+  receiptDeclaredInputs.push(...await additionalBgmInputs({
+    projectRoot, edit, editText: receiptEditText, internalEdit, env,
+  }));
+  receiptDeclaredInputs.sort((a, b) => a.role.localeCompare(b.role, "en") || a.path.localeCompare(b.path, "en"));
+  receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
+  const receiptStarted = performance.now();
+  const receipt = await createImmutableRenderReceipt({
+    projectRoot,
+    declaredInputs: receiptDeclaredInputs,
+    inputSnapshot: receiptInputSnapshot,
+    outputPath,
+    ffprobe: verification.measured,
+    plan,
+    verify: verification,
+    tools: {
+      node: capabilities.nodeVersion,
+      ffmpeg: capabilities.ffmpegVersion,
+      ffprobe: capabilities.ffprobeVersion,
+    },
+    captionLayout,
+    audioQc: state.audio_qc ?? null,
+    provenance: state.provenance,
+    createdAt: options.receiptCreatedAt,
+  });
+  state.render_receipt = {
+    path: receipt.path,
+    sha256: receipt.sha256,
+  };
+  emitTiming("receipt", receiptStarted);
+}
+
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
@@ -733,43 +772,8 @@ export async function renderProject(input, options = {}, io = console) {
     if (verification.verdict === "pass" && codec !== "png") {
       await runContactSheetStage({ edit, loadedOverlays, captionOverlays, plan, projectRoot, capabilities, outputPath, temporaryDirectory, state, emitTiming });
     }
-    let receiptDeclaredInputs = declaredInputs;
-    let receiptInputSnapshot = inputSnapshot;
     if (verification.verdict === "pass" && codec !== "png") {
-      await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
-      const receiptEditText = await readFile(editPath, "utf8");
-      receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
-        projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit, env,
-      });
-      receiptDeclaredInputs.push(...await additionalBgmInputs({
-        projectRoot, edit, editText: receiptEditText, internalEdit, env,
-      }));
-      receiptDeclaredInputs.sort((a, b) => a.role.localeCompare(b.role, "en") || a.path.localeCompare(b.path, "en"));
-      receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
-      const receiptStarted = performance.now();
-      const receipt = await createImmutableRenderReceipt({
-        projectRoot,
-        declaredInputs: receiptDeclaredInputs,
-        inputSnapshot: receiptInputSnapshot,
-        outputPath,
-        ffprobe: verification.measured,
-        plan,
-        verify: verification,
-        tools: {
-          node: capabilities.nodeVersion,
-          ffmpeg: capabilities.ffmpegVersion,
-          ffprobe: capabilities.ffprobeVersion,
-        },
-        captionLayout,
-        audioQc: state.audio_qc ?? null,
-        provenance: state.provenance,
-        createdAt: options.receiptCreatedAt,
-      });
-      state.render_receipt = {
-        path: receipt.path,
-        sha256: receipt.sha256,
-      };
-      emitTiming("receipt", receiptStarted);
+      await runReceiptStage({ editPath, outputPath, projectRoot, edit, internalEdit, captionFontAsset, env, state, plan, verification, capabilities, captionLayout, options, emitTiming, declaredInputs, inputSnapshot });
     }
     if (state.audio_qc?.verdict === "MEASUREMENT_ERROR") {
       throw new RefusalError("audio QC decoded artifact measurement failed");
