@@ -32,7 +32,7 @@ const probeVideo = path => JSON.parse(execFileSync('ffprobe', [
 
 const extractHostFallbackMethod = () => {
     const startMarker = '    protected async handleHevcFallbackRequest(';
-    const endMarker = '\n    protected isOpenOutputRequest';
+    const endMarker = '\n    protected async handleOpenOutputRequest';
     const start = handlerSource.indexOf(startMarker);
     const end = handlerSource.indexOf(endMarker, start);
     assert.notEqual(start, -1, `missing start marker: ${startMarker}`);

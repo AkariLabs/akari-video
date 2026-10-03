@@ -6,6 +6,7 @@ import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
+const preview_host_constants_1 = require('../lib/browser/preview-host-constants.js');
 const source = readHandlerSource();
 const ast = ts.createSourceFile('akari-preview-open-handler.ts', source, ts.ScriptTarget.Latest, true);
 const handlerClass = ast.statements.find(statement => ts.isClassDeclaration(statement)
@@ -25,7 +26,7 @@ const start = source.indexOf('const onAdjustBypass =');
 const end = source.indexOf('registerTimelineSetting<', start);
 assert.ok(start >= 0 && end > start);
 // Execute the actual open lifecycle and unchanged bypass listener without starting Theia's UI.
-const code = ts.transpileModule(`${constants.map(node => node.getText(ast)).join('\n')}
+const code = ts.transpileModule(`${constants.map(node => node.getText(ast).replace(/^export /u, '')).join('\n')}
 class Handler {
   ${methods.join('\n')}
   listen() { ${source.slice(start, end)} }
@@ -35,8 +36,8 @@ function fixture() {
   const window = new EventTarget();
   window.setTimeout = setTimeout;
   window.clearTimeout = clearTimeout;
-  const Handler = new Function('window', 'CustomEvent', 'URI', 'WebviewWidget', `${code}\nreturn Handler;`)(
-    window, CustomEvent, URI, { FACTORY_ID: 'webview' }
+  const Handler = new Function('window', 'CustomEvent', 'URI', 'WebviewWidget', 'preview_host_constants_1', `${code}\nreturn Handler;`)(
+    window, CustomEvent, URI, { FACTORY_ID: 'webview' }, preview_host_constants_1
   );
   const context = new Handler();
   context.openOutputPreviews = new Map();

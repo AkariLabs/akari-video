@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import { fileURLToPath } from 'node:url';
 
 import {
     clampPreviewPlaybackRate,
@@ -15,23 +13,8 @@ import {
 } from '../lib/common/preview-playback-rate.js';
 import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
+const { isPlaybackRateRequest } = createRequire(import.meta.url)('../lib/browser/preview-host-message-guards.js');
 const handlerSource = readHandlerSource();
-const compiledHandler = readFileSync(join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'), 'utf8');
-
-function extractMethod(name) {
-    const start = compiledHandler.indexOf(`    ${name}(`);
-    assert.notEqual(start, -1, `${name} が compiled lib に見つからない`);
-    const bodyStart = compiledHandler.indexOf('{', start);
-    let depth = 0;
-    for (let index = bodyStart; index < compiledHandler.length; index += 1) {
-        if (compiledHandler[index] === '{') depth += 1;
-        if (compiledHandler[index] === '}' && --depth === 0) {
-            return compiledHandler.slice(start, index + 1).trim();
-        }
-    }
-    assert.fail(`${name} の終端が見つからない`);
-}
 
 test('p1 preview rate をクランプし、プリセットと表示ラベルを固定する', () => {
     assert.equal(clampPreviewPlaybackRate(0.1), 0.5);
@@ -60,9 +43,6 @@ test('p3 freeze と壁時計を preview rate で出力タイムライン秒へ�
 });
 
 test('p4 host は有効な playback-rate message だけ widget に保持し initialState へ戻す', () => {
-    const isPlaybackRateRequest = vm.runInNewContext(
-        `(function ${extractMethod('isPlaybackRateRequest')})`
-    );
     const widget = {};
     const apply = message => {
         if (isPlaybackRateRequest(message)) widget.akariPreviewPlaybackRate = message.rate;
@@ -74,7 +54,7 @@ test('p4 host は有効な playback-rate message だけ widget に保持し init
         assert.equal(widget.akariPreviewPlaybackRate, 2);
     }
     assert.match(handlerSource,
-        /if \(this\.isPlaybackRateRequest\(message\)\) \{\s*widget\.akariPreviewPlaybackRate = message\.rate;/u);
+        /if \(isPlaybackRateRequest\(message\)\) \{\s*widget\.akariPreviewPlaybackRate = message\.rate;/u);
     assert.match(handlerSource, /initialPlaybackRate: clampPreviewPlaybackRate\(initialPlaybackRate\)/u);
     assert.match(handlerSource, /widget\.akariPreviewPlaybackRate \?\? 1/u);
 });
