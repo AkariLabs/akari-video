@@ -87,8 +87,8 @@ output.fps; --progress emits stage lines, engine-originated "PROGRESS frame=<n> 
 audio-cut "PROGRESS out_time_ms=<n> total_ms=<n>" lines, then "PROGRESS done total_ms=<n>".
 --engine defaults to auto; eligible projects use gpu and ineligible projects use osr on every platform.
 --gpu-preference (Windows hybrid GPU only) controls the temporary per-app GPU setting written for the
-export child process: auto (default; gpu engine only, skipped when the user pinned a preference), off,
-or force (gpu and osr engines). Omitting it defers to AKARI_EXPORT_GPU_PREFERENCE, then auto. Other
+export child process: auto (gpu engine only, skipped when the user pinned a preference), off,
+or force (gpu and osr engines). Omitting it defers to AKARI_EXPORT_GPU_PREFERENCE, then saved consent, then off. Other
 platforms ignore it.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
@@ -458,7 +458,7 @@ export async function renderProject(input, options = {}, io = console) {
       frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
       quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
       codec,
-      // --gpu-preference auto|off|force（省略時 undefined → env AKARI_EXPORT_GPU_PREFERENCE → auto）。Windows 以外は no-op。
+      // --gpu-preference auto|off|force（省略時 undefined → env AKARI_EXPORT_GPU_PREFERENCE → saved consent → off）。Windows 以外は no-op。
       gpuPreference: options.gpuPreference,
       ffmpegCommand: capabilities.ffmpegCommand,
       ffprobeCommand: capabilities.ffprobeCommand,

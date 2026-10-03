@@ -168,10 +168,10 @@ per-app GPU preference Windows keeps under `HKCU\Software\Microsoft\DirectX\User
 created.
 
 The launcher (`packages/osr-export/src/gpu-preference.mjs`, shared by the GPU and OSR exits) therefore
-writes that value for the export executable right before `spawn` and restores it after the child
+writes that value for the export executable right before `spawn` when `auto` is permitted or `force` is explicit and restores it after the child
 closes — deletes it when there was none, or writes the previous value back — on every exit code and
 even when the spawn itself fails. No restart, no administrator rights, and nothing is left behind, so
-the app keeps its previous GPU assignment. With the default `auto` this happens for the **GPU exit only**
+the app keeps its previous GPU assignment. Without an explicit argument or environment setting, saved consent in `<AKARI_HOME or ~/.akari>/gpu-preference-consent.json` selects `auto`; otherwise the policy is `off`. With `auto` this happens for the **GPU exit only**
 (`--engine gpu`, and capture through the GPU runtime): the OSR exit encodes with ffmpeg, gains nothing from
 the dGPU, and on the RTX its offscreen paint returned an empty frame 0 in a share of runs (current code 1 of 4,
 pre-T5 code 3 of 4, never on the iGPU), so it keeps the default adapter (`reason: not-gpu-exit`) unless
@@ -186,7 +186,7 @@ cut off after 3 seconds).
 
 | Setting | Value | Effect |
 |---|---|---|
-| `AKARI_EXPORT_GPU_PREFERENCE` / `render-cut --gpu-preference` | `auto` (default) | GPU exit only. Write `GpuPreference=2;` only when the executable has no per-app value. A value the user pinned in Windows "Graphics settings" (for example power saving, `GpuPreference=1;`) is respected and left alone (`reason: user-preference-respected`). The OSR exit is skipped (`reason: not-gpu-exit`). |
+| `AKARI_EXPORT_GPU_PREFERENCE` / `render-cut --gpu-preference` | `off` (default without saved consent) | `auto` applies to the GPU exit only. Write `GpuPreference=2;` only when the executable has no per-app value. A value the user pinned in Windows "Graphics settings" (for example power saving, `GpuPreference=1;`) is respected and left alone (`reason: user-preference-respected`). The OSR exit is skipped (`reason: not-gpu-exit`). |
 | | `off` | Never touch the registry (`reason: policy-off`). |
 | | `force` | Write `GpuPreference=2;` even over a pinned value and write the pinned value back afterwards — on both exits (the only way to put the OSR exit on the dGPU). |
 | `AKARI_EXPORT_ALLOW_DESKTOP=0` | | Development escape hatch: skip the installed desktop app (tier 1) so the repository's runtime runs through the npm `electron.exe` (tier 2). An explicit `allowDesktop` argument wins over the variable. |

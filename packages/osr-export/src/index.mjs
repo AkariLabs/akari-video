@@ -23,7 +23,7 @@ export async function exportWithOsr({
   codec = "h264",
   soft = false,
   verify = "stamp",
-  // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → auto。
+  // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → 保存済み許可 → off。
   gpuPreference = undefined,
   ffmpegCommand = null,
   ffprobeCommand = null,

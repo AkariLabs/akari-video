@@ -62,7 +62,7 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
         sizeLabel: '約 20MB（+ モデル別途）'
     },
     'yt-dlp': {
-        name: 'yt-dlp', badge: 'アドバンス · 既定 ON', purpose: '許可された動画素材の取得に使います。',
+        name: 'yt-dlp', badge: 'アドバンス', purpose: '許可された動画素材の取得に使います。',
         sizeLabel: '約 35MB'
     },
     voicevox: {

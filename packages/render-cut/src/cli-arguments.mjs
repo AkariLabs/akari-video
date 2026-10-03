@@ -23,7 +23,7 @@ export function parseArguments(argv, env = process.env) {
     encoder: undefined,
     engine: "auto",
     codec: "h264",
-    // undefined のまま exportWithGpu / exportWithOsr → launchElectronExport へ渡すと env AKARI_EXPORT_GPU_PREFERENCE → auto に落ちる。
+    // undefined のまま exportWithGpu / exportWithOsr → launchElectronExport へ渡すと env AKARI_EXPORT_GPU_PREFERENCE → saved consent → off に落ちる。
     gpuPreference: undefined,
     fps: undefined,
     scaleTo: undefined,

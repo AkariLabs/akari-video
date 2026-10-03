@@ -29,7 +29,8 @@ import {
     QUICK_EXPORT_OUTPUT_DIRECTORY,
     QuickExportCodec,
     QuickExportEncoder,
-    QuickExportQuality
+    QuickExportQuality,
+    shouldAskTemporaryGpuPreference
 } from '../common/quick-export-cli';
 import {
     AkariQuickExportService,
@@ -45,6 +46,7 @@ import {
     AKARI_EXPORT_CODEC,
     AKARI_EXPORT_ENCODER,
     AKARI_EXPORT_FPS,
+    AKARI_EXPORT_GPU_PREFERENCE_CONSENT,
     AKARI_EXPORT_OUTPUT_DIRECTORY,
     AKARI_EXPORT_QUALITY
 } from './akari-export-preferences';
@@ -55,6 +57,7 @@ import {
 import { formatBytes } from './export-dialog/export-view-shared';
 import { currentTimelineCaptionsUri, currentTimelineEditUri } from 'akari-annotations/lib/browser/active-timeline';
 import { timelineSlugFromEditFileName } from 'akari-annotations/lib/common/timeline-files';
+import { AkariGpuPreferenceConsentDialog } from './akari-gpu-preference-consent-dialog';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const LAST_RUN_STORAGE_KEY = 'akari.export.lastRun';
@@ -161,11 +164,21 @@ export class AkariExportSessionService implements Disposable {
     protected init(): void {
         this.toDispose.push(this.workspace.onWorkspaceChanged(() => void this.refreshProject()));
         this.toDispose.push(this.preferences.onPreferenceChanged(change => {
+            if (change.preferenceName === AKARI_EXPORT_GPU_PREFERENCE_CONSENT) {
+                void this.quickExportService.saveGpuPreferenceConsent(
+                    this.preferences.get<boolean>(AKARI_EXPORT_GPU_PREFERENCE_CONSENT) === true)
+                    .catch(error => console.warn('GPU 設定の許可を保存できませんでした:', error));
+            }
             if (change.preferenceName.startsWith('akari.export.')) {
                 this.updateSettingFromPreference(change.preferenceName);
             }
         }));
         void this.preferences.ready.then(() => {
+            const consent = this.preferences.get<boolean>(AKARI_EXPORT_GPU_PREFERENCE_CONSENT);
+            if (typeof consent === 'boolean') {
+                void this.quickExportService.saveGpuPreferenceConsent(consent)
+                    .catch(error => console.warn('GPU 設定の許可を保存できませんでした:', error));
+            }
             this.settings = this.readPreferences();
             this.refreshOutputNameForCodec();
             this.fireChanged();
@@ -352,6 +365,20 @@ export class AkariExportSessionService implements Disposable {
             return false;
         }
         const settings = { ...this.settings, ...overrides };
+        let gpuConsent = this.preferences.get<boolean>(AKARI_EXPORT_GPU_PREFERENCE_CONSENT);
+        const windowsSupported = gpuConsent === undefined && await this.quickExportService.shouldPromptGpuPreference();
+        if (shouldAskTemporaryGpuPreference(windowsSupported, settings.engine, gpuConsent)) {
+            const choice = await new AkariGpuPreferenceConsentDialog().open();
+            if (typeof choice === 'boolean') {
+                gpuConsent = choice;
+                try {
+                    await this.preferences.set(AKARI_EXPORT_GPU_PREFERENCE_CONSENT, gpuConsent, PreferenceScope.User);
+                    await this.quickExportService.saveGpuPreferenceConsent(gpuConsent);
+                } catch (error) {
+                    console.warn('GPU 設定の許可を保存できませんでした:', error);
+                }
+            }
+        }
         const output = resolveOutputResolution(this.video, settings);
         if (settings.saveAsDefault) {
             await this.savePreferences(settings);
@@ -376,7 +403,8 @@ export class AkariExportSessionService implements Disposable {
                 scaleTo: settings.resolution === 'native'
                     ? undefined
                     : { width: output.width, height: output.height },
-                outputDirectoryUri: settings.outputDirectoryUri
+                outputDirectoryUri: settings.outputDirectoryUri,
+                gpuPreference: gpuConsent === true ? 'auto' : 'off'
             });
         } catch (error) {
             this.fail(describeUnexpectedQuickExportFailure(error, '書き出しサービスに接続できませんでした'));

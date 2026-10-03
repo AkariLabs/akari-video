@@ -9,7 +9,7 @@
 // auto は GPU 出口（gpu-export の electron-main = options.exit "gpu"）だけに適用する。OSR 出口は ffmpeg で符号化するので dGPU を
 // 要さず、RTX 上では起動直後の offscreen paint が空 bitmap を返す過渡で frame 0 が落ち得る（§11.7）ため、force のときだけ書く。
 import { spawnSync as defaultSpawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, win32 } from "node:path";
@@ -19,13 +19,14 @@ export const GPU_PREFERENCE_ENV = "AKARI_EXPORT_GPU_PREFERENCE";
 export const HIGH_PERFORMANCE_GPU_PREFERENCE = "GpuPreference=2;";
 export const USER_GPU_PREFERENCES_KEY = "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences";
 export const GPU_PREFERENCE_SIDECAR_NAME = "gpu-preference-override.json";
+export const GPU_PREFERENCE_CONSENT_NAME = "gpu-preference-consent.json";
 const RESTORE_WARNING_PREFIX = "[gpu-preference]";
 
-// 方針値の解決: 呼び出し側の options.gpuPreference → env AKARI_EXPORT_GPU_PREFERENCE → "auto"。空文字は未指定と同じ。
-export function resolveGpuPreferencePolicy(options = {}, env = process.env) {
+// 方針値の解決: 明示指定 → 環境変数 → 保存済みの許可 → off。
+export function resolveGpuPreferencePolicy(options = {}, env = process.env, consent = undefined) {
   const explicit = presentString(options?.gpuPreference);
   const fromEnv = presentString(env?.[GPU_PREFERENCE_ENV]);
-  const policy = explicit ?? fromEnv ?? "auto";
+  const policy = explicit ?? fromEnv ?? ((consent ?? readGpuPreferenceConsent({ env })) === true ? "auto" : "off");
   if (!GPU_PREFERENCE_POLICIES.includes(policy)) {
     throw new Error(`gpuPreference must be one of ${GPU_PREFERENCE_POLICIES.join("|")}, got: ${policy}`);
   }
@@ -117,6 +118,30 @@ export function gpuPreferenceSidecarPath(env = process.env, homeDirectory = home
   return join(resolveAkariHome(env, homeDirectory), GPU_PREFERENCE_SIDECAR_NAME);
 }
 
+export function gpuPreferenceConsentPath(env = process.env, homeDirectory = homedir()) {
+  return join(resolveAkariHome(env, homeDirectory), GPU_PREFERENCE_CONSENT_NAME);
+}
+
+export function readGpuPreferenceConsent({ env = process.env, homeDirectory = homedir(), read = readFileSync } = {}) {
+  try {
+    return JSON.parse(read(gpuPreferenceConsentPath(env, homeDirectory), "utf8"))?.allowed === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function writeGpuPreferenceConsent(allowed, {
+  env = process.env,
+  homeDirectory = homedir(),
+  ensureDirectory = mkdir,
+  write = writeFile,
+} = {}) {
+  const path = gpuPreferenceConsentPath(env, homeDirectory);
+  await ensureDirectory(dirname(path), { recursive: true });
+  await write(path, `${JSON.stringify({ version: 1, allowed: allowed === true })}\n`, "utf8");
+  return path;
+}
+
 export function createSidecarAccess({ env = process.env, homeDirectory = homedir(), path = null } = {}) {
   const sidecarPath = path ?? gpuPreferenceSidecarPath(env, homeDirectory);
   return {
@@ -180,7 +205,7 @@ export async function withGpuPreference(launcher, options, run, {
   stderr = process.stderr,
   now = () => new Date().toISOString(),
 } = {}) {
-  const policy = resolveGpuPreferencePolicy(options, env);
+  const policy = resolveGpuPreferencePolicy(options, env, platform === "win32" ? undefined : false);
   const exit = normalizeGpuPreferenceExit(options?.exit);
   const record = {
     platform,

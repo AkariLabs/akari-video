@@ -154,9 +154,9 @@ ANGLE / WebGL を dGPU に移すだけで、エンコーダは iGPU 側のまま
 これはプロセス生成時に評価されます。
 
 そこで launcher（`packages/osr-export/src/gpu-preference.mjs`・GPU / OSR 両出口で共通）は、`spawn` の直前に書き出し
-実行ファイルの値を書き、子プロセスの終了後（exit code に関わらず・spawn 自体の失敗時も）に元へ戻します — 値が無かったなら
+許可済みの `auto` または明示した `force` のときだけ実行ファイルの値を書き、子プロセスの終了後（exit code に関わらず・spawn 自体の失敗時も）に元へ戻します — 値が無かったなら
 削除、あったなら元の値を書き戻します。再起動も管理者権限も不要で、何も残らないのでアプリ本体の GPU 割り当ては変わりません。
-既定の `auto` で書くのは **GPU 出口だけ**（`--engine gpu`・GPU ランタイム経由の capture）です。OSR 出口は ffmpeg で符号化するので dGPU の利点が無く、
+明示引数と環境変数がなければ、`<AKARI_HOME または ~/.akari>/gpu-preference-consent.json` の保存済み許可があるときだけ `auto`、それ以外は `off` です。`auto` で書くのは **GPU 出口だけ**（`--engine gpu`・GPU ランタイム経由の capture）です。OSR 出口は ffmpeg で符号化するので dGPU の利点が無く、
 RTX 上では frame 0 の offscreen paint が空になる走行がある（現行コード 4 走中 1 敗・pre-T5 コード 4 走中 3 敗・iGPU では 0）ため、`force` を
 指定しない限り既定の GPU のまま（`reason: not-gpu-exit`）です。
 レジストリを書く前に sidecar `<AKARI_HOME または ~/.akari>/gpu-preference-override.json`
@@ -167,7 +167,7 @@ RTX 上では frame 0 の offscreen paint が空になる走行がある（現�
 
 | 設定 | 値 | 効果 |
 |---|---|---|
-| `AKARI_EXPORT_GPU_PREFERENCE` / `render-cut --gpu-preference` | `auto`（既定） | GPU 出口だけ。実行ファイルにアプリ別の値が無いときだけ `GpuPreference=2;` を書く。利用者が Windows の「グラフィックスの設定」で固定した値（省電力 = `GpuPreference=1;` など）は尊重して触らない（`reason: user-preference-respected`）。OSR 出口は skip（`reason: not-gpu-exit`）。 |
+| `AKARI_EXPORT_GPU_PREFERENCE` / `render-cut --gpu-preference` | `off`（保存済みの許可がないときの既定） | `auto` は GPU 出口だけ。実行ファイルにアプリ別の値が無いときだけ `GpuPreference=2;` を書く。利用者が Windows の「グラフィックスの設定」で固定した値（省電力 = `GpuPreference=1;` など）は尊重して触らない（`reason: user-preference-respected`）。OSR 出口は skip（`reason: not-gpu-exit`）。 |
 | | `off` | レジストリに触らない（`reason: policy-off`）。 |
 | | `force` | 固定値があっても `GpuPreference=2;` を書き、終了後に固定値へ戻す。両出口に効く（OSR 出口を dGPU に載せる唯一の手段）。 |
 | `AKARI_EXPORT_ALLOW_DESKTOP=0` | | 開発用の脱出口。インストール済みアプリ（tier 1）を候補から外し、リポジトリ側のランタイムを npm の `electron.exe`（tier 2）で走らせる。明示引数 `allowDesktop` が env より優先。 |
