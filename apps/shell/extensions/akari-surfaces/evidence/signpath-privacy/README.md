@@ -1,4 +1,4 @@
-# 自動の通信を 1 つの設定で止める・初回の通信説明 — 実機の証跡
+# 自動の通信を 1 つの設定で止める・設定画面の通信説明 — 実機の証跡
 
 開発 Electron（`apps/shell` を build したもの）を隔離して起動し、CDP で操作して測る手順と、測った結果の要約。
 
@@ -14,7 +14,7 @@ node apps/shell/extensions/akari-surfaces/evidence/signpath-privacy/scripts/l1-p
 ```
 
 - 隔離: `HOME` / `AKARI_HOME` / `THEIA_CONFIG_DIR` / `--user-data-dir` をすべて `$TMPDIR` 以下の新規ディレクトリへ向ける。実環境の `~/.akari`・`~/Akari`・`~/.theia`・インストール済みアプリには触れない。終了させるのは自分が起動した Electron とその子孫だけ
-- 走行は 3 回: **A** 初回起動（説明 → スイッチを OFF → 続ける）/ **B** OFF のまま再起動して、起動 → ホーム表示 → 設定を開く（本測定）/ **C** ON に戻して同じ手順（対照）
+- 走行は 3 回: **A** 初回起動でホームに通信モーダルが出ないことを見届け、設定「このアプリについて」の説明 3 行とプライバシーポリシーの行・「開く」ボタンを確認し、クリック点の最前面がスイッチであることを確かめて実クリックで OFF / **B** OFF のまま再起動して、起動 → ホーム表示 → 設定を開く（本測定）/ **C** ON に戻して同じ手順（対照）。A・B・C を通して pageerror 0 件を確認する
 
 ## 通信の観測（3 層 + 手元サーバー）
 
@@ -31,10 +31,10 @@ C（ON）で同じ観測が接続を拾えることを確かめたうえで、B�
 
 | 走行 | 判定 | B（OFF）: AKARI 自身のプロセスの外部接続 | B: `latest.json` 受信 | C（ON・対照）で拾えた外部接続 | C: `latest.json` 受信 |
 |---|---|---|---|---|---|
-| `--path=full`（実行環境の PATH のまま） | PASS 12/12 | 0 件（netlog 0・Node 0・nettop 0） | 0 回 | `open-vsx.org` `openvsx.eclipsecontent.org` `akari.video`（nettop 3 フロー） | 1 回 |
-| `--path=minimal`（PATH を OS 既定に絞る = 外部パートナー CLI が無いマシン相当） | PASS 13/13 | 0 件。起動した全プロセスを合わせても 0 件 | 0 回 | 同上 | 1 回 |
+| `--path=full`（実行環境の PATH のまま）（初回ダイアログ撤去前の測定） | PASS 12/12 | 0 件（netlog 0・Node 0・nettop 0） | 0 回 | `open-vsx.org` `openvsx.eclipsecontent.org` `akari.video`（nettop 3 フロー） | 1 回 |
+| `--path=minimal`（PATH を OS 既定に絞る = 外部パートナー CLI が無いマシン相当） | PASS 13/13 | 0 件。起動した全プロセスを合わせても 0 件 | 0 回 | `open-vsx.org`・`akari.video`・`openvsx.eclipsecontent.org`（Node）、nettop 3 フロー | 1 回 |
 
-観測の規模（B の走行）: full = 69 秒・追跡 PID 34・フックを読み込んだプロセス 10・netlog 695,822 B / minimal = 82 秒・追跡 PID 23・フック 9・netlog 700,787 B。
+観測の規模（B の走行）: full（初回ダイアログ撤去前の測定） = 69 秒・追跡 PID 34・フックを読み込んだプロセス 10・netlog 695,822 B / minimal = 59 秒・追跡 PID 15・フック 9・netlog 680,203 B。
 詳細は出力先の `results.json`（観測秒数・追跡した PID 数・フックを読み込んだプロセス数を含む）。
 
 ### 読むときの注意
@@ -43,20 +43,20 @@ C（ON）で同じ観測が接続を拾えることを確かめたうえで、B�
   `--version` で実行して版を表示する（既存の挙動）。そのとき CLI 自身が自分のサーバーへつなぐものがある
   （このマシンでは `agy`、試走では `command-code` と、そこから呼ばれた `npm view`）。`results.json` では
   `thirdPartyCliConnects` に分けて記録し、合否には数えていない。`--path=minimal` はこの CLI が見つからない条件での測定
-- **A（初回）の外部接続は合否に使わない**。説明を閉じるまでは既定（ON）のまま動くため、素材カタログと Open VSX への接続が出る。
+- **A（初回）の外部接続は合否に使わない**。設定でスイッチを OFF にするまでは既定（ON）のまま動くため、素材カタログと Open VSX への接続が出る。
   `registry.npmjs.org` は開発 Electron だけの経路（同梱 CLI が無いと npm から CLI を取る。配布版は同梱を使うので出ない）で、
   1 回取れば B・C では出ない
 - **electron-updater の起動時確認は開発ビルドでは走らない**（未パッケージでは electron-updater 自身が確認を飛ばす）。
   この経路の停止は既存の実装のままで、ここでは測っていない
-- `b-*-settings-about.png` / `c-*-settings-about.png` は、ウィンドウ全体を覆う初回ガイドを撮影のあいだだけ隠して撮っている
-  （`*-home.png` は隠さずに撮ったもの = 初回説明のあとに既存のガイドがそのまま出ている）
+- `a-01-settings-about.png` / `a-02-settings-auto-check-off.png` は、初回ガイドやセットアップが重なる場合、操作と撮影のあいだだけ隠している。A の実クリック中は、表示を隠してもクリックを遮る初回ガイドのポインタ遮断リスナーだけを一時退避し、操作後に戻す
+  `b-*-settings-about.png` / `c-*-settings-about.png` も初回ガイドを撮影のあいだだけ隠して撮っている（`*-home.png` は隠さずに撮ったもの）
 
 ## 出力されるスクリーンショット
 
 | ファイル | 内容 |
 |---|---|
-| `a-01-first-run-notice.png` / `a-01-first-run-notice-dialog.png` | 初回起動で出る通信の説明（ガイドより前に単独で出る） |
-| `a-02-first-run-notice-switch-off-dialog.png` | その場でスイッチを OFF にしたところ |
-| `a-03-after-notice.png` | 「続ける」のあと、既存のガイドへ進んだところ |
+| `a-00-first-run-home.png` | 初回起動のホーム。通信についてのモーダルは出ない |
+| `a-01-settings-about.png` | 設定「このアプリについて」のスイッチ・説明 3 行・プライバシーポリシーの行と「開く」ボタン |
+| `a-02-settings-auto-check-off.png` | 設定画面でスイッチを OFF にしたところ |
 | `b-auto-check-off-settings-about.png` | 設定「このアプリについて」の「更新と素材の自動確認」（OFF） |
 | `c-auto-check-on-settings-about.png` | 同（ON） |

@@ -859,6 +859,15 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 ? settingsNote('開発版のため更新は確認できません')
                 : this.createAboutUpdateRow();
             this.aboutUpdateRow = capabilities && !capabilities.updateUiEnabled ? undefined : updateRow;
+            const networkExplanation = el('div');
+            networkExplanation.setAttribute('data-akari-network-explanation', 'true');
+            networkExplanation.append(
+                settingsNote('AKARI Video は利用状況を送りません。'),
+                settingsNote('新しい版と素材の一覧を自動で確認します。何も送らず、取得するだけです。'),
+                settingsNote('AI 機能は使ったときだけ、あなたの API キーで各社に送ります。'),
+                settingRow('プライバシーポリシー', 'https://akari.video/privacy',
+                    action('開く', () => this.windows.openNewWindow('https://akari.video/privacy', { external: true }), { small: true }))
+            );
             const main = groupCard(undefined, hero,
                 updateRow,
                 settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
@@ -870,7 +879,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     checked: updateSettings?.autoCheck ?? this.preferences.get<boolean>('akari.update.autoCheck', true), onChange: checked => {
                         this.savePreference('akari.update.autoCheck', checked);
                         void this.maintenance.setUpdateSettings({ autoCheck: checked });
-                    } })));
+                    } })),
+                networkExplanation);
             section.append(main);
             if (info.recentChanges) {
                 const release = element('div'); release.className = 'akari-set-about-release';
