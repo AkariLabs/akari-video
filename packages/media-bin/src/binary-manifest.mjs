@@ -44,12 +44,58 @@
  */
 export const WHISPER_CPP_SOURCE = {
   tag: "v1.9.2",
+  repository: "https://github.com/ggml-org/whisper.cpp",
   url: "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.2.tar.gz",
   sha256: "a6abd064fcca8b85e794d205abf328c522e9451db43a3eadc178b883b7d0e9cd",
   license:
     "MIT (whisper.cpp — Copyright (c) 2023-2026 The ggml authors). " +
     "Source: https://github.com/ggml-org/whisper.cpp",
 };
+
+// 配布物に必ず含めるライセンス本文。取得時に sha256 を照合し、zip の構成に依存しない。
+export const BUNDLED_LICENSE_TEXTS = {
+  ffmpeg: {
+    fileName: "LICENSE.ffmpeg.txt",
+    url: "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.1.2/COPYING.GPLv3",
+    sha256: "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+  },
+  whisper: {
+    fileName: "LICENSE.whisper.cpp.txt",
+    url: "https://raw.githubusercontent.com/ggml-org/whisper.cpp/v1.9.2/LICENSE",
+    sha256: "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+  },
+};
+
+const MARTIN_RIEDL_SOURCE = {
+  distributor: "martin-riedl.de release 8.1.2",
+  buildScripts: "https://git.martin-riedl.de/ffmpeg/build-script",
+  ffmpegRevision: "n8.1.2",
+  ffmpegSource: "https://github.com/FFmpeg/FFmpeg/tree/n8.1.2",
+};
+const BTBN_SOURCE = {
+  distributor: "BtbN/FFmpeg-Builds autobuild-2026-07-31-14-10",
+  buildScripts: "https://github.com/BtbN/FFmpeg-Builds/tree/autobuild-2026-07-31-14-10",
+  ffmpegRevision: "n8.1.2-34-g9b6c8969e0",
+  ffmpegSource: "https://github.com/FFmpeg/FFmpeg/tree/9b6c8969e0",
+};
+
+/** 同梱ターゲットに対応するソース案内を決定的に生成する。 */
+export function ffmpegSourceNotice(target) {
+  const entry = BINARY_MANIFEST[target];
+  if (!entry?.source) throw new Error(`unknown FFmpeg target: ${target}`);
+  const source = entry.source;
+  return [
+    "FFmpeg source and license information",
+    `Target: ${target}`,
+    `Build: ${source.distributor}`,
+    `Build scripts: ${source.buildScripts}`,
+    `FFmpeg revision: ${source.ffmpegRevision}`,
+    `FFmpeg source: ${source.ffmpegSource}`,
+    "License: GPL-3.0-or-later (this bundled GPL build)",
+    `License text: ${BUNDLED_LICENSE_TEXTS.ffmpeg.fileName}`,
+    "",
+  ].join("\n");
+}
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,6 +148,7 @@ export const BINARY_MANIFEST = {
   "darwin-arm64": {
     label: "macOS arm64 (Apple Silicon) — martin-riedl.de release 8.1.2",
     license: MARTIN_RIEDL_LICENSE,
+    source: MARTIN_RIEDL_SOURCE,
     entries: {
       ffmpeg: {
         url: "https://ffmpeg.martin-riedl.de/download/macos/arm64/1783011502_8.1.2/ffmpeg.zip",
@@ -118,6 +165,7 @@ export const BINARY_MANIFEST = {
   "darwin-x64": {
     label: "macOS x64 (Intel) — martin-riedl.de release 8.1.2",
     license: MARTIN_RIEDL_LICENSE,
+    source: MARTIN_RIEDL_SOURCE,
     entries: {
       ffmpeg: {
         url: "https://ffmpeg.martin-riedl.de/download/macos/amd64/1783018342_8.1.2/ffmpeg.zip",
@@ -134,6 +182,7 @@ export const BINARY_MANIFEST = {
   "linux-x64": {
     label: "Linux x64 — BtbN/FFmpeg-Builds autobuild-2026-07-31-14-10 (gpl-8.1)",
     license: BTBN_LICENSE,
+    source: BTBN_SOURCE,
     entries: {
       ffmpeg: {
         url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n8.1.2-34-g9b6c8969e0-linux64-gpl-8.1.tar.xz",
@@ -150,6 +199,7 @@ export const BINARY_MANIFEST = {
   "linux-arm64": {
     label: "Linux arm64 — BtbN/FFmpeg-Builds autobuild-2026-07-31-14-10 (gpl-8.1)",
     license: BTBN_LICENSE,
+    source: BTBN_SOURCE,
     entries: {
       ffmpeg: {
         url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n8.1.2-34-g9b6c8969e0-linuxarm64-gpl-8.1.tar.xz",
@@ -166,6 +216,7 @@ export const BINARY_MANIFEST = {
   "win32-x64": {
     label: "Windows x64 — BtbN/FFmpeg-Builds autobuild-2026-07-31-14-10 (gpl-8.1) + whisper.cpp v1.9.2 official release",
     license: BTBN_LICENSE,
+    source: BTBN_SOURCE,
     entries: {
       ffmpeg: {
         url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n8.1.2-34-g9b6c8969e0-win64-gpl-8.1.zip",
