@@ -3731,6 +3731,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             motions={motionItems.map(item => this.renderPresetShowcaseCard(item))}
             telops={telopItems.map(item => <LibraryAssetCard key={item.key}
                 {...this.libraryAssetCardProps(item, 'grid', {}, undefined, true)}
+                thumbnailFit='contain'
                 onPreview={() => { if (!this.showPremiumPrompt(item.key)) void this.addCatalogAssetAtPlayhead(item); }} />)}
             fonts={fontItems.map(item => this.generationPick.request ? this.renderCatalogItem(item)
                 : <LibraryTextFontRow key={item.key} item={item} faceFamily={this.libraryStyleFontFaces.get(item.id)}

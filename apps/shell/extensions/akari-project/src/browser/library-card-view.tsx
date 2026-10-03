@@ -157,6 +157,7 @@ export interface LibraryAssetCardProps {
     cached: boolean;
     favorite: boolean;
     thumbnailBroken: boolean;
+    thumbnailFit?: 'contain' | 'cover';
     placeholderIcon: string;
     /** 生成の差し込みモードの属性・札（ウィジェット既存の部品をそのまま渡す）。 */
     pickProps: React.HTMLAttributes<HTMLDivElement>;
@@ -181,7 +182,9 @@ function Thumbnail(props: LibraryAssetCardProps & { compact?: boolean }): React.
     const { item } = props;
     return props.item.previewUrl && !props.thumbnailBroken
         ? <img src={item.previewUrl} alt='' draggable={false} onError={() => props.onThumbnailError()}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            style={props.thumbnailFit === 'contain'
+                ? { width: '100%', height: '100%', objectFit: 'contain', display: 'block', padding: '6px', boxSizing: 'border-box' }
+                : { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         : <span className={props.placeholderIcon} aria-hidden='true' style={{ fontSize: props.compact ? '1em' : '1.45em', opacity: 0.5 }} />;
 }
 

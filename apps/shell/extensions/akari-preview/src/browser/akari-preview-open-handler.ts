@@ -7138,7 +7138,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     throw new Error('プロジェクト外への書き込みは拒否しました');
                 }
                 if (!(await this.fileService.exists(target))) {
-                    throw new Error(`断片ファイルがありません: ${htmlPath}`);
+                    throw new Error('このテロップは文字を直接変えられません（ライブラリの素材のため）');
                 }
                 const source = await this.readText(target);
                 const candidate = patchFragmentSourceText(source, request.patch.html);

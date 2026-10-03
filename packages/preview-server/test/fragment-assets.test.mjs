@@ -117,3 +117,23 @@ test('projection preserves htmlPath for compatibility migration', async t => {
   const migrated = migratePreviewCompatibility(summary);
   assert.equal(migrated.tracks.flatMap(track => track.items).find(item => item.id === 'logo').source.path, htmlPath);
 });
+
+test('preview-server はプロジェクトに無いライブラリ参照テロップを拒否し本体を保つ', async t => {
+  const project = await fixture(t, '<div>元の文字</div>');
+  const libraryDir = path.join(project, 'library-home', 'assets', 'overlay', 'telop-fixture');
+  await mkdir(libraryDir, { recursive: true });
+  const libraryFile = path.join(libraryDir, 'fragment.html');
+  await writeFile(libraryFile, '<div>ライブラリの文字</div>');
+  const missingPath = 'assets/overlay/telop-fixture/fragment.html';
+  const libraryEdit = structuredClone(edit);
+  libraryEdit.tracks[0].items[0].source.path = missingPath;
+  await writeFile(path.join(project, 'edit.json'), JSON.stringify(libraryEdit));
+  await rm(path.join(project, htmlPath));
+  const { base } = await startServer(t, project);
+  const response = await fetch(`${base}/api/overlay-html`, { method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'logo', html: '<div>変更後</div>' }) });
+  assert.equal(response.status, 422);
+  assert.equal((await response.json()).error, 'このテロップは文字を直接変えられません（ライブラリの素材のため）');
+  assert.equal(await readFile(libraryFile, 'utf8'), '<div>ライブラリの文字</div>');
+});
