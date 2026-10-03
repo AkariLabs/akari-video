@@ -813,11 +813,15 @@
       .map((line) => relativeRect(line.getBoundingClientRect(), origin));
     const plateElement = root.querySelector(".akari-caption__plate");
     const plate = plateElement ? relativeRect(plateElement.getBoundingClientRect(), origin) : null;
-    const plateEmPx = plateElement ? Number.parseFloat(getComputedStyle(plateElement).fontSize) || emPx : emPx;
+    const plateStyle = plateElement ? getComputedStyle(plateElement) : null;
+    const plateEmPx = plateStyle ? Number.parseFloat(plateStyle.fontSize) || emPx : emPx;
+    // getBoundingClientRect includes scale; the SVG needs the unscaled used width
+    // to keep max-content vertical plates centered on the measured box.
+    const plateLayoutWidthPx = plateStyle ? Number.parseFloat(plateStyle.width) : null;
     const revealDelay = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-delay", 0) : 0;
     const revealDuration = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-dur", 0.2) : 0;
     const wordCount = unitElement.querySelectorAll(".akari-caption__tok").length;
-    return { tokens, lines, plate, ...(plateElement ? { plateEmPx } : {}), emPx, wordCount,
+    return { tokens, lines, plate, ...(plateElement ? { plateEmPx, plateLayoutWidthPx } : {}), emPx, wordCount,
       reveal: groups.length > 0, revealDelay, revealDuration };
   }
 
@@ -1241,13 +1245,18 @@
     return out;
   }
 
-  function captionRasterBand(value, config, html, sharedCss, bandCss, textureRect, bandIndex, offsetY) {
+  function captionRasterBand(value, config, html, sharedCss, bandCss, textureRect, bandIndex, offsetY, plateLayoutWidthPx) {
     const prefix = `[data-akari-band="${bandIndex}"]`;
     const xhtml = serializeHtmlToXhtml(isolateCaptionFragmentStyles(html, prefix));
     const scopedBandCss = scopeCaptionCss(bandCss, prefix);
+    const verticalScaled = value.vars?.["--caption-writing-mode"] === "vertical-rl"
+      && Number(value.vars?.["--caption-scale"] ?? 1) !== 1;
+    const rasterVars = verticalScaled && Number.isFinite(plateLayoutWidthPx) && plateLayoutWidthPx > 0
+      ? { ...value.vars, "--caption-width": `${plateLayoutWidthPx}px` }
+      : value.vars;
     return `<foreignObject x="0" y="${offsetY}" width="${config.width}" height="${textureRect.height}">
       <div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${config.width}px;height:${textureRect.height}px;overflow:hidden">
-        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(value.vars)}">
+        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(rasterVars)}">
           <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </div>
@@ -1286,6 +1295,7 @@
       unit.textureRect,
       index,
       y,
+      unit.plateLayoutWidthPx,
     )).join("");
     return {
       svg: removeDuplicateCaptionFontFaces(`<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${offsetY}" viewBox="0 0 ${config.width} ${offsetY}">${body}</svg>`),
@@ -1539,6 +1549,7 @@
         emPx: unitMeasurement.emPx || value.emPx,
         motionEmPx: unitMeasurement.plateEmPx || unitMeasurement.emPx || value.emPx,
         plateWidthPx: unitMeasurement.plate?.width,
+        plateLayoutWidthPx: unitMeasurement.plateLayoutWidthPx,
         plateHeightPx: unitMeasurement.plate?.height,
         wordCount: unitMeasurement.wordCount,
         style: [...new Set([
