@@ -31,3 +31,16 @@ export function fmtRange(sec) {
   const m = Math.floor(sec / 60), s2 = (sec % 60).toFixed(1).padStart(4, '0');
   return `${m}:${s2}`;
 }
+
+export async function apiReadError(response, label) {
+  try {
+    const body = await response.json();
+    if (body?.error) return body.error;
+  } catch {}
+  return `${label}: HTTP ${response.status}`;
+}
+
+// 辺あたり倍率。座標・時刻・ツマミ値は等倍の書き出しと共有する。
+export function normalizeVgpuPreviewScale(value) {
+  return value === 1 || value === 0.5 || value === 0.25 ? value : 0.5;
+}

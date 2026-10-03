@@ -60,7 +60,7 @@ test('Web UI renders concurrent rows in array order with independent styles and 
     applyRichCaptionLayers() {},
     injectCaptionStyles() {}, esc: value => value,
   });
-  vm.runInContext(section('const CAPTION_STYLE_VARS =', 'function getActiveCaptions'), context);
+  vm.runInContext(section('const CAPTION_STYLE_VARS =', 'function injectCaptionStyles'), context);
   vm.runInContext(section('const captionRows = new Map();', 'function esc(s)'), context);
   vm.runInContext('updateCaption(); syncCaptionAnimations()', context);
   const [speech, placed] = layer.children;

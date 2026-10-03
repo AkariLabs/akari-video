@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import { normalizeVgpuPreviewScale } from '../public/preview-format.js';
 
 const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
@@ -12,7 +13,7 @@ function section(start, end) {
   return app.slice(from, to);
 }
 const settingsCode = section('const SETTINGS_KEY =', '\nconst isOutputMode');
-const scaleCode = section('function normalizeVgpuPreviewScale(', '\n// --- Overlay runtime ---');
+const scaleCode = section('let previewVgpuScale = 0.5;', '\n// --- Overlay runtime ---');
 
 function setup(saved = {}) {
   let stored = JSON.stringify(saved);
@@ -23,6 +24,7 @@ function setup(saved = {}) {
     addEventListener(event, handler) { this[event] = handler; },
   }));
   const context = vm.createContext({
+    normalizeVgpuPreviewScale,
     localStorage: { getItem: () => stored, setItem: (key, value) => { stored = value; } },
     document: { querySelectorAll: () => buttons },
     isPlaying: false,
