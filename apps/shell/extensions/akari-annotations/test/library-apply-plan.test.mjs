@@ -24,6 +24,18 @@ test('文字の動き、見た目、マイスタイル、フォントを位置�
     assert.equal(plans[3].parts[0].text_style.font_family, 'Zen Kaku');
 });
 
+test('用意されたスタイルだけにサイズ保持の印を付ける', () => {
+    const catalog = { 'title-impact': { style: { size_px: 168 } } };
+    const preset = planLibraryApply({ kind: 'mystyle', style: { keepSize: true, catalog,
+        parts: [{ kind: 'look', text_style: { size_px: 168 } }] } }, caption);
+    const saved = planLibraryApply({ kind: 'mystyle', style: {
+        parts: [{ kind: 'look', text_style: { size_px: 80 } }] } }, caption);
+    assert.equal(preset.keepSize, true);
+    assert.ok(preset.catalog['title-impact']);
+    assert.equal(saved.keepSize, undefined);
+    assert.equal(saved.catalog, undefined);
+});
+
 test('LUT は映像の item だけ、相手が無ければ書き込み計画なし', () => {
     assert.deepEqual(planLibraryApply({ kind: 'lut', id: 'warm' }, cut), { kind: 'lut', id: cut.id, lut: 'warm' });
     assert.equal(planLibraryApply({ kind: 'lut', id: 'warm' }, caption), undefined);

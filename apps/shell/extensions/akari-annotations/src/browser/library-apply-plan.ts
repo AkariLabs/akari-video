@@ -3,7 +3,8 @@ export type ApplyPayload = { kind: 'textanim' | 'textstyle' | 'mystyle' | 'font'
 export type ApplyTarget = { kind: 'caption' | 'cut' | 'layer' | 'item'; id: string };
 
 type Part = { kind: string; text_style?: unknown; animation?: unknown };
-export type ApplyPlan = { kind: 'caption'; id: string; parts: Part[] }
+export type ApplyPlan = { kind: 'caption'; id: string; parts: Part[]; keepSize?: boolean;
+    catalog?: Record<string, { style: Record<string, unknown> }> }
     | { kind: 'lut'; id: string; lut: string };
 
 export function captionLibraryApplyFeedback(kind?: ApplyPayload['kind']): { history: string; footer: string } | undefined {
@@ -47,8 +48,11 @@ export function planLibraryApply(payload: ApplyPayload, target?: ApplyTarget): A
         ? { kind: 'caption', id: target.id, parts: [{ kind: 'look', text_style: { font_family: payload.fontFamily.trim() } }] }
         : undefined;
     if (payload.kind === 'textstyle') return payload.style && typeof payload.style === 'object'
-        ? { kind: 'caption', id: target.id, parts: [{ kind: 'look', text_style: payload.style }] } : undefined;
-    const style = payload.style as { parts?: Part[] } | undefined;
+        ? { kind: 'caption', id: target.id, parts: [{ kind: 'look', text_style: payload.style }],
+            keepSize: true } : undefined;
+    const style = payload.style as { parts?: Part[]; keepSize?: boolean;
+        catalog?: Record<string, { style: Record<string, unknown> }> } | undefined;
     return Array.isArray(style?.parts) ? { kind: 'caption', id: target.id,
-        parts: style.parts.filter(part => part && ['look', 'motion', 'sfx', 'fx', 'decor'].includes(part.kind)) } : undefined;
+        parts: style.parts.filter(part => part && ['look', 'motion', 'sfx', 'fx', 'decor'].includes(part.kind)),
+        ...(style.keepSize === true ? { keepSize: true, catalog: style.catalog } : {}) } : undefined;
 }

@@ -3363,7 +3363,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 id: `preset:${item.id}`, name: item.name, look: item.style as Record<string, unknown>
             }))
         ].map(item => {
-            const converted = captionRunStyleFromLook(item.look, baseSize);
+            const converted = captionRunStyleFromLook(item.id.startsWith('preset:')
+                ? { ...item.look,
+                    ...(typeof item.look.size_px === 'number'
+                        && typeof (item.look.stroke as { width_px?: unknown } | undefined)?.width_px === 'number'
+                        ? { stroke: { ...item.look.stroke as Record<string, unknown>,
+                            width_px: (item.look.stroke as { width_px: number }).width_px
+                                * baseSize / item.look.size_px } } : {}) }
+                : item.look,
+                item.id.startsWith('preset:') ? Number(item.look.size_px) : baseSize);
             return { id: item.id, name: item.name, style: converted.style,
                 notice: captionRunOmittedNotice(converted.omitted) };
         });

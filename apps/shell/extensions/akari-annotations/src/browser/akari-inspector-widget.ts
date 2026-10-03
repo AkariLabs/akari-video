@@ -2,7 +2,10 @@ import URI from '@theia/core/lib/common/uri';
 import { currentTimelineEditUri, currentTimelineCaptionsUri } from './active-timeline';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { AkariPreviewService, type OverlayRuntimeAssetUrls } from 'akari-preview/lib/common/akari-preview-protocol';
-import { createCaptionPanel, CAPTION_PANEL_CSS, type CaptionPanelMyStyle, type CaptionPanelViewState } from './inspector/caption-panels';
+import { createCaptionPanel, CAPTION_PANEL_CSS,
+    type CaptionPanelMyStyle, type CaptionPanelPreset, type CaptionPanelViewState } from './inspector/caption-panels';
+import { CAPTION_DEFAULT_SIZE_PX, TEXTSTYLE_SHOWCASE_COMMAND_ID } from 'akari-preview/lib/common/textstyle-sample';
+import { captionEffectiveSize } from './my-style-look';
 import { INSPECTOR_WIDGET_CSS } from './style/inspector-widget-style';
 import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
 import { captionRevealDestination } from '../common/caption-reveal-destination';
@@ -3129,6 +3132,8 @@ export class AkariInspectorWidget extends BaseWidget {
         query: '', filtersOpen: false, filters: new Set(), recentFonts: [], recentStyles: []
     };
     protected captionPanelMyStyles: CaptionPanelMyStyle[] = [];
+    protected captionPanelStyles: CaptionPanelPreset[] = [];
+    protected captionPanelItemSize?: number;
     protected captionPanelFontFaces = new Map<string, string>();
     protected captionPanelFontsLoaded = false;
     protected captionRowFontsLoading = false;
@@ -3160,7 +3165,11 @@ export class AkariInspectorWidget extends BaseWidget {
         this.captionPanel = nextCaptionPanel(this.captionPanel, panel, true);
         this.runCaptionPanelPreview({ type: 'leave' });
         this.notifyCaptionPanel();
-        if (this.captionPanel) void this.loadCaptionPanelData();
+        if (this.captionPanel) {
+            this.captionPanelStyles = [];
+            this.captionPanelItemSize = undefined;
+            void this.loadCaptionPanelData();
+        }
         this.render();
         return true;
     }
@@ -3180,17 +3189,39 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected async loadCaptionPanelData(): Promise<void> {
-        try {
-            const results = await Promise.all([
-                this.captionPreviewService?.getOverlayRuntimeAssetUrls(),
-                this.commandRegistry.executeCommand<CaptionPanelMyStyle[]>('akari.library.listMyStyles').catch(() => [])
-            ]);
-            this.captionPanelMyStyles = Array.isArray(results[1]) ? results[1] : [];
-            if (results[0]) this.registerCaptionPanelFonts(results[0]);
+        const fonts = this.captionPreviewService?.getOverlayRuntimeAssetUrls().then(assets => {
+            if (assets) this.registerCaptionPanelFonts(assets);
             if (this.captionPanel) this.render();
-        } catch (error) {
-            this.showFieldNotice(String(error));
-        }
+        }).catch(error => this.showFieldNotice(String(error)));
+        const myStyles = this.commandRegistry.executeCommand<CaptionPanelMyStyle[]>('akari.library.listMyStyles')
+            .then(items => {
+                this.captionPanelMyStyles = Array.isArray(items) ? items : [];
+                if (this.captionPanel) this.render();
+            }).catch(() => { this.captionPanelMyStyles = []; });
+        const presets = this.commandRegistry.executeCommand<CaptionPanelPreset[]>(TEXTSTYLE_SHOWCASE_COMMAND_ID)
+            .then(items => {
+                this.captionPanelStyles = Array.isArray(items) ? items : [];
+                if (this.captionPanel) this.render();
+            }).catch(() => { this.captionPanelStyles = []; });
+        const snapshot = this.model.snapshot;
+        const itemId = snapshot?.kind === 'item' && snapshot.itemKind === 'caption'
+            ? this.model.selectedCaptionIds[0] ?? captionIdForTreeSelection(snapshot) : undefined;
+        const root = itemId ? this.workspaceService.tryGetRoots()[0]?.resource : undefined;
+        const itemSize = itemId && root ? Promise.all([
+            presets, this.fileService.readFile(currentTimelineCaptionsUri(root))
+        ]).then(([, content]) => {
+            const document = JSON.parse(content.value.toString()) as unknown;
+            const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object'
+                && !Array.isArray(value) ? value as Record<string, unknown> : {};
+            const source = object(document);
+            const rows = Array.isArray(document) ? document : source.captions;
+            const row = Array.isArray(rows) ? rows.find(value => object(value).id === itemId) : undefined;
+            if (!row) return;
+            this.captionPanelItemSize = captionEffectiveSize(object(row), object(source.default_text_style),
+                Object.fromEntries(this.captionPanelStyles.map(item => [item.id, { style: item.style }])));
+            if (this.captionPanel) this.render();
+        }).catch(error => this.showFieldNotice(String(error))) : undefined;
+        await Promise.allSettled([fonts, myStyles, presets, itemSize]);
     }
 
     protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls): void {
@@ -4141,11 +4172,18 @@ export class AkariInspectorWidget extends BaseWidget {
                             });
                     },
                     style: (style, id) => {
-                        const request = { ...captionPanelLookWrite(panelCaptionId, style),
+                        const request = { ...captionPanelLookWrite(panelCaptionId, style, id,
+                            this.captionPanelStyles),
                             libraryApplyKind: id.startsWith('mystyle/') ? 'mystyle' as const : 'textstyle' as const };
                         void this.commitWrite(request).then(result => {
                                 if (result.ok) this.captionPanelState.recentStyles = [id,
                                     ...this.captionPanelState.recentStyles.filter(other => other !== id)].slice(0, 8);
+                                if (result.ok && snapshot.kind === 'item') {
+                                    this.captionPanelItemSize = undefined;
+                                    this.captionPanelStyles = [];
+                                    this.render();
+                                    void this.loadCaptionPanelData();
+                                }
                             });
                     },
                     save: () => window.dispatchEvent(new CustomEvent('akari.mystyle.open-save',
@@ -4159,7 +4197,10 @@ export class AkariInspectorWidget extends BaseWidget {
                     escape: () => {
                         if (this.runCaptionPanelPreview({ type: 'escape' }).close) this.closeCaptionPanel();
                     }
-                }));
+                }, snapshot.kind === 'item' && this.captionPanelItemSize === undefined
+                    ? [] : this.captionPanelStyles, snapshot.kind === 'caption'
+                    ? snapshot.effectiveTextStyle?.sizePx ?? snapshot.textStyle?.sizePx ?? CAPTION_DEFAULT_SIZE_PX
+                    : this.captionPanelItemSize ?? CAPTION_DEFAULT_SIZE_PX));
             return;
         }
         if (snapshot.kind === 'gap') {

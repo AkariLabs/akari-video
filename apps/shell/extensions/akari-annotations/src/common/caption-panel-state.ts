@@ -16,10 +16,20 @@ export function captionPanelChangedDetail(panel: CaptionPanel | null): { panel: 
     return { panel };
 }
 
-export function captionPanelLookWrite(id: string, look: Record<string, unknown>): {
-    kind: 'caption-style-my-style'; id: string; value: { parts: Array<{ kind: 'look'; text_style: Record<string, unknown> }> }
+export function captionPanelLookWrite(id: string, look: Record<string, unknown>, styleId?: string,
+    presets: readonly { id: string; style: Record<string, unknown> }[] = []): {
+    kind: 'caption-style-my-style'; id: string; value: Record<string, unknown>
 } {
-    return { kind: 'caption-style-my-style', id, value: { parts: [{ kind: 'look', text_style: look }] } };
+    if (!styleId) return { kind: 'caption-style-my-style', id,
+        value: { parts: [{ kind: 'look', text_style: look }] } };
+    if (styleId.startsWith('mystyle/')) return { kind: 'caption-style-my-style', id,
+        value: { parts: [{ kind: 'look', text_style: look }] } };
+    const { animation, ...textStyle } = look;
+    const parts = [{ kind: 'look', text_style: textStyle },
+        ...(animation && typeof animation === 'object' && !Array.isArray(animation)
+            ? [{ kind: 'motion', animation }] : [])];
+    const catalog = Object.fromEntries(presets.map(preset => [preset.id, preset]));
+    return { kind: 'caption-style-my-style', id, value: { parts, keepSize: true, catalog } };
 }
 
 /** The existing effect patch accepts all visual fields without freezing inherited defaults. */
@@ -74,15 +84,20 @@ export function captionPanelTextStyle(raw: StyleRecord): CaptionTextStyle {
     const stroke = object(raw.stroke);
     const background = object(raw.background);
     const shadow = object(raw.shadow);
+    const glow = object(raw.glow);
     return {
         color: string(raw.color), sizePx: numeric(raw.size_px), fontFamily: string(raw.font_family),
         weight: numeric(raw.weight) ?? numeric(raw.font_weight), letterSpacingEm: numeric(raw.letter_spacing_em),
+        textTransform: raw.text_transform === 'uppercase' || raw.text_transform === 'lowercase'
+            || raw.text_transform === 'capitalize' ? raw.text_transform : undefined,
         stroke: { color: string(stroke.color), widthPx: numeric(stroke.width_px) },
         background: { color: string(background.color), opacity: numeric(background.opacity),
             paddingPx: numeric(background.padding_px), radiusPx: numeric(background.radius_px),
             mode: background.mode === 'block' ? 'block' : 'per-line' },
         ...(string(shadow.color) ? { shadow: { color: string(shadow.color)!, opacity: numeric(shadow.opacity),
             blurPx: numeric(shadow.blur_px), distancePx: numeric(shadow.distance_px),
-            angleDeg: numeric(shadow.angle_deg) } } : {})
+            angleDeg: numeric(shadow.angle_deg) } } : {}),
+        ...(string(glow.color) ? { glow: { color: string(glow.color)!, density: numeric(glow.density),
+            spread: numeric(glow.spread), offsetX: numeric(glow.offset_x), offsetY: numeric(glow.offset_y) } } : {})
     };
 }
