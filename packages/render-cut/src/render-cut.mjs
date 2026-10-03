@@ -227,6 +227,35 @@ function buildInitialRenderState({ lint, inputs, plan, capabilities, projectRoot
   };
 }
 
+async function runCutAudioStage({ state, plan, capabilities, projectRoot, temporaryDirectory, progressEnabled, reporter }) {
+  reporter.stageStart("audio-cut");
+  const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
+  const cutCommand = plan.commands.cut_audio;
+  for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
+  if (cutCommand.concat_list) {
+    await writeFile(cutCommand.concat_list.path, cutCommand.concat_list.content, "utf8");
+  }
+  for (const chunk of cutCommand.chunks ?? []) {
+    runChecked(capabilities.ffmpegCommand, chunk.args, { cwd: projectRoot });
+  }
+  if (progressEnabled) {
+    await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
+      cwd: projectRoot,
+      onProgress: (seconds) => reporter.cutTime(seconds, plan.predicted_duration_seconds),
+    });
+  } else {
+    runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
+  }
+
+  const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
+  if (plan.commands.tail_pad_audio) {
+    runChecked(plan.commands.tail_pad_audio.command, plan.commands.tail_pad_audio.args, { cwd: projectRoot });
+  }
+  const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
+  reporter.stageEnd("audio-cut");
+  return audioSourcePath;
+}
+
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
@@ -421,31 +450,7 @@ export async function renderProject(input, options = {}, io = console) {
 
     reporter.stageStart("prepare");
     reporter.stageEnd("prepare");
-    reporter.stageStart("audio-cut");
-    const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
-    const cutCommand = plan.commands.cut_audio;
-    for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
-    if (cutCommand.concat_list) {
-      await writeFile(cutCommand.concat_list.path, cutCommand.concat_list.content, "utf8");
-    }
-    for (const chunk of cutCommand.chunks ?? []) {
-      runChecked(capabilities.ffmpegCommand, chunk.args, { cwd: projectRoot });
-    }
-    if (progressEnabled) {
-      await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
-        cwd: projectRoot,
-        onProgress: (seconds) => reporter.cutTime(seconds, plan.predicted_duration_seconds),
-      });
-    } else {
-      runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
-    }
-
-    const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
-    if (plan.commands.tail_pad_audio) {
-      runChecked(plan.commands.tail_pad_audio.command, plan.commands.tail_pad_audio.args, { cwd: projectRoot });
-    }
-    const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
-    reporter.stageEnd("audio-cut");
+    const audioSourcePath = await runCutAudioStage({ state, plan, capabilities, projectRoot, temporaryDirectory, progressEnabled, reporter });
     const compositePath = join(temporaryDirectory, container.kind === "directory" ? "composite" : `composite.${container.ext}`);
     const alphaLayers = await prepareAlphaLayers(planningEdit, { projectRoot });
     for (const warning of alphaLayers.warnings) addWarning(state, warning);
