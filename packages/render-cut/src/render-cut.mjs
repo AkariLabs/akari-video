@@ -396,6 +396,99 @@ async function runReceiptStage({ editPath, outputPath, projectRoot, edit, intern
   emitTiming("receipt", receiptStarted);
 }
 
+async function runAudioMixStage({ options, codec, container, projectRoot, edit, capabilities, declaredInputs, inputSnapshot, captionLayout, explicitOutput, outputPath, temporaryDirectory, plan, state, reporter, emitTiming, compositePath }) {
+  reporter.stageStart("audio-mix");
+  const audioMixStarted = performance.now();
+  const finalPath = container.kind === "directory"
+    ? compositePath
+    : join(temporaryDirectory, `final.${container.ext}`);
+  const audioExecution = await executeAudioPlan(plan.commands.audio_mix, capabilities.ffmpegVersion, {
+    projectRoot, temporaryDirectory, audioItemCount: countAudioItems(edit.audio),
+  });
+  const audioMaster = !options.noAudio && edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
+  if (audioMaster && audioExecution.error) {
+    state.audio_qc = measurementErrorAudioQc({
+      master: audioMaster,
+      phase: "filter_report",
+      code: audioExecution.error.code,
+      message: audioExecution.error.message,
+      toolVersion: capabilities.ffmpegVersion,
+      toolVersionError: capabilities.ffmpegVersionError,
+    });
+    if (codec === "png") throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
+    const failedArtifactPath = await persistFailedRenderArtifact(projectRoot, compositePath);
+    const failedVerification = verifyArtifact({
+      outputPath: failedArtifactPath,
+      plan,
+      inputs: state.provenance.sources,
+      edit,
+      ffprobeCommand: capabilities.ffprobeCommand,
+      ffmpegCommand: capabilities.ffmpegCommand,
+      verifyBlank: options.verifyBlank,
+    });
+    state.artifacts = [{
+      path: relativeOrAbsolute(projectRoot, failedArtifactPath),
+      sha256: await sha256File(failedArtifactPath),
+      ffprobe: failedVerification.measured,
+    }];
+    if (failedVerification.verdict === "pass") {
+      const receipt = await createImmutableRenderReceipt({
+        projectRoot,
+        declaredInputs,
+        inputSnapshot,
+        outputPath: failedArtifactPath,
+        ffprobe: failedVerification.measured,
+        plan,
+        verify: failedVerification,
+        tools: {
+          node: capabilities.nodeVersion,
+          ffmpeg: capabilities.ffmpegVersion,
+          ffprobe: capabilities.ffprobeVersion,
+        },
+        captionLayout,
+        audioQc: state.audio_qc,
+        provenance: state.provenance,
+        createdAt: options.receiptCreatedAt,
+      });
+      state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
+    }
+    throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
+  }
+
+  if (codec === "png") {
+    const mixedAudioPath = plan.commands.audio_mix.output;
+    await rm(join(finalPath, "audio.wav"), { force: true });
+    await rename(mixedAudioPath, join(finalPath, "audio.wav"));
+  }
+  await mkdir(dirname(outputPath), { recursive: true });
+  if (explicitOutput) {
+    await rm(outputPath, { recursive: codec === "png", force: true });
+    await rename(finalPath, outputPath);
+  } else if (codec === "png") {
+    await rename(finalPath, outputPath);
+  } else {
+    await copyFile(finalPath, outputPath, fsConstants.COPYFILE_EXCL);
+    await rm(finalPath, { force: true });
+  }
+  state.phase = "rendered";
+  if (audioMaster) {
+    state.audio_qc = buildAudioQc({
+      master: audioMaster,
+      audioCodec: plan.preset.audio_codec,
+      filterStderr: audioExecution.stderr,
+      outputPath: codec === "png" ? join(outputPath, "audio.wav") : outputPath,
+      ffmpegCommand: capabilities.ffmpegCommand,
+      toolVersion: capabilities.ffmpegVersion,
+      toolVersionError: capabilities.ffmpegVersionError,
+    });
+    if (state.audio_qc.verdict === "INCONCLUSIVE") {
+      addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
+    }
+  }
+  reporter.stageEnd("audio-mix");
+  emitTiming("audio_mix", audioMixStarted);
+}
+
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
@@ -678,96 +771,7 @@ export async function renderProject(input, options = {}, io = console) {
     });
     reporter.stageEnd("render");
 
-    reporter.stageStart("audio-mix");
-    const audioMixStarted = performance.now();
-    const finalPath = container.kind === "directory"
-      ? compositePath
-      : join(temporaryDirectory, `final.${container.ext}`);
-    const audioExecution = await executeAudioPlan(plan.commands.audio_mix, capabilities.ffmpegVersion, {
-      projectRoot, temporaryDirectory, audioItemCount: countAudioItems(edit.audio),
-    });
-    const audioMaster = !options.noAudio && edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
-    if (audioMaster && audioExecution.error) {
-      state.audio_qc = measurementErrorAudioQc({
-        master: audioMaster,
-        phase: "filter_report",
-        code: audioExecution.error.code,
-        message: audioExecution.error.message,
-        toolVersion: capabilities.ffmpegVersion,
-        toolVersionError: capabilities.ffmpegVersionError,
-      });
-      if (codec === "png") throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
-      const failedArtifactPath = await persistFailedRenderArtifact(projectRoot, compositePath);
-      const failedVerification = verifyArtifact({
-        outputPath: failedArtifactPath,
-        plan,
-        inputs: state.provenance.sources,
-        edit,
-        ffprobeCommand: capabilities.ffprobeCommand,
-        ffmpegCommand: capabilities.ffmpegCommand,
-        verifyBlank: options.verifyBlank,
-      });
-      state.artifacts = [{
-        path: relativeOrAbsolute(projectRoot, failedArtifactPath),
-        sha256: await sha256File(failedArtifactPath),
-        ffprobe: failedVerification.measured,
-      }];
-      if (failedVerification.verdict === "pass") {
-        const receipt = await createImmutableRenderReceipt({
-          projectRoot,
-          declaredInputs,
-          inputSnapshot,
-          outputPath: failedArtifactPath,
-          ffprobe: failedVerification.measured,
-          plan,
-          verify: failedVerification,
-          tools: {
-            node: capabilities.nodeVersion,
-            ffmpeg: capabilities.ffmpegVersion,
-            ffprobe: capabilities.ffprobeVersion,
-          },
-          captionLayout,
-          audioQc: state.audio_qc,
-          provenance: state.provenance,
-          createdAt: options.receiptCreatedAt,
-        });
-        state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
-      }
-      throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
-    }
-
-    if (codec === "png") {
-      const mixedAudioPath = plan.commands.audio_mix.output;
-      await rm(join(finalPath, "audio.wav"), { force: true });
-      await rename(mixedAudioPath, join(finalPath, "audio.wav"));
-    }
-    await mkdir(dirname(outputPath), { recursive: true });
-    if (explicitOutput) {
-      await rm(outputPath, { recursive: codec === "png", force: true });
-      await rename(finalPath, outputPath);
-    } else if (codec === "png") {
-      await rename(finalPath, outputPath);
-    } else {
-      await copyFile(finalPath, outputPath, fsConstants.COPYFILE_EXCL);
-      await rm(finalPath, { force: true });
-    }
-    state.phase = "rendered";
-    if (audioMaster) {
-      state.audio_qc = buildAudioQc({
-        master: audioMaster,
-        audioCodec: plan.preset.audio_codec,
-        filterStderr: audioExecution.stderr,
-        outputPath: codec === "png" ? join(outputPath, "audio.wav") : outputPath,
-        ffmpegCommand: capabilities.ffmpegCommand,
-        toolVersion: capabilities.ffmpegVersion,
-        toolVersionError: capabilities.ffmpegVersionError,
-      });
-      if (state.audio_qc.verdict === "INCONCLUSIVE") {
-        addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
-      }
-    }
-    reporter.stageEnd("audio-mix");
-    emitTiming("audio_mix", audioMixStarted);
+    await runAudioMixStage({ options, codec, container, projectRoot, edit, capabilities, declaredInputs, inputSnapshot, captionLayout, explicitOutput, outputPath, temporaryDirectory, plan, state, reporter, emitTiming, compositePath });
     const verification = await runVerifyStage({ reusableGpuVerification, plan, outputPath, capabilities, recordParentTiming, emitTiming, reporter, state, options, codec, edit, projectRoot });
     if (verification.verdict === "pass" && codec !== "png") {
       await runContactSheetStage({ edit, loadedOverlays, captionOverlays, plan, projectRoot, capabilities, outputPath, temporaryDirectory, state, emitTiming });
