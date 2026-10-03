@@ -12,7 +12,7 @@ const URI = require('@theia/core/lib/common/uri').default;
 const React = require('react');
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const paneSource = ts.createSourceFile('pane.ts', readFileSync(new URL('../src/browser/akari-materials-pane.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
 const names = ['retryMaterialReference', 'removeMaterialReference', 'confirmReferenceImpact', 'bundleMaterials', 'buildBundlePlanBody'];
 const code = ts.transpileModule(`class Handler { ${[...names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)), pane.members.find(member => member.name?.getText(paneSource) === 'buildReferenceMaterials').getText(paneSource)].join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
