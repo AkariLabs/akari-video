@@ -109,7 +109,7 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -135,8 +135,6 @@ export interface MaterialsPaneHost {
     readonly generationPick: GenerationPickController;
     /** カタログ素材の現在の一覧。 */
     readonly assetCatalogItems: AssetCatalogViewItem[];
-    /** 素材ごとの文字起こし状態。 */
-    transcriptStateByPath: Record<string, TranscriptState>;
 }
 
 export class AkariMaterialsPane {
@@ -203,7 +201,7 @@ export class AkariMaterialsPane {
         const materials = [...fileMaterials.filter(entry => !referenceMaterials.some(ref => entry.relativePath.startsWith(`${ref.relativePath}/`))),
             ...groupMaterials.filter(entry => !referencedDirectories.has(entry.relativePath)), ...referenceMaterials];
         materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
-        this.host.transcriptStateByPath = states;
+        this.transcriptStateByPath = states;
         this.materials = materials;
         this.projectCreditLines = credits;
         this.unorganizedMaterials = unorganizedMaterials;
@@ -891,7 +889,7 @@ export class AkariMaterialsPane {
         const pickCandidate: GenerationPickCandidate = { path: entry.mediaRelativePath ?? entry.relativePath, kind: entry.kind };
         const displayKind = entry.assetGroup ? 'other' : entry.kind;
         const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
-        const transcriptState = this.host.transcriptStateByPath[entry.relativePath] ?? 'none';
+        const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
         const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
@@ -1137,5 +1135,38 @@ export class AkariMaterialsPane {
      */
     public materialFileSystemTarget(entry: MaterialCardEntry): { uri: URI; isDirectory: boolean } {
         return entry.assetGroup ? { uri: entry.uri.parent, isDirectory: true } : { uri: entry.uri, isDirectory: false };
+    }
+
+    protected transcriptStateByPath: Record<string, TranscriptState> = {};
+
+    public async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root || entry.assetGroup || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
+        if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
+        try {
+            const result = await this.host.commandService.executeCommand<string>('akari.transcribe.openDialog', {
+                projectRoot: root.toString(), relativePath: entry.relativePath
+            });
+            if (result === 'running') void this.host.messages.info(`${entry.name}: 文字起こしを実行中です`);
+            else if (result === 'cancelled') void this.host.messages.info(`${entry.name}: 文字起こしを中止しました`);
+            await this.loadMaterials();
+            return;
+        } catch (error) {
+            if (!(error instanceof Error && (error as Error & { code?: string }).code === 'NO_ACTIVE_HANDLER')) {
+                void this.host.messages.error(error instanceof Error ? error.message : String(error));
+                return;
+            }
+        }
+        this.transcriptStateByPath[entry.relativePath] = 'running';
+        this.host.update();
+        void this.host.messages.info(`${entry.name}: 文字起こしを実行中です`);
+        try {
+            await this.host.projectService.transcribeMaterial({ projectRoot: root.toString(), relativePath: entry.relativePath });
+            void this.host.messages.info(`${entry.name}: 文字起こしが完了しました`);
+        } catch (error) {
+            void this.host.messages.error(error instanceof Error ? error.message : String(error));
+        } finally {
+            await this.loadMaterials();
+        }
     }
 }

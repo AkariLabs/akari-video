@@ -10,7 +10,6 @@ import {
 } from '../common/generation-pick';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import { CAPTION_FONT_FAMILY, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
-import type { TranscriptState } from '../common/akari-project-protocol';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -673,8 +672,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get materialQuery() { return widget().materialQuery; },
             get generationPick() { return widget().generationPick; },
             get assetCatalogItems() { return widget().assetCatalogItems; },
-            get transcriptStateByPath() { return widget().transcriptStateByPath; },
-            set transcriptStateByPath(value) { widget().transcriptStateByPath = value; },
         };
         this.materialsPane = new AkariMaterialsPane(materialsHost);
         const libraryHost: LibraryPaneHost = {
@@ -911,8 +908,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     // --- 素材カード ---------------------------------------------------------
 
-    protected transcriptStateByPath: Record<string, TranscriptState> = {};
-
     protected async loadMaterials(): Promise<void> {
         return this.materialsPane.loadMaterials();
     }
@@ -1005,7 +1000,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.copyPathToClipboard(entry.uri);
                 break;
             case 'transcribe':
-                void this.transcribeMaterial(entry);
+                void this.materialsPane.transcribeMaterial(entry);
                 break;
             case 'show-info':
                 void this.materialsPane.showAssetInfo(entry.uri);
@@ -2244,37 +2239,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderMaterialsTab(): React.ReactNode {
         return this.materialsPane.renderMaterialsTab();
-    }
-
-    protected async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
-        const root = this.workflow.workspaceRoot;
-        if (!root || entry.assetGroup || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
-        if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
-        try {
-            const result = await this.commandService.executeCommand<string>('akari.transcribe.openDialog', {
-                projectRoot: root.toString(), relativePath: entry.relativePath
-            });
-            if (result === 'running') void this.messages.info(`${entry.name}: 文字起こしを実行中です`);
-            else if (result === 'cancelled') void this.messages.info(`${entry.name}: 文字起こしを中止しました`);
-            await this.loadMaterials();
-            return;
-        } catch (error) {
-            if (!(error instanceof Error && (error as Error & { code?: string }).code === 'NO_ACTIVE_HANDLER')) {
-                void this.messages.error(error instanceof Error ? error.message : String(error));
-                return;
-            }
-        }
-        this.transcriptStateByPath[entry.relativePath] = 'running';
-        this.update();
-        void this.messages.info(`${entry.name}: 文字起こしを実行中です`);
-        try {
-            await this.projectService.transcribeMaterial({ projectRoot: root.toString(), relativePath: entry.relativePath });
-            void this.messages.info(`${entry.name}: 文字起こしが完了しました`);
-        } catch (error) {
-            void this.messages.error(error instanceof Error ? error.message : String(error));
-        } finally {
-            await this.loadMaterials();
-        }
     }
 
     @inject(AkariPreviewService)
