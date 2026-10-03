@@ -6098,13 +6098,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * 取り寄せに失敗した楽観配置の後始末。置いた要素だけを消す（履歴にも 1 手として残す）。
+     * 取り寄せに失敗した楽観配置の後始末。置いた要素と未使用の source を消す（履歴にも 1 手として残す）。
      * ここで消さないと、絵の出ない素材が黙って残る。
      */
     async removePlacedMaterial(itemId: string): Promise<void> {
         if (!itemId || !this.location?.editUri) return;
         try {
-            await this.commitEditMutation('置いた素材を取り消す', doc => removeV2Item(doc, itemId));
+            const { removePlacedMaterialAndUnusedSource } = await import('../common/edit-v2-mutations');
+            await this.commitEditMutation('置いた素材を取り消す', doc =>
+                removePlacedMaterialAndUnusedSource(doc, itemId));
         } catch (error) {
             console.warn('[akari-annotations] 取り寄せに失敗した素材を消せませんでした', error);
         }

@@ -1278,10 +1278,42 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // URI の basename が候補ファイル名になる）。
     async lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult> {
         const targetPath = this.filePath(request.editUri);
+        const projectRoot = dirname(targetPath);
         const result = await lintProjectCandidates(
-            dirname(targetPath), { [basename(targetPath)]: request.candidateText }
+            projectRoot, { [basename(targetPath)]: request.candidateText }
         );
-        return { pass: result.pass, errors: result.errors };
+        if (result.errors.length === 0) return { pass: true, errors: [] };
+
+        let previousErrors: string[] | undefined;
+        if (basename(targetPath) === 'edit.json') {
+            try {
+                const currentText = await readFile(targetPath, 'utf8');
+                const currentHash = createHash('sha256').update(currentText).digest('hex');
+                const cached = JSON.parse(await readFile(join(projectRoot, '.akari', 'lint.json'), 'utf8')) as {
+                    inputs?: { edit_json_sha256?: unknown };
+                    findings?: Array<{ severity?: unknown; check?: unknown; message?: unknown }>;
+                };
+                if (cached?.inputs?.edit_json_sha256 === currentHash && Array.isArray(cached.findings)
+                    && cached.findings.every(finding => finding && typeof finding === 'object')) {
+                    previousErrors = cached.findings
+                        .filter(finding => finding.severity === 'error')
+                        .map(finding => `[${typeof finding.check === 'string' ? finding.check : 'edit-lint'}] `
+                            + `${typeof finding.message === 'string' ? finding.message : '不明なエラー'}`);
+                }
+            } catch {
+                // A missing, unreadable, or stale cache must not affect the decision.
+            }
+        }
+        previousErrors ??= (await lintProjectCandidates(projectRoot, {})).errors;
+        const remaining = new Map<string, number>();
+        for (const error of previousErrors) remaining.set(error, (remaining.get(error) ?? 0) + 1);
+        const addedErrors = result.errors.filter(error => {
+            const count = remaining.get(error) ?? 0;
+            if (count === 0) return true;
+            remaining.set(error, count - 1);
+            return false;
+        });
+        return { pass: addedErrors.length === 0, errors: addedErrors };
     }
 
     async prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult> {
