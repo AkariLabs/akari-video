@@ -18,6 +18,8 @@ import { renderLintReport } from "./report.mjs";
 import { isInlineOverlayHtml, isSourceCompatibleWithLane } from "./shape-lane.mjs";
 import { collectLicenseFindings } from "./license-findings.mjs";
 import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../render-cut/src/fragment-assets.mjs";
+import { readFontCodepoints } from "../../render-cut/src/font-cmap.mjs";
+import { collectFragmentCodepoints, fragmentFontFaces } from "../../render-cut/src/fragment-text.mjs";
 import { htmlTags, rawTextElements, stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
@@ -2662,6 +2664,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
     if (!isHtmlFile) continue;
 
     validateOverlayFragmentAssets(html, overlay, paths, findings);
+    runOverlayFragmentFontGlyphCheck(html, overlay, paths, findings);
     const fragment = inspectHtmlFragment(html);
     if (fragment.rootCount !== 1 || fragment.hasTopLevelText || fragment.unbalanced) {
       addFinding(findings, {
@@ -2805,6 +2808,116 @@ function validateOverlayFragmentAssets(html, overlay, paths, findings) {
     finding(reference, "missing", "が見つからない。" + describeFragmentAssetHint({
       projectRoot: paths.projectRoot, htmlPath: overlay.html, ...reference,
     }));
+  }
+}
+
+const fontCmapCache = new Map();
+
+export function runOverlayFragmentFontGlyphCheck(html, overlay, paths, findings, check = validateOverlayFragmentFontGlyphs) {
+  const before = findings.length;
+  try { check(html, overlay, paths, findings); }
+  catch (error) {
+    findings.splice(before);
+    const name = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9]*$/u.test(error.name)
+      ? error.name : "Error";
+    addFinding(findings, {
+      severity: "info", check: "overlays.fragment-font-glyphs",
+      message: `overlay:${overlay.id} fragment ${overlay.html}: 字形検査を飛ばしました（${name}）。`,
+      path: relativePath(paths.projectRoot, resolve(paths.projectRoot, overlay.html)),
+    });
+  }
+}
+
+function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
+  const faces = fragmentFontFaces(html, overlay.html);
+  if (faces.length === 0) return;
+  const fragmentPath = relativePath(paths.projectRoot, resolve(paths.projectRoot, overlay.html));
+  const context = `overlay:${overlay.id} fragment ${overlay.html}`;
+  const add = (severity, message) => addFinding(findings, {
+    severity, check: "overlays.fragment-font-glyphs", message: `${context}: ${message}`, path: fragmentPath,
+  });
+  const { codepoints, hasDynamicScript } = collectFragmentCodepoints(html, {
+    params: overlay.params, vars: overlay.vars, mode: "render",
+  });
+  let rootTag;
+  for (const tag of htmlTags(stripHtmlComments(html))) {
+    if (/^<[a-z]/iu.test(tag.text)) { rootTag = tag; break; }
+  }
+  const hasDeclaredChars = rootTag && Object.hasOwn(parseHtmlAttributes(rootTag.text), "data-akari-font-chars");
+  if (hasDynamicScript && !hasDeclaredChars) {
+    add("info", "script が生成する字は静的に集めきれません。data-akari-font-chars で宣言できます。");
+  }
+  const fontSets = [];
+  const fontPaths = [];
+  const seenSources = new Set();
+  let unreadable = false;
+  for (const face of faces) if (face.sources.length === 0) {
+    unreadable = true;
+    add("info", `@font-face (${face.family || "名称なし"}) に読める書体参照がありません。`);
+  }
+  const root = realpathSync(paths.projectRoot);
+  const outside = target => {
+    const local = relative(root, target).replaceAll("\\", "/");
+    return local === ".." || local.startsWith("../") || isAbsolute(local);
+  };
+  for (const face of faces) for (const source of face.sources) {
+    const sourceKey = source.data ?? source.path;
+    if (seenSources.has(sourceKey)) continue;
+    seenSources.add(sourceKey);
+    let result;
+    let label;
+    if (source.data) {
+      label = "data:…";
+      try {
+        const comma = source.data.indexOf(",");
+        if (comma < 0) throw Error("invalid data URI");
+        const header = source.data.slice(0, comma);
+        const bytes = /;base64$/iu.test(header)
+          ? Buffer.from(source.data.slice(comma + 1), "base64")
+          : Buffer.from(decodeURIComponent(source.data.slice(comma + 1)), "latin1");
+        result = readFontCodepoints(bytes);
+      } catch { result = { ok: false }; }
+    } else {
+      label = source.path;
+      const target = resolve(root, source.path);
+      if (outside(target)) {
+        unreadable = true;
+        fontPaths.push(label);
+        add("info", `書体 ${label} はプロジェクト外の参照なので読みません。`);
+        continue;
+      }
+      const binding = resolveReferenceBinding(paths.editPath, source.path, paths);
+      try {
+        const real = realpathSync(binding.path);
+        if (binding.scope !== "library" && outside(real)) {
+          unreadable = true;
+          fontPaths.push(label);
+          add("info", `書体 ${label} はプロジェクト外の参照なので読みません。`);
+          continue;
+        }
+        const stat = statSync(real);
+        if (!stat.isFile()) throw Error("not a file");
+        const cached = fontCmapCache.get(real);
+        if (cached?.size === stat.size && cached.mtimeMs === stat.mtimeMs) result = cached.result;
+        else {
+          result = readFontCodepoints(real);
+          fontCmapCache.set(real, { size: stat.size, mtimeMs: stat.mtimeMs, result });
+        }
+      } catch (error) { result = { ok: false, missing: error?.code === "ENOENT" }; }
+    }
+    fontPaths.push(label);
+    if (!result.ok) {
+      unreadable = true;
+      add("info", `書体 ${label} は${result.missing ? "見つからない" : "読めない（書体データを解析できません）"}。`);
+      continue;
+    }
+    fontSets.push(result.codepoints);
+  }
+  if (fontSets.length === 0 || unreadable) return;
+  const missing = [...codepoints].filter(cp => !fontSets.some(points => points.has(cp))).sort((a, b) => a - b);
+  if (missing.length) {
+    const sample = missing.slice(0, 20).map(cp => `${String.fromCodePoint(cp)}(U+${cp.toString(16).toUpperCase().padStart(4, "0")})`).join(" ");
+    add("warning", `書体 ${fontPaths.join(", ")} の和集合に無い字 ${missing.length} 件 (${sample})。要素ごとの書体の欠けは検出できません。`);
   }
 }
 
