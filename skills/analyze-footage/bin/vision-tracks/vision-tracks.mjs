@@ -42,11 +42,15 @@ const TOOL_ID = "vision-tracks.mjs v0";
 const PROVIDER_NAME = "apple-vision";
 const mediaBins = {};
 const mediaResolutionErrors = {};
+let usingBareMediaCommands = false;
 let mediaToolsPromise;
 
 function ensureMediaTools() {
   mediaToolsPromise ??= importPackage("media-bin/src/index.mjs", { from: import.meta.url })
-    .then((media) => ({ resolveFfmpeg: media.resolveFfmpeg, resolveFfprobe: media.resolveFfprobe }));
+    .then(
+      (media) => ({ resolveFfmpeg: media.resolveFfmpeg, resolveFfprobe: media.resolveFfprobe }),
+      () => null,
+    );
   return mediaToolsPromise;
 }
 
@@ -117,7 +121,10 @@ function checkAvailability(kinds) {
     }
     const probe = spawnSyncSafe(mediaBins[label], ["-version"]);
     if (probe.error?.code === "ENOENT") {
-      return { available: false, reason: `${label} が見つかりません` };
+      const reason = usingBareMediaCommands
+        ? `${label} が PATH 上にありません`
+        : `${label} が見つかりません`;
+      return { available: false, reason };
     }
     if (probe.error || probe.status !== 0) {
       return { available: false, reason: `${label} を起動できません` };
@@ -483,13 +490,7 @@ async function main() {
     return;
   }
 
-  let mediaTools;
-  try {
-    mediaTools = await ensureMediaTools();
-  } catch (error) {
-    mediaResolutionErrors.ffmpeg = error;
-    mediaResolutionErrors.ffprobe = error;
-  }
+  const mediaTools = await ensureMediaTools();
   if (mediaTools) {
     for (const [label, resolve] of [
       ["ffmpeg", mediaTools.resolveFfmpeg],
@@ -501,6 +502,11 @@ async function main() {
         mediaResolutionErrors[label] = error;
       }
     }
+  } else {
+    // media-bin を読み込めない配置（プロジェクトへコピーされたスキル等）では従来の名前起動に戻す。
+    usingBareMediaCommands = true;
+    mediaBins.ffmpeg = "ffmpeg";
+    mediaBins.ffprobe = "ffprobe";
   }
 
   const availability = checkAvailability(options.kinds);

@@ -32,7 +32,10 @@ let mediaToolsPromise;
 
 function ensureMediaTools() {
   mediaToolsPromise ??= importPackage("media-bin/src/index.mjs", { from: import.meta.url })
-    .then((media) => ({ resolveFfmpeg: media.resolveFfmpeg, resolveFfprobe: media.resolveFfprobe }));
+    .then(
+      (media) => ({ resolveFfmpeg: media.resolveFfmpeg, resolveFfprobe: media.resolveFfprobe }),
+      () => null,
+    );
   return mediaToolsPromise;
 }
 
@@ -91,18 +94,13 @@ function run(command, args) {
 
 async function checkAvailability(env = process.env) {
   const reasons = [];
-  let mediaTools;
-  try {
-    mediaTools = await ensureMediaTools();
-  } catch {
-    // ローダが使えない場合も各ツールの従来の reason にまとめる。
-  }
+  const mediaTools = await ensureMediaTools();
   for (const [label, resolver] of [
     ["ffmpeg", mediaTools?.resolveFfmpeg],
     ["ffprobe", mediaTools?.resolveFfprobe],
   ]) {
     try {
-      const command = resolver();
+      const command = mediaTools ? resolver() : label;
       const result = run(command, ["-version"]);
       if (result.error || result.status !== 0) reasons.push(`${label} が利用できません`);
     } catch {
@@ -261,9 +259,9 @@ async function detectFrames({ frames, fps, modelPath }) {
 }
 
 async function generate(options) {
-  const { resolveFfmpeg, resolveFfprobe } = await ensureMediaTools();
-  const ffmpegBin = resolveFfmpeg();
-  const ffprobeBin = resolveFfprobe();
+  const mediaTools = await ensureMediaTools();
+  const ffmpegBin = mediaTools ? mediaTools.resolveFfmpeg() : "ffmpeg";
+  const ffprobeBin = mediaTools ? mediaTools.resolveFfprobe() : "ffprobe";
   if (!fs.existsSync(options.input)) throw new Error(`input が見つかりません: ${options.input}`);
   if (!fs.existsSync(options.analysis)) throw new Error(`analysis.json が見つかりません: ${options.analysis}`);
   const analysis = JSON.parse(fs.readFileSync(options.analysis, "utf8"));
