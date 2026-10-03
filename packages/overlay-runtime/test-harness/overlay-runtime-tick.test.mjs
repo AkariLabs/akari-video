@@ -156,6 +156,21 @@ function fakeAnimation({ endTime = 800, playState = "running" } = {}) {
 // own プロパティだけを外側 realm へ写してから比較する。
 const own = (object) => ({ ...object });
 
+test("図形 HTML だけ差し替え、他の器とアニメを保つ", async () => {
+  const host = createHost();
+  await host.runtime.mount({ overlays: [
+    { id: "shape", start: 0, duration: 10, html: '<svg><rect fill="#112233"/></svg>' },
+    { id: "other", start: 0, duration: 10, html: CAPTION_HTML },
+  ] });
+  const [shape, other] = host.stage.children;
+  const otherChild = other.children[0];
+  assert.equal(host.runtime.replaceShapeHtml("shape", '<svg><rect fill="#abcdef"/></svg>'), true);
+  assert.equal(host.stage.children[0], shape);
+  assert.equal(host.stage.children[1], other);
+  assert.equal(other.children[0], otherChild);
+  assert.match(shape.html, /#abcdef/u);
+});
+
 test("3D 断片の render にプレビュー用 maxRenderSize（既定 720）を syncVideos と共に渡す", async () => {
   const host = createHost();
   await host.runtime.mount({ overlays: [{ id: "cube", start: 0, duration: 10, html: THREE_HTML }] });

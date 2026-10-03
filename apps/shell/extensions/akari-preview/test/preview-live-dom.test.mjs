@@ -93,6 +93,16 @@ test('shape markup override swaps the overlay SVG and clear restores it', () => 
     assert.equal(shape.attrs.has('data-akari-live-override'), false);
 });
 
+test('live shape parameter changes the mounted element fill before save', () => {
+    const shape = element({ overlayId: 'box-a' });
+    shape.innerHTML = '<svg><rect fill="#112233"></rect></svg>';
+    const live = controller({ overlay: shape });
+    live.updateShape('item:box-a', '<svg><rect fill="#abcdef"></rect></svg>');
+    assert.match(shape.innerHTML, /fill="#abcdef"/u);
+    live.clear();
+    assert.match(shape.innerHTML, /fill="#112233"/u);
+});
+
 test('photo adjust sliders merge into one visual with the committed basic values', () => {
     const photo = element({ akariLayerId: 'photo-a' });
     const seen = [];

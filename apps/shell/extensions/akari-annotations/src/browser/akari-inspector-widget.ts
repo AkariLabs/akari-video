@@ -276,6 +276,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     liveField?: LivePreviewRequest['field'];
     liveShape?: (value: number | undefined) => void;
     liveColor?: (value: string) => void;
+    liveSelect?: (value: string | undefined) => void;
     previewOption?: (value: string) => void;
     zoneHover?: (value: string | null) => void;
     zonePreset?: (value: string) => void;
@@ -2710,6 +2711,7 @@ function TREE_ITEM_SECTIONS(
             ...(field.kind === 'number' ? { scrubStep: 1 } : {}),
             ...(field.kind === 'number' ? { liveShape: (value: number | undefined) => liveShape(field.key, value) } : {}),
             ...(field.kind === 'color' ? { liveColor: (value: string) => liveShape(field.key, value) } : {}),
+            ...(field.kind === 'select' ? { liveSelect: (value: string | undefined) => liveShape(field.key, value) } : {}),
             getValue: () => field.value, getEditValue: () => field.value,
             write: async (_snapshot, value) => {
                 const key = field.key.endsWith('Mode') ? field.key.slice(0, -4) : field.key;
@@ -8086,9 +8088,16 @@ export class AkariInspectorWidget extends BaseWidget {
             if (nextValue === editValue) {
                 return true;
             }
-            const result = await write(snapshot, nextValue);
+            let result;
+            try {
+                result = await write(snapshot, nextValue);
+            } catch (error) {
+                result = { ok: false, message: String(error) };
+            }
             if (!result.ok) {
                 revert();
+                if (field.liveSelect) field.liveSelect(undefined);
+                if (field.liveColor) field.liveColor(editValue);
                 this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
                 return false;
             }
@@ -8344,15 +8353,25 @@ export class AkariInspectorWidget extends BaseWidget {
                             const property = fieldName.startsWith('transform-')
                                 ? fieldName.replace('transform-', 'transform.') as KeyframeSeatProperty
                                 : fieldName.replace(/-/gu, '.') as KeyframeSeatProperty;
-                            const result = await this.model.requestKeyframe({
-                                action: 'write', itemId,
-                                property,
-                                value: fieldName.startsWith('transform-scale') ? value / 100 : value
-                            });
-                            if (!result.ok) this.showFieldNotice(result.message ?? '書き込みに失敗しました。');
+                            let result: InspectorWriteResult;
+                            try {
+                                result = await this.model.requestKeyframe({
+                                    action: 'write', itemId,
+                                    property,
+                                    value: fieldName.startsWith('transform-scale') ? value / 100 : value
+                                });
+                            } catch (error) {
+                                result = { ok: false, message: String(error) };
+                            }
+                            if (!result.ok) {
+                                clearLive?.();
+                                this.showFieldNotice(result.message ?? '書き込みに失敗しました。');
+                            }
                             return result.ok;
                         }
-                        return commitValue(String(value), () => undefined);
+                        const ok = await commitValue(String(value), () => undefined);
+                        if (!ok) clearLive?.();
+                        return ok;
                     },
                     keyframe
                 });
@@ -8491,6 +8510,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
             input.addEventListener('change', () => {
+                field.liveSelect?.(input.value);
                 void commit();
             });
         } else {
@@ -8751,10 +8771,25 @@ export class AkariInspectorWidget extends BaseWidget {
             }
         } else {
             const { itemId, path } = request.target;
+            const shapeKey = /^source\.params\.(fill|stroke)$/u.exec(path)?.[1];
+            const selectedShapeSource = rowSnapshot.kind === 'item' && rowSnapshot.id === itemId
+                ? { itemId, shape: rowSnapshot.shape, params: rowSnapshot.shapeParams,
+                    outputWidth: rowSnapshot.outputWidth, transform: rowSnapshot.transform }
+                : undefined;
             resolved = {
                 title: '色',
-                current: host.itemValue(itemId, path),
-                write: paint => this.writeItemColor(itemId, path, paint)
+                current: host.itemValue(itemId, path)
+                    ?? (shapeKey ? parsePaint((selectedShapeSource ?? host.shapeSource(itemId))?.params?.[shapeKey]) : undefined),
+                write: paint => this.writeItemColor(itemId, path, paint),
+                ...(shapeKey ? { preview: (paint: Paint) => {
+                    if (typeof paint !== 'string' || paint === TRANSPARENT_PAINT) return;
+                    const shapeSource = selectedShapeSource ?? host.shapeSource(itemId);
+                    if (!shapeSource?.shape) return;
+                    const shapeHtml = shapeLiveMarkup(shapeSource, shapeKey, paint);
+                    if (shapeHtml !== undefined) this.model.requestLivePreview?.({
+                        target: { kind: 'item', id: itemId }, field: 'shape', value: 0, shapeHtml
+                    });
+                } } : {})
             };
         }
         if (!resolved) {

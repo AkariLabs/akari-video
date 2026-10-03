@@ -8427,7 +8427,22 @@ export function previewBootstrapScript(): string {
                 computeAdjustCssVisual: computeAdjustCssVisualFn,
                 next: (${nextPreviewLiveOverride.toString()})
             });
-            const clearLiveOverride = () => liveDom.clear();
+            let pendingShapeLive = null;
+            const clearLiveOverride = () => {
+                const pending = pendingShapeLive;
+                if (!pending) { liveDom.clear(); return; }
+                const saved = window.akari?.state?.summary?.overlays?.find(
+                    overlay => String(overlay.id) === pending.id);
+                liveDom.clear();
+                if (saved?.html === pending.html) {
+                    const overlay = Array.from(stage.querySelectorAll('[data-overlay-id]'))
+                        .find(element => element.dataset.overlayId === pending.id);
+                    if (overlay) overlay.innerHTML = pending.html;
+                    pendingShapeLive = null;
+                } else {
+                    liveDom.updateShape(pending.key, pending.html);
+                }
+            };
             const paintLiveOverride = () => liveDom.paint();
             const tick = (immediatePlaybackTick = false) => {
                 if (typeof applyInitialPosition === 'function' && !initialPositionApplied) applyInitialPosition();
@@ -10258,6 +10273,7 @@ export function previewBootstrapScript(): string {
                         ? 'cut:' + message.target.index : message.target.kind === 'caption'
                             ? 'caption:' + message.target.id : 'item:' + message.target.id;
                     if (message.clear) {
+                        if (message.field === 'shape') pendingShapeLive = null;
                         if (values.length === 1) void window.akari.frameEngineClock?.applyLivePreview?.(message);
                         else void window.akari.frameEngineClock?.applyTransformPreview?.(
                             message.target, Object.fromEntries(values));
@@ -10266,6 +10282,10 @@ export function previewBootstrapScript(): string {
                         return;
                     }
                     if (typeof message.shapeHtml === 'string') {
+                        if (pendingShapeLive && window.akari?.state?.summary?.overlays?.some(
+                            overlay => String(overlay.id) === pendingShapeLive.id
+                                && overlay.html === pendingShapeLive.html)) clearLiveOverride();
+                        pendingShapeLive = { key: targetKey, id: message.target.id, html: message.shapeHtml };
                         liveDom.updateShape(targetKey, message.shapeHtml);
                         return;
                     }
