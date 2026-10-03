@@ -50,7 +50,7 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
+import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
@@ -3250,7 +3250,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     protected currentTab?: string;
     protected explicitTabId?: string;
-    protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
+    protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown }; stillCandidateCount?: number }>();
     protected readonly generationProvenanceMeta = new Map<string, unknown>();
     protected readonly generationProvenanceLoads = new Set<string>();
     protected readonly generationProvenanceVoiceLoads = new Set<string>();
@@ -3296,6 +3296,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected stillFalEstimateLoading?: Promise<void>;
     protected previewedVideoCandidate?: { editUri: string; itemId: string; key: string };
     protected aiStillTick?: number;
+    protected pendingAiViewDecision?: string;
     protected transcribeKey?: string;
     protected transcribeTarget?: AiTranscribeTarget;
     protected transcribeSummary: TranscriptSummary = { state: 'none', segments: [], total: 0 };
@@ -4412,6 +4413,8 @@ export class AkariInspectorWidget extends BaseWidget {
             inputs?: { extra?: { still_batch?: unknown } }; stillCandidateCount?: number;
             next?: { status?: unknown }
         } | undefined : undefined;
+        const generationKind = typeof aiGenerationKindFor === 'function'
+            ? aiGenerationKindFor(meta) : meta?.kind === 'still' ? 'still' : 'video';
         const stillCandidateCount = Math.max(meta?.stillCandidateCount ?? 0,
             meta?.job?.candidates ?? 0,
             meta?.job?.results?.filter(result => result.ok && result.path).length ?? 0,
@@ -4457,10 +4460,17 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
                 const previousNarrationClipKey = this.aiViewClipKey;
                 const previousAiView = this.aiView;
+                const sidecarPending = !!generationIdentity && !this.generationTabMeta.has(generationIdentity.key);
+                if (sidecarPending && this.aiViewClipKey !== clipKey) this.pendingAiViewDecision = clipKey;
+                const decideAfterLoad = !sidecarPending && this.pendingAiViewDecision === clipKey
+                    && this.aiView === 'tiles';
                 this.aiView = aiTabViewFor({
                     clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
-                    generationState, generationDone, forcePanel: aiAvailability.forcePanel
+                    reconsiderAfterSidecar: decideAfterLoad,
+                    generationState, generationDone, forcePanel: aiAvailability.forcePanel,
+                    generationKind, stillCandidateCount
                 });
+                if (!sidecarPending && this.pendingAiViewDecision === clipKey) this.pendingAiViewDecision = undefined;
                 if (this.aiView === 'still-result' && (previousAiView !== 'still-result' || this.aiViewClipKey !== clipKey)) {
                     this.rememberedView.scrollTop = 0;
                     this.node.scrollTop = 0;
@@ -6461,7 +6471,23 @@ export class AkariInspectorWidget extends BaseWidget {
                 planned.add(identity.sourcePath);
                 this.frameAspectPlanned?.set(identity.key, planned);
             } else if (sourceMeta?.status) this.frameAspectPlanned?.get(identity.key)?.delete(identity.sourcePath);
-            this.generationTabMeta.set(identity.key, sourceMeta ?? {});
+            let stillCandidateCount = 0;
+            const compareJob = sourceMeta?.job as { provider?: string; candidates?: number;
+                results?: Array<{ ok?: boolean; path?: string }> } | undefined;
+            if ((typeof aiGenerationKindFor === 'function'
+                ? aiGenerationKindFor(sourceMeta as Parameters<typeof aiGenerationKindFor>[0])
+                : sourceMeta?.kind === 'still' ? 'still' : 'video') === 'still') {
+                stillCandidateCount = Math.max(compareJob?.candidates ?? 0,
+                    compareJob?.results?.filter(result => result.ok && result.path).length ?? 0);
+                if (!stillCandidateCount) {
+                    try {
+                        const batch = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(),
+                            ...activeEditRequest(root), itemId: identity.itemId, includeThumbnails: false });
+                        stillCandidateCount = batch.candidates.filter(candidate => candidate.ok).length;
+                    } catch { /* The sidecar status still determines the initial view. */ }
+                }
+            }
+            this.generationTabMeta.set(identity.key, { ...sourceMeta, stillCandidateCount });
             let draft = sourceMeta?.kind === 'video' && sourceMeta.candidate_of === identity.itemId
                 ? undefined : generationFields.fromMeta(sourceMeta);
             if (/\.(?:mp4|mov|webm|m4v)$/iu.test(identity.sourcePath)) {
