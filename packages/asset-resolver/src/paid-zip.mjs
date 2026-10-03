@@ -15,15 +15,17 @@ import { pipeline } from 'node:stream/promises';
 import { AssetResolverError } from './errors.mjs';
 import { resolveDownloadUrl } from './env.mjs';
 import { sha256File } from './hash.mjs';
+import { fetchTimed, timedBody } from './fetch-file.mjs';
 
 const NON_PAYLOAD_FILES = new Set(['README.md', 'LICENSE.md', 'checksums.txt']);
 
 /** `/api/store/v1/download/<id>` から zip を destZipPath へダウンロードする（Bearer 認証）。 */
-export async function downloadPaidZip(id, credentials, destZipPath, { env = process.env, fetchImpl = fetch } = {}) {
+export async function downloadPaidZip(id, credentials, destZipPath, { env = process.env, fetchImpl = fetch, timeouts } = {}) {
   const url = resolveDownloadUrl(env, credentials, id);
   let res;
+  let controller;
   try {
-    res = await fetchImpl(url, { headers: { authorization: `Bearer ${credentials.token}` } });
+    ({ response: res, controller } = await fetchTimed(url, { fetchImpl, request: { headers: { authorization: `Bearer ${credentials.token}` } }, timeouts, label: '有料 zip' }));
   } catch (error) {
     throw new AssetResolverError(
       `有料素材のダウンロードに失敗しました（ネットワークエラー）: ${id}: ${error instanceof Error ? error.message : String(error)}`,
@@ -37,7 +39,7 @@ export async function downloadPaidZip(id, credentials, destZipPath, { env = proc
     );
   }
   await mkdir(path.dirname(destZipPath), { recursive: true });
-  await pipeline(Readable.fromWeb(res.body), createWriteStream(destZipPath));
+  await pipeline(Readable.from(timedBody(res.body, controller, { timeouts, label: '有料 zip' })), createWriteStream(destZipPath));
 }
 
 /** All zip consumers share the same platform-independent fallback order. */

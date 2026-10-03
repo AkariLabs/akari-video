@@ -696,25 +696,42 @@ export class PreviewLibraryDrop {
         const title = plan.title ?? payload.title;
         // 既に手元にある素材は待ちが無い（参照台帳の記帳だけ）。下敷きは出さない。
         const waiting = !plan.cached;
-        if (waiting) {
-            pendingAssetFetches.begin({ relativePath: plan.relativePath, kind: plan.kind,
-                ...(thumb ? { thumb } : {}), ...(title ? { title } : {}) });
-            this.showFetchOverlay(plan, geometry, point, payload, thumb, title);
-        }
         let placedId: string | undefined;
+        let resolverAlreadyNotified = false;
+        let waitingEnded = false;
+        const endWaiting = (): void => {
+            if (!waiting || waitingEnded) return;
+            waitingEnded = true;
+            pendingAssetFetches.end(plan.relativePath);
+            if (!pendingAssetFetches.has(plan.relativePath)) this.hideFetchOverlay(plan.relativePath);
+        };
         try {
+            if (waiting) {
+                pendingAssetFetches.begin({ relativePath: plan.relativePath, kind: plan.kind,
+                    ...(thumb ? { thumb } : {}), ...(title ? { title } : {}) });
+                this.showFetchOverlay(plan, geometry, point, payload, thumb, title);
+            }
+            const fetchOutcome = this.commands.executeCommand<{ relativePath: string; kind: string } | undefined>(
+                'akari.catalog.resolveMaterial', payload.key)
+                .then(material => ({ material }), error => ({ error }));
+            void fetchOutcome.then(endWaiting).catch(error => console.warn('[akari-preview] 取り寄せ表示を消せませんでした', error));
             placedId = await this.commands.executeCommand<string | undefined>('akari.timeline.addMaterialAtOutputPoint', {
                 relativePath: plan.relativePath, kind: plan.kind, t: geometry.time,
                 ...(plan.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
                 ...(typeof payload.width === 'number' ? { sourceWidth: payload.width } : {}),
                 editUri, outsideCanvas, ...(!outsideCanvas ? { canvasAware: true } : {})
             });
+            const fetched = await fetchOutcome;
+            if ('error' in fetched) throw fetched.error;
+            const material = fetched.material;
+            if (material === undefined) {
+                resolverAlreadyNotified = true;
+                throw new Error('取り寄せできませんでした');
+            }
+            if (!material.relativePath) throw new Error('取り寄せできませんでした');
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
-            const material = await this.commands.executeCommand<{ relativePath: string; kind: string } | undefined>(
-                'akari.catalog.resolveMaterial', payload.key);
-            if (!material?.relativePath) throw new Error('取り寄せできませんでした');
             if (material.relativePath !== plan.relativePath) {
                 // 当てが外れた（起こらないはずだが、黙って壊れた参照を残さない）。置き直す。
                 console.warn('[akari-preview] 置き先の見込みが外れました', plan.relativePath, '→', material.relativePath);
@@ -731,13 +748,10 @@ export class PreviewLibraryDrop {
                 await this.commands.executeCommand('akari.timeline.removePlacedMaterial', { editUri, itemId: placedId })
                     .catch(() => undefined);
             }
-            this.messages.warn(`この素材は取り寄せできませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            if (!resolverAlreadyNotified) this.messages.warn(`この素材は取り寄せできませんでした: ${error instanceof Error ? error.message : String(error)}`);
             return;
         } finally {
-            if (waiting) {
-                pendingAssetFetches.end(plan.relativePath);
-                this.hideFetchOverlay(plan.relativePath);
-            }
+            endWaiting();
         }
         if (!waiting) return;
         // 実体が来ても edit.json は変わらない。拾い直しはこちらから頼む。

@@ -7,6 +7,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { resolveCredentialsPath, resolveEntitlementsUrl } from './env.mjs';
+import { fetchTimed, readTimedJson } from './fetch-file.mjs';
 
 export async function readStoreCredentials(env = process.env) {
   try {
@@ -23,19 +24,19 @@ export async function readStoreCredentials(env = process.env) {
  * （= 無料のみ使える）のままで、既存のフォールバックを変えない。
  * @returns {Promise<{ ids: Set<string>, status: 'ok'|'no_credentials'|'unauthorized'|'error' }>}
  */
-export async function fetchEntitlements({ env = process.env, fetchImpl = fetch } = {}) {
+export async function fetchEntitlements({ env = process.env, fetchImpl = fetch, timeouts } = {}) {
   const credentials = await readStoreCredentials(env);
   if (!credentials) return { ids: new Set(), status: 'no_credentials' };
 
   const url = resolveEntitlementsUrl(env, credentials);
   try {
-    const res = await fetchImpl(url, { headers: { authorization: `Bearer ${credentials.token}` } });
+    const { response: res, controller } = await fetchTimed(url, { fetchImpl, request: { headers: { authorization: `Bearer ${credentials.token}` } }, timeouts, label: '権利確認' });
     if (res.status === 401 || res.status === 403) {
       return { ids: new Set(), status: 'unauthorized' };
     }
     let data;
     try {
-      data = await res.json();
+      data = await readTimedJson(res, controller, { timeouts, label: '権利確認' });
     } catch {
       return { ids: new Set(), status: 'error' };
     }
@@ -46,7 +47,7 @@ export async function fetchEntitlements({ env = process.env, fetchImpl = fetch }
     const list = Array.isArray(data?.entitlements) ? data.entitlements : [];
     const ids = list.map((entry) => (typeof entry === 'string' ? entry : entry?.product_id ?? entry?.id)).filter(Boolean);
     return { ids: new Set(ids), status: 'ok' };
-  } catch {
-    return { ids: new Set(), status: 'error' };
+  } catch (error) {
+    return { ids: new Set(), status: 'error', error: error instanceof Error ? error.message : String(error) };
   }
 }

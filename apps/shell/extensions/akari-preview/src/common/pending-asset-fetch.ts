@@ -30,17 +30,25 @@ export function pendingAssetFetchKey(relativePath: string): string {
 
 export class PendingAssetFetchStore {
     private readonly entries = new Map<string, PendingAssetFetch>();
+    private readonly counts = new Map<string, number>();
     private readonly listeners = new Set<(relativePath: string) => void>();
 
     begin(entry: Omit<PendingAssetFetch, 'startedAt'> & { startedAt?: number }): void {
         const key = pendingAssetFetchKey(entry.relativePath);
         if (!key) return;
+        this.counts.set(key, (this.counts.get(key) ?? 0) + 1);
         this.entries.set(key, { ...entry, relativePath: key, startedAt: entry.startedAt ?? Date.now() });
         this.announce(key);
     }
 
     end(relativePath: string): void {
         const key = pendingAssetFetchKey(relativePath);
+        const count = this.counts.get(key) ?? 0;
+        if (count > 1) {
+            this.counts.set(key, count - 1);
+            return;
+        }
+        this.counts.delete(key);
         if (!this.entries.delete(key)) return;
         this.announce(key);
     }
