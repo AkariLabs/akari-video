@@ -189,6 +189,7 @@ import {
     parsePreviewCaptions,
     parseResolvedPreviewCaptions
 } from './akari-preview-captions';
+import { listen } from './akari-preview-listen';
 import { resolveOutputOpenFocusMode } from './open-focus-mode';
 import { ReviewSessionRecorder, ReviewSessionUiState, ReviewTransportSnapshot } from './review-session-recorder';
 import { ReviewSessionRecordingIndicator } from './review-session-recording-indicator';
@@ -584,12 +585,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             },
             (event, reason) => center.recordKeyConversionFailure(event, reason)
         );
-        window.addEventListener('keydown', observe, true);
-        window.addEventListener('keyup', observe, true);
-        this.lifecycleDisposables.push(Disposable.create(() => {
-            window.removeEventListener('keydown', observe, true);
-            window.removeEventListener('keyup', observe, true);
-        }));
+        this.lifecycleDisposables.push(listen(window, 'keydown', observe, true));
+        this.lifecycleDisposables.push(listen(window, 'keyup', observe, true));
     }
 
     onStart(): void {
@@ -782,10 +779,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.sendMessage({ type: 'akari-preview-select-overlay', overlayId: detail.overlayId });
             }
         };
-        window.addEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected)
-        });
+        this.lifecycleDisposables.push(listen(window, TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected));
         const outputPreviewForEdit = (editUri: string): PreviewWidgetMarker | undefined => {
             try {
                 return this.openOutputPreviews.get(new URI(editUri).normalizePath().toString());
@@ -812,14 +806,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.persistCaptionGroupZoneForWidget(widget, detail.zone as CaptionZoneValue)
             );
         };
-        window.addEventListener(CAPTION_ZONE_HOVER_EVENT, onCaptionZoneHover);
-        window.addEventListener(CAPTION_ZONE_PRESET_EVENT, onCaptionZonePreset);
-        this.lifecycleDisposables.push({
-            dispose: () => {
-                window.removeEventListener(CAPTION_ZONE_HOVER_EVENT, onCaptionZoneHover);
-                window.removeEventListener(CAPTION_ZONE_PRESET_EVENT, onCaptionZonePreset);
-            }
-        });
+        this.lifecycleDisposables.push(listen(window, CAPTION_ZONE_HOVER_EVENT, onCaptionZoneHover));
+        this.lifecycleDisposables.push(listen(window, CAPTION_ZONE_PRESET_EVENT, onCaptionZonePreset));
         // CF-select: タイムラインでレイヤーを選択 → 出力プレビュー側もハイライト（overlay と同型）。
         const onTimelineLayerSelected = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; layerId?: string | null }>).detail;
@@ -838,10 +826,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.sendMessage({ type: 'akari-preview-select-layer', layerId: detail.layerId });
             }
         };
-        window.addEventListener(TIMELINE_LAYER_SELECTED_EVENT, onTimelineLayerSelected);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener(TIMELINE_LAYER_SELECTED_EVENT, onTimelineLayerSelected)
-        });
+        this.lifecycleDisposables.push(listen(window, TIMELINE_LAYER_SELECTED_EVENT, onTimelineLayerSelected));
         const onPrimarySelected = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; selection: { kind: 'cut' | 'caption'; id: string } | null }>).detail;
             if (!detail?.editUri) return;
@@ -849,8 +834,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.primaryTimelineSelections.set(key, detail.selection);
             this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-select-primary', selection: detail.selection });
         };
-        window.addEventListener('akari.timeline.primarySelected', onPrimarySelected);
-        this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.timeline.primarySelected', onPrimarySelected) });
+        this.lifecycleDisposables.push(listen(window, 'akari.timeline.primarySelected', onPrimarySelected));
         const onTimelineCaptionSelectionChanged = (event: Event): void => {
             const detail = (event as CustomEvent<{
                 editUri?: unknown; captionIds?: unknown; primaryCaptionId?: unknown
@@ -864,10 +848,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.timelineCaptionSelections.set(key, selection);
             this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-set-selected-captions', ...selection });
         };
-        window.addEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged)
-        });
+        this.lifecycleDisposables.push(listen(window, 'akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged));
         const onCaptionPanelPreview = (event: Event): void => {
             const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown; committed?: boolean }>).detail;
             if (typeof detail?.captionId !== 'string') return;
@@ -875,9 +856,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 preview.sendMessage({ type: 'akari-preview-caption-style-preview', ...detail });
             }
         };
-        window.addEventListener('akari-caption-panel-preview', onCaptionPanelPreview);
-        this.lifecycleDisposables.push({ dispose: () =>
-            window.removeEventListener('akari-caption-panel-preview', onCaptionPanelPreview) });
+        this.lifecycleDisposables.push(listen(window, 'akari-caption-panel-preview', onCaptionPanelPreview));
         const onCaptionMotionPlay = (event: Event): void => {
             const detail = (event as CustomEvent<{ captionId?: string; id?: string;
                 kind?: string; wordIndex?: number; slot?: string }>).detail;
@@ -886,18 +865,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 preview.sendMessage({ type: 'akari-preview-caption-motion-play', ...detail });
             }
         };
-        window.addEventListener('akari-caption-motion-play', onCaptionMotionPlay);
-        this.lifecycleDisposables.push({ dispose: () =>
-            window.removeEventListener('akari-caption-motion-play', onCaptionMotionPlay) });
+        this.lifecycleDisposables.push(listen(window, 'akari-caption-motion-play', onCaptionMotionPlay));
         const onCaptionPanelChanged = (event: Event): void => {
             if ((event as CustomEvent<{ panel?: string | null }>).detail?.panel !== null) return;
             for (const preview of this.openOutputPreviews.values()) {
                 preview.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: '', textStyle: null });
             }
         };
-        window.addEventListener('akari-caption-panel-changed', onCaptionPanelChanged);
-        this.lifecycleDisposables.push({ dispose: () =>
-            window.removeEventListener('akari-caption-panel-changed', onCaptionPanelChanged) });
+        this.lifecycleDisposables.push(listen(window, 'akari-caption-panel-changed', onCaptionPanelChanged));
         const onSelectCaptionRun = (event: Event): void => {
             const detail = (event as CustomEvent<{ captionId?: string; from?: number; to?: number }>).detail;
             if (!detail || typeof detail.captionId !== 'string' || !Number.isInteger(detail.from)
@@ -906,9 +881,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 preview.sendMessage({ type: 'akari-preview-select-caption-run', ...detail });
             }
         };
-        window.addEventListener('akari.preview.selectCaptionRun', onSelectCaptionRun);
-        this.lifecycleDisposables.push({ dispose: () =>
-            window.removeEventListener('akari.preview.selectCaptionRun', onSelectCaptionRun) });
+        this.lifecycleDisposables.push(listen(window, 'akari.preview.selectCaptionRun', onSelectCaptionRun));
         const onDaihonSelectionChanged = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: unknown; captionIds?: unknown }>).detail;
             if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
@@ -918,10 +891,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 type: 'akari-preview-set-selected-captions', captionIds
             });
         };
-        window.addEventListener('akari.daihon.selectionChanged', onDaihonSelectionChanged);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener('akari.daihon.selectionChanged', onDaihonSelectionChanged)
-        });
+        this.lifecycleDisposables.push(listen(window, 'akari.daihon.selectionChanged', onDaihonSelectionChanged));
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
             apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
@@ -942,8 +912,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 apply(widget?.isAttached ? widget : undefined, detail, settings);
                 this.previewSessionSettings.set(key, settings);
             };
-            window.addEventListener(type, listener);
-            this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(type, listener) });
+            this.lifecycleDisposables.push(listen(window, type, listener));
         };
         registerTimelineSetting<{ editUri?: string; muted?: boolean }>(TIMELINE_SET_MUTED_EVENT, (widget, detail, settings) => {
             if (typeof detail.muted !== 'boolean') return;
@@ -968,10 +937,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const onTrackVisibilityV2 = (event: Event): void => {
             this.applyTrackVisibilityV2((event as CustomEvent<TrackVisibilityV2Request>).detail);
         };
-        window.addEventListener(TIMELINE_SET_TRACK_VISIBILITY_EVENT, onTrackVisibilityV2);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener(TIMELINE_SET_TRACK_VISIBILITY_EVENT, onTrackVisibilityV2)
-        });
+        this.lifecycleDisposables.push(listen(window, TIMELINE_SET_TRACK_VISIBILITY_EVENT, onTrackVisibilityV2));
         const onSyncTrackToggles = (event: Event): void => {
             const detail = (event as CustomEvent<{
                 editUri?: string;
@@ -982,10 +948,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (!detail?.editUri) return;
             this.applyTimelineTrackSync(detail.editUri, detail.cuts, detail.layers, detail.audio);
         };
-        window.addEventListener(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, onSyncTrackToggles);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, onSyncTrackToggles)
-        });
+        this.lifecycleDisposables.push(listen(window, TIMELINE_SYNC_TRACK_TOGGLES_EVENT, onSyncTrackToggles));
         const registerTimelineSettingV2Adapter = <T extends { editUri?: string }>(
             type: string,
             toRequest: (detail: T) => Omit<TrackVisibilityV2Request, 'videoUri'>
@@ -995,8 +958,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!detail?.editUri) return;
                 this.applyTrackVisibilityV2({ ...toRequest(detail), videoUri: detail.editUri });
             };
-            window.addEventListener(type, listener);
-            this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(type, listener) });
+            this.lifecycleDisposables.push(listen(window, type, listener));
         };
         registerTimelineSettingV2Adapter<{ editUri?: string; visible?: boolean }>(
             TIMELINE_SET_CLIPS_VISIBILITY_EVENT,
@@ -1034,16 +996,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // captions/beats はプレビュー側に音声・専用描画の対象がない（字幕に音声なし・beats はプレビュー非描画）。
         // 購読はするが意図的に no-op。
         const noopTimelineSetting = (): void => { /* no-op: プレビュー側に対応する状態がないスコープ */ };
-        window.addEventListener(TIMELINE_SET_CAPTIONS_MUTED_EVENT, noopTimelineSetting);
-        window.addEventListener(TIMELINE_SET_BEATS_VISIBILITY_EVENT, noopTimelineSetting);
-        window.addEventListener(TIMELINE_SET_BEATS_MUTED_EVENT, noopTimelineSetting);
-        this.lifecycleDisposables.push({
-            dispose: () => {
-                window.removeEventListener(TIMELINE_SET_CAPTIONS_MUTED_EVENT, noopTimelineSetting);
-                window.removeEventListener(TIMELINE_SET_BEATS_VISIBILITY_EVENT, noopTimelineSetting);
-                window.removeEventListener(TIMELINE_SET_BEATS_MUTED_EVENT, noopTimelineSetting);
-            }
-        });
+        this.lifecycleDisposables.push(listen(window, TIMELINE_SET_CAPTIONS_MUTED_EVENT, noopTimelineSetting));
+        this.lifecycleDisposables.push(listen(window, TIMELINE_SET_BEATS_VISIBILITY_EVENT, noopTimelineSetting));
+        this.lifecycleDisposables.push(listen(window, TIMELINE_SET_BEATS_MUTED_EVENT, noopTimelineSetting));
         registerTimelineSetting<{ editUri?: string; visible?: boolean }>(
             TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, (widget, detail, settings) => {
                 if (typeof detail.visible !== 'boolean') return;
@@ -1098,10 +1053,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 });
             }
         };
-        window.addEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform)
-        });
+        this.lifecycleDisposables.push(listen(window, TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform));
         const onStillCandidate = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; sourceId?: string | null; itemId?: string; imageUrl?: string | null }>).detail;
             if (!detail?.editUri || detail.imageUrl !== null &&
@@ -1110,8 +1062,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-still-candidate',
                 sourceId: detail.sourceId ?? null, itemId: detail.itemId ?? null, imageUrl: detail.imageUrl ?? null });
         };
-        window.addEventListener('akari.preview.stillCandidate', onStillCandidate);
-        this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.preview.stillCandidate', onStillCandidate) });
+        this.lifecycleDisposables.push(listen(window, 'akari.preview.stillCandidate', onStillCandidate));
         const onVideoCandidate = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; itemId?: string; relativePath?: string;
                 inSeconds?: number; outSeconds?: number; freeze?: { atSeconds: number; durationSeconds: number };
@@ -1130,8 +1081,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 freeze?: { atSeconds: number; durationSeconds: number };
             });
         };
-        window.addEventListener('akari.preview.videoCandidate', onVideoCandidate);
-        this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.preview.videoCandidate', onVideoCandidate) });
+        this.lifecycleDisposables.push(listen(window, 'akari.preview.videoCandidate', onVideoCandidate));
         const onAdjustBypass = (event: Event): void => {
             const detail = (event as CustomEvent<{
                 editUri?: string;
@@ -1169,10 +1119,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 });
             }
         };
-        window.addEventListener(TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass);
-        this.lifecycleDisposables.push({
-            dispose: () => window.removeEventListener(TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass)
-        });
+        this.lifecycleDisposables.push(listen(window, TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass));
         registerTimelineSetting<{ editUri?: string; start?: number; end?: number }>(
             TIMELINE_LOOP_RANGE_EVENT, (widget, detail, _settings) => {
                 const range = Number.isFinite(detail.start) && Number.isFinite(detail.end)
@@ -1334,8 +1281,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected registerReviewSessionEvents(): void {
         const register = (type: string, listener: EventListener): void => {
-            window.addEventListener(type, listener);
-            this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(type, listener) });
+            this.lifecycleDisposables.push(listen(window, type, listener));
         };
         register(REVIEW_SESSION_START_EVENT, event => {
             const detail = (event as CustomEvent<ReviewSessionControlRequest>).detail;
@@ -2607,14 +2553,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             activeBrushItemId = detail.settings ? detail.itemId : null;
             widget.sendMessage({ type: 'akari-preview-photo-brush', itemId: detail.itemId, settings: detail.settings });
         };
-        window.addEventListener('akari.photo.brush', onPhotoBrush);
-        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.brush', onPhotoBrush)));
+        disposables.push(listen(window, 'akari.photo.brush', onPhotoBrush));
         const onPhotoBrushEnd = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string }>).detail;
             if (detail?.editUri === widget.akariPreviewEditUri?.toString()) activeBrushItemId = null;
         };
-        window.addEventListener('akari.photo.brush-end', onPhotoBrushEnd);
-        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.brush-end', onPhotoBrushEnd)));
+        disposables.push(listen(window, 'akari.photo.brush-end', onPhotoBrushEnd));
         const onMainEscape = (event: KeyboardEvent): void => {
             if (event.key !== 'Escape' || !activeBrushItemId) return;
             widget.sendMessage({ type: 'akari-preview-photo-brush', itemId: activeBrushItemId, settings: null });
@@ -2623,29 +2567,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 editUri: widget.akariPreviewEditUri?.toString()
             } }));
         };
-        window.addEventListener('keydown', onMainEscape, true);
-        disposables.push(Disposable.create(() => window.removeEventListener('keydown', onMainEscape, true)));
+        disposables.push(listen(window, 'keydown', onMainEscape, true));
         const onPhotoSelect = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; itemId?: string }>).detail;
             if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
             widget.sendMessage({ type: 'akari-preview-photo-select', itemId: detail.itemId });
         };
-        window.addEventListener('akari.photo.select', onPhotoSelect);
-        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.select', onPhotoSelect)));
+        disposables.push(listen(window, 'akari.photo.select', onPhotoSelect));
         const onPhotoSelectStop = (event: Event): void => {
             const detail = (event as CustomEvent<{ itemId?: string }>).detail;
             if (kind !== 'output' || !detail?.itemId) return;
             widget.sendMessage({ type: 'akari-preview-photo-select-stop', itemId: detail.itemId });
         };
-        window.addEventListener('akari.photo.select-stop', onPhotoSelectStop);
-        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.select-stop', onPhotoSelectStop)));
+        disposables.push(listen(window, 'akari.photo.select-stop', onPhotoSelectStop));
         const onPhotoHighlight = (event: Event): void => {
             const detail = (event as CustomEvent<{ itemId?: string; png?: string }>).detail;
             if (kind !== 'output' || !detail?.itemId) return;
             widget.sendMessage({ type: 'akari-preview-photo-highlight', itemId: detail.itemId, png: detail.png });
         };
-        window.addEventListener('akari.photo.highlight', onPhotoHighlight);
-        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.highlight', onPhotoHighlight)));
+        disposables.push(listen(window, 'akari.photo.highlight', onPhotoHighlight));
         // Seed the bar from the edit's existing sources before its first state read.
         // Unknown paths (such as a newly drawn frame) stay conservative until checked.
         const photoToolCache = new Map<string, boolean>();
@@ -2751,8 +2691,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const uri = (event as CustomEvent<{ uri?: unknown }>).detail?.uri;
                 if (typeof uri === 'string' && matchesEdit(uri)) void prewarmPhotoTools();
             };
-            window.addEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditPhotoSources);
-            disposables.push(Disposable.create(() => window.removeEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditPhotoSources)));
+            disposables.push(listen(window, EDIT_STORE_DID_WRITE_EVENT, onEditPhotoSources));
             disposables.push(this.fileService.onDidFilesChange(event => {
                 if (event.changes.some(change => matchesEdit(change.resource.toString())
                     || change.resource.path.base.endsWith('.meta.json'))) void prewarmPhotoTools();
@@ -2763,15 +2702,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
             widget.sendMessage({ type: 'akari-preview-set-crop-mode', itemId: detail.itemId, on: true });
         };
-        window.addEventListener('akari.photo.crop-open', onPhotoCropOpen);
-        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.crop-open', onPhotoCropOpen)));
+        disposables.push(listen(window, 'akari.photo.crop-open', onPhotoCropOpen));
         const onMotionDraw = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; itemId?: string }>).detail;
             if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
             widget.sendMessage({ type: 'akari-preview-motion-draw', itemId: detail.itemId });
         };
-        window.addEventListener('akari.motion.draw', onMotionDraw);
-        disposables.push(Disposable.create(() => window.removeEventListener('akari.motion.draw', onMotionDraw)));
+        disposables.push(listen(window, 'akari.motion.draw', onMotionDraw));
         let lastAudioMeterFrame: AudioMeterFrame | undefined;
         widget.disposed.connect(() => { if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus; });
         widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
@@ -3223,22 +3160,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.markRecentWrite(editUri);
             this.queueRefresh(widget, identityUri, kind, undefined, false, detail.content);
         };
-        window.addEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite);
-        disposables.push({
-            dispose: () => window.removeEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite)
-        });
+        disposables.push(listen(window, EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite));
         const clearOnboardingSelection = (): void => {
             if (kind === 'output' && !widget.isDisposed) {
                 widget.sendMessage({ type: 'akari-preview-onboarding-clear-selection' });
             }
         };
-        window.addEventListener('akari.onboarding.clearPreviewSelection', clearOnboardingSelection);
-        disposables.push({ dispose: () => window.removeEventListener('akari.onboarding.clearPreviewSelection', clearOnboardingSelection) });
+        disposables.push(listen(window, 'akari.onboarding.clearPreviewSelection', clearOnboardingSelection));
         const assistOnboardingCaption = (): void => {
             if (kind === 'output' && !widget.isDisposed) widget.sendMessage({ type: 'akari-preview-onboarding-select-caption' });
         };
-        window.addEventListener('akari.onboarding.assistCaptionSelection', assistOnboardingCaption);
-        disposables.push({ dispose: () => window.removeEventListener('akari.onboarding.assistCaptionSelection', assistOnboardingCaption) });
+        disposables.push(listen(window, 'akari.onboarding.assistCaptionSelection', assistOnboardingCaption));
         for (const root of await this.workspaceService.roots) {
             disposables.push(await this.fileService.watch(root.resource, { recursive: true, excludes: [] }));
         }
