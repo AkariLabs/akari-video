@@ -1,7 +1,23 @@
 import type { AiImage, AiTargetKind, AiTileGroup } from '../../common/ai-action-catalog';
 import { createInspectorIcon } from './icons';
 
-export type AiTabView = 'tiles' | 'still' | 'video' | 'transcribe' | 'narration' | 'cutout' | 'eraser';
+export type AiTabView = 'tiles' | 'still' | 'still-result' | 'video' | 'transcribe' | 'narration' | 'cutout' | 'eraser';
+
+export function aiGenerationKindFor(meta?: {
+    kind?: string; job?: { provider?: string; routes?: string[]; results?: Array<{ path?: string }> };
+    inputs?: { extra?: { still_batch?: unknown } };
+}): 'still' | 'video' {
+    if (meta?.job?.provider === 'compare') {
+        const paths = meta.job.results?.map(row => row.path).filter((path): path is string => !!path) ?? [];
+        if (paths.some(path => /\.(?:mp4|mov|webm|m4v)$/iu.test(path))) return 'video';
+        const routes = meta.job.routes ?? [];
+        if (routes.some(route => !['codex', 'antigravity', 'grok', 'fal'].includes(route))) return 'video';
+        if (routes.length || paths.some(path => /\.(?:png|jpe?g|webp)$/iu.test(path))
+            || meta.inputs?.extra?.still_batch) return 'still';
+        return 'video';
+    }
+    return meta?.kind === 'still' ? 'still' : 'video';
+}
 
 /** The generation identity is the authority for whether a visual target can be generated. */
 export function aiTargetKindFor(options: {
@@ -28,9 +44,14 @@ export function aiTabAvailabilityFor(options: {
 export function aiTabViewFor(options: {
     clipKey: string; previousClipKey?: string; previousView?: AiTabView;
     generationState?: string; generationDone?: boolean; forcePanel?: boolean;
+    generationKind?: 'still' | 'video'; stillCandidateCount?: number; reconsiderAfterSidecar?: boolean;
 }): AiTabView {
-    if (options.forcePanel) return 'video';
-    if (options.clipKey === options.previousClipKey && options.previousView) return options.previousView;
+    if (options.forcePanel && options.generationKind !== 'still') return 'video';
+    if (!options.reconsiderAfterSidecar && options.clipKey === options.previousClipKey && options.previousView) return options.previousView;
+    if (options.generationKind === 'still') {
+        return options.stillCandidateCount && options.stillCandidateCount > 0
+            || ['generating', 'failed'].includes(options.generationState ?? '') ? 'still-result' : 'tiles';
+    }
     return options.generationDone || ['generating', 'failed', 'stale'].includes(options.generationState ?? '')
         ? 'video' : 'tiles';
 }

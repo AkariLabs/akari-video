@@ -95,8 +95,62 @@ test('planned empty frame opens home ahead of a saved video tab', () => {
   assert.equal(initialTabFor({ kind: 'cut', tabs: tabsForKind('cut', { src: 'frame.png', generationAvailable: true }),
     generationTodo: true, persisted: 'video', clipKey: 'new', previousClipKey: 'old' }), 'edit');
 });
-test('frame capture prevents clip listeners and is confined to frame mode', () => {
-  assert.match(source, /if \(this.toolMode === 'frame'\)\s*this.onStripPointerDown\(event\);\s*}, true\)/);
+test('frame capture intercepts empty space and leaves clip listeners active', () => {
+  assert.match(source, /if \(this.toolMode === 'frame' && !this.frameToolSelectionTarget\(event\)\)\s*this.onStripPointerDown\(event\);\s*}, true\)/);
   assert.match(method('onStripPointerDown', 'timelineSelectionFromElement'), /stopImmediatePropagation\(\)/);
   assert.match(source, /cancelFrameDraw\(\);\s*return;/);
+});
+
+test('frame mode click on an existing clip reaches its selection handler', () => {
+  const start = source.indexOf('    installDragListeners(');
+  const end = source.indexOf('    updateDragPreview(', start);
+  assert.ok(start >= 0 && end > start);
+  const Widget = new Function(`return class { ${source.slice(start, end)} }`)();
+  const listeners = new Map();
+  const clip = { style: {}, dataset: {}, addEventListener(type, listener) { listeners.set(type, listener); },
+    setPointerCapture() {} };
+  const widget = Object.assign(new Widget(), {
+    toolMode: 'frame', dragListenerConfigs: new Map(), dragListenerInstalled: new Set(),
+    expandedChipHitRect: () => ({}), trackIdOfDrag: () => 'v', isTrackLocked: () => false,
+    createDragGhost: () => ({ remove() {} }), strip: { appendChild() {} },
+    updateTrimAffordance() {}, cancelDrag() { this.dragState = undefined; },
+    detectCutDoubleClick: () => false, selectionFromDragState: () => ({ kind: 'cut', index: 1 }),
+    shouldToggleMultiSelection: () => false, applySelection(selection) { this.selection = selection; }
+  });
+  widget.installDragListeners(clip, () => ({ kind: 'cut-move', index: 1 }));
+  const event = { button: 0, pointerId: 1, clientX: 20, clientY: 20,
+    preventDefault() {}, stopPropagation() {} };
+  listeners.get('pointerdown')(event);
+  listeners.get('pointerup')(event);
+  assert.deepEqual(widget.selection, { kind: 'cut', index: 1 });
+  assert.equal(widget.toolMode, 'frame');
+});
+
+test('frame mode lets occupied targets select and starts drawing on empty space', () => {
+  const begin = source.indexOf('    frameToolSelectionTarget(');
+  const end = source.indexOf('    timelineSelectionFromElement(', begin);
+  assert.ok(begin >= 0 && end > begin);
+  class Target {
+    constructor(occupied) { this.occupied = occupied; }
+    closest() { return this.occupied ? {} : null; }
+  }
+  const Widget = new Function('Element', `return class { ${source.slice(begin, end)} }`)(Target);
+  const widget = new Widget();
+  widget.toolMode = 'frame';
+  let selected = null, drawn = 0, stopped = 0;
+  widget.beginFrameDraw = () => { drawn++; };
+  const dispatch = target => {
+    stopped = 0;
+    const event = { target, button: 0, preventDefault() {}, stopImmediatePropagation() { stopped++; } };
+    if (!widget.frameToolSelectionTarget(event)) widget.onStripPointerDown(event);
+    if (!stopped && target.occupied) selected = 'clip';
+    if (!stopped) widget.onStripPointerDown(event);
+  };
+  dispatch(new Target(true));
+  assert.equal(selected, 'clip');
+  assert.equal(drawn, 0);
+  assert.equal(widget.toolMode, 'frame');
+  dispatch(new Target(false));
+  assert.ok(drawn > 0);
+  assert.equal(widget.toolMode, 'frame');
 });

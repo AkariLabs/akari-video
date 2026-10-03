@@ -14,7 +14,7 @@ import { CAPTION_FONT_FAMILY, CAPTION_FONT_LOAD_DESCRIPTOR, captionFontFaceCss }
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import { AkariEditHistoryService } from './akari-edit-history-service';
-import type { GenerationValidationResult, TranscriptSummary, NarrationEngine, StillCandidate, ImageRouteState } from '../common/akari-annotations-protocol';
+import type { GenerationValidationResult, TranscriptSummary, NarrationEngine, ImageRouteState } from '../common/akari-annotations-protocol';
 import type { VideoCandidate, VideoCandidateBatch } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { captionRunRows } from './inspector/caption-run-rows';
@@ -50,11 +50,12 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
+import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
-import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, type AiStillState, type StillAspect, type StillFalEstimate } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, firstSuccessfulStillCandidate, maxStillReferences, nearestStillAspect, placeStillInEdit, replaceStillInEdit, savedStillCrop, savedStillInput, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, type AiStillState, type StillAspect, type StillFalEstimate } from './inspector/ai-still-panel';
+import { appendAiStillResultPanel } from './inspector/ai-still-result-panel';
 import { appendAiVideoCandidatesPanel, clearVideoPlayer, replaceVideoInEdit, videoApprovalMessage, videoCandidatePreviewDetail,
     shouldClearVideoCandidatePreview, videoModelGroups, videoModelName,
     videoMakerId, videoProgress, videoProgressCandidate, videoProgressLayoutKey, type AiVideoState } from './inspector/ai-video-candidates-panel';
@@ -3259,7 +3260,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     protected currentTab?: string;
     protected explicitTabId?: string;
-    protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
+    protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown }; stillCandidateCount?: number }>();
     protected readonly generationProvenanceMeta = new Map<string, unknown>();
     protected readonly generationProvenanceLoads = new Set<string>();
     protected readonly generationProvenanceVoiceLoads = new Set<string>();
@@ -3312,9 +3313,9 @@ export class AkariInspectorWidget extends BaseWidget {
     protected stillFalEstimate?: StillFalEstimate;
     protected stillFalEstimateError?: string;
     protected stillFalEstimateLoading?: Promise<void>;
-    protected previewedStillItemId?: string;
     protected previewedVideoCandidate?: { editUri: string; itemId: string; key: string };
     protected aiStillTick?: number;
+    protected pendingAiViewDecision?: string;
     protected transcribeKey?: string;
     protected transcribeTarget?: AiTranscribeTarget;
     protected transcribeSummary: TranscriptSummary = { state: 'none', segments: [], total: 0 };
@@ -3533,19 +3534,6 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (retained !== this.captionPanel) {
                     this.runCaptionPanelPreview({ type: 'leave' });
                     this.captionPanel = retained; this.notifyCaptionPanel();
-                }
-            }
-            if (this.previewedStillItemId) {
-                const selectedItemId = this.generationIdentity?.(this.model.snapshot)?.itemId;
-                if (selectedItemId !== this.previewedStillItemId) {
-                    const root = this.workspaceService.tryGetRoots()[0]?.resource;
-                    if (root) window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
-                        ...activeEditRequest(root), sourceId: null,
-                        itemId: this.previewedStillItemId, imageUrl: null
-                    } }));
-                    const previewState = this.aiStillStates.get(this.previewedStillItemId);
-                    if (previewState) previewState.pickedCandidate = undefined;
-                    this.previewedStillItemId = undefined;
                 }
             }
             if (this.previewedVideoCandidate && shouldClearVideoCandidatePreview(this.previewedVideoCandidate.itemId,
@@ -4442,7 +4430,18 @@ export class AkariInspectorWidget extends BaseWidget {
         const tabs = tabsForKind(sectionKind, {
             src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled || photoSelection
         });
-        const meta = generationIdentity ? this.generationTabMeta.get(generationIdentity.key) : undefined;
+        const meta = generationIdentity ? this.generationTabMeta.get(generationIdentity.key) as {
+            kind?: string; job?: { provider?: string; routes?: string[]; candidates?: number;
+                results?: Array<{ ok?: boolean; path?: string }> };
+            inputs?: { extra?: { still_batch?: unknown } }; stillCandidateCount?: number;
+            next?: { status?: unknown }
+        } | undefined : undefined;
+        const generationKind = typeof aiGenerationKindFor === 'function'
+            ? aiGenerationKindFor(meta) : meta?.kind === 'still' ? 'still' : 'video';
+        const stillCandidateCount = Math.max(meta?.stillCandidateCount ?? 0,
+            meta?.job?.candidates ?? 0,
+            meta?.job?.results?.filter(result => result.ok && result.path).length ?? 0,
+            generationIdentity ? this.aiStillStates?.get(generationIdentity.key)?.batch?.candidates.filter(row => row.ok).length ?? 0 : 0);
         const generationTodo = !!generationIdentity && (
             ['planned', 'generating', 'stale', 'failed'].includes(generationState ?? '') || meta?.next?.status === 'planned'
         );
@@ -4483,10 +4482,22 @@ export class AkariInspectorWidget extends BaseWidget {
             if (this.aiCatalogLoaded) {
                 if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
                 const previousNarrationClipKey = this.aiViewClipKey;
+                const previousAiView = this.aiView;
+                const sidecarPending = !!generationIdentity && !this.generationTabMeta.has(generationIdentity.key);
+                if (sidecarPending && this.aiViewClipKey !== clipKey) this.pendingAiViewDecision = clipKey;
+                const decideAfterLoad = !sidecarPending && this.pendingAiViewDecision === clipKey
+                    && this.aiView === 'tiles';
                 this.aiView = aiTabViewFor({
                     clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
-                    generationState, generationDone, forcePanel: aiAvailability.forcePanel
+                    reconsiderAfterSidecar: decideAfterLoad,
+                    generationState, generationDone, forcePanel: aiAvailability.forcePanel,
+                    generationKind, stillCandidateCount
                 });
+                if (!sidecarPending && this.pendingAiViewDecision === clipKey) this.pendingAiViewDecision = undefined;
+                if (this.aiView === 'still-result' && (previousAiView !== 'still-result' || this.aiViewClipKey !== clipKey)) {
+                    this.rememberedView.scrollTop = 0;
+                    this.node.scrollTop = 0;
+                }
                 if (opensGapFrame && gapAiOpening) {
                     this.aiView = gapAiOpening.view;
                     this.gapAiOpening = undefined;
@@ -4539,7 +4550,11 @@ export class AkariInspectorWidget extends BaseWidget {
                 const alternativesGrid = appendAiTiles(this.body, aiGroups, id => {
                     if (id !== 'video' && id !== 'still' && id !== 'transcribe' && id !== 'narration'
                         && id !== 'cutout' && id !== 'eraser') return;
-                    this.aiView = id;
+                    this.aiView = id === 'still' && stillCandidateCount > 0 ? 'still-result' : id;
+                    if (this.aiView === 'still-result') {
+                        this.rememberedView.scrollTop = 0;
+                        this.node.scrollTop = 0;
+                    }
                     if (id === 'narration' && rowSnapshot.kind === 'audio') {
                         void this.loadAiNarrationVoices(clipKey);
                         void this.loadAiNarrationCandidates(clipKey, rowSnapshot.id);
@@ -4614,6 +4629,10 @@ export class AkariInspectorWidget extends BaseWidget {
                     : brushFields.filter(field => names.includes(field.name));
                 this.appendSection({ id: view === 'cutout' ? 'photo-cutout' : 'photo-eraser',
                     label: view === 'cutout' ? '背景を消す' : '消しゴム', fields }, rowSnapshot, sectionKind);
+                return;
+            }
+            if (this.aiView === 'still-result' && generationIdentity) {
+                this.appendStillResultPanel(generationIdentity);
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {
@@ -5770,18 +5789,22 @@ export class AkariInspectorWidget extends BaseWidget {
         }).finally(() => { this.stillFalEstimateLoading = undefined; });
     }
 
-    protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
+    protected ensureStillState(identity: { key: string; itemId: string; sourcePath: string; duration: number }): AiStillState {
         let state = this.aiStillStates.get(identity.key);
         if (!state) {
             const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string;
-                reference_images?: Array<{ path: string }> }; output?: { aspect?: StillAspect; resolution?: string } } | undefined;
+                reference_images?: Array<{ path: string }>; extra?: { still_batch?: {
+                    prompt?: string; aspect?: StillAspect; routes?: ImageRouteState['id'][]; references?: string[];
+                    cropToAspect?: boolean; quality?: AiStillState['quality']
+                } } }; output?: { aspect?: StillAspect; resolution?: string } } | undefined;
+            const saved = savedStillInput(meta);
             const [cardWidth, cardHeight] = String(meta?.output?.resolution ?? '').split('x').map(Number);
-            const initialAspect = meta?.output?.aspect ?? (cardWidth > 0 && cardHeight > 0
-                ? nearestStillAspect(cardWidth, cardHeight) : '16:9');
-            state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true,
-                selectedRoutes: new Set(),
-                running: false, references: (meta?.inputs?.reference_images ?? []).filter(ref => !!ref?.path)
-                    .map(ref => ({ path: ref.path })), cropToAspect: savedStillCrop(), falEstimate: this.stillFalEstimate,
+            const initialAspect = saved.aspect;
+            state = { prompt: saved.prompt, aspect: initialAspect, routeId: savedStillRoute(), probing: true,
+                selectedRoutes: new Set(saved.routes), selectionTouched: saved.savedRoutes,
+                running: false, references: saved.references.filter(Boolean).map(path => ({ path })),
+                cropToAspect: saved.cropToAspect ?? savedStillCrop(),
+                quality: saved.quality, falEstimate: this.stillFalEstimate,
                 falEstimateError: this.stillFalEstimateError };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
@@ -5808,11 +5831,19 @@ export class AkariInspectorWidget extends BaseWidget {
                     if (this.aiView === 'still') this.render();
                 }).catch(() => { state!.preferencesLoaded = true; });
                 void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId })
-                    .then(batch => { if (this.aiStillStates.get(identity.key) === state && batch.candidates.length) {
-                        state!.batch = batch; if (this.aiView === 'still') this.render();
+                    .then(batch => { if (this.aiStillStates.get(identity.key) === state
+                        && (batch.candidates.length || batch.results?.length || batch.running)) {
+                        state!.batch = batch; if (this.aiView === 'still' || this.aiView === 'still-result') this.render();
                     } }).catch(() => undefined);
             }
         }
+        return state;
+    }
+
+    protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
+        const state = typeof this.ensureStillState === 'function'
+            ? this.ensureStillState(identity) : this.aiStillStates.get(identity.key);
+        if (!state) return;
         appendAiStillPanel(this.body, state, {
             change: aspect => {
                 const current = this.generationIdentity ? this.generationIdentity(this.model.snapshot) : identity;
@@ -5831,14 +5862,37 @@ export class AkariInspectorWidget extends BaseWidget {
             },
             probe: () => { void this.probeStillRoute(identity.key); },
             generate: () => { void this.startStillGeneration(identity); },
-            retry: route => { void this.startStillGeneration(identity, [route], state!.batchInput); },
-            selectCandidate: candidate => { void this.selectStillCandidate(identity, candidate); },
-            adoptCandidate: () => { void this.adoptStillCandidate(identity); },
-            cancel: () => { void this.cancelStillGeneration(identity); },
+            showResult: () => { this.showStillResult(); },
             addReference: path => { void this.addStillReference(identity.key, path); },
             chooseReference: () => { void this.chooseStillReference(identity.key); },
             captureReference: () => { void this.captureStillReference(identity.key); },
             openConnections: () => { void this.commandRegistry.executeCommand('akari.settings.open', 'connections'); }
+        });
+    }
+
+    protected showStillResult(): void {
+        this.aiView = 'still-result';
+        this.rememberedView.scrollTop = 0;
+        this.node.scrollTop = 0;
+        this.render();
+    }
+
+    protected appendStillResultPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
+        const state = this.ensureStillState(identity);
+        const input = state.batchInput ?? { prompt: state.prompt, aspect: state.aspect };
+        const candidates = state.batch?.candidates ?? [];
+        const inFramePath = candidates.some(row => row.ok && row.relativePath === identity.sourcePath)
+            ? identity.sourcePath : undefined;
+        appendAiStillResultPanel(this.body, {
+            prompt: input.prompt, aspect: input.aspect, batch: state.batch, running: state.running,
+            inFramePath, error: state.error,
+            actions: {
+                home: () => { this.aiView = 'tiles'; this.render(); },
+                redo: () => { this.aiView = 'still'; this.render(); },
+                toVideo: () => { this.aiView = 'video'; this.render(); },
+                cancel: () => { void this.cancelStillGeneration(identity); },
+                select: candidate => { if (candidate.relativePath) void this.putStillCandidate(identity, candidate.relativePath); }
+            }
         });
     }
 
@@ -6113,8 +6167,10 @@ export class AkariInspectorWidget extends BaseWidget {
         state.batchInput = input;
         state.timelineProgressKey = undefined;
         state.polling = false;
+        state.lastPolledAt = undefined;
         state.batch = { routes, completed: 0, candidates: state.batch?.candidates.filter(row => row.ok) ?? [],
             results: [], running: true };
+        if (this.generationIdentity?.(this.model.snapshot)?.itemId === identity.itemId) this.showStillResult();
         this.renderStillProgress();
         if (this.aiStillTick) window.clearInterval(this.aiStillTick);
         this.aiStillTick = window.setInterval(() => {
@@ -6127,9 +6183,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 row.setAttribute('data-akari-inspector-ai-progress-elapsed', String(elapsed));
                 row.textContent = `◌ ${stillRouteLabel(route)} · ${elapsed} 秒`;
             }
-            if (state.polling) return;
+            if (state.polling || Date.now() - (state.lastPolledAt ?? 0) < 1000) return;
+            state.lastPolledAt = Date.now();
             state.polling = true;
-            void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId,
+            state.pollingPromise = this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId,
                 includeThumbnails: false })
                 .then(async batch => { if (state.running) {
                     const previous = state.batch;
@@ -6152,22 +6209,27 @@ export class AkariInspectorWidget extends BaseWidget {
                         this.renderStillProgress();
                     }
                 } }).catch(error => console.warn('[akari-still] 候補の進捗を読めませんでした', error))
-                .finally(() => { state.polling = false; });
+                .finally(() => { state.polling = false; state.pollingPromise = undefined; });
         }, 100);
         try {
-            await this.layerAudioService.startGenerateStillBatch({ projectRootUri: root.toString(),
+            const completed = await this.layerAudioService.startGenerateStillBatch({ projectRootUri: root.toString(),
                 ...activeEditRequest(root),
                 itemId: identity.itemId, prompt: input.prompt, aspect: input.aspect, routes,
                 references: input.references, cropToAspect: input.cropToAspect,
                 quality: input.quality, approved: estimate > 0 });
+            if (this.aiStillTick) window.clearInterval(this.aiStillTick);
+            this.aiStillTick = undefined;
+            if (state.pollingPromise) await state.pollingPromise;
             if (!state.running) return;
+            const first = firstSuccessfulStillCandidate(completed);
+            if (first?.relativePath) await this.putStillCandidate(identity, first.relativePath, root);
             const saved = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), ...activeEditRequest(root), itemId: identity.itemId });
             state.batch = { ...saved, routes, completed: routes.length, running: false };
             this.refreshStillTimelineProgress?.(root, state, state.batch);
             this.generationTabMeta.delete(identity.key);
             this.generationStates.delete(identity.key);
             const current = this.generationIdentity(this.model.snapshot);
-            if (current) void this.loadGeneration(current);
+            if (current?.itemId === identity.itemId) void this.loadGeneration(current);
         } catch (error) {
             state.error = error instanceof Error ? error.message : String(error);
         } finally {
@@ -6179,8 +6241,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected renderStillProgress(): void {
-        if (this.aiView !== 'still') return;
-        this.rememberedView = { ...this.rememberedView, scrollTop: this.node.scrollTop };
+        if (this.aiView !== 'still' && this.aiView !== 'still-result') return;
         this.render();
     }
 
@@ -6196,46 +6257,43 @@ export class AkariInspectorWidget extends BaseWidget {
         void timeline?.reloadGenerationSidecars?.();
     }
 
-    protected async selectStillCandidate(identity: { key: string; itemId: string }, candidate: StillCandidate): Promise<void> {
+    protected async putStillCandidate(identity: { key: string; itemId: string }, relativePath: string,
+        root = this.workspaceService.tryGetRoots()[0]?.resource): Promise<void> {
         const state = this.aiStillStates.get(identity.key);
-        const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        if (!state || !root || !candidate.relativePath) return;
-        state.pickedCandidate = state.pickedCandidate === candidate.relativePath ? undefined : candidate.relativePath;
-        this.previewedStillItemId = state.pickedCandidate ? identity.itemId : undefined;
-        const file = state.pickedCandidate ? candidate.thumbnail : undefined;
-        try {
-            const edit = JSON.parse((await this.fileService.readFile(currentTimelineEditUri(root))).value.toString());
-            const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === identity.itemId);
-            if (!item?.source?.src) return;
-            window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
-                ...activeEditRequest(root), sourceId: item.source.src,
-                itemId: identity.itemId, imageUrl: file ?? null
-            } }));
-        } catch (error) { state.error = String(error); }
-        this.render();
-    }
-
-    protected async adoptStillCandidate(identity: { key: string; itemId: string }): Promise<void> {
-        const state = this.aiStillStates.get(identity.key);
-        const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        const selected = state?.pickedCandidate;
-        if (!state || !root || !selected || state.running) return;
+        if (!root || !relativePath) return;
         const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
             const location = (widget as unknown as { location?: { root?: URI } }).location;
             return !widget.isDisposed && location?.root?.toString() === root.toString();
         }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
-        if (!timeline?.commitEditMutation) { state.error = 'タイムラインの編集履歴が見つかりません。'; this.render(); return; }
-        await timeline.commitEditMutation('この案を使う', doc => replaceStillInEdit(doc, identity.itemId, selected));
-        state.pickedCandidate = undefined;
-        this.previewedStillItemId = undefined;
-        window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
-            ...activeEditRequest(root), sourceId: null, itemId: identity.itemId, imageUrl: null
-        } }));
-        this.generationTabMeta.delete(identity.key);
-        this.generationStates.delete(identity.key);
-        const current = this.generationIdentity(this.model.snapshot);
-        if (current) void this.loadGeneration(current);
-        this.render();
+        if (!timeline?.commitEditMutation) {
+            if (state) state.error = 'タイムラインの編集履歴が見つかりません。';
+            this.render();
+            return;
+        }
+        try {
+            let result: { result?: { committed?: boolean } } | undefined;
+            for (let attempt = 0; attempt < 4; attempt++) {
+                try {
+                    result = (await timeline.commitEditMutation('静止画を入れる',
+                        doc => placeStillInEdit(doc, identity.itemId, relativePath))) as typeof result;
+                    break;
+                } catch (error) {
+                    const code = (error as { code?: string })?.code;
+                    if (attempt === 3 || !['EPERM', 'EBUSY', 'EACCES'].includes(code ?? '')
+                        && !/\b(?:EPERM|EBUSY|EACCES)\b/u.test(String(error))) throw error;
+                    await new Promise(resolve => setTimeout(resolve, 120 * (attempt + 1)));
+                }
+            }
+            if (result?.result?.committed === false) return;
+            this.generationTabMeta.delete(identity.key);
+            this.generationStates.delete(identity.key);
+            const current = this.generationIdentity(this.model.snapshot);
+            if (current?.itemId === identity.itemId) void this.loadGeneration(current);
+            this.render();
+        } catch (error) {
+            if (state) state.error = error instanceof Error ? error.message : String(error);
+            this.render();
+        }
     }
 
     protected async cancelStillGeneration(identity: { key: string; itemId: string }): Promise<void> {
@@ -6436,7 +6494,23 @@ export class AkariInspectorWidget extends BaseWidget {
                 planned.add(identity.sourcePath);
                 this.frameAspectPlanned?.set(identity.key, planned);
             } else if (sourceMeta?.status) this.frameAspectPlanned?.get(identity.key)?.delete(identity.sourcePath);
-            this.generationTabMeta.set(identity.key, sourceMeta ?? {});
+            let stillCandidateCount = 0;
+            const compareJob = sourceMeta?.job as { provider?: string; candidates?: number;
+                results?: Array<{ ok?: boolean; path?: string }> } | undefined;
+            if ((typeof aiGenerationKindFor === 'function'
+                ? aiGenerationKindFor(sourceMeta as Parameters<typeof aiGenerationKindFor>[0])
+                : sourceMeta?.kind === 'still' ? 'still' : 'video') === 'still') {
+                stillCandidateCount = Math.max(compareJob?.candidates ?? 0,
+                    compareJob?.results?.filter(result => result.ok && result.path).length ?? 0);
+                if (!stillCandidateCount) {
+                    try {
+                        const batch = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(),
+                            ...activeEditRequest(root), itemId: identity.itemId, includeThumbnails: false });
+                        stillCandidateCount = batch.candidates.filter(candidate => candidate.ok).length;
+                    } catch { /* The sidecar status still determines the initial view. */ }
+                }
+            }
+            this.generationTabMeta.set(identity.key, { ...sourceMeta, stillCandidateCount });
             let draft = sourceMeta?.kind === 'video' && sourceMeta.candidate_of === identity.itemId
                 ? undefined : generationFields.fromMeta(sourceMeta);
             if (/\.(?:mp4|mov|webm|m4v)$/iu.test(identity.sourcePath)) {

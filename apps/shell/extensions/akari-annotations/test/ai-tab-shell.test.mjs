@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } from '../lib/browser/inspector/ai-tiles.js';
+import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } from '../lib/browser/inspector/ai-tiles.js';
 import { tabsForKind } from '../lib/browser/inspector/tab-model.js';
 
 const models = [{ id: 'fal:h3-i2v', kind: 'video', provider: 'fal', family: 'MiniMax H3', price: { by_resolution: { '768P': 0.1 } } }];
@@ -95,6 +95,48 @@ for (const [name, state, done, expected] of [
   });
 }
 
+for (const [name, state, candidates, expected] of [
+  ['生成中', 'generating', 0, 'still-result'],
+  ['候補あり', 'done', 1, 'still-result'],
+  ['失敗', 'failed', 0, 'still-result'],
+  ['候補なし', 'planned', 0, 'tiles'],
+  ['stale で候補なし', 'stale', 0, 'tiles']
+]) {
+  test(`aiTabViewFor: 静止画の${name}`, () => {
+    assert.equal(aiTabViewFor({ clipKey: 'a', generationKind: 'still', generationState: state,
+      stillCandidateCount: candidates }), expected);
+  });
+}
+
+test('aiTabViewFor: 別クリップでは静止画の結果を開き、何もない枠はホームを開く', () => {
+  assert.equal(aiTabViewFor({ clipKey: 'b', previousClipKey: 'a', previousView: 'video',
+    generationKind: 'still', generationState: 'generating' }), 'still-result');
+  assert.equal(aiTabViewFor({ clipKey: 'b', previousClipKey: 'a', previousView: 'still-result',
+    generationKind: 'still', generationState: 'planned', stillCandidateCount: 0 }), 'tiles');
+});
+
+test('空の枠の動画 compare は sidecar が still でも動画を開く', () => {
+  const meta = { kind: 'still', status: 'generating', job: { provider: 'compare', routes: ['fal:h3-i2v'] } };
+  assert.equal(aiGenerationKindFor(meta), 'video');
+  assert.equal(aiTabViewFor({ clipKey: 'frame', generationKind: aiGenerationKindFor(meta),
+    generationState: meta.status }), 'video');
+  assert.equal(aiGenerationKindFor({ ...meta, status: 'failed', job: {
+    ...meta.job, results: [{ path: 'assets/generated/candidates/frame/fal.mp4' }]
+  } }), 'video');
+  assert.equal(aiGenerationKindFor({ ...meta, status: 'generating', job: {
+    provider: 'compare', routes: ['codex', 'grok']
+  } }), 'still');
+});
+
+test('sidecar 読込前のホームは読込後に結果へ決め直せる', () => {
+  const opening = aiTabViewFor({ clipKey: 'frame', previousClipKey: 'other', previousView: 'tiles' });
+  assert.equal(opening, 'tiles');
+  assert.equal(aiTabViewFor({ clipKey: 'frame', previousClipKey: 'frame', previousView: opening,
+    generationKind: 'still', stillCandidateCount: 1 }), 'tiles');
+  assert.equal(aiTabViewFor({ clipKey: 'frame', previousClipKey: 'frame', previousView: opening,
+    generationKind: 'still', stillCandidateCount: 1, reconsiderAfterSidecar: true }), 'still-result');
+});
+
 test('aiTabViewFor: 同じクリップの選び直しは画面を保ち、別クリップは状態から選ぶ', () => {
   assert.equal(aiTabViewFor({ clipKey: 'a', previousClipKey: 'a', previousView: 'video', generationState: 'planned' }), 'video');
   assert.equal(aiTabViewFor({ clipKey: 'a', previousClipKey: 'a', previousView: 'tiles', generationState: 'failed' }), 'tiles');
@@ -104,4 +146,8 @@ test('aiTabViewFor: 同じクリップの選び直しは画面を保ち、別ク
 
 test('aiTabViewFor: route が 0 本で identity があれば以前の一覧より専用パネルを優先', () => {
   assert.equal(aiTabViewFor({ clipKey: 'a', previousClipKey: 'a', previousView: 'tiles', forcePanel: true }), 'video');
+  assert.equal(aiTabViewFor({ clipKey: 'a', generationKind: 'still', forcePanel: true,
+    generationState: 'planned', stillCandidateCount: 0 }), 'tiles');
+  assert.equal(aiTabViewFor({ clipKey: 'a', generationKind: 'still', forcePanel: true,
+    generationState: 'generating' }), 'still-result');
 });

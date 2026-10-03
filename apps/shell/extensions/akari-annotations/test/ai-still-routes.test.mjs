@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } from '../lib/node/still-generation.js';
 import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
 import { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
+import { appendAiStillResultPanel } from '../lib/browser/inspector/ai-still-result-panel.js';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
 
@@ -404,6 +405,50 @@ test('一手段の失敗は他の候補と edit を壊さず、有料の拒否�
     const reloaded = await instance.readStillCandidates(dir, 'clip-1');
     assert.equal(reloaded.candidates.filter(row => row.ok).length, 2);
     assert.equal(reloaded.candidates.find(row => row.route === 'grok').ok, false);
+    const sourceMeta = JSON.parse(await readFile(join(dir, 'assets/generated/old.png.meta.json'), 'utf8'));
+    assert.equal(sourceMeta.inputs.prompt, request.prompt);
+    assert.deepEqual(sourceMeta.inputs.extra.still_batch.routes, ['codex', 'antigravity', 'grok']);
+    const candidateMeta = JSON.parse(await readFile(join(dir,
+      `${result.candidates.find(row => row.ok).relativePath}.meta.json`), 'utf8'));
+    assert.deepEqual(validateGenerationMeta(candidateMeta), { ok: true, errors: [] });
+    assert.equal(candidateMeta.inputs.prompt, request.prompt);
+    assert.equal(candidateMeta.inputs.extra.still_batch.prompt, request.prompt);
+    assert.equal(candidateMeta.inputs.extra.still_batch.aspect, request.aspect);
+    assert.equal(candidateMeta.inputs.extra.still_batch.generation_prompt.includes('16:9'), true);
+    assert.equal(candidateMeta.inputs.extra.still_batch.results.find(row => row.route === 'grok').ok, false);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('枠の source を候補に替えたあとも入力と失敗行を読み直せる', async () => {
+  const dir = await workspace();
+  try {
+    const relativePath = 'assets/generated/candidates/clip-1/codex-1.png';
+    const candidatePath = join(dir, relativePath);
+    await mkdir(join(dir, 'assets/generated/candidates/clip-1'), { recursive: true });
+    await writeFile(candidatePath, 'png fixture');
+    await writeFile(`${candidatePath}.meta.json`, JSON.stringify({ kind: 'still', status: 'done',
+      candidate_of: 'clip-1', route: 'codex', result: { width: 1024, height: 576, elapsed_s: 5 },
+      inputs: { prompt: 'A garden', extra: { still_batch: {
+        prompt: 'A garden', aspect: '16:9', routes: ['codex', 'grok'], references: [],
+        results: [{ route: 'codex', ok: true, path: relativePath },
+          { route: 'grok', ok: false, reason: 'failed' }], completed: 2 } } },
+      job: { provider: 'codex' } }));
+    const edit = JSON.parse(await readFile(join(dir, 'edit.json'), 'utf8'));
+    edit.sources[0].path = relativePath;
+    await writeFile(join(dir, 'edit.json'), JSON.stringify(edit));
+    const batch = await manager(dir).readStillCandidates(dir, 'clip-1', false);
+    assert.deepEqual(batch.routes, ['codex', 'grok']);
+    assert.equal(batch.completed, 2);
+    assert.equal(batch.results[0].relativePath, relativePath);
+    assert.equal(batch.results[1].reason, 'failed');
+    const sourceMeta = JSON.parse(await readFile(`${candidatePath}.meta.json`, 'utf8'));
+    sourceMeta.job = { provider: 'compare', routes: ['grok'], completed: 1,
+      results: [{ route: 'grok', ok: false, reason: 'latest failure' }] };
+    await writeFile(`${candidatePath}.meta.json`, JSON.stringify(sourceMeta));
+    const failedBatch = await manager(dir).readStillCandidates(dir, 'clip-1', false);
+    assert.deepEqual(failedBatch.routes, ['grok']);
+    assert.equal(failedBatch.completed, 1);
+    assert.equal(failedBatch.results[0].reason, 'latest failure');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -477,13 +522,13 @@ test('次のバッチの進捗は前回結果を拾わず、候補一覧は重�
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('候補と失敗行は手段 id ではなく表示名を使う', () => {
+test('結果の案と失敗行は手段 id ではなく表示名を使う', () => {
   assert.equal(stillRouteLabel('codex'), 'ChatGPT（Codex）');
   assert.equal(stillRouteLabel('antigravity'), 'Antigravity');
   assert.equal(stillRouteLabel('grok'), 'Grok');
   assert.equal(stillRouteLabel('fal'), 'fal · GPT Image 2.5 Flare');
   class Node {
-    constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.style = {}; this.textContent = ''; }
+    constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.style = {}; this.textContent = ''; this.classList = { add() {} }; }
     append(...nodes) { this.children.push(...nodes); }
     appendChild(node) { this.children.push(node); return node; }
     setAttribute(key, value) { this.attributes.set(key, value); }
@@ -493,16 +538,16 @@ test('候補と失敗行は手段 id ではなく表示名を使う', () => {
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: tag => new Node(tag) } });
   try {
     const parent = new Node('root');
-    appendAiStillPanel(parent, { prompt: 'garden', aspect: '16:9', selectedRoutes: new Set(['codex']), probing: false,
-      running: false, routes: [{ id: 'codex', state: 'ready', detail: '' }], batch: {
+    appendAiStillResultPanel(parent, { prompt: 'garden', aspect: '16:9', running: false, batch: {
         routes: ['codex', 'antigravity'], completed: 2, running: false,
-        results: [{ route: 'codex', ok: true }, { route: 'antigravity', ok: false, reason: 'error' }],
+        results: [{ route: 'codex', ok: true, relativePath: 'assets/generated/candidates/x/codex-1.png' },
+          { route: 'antigravity', ok: false, reason: 'error' }],
         candidates: [{ route: 'codex', ok: true, relativePath: 'assets/generated/candidates/x/codex-1.png', width: 320, height: 180 },
           { route: 'antigravity', ok: false, reason: 'error' }]
-      } }, { change() {}, probe() {}, generate() {}, cancel() {} });
+      }, actions: { home() {}, redo() {}, toVideo() {}, cancel() {}, select() {} } });
     const walk = node => [node, ...node.children.flatMap(walk)];
     const nodes = walk(parent);
-    assert.match(nodes.find(row => row.attributes.get('data-akari-inspector-ai-candidate'))?.children[1].textContent, /ChatGPT（Codex）/u);
-    assert.match(nodes.find(row => row.attributes.get('data-akari-inspector-ai-failed-route'))?.textContent, /Antigravity · 失敗/u);
+    assert.match(nodes.find(row => row.attributes.get('data-akari-inspector-ai-result-candidate'))?.children[1].textContent, /ChatGPT（Codex）/u);
+    assert.match(nodes.find(row => row.attributes.get('data-akari-inspector-ai-result-failed'))?.textContent, /Antigravity · 失敗/u);
   } finally { if (previous) Object.defineProperty(globalThis, 'document', previous); else delete globalThis.document; }
 });

@@ -1932,10 +1932,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }, true);
         // Capture only the frame tool: existing clip/marquee listeners remain unchanged.
         this.strip.addEventListener('pointerdown', event => {
-            if (this.toolMode === 'frame') this.onStripPointerDown(event);
+            if (this.toolMode === 'frame' && !this.frameToolSelectionTarget(event)) this.onStripPointerDown(event);
         }, true);
         this.strip.addEventListener('click', event => {
-            if (this.toolMode === 'frame') { event.preventDefault(); event.stopImmediatePropagation(); }
+            if (this.toolMode === 'frame' && !this.frameToolSelectionTarget(event)) {
+                event.preventDefault(); event.stopImmediatePropagation();
+            }
         }, true);
         this.toDispose.push({ dispose: () => this.cancelFrameDraw?.() });
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
@@ -15640,7 +15642,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         });
         element.addEventListener('pointermove', event => {
-            if (this.toolMode !== 'select' || this.dragState) {
+            if ((this.toolMode !== 'select' && this.toolMode !== 'frame') || this.dragState) {
                 return;
             }
             const rect = this.expandedChipHitRect(element);
@@ -18036,8 +18038,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected frameToolSelectionTarget(event: Event): boolean {
+        const target = event.target instanceof Element ? event.target : undefined;
+        return !!target?.closest('[data-akari-item-kind], .akari-track-header-row, .akari-annotations-pin, .akari-beat-marker');
+    }
+
     protected onStripPointerDown(event: PointerEvent): void {
         if (this.toolMode === 'frame') {
+            if (this.frameToolSelectionTarget(event)) return;
             event.preventDefault();
             event.stopImmediatePropagation();
             if (event.button === 0) this.beginFrameDraw(event);

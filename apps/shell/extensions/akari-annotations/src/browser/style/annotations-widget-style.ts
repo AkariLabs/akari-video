@@ -425,7 +425,6 @@ export const ANNOTATIONS_WIDGET_CSS = `
         background: transparent;
         pointer-events: auto;
     }
-    .akari-annotations-tool-frame [data-akari-item-kind] { cursor: crosshair !important; }
     .akari-annotations-frame-draw {
         position: absolute; box-sizing: border-box; pointer-events: none; z-index: 50;
         border: 2px dashed #b69aff; background: rgba(151, 104, 235, .18);
