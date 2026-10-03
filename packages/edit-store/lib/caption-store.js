@@ -22,6 +22,7 @@ const caption_words_rederive_1 = require("./caption-words-rederive");
 const caption_runs_1 = require("./caption-runs");
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_merge_1 = require("./textstyle-catalog-merge");
+const caption_display_1 = require("./caption-display");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -1038,6 +1039,17 @@ function normalizeTextStyle(value, onUnknownKeys) {
         onUnknownKeys?.(unknownKeys);
     }
     const style = {};
+    // Use the display contract's v1 validator for each rich field independently.
+    // A malformed field must not discard its sibling or the rest of the caption.
+    for (const key of ['fill', 'strokes']) {
+        if (value[key] === undefined)
+            continue;
+        try {
+            (0, caption_display_1.validateCaptionTextStyle)({ [key]: value[key] });
+            style[key] = value[key];
+        }
+        catch { /* ignore this field only */ }
+    }
     if (isHexColor(value.color)) {
         style.color = value.color;
     }
@@ -1392,8 +1404,10 @@ function textStyleToJson(style) {
                 ...(style.stroke.widthPx !== undefined ? { width_px: style.stroke.widthPx } : {})
             }
         } : {}),
+        ...(style.strokes !== undefined ? { strokes: style.strokes } : {}),
         ...(style.strokeInner !== undefined ? { stroke_inner: richStyleToJson('stroke_inner', style.strokeInner) } : {}),
         ...(style.fillGradient !== undefined ? { fill_gradient: richStyleToJson('fill_gradient', style.fillGradient) } : {}),
+        ...(style.fill !== undefined ? { fill: style.fill } : {}),
         ...(style.extrude !== undefined ? { extrude: richStyleToJson('extrude', style.extrude) } : {}),
         ...(style.background !== undefined ? {
             background: {

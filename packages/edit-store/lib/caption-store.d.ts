@@ -86,6 +86,12 @@ export interface CaptionTextStyle {
         color?: string;
         widthPx?: number;
     };
+    strokes?: Array<{
+        color: string;
+        width_px: number;
+        offset_x?: number;
+        offset_y?: number;
+    }>;
     strokeInner?: {
         color?: string;
         widthPx?: number;
@@ -93,6 +99,31 @@ export interface CaptionTextStyle {
     fillGradient?: {
         colors: string[];
         angleDeg: number;
+    };
+    fill?: {
+        type: 'solid';
+        color: string;
+    } | {
+        type: 'gradient';
+        stops: Array<{
+            at: number;
+            color: string;
+        }>;
+        angle_deg: number;
+    } | {
+        type: 'pattern';
+        pattern: {
+            id: string;
+            scale: number;
+            fg: string;
+            bg: string | {
+                stops: Array<{
+                    at: number;
+                    color: string;
+                }>;
+                angle_deg: number;
+            };
+        };
     };
     extrude?: {
         depthPx: number;
