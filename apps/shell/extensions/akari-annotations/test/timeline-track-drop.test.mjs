@@ -6,6 +6,7 @@ import {
   hitTestTimelineTrackDrop,
   planDragAutoScroll
 } from '../lib/common/timeline-track-drop.js';
+import * as trackDrop from '../lib/common/timeline-track-drop.js';
 
 const layouts = [
   { id: 'v3', lane: 'visual', acceptsItems: true, rawIndex: 5, track: 2, top: 20, height: 40 },
@@ -75,6 +76,29 @@ test('audio が無ければ最下段から遠く下でも新しい最下段 visu
 
 test('audio 本体は距離に関わらず lane 越えとして拒否する', () => {
   assert.equal(hitTestTimelineTrackDrop(155, layouts, 2).rejected, true);
+});
+
+test('映像は音の行から最も近い置ける映像行へ寄る', () => {
+  assert.deepEqual(hitTestTimelineTrackDrop(170, layouts, 2, () => false), {
+    track: 1, top: 108, height: 40, rejected: false, targetTrackId: 'v2'
+  });
+});
+
+test('映像はロック行を避けて最も近い非ロック行へ寄る', () => {
+  assert.deepEqual(hitTestTimelineTrackDrop(125, layouts, 2, id => id === 'v2'), {
+    track: 2, top: 20, height: 40, rejected: false, targetTrackId: 'v3'
+  });
+});
+
+test('音はロック中の先頭音行を避け、他の音行か新しい音行へ寄る', () => {
+  const audio = [
+    { id: 'a1', lane: 'audio', acceptsItems: true, rawIndex: 1, track: 1, top: 100, height: 40 },
+    { id: 'a2', lane: 'audio', acceptsItems: true, rawIndex: 0, track: 0, top: 146, height: 40 }
+  ];
+  assert.deepEqual(trackDrop.hitTestAudioTrackDrop(120, audio, id => id === 'a1'), {
+    track: 0, top: 146, height: 40, rejected: false, targetTrackId: 'a2'
+  });
+  assert.equal(trackDrop.hitTestAudioTrackDrop(120, audio, () => true), undefined);
 });
 
 const panelRects = {

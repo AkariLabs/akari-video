@@ -84,6 +84,17 @@ test('直和パーサは transition を引き続き受理する', () => {
   assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);
 });
 
+test('overlay payload を有効なキーだけ受理する', () => {
+  const payload = { kind: 'overlay', key: 'overlay/lower-third-clean', id: 'lower-third-clean',
+    category: 'overlay', title: 'テロップ' };
+  assert.deepEqual(parseLibraryDragPayload(payload), payload);
+  assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);
+  for (const invalid of [{ ...payload, key: '../bad' }, { ...payload, category: 'audio' },
+    { ...payload, id: '' }, { ...payload, locked: true }]) {
+    assert.equal(parseLibraryDragPayload(invalid), undefined);
+  }
+});
+
 test('text と textstyle を分けて解析し、text はスタイル指定なしで配置する', () => {
   const textPayload = { kind: 'text' };
   const stylePayload = { kind: 'textstyle', id: 'telop-title' };

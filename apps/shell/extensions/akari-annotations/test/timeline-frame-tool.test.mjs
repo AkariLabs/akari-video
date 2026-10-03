@@ -47,6 +47,7 @@ function commitFixture(service, tracks = [{ id: 'v', lane: 'visual', items: [] }
     showNotice(message) { notices.push(message); },
     commands: { async executeCommand(id, options) { commands.push({ id, options, selection: widget.selection }); } },
     cutItemIds: [], timelineTreeRows: [], errorMessage: e => e.message,
+    playhead: { style: {} }, percent: seconds => seconds * 10, requestSeek: async () => {},
     applySelection(selection) { this.selection = selection; },
     async commitEditMutation(label, mutate) {
       const old = doc; doc = mutate(doc); history.push({ label, undo: () => { doc = old; } });
@@ -81,6 +82,17 @@ test('successful frame selects the item before revealing inspector without attac
   await f.widget.commitEmptyFrame('v', { at: 30, duration: 75 }, 30);
   assert.deepEqual(f.commands, [{ id: 'akari.inspector.open', options: undefined, selection: { kind: 'cut', index: 0 } }]);
   assert.deepEqual(f.notices, ['空の枠を置きました。']);
+});
+test('successful frame moves the playhead to its frame-accurate start', async () => {
+  const f = commitFixture({ createEmptyGenerationFrame: async () => ({ relativePath: 'assets/generated/frame.png' }) });
+  f.widget.playhead = { style: {} };
+  f.widget.percent = seconds => seconds * 10;
+  f.widget.requestSeek = async (seconds, options) => { f.seeks = [...(f.seeks ?? []), { seconds, options }]; };
+  await f.widget.commitEmptyFrame('v', { at: 37, duration: 30 }, 30);
+  assert.equal(f.widget.playheadT, 37 / 30);
+  assert.equal(f.widget.playhead.style.left, `${(37 / 30) * 10}%`);
+  assert.deepEqual(f.seeks, [{ seconds: 37 / 30, options: { domain: 'output' } }]);
+  assert.deepEqual(f.widget.selection, { kind: 'cut', index: 0 });
 });
 test('new frame above occupied video carries half-scale centered transform in edit v2', async () => {
   const f = commitFixture({ createEmptyGenerationFrame: async () => ({ relativePath: 'assets/generated/frame.png' }) }, [

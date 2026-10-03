@@ -4,7 +4,8 @@ import { calculateFrameDraw } from '../lib/common/timeline-frame-draw.js';
 
 for (const fps of [30, 24]) {
   const cases = [
-    ['half-second grid', { start: 1.1, end: 3.4 }, [1, 2.5]],
+    ['frame grid', { start: 1.1, end: 3.4 }, [Math.round(1.1 * fps) / fps,
+      (Math.round(3.4 * fps) - Math.round(1.1 * fps)) / fps]],
     ['near edge beats grid', { start: 1.08, end: 3.38, candidates: [{ time: 1.125 }, { time: 3.375 }] }, [1.125, 2.25]],
     ['playhead beats grid', { start: 1, end: 3.34, candidates: [{ time: 3.375, isPlayhead: true }] }, [1, 2.375]],
     ['stop at right neighbor', { start: 1, end: 9, occupied: [{ at: 4 * fps, duration: fps }] }, [1, 3]],
@@ -12,9 +13,11 @@ for (const fps of [30, 24]) {
     ['short raw drag', { start: 1.24, end: 1.73 }, null],
     ['short remaining gap', { start: 1, end: 3, occupied: [{ at: Math.floor(1.2 * fps), duration: fps }] }, null],
     ['click', { distancePx: 2 }, null],
-    ['right to left', { start: 4.1, end: 1.8 }, [2, 2]],
+    ['right to left', { start: 4.1, end: 1.8 }, [Math.round(1.8 * fps) / fps,
+      (Math.round(4.1 * fps) - Math.round(1.8 * fps)) / fps]],
     ['starts in clip', { start: 1.5, end: 5, occupied: [{ at: fps, duration: fps }] }, null],
-    ['grid cannot move into left neighbor', { start: 1.22, end: 3, occupied: [{ at: 0, duration: Math.floor(1.2 * fps) }] }, [Math.floor(1.2 * fps) / fps, 3 - Math.floor(1.2 * fps) / fps]],
+    ['frame grid cannot move into left neighbor', { start: 1.22, end: 3, occupied: [{ at: 0, duration: Math.floor(1.2 * fps) }] },
+      [Math.round(1.22 * fps) / fps, 3 - Math.round(1.22 * fps) / fps]],
   ];
   for (const [name, overrides, expected] of cases) test(`${fps} fps: ${name}`, () => {
     const result = calculateFrameDraw({ start: 1, end: 3.3, fps, distancePx: 100,
@@ -26,3 +29,8 @@ for (const fps of [30, 24]) {
     assert.ok(Number.isInteger(result.at) && Number.isInteger(result.duration));
   });
 }
+
+test('30 fps: drawing at 1.233 seconds starts on frame 37 rather than a half-second grid', () => {
+  assert.deepEqual(calculateFrameDraw({ start: 1.233, end: 2.233, fps: 30, distancePx: 100,
+    thresholdSeconds: .01, candidates: [], occupied: [] }), { at: 37, duration: 30 });
+});

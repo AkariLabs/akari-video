@@ -15,6 +15,14 @@ export interface LibraryAssetDragPayload {
     title: string;
 }
 
+export interface LibraryOverlayDragPayload {
+    kind: 'overlay';
+    key: string;
+    id: string;
+    category: 'overlay';
+    title: string;
+}
+
 export interface LibraryTextStyleDragPayload {
     kind: 'textstyle';
     id: string;
@@ -42,7 +50,7 @@ export interface LibraryShapeDragPayload {
     preset: string;
 }
 
-export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload | LibraryApplyDragPayload;
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryOverlayDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload | LibraryApplyDragPayload;
 
 export function textPlaceOptions(start: number): { start: number } {
     return { start };
@@ -91,6 +99,14 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return undefined;
     const candidate = decoded as Record<string, unknown>;
     if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
+    if (candidate.kind === 'overlay') {
+        return candidate.category === 'overlay' && candidate.locked !== true && candidate.state !== 'locked'
+            && typeof candidate.id === 'string' && candidate.id.trim().length > 0
+            && candidate.key === `overlay/${candidate.id}`
+            && typeof candidate.title === 'string' && candidate.title.trim().length > 0
+            ? { kind: 'overlay', key: candidate.key, id: candidate.id, category: 'overlay', title: candidate.title }
+            : undefined;
+    }
     if (candidate.kind === 'text') return { kind: 'text' };
     if (candidate.kind === 'textanim' || candidate.kind === 'font' || candidate.kind === 'lut') {
         return typeof candidate.id === 'string' && candidate.id.trim()

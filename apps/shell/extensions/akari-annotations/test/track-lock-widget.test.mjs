@@ -10,6 +10,7 @@ const { indexEditV2Items, removeTreeV2Item } = require('../lib/common/edit-v2-mu
 const { linkedCutIdOf, linkedAudioItemIdOf } = require('@akari-video/edit-store');
 const { withCaptionsDisplaySupplement } = require('../lib/common/derive-timeline-tracks.js');
 const { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } = require('../lib/common/timeline-material-insert.js');
+const { hitTestTimelineTrackDrop } = require('../lib/common/timeline-track-drop.js');
 const source = ts.createSourceFile('widget.ts', readFileSync(
   new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
 ), ts.ScriptTarget.Latest, true);
@@ -38,10 +39,11 @@ const code = ts.transpileModule(`class Handler { ${names.map(methodText).join('\
 class Element {}
 const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_STORAGE_PREFIX', 'Element', 'isOSX',
   'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items', 'removeTreeV2Item',
-  'computeMaterialGhostRange', 'materialGhostRejectLabel', 'materialGhostVisibility', `${code}\nreturn Handler;`)(
+  'computeMaterialGhostRange', 'materialGhostRejectLabel', 'materialGhostVisibility',
+  'hitTestTimelineTrackDrop', 'LANE_GAP', 'SUBROW_STRIDE', `${code}\nreturn Handler;`)(
   isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, process.platform === 'darwin', withCaptionsDisplaySupplement,
   linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items, removeTreeV2Item, computeMaterialGhostRange,
-  materialGhostRejectLabel, materialGhostVisibility
+  materialGhostRejectLabel, materialGhostVisibility, hitTestTimelineTrackDrop, 4, 32
 );
 
 test('a reused clip remains interactive after keyed geometry resets pointer events', () => {
@@ -314,10 +316,19 @@ test('tree row cannot start reordering a locked track', () => {
   assert.match(context.footer.textContent, /本編/);
 });
 
-test('material hover shows a rejected ghost on a locked target, then drop rejects and hides it', () => {
+test('material hover redirects from a locked target, then drop uses the unlocked row and hides the ghost', () => {
   const { context } = fixture();
   context.strip = { getBoundingClientRect: () => ({ top: 0 }) };
-  context.laneLayout = { tracks: [{ id: 'visual', track: 0, top: 0, height: 48 }] };
+  context.editDocument.tracks.push({ id: 'visual-free', lane: 'visual', items: [] });
+  context.laneLayout = { tracks: [
+    { id: 'visual', track: 0, top: 0, height: 48 },
+    { id: 'visual-free', track: 1, top: 56, height: 48 }
+  ] };
+  context.timelineTrackDropLayouts = () => [
+    { id: 'visual', lane: 'visual', acceptsItems: true, rawIndex: 0, track: 0, top: 0, height: 48 },
+    { id: 'visual-free', lane: 'visual', acceptsItems: true, rawIndex: 2, track: 1, top: 56, height: 48 }
+  ];
+  context.isTrackLocked = id => id === 'visual';
   const payload = { kind: 'video', relativePath: 'media.mp4' };
   context.isMaterialDragTransfer = () => true;
   context.materialPanelDropPoint = (x, y) => ({ x, y, zone: 'strip' });
@@ -340,18 +351,20 @@ test('material hover shows a rejected ghost on a locked target, then drop reject
   context.updateMaterialGhost(10, 10);
   assert.equal(context.ghostHidden, false);
   assert.equal(context.materialGhost.style.display, 'block');
-  assert.equal(classes.has('akari-annotations-ghost-rejected'), true);
-  assert.equal(context.materialGhost.textContent, 'ロック中');
-  assert.equal(context.materialGhost.style.outline, '2px solid #f14c4c');
+  assert.equal(classes.has('akari-annotations-ghost-rejected'), false);
+  assert.equal(context.materialGhost.textContent, '');
+  assert.equal(context.materialGhost.style.top, '70px');
   const target = context.resolveMaterialDropTarget('video', 10);
-  assert.equal(target.rejected, true);
-  assert.equal(target.targetTrackId, 'visual');
-  assert.equal(target.reason, lockedTrackMessage('本編'));
+  assert.equal(target.rejected, false);
+  assert.equal(target.targetTrackId, 'visual-free');
+  const placed = [];
+  context.placeMaterialAtTarget = (_payload, destination) => placed.push(destination);
   const event = pointerEvent();
   context.handleMaterialDrop(event);
   assert.equal(event.prevented, true);
   assert.equal(context.ghostHidden, true);
-  assert.equal(context.footer.textContent, lockedTrackMessage('本編'));
+  assert.deepEqual(placed, [target]);
+  assert.equal(context.editDocument.tracks[0].items.length, 2, 'locked row stays intact');
 });
 
 test('transition drop and hover refuse either locked boundary track', () => {
