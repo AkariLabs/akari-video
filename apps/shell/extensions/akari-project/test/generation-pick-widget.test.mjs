@@ -14,6 +14,8 @@ const sourceText = readFileSync(new URL('../src/browser/akari-role-buckets-widge
 const source = ts.createSourceFile('widget.tsx', sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
 const member = name => widget.members.find(item => item.name?.getText(source) === name).getText(source);
+const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
 const names = ['cancelPick', 'openMaterialSwap', 'closeMaterialSwap', 'clearMaterialSwap', 'swapLoadGeneration', 'generationTimelineSelections', 'generationPickSelectionsAtStart', 'handleGenerationPrimarySelected', 'pickInto', 'handleGenerationPickKey', 'onBeforeDetach', 'onCloseRequest', 'onAfterHide',
     'generationCatalogCandidate', 'generationPickCardProps', 'renderGenerationPickBadge', 'renderGenerationPickBand'];
 const code = ts.transpileModule(`class Handler extends Base { ${names.map(member).join('\n')} }`, {
@@ -111,14 +113,15 @@ test('library unplaceable reasons become titles and aria-disabled', async () => 
 });
 
 test('all three renderers wire mode props/badges, preserve normal actions and disable native drag', () => {
+    const materialCardText = pane.members.find(item => item.name?.getText(paneSource) === 'renderMaterialCard').getText(paneSource).replace(/this\.host\./g, 'this.');
     for (const name of ['renderMaterialCard', 'renderCatalogCard', 'renderCatalogListRow']) {
-        const text = member(name);
+        const text = name === 'renderMaterialCard' ? materialCardText : member(name);
         assert.match(text, /generationPickCardProps\(pickCandidate\)/);
         assert.match(text, /renderGenerationPickBadge\(pickCandidate\)/);
         assert.match(text, /!this\.generationPick\.request/);
     }
-    assert.match(member('renderMaterialCard'), /onClick=\{\(\) => \{ if \(!entry\.missing\) void this\.openFile\(entry\.uri\); \}\}/);
-    assert.match(member('renderMaterialCard'), /onContextMenu=\{event => this\.openMaterialContextMenu\(event, entry\)\}/);
+    assert.match(materialCardText, /onClick=\{\(\) => \{ if \(!entry\.missing\) void this\.openFile\(entry\.uri\); \}\}/);
+    assert.match(materialCardText, /onContextMenu=\{event => this\.openMaterialContextMenu\(event, entry\)\}/);
     assert.match(member('generationPick'), /key => this\.resolveCatalogMaterial\(key\)/);
     assert.match(member('init'), /removeEventListener\('keydown', this\.handleGenerationPickKey, true\)/);
     assert.match(member('init'), /this\.generationPick\.cancel\(\)/);
