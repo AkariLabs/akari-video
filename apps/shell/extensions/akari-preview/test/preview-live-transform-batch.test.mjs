@@ -25,7 +25,7 @@ function sendThroughRelay(request) {
   }).outputText;
   const Widget = new Function('TIMELINE_LIVE_TRANSFORM_EVENT', `${widgetJs}; return Widget;`)(eventName);
   const relayCode = between(previewSource, 'const onLiveTransform = (event: Event): void => {',
-    'window.addEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform);');
+    'this.lifecycleDisposables.push(listen(window, TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform');
   const relayJs = ts.transpileModule(relayCode, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 }
   }).outputText;

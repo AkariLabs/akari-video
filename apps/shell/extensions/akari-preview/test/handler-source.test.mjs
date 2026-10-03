@@ -37,7 +37,7 @@ test('all extracted scripts and compiled files are present and nonempty', () => 
 test('sliceBetween matches the original range and rejects missing or reversed anchors', () => {
   const source = readHandlerSource();
   const start = 'const onAdjustBypass =';
-  const end = 'window.addEventListener(TIMELINE_ADJUST_BYPASS_EVENT';
+  const end = 'listen(window, TIMELINE_ADJUST_BYPASS_EVENT';
   assert.equal(sliceBetween(start, end), source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start))));
   assert.throws(() => sliceBetween('missingStartAnchor', end), /missingStartAnchor/u);
   assert.throws(() => sliceBetween(start, 'missingEndAnchor'), /missingEndAnchor/u);

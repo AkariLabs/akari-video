@@ -57,7 +57,7 @@ test('preview multi-move sends one batch request while keeping all-captions mode
 
 test('timeline caption selection message carries IDs and primary into the webview', () => {
     const source = readHandlerSource();
-    assert.match(source, /window\.addEventListener\('akari\.timeline\.captionSelectionChanged', onTimelineCaptionSelectionChanged\)/u);
+    assert.match(source, /listen\(window, 'akari\.timeline\.captionSelectionChanged', onTimelineCaptionSelectionChanged\)/u);
     assert.match(source, /sendMessage\(\{ type: 'akari-preview-set-selected-captions', \.\.\.selection \}\)/u);
     assert.match(source, /selectedCaptionIds = new Set\(Array\.isArray\(message\.captionIds\)/u);
     assert.match(source, /selectCaption\(selectedCaptionIds\.has\(message\.primaryCaptionId\)/u);
