@@ -64,6 +64,24 @@ test('moved guards remain complete source functions and compiled exports', () =>
   assert.equal(Object.keys(compiled).length, guards.length);
 });
 
+test('moved pure helpers remain complete source functions and compiled exports', () => {
+  const modules = [
+    ['preview-host-values', ['defaultSessionSettings', 'resolveReviewStrokeCutIndex', 'nearestPreviewRatePreset', 'runStyleChoices', 'detectUnsupportedGltfExtensions', 'captionWriteLabel', 'objectRecord']],
+    ['preview-host-uris', ['normalizeReviewEditUri', 'reviewEditUriForPreview', 'previewProxyUri']],
+  ];
+  for (const [module, names] of modules) {
+    const compiled = require(`../lib/browser/${module}.js`);
+    assert.equal(Object.keys(compiled).length, names.length);
+    for (const name of names) {
+      const body = methodBody(name);
+      assert.match(body, new RegExp(`^export function ${name}\\(`, 'u'));
+      assert.match(body, /\n\}$/u);
+      assert.ok(body.length > `export function ${name}() {\n}`.length);
+      assert.equal(typeof compiled[name], 'function', name);
+    }
+  }
+});
+
 test('moved modules exist and compiled constants match source exports', () => {
   for (const relative of [...HANDLER_SOURCE_FILES, ...HANDLER_COMPILED_FILES]) {
     assert.ok(readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8').length > 0, relative);

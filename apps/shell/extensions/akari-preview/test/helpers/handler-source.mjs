@@ -9,6 +9,8 @@ export const HANDLER_SOURCE_FILES = [
   'src/browser/preview-host-types.ts',
   'src/browser/preview-host-constants.ts',
   'src/browser/preview-host-message-guards.ts',
+  'src/browser/preview-host-values.ts',
+  'src/browser/preview-host-uris.ts',
   'src/browser/preview-script-diagnostics.ts',
   'src/browser/preview-script-frame-engine-watchdog.ts',
   'src/browser/preview-script-frame-engine-bootstrap.ts',
