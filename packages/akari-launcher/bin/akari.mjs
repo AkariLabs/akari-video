@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { run, runUpdateCommand } from '../src/cli.mjs';
+import { run, runSubcommands, runUpdateCommand } from '../src/cli.mjs';
 import { runInitCommand } from '../src/init-command.mjs';
 import { runNewCommand } from '../src/new-command.mjs';
 import { runNarrationCommand } from '../src/narration-command.mjs';
@@ -22,11 +22,6 @@ import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
 import { describeCliHelp, describeInstalledVersions, firstArgumentTypoError } from '../src/messages.mjs';
 import { suggestFirstArgument } from '../src/first-arg-guard.mjs';
-import { runDecisionLogCommand } from '../src/decision-log-command.mjs';
-import { runCaptionsCommand } from '../src/captions-command.mjs';
-import { runCaptureCommand } from '../src/capture-command.mjs';
-import { runMediaCommand } from '../src/media-command.mjs';
-import { runWordBookCommand } from '../src/word-book-command.mjs';
 
 // `akari --version` / `-v`: インストール済みの版を表示するだけの最小コマンド
 // （タスク契約 2026-08-11-update-u4-cli-self-update の受け入れ条件 —
@@ -59,8 +54,8 @@ async function printCliHelp() {
 // タスク契約 launcher-init（内部リポ）/ 音源カタログ既定化のオーナー裁定 2026-08-03 /
 // AKARI Store 連携 / タスク契約 2026-08-09-agent-assets-discovery）。
 // それ以外の引数はすべて従来どおり claude へ転送する。
-// 候補一覧は、この振り分け表のキーから作る。run を直接呼ぶ利用者のため、
-// cli.mjs 側にある 5 コマンドの分岐は残す。入口では同じ引数で直接呼ぶ。
+// 候補一覧は、この表と cli.mjs の振り分け表のキーから作る。
+// 後者のコマンドは run を通し、直接 run を呼ぶ利用者とも呼び方を揃える。
 const commands = {
   doctor: runDoctorCommand,
   update: runUpdateCommand,
@@ -81,15 +76,21 @@ const commands = {
   generate: runGenerateCommand,
   storyboard: runStoryboardCommand,
   world: runWorldCommand,
-  'decision-log': runDecisionLogCommand,
-  captions: runCaptionsCommand,
-  capture: runCaptureCommand,
-  media: runMediaCommand,
-  'word-book': runWordBookCommand,
+};
+
+// トップレベルのフラグも、振り分けと候補判定に同じ表を使う。
+const flags = {
+  '--version': printVersion,
+  '-v': printVersion,
+  '--help': printCliHelp,
+  '-h': printCliHelp,
 };
 
 async function main(argv) {
-  const suggestion = suggestFirstArgument(argv[0], Object.keys(commands));
+  const suggestion = suggestFirstArgument(argv[0], {
+    flags: Object.keys(flags),
+    commands: [...Object.keys(commands), ...Object.keys(runSubcommands)],
+  });
   if (suggestion) {
     console.error(firstArgumentTypoError(argv[0], suggestion));
     return { exitCode: 2 };
@@ -112,8 +113,7 @@ async function main(argv) {
   }
   refreshEntrySkillOnLaunch({ env: process.env });
 
-  if (argv[0] === '--version' || argv[0] === '-v') return printVersion();
-  if (argv[0] === '--help' || argv[0] === '-h') return printCliHelp();
+  if (Object.hasOwn(flags, argv[0])) return flags[argv[0]]();
   if (Object.hasOwn(commands, argv[0])) return commands[argv[0]](argv.slice(1));
   return run(argv);
 }

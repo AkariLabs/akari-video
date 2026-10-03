@@ -55,7 +55,8 @@ export function opencodeMissingGuidance() {
 
 /** 入口で第 1 引数の打ち間違いを検出したときの案内。 */
 export function firstArgumentTypoError(argument, suggestion) {
-  return `第 1 引数「${argument}」は打ち間違いかもしれません。${suggestion} のことですか？プロジェクトの作成も AI エージェントの起動もしていません。`;
+  const visibleArgument = argument.replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+  return `第 1 引数「${visibleArgument}」は打ち間違いかもしれません。${suggestion} のことですか？プロジェクトの作成も AI エージェントの起動もしていません。\nそのまま AI エージェントへ渡すには \`akari -- ${visibleArgument}\` と入力してください。`;
 }
 
 /** 非対話の未作成フォルダーで、作成を明示する引数がないときの案内。 */

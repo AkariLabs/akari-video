@@ -29,6 +29,15 @@ import { runMediaCommand } from './media-command.mjs';
 import { runWordBookCommand } from './word-book-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 
+// run を直接呼ぶ利用者と入口で、同じサブコマンドの表を使う。
+export const runSubcommands = {
+  'decision-log': runDecisionLogCommand,
+  captions: runCaptionsCommand,
+  capture: runCaptureCommand,
+  media: runMediaCommand,
+  'word-book': runWordBookCommand,
+};
+
 /**
  * `akari` ランチャーの本体。3 入口契約（ターミナル `akari` / セッション内 `/akari` /
  * アプリ接続ボタン）のうち、ターミナル入口を実装する:
@@ -45,11 +54,7 @@ export async function run(args, options = {}) {
     error(`akari ${retiredBrowserCommand} は廃止されました（Chrome は不要になりました）`);
     return { exitCode: 1 };
   }
-  if (args[0] === 'decision-log') return runDecisionLogCommand(args.slice(1), options);
-  if (args[0] === 'captions') return runCaptionsCommand(args.slice(1), options);
-  if (args[0] === 'capture') return runCaptureCommand(args.slice(1), options);
-  if (args[0] === 'media') return runMediaCommand(args.slice(1), options);
-  if (args[0] === 'word-book') return runWordBookCommand(args.slice(1), options);
+  if (Object.hasOwn(runSubcommands, args[0])) return runSubcommands[args[0]](args.slice(1), options);
 
   const log = options.log ?? ((line) => console.log(line));
   const assets = options.assets ?? resolveLauncherAssets();
@@ -78,8 +83,9 @@ export async function run(args, options = {}) {
   const isTTY = options.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
   const bareNonInteractive = args.length === 0 && !isTTY;
   if (!isTTY && !autoConfirm && !hereOnly && !detectProjectState(projectRoot).scaffolded) {
-    log(`このフォルダーは AKARI Video プロジェクトとしてまだセットアップされていません: ${projectRoot}`);
-    log(bareNonInteractive
+    const output = bareNonInteractive ? log : (options.error ?? ((line) => console.error(line)));
+    output(`このフォルダーは AKARI Video プロジェクトとしてまだセットアップされていません: ${projectRoot}`);
+    output(bareNonInteractive
       ? '非対話シェルのため状態確認のみで終了します。'
       : nonInteractiveUninitializedGuidance());
     return { exitCode: bareNonInteractive ? 0 : 2, scaffolded: false, claudeLaunched: false, opencodeLaunched: false };
