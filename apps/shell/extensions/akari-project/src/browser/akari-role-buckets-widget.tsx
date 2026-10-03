@@ -4,7 +4,6 @@ import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { referencePresentation } from '../common/project-asset-reference';
 import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
-import { AssetBundleOutcome } from '../common/akari-project-protocol';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
 import {
     GENERATION_PICK_PRIMARY_SELECTED_EVENT, GenerationPickCandidate, GenerationPickController,
@@ -126,7 +125,7 @@ import {
 } from '../common/library-home-view';
 import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../common/library-tile-art';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
-import { buildMaterialContextMenuItems, MaterialContextMenuItem, MaterialContextMenuTarget } from '../common/material-context-menu-items';
+import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
 import { countReferences } from '../common/project-reference-check';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
@@ -707,14 +706,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get workflow() { return widget().workflow; },
             get files() { return widget().files; },
             get projectService() { return widget().projectService; },
+            get messages() { return widget().messages; },
             update: () => widget().update(),
             classifyKind: name => widget().classifyKind(name),
             toAssetBinChildren: node => widget().toAssetBinChildren(node),
             get assetCatalogItems() { return widget().assetCatalogItems; },
             get transcriptStateByPath() { return widget().transcriptStateByPath; },
             set transcriptStateByPath(value) { widget().transcriptStateByPath = value; },
-            get projectCreditLines() { return widget().projectCreditLines; },
-            set projectCreditLines(value) { widget().projectCreditLines = value; }
         };
         this.materialsPane = new AkariMaterialsPane(materialsHost);
         this.toDispose.push(this.shapeShelf.onDidChange(() => this.update()));
@@ -1209,165 +1207,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             await this.projectService.removeProjectAssetReference(root.toString(), entry.reference);
             await this.loadMaterials();
         } catch (error) { this.messages.error(String(error)); }
-    }
-
-    protected bundleBusy = false;
-    protected projectCreditLines: string[] = [];
-
-    /**
-     * 「素材をまとめる」の確認ダイアログ本文（2026-09-26 オーナー指示）。
-     * 旧文面は件数と MB だけで「何を・どこから・どこへ」が分からなかった。ここでは
-     * (1) 何が起きるか（ライブラリの実体をこのプロジェクトの assets/ へ複製する）
-     * (2) 対象そのもの（小さなサムネ付きの一覧）
-     * の 2 点を出す。`ConfirmDialog` は `msg` に HTMLElement を取れるので素の DOM で組む。
-     */
-    protected buildBundlePlanBody(plan: AssetBundleOutcome): HTMLElement {
-        const body = document.createElement('div');
-        Object.assign(body.style, { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '420px' });
-
-        const lead = document.createElement('p');
-        lead.textContent = '次の素材はいまライブラリを「参照」しています。まとめると、実体をこのプロジェクトの'
-            + ' assets/ へ複製します。以後はライブラリ側を消したり別のパソコンへ移しても、'
-            + 'このプロジェクトだけで開けるようになります。';
-        Object.assign(lead.style, { margin: '0', lineHeight: '1.6' });
-        body.appendChild(lead);
-
-        const list = document.createElement('ul');
-        Object.assign(list.style, {
-            listStyle: 'none', margin: '0', padding: '0', display: 'flex', flexDirection: 'column',
-            gap: '1px', maxHeight: '228px', overflowY: 'auto',
-            border: AKARI_BORDER.hairline, borderRadius: `${AKARI_RADIUS.panel}px`
-        });
-        for (const reference of plan.planned) {
-            const row = document.createElement('li');
-            Object.assign(row.style, {
-                display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px',
-                background: AKARI_SURFACE.raised
-            });
-            const preview = reference.files.find(file => file.name === 'preview.png');
-            const thumb = document.createElement(preview ? 'img' : 'span');
-            Object.assign(thumb.style, {
-                width: '22px', height: '22px', flex: '0 0 auto', borderRadius: '3px',
-                objectFit: 'cover', background: AKARI_SURFACE.elevated
-            });
-            if (preview && thumb instanceof HTMLImageElement) {
-                thumb.alt = '';
-                thumb.src = URI.fromFilePath(preview.path).toString();
-                thumb.addEventListener('error', () => { thumb.style.visibility = 'hidden'; });
-            }
-            const text = document.createElement('div');
-            Object.assign(text.style, { minWidth: '0', display: 'flex', flexDirection: 'column', lineHeight: '1.35' });
-            const title = document.createElement('span');
-            title.textContent = reference.title ?? reference.id;
-            Object.assign(title.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-            const where = document.createElement('span');
-            const bytes = reference.files.reduce((total, file) => total + (file.bytes || 0), 0);
-            where.textContent = `${reference.category} · ${bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '容量不明'}`
-                + ` → assets/${reference.category}/${reference.id}/`;
-            Object.assign(where.style, { opacity: '0.62', fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-            text.append(title, where);
-            row.append(thumb, text);
-            list.appendChild(row);
-        }
-        body.appendChild(list);
-
-        const total = document.createElement('p');
-        total.textContent = `合計 ${plan.planned.length} 件・${(plan.bytes / 1024 / 1024).toFixed(2)} MB`
-            + (plan.unknownSizeCount ? `（容量不明 ${plan.unknownSizeCount} 件）` : '');
-        Object.assign(total.style, { margin: '0', opacity: '0.72' });
-        body.appendChild(total);
-
-        if (plan.restrictedCount) {
-            const warning = document.createElement('p');
-            warning.textContent = `再配布できない素材が ${plan.restrictedCount} 件含まれます`;
-            Object.assign(warning.style, { margin: '0', color: 'var(--theia-editorWarning-foreground)' });
-            body.appendChild(warning);
-        }
-        return body;
-    }
-
-    protected async bundleMaterials(): Promise<void> {
-        const root = this.workflow.workspaceRoot;
-        if (!root || this.bundleBusy) return;
-        this.bundleBusy = true;
-        this.update();
-        try {
-            const plan = await this.projectService.bundleProjectAssets(root.toString(), true);
-            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
-            if (!plan.planned.length) { this.messages.info('ライブラリを参照している素材はありません。まとめるものはありません。'); return; }
-            const confirmed = await new ConfirmDialog({
-                title: 'ライブラリの素材をプロジェクトへ複製する',
-                msg: this.buildBundlePlanBody(plan), ok: '複製する', cancel: 'キャンセル'
-            }).open();
-            if (!confirmed) return;
-            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
-            const result = await this.projectService.bundleProjectAssets(root.toString(), false);
-            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
-            await this.loadMaterials();
-            // 結果はパネルに貼り付けず、その場限りの通知で流す（2026-09-26 オーナー指示
-            // 「3 件まとめましたが出続けるのが気になる」）。取りこぼしがあるときだけ、
-            // 読み返せるようダイアログで残す。
-            this.messages.info(`${result.materialized.length} 件をこのプロジェクトへ複製しました。`);
-            if (result.failures.length) {
-                await new ConfirmDialog({
-                    title: '複製できなかった素材',
-                    msg: `次の素材は参照のまま残っています。\n\n`
-                        + result.failures.map(failure => `${failure.key}: ${failure.message}`).join('\n'),
-                    ok: '閉じる'
-                }).open();
-            }
-        } catch (error) { this.messages.error(`素材をまとめられませんでした: ${String(error)}`); }
-        finally { this.bundleBusy = false; this.update(); }
-    }
-
-    /**
-     * プロジェクト面のその他操作（2026-09-26 オーナー指示）。旧実装は「素材をまとめる」を
-     * パネル下端の専用バー（上下にヘアライン）に常設していたが、下の「できたもの」と
-     * 混ざって見えるうえ、めったに押さないボタンに面を割きすぎていた。丸い「…」だけを
-     * 検索行に置き、中身はポップアップへ送る。
-     */
-    protected openMaterialsMenu(event: React.MouseEvent<HTMLButtonElement>): void {
-        event.preventDefault();
-        event.stopPropagation();
-        const rect = event.currentTarget.getBoundingClientRect();
-        const items: (MaterialContextMenuItem & { icon?: string; separator?: boolean })[] = [
-            { id: 'bundle', label: this.bundleBusy ? 'まとめています…' : '素材をまとめる…', icon: 'archive' }
-        ];
-        if (this.projectCreditLines.length) {
-            items.push({ id: 'copy-credits', label: 'クレジットをコピー', icon: 'copy' });
-        }
-        openAkariContextMenu({
-            x: rect.right, y: rect.bottom + 4, items,
-            onSelect: id => {
-                if (id === 'bundle') { if (!this.bundleBusy) void this.bundleMaterials(); }
-                else if (id === 'copy-credits') {
-                    void navigator.clipboard.writeText(this.projectCreditLines.join('\n'))
-                        .then(() => this.messages.info('クレジットをコピーしました'))
-                        .catch(() => this.messages.error('クレジットをコピーできませんでした'));
-                }
-            }
-        });
-    }
-
-    protected renderMaterialsMenuButton(): React.ReactNode {
-        return (
-            <button
-                type='button'
-                data-akari-materials-menu='true'
-                title='その他の操作'
-                aria-label='その他の操作'
-                aria-haspopup='menu'
-                onClick={event => this.openMaterialsMenu(event)}
-                style={{
-                    flex: '0 0 auto', width: '26px', height: '26px', padding: 0, margin: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderRadius: '999px', border: AKARI_BORDER.ghost,
-                    background: AKARI_SURFACE.raised, color: AKARI_INK, cursor: 'pointer'
-                }}
-            >
-                <span className='codicon codicon-ellipsis' aria-hidden='true' />
-            </button>
-        );
     }
 
     /**
@@ -2704,7 +2543,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {this.topView === 'catalog' && !this.materialSwap && <LibraryFilterButton filter={this.libraryFilter()}
                         open={!!this.libraryFilterAnchor}
                         onToggle={() => this.toggleLibraryFilterPopover()} />}
-                    {this.topView === 'materials' && this.workflow.workspaceRoot && this.renderMaterialsMenuButton()}
+                    {this.topView === 'materials' && this.workflow.workspaceRoot && this.materialsPane.renderMaterialsMenuButton()}
                 </div>
             </div>
         );

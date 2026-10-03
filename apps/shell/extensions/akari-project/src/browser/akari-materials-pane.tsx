@@ -1,8 +1,10 @@
+import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
-import { DisposableCollection } from '@theia/core/lib/common';
+import { DisposableCollection, MessageService } from '@theia/core/lib/common';
+import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
-import { AkariProjectService, AssetCatalogViewItem, ProjectAssetReference, TranscriptState } from '../common/akari-project-protocol';
+import { AkariProjectService, AssetBundleOutcome, AssetCatalogViewItem, ProjectAssetReference, TranscriptState } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
@@ -14,6 +16,9 @@ import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-medi
 import { referencePresentation } from '../common/project-asset-reference';
 import { resolveLibraryAssetMedia } from '../common/library-asset-placement';
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
+import { AKARI_BORDER, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
+import { MaterialContextMenuItem } from '../common/material-context-menu-items';
+import { openAkariContextMenu } from './akari-context-menu';
 
 export interface MaterialCardEntry {
     uri: URI;
@@ -54,7 +59,9 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: Pick<FileService, 'resolve' | 'readFile' | 'watch' | 'onDidFilesChange'>;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets'>;
+    /** 素材操作の通知。 */
+    readonly messages: Pick<MessageService, 'info' | 'error'>;
     /** widget の再描画。 */
     readonly update: () => void;
     /** ファイル名から素材種別を判定。 */
@@ -65,8 +72,6 @@ export interface MaterialsPaneHost {
     readonly assetCatalogItems: AssetCatalogViewItem[];
     /** 素材ごとの文字起こし状態。 */
     transcriptStateByPath: Record<string, TranscriptState>;
-    /** プロジェクトのクレジット行。 */
-    projectCreditLines: string[];
 }
 
 export class AkariMaterialsPane {
@@ -90,7 +95,7 @@ export class AkariMaterialsPane {
         if (!root) {
             this.referenceWatches.dispose();
             this.materials = [];
-            this.host.projectCreditLines = [];
+            this.projectCreditLines = [];
             this.unorganizedMaterials = [];
             this.materialsLoadedOnce = false;
             this.host.update();
@@ -135,7 +140,7 @@ export class AkariMaterialsPane {
         materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
         this.host.transcriptStateByPath = states;
         this.materials = materials;
-        this.host.projectCreditLines = credits;
+        this.projectCreditLines = credits;
         this.unorganizedMaterials = unorganizedMaterials;
         this.materialsLoading = false;
         this.materialsLoadedOnce = true;
@@ -408,5 +413,164 @@ export class AkariMaterialsPane {
     protected resolveThumbnail(analysisUri: URI, analysis: AnalysisJson): URI | undefined {
         const first = analysis.keyframes?.[0];
         return first?.path ? analysisUri.parent.resolve(first.path) : undefined;
+    }
+
+    protected bundleBusy = false;
+    protected projectCreditLines: string[] = [];
+
+    /**
+     * 「素材をまとめる」の確認ダイアログ本文（2026-09-26 オーナー指示）。
+     * 旧文面は件数と MB だけで「何を・どこから・どこへ」が分からなかった。ここでは
+     * (1) 何が起きるか（ライブラリの実体をこのプロジェクトの assets/ へ複製する）
+     * (2) 対象そのもの（小さなサムネ付きの一覧）
+     * の 2 点を出す。`ConfirmDialog` は `msg` に HTMLElement を取れるので素の DOM で組む。
+     */
+    protected buildBundlePlanBody(plan: AssetBundleOutcome): HTMLElement {
+        const body = document.createElement('div');
+        Object.assign(body.style, { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '420px' });
+
+        const lead = document.createElement('p');
+        lead.textContent = '次の素材はいまライブラリを「参照」しています。まとめると、実体をこのプロジェクトの'
+            + ' assets/ へ複製します。以後はライブラリ側を消したり別のパソコンへ移しても、'
+            + 'このプロジェクトだけで開けるようになります。';
+        Object.assign(lead.style, { margin: '0', lineHeight: '1.6' });
+        body.appendChild(lead);
+
+        const list = document.createElement('ul');
+        Object.assign(list.style, {
+            listStyle: 'none', margin: '0', padding: '0', display: 'flex', flexDirection: 'column',
+            gap: '1px', maxHeight: '228px', overflowY: 'auto',
+            border: AKARI_BORDER.hairline, borderRadius: `${AKARI_RADIUS.panel}px`
+        });
+        for (const reference of plan.planned) {
+            const row = document.createElement('li');
+            Object.assign(row.style, {
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px',
+                background: AKARI_SURFACE.raised
+            });
+            const preview = reference.files.find(file => file.name === 'preview.png');
+            const thumb = document.createElement(preview ? 'img' : 'span');
+            Object.assign(thumb.style, {
+                width: '22px', height: '22px', flex: '0 0 auto', borderRadius: '3px',
+                objectFit: 'cover', background: AKARI_SURFACE.elevated
+            });
+            if (preview && thumb instanceof HTMLImageElement) {
+                thumb.alt = '';
+                thumb.src = URI.fromFilePath(preview.path).toString();
+                thumb.addEventListener('error', () => { thumb.style.visibility = 'hidden'; });
+            }
+            const text = document.createElement('div');
+            Object.assign(text.style, { minWidth: '0', display: 'flex', flexDirection: 'column', lineHeight: '1.35' });
+            const title = document.createElement('span');
+            title.textContent = reference.title ?? reference.id;
+            Object.assign(title.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+            const where = document.createElement('span');
+            const bytes = reference.files.reduce((total, file) => total + (file.bytes || 0), 0);
+            where.textContent = `${reference.category} · ${bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '容量不明'}`
+                + ` → assets/${reference.category}/${reference.id}/`;
+            Object.assign(where.style, { opacity: '0.62', fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+            text.append(title, where);
+            row.append(thumb, text);
+            list.appendChild(row);
+        }
+        body.appendChild(list);
+
+        const total = document.createElement('p');
+        total.textContent = `合計 ${plan.planned.length} 件・${(plan.bytes / 1024 / 1024).toFixed(2)} MB`
+            + (plan.unknownSizeCount ? `（容量不明 ${plan.unknownSizeCount} 件）` : '');
+        Object.assign(total.style, { margin: '0', opacity: '0.72' });
+        body.appendChild(total);
+
+        if (plan.restrictedCount) {
+            const warning = document.createElement('p');
+            warning.textContent = `再配布できない素材が ${plan.restrictedCount} 件含まれます`;
+            Object.assign(warning.style, { margin: '0', color: 'var(--theia-editorWarning-foreground)' });
+            body.appendChild(warning);
+        }
+        return body;
+    }
+
+    protected async bundleMaterials(): Promise<void> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root || this.bundleBusy) return;
+        this.bundleBusy = true;
+        this.host.update();
+        try {
+            const plan = await this.host.projectService.bundleProjectAssets(root.toString(), true);
+            if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            if (!plan.planned.length) { this.host.messages.info('ライブラリを参照している素材はありません。まとめるものはありません。'); return; }
+            const confirmed = await new ConfirmDialog({
+                title: 'ライブラリの素材をプロジェクトへ複製する',
+                msg: this.buildBundlePlanBody(plan), ok: '複製する', cancel: 'キャンセル'
+            }).open();
+            if (!confirmed) return;
+            if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            const result = await this.host.projectService.bundleProjectAssets(root.toString(), false);
+            if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            await this.loadMaterials();
+            // 結果はパネルに貼り付けず、その場限りの通知で流す（2026-09-26 オーナー指示
+            // 「3 件まとめましたが出続けるのが気になる」）。取りこぼしがあるときだけ、
+            // 読み返せるようダイアログで残す。
+            this.host.messages.info(`${result.materialized.length} 件をこのプロジェクトへ複製しました。`);
+            if (result.failures.length) {
+                await new ConfirmDialog({
+                    title: '複製できなかった素材',
+                    msg: `次の素材は参照のまま残っています。\n\n`
+                        + result.failures.map(failure => `${failure.key}: ${failure.message}`).join('\n'),
+                    ok: '閉じる'
+                }).open();
+            }
+        } catch (error) { this.host.messages.error(`素材をまとめられませんでした: ${String(error)}`); }
+        finally { this.bundleBusy = false; this.host.update(); }
+    }
+
+    /**
+     * プロジェクト面のその他操作（2026-09-26 オーナー指示）。旧実装は「素材をまとめる」を
+     * パネル下端の専用バー（上下にヘアライン）に常設していたが、下の「できたもの」と
+     * 混ざって見えるうえ、めったに押さないボタンに面を割きすぎていた。丸い「…」だけを
+     * 検索行に置き、中身はポップアップへ送る。
+     */
+    protected openMaterialsMenu(event: React.MouseEvent<HTMLButtonElement>): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const items: (MaterialContextMenuItem & { icon?: string; separator?: boolean })[] = [
+            { id: 'bundle', label: this.bundleBusy ? 'まとめています…' : '素材をまとめる…', icon: 'archive' }
+        ];
+        if (this.projectCreditLines.length) {
+            items.push({ id: 'copy-credits', label: 'クレジットをコピー', icon: 'copy' });
+        }
+        openAkariContextMenu({
+            x: rect.right, y: rect.bottom + 4, items,
+            onSelect: id => {
+                if (id === 'bundle') { if (!this.bundleBusy) void this.bundleMaterials(); }
+                else if (id === 'copy-credits') {
+                    void navigator.clipboard.writeText(this.projectCreditLines.join('\n'))
+                        .then(() => this.host.messages.info('クレジットをコピーしました'))
+                        .catch(() => this.host.messages.error('クレジットをコピーできませんでした'));
+                }
+            }
+        });
+    }
+
+    public renderMaterialsMenuButton(): React.ReactNode {
+        return (
+            <button
+                type='button'
+                data-akari-materials-menu='true'
+                title='その他の操作'
+                aria-label='その他の操作'
+                aria-haspopup='menu'
+                onClick={event => this.openMaterialsMenu(event)}
+                style={{
+                    flex: '0 0 auto', width: '26px', height: '26px', padding: 0, margin: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '999px', border: AKARI_BORDER.ghost,
+                    background: AKARI_SURFACE.raised, color: AKARI_INK, cursor: 'pointer'
+                }}
+            >
+                <span className='codicon codicon-ellipsis' aria-hidden='true' />
+            </button>
+        );
     }
 }

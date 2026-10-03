@@ -14,8 +14,9 @@ const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/br
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
 const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
-const names = ['retryMaterialReference', 'removeMaterialReference', 'confirmReferenceImpact', 'bundleMaterials', 'buildBundlePlanBody'];
-const code = ts.transpileModule(`class Handler { ${[...names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)), pane.members.find(member => member.name?.getText(paneSource) === 'buildReferenceMaterials').getText(paneSource)].join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
+const names = ['retryMaterialReference', 'removeMaterialReference', 'confirmReferenceImpact'];
+const paneNames = ['buildReferenceMaterials', 'bundleMaterials', 'buildBundlePlanBody'];
+const code = ts.transpileModule(`class Handler { ${[...names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)), ...paneNames.map(name => pane.members.find(member => member.name?.getText(paneSource) === name).getText(paneSource))].join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
 // buildBundlePlanBody は素の DOM を組むので、node --test でも読めるだけの最小の
 // document/HTMLImageElement を差し込む（実描画は実機検収、ここでは文面と対象の一覧を見る）。
 class FakeElement {
@@ -42,15 +43,21 @@ function fixture() {
     const Handler = new Function(...names, `${code}; return Handler;`)(...values);
     const handler = new Handler();
     const root = URI.fromFilePath('/project');
+    const workflow = { workspaceRoot: root };
+    const update = () => {};
+    const messages = { info: value => infos.push(value), error: value => { throw Error(value); } };
+    const projectService = { removeProjectAssetReference: async (...args) => calls.push(args) };
     const files = { resolve: async uri => { if (uri.toString().startsWith('file:///project')) throw Error('missing'); return { resource: uri, children: [] }; } };
     const toAssetBinChildren = stat => stat.children;
     const assetCatalogItems = [];
-    Object.assign(handler, { workflow: { workspaceRoot: root }, update() {},
-        messages: { info: value => infos.push(value), error: value => { throw Error(value); } },
-        projectService: { removeProjectAssetReference: async (...args) => calls.push(args) },
+    Object.assign(handler, { workflow, update,
+        messages,
+        projectService,
         loadMaterials: async () => calls.push('reload'),
         files,
-        host: { files, toAssetBinChildren, assetCatalogItems },
+        toAssetBinChildren,
+        assetCatalogItems,
+        host: { workflow, files, projectService, messages, update, toAssetBinChildren, assetCatalogItems },
         buildAssetGroupEntry: async (_, stat) => ({ uri: stat.resource.resolve('meta.json'), name: 'title', kind: 'audio', analyzed: false, unorganized: false })
     });
     return { handler, root, dialogs, calls, infos, reject: () => { approve = false; } };
