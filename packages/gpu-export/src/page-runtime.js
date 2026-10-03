@@ -1884,7 +1884,75 @@
     };
   }
 
-  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null, vgpuRecords = null) {
+  // null は全面 canvas を従来の素の draw に保ち、出力を 1 バイトも変えないための値。
+  // false は面積 0（display:none / hidden）で、OSR と同様に描かない。オブジェクトは SpriteDraw の配置。
+  // 回転と鏡映は「回転 × 軸ごとの拡大」に分け、CSS と逆向きの rotateDeg と符号付き scaleY で表す。
+  // 画素の原点をフレーム中心に明示すると spriteTransformMatrix が縦横比を補正できる。
+  // せん断は SpriteDraw で表せないため、別の絵を黙って出さずに投げる。
+  function threeCanvasDrawState(rect, layout, matrix, width, height) {
+    const numbers = [rect.left, rect.top, rect.width, rect.height, layout.width, layout.height,
+      matrix.a, matrix.b, matrix.c, matrix.d, width, height];
+    if (!numbers.every(Number.isFinite) || width <= 0 || height <= 0
+      || rect.width < 0 || rect.height < 0 || layout.width < 0 || layout.height < 0) {
+      throw new Error("3D sprite canvas has invalid bounds or transform");
+    }
+    if (rect.width === 0 || rect.height === 0 || layout.width === 0 || layout.height === 0) return false;
+    const { a, b, c, d } = matrix;
+    const axisX = Math.hypot(a, b);
+    const axisY = Math.hypot(c, d);
+    const determinant = a * d - b * c;
+    if (![axisX, axisY, determinant].every(Number.isFinite)) {
+      throw new Error("3D sprite canvas has invalid transform");
+    }
+    if (axisX <= 0 || axisY <= 0 || Math.abs(a * c + b * d) > 1e-6 * axisX * axisY) {
+      throw new Error("3D sprite canvas has unsupported shear");
+    }
+    const translateX = rect.left + rect.width / 2 - width / 2;
+    const translateY = rect.top + rect.height / 2 - height / 2;
+    if (Math.abs(b) <= 1e-6 && Math.abs(c) <= 1e-6 && a > 0 && d > 0) {
+      if (Math.abs(rect.left) <= 0.01 && Math.abs(rect.top) <= 0.01
+        && Math.abs(rect.left + rect.width - width) <= 0.01
+        && Math.abs(rect.top + rect.height - height) <= 0.01) return null;
+      return { translateX, translateY, scaleX: rect.width / width, scaleY: rect.height / height };
+    }
+    return {
+      translateX, translateY,
+      scaleX: layout.width * axisX / width,
+      scaleY: layout.height * determinant / axisX / height,
+      rotateDeg: -Math.atan2(b, a) * 180 / Math.PI,
+      originX: width / 2, originY: height / 2,
+    };
+  }
+
+  // オーバーレイ iframe は出力フレームと同じ大きさで (0,0) にあり、getBoundingClientRect() はそのまま出力画素になる。
+  // アイテムの x / y / scale / rotate は host（.akari-overlay-container）に付くので、host から canvas までの変換を掛けて読む。
+  // アイテムの opacity はここでは扱わず、直描きの opacity は従来どおり 1 に保つ。
+  function threeCanvasPlacement(canvas, container, width, height) {
+    const host = container.parentElement;
+    if (!host?.classList.contains("akari-overlay-container")) throw new Error("3D sprite canvas host is missing");
+    const view = canvas.ownerDocument.defaultView;
+    let matrix = new view.DOMMatrix();
+    let reachedHost = false;
+    const chain = [];
+    for (let node = canvas; node; node = node.parentElement) {
+      chain.push(node);
+      if (node === host) { reachedHost = true; break; }
+    }
+    if (!reachedHost) throw new Error("3D sprite canvas is outside its host");
+    for (const node of chain.reverse()) {
+      const transform = view.getComputedStyle(node).transform;
+      if (transform && transform !== "none") {
+        const part = new view.DOMMatrix(transform);
+        if (!isSupported2DMatrix(part)) throw new Error("3D sprite canvas has unsupported 3D transform");
+        matrix = matrix.multiply(part);
+      }
+    }
+    if (!isSupported2DMatrix(matrix)) throw new Error("3D sprite canvas has unsupported 3D transform");
+    return threeCanvasDrawState(canvas.getBoundingClientRect(),
+      { width: canvas.offsetWidth, height: canvas.offsetHeight }, matrix, width, height);
+  }
+
+  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null, vgpuRecords = null, threeRecords = null) {
     const values = [];
     for (const value of manifest.statics) {
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
@@ -1899,7 +1967,10 @@
           ? threeEntranceStateAt(value.entrance, seconds - value.start)
           : { opacity: 1 };
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
-      values.push({ z, index: value.index, id: value.id, ...state });
+      // false はその 3D を飛ばし、null は従来どおり配置なしの draw にする。
+      const placement = value.entranceMode === "none" ? threeRecords?.get(value.id)?.draw : null;
+      if (placement === false) continue;
+      values.push({ z, index: value.index, id: value.id, ...placement, ...state });
     }
     for (const value of manifest.vgpu ?? []) {
       if (activeAt(value, seconds)) values.push({ z: value.z ?? 0, index: value.index, id: value.id, opacity: 1, ...vgpuRecords?.get(value.id)?.draw });
@@ -2658,7 +2729,7 @@
   window.__akariGpuDomInternals = {
     sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
     sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame, preserve3dSampleTimes,
-    detectPreserve3dOrderConflicts, vgpuDrawState,
+    detectPreserve3dOrderConflicts, vgpuDrawState, threeCanvasDrawState,
   };
 
   // ブレンドがあるフレームだけ使う WebGL パス。SpriteCompositor の通常描画を区切り、
@@ -3008,7 +3079,10 @@
           } catch (error) {
             throw new Error(`3D sprite canvas is missing: ${value.id}: ${error.message}`, { cause: error });
           }
-          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor });
+          const draw = value.entranceMode === "none"
+            ? threeCanvasPlacement(canvas, container, config.width, config.height)
+            : null;
+          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor, draw });
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
         if (config.spriteManifest.vgpu?.length > 0) {
@@ -3168,7 +3242,7 @@
           const domFrameCost = performance.now() - domStarted;
           stages.dom.push(domFrameCost);
           if (activeDomRuns > 0) domRuntime.recordFrameCost(domFrameCost);
-          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates, vgpuRecords);
+          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates, vgpuRecords, threeRecords);
           for (const unit of captionUnits) {
             if (seconds >= unit.cueStart + unit.cueDuration) {
               releaseCaptionUnit(unit, spriteCompositor);

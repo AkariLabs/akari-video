@@ -536,13 +536,154 @@ function resolveEmphasisStyle(emphasis) {
   return "color-accent";
 }
 
+// data-style や属性値中の style= を本物の style と誤読すると、後続の危険な指定を見逃す。
+// 属性名を順に読み、重複や読めない並びは null にして直描きから外す。
+function threeTagAttributes(tag, nameEnd) {
+  const attributes = { style: null, type: null, fallback: false, scene: false };
+  const seen = new Set();
+  for (let at = nameEnd; at < tag.length;) {
+    const beforeSpace = at;
+    while (isHtmlSpace(tag[at])) at += 1;
+    if (tag[at] === ">" || (tag[at] === "/" && tag[at + 1] === ">")) return attributes;
+    if (at === beforeSpace) return null;
+    const start = at;
+    while (at < tag.length && !isHtmlSpace(tag[at]) && !["=", "/", ">"].includes(tag[at])) at += 1;
+    if (at === start) return null;
+    const name = tag.slice(start, at).toLowerCase();
+    if (/["'<=]/u.test(name) || seen.has(name)) return null;
+    seen.add(name);
+    let equalsAt = at;
+    while (isHtmlSpace(tag[equalsAt])) equalsAt += 1;
+    let value = null;
+    if (tag[equalsAt] === "=") {
+      at = equalsAt + 1;
+      while (isHtmlSpace(tag[at])) at += 1;
+      const quote = tag[at] === '"' || tag[at] === "'" ? tag[at++] : null;
+      const valueStart = at;
+      if (quote) {
+        at = tag.indexOf(quote, at);
+        if (at < 0) return null;
+        if (name === "style" || name === "type") value = tag.slice(valueStart, at);
+        at += 1;
+      } else {
+        while (at < tag.length && !isHtmlSpace(tag[at]) && tag[at] !== ">") at += 1;
+        if (at === valueStart || /["'<=`]/u.test(tag.slice(valueStart, at))) return null;
+        if (name === "style" || name === "type") value = tag.slice(valueStart, at);
+      }
+      if (!isHtmlSpace(tag[at]) && tag[at] !== ">" && !(tag[at] === "/" && tag[at + 1] === ">")) return null;
+    }
+    if (name === "style") attributes.style = value;
+    else if (name === "type") attributes.type = value;
+    else if (name === "data-akari-3d-fallback") attributes.fallback = true;
+    else if (name === "data-akari-3d-scene") attributes.scene = true;
+  }
+  return null;
+}
+
+const THREE_LAYOUT_TAGS = new Set(["div", "span", "section", "article", "main"]);
+const THREE_VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+// 未知の CSS が絵を変える可能性を残さないため、拒否リストではなく許可リストにする。
+// 文字用の指定は、テキストを置けるフォールバックが準備完了時に隠れるため許す。
+// display:none は canvas 自体を消すので、許可プロパティでも値を別途拒否する。
+const THREE_LAYOUT_PROPERTIES = new Set((
+  "position inset inset-block inset-inline inset-block-start inset-block-end inset-inline-start inset-inline-end "
+  + "top right bottom left width height min-width min-height max-width max-height margin margin-top margin-right margin-bottom margin-left "
+  + "display box-sizing z-index pointer-events aspect-ratio flex flex-direction flex-wrap flex-flow flex-grow flex-shrink flex-basis order "
+  + "grid grid-template grid-template-columns grid-template-rows grid-template-areas grid-area grid-row grid-column grid-auto-flow grid-auto-rows grid-auto-columns "
+  + "align-items align-self align-content justify-items justify-self justify-content place-items place-self place-content gap row-gap column-gap "
+  + "color font font-family font-size font-weight font-style line-height letter-spacing text-align white-space"
+).split(" "));
+
+function threeLayoutDeclarations(body) {
+  for (const part of body.split(";")) {
+    const declaration = part.trim();
+    if (!declaration) continue;
+    const colon = declaration.indexOf(":");
+    if (colon <= 0) return false;
+    const property = declaration.slice(0, colon).trim().toLowerCase();
+    const value = declaration.slice(colon + 1).trim();
+    if (!value || !/^(?:--[a-z0-9_-]+|[a-z][a-z-]*)$/u.test(property)
+      || (!property.startsWith("--") && !THREE_LAYOUT_PROPERTIES.has(property))
+      || (property === "display" && /^none(?=[^a-z0-9-]|$)/iu.test(value))) return false;
+  }
+  return true;
+}
+
+function threeLayoutStyle(css) {
+  const source = stripCssComments(css);
+  let cursor = 0;
+  while (cursor < source.length) {
+    const open = source.indexOf("{", cursor);
+    if (open < 0) return !source.slice(cursor).trim();
+    const selector = source.slice(cursor, open).trim();
+    if (!selector || selector.includes("@") || selector.includes("}")) return false;
+    const close = source.indexOf("}", open + 1);
+    if (close < 0 || source.slice(open + 1, close).includes("{")
+      || !threeLayoutDeclarations(source.slice(open + 1, close))) return false;
+    cursor = close + 1;
+  }
+  return true;
+}
+
+// #128: 直描きが出すのは 3D canvas のテクスチャ 1 枚だけ。見出し・画像・箱の背景や枠、
+// CSS の変形や不透明度は出ない。canvas とレイアウトだけを残し、他は既存の composite へ回す。
+// 静的に読めない断片も偽にする（fail-closed）。
 function isThreeOnlyOverlay(html, conditions) {
   if (conditions.length !== 1 || conditions[0] !== "three-or-canvas-runtime") return false;
-  const scripts = html.match(/<script\b[^>]*>/giu) ?? [];
-  const declarations = scripts.filter((tag) =>
-    /\btype\s*=\s*["']application\/json["']/iu.test(tag)
-    && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
-  return scripts.length === 1 && declarations.length === 1;
+  const raw = new Map();
+  for (const name of ["style", "script"]) {
+    for (const element of rawTextElements(html, name)) raw.set(element.start, element);
+  }
+  let cursor = 0;
+  let fallbacks = 0;
+  let fallbackDepth = 0;
+  const stack = [];
+  let scripts = 0;
+  for (const tag of htmlTags(html, { noInnerAngle: true })) {
+    if (tag.start < cursor) continue;
+    if (fallbackDepth === 0 && html.slice(cursor, tag.start).trim()) return false;
+    cursor = tag.end;
+    const match = /^<(\/?)([a-z][\w:-]*)(?=[\s/>])/iu.exec(tag.text);
+    if (!match) return false;
+    const [, closing, nameText] = match;
+    const name = nameText.toLowerCase();
+    if (closing) {
+      if (!/^\s*>$/u.test(tag.text.slice(match[0].length))) return false;
+      const opened = stack.pop();
+      if (opened?.name !== name) return false;
+      if (opened.fallback) fallbackDepth -= 1;
+      continue;
+    }
+    const attributes = threeTagAttributes(tag.text, match[0].length);
+    if (!attributes) return false;
+    const inFallback = fallbackDepth > 0;
+    const fallback = attributes.fallback;
+    // ランタイムが隠すのは最初のフォールバックだけなので、外側に 2 個目があれば直描きできない。
+    if (fallback && !inFallback && ++fallbacks > 1) return false;
+    if (!inFallback && !fallback && name !== "canvas" && name !== "style" && name !== "script" && !THREE_LAYOUT_TAGS.has(name)) return false;
+    if (!inFallback && !fallback) {
+      const inline = attributes.style;
+      // HTML の文字参照で &#59 と &#58 が ; と : になり、CSS 宣言を隠せる。
+      if (inline !== null && (inline.includes("&") || !threeLayoutDeclarations(stripCssComments(inline)))) return false;
+    }
+    if (name === "style" || name === "script") {
+      const element = raw.get(tag.start);
+      if (!element) return false;
+      // <style> は置き場所によらず文書全体に効くため、フォールバック内も検査する。
+      if (name === "style" && !threeLayoutStyle(html.slice(element.bodyStart, element.bodyEnd))) return false;
+      if (name === "script") {
+        scripts += 1;
+        if (scripts > 1 || attributes.type?.toLowerCase() !== "application/json" || !attributes.scene) return false;
+      }
+      cursor = element.end;
+      continue;
+    }
+    if (!THREE_VOID_TAGS.has(name) && !tag.text.endsWith("/>")) {
+      stack.push({ name, fallback: inFallback || fallback });
+      if (inFallback || fallback) fallbackDepth += 1;
+    }
+  }
+  return stack.length === 0 && !html.slice(cursor).trim() && scripts === 1;
 }
 
 export function isCaptionMotionSupported(animation) {
