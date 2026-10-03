@@ -24,6 +24,8 @@
 //   shell 7 か所 全 pass（akari-preview はブラウザ 1 ファイル除外で 509 pass）/
 //   quarantine: export-nle 20/21・akari-launcher 317/332 / media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
 //   Chrome があるため緑だが、CI Linux では /tmp プロファイルの rmdir ENOTEMPTY で落ち d5f2a7b6 以降 required unit を赤にしていた）
+//   2026-10-04: release 4 本・presets 2 本を ffmpeg 無しで全緑と実測し pure へ追加。
+//   Playwright 形式の server.spec.mjs は実行主体が無いため NOT_COVERED に明記する。
 //
 // Windows 対応（2026-09-19・Windows 11 / Node 24.20.0 実測）:
 //   上の実測は macOS 前提で、Windows 開発機ではレーンランナー自体が起動できていなかった
@@ -33,7 +35,7 @@
 //        npm を起動できても script が落ちる → childEnv()（PATH の末尾に node 自身のディレクトリを追記）
 
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, globSync } from 'node:fs';
+import { appendFileSync, existsSync, globSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -208,7 +210,14 @@ export const LANES = {
         files: PREVIEW_SERVER_PURE_TESTS
       },
       { id: 'scripts/test', cwd: '.', files: ['scripts/test/*.test.mjs'] },
-      { id: 'scripts/release/check-packaged-imports', cwd: '.', files: ['scripts/release/test/check-packaged-imports.test.mjs'] },
+      { id: 'scripts/release/test', cwd: '.', files: ['scripts/release/test/*.test.mjs'] },
+      { id: 'presets/*', cwd: '.', files: ['presets/luts/previews.test.mjs', 'presets/shapes/generate.test.mjs'] },
+      {
+        id: 'packages/export-nle (migration-regression 以外)',
+        cwd: 'packages/export-nle',
+        files: ['test/*.test.mjs'],
+        exclude: [/migration-regression\.test\.mjs$/]
+      },
       {
         id: 'skills/* (package.json を持たないスキル同梱テスト)',
         cwd: '.',
@@ -261,7 +270,8 @@ export const LANES = {
       // 「path / t / in / out / gain_db / script / reading / provenance が不正」で拒む → migrate の検証強化にテストが未追随
       // export-nle の赤は fixture ではなくプロダクト側の退行（migrate が音声を tracks[] へ移したのに NLE 書き出しが
       // 追随していない）。fixture だけ直して緑にすると退行が隠れるので、直るまでここに残す
-      pkg('export-nle')
+      // 他の 18 テストは pure へ移した（2026-10-04）。
+      { id: 'packages/export-nle (migration-regression のみ)', cwd: 'packages/export-nle', files: ['test/migration-regression.test.mjs'] }
     ]
   },
 
@@ -290,15 +300,30 @@ export const LANES = {
 
 // どのレーンにも載せていないテストと、その理由（1 対 1 の帳尻をここで明示する）
 export const NOT_COVERED = [
-  { what: 'packages/frame-engine / osr-export / gpu-export', why: 'engine-v2.yml が Electron 実機付きで走らせている（required 3 レーン + 参考 2 レーン）' },
+  {
+    what: 'packages/frame-engine / osr-export / gpu-export',
+    why: 'engine-v2.yml が Electron 実機付きで走らせている（required 3 レーン + 参考 2 レーン）',
+    paths: ['packages/frame-engine/test/**', 'packages/osr-export/test/**', 'packages/gpu-export/test/**']
+  },
   {
     what: 'apps/shell/extensions/akari-preview/test/caption-entry-animation-hit-region.test.mjs',
-    why: '実 Chrome を要する上、loadPuppeteer が .git を「ファイル」として読むため通常 checkout（.git がディレクトリ）では EISDIR で落ちる。テスト側の修正待ち'
+    why: '実 Chrome を要する上、loadPuppeteer が .git を「ファイル」として読むため通常 checkout（.git がディレクトリ）では EISDIR で落ちる。テスト側の修正待ち',
+    paths: ['apps/shell/extensions/akari-preview/test/caption-entry-animation-hit-region.test.mjs']
   },
-  { what: 'packages/preview-server test:frame-engine-browser（*.l1.mjs）', why: 'L1（実機観測）。CI の対象外' },
+  {
+    what: 'packages/preview-server test:frame-engine-browser（*.l1.mjs）',
+    why: 'L1（実機観測）。CI の対象外',
+    paths: ['packages/preview-server/test/*.l1.mjs']
+  },
+  {
+    what: 'packages/preview-server/test/server.spec.mjs',
+    why: 'Playwright 形式の .spec.mjs で npm test の test/*.test.mjs にも入らず実行主体が無い。@playwright/test の実行が要る',
+    paths: ['packages/preview-server/test/server.spec.mjs']
+  },
   ...PREVIEW_SERVER_PURE_EXCLUSIONS.map(item => ({
     what: `packages/preview-server/${item.file}（required には載せない。media レーンの npm test では走る）`,
-    why: item.why
+    why: item.why,
+    paths: [`packages/preview-server/${item.file}`]
   }))
 ];
 
@@ -318,11 +343,46 @@ function parseArgs(argv) {
   return args;
 }
 
-function expandFiles(entry) {
-  const cwd = path.join(REPO_ROOT, entry.cwd);
+function expandFiles(entry, repoRoot = REPO_ROOT) {
+  const cwd = path.join(repoRoot, entry.cwd);
   const files = [...new Set(globSync(entry.files, { cwd }))].sort();
   const excluded = entry.exclude ?? [];
   return files.filter(f => !excluded.some(re => re.test(f)));
+}
+
+function npmTestPatterns(script) {
+  // npm test の前段に build があっても、最初の node --test からファイル引数だけを読む。
+  const tokens = script.match(/"[^"]*"|'[^']*'|\S+/gu) ?? [];
+  const start = tokens.findIndex((token, index) => token === 'node' && tokens[index + 1] === '--test');
+  if (start < 0) throw new Error(`npm test script に node --test が無い: ${script}`);
+  const args = [];
+  for (const token of tokens.slice(start + 2)) {
+    if (['&&', '||', ';', '|'].includes(token)) break;
+    if (token.startsWith('--')) continue;
+    args.push(token.replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/u, '$1$2'));
+  }
+  // node --test 引数なしの探索。Node は test/ 配下の通常名も拾う。
+  return args.length ? args : ['**/*.test.{mjs,js,cjs}', 'test/**/*.{mjs,js,cjs}'];
+}
+
+export function coveredTestFiles(repoRoot = REPO_ROOT, lane = null) {
+  const covered = new Set();
+  for (const def of lane ? [LANES[lane]] : Object.values(LANES)) {
+    for (const entry of def.entries) {
+      const cwd = path.join(repoRoot, entry.cwd);
+      let files;
+      if (entry.npm) {
+        const packageJson = JSON.parse(readFileSync(path.join(cwd, 'package.json'), 'utf8'));
+        const script = packageJson.scripts?.[entry.npm];
+        if (!script) throw new Error(`${entry.cwd}/package.json に scripts.${entry.npm} が無い`);
+        files = globSync(npmTestPatterns(script), { cwd, exclude: ['**/node_modules/**'] });
+      } else {
+        files = expandFiles(entry, repoRoot);
+      }
+      for (const file of files) covered.add(path.relative(repoRoot, path.join(cwd, file)).split(path.sep).join('/'));
+    }
+  }
+  return covered;
 }
 
 export function commandFor(entry, npmCli = NPM_CLI) {
