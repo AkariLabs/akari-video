@@ -8511,6 +8511,10 @@ export function previewBootstrapScript(): string {
                 renderVideoFx(outputTime);
                 updateGenerationOverlay(outputTime);
             };
+            window.addEventListener('akari-overlay-remount-complete', () => {
+                applyOverlayTracks();
+                tick(true);
+            });
             const runTickGuarded = () => {
                 // A thrown exception here would otherwise abort animate()/the
                 // watchdog callback before their requestAnimationFrame re-arm runs,

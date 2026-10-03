@@ -345,7 +345,21 @@ function createOverlayRuntime(options = {}) {
       for (const runtime of overlayRuntimes(overlay)) runtime.dispose(overlay.container);
     }
     const stage = mountedStage ?? document.getElementById("overlay-stage");
-    if (stage) stage.replaceChildren();
+    if (stage) {
+      const children = [...stage.children];
+      const mountedContainers = new Set(mountedOverlays.map(overlay => overlay.container));
+      const isOverlayChild = child => child.hasAttribute?.("data-overlay-id")
+        || child.dataset?.overlayId !== undefined || mountedContainers.has(child);
+      if (children.some(child => !isOverlayChild(child))) {
+        for (const child of children) {
+          if (!isOverlayChild(child)) continue;
+          if (typeof child.remove === "function") child.remove();
+          else stage.removeChild(child);
+        }
+      } else {
+        stage.replaceChildren();
+      }
+    }
 
     mountedOverlays.length = 0;
     mountedStage = null;
@@ -502,7 +516,10 @@ function createOverlayRuntime(options = {}) {
       mountedOverlays.push(mountedOverlay);
     }
 
-    stage.replaceChildren(fragment);
+    const firstHost = [...stage.children].find(child => !child.hasAttribute?.("data-overlay-id")
+      && child.dataset?.overlayId === undefined);
+    if (firstHost) stage.insertBefore(fragment, firstHost);
+    else stage.replaceChildren(fragment);
     mountedStage = stage;
   }
 

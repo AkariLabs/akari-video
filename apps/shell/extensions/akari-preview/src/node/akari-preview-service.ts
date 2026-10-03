@@ -166,6 +166,24 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
   };
   let mountedSignature;
   let remounting = null;
+  let waitingForInteraction = false;
+  let latestTime = 0;
+  let latestPlaying = false;
+  const interactionBusy = () => Boolean(window.akari?.interaction?.activePointerOperation
+    || window.akari?.interaction?.activeEdit);
+  const waitForInteraction = () => {
+    if (waitingForInteraction) return;
+    waitingForInteraction = true;
+    const check = () => {
+      if (interactionBusy()) {
+        requestAnimationFrame(check);
+        return;
+      }
+      waitingForInteraction = false;
+      runtime.tick(latestTime, latestPlaying);
+    };
+    requestAnimationFrame(check);
+  };
   // 対象は overlay-stage 直下の器だけ。ホバー枠（interaction.js の preview-hover-frame）も同じ
   // data-overlay-id を持って body に居るため、document 全体を拾うと Map が枠の値（z-index: 90・
   // track なし・選択なし）で上書きされ、remount 後の器へ書き戻されて最前面に張り付く。
@@ -196,20 +214,35 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
     return mount(summary);
   };
   runtime.tick = (timelineTime, isPlaying) => {
+    latestTime = timelineTime;
+    latestPlaying = isPlaying;
     const summary = window.akari?.state?.summary;
     const nextSignature = signature(summary);
     if (nextSignature !== mountedSignature && !remounting) {
+      if (interactionBusy()) {
+        waitForInteraction();
+        return tick(timelineTime, isPlaying);
+      }
       mountedSignature = nextSignature;
       const presentation = snapshotPresentation();
       const stage = document.getElementById('overlay-stage');
       // Caption and transition hosts belong to the preview, not the overlay runtime.
       const hosts = stage ? [...stage.children].filter(element => !element.hasAttribute('data-overlay-id')) : [];
-      remounting = Promise.resolve(mount(summary)).then(() => {
-        if (stage) stage.append(...hosts);
+      let result;
+      try { result = Promise.resolve(mount(summary)); }
+      catch (error) { result = Promise.reject(error); }
+      remounting = result.then(() => {
+        if (stage) stage.append(...hosts.filter(host => ![...stage.children].includes(host)));
         restorePresentation(presentation);
         tick(timelineTime, isPlaying);
       }).catch(error => console.error('[akari-preview] overlay remount failed', error))
-        .finally(() => { remounting = null; });
+        .finally(() => {
+          remounting = null;
+          window.dispatchEvent?.(new Event('akari-overlay-remount-complete'));
+          if (signature(window.akari?.state?.summary) !== mountedSignature) {
+            runtime.tick(latestTime, latestPlaying);
+          }
+        });
       return;
     }
     if (!remounting) return tick(timelineTime, isPlaying);
