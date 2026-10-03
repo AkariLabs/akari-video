@@ -70,6 +70,26 @@ export const INSPECTOR_WIDGET_CSS = `
 .akari-inspector-widget button.akari-inspector-ai-still-primary { padding: 9px 12px; color: var(--akari-bg); background: var(--akari-accent); border: 1px solid var(--akari-accent); border-radius: 5px; font-weight: 700; cursor: pointer; }
 .akari-inspector-widget [data-akari-ui="action:inspector-photo-brush-start"][aria-pressed="true"] { border-color: var(--akari-accent); color: var(--akari-accent); background: var(--akari-elevated); box-shadow: inset 0 0 0 1px var(--akari-accent); }
 .akari-inspector-widget button.akari-inspector-ai-still-primary:disabled { color: var(--akari-faint); background: var(--akari-card); border-color: var(--akari-line); cursor: default; }
+.akari-inspector-ai-still-form-footer, .akari-inspector-ai-result-footer { position: sticky; bottom: 0; z-index: 4; display: grid; gap: 6px; padding: 10px 2px; background: var(--akari-bg); border-top: 1px solid var(--akari-line); }
+.akari-inspector-ai-still-result { display: grid; gap: 14px; min-width: 0; padding: 4px 2px 0; }
+.akari-inspector-ai-result-header { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.akari-inspector-ai-result-title { min-width: 0; font-size: 13px; }
+.akari-inspector-ai-result-count { margin-left: auto; color: var(--akari-muted); font-size: 11px; white-space: nowrap; }
+.akari-inspector-ai-result-prompt { display: grid; gap: 5px; font-size: 12px; }
+.akari-inspector-ai-result-prompt p { margin: 0; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.akari-inspector-ai-result-label { color: var(--akari-muted); font-size: 11px; }
+.akari-inspector-ai-result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.akari-inspector-ai-result-grid.akari-inspector-ai-result-single { grid-template-columns: minmax(0, 1fr); }
+.akari-inspector-widget button.akari-inspector-ai-result-candidate { display: grid; gap: 6px; min-width: 0; padding: 6px; text-align: left; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 6px; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-result-candidate:hover, .akari-inspector-widget button.akari-inspector-ai-result-candidate[data-akari-inspector-ai-result-in-frame="true"] { border-color: var(--akari-accent); }
+.akari-inspector-ai-result-image { display: block; width: 100%; min-height: 96px; aspect-ratio: 16 / 9; object-fit: contain; background: var(--akari-elevated); border-radius: 3px; }
+.akari-inspector-ai-result-meta, .akari-inspector-ai-result-in-frame { font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.akari-inspector-ai-result-in-frame { color: var(--akari-accent); font-weight: 700; }
+.akari-inspector-ai-result-pending { display: grid; place-items: center; min-height: 122px; color: var(--akari-muted); background: var(--akari-card); border: 1px dashed var(--akari-line); border-radius: 6px; font-size: 11px; }
+.akari-inspector-ai-result-note { margin: 0; padding: 9px; color: var(--akari-muted); background: var(--akari-card); border-radius: 5px; font-size: 11px; line-height: 1.5; }
+.akari-inspector-ai-result-failed { margin: 0; color: var(--akari-danger, #e36b6b); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.akari-inspector-ai-result-footer { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.akari-inspector-ai-result-footer button { min-width: 0; white-space: normal; }
 .akari-inspector-ai-transcribe-panel { display: grid; gap: 12px; min-width: 0; padding: 10px 2px; }
 .akari-inspector-ai-transcribe-detail, .akari-inspector-ai-transcribe-reason { margin: 0; color: var(--akari-muted); font-size: 12px; overflow-wrap: anywhere; }
 .akari-inspector-ai-transcribe-status { margin: 0; font-size: 13px; font-weight: 700; }

@@ -212,7 +212,7 @@ test('見積失敗の理由は手段の行とボタン近くに出て確認中�
   }
 });
 
-test('失敗行の再試行は保存した入力と手段ごとの確認状態で判定する', () => {
+test('失敗した案の再試行ボタンは指示の画面に置かない', () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: tag => new Node(tag) } });
   try {
@@ -222,12 +222,13 @@ test('失敗行の再試行は保存した入力と手段ごとの確認状態�
       batchInput: { prompt: 'saved prompt', aspect: '16:9', references: [], cropToAspect: true },
       batch: { routes: ['fal'], completed: 1, results: [], candidates: [
         { route: 'fal', ok: false, reason: 'failed' } ] } };
-    const retry = () => panel(state).nodes.find(node => node.attributes.get('data-akari-inspector-ai-retry-route') === 'fal');
-    assert.equal(retry().disabled, true, 'fal has no estimate');
+    const view = panel(state);
+    assert.equal(view.nodes.some(node => node.attributes.has('data-akari-inspector-ai-retry-route')), false);
+    assert.equal(view.nodes.some(node => node.attributes.has('data-akari-inspector-ai-failed-route')), false);
+    assert.ok(view.submit);
     state.falEstimate = { prices: { low: 0.01, medium: 0.02, high: 0.03 }, asOf: '2026-01-01' };
-    assert.equal(retry().disabled, false, 'saved prompt and fal readiness permit retry despite empty form and another probe');
     state.probingRoutes = new Set(['fal']);
-    assert.equal(retry().disabled, true, 'only this route being checked blocks retry');
+    assert.equal(panel(state).nodes.some(node => node.attributes.has('data-akari-inspector-ai-retry-route')), false);
   } finally {
     if (previous) Object.defineProperty(globalThis, 'document', previous);
     else delete globalThis.document;

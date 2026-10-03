@@ -1,7 +1,7 @@
 import type { AiImage, AiTargetKind, AiTileGroup } from '../../common/ai-action-catalog';
 import { createInspectorIcon } from './icons';
 
-export type AiTabView = 'tiles' | 'still' | 'video' | 'transcribe' | 'narration' | 'cutout' | 'eraser';
+export type AiTabView = 'tiles' | 'still' | 'still-result' | 'video' | 'transcribe' | 'narration' | 'cutout' | 'eraser';
 
 /** The generation identity is the authority for whether a visual target can be generated. */
 export function aiTargetKindFor(options: {

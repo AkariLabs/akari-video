@@ -154,13 +154,13 @@ export class StillGenerationManager {
         return { id: route, state: ready ? 'ready' : 'signed-out', detail: ready ? 'サインイン済み' : 'サインインが必要です' };
     }
 
-    async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string }, candidateMode = false): Promise<GenerateStillResult> {
+    async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string; routes?: Route[] }, candidateMode = false): Promise<GenerateStillResult> {
         const route = request.route ?? 'codex';
         return this.candidates.runRoute(request.itemId, route,
             () => this.runGenerateStill(projectRoot, request, candidateMode));
     }
 
-    private async runGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string }, candidateMode: boolean): Promise<GenerateStillResult> {
+    private async runGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string; routes?: Route[] }, candidateMode: boolean): Promise<GenerateStillResult> {
         if (!request.prompt?.trim() || !stillAspectText[request.aspect]) return { ok: false, reason: '指示文と画角を指定してください。' };
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId)) return { ok: false, reason: 'itemId が不正です。' };
         const route = request.route ?? 'codex';
@@ -290,6 +290,15 @@ export class StillGenerationManager {
             let meta = metas.doneStillMeta({ prompt, duration_s, at, asOf: route === 'codex' ? await metas.readCodexModelAsOf() : at.slice(0, 10),
                 path: relativePath, image, elapsed_s: result.elapsed_s, references, croppedFrom, aspect: request.aspect,
                 candidateOf: candidateMode ? request.itemId : undefined });
+            if (candidateMode) {
+                meta.inputs.prompt = request.prompt;
+                meta.inputs.extra = { ...meta.inputs.extra, still_batch: {
+                    prompt: request.prompt, aspect: request.aspect, routes: request.routes ?? [route],
+                    references: request.references ?? [], cropToAspect: request.cropToAspect !== false,
+                    quality: request.quality ?? 'high', generation_prompt: prompt
+                } };
+                meta.output.aspect = request.aspect;
+            }
             if (route !== 'codex') {
                 const name = route === 'antigravity' ? 'agy' : route;
                 meta.model.id = `${name}:image`;
@@ -349,16 +358,28 @@ export class StillGenerationManager {
         if (!routes.length || routes.length !== request.routes.length
             || routes.some(route => !stillRouteIds.has(route))) throw new Error('手段を選んでください。');
         if (routes.includes('fal') && request.approved !== true) throw new Error('費用承認が必要です。');
-        return this.candidates.batch(request.itemId, routes,
-            () => this.prepareCompareBatch(projectRoot, request),
+        const batch = await this.candidates.batch(request.itemId, routes,
+            () => this.prepareCompareBatch(projectRoot, { ...request, routes }),
             async route => {
-                const result = await this.startGenerateStill(projectRoot, { ...request, route: route as Route }, true);
+                const result = await this.startGenerateStill(projectRoot, { ...request, routes, route: route as Route }, true);
                 return { ...result, ...(route === 'fal' && result.ok
                     ? { costUsd: ({ low: 0.006, medium: 0.0133, high: 0.0528 } as const)[request.quality ?? 'high'] } : {}) };
-            }) as Promise<StillCandidateBatch>;
+            }) as StillCandidateBatch;
+        const root = await fs.realpath(projectRoot);
+        const results = batch.results.map(row => ({ route: row.route, ok: row.ok,
+            ...(row.relativePath ? { path: row.relativePath } : {}),
+            ...(row.reason ? { reason: row.reason } : {}) }));
+        for (const candidate of batch.results.filter(row => row.ok && row.relativePath)) {
+            const path = await projectOutputPath(root, `${candidate.relativePath}.meta.json`);
+            const meta = JSON.parse(await fs.readFile(path, 'utf8'));
+            meta.inputs.extra.still_batch = { ...meta.inputs.extra.still_batch, results,
+                completed: routes.length };
+            await fs.writeFile(path, `${JSON.stringify(meta, null, 2)}\n`);
+        }
+        return batch;
     }
 
-    private async prepareCompareBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'> & { editUri?: string }): Promise<CandidatePreparation> {
+    private async prepareCompareBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'> & { routes: Route[]; editUri?: string }): Promise<CandidatePreparation> {
         const root = await fs.realpath(projectRoot);
         const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
@@ -373,9 +394,14 @@ export class StillGenerationManager {
         const at = new Date().toISOString();
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
         const metas = await importEsm(pathToFileURL(await this.findAsset('packages/generate/src/cli/meta-still.mjs')).toString());
-        const original: GenerationSidecarMeta = previous ? JSON.parse(previous) : metas.plannedStillMeta({
+        const original: Record<string, any> = previous ? JSON.parse(previous) : metas.plannedStillMeta({
             prompt: '', duration_s: Number(item.duration) / (Number(edit.output?.fps) || 30), at, asOf: at.slice(0, 10)
         });
+        original.inputs = { ...original.inputs, prompt: request.prompt, extra: { ...original.inputs?.extra,
+            still_batch: { prompt: request.prompt, aspect: request.aspect, routes: request.routes,
+                references: request.references ?? [], cropToAspect: request.cropToAspect !== false,
+                quality: request.quality ?? 'high' } } };
+        original.output = { ...original.output, aspect: request.aspect };
         const existing = await fs.readdir(join(root, 'assets', 'generated', 'candidates', request.itemId)).catch(() => [] as string[]);
         return { sidecarPath, original, previousCandidates: existing.filter(name => name.endsWith('.png.meta.json')).length };
     }
@@ -409,16 +435,23 @@ export class StillGenerationManager {
             const time = (row: StillCandidate): number => Number(row.relativePath?.split('/').pop()?.split('-')[1]) || 0;
             return time(right) - time(left) || String(right.relativePath).localeCompare(String(left.relativePath));
         });
-        const savedResults: StillCandidate[] = Array.isArray(sourceMeta.job?.results)
-            ? sourceMeta.job.results.map((row: any) => row.ok && row.path
+        const compareSource = sourceMeta.job?.provider === 'compare';
+        const storedResults = compareSource ? sourceMeta.job?.results
+            : sourceMeta.inputs?.extra?.still_batch?.results ?? sourceMeta.job?.results;
+        const savedResults: StillCandidate[] = Array.isArray(storedResults)
+            ? storedResults.map((row: any) => row.ok && row.path
                 ? candidates.find(candidate => candidate.relativePath === row.path) ?? { ok: true, route: row.route, relativePath: row.path }
                 : { ok: false, route: row.route, reason: row.reason }) : [];
         const results = live?.candidates.map(row => row.ok && row.relativePath
             ? candidates.find(candidate => candidate.relativePath === row.relativePath) ?? row : row)
             ?? (savedResults.length ? savedResults : undefined);
         const failed = (results ?? []).filter(row => !row.ok);
-        const routes = live?.routes ?? (Array.isArray(sourceMeta.job?.routes) ? sourceMeta.job.routes : [...new Set(candidates.map(row => row.route))]);
-        return { routes, completed: live?.completed ?? sourceMeta.job?.completed ?? candidates.length + failed.length,
+        const storedBatch = sourceMeta.inputs?.extra?.still_batch;
+        const routes = live?.routes ?? (compareSource && Array.isArray(sourceMeta.job?.routes) ? sourceMeta.job.routes
+            : Array.isArray(storedBatch?.routes) ? storedBatch.routes
+                : Array.isArray(sourceMeta.job?.routes) ? sourceMeta.job.routes : [...new Set(candidates.map(row => row.route))]);
+        return { routes, completed: live?.completed ?? (compareSource ? sourceMeta.job?.completed : storedBatch?.completed)
+            ?? sourceMeta.job?.completed ?? candidates.length + failed.length,
             candidates: [...candidates, ...failed], results, running: live?.running ?? false };
     }
 
