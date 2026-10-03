@@ -66,8 +66,8 @@ import {
   groupWordsIntoDisplayLines,
 } from '/caption-line-layout.js';
 import { isImageLayerSrc, isImageLayer, layerPlaybackPath } from '/layer-source.js';
-import { cropOf, layerIntrinsicSize, perspectiveOf, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
-import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup } from '/caption-markup.js';
+import { outputSizePx, cropOf, layerIntrinsicSize, perspectiveOf, layerRectForVideoRect, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
+import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup, getActiveCaptions } from '/caption-markup.js';
 import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
 import { clipLookForCut, sourceEffectsForCut, layerChromaEffects } from '/video-fx-source.js';
 
@@ -216,7 +216,7 @@ let captionStylesInjected = false;
 // caption-layout/v1（resolved timeline）は既に出力秒なのでそのまま。
 let captionsOutputClock = [];
 function refreshCaptionClock() {
-  const caps = getActiveCaptions();
+  const caps = getActiveCaptions(summary, captionsData);
   if (captionsResolvedTimeline || !caps.length) {
     captionsOutputClock = caps;
     return;
@@ -520,17 +520,10 @@ if (frameEngineEnabled) setInterval(updateAudioStatus, 250);
 // にし、transform: scale(frameScale) で preview-stage の出力フレーム矩形へ写像する。
 // preview-stage はペイン内へ output 比で fit し、その外側はペインの台紙色のまま残す。
 let frameScale = 1;
-function outputSizePx() {
-  const os = summary?.output || {};
-  return {
-    width: Number(os.width) > 0 ? Number(os.width) : 1280,
-    height: Number(os.height) > 0 ? Number(os.height) : 720
-  };
-}
 // Web UI は px + clientWidth 実測を正本にする。wrapper（ペイン content box 全面）へ
 // output 比を contain した寸法を preview-stage に与える。
 function applyPreviewStageSize() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const boxW = wrapper.clientWidth;
   const boxH = wrapper.clientHeight;
   if (!(boxW > 0) || !(boxH > 0)) {
@@ -546,7 +539,7 @@ function applyPreviewStageSize() {
 // akari-preview-open-handler.ts の aspectRatio>=1 分岐。基準辺 120px は従来の横長既定
 // 120x67.5 を保つ値 — 16:9 では従来どおり 120x67.5 のまま、回帰なし）。
 function applyMinimapAspectRatio() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const ratio = os.width / os.height;
   const base = 120;
   minimap.style.width = `${ratio >= 1 ? base : base * ratio}px`;
@@ -558,7 +551,7 @@ function computeOutputFrameRect() {
 function updateStageScale() {
   applyPreviewStageSize();
   applyMinimapAspectRatio();
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const rect = computeOutputFrameRect();
   const next = rect.width / os.width;
   frameScale = Number.isFinite(next) && next > 0 ? next : 1;
@@ -696,7 +689,7 @@ function buildSegments() {
 // 箱はクロップ矩形の描画済み（scale 込み）px サイズ -- scale はもはや別関数ではなく箱サイズへ
 // 焼き込むため、shell と同じ box 単位になった（layer-perspective-visual.js のコメント参照）。
 function applyLayerLayout(el, x, y, scale, rotate) {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const scaleX = Number(el.dataset.layerScaleX) || scale;
   const scaleY = Number(el.dataset.layerScaleY) || scale;
   el.style.left = `${os.width / 2 + x}px`;
@@ -1251,28 +1244,6 @@ function setLayerSelected(id) {
 // 移動と操作が衝突しないための排他モード切替。8 方向ハンドルで layers[].crop
 // （0..1 正規化・ソースフレーム相対）を編集し、確定（pointerup）時のみ書き戻す。
 let cropModeActive = false;
-// ソース px（ネイティブ px。videoWidth/videoHeight）の矩形を、layerContainer ローカル座標
-// （frameScale/zoom 適用前の「出力論理 px」空間 -- video 要素自身と同じ単位。frameScale/zoom は
-// 親コンテナの scale() が別途処理する）へ正写像する。shell の layerScreenRectForVideoRect と
-// 同型の幾何（画面 px への変換〔frameRect/frameScale 乗算〕だけ、Web はこの空間のまま
-// layerContainer の子として置くため省く）。2026-08-06 web-layer-placement-parity: 中心基準統一
-// に伴い el.offsetLeft 依存の旧実装を置き換えた -- 旧実装は「el 自身の静的位置に transform.x を
-// 加算する」慣習だったが、新基準では transform.x は既に el.style.left（= outputWidth/2+x）へ
-// 焼き込まれているため、el.offsetLeft から独立に「ネイティブ px 空間 → transform による配置」を
-// 導出する必要がある（shell と同じ formula: P' = outputSize/2 + T + s·R(θ)·(P-pivot)）。
-function layerRectForVideoRect(transform, videoRect, pivotPx) {
-  const os = outputSizePx();
-  const outputW = videoRect.w * (transform.scaleX ?? transform.scale);
-  const outputH = videoRect.h * (transform.scaleY ?? transform.scale);
-  const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * (transform.scaleX ?? transform.scale);
-  const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * (transform.scaleY ?? transform.scale);
-  const rad = transform.rotate * Math.PI / 180;
-  const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
-  const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
-  const centerX = os.width / 2 + transform.x + rotOffX;
-  const centerY = os.height / 2 + transform.y + rotOffY;
-  return { left: centerX - outputW / 2, top: centerY - outputH / 2, width: outputW, height: outputH, rotOffX, rotOffY };
-}
 // 画面クライアント座標 → ソースフレーム正規化座標（0..1）の逆写像。layerRectForVideoRect の逆
 // （shell の layerVideoPointForPivot と同型）。pivotFrac はソースフレーム正規化座標（クロップ
 // ハンドルは常に全面中心 {0.5,0.5} を使う -- shell と同じ規約。呼び出し元 fullPivot 参照）。
@@ -1282,7 +1253,7 @@ function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
   const viewScale = contRect.width / layerContainer.offsetWidth;
   const px = (clientX - contRect.left) / viewScale;
   const py = (clientY - contRect.top) / viewScale;
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const { width: vw, height: vh } = layerIntrinsicSize(el);
   if (!(vw > 0 && vh > 0)) return null;
   const pivotPx = { x: pivotFrac.x * vw, y: pivotFrac.y * vh };
@@ -1363,8 +1334,8 @@ function updateLayerCropBox() {
   // 近似だったが、それだと錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見える
   // ため、実際の合成 pivot と統一した — shell の updateLayerCropBox と同型の判断）。
   const cropPivot = { x: (crop.x + crop.w / 2) * vw, y: (crop.y + crop.h / 2) * vh };
-  const outer = layerRectForVideoRect(transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
-  const inner = layerRectForVideoRect(transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
+  const outer = layerRectForVideoRect(summary, transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
+  const inner = layerRectForVideoRect(summary, transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
   layerCropBox.style.display = 'block';
   layerCropBox.style.left = `${outer.left}px`;
   layerCropBox.style.top = `${outer.top}px`;
@@ -1704,7 +1675,7 @@ window.addEventListener('keydown', (e) => {
 
 // zoom 込みの実効倍率（表示 px / 論理出力 px）。frameScale 直参照だと zoom>1 でずれる
 function layerEffectiveScale() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const rect = layerContainer.getBoundingClientRect();
   return rect.width > 0 ? rect.width / os.width : 1;
 }
@@ -2559,7 +2530,7 @@ function applyCutFramingVisual() {
   const seg = getActiveSegment(outputTime);
   const cut = seg && !seg.isGap ? seg : null;
   const framingVisual = computeCutFramingVisual(cut ? cut.framing : null, playedCutLocalSeconds(seg));
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const motionState = cut && (cut.motion || cut.motionSource || Array.isArray(cut.keyframes))
     ? window.akari.itemMotion.evaluateOverlayMotion({ ...cut, start: cut.outStart,
       duration: cut.durationSec, keyframeUnit: 'seconds' }, outputTime, fps) : null;
@@ -2873,7 +2844,7 @@ function updateTransitions() {
   const outgoingElement = isStillImageCutSegment(outgoingSegment) ? img : video;
   const outgoingCut = outgoingSegment && !outgoingSegment.isGap
     ? summary?.cuts?.[outgoingSegment.index] ?? null : null;
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const outgoingFramingVisual = computeCutFramingVisual(
     outgoingSegment?.framing,
     playedCutLocalSeconds(outgoingSegment),
@@ -4184,16 +4155,6 @@ function applyCaptionStyle(caption, captionPlate) {
   captionPlate.classList.toggle('akari-caption--fill-gradient', Boolean(vars['--caption-fill-gradient']));
   captionPlate.classList.toggle('akari-caption-resolved', captionsResolvedTimeline);
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
-}
-
-function getActiveCaptions() {
-  // captions.json が正本（shell と同一）。edit.json 埋め込みはフォールバックのみ
-  const excluded = collectExcludedCaptionIds(summary);
-  if (Array.isArray(captionsData) && captionsData.length > 0) {
-    return filterCaptionRootByExcludedIds(captionsData, excluded);
-  }
-  const fromEdit = summary?.captions;
-  return Array.isArray(fromEdit) ? filterCaptionRootByExcludedIds(fromEdit, excluded) : [];
 }
 
 function injectCaptionStyles() {

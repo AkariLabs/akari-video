@@ -67,3 +67,13 @@ export function renderRevealGroupsMarkup(lines, rangeStart, rangeEnd, renderLine
     return `<div class="akari-caption__reveal-group" style="--akari-reveal-delay:${delay.toFixed(3)}s;--akari-reveal-dur:${duration.toFixed(3)}s">${lineMarkup}</div>`;
   }).join('');
 }
+
+export function getActiveCaptions(summary, captionsData) {
+  // captions.json が正本（shell と同一）。edit.json 埋め込みはフォールバックのみ
+  const excluded = collectExcludedCaptionIds(summary);
+  if (Array.isArray(captionsData) && captionsData.length > 0) {
+    return filterCaptionRootByExcludedIds(captionsData, excluded);
+  }
+  const fromEdit = summary?.captions;
+  return Array.isArray(fromEdit) ? filterCaptionRootByExcludedIds(fromEdit, excluded) : [];
+}
