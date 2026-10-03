@@ -76,7 +76,7 @@ export const QUALITY_PRESETS = {
 
 const PRORES_QSCALE = Object.freeze({ master: 5, high: 9, standard: 11, light: 13 });
 
-const COLOR_ARGS = [
+export const COLOR_ARGS = [
   "-colorspace",
   "bt709",
   "-color_primaries",
@@ -90,8 +90,8 @@ const COLOR_ARGS = [
 // ffmpeg 7 以降は primaries / transfer をフレーム側のプロパティから取り、rawvideo / lavfi の
 // unspecified 値で CLI 指定を上書きする。エンコーダ非依存で成果物へ bt709 を記録するため、
 // metadata bitstream filter で符号化後の VUI を明示的に補正する。
-const H264_COLOR_TAG_BSF = ["-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"];
-const HEVC_COLOR_TAG_BSF = ["-bsf:v", "hevc_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"];
+export const H264_COLOR_TAG_BSF = ["-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"];
+export const HEVC_COLOR_TAG_BSF = ["-bsf:v", "hevc_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"];
 
 const CONTAINERS = Object.freeze({
   h264: Object.freeze({ ext: "mp4", kind: "file" }),

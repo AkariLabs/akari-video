@@ -267,15 +267,15 @@ function normalizeCaptureFrames(frameNumbers, totalFrames) {
   }))].sort((left, right) => left - right);
 }
 
-export async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps, codec = "h264" }) {
+export async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps, codec = "h264", videoTagArgs = [] }) {
   const sourceHasAudio = (await capture(ffprobeCommand, [
     "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=index", "-of", "csv=p=0", audioPath,
   ])).trim() !== "";
   const duration = frames / fps;
   const pcm = codec === "prores422";
   const args = sourceHasAudio
-    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", ...(pcm ? ["-c:a", "pcm_s16le", "-ar", "48000"] : ["-c:a", "copy"]), "-t", String(duration), outputPath]
-    : ["-i", videoPath, "-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", pcm ? "pcm_s16le" : "aac", ...(pcm ? ["-ar", "48000"] : []), "-t", String(duration), outputPath];
+    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", ...videoTagArgs, ...(pcm ? ["-c:a", "pcm_s16le", "-ar", "48000"] : ["-c:a", "copy"]), "-t", String(duration), outputPath]
+    : ["-i", videoPath, "-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", ...videoTagArgs, "-c:a", pcm ? "pcm_s16le" : "aac", ...(pcm ? ["-ar", "48000"] : []), "-t", String(duration), outputPath];
   await spawnAndWait(ffmpegCommand, ["-hide_banner", "-loglevel", "warning", "-y", ...args]);
   return sourceHasAudio;
 }

@@ -7,6 +7,7 @@ import { summarizeGpuAdapters } from "../../osr-export/src/gpu-adapters.mjs";
 import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preference.mjs";
 import { MEMORY_HARD_STOP_REASON } from "../../osr-export/src/memory.mjs";
 import { muxSourceAudio } from "../../osr-export/src/index.mjs";
+import { COLOR_ARGS, H264_COLOR_TAG_BSF, HEVC_COLOR_TAG_BSF } from "../../render-cut/src/encode-preset.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 import { describeHardwareEncoderFailure, firstLine, HARDWARE_ENCODER_UNSUPPORTED_MARKER } from "./gpu-diagnostics.mjs";
@@ -74,6 +75,7 @@ export async function exportWithGpu({
   launcherResolver = resolveGpuLauncher,
   launcherRunner = launchGpuExportWithOutputSize,
   audioMuxer = muxSourceAudio,
+  videoTagger = tagVideoOnly,
   finalVerifier = verifyFinalVideoWithDecode,
 } = {}) {
   if (eligibility?.eligible !== true && !(force && eligibility?.summary?.unsupported === 0)) {
@@ -146,8 +148,24 @@ export async function exportWithGpu({
     };
     const audioMuxStarted = performance.now();
     let audio;
+    // ハードウェア経路は BT.709 limited で符号化するが、VUI とコンテナに色タグを記録しない。
+    // 読み手の推測で OSR と違う色にならないよう、映像は -c:v copy のまま、bitstream filter で VUI、COLOR_ARGS でコンテナに BT.709 limited を明示する。
+    // soft は BT.601 limited で符号化し VUI も自分で書くため、BT.709 で上書きしない。
+    const videoTagArgs = soft ? [] : [
+      ...(codec === "hevc" ? HEVC_COLOR_TAG_BSF : H264_COLOR_TAG_BSF),
+      ...COLOR_ARGS,
+    ];
     if (audioSourcePath === null || audioSourcePath === undefined) {
-      await copyFile(videoOnlyPath, out);
+      if (soft) {
+        await copyFile(videoOnlyPath, out);
+      } else {
+        await videoTagger({
+          ffmpegCommand: ffmpegCommand ?? resolveFfmpeg({ env }),
+          videoPath: videoOnlyPath,
+          outputPath: out,
+          videoTagArgs,
+        });
+      }
       audio = { mode: "none", source: null, source_has_audio: null };
     } else {
       const sourceHasAudio = await audioMuxer({
@@ -158,6 +176,7 @@ export async function exportWithGpu({
         outputPath: out,
         frames,
         fps,
+        ...(!soft ? { videoTagArgs } : {}),
       });
       audio = {
         mode: sourceHasAudio ? "copy" : "silent-carrier",
@@ -220,6 +239,22 @@ export async function exportWithGpu({
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
   }
+}
+
+function tagVideoOnly({ ffmpegCommand, videoPath, outputPath, videoTagArgs }) {
+  const args = [
+    "-hide_banner", "-loglevel", "warning", "-y",
+    "-i", videoPath, "-map", "0:v:0", "-c:v", "copy", ...videoTagArgs, outputPath,
+  ];
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(ffmpegCommand, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("error", rejectPromise);
+    child.once("close", (code) => code === 0
+      ? resolvePromise()
+      : rejectPromise(new Error(`ffmpeg video tagging exited ${code}: ${stderr.trim()}`)));
+  });
 }
 
 function launchGpuExportWithOutputSize(launcher, options) {
