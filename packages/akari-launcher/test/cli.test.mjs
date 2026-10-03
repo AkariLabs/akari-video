@@ -103,7 +103,7 @@ test('scaffold 呼び出し: 未セットアップのフォルダでは実際の
         claudeCall = { claudePath, args, cwd };
         return { status: 0 };
       },
-      ...isolatedUpdateOptions(root)
+      ...isolatedUpdateOptions(root), isTTY: true, prompt: async () => 'n'
     });
 
     // 実 scaffold が実際に .akari/intake.json (draft) と skills 一式を書いたことを確認する。
@@ -252,7 +252,7 @@ test('scaffold が例外を投げても claude 起動までは続行する（「
         claudeCall = { claudePath, args, cwd };
         return { status: 7 };
       },
-      ...isolatedUpdateOptions(root)
+      ...isolatedUpdateOptions(root), isTTY: true, prompt: async () => 'n'
     });
 
     assert.ok(lines.some((line) => line.includes('エラーが発生しました（続行します）')));
