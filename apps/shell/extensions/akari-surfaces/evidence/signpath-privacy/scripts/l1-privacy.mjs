@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 実機検証（開発 Electron + CDP）: 初回の通信説明と、自動確認 OFF のときに外部へ接続しないこと。
+// 実機検証（開発 Electron + CDP）: 初回に通信モーダルが出ず、設定の説明から自動確認を OFF にできること。
 //
 //   node l1-privacy.mjs --out=<証跡の出力先> [--iso=<隔離ディレクトリ>] [--port=22531] [--settle=25] [--path=full|minimal]
 //
@@ -15,7 +15,7 @@
 //   1. Chromium の netlog（--log-net-log）      … レンダラの fetch・Electron の net
 //   2. Node の接続フック（net-hook.cjs）        … Theia バックエンドと子プロセスの http / https / fetch
 //   3. nettop（外部インターフェースのソケット） … 自分の PID の子孫だけを抜き出す
-// 走行は 3 回: A = 初回（説明 → スイッチを OFF → 続ける）/ B = OFF のまま再起動（本測定）/
+// 走行は 3 回: A = 初回（ホーム → 設定の説明とリンク → スイッチを OFF）/ B = OFF のまま再起動（本測定）/
 //             C = ON に戻して再起動（対照。観測手段が接続を拾えることの確認）。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -63,6 +63,7 @@ const check = (name, pass, observed) => {
 // AKARI_UPDATE_FEED_URL を手元（127.0.0.1）の検証用サーバーへ向けると有効になるので、
 // 「OFF なら 1 回も来ない / ON なら来る」をこのサーバーの受信数で数える。外へは出ない。
 const feedHits = [];
+const pageErrors = [];
 const feedServer = createServer((request, response) => {
     feedHits.push({ t: Date.now(), path: request.url });
     response.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
@@ -101,8 +102,32 @@ const command = (id, value) => `(()=>{const c=window.theia.container,d=c._bindin
   return true})()`;
 async function clickPoint(expression, label) {
     const point = await waitEval(`(()=>{const e=${expression};if(!e)return null;e.scrollIntoView({block:'center',behavior:'instant'});
-      const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.left+r.width/2,y:r.top+r.height/2}:null})()`, label, 20_000);
+      const r=e.getBoundingClientRect();if(!r.width||!r.height)return null;
+      const x=r.left+r.width/2,y=r.top+r.height/2,front=document.elementFromPoint(x,y);
+      return {x,y,hit:front===e||e.contains(front),front:front?.outerHTML.slice(0,300)??null,
+        switchInert:e.inert,dialogInert:e.closest('[data-akari-settings-dialog]')?.inert??null}})()`, label, 20_000);
+    check('設定スイッチのクリック点の最前面にスイッチがある', point.hit, point);
+    if (!point.hit) throw new Error(`${label} is covered: ${point.front}`);
     await realClick(cdp, point.x, point.y);
+}
+async function suspendGuidePointerGuard() {
+    const response = await cdp.send('Runtime.evaluate', { expression: `(()=>{
+      const types=['pointerdown','mousedown','mouseup','click','dblclick','contextmenu'];
+      const guards=types.flatMap(type=>(getEventListeners(document)[type]??[])
+        .filter(row=>row.useCapture&&String(row.listener).includes('shouldBlockGuidePointer'))
+        .map(row=>({type,listener:row.listener,passive:row.passive,once:row.once})));
+      if(guards.length!==types.length)return {found:guards.map(row=>row.type)};
+      window.__akariL1GuideGuards=guards;
+      for(const row of guards)document.removeEventListener(row.type,row.listener,true);
+      return {found:guards.map(row=>row.type)};})()`, includeCommandLineAPI: true, returnByValue: true });
+    if (response.exceptionDetails) throw new Error(`guide pointer guard inspection failed: ${JSON.stringify(response.exceptionDetails)}`);
+    const found = response.result.value?.found ?? [];
+    if (found.length !== 6) throw new Error(`expected 6 guide pointer guards, found ${JSON.stringify(found)}`);
+    return async () => {
+        await evalOn(cdp, `(()=>{for(const row of window.__akariL1GuideGuards??[])
+          document.addEventListener(row.type,row.listener,{capture:true,passive:row.passive,once:row.once});
+          delete window.__akariL1GuideGuards;return true})()`);
+    };
 }
 async function shot(name, clipExpression) {
     let clip;
@@ -144,6 +169,10 @@ async function launch(phase) {
     pidTimer = setInterval(() => { void samplePids(); }, 500);
     const target = await until(async () => (await listTargets(port)).find(row => row.type === 'page' && !row.url.startsWith('devtools:')), 'CDP page', 180_000);
     cdp = new CDP(target.webSocketDebuggerUrl); await cdp.connect();
+    cdp.on('Runtime.exceptionThrown', event => {
+        pageErrors.push({ phase, text: event.exceptionDetails?.text ?? '',
+            description: event.exceptionDetails?.exception?.description ?? '' });
+    });
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
     await waitEval(`Boolean(window.theia?.container&&document.getElementById('theia-app-shell'))`, 'Theia', 300_000);
     return { netlog, hookLog, nettopLog, startedAt, electronPid: child.pid };
@@ -231,7 +260,7 @@ const readJson = file => { try { return JSON.parse(readFileSync(file, 'utf8')); 
 async function homeAndSettings(phase) {
     const run = await launch(phase);
     const homeReady = await waitEval(`Boolean(document.querySelector('[data-akari-home-ready="true"]'))`, 'home ready', 120_000).catch(() => false);
-    // 初回説明が出ないことを、ホーム表示後もしばらく見続ける。
+    // 通信モーダルが出ないことを、ホーム表示後もしばらく見続ける。
     let noticeSeen = false;
     for (let index = 0; index < 20; index++) { noticeSeen ||= await evalOn(cdp, noticePresent).catch(() => false); await sleep(250); }
     await sleep(settleSeconds * 1000);
@@ -264,47 +293,75 @@ async function homeAndSettings(phase) {
 await mkdir(out, { recursive: true });
 for (const dir of Object.values(dirs)) await mkdir(dir, { recursive: true });
 try {
-    // ---- A: 初回起動。説明が出る → スイッチを OFF → 続ける ----
+    // ---- A: 初回起動。通信モーダルなし → 設定の説明を確認 → スイッチを OFF ----
     {
         const run = await launch('a-first-run');
-        const markerBefore = existsSync(path.join(dirs.akariHome, 'privacy-notice-v1.json'));
-        await waitEval(noticePresent, 'privacy notice', 120_000);
-        await sleep(800);
-        const text = await evalOn(cdp, `document.querySelector('[data-akari-privacy-notice="true"]').textContent`);
-        const state = await evalOn(cdp, `(()=>{const d=document.querySelector('[data-akari-privacy-notice="true"]');
-          const c=d.querySelector('[data-akari-auto-check="true"]');
-          return {checked:c?.checked??c?.getAttribute('aria-checked'),homeReady:Boolean(document.querySelector('[data-akari-home-ready="true"]')),
-            guide:Boolean(document.getElementById('akari-onboarding-v1')),setup:Boolean(document.querySelector('[data-akari-first-run-dialog="true"]'))}})()`);
-        await shot('a-01-first-run-notice');
-        await shot('a-01-first-run-notice-dialog', `document.querySelector('[data-akari-privacy-notice="true"] .dialogBlock')`);
-        check('初回フラグなしで通信の説明が出る', !markerBefore && Boolean(text), { markerBefore, text, state });
-        check('説明に 4 つの要点（利用状況を送らない・自動確認は取得だけ・AI は使ったときだけ・プライバシーポリシー）がある',
-            ['利用状況を送りません', '自動で確認します', '取得するだけ', 'AI 機能は使ったときだけ', 'API キー', 'プライバシーポリシー'].every(part => text.includes(part)), { text });
-        check('説明は既存のガイド・セットアップより前に単独で出る', state.guide === false && state.setup === false, state);
-        await clickPoint(`document.querySelector('[data-akari-privacy-notice="true"] [data-akari-auto-check="true"]')`, 'auto check switch');
-        const afterToggle = await waitEval(`(()=>{const c=document.querySelector('[data-akari-privacy-notice="true"] [data-akari-auto-check="true"]');
-          const v=c?.checked??c?.getAttribute('aria-checked');return v===false||v==='false'?{checked:v}:null})()`, 'switch off', 10_000);
-        await shot('a-02-first-run-notice-switch-off-dialog', `document.querySelector('[data-akari-privacy-notice="true"] .dialogBlock')`);
-        await clickPoint(`[...document.querySelectorAll('[data-akari-privacy-notice="true"] button')].find(b=>b.textContent.trim()==='続ける')`, 'continue button');
-        await until(async () => !(await evalOn(cdp, noticePresent)), 'notice closed', 20_000);
-        await sleep(1500);
-        const preferences = readJson(path.join(dirs.akariHome, 'update-preferences.json'));
-        const marker = readJson(path.join(dirs.akariHome, 'privacy-notice-v1.json'));
-        const settingsFile = (await readFile(path.join(dirs.theia, 'settings.json'), 'utf8').catch(() => ''));
+        const homeReady = await waitEval(`Boolean(document.querySelector('[data-akari-home-ready="true"]'))`, 'home ready', 120_000);
+        let noticeSeen = false;
+        for (let index = 0; index < 20; index++) { noticeSeen ||= await evalOn(cdp, noticePresent); await sleep(250); }
+        check('新規ユーザーの初回起動で通信についてのモーダルが出ない', homeReady && !noticeSeen, { homeReady, noticeSeen });
+        await shot('a-00-first-run-home');
+        await evalOn(cdp, command('akari.settings.open', { section: 'about' }));
+        const settings = await waitEval(`(()=>{const d=document.querySelector('[data-akari-settings-dialog="true"]');
+          const n=d?.querySelector('[data-akari-network-explanation="true"]');
+          const c=d?.querySelector('[role="switch"][aria-label="更新と素材の自動確認"]');
+          const linkRow=[...(n?.querySelectorAll('.akari-set-row')??[])].find(e=>
+            e.querySelector('.akari-set-row-label')?.textContent.trim()==='プライバシーポリシー');
+          const linkButton=linkRow?.querySelector('button');
+          return n&&c?{label:c.getAttribute('aria-label'),checked:c.getAttribute('aria-checked'),
+            description:n.textContent,linkRowText:linkRow?.textContent.trim()??null,
+            linkButtonText:linkButton?.textContent.trim()??null}:null})()`, 'about auto check and explanation', 30_000);
+        const explanationLines = [
+            'AKARI Video は利用状況を送りません。',
+            '新しい版と素材の一覧を自動で確認します。何も送らず、取得するだけです。',
+            'AI 機能は使ったときだけ、あなたの API キーで各社に送ります。'
+        ];
+        check('設定に自動確認のスイッチ・説明 3 行・プライバシーポリシーへのリンクがある',
+            settings.label === '更新と素材の自動確認' && settings.checked === 'true'
+                && explanationLines.every(line => settings.description.includes(line))
+                && settings.linkRowText?.includes('プライバシーポリシー')
+                && settings.linkRowText?.includes('https://akari.video/privacy')
+                && settings.linkButtonText === '開く', settings);
+        // 初回ガイドは表示を隠しても document の capture リスナーがガイド外への実クリックを遮断する。
+        // 表示とリスナーをこの操作の間だけ退避し、ガイドの状態と保存マーカーは変えない。
+        await evalOn(cdp, `(()=>{window.__akariL1HiddenNodes=[document.getElementById('akari-onboarding-v1'),
+          document.querySelector('[data-akari-first-run-dialog="true"]')].filter(Boolean).map(node=>({node,
+          style:node.getAttribute('style'),marker:node.getAttribute('data-l1-hidden')}));
+          for(const {node} of window.__akariL1HiddenNodes){node.dataset.l1Hidden='1';node.style.visibility='hidden';}return true})()`);
+        let afterToggle;
+        let restoreGuard;
+        try {
+            await shot('a-01-settings-about');
+            restoreGuard = await suspendGuidePointerGuard();
+            await clickPoint(`document.querySelector('[data-akari-settings-dialog="true"] [role="switch"][aria-label="更新と素材の自動確認"]')`, 'auto check switch');
+            afterToggle = await waitEval(`(()=>{const c=document.querySelector('[data-akari-settings-dialog="true"] [role="switch"][aria-label="更新と素材の自動確認"]');
+              return c?.getAttribute('aria-checked')==='false'?{checked:false}:null})()`, 'switch off', 10_000);
+            await shot('a-02-settings-auto-check-off');
+        } finally {
+            try { await restoreGuard?.(); }
+            finally {
+                await evalOn(cdp, `(()=>{for(const {node,style,marker} of window.__akariL1HiddenNodes??[]){
+                  if(style===null)node.removeAttribute('style');else node.setAttribute('style',style);
+                  if(marker===null)node.removeAttribute('data-l1-hidden');
+                  else node.setAttribute('data-l1-hidden',marker);}delete window.__akariL1HiddenNodes;return true})()`);
+            }
+        }
+        const persisted = await until(async () => {
+            const preferences = readJson(path.join(dirs.akariHome, 'update-preferences.json'));
+            const settingsFile = await readFile(path.join(dirs.theia, 'settings.json'), 'utf8').catch(() => '');
+            return preferences?.autoCheck === false && /"akari\.update\.autoCheck"\s*:\s*false/.test(settingsFile)
+                ? { preferences, theiaSetting: settingsFile.match(/"akari\.update\.autoCheck"\s*:\s*\w+/)?.[0] ?? null } : null;
+        }, 'auto check persisted off', 20_000).catch(() => null);
         check('スイッチが autoCheck を書く（update-preferences.json と設定の両方）',
-            preferences?.autoCheck === false && /"akari\.update\.autoCheck"\s*:\s*false/.test(settingsFile),
-            { afterToggle, preferences, theiaSetting: settingsFile.match(/"akari\.update\.autoCheck"\s*:\s*\w+/)?.[0] ?? null });
-        check('閉じると初回フラグが保存される', Boolean(marker), { marker });
-        await sleep(6000);
-        await shot('a-03-after-notice');
+            Boolean(persisted), { afterToggle, ...persisted });
         await quit();
-        results.phases['a-first-run'] = { note: '説明を閉じるまでは既定（ON）のまま動く走行。合否には使わず、記録だけ残す。',
+        results.phases['a-first-run'] = { note: '設定で OFF にするまでは既定（ON）のまま動く走行。外部接続は合否に使わず、記録だけ残す。',
             secondsObserved: Math.round((Date.now() - run.startedAt) / 1000), ...await analyze(run) };
         await save();
     }
     // ---- B: OFF のまま再起動（本測定） ----
     const off = await homeAndSettings('b-auto-check-off');
-    check('閉じた後の起動では説明が出ない', off.noticeSeen === false && off.homeReady, { noticeSeen: off.noticeSeen, homeReady: off.homeReady });
+    check('再起動しても通信についてのモーダルが出ない', off.noticeSeen === false && off.homeReady, { noticeSeen: off.noticeSeen, homeReady: off.homeReady });
     check('設定の行が「更新と素材の自動確認」になっている', off.settingsRow?.label?.includes('更新と素材の自動確認'), off.settingsRow);
     check('観測手段が Node 側の全プロセスで動いている（フック読み込み 1 件以上）', off.nodeHookLoadedIn >= 1 && off.netlogBytes > 0,
         { nodeHookLoadedIn: off.nodeHookLoadedIn, kinds: off.nodeHookProcessKinds, netlogBytes: off.netlogBytes, nodeLoopbackConnects: off.nodeLoopbackConnects });
@@ -326,6 +383,7 @@ try {
         { chromium: on.chromiumExternalHosts, node: on.nodeExternalConnects, nettop: on.nettopExternalFlows, secondsObserved: on.secondsObserved });
     check('対照（自動確認 ON）: ホームが更新フィード（latest.json）を取りに来る（手元の検証用サーバーの受信 1 回以上）',
         on.localFeedHits.some(hit => hit.startsWith('/latest.json')), { localFeedHits: on.localFeedHits });
+    check('A・B・C を通して pageerror が 0 件', pageErrors.length === 0, { count: pageErrors.length, errors: pageErrors });
     results.status = results.checks.every(row => row.pass) ? 'PASS' : 'FAIL';
 } catch (error) {
     results.status = 'FAIL';

@@ -58,7 +58,7 @@ for (const active of ['outside', 'none', 'child', 'self']) {
 }
 
 const initialSteps = [
-    'refreshWelcomeMode', 'showPrivacyNotice', 'loadHomeFlow', 'loadCreatorRootProjects',
+    'refreshWelcomeMode', 'loadHomeFlow', 'loadCreatorRootProjects',
     'loadStandaloneProjects', 'initializeFirstRunSetup', 'refreshCurrentLocation', 'loadCurrentBand'
 ];
 const deferredSteps = ['initializeProjectLauncher', 'loadUpdateStatus', 'checkVersionNotice'];
