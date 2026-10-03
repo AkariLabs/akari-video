@@ -42,7 +42,6 @@ function fixture() {
     generationPickCardProps: () => ({}),
     renderGenerationPickBadge: () => null,
     placeholderIcon: () => 'icon',
-    transcriptStateByPath: {},
     workflow: { workspaceRoot: { toString: () => 'file:///project' } },
     update: () => {},
     openFile: uri => { opened.push(uri.toString()); },
@@ -50,6 +49,7 @@ function fixture() {
     assetCatalogItems: [],
     files: {}, materialPreviewService: {}, workspaceService: {}
   };
+  instance.transcriptStateByPath = {};
   return { instance, opened };
 }
 function entry(overrides = {}) {
