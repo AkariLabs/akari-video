@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 import {
   collectExcludedCaptionIds,
   filterCaptionRootByExcludedIds,
 } from '../../../../../packages/edit-store/lib/index.js';
+import {
+  collectExcludedCaptionIds as collectWebUiExcludedCaptionIds,
+  filterCaptionRootByExcludedIds as filterWebUiCaptionRootByExcludedIds,
+} from '../../../../../packages/preview-server/public/caption-markup.js';
 
 const repository = fileURLToPath(new URL('../../../../../', import.meta.url));
 const edit = { tracks: [{ items: [{
@@ -35,21 +38,15 @@ for (const [name, relativePath, marker] of [
   });
 }
 
-test('WebUI のローカル複製も array / object root と再帰 children を同じ規則で扱う', async () => {
-  const source = await readFile(`${repository}/packages/preview-server/public/app.js`, 'utf8');
-  const start = source.indexOf('function collectExcludedCaptionIds(edit)');
-  const end = source.indexOf('function getActiveCaptions()', start);
-  assert.ok(start >= 0 && end > start);
-  const context = {};
-  vm.runInNewContext(`${source.slice(start, end)}; this.api={collectExcludedCaptionIds,filterCaptionRootByExcludedIds};`, context);
-  const excluded = context.api.collectExcludedCaptionIds(edit);
+test('WebUI（caption-markup.js）も array / object root と再帰 children を同じ規則で扱う', () => {
+  const excluded = collectWebUiExcludedCaptionIds(edit);
   assert.deepEqual([...excluded], ['c-2']);
   assert.deepEqual(
-    JSON.parse(JSON.stringify(context.api.filterCaptionRootByExcludedIds(arrayRoot, excluded))),
+    JSON.parse(JSON.stringify(filterWebUiCaptionRootByExcludedIds(arrayRoot, excluded))),
     [{ id: 'c-1' }]
   );
   assert.deepEqual(
-    JSON.parse(JSON.stringify(context.api.filterCaptionRootByExcludedIds(objectRoot, excluded))),
+    JSON.parse(JSON.stringify(filterWebUiCaptionRootByExcludedIds(objectRoot, excluded))),
     { captions: [{ id: 'c-1' }], default_text_style: { color: '#fff' } }
   );
 });

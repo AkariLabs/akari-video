@@ -65,7 +65,10 @@ import {
   splitCaptionLines,
   groupWordsIntoDisplayLines,
 } from '/caption-line-layout.js';
-import { isImageLayerSrc, isImageLayer } from '/layer-source.js';
+import { isImageLayerSrc, isImageLayer, layerPlaybackPath } from '/layer-source.js';
+import { cropOf, layerIntrinsicSize, perspectiveOf, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
+import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup } from '/caption-markup.js';
+import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange } from '/preview-format.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -613,8 +616,7 @@ function getVideoSource(cutIndex) {
 
 // docs/contract-2026-08-12-still-image-cut-source-v0.md: cuts[] の静止画ソース区間はメインの
 // <video id="preview-video"> ではなく <img id="preview-image"> で表示する（layers[] の静止画判定
-// isImageLayerSrc/IMAGE_LAYER_SRC_PATTERN と同じ拡張子集合 -- 定義は下の setupLayers 節にある。
-// 関数宣言なので巻き上げにより、このファイル内のどの実行順序からでも呼べる）。
+// isImageLayerSrc と同じ拡張子集合 -- /layer-source.js から import している）。
 function isStillImageCutSegment(seg) {
   return !!seg && !seg.isGap && seg.index >= 0 && isImageLayerSrc(getVideoSource(seg.index));
 }
@@ -686,55 +688,6 @@ function buildSegments() {
 }
 
 // --- B-roll layers ---
-// baked レイヤーの実体（アルファ付き .mov）は ProRes 4444 でブラウザがデコードできない。
-// baked は同じ場所へプレビュー用サイドカー（.preview.webm / VP9 + アルファ）を必ず
-// 併せて持つ規約なので、そちらを再生する。shell の previewProxyUri と同じ命名規約。
-function layerPlaybackPath(layer) {
-  if (layer.kind !== 'baked') return layer.src;
-  return /\.mov$/i.test(layer.src)
-    ? layer.src.replace(/\.mov$/i, '.preview.webm')
-    : `${layer.src}.preview.webm`;
-}
-
-// ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。contract-2026-08-02-preview-parity.md）。
-// crop 未指定は既定 {x:0,y:0,w:1,h:1} = 全面（従来と完全に見た目が同じになる境界値）。
-function cropOf(el) {
-  const cw = Number(el.dataset.layerCropW);
-  const ch = Number(el.dataset.layerCropH);
-  return {
-    x: Number(el.dataset.layerCropX) || 0,
-    y: Number(el.dataset.layerCropY) || 0,
-    w: Number.isFinite(cw) && cw > 0 ? cw : 1,
-    h: Number.isFinite(ch) && ch > 0 ? ch : 1,
-  };
-}
-
-function layerIntrinsicSize(el) {
-  // 配置の正本は媒体メタデータの実寸。person-matte 等の intake 出力寸法はプロジェクトの
-  // output 寸法と一致する保証がないため、frame-engine の成否から寸法を推定しない。
-  //
-  // これは frame-engine の構図の基準（原本の論理寸法 = NativeFrameSource.logicalSize。
-  // 不具合メモ 第10項）と一致している: この要素が読むのは `summary.layers[].src`
-  // （= 原本。setupLayers → layerPlaybackPath → syncLayerLazyLoad）で、再生用コピーの
-  // proxy 差し替え（preview-layer-proxies.mjs）は frame-engine へ渡す edit にだけ効き、
-  // サーバも素材要求を横取りして proxy を返したりしない（server.mjs は常に原本を返す）。
-  // ハンドル位置・crop 窓・perspective 箱をキャンバスと一致させるため、**この要素へ proxy を
-  // 読ませないこと**（読ませるなら、ここも原本の宣言寸法を引くように直す必要がある）。
-  return { width: Number(el.videoWidth) || 0, height: Number(el.videoHeight) || 0 };
-}
-
-// ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
-// §2.4.4）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
-function perspectiveOf(el) {
-  const raw = el.dataset.layerPerspectiveCorners;
-  if (!raw) return null;
-  try {
-    const corners = JSON.parse(raw);
-    return Array.isArray(corners) && corners.length === 4 ? { corners } : null;
-  } catch {
-    return null;
-  }
-}
 
 // レイヤー1件の位置・サイズ・pivot・変形・切り抜きを一括で書く単一の正本（2026-08-06
 // web-layer-placement-parity）。shell の updateStageScale レイヤーループと同じ中心基準へ統一
@@ -1342,24 +1295,6 @@ function setLayerSelected(id) {
 // 移動と操作が衝突しないための排他モード切替。8 方向ハンドルで layers[].crop
 // （0..1 正規化・ソースフレーム相対）を編集し、確定（pointerup）時のみ書き戻す。
 let cropModeActive = false;
-const CROP_MIN = 0.02;
-function clampCrop(x, y, w, h) {
-  const cw = Math.min(1, Math.max(CROP_MIN, Number.isFinite(w) ? w : 1));
-  const ch = Math.min(1, Math.max(CROP_MIN, Number.isFinite(h) ? h : 1));
-  const cx = Math.min(1 - cw, Math.max(0, Number.isFinite(x) ? x : 0));
-  const cy = Math.min(1 - ch, Math.max(0, Number.isFinite(y) ? y : 0));
-  return { x: cx, y: cy, w: cw, h: ch };
-}
-function layerTransformOf(el) {
-  return {
-    x: Number(el.dataset.layerX) || 0,
-    y: Number(el.dataset.layerY) || 0,
-    scale: Number(el.dataset.layerScale) || 1,
-    ...(el.dataset.layerScaleX !== undefined ? { scaleX: Number(el.dataset.layerScaleX) } : {}),
-    ...(el.dataset.layerScaleY !== undefined ? { scaleY: Number(el.dataset.layerScaleY) } : {}),
-    rotate: Number(el.dataset.layerRotate) || 0,
-  };
-}
 // ソース px（ネイティブ px。videoWidth/videoHeight）の矩形を、layerContainer ローカル座標
 // （frameScale/zoom 適用前の「出力論理 px」空間 -- video 要素自身と同じ単位。frameScale/zoom は
 // 親コンテナの scale() が別途処理する）へ正写像する。shell の layerScreenRectForVideoRect と
@@ -1718,36 +1653,12 @@ function positionLayerPerspectiveToggle(el) {
   }
 }
 
-function layerPerspectiveNow(el) {
-  const raw = el.dataset.layerPerspectiveCorners;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length === 4 ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function applyLayerPerspectiveNow(el, corners) {
   if (corners) el.dataset.layerPerspectiveCorners = JSON.stringify(corners);
   else delete el.dataset.layerPerspectiveCorners;
   layerPerspectiveToggle.style.borderColor = corners ? '#ffb84d' : '#4da3ff';
   const transform = layerTransformOf(el);
   applyLayerLayout(el, transform.x, transform.y, transform.scale, transform.rotate);
-}
-
-// プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の便宜であり、
-// schema には「プリセット」「角度」という概念自体は存在しない（shell 側と同一の式・
-// contract-2026-08-02-preview-parity.md §2.4.4。意図的なコード重複）。
-function perspectivePresetCorners(preset, angleDeg) {
-  const compression = Math.max(0, Math.min(0.9, Math.sin((Number(angleDeg) || 0) * Math.PI / 180)));
-  const half = compression / 2;
-  if (preset === 'right') return [[0, 0], [1, half], [0, 1], [1, 1 - half]];
-  if (preset === 'left') return [[0, half], [1, 0], [0, 1 - half], [1, 1]];
-  if (preset === 'top') return [[half, 0], [1 - half, 0], [0, 1], [1, 1]];
-  if (preset === 'bottom') return [[0, 0], [1, 0], [half, 1], [1 - half, 1]];
-  return null;
 }
 
 async function commitLayerPerspective(el, corners) {
@@ -3111,28 +3022,6 @@ function updateSeekVisual() {
 let selectedCutIndex = -1;
 let selectedCutAcc = 0;
 
-async function editSaveErrorMessage(res) {
-  try {
-    const body = await res.json();
-    if (Array.isArray(body.findings) && body.findings.length) {
-      // warning が先頭に混ざると真因が埋もれる — error のみ表示（P2-5）。
-      // error が無い異常応答では従来どおり全 findings にフォールバック
-      const errors = body.findings.filter((f) => f.severity === 'error');
-      const shown = errors.length ? errors : body.findings;
-      return shown.map((f) => f.message || f.check).filter(Boolean).join(' / ');
-    }
-    return body.error || `保存に失敗しました (HTTP ${res.status})`;
-  } catch {
-    return `保存に失敗しました (HTTP ${res.status})`;
-  }
-}
-
-function resolveMediaUrl(pathOrSrc) {
-  if (!pathOrSrc) return null;
-  if (/^(https?:|blob:)/.test(pathOrSrc)) return pathOrSrc;
-  return `/${String(pathOrSrc).replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')}`;
-}
-
 async function reloadSummary() {
   const res = await fetch(api.summary);
   if (!res.ok) throw new Error(await apiReadError(res, 'summary'));
@@ -3152,11 +3041,6 @@ function requestSoftReload(changedPaths = [], overlayIds = []) {
     console.warn('[preview] soft reload failed; falling back to full reload', err);
     location.reload();
   });
-}
-
-// 断片の「顔ぶれ」— これが変わらない限り DOM は作り直さない（位置や見た目の変更は貼り直しで足りる）
-function overlaySignature(s) {
-  return JSON.stringify((s?.overlays || []).map(o => [String(o.id), o.html, o.start, o.duration]));
 }
 
 async function applySoftReload(changedPaths = [], overlayIds = []) {
@@ -4176,10 +4060,6 @@ function showHint(text, holdMs = 2600) {
     editHintTimer = setTimeout(() => { editHintTimer = 0; editHint.style.opacity = '0'; }, holdMs);
   }
 }
-function fmtRange(sec) {
-  const m = Math.floor(sec / 60), s2 = (sec % 60).toFixed(1).padStart(4, '0');
-  return `${m}:${s2}`;
-}
 // 何を掴んでいるかを常に出す。断片は画面いっぱいに広がるものが多く、いま見ている場面の
 // 部品を掴んだつもりで「動画全体に敷いてある背景」を掴んでいることがある
 // （bg-live は 0〜123.6 秒 = 全編。実機報告 2026-08-07「次の背景も同じ量だけ動く」の正体）。
@@ -4354,33 +4234,6 @@ function applyCaptionStyle(caption, captionPlate) {
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
 }
 
-function collectExcludedCaptionIds(edit) {
-  const result = new Set();
-  const visit = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
-    const source = value.source;
-    if (source?.kind === 'captions' && Array.isArray(source.exclude)) {
-      for (const id of source.exclude) if (typeof id === 'string') result.add(id);
-    }
-    for (const key of ['items', 'children']) {
-      if (Array.isArray(value[key])) value[key].forEach(visit);
-    }
-  };
-  for (const track of edit?.tracks ?? []) {
-    for (const key of ['items', 'children']) {
-      if (Array.isArray(track?.[key])) track[key].forEach(visit);
-    }
-  }
-  return result;
-}
-function filterCaptionRootByExcludedIds(root, excluded) {
-  const filter = captions => captions.filter(caption => !excluded.has(caption?.id));
-  if (Array.isArray(root)) return filter(root);
-  if (root && typeof root === 'object' && Array.isArray(root.captions)) {
-    return { ...root, captions: filter(root.captions) };
-  }
-  return root;
-}
 function getActiveCaptions() {
   // captions.json が正本（shell と同一）。edit.json 埋め込みはフォールバックのみ
   const excluded = collectExcludedCaptionIds(summary);
@@ -4390,44 +4243,7 @@ function getActiveCaptions() {
   const fromEdit = summary?.captions;
   return Array.isArray(fromEdit) ? filterCaptionRootByExcludedIds(fromEdit, excluded) : [];
 }
-function normalizeWords(words) {
-  if (!Array.isArray(words) || !words.length) return [];
-  return words.map(w => ({
-    start: w.start ?? w.t ?? 0,
-    end: w.end ?? (w.t ?? 0) + (w.d ?? 0.3),
-    text: w.text ?? w.word ?? w.w ?? '',
-  }));
-}
-const EMPHASIS_STYLE_MAP = { pain: 'one-char-bang', surprise: 'one-char-bang', anger: 'one-char-bang', joy: 'size-pulse', emphasis: 'size-pulse' };
-function findMatchingEmphasis(word, list) {
-  return list?.find(e =>
-    e.t_end > word.start && e.t_start < word.end &&
-    (word.text === e.word || e.word.includes(word.text))
-  ) || null;
-}
-function resolveEmphasisStyle(emphasis) {
-  return emphasis.style_hint || EMPHASIS_STYLE_MAP[emphasis.emotion] || 'color-accent';
-}
-// 行グループを開始時刻ごとに束ねて順送り表示の markup を作る
-// （captions.mjs renderRevealGroups のポート。preview は速度リマップ無しの source 秒）。
-function renderRevealGroupsMarkup(lines, rangeStart, rangeEnd, renderLine) {
-  const groups = [];
-  for (const line of lines) {
-    const start = line[0]?.start ?? rangeStart;
-    const previous = groups[groups.length - 1];
-    if (previous && previous.start === start) previous.lines.push(line);
-    else groups.push({ start, lines: [line] });
-  }
-  return groups.map((group, index) => {
-    const nextStart = groups[index + 1]?.start ?? rangeEnd;
-    const delay = Math.max(0, group.start - rangeStart);
-    const duration = Math.max(0.01, nextStart - group.start);
-    const lineMarkup = group.lines
-      .map(line => `<p class="akari-caption__line">${renderLine(line)}</p>`)
-      .join('');
-    return `<div class="akari-caption__reveal-group" style="--akari-reveal-delay:${delay.toFixed(3)}s;--akari-reveal-dur:${duration.toFixed(3)}s">${lineMarkup}</div>`;
-  }).join('');
-}
+
 function injectCaptionStyles() {
   if (captionStylesInjected) return;
   captionStylesInjected = true;
