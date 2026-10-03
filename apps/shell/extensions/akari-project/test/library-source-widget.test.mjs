@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readCompiledSource } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';
 import * as sources from '../lib/common/library-source-view.js';
 import * as home from '../lib/common/library-home-view.js';
@@ -8,7 +8,7 @@ import * as tokens from '../lib/common/akari-surface-tokens.js';
 import * as filters from '../lib/common/library-filter.js';
 const require = createRequire(import.meta.url), React = require('react');
 const view = require('../lib/browser/library-card-view.js');
-const compiled = readFileSync(new URL('../lib/browser/akari-role-buckets-widget.js', import.meta.url), 'utf8');
+const compiled = readCompiledSource('widget').text;
 function method(name) {
     const start = compiled.indexOf(`    ${name}(`);
     assert.notEqual(start, -1);

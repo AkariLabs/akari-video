@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const source = readSourceFile('widget').ast;
 
 test('ホームのカテゴリ行は4つの子の列・行を固定し、件数を右端に配置する', () => {
-    const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+    const widget = readSourceFile('widget').classNode;
     assert.ok(widget, 'AkariRoleBucketsWidget が存在する');
-    const method = widget.members.find(member => member.name?.getText(source) === 'renderLibraryCategoryRow');
+    const method = findMember('renderLibraryCategoryRow', { in: 'widget' }).node;
     assert.ok(method?.body, 'renderLibraryCategoryRow が存在する');
     const statement = method.body.statements.find(ts.isReturnStatement);
     assert.ok(statement?.expression, 'カテゴリ行を返す');

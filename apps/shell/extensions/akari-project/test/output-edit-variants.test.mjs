@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
+import { readSourceFile, findMember, findTopLevelVariable } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import test from 'node:test';
 
@@ -35,16 +35,14 @@ test('all edit variants appear after canonical edit and before other data', () =
     assert.equal(editVariantDataFileLabel('edit.timeline-2.json'), '編集データ（timeline-2）');
     assert.equal(dataFileIcon('edit.v20.json'), dataFileIcon('edit.json'));
 });
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-outputs-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariOutputsPane');
-const method = name => widget.members.find(node => node.name?.getText(source) === name);
+const source = readSourceFile('widget').ast;
+const paneSource = readSourceFile('outputs').ast;
+const method = name => findMember(name, { in: 'widget' }).node;
 const harness = (name, dependencies) => {
     const code = ts.transpileModule('class Harness { ' + method(name).getText(source) + ' }', { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     return new Function(...Object.keys(dependencies), code + '\nreturn Harness;')(...Object.values(dependencies));
 };
-const paneMethod = name => pane.members.find(node => node.name?.getText(paneSource) === name);
+const paneMethod = name => findMember(name, { in: 'outputs' }).node;
 const paneHarness = (name, dependencies) => {
     const code = ts.transpileModule('class Harness { ' + paneMethod(name).getText(paneSource) + ' }', { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     return new Function(...Object.keys(dependencies), code + '\nreturn Harness;')(...Object.values(dependencies));
@@ -86,9 +84,7 @@ test('opening an edit output opens its preview and requested timeline', async ()
 });
 
 test('fixed data labels come from PROJECT_DATA_FILES, while the helper labels only variants', async () => {
-    const declaration = source.statements.filter(ts.isVariableStatement)
-        .flatMap(statement => [...statement.declarationList.declarations])
-        .find(node => node.name.getText(source) === 'PROJECT_DATA_FILES');
+    const { declaration } = findTopLevelVariable('PROJECT_DATA_FILES', { in: 'widget' });
     assert.ok(declaration?.initializer);
     const projectDataFiles = new Function('return ' + declaration.initializer.getText(source))();
     const Harness = paneHarness('buildOutputEntry', { editVariantDataFileLabel });

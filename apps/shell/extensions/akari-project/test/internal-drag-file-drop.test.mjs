@@ -1,16 +1,15 @@
 import assert from 'node:assert/strict';
+import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { isOsFileDropInput, MATERIAL_DRAG_MIME, LIBRARY_DRAG_MIME } from '../lib/common/delegated-drop.js';
 
 // 既存 widget テストと同様に実メソッドを実行し、DOM / I/O だけを置き換える。
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
+const source = readSourceFile('widget').ast;
+const paneSource = readSourceFile('materials').ast;
 const names = ['handleDragOver', 'handleDrop', 'setDragActive'];
-const code = ts.transpileModule(`class Handler { ${names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+const code = ts.transpileModule(`class Handler { ${names.map(name => findMember(name, { in: 'widget' }).text).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Handler = new Function('isOsFileDropInput', `${code}\nreturn Handler;`)(isOsFileDropInput);
 
 const cases = [
@@ -68,7 +67,7 @@ test('dataTransfer が無い場合も取り込み表示を消し、取り込ま�
 
 // task 2026-09-23-finder-drop-frame: 動画の drop は document capture に取られても枠を消す。
 test('window capture の drop / dragend が枠だけ消し、dispose で両方を外す', () => {
-    const init = widget.members.find(member => member.name?.getText(source) === 'init');
+    const init = findMember('init', { in: 'widget' }).node;
     const body = init.getText(source);
     for (const event of ['drop', 'dragend']) {
         assert.match(body, new RegExp(`window\\.addEventListener\\('${event}', clearDropOverlay, true\\)`));
@@ -91,7 +90,7 @@ test('window capture の drop / dragend が枠だけ消し、dispose で両方�
 });
 
 test('dragenter は dragover と同じ OS ファイル判定へ渡す', () => {
-    const init = widget.members.find(member => member.name?.getText(source) === 'init');
+    const init = findMember('init', { in: 'widget' }).node;
     assert.match(init.getText(source), /this\.node\.addEventListener\('dragenter', event => this\.handleDragOver\(event\)\)/);
     const handler = Object.assign(new Handler(), { dragActive: false, update() {} });
     const event = types => ({ dataTransfer: { types, dropEffect: 'none' },
@@ -117,8 +116,7 @@ test('素材・ライブラリ・プリセットのカード画像はネイテ�
     };
     for (const name of ['renderMaterialCard', 'renderCatalogCard', 'renderCatalogListRow', 'renderPresetShowcaseCard', 'renderPresetShowcaseListRow']) {
         const file = name === 'renderMaterialCard' ? paneSource : source;
-        const owner = name === 'renderMaterialCard' ? pane : widget;
-        const method = owner.members.find(member => member.name?.getText(file) === name);
+        const method = findMember(name, { in: name === 'renderMaterialCard' ? 'materials' : 'widget' }).node;
         assert.ok(method, name);
         visitImages(file, method, name);
     }

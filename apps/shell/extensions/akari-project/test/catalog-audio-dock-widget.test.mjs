@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { readAllSourceText, readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 
-const text = readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
-const source = ts.createSourceFile('widget.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+const text = readAllSourceText();
+const { ast: source, classNode: widget } = readSourceFile('widget');
 assert.ok(widget);
 const method = name => {
-    const member = widget.members.find(node => node.name?.getText(source) === name);
+    const member = findMember(name, { in: 'widget' }).node;
     assert.ok(member, `${name} が存在する`);
     return member.getText(source);
 };
