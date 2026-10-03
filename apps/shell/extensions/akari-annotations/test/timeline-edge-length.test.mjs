@@ -117,7 +117,7 @@ test('現状記述: freeze 付き動画を縮めても freeze は残り、at_sec
     // Existing trim omits freeze.duration_sec from duration; deliberately not repaired here.
     assert.notEqual(item.duration / 30, item.source.out + item.source.freeze.duration_sec);
 });
-const durationCode = between(inspector, "/\\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? {", '...cutTransitionFields').trim().replace(/,$/, '');
+const durationCode = between(inspector, "/\\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? {", '...(0, transform_fields_1.cutTransitionFields)').trim().replace(/,$/, '');
 const durationField = snapshot => new Function('snapshot', 'requestWrite', 'formatDurationSeconds', `return (${durationCode});`)(snapshot, async request => request, String);
 test('長さ欄 → cut-source-out → duration/source.out を同時更新・手入力は 0.1 秒精度', async () => {
     const snapshot = { sourcePath: 'frame.png', index: 0, outputStart: 1, outputEnd: 3 };
