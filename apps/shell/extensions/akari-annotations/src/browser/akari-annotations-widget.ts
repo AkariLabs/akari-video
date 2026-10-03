@@ -74,6 +74,7 @@ import { clampStillCutLength, planStillCutTrim } from '../common/still-cut-lengt
 import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName,
     VisualThumbnailDiskEntry } from '../common/visual-thumbnail-disk-cache';
 import { visualThumbnailSnapshot, visualThumbnailKey } from './visual-thumbnail-key';
+import { clipFaceWidthPx, htmlClipFace, shapeClipFace, shapeClipLabel } from '../common/timeline-clip-face';
 import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 import {
@@ -1016,6 +1017,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly visualThumbnails = new VisualThumbnailCache(() => this.renderStrip());
     protected readonly visualKeys = new WeakMap<HTMLElement, string>();
     protected visualHover: HTMLDivElement | undefined;
+    protected readonly shapeFaceCache = new Map<string, { raw: unknown; presetName?: string; key: string;
+        label: string; svg: string; revision: number; frameHeight?: number; faceWidth?: number }>();
+    protected readonly shapePresetNames = new Map<string, string | undefined>();
+    protected readonly shapePresetPending = new Set<string>();
+    protected readonly htmlFaceFolders = new Map<string, { title?: string; preview?: string }>();
     static readonly FACTORY_ID = 'akari-annotations-widget';
 
     @inject(FileService)
@@ -8388,6 +8394,107 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } catch { /* Disk cache is optional, including read-only projects and full disks. */ }
     }
 
+    protected renderClipFace(element: HTMLDivElement, id: string, raw: any, fallbackLabel: string): void {
+        const source = raw?.source;
+        const kind = source?.kind;
+        if (kind !== 'shape' && !(kind === 'html' && typeof source.path === 'string' && !source.part && !source.bag)) return;
+        element.dataset.akariClipFace = kind;
+        let label = fallbackLabel;
+        let svg: string | undefined;
+        let svgRevision: string | undefined;
+        let preview: string | undefined;
+        const segmentHeight = parseFloat(element.style.height);
+        const frameHeight = Number.isFinite(segmentHeight) ? Math.max(0, segmentHeight - 4) : 0;
+        let faceWidth = 0;
+        if (kind === 'shape') {
+            element.querySelector(':scope > .akari-visual-thumbnail-image')?.remove();
+            element.style.backgroundImage = '';
+            delete element.dataset.akariVisualThumbnail;
+            element.classList.remove('akari-visual-thumbnail-clip');
+            this.visualKeys.delete(element);
+            const preset = typeof source.params?.preset === 'string' ? source.params.preset : undefined;
+            if (preset && !this.shapePresetNames.has(preset) && !this.shapePresetPending.has(preset)) {
+                this.shapePresetPending.add(preset);
+                void this.commands.executeCommand<{ preset?: ShapePresetV1 }>(SHAPE_PRESET_COMMAND_ID, preset)
+                    .then(result => this.shapePresetNames.set(preset, result?.preset?.name))
+                    .catch(() => this.shapePresetNames.set(preset, undefined))
+                    .finally(() => { this.shapePresetPending.delete(preset); if (!this.isDisposed) this.renderStrip(); });
+            }
+            const presetName = this.shapePresetNames.get(preset ?? '');
+            let cached = this.shapeFaceCache.get(id);
+            if (!cached || cached.raw !== raw || cached.presetName !== presetName) {
+                const key = cached?.raw === raw ? cached.key : JSON.stringify(source);
+                if (!cached || cached.key !== key) {
+                    cached = { raw, presetName, key, ...shapeClipFace(raw, presetName),
+                        revision: (cached?.revision ?? 0) + 1 };
+                    this.shapeFaceCache.set(id, cached);
+                } else {
+                    cached.raw = raw;
+                    cached.presetName = presetName;
+                    cached.label = shapeClipLabel(raw, presetName);
+                }
+            }
+            if (cached.frameHeight !== frameHeight) {
+                cached.frameHeight = frameHeight;
+                cached.faceWidth = clipFaceWidthPx(frameHeight, 'shape', cached.svg);
+            }
+            faceWidth = cached.faceWidth ?? 0;
+            label = cached.label;
+            svg = cached.svg;
+            svgRevision = `${id}:${cached.revision}`;
+        } else if (this.location?.editUri) {
+            const folder = this.resolveEditMediaUri(source.path, this.location.editUri).parent;
+            const folderKey = folder.toString();
+            if (!this.htmlFaceFolders.has(folderKey)) {
+                this.htmlFaceFolders.set(folderKey, {});
+                void (async () => {
+                    const [meta, picture] = await Promise.all([
+                        this.fileService.readFile(folder.resolve('meta.json')).then(file => JSON.parse(file.value.toString())).catch(() => undefined),
+                        this.fileService.readFile(folder.resolve('preview.png')).then(file => {
+                            const bytes = file.value.buffer;
+                            let binary = '';
+                            for (let offset = 0; offset < bytes.length; offset += 8192) {
+                                binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+                            }
+                            return `data:image/png;base64,${btoa(binary)}`;
+                        }).catch(() => undefined)
+                    ]);
+                    this.htmlFaceFolders.set(folderKey, { title: typeof meta?.title === 'string' ? meta.title : undefined, preview: picture });
+                    if (!this.isDisposed) this.renderStrip();
+                })();
+            }
+            const folderFace = this.htmlFaceFolders.get(folderKey);
+            const face = htmlClipFace(raw, fallbackLabel, folderFace, folderFace?.preview);
+            label = face.label;
+            preview = face.preview;
+            if (preview) faceWidth = clipFaceWidthPx(frameHeight, 'html');
+        }
+        if (element.style.getPropertyValue('--akari-clip-face-width') !== `${faceWidth}px`) {
+            element.style.setProperty('--akari-clip-face-width', `${faceWidth}px`);
+        }
+        let icon = element.querySelector<HTMLElement>(':scope > .akari-clip-face-icon');
+        if (svg) {
+            if (!icon) { icon = document.createElement('span'); icon.className = 'akari-clip-face-icon'; element.prepend(icon); }
+            if (icon.dataset.akariFaceRevision !== svgRevision) {
+                icon.innerHTML = svg;
+                icon.dataset.akariFaceRevision = svgRevision;
+            }
+        } else icon?.remove();
+        let image = element.querySelector<HTMLImageElement>(':scope > .akari-clip-face-preview');
+        if (preview) {
+            element.dataset.akariClipFacePreview = 'true';
+            if (!image) { image = document.createElement('img'); image.className = 'akari-clip-face-preview'; image.alt = ''; image.draggable = false; element.prepend(image); }
+            if (image.src !== preview) image.src = preview;
+            image.hidden = element.dataset.akariVisualThumbnail === 'ready';
+        } else { image?.remove(); delete element.dataset.akariClipFacePreview; }
+        const text = element.querySelector<HTMLElement>(':scope > .akari-annotations-segment-label');
+        if (text && (kind === 'shape' || preview && element.dataset.akariVisualThumbnail !== 'ready')) {
+            text.removeAttribute('style');
+        }
+        if (text && text.textContent !== label) text.textContent = label;
+        element.title = label;
+    }
+
     protected renderVisualThumbnail(element: HTMLDivElement, id: string, label: string, input: unknown): void {
         // PreferenceService を持たない文脈（本メソッドだけを切り出して回す既存単体テスト）では
         // 設定を読めない。その場合は導入前の挙動（撮る）を保つ。
@@ -10612,9 +10719,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     element.addEventListener('pointercancel', onUp);
                 });
             }
-            if (row.sourceKind === 'html' || row.sourceKind === 'group') {
+            if (raw?.source?.kind !== 'shape' && (row.sourceKind === 'html' || row.sourceKind === 'group')) {
                 this.renderVisualThumbnail(element, row.id, label, [row, raw]);
             }
+            this.renderClipFace(element, row.id, raw, label);
             if (row.sourceKind === 'group' && (!Array.isArray(raw?.items) || raw.items.length === 0)) {
                 element.style.setProperty('background-image',
                     'repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)', 'important');
@@ -10720,7 +10828,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const stride = this.timelineRowStride(layout.id);
-            const label = String(this.rawKeyframeItem(overlay.id)?.name
+            const raw = this.rawKeyframeItem(overlay.id);
+            const label = String(raw?.name
                 ?? this.timelineTreeRows.find(row => row.id === overlay.id)?.label ?? overlay.id);
             const top = layout.top + (this.overlayRows.get(overlay.id) ?? 0) * stride;
             const { element, created } = this.keyedStripSegment(
@@ -10744,7 +10853,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const overlayTreeRow = this.timelineTreeRows.find(row => row.id === overlay.id);
                 if (overlayTreeRow) this.appendAggregateDiamonds(element, overlayTreeRow);
             }
-            this.renderVisualThumbnail(element, overlay.id, label, [overlay, this.rawKeyframeItem(overlay.id)]);
+            if (raw?.source?.kind !== 'shape') this.renderVisualThumbnail(element, overlay.id, label, [overlay, raw]);
+            this.renderClipFace(element, overlay.id, raw, label);
             this.installDragListeners(element, (event, rect) => ({
                 kind: 'overlay', id: overlay.id,
                 mode: this.resolveClipEdgeMode(event, rect, element) === 'end' ? 'resize' : 'move',

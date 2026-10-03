@@ -74,6 +74,36 @@ test('isolates an item, reads updated HTML/params and dependencies, samples midp
   assert.equal(released.length, 1);
 });
 
+test('shape thumbnail preparation uses declaration markup without a source.html path', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-shape-thumbnail-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const editPath = join(root, 'edit.json');
+  await writeFile(editPath, JSON.stringify({ version: 2, output: { width: 640, height: 360, fps: 30 },
+    sources: [], tracks: [{ id: 'visual', lane: 'visual', items: [
+      { id: 'shape-1', at: 0, duration: 90, source: { kind: 'shape', shape: 'ellipse', params: { fill: '#abcdef' } } }
+    ] }] }));
+  const page = await prepareVisualThumbnailPage(editPath, 'shape-1', assets,
+    async () => ({ id: 'unused', url: 'http://127.0.0.1/unused' }), async () => {});
+  assert.match(page.html, /shape-1/u);
+  assert.match(page.html, /#abcdef/u);
+});
+
+test('canvas containing a shape prepares without treating inline SVG as a file', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-canvas-thumbnail-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const editPath = join(root, 'edit.json');
+  await writeFile(editPath, JSON.stringify({ version: 2, output: { width: 640, height: 360, fps: 30 },
+    sources: [], tracks: [{ id: 'visual', lane: 'visual', items: [
+      { id: 'canvas-1', at: 0, duration: 90, source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [
+        { id: 'shape-in-canvas', at: 0, duration: 90, source: { kind: 'shape', shape: 'rect', params: { fill: '#123456' } } }
+      ] }
+    ] }] }));
+  const page = await prepareVisualThumbnailPage(editPath, 'canvas-1', assets,
+    async () => ({ id: 'unused', url: 'http://127.0.0.1/unused' }), async () => {});
+  assert.match(page.html, /shape-in-canvas/u);
+  assert.match(page.html, /#123456/u);
+});
+
 test('capture host preserves portrait aspect, waits for fonts/images/3D, and escapes HTML data', () => {
   const page = visualThumbnailPage([{ id: 'x', html: '</script><img src=x>', start: 0, duration: 2 }],
     { width: 1080, height: 1920, fps: 30 }, 1, assets);

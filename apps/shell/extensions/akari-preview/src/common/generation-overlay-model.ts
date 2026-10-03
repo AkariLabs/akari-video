@@ -34,6 +34,17 @@ export interface GenerationOverlayDescription {
     maskRect: { x: number; y: number; w: number; h: number } | null;
 }
 
+/** Keep every visible generation clip in timeline order. The helper is passed explicitly in webview code. */
+export function generationOverlaysAtTime<T extends { start: number; end: number }, D extends GenerationOverlayDescription>(
+    clips: readonly T[], time: number, describe: (clip: T) => D, exclude: (clip: T) => boolean = () => false
+): Array<{ clip: T; description: D }> {
+    return clips.filter(clip => Number.isFinite(clip.start) && Number.isFinite(clip.end)
+        && clip.start <= time && time < clip.end && !exclude(clip)).map(clip => ({ clip, description: describe(clip) }))
+        .filter(({ description }) => !!description.tag || description.band !== null
+            || description.shimmer || !!description.aurora || !!description.maskRect
+            || !!description.pip || !!description.blurBackground);
+}
+
 export interface DescribeOverlayOptions {
     /** クリップのソースパス。生成中の参照画像が無い場合の背景に使う。 */
     sourcePath?: string;
