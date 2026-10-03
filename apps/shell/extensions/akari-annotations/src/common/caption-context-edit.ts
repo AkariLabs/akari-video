@@ -152,17 +152,73 @@ export async function applyCaptionContextField(id: string, field: string, value:
     reload(): Promise<void>;
 }): Promise<{ ok: boolean }> {
     if (!DIRECT_FIELDS.has(field)) return { ok: false };
+    const toggle = field === 'vertical' && value !== null && typeof value === 'object'
+        ? value as { enabled?: unknown; box?: { left: number; top: number; width: number; height: number };
+            stage?: { left: number; top: number; width: number; height: number }; outputHeight?: number }
+        : undefined;
+    const fieldValue = toggle ? toggle.enabled : value;
     const valid = field === 'align' ? ['left', 'center', 'right'].includes(value as string)
         : field === 'vertical_align' ? ['top', 'middle', 'bottom'].includes(value as string)
             : field === 'text_transform' ? ['upper', 'lower', 'none'].includes(value as string)
                 : field === 'list' ? value === 'bullet' || value === null
                     : field === 'opacity' ? typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
-                        : typeof value === 'boolean';
+                        : typeof fieldValue === 'boolean';
     if (!valid) return { ok: false };
     const ids = [...new Set([id, ...targetIds])];
     const before = await deps.readSource();
     let after = before;
-    for (const targetId of ids) after = replaceCueField(after, targetId, field, value);
+    for (const targetId of ids) {
+        if (field === 'vertical' && toggle && targetId === id && toggle.box && toggle.stage) {
+            const parsed = JSON.parse(before) as { captions?: Array<{ id?: string; text_style?: Record<string, unknown> }>;
+                default_text_style?: Record<string, unknown> } | Array<{ id?: string; text_style?: Record<string, unknown> }>;
+            const cues = Array.isArray(parsed) ? parsed : parsed.captions;
+            const cue = cues?.find(row => row.id === targetId);
+            const defaults = Array.isArray(parsed) ? {} : parsed.default_text_style ?? {};
+            const style = { ...defaults, ...cue?.text_style };
+            const { box, stage } = toggle;
+            const scale = typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale > 0
+                ? style.scale : 1;
+            if (cue && !style.layout && box.width > 0 && box.height > 0
+                && stage.width > 0 && stage.height > 0
+                && [box.left, box.top, box.width, box.height, stage.left, stage.top, stage.width, stage.height]
+                    .every(Number.isFinite)) {
+                // Writing mode exchanges the text axes. The line's default
+                // horizontal padding (.42em) differs from its vertical padding
+                // (.08em), so the plate dimensions do not simply exchange.
+                const background = style.background && typeof style.background === 'object'
+                    ? style.background as { mode?: unknown; padding_px?: unknown } : undefined;
+                const symmetricPadding = background?.mode === 'block'
+                    || typeof background?.padding_px === 'number' && Number.isFinite(background.padding_px);
+                const fontSize = typeof style.size_px === 'number' && Number.isFinite(style.size_px)
+                    ? style.size_px : 38;
+                const referenceHeight = typeof style.reference_height_px === 'number' && style.reference_height_px > 0
+                    ? style.reference_height_px
+                    : typeof toggle.outputHeight === 'number' && toggle.outputHeight > 0
+                        ? toggle.outputHeight : stage.height;
+                const paddingDelta = symmetricPadding ? 0 : .68 * fontSize * stage.height / referenceHeight;
+                const nextWidth = Math.max(0, box.height / scale + paddingDelta);
+                const nextHeight = Math.max(0, box.width / scale - paddingDelta);
+                const visualWidth = nextWidth * scale;
+                const visualHeight = nextHeight * scale;
+                const clampCenter = (center: number, start: number, extent: number, size: number): number =>
+                    size >= extent ? start + extent / 2
+                        : Math.min(start + extent - size / 2, Math.max(start + size / 2, center));
+                const centerX = clampCenter(box.left + box.width / 2, stage.left, stage.width, visualWidth);
+                const centerY = clampCenter(box.top + box.height / 2, stage.top, stage.height, visualHeight);
+                const anchor = typeof style.text_anchor === 'string' ? style.text_anchor[0]
+                    : fieldValue === false && style.vertical_align === 'bottom' ? 'b'
+                        : fieldValue === false && style.vertical_align === 'middle' ? 'm' : 't';
+                const x = (centerX - stage.left - nextWidth / 2) / stage.width;
+                const y = (centerY - stage.top + (anchor === 'b' ? nextHeight / 2
+                    : anchor === 't' ? -nextHeight / 2 : 0)) / stage.height;
+                after = replaceCueField(after, targetId, 'position', {
+                    x: Math.round(x * 10000) / 10000,
+                    y: Math.round(y * 10000) / 10000
+                });
+            }
+        }
+        after = replaceCueField(after, targetId, field, fieldValue);
+    }
     if (after === before) return { ok: true };
     await deps.writeSource(after);
     deps.recordHistory({ label: '字幕の文字を変更',

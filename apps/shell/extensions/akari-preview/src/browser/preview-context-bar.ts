@@ -804,7 +804,10 @@ export class PreviewContextBar implements Disposable {
             const field = ({ captionItalic: 'italic', captionUnderline: 'underline', captionStrike: 'strikethrough',
                 captionBullet: 'list', captionVertical: 'vertical' } as Record<string, string>)[key];
             const value = field === 'list' ? style.list === 'bullet' ? null : 'bullet' : style[field] !== true;
-            void this.run({ action: 'captionField', field, value });
+            void this.run({ action: 'captionField', field,
+                value: field === 'vertical' && this.report?.box && this.report?.stage
+                    ? { enabled: value, box: this.report.box, stage: this.report.stage,
+                        outputHeight: this.state?.output.height } : value });
         } else if (key === 'captionAlign') {
             this.openWindow = null;
             void this.run({ action: 'captionField', field: 'align', value: nextCaptionAlign(style.align) });
