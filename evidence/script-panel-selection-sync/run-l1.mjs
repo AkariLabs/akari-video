@@ -15,8 +15,10 @@ const project = path.join(scratch, 'project');
 const editUri = pathToFileURL(path.join(project, 'edit.json')).href;
 const cdpPort = 9579;
 const electron = path.join(shell, 'node_modules/electron/dist/electron.exe');
-const result = { rowCount: 0, final: null, preview: null, timeline: null, manual: null, error: null };
+const result = { rowCount: 0, final: null, preview: null, timeline: null, manual: null, stage: 'fixture', error: null };
 let child;
+let electronLog = '';
+let electronExit;
 
 class CDP {
   constructor(url) { this.url = url; this.id = 0; this.pending = new Map(); }
@@ -33,11 +35,12 @@ class CDP {
       this.pending.delete(message.id);
       message.error ? pending.reject(new Error(JSON.stringify(message.error))) : pending.resolve(message.result);
     });
+    this.ws.addEventListener('close', () => { this.closed = true; });
   }
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
       const id = ++this.id;
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`CDP ${method} timeout`)); }, 30000);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`CDP ${method} timeout`)); }, timeoutMs);
       this.pending.set(id, { resolve: value => { clearTimeout(timer); resolve(value); },
         reject: error => { clearTimeout(timer); reject(error); } });
       this.ws.send(JSON.stringify({ id, method, params }));
@@ -61,7 +64,7 @@ async function makeFixture() {
       source: { kind: 'media', src: 'src-1', in: 0, out: 120 } }] }] };
   const captions = { captions: Array.from({ length: 120 }, (_, index) => ({
     id: `c-${String(index + 1).padStart(4, '0')}`, start: index, end: index + 0.8,
-    src: 'src-1', text: `確認用字幕 ${index + 1}`, speaker: null, edited: false,
+    src: 'src-1', text: `確認用字幕 ${index + 1}`, speaker: null, sourceRef: null, edited: false,
     words: [{ start: index, end: index + 0.8, text: `確認用字幕 ${index + 1}` }]
   })) };
   await writeFile(path.join(project, 'edit.json'), `${JSON.stringify(edit)}\n`);
@@ -71,6 +74,7 @@ async function makeFixture() {
 async function waitForPage() {
   const deadline = Date.now() + 120000;
   while (Date.now() < deadline) {
+    if (electronExit) throw new Error(`Electron exited ${electronExit.code}/${electronExit.signal}: ${electronLog.slice(-4000)}`);
     try {
       const targets = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
       const page = targets.find(item => item.type === 'page' && !item.url.startsWith('devtools:'));
@@ -82,8 +86,8 @@ async function waitForPage() {
 }
 
 let cdp;
-async function evaluate(expression) {
-  const response = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+async function evaluate(expression, timeoutMs) {
+  const response = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, timeoutMs);
   if (response.exceptionDetails) throw new Error(JSON.stringify(response.exceptionDetails));
   return response.result.value;
 }
@@ -94,7 +98,7 @@ async function command(id, value) {
       && typeof k.prototype.executeCommand === 'function' && typeof k.prototype.registerCommand === 'function');
     if (!C) throw new Error('command registry missing');
     return window.theia.container.get(C).executeCommand(${JSON.stringify(id)}, ${JSON.stringify(value)});
-  })()`);
+  })()`, 120000);
 }
 const snapshot = () => evaluate(`(() => {
   const panel = document.querySelector('.akari-daihon-widget');
@@ -109,57 +113,96 @@ const snapshot = () => evaluate(`(() => {
     (rect(panel.querySelector('.akari-daihon-rows-region'))?.bottom ?? 0) - dock.offsetHeight) : viewport?.bottom;
   return { count: panel?.querySelectorAll('.akari-daihon-row').length ?? 0,
     selected: selected.map(el => el.dataset.captionId), dockTitle: dock?.querySelector('.akari-daihon-dock-title')?.textContent,
+    footer: panel?.querySelector('.akari-daihon-footer')?.textContent,
     dockOpen: dock?.classList.contains('open'), scrollTop: rows?.scrollTop, row: rect(row), viewport,
-    inspector, visibleBottom, fullyVisible: !!row && row.getBoundingClientRect().top >= viewport.top
+    inspector, rowsRegion: rect(panel?.querySelector('.akari-daihon-rows-region')),
+    visibleBottom, fullyVisible: !!row && row.getBoundingClientRect().top >= viewport.top
       && row.getBoundingClientRect().bottom <= visibleBottom,
     focused: rows === document.activeElement };
 })()`);
 
 try {
   await makeFixture();
+  result.stage = 'launch'; console.error('[l1] launch Electron');
   try { await fetch(`http://127.0.0.1:${cdpPort}/json/version`, { signal: AbortSignal.timeout(1000) });
     throw new Error(`CDP port ${cdpPort} occupied`); } catch (error) { if (String(error).includes('occupied')) throw error; }
   const profile = path.join(scratch, 'user-data');
   const config = path.join(scratch, 'theia-config');
   const home = path.join(scratch, 'akari-home');
   await Promise.all([mkdir(profile), mkdir(config), mkdir(home)]);
+  const electronEnv = { ...process.env, THEIA_CONFIG_DIR: config, AKARI_HOME: home };
+  delete electronEnv.ELECTRON_RUN_AS_NODE;
   child = spawn(electron, [shell, project, `--remote-debugging-port=${cdpPort}`, '--hostname=127.0.0.1',
-    '--port=49019', `--user-data-dir=${profile}`, '--no-sandbox'],
-  { cwd: shell, env: { ...process.env, THEIA_CONFIG_DIR: config, AKARI_HOME: home,
-      ELECTRON_RUN_AS_NODE: '' }, stdio: 'ignore' });
+    '--port=49019', `--user-data-dir=${profile}`, '--no-sandbox',
+    '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
+  { cwd: shell, env: electronEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+  for (const stream of [child.stdout, child.stderr]) {
+    stream.on('data', chunk => { electronLog = (electronLog + chunk.toString()).slice(-12000); });
+  }
+  child.on('exit', (code, signal) => { electronExit = { code, signal }; });
   const page = await waitForPage();
+  result.stage = 'connect'; console.error('[l1] connect CDP');
   cdp = new CDP(page.webSocketDebuggerUrl);
   await cdp.connect();
   await cdp.send('Runtime.enable');
   await cdp.send('Page.enable');
-  for (let attempt = 0; attempt < 90; attempt++) {
+  result.stage = 'wait-layout'; console.error('[l1] wait for layout');
+  for (let attempt = 0; attempt < 240; attempt++) {
+    if (cdp.closed || electronExit) throw new Error(`Electron page closed during layout: ${electronLog.slice(-2000)}`);
     if (await evaluate('Boolean(window.theia?.container && document.querySelector(".akari-daihon-widget"))').catch(() => false)) break;
     await sleep(1000);
   }
-  result.openTimeline = await command('akari.annotations.open');
-  await sleep(400);
-  result.openPreview = await command('akari.preview.ensureVisible', { editUri });
-  await sleep(400);
+  result.stage = 'wait-ready'; console.error('[l1] wait for ready workbench');
+  let ready = false;
+  for (let attempt = 0; attempt < 600; attempt++) {
+    ready = await evaluate('!document.querySelector(".theia-preload")').catch(() => false);
+    if (ready) break;
+    await sleep(1000);
+  }
+  if (!ready) throw new Error('workbench preload did not clear');
+  result.stage = 'open-daihon'; console.error('[l1] open daihon');
   await command('akari.daihon.open', { captionId: 'c-0120', open: 'template' });
+  result.stage = 'wait-rows'; console.error('[l1] wait for rows');
+  for (let attempt = 0; attempt < 180; attempt++) {
+    if (await evaluate('Boolean(document.querySelector(".akari-daihon-widget .akari-daihon-row"))').catch(() => false)) break;
+    await sleep(1000);
+  }
   await sleep(600);
+  result.stage = 'measure'; console.error('[l1] measure and capture');
   result.final = await snapshot();
   result.rowCount = result.final.count;
   const png = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   await writeFile(path.join(out, 'final-row.png'), Buffer.from(png.data, 'base64'));
+  result.stage = 'check-timeline'; console.error('[l1] check timeline');
+  result.openTimeline = await evaluate(`document.querySelectorAll('.akari-annotations-widget [data-akari-item-kind="caption"]').length`);
+  result.stage = 'open-preview'; console.error('[l1] open preview');
+  result.openPreview = await command('akari.preview.ensureVisible', { editUri });
+  await sleep(400);
   await evaluate(`window.dispatchEvent(new CustomEvent('akari.preview.captionSelected', {
     detail: { editUri: ${JSON.stringify(editUri)}, captionId: 'c-0040' } }))`);
   await sleep(500);
   result.preview = await snapshot();
   const previewPng = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   await writeFile(path.join(out, 'preview-row.png'), Buffer.from(previewPng.data, 'base64'));
-  result.timeline = await evaluate(`(() => {
-    const row = document.querySelector('.akari-annotations-widget [data-caption-id="c-0060"]');
-    if (!row) return { clicked: false };
-    row.click(); return { clicked: true };
+  const timelinePoint = await evaluate(`(() => {
+    const row = document.querySelector('.akari-annotations-widget [data-akari-item-kind="caption"][data-akari-item-id="c-0060"]');
+    if (!row) return null;
+    const rect = row.getBoundingClientRect();
+    return { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2,
+      width: rect.width, height: rect.height };
   })()`);
-  if (result.timeline.clicked) { await sleep(500); result.timeline.state = await snapshot(); }
+  result.timeline = { clicked: !!timelinePoint, point: timelinePoint };
+  if (timelinePoint) {
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: timelinePoint.x, y: timelinePoint.y, button: 'left', clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: timelinePoint.x, y: timelinePoint.y, button: 'left', clickCount: 1 });
+    await sleep(600);
+    result.timeline.state = await snapshot();
+    const timelinePng = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await writeFile(path.join(out, 'timeline-row.png'), Buffer.from(timelinePng.data, 'base64'));
+  }
   result.manual = await evaluate(`(() => {
     const rows = document.querySelector('.akari-daihon-rows');
+    rows.style.scrollBehavior = 'auto';
     rows.scrollTop += 160; return { afterScroll: rows.scrollTop };
   })()`);
   await sleep(500);
@@ -167,12 +210,15 @@ try {
   if (result.rowCount !== 120 || !result.final.fullyVisible || result.final.selected[0] !== 'c-0120'
     || result.preview.selected[0] !== 'c-0040' || !result.preview.focused
     || !result.preview.dockTitle?.includes('確認用字幕 40')
+    || !result.timeline.clicked || result.timeline.state?.selected[0] !== 'c-0060'
+    || !result.timeline.state?.fullyVisible || !result.timeline.state?.dockTitle?.includes('確認用字幕 60')
     || result.manual.afterScroll !== result.manual.afterWait.scrollTop) {
     throw new Error('selection acceptance assertion failed');
   }
 } catch (error) {
   result.error = String(error?.message ?? error);
 } finally {
+  result.electronLog = electronLog.slice(-12000);
   cdp?.close();
   if (child?.pid) {
     const stopped = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { encoding: 'utf8' });
@@ -181,7 +227,13 @@ try {
   await writeFile(path.join(out, 'l1-result.json'), `${JSON.stringify(result, null, 2)}\n`);
   const tempRoot = await realpath(os.tmpdir());
   if (!scratch.startsWith(tempRoot + path.sep)) throw new Error('scratch path escaped temp root');
-  await rm(scratch, { recursive: true, force: true });
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try { await rm(scratch, { recursive: true, force: true }); break; }
+    catch (error) {
+      if (attempt === 9) result.cleanupError = String(error);
+      else await sleep(500);
+    }
+  }
 }
 console.log(JSON.stringify({ rowCount: result.rowCount, finalVisible: result.final?.fullyVisible,
   previewSelected: result.preview?.selected, error: result.error }));

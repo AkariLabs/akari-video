@@ -1,8 +1,157 @@
 {
-  "rowCount": 0,
-  "final": null,
-  "preview": null,
-  "timeline": null,
-  "manual": null,
-  "error": "fixture ffmpeg: spawnSync ffmpeg EPERM"
+  "rowCount": 120,
+  "final": {
+    "count": 120,
+    "selected": [
+      "c-0120"
+    ],
+    "dockTitle": "確認用字幕 120",
+    "footer": "秒数や語をクリックするとプレビューへシークします。",
+    "dockOpen": true,
+    "scrollTop": 5846,
+    "row": {
+      "top": 300.734375,
+      "bottom": 346.875,
+      "height": 46.140625
+    },
+    "viewport": {
+      "top": 176,
+      "bottom": 668,
+      "height": 492
+    },
+    "inspector": {
+      "top": 356,
+      "bottom": 668,
+      "height": 312
+    },
+    "rowsRegion": {
+      "top": 176,
+      "bottom": 668,
+      "height": 492
+    },
+    "visibleBottom": 356,
+    "fullyVisible": true,
+    "focused": false
+  },
+  "preview": {
+    "count": 120,
+    "selected": [
+      "c-0040"
+    ],
+    "dockTitle": "確認用字幕 40",
+    "footer": "秒数や語をクリックするとプレビューへシークします。",
+    "dockOpen": true,
+    "scrollTop": 1893,
+    "row": {
+      "top": 242.484375,
+      "bottom": 288.625,
+      "height": 46.140625
+    },
+    "viewport": {
+      "top": 176,
+      "bottom": 668,
+      "height": 492
+    },
+    "inspector": {
+      "top": 356,
+      "bottom": 668,
+      "height": 312
+    },
+    "rowsRegion": {
+      "top": 176,
+      "bottom": 668,
+      "height": 492
+    },
+    "visibleBottom": 356,
+    "fullyVisible": true,
+    "focused": true
+  },
+  "timeline": {
+    "clicked": true,
+    "point": {
+      "x": 533.15625,
+      "y": 563.875,
+      "width": 1.84375,
+      "height": 22
+    },
+    "state": {
+      "count": 120,
+      "selected": [
+        "c-0060"
+      ],
+      "dockTitle": "確認用字幕 60",
+      "footer": "秒数や語をクリックするとプレビューへシークします。",
+      "dockOpen": true,
+      "scrollTop": 2895,
+      "row": {
+        "top": 243.296875,
+        "bottom": 289.4375,
+        "height": 46.140625
+      },
+      "viewport": {
+        "top": 176,
+        "bottom": 668,
+        "height": 492
+      },
+      "inspector": {
+        "top": 356,
+        "bottom": 668,
+        "height": 312
+      },
+      "rowsRegion": {
+        "top": 176,
+        "bottom": 668,
+        "height": 492
+      },
+      "visibleBottom": 356,
+      "fullyVisible": true,
+      "focused": true
+    }
+  },
+  "manual": {
+    "afterScroll": 3055,
+    "afterWait": {
+      "count": 120,
+      "selected": [
+        "c-0060"
+      ],
+      "dockTitle": "確認用字幕 60",
+      "footer": "秒数や語をクリックするとプレビューへシークします。",
+      "dockOpen": true,
+      "scrollTop": 3055,
+      "row": {
+        "top": 83.296875,
+        "bottom": 129.4375,
+        "height": 46.140625
+      },
+      "viewport": {
+        "top": 176,
+        "bottom": 668,
+        "height": 492
+      },
+      "inspector": {
+        "top": 356,
+        "bottom": 668,
+        "height": 312
+      },
+      "rowsRegion": {
+        "top": 176,
+        "bottom": 668,
+        "height": 492
+      },
+      "visibleBottom": 356,
+      "fullyVisible": false,
+      "focused": true
+    }
+  },
+  "stage": "open-preview",
+  "error": null,
+  "openTimeline": 120,
+  "openPreview": "revealed",
+  "electronLog": "server: modules loaded [0.505 s since backend process start]\nConfiguration directory URI: 'file:///c%3A/Users/kyach/AppData/Local/Temp/akari-script-selection-sEaIQu/theia-config'\nBackend server: resolving application [0.528 s since backend process start]\nConfiguring to accept webviews on '^.+\\.webview\\..+$' hostname.\n2026-10-03T06:09:11.590Z root WARN Backend _H.initialize took longer than the expected maximum 50 milliseconds: 68.4 ms [0.608 s since backend process start]\n2026-10-03T06:09:11.590Z root WARN Backend Object.initialize took longer than the expected maximum 50 milliseconds: 66.9 ms [0.608 s since backend process start]\n2026-10-03T06:09:11.591Z root WARN Backend Pme.initialize took longer than the expected maximum 50 milliseconds: 91.5 ms [0.633 s since backend process start]\n2026-10-03T06:09:11.596Z core:BackendApplication INFO configured all backend app contributions\n2026-10-03T06:09:11.601Z core:BackendApplication INFO Theia app listening on http://127.0.0.1:49019.\n2026-10-03T06:09:11.602Z root INFO Settings file not found at 'C:\\Users\\kyach\\AppData\\Local\\Temp\\akari-script-selection-sEaIQu\\theia-config\\backend-settings.json'. Falling back to defaults.\n2026-10-03T06:09:11.611Z root WARN The local plugin referenced by local-dir:/c%3A/Users/kyach/AppData/Local/Temp/akari-script-selection-sEaIQu/theia-config/plugins does not exist.\n2026-10-03T06:09:11.611Z root WARN The local plugin referenced by local-dir:/c%3A/Users/kyach/AppData/Local/Temp/akari-script-selection-sEaIQu/theia-config/deployedPlugins does not exist.\n2026-10-03T06:09:11.611Z root INFO Resolve plugins list: 8.5 ms [0.656 s since backend process start]\n2026-10-03T06:09:11.611Z root INFO Deploy plugins list: 8.9 ms [0.657 s since backend process start]\n2026-10-03T06:09:11.612Z root INFO Backend application startup sequence completed (async work may still be pending): 17.6 ms [0.657 s since backend process start]\n2026-10-03T06:09:11.612Z root INFO All backend contributions settled: 126.8 ms [0.657 s since backend process start]\nStarting backend: 718.4 ms [0.971 s since electron main start]\nAttaching security token: 2076.0 ms [3.047 s since electron main start]\nSkip checkForUpdates because application is not packed and dev update config is not forced\nlp.onStart: 12.1 ms [3.063 s since electron main start]\nkS.onStart: 9.6 ms [3.063 s since electron main start]\nwF.onStart: 9.1 ms [3.063 s since electron main start]\nSF.onStart: 9.0 ms [3.063 s since electron main start]\nEF.onStart: 8.9 ms [3.063 s since electron main start]\nAF.onStart: 8.9 ms [3.063 s since electron main start]\npp.onStart: 4.1 ms [3.063 s since electron main start]\nIF.onStart: 3.9 ms [3.063 s since electron main start]\nAL.onStart: 3.8 ms [3.063 s since electron main start]\nDL.onStart: 0.8 ms [3.063 s since electron main start]\nStarting contributions: 15.3 ms [3.063 s since electron main start]\nStartup sequence completed: 2811.0 ms [3.063 s since electron main start]\n2026-10-03T06:09:14.226Z akari-partner INFO [akari CLI] registry から取得しています: https://registry.npmjs.org/akari-video/0.1.99\n2026-10-03T06:09:14.226Z akari-partner INFO [akari CLI] v0.1.99 を配備しました: C:\\Users\\kyach\\AppData\\Local\\Temp\\akari-script-selection-sEaIQu\\akari-home\\cli\\0.1.99\n2026-10-03T06:09:14.226Z akari-partner INFO [akari CLI] シム生成: C:\\Users\\kyach\\AppData\\Local\\Temp\\akari-script-selection-sEaIQu\\akari-home\\cli\\bin\\akari.cmd\n2026-10-03T06:09:15.177Z root INFO creating connection for 1\nOpening channel for service path '/services/electron-window'.\n2026-10-03T06:09:16.091Z root INFO [71adb549-86a7-4049-9f2d-168c6eb7ae2e] Waiting for backend deployment: 33.0 ms [2.370 s since frontend page start]\n2026-10-03T06:09:16.262Z root WARN Linked preference \"workbench.colorCustomizations\" not found.\n2026-10-03T06:09:16.262Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found.\n2026-10-03T06:09:16.318Z root WARN Frontend Jze.onStart took longer than the expected maximum 100 milliseconds: 219.2 ms [2.594 s since frontend page start]\n2026-10-03T06:09:16.319Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{\"id\":\"1_file\",\"label\":\"File\"},{\"id\":\"2_edit\",\"label\":\"Edit\"},{\"id\":\"3_selection\",\"label\":\"Selection\"},{\"id\":\"4_view\",\"label\":\"View\"},{\"id\":\"5_go\",\"label\":\"Go\"},{\"id\":\"6_debug\",\"label\":\"Run\"},{\"id\":\"7_terminal\",\"label\":\"Terminal\"},{\"id\":\"9_help\",\"label\":\"Help\"}]\n2026-10-03T06:09:16.319Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): [\"core.undo\",\"core.redo\",\"core.cut\",\"core.copy\",\"core.paste\",\"core.selectAll\",\"file.copyDownloadLink\"]\n2026-10-03T06:09:16.319Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{\"id\":\"1_file\",\"label\":\"File\"},{\"id\":\"2_edit\",\"label\":\"Edit\"},{\"id\":\"9_help\",\"label\":\"Help\"}]\n2026-10-03T06:09:16.379Z root INFO Start frontend contributions: 546.6 ms [2.635 s since frontend page start]\n2026-10-03T06:09:16.379Z root INFO Changed application state from 'init' to 'started_contributions'.\n2026-10-03T06:09:16.382Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.\n2026-10-03T06:09:16.382Z root INFO >>> Restoring the layout state...\n2026-10-03T06:09:16.391Z root INFO [71adb549-86a7-4049-9f2d-168c6eb7ae2e] Loading plugin contributions\n2026-10-03T06:09:16.392Z root INFO <<< Nothing to restore.\n2026-10-03T06:09:16.470Z root INFO Initialize the workbench layout: 84.2 ms [2.745 s since frontend page start]\n2026-10-03T06:09:16.472Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.\n2026-10-03T06:09:16.562Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container\n2026-10-03T06:09:16.562Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): search-view-container\n2026-10-03T06:09:16.562Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"vsx-extensions-view-container\",\"label\":\"パートナー / 拡張\"}\n2026-10-03T06:09:16.562Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): vsx-extensions-view-container\n2026-10-03T06:09:16.562Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"scm-view-container\",\"label\":\"Source Control\"}\n2026-10-03T06:09:16.562Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container\n2026-10-03T06:09:16.562Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-settings-opener\",\"label\":\"設定\"}\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"debug\",\"label\":\"Debug\"}\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-menu-widget\",\"label\":\"メニュー\"}\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"test-view-container\",\"label\":\"Testing\"}\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-partner-onboarding\",\"label\":\"パートナーを追加\"}\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-review-panel-widget\",\"label\":\"注釈\"}\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {\"id\":\"outline-view\",\"label\":\"Outline\"}\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view\n2026-10-03T06:09:16.563Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {\"id\":\"akari-role-buckets-widget\",\"label\":\"素材\"}\n2026-10-03T06:09:16.645Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {\"id\":\"akari-daihon-widget\",\"label\":\"台本\"}\n2026-10-03T06:09:16.652Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {\"id\":\"akari-cuts-widget\",\"label\":\"カット\"}\n2026-10-03T06:09:16.922Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at zEc (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:17696:13192)\n    at async o5n.reloadResolvedCaptionDisplay (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:18326:9223)\n    at async VEc (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:17696:12050)\n    at async o5n.reloadCaptionsFromSource (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:18326:8747)\n    at async o5n.reloadCaptions (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:18326:7865)\n    at async Promise.all (index 2)\n    at async o5n.reloadAll (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:18322:6789)\n    at async o5n.configure (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:18322:526)\n    at async Dv.attachAt (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:19461:3103)\n    at async Dv.attachPassively (file:///C:/Users/kyach/akari-wt/script-panel-selection-sync/apps/shell/lib/frontend/bundle.js:19461:1764)\n2026-10-03T06:09:17.476Z root INFO Frontend application startup sequence completed (async work may still be pending): 1555.2 ms [6.522 s since backend process start]\n2026-10-03T06:09:17.477Z root INFO Replace loading indicator with ready workbench UI (animation): 825.5 ms [3.755 s since frontend page start]\n2026-10-03T06:09:17.477Z root INFO Changed application state from 'initialized_layout' to 'ready'.\n2026-10-03T06:09:17.478Z root INFO All frontend contributions settled: 1667.4 ms [3.755 s since frontend page start]\n2026-10-03T06:09:20.425Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-daihon-widget\n2026-10-03T06:09:20.792Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-inspector-widget): {\"id\":\"akari-inspector-widget\",\"label\":\"編集パネル\"}\n2026-10-03T06:09:22.994Z root WARN [akari-preview] speech sidecar clip-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file C:\\Users\\kyach\\AppData\\Local\\Temp\\akari-script-selection-sEaIQu\\project\\.akari\\cache\\preview-audio\\.d0ed1ff76af7a4444ef566362d81ae05441adf91.flac.21716.1791007761490.tmp.flac. Error opening output files: Invalid argument\n2026-10-03T06:09:23.342Z root INFO [webview: akari-output-preview-4f0nhn] @webav version: 1.2.8, date: 2026/10/3\n2026-10-03T06:09:23.346Z root INFO [webview: akari-output-preview-4f0nhn] Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.99 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36\n2026-10-03T06:09:23.455Z root WARN [webview: akari-output-preview-4f0nhn] [frame-engine] src-1:base: 最大キーフレーム間隔が 120.000 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）\n",
+  "cleanup": {
+    "pid": 24136,
+    "exit": 128,
+    "error": null
+  }
 }
