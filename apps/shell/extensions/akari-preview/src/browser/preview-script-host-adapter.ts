@@ -909,10 +909,6 @@ export function hostAdapterScript(): string {
                 vscode.postMessage({ type: 'akari-preview-generation-request' });
             };
             window.akari.reportGesture = phase => {
-                if (phase === 'begin' || phase === 'end') {
-                    // H-1 の media/crop ジェスチャーを B-1 のバーと小さなメニューの非表示にも使う。
-                    document.body.classList.toggle('akari-selection-gesture-active', phase === 'begin');
-                }
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
             let pendingLiveValues = null;

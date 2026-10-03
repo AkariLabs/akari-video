@@ -4127,6 +4127,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         disposables.push(this.fileService.onDidFilesChange(handleFilesChanged));
         widget.disposed.connect(() => {
             disposables.dispose();
+            this.previewGestureGuards?.delete(widget);
             if (previews.get(seekKey) === widget) {
                 previews.delete(seekKey);
             }
@@ -4721,6 +4722,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
         diagnostics?.describeFace({ assetOrigin: assets?.origin });
         diagnostics?.markStage('model-loaded', 'ok');
+        if (this.previewGestureGuards?.get(widget)?.active) {
+            this.queueRefresh(widget, identityUri, kind, initialSeekTime, forceRebuild);
+            await this.disposeAssetStreams(model.assetStreamIds);
+            return;
+        }
         const nextSnapshot = this.previewModelSnapshot(model, assets);
         if (widget.isDisposed) {
             await this.disposeAssetStreams(model.assetStreamIds);
@@ -4751,6 +4757,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             if (updateAction === 'legacy-incremental' || updateAction === 'frame-engine-incremental') {
+                const previousSnapshot = widget.akariPreviewModelSnapshot;
+                const previousSummary = widget.akariPreviewSummary;
                 if (model.motionBagUris?.length || widget.akariPreviewMotionBagResources?.size) {
                     Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
                 }
@@ -4802,6 +4810,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
                 // 読込で正規化した cue を先に送り、model-update 内の同期 tick が古い字幕を
                 // 1 フレーム描く余地を残さない。
+                if (this.previewGestureGuards?.get(widget)?.active) {
+                    widget.akariPreviewModelSnapshot = previousSnapshot;
+                    widget.akariPreviewSummary = previousSummary;
+                    this.queueRefresh(widget, identityUri, kind, initialSeekTime, forceRebuild);
+                    await this.disposeAssetStreams(model.assetStreamIds);
+                    return;
+                }
                 widget.sendMessage({ type: 'akari-preview-captions-update', captions: model.captions });
                 widget.sendMessage({ type: 'akari-preview-model-update', summary });
                 widget.sendMessage({
@@ -5114,6 +5129,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         this.noteSwapReload(widget, 'reload_start');
         if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus;
+        this.previewGestureGuards?.delete(widget);
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream?.url ?? '',
@@ -5429,6 +5445,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
         widget.setContentOptions({ allowScripts: false, allowForms: false });
         if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus;
+        this.previewGestureGuards?.delete(widget);
         widget.setHTML(this.prepareMessageHtml(message));
     }
 

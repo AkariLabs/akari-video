@@ -558,20 +558,46 @@ export function previewBootstrapScript(): string {
             let pan = { x: 0, y: 0 };
             let drag = null;
             let selectionDragActive = false;
+            let pendingSelectionModel = null;
+            const pendingSelectionValues = new Map();
             // 入力は pointerup で解放する。DOM と host refresh は未完了の保存ごとに保護する。
             const selectionGestures = new Set();
             const latestSelectionGesture = new WeakMap();
             const beginSelectionGesture = target => {
-                selectionDragActive = true;
                 const gesture = { target, key: target.entry || target.media || target };
                 if (!selectionGestures.size) window.akari.reportGesture('begin');
                 selectionGestures.add(gesture);
                 latestSelectionGesture.set(gesture.key, gesture);
                 return gesture;
             };
+            const flushPendingSelectionModel = () => {
+                if (selectionGestures.size || !pendingSelectionModel) return;
+                const next = { ...pendingSelectionModel };
+                for (const [kind, entries] of [['layer', 'layers'], ['cut', 'cuts']]) {
+                    if (!Array.isArray(next[entries])) continue;
+                    next[entries] = next[entries].map(entry => {
+                        const values = pendingSelectionValues.get(kind + ':' + entry.id);
+                        return values ? { ...entry, transform: values.transform, crop: values.crop } : entry;
+                    });
+                }
+                pendingSelectionModel = null;
+                pendingSelectionValues.clear();
+                clearLiveOverride();
+                applyIncrementalModel(next);
+            };
             const endSelectionGesture = gesture => {
                 if (!selectionGestures.delete(gesture)) return;
-                if (!selectionGestures.size) window.akari.reportGesture('end');
+                if (pendingSelectionModel) {
+                    const target = gesture.target;
+                    const id = target.kind === 'layer' ? target.entry?.spec?.id : target.media?.dataset?.akariCutId;
+                    if (id) pendingSelectionValues.set(target.kind + ':' + id, {
+                        transform: target.transformNow(), crop: target.cropNow()
+                    });
+                }
+                if (!selectionGestures.size) {
+                    window.akari.reportGesture('end');
+                    flushPendingSelectionModel();
+                }
             };
             const selectionGestureIsLatest = gesture => latestSelectionGesture.get(gesture.key) === gesture;
             const selectionGestureProtects = (kind, entry) => {
@@ -2825,6 +2851,8 @@ export function previewBootstrapScript(): string {
                 startEvent.preventDefault();
                 startEvent.stopPropagation();
                 const gesture = beginSelectionGesture(target);
+                selectionDragActive = true;
+                document.body.classList.add('akari-selection-gesture-active');
                 const pointerId = startEvent.pointerId;
                 const original = target.transformNow();
                 let latestTransform = original;
@@ -2834,7 +2862,13 @@ export function previewBootstrapScript(): string {
                 const duplicating = startEvent.altKey && (!handleKind || handleKind === 'move');
                 const rotating = handleKind === 'rotate';
                 const positionOnly = !rotating && (handleKind === 'move' || !handleKind);
-                const motion = positionOnly && typeof target.motionAt === 'function' ? target.motionAt() : null;
+                let motion = positionOnly && typeof target.motionAt === 'function' ? target.motionAt() : null;
+                if (motion && !motion.item.keyframes?.length) {
+                    // 保存済みモデルの到着前でも、次のドラッグは表示中の位置から始める。
+                    const liveItem = previewMotionLiveItemFn(motion.item, original);
+                    motion = { ...motion, item: liveItem, visible: window.akari.itemMotion.evaluateItemMotion(
+                        liveItem, motion.time, motion.parents) };
+                }
                 const movingControls = rotating || handleKind === 'move' || !handleKind;
                 const gestureLabel = document.createElement('div');
                 gestureLabel.className = rotating ? 'akari-interaction-angle' : 'akari-interaction-hint';
@@ -2853,6 +2887,7 @@ export function previewBootstrapScript(): string {
                 try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const cleanup = () => {
                     selectionDragActive = false;
+                    document.body.classList.remove('akari-selection-gesture-active');
                     document.body.classList.remove('akari-media-transforming');
                     document.body.classList.remove('akari-media-moving');
                     gestureLabel.remove();
@@ -3384,6 +3419,8 @@ export function previewBootstrapScript(): string {
                 event.preventDefault();
                 event.stopPropagation();
                 const gesture = beginSelectionGesture(target);
+                selectionDragActive = true;
+                document.body.classList.add('akari-selection-gesture-active');
                 const pointerId = event.pointerId;
                 const captureTarget = event.currentTarget;
                 let moved = false;
@@ -3401,6 +3438,7 @@ export function previewBootstrapScript(): string {
                 }
                 const cleanup = () => {
                     selectionDragActive = false;
+                    document.body.classList.remove('akari-selection-gesture-active');
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onCancel);
@@ -10072,6 +10110,10 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {
+                    if (selectionGestures.size) {
+                        pendingSelectionModel = message.summary;
+                        return;
+                    }
                     clearLiveOverride();
                     applyIncrementalModel(message.summary);
                     return;
