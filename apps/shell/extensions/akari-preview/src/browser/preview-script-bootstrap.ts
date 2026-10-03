@@ -1270,7 +1270,7 @@ export function previewBootstrapScript(): string {
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
-            const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
+            const createLayerEntry = (layer, index, initialEntry = false) => {
                 // task 2026-08-10-image-layer-parity: layer.isImage はサーバ側（loadPreviewModel /
                 // isImageLayerSrc）が拡張子で確定済み（webview から見える src はストリーム URL で
                 // 元の拡張子を持たないことがあるため、ここで拡張子を再判定はしない）。
@@ -1408,9 +1408,27 @@ export function previewBootstrapScript(): string {
                     if (!layerIsImage && frameEngineMediaIdle) layerVideo.preload = 'metadata';
                     layerVideo.src = layer.src;
                 }
+                if (initialEntry && index === summary.layers.length - 1) {
+                    const reportInitialPaint = () => window.requestAnimationFrame(() =>
+                        window.requestAnimationFrame(() => window.akari.reportReadySeek({
+                            type: 'akari-preview-model-painted', pageId: initial.playbackPageId,
+                            initialPaint: true, layerIds: summary.layers.map(item => item.id)
+                        })));
+                    if (initial.frameEngineEnabled) {
+                        window.addEventListener('akari-frame-engine-ready', reportInitialPaint, { once: true });
+                    } else if (layerIsImage) {
+                        layerVideo.addEventListener('load', () => {
+                            void layerVideo.decode().then(reportInitialPaint).catch(() => undefined);
+                        }, { once: true });
+                    } else {
+                        layerVideo.addEventListener('loadeddata', reportInitialPaint, { once: true });
+                    }
+                }
                 layersStage.appendChild(layerVideo);
                 return entry;
-            });
+            };
+            const layerEntries = (Array.isArray(summary.layers) ? summary.layers : [])
+                .map((layer, index) => createLayerEntry(layer, index, true));
             let videoCandidatePreview = null;
             const clearVideoCandidatePreview = () => {
                 if (!videoCandidatePreview) return;
@@ -9529,6 +9547,8 @@ export function previewBootstrapScript(): string {
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
+                const addedLayers = Array.isArray(nextSummary.layers)
+                    ? nextSummary.layers.slice(layerEntries.length) : [];
                 if (window.akari.frameEngineClock?.updateModel) {
                     playbackModelUpdate = window.akari.frameEngineClock.updateModel(nextSummary);
                 } else if (initial.frameEngineEnabled) {
@@ -9543,6 +9563,15 @@ export function previewBootstrapScript(): string {
                     ? segments[activeSegmentIndex].cutIndex : null;
                 summary = nextSummary;
                 window.akari.state.summary = summary;
+                for (const layer of addedLayers) {
+                    const entry = createLayerEntry(layer, layerEntries.length);
+                    layerEntries.push(entry);
+                    entry.video.addEventListener('loadeddata', () => syncLayerHitRegion(entry, true));
+                    entry.video.addEventListener('seeked', () => syncLayerHitRegion(entry, true));
+                    entry.fxRail = !frameEngineMediaIdle && entry.spec.chromaKey
+                        ? mountVideoFxRail(entry.video, 'layer:' + entry.spec.id,
+                            { chromaKey: entry.spec.chromaKey }) : null;
+                }
                 window.akari.updateEmptyCanvasHint?.(outputTime);
                 window.akari.runtime.applyAxisSummary?.(summary);
                 refreshAdjustCssApproximation();
@@ -9585,8 +9614,19 @@ export function previewBootstrapScript(): string {
                         probeSfxDurations().then(() => { rebuildSegments(); tick(true); })
                     ]);
                 }
-                tick(true);
+                if (addedLayers.length === 0) tick(true);
                 window.akari.requestGenerationUpdate?.();
+                const renderedModel = playbackModelUpdate;
+                void Promise.resolve(renderedModel).then(() => Promise.all(addedLayers.map(layer => {
+                    const entry = findLayerEntry(layer.id);
+                    return entry?.video.tagName === 'IMG' ? entry.video.decode() : Promise.resolve();
+                }))).then(() => {
+                    if (addedLayers.length > 0) tick(true);
+                    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+                        window.akari.reportReadySeek({ type: 'akari-preview-model-painted',
+                            pageId: initial.playbackPageId, layerIds: addedLayers.map(layer => layer.id) });
+                    }));
+                }).catch(error => console.warn('[akari-preview] incremental paint unavailable', error));
             };
             // BEGIN preview bag response (bootstrap owns summary and persistent plates)
             let bagMountTail = Promise.resolve();

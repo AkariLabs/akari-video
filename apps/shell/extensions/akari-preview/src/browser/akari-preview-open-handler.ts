@@ -161,6 +161,7 @@ import { planRawPreviewAudioSidecar, rawPreviewProjectRootCandidates, selectRawP
 import { clampPreviewPlaybackRate, PREVIEW_RATE_PRESETS } from '../common/preview-playback-rate';
 import {
     classifyPreviewModelUpdate,
+    isOwnAssetReferenceChange,
     isPreviewModelResourceChange,
     previewModelUpdateAction
 } from '../common/preview-model-diff';
@@ -3946,6 +3947,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, identityUri, kind, undefined, true);
             }
         }));
+        let placement: { key: string; at: number; until?: number; baseline: Promise<string>;
+            refreshedContent?: string } | undefined;
+        const onPlacement = (event: Event): void => {
+            const detail = (event as CustomEvent<{ phase?: string; editUri?: string; key?: string }>).detail;
+            const editUri = widget.akariPreviewEditUri;
+            if (!editUri || detail?.editUri !== editUri.toString()) return;
+            if (detail.phase === 'begin' && typeof detail.key === 'string') {
+                const referencesUri = editUri.parent.resolve('.akari/asset-references.json');
+                placement = { key: detail.key, at: Date.now(), baseline: this.readText(referencesUri)
+                    .catch(() => '{"version":0,"references":[]}') };
+            } else if (detail.phase === 'end' && placement?.key === detail.key) {
+                placement.until = Date.now() + RECENT_WRITE_WINDOW_MS;
+                const completed = placement;
+                window.setTimeout(() => { if (placement === completed) placement = undefined; }, RECENT_WRITE_WINDOW_MS);
+            }
+        };
+        window.addEventListener('akari-preview-placement', onPlacement);
+        disposables.push({ dispose: () => window.removeEventListener('akari-preview-placement', onPlacement) });
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
             const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
@@ -3965,9 +3984,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const key = change.resource.toString();
                 const referencesUri = widget.akariPreviewEditUri?.parent.resolve('.akari/asset-references.json');
                 if (referencesUri && key === referencesUri.toString()) {
-                    // Bundle/removal changes the media location without changing edit.json.
-                    previewChanged = true;
-                    nonModelResourceChanged = true;
+                    if (typeof placement === 'undefined' || !placement
+                        || Date.now() > (placement.until ?? placement.at + 10_000)) {
+                        this.queueRefresh(widget, identityUri, kind, undefined, true);
+                        continue;
+                    }
+                    // The resolver can write the ledger after edit.json. Reload the model
+                    // so a layer skipped while its reference was absent can now be added.
+                    void (async () => {
+                        const active = placement;
+                        const [content, before] = await Promise.all([this.readText(referencesUri), active?.baseline]);
+                        const own = active && before !== undefined ? { content: before, at: active.at,
+                            key: active.key, until: active.until } : undefined;
+                        if (isOwnAssetReferenceChange(own, content, Date.now(), 10_000)) {
+                            if (content !== before && active?.refreshedContent !== content) {
+                                active!.refreshedContent = content;
+                                this.queueRefresh(widget, identityUri, kind, undefined, false);
+                            }
+                        } else {
+                            this.queueRefresh(widget, identityUri, kind, undefined, true);
+                        }
+                    })().catch(() => this.queueRefresh(widget, identityUri, kind, undefined, true));
                     continue;
                 }
                 if (kind === 'output' && change.resource.path.base.endsWith('.meta.json')) {
@@ -3986,6 +4023,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     continue;
                 }
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
+                    const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
+                        akariPreviewJustAddedSuffixes?: Map<string, number> };
+                    const added = recent.akariPreviewJustAddedUris?.get(key)
+                        ?? recent.akariPreviewJustAddedSuffixes?.get(suffix);
+                    // A generated frame can arrive just after edit.json. Its stream was
+                    // already supplied by the incremental model update.
+                    if (added && Date.now() - added < RECENT_WRITE_WINDOW_MS
+                        && change.resource.path.toString().includes('/assets/generated/')
+                        && change.resource.path.base.endsWith('.png')) continue;
                     const externalChange = Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
                     previewChanged ||= externalChange;
                     if (externalChange && !isPreviewModelResourceChange(
@@ -4524,8 +4570,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     widget.akariPreviewSummary?.output?.fps
                 )
             );
-            widget.sendMessage({ type: 'akari-preview-captions-update',
-                captions: buildCaptionAnimatorSummaryFields(captions, widget.akariPreviewCaptionAnimatorInternal) });
+            const nextCaptions = buildCaptionAnimatorSummaryFields(captions, widget.akariPreviewCaptionAnimatorInternal);
+            if (widget.akariPreviewModelSnapshot) widget.akariPreviewModelSnapshot.captions = nextCaptions;
+            widget.sendMessage({ type: 'akari-preview-captions-update', captions: nextCaptions });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
@@ -4700,9 +4747,39 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
                 }
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
+                const previousAssetUrls = widget.akariPreviewAssetUrlByUri ?? new Map<string, string>();
+                const acquiredAssets = [...(model.assetUrlByUri ?? new Map<string, string>())];
+                const previousUris = new Set(widget.akariPreviewModelSnapshot.assetUris);
+                const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
+                    akariPreviewJustAddedSuffixes?: Map<string, number> };
+                const newlyAdded = recent.akariPreviewJustAddedUris ?? new Map<string, number>();
+                const addedSuffixes = recent.akariPreviewJustAddedSuffixes ?? new Map<string, number>();
+                const now = Date.now();
+                for (const [key, at] of newlyAdded) if (now - at > RECENT_WRITE_WINDOW_MS) newlyAdded.delete(key);
+                for (const [key, at] of addedSuffixes) if (now - at > RECENT_WRITE_WINDOW_MS) addedSuffixes.delete(key);
+                for (const uri of model.assetUris) {
+                    if (!previousUris.has(uri.toString())) {
+                        newlyAdded.set(uri.toString(), now);
+                        addedSuffixes.set(this.resourceSuffix(uri), now);
+                    }
+                }
+                recent.akariPreviewJustAddedUris = newlyAdded;
+                recent.akariPreviewJustAddedSuffixes = addedSuffixes;
+                const addedAssetIds = new Set(acquiredAssets.flatMap(([uri], index) =>
+                    !previousAssetUrls.has(uri) && model.assetStreamIds[index] ? [model.assetStreamIds[index]] : []));
+                for (const [uri, url] of acquiredAssets) {
+                    if (!previousAssetUrls.has(uri)) previousAssetUrls.set(uri, url);
+                }
+                widget.akariPreviewAssetUrlByUri = previousAssetUrls;
+                (widget.akariPreviewAssetStreamIds ??= []).push(...addedAssetIds);
+                for (const uri of model.assetUris) {
+                    (widget.akariPreviewTrackedResources ??= new Set()).add(uri.toString());
+                    (widget.akariPreviewTrackedSuffixes ??= new Set()).add(this.resourceSuffix(uri));
+                }
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
                 this.retainPreviewAudioStreams(widget, model, summary);
+                model.assetStreamIds = model.assetStreamIds.filter(id => !addedAssetIds.has(id));
                 this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
                 widget.akariPreviewExcludedCaptionIds = new Set(model.excludedCaptionIds ?? []);
                 // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
