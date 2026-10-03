@@ -176,6 +176,57 @@ function warningType(warning) {
     .replace(/(?<![\p{L}\p{N}_])[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?/giu, "<value>");
 }
 
+function buildInitialRenderState({ lint, inputs, plan, capabilities, projectRoot, temporaryDirectory, engineRequested, gpuEligibility, codec, gpuForceBypassed, captionLayout }) {
+  return {
+    version: VERSION,
+    phase: "planned",
+    inputs,
+    // State warnings grow throughout execution. Keep them detached from the immutable command
+    // plan so a post-verify warning cannot change the plan hash after the receipt is written.
+    warnings: [...(plan.commands.audio_mix.warnings ?? [])],
+    validation: {
+      lint,
+      environment: {
+        node: capabilities.nodeVersion,
+        ffmpeg: capabilities.ffmpegVersion,
+        ffprobe: capabilities.ffprobeVersion,
+      },
+    },
+    plan,
+    provenance: {
+      audio: {
+        envelope: plan.commands.audio_mix.envelope,
+        clip_fx: plan.commands.audio_mix.clip_fx,
+      },
+      sources: capabilities.sourceInputs.map((source) => ({
+        id: source.id,
+        path: relativeOrAbsolute(projectRoot, source.path),
+        duration_seconds: source.duration,
+        has_audio: source.hasAudio,
+        width: source.width,
+        height: source.height,
+        fps: source.fps,
+        pix_fmt: source.pixFmt,
+        color_range: source.colorRange,
+      })),
+      proxy_used: false,
+      render_tmp_dir: relativeOrAbsolute(projectRoot, temporaryDirectory),
+      rasterizer: { planned: plan.rasterizer.selected, adopted: null, attempts: [] },
+      environment: {
+        node: capabilities.nodeVersion,
+        ffmpeg: capabilities.ffmpegVersion,
+        ffprobe: capabilities.ffprobeVersion,
+      },
+      ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility, codec),
+      codec,
+    },
+    artifacts: [],
+    verify: null,
+    ...(gpuForceBypassed ? { gpu_forced: true } : {}),
+    ...(captionLayout ? { caption_layout: captionLayout } : {}),
+  };
+}
+
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
@@ -309,54 +360,7 @@ export async function renderProject(input, options = {}, io = console) {
   });
   applyOutputScaleToPlan(plan, edit.output, options.scaleTo);
   assertHevcPresetSupported(plan.preset);
-  const state = {
-    version: VERSION,
-    phase: "planned",
-    inputs,
-    // State warnings grow throughout execution. Keep them detached from the immutable command
-    // plan so a post-verify warning cannot change the plan hash after the receipt is written.
-    warnings: [...(plan.commands.audio_mix.warnings ?? [])],
-    validation: {
-      lint,
-      environment: {
-        node: capabilities.nodeVersion,
-        ffmpeg: capabilities.ffmpegVersion,
-        ffprobe: capabilities.ffprobeVersion,
-      },
-    },
-    plan,
-    provenance: {
-      audio: {
-        envelope: plan.commands.audio_mix.envelope,
-        clip_fx: plan.commands.audio_mix.clip_fx,
-      },
-      sources: capabilities.sourceInputs.map((source) => ({
-        id: source.id,
-        path: relativeOrAbsolute(projectRoot, source.path),
-        duration_seconds: source.duration,
-        has_audio: source.hasAudio,
-        width: source.width,
-        height: source.height,
-        fps: source.fps,
-        pix_fmt: source.pixFmt,
-        color_range: source.colorRange,
-      })),
-      proxy_used: false,
-      render_tmp_dir: relativeOrAbsolute(projectRoot, temporaryDirectory),
-      rasterizer: { planned: plan.rasterizer.selected, adopted: null, attempts: [] },
-      environment: {
-        node: capabilities.nodeVersion,
-        ffmpeg: capabilities.ffmpegVersion,
-        ffprobe: capabilities.ffprobeVersion,
-      },
-      ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility, codec),
-      codec,
-    },
-    artifacts: [],
-    verify: null,
-    ...(gpuForceBypassed ? { gpu_forced: true } : {}),
-    ...(captionLayout ? { caption_layout: captionLayout } : {}),
-  };
+  const state = buildInitialRenderState({ lint, inputs, plan, capabilities, projectRoot, temporaryDirectory, engineRequested, gpuEligibility, codec, gpuForceBypassed, captionLayout });
   if (engineRequested === "auto" && gpuEligibility?.eligible === false) {
     addWarning(state, `GPU export is ineligible; using OSR: ${formatGpuEligibilityFailures(gpuEligibility)}`);
   }
