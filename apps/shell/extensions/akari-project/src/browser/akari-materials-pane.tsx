@@ -2,6 +2,7 @@ import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
+import { QuickInputService } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
@@ -27,7 +28,13 @@ import { resolveLibraryAssetMedia } from '../common/library-asset-placement';
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
 import { AKARI_BORDER, AKARI_FAINT, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 import { MaterialContextMenuItem } from '../common/material-context-menu-items';
+import { LibraryImportResult } from '../common/library-import';
+import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
+import { AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
 import { openAkariContextMenu } from './akari-context-menu';
+
+const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
+const TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID = 'akari.timeline.addMaterialAtPlayhead';
 
 export interface MaterialCardEntry {
     uri: URI;
@@ -102,7 +109,7 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -110,6 +117,7 @@ export interface MaterialsPaneHost {
     /** 素材カードのホバープレビュー。 */
     readonly materialPreviewService: AkariPreviewService;
     readonly workspaceService: WorkspaceService;
+    readonly quickInputService: Pick<QuickInputService, 'input'>;
     /** widget の再描画。 */
     readonly update: () => void;
     /** ファイル名から素材種別を判定。 */
@@ -121,12 +129,12 @@ export interface MaterialsPaneHost {
     readonly openMaterialContextMenu: (event: React.MouseEvent<HTMLDivElement>, entry: MaterialCardEntry) => void;
     readonly generationPickCardProps: (candidate: GenerationPickCandidate) => React.HTMLAttributes<HTMLDivElement>;
     readonly renderGenerationPickBadge: (candidate: GenerationPickCandidate) => React.ReactNode;
+    readonly reportLibraryImportResult: (result: LibraryImportResult) => void;
+    readonly loadAssetCatalogView: (intent?: 'automatic' | 'user') => Promise<void>;
     readonly materialQuery: string;
     readonly generationPick: GenerationPickController;
     /** カタログ素材の現在の一覧。 */
     readonly assetCatalogItems: AssetCatalogViewItem[];
-    /** 素材ごとの文字起こし状態。 */
-    transcriptStateByPath: Record<string, TranscriptState>;
 }
 
 export class AkariMaterialsPane {
@@ -193,7 +201,7 @@ export class AkariMaterialsPane {
         const materials = [...fileMaterials.filter(entry => !referenceMaterials.some(ref => entry.relativePath.startsWith(`${ref.relativePath}/`))),
             ...groupMaterials.filter(entry => !referencedDirectories.has(entry.relativePath)), ...referenceMaterials];
         materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
-        this.host.transcriptStateByPath = states;
+        this.transcriptStateByPath = states;
         this.materials = materials;
         this.projectCreditLines = credits;
         this.unorganizedMaterials = unorganizedMaterials;
@@ -881,7 +889,7 @@ export class AkariMaterialsPane {
         const pickCandidate: GenerationPickCandidate = { path: entry.mediaRelativePath ?? entry.relativePath, kind: entry.kind };
         const displayKind = entry.assetGroup ? 'other' : entry.kind;
         const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
-        const transcriptState = this.host.transcriptStateByPath[entry.relativePath] ?? 'none';
+        const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
         const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
@@ -1055,5 +1063,110 @@ export class AkariMaterialsPane {
                 )}
             </div>
         );
+    }
+
+    /**
+     * 素材カード「エージェントに頼む」アクション。ファイルパスも文脈説明も
+     * ユーザーに書かせず、カードが知っている情報から文脈パケットを組み立てて
+     * パートナーへ注入する（輸入リスト④）。入力キャンセル時は何もしない。
+     */
+    public async askAgent(entry: MaterialCardEntry): Promise<void> {
+        const request = await this.host.quickInputService.input({
+            placeHolder: 'この素材について何を頼みますか'
+        });
+        if (!request || !request.trim()) {
+            return;
+        }
+        const packet = composeMaterialAskAgentPrompt(
+            {
+                relativePath: entry.relativePath,
+                analyzed: entry.analyzed,
+                durationSeconds: entry.durationSeconds,
+                analysisRelativePath: entry.analysisRelativePath
+            },
+            request
+        );
+        await this.host.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+    }
+
+    public async storeMaterialInLibrary(entry: MaterialCardEntry): Promise<void> {
+        if (await this.host.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.host.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
+        if (entry.reference) return;
+        try {
+            const uri = entry.mediaRelativePath && this.host.workflow.workspaceRoot
+                ? this.host.workflow.workspaceRoot.resolve(entry.mediaRelativePath) : entry.uri;
+            const plan = await this.host.projectService.planLibraryImport([uri.path.fsPath()]);
+            const result = await this.host.projectService.applyLibraryImport(plan);
+            this.host.reportLibraryImportResult(result);
+            await this.host.loadAssetCatalogView('user');
+        } catch (error) { this.host.messages.error(`ライブラリに保管できませんでした: ${String(error)}`); }
+    }
+
+    /**
+     * 「タイムラインに追加」（送信側のみ、task 2026-08-10-material-menu-r2 指示2）。
+     * 受け側（姉妹タスク 2026-08-10-timeline-clip-menu）のコマンド未登録も含め、失敗は
+     * 握って messages.error に落とす（司令塔裁定2 — 実機ではほぼ同時に合流するため雑でよい）。
+     */
+    public async addMaterialToTimeline(entry: MaterialCardEntry): Promise<void> {
+        try {
+            await this.host.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
+                relativePath: entry.mediaRelativePath ?? entry.relativePath,
+                kind: entry.kind
+            });
+        } catch {
+            this.host.messages.error('タイムライン機能の更新が必要です。');
+        }
+    }
+
+    /**
+     * 「素材の情報を表示」（task 2026-08-10-material-menu-r2 指示2・3）。実処理
+     * （パネルの reveal/activate・showAsset）は `AkariProjectContribution#showAssetInfo`
+     * に委ねる（司令塔裁定5 — ApplicationShell 経由の widget 操作は akari-project 側に集約）。
+     */
+    public async showAssetInfo(uri: URI): Promise<void> {
+        await this.host.commandService.executeCommand(AKARI_SHOW_ASSET_INFO.id, uri);
+    }
+
+    /**
+     * リネーム/削除の実操作対象を求める。素材グループ（`entry.assetGroup` あり）は
+     * `entry.uri` がグループディレクトリ直下の preview.png / meta.json（`buildAssetGroupEntry`
+     * 参照）のため、対象はその親ディレクトリになる（指示5「ディレクトリ名の変更になる」）。
+     * それ以外（通常素材・未整理）は `entry.uri` 自身がファイル。
+     */
+    public materialFileSystemTarget(entry: MaterialCardEntry): { uri: URI; isDirectory: boolean } {
+        return entry.assetGroup ? { uri: entry.uri.parent, isDirectory: true } : { uri: entry.uri, isDirectory: false };
+    }
+
+    protected transcriptStateByPath: Record<string, TranscriptState> = {};
+
+    public async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root || entry.assetGroup || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
+        if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
+        try {
+            const result = await this.host.commandService.executeCommand<string>('akari.transcribe.openDialog', {
+                projectRoot: root.toString(), relativePath: entry.relativePath
+            });
+            if (result === 'running') void this.host.messages.info(`${entry.name}: 文字起こしを実行中です`);
+            else if (result === 'cancelled') void this.host.messages.info(`${entry.name}: 文字起こしを中止しました`);
+            await this.loadMaterials();
+            return;
+        } catch (error) {
+            if (!(error instanceof Error && (error as Error & { code?: string }).code === 'NO_ACTIVE_HANDLER')) {
+                void this.host.messages.error(error instanceof Error ? error.message : String(error));
+                return;
+            }
+        }
+        this.transcriptStateByPath[entry.relativePath] = 'running';
+        this.host.update();
+        void this.host.messages.info(`${entry.name}: 文字起こしを実行中です`);
+        try {
+            await this.host.projectService.transcribeMaterial({ projectRoot: root.toString(), relativePath: entry.relativePath });
+            void this.host.messages.info(`${entry.name}: 文字起こしが完了しました`);
+        } catch (error) {
+            void this.host.messages.error(error instanceof Error ? error.message : String(error));
+        } finally {
+            await this.loadMaterials();
+        }
     }
 }

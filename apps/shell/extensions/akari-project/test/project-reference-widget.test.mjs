@@ -47,13 +47,8 @@ function fixture() {
     const files = { resolve: async uri => { if (uri.toString().startsWith('file:///project')) throw Error('missing'); return { resource: uri, children: [] }; } };
     const toAssetBinChildren = stat => stat.children;
     const assetCatalogItems = [];
-    Object.assign(handler, { workflow, update,
-        messages,
-        projectService,
+    Object.assign(handler, {
         loadMaterials: async () => calls.push('reload'),
-        files,
-        toAssetBinChildren,
-        assetCatalogItems,
         host: { workflow, files, projectService, messages, update, toAssetBinChildren, assetCatalogItems },
         buildAssetGroupEntry: async (_, stat) => ({ uri: stat.resource.resolve('meta.json'), name: 'title', kind: 'audio', analyzed: false, unorganized: false })
     });
@@ -77,9 +72,9 @@ test('台帳→参照カードは媒体の実ルートを使い、宣言パス�
 
 test('コピー時代の実体には参照カードを重ねない。空ディレクトリなら参照を表示', async () => {
     const f = fixture();
-    f.handler.files.resolve = async uri => ({ resource: uri, children: [{ name: 'sound.wav', isDirectory: false }] });
+    f.handler.host.files.resolve = async uri => ({ resource: uri, children: [{ name: 'sound.wav', isDirectory: false }] });
     assert.deepEqual(await f.handler.buildReferenceMaterials(f.root, [reference]), []);
-    f.handler.files.resolve = async uri => ({ resource: uri, children: [] });
+    f.handler.host.files.resolve = async uri => ({ resource: uri, children: [] });
     assert.equal((await f.handler.buildReferenceMaterials(f.root, [reference])).length, 1);
 });
 
@@ -104,7 +99,7 @@ test('まとめるは dry-run→対象一覧・複製の説明・権利警告→
     const f = fixture(), calls = [];
     const result = { planned: [reference], bytes: 1048576, unknownSizeCount: 0, restrictedCount: 1,
         materialized: ['audio/success'], failures: [{ key: 'audio/missing', message: 'offline' }] };
-    f.handler.projectService.bundleProjectAssets = async (_, dry) => { calls.push(dry); if (!dry) assert.equal(f.dialogs.length, 1); return result; };
+    f.handler.host.projectService.bundleProjectAssets = async (_, dry) => { calls.push(dry); if (!dry) assert.equal(f.dialogs.length, 1); return result; };
     await f.handler.bundleMaterials();
     assert.deepEqual(calls, [true, false]);
     assert.equal(f.dialogs[0].title, 'ライブラリの素材をプロジェクトへ複製する');
@@ -126,7 +121,7 @@ test('まとめるは dry-run→対象一覧・複製の説明・権利警告→
 
 test('Lab の欠落媒体はメタデータだけ残っていても強制再取得する', async () => {
     const f = fixture();
-    f.handler.projectService.resolveAsset = async (...args) => { f.calls.push(args); return { success: true }; };
+    f.handler.host.projectService.resolveAsset = async (...args) => { f.calls.push(args); return { success: true }; };
     await f.handler.retryMaterialReference({ reference });
     assert.deepEqual(f.calls, [['sound', 'file:///project', { force: true }], 'reload']);
 });
