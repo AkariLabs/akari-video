@@ -1,14 +1,17 @@
 // vision-tracks.mjs --check の「正直さ」を確認する回帰テスト
 // （検収基準: 「--check が正直（macOS 以外相当の欠落を偽装した時に不可を返す）」）。
 //
-// 実際に OS を差し替えることはできないため、PATH から swiftc / ffmpeg を隠して
-// 「macOS 以外相当の欠落」を模擬する。--check が推測実行に倒れず、欠けている道具を
+// 実際に OS を差し替えることはできないため、PATH から swiftc を隠し、
+// ffmpeg / ffprobe は存在しないパスを env で明示して欠落を模擬する。
+// --check が推測実行に倒れず、欠けている道具を
 // 正直に reason へ書いて available: false を返すことを検証する
 // （contract §3「宣言のない能力は存在しない」の実装確認）。
 
 import assert from "node:assert/strict";
 import {
   chmodSync,
+  cpSync,
+  mkdirSync,
   mkdtempSync,
   realpathSync,
   rmSync,
@@ -31,10 +34,10 @@ function which(command) {
   return found || null;
 }
 
-function runCheck(pathOverride, kinds = null) {
+function runCheck(pathOverride, kinds = null, env = {}) {
   return spawnSync(process.execPath, [wrapperScript, "--check", ...(kinds ? ["--kinds", kinds] : [])], {
     encoding: "utf8",
-    env: { ...process.env, PATH: pathOverride },
+    env: { ...process.env, PATH: pathOverride, ...env },
   });
 }
 
@@ -42,7 +45,10 @@ test(
   "swiftc も ffmpeg も PATH に無いと available:false を正直に返す",
   { skip: isDarwin ? false : "darwin 前提のテスト" },
   () => {
-    const result = runCheck("/usr/bin:/bin");
+    const result = runCheck("/usr/bin:/bin", null, {
+      AKARI_FFMPEG_BIN: "/nonexistent/ffmpeg",
+      AKARI_FFPROBE_BIN: "/nonexistent/ffprobe",
+    });
     const reported = JSON.parse(result.stdout);
     assert.equal(reported.available, false);
     assert.ok(typeof reported.reason === "string" && reported.reason.length > 0);
@@ -96,7 +102,10 @@ test(
     const dir = mkdtempSync(join(tmpdir(), "vision-tracks-check-test-"));
     try {
       symlinkSync(swiftc, join(dir, "swiftc"));
-      const result = runCheck(`${dir}:/usr/bin:/bin`);
+      const result = runCheck(`${dir}:/usr/bin:/bin`, null, {
+        AKARI_FFMPEG_BIN: "/nonexistent/ffmpeg",
+        AKARI_FFPROBE_BIN: "/nonexistent/ffprobe",
+      });
       const reported = JSON.parse(result.stdout);
       assert.equal(reported.available, false);
       assert.match(reported.reason, /ffmpeg/);
@@ -115,5 +124,37 @@ test(
     // このリポジトリの開発機は swiftc/ffmpeg が入っている前提（report.md の実測もこの環境で
     // 取得した）。無ければ他の全テストも成立しないため、ここで素直に確認する。
     assert.equal(reported.available, true, JSON.stringify(reported));
+  },
+);
+
+test(
+  "プロジェクトへコピーしたスキルでも PATH の ffmpeg・ffprobe を使える",
+  { skip: isDarwin ? false : "darwin 前提のテスト" },
+  () => {
+    const dir = mkdtempSync(join(tmpdir(), "vision-tracks-copied-skill-test-"));
+    try {
+      const skillDir = join(dir, "proj", ".claude", "skills", "analyze-footage");
+      const binDir = join(dir, "bin");
+      const homeDir = join(dir, "home");
+      mkdirSync(dirname(skillDir), { recursive: true });
+      mkdirSync(binDir);
+      mkdirSync(homeDir);
+      cpSync(resolve(here, ".."), skillDir, { recursive: true });
+      for (const command of ["ffmpeg", "ffprobe"]) {
+        const fakeBin = join(binDir, command);
+        writeFileSync(fakeBin, '#!/bin/sh\n[ "$1" = "-version" ] || exit 1\nexit 0\n', "utf8");
+        chmodSync(fakeBin, 0o755);
+      }
+      const env = { ...process.env, HOME: homeDir, PATH: `${binDir}:${process.env.PATH}` };
+      for (const key of ["AKARI_MONOREPO", "AKARI_INSTALL_DIR", "AKARI_FFMPEG_BIN", "AKARI_FFPROBE_BIN"]) {
+        delete env[key];
+      }
+      const script = join(skillDir, "bin", "vision-tracks", "vision-tracks.mjs");
+      const result = spawnSync(process.execPath, [script, "--check"], { encoding: "utf8", env });
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(JSON.parse(result.stdout), { available: true });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   },
 );

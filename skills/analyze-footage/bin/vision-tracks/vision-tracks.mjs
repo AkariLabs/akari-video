@@ -27,6 +27,8 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { importPackage } from "../person-matte/resolve-packages.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const helperSource = path.join(scriptDir, "vision-tracks-helper.swift");
 const defaultHelperBin = path.join(scriptDir, "vision-tracks-helper");
@@ -38,6 +40,19 @@ const DEFAULT_KINDS = ["face", "hand"];
 const KINDS = ["face", "hand", "body-pose-3d"];
 const TOOL_ID = "vision-tracks.mjs v0";
 const PROVIDER_NAME = "apple-vision";
+const mediaBins = {};
+const mediaResolutionErrors = {};
+let usingBareMediaCommands = false;
+let mediaToolsPromise;
+
+function ensureMediaTools() {
+  mediaToolsPromise ??= importPackage("media-bin/src/index.mjs", { from: import.meta.url })
+    .then(
+      (media) => ({ resolveFfmpeg: media.resolveFfmpeg, resolveFfprobe: media.resolveFfprobe }),
+      () => null,
+    );
+  return mediaToolsPromise;
+}
 
 // 契約 §2 の kind 別ファイル名・analysis.json 側のトラックキー対応。
 const KIND_INFO = {
@@ -97,13 +112,22 @@ function checkAvailability(kinds) {
     }
   }
 
-  for (const command of ["ffmpeg", "ffprobe"]) {
-    const probe = spawnSyncSafe(command, ["-version"]);
+  for (const label of ["ffmpeg", "ffprobe"]) {
+    if (mediaResolutionErrors[label]) {
+      return {
+        available: false,
+        reason: summarize(mediaResolutionErrors[label]?.message, `${label} が見つかりません`),
+      };
+    }
+    const probe = spawnSyncSafe(mediaBins[label], ["-version"]);
     if (probe.error?.code === "ENOENT") {
-      return { available: false, reason: `${command} が PATH 上にありません` };
+      const reason = usingBareMediaCommands
+        ? `${label} が PATH 上にありません`
+        : `${label} が見つかりません`;
+      return { available: false, reason };
     }
     if (probe.error || probe.status !== 0) {
-      return { available: false, reason: `${command} を起動できません` };
+      return { available: false, reason: `${label} を起動できません` };
     }
   }
 
@@ -211,7 +235,7 @@ function buildHelper(helperBin) {
 }
 
 function ffprobeJson(args) {
-  const result = spawnSyncSafe("ffprobe", ["-v", "error", ...args, "-of", "json"]);
+  const result = spawnSyncSafe(mediaBins.ffprobe, ["-v", "error", ...args, "-of", "json"]);
   if (result.error || result.status !== 0) {
     throw new Error(summarize(result.stderr, "ffprobe に失敗しました"));
   }
@@ -298,7 +322,7 @@ function buildSamples(lines, kind, fps) {
 async function runHelper(options, size) {
   const decoder = stage(
     "decode",
-    "ffmpeg",
+    mediaBins.ffmpeg,
     [
       "-hide_banner", "-nostdin", "-loglevel", "error",
       "-i", options.input,
@@ -464,6 +488,25 @@ async function main() {
     printJson({ ok: false, reason: summarize(error?.message, "引数が不正です") });
     process.exitCode = 2;
     return;
+  }
+
+  const mediaTools = await ensureMediaTools();
+  if (mediaTools) {
+    for (const [label, resolve] of [
+      ["ffmpeg", mediaTools.resolveFfmpeg],
+      ["ffprobe", mediaTools.resolveFfprobe],
+    ]) {
+      try {
+        mediaBins[label] = resolve();
+      } catch (error) {
+        mediaResolutionErrors[label] = error;
+      }
+    }
+  } else {
+    // media-bin を読み込めない配置（プロジェクトへコピーされたスキル等）では従来の名前起動に戻す。
+    usingBareMediaCommands = true;
+    mediaBins.ffmpeg = "ffmpeg";
+    mediaBins.ffprobe = "ffprobe";
   }
 
   const availability = checkAvailability(options.kinds);
