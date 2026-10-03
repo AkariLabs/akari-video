@@ -8,7 +8,7 @@ import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const widget = read('../lib/browser/akari-annotations-widget.js');
-const inspector = read('../lib/browser/akari-inspector-widget.js');
+const inspector = read('../lib/browser/inspector/sections/cut-sections.js');
 const source = read('../src/browser/akari-annotations-widget.ts');
 const inspectorSource = readInspectorSource();
 function between(text, start, end, offset = 0) {
