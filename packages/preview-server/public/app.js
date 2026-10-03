@@ -69,6 +69,7 @@ import { isImageLayerSrc, isImageLayer, layerPlaybackPath } from '/layer-source.
 import { cropOf, layerIntrinsicSize, perspectiveOf, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
 import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup } from '/caption-markup.js';
 import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
+import { clipLookForCut, sourceEffectsForCut, layerChromaEffects } from '/video-fx-source.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -885,43 +886,6 @@ function configureVideoFxRail(rail, key, effects) {
   void rail.configure(effects);
 }
 
-function clipLookForCut(cutIndex) {
-  const cut = summary?.cuts?.[cutIndex];
-  const adjust = cut?.adjust;
-  if (!adjust || adjust.sections?.lut === false || !adjust.lut
-    || typeof adjust.lut.lut !== 'string') return null;
-  const cubeText = summary?.adjustLutCubeTexts?.[String(cut.id)];
-  if (typeof cubeText !== 'string') return null;
-  const intensity = Number.isFinite(adjust.lut.intensity)
-    ? Math.max(0, Math.min(1, adjust.lut.intensity)) : 1;
-  return { cubeText, intensity };
-}
-
-function sourceEffectsForCut(cutIndex, allowClipLut = true) {
-  const config = summary?.videoFx;
-  const sourceId = summary?.cuts?.[cutIndex]?.src;
-  const chromaKey = sourceId && config?.sources?.[sourceId];
-  const clipLook = allowClipLut ? clipLookForCut(cutIndex) : null;
-  const look = clipLook || config?.look;
-  return {
-    ...(look ? { look } : {}),
-    ...(chromaKey ? { chromaKey } : {}),
-  };
-}
-
-function layerChromaEffects(layer) {
-  const raw = layer?.chroma_key;
-  if (!raw) return null;
-  return {
-    chromaKey: {
-      color: raw.color,
-      similarity: raw.similarity,
-      blend: raw.blend,
-      mode: 'layer',
-    },
-  };
-}
-
 function disposeVideoFx() {
   for (const rail of videoFxRails) rail.dispose();
   videoFxRails = [];
@@ -937,7 +901,7 @@ function setupVideoFx() {
   videoFxFailedIndicators.clear();
   const config = summary?.videoFx;
   const sourceEffects = Object.values(config?.sources ?? {});
-  const firstClipLook = (summary?.cuts ?? []).map((_cut, index) => clipLookForCut(index)).find(Boolean) ?? null;
+  const firstClipLook = (summary?.cuts ?? []).map((_cut, index) => clipLookForCut(summary, index)).find(Boolean) ?? null;
   const hasBaseVideoFx = Boolean(firstClipLook || config?.look || sourceEffects.length > 0);
   const representativeEffects = hasBaseVideoFx ? {
     ...(firstClipLook || config?.look ? { look: firstClipLook || config.look } : {}),
@@ -972,18 +936,18 @@ function setupVideoFx() {
 function renderVideoFx(timelineTime) {
   if (!videoFxRails.length) return;
   const segment = getActiveSegment(timelineTime);
-  const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(segment.index) : {};
+  const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(summary, segment.index) : {};
   const baseKey = `base:${segment?.index ?? 'gap'}`;
   configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
   configureVideoFxRail(stillVideoFxRail, `${baseKey}:still`,
-    segment?.index >= 0 ? sourceEffectsForCut(segment.index, false) : {});
+    segment?.index >= 0 ? sourceEffectsForCut(summary, segment.index, false) : {});
   baseVideoFxRail?.render(timelineTime);
   stillVideoFxRail?.render(timelineTime);
 
   const transitionWindow = (timelineMap.transitionWindows ?? [])
     .find(candidate => timelineTime >= candidate.start && timelineTime < candidate.end);
   const incomingCutIndex = transitionWindow?.incoming?.cutIndex;
-  const transitionEffects = incomingCutIndex >= 0 ? sourceEffectsForCut(incomingCutIndex) : {};
+  const transitionEffects = incomingCutIndex >= 0 ? sourceEffectsForCut(summary, incomingCutIndex) : {};
   configureVideoFxRail(transitionVideoFxRail, `transition:${incomingCutIndex ?? 'none'}`, transitionEffects);
   transitionVideoFxRail?.render(timelineTime);
 
