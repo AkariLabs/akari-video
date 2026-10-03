@@ -6009,6 +6009,9 @@ var AkariEditKernel = (() => {
       style.position,
       style.vertical ? void 0 : style.vertical_align
     ));
+    if (style.vertical && isRecord4(style.position) && finiteNumber(style.position.x)) {
+      vars["--caption-right"] = "auto";
+    }
     if (style.vertical && style.vertical_align && !(isRecord4(style.position) && finiteNumber(style.position.x))) {
       vars["--caption-left"] = style.vertical_align === "top" ? "auto" : style.vertical_align === "middle" ? "50%" : "4%";
       vars["--caption-right"] = style.vertical_align === "top" ? "4%" : "auto";
@@ -6019,6 +6022,9 @@ var AkariEditKernel = (() => {
       vars["--caption-right"] = "auto";
       vars["--caption-align-items"] = "center";
       vars["--caption-translate"] = "-50% 0";
+    }
+    if (style.vertical && vars["--caption-left"] !== void 0 && vars["--caption-left"] !== "auto" && vars["--caption-right"] !== void 0 && vars["--caption-right"] !== "auto") {
+      vars["--caption-right"] = "auto";
     }
     if (style.align) {
       vars["--caption-text-align"] = style.align;

@@ -2077,6 +2077,11 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
         vars['--caption-text-shadow'] = textShadow;
     Object.assign(vars, captionZoneVars(style.zone));
     Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical ? undefined : style.vertical_align));
+    // A vertical containing block resolves an overconstrained plate from its
+    // right edge. An explicit x always denotes the visible left edge instead.
+    if (style.vertical && isRecord(style.position) && finiteNumber(style.position.x)) {
+        vars['--caption-right'] = 'auto';
+    }
     if (style.vertical && style.vertical_align && !(isRecord(style.position) && finiteNumber(style.position.x))) {
         vars['--caption-left'] = style.vertical_align === 'top' ? 'auto' : style.vertical_align === 'middle' ? '50%' : '4%';
         vars['--caption-right'] = style.vertical_align === 'top' ? '4%' : 'auto';
@@ -2092,6 +2097,12 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
         vars['--caption-right'] = 'auto';
         vars['--caption-align-items'] = 'center';
         vars['--caption-translate'] = '-50% 0';
+    }
+    // The preview's vertical containing block otherwise gives right precedence,
+    // while export gives left precedence for an overconstrained plate.
+    if (style.vertical && vars['--caption-left'] !== undefined && vars['--caption-left'] !== 'auto'
+        && vars['--caption-right'] !== undefined && vars['--caption-right'] !== 'auto') {
+        vars['--caption-right'] = 'auto';
     }
     if (style.align) {
         vars['--caption-text-align'] = style.align;

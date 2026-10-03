@@ -7147,6 +7147,9 @@ ${indent}`);
           vars["--caption-text-shadow"] = textShadow;
         Object.assign(vars, captionZoneVars(style.zone));
         Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical ? void 0 : style.vertical_align));
+        if (style.vertical && isRecord2(style.position) && finiteNumber2(style.position.x)) {
+          vars["--caption-right"] = "auto";
+        }
         if (style.vertical && style.vertical_align && !(isRecord2(style.position) && finiteNumber2(style.position.x))) {
           vars["--caption-left"] = style.vertical_align === "top" ? "auto" : style.vertical_align === "middle" ? "50%" : "4%";
           vars["--caption-right"] = style.vertical_align === "top" ? "4%" : "auto";
@@ -7158,6 +7161,9 @@ ${indent}`);
           vars["--caption-right"] = "auto";
           vars["--caption-align-items"] = "center";
           vars["--caption-translate"] = "-50% 0";
+        }
+        if (style.vertical && vars["--caption-left"] !== void 0 && vars["--caption-left"] !== "auto" && vars["--caption-right"] !== void 0 && vars["--caption-right"] !== "auto") {
+          vars["--caption-right"] = "auto";
         }
         if (style.align) {
           vars["--caption-text-align"] = style.align;
