@@ -41,6 +41,7 @@ import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotation
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
+import { selectionScrollTop } from './selection-reveal';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
 import { shouldUseKaraokeWords } from '../../common/karaoke-words';
 import { planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
@@ -573,6 +574,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected lastOutputT = 0;
     protected lastUserScrollAt = 0;
     protected autoScrolling = false;
+    protected selectionRevealFrame = 0;
     protected editing: EditingState | undefined;
     protected selection: DaihonSelection = EMPTY_SELECTION;
     protected altAll = false;
@@ -711,8 +713,15 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
         this.rowsNode.addEventListener('scroll', () => {
-            if (!this.autoScrolling) this.lastUserScrollAt = Date.now();
+            if (!this.autoScrolling) {
+                this.lastUserScrollAt = Date.now();
+                if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+                this.selectionRevealFrame = 0;
+            }
         }, { passive: true });
+        this.toDispose.push({ dispose: () => {
+            if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+        } });
         this.rowsNode.addEventListener('click', event => {
             if (!this.suppressRowClick) return;
             this.suppressRowClick = false;
@@ -753,9 +762,13 @@ export class AkariDaihonWidget extends BaseWidget {
         this.node.append(header, this.rowsRegion, this.footer);
         this.restoreDockHeight();
         if (typeof ResizeObserver !== 'undefined') {
-            const observer = new ResizeObserver(() => this.restoreDockHeight());
+            const observer = new ResizeObserver(() => {
+                this.restoreDockHeight();
+                this.scheduleSelectionReveal();
+            });
             observer.observe(this.node);
             observer.observe(this.rowsRegion);
+            observer.observe(this.placedEditor);
             this.toDispose.push({ dispose: () => observer.disconnect() });
         }
         this.dockGrip.addEventListener('pointerdown', event => this.startDockResize(event));
@@ -782,6 +795,31 @@ export class AkariDaihonWidget extends BaseWidget {
                 if (id !== this.attachmentSelection) { this.attachmentSelection = id; this.renderPlacedText(); }
             }
         };
+        const captionSelection = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; captionIds?: string[] }>).detail;
+            if (detail?.editUri !== this.editUri?.normalizePath().toString()) return;
+            const ids = detail.captionIds;
+            // The timeline is authoritative. Selections containing non-script captions have no row projection.
+            if (!Array.isArray(ids) || !ids.length || !ids.every(id => this.elements.has(id))) {
+                this.setSelection(clearSelection(), false);
+                return;
+            }
+            if (this.selection.selected.length === ids.length
+                && ids.every((id, index) => this.selection.selected[index] === id)) return;
+            if (this.qcFilter || this.speakerFilter !== null) {
+                this.qcFilter = false;
+                this.speakerFilter = null;
+                this.applyQcFilter();
+            }
+            this.setSelection({ selected: ids, anchorId: ids.length === 1 ? ids[0] : null }, false);
+            if (this.dockKind !== 'row') this.openRowDock('template');
+            if (ids.length === 1) {
+                void this.applicationShell.activateWidget(this.id).then(() => {
+                    this.rowsNode.focus({ preventScroll: true });
+                    this.scheduleSelectionReveal();
+                }).catch(() => undefined);
+            }
+        };
         const attachmentSelection = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; videoUri?: string; overlayId?: string | null;
                 layerId?: string | null }>).detail;
@@ -793,11 +831,13 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         window.addEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
         window.addEventListener('akari.timeline.primarySelected', timelineSelection);
+        window.addEventListener('akari.timeline.captionSelectionChanged', captionSelection);
         for (const name of ['akari.timeline.overlaySelected', 'akari.timeline.layerSelected',
             'akari.preview.overlaySelected', 'akari.preview.layerSelected']) window.addEventListener(name, attachmentSelection);
         this.toDispose.push({ dispose: () => {
             window.removeEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
             window.removeEventListener('akari.timeline.primarySelected', timelineSelection);
+            window.removeEventListener('akari.timeline.captionSelectionChanged', captionSelection);
             for (const name of ['akari.timeline.overlaySelected', 'akari.timeline.layerSelected',
                 'akari.preview.overlaySelected', 'akari.preview.layerSelected']) window.removeEventListener(name, attachmentSelection);
         } });
@@ -937,8 +977,8 @@ export class AkariDaihonWidget extends BaseWidget {
             if (this.speakerFilter !== null && this.speakerFilter !== row.speaker) this.speakerFilter = null;
             this.qcFilter = false;
             this.applyQcFilter();
-            this.elements.get(row.id)?.root.scrollIntoView({ block: 'center' });
             this.setSelection({ selected: [row.id], anchorId: row.id });
+            this.scheduleSelectionReveal();
             if (validWordRange && target.wordRange) {
                 this.wordRanges = [{ row: row.id, a: target.wordRange.from, b: target.wordRange.to }];
                 this.renderWordSelection();
@@ -2039,6 +2079,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.dockTab = tab;
         delete this.placedEditor.dataset.captionId;
         this.renderDock();
+        this.scheduleSelectionReveal();
     }
 
     protected dockTargetIds(): string[] {
@@ -2078,6 +2119,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.placedEditor.classList.add('open');
         this.placedEditor.hidden = false;
         this.rowsNode.classList.add('docked');
+        this.scheduleSelectionReveal();
     }
 
     protected renderDockText(range: PlacedTextRange): void {
@@ -4689,6 +4731,7 @@ export class AkariDaihonWidget extends BaseWidget {
             if (count === 0) this.closeDock();
             else this.renderDock();
         }
+        if (count === 1) this.scheduleSelectionReveal();
         if (!sync) return;
         const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
@@ -4850,6 +4893,32 @@ export class AkariDaihonWidget extends BaseWidget {
         const viewport = this.rowsNode.getBoundingClientRect();
         const rect = row.getBoundingClientRect();
         return rect.top >= viewport.top && rect.bottom <= viewport.bottom;
+    }
+
+    protected scheduleSelectionReveal(): void {
+        if (this.selection.selected.length !== 1 || this.selectionRevealFrame) return;
+        const id = this.selection.selected[0];
+        this.selectionRevealFrame = requestAnimationFrame(() => {
+            this.selectionRevealFrame = 0;
+            if (this.selection.selected.length !== 1 || this.selection.selected[0] !== id) return;
+            const row = this.elements.get(id)?.root;
+            if (!row || row.classList.contains('qc-hidden') || row.classList.contains('speaker-hidden')) return;
+            const viewport = this.rowsNode.getBoundingClientRect();
+            const bottom = this.dockKind && this.placedEditor.classList.contains('open')
+                ? Math.min(viewport.bottom, this.rowsRegion.getBoundingClientRect().bottom - this.placedEditor.offsetHeight)
+                : viewport.bottom;
+            const rect = row.getBoundingClientRect();
+            const target = selectionScrollTop(rect.top, rect.bottom, viewport.top, bottom, this.rowsNode.scrollTop);
+            if (target === null) return;
+            this.autoScrolling = true;
+            const behavior = this.rowsNode.style.scrollBehavior;
+            this.rowsNode.style.scrollBehavior = 'auto';
+            this.rowsNode.scrollTop = target;
+            requestAnimationFrame(() => {
+                this.rowsNode.style.scrollBehavior = behavior;
+                this.autoScrolling = false;
+            });
+        });
     }
 
     protected async seek(time: number | null): Promise<void> {

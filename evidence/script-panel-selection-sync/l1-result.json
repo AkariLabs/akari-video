@@ -1,0 +1,8 @@
+{
+  "rowCount": 0,
+  "final": null,
+  "preview": null,
+  "timeline": null,
+  "manual": null,
+  "error": "fixture ffmpeg: spawnSync ffmpeg EPERM"
+}

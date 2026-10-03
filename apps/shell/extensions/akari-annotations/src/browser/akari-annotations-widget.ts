@@ -3320,11 +3320,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionModel.selectedCaptionIds = captionIds;
         }
         this.applyCaptionStateClasses();
-        window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
-            detail: { editUri, captionIds, primaryCaptionId: target?.kind === 'caption' ? target.id : null }
-        }));
+        this.publishCaptionSelection(editUri, captionIds, target?.kind === 'caption' ? target.id : null);
         window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, { detail: { editUri, overlayId } }));
         window.dispatchEvent(new CustomEvent(TIMELINE_LAYER_SELECTED_EVENT, { detail: { editUri, layerId } }));
+    }
+
+    protected publishCaptionSelection(editUri: string, captionIds: readonly string[], primaryCaptionId: string | null): void {
+        window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
+            detail: { editUri, captionIds: [...captionIds], primaryCaptionId }
+        }));
     }
 
     protected shouldToggleMultiSelection(
@@ -5376,6 +5380,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.selectionModel.selectedCaptionIds = ids;
         this.applyCaptionStateClasses();
+        this.publishCaptionSelection(this.location?.editUri?.toString() ?? editUri, ids, ids.length === 1 ? ids[0] : null);
     }
 
     protected previewSelectionAncestorIds(rows: readonly TimelineTreeRow[], id: string): string[] {
@@ -5628,15 +5633,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.selectionModel.selectedCaptionIds = [];
                 this.applyCaptionStateClasses();
             }
+            this.publishCaptionSelection(this.location?.editUri?.toString() ?? editUri, [], null);
             return;
         }
         if (this.captions.some(caption => caption.id === captionId)) {
-            if (!this.multiSelection.some(item => this.selectionRenderKeys(item).includes(`caption:${captionId}`)
-                || (item.kind === 'caption' && item.id === captionId))) {
+            if (this.multiSelection.length > 0 || this.selection?.kind !== 'caption' || this.selection.id !== captionId) {
                 this.applySelection({ kind: 'caption', id: captionId }, false);
                 this.selectionModel.selectedCaptionIds = [captionId];
                 this.applyCaptionStateClasses();
             }
+            this.publishCaptionSelection(this.location?.editUri?.toString() ?? editUri, [captionId], captionId);
             this.revealPreviewSelection();
         }
     }
