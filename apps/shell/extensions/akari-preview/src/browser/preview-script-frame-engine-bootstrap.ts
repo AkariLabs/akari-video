@@ -1265,7 +1265,7 @@ export function frameEngineBootstrapScript(): string {
                 };
                 const applyEngineSummary = async (nextSummary, rebuildServices) => {
                     if (!nextSummary || typeof nextSummary !== 'object' || disposed) return;
-                    const audioChanged = JSON.stringify(engineSummary.audio || null)
+                    const audioChanged = rebuildServices && JSON.stringify(engineSummary.audio || null)
                         !== JSON.stringify(nextSummary.audio || null);
                     if (rebuildServices) {
                         sourceGeneration += 1;
@@ -1288,7 +1288,7 @@ export function frameEngineBootstrapScript(): string {
                         nextTimeline = { ...nextTimeline, totalDuration: window.akari.previewContentEnd(nextSummary,
                             window.akari.previewCaptions ?? [], nextVisualDuration, window.akari.previewAudioEndSeconds ?? 0, window.akari.previewBgmEndSeconds ?? 0) };
                         const nextDuration = nextTimeline.totalDuration;
-                        const retainAudioSupply = !audioChanged && nextDuration === totalDuration
+                        const retainAudioSupply = rebuildServices && !audioChanged && nextDuration === totalDuration
                             && JSON.stringify(nextCuts) === JSON.stringify(normalizedCuts);
                         const resume = playing;
                         if (rebuildServices) {
