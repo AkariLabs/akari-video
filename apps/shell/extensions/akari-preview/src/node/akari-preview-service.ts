@@ -165,6 +165,7 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
     return lastSignature;
   };
   let mountedSignature;
+  let mountedOverlays = [];
   let remounting = null;
   let waitingForInteraction = false;
   let latestTime = 0;
@@ -209,8 +210,38 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
       else element.setAttribute('data-akari-interaction-selected', state.selected);
     }
   };
+  const svgStructure = html => {
+    if (typeof html !== 'string' || !/^[ ]*<svg[ >]/iu.test(html)) return null;
+    return [...html.matchAll(/<[ ]*([/]?)([a-z][a-z0-9_:-]*)([^>]*)>/giu)].map(match => {
+      const names = [...match[3].replace(/"[^"]*"|'[^']*'/gu, '').matchAll(/([a-z_:][a-z0-9_:.-]*)[ ]*=/giu)]
+        .map(attribute => attribute[1]).sort();
+      return match[1] + match[2] + ':' + names.join(',');
+    }).join('|');
+  };
+  const shapePatch = next => {
+    if (!Array.isArray(next) || next.length !== mountedOverlays.length) return null;
+    let changed;
+    for (let index = 0; index < next.length; index++) {
+      const before = mountedOverlays[index];
+      const after = next[index];
+      if (!before || !after || before.id !== after.id) return null;
+      if (before.html === after.html) {
+        if (JSON.stringify(before) !== JSON.stringify(after)) return null;
+        continue;
+      }
+      if (changed || !runtime.replaceShapeHtml) return null;
+      const beforeOther = { ...before, html: null };
+      const afterOther = { ...after, html: null };
+      const structure = svgStructure(before.html);
+      if (!structure || structure !== svgStructure(after.html)
+          || JSON.stringify(beforeOther) !== JSON.stringify(afterOther)) return null;
+      changed = after;
+    }
+    return changed || null;
+  };
   runtime.mount = summary => {
     mountedSignature = signature(summary);
+    mountedOverlays = Array.isArray(summary?.overlays) ? summary.overlays : [];
     return mount(summary);
   };
   runtime.tick = (timelineTime, isPlaying) => {
@@ -223,7 +254,18 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
         waitForInteraction();
         return tick(timelineTime, isPlaying);
       }
+      const patch = shapePatch(summary?.overlays);
+      if (patch) {
+        try {
+          if (runtime.replaceShapeHtml(String(patch.id), patch.html, patch.params)) {
+            mountedSignature = nextSignature;
+            mountedOverlays = summary.overlays;
+            return tick(timelineTime, isPlaying);
+          }
+        } catch (error) { console.error('[akari-preview] shape patch failed', error); }
+      }
       mountedSignature = nextSignature;
+      mountedOverlays = Array.isArray(summary?.overlays) ? summary.overlays : [];
       const presentation = snapshotPresentation();
       const stage = document.getElementById('overlay-stage');
       // Caption and transition hosts belong to the preview, not the overlay runtime.

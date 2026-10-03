@@ -567,6 +567,21 @@ function createOverlayRuntime(options = {}) {
     }
   }
 
+  function replaceShapeHtml(id, html, params) {
+    const mounted = mountedOverlays.find(entry => entry.container.dataset.overlayId === id);
+    if (!mounted || typeof html !== "string") return false;
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const rendered = window.akari.slotParams?.renderTextSlots(template.content, params);
+    mounted.container.replaceChildren(rendered ?? template.content.cloneNode(true));
+    window.akari.viewportUnits?.applyAll(mounted.container);
+    mounted.animations = undefined;
+    mounted.animationsAt = 0;
+    mounted.animationEndTimes = [];
+    mounted.hitPolicyPending = true;
+    return true;
+  }
+
   function tick(t, playing) {
     const timelineTime = finiteNumber(t, 0);
     if (premount && !premountConfigured) applyPremountConfiguration();
@@ -763,7 +778,7 @@ function createOverlayRuntime(options = {}) {
     }
   }
 
-  return { mount, tick, unmount, configure, applyAxisSummary, version: RUNTIME_VERSION };
+  return { mount, tick, unmount, configure, applyAxisSummary, replaceShapeHtml, version: RUNTIME_VERSION };
 }
 
 window.akari.createOverlayRuntime = createOverlayRuntime;

@@ -3,6 +3,7 @@ import {
     parsePaint, photoSourcesFromEdit, pushColorHistory, readItemPath, sameColorPanelTarget
 } from './color-model';
 import { ColorPanelPhotoRow, ColorPanelView } from './color-panel';
+import type { ShapeLiveSource } from './shape-live';
 
 /**
  * 色パネルの「開いている間の状態」と、パネルに並べる色の集め方（履歴・ブランドキット・このデザインの色・写真の色）。
@@ -41,6 +42,7 @@ interface ColorPanelSession {
     selectionKey: string;
     view: ColorPanelView;
     resolved?: ColorPanelResolved;
+    committedPaint?: Paint;
 }
 
 export class ColorPanelHost {
@@ -89,8 +91,9 @@ export class ColorPanelHost {
 
     close(): void {
         const session = this.session;
-        if (session?.resolved?.preview && session.resolved.current !== undefined) {
-            session.resolved.preview(session.resolved.current);
+        const restore = session?.committedPaint ?? session?.resolved?.current;
+        if (session?.resolved?.preview && restore !== undefined) {
+            session.resolved.preview(restore);
         }
         session?.view.dispose();
         this.session = undefined;
@@ -109,6 +112,17 @@ export class ColorPanelHost {
     /** item を対象にしたときの今の値（edit.json から読む）。 */
     itemValue(itemId: string, path: string): Paint | undefined {
         return parsePaint(readItemPath(findEditItem(this.editDoc, itemId), path));
+    }
+
+    shapeSource(itemId: string): ShapeLiveSource | undefined {
+        const item = findEditItem(this.editDoc, itemId) as {
+            source?: { kind?: string; shape?: string; params?: Record<string, unknown> };
+            transform?: ShapeLiveSource['transform'];
+        } | undefined;
+        if (item?.source?.kind !== 'shape') return undefined;
+        const edit = this.editDoc as { output?: { width?: number } } | undefined;
+        return { itemId, shape: item.source.shape, params: item.source.params,
+            outputWidth: edit?.output?.width, transform: item.transform };
     }
 
     /** パネルを parent へ置き、今の値で描き直す。 */
@@ -139,8 +153,8 @@ export class ColorPanelHost {
             brandColors: this.brand,
             photos: this.photos,
             onApply: (paint, options) => {
+                resolved.preview?.(paint);
                 if (options.final) void this.commit(session, paint);
-                else resolved.preview?.(paint);
             },
             onClose: close,
             onBrandAdd: color => void this.updateBrand(BRAND_KIT_ADD_COLOR_COMMAND_ID, color, 'ブランドキットに入れました（どのプロジェクトでも使えます）'),
@@ -159,10 +173,14 @@ export class ColorPanelHost {
             result = { ok: false, message: String(error) };
         }
         if (!result.ok) {
+            const restore = session.committedPaint ?? resolved.current;
+            if (restore !== undefined) resolved.preview?.(restore);
             if (this.session === session) session.view.resetDraft();
             this.deps.notice(result.message ?? '色を反映できませんでした。');
             return;
         }
+        session.committedPaint = paint;
+        resolved.current = paint;
         this.history = pushColorHistory(this.history, paint);
         this.writeHistory();
         if (this.session === session) {
