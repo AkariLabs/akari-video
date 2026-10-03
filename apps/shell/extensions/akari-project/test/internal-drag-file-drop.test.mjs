@@ -7,6 +7,8 @@ import { isOsFileDropInput, MATERIAL_DRAG_MIME, LIBRARY_DRAG_MIME } from '../lib
 // 既存 widget テストと同様に実メソッドを実行し、DOM / I/O だけを置き換える。
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
 const names = ['handleDragOver', 'handleDrop', 'setDragActive'];
 const code = ts.transpileModule(`class Handler { ${names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Handler = new Function('isOsFileDropInput', `${code}\nreturn Handler;`)(isOsFileDropInput);
@@ -114,9 +116,11 @@ test('素材・ライブラリ・プリセットのカード画像はネイテ�
         visit(root);
     };
     for (const name of ['renderMaterialCard', 'renderCatalogCard', 'renderCatalogListRow', 'renderPresetShowcaseCard', 'renderPresetShowcaseListRow']) {
-        const method = widget.members.find(member => member.name?.getText(source) === name);
+        const file = name === 'renderMaterialCard' ? paneSource : source;
+        const owner = name === 'renderMaterialCard' ? pane : widget;
+        const method = owner.members.find(member => member.name?.getText(file) === name);
         assert.ok(method, name);
-        visitImages(source, method, name);
+        visitImages(file, method, name);
     }
     // ライブラリのカード（グリッド・リスト共通のサムネ）は library-card-view.tsx へ切り出した。
     const view = ts.createSourceFile('library-card-view.tsx',
