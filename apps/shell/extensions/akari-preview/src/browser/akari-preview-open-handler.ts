@@ -50,9 +50,7 @@ import { WEBVIEW_CONTEXT_MENU, WebviewWidget } from '@theia/plugin-ext/lib/main/
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
-    TEXTSTYLE_CATALOG,
     captionEditNotices,
-    captionRunStyleFromLook,
     updateCaptionFieldsInSourceWithReport,
     updateCaptionRunsInSource,
     collectExcludedCaptionIds,
@@ -104,7 +102,6 @@ import {
     threeSceneDeclarations
 } from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder, resolvePreviewItemStackOrder } from '../common/caption-track-order';
-import { captionRunOmittedNotice } from '../common/caption-run-style-notice';
 import {
     persistCaptionCuePosition,
     persistCaptionCuePositionReset,
@@ -147,7 +144,7 @@ import {
 import { normalizePersistentStrokeItems } from '../common/pen-canvas-visuals';
 import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
 import { planRawPreviewAudioSidecar, rawPreviewProjectRootCandidates, selectRawPreviewProjectRoot } from '../common/raw-preview-audio';
-import { clampPreviewPlaybackRate, PREVIEW_RATE_PRESETS } from '../common/preview-playback-rate';
+import { clampPreviewPlaybackRate } from '../common/preview-playback-rate';
 import {
     classifyPreviewModelUpdate,
     isPreviewModelResourceChange,
@@ -179,10 +176,7 @@ import {
 } from '../common/track-compact';
 import { editReferencesRawMedia } from '../common/related-edit-source';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
-import {
-    resolveReviewPreviewEditUri,
-    transitionRawPreviewFocus
-} from '../common/review-preview-state';
+import { transitionRawPreviewFocus } from '../common/review-preview-state';
 import {
     loadCaptionDisplayFailOpen,
     locatePreviewCaptions,
@@ -379,6 +373,16 @@ import {
     isHevcFallbackRequest,
     isOpenOutputRequest
 } from './preview-host-message-guards';
+import {
+    defaultSessionSettings,
+    resolveReviewStrokeCutIndex,
+    nearestPreviewRatePreset,
+    runStyleChoices,
+    detectUnsupportedGltfExtensions,
+    captionWriteLabel,
+    objectRecord
+} from './preview-host-values';
+import { normalizeReviewEditUri, reviewEditUriForPreview, previewProxyUri } from './preview-host-uris';
 
 // task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
 // （schema の kind は 'video' のまま不変）。render-cut 側の同じ判定
@@ -469,7 +473,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const detail = this.pendingSessionViewerTick;
         this.pendingSessionViewerTick = undefined;
         if (!detail || !Number.isFinite(detail.timelineT)) return;
-        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        const editUri = normalizeReviewEditUri(detail.editUri);
         this.openOutputPreviews.get(editUri ?? '')?.sendMessage({
             type: 'akari-preview-seek', time: detail.timelineT
         });
@@ -907,7 +911,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 } catch {
                     return;
                 }
-                const settings = this.previewSessionSettings.get(key) ?? this.defaultSessionSettings();
+                const settings = this.previewSessionSettings.get(key) ?? defaultSessionSettings();
                 const widget = this.openOutputPreviews.get(key);
                 apply(widget?.isAttached ? widget : undefined, detail, settings);
                 this.previewSessionSettings.set(key, settings);
@@ -1150,7 +1154,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         const widget = this.openOutputPreviews.get(key);
-        const settings = this.previewSessionSettings.get(key) ?? this.defaultSessionSettings();
+        const settings = this.previewSessionSettings.get(key) ?? defaultSessionSettings();
         if (detail.scope === 'overlays') {
             if (!Number.isInteger(detail.track) || detail.track! < 0 || typeof detail.hidden !== 'boolean') return;
             if (detail.hidden) settings.hiddenTracks.add(detail.track!); else settings.hiddenTracks.delete(detail.track!);
@@ -1230,7 +1234,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         const widget = this.openOutputPreviews.get(key);
-        const settings = this.previewSessionSettings.get(key) ?? this.defaultSessionSettings();
+        const settings = this.previewSessionSettings.get(key) ?? defaultSessionSettings();
         settings.hiddenTracksByScope.cuts = new Set(cuts?.hidden ?? []);
         settings.mutedTracksByScope.cuts = new Set(cuts?.muted ?? []);
         settings.hiddenTracksByScope.layers = new Set(layers?.hidden ?? []);
@@ -1257,18 +1261,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 mutedAudio: [...settings.mutedTracksByScope.audio]
             });
         }
-    }
-
-    protected defaultSessionSettings(): PreviewSessionSettings {
-        return {
-            muted: false,
-            captionsVisible: true,
-            hiddenTracks: new Set<number>(),
-            hiddenTracksByScope: { cuts: new Set<number>(), layers: new Set<number>(), audio: new Set<number>() },
-            mutedTracksByScope: { cuts: new Set<number>(), audio: new Set<number>(), layers: new Set<number>() },
-            allTracksHiddenByScope: { cuts: false, layers: false, audio: false },
-            allTracksMutedByScope: { cuts: false, audio: false, layers: false }
-        };
     }
 
     onStop(): void {
@@ -1334,7 +1326,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
         register(REVIEW_TOOL_MODE_SET_EVENT, event => {
             const detail = (event as CustomEvent<ReviewToolModeSetRequest>).detail;
-            const editUri = detail?.editUri ? this.normalizeReviewEditUri(detail.editUri) : undefined;
+            const editUri = detail?.editUri ? normalizeReviewEditUri(detail.editUri) : undefined;
             if (!editUri || !detail?.mode || !this.reviewSessionRecorder) {
                 return;
             }
@@ -1342,7 +1334,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
         register(REVIEW_UI_SELECTION_CLEAR_EVENT, event => {
             const detail = (event as CustomEvent<ReviewSessionControlRequest>).detail;
-            const editUri = detail?.editUri ? this.normalizeReviewEditUri(detail.editUri) : undefined;
+            const editUri = detail?.editUri ? normalizeReviewEditUri(detail.editUri) : undefined;
             if (!editUri || !this.reviewSessionRecorder) {
                 return;
             }
@@ -1351,7 +1343,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected async showReviewAnnotationStrokes(detail: ReviewAnnotationStrokeRequest): Promise<void> {
-        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        const editUri = normalizeReviewEditUri(detail.editUri);
         if (!editUri || !Number.isFinite(detail.sourceT) || !Array.isArray(detail.strokes)) {
             return;
         }
@@ -1360,7 +1352,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (visibility === 'unavailable' || !widget?.isAttached) {
             return;
         }
-        const cutIndex = this.resolveReviewStrokeCutIndex(detail.strokes);
+        const cutIndex = resolveReviewStrokeCutIndex(detail.strokes);
         let compositionSeconds = detail.sourceT;
         try {
             const model = await this.loadPreviewModel(new URI(editUri));
@@ -1378,23 +1370,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
     }
 
-    // strokes[].frame.cutIndex は同一 source 秒が複数カットに含まれる場合の多義解決に使う
-    // （最初に見つかった有効な cutIndex を採用。ストローク群は同一 annotation・同一カットの想定）。
-    protected resolveReviewStrokeCutIndex(
-        strokes: ReviewAnnotationStrokeRequest['strokes']
-    ): number | null {
-        for (const stroke of strokes) {
-            const cutIndex = stroke.frame?.cutIndex;
-            if (Number.isInteger(cutIndex) && (cutIndex as number) >= 0) {
-                return cutIndex as number;
-            }
-        }
-        return null;
-    }
-
     protected async startReviewSessionFromPanel(projectRootUri: string, requestedEditUri: string): Promise<void> {
         const recorder = this.reviewSessionRecorder;
-        const editUri = this.normalizeReviewEditUri(requestedEditUri);
+        const editUri = normalizeReviewEditUri(requestedEditUri);
         if (!recorder || !editUri) {
             recorder?.reportError(projectRootUri, requestedEditUri, 'edit.json の場所を特定できません。');
             return;
@@ -1418,18 +1396,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }, transport);
     }
 
-    protected normalizeReviewEditUri(value: string): string | undefined {
-        try {
-            return new URI(value).normalizePath().toString();
-        } catch {
-            return undefined;
-        }
-    }
-
     protected forwardReviewSessionState(state: ReviewSessionUiState): void {
         this.reviewSessionRecordingIndicator?.setActive(state.active);
         window.dispatchEvent(new CustomEvent(REVIEW_SESSION_STATE_EVENT, { detail: state }));
-        const editUri = this.normalizeReviewEditUri(state.editUri);
+        const editUri = normalizeReviewEditUri(state.editUri);
         if (!editUri) {
             return;
         }
@@ -1445,7 +1415,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
      * panel's stable data-* slots at runtime. Re-rendered session rows are decorated idempotently.
      */
     protected syncReviewStrokeControls(state: ReviewSessionUiState): void {
-        const editUri = this.normalizeReviewEditUri(state.editUri);
+        const editUri = normalizeReviewEditUri(state.editUri);
         const panel = document.querySelector<HTMLElement>('[data-akari-ui="panel:review"]');
         const section = panel?.querySelector<HTMLElement>('[data-review-recording-section]');
         if (!editUri || !section) return;
@@ -1488,14 +1458,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected setReviewStrokeVisibility(editUri: string, visible: boolean): void {
         this.reviewStrokeVisibilityByEdit.set(editUri, visible);
         for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
-            if (this.reviewEditUriForPreview(widget) === editUri && widget.isAttached) {
+            if (reviewEditUriForPreview(widget) === editUri && widget.isAttached) {
                 widget.sendMessage({ type: 'akari-preview-set-stroke-visibility', visible });
             }
         }
     }
 
     protected async showReviewSessionStrokes(state: ReviewSessionUiState, sessionId: string): Promise<void> {
-        const editUri = this.normalizeReviewEditUri(state.editUri);
+        const editUri = normalizeReviewEditUri(state.editUri);
         if (!editUri) return;
         const replay = await this.previewService.readReviewSessionStrokes({
             projectRootUri: state.projectRootUri,
@@ -1537,7 +1507,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected async handleSessionViewerSync(detail: ReviewSessionViewerSyncDetail): Promise<void> {
-        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        const editUri = normalizeReviewEditUri(detail.editUri);
         if (!editUri) return;
         if (detail.phase === 'detach') {
             this.openOutputPreviews.get(editUri)?.sendMessage({
@@ -1561,19 +1531,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
     }
 
-    protected reviewEditUriForPreview(widget: PreviewWidgetMarker): string | undefined {
-        return resolveReviewPreviewEditUri({
-            editUri: widget.akariPreviewEditUri?.normalizePath().toString(),
-            relatedEditUri: widget.akariPreviewRelatedEditUri?.normalizePath().toString()
-        });
-    }
-
     protected applyReviewSessionStateToPreview(
         widget: PreviewWidgetMarker,
         state: ReviewSessionUiState
     ): void {
-        const previewEditUri = this.reviewEditUriForPreview(widget);
-        const stateEditUri = this.normalizeReviewEditUri(state.editUri);
+        const previewEditUri = reviewEditUriForPreview(widget);
+        const stateEditUri = normalizeReviewEditUri(state.editUri);
         if (!widget.isAttached || !previewEditUri || previewEditUri !== stateEditUri) {
             return;
         }
@@ -1593,7 +1556,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!widget || ![...this.openOutputPreviews.values(), ...this.openPreviews.values()].includes(widget)) {
             return;
         }
-        const editUri = this.reviewEditUriForPreview(widget);
+        const editUri = reviewEditUriForPreview(widget);
         const state = editUri ? this.reviewSessionStateByEdit.get(editUri) : undefined;
         if (state) {
             this.applyReviewSessionStateToPreview(widget, state);
@@ -1945,12 +1908,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
-    protected nearestPreviewRatePreset(rate: number): number {
-        return PREVIEW_RATE_PRESETS.reduce((closest, preset) =>
-            Math.abs(preset - rate) < Math.abs(closest - rate) ? preset : closest
-        );
-    }
-
     protected async setPreviewFullscreen(request: SetPreviewFullscreenRequest | undefined): Promise<boolean> {
         const widget = this.getExternalPreviewWidget(request?.editUri);
         if (!widget || !request) return false;
@@ -1986,7 +1943,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!widget || !request) return false;
         if (!Number.isFinite(request.rate) || request.rate <= 0) return false;
         const message: PreviewSetRateMessage = {
-            type: 'akari-preview-set-rate', rate: this.nearestPreviewRatePreset(request.rate)
+            type: 'akari-preview-set-rate', rate: nearestPreviewRatePreset(request.rate)
         };
         widget.sendMessage(message);
         return true;
@@ -2476,24 +2433,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         } catch {
             return [];
         }
-    }
-
-    protected runStyleChoices(saved: Array<{ id: string; name: string;
-        parts: Array<{ kind: string; text_style?: unknown }> }>, baseSize: number): Array<{
-            id: string; name: string; style: ReturnType<typeof captionRunStyleFromLook>['style']; notice: string | undefined
-        }> {
-        return [
-            ...saved.flatMap(item => item.parts.filter(part => part.kind === 'look').map(part => ({
-                id: `mine:${item.id}`, name: item.name, look: part.text_style as Record<string, unknown>
-            }))),
-            ...Object.values(TEXTSTYLE_CATALOG).map(item => ({
-                id: `preset:${item.id}`, name: item.name, look: item.style as Record<string, unknown>
-            }))
-        ].map(item => {
-            const converted = captionRunStyleFromLook(item.look, baseSize);
-            return { id: item.id, name: item.name, style: converted.style,
-                notice: captionRunOmittedNotice(converted.omitted) };
-        });
     }
 
     protected async doConfigurePreview(
@@ -3036,7 +2975,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const caption = source.captions?.find(item => item.id === message.captionId);
                     const baseSize = caption?.text_style?.size_px ?? source.default_text_style?.size_px ?? 38;
                     const saved = await this.listRunMyStyles();
-                    const choices = this.runStyleChoices(saved, baseSize);
+                    const choices = runStyleChoices(saved, baseSize);
                     widget.sendMessage({ type: 'akari-preview-run-styles', choices });
                 })().catch(error => this.messages.warn(error instanceof Error ? error.message : String(error)));
             }
@@ -3192,7 +3131,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             void this.disposePreviewStreams(widget);
         });
-        const reviewEditUri = this.reviewEditUriForPreview(widget);
+        const reviewEditUri = reviewEditUriForPreview(widget);
         const reviewState = reviewEditUri ? this.reviewSessionStateByEdit.get(reviewEditUri) : undefined;
         if (reviewState) {
             this.applyReviewSessionStateToPreview(widget, reviewState);
@@ -3318,7 +3257,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewStrokeStartRequest
     ): void {
-        const editUri = this.reviewEditUriForPreview(widget);
+        const editUri = reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleStrokeStart(editUri, message.frame);
         }
@@ -3328,7 +3267,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewStrokeEndRequest
     ): void {
-        const editUri = this.reviewEditUriForPreview(widget);
+        const editUri = reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleStrokeEnd(editUri, message.points);
         }
@@ -3338,7 +3277,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewRectStartRequest
     ): void {
-        const editUri = this.reviewEditUriForPreview(widget);
+        const editUri = reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleRectStart(editUri, message.frame);
         }
@@ -3348,7 +3287,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewRectEndRequest
     ): void {
-        const editUri = this.reviewEditUriForPreview(widget);
+        const editUri = reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleRectEnd(editUri, message.box);
         }
@@ -3358,7 +3297,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewToolModeRequest
     ): void {
-        const editUri = this.reviewEditUriForPreview(widget);
+        const editUri = reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.setToolMode(editUri, message.mode);
         }
@@ -5026,7 +4965,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     // 'baked' は常に previewProxyUri() の .preview.webm サイドカーを配信する（元の
                     // value.src の拡張子に関わらず）ため、isImage は常に false — このブランチの
                     // 挙動は本タスクで一切変えない（対象は 'video' kind の画像のみ、司令塔裁定1）。
-                    const sidecarUri = this.previewProxyUri(sourceUri);
+                    const sidecarUri = previewProxyUri(sourceUri);
                     if (!assetUris.some(uri => uri.toString() === sidecarUri.toString())) {
                         assetUris.push(sidecarUri);
                     }
@@ -5730,27 +5669,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return (await this.fileService.readFile(uri, { position: 0, length: needed })).value.buffer;
     }
 
-    protected detectUnsupportedGltfExtensions(bytes: Uint8Array): string[] {
-        const UNSUPPORTED_GLTF_EXTENSIONS = ['KHR_draco_mesh_compression', 'KHR_texture_basisu'];
-        try {
-            const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-            if (view.byteLength < 20 || view.getUint32(0, true) !== 0x46546c67) {
-                return [];
-            }
-            const jsonChunkLength = view.getUint32(12, true);
-            const jsonChunkType = view.getUint32(16, true);
-            if (jsonChunkType !== 0x4e4f534a || view.byteLength < 20 + jsonChunkLength) {
-                return [];
-            }
-            const jsonBytes = bytes.subarray(20, 20 + jsonChunkLength);
-            const json = JSON.parse(new TextDecoder('utf-8').decode(jsonBytes)) as { extensionsUsed?: unknown };
-            const used = new Set(Array.isArray(json.extensionsUsed) ? json.extensionsUsed : []);
-            return UNSUPPORTED_GLTF_EXTENSIONS.filter(extension => used.has(extension));
-        } catch {
-            return [];
-        }
-    }
-
     protected async resolveThreeSceneAssets(
         html: string,
         editUri: URI,
@@ -5807,7 +5725,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const descriptor = resolved.descriptor;
                 if (resolved.modelPath) {
                     try {
-                        const unsupported = this.detectUnsupportedGltfExtensions(
+                        const unsupported = detectUnsupportedGltfExtensions(
                             await this.readGltfHeaderBytes(await this.resolveEditAssetUri(resolved.modelPath, editUri))
                         );
                         if (unsupported.length > 0) {
@@ -6271,21 +6189,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
-    // ㉓ layerWrite/cutWrite と同型だが対象ファイルは captions.json（edit.json ではない）。
-    // text_style.zone または text をフィールド単位で上書き（他フィールド・他キャプションは無傷）。
-    // 空白だけの text は captions.schema が保持できないため、対象 cue の削除として扱う。
-    // captions.json は array ルート / {captions:[...], default_text_style} object ルートの
-    // どちらも許容（schemas/captions.schema.json oneOf）ため両形を読む。
-    protected captionWriteLabel(request: CaptionWriteRequest): string {
-        const patch = request.patch;
-        if ('cueGeometryReset' in patch || 'cuePositionReset' in patch) return '字幕の位置を既定に戻す';
-        if ('toolStyle' in patch || 'run' in patch) return '字幕の見た目を変更';
-        if ('plateTransform' in patch) return patch.plateTransform.wrapWidthPct === undefined ? '字幕を拡縮・回転' : '文字の折り返し幅を変更';
-        if ('cuePosition' in patch || 'cuePositions' in patch || 'groupPosition' in patch) return '字幕を移動';
-        if ('text' in patch) return '字幕の文字を変更';
-        return '字幕の配置を変更';
-    }
-
     protected notifyCaptionWrite(
         widget: PreviewWidgetMarker, captionsUri: URI, before: string, after: string, label: string
     ): void {
@@ -6495,7 +6398,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.queueCaptionsUpdate(widget);
             if (writtenText !== undefined) {
-                this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, this.captionWriteLabel(request));
+                this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, captionWriteLabel(request));
                 if ('text' in request.patch && request.patch.text.trim()) {
                     const report = updateCaptionFieldsInSourceWithReport(originalText, request.captionId,
                         { text: request.patch.text });
@@ -7789,12 +7692,8 @@ body { display: grid; place-items: center; padding: 32px; }
         };
     }
 
-    protected objectRecord(value: unknown): Record<string, unknown> {
-        return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-    }
-
     protected stringRecord(value: unknown): Record<string, string> {
-        return Object.fromEntries(Object.entries(this.objectRecord(value)).map(([key, item]) => [key, String(item)]));
+        return Object.fromEntries(Object.entries(objectRecord(value)).map(([key, item]) => [key, String(item)]));
     }
 
     protected normalizeEmphasisWords(value: unknown): EditSummaryEmphasisWord[] {
@@ -7883,14 +7782,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 return resolved ? new URI(resolved) : editUri.parent.resolve(pathValue);
             }
         }
-    }
-
-    protected previewProxyUri(sourceUri: URI): URI {
-        const base = sourceUri.path.base;
-        const proxyBase = /\.mov$/i.test(base)
-            ? base.replace(/\.mov$/i, '.preview.webm')
-            : `${base}.preview.webm`;
-        return sourceUri.parent.resolve(proxyBase);
     }
 
     protected hash(value: string): string {
