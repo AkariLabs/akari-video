@@ -21,6 +21,7 @@ import { promises as fs, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { tmpdir } from 'os';
+import { renameRetryWarningLogged, renameWithRetry } from './history-store';
 // index.ts の SAVED_BY_PATH と同値に保つ（Node 専用入口は index を import しない）。
 export const SAVED_BY_PATH = '.akari/saved-by.json';
 const SAVED_BY_SCHEMA_VERSION = 1;
@@ -284,11 +285,18 @@ export function setDefaultSavedByAppVersion(version: string | undefined): void {
 /** CLI の既存 edit.json 保存直後に、スタンプだけを atomic に更新する。 */
 export async function writeSavedByStamp(projectRoot: string, appVersion: string | undefined): Promise<void> {
     const destination = join(projectRoot, SAVED_BY_PATH);
-    if (isValidSavedByAppVersion(appVersion)) {
-        await writeAtomic(destination, serializeSavedByStamp(appVersion));
-    } else {
-        // 版不明の書き手は、以前の書き手の版を主張できない。
-        await fs.rm(destination, { force: true });
+    try {
+        if (isValidSavedByAppVersion(appVersion)) {
+            await writeAtomic(destination, serializeSavedByStamp(appVersion));
+        } else {
+            // 版不明の書き手は、以前の書き手の版を主張できない。
+            await fs.rm(destination, { force: true });
+        }
+    } catch (error) {
+        if (!renameRetryWarningLogged(error)) {
+            const code = (error as NodeJS.ErrnoException)?.code;
+            console.warn(`[edit-store] saved-by.json の更新に失敗しました（保存は完了しています）。${code ? ` ${code}` : ''}`);
+        }
     }
 }
 
@@ -311,12 +319,7 @@ export async function writeProjectFilesGuarded(
         await writeAtomic(destination, text);
         if (name === 'edit.json') {
             const version = options.appVersion ?? defaultSavedByAppVersion;
-            if (isValidSavedByAppVersion(version)) {
-                await writeAtomic(join(projectRoot, SAVED_BY_PATH), serializeSavedByStamp(version));
-            } else {
-                // An unknown writer cannot keep a previous writer's version claim.
-                await fs.rm(join(projectRoot, SAVED_BY_PATH), { force: true });
-            }
+            await writeSavedByStamp(projectRoot, version);
         }
         // edit.json とスタンプの rename が完了したら同期で通知する。lint スケジュールより前に出すことで、
         // 購読側が watcher（実測 42〜1183ms のばらつき）を待たずに済む。
@@ -406,7 +409,7 @@ export async function writeAtomic(destination: string, content: string): Promise
             const temporary = `${destination}.${process.pid}.${++writeSequence}.tmp`;
             try {
                 await fs.writeFile(temporary, content, 'utf8');
-                await fs.rename(temporary, destination);
+                await renameWithRetry(temporary, destination);
             } catch (error) {
                 await fs.rm(temporary, { force: true }).catch(() => undefined);
                 throw error;

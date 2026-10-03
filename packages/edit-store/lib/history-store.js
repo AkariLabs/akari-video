@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_HISTORY_KEEP = exports.DEFAULT_HISTORY_FILES = void 0;
 exports.snapshot = snapshot;
 exports.list = list;
+exports.renameRetryWarningLogged = renameRetryWarningLogged;
+exports.renameWithRetry = renameWithRetry;
 exports.restore = restore;
 const crypto_1 = require("crypto");
 const fs_1 = require("fs");
@@ -144,10 +146,54 @@ async function list(projectDir) {
     return loaded.filter((entry) => entry !== null)
         .sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
 }
+const RENAME_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320];
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+const renameRetryWarnedErrors = new WeakSet();
+function renameRetryWarningLogged(error) {
+    return error !== null && typeof error === 'object' && renameRetryWarnedErrors.has(error);
+}
+/** 一時的な共有違反などで rename が拒まれたときだけ再試行する。 */
+async function renameWithRetry(source, destination) {
+    let retries = 0;
+    let waitedMs = 0;
+    let failed = false;
+    try {
+        for (;;) {
+            try {
+                await fs_1.promises.rename(source, destination);
+                return;
+            }
+            catch (error) {
+                if (!RENAME_RETRY_CODES.has(error?.code ?? '')
+                    || retries === RENAME_RETRY_DELAYS_MS.length) {
+                    failed = true;
+                    if (retries > 0 && error !== null && typeof error === 'object') {
+                        renameRetryWarnedErrors.add(error);
+                    }
+                    throw error;
+                }
+                const delay = RENAME_RETRY_DELAYS_MS[retries++];
+                await new Promise(resolve => setTimeout(resolve, delay));
+                waitedMs += delay;
+            }
+        }
+    }
+    finally {
+        if (retries > 0) {
+            console.warn(`[edit-store] ${(0, path_1.basename)(destination)} の rename を ${retries} 回再試行しました（待機合計 ${waitedMs} ms、${failed ? '失敗' : '成功'}）。`);
+        }
+    }
+}
 async function atomicWrite(filePath, content) {
     const temporary = `${filePath}.tmp-${process.pid}-${Date.now()}`;
-    await fs_1.promises.writeFile(temporary, content);
-    await fs_1.promises.rename(temporary, filePath);
+    try {
+        await fs_1.promises.writeFile(temporary, content);
+        await renameWithRetry(temporary, filePath);
+    }
+    catch (error) {
+        await fs_1.promises.rm(temporary, { force: true }).catch(() => undefined);
+        throw error;
+    }
 }
 async function restore(projectDir, id, options = {}) {
     if (typeof id !== 'string' || (0, path_1.basename)(id) !== id || id === '.' || id === '..') {

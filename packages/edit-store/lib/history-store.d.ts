@@ -26,4 +26,7 @@ export interface RestoreResult {
 }
 export declare function snapshot(options: SnapshotOptions): Promise<HistoryMeta | null>;
 export declare function list(projectDir: string): Promise<HistoryMeta[]>;
+export declare function renameRetryWarningLogged(error: unknown): boolean;
+/** 一時的な共有違反などで rename が拒まれたときだけ再試行する。 */
+export declare function renameWithRetry(source: string, destination: string): Promise<void>;
 export declare function restore(projectDir: string, id: string, options?: RestoreOptions): Promise<RestoreResult>;

@@ -152,10 +152,54 @@ export async function list(projectDir: string): Promise<HistoryMeta[]> {
         .sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
 }
 
+const RENAME_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320] as const;
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+const renameRetryWarnedErrors = new WeakSet<object>();
+
+export function renameRetryWarningLogged(error: unknown): boolean {
+    return error !== null && typeof error === 'object' && renameRetryWarnedErrors.has(error);
+}
+
+/** 一時的な共有違反などで rename が拒まれたときだけ再試行する。 */
+export async function renameWithRetry(source: string, destination: string): Promise<void> {
+    let retries = 0;
+    let waitedMs = 0;
+    let failed = false;
+    try {
+        for (;;) {
+            try {
+                await fs.rename(source, destination);
+                return;
+            } catch (error) {
+                if (!RENAME_RETRY_CODES.has((error as NodeJS.ErrnoException)?.code ?? '')
+                    || retries === RENAME_RETRY_DELAYS_MS.length) {
+                    failed = true;
+                    if (retries > 0 && error !== null && typeof error === 'object') {
+                        renameRetryWarnedErrors.add(error);
+                    }
+                    throw error;
+                }
+                const delay = RENAME_RETRY_DELAYS_MS[retries++];
+                await new Promise<void>(resolve => setTimeout(resolve, delay));
+                waitedMs += delay;
+            }
+        }
+    } finally {
+        if (retries > 0) {
+            console.warn(`[edit-store] ${basename(destination)} の rename を ${retries} 回再試行しました（待機合計 ${waitedMs} ms、${failed ? '失敗' : '成功'}）。`);
+        }
+    }
+}
+
 async function atomicWrite(filePath: string, content: string): Promise<void> {
     const temporary = `${filePath}.tmp-${process.pid}-${Date.now()}`;
-    await fs.writeFile(temporary, content);
-    await fs.rename(temporary, filePath);
+    try {
+        await fs.writeFile(temporary, content);
+        await renameWithRetry(temporary, filePath);
+    } catch (error) {
+        await fs.rm(temporary, { force: true }).catch(() => undefined);
+        throw error;
+    }
 }
 
 export async function restore(projectDir: string, id: string, options: RestoreOptions = {}): Promise<RestoreResult> {
