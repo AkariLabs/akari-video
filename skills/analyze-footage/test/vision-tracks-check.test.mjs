@@ -1,8 +1,9 @@
 // vision-tracks.mjs --check の「正直さ」を確認する回帰テスト
 // （検収基準: 「--check が正直（macOS 以外相当の欠落を偽装した時に不可を返す）」）。
 //
-// 実際に OS を差し替えることはできないため、PATH から swiftc / ffmpeg を隠して
-// 「macOS 以外相当の欠落」を模擬する。--check が推測実行に倒れず、欠けている道具を
+// 実際に OS を差し替えることはできないため、PATH から swiftc を隠し、
+// ffmpeg / ffprobe は存在しないパスを env で明示して欠落を模擬する。
+// --check が推測実行に倒れず、欠けている道具を
 // 正直に reason へ書いて available: false を返すことを検証する
 // （contract §3「宣言のない能力は存在しない」の実装確認）。
 
@@ -31,10 +32,10 @@ function which(command) {
   return found || null;
 }
 
-function runCheck(pathOverride, kinds = null) {
+function runCheck(pathOverride, kinds = null, env = {}) {
   return spawnSync(process.execPath, [wrapperScript, "--check", ...(kinds ? ["--kinds", kinds] : [])], {
     encoding: "utf8",
-    env: { ...process.env, PATH: pathOverride },
+    env: { ...process.env, PATH: pathOverride, ...env },
   });
 }
 
@@ -42,7 +43,10 @@ test(
   "swiftc も ffmpeg も PATH に無いと available:false を正直に返す",
   { skip: isDarwin ? false : "darwin 前提のテスト" },
   () => {
-    const result = runCheck("/usr/bin:/bin");
+    const result = runCheck("/usr/bin:/bin", null, {
+      AKARI_FFMPEG_BIN: "/nonexistent/ffmpeg",
+      AKARI_FFPROBE_BIN: "/nonexistent/ffprobe",
+    });
     const reported = JSON.parse(result.stdout);
     assert.equal(reported.available, false);
     assert.ok(typeof reported.reason === "string" && reported.reason.length > 0);
@@ -96,7 +100,10 @@ test(
     const dir = mkdtempSync(join(tmpdir(), "vision-tracks-check-test-"));
     try {
       symlinkSync(swiftc, join(dir, "swiftc"));
-      const result = runCheck(`${dir}:/usr/bin:/bin`);
+      const result = runCheck(`${dir}:/usr/bin:/bin`, null, {
+        AKARI_FFMPEG_BIN: "/nonexistent/ffmpeg",
+        AKARI_FFPROBE_BIN: "/nonexistent/ffprobe",
+      });
       const reported = JSON.parse(result.stdout);
       assert.equal(reported.available, false);
       assert.match(reported.reason, /ffmpeg/);
