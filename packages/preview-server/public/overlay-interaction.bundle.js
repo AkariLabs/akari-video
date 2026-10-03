@@ -2969,6 +2969,44 @@
       if (!activeEdit) return Promise.resolve(void 0);
       const edit = activeEdit;
       activeEdit = null;
+      const restoreOriginalContents = () => {
+        for (const snapshot of edit.originalContents) {
+          snapshot.element.innerHTML = snapshot.html;
+          restoreAttribute(
+            snapshot.element,
+            "data-akari-split-units",
+            snapshot.hadSplitUnits,
+            snapshot.splitUnits
+          );
+        }
+        invalidateOverlayHitPolicy(edit.container);
+        applyOverlayHitPolicy(edit.container);
+        syncOverlayHitRegion(edit.container);
+      };
+      if ((edit.element.textContent ?? "") === edit.originalText) {
+        restoreOriginalContents();
+        restoreAttribute(
+          edit.element,
+          "contenteditable",
+          edit.hadContentEditable,
+          edit.contentEditableValue
+        );
+        restoreAttribute(edit.element, "spellcheck", edit.hadSpellcheck, edit.spellcheckValue);
+        restoreAttribute(
+          edit.element,
+          "data-akari-interaction-editing",
+          edit.hadEditingMarker,
+          edit.editingMarkerValue
+        );
+        if (blur && document.activeElement === edit.element) edit.element.blur();
+        return Promise.resolve(void 0);
+      }
+      const restoreOnWriteFailure = (promise) => {
+        promise.catch(() => {
+          if (activeEdit?.container !== edit.container) restoreOriginalContents();
+        });
+        return promise;
+      };
       if (edit.part && !edit.slotName && edit.element !== edit.partElement) {
         edit.fragment.replaceWith(edit.originalFragment);
         invalidateOverlayHitPolicy(edit.container);
@@ -3012,7 +3050,7 @@
           { params: { [edit.slotName]: edit.element.textContent ?? "" } },
           "params"
         );
-        return record2.promise;
+        return restoreOnWriteFailure(record2.promise);
       }
       if (edit.part) {
         const record2 = enqueueWrite(
@@ -3021,12 +3059,13 @@
           { text: edit.element.textContent ?? "" },
           "text"
         );
-        return record2.promise;
+        return restoreOnWriteFailure(record2.promise);
       }
       let html;
       try {
         html = serializeFragment(edit.container);
       } catch (error) {
+        restoreOriginalContents();
         reportWriteError("html", edit.overlayId, error);
         const failure = Promise.reject(error);
         failure.catch(() => void 0);
@@ -3038,7 +3077,7 @@
         { html },
         "html"
       );
-      return record.promise;
+      return restoreOnWriteFailure(record.promise);
     }
     function placeCaretAtEnd(element) {
       const selection = window.getSelection();
@@ -3077,6 +3116,7 @@
       });
       activeEdit = {
         originalContents,
+        originalText: element.textContent ?? "",
         container,
         element,
         overlayId: container.dataset.overlayId ?? "",

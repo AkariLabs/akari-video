@@ -3235,6 +3235,35 @@ function marqueeHits(candidates, rect) {
     const edit = activeEdit;
     activeEdit = null;
 
+    const restoreOriginalContents = () => {
+      for (const snapshot of edit.originalContents) {
+        snapshot.element.innerHTML = snapshot.html;
+        restoreAttribute(snapshot.element, "data-akari-split-units",
+          snapshot.hadSplitUnits, snapshot.splitUnits);
+      }
+      invalidateOverlayHitPolicy(edit.container);
+      applyOverlayHitPolicy(edit.container);
+      syncOverlayHitRegion(edit.container);
+    };
+
+    if ((edit.element.textContent ?? "") === edit.originalText) {
+      restoreOriginalContents();
+      restoreAttribute(edit.element, "contenteditable",
+        edit.hadContentEditable, edit.contentEditableValue);
+      restoreAttribute(edit.element, "spellcheck", edit.hadSpellcheck, edit.spellcheckValue);
+      restoreAttribute(edit.element, "data-akari-interaction-editing",
+        edit.hadEditingMarker, edit.editingMarkerValue);
+      if (blur && document.activeElement === edit.element) edit.element.blur();
+      return Promise.resolve(undefined);
+    }
+
+    const restoreOnWriteFailure = promise => {
+      promise.catch(() => {
+        if (activeEdit?.container !== edit.container) restoreOriginalContents();
+      });
+      return promise;
+    };
+
     // source.text replaces the whole named part. A nested/ancestor/unrelated
     // text element must never flatten that structure or serialize its mask.
     // Slots keep their existing params route, including inside a part overlay.
@@ -3292,7 +3321,7 @@ function marqueeHits(candidates, rect) {
         { params: { [edit.slotName]: edit.element.textContent ?? "" } },
         "params"
       );
-      return record.promise;
+      return restoreOnWriteFailure(record.promise);
     }
 
     if (edit.part) {
@@ -3302,13 +3331,14 @@ function marqueeHits(candidates, rect) {
         { text: edit.element.textContent ?? "" },
         "text"
       );
-      return record.promise;
+      return restoreOnWriteFailure(record.promise);
     }
 
     let html;
     try {
       html = serializeFragment(edit.container);
     } catch (error) {
+      restoreOriginalContents();
       reportWriteError("html", edit.overlayId, error);
       const failure = Promise.reject(error);
       failure.catch(() => undefined);
@@ -3321,7 +3351,7 @@ function marqueeHits(candidates, rect) {
       { html },
       "html"
     );
-    return record.promise;
+    return restoreOnWriteFailure(record.promise);
   }
 
   function placeCaretAtEnd(element) {
@@ -3363,6 +3393,7 @@ function marqueeHits(candidates, rect) {
       });
     activeEdit = {
       originalContents,
+      originalText: element.textContent ?? "",
       container,
       element,
       overlayId: container.dataset.overlayId ?? "",

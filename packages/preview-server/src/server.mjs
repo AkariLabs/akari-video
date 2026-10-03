@@ -765,7 +765,7 @@ const router = {
     try {
       if (!fs.statSync(target).isFile()) throw new Error('not a file');
     } catch {
-      return respond(res, 422, { error: `断片ファイルがありません: ${htmlPath}` });
+      return respond(res, 422, { error: 'このテロップは文字を直接変えられません（ライブラリの素材のため）' });
     }
     let source;
     let candidate;
