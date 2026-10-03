@@ -256,6 +256,81 @@ async function runCutAudioStage({ state, plan, capabilities, projectRoot, tempor
   return audioSourcePath;
 }
 
+async function runVerifyStage({ reusableGpuVerification, plan, outputPath, capabilities, recordParentTiming, emitTiming, reporter, state, options, codec, edit, projectRoot }) {
+  reporter.stageStart("verify");
+  const verifyStarted = performance.now();
+  // 不具合メモ第22項: 再利用判定をここで 1 回だけ解決する。判定結果は verifyArtifact へ渡すほか、
+  // 黒画面検査を先行実行するかどうかの判断にも使う（先行実行は進捗を出せる非同期版）。
+  // GPU 段の検査値は copy 経路に限らず渡す。音声が作り直されていても、映像ストリームの
+  // 同一性を実証できたときだけ映像の証拠を引き継ぐ判定は resolveVideoEvidenceReuse が行う。
+  const videoEvidence = codec === "png"
+    ? null
+    : resolveVideoEvidenceReuse({
+        plan,
+        gpuVerification: reusableGpuVerification,
+        outputPath,
+        ffprobeCommand: capabilities.ffprobeCommand,
+        ffmpegCommand: capabilities.ffmpegCommand,
+        onTiming: recordParentTiming,
+        onCheck: (check, status) => reporter.verifyCheck(check, status),
+      });
+  if (videoEvidence?.scope === "video") {
+    state.provenance.verify_evidence_reuse = videoEvidence.record;
+  }
+  const blankFrameScan = await prescanBlankFramesWithProgress({
+    // verifyArtifact の既定（省略時 true）と揃える。--no-verify-blank のときだけ走らせない。
+    enabled: options.verifyBlank !== false && codec !== "png",
+    evidence: videoEvidence,
+    outputPath,
+    fps: plan.preset.fps,
+    edit,
+    ffmpegCommand: capabilities.ffmpegCommand,
+    expectedFrames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
+    reporter,
+    onTiming: recordParentTiming,
+  });
+  const verification = verifyArtifact({
+    outputPath,
+    plan,
+    inputs: state.provenance.sources,
+    edit,
+    ffprobeCommand: capabilities.ffprobeCommand,
+    ffmpegCommand: capabilities.ffmpegCommand,
+    verifyBlank: options.verifyBlank,
+    gpuVerification: reusableGpuVerification,
+    videoEvidence,
+    blankFrameScan,
+    onTiming: recordParentTiming,
+    onCheck: (check, status) => reporter.verifyCheck(check, status),
+  });
+  state.verify = verification;
+  reporter.stageEnd("verify");
+  emitTiming("verify_total", verifyStarted);
+  state.artifacts = codec === "png"
+    ? [
+        {
+          path: relativeOrAbsolute(projectRoot, outputPath),
+          kind: "directory",
+          frames: verification.measured.frame_count,
+          sha256: await sha256PngDirectory(outputPath),
+        },
+        {
+          path: relativeOrAbsolute(projectRoot, join(outputPath, "audio.wav")),
+          sha256: await sha256File(join(outputPath, "audio.wav")),
+          ffprobe: verification.measured.audio,
+        },
+      ]
+    : [
+        {
+          path: relativeOrAbsolute(projectRoot, outputPath),
+          sha256: await sha256File(outputPath),
+          ffprobe: verification.measured,
+        },
+      ];
+  state.phase = "verified";
+  return verification;
+}
+
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
@@ -628,77 +703,7 @@ export async function renderProject(input, options = {}, io = console) {
     }
     reporter.stageEnd("audio-mix");
     emitTiming("audio_mix", audioMixStarted);
-    reporter.stageStart("verify");
-    const verifyStarted = performance.now();
-    // 不具合メモ第22項: 再利用判定をここで 1 回だけ解決する。判定結果は verifyArtifact へ渡すほか、
-    // 黒画面検査を先行実行するかどうかの判断にも使う（先行実行は進捗を出せる非同期版）。
-    // GPU 段の検査値は copy 経路に限らず渡す。音声が作り直されていても、映像ストリームの
-    // 同一性を実証できたときだけ映像の証拠を引き継ぐ判定は resolveVideoEvidenceReuse が行う。
-    const videoEvidence = codec === "png"
-      ? null
-      : resolveVideoEvidenceReuse({
-          plan,
-          gpuVerification: reusableGpuVerification,
-          outputPath,
-          ffprobeCommand: capabilities.ffprobeCommand,
-          ffmpegCommand: capabilities.ffmpegCommand,
-          onTiming: recordParentTiming,
-          onCheck: (check, status) => reporter.verifyCheck(check, status),
-        });
-    if (videoEvidence?.scope === "video") {
-      state.provenance.verify_evidence_reuse = videoEvidence.record;
-    }
-    const blankFrameScan = await prescanBlankFramesWithProgress({
-      // verifyArtifact の既定（省略時 true）と揃える。--no-verify-blank のときだけ走らせない。
-      enabled: options.verifyBlank !== false && codec !== "png",
-      evidence: videoEvidence,
-      outputPath,
-      fps: plan.preset.fps,
-      edit,
-      ffmpegCommand: capabilities.ffmpegCommand,
-      expectedFrames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
-      reporter,
-      onTiming: recordParentTiming,
-    });
-    const verification = verifyArtifact({
-      outputPath,
-      plan,
-      inputs: state.provenance.sources,
-      edit,
-      ffprobeCommand: capabilities.ffprobeCommand,
-      ffmpegCommand: capabilities.ffmpegCommand,
-      verifyBlank: options.verifyBlank,
-      gpuVerification: reusableGpuVerification,
-      videoEvidence,
-      blankFrameScan,
-      onTiming: recordParentTiming,
-      onCheck: (check, status) => reporter.verifyCheck(check, status),
-    });
-    state.verify = verification;
-    reporter.stageEnd("verify");
-    emitTiming("verify_total", verifyStarted);
-    state.artifacts = codec === "png"
-      ? [
-          {
-            path: relativeOrAbsolute(projectRoot, outputPath),
-            kind: "directory",
-            frames: verification.measured.frame_count,
-            sha256: await sha256PngDirectory(outputPath),
-          },
-          {
-            path: relativeOrAbsolute(projectRoot, join(outputPath, "audio.wav")),
-            sha256: await sha256File(join(outputPath, "audio.wav")),
-            ffprobe: verification.measured.audio,
-          },
-        ]
-      : [
-          {
-            path: relativeOrAbsolute(projectRoot, outputPath),
-            sha256: await sha256File(outputPath),
-            ffprobe: verification.measured,
-          },
-        ];
-    state.phase = "verified";
+    const verification = await runVerifyStage({ reusableGpuVerification, plan, outputPath, capabilities, recordParentTiming, emitTiming, reporter, state, options, codec, edit, projectRoot });
     if (verification.verdict === "pass" && codec !== "png") {
       const contactSheetStarted = performance.now();
       const contactSheetTimestamps = deriveContactSheetTimestamps({
