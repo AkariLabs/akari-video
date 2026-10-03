@@ -8,6 +8,7 @@ import { storeReconnectRequired } from '../common/store-entitlements-visibility'
 export function AkariStoreSettings({ service, windows, refreshKey }: { service: AkariProjectService; windows: WindowService; refreshKey: number }): React.ReactElement {
     const [state, setState] = React.useState<StoreConnectionFlowState>({ connection: { connected: false }, connectionLoading: true, phase: 'idle' });
     const [entitlements, setEntitlements] = React.useState<AssetEntitlementsStatus>('no_credentials');
+    const userConnectPending = React.useRef(false);
     const controller = React.useMemo(() => new StoreConnectionFlowController(service, {
         openVerificationUrl: url => windows.openNewWindow(url, { external: true }),
         onChange: setState
@@ -19,10 +20,12 @@ export function AkariStoreSettings({ service, windows, refreshKey }: { service: 
     React.useEffect(() => {
         let live = true;
         if (state.connection.connected && state.phase === 'idle') {
-            void service.getAssetCatalogView(undefined).then(view => {
+            const intent = userConnectPending.current ? 'user' : 'automatic';
+            userConnectPending.current = false;
+            void service.getAssetCatalogView(undefined, intent).then(view => {
                 if (live) { setEntitlements(view.entitlementsStatus); }
             }, () => { if (live) { setEntitlements('error'); } });
-        }
+        } else if (state.phase === 'error' || state.phase === 'expired') { userConnectPending.current = false; }
         return () => { live = false; };
     }, [service, state.connection.connected, state.phase]);
     const reconnect = storeReconnectRequired(state.connection.connected, entitlements);
@@ -41,9 +44,9 @@ export function AkariStoreSettings({ service, windows, refreshKey }: { service: 
         {state.error && <small role='alert' style={{ color: 'var(--theia-errorForeground)' }}>{state.error}</small>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <button type='button' className='theia-button secondary' onClick={() => windows.openNewWindow(url, { external: true })}>AKARI Video Lab を開く</button>
-            {busy ? <button type='button' className='theia-button secondary' onClick={() => controller.cancel()}>キャンセル</button>
+            {busy ? <button type='button' className='theia-button secondary' onClick={() => { userConnectPending.current = false; controller.cancel(); }}>キャンセル</button>
                 : (!state.connection.connected || reconnect || state.phase === 'error' || state.phase === 'expired') &&
-                <button type='button' className='theia-button main' disabled={state.connectionLoading} onClick={() => void controller.start()}>
+                <button type='button' className='theia-button main' disabled={state.connectionLoading} onClick={() => { userConnectPending.current = true; void controller.start(); }}>
                     {reconnect ? '再接続する' : state.phase === 'error' || state.phase === 'expired' ? 'もう一度試す' : '接続する'}
                 </button>}
         </div>

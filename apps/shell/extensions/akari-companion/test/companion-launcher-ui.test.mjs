@@ -137,6 +137,25 @@ test('missing executable or RPC failure shows startup notice and allows retry', 
   assert.equal(u.warnings.length, 3);
 });
 
+test('first Vibe activation explains the data sent and does not repeat it', async t => {
+  const previous = globalThis.window;
+  const stored = new Map();
+  globalThis.window = { localStorage: {
+    getItem: key => stored.get(key), setItem: (key, value) => stored.set(key, value)
+  } };
+  t.after(() => { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; });
+  const u = ui(t);
+  const notices = [];
+  u.app.messages.info = message => { notices.push(message); };
+  u.app.preferences.inspect = () => ({ globalValue: true });
+  await u.app.applyEnabled(true);
+  await u.app.togglePanel();
+  await u.app.togglePanel();
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /字幕の文字は先頭 20 文字まで/);
+  assert.match(notices[0], /OpenRouter キー/);
+});
+
 test('settings command accepts only connections and returns invalid-args otherwise', async t => {
   const { app } = ui(t);
   const executed = [];

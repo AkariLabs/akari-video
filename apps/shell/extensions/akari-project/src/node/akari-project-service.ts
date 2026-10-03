@@ -354,9 +354,12 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * フィールドで返す — フロントはこれを見て「未取得（オフライン等）」と
      * 「取得できたが 0 件」を区別する（catalog-account-first-ux task.md §1）。
      */
-    async getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView> {
+    // preferenceRoot は参照先の指定だけに使い、通信の意図は第 2 引数だけで決める。
+    // 呼び出し側が省略した場合は起動時の取得と同じ automatic に倒す。
+    // resolver/CLI 自体の既定 intent は user のまま維持する。
+    async getAssetCatalogView(preferenceRoot: string | undefined, intent: 'automatic' | 'user' = 'automatic'): Promise<AssetCatalogView> {
         const [resolverResult, local, libraryPacks] = await Promise.all([
-            this.loadResolverCatalogItems(),
+            this.loadResolverCatalogItems(intent),
             this.loadLocalCatalogViewItems(preferenceRoot),
             this.loadLibraryPacks()
         ]);
@@ -742,7 +745,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * いずれも fail-soft（ローカル catalog/ の表示は継続）だが、原因（error）は
      * 開発者向け折りたたみでの手がかりに残す。
      */
-    protected async loadResolverCatalogItems(): Promise<{
+    protected async loadResolverCatalogItems(intent: 'automatic' | 'user' = 'automatic'): Promise<{
         items: AssetCatalogViewItem[];
         status: 'ok' | 'failed';
         entitlementsStatus: AssetEntitlementsStatus;
@@ -762,7 +765,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         const stateModuleUrl = pathToFileURL(join(srcDir, 'state.mjs')).toString();
         const script = `
 import { composeState } from ${JSON.stringify(stateModuleUrl)};
-const { base, items, entitlementsStatus, entitledProducts } = await composeState();
+const { base, items, entitlementsStatus, entitledProducts } = await composeState({ intent: ${JSON.stringify(intent)} });
 process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledProducts }));
 `;
         const { code, stdout, stderr } = await this.runResolverScript(script);

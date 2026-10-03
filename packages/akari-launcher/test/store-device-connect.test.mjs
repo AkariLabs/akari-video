@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import os from 'node:os';
 
 import {
   pollDeviceConnection,
@@ -12,6 +13,24 @@ import {
 
 const BASE_URL = 'http://localhost:9999/api/store';
 const TOKEN = ['akst', 'gui-test', '0123456789'].join('_');
+
+test('device start label contains only the OS name, never hostname', async t => {
+  const actualHostname = os.hostname();
+  t.mock.method(os, 'hostname', () => 'private-computer-name');
+  let body;
+  await startDeviceConnection({
+    fetchImpl: async (_url, options) => {
+      body = options.body;
+      return new Response(JSON.stringify({ device_code: 'd', user_code: 'u',
+        verification_url: 'https://example.test/verify', interval: 1, expires_in: 60 }), { status: 200 });
+    },
+    baseUrl: BASE_URL
+  });
+  assert.doesNotMatch(body, /private-computer-name/);
+  assert.ok(actualHostname);
+  assert.equal(body.includes(actualHostname), false);
+  assert.equal(JSON.parse(body).label, `AKARI Video (${process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'Mac' : 'Linux'})`);
+});
 
 function makeHome() {
   const home = mkdtempSync(path.join(tmpdir(), 'akari-device-connect-test-'));

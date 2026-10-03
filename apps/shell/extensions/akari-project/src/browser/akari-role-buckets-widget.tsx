@@ -545,7 +545,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const generation = ++this.swapLoadGeneration;
         const root = this.workflow.workspaceRoot;
         if (!root || !request?.itemId || !['audio', 'visual'].includes(request.kind)) return false;
-        await this.loadAssetCatalogView();
+        await this.loadAssetCatalogView('user');
         const match = request.currentRelativePath.match(/^assets\/([^/]+)\/([^/]+)\//);
         let current: { id: string; tags: string[]; title?: string } | undefined;
         if (match) {
@@ -562,7 +562,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.playingCatalogAudioKey) this.stopCatalogAudio();
         this.materialSwap = { request, title: current?.title ?? request.currentRelativePath.split('/').pop(),
             candidates: rankSwapCandidates(this.assetCatalogItems, request.kind, current, request.currentRelativePath), root: root.toString() };
-        this.selectTopView('catalog');
+        this.selectTopView('catalog', false);
         return true;
     }
 
@@ -786,7 +786,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.storeConnection = state.connection;
                 this.update();
                 if (!wasConnected && state.connection.connected) {
-                    void this.loadAssetCatalogView();
+                    void this.loadAssetCatalogView('automatic');
                 }
             }
         });
@@ -832,6 +832,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.libraryDetailsOpen = this.readLibraryDetailsOpen();
         // カタログはワークスペース非依存（resolver 合成分・ローカル catalog/ 分ともに
         // アカウント/参照データなので）素材タブと違いプロジェクトを開く前でも読み込む。
+        // 起動時の読み込みは automatic。OFF なら resolver は手元のキャッシュだけを返す。
         void this.loadAssetCatalogView();
         void this.refreshStoreConnectionStatus();
         this.catalogAudioElement.preload = 'none';
@@ -855,7 +856,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.toDispose.push({ dispose: () => this.catalogAudioElement.pause() });
         this.toDispose.push(this.preferences.onPreferenceChanged(change => {
             if (change.preferenceName === AKARI_CATALOG_ROOT_PREFERENCE) {
-                void this.loadAssetCatalogView();
+                void this.loadAssetCatalogView('automatic');
             }
         }));
         this.update();
@@ -884,7 +885,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         void this.refreshLint();
     }
 
-    protected selectTopView(view: TopView): void {
+    protected selectTopView(view: TopView, refreshCatalog = true): void {
         if (view !== 'catalog' && this.materialSwap) this.closeMaterialSwap();
         if (this.topView === 'catalog' && view !== 'catalog') {
             // 「← 素材にもどる」でカタログ面を離れるとき（task.md 指示3「離脱で停止」）。
@@ -892,6 +893,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.topView = view;
         if (view === 'catalog') {
+            // この入口はクリック・キーボード・明示コマンドからだけ呼ぶ。
+            // レイアウト復元や初期化は通らないため、ここでは利用者操作として再取得する。
+            if (refreshCatalog) void this.loadAssetCatalogView('user');
             void this.refreshStoreConnectionStatus();
         }
         this.update();
@@ -1064,7 +1068,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected handleMaterialContextMenuAction(id: string, entry: MaterialCardEntry): void {
         switch (id) {
             case 'view-library':
-                this.topView = 'catalog';
+                this.selectTopView('catalog');
                 this.librarySourceFilter = 'all';
                 this.libraryCategory = undefined;
                 this.catalogCategory = 'all';
@@ -1137,7 +1141,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const plan = await this.projectService.planLibraryImport([uri.path.fsPath()]);
             const result = await this.projectService.applyLibraryImport(plan);
             this.reportLibraryImportResult(result);
-            await this.loadAssetCatalogView();
+            await this.loadAssetCatalogView('user');
         } catch (error) { this.messages.error(`ライブラリに保管できませんでした: ${String(error)}`); }
     }
 
@@ -1155,7 +1159,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.catalogQuery = '';
         this.syncSearchInput();
         this.catalogCategory = 'all';
-        await this.loadAssetCatalogView();
+        await this.loadAssetCatalogView('user');
         this.update();
         requestAnimationFrame(() => this.node.querySelector('[data-recent-strip]')?.scrollIntoView({ block: 'start' }));
     }
@@ -1165,7 +1169,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     public showSiteLab(): void {
-        this.topView = 'catalog'; this.librarySourceFilter = 'lab';
+        this.selectTopView('catalog'); this.librarySourceFilter = 'lab';
         this.showLibraryHome();
     }
 
@@ -1180,7 +1184,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     /** Registered by the always present catalog CommandContribution. */
     async openLibraryImportFromFolder(): Promise<void> {
         if (this.isDisposed) return;
-        this.topView = 'catalog';
+        this.selectTopView('catalog');
         const paths = await this.pickLibraryImport('folders');
         if (paths.length) { this.libraryImportRequest = { paths }; this.update(); }
     }
@@ -1571,13 +1575,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 既にマージ済みで返すため、ここでは preference を渡して結果をそのまま保持するだけ。
      * 空配列（=完全に何も無い）のときだけ従来の「フォルダを選ぶ」空状態を出す。
      */
-    public async loadAssetCatalogView(): Promise<void> {
+    public async loadAssetCatalogView(intent: 'automatic' | 'user' = 'automatic'): Promise<void> {
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
         const [view, presetShowcase, libraryTextstyles, usage, myStyles, favorites, transitionPreviews] = await Promise.all([
-            this.projectService.getAssetCatalogView(preferenceRoot),
+            this.projectService.getAssetCatalogView(preferenceRoot, intent),
             this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
             this.projectService.getLibraryTextstylePresets().catch(() => []),
             this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>)),
@@ -1637,7 +1641,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         await this.preferences.set(AKARI_CATALOG_ROOT_PREFERENCE, destination.path.fsPath(), PreferenceScope.User);
         this.catalogPicking = false;
-        void this.loadAssetCatalogView();
+        void this.loadAssetCatalogView('user');
     }
 
     /**
@@ -3640,7 +3644,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         data-akari-catalog-retry-inline
                         disabled={this.catalogLoading}
                         style={{ padding: '1px 8px', fontSize: 'inherit' }}
-                        onClick={() => void this.loadAssetCatalogView()}
+                        onClick={() => void this.loadAssetCatalogView('user')}
                     >
                         再試行
                     </button>
@@ -4136,7 +4140,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             }).open();
             if (!confirmed) return;
             await this.files.delete(URI.fromFilePath(item.libraryDir), { recursive: true, useTrash: true });
-            await this.loadAssetCatalogView();
+            await this.loadAssetCatalogView('user');
         } catch (error) { this.messages.error(`ライブラリから消せませんでした: ${String(error)}`); }
     }
 

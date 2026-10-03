@@ -4,6 +4,7 @@
 
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { catalogCachePath, resolveAkariHome, resolveCatalogSource } from './env.mjs';
+import { join } from 'node:path';
 import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
 
 function normalizeCatalog(catalog) {
@@ -21,6 +22,20 @@ export async function readCatalogCache(env = process.env) {
   }
 }
 
+/** The update preference is the shared source for shell and resolver automatic requests. */
+export async function automaticChecksEnabled(env = process.env) {
+  try {
+    const settings = JSON.parse(await readFile(join(resolveAkariHome(env), 'update-preferences.json'), 'utf8'));
+    return settings.autoCheck !== false;
+  } catch {
+    return true;
+  }
+}
+
+export async function catalogNetworkAllowed(intent = 'user', env = process.env) {
+  return intent !== 'automatic' || await automaticChecksEnabled(env);
+}
+
 export async function cacheCatalog(env = process.env, catalog) {
   const home = resolveAkariHome(env);
   await mkdir(home, { recursive: true });
@@ -31,10 +46,15 @@ export async function cacheCatalog(env = process.env, catalog) {
  * カタログを読む。リモート取得が失敗した場合（オフライン等）はローカルキャッシュへ
  * フォールバックする（黙って劣化させるのではなく、キャッシュが無ければ明示的に失敗する）。
  */
-export async function loadCatalog({ env = process.env, fetchImpl = fetch, includeInstalled = true } = {}) {
+export async function loadCatalog({ env = process.env, fetchImpl = fetch, includeInstalled = true, intent = 'user' } = {}) {
   const source = resolveCatalogSource(env);
   const installedItems = includeInstalled ? await loadInstalledItems(env) : [];
   let catalog;
+
+  if (source.kind === 'url' && !await catalogNetworkAllowed(intent, env)) {
+    catalog = await readCatalogCache(env) ?? { schema: 'akari-assets-catalog/v0', version: null, base: null, items: [] };
+    return includeInstalled ? mergeInstalledItems(catalog, installedItems) : catalog;
+  }
 
   if (source.kind === 'file') {
     const raw = await readFile(source.value, 'utf8');
