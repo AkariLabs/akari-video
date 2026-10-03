@@ -113,7 +113,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             this.verifyBatch.type = 'checkbox'; this.verifyBatch.disabled = true;
             this.verifyBatch.dataset.readAloudVerifyBatch = 'true';
             const verifyLabel = element('label', 'できたら聞き取りで確かめる'); verifyLabel.prepend(this.verifyBatch);
-            this.body.append(verifyLabel, element('small', '聞き取りはこの Mac の中だけ。費用も送信もありません。'), this.batchList, this.progress);
+            this.body.append(verifyLabel, element('small', '聞き取りはこのパソコンの中だけ。費用も送信もありません。'), this.batchList, this.progress);
             this.renderBatchRows();
             this.body.append(this.estimate, this.resultNode, this.notice);
         } else {
@@ -121,7 +121,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             this.verifyButton.dataset.readAloudAction = 'verify';
             this.verifyButton.addEventListener('click', () => void this.verifySingle());
             this.body.append(element('label', '読み原稿'), this.reading, this.estimate, this.resultNode,
-                this.verifyButton, this.verifyNode, element('small', '聞き取りはこの Mac の中だけ。費用も送信もありません。'), this.notice);
+                this.verifyButton, this.verifyNode, element('small', '聞き取りはこのパソコンの中だけ。費用も送信もありません。'), this.notice);
         }
         Object.assign(this.foot.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderTop: '1px solid #555' });
         this.footnote.style.flex = '1';
@@ -187,7 +187,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             this.cards.replaceChildren();
             const groups = readAloudEngineGroups(this.engines, preferred);
             const localGroup = element('section'); localGroup.dataset.engineGroup = 'local';
-            localGroup.append(element('h3', 'この Mac（無料）'));
+            localGroup.append(element('h3', 'このパソコン（無料）'));
             const cloudGroup = element('section'); cloudGroup.dataset.engineGroup = 'cloud';
             cloudGroup.append(element('h3', 'クラウド（有料・鍵ごと）'));
             for (const engine of [...groups.local, ...(this.cloudExpanded ? groups.cloud : groups.visible)]) {
@@ -201,7 +201,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                 const line = element('div');
                 Object.assign(line.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: '8px', rowGap: '2px' });
                 line.append(radio, element('strong', engine.id === 'irodori' ? '彩（お試し）' : engine.label),
-                    element('span', `${engine.place === 'cloud' ? readAloudProvider(engine) : engine.place === 'network' ? '別の PC' : 'この Mac'} · ${readAloudPrice(engine)}`));
+                    element('span', `${engine.place === 'cloud' ? readAloudProvider(engine) : engine.place === 'network' ? '別の PC' : 'このパソコン'} · ${readAloudPrice(engine)}`));
                 card.append(line);
                 if (engine.caution) { const caution = element('small', engine.caution); caution.style.display = 'block'; card.append(caution); }
                 if (engine.id === 'irodori') { const note = element('small', 'GPU 推奨 · 処理が重い'); note.style.display = 'block'; card.append(note); }
@@ -282,7 +282,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         try {
             const result = await this.service.narrationVerificationBackend(this.target.projectRootUri);
             this.verificationAvailable = result.status === 'ok';
-            const tooltip = 'この Mac の文字起こし（SpeechAnalyzer / Whisper）が必要です';
+            const tooltip = 'このパソコンの文字起こし（Whisper）が必要です';
             this.verifyButton.disabled = !this.verificationAvailable || !this.result;
             this.verifyButton.title = this.verificationAvailable ? '' : tooltip;
             this.verifyBatch.disabled = !this.verificationAvailable;
@@ -291,7 +291,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         } catch {
             this.verificationAvailable = false;
             this.verifyButton.disabled = true; this.verifyBatch.disabled = true;
-            this.verifyButton.title = this.verifyBatch.title = 'この Mac の文字起こし（SpeechAnalyzer / Whisper）が必要です';
+            this.verifyButton.title = this.verifyBatch.title = 'このパソコンの文字起こし（Whisper）が必要です';
         }
     }
 

@@ -215,7 +215,7 @@ export class AiModelsView {
         sets.append(setRow, node('p', 'akari-ai-note', '押すと全種類の「いつもの」を設定します。'));
         const via = this.field(aside, '手段', 'via');
         for (const [id, label] of [
-            ['included', '追加料金なし（サブスク・この Mac）'],
+            ['included', '追加料金なし（サブスク・このパソコン）'],
             ['api', '使った分だけ（API キー）']
         ] as const) {
             const row = node('label', 'akari-ai-check');
@@ -381,7 +381,7 @@ export class AiModelsView {
             card.append(node('small', 'akari-ai-secondary', otherPrices));
         }
         const meta = node('div', 'akari-ai-meta');
-        meta.append(badge(this.catalog!, model), node('span', '', model.via === 'api' ? `経由: ${model.provider || 'API'}` : model.via === 'local' ? 'この Mac' : 'サブスク'), node('span', '', model.family || model.group));
+        meta.append(badge(this.catalog!, model), node('span', '', model.via === 'api' ? `経由: ${model.provider || 'API'}` : model.via === 'local' ? 'このパソコン' : 'サブスク'), node('span', '', model.family || model.group));
         card.append(meta);
         const io = node('div', 'akari-ai-io');
         const inputKeys = comparisonKeys(this.catalog!.models, model.kind, 'inputs', INPUT_LABELS);
@@ -490,7 +490,7 @@ export class AiModelsView {
             }
             table.append(tr);
         };
-        row('手段', model => model.via === 'api' ? `API（${model.provider || '直接'}）` : model.via === 'local' ? 'この Mac' : 'サブスク');
+        row('手段', model => model.via === 'api' ? `API（${model.provider || '直接'}）` : model.via === 'local' ? 'このパソコン' : 'サブスク');
         row('料金', formatAiModelPrice);
         row('商用', model => LICENSE_LABELS[model.license?.badge || 'unknown'] || '未確認');
         if (this.kind === 'transcribe') row('入力: 指示文', () => '—');

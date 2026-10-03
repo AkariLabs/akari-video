@@ -48,6 +48,14 @@ export function photoToolAvailabilityFor(options: {
     return { enabled: true };
 }
 
+export function cutoutAvailabilityFor(photoTool: { enabled: boolean; reason?: string },
+    available: boolean | undefined): { enabled: boolean; reason?: string } {
+    if (!photoTool.enabled) return photoTool;
+    if (available === true) return { enabled: true };
+    return { enabled: false, reason: available === false
+        ? '背景透過は Mac でだけ使えます' : '背景透過を確認しています…' };
+}
+
 // The cropped originals are embedded as data URIs so the Theia browser bundle and
 // electron-builder app.asar resolve them without a runtime filesystem path.
 export const images: Record<AiImage | 'position' | 'color' | 'volume' | 'motion', string> = {

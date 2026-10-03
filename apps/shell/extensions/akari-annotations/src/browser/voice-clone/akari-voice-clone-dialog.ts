@@ -258,14 +258,14 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         finally { this.busy = false; this.render(); }
     }
     protected renderCheck(): void {
-        this.body.append(el('p', '録った音声を、この PC の中だけで確かめます（どこにも送りません）。'));
+        this.body.append(el('p', '録った音声を、このパソコンの中だけで確かめます（どこにも送りません）。'));
         if (this.check) {
             for (const row of voiceCheckRows(this.check)) {
                 const item = el('div', `${row.mark}  ${row.label}: ${row.detail}`); item.dataset.voiceCheck = row.label;
                 item.style.padding = '8px'; this.body.append(item);
             }
             if (!this.check.pass) this.body.append(el('p', voiceCheckReason(this.check)));
-            if (this.check.checks.script.ok === 'unavailable') this.body.append(el('p', 'この PC では聞き取りができないため、クラウドでは作れません（自分の PC なら作れます）'));
+            if (this.check.checks.script.ok === 'unavailable') this.body.append(el('p', 'このパソコンでは聞き取りができないため、クラウドでは作れません（自分の PC なら作れます）'));
         }
         if (this.audioUrl) { const audio = el('audio'); audio.controls = true; audio.src = this.audioUrl; audio.dataset.voiceOriginal = 'true'; this.body.append(audio); }
         const retry = el('button', '録り直す'); retry.addEventListener('click', () => { void this.resetRecording(); this.step = 'record'; this.render(); }); this.body.append(retry);

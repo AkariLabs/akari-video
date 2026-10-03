@@ -110,7 +110,7 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         const text = make('span', 'engine-text');
         text.append(stillMakerBadge(narrationMakerId(engine.id)),
             make('strong', 'engine-name', `${state.favorites?.includes(engine.id) ? '★ ' : ''}${engine.id === 'fal-qwen3' ? '自声' : engine.label}`),
-            make('span', 'engine-cost', engine.place === 'local' ? 'この Mac · 無料'
+            make('span', 'engine-cost', engine.place === 'local' ? 'このパソコン · 無料'
                 : engine.place === 'network' ? `別の PC · ${engine.availability.detail?.url ?? '接続先を確認'}`
                     : `有料 · $${engine.price?.usd_per_1000_chars ?? 0} / 1000 字${engine.price?.verified === false ? '（暫定）' : ''}`),
             make('span', 'engine-availability', engine.availability.label));

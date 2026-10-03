@@ -50,7 +50,7 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
@@ -913,21 +913,31 @@ const photoBrushSettings: { mode: 'erase' | 'restore'; size: number; hardness: n
 let activePhotoBrushItemId: string | null = null;
 
 function PHOTO_PANEL_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot | TimelineCutSelection>(
-    snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+    snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>, available = true
 ): InspectorFieldDef<T>[] {
     const sourcePath = snapshot.kind === 'cut' ? snapshot.sourcePath : snapshot.sourcePath ?? snapshot.src;
     if (!snapshot.photo && !isInspectorStillImage(sourcePath)) return [];
     return [{
         name: 'photo-cutout-panel', label: '背景透過', getValue: () => '', actionLabel: '背景透過を開く',
+        disabled: !available, title: available ? undefined : '背景透過は Mac でだけ使えます',
         action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
-            mode: 'cutout', maskFeather: current.maskFeather, regions: current.regions,
+            mode: 'cutout', available, maskFeather: current.maskFeather, regions: current.regions,
             adjust: current.adjust as Record<string, any> }); return { ok: true }; }
     }, {
         name: 'photo-region-panel', label: '選択エリア', getValue: () => '', actionLabel: 'エリアを選択',
+        disabled: !available, title: available ? undefined : '背景透過は Mac でだけ使えます',
         action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
-            mode: 'regions', maskFeather: current.maskFeather, regions: current.regions,
+            mode: 'regions', available, maskFeather: current.maskFeather, regions: current.regions,
             adjust: current.adjust as Record<string, any> }); return { ok: true }; }
     }];
+}
+
+function photoMaskSectionsForAvailability(sections: InspectorSection[], available: boolean | undefined): InspectorSection[] {
+    if (available === true) return sections;
+    const reason = available === false ? '背景透過は Mac でだけ使えます' : '背景透過を確認しています…';
+    const maskActions = new Set(['photo-cutout-panel', 'photo-region-panel', 'photo-mask-generate']);
+    return sections.map(section => ({ ...section, fields: section.fields.map(field =>
+        maskActions.has(field.name ?? '') ? { ...field, disabled: true, title: reason } : field) }));
 }
 
 function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
@@ -955,7 +965,7 @@ function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot
         reset: current => requestWrite(createMaskWriteRequest(current, 'なし'))
     }, ...(snapshot.photo ? [{
         name: 'photo-mask-generate', label: '背景', getValue: () => '',
-        actionLabel: '背景を消す（この Mac で）',
+        actionLabel: '背景を消す（このパソコンで）',
         busyLabel: '背景を消しています…',
         action: (current: T) => requestWrite({ kind: 'item-field', id: current.id, path: 'photo-mask', value: null })
     }, {
@@ -3264,6 +3274,15 @@ export class AkariInspectorWidget extends BaseWidget {
     protected lastEasingPreviewAt = -Infinity;
     protected generationCatalog: GenerationCatalogRow[] = [];
     protected aiCatalogLoaded = false;
+    protected photoMaskAvailable?: boolean;
+    protected photoMaskAvailabilityLoading?: Promise<void>;
+    protected loadPhotoMaskAvailability(): void {
+        if (this.photoMaskAvailable !== undefined || this.photoMaskAvailabilityLoading) return;
+        this.photoMaskAvailabilityLoading = this.layerAudioService.photoMaskAvailability()
+            .then(result => { this.photoMaskAvailable = result.available; })
+            .catch(() => { this.photoMaskAvailable = false; })
+            .then(() => { this.render(); });
+    }
     protected aiCatalogFailed = false;
     protected aiCatalogFailureWorkspace?: string;
     protected aiCatalogLoading?: Promise<void>;
@@ -4394,6 +4413,8 @@ export class AkariInspectorWidget extends BaseWidget {
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
         const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
             && (rowSnapshot.photo === true || isInspectorStillImage(rowSnapshot.sourcePath ?? rowSnapshot.src));
+        if (photoSelection && this.layerAudioService?.photoMaskAvailability) this.loadPhotoMaskAvailability();
+        sections = photoMaskSectionsForAvailability(sections, this.photoMaskAvailable);
         const photoTools = photoToolAvailabilityFor({ photo: photoSelection,
             emptyFrame: !!generationIdentity && !generationDone && generationState === 'planned', generationState });
         if (!photoTools.enabled) {
@@ -4410,8 +4431,10 @@ export class AkariInspectorWidget extends BaseWidget {
             aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
                 audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
         ).map(group => ({ ...group, tiles: group.tiles.map(tile =>
-            tile.id === 'cutout' || tile.id === 'eraser'
-                ? { ...tile, ...photoTools, ...(!photoTools.enabled ? { reason: photoTools.reason } : { reason: undefined }) }
+            tile.id === 'cutout'
+                ? { ...tile, ...cutoutAvailabilityFor(photoTools, this.photoMaskAvailable) }
+                : tile.id === 'eraser'
+                    ? { ...tile, ...photoTools, ...(!photoTools.enabled ? { reason: photoTools.reason } : { reason: undefined }) }
                 : tile) }));
         const aiAvailability = this.aiCatalogLoaded === undefined
             ? { enabled: !!generationIdentity, forcePanel: false }
@@ -4566,7 +4589,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.appendSoloBanner();
                 return;
             }
-            if ((this.aiView === 'cutout' || this.aiView === 'eraser') && photoTools.enabled
+            if ((this.aiView === 'cutout' && this.photoMaskAvailable === true || this.aiView === 'eraser') && photoTools.enabled
                 && (rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item')) {
                 const view = this.aiView;
                 appendAiBack(this.body, view === 'cutout' ? '背景を消す' : '消しゴム', () => {
@@ -4707,7 +4730,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         if (activeTab === 'adjust' && photoTools.enabled) {
             const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
-                ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
+                ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite, this.photoMaskAvailable === true) : [];
             this.appendSection({ id: 'adjust-scope', label: '範囲', fields: [{
                 name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
                 options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
@@ -7919,6 +7942,12 @@ export class AkariInspectorWidget extends BaseWidget {
                         if (field.pressed) action.setAttribute('aria-pressed', String(field.pressed())); });
             });
             row.appendChild(action);
+            if (field.disabled && field.title && ['photo-cutout-panel', 'photo-region-panel', 'photo-mask-generate'].includes(fieldName)) {
+                const reason = document.createElement('span');
+                reason.className = 'akari-inspector-ai-reason';
+                reason.textContent = field.title;
+                row.appendChild(reason);
+            }
             parent.appendChild(row);
             return;
         }

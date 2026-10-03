@@ -284,6 +284,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected readonly voiceRecordings = new Map<string, { path: string; size: number }>();
     protected readonly stillGeneration = new StillGenerationManager(path => this.findGenerationAsset(path));
 
+    async photoMaskAvailability(): Promise<{ available: boolean }> {
+        if (process.platform !== 'darwin') return { available: false };
+        const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
+        return { available: !!helper && await fs.stat(helper).then(value => value.isFile()).catch(() => false) };
+    }
+
     async generatePhotoMask(request: { projectRootUri: string; sourceUri: string }): Promise<
         { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }> {
         const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);

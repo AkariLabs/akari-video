@@ -5362,6 +5362,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected readonly preparingPhotoSources = new Set<string>();
+    protected photoMaskAvailability?: Promise<boolean>;
 
     protected preparePhotoForSelection(selection: TimelineSelection): void {
         if (!selection) return;
@@ -5375,12 +5376,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected prepareSelectedPhoto(sourceId: string): void {
         const source = this.sourceMap.get(sourceId);
         if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path) || this.preparingPhotoSources.has(source.videoUri)) return;
-        this.preparingPhotoSources.add(source.videoUri);
-        this.showNotice('写真の準備をしています。初回はモデルを取得します…');
-        void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).then(result => {
-            if (!result.ok) this.showNotice(result.message ?? '背景を消す準備ができていません（開発中は build で作られます）');
-            else this.hideNotice();
-        }).catch(() => this.showNotice('背景を消す準備ができていません（開発中は build で作られます）'));
+        this.photoMaskAvailability ??= this.annotationsService.photoMaskAvailability()
+            .then(result => result.available).catch(() => false);
+        void this.photoMaskAvailability.then(available => {
+            if (!available || this.preparingPhotoSources.has(source.videoUri)) return;
+            this.preparingPhotoSources.add(source.videoUri);
+            this.showNotice('写真の準備をしています。初回はモデルを取得します…');
+            void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).then(result => {
+                if (!result.ok) this.showNotice(result.message ?? '背景を消す準備ができていません');
+                else this.hideNotice();
+            }).catch(() => this.showNotice('背景を消す準備ができていません'));
+        });
     }
 
     protected treeItemSnapshot(

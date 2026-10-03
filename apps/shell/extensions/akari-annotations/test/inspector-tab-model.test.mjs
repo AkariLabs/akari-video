@@ -95,7 +95,7 @@ import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.j
 import { ADJUST_PREVIEW_SECTIONS } from '../lib/browser/inspector/adjust-preview.js';
 import { generationFields } from '../lib/browser/inspector/generation-fields.js';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 import { cutSections, layerSections, cutSnapshot, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
 const widgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -104,14 +104,14 @@ const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node
 const method = name => widgetClass.members.find(node => node.name?.getText(widgetAst) === name).getText(widgetAst);
 const factory = name => widgetAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(widgetAst);
 const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
-  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor,
+  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor,
   isInspectorStillImage,
   PHOTO_PANEL_FIELDS: () => [],
   AUDIO_PREVIEW_SECTIONS, ADJUST_PREVIEW_SECTIONS, generationFields,
   CUT_SECTIONS: cutSections, LAYER_SECTIONS: layerSections, layerAudioControls: new WeakMap(), CAPTION_ZONE_HOVER_EVENT: '' };
 delete dependencies.default;
 delete dependencies['module.exports'];
-const renderCode = ts.transpileModule(`${factory('ADJUST_SECTIONS')}\n${factory('AUDIO_MASTER_SECTION')}\nclass RenderHarness {
+const renderCode = ts.transpileModule(`${factory('ADJUST_SECTIONS')}\n${factory('AUDIO_MASTER_SECTION')}\n${factory('photoMaskSectionsForAvailability')}\nclass RenderHarness {
 ${method('renderContent').replace('renderContent', 'render')}
 ${['tabSourceHint', 'generationIdentity', 'generationSectionFields', 'appendTabStrip'].map(method).join('\n')}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;

@@ -9,6 +9,7 @@ interface PhotoPanelOptions {
     id: string;
     write: Write;
     mode: 'cutout' | 'regions';
+    available?: boolean;
     maskFeather?: number;
     regions?: readonly Record<string, any>[];
     adjust?: Record<string, any>;
@@ -23,6 +24,7 @@ const theme = {
 
 /** The image editor stays in the inspector's editing flow; only candidate masks enter the project on adoption. */
 export function openPhotoEditPanel(options: PhotoPanelOptions): void {
+    const maskAvailable = options.available !== false;
     const previous = document.getElementById('akari-photo-edit-panel');
     if (previous instanceof HTMLDialogElement && previous.open) previous.close();
     else previous?.remove();
@@ -48,7 +50,7 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
     toolbar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px';
     dialog.append(toolbar);
     const status = document.createElement('p');
-    status.textContent = '写真の中から選んでください';
+    status.textContent = maskAvailable ? '写真の中から選んでください' : '背景透過は Mac でだけ使えます';
     status.style.cssText = 'min-height:1.4em;margin:7px 0';
     dialog.append(status);
     const list = document.createElement('div');
@@ -69,12 +71,13 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
     let lastHoverPoint: [number, number] | null = null;
     let showAdoptedRegion: ((region: Record<string, unknown>) => void) | undefined;
     const target: 'cutout' | 'region' = options.mode === 'cutout' ? 'cutout' : 'region';
-    const button = (parent: HTMLElement, label: string, action: () => void | Promise<void>): HTMLButtonElement => {
+    const button = (parent: HTMLElement, label: string, action: () => void | Promise<void>, requiresMask = false): HTMLButtonElement => {
         const element = document.createElement('button');
         element.type = 'button'; element.textContent = label;
         element.style.cssText = `background:${theme.button};color:var(--theia-button-foreground);` +
             'border:0;border-radius:5px;padding:6px 10px;cursor:pointer';
         element.onclick = () => { void action(); };
+        if (requiresMask && !maskAvailable) { element.disabled = true; element.title = '背景透過は Mac でだけ使えます'; }
         parent.append(element);
         return element;
     };
@@ -134,7 +137,7 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         status.textContent = mode === 'click' ? '写真を分けています… 初回はモデルを取得します' : '写真の中身を調べています…';
         const result = await write('photo-query', { mode, ...(point ? { x: point[0], y: point[1] } : {}) });
         if (closed || epoch !== queryEpoch) return;
-        if (!result.ok || !result.photoCandidates) { status.textContent = result.message ?? '背景を消す準備ができていません（開発中は build で作られます）'; return; }
+        if (!result.ok || !result.photoCandidates) { status.textContent = result.message ?? '背景を消す準備ができていません'; return; }
         if (!append || response?.inputSha256 !== result.inputSha256 || response.photoRevision !== result.photoRevision) {
             highlight(null);
             candidates = []; selected = new Set();
@@ -149,16 +152,16 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         status.textContent = candidates.length ? '残すものを選んでください' : '見つかりませんでした';
         renderCandidates();
     };
-    button(toolbar, '自動', () => { invert = false; void query('foreground'); });
-    button(toolbar, '人物だけ', () => { invert = false; void query('people'); });
-    button(toolbar, '人物以外', () => { invert = true; void query('people'); });
-    if (options.mode === 'regions') button(toolbar, '背景', () => { invert = true; void query('foreground'); });
+    button(toolbar, '自動', () => { invert = false; void query('foreground'); }, true);
+    button(toolbar, '人物だけ', () => { invert = false; void query('people'); }, true);
+    button(toolbar, '人物以外', () => { invert = true; void query('people'); }, true);
+    if (options.mode === 'regions') button(toolbar, '背景', () => { invert = true; void query('foreground'); }, true);
     button(toolbar, '写っているものを押す', async () => {
         invert = false;
         const result = await write('photo-select-toggle', null);
         selectingOnPreview = result.ok;
         status.textContent = result.ok ? 'プレビューの写真を押してください' : result.message ?? '使えません';
-    });
+    }, true);
     const onClick = (event: Event): void => {
         const detail = (event as CustomEvent<{ id: string; point: [number, number] }>).detail;
         if (!selectingOnPreview || detail?.id !== options.id || !Array.isArray(detail.point)) return;
@@ -205,7 +208,7 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
             candidates = []; selected = new Set(); response = undefined;
             renderCandidates();
         }
-    });
+    }, true);
     if (options.mode === 'cutout') {
         const smooth = document.createElement('label'); smooth.textContent = 'なめらかさ ';
         const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '100';

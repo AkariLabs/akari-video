@@ -20,7 +20,7 @@ test('photo layer keeps look rows in video appearance and local mask/brush write
   assert.deepEqual(appearance.filter(field => lookNames.includes(field.name)).map(field => field.name), lookNames);
   assert.equal(transform.some(field => field.name?.startsWith('photo-')), false);
   assert.deepEqual(tools.map(field => field.name), [...maskNames, ...brushNames]);
-  assert.equal(tools.find(field => field.name === 'photo-mask-generate').actionLabel, '背景を消す（この Mac で）');
+  assert.equal(tools.find(field => field.name === 'photo-mask-generate').actionLabel, '背景を消す（このパソコンで）');
   assert.equal(tools.find(field => field.name === 'photo-brush-start').actionLabel, '消しゴム');
   assert.equal(appearance.find(field => field.name === 'photo-flip-h').getValue(), 'する');
   await tools.find(field => field.name === 'photo-mask-generate').action(snapshot);
