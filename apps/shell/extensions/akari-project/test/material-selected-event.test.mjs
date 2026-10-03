@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { memberText } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { materialCardLayout } from '../lib/common/material-card-layout.js';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../lib/common/material-selected-event.js';
 
-const source = readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8');
-const ast = ts.createSourceFile('pane.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const pane = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
-const method = pane.members.find(node => node.name?.getText(ast) === 'renderMaterialCard').getText(ast);
+const method = memberText('renderMaterialCard', { in: 'materials' });
 const code = ts.transpileModule(`class Harness { ${method} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React }
 }).outputText;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readCompiledSource } from './helpers/role-buckets-source.mjs';
 import vm from 'node:vm';
 
 const noopDecorator = () => () => undefined;
@@ -13,7 +13,7 @@ const modules = {
     '../common/material-card-layout': { materialCardLayout: () => ({ gridGap: '8px', cardMinWidth: '100px' }) }
 };
 const exports = {};
-vm.runInNewContext(readFileSync(new URL('../lib/browser/akari-materials-pane.js', import.meta.url), 'utf8'), {
+vm.runInNewContext(readCompiledSource('materials').text, {
     require: id => modules[id] ?? emptyModule,
     exports,
     module: { exports },

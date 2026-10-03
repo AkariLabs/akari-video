@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 import { referencePresentation } from '../lib/common/project-asset-reference.js';
@@ -10,10 +10,8 @@ import { countReferences } from '../lib/common/project-reference-check.js';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 const React = require('react');
-const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
 const paneNames = ['retryMaterialReference', 'removeMaterialReference', 'confirmReferenceImpact', 'buildReferenceMaterials', 'bundleMaterials', 'buildBundlePlanBody'];
-const code = ts.transpileModule(`class Handler { ${paneNames.map(name => pane.members.find(member => member.name?.getText(paneSource) === name).getText(paneSource)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
+const code = ts.transpileModule(`class Handler { ${paneNames.map(name => findMember(name, { in: 'materials' }).text).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
 // buildBundlePlanBody は素の DOM を組むので、node --test でも読めるだけの最小の
 // document/HTMLImageElement を差し込む（実描画は実機検収、ここでは文面と対象の一覧を見る）。
 class FakeElement {

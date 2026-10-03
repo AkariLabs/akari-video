@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
@@ -8,10 +8,8 @@ import { isPremiumLocked } from '../lib/common/library-filter.js';
 import { isPlaceableLibraryCategory } from '../lib/common/library-card-menu.js';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
 const names = ['resolveCatalogMaterial', 'canDragCatalogAsset', 'handleCatalogAssetDragStart', 'addCatalogAssetAtPlayhead', 'useAssetCatalogItem', 'refreshAfterAssetCatalogImport'];
-const code = ts.transpileModule(`class Handler { ${names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+const code = ts.transpileModule(`class Handler { ${names.map(name => findMember(name, { in: 'widget' }).text).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const events = [];
 const Handler = new Function('URI', 'canPlaceLibraryAsset', 'canPlaceOverlay', 'libraryDragKind', 'localLibraryAssetPlacementSource', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', 'isPremiumLocked', 'isPlaceableLibraryCategory', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } }, isPremiumLocked, isPlaceableLibraryCategory);
 const item = { origin: 'resolver', key: 'audio/sample', id: 'sample', category: 'audio', title: '素材', state: 'available', mediaUrl: 'https://example.test/b.mp3' };
