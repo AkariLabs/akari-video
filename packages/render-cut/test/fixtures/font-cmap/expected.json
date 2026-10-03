@@ -1,0 +1,58 @@
+{
+  "assets/font/biz-udgothic/BIZUDGothic-Bold.ttf": {
+    "count": 11741,
+    "sha256": "4f5bc43f594847f9a509d4319797b66948dad8f73491eded651dffda6c82c83b"
+  },
+  "assets/font/biz-udgothic/BIZUDGothic-Regular.ttf": {
+    "count": 11741,
+    "sha256": "4f5bc43f594847f9a509d4319797b66948dad8f73491eded651dffda6c82c83b"
+  },
+  "assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf": {
+    "count": 9030,
+    "sha256": "af4f1e6fa969cd0ab9d5e81138cac482628ec6232380b64bb1648070f1e63de2"
+  },
+  "assets/font/dotgothic16/DotGothic16-Regular.ttf": {
+    "count": 8231,
+    "sha256": "20b22527ab169a54908a97e1a6ab8ea8427ebf7aa024309778385a7af6604c2c"
+  },
+  "assets/font/klee-one/KleeOne-Regular.ttf": {
+    "count": 10178,
+    "sha256": "b4fd550ab58492d6be186c6cb38e89bccd37e7c2727bf879cacf141e1245a47d"
+  },
+  "assets/font/mplus-rounded-1c/MPLUSRounded1c-Black.ttf": {
+    "count": 8201,
+    "sha256": "3ab79eeb29b6892de00b12014f197a95217ee02dc7d00c8cc6d3764824ebdca3"
+  },
+  "assets/font/mplus-rounded-1c/MPLUSRounded1c-ExtraBold.ttf": {
+    "count": 8201,
+    "sha256": "3ab79eeb29b6892de00b12014f197a95217ee02dc7d00c8cc6d3764824ebdca3"
+  },
+  "assets/font/mplus-rounded-1c/MPLUSRounded1c-Medium.ttf": {
+    "count": 8201,
+    "sha256": "3ab79eeb29b6892de00b12014f197a95217ee02dc7d00c8cc6d3764824ebdca3"
+  },
+  "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf": {
+    "count": 16732,
+    "sha256": "f73aeadd698937236af33b3f26fa9a851ee90818c938a904e9fc1be0b76aaa6c"
+  },
+  "assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf": {
+    "count": 16726,
+    "sha256": "2ce399c36a0ef5ea45d3629840fe90dab03fc4d4720b66b84063d799b4667f42"
+  },
+  "assets/font/shippori-mincho/ShipporiMincho-Regular.ttf": {
+    "count": 15363,
+    "sha256": "41fe1e23f996c1449cf459d78747358e82be2ee472281aed6e2ed0d993eb7340"
+  },
+  "assets/font/zen-maru-gothic/ZenMaruGothic-Bold.ttf": {
+    "count": 7812,
+    "sha256": "cc82f43717961d564c904ed3771a1be4ba5f59dad91a885263361dce30aa64a5"
+  },
+  "assets/font/zen-maru-gothic/ZenMaruGothic-Regular.ttf": {
+    "count": 7812,
+    "sha256": "cc82f43717961d564c904ed3771a1be4ba5f59dad91a885263361dce30aa64a5"
+  },
+  "packages/render-cut/test/fixtures/font-cmap/retain-gids.woff2": {
+    "count": 6,
+    "sha256": "100aa5428834403e829c16d7bd0c55560048c30daee276c5201b4bb276fb7502"
+  }
+}
