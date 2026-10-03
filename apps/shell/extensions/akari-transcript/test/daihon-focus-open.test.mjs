@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { readAllSourceText, sliceBetween } from './helpers/daihon-source.mjs';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
-const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+const source = readAllSourceText();
 const contribution = await readFile(new URL('../src/browser/daihon/akari-daihon-contribution.ts', import.meta.url), 'utf8');
-const method = source.slice(source.indexOf('    async focusTarget('), source.indexOf('    showError('));
+const method = sliceBetween('    async focusTarget(', '    showError(');
 const calls = ['scrollIntoView', 'setSelection', 'openWordBar', 'openGearPop',
   'openCutRangeEditorForSelection', 'openRowDock', 'openDisplayPop',
   'openHistoryPop', 'openSilenceBatch', 'applyQcFilter', 'triggerFocusPulse'];

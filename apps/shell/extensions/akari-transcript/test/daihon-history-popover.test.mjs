@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 
-const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+const source = readAllSourceText();
 const l1 = await readFile(new URL('../evidence/daihon-history/scripts/l1-daihon-history.mjs', import.meta.url), 'utf8');
 
 test('台本ヘッダに履歴ボタンと幅 360 の履歴ポップオーバーがある', () => {

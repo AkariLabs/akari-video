@@ -2,13 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { findMember, readAllSourceText } from './helpers/daihon-source.mjs';
 import { PLACE_TEXT_COMMAND_ID, nextDaihonCaptionId } from '../../akari-annotations/lib/common/place-text.js';
 import { nextDaihonCaptionId as rowCaptionId } from '../lib/common/daihon-caption-id.js';
 
-const text = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
-const source = ts.createSourceFile('widget.ts', text, ts.ScriptTarget.Latest, true);
-const declaration = source.statements.find(node => ts.isClassDeclaration(node) && node.name.text === 'AkariDaihonWidget');
-const method = declaration.members.find(node => node.name?.getText(source) === 'placeTextFromSelection');
+const text = readAllSourceText();
+const { ast: source, node: method } = findMember('placeTextFromSelection', { in: 'widget' });
 const code = ts.transpileModule(`class Widget { ${method.getText(source)} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Widget = new Function('PLACE_TEXT_COMMAND_ID', `${code}; return Widget;`)(PLACE_TEXT_COMMAND_ID);
 function fixture(selected = []) {
