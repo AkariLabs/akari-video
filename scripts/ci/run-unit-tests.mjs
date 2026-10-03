@@ -213,6 +213,12 @@ export const LANES = {
       { id: 'scripts/release/test', cwd: '.', files: ['scripts/release/test/*.test.mjs'] },
       { id: 'presets/*', cwd: '.', files: ['presets/luts/previews.test.mjs', 'presets/shapes/generate.test.mjs'] },
       {
+        id: 'packages/export-nle (migration-regression 以外)',
+        cwd: 'packages/export-nle',
+        files: ['test/*.test.mjs'],
+        exclude: [/migration-regression\.test\.mjs$/]
+      },
+      {
         id: 'skills/* (package.json を持たないスキル同梱テスト)',
         cwd: '.',
         files: [
@@ -264,7 +270,8 @@ export const LANES = {
       // 「path / t / in / out / gain_db / script / reading / provenance が不正」で拒む → migrate の検証強化にテストが未追随
       // export-nle の赤は fixture ではなくプロダクト側の退行（migrate が音声を tracks[] へ移したのに NLE 書き出しが
       // 追随していない）。fixture だけ直して緑にすると退行が隠れるので、直るまでここに残す
-      pkg('export-nle')
+      // 他の 18 テストは pure へ移した（2026-10-04）。
+      { id: 'packages/export-nle (migration-regression のみ)', cwd: 'packages/export-nle', files: ['test/migration-regression.test.mjs'] }
     ]
   },
 
