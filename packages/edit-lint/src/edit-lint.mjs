@@ -2664,7 +2664,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
     if (!isHtmlFile) continue;
 
     validateOverlayFragmentAssets(html, overlay, paths, findings);
-    validateOverlayFragmentFontGlyphs(html, overlay, paths, findings);
+    runOverlayFragmentFontGlyphCheck(html, overlay, paths, findings);
     const fragment = inspectHtmlFragment(html);
     if (fragment.rootCount !== 1 || fragment.hasTopLevelText || fragment.unbalanced) {
       addFinding(findings, {
@@ -2813,6 +2813,21 @@ function validateOverlayFragmentAssets(html, overlay, paths, findings) {
 
 const fontCmapCache = new Map();
 
+export function runOverlayFragmentFontGlyphCheck(html, overlay, paths, findings, check = validateOverlayFragmentFontGlyphs) {
+  const before = findings.length;
+  try { check(html, overlay, paths, findings); }
+  catch (error) {
+    findings.splice(before);
+    const name = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9]*$/u.test(error.name)
+      ? error.name : "Error";
+    addFinding(findings, {
+      severity: "info", check: "overlays.fragment-font-glyphs",
+      message: `overlay:${overlay.id} fragment ${overlay.html}: 字形検査を飛ばしました（${name}）。`,
+      path: relativePath(paths.projectRoot, resolve(paths.projectRoot, overlay.html)),
+    });
+  }
+}
+
 function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
   const faces = fragmentFontFaces(html, overlay.html);
   if (faces.length === 0) return;
@@ -2834,6 +2849,7 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
   }
   const fontSets = [];
   const fontPaths = [];
+  const seenSources = new Set();
   let unreadable = false;
   for (const face of faces) if (face.sources.length === 0) {
     unreadable = true;
@@ -2845,6 +2861,9 @@ function validateOverlayFragmentFontGlyphs(html, overlay, paths, findings) {
     return local === ".." || local.startsWith("../") || isAbsolute(local);
   };
   for (const face of faces) for (const source of face.sources) {
+    const sourceKey = source.data ?? source.path;
+    if (seenSources.has(sourceKey)) continue;
+    seenSources.add(sourceKey);
     let result;
     let label;
     if (source.data) {

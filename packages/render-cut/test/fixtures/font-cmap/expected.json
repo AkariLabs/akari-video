@@ -51,6 +51,22 @@
     "count": 7812,
     "sha256": "cc82f43717961d564c904ed3771a1be4ba5f59dad91a885263361dce30aa64a5"
   },
+  "packages/render-cut/test/fixtures/font-cmap/sample.ttf": {
+    "count": 108,
+    "sha256": "88442ce2cee8429d3d04c7d73c9e1ace1f459cd4bd87673c11e408093f6f143a"
+  },
+  "packages/render-cut/test/fixtures/font-cmap/sample.woff": {
+    "count": 108,
+    "sha256": "88442ce2cee8429d3d04c7d73c9e1ace1f459cd4bd87673c11e408093f6f143a"
+  },
+  "packages/render-cut/test/fixtures/font-cmap/sample.woff2": {
+    "count": 108,
+    "sha256": "88442ce2cee8429d3d04c7d73c9e1ace1f459cd4bd87673c11e408093f6f143a"
+  },
+  "packages/render-cut/test/fixtures/font-cmap/sample.ttc": {
+    "count": 108,
+    "sha256": "88442ce2cee8429d3d04c7d73c9e1ace1f459cd4bd87673c11e408093f6f143a"
+  },
   "packages/render-cut/test/fixtures/font-cmap/retain-gids.woff2": {
     "count": 6,
     "sha256": "100aa5428834403e829c16d7bd0c55560048c30daee276c5201b4bb276fb7502"

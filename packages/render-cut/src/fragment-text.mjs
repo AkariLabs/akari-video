@@ -1,5 +1,14 @@
 import { extractFragmentAssetReferences, scanFragmentCssUrls } from "./fragment-assets.mjs";
-import { htmlTags, rawTextElements, stripCssComments, stripHtmlComments } from "./html-scan.mjs";
+import { htmlTags, rawTextElements, startsWithFold, stripCssComments, stripHtmlComments } from "./html-scan.mjs";
+
+const TEXT_TRANSFORM = /text-transform/giu;
+const CONTENT = /content/giu;
+const DATA_URI = /data:/giu;
+const FONT_FACE = /@font-face/giu;
+function findFold(source, pattern, start) {
+  pattern.lastIndex = start;
+  return pattern.exec(source)?.index ?? -1;
+}
 
 const entities = new Map(Object.entries({"AElig":"Æ","Aacute":"Á","Acirc":"Â","Agrave":"À","Alpha":"Α","Aring":"Å","Atilde":"Ã","Auml":"Ä","Beta":"Β","Ccedil":"Ç","Chi":"Χ","Dagger":"‡","Delta":"Δ","ETH":"Ð","Eacute":"É","Ecirc":"Ê","Egrave":"È","Epsilon":"Ε","Eta":"Η","Euml":"Ë","Gamma":"Γ","Iacute":"Í","Icirc":"Î","Igrave":"Ì","Iota":"Ι","Iuml":"Ï","Kappa":"Κ","Lambda":"Λ","Mu":"Μ","Ntilde":"Ñ","Nu":"Ν","OElig":"Œ","Oacute":"Ó","Ocirc":"Ô","Ograve":"Ò","Omega":"Ω","Omicron":"Ο","Oslash":"Ø","Otilde":"Õ","Ouml":"Ö","Phi":"Φ","Pi":"Π","Prime":"″","Psi":"Ψ","Rho":"Ρ","Scaron":"Š","Sigma":"Σ","THORN":"Þ","Tau":"Τ","Theta":"Θ","Uacute":"Ú","Ucirc":"Û","Ugrave":"Ù","Upsilon":"Υ","Uuml":"Ü","Xi":"Ξ","Yacute":"Ý","Yuml":"Ÿ","Zeta":"Ζ","aacute":"á","acirc":"â","acute":"´","aelig":"æ","agrave":"à","alefsym":"ℵ","alpha":"α","amp":"&","and":"∧","ang":"∠","aring":"å","asymp":"≈","atilde":"ã","auml":"ä","bdquo":"„","beta":"β","brvbar":"¦","bull":"•","cap":"∩","ccedil":"ç","cedil":"¸","cent":"¢","chi":"χ","circ":"ˆ","clubs":"♣","cong":"≅","copy":"©","crarr":"↵","cup":"∪","curren":"¤","dArr":"⇓","dagger":"†","darr":"↓","deg":"°","delta":"δ","diams":"♦","divide":"÷","eacute":"é","ecirc":"ê","egrave":"è","empty":"∅","emsp":" ","ensp":" ","epsilon":"ε","equiv":"≡","eta":"η","eth":"ð","euml":"ë","euro":"€","exist":"∃","fnof":"ƒ","forall":"∀","frac12":"½","frac14":"¼","frac34":"¾","frasl":"⁄","gamma":"γ","ge":"≥","gt":">","hArr":"⇔","harr":"↔","hearts":"♥","hellip":"…","iacute":"í","icirc":"î","iexcl":"¡","igrave":"ì","image":"ℑ","infin":"∞","int":"∫","iota":"ι","iquest":"¿","isin":"∈","iuml":"ï","kappa":"κ","lArr":"⇐","lambda":"λ","lang":"〈","laquo":"«","larr":"←","lceil":"⌈","ldquo":"“","le":"≤","lfloor":"⌊","lowast":"∗","loz":"◊","lrm":"‎","lsaquo":"‹","lsquo":"‘","lt":"<","macr":"¯","mdash":"—","micro":"µ","middot":"·","minus":"−","mu":"μ","nabla":"∇","nbsp":" ","ndash":"–","ne":"≠","ni":"∋","not":"¬","notin":"∉","nsub":"⊄","ntilde":"ñ","nu":"ν","oacute":"ó","ocirc":"ô","oelig":"œ","ograve":"ò","oline":"‾","omega":"ω","omicron":"ο","oplus":"⊕","or":"∨","ordf":"ª","ordm":"º","oslash":"ø","otilde":"õ","otimes":"⊗","ouml":"ö","para":"¶","part":"∂","permil":"‰","perp":"⊥","phi":"φ","pi":"π","piv":"ϖ","plusmn":"±","pound":"£","prime":"′","prod":"∏","prop":"∝","psi":"ψ","quot":"\"","rArr":"⇒","radic":"√","rang":"〉","raquo":"»","rarr":"→","rceil":"⌉","rdquo":"”","real":"ℜ","reg":"®","rfloor":"⌋","rho":"ρ","rlm":"‏","rsaquo":"›","rsquo":"’","sbquo":"‚","scaron":"š","sdot":"⋅","sect":"§","shy":"­","sigma":"σ","sigmaf":"ς","sim":"∼","spades":"♠","sub":"⊂","sube":"⊆","sum":"∑","sup":"⊃","sup1":"¹","sup2":"²","sup3":"³","supe":"⊇","szlig":"ß","tau":"τ","there4":"∴","theta":"θ","thetasym":"ϑ","thinsp":" ","thorn":"þ","tilde":"˜","times":"×","trade":"™","uArr":"⇑","uacute":"ú","uarr":"↑","ucirc":"û","ugrave":"ù","uml":"¨","upsih":"ϒ","upsilon":"υ","uuml":"ü","weierp":"℘","xi":"ξ","yacute":"ý","yen":"¥","yuml":"ÿ","zeta":"ζ","zwj":"‍","zwnj":"‌"}));
 const safety = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~「」『』【】（）［］｛｝、。，．・：；！？ー〜―…";
@@ -94,33 +103,34 @@ function isHtmlWhitespace(cp) {
 }
 
 function transformModes(css, modes) {
-  const lower = css.toLowerCase();
   let cursor = 0;
-  while (cursor < lower.length) {
-    const at = lower.indexOf("text-transform", cursor);
+  while (cursor < css.length) {
+    const at = findFold(css, TEXT_TRANSFORM, cursor);
     if (at < 0) break;
     cursor = at + 14;
-    if (/[\w-]/u.test(lower[at - 1] ?? "") || /[\w-]/u.test(lower[cursor] ?? "")) continue;
-    while (isHtmlWhitespace(lower.charCodeAt(cursor))) cursor++;
-    if (lower[cursor++] !== ":") continue;
-    while (isHtmlWhitespace(lower.charCodeAt(cursor))) cursor++;
+    if (/[\w-]/u.test(css[at - 1] ?? "") || /[\w-]/u.test(css[cursor] ?? "")) continue;
+    while (isHtmlWhitespace(css.charCodeAt(cursor))) cursor++;
+    if (css[cursor++] !== ":") continue;
+    while (isHtmlWhitespace(css.charCodeAt(cursor))) cursor++;
     const start = cursor;
-    while (cursor < lower.length && /[a-z-]/u.test(lower[cursor])) cursor++;
-    const mode = lower.slice(start, cursor);
+    while (cursor < css.length && /[a-z-]/iu.test(css[cursor])) cursor++;
+    const mode = css.slice(start, cursor).toLowerCase();
     if (["uppercase", "lowercase", "capitalize", "full-width"].includes(mode)) modes.add(mode);
     if (cursor === start) cursor++;
   }
 }
 
-function cssContent(css, attrs, output) {
+function cssContent(css, attrs, output, inline = false) {
   const source = stripCssComments(css);
-  const lower = source.toLowerCase();
   let cursor = 0;
   while (cursor < source.length) {
-    const at = lower.indexOf("content", cursor);
+    const at = findFold(source, CONTENT, cursor);
     if (at < 0) break;
     cursor = at + 7;
     if (/[\w-]/u.test(source[at - 1] ?? "") || /[\w-]/u.test(source[cursor] ?? "")) continue;
+    let previous = at - 1;
+    while (previous >= 0 && /\s/u.test(source[previous])) previous--;
+    if (previous < 0 ? !inline : source[previous] !== "{" && source[previous] !== ";") continue;
     while (/\s/u.test(source[cursor] ?? "")) cursor++;
     if (source[cursor++] !== ":") continue;
     let end = cursor;
@@ -138,7 +148,6 @@ function cssContent(css, attrs, output) {
     }
     const value = source.slice(cursor, end);
     cursor = end < source.length ? end + 1 : source.length;
-    const lowerValue = value.toLowerCase();
     for (let at = 0; at < value.length;) {
       const quote = value[at];
       if (quote === '"' || quote === "'") {
@@ -150,7 +159,7 @@ function cssContent(css, attrs, output) {
         }
         add(output, decodeCss(value.slice(start, at)));
         at++;
-      } else if (lowerValue.startsWith("attr(", at)) {
+      } else if (startsWithFold(value, "attr(", at)) {
         const end = value.indexOf(")", at + 5);
         if (end < 0) break;
         const key = value.slice(at + 5, end).trim().toLowerCase();
@@ -186,9 +195,8 @@ function sourceWithoutData(html, output) {
     add(output, decodeCss(segment));
   };
   let cursor = 0;
-  const lower = html.toLowerCase();
   while (cursor < html.length) {
-    const at = lower.indexOf("data:", cursor);
+    const at = findFold(html, DATA_URI, cursor);
     if (at < 0) { include(html.slice(cursor)); break; }
     include(html.slice(cursor, at));
     let end = at + 5;
@@ -222,7 +230,7 @@ export function collectFragmentCodepoints(html, { params, vars, mode = "render" 
     rootSeen = true;
     if (parsed["text-transform"]) transformModes(`text-transform:${parsed["text-transform"]};`, transforms);
     if (parsed.style) transformModes(`;${parsed.style}`, transforms);
-    if (parsed.style) cssContent(parsed.style, parsed, codepoints);
+    if (parsed.style) cssContent(parsed.style, parsed, codepoints, true);
     if (name === "script" && parsed.type?.toLowerCase() !== "application/json") dynamic = true;
   }
   for (const block of rawTextElements(clean, "style")) {
@@ -259,10 +267,9 @@ export function fragmentFontFaces(html, htmlPath) {
   const clean = stripHtmlComments(html);
   for (const style of rawTextElements(clean, "style")) {
     const css = stripCssComments(clean.slice(style.bodyStart, style.bodyEnd));
-    const lower = css.toLowerCase();
     let cursor = 0;
     while (cursor < css.length) {
-      const at = lower.indexOf("@font-face", cursor);
+      const at = findFold(css, FONT_FACE, cursor);
       if (at < 0) break;
       const start = css.indexOf("{", at + 10);
       if (start < 0) break;

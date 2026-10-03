@@ -174,7 +174,7 @@ function collect(cmap) {
 
 export function readFontCodepoints(pathOrBytes) {
   let r;
-  let format;
+  let format = null;
   try {
     r = reader(pathOrBytes);
     const magic = tag(r.read(0, 4), 0);
@@ -186,7 +186,9 @@ export function readFontCodepoints(pathOrBytes) {
       cmap = sfntCmap(r, u32(head, 12));
     } else if (magic === "wOFF") { format = "woff"; cmap = woffCmap(r); }
     else if (magic === "wOF2") { format = "woff2"; cmap = woff2Cmap(r); }
-    else { format = magic === "OTTO" ? "otf" : "ttf"; cmap = sfntCmap(r); }
+    else if (magic === "OTTO") { format = "otf"; cmap = sfntCmap(r); }
+    else if (magic === "\u0000\u0001\u0000\u0000" || magic === "true") { format = "ttf"; cmap = sfntCmap(r); }
+    else throw Error("unsupported sfnt flavor");
     return { ok: true, codepoints: collect(cmap), format, warnings: [] };
   } catch (error) {
     return { ok: false, codepoints: new Set(), format, warnings: [error.message] };

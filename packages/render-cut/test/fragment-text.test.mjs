@@ -35,6 +35,28 @@ test("CSS escapes and attr values are decoded", () => {
   assert.equal(has(set, "2"), false);
 });
 
+test("CSS content is read only at declaration positions", () => {
+  const html = `<div>字<style>.content:first-child{font-family:"游明朝"}#content:hover{font-family:"游明朝"}.content::after{font-family:"游明朝"}.ok{/* gap */ content:"雪"}</style></div>`;
+  const set = points(html);
+  for (const char of "游明朝") assert.equal(has(set, char), false, char);
+  assert.ok(has(set, "雪"));
+  const inline = points(`<div style="content:'風'">字<style>content:"偽";.ok{content:"雨"}</style></div>`);
+  assert.ok(has(inline, "風"));
+  assert.ok(has(inline, "雨"));
+  assert.equal(has(inline, "偽"), false);
+});
+
+test("expanding lowercase characters do not shift CSS and data URI offsets", () => {
+  const html = `<div>字<style>.a::before{content:"İİİ"}@font-face{font-family:A;src:url(a.ttf)}.b{content:"雪"}@FONT-FACE{font-family:B;src:url(b.ttf)}</style></div>`;
+  const faces = fragmentFontFaces(html, "overlays/item.html");
+  assert.equal(faces.length, 2);
+  assert.deepEqual(faces.map(face => face.sources[0]?.path), ["overlays/a.ttf", "overlays/b.ttf"]);
+  assert.ok(has(points(html), "雪"));
+  const source = points(`<div data-x="İİ" src="data:font/ttf;base64,鱻">字</div>`, { mode: "source" });
+  assert.ok(has(source, "İ"));
+  assert.equal(has(source, "鱻"), false);
+});
+
 test("style and script bodies, JSON keys, and ordinary attributes are excluded", () => {
   const html = `<div alt="鱻" title="魑"><style>.a{font-family:秘}</style><script type="application/json">{"hiddenKey":"星"}</script><script>隠</script>字</div>`;
   const set = points(html);

@@ -19,13 +19,16 @@ for (const [path, value] of Object.entries(expected)) test(`bundled cmap ${path}
   assert.equal(digest(result.codepoints), value.sha256);
 });
 
-test("small TTF, WOFF, WOFF2 and TTC have the same cmap", () => {
+test("small TTF, WOFF, WOFF2 and TTC match fontTools and each other", () => {
   const formats = ["ttf", "woff", "woff2", "ttc"];
   const results = formats.map(ext => readFontCodepoints(readFileSync(new URL(`sample.${ext}`, fixture))));
   for (const [i, result] of results.entries()) {
     assert.equal(result.ok, true, `${formats[i]}: ${result.warnings.join(", ")}`);
     assert.equal(result.format, formats[i]);
     assert.deepEqual(result.codepoints, results[0].codepoints);
+    const value = expected[`packages/render-cut/test/fixtures/font-cmap/sample.${formats[i]}`];
+    assert.equal(result.codepoints.size, value.count);
+    assert.equal(digest(result.codepoints), value.sha256);
   }
 });
 
@@ -34,6 +37,14 @@ test("truncated and unsupported fonts return a failure", () => {
     const result = readFontCodepoints(bytes);
     assert.equal(result.ok, false);
     assert.ok(result.warnings.length);
+  }
+});
+
+test("unknown and truncated magic have no guessed format", () => {
+  for (const bytes of [Buffer.alloc(0), Buffer.from("nonsense"), Buffer.from("bad!")]) {
+    const result = readFontCodepoints(bytes);
+    assert.equal(result.ok, false);
+    assert.equal(result.format, null);
   }
 });
 

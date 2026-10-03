@@ -24,6 +24,8 @@ export const VENDOR_SOURCES = [
   'packages/render-cut/src/render-inputs.mjs',
   'packages/render-cut/src/caption-font.mjs',
   'packages/render-cut/src/html-scan.mjs',
+  'packages/render-cut/src/font-cmap.mjs',
+  'packages/render-cut/src/fragment-text.mjs',
   'packages/render-cut/src/library-reference.mjs',
   'packages/word-book/src/index.mjs',
   'packages/akari-tools/src/world/invariants.mjs',

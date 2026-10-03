@@ -3,13 +3,13 @@ import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import test from "node:test";
-import { lintProject } from "../src/edit-lint.mjs";
+import { lintProject, runOverlayFragmentFontGlyphCheck } from "../src/edit-lint.mjs";
 import { resolveAssetLibraryRoots } from "../../creator-root/src/index.mjs";
 
 const font = new URL("../../render-cut/test/fixtures/font-cmap/sample.ttf", import.meta.url);
 const baseHtml = src => `<div><style>@font-face{font-family:Sample;src:url('${src}')}</style>字</div>`;
 
-async function lintCase(t, html, { params, vars, items, library = false, missing = false, secondFont = false, outsideFont = false } = {}) {
+async function lintCase(t, html, { params, vars, items, library = false, missing = false, brokenFont = false, secondFont = false, secondBrokenFont = false, outsideFont = false } = {}) {
   const project = await mkdtemp(join(tmpdir(), "font-glyph-lint-"));
   const isolatedHome = await mkdtemp(join(tmpdir(), "font-glyph-home-"));
   t.after(() => rm(project, { recursive: true, force: true }));
@@ -32,9 +32,11 @@ async function lintCase(t, html, { params, vars, items, library = false, missing
   }
   if (!missing) {
     const fontPath = library ? join(resolveAssetLibraryRoots(env).write, "font/sample/sample.ttf") : join(project, "sample.ttf");
-    await copyFile(font, fontPath);
+    if (brokenFont) await writeFile(fontPath, "not a font");
+    else await copyFile(font, fontPath);
   }
   if (secondFont) await copyFile(new URL("../../../assets/font/shippori-mincho/ShipporiMincho-Regular.ttf", import.meta.url), join(project, "full.ttf"));
+  if (secondBrokenFont) await writeFile(join(project, "bad.ttf"), "not a font");
   const edit = {
     version: 2, output: { width: 320, height: 180, fps: 30 }, sources: [],
     tracks: [{ id: "visual", lane: "visual", items: items ?? [{ id: "item", at: 0, duration: 1,
@@ -50,6 +52,72 @@ test("one missing glyph produces one warning with paths and character", async t 
   assert.equal(findings.length, 1);
   assert.equal(findings[0].severity, "warning");
   for (const part of ["overlay:item fragment overlays/fragment.html", "𠮷(U+20BB7)", "sample.ttf", "1 件"]) assert.ok(findings[0].message.includes(part), findings[0].message);
+});
+
+test("missing glyph warning lists only the first twenty sorted code points", async t => {
+  const glyphs = Array.from({ length: 21 }, (_, i) => String.fromCodePoint(0x20000 + i));
+  const html = baseHtml("../sample.ttf").replace("字</div>", `${glyphs.toReversed().join("")}</div>`);
+  const warnings = (await lintCase(t, html)).filter(f => f.severity === "warning");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /21 件/u);
+  for (let i = 0; i < 20; i++) {
+    const mark = `U+${(0x20000 + i).toString(16).toUpperCase()}`;
+    assert.ok(warnings[0].message.includes(mark), mark);
+    if (i > 0) assert.ok(warnings[0].message.indexOf(mark) > warnings[0].message.indexOf(`U+${(0x20000 + i - 1).toString(16).toUpperCase()}`));
+  }
+  assert.equal(warnings[0].message.includes("U+20014"), false);
+});
+
+test("a corrupt font reports info and suppresses the warning", async t => {
+  const html = baseHtml("../sample.ttf").replace("字</div>", "𠮷</div>");
+  const findings = await lintCase(t, html, { brokenFont: true });
+  assert.equal(findings.filter(f => f.severity === "info").length, 1);
+  assert.equal(findings.some(f => f.severity === "warning"), false);
+});
+
+test("one unreadable font suppresses a warning even when another is readable", async t => {
+  const html = baseHtml("../sample.ttf").replace("</style>", "@font-face{font-family:Bad;src:url('../bad.ttf')}</style>").replace("字</div>", "𠮷</div>");
+  const findings = await lintCase(t, html, { secondBrokenFont: true });
+  assert.equal(findings.filter(f => f.severity === "info").length, 1);
+  assert.equal(findings.some(f => f.severity === "warning"), false);
+});
+
+test("CSS selectors named content do not add font family text", async t => {
+  const html = baseHtml("../sample.ttf").replace("</style>", '.content:first-child{font-family:"游明朝"}#content:hover{font-family:"游明朝"}</style>');
+  assert.deepEqual(await lintCase(t, html), []);
+});
+
+test("a font face after İ is still checked", async t => {
+  const html = `<div>𠮷<style>.a::before{content:"İİİ"}@font-face{font-family:Sample;src:url('../sample.ttf')}</style></div>`;
+  const findings = await lintCase(t, html);
+  assert.equal(findings.filter(f => f.severity === "warning").length, 1);
+  assert.match(findings[0].message, /𠮷\(U\+20BB7\)/u);
+});
+
+test("unexpected glyph check errors become one sanitized info", () => {
+  const findings = [{ check: "earlier" }];
+  const overlay = { id: "item", html: "overlays/fragment.html" };
+  assert.doesNotThrow(() => runOverlayFragmentFontGlyphCheck("<div></div>", overlay, { projectRoot: "." }, findings,
+    (_html, _overlay, _paths, output) => {
+      output.push({ severity: "warning", check: "overlays.fragment-font-glyphs" });
+      throw new TypeError("sensitive absolute path");
+    }));
+  assert.equal(findings.length, 2);
+  assert.equal(findings[1].severity, "info");
+  assert.equal(findings[1].check, "overlays.fragment-font-glyphs");
+  assert.match(findings[1].message, /TypeError/u);
+  assert.equal(findings[1].message.includes("sensitive absolute path"), false);
+});
+
+test("the same font in two font faces appears once", async t => {
+  const html = baseHtml("../sample.ttf").replace("</style>", "@font-face{font-family:Again;src:url('../sample.ttf')}</style>").replace("字</div>", "𠮷</div>");
+  const findings = await lintCase(t, html);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, "warning");
+  assert.equal((findings[0].message.match(/sample\.ttf/gu) ?? []).length, 1);
+  const unreadable = await lintCase(t, html, { brokenFont: true });
+  assert.equal(unreadable.length, 1);
+  assert.equal(unreadable[0].severity, "info");
 });
 
 test("fragments without a font face are excluded", async t => {

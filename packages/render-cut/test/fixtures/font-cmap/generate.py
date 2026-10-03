@@ -37,6 +37,16 @@ collection.fonts = [font]
 collection.save(HERE / "sample.ttc")
 font.close()
 
+for filename in ("sample.ttf", "sample.woff", "sample.woff2", "sample.ttc"):
+    path = HERE / filename
+    saved = TTCollection(path) if filename.endswith(".ttc") else TTFont(path)
+    points = sorted((saved.fonts[0] if filename.endswith(".ttc") else saved).getBestCmap())
+    expected[path.relative_to(ROOT).as_posix()] = {
+        "count": len(points),
+        "sha256": hashlib.sha256("".join(f"{cp}\n" for cp in points).encode()).hexdigest(),
+    }
+    saved.close()
+
 retained = TTFont(source, recalcTimestamp=False)
 retain_options = subset.Options()
 retain_options.retain_gids = True
@@ -53,5 +63,5 @@ expected[retain_path.relative_to(ROOT).as_posix()] = {
     "count": len(retain_points),
     "sha256": hashlib.sha256("".join(f"{cp}\n" for cp in retain_points).encode()).hexdigest(),
 }
-(HERE / "expected.json").write_text(json.dumps(expected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+(HERE / "expected.json").write_bytes((json.dumps(expected, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
 (HERE / "LICENSE.txt").write_bytes((source.parent / "OFL.txt").read_bytes())
