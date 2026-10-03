@@ -9,18 +9,23 @@ export const CAPTION_BAR_PINNED = new Set<string>(['captionFont', 'captionSize',
 export const CAPTION_MINI_WINDOWS = new Set<string>(['captionTextColor', 'captionSpacing', 'captionOpacity']);
 
 /** Rightmost optional controls move first; font, size and style stay visible. */
-export function captionOverflowKeys(widths: Record<string, number>, available: number, overflowWidth = 42): string[] {
-    const total = CAPTION_BAR_ORDER.reduce((sum, key) => sum + (widths[key] ?? 0), 0);
+export function contextBarOverflowKeys(order: readonly string[], widths: Record<string, number>, available: number,
+    overflowWidth = 30, pinned: ReadonlySet<string> = new Set()): string[] {
+    const total = order.reduce((sum, key) => sum + (widths[key] ?? 0), 0);
     if (total <= available) return [];
     const hidden = new Set<string>();
     let remaining = total;
-    for (const key of [...CAPTION_BAR_ORDER].reverse()) {
-        if (CAPTION_BAR_PINNED.has(key)) continue;
+    for (const key of [...order].reverse()) {
+        if (pinned.has(key)) continue;
         if (remaining + overflowWidth <= available) break;
         hidden.add(key);
         remaining -= widths[key] ?? 0;
     }
-    return CAPTION_BAR_ORDER.filter(key => hidden.has(key));
+    return order.filter(key => hidden.has(key));
+}
+
+export function captionOverflowKeys(widths: Record<string, number>, available: number, overflowWidth = 42): string[] {
+    return contextBarOverflowKeys(CAPTION_BAR_ORDER, widths, available, overflowWidth, CAPTION_BAR_PINNED);
 }
 
 export function nextCaptionAlign(value: unknown): 'center' | 'right' | 'left' {
