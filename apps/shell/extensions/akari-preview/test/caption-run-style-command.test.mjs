@@ -55,3 +55,18 @@ test('コマンドで得た見た目が範囲スタイル候補に並ぶ', async
     assert.ok(choices.some(choice => choice.id.startsWith('preset:')));
     assert.match(source, /const saved = await this\.listRunMyStyles\(\);\s*const choices = this\.runStyleChoices\(saved, baseSize\);/u);
 });
+
+test('文字範囲では同梱スタイルの文字倍率を保ち、リッチ語彙の省略を通知する', () => {
+    const host = new Host();
+    const choices = host.runStyleChoices([{ id: 'saved', name: '保存',
+        parts: [{ kind: 'look', text_style: { size_px: 90, color: '#fff' } }] }], 56);
+    const impact = choices.find(choice => choice.id === 'preset:title-impact');
+    assert.equal(impact.style.scale, 1);
+    assert.ok(Math.abs(impact.style.stroke.width_px - 10 * 56 / 168) < 1e-10);
+    assert.equal(choices.find(choice => choice.id === 'mine:saved').style.scale, 90 / 56);
+    const omitted = require('@akari-video/edit-store').captionRunStyleFromLook({ size_px: 168,
+        fill: { type: 'solid', color: '#fff' }, strokes: [{ color: '#000', width_px: 10 }] }, 168);
+    assert.match(require('../common/caption-run-style-notice.js').captionRunOmittedNotice(omitted.omitted),
+        /文字範囲に使えない見た目/u);
+    assert.deepEqual(omitted.omitted, ['fill', 'strokes']);
+});

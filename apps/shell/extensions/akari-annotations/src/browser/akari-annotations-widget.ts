@@ -3204,7 +3204,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const editUri = location.editUri.toString();
                     const before = (await this.fileService.readFile(captionsUri)).value.toString();
                     const after = replaceMyStylePartsInSource(before, ids,
-                        request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>);
+                        request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>,
+                        { keepSize: request.value.keepSize === true,
+                            catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined });
                     const attachParts = (request.value.parts as Array<{ kind: string }>).filter(part =>
                         ['sfx', 'fx', 'decor'].includes(part.kind));
                     const editBefore = attachParts.length
@@ -4417,7 +4419,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } catch (error) { this.showNotice(this.errorMessage(error)); return false; }
             }
             const result = await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: ids[0],
-                value: { parts: applied, style_uid: style.uid },
+                value: { parts: applied, style_uid: style.uid,
+                    keepSize: (style as { keepSize?: boolean }).keepSize === true,
+                    catalog: (style as { catalog?: Record<string, { style: Record<string, unknown> }> }).catalog },
                 targets: ids.map(id => ({ kind: 'caption' as const, id })) });
             if (!result.ok) { this.showNotice(result.message ?? 'スタイルを当てられませんでした。'); return false; }
             await this.recordMyStyleUsage(style, ids, appliedKinds);
@@ -4659,7 +4663,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? await this.handleInspectorWrite({ kind: 'caption-style-font-family', id: plan.id,
                     value: payload.fontFamily!.trim(), libraryApplyKind: 'font' })
                 : await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: plan.id,
-                    value: { parts: plan.parts }, libraryApplyKind: payload.kind });
+                    value: { parts: plan.parts, keepSize: plan.keepSize, catalog: plan.catalog },
+                    libraryApplyKind: payload.kind });
         if (!result.ok) { this.messages.warn(result.message ?? '当てられませんでした。'); return false; }
         if (plan.kind === 'caption' && this.location?.editUri) this.selectCaptions(this.location.editUri.toString(), [plan.id]);
         else if (current?.kind === 'cut') {

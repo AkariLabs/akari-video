@@ -1,4 +1,5 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { TEXTSTYLE_SHOWCASE_COMMAND_ID } from 'akari-preview/lib/common/textstyle-sample';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import {
@@ -131,6 +132,12 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         });
     }
 
+    protected registerTextstyleShowcaseCommand(commands: CommandRegistry): void {
+        commands.registerCommand({ id: TEXTSTYLE_SHOWCASE_COMMAND_ID }, {
+            execute: async () => (await this.projectService.getPresetShowcase()).textstyle
+        });
+    }
+
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand({ id: LIST_MY_STYLES_COMMAND_ID }, {
             execute: async (): Promise<MyStyleListItem[]> => (await this.projectService.listMyStyles()).map(style => ({
@@ -141,6 +148,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             }))
         });
         this.registerBrandKitCommands?.(commands);
+        this.registerTextstyleShowcaseCommand?.(commands);
         commands.registerCommand(NEW_AKARI_PROJECT, { execute: () => this.createProject() });
         commands.registerCommand(SHOW_AKARI_CHANGES, { execute: () => this.showChanges() });
         commands.registerCommand(TOGGLE_AKARI_DEVELOPER_MODE, {

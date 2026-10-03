@@ -5,8 +5,13 @@ import { captionFontRowDetail, captionFontWeights, captionPanelTextStyle,
     renderableCaptionFonts, type CaptionPanel } from '../../common/caption-panel-state';
 import type { CaptionTextStyle } from '../../common/caption-store';
 import { CAPTION_SAMPLE_TEXT, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
+import { applyLibraryTextStyleSample, CAPTION_DEFAULT_SIZE_PX,
+    libraryTextStyleSample } from 'akari-preview/lib/common/textstyle-sample';
+import { scaledLookForCaption } from '../my-style-look';
 
 export const CAPTION_PANEL_STYLES = Object.values(TEXTSTYLE_CATALOG);
+
+export interface CaptionPanelPreset { id: string; name: string; style: Record<string, unknown>; origin?: 'builtin' | 'library' }
 
 export interface CaptionPanelMyStyle {
     id: string;
@@ -72,6 +77,7 @@ export const CAPTION_PANEL_CSS = `
 .akari-caption-style-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px; }
 .akari-caption-style-card { display:grid;min-width:0;gap:3px;text-align:left;border:1px solid var(--akari-line);border-radius:6px;background:var(--akari-card);padding:5px; }
 .akari-caption-style-card .akari-caption-hover-preview { width:100%!important;height:62px!important; }
+.akari-caption-style-specimen { display:flex;align-items:center;justify-content:center;height:62px;overflow:hidden;white-space:nowrap; }
 .akari-caption-style-card > span { font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 `;
 
@@ -104,22 +110,35 @@ function previewable(element: HTMLButtonElement, textStyle: CaptionTextStyle,
     return element;
 }
 
+function presetPreviewStyle(raw: Record<string, unknown>, currentSize: number): CaptionTextStyle {
+    return { ...captionPanelTextStyle(scaledLookForCaption(raw, currentSize)), sizePx: currentSize };
+}
+
 function sampleCard(document: Document, id: string, name: string, raw: Record<string, unknown>,
-    action: () => void, actions: CaptionPanelActions): HTMLButtonElement {
+    action: () => void, actions: CaptionPanelActions, currentSize: number): HTMLButtonElement {
     const card = button(document, '', () => { actions.confirm(); action(); }, ['data-akari-style-card', id]);
     card.className = 'akari-caption-style-card';
     const textStyle: CaptionTextStyle = captionPanelTextStyle(raw);
     const sample = createCaptionHoverPreview(document, { text: CAPTION_SAMPLE_TEXT, textStyle, width: 640, height: 240,
         bounds: { left: 0, right: 0, top: 0, bottom: 0 }, innerWidth: 640, innerHeight: 400,
         maxImageSize: 160 });
+    sample.style.display = 'none';
+    const specimen = document.createElement('div');
+    specimen.className = 'akari-caption-style-specimen';
+    const face = document.createElement('span');
+    face.textContent = CAPTION_SAMPLE_TEXT;
+    applyLibraryTextStyleSample(face.style, libraryTextStyleSample(raw));
+    specimen.append(face);
     const label = document.createElement('span');
     label.textContent = name;
-    card.append(sample, label);
-    return previewable(card, textStyle, actions);
+    card.append(sample, specimen, label);
+    return previewable(card, id.startsWith('mystyle/') ? textStyle : presetPreviewStyle(raw, currentSize), actions);
 }
 
 export function createCaptionPanel(document: Document, panel: CaptionPanel, state: CaptionPanelViewState,
-    myStyles: readonly CaptionPanelMyStyle[], fontFaces: ReadonlyMap<string, string>, actions: CaptionPanelActions): HTMLElement {
+    myStyles: readonly CaptionPanelMyStyle[], fontFaces: ReadonlyMap<string, string>, actions: CaptionPanelActions,
+    presets: readonly CaptionPanelPreset[] = CAPTION_PANEL_STYLES,
+    currentSize = CAPTION_DEFAULT_SIZE_PX): HTMLElement {
     const root = document.createElement('div');
     root.className = 'akari-caption-panel';
     root.setAttribute('data-akari-caption-panel', panel);
@@ -230,10 +249,10 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         root.append(heading(document, '最近使ったスタイル'));
         const recent = document.createElement('div'); recent.className = 'akari-caption-recent';
         for (const id of state.recentStyles) {
-            const item = CAPTION_PANEL_STYLES.find(style => style.id === id);
+            const item = presets.find(style => style.id === id);
             if (item) recent.append(previewable(button(document, item.name, () => {
                 actions.confirm(); actions.style(item.style, item.id);
-            }), captionPanelTextStyle(item.style), actions));
+            }), presetPreviewStyle(item.style, currentSize), actions));
             else if (id.startsWith('mystyle/')) {
                 const mine = myStyles.find(style => `mystyle/${style.id}` === id);
                 if (mine) recent.append(previewable(button(document, mine.name, () => {
@@ -241,16 +260,16 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
                 }), captionPanelTextStyle(myStyleLook(mine)), actions));
             }
         }
-        root.append(recent, heading(document, 'マイスタイル'));
+        root.append(recent, heading(document, 'テキストスタイル'));
+        const presetGrid = document.createElement('div'); presetGrid.className = 'akari-caption-style-grid';
+        for (const item of presets) presetGrid.append(sampleCard(document, item.id, item.name,
+            item.style, () => actions.style(item.style, item.id), actions, currentSize));
+        root.append(presetGrid);
+        root.append(heading(document, 'マイスタイル'));
         const mine = document.createElement('div'); mine.className = 'akari-caption-style-grid';
         for (const item of myStyles) mine.append(sampleCard(document, `mystyle/${item.id}`, item.name,
-            myStyleLook(item), () => actions.style(myStyleLook(item), `mystyle/${item.id}`), actions));
-        root.append(mine, button(document, '＋ 今のスタイルをマイスタイルに保存', actions.save),
-            heading(document, 'テキストスタイル'));
-        const presets = document.createElement('div'); presets.className = 'akari-caption-style-grid';
-        for (const item of CAPTION_PANEL_STYLES) presets.append(sampleCard(document, item.id, item.name,
-            item.style, () => actions.style(item.style, item.id), actions));
-        root.append(presets);
+            myStyleLook(item), () => actions.style(myStyleLook(item), `mystyle/${item.id}`), actions, currentSize));
+        root.append(mine, button(document, '＋ 今のスタイルをマイスタイルに保存', actions.save));
     }
     root.addEventListener('keydown', event => {
         if (event.key === 'Escape') { event.preventDefault(); actions.escape(); return; }

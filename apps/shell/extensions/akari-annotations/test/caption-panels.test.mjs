@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captionPanelFontWrite,
-    filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail,
+    captionPanelLookWrite, filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail,
     renderableCaptionFonts, CAPTION_FONT_FAMILY } from '../lib/common/caption-panel-state.js';
 import { CAPTION_PANEL_FONTS } from '../lib/common/caption-panel-catalog.js';
 import { filterCaptionPanelFonts } from '../lib/common/caption-font-label.js';
@@ -10,6 +11,8 @@ import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { createCaptionPanel, CAPTION_PANEL_STYLES } from '../lib/browser/inspector/caption-panels.js';
 import { updateCaptionTextStyleInSource } from '../lib/common/caption-store.js';
 import { createRequire } from 'node:module';
+import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../../akari-project/lib/common/preset-showcase.js';
+import { libraryTextStyleSample } from '../../akari-preview/lib/common/textstyle-sample.js';
 
 const require = createRequire(import.meta.url);
 const { CAPTION_SAMPLE_TEXT } = require('../../../../../packages/edit-store/lib/index.js');
@@ -151,6 +154,76 @@ test('スタイルカードは固定文字に色・縁・座布団・影・書�
     const glitch = cards.find(card => card.attributes['data-akari-style-card'] === 'glitch');
     const glitchCaption = descendants(glitch).find(node => node.className === 'akari-caption');
     assert.match(glitchCaption.style['--caption-text-shadow'], /#ff0066/u);
+});
+
+test('右のスタイル id は左の索引順とライブラリ由来、続くマイスタイルの順になる', () => {
+    const index = readFileSync(new URL('../../../../../presets/textstyle/index.jsonl', import.meta.url), 'utf8');
+    const library = [{ id: 'custom-rich', name: '自作リッチ', category: 'title', origin: 'library',
+        style: { size_px: 168, color: '#fff' } }];
+    const showcase = appendLibraryTextstyleShowcaseItems(parsePresetShowcaseJsonl(index, 'textstyle'), library);
+    const mine = [{ id: 'saved', name: '保存', parts: [{ kind: 'look', text_style: { color: '#fff' } }] }];
+    const panel = createCaptionPanel(document, 'style', state(), mine, faces, actions, showcase);
+    const ids = descendants(panel).filter(node => node.attributes['data-akari-style-card'])
+        .map(node => node.attributes['data-akari-style-card']);
+    assert.deepEqual(ids, [...showcase.map(item => item.id), 'mystyle/saved']);
+});
+
+test('右の見本は共有 CSS で光・多重縁・グラデーション・大文字化を描きサイズを揃える', () => {
+    const rich = { size_px: 168, text_transform: 'uppercase',
+        glow: { color: '#00eeff', density: 80, spread: 30 },
+        strokes: [{ color: '#000000', width_px: 10 }, { color: '#ffffff', width_px: 4 }],
+        fill: { type: 'gradient', angle_deg: 180, stops: [
+            { at: 0, color: '#111111' }, { at: 100, color: '#ffffff' }] } };
+    const presets = [{ id: 'rich', name: 'リッチ', style: rich },
+        { id: 'small', name: '小', style: { size_px: 56, color: '#fff' } }];
+    const panel = createCaptionPanel(document, 'style', state(), [], faces, actions, presets);
+    const cards = descendants(panel).filter(node => node.attributes['data-akari-style-card']);
+    const face = card => descendants(card).find(node => node.className === 'akari-caption-style-specimen').children[0];
+    const leftSample = libraryTextStyleSample(rich);
+    assert.equal(face(cards[0]).style.fontSize, `${leftSample.fontSize}px`);
+    assert.equal(face(cards[0]).style.fontSize, face(cards[1]).style.fontSize);
+    assert.equal(face(cards[0]).style.WebkitTextStroke, leftSample.WebkitTextStroke);
+    assert.equal(face(cards[0]).style.textShadow, leftSample.textShadow);
+    assert.equal(face(cards[0]).style.backgroundImage, leftSample.backgroundImage);
+    assert.match(face(cards[0]).style.textShadow, /#00eeff/u);
+    assert.match(face(cards[0]).style.textShadow, /#ffffff/u);
+    assert.match(face(cards[0]).style.WebkitTextStroke, /#000000/u);
+    assert.match(face(cards[0]).style.backgroundImage, /linear-gradient/u);
+    assert.equal(face(cards[0]).style.textTransform, 'uppercase');
+});
+
+test('右から用意されたスタイルは動きとサイズ保持を渡し、マイスタイルは保存サイズを渡す', () => {
+    const preset = { id: 'impact', style: { size_px: 168, animation: { in: { id: 'pop' } } } };
+    const prepared = captionPanelLookWrite('one', preset.style, preset.id, [preset]);
+    assert.equal(prepared.value.keepSize, true);
+    assert.deepEqual(prepared.value.parts.map(part => part.kind), ['look', 'motion']);
+    assert.deepEqual(prepared.value.parts[1].animation, { in: { id: 'pop' } });
+    const saved = captionPanelLookWrite('one', { size_px: 80 }, 'mystyle/saved', [preset]);
+    assert.equal(saved.value.keepSize, undefined);
+    assert.equal(saved.value.parts[0].text_style.size_px, 80);
+});
+
+test('右の同梱スタイルはカードと最近使った行の仮表示でも現在の大きさと px 比を保つ', () => {
+    const preset = { id: 'impact', name: 'インパクト', style: { size_px: 168,
+        stroke: { color: '#000', width_px: 10 }, shadow: { color: '#111', blur_px: 12 } } };
+    const mine = [{ id: 'saved', name: '保存', parts: [{ kind: 'look', text_style: { size_px: 80 } }] }];
+    const previews = [];
+    const panelState = state();
+    panelState.recentStyles = ['impact', 'mystyle/saved'];
+    const panel = createCaptionPanel(document, 'style', panelState, mine, faces,
+        { ...actions, preview: style => previews.push(style) }, [preset], 56);
+    const cards = descendants(panel).filter(node => node.attributes['data-akari-style-card']);
+    cards[0].fire('pointerenter');
+    assert.equal(previews.at(-1).sizePx, 56);
+    assert.ok(Math.abs(previews.at(-1).stroke.widthPx - 10 * 56 / 168) < 1e-10);
+    assert.equal(previews.at(-1).shadow.blurPx, 4);
+    const recent = descendants(panel).find(node => node.className === 'akari-caption-recent');
+    recent.children[0].fire('focus');
+    assert.equal(previews.at(-1).sizePx, 56);
+    recent.children[1].fire('focus');
+    assert.equal(previews.at(-1).sizePx, 80);
+    cards[1].fire('pointerenter');
+    assert.equal(previews.at(-1).sizePx, 80);
 });
 
 test('フォント行・フィルターチップ・追加ボタンは安定した data 属性を持つ', () => {

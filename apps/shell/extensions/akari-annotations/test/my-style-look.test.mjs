@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { effectiveMyStyleLook, effectiveMyStyleMotion, myStyleSaveParts, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle,
   placedMyStyleMotion, appliedMyStyleKinds, unsupportedMyStyleLookFields, replaceMyStyleLookInSource, replaceMyStylePartsInSource, appendMyStyleUsage,
-  myStyleOutputHeight, newMyStyleSlug } from '../lib/browser/my-style-look.js';
+  myStyleOutputHeight, newMyStyleSlug, captionEffectiveSize } from '../lib/browser/my-style-look.js';
 import { myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedStyleItem,
   supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
 import { resolveItemAnchors } from '../../../../../packages/edit-store/lib/index.js';
@@ -190,6 +190,93 @@ test('look は余分な効果を消し、位置・動き・任意欄を保ち、
   assert.deepEqual(placedMyStyleTextStyle({ position: { y: 0.4 }, glow: { color: '#fff' } },
     { color: '#f00', reference_height_px: 1920 }),
   { position: { y: 0.4 }, color: '#f00', referenceHeightPx: 1920 });
+});
+
+test('かける時はサイズと基準高さを保ち px の見た目だけを縮める', () => {
+  const source = JSON.stringify({ default_text_style: { size_px: 48, reference_height_px: 1080 },
+    captions: [{ id: 'one', text_style: { size_px: 56, reference_height_px: 720 } },
+      { id: 'two', text_style: { color: '#fff' } }] });
+  const look = { size_px: 168, reference_height_px: 1920, stroke: { color: '#000', width_px: 10 },
+    shadow: { color: '#111', blur_px: 12, distance_px: 9, angle_deg: 30 },
+    background: { padding_px: 15, radius_px: 6 },
+    glow: { color: '#222', spread: 18, offset_x: 3, offset_y: 6 } };
+  const rows = JSON.parse(replaceMyStyleLookInSource(source, ['one', 'two'], look,
+    { keepSize: true })).captions;
+  assert.equal(rows[0].text_style.size_px, 56);
+  assert.equal(rows[0].text_style.reference_height_px, 720);
+  assert.ok(Math.abs(rows[0].text_style.stroke.width_px - 10 * 56 / 168) < 1e-10);
+  assert.equal(rows[0].text_style.shadow.blur_px, 4);
+  assert.equal(rows[0].text_style.shadow.distance_px, 3);
+  assert.equal(rows[0].text_style.background.padding_px, 5);
+  assert.equal(rows[0].text_style.background.radius_px, 2);
+  assert.equal(rows[0].text_style.glow.spread, 6);
+  assert.equal(rows[0].text_style.glow.offset_x, 1);
+  assert.equal(rows[1].text_style.size_px, 48);
+  assert.equal(rows[1].text_style.reference_height_px, 1080);
+  assert.ok(Math.abs(rows[1].text_style.stroke.width_px - 10 * 48 / 168) < 1e-10);
+});
+
+test('かける時はリッチな fill と strokes を丸ごと写し通知から外す', () => {
+  const fill = { type: 'gradient', angle_deg: 180,
+    stops: [{ at: 0, color: '#111111' }, { at: 100, color: '#ffffff' }] };
+  const strokes = [{ color: '#000000', width_px: 10, offset_x: 2 },
+    { color: '#ffffff', width_px: 4 }];
+  const look = { size_px: 168, fill, strokes, stroke: { color: '#aaa', width_px: 8 } };
+  const source = JSON.stringify({ captions: [{ id: 'one', text_style: { size_px: 56,
+    fill: { type: 'solid', color: '#ff0000' }, strokes: [{ color: '#f00', width_px: 1 }] } }] });
+  const applied = JSON.parse(replaceMyStyleLookInSource(source, ['one'], look,
+    { keepSize: true })).captions[0].text_style;
+  assert.deepEqual(applied.fill, fill);
+  assert.deepEqual(applied.strokes, [{ color: '#000000', width_px: 10 * (56 / 168), offset_x: 2 * (56 / 168) },
+    { color: '#ffffff', width_px: 4 * (56 / 168) }]);
+  assert.equal(applied.stroke.width_px, 8 / 3);
+  assert.equal(myStyleApplyNotice([{ kind: 'look', text_style: look }]), undefined);
+  assert.deepEqual(unsupportedMyStyleLookFields(look), []);
+});
+
+test('既存プリセットの実効サイズを保ち、新しく置く文字は選んだサイズにする', () => {
+  const source = JSON.stringify({ captions: [{ id: 'one', style_preset: 'neon', text_style: {} }] });
+  const applied = JSON.parse(replaceMyStyleLookInSource(source, ['one'], {
+    size_px: 168, stroke: { color: '#000', width_px: 10 }
+  }, { keepSize: true })).captions[0];
+  assert.equal(applied.text_style.size_px, 120);
+  assert.ok(Math.abs(applied.text_style.stroke.width_px - 10 * 120 / 168) < 1e-10);
+  assert.equal(placedMyStyleTextStyle(undefined, { size_px: 168 }).sizePx, 168);
+});
+
+test('ライブラリ由来の旧プリセットサイズを合算カタログから解決する', () => {
+  const source = JSON.stringify({ captions: [{ id: 'one', style_preset: 'custom-style' }] });
+  const catalog = { 'custom-style': { style: { size_px: 72, reference_height_px: 1080 } } };
+  const result = JSON.parse(replaceMyStyleLookInSource(source, ['one'], {
+    size_px: 144, background: { padding_px: 12 }
+  }, { keepSize: true, catalog })).captions[0].text_style;
+  assert.equal(result.size_px, 72);
+  assert.equal(result.reference_height_px, 1080);
+  assert.equal(result.background.padding_px, 6);
+});
+
+test('ツリー選択の仮表示も合算カタログから字幕の実効サイズを読む', () => {
+  const catalog = { 'library-original': { style: { size_px: 120 } } };
+  assert.equal(captionEffectiveSize({ style_preset: 'library-original' }, {}, catalog), 120);
+  assert.equal(captionEffectiveSize({ style_preset: 'library-original',
+    text_style: { size_px: 56 } }, {}, catalog), 56);
+});
+
+test('pattern のタイル寸法だけをサイズ比で変え、マイスタイルは保存値をそのまま当てる', () => {
+  const look = { size_px: 168, reference_height_px: 1920,
+    fill: { type: 'pattern', pattern: { id: 'dot', scale: 1.5, fg: '#fff', bg: '#000' } },
+    strokes: [{ color: '#000', width_px: 10, offset_y: 3 }] };
+  const source = JSON.stringify({ captions: [{ id: 'one', text_style: { size_px: 56 } }] });
+  const kept = JSON.parse(replaceMyStyleLookInSource(source, ['one'], look,
+    { keepSize: true })).captions[0].text_style;
+  assert.equal(kept.fill.pattern.scale, 0.5);
+  assert.equal(kept.strokes[0].width_px, 10 * (56 / 168));
+  assert.equal(kept.strokes[0].offset_y, 1);
+  const saved = JSON.parse(replaceMyStyleLookInSource(source, ['one'], look)).captions[0].text_style;
+  assert.equal(saved.size_px, 168);
+  assert.equal(saved.reference_height_px, 1920);
+  assert.deepEqual(saved.fill, look.fill);
+  assert.deepEqual(saved.strokes, look.strokes);
 });
 
 test('利用台帳は既存の行を保持して追記する', () => {

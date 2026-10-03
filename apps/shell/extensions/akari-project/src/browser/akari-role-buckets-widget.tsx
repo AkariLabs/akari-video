@@ -104,7 +104,8 @@ import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
-import { fitStyleSpecimen, libraryTextStyleSample } from '../common/library-shelf-visuals';
+import { fitStyleSpecimen } from '../common/library-shelf-visuals';
+import { libraryTextStyleSample } from 'akari-preview/lib/common/textstyle-sample';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
@@ -4294,7 +4295,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async applyPresetToSelectedCaption(item: PresetShowcaseItem): Promise<void> {
         try {
             await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
-                payload: item.kind === 'textstyle' ? libraryTextstyleApplyPayload(item) : presetApplyPayload(item),
+                payload: item.kind === 'textstyle' ? libraryTextstyleApplyPayload(item,
+                    Object.fromEntries(this.presetShowcase.textstyle.map(preset =>
+                        [preset.id, { style: preset.style ?? {} }])))
+                    : presetApplyPayload(item),
                 editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
             });
         } catch (error) {
