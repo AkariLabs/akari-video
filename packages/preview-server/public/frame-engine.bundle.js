@@ -24419,6 +24419,7 @@ var BASE_RGBA_UNITS = [6, 7];
 var LAYER_RGBA_UNIT = 8;
 var MASK_RGBA_UNIT = 10;
 var LUT_UNIT = 11;
+var MAX_LOOK_TEXTURES = 64;
 var DISSOLVE_NOISE_UNIT = 12;
 var BASE_ADJUST_LUT_UNITS = [LUT_UNIT, 13];
 var FX_ORIGINAL_UNIT = 14;
@@ -24692,7 +24693,7 @@ var WebGL2Compositor = class {
   baseFxTextures = [];
   imageTextures = /* @__PURE__ */ new WeakMap();
   ownedImageTextures = /* @__PURE__ */ new Set();
-  lookTextures = /* @__PURE__ */ new WeakMap();
+  lookTextures = /* @__PURE__ */ new Map();
   ownedLookTextures = /* @__PURE__ */ new Set();
   dissolveNoiseTextures = /* @__PURE__ */ new Map();
   disposed = false;
@@ -24752,7 +24753,11 @@ var WebGL2Compositor = class {
   }
   lookTexture(lut, allocationUnit = LUT_UNIT) {
     const cached = this.lookTextures.get(lut);
-    if (cached) return cached;
+    if (cached) {
+      this.lookTextures.delete(lut);
+      this.lookTextures.set(lut, cached);
+      return cached;
+    }
     const texture = this.gl.createTexture();
     if (!texture) throw new Error("WebGL2 could not allocate a 3D LUT texture");
     const gl = this.gl;
@@ -24777,6 +24782,13 @@ var WebGL2Compositor = class {
     );
     this.lookTextures.set(lut, texture);
     this.ownedLookTextures.add(texture);
+    if (this.lookTextures.size > MAX_LOOK_TEXTURES) {
+      const oldest = this.lookTextures.keys().next().value;
+      const stale = this.lookTextures.get(oldest);
+      this.gl.deleteTexture(stale);
+      this.ownedLookTextures.delete(stale);
+      this.lookTextures.delete(oldest);
+    }
     return texture;
   }
   dissolveNoiseTexture(width, height) {
@@ -25807,6 +25819,8 @@ var WebGL2Compositor = class {
       this.gl.deleteProgram(value.program);
     this.basePrograms.clear();
     this.dissolveNoiseTextures.clear();
+    this.lookTextures.clear();
+    this.ownedLookTextures.clear();
     this.gl.deleteProgram(this.layerProgram);
     this.gl.deleteProgram(this.filterProgram);
     this.gl.deleteProgram(this.copyProgram);
@@ -26439,22 +26453,44 @@ function normalizeAdjustHue(hue) {
   return result;
 }
 function isAdjustWheelsIdentity(wheels) {
-  return Object.values(normalizeAdjustWheels(wheels)).every((wheel) => Object.values(wheel).every((value) => value === 0));
+  return normalizedWheelsIdentity(normalizeAdjustWheels(wheels));
 }
 function isAdjustCurvesIdentity(curves) {
-  return Object.values(normalizeAdjustCurves(curves)).every((points) => points.length === 2 && Math.abs(points[0].in) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[0].out) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].in - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].out - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON);
+  return normalizedCurvesIdentity(normalizeAdjustCurves(curves));
+}
+function normalizedWheelsIdentity(wheels) {
+  return Object.values(wheels).every((wheel) => Object.values(wheel).every((value) => value === 0));
+}
+function normalizedCurvesIdentity(curves) {
+  return Object.values(curves).every((points) => points.length === 2 && Math.abs(points[0].in) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[0].out) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].in - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].out - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON);
 }
 function isAdjustHueIdentity(hue) {
-  return Object.values(normalizeAdjustHue(hue)).every((points) => points.every((point) => Math.abs(point.value - 0.5) <= ADJUST_CONSTANTS.HUE_EPSILON));
+  return normalizedHueIdentity(normalizeAdjustHue(hue));
 }
-function applyAdjustWheels(r, g2, b, wheels) {
-  const p2 = normalizeAdjustWheels(wheels);
-  return RGB_CHANNELS.map((channel, index) => {
-    let c = [r, g2, b][index] * (1 - p2.lift[channel]) + p2.lift[channel];
-    c = Math.pow(Math.max(0, c), 1 / (1 + p2.gamma[channel]));
-    c *= 1 + p2.gain[channel];
-    return clamp01(c + p2.offset[channel]);
+function normalizedHueIdentity(hue) {
+  return Object.values(hue).every((points) => points.every((point) => Math.abs(point.value - 0.5) <= ADJUST_CONSTANTS.HUE_EPSILON));
+}
+function prepareWheels(p2) {
+  const channel = (key) => ({
+    lift: p2.lift[key],
+    liftFactor: 1 - p2.lift[key],
+    exponent: 1 / (1 + p2.gamma[key]),
+    gainFactor: 1 + p2.gain[key],
+    offset: p2.offset[key]
   });
+  return { r: channel("r"), g: channel("g"), b: channel("b") };
+}
+function applyPreparedWheels(r, g2, b, p2, out) {
+  out.r = applyWheelChannel(r, p2.r);
+  out.g = applyWheelChannel(g2, p2.g);
+  out.b = applyWheelChannel(b, p2.b);
+}
+function applyWheelChannel(value, p2) {
+  let c = value * p2.liftFactor + p2.lift;
+  c = Math.max(0, c);
+  c = p2.exponent === 1 ? c : Math.pow(c, p2.exponent);
+  c *= p2.gainFactor;
+  return clamp01(c + p2.offset);
 }
 function evalCurve(points, x3) {
   if (!points.length) return x3;
@@ -26472,10 +26508,14 @@ function evalCurve(points, x3) {
   }
   return clamp01(last.out);
 }
-function applyAdjustCurves(r, g2, b, curves) {
-  if (isAdjustCurvesIdentity(curves)) return [r, g2, b];
-  const p2 = normalizeAdjustCurves(curves);
-  return [evalCurve(p2.r, evalCurve(p2.master, r)), evalCurve(p2.g, evalCurve(p2.master, g2)), evalCurve(p2.b, evalCurve(p2.master, b))];
+function isExactLinearCurve(points) {
+  return points.length === 2 && points[0].in === 0 && points[0].out === 0 && points[1].in === 1 && points[1].out === 1;
+}
+function applyPreparedCurvesInto(r, g2, b, p2, linear, out) {
+  const mr = evalCurve(p2.master, r), mg = evalCurve(p2.master, g2), mb = evalCurve(p2.master, b);
+  out.r = linear[0] ? mr : evalCurve(p2.r, mr);
+  out.g = linear[1] ? mg : evalCurve(p2.g, mg);
+  out.b = linear[2] ? mb : evalCurve(p2.b, mb);
 }
 function sampleHue(points, x3) {
   if (!points.length) return 0.5;
@@ -26493,9 +26533,13 @@ function sampleHue(points, x3) {
   }
   return last.value;
 }
-function applyAdjustHue(r, g2, b, hue) {
-  if (isAdjustHueIdentity(hue)) return [r, g2, b];
-  const p2 = normalizeAdjustHue(hue);
+function applyNormalizedHueInto(r, g2, b, p2, identity, out, satEmpty = false, lumaEmpty = false) {
+  if (identity) {
+    out.r = r;
+    out.g = g2;
+    out.b = b;
+    return;
+  }
   const cmax = Math.max(r, g2, b), cmin = Math.min(r, g2, b), d2 = cmax - cmin;
   let h = 0;
   if (d2 > ADJUST_CONSTANTS.HUE_EPSILON) {
@@ -26507,9 +26551,9 @@ function applyAdjustHue(r, g2, b, hue) {
   const s = cmax > ADJUST_CONSTANTS.HUE_EPSILON ? d2 / cmax : 0;
   const shift = (sampleHue(p2.hue, h) - 0.5) * 2;
   const newH = (h + shift + 1) % 1;
-  const satGain = sampleHue(p2.sat, h) * 2;
+  const satGain = satEmpty ? 1 : sampleHue(p2.sat, h) * 2;
   const newS = clamp01(s * satGain);
-  const lumaGain = sampleHue(p2.luma, h) * 2;
+  const lumaGain = lumaEmpty ? 1 : sampleHue(p2.luma, h) * 2;
   const newV = clamp01(cmax * lumaGain);
   const c = newS * newV, hh = newH * 6;
   const x3 = c * (1 - Math.abs(hh % 2 - 1)), m2 = newV - c;
@@ -26534,21 +26578,105 @@ function applyAdjustHue(r, g2, b, hue) {
     cr = c;
     cb = x3;
   }
-  return [clamp01(cr + m2), clamp01(cg + m2), clamp01(cb + m2)];
+  out.r = clamp01(cr + m2);
+  out.g = clamp01(cg + m2);
+  out.b = clamp01(cb + m2);
 }
-function applyItemAdjust(r, g2, b, adjust, lutSampler) {
-  let rgb = [r, g2, b];
-  if (adjust?.sections?.basic !== false) rgb = applyAdjustBasic(...rgb, adjust?.basic);
-  if (adjust?.sections?.lut !== false && adjust?.lut && lutSampler) {
-    const sampled = lutSampler(...rgb);
-    const raw = adjust.lut.intensity ?? 1;
-    const intensity = Number.isFinite(raw) ? clamp01(raw) : 1;
-    rgb = rgb.map((value, index) => value + (sampled[index] - value) * intensity);
-  }
-  if (adjust?.sections?.wheels !== false) rgb = applyAdjustWheels(...rgb, adjust?.wheels);
-  if (adjust?.sections?.curves !== false) rgb = applyAdjustCurves(...rgb, adjust?.curves);
-  if (adjust?.sections?.hue !== false) rgb = applyAdjustHue(...rgb, adjust?.hue);
-  return rgb;
+function prepareItemAdjust(adjust, lutSampler) {
+  const normalized = {
+    basic: normalizeAdjustBasic(adjust?.basic),
+    lut: adjust?.lut ? { ...adjust.lut, intensity: Number.isFinite(adjust.lut.intensity ?? 1) ? clamp01(adjust.lut.intensity ?? 1) : 1 } : null,
+    wheels: normalizeAdjustWheels(adjust?.wheels),
+    curves: normalizeAdjustCurves(adjust?.curves),
+    hue: normalizeAdjustHue(adjust?.hue),
+    sections: adjust?.sections
+  };
+  const basic = normalized.basic;
+  const wheels = normalized.wheels;
+  const curves = normalized.curves;
+  const hue = normalized.hue;
+  const preparedWheels = prepareWheels(wheels);
+  const curvesIdentity = normalizedCurvesIdentity(curves);
+  const hueIdentity = normalizedHueIdentity(hue);
+  const basicEnabled = normalized.sections?.basic !== false && !Object.values(basic).every((value) => value === 0);
+  const lutEnabled = normalized.sections?.lut !== false && !!normalized.lut && !!lutSampler;
+  const wheelsEnabled = normalized.sections?.wheels !== false;
+  const curvesEnabled = normalized.sections?.curves !== false && !curvesIdentity;
+  const hueEnabled = normalized.sections?.hue !== false && !hueIdentity;
+  const lutIntensity = normalized.lut?.intensity ?? 1;
+  const linearCurves = [isExactLinearCurve(curves.r), isExactLinearCurve(curves.g), isExactLinearCurve(curves.b)];
+  const hueSatEmpty = hue.sat.length === 0, hueLumaEmpty = hue.luma.length === 0;
+  const separableBeforeHue = !basicEnabled && !lutEnabled;
+  return {
+    normalized,
+    /** The grid's pre-hue stages are independent across RGB when basic/LUT are absent. */
+    prepareSeparableGrid(size) {
+      if (!separableBeforeHue) return void 0;
+      const red = new Float64Array(size), green = new Float64Array(size), blue = new Float64Array(size);
+      for (let i2 = 0; i2 < size; i2 += 1) {
+        let r = i2 / (size - 1), g2 = r, b = r;
+        if (wheelsEnabled) {
+          r = applyWheelChannel(r, preparedWheels.r);
+          g2 = applyWheelChannel(g2, preparedWheels.g);
+          b = applyWheelChannel(b, preparedWheels.b);
+        }
+        if (curvesEnabled) {
+          const mr = evalCurve(curves.master, r), mg = evalCurve(curves.master, g2), mb = evalCurve(curves.master, b);
+          r = linearCurves[0] ? mr : evalCurve(curves.r, mr);
+          g2 = linearCurves[1] ? mg : evalCurve(curves.g, mg);
+          b = linearCurves[2] ? mb : evalCurve(curves.b, mb);
+        }
+        red[i2] = r;
+        green[i2] = g2;
+        blue[i2] = b;
+      }
+      return { red, green, blue };
+    },
+    applyHueInto(r, g2, b, out) {
+      if (hueEnabled) applyNormalizedHueInto(r, g2, b, hue, false, out, hueSatEmpty, hueLumaEmpty);
+      else {
+        out.r = r;
+        out.g = g2;
+        out.b = b;
+      }
+    },
+    applyInto(r, g2, b, out) {
+      let cr = r, cg = g2, cb = b;
+      if (basicEnabled) {
+        applyNormalizedBasicInto(cr, cg, cb, basic, out);
+        cr = out.r;
+        cg = out.g;
+        cb = out.b;
+      }
+      if (lutEnabled && lutSampler) {
+        lutSampler(cr, cg, cb, out);
+        cr = cr + (out.r - cr) * lutIntensity;
+        cg = cg + (out.g - cg) * lutIntensity;
+        cb = cb + (out.b - cb) * lutIntensity;
+      }
+      if (wheelsEnabled) {
+        applyPreparedWheels(cr, cg, cb, preparedWheels, out);
+        cr = out.r;
+        cg = out.g;
+        cb = out.b;
+      }
+      if (curvesEnabled) {
+        applyPreparedCurvesInto(cr, cg, cb, curves, linearCurves, out);
+        cr = out.r;
+        cg = out.g;
+        cb = out.b;
+      }
+      if (hueEnabled) {
+        applyNormalizedHueInto(cr, cg, cb, hue, false, out, hueSatEmpty, hueLumaEmpty);
+        cr = out.r;
+        cg = out.g;
+        cb = out.b;
+      }
+      out.r = cr;
+      out.g = cg;
+      out.b = cb;
+    }
+  };
 }
 function clamp2(value, low, high) {
   if (!Number.isFinite(value)) return 0;
@@ -26581,10 +26709,12 @@ function normalizeAdjustBasic(basic) {
 }
 function isAdjustBasicIdentity(basic) {
   const normalized = normalizeAdjustBasic(basic);
-  return Object.values(normalized).every((value) => Math.abs(value) <= ADJUST_CONSTANTS.IDENTITY_EPSILON);
+  return normalizedBasicIdentity(normalized);
 }
-function applyAdjustBasic(r, g2, b, basic) {
-  const p2 = normalizeAdjustBasic(basic);
+function normalizedBasicIdentity(basic) {
+  return Object.values(basic).every((value) => Math.abs(value) <= ADJUST_CONSTANTS.IDENTITY_EPSILON);
+}
+function applyNormalizedBasicInto(r, g2, b, p2, out) {
   let cr = r;
   let cg = g2;
   let cb = b;
@@ -26664,13 +26794,15 @@ function applyAdjustBasic(r, g2, b, basic) {
     cg = clamp01(currentLuma + (cg - currentLuma) * (1 + amount));
     cb = clamp01(currentLuma + (cb - currentLuma) * (1 + amount));
   }
-  return [cr, cg, cb];
+  out.r = cr;
+  out.g = cg;
+  out.b = cb;
 }
 
 // ../frame-engine/src/adjust/bake.ts
 var ADJUST_LUT_SIZE = 33;
-var lastBakeKey = "";
-var lastBakeResult;
+var MAX_BAKED_LUTS = 32;
+var bakedLuts = /* @__PURE__ */ new Map();
 var lutIdMap = /* @__PURE__ */ new WeakMap();
 var nextLutId = 1;
 function lutMemoId(lut) {
@@ -26683,12 +26815,47 @@ function lutMemoId(lut) {
   }
   return id;
 }
-function normalizedIntensity(value) {
-  if (!Number.isFinite(value)) return 1;
-  return Math.max(0, Math.min(1, value));
-}
 function cubeComponent(value) {
-  return Number(value.toFixed(6));
+  if (value === 0) return 0;
+  if (!(value >= 0 && value <= 1)) return Number(value.toFixed(6));
+  const scaled = value * 1e6;
+  const fraction = scaled - Math.floor(scaled);
+  if (Math.abs(fraction - 0.5) < 1e-7) return Number(value.toFixed(6));
+  return Math.round(scaled) / 1e6;
+}
+function lutValue2(lut, r, g2, b, channel) {
+  return lut.data[(b * lut.size * lut.size + g2 * lut.size + r) * 3 + channel];
+}
+function sampleLutChannel(lut, r0, r1, g0, g1, b0, b1, fr, fg, fb, channel) {
+  const c000 = lutValue2(lut, r0, g0, b0, channel), c100 = lutValue2(lut, r1, g0, b0, channel);
+  const c010 = lutValue2(lut, r0, g1, b0, channel), c110 = lutValue2(lut, r1, g1, b0, channel);
+  const c001 = lutValue2(lut, r0, g0, b1, channel), c101 = lutValue2(lut, r1, g0, b1, channel);
+  const c011 = lutValue2(lut, r0, g1, b1, channel), c111 = lutValue2(lut, r1, g1, b1, channel);
+  const x00 = c000 + (c100 - c000) * fr;
+  const x10 = c010 + (c110 - c010) * fr;
+  const x01 = c001 + (c101 - c001) * fr;
+  const x11 = c011 + (c111 - c011) * fr;
+  const y0 = x00 + (x10 - x00) * fg;
+  const y1 = x01 + (x11 - x01) * fg;
+  return y0 + (y1 - y0) * fb;
+}
+function lutPosition(lut, value, channel) {
+  const numeric = Number(value);
+  const finite4 = Number.isFinite(numeric) ? numeric : 0;
+  const unit = (finite4 - lut.domainMin[channel]) / (lut.domainMax[channel] - lut.domainMin[channel]);
+  return Math.min(1, Math.max(0, unit)) * (lut.size - 1);
+}
+function sampleLutInto(lut, r, g2, b, out) {
+  if (!lut || !Number.isInteger(lut.size) || !(lut.data instanceof Float32Array)) {
+    throw new TypeError("a parsed 3D LUT is required");
+  }
+  const pr = lutPosition(lut, r, 0), pg = lutPosition(lut, g2, 1), pb = lutPosition(lut, b, 2);
+  const r0 = Math.floor(pr), g0 = Math.floor(pg), b0 = Math.floor(pb);
+  const r1 = Math.min(lut.size - 1, r0 + 1), g1 = Math.min(lut.size - 1, g0 + 1), b1 = Math.min(lut.size - 1, b0 + 1);
+  const fr = pr - r0, fg = pg - g0, fb = pb - b0;
+  out.r = sampleLutChannel(lut, r0, r1, g0, g1, b0, b1, fr, fg, fb, 0);
+  out.g = sampleLutChannel(lut, r0, r1, g0, g1, b0, b1, fr, fg, fb, 1);
+  out.b = sampleLutChannel(lut, r0, r1, g0, g1, b0, b1, fr, fg, fb, 2);
 }
 function isItemAdjustIdentity(adjust) {
   return (adjust?.sections?.basic === false || isAdjustBasicIdentity(adjust?.basic)) && (adjust?.sections?.lut === false || !adjust?.lut || adjust.lut.intensity === 0) && (adjust?.sections?.wheels === false || isAdjustWheelsIdentity(adjust?.wheels)) && (adjust?.sections?.curves === false || isAdjustCurvesIdentity(adjust?.curves)) && (adjust?.sections?.hue === false || isAdjustHueIdentity(adjust?.hue));
@@ -26697,27 +26864,29 @@ function bakeItemAdjustLut(adjust, userLut, size = ADJUST_LUT_SIZE) {
   if (!Number.isInteger(size) || size < 2 || size > 256) {
     throw new RangeError("size must be an integer between 2 and 256");
   }
-  const normalized = {
-    basic: normalizeAdjustBasic(adjust?.basic),
-    lut: adjust?.lut ? { ...adjust.lut, intensity: normalizedIntensity(adjust.lut.intensity ?? 1) } : null,
-    wheels: normalizeAdjustWheels(adjust?.wheels),
-    curves: normalizeAdjustCurves(adjust?.curves),
-    hue: normalizeAdjustHue(adjust?.hue),
-    sections: adjust?.sections
-  };
+  const sampler = userLut ? (r, g2, b, out) => sampleLutInto(userLut, r, g2, b, out) : void 0;
+  const prepared = prepareItemAdjust(adjust, sampler);
+  const normalized = prepared.normalized;
   const key = `${JSON.stringify(normalized)}|${size}|${lutMemoId(userLut)}`;
-  if (key === lastBakeKey && lastBakeResult) return lastBakeResult;
+  const cached = bakedLuts.get(key);
+  if (cached) {
+    bakedLuts.delete(key);
+    bakedLuts.set(key, cached);
+    return cached;
+  }
   const data = new Float32Array(size * size * size * 3);
   const last = size - 1;
-  const sampler = userLut ? (r, g2, b) => sampleLutTrilinear(userLut, [r, g2, b]) : void 0;
+  const adjusted = { r: 0, g: 0, b: 0 };
+  const separableGrid = prepared.prepareSeparableGrid(size);
   for (let bz = 0; bz < size; bz += 1) {
     for (let gy = 0; gy < size; gy += 1) {
       for (let rx = 0; rx < size; rx += 1) {
-        const adjusted = applyItemAdjust(rx / last, gy / last, bz / last, normalized, sampler);
+        if (separableGrid) prepared.applyHueInto(separableGrid.red[rx], separableGrid.green[gy], separableGrid.blue[bz], adjusted);
+        else prepared.applyInto(rx / last, gy / last, bz / last, adjusted);
         const index = ((bz * size + gy) * size + rx) * 3;
-        data[index] = cubeComponent(adjusted[0]);
-        data[index + 1] = cubeComponent(adjusted[1]);
-        data[index + 2] = cubeComponent(adjusted[2]);
+        data[index] = cubeComponent(adjusted.r);
+        data[index + 1] = cubeComponent(adjusted.g);
+        data[index + 2] = cubeComponent(adjusted.b);
       }
     }
   }
@@ -26727,8 +26896,8 @@ function bakeItemAdjustLut(adjust, userLut, size = ADJUST_LUT_SIZE) {
     domainMax: Object.freeze([1, 1, 1]),
     data
   });
-  lastBakeKey = key;
-  lastBakeResult = result;
+  bakedLuts.set(key, result);
+  if (bakedLuts.size > MAX_BAKED_LUTS) bakedLuts.delete(bakedLuts.keys().next().value);
   return result;
 }
 
