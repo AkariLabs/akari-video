@@ -331,6 +331,32 @@ async function runVerifyStage({ reusableGpuVerification, plan, outputPath, capab
   return verification;
 }
 
+async function runContactSheetStage({ edit, loadedOverlays, captionOverlays, plan, projectRoot, capabilities, outputPath, temporaryDirectory, state, emitTiming }) {
+  const contactSheetStarted = performance.now();
+  const contactSheetTimestamps = deriveContactSheetTimestamps({
+    cuts: edit.cuts,
+    overlays: [...loadedOverlays, ...captionOverlays],
+    durationSeconds: plan.predicted_duration_seconds,
+    fps: plan.preset.fps,
+  });
+  const contactSheetPath = join(projectRoot, ".akari", "reports", "contact-sheet.png");
+  await mkdir(dirname(contactSheetPath), { recursive: true });
+  const generatedContactSheet = await renderContactSheet({
+    ffmpegCommand: capabilities.ffmpegCommand,
+    videoPath: outputPath,
+    timestamps: contactSheetTimestamps,
+    temporaryDirectory,
+    outputPath: contactSheetPath,
+  });
+  if (generatedContactSheet) {
+    state.contact_sheet = {
+      path: relativeOrAbsolute(projectRoot, contactSheetPath),
+      timestamps_seconds: contactSheetTimestamps,
+    };
+  }
+  emitTiming("contact_sheet", contactSheetStarted);
+}
+
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
@@ -705,29 +731,7 @@ export async function renderProject(input, options = {}, io = console) {
     emitTiming("audio_mix", audioMixStarted);
     const verification = await runVerifyStage({ reusableGpuVerification, plan, outputPath, capabilities, recordParentTiming, emitTiming, reporter, state, options, codec, edit, projectRoot });
     if (verification.verdict === "pass" && codec !== "png") {
-      const contactSheetStarted = performance.now();
-      const contactSheetTimestamps = deriveContactSheetTimestamps({
-        cuts: edit.cuts,
-        overlays: [...loadedOverlays, ...captionOverlays],
-        durationSeconds: plan.predicted_duration_seconds,
-        fps: plan.preset.fps,
-      });
-      const contactSheetPath = join(projectRoot, ".akari", "reports", "contact-sheet.png");
-      await mkdir(dirname(contactSheetPath), { recursive: true });
-      const generatedContactSheet = await renderContactSheet({
-        ffmpegCommand: capabilities.ffmpegCommand,
-        videoPath: outputPath,
-        timestamps: contactSheetTimestamps,
-        temporaryDirectory,
-        outputPath: contactSheetPath,
-      });
-      if (generatedContactSheet) {
-        state.contact_sheet = {
-          path: relativeOrAbsolute(projectRoot, contactSheetPath),
-          timestamps_seconds: contactSheetTimestamps,
-        };
-      }
-      emitTiming("contact_sheet", contactSheetStarted);
+      await runContactSheetStage({ edit, loadedOverlays, captionOverlays, plan, projectRoot, capabilities, outputPath, temporaryDirectory, state, emitTiming });
     }
     let receiptDeclaredInputs = declaredInputs;
     let receiptInputSnapshot = inputSnapshot;
