@@ -10,13 +10,10 @@ import { countReferences } from '../lib/common/project-reference-check.js';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 const React = require('react');
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
 const paneSource = ts.createSourceFile('pane.tsx', readFileSync(new URL('../src/browser/akari-materials-pane.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const pane = paneSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariMaterialsPane');
-const names = ['retryMaterialReference', 'removeMaterialReference', 'confirmReferenceImpact'];
-const paneNames = ['buildReferenceMaterials', 'bundleMaterials', 'buildBundlePlanBody'];
-const code = ts.transpileModule(`class Handler { ${[...names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)), ...paneNames.map(name => pane.members.find(member => member.name?.getText(paneSource) === name).getText(paneSource))].join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
+const paneNames = ['retryMaterialReference', 'removeMaterialReference', 'confirmReferenceImpact', 'buildReferenceMaterials', 'bundleMaterials', 'buildBundlePlanBody'];
+const code = ts.transpileModule(`class Handler { ${paneNames.map(name => pane.members.find(member => member.name?.getText(paneSource) === name).getText(paneSource)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
 // buildBundlePlanBody は素の DOM を組むので、node --test でも読めるだけの最小の
 // document/HTMLImageElement を差し込む（実描画は実機検収、ここでは文面と対象の一覧を見る）。
 class FakeElement {

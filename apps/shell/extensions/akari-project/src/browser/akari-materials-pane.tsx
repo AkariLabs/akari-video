@@ -1,6 +1,6 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
-import { DisposableCollection, MessageService } from '@theia/core/lib/common';
+import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
@@ -9,6 +9,9 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { isEditDataFileName } from '../common/edit-data-file';
+import { nextCandidateAssetName } from '../common/asset-naming';
+import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
+import { countReferences } from '../common/project-reference-check';
 import { AnalysisJson, deriveAnalysisDurationSeconds } from '../common/analysis-summary';
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
@@ -57,11 +60,13 @@ export interface MaterialsPaneHost {
     /** 現在のプロジェクトと相対パス。 */
     readonly workflow: Pick<AkariWorkflowService, 'workspaceRoot' | 'relativePath' | 'current'>;
     /** 素材一覧の読み込みと監視。 */
-    readonly files: Pick<FileService, 'resolve' | 'readFile' | 'watch' | 'onDidFilesChange'>;
+    readonly files: Pick<FileService, 'resolve' | 'readFile' | 'watch' | 'onDidFilesChange' | 'exists' | 'move'>;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference'>;
     /** 素材操作の通知。 */
-    readonly messages: Pick<MessageService, 'info' | 'error'>;
+    readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
+    /** 素材移動中の確認。 */
+    readonly commandService: Pick<CommandService, 'executeCommand'>;
     /** widget の再描画。 */
     readonly update: () => void;
     /** ファイル名から素材種別を判定。 */
@@ -572,5 +577,152 @@ export class AkariMaterialsPane {
                 <span className='codicon codicon-ellipsis' aria-hidden='true' />
             </button>
         );
+    }
+
+    // --- 未整理 → assets へ移動 ------------------------------------------------
+
+    /**
+     * 「assets へ移動」アクション。edit.json がルート相対パスでこのファイルを参照している
+     * 場合に参照が壊れる可能性を移動前に警告し、承諾したときだけ FileService.move する。
+     * edit.json 自体は書き換えない（契約ファイルへの書き込み禁止 — task.md 指定）。
+     * 同名衝突時は recordDroppedAssets と同じ stem-index.ext 規約で連番回避し、上書きはしない。
+     */
+    public async moveToAssets(entry: MaterialCardEntry): Promise<void> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root) {
+            return;
+        }
+        const confirmed = await new ConfirmDialog({
+            title: 'assets へ移動しますか？',
+            msg: `${entry.name} を assets/ 直下へ移動します。edit.json がこのファイルをルート相対パスで参照している場合、参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`,
+            ok: '移動する',
+            cancel: 'キャンセル'
+        }).open();
+        if (!confirmed) {
+            return;
+        }
+        const assetsUri = root.resolve('assets');
+        const targetName = await this.availableAssetName(assetsUri, entry.name);
+        try {
+            await this.host.files.move(entry.uri, assetsUri.resolve(targetName), { overwrite: false });
+        } catch {
+            this.host.messages.error(`${entry.name} を移動できませんでした。`);
+            return;
+        }
+        void this.loadMaterials();
+    }
+
+    protected async availableAssetName(assetsUri: URI, requestedName: string): Promise<string> {
+        let candidate = requestedName;
+        let index = 2;
+        while (await this.host.files.exists(assetsUri.resolve(candidate))) {
+            candidate = nextCandidateAssetName(requestedName, index++);
+        }
+        return candidate;
+    }
+
+    public async retryMaterialReference(entry: MaterialCardEntry): Promise<void> {
+        if (await this.host.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.host.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
+        const root = this.host.workflow.workspaceRoot;
+        if (!root || !entry.reference) return;
+        try {
+            const result = await this.host.projectService.resolveAsset(entry.reference.id, root.toString(), { force: true });
+            if (result.success === false) this.host.messages.error(result.error);
+            await this.loadMaterials();
+        } catch (error) { this.host.messages.error(`素材を取得できませんでした: ${String(error)}`); }
+    }
+
+    public async removeMaterialReference(entry: MaterialCardEntry): Promise<void> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root || !entry.reference) return;
+        try {
+            if (!await this.confirmReferenceImpact(`${entry.relativePath}/`, false, 'このプロジェクトから外す')) return;
+            if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            await this.host.projectService.removeProjectAssetReference(root.toString(), entry.reference);
+            await this.loadMaterials();
+        } catch (error) { this.host.messages.error(String(error)); }
+    }
+
+    /**
+     * `edit.json` / `captions.json` をプロジェクトルートから読む（無ければスキップ）。
+     * どちらかの読み取りに失敗したときは `failed: true` を返し、呼び出し側は
+     * 「参照を確認できませんでした」文面に切り替える（指示9）。書き込みは一切しない。
+     */
+    protected async readProjectReferenceDocuments(root: URI): Promise<{ documents: string[]; failed: boolean }> {
+        const documents: string[] = [];
+        let failed = false;
+        let names: string[];
+        try {
+            const directory = await this.host.files.resolve(root);
+            const files = (directory.children ?? []).filter(child => !child.isDirectory).map(child => child.resource.path.base);
+            names = files.filter(name => isTimelineEditFileName(name)
+                || name.startsWith('captions') && isTimelineEditFileName(`edit${name.slice('captions'.length)}`));
+        } catch {
+            return { documents, failed: true };
+        }
+        for (const name of names) {
+            const uri = root.resolve(name);
+            let exists: boolean;
+            try {
+                exists = await this.host.files.exists(uri);
+            } catch {
+                failed = true;
+                continue;
+            }
+            if (!exists) {
+                continue;
+            }
+            try {
+                const content = await this.host.files.readFile(uri);
+                documents.push(content.value.toString());
+            } catch {
+                failed = true;
+            }
+        }
+        return { documents, failed };
+    }
+
+    /**
+     * リネーム前の参照警告（指示5）。参照が 0 件（かつ読み取り成功）なら確認なしで続行して
+     * よい（true を返す）。1 件以上、または参照チェック自体が失敗したときは
+     * moveToAssets と同じ文体の ConfirmDialog で警告する。
+     */
+    public async confirmReferenceImpact(relativePath: string, isDirectory: boolean, actionLabel: string): Promise<boolean> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root) {
+            return true;
+        }
+        const { documents, failed } = await this.readProjectReferenceDocuments(root);
+        const count = failed ? undefined : countReferences(documents, relativePath, isDirectory);
+        if (count === 0) {
+            return true;
+        }
+        const message = count === undefined
+            ? '参照を確認できませんでした。このまま進めると edit.json / captions.json の参照が壊れる可能性があります（edit.json は自動的に書き換えません）。'
+            : `edit.json / captions.json から ${count} 箇所参照されています。`
+                + `${actionLabel}すると参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`;
+        const confirmed = await new ConfirmDialog({
+            title: `${actionLabel}しますか？`,
+            msg: message,
+            ok: '続ける',
+            cancel: 'キャンセル'
+        }).open();
+        return !!confirmed;
+    }
+
+    /** 削除確認メッセージに参照チェック結果を必ず含める（指示6）。 */
+    public async buildDeleteReferenceMessage(relativePath: string, isDirectory: boolean): Promise<string> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root) {
+            return '参照を確認できませんでした。';
+        }
+        const { documents, failed } = await this.readProjectReferenceDocuments(root);
+        if (failed) {
+            return '参照を確認できませんでした。';
+        }
+        const count = countReferences(documents, relativePath, isDirectory);
+        return count > 0
+            ? `edit.json / captions.json から ${count} 箇所参照されています。削除すると参照が壊れます。`
+            : 'プロジェクトデータからの参照は見つかりませんでした。';
     }
 }

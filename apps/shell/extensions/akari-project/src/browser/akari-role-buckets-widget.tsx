@@ -3,7 +3,6 @@ import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akar
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { referencePresentation } from '../common/project-asset-reference';
-import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
 import {
     GENERATION_PICK_PRIMARY_SELECTED_EVENT, GenerationPickCandidate, GenerationPickController,
@@ -50,7 +49,6 @@ import {
 } from '../common/akari-project-protocol';
 import { StoreConnectionFlowController } from '../common/store-connection-flow';
 import { AkariWorkflowService } from './akari-workflow-service';
-import { nextCandidateAssetName } from '../common/asset-naming';
 import { isEditDataFileName } from '../common/edit-data-file';
 import { formatDurationBadge } from '../common/analysis-summary';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
@@ -127,7 +125,6 @@ import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../common/library-ti
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
-import { countReferences } from '../common/project-reference-check';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { isOsFileDropInput } from '../common/delegated-drop';
 
@@ -707,6 +704,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get files() { return widget().files; },
             get projectService() { return widget().projectService; },
             get messages() { return widget().messages; },
+            get commandService() { return widget().commandService; },
             update: () => widget().update(),
             classifyKind: name => widget().classifyKind(name),
             toAssetBinChildren: node => widget().toAssetBinChildren(node),
@@ -951,48 +949,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (node.children ?? []).map(child => ({ name: child.resource.path.base, isDirectory: child.isDirectory }));
     }
 
-    // --- 未整理 → assets へ移動 ------------------------------------------------
-
-    /**
-     * 「assets へ移動」アクション。edit.json がルート相対パスでこのファイルを参照している
-     * 場合に参照が壊れる可能性を移動前に警告し、承諾したときだけ FileService.move する。
-     * edit.json 自体は書き換えない（契約ファイルへの書き込み禁止 — task.md 指定）。
-     * 同名衝突時は recordDroppedAssets と同じ stem-index.ext 規約で連番回避し、上書きはしない。
-     */
-    protected async moveToAssets(entry: MaterialCardEntry): Promise<void> {
-        const root = this.workflow.workspaceRoot;
-        if (!root) {
-            return;
-        }
-        const confirmed = await new ConfirmDialog({
-            title: 'assets へ移動しますか？',
-            msg: `${entry.name} を assets/ 直下へ移動します。edit.json がこのファイルをルート相対パスで参照している場合、参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`,
-            ok: '移動する',
-            cancel: 'キャンセル'
-        }).open();
-        if (!confirmed) {
-            return;
-        }
-        const assetsUri = root.resolve('assets');
-        const targetName = await this.availableAssetName(assetsUri, entry.name);
-        try {
-            await this.files.move(entry.uri, assetsUri.resolve(targetName), { overwrite: false });
-        } catch {
-            this.messages.error(`${entry.name} を移動できませんでした。`);
-            return;
-        }
-        void this.loadMaterials();
-    }
-
-    protected async availableAssetName(assetsUri: URI, requestedName: string): Promise<string> {
-        let candidate = requestedName;
-        let index = 2;
-        while (await this.files.exists(assetsUri.resolve(candidate))) {
-            candidate = nextCandidateAssetName(requestedName, index++);
-        }
-        return candidate;
-    }
-
     protected classifyKind(name: string): MaterialKind {
         return classifyMaterialKind(name);
     }
@@ -1075,10 +1031,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.update();
                 break;
             case 'remove-reference':
-                void this.removeMaterialReference(entry);
+                void this.materialsPane.removeMaterialReference(entry);
                 break;
             case 'retry-reference':
-                void this.retryMaterialReference(entry);
+                void this.materialsPane.retryMaterialReference(entry);
                 break;
             case 'open-preview-image':
                 if (entry.assetGroup && entry.thumbnailUri) {
@@ -1123,7 +1079,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.askAgent(entry);
                 break;
             case 'move-to-assets':
-                void this.moveToAssets(entry);
+                void this.materialsPane.moveToAssets(entry);
                 break;
             default:
                 break;
@@ -1185,28 +1141,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.selectTopView('catalog');
         const paths = await this.pickLibraryImport('folders');
         if (paths.length) { this.libraryImportRequest = { paths }; this.update(); }
-    }
-
-    protected async retryMaterialReference(entry: MaterialCardEntry): Promise<void> {
-        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
-        const root = this.workflow.workspaceRoot;
-        if (!root || !entry.reference) return;
-        try {
-            const result = await this.projectService.resolveAsset(entry.reference.id, root.toString(), { force: true });
-            if (result.success === false) this.messages.error(result.error);
-            await this.loadMaterials();
-        } catch (error) { this.messages.error(`素材を取得できませんでした: ${String(error)}`); }
-    }
-
-    protected async removeMaterialReference(entry: MaterialCardEntry): Promise<void> {
-        const root = this.workflow.workspaceRoot;
-        if (!root || !entry.reference) return;
-        try {
-            if (!await this.confirmReferenceImpact(`${entry.relativePath}/`, false, 'このプロジェクトから外す')) return;
-            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
-            await this.projectService.removeProjectAssetReference(root.toString(), entry.reference);
-            await this.loadMaterials();
-        } catch (error) { this.messages.error(String(error)); }
     }
 
     /**
@@ -1272,95 +1206,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     /**
-     * `edit.json` / `captions.json` をプロジェクトルートから読む（無ければスキップ）。
-     * どちらかの読み取りに失敗したときは `failed: true` を返し、呼び出し側は
-     * 「参照を確認できませんでした」文面に切り替える（指示9）。書き込みは一切しない。
-     */
-    protected async readProjectReferenceDocuments(root: URI): Promise<{ documents: string[]; failed: boolean }> {
-        const documents: string[] = [];
-        let failed = false;
-        let names: string[];
-        try {
-            const directory = await this.files.resolve(root);
-            const files = (directory.children ?? []).filter(child => !child.isDirectory).map(child => child.resource.path.base);
-            names = files.filter(name => isTimelineEditFileName(name)
-                || name.startsWith('captions') && isTimelineEditFileName(`edit${name.slice('captions'.length)}`));
-        } catch {
-            return { documents, failed: true };
-        }
-        for (const name of names) {
-            const uri = root.resolve(name);
-            let exists: boolean;
-            try {
-                exists = await this.files.exists(uri);
-            } catch {
-                failed = true;
-                continue;
-            }
-            if (!exists) {
-                continue;
-            }
-            try {
-                const content = await this.files.readFile(uri);
-                documents.push(content.value.toString());
-            } catch {
-                failed = true;
-            }
-        }
-        return { documents, failed };
-    }
-
-    /**
-     * リネーム前の参照警告（指示5）。参照が 0 件（かつ読み取り成功）なら確認なしで続行して
-     * よい（true を返す）。1 件以上、または参照チェック自体が失敗したときは
-     * moveToAssets と同じ文体の ConfirmDialog で警告する。
-     */
-    protected async confirmReferenceImpact(relativePath: string, isDirectory: boolean, actionLabel: string): Promise<boolean> {
-        const root = this.workflow.workspaceRoot;
-        if (!root) {
-            return true;
-        }
-        const { documents, failed } = await this.readProjectReferenceDocuments(root);
-        const count = failed ? undefined : countReferences(documents, relativePath, isDirectory);
-        if (count === 0) {
-            return true;
-        }
-        const message = count === undefined
-            ? '参照を確認できませんでした。このまま進めると edit.json / captions.json の参照が壊れる可能性があります（edit.json は自動的に書き換えません）。'
-            : `edit.json / captions.json から ${count} 箇所参照されています。`
-                + `${actionLabel}すると参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`;
-        const confirmed = await new ConfirmDialog({
-            title: `${actionLabel}しますか？`,
-            msg: message,
-            ok: '続ける',
-            cancel: 'キャンセル'
-        }).open();
-        return !!confirmed;
-    }
-
-    /** 削除確認メッセージに参照チェック結果を必ず含める（指示6）。 */
-    protected async buildDeleteReferenceMessage(relativePath: string, isDirectory: boolean): Promise<string> {
-        const root = this.workflow.workspaceRoot;
-        if (!root) {
-            return '参照を確認できませんでした。';
-        }
-        const { documents, failed } = await this.readProjectReferenceDocuments(root);
-        if (failed) {
-            return '参照を確認できませんでした。';
-        }
-        const count = countReferences(documents, relativePath, isDirectory);
-        return count > 0
-            ? `edit.json / captions.json から ${count} 箇所参照されています。削除すると参照が壊れます。`
-            : 'プロジェクトデータからの参照は見つかりませんでした。';
-    }
-
-    /**
      * 名前を変更（指示5）。参照ありなら SingleTextInputDialog の前に ConfirmDialog で警告する。
      * 同一ディレクトリ内での `FileService.move`（overwrite: false）。衝突・失敗時は
      * messages.error。成功後は呼び出し側が渡した `reload` で再読込する。
      */
     protected async renameEntry(uri: URI, currentName: string, relativePath: string, isDirectory: boolean, reload: () => void): Promise<void> {
-        const proceed = await this.confirmReferenceImpact(relativePath, isDirectory, '名前を変更');
+        const proceed = await this.materialsPane.confirmReferenceImpact(relativePath, isDirectory, '名前を変更');
         if (!proceed) {
             return;
         }
@@ -1387,7 +1238,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 失敗時は messages.error。成功後は呼び出し側が渡した `reload` で再読込する。
      */
     protected async deleteEntry(uri: URI, name: string, relativePath: string, isDirectory: boolean, reload: () => void): Promise<void> {
-        const referenceMessage = await this.buildDeleteReferenceMessage(relativePath, isDirectory);
+        const referenceMessage = await this.materialsPane.buildDeleteReferenceMessage(relativePath, isDirectory);
         const confirmed = await new ConfirmDialog({
             title: `${name} を削除しますか？`,
             msg: `${referenceMessage} 削除するとゴミ箱に移動します。`,
@@ -2745,7 +2596,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     const known = this.assetCatalogItems.find(item => item.key === `${entry.reference.category}/${entry.reference.id}`);
                     const state = referencePresentation(entry.reference, known?.sourceKind === 'lab');
                     return state.lab
-                        ? <button onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>もう一度取得</button>
+                        ? <button onClick={event => { event.stopPropagation(); void this.materialsPane.retryMaterialReference(entry); }}>もう一度取得</button>
                         : <span>入れ直してください</span>;
                 })()}
                 <div
@@ -2857,7 +2708,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             className='theia-button secondary'
                             title={`${entry.name} を assets へ移動`}
                             style={{ width: '100%', fontSize: '0.75em', padding: '2px 4px' }}
-                            onClick={event => { event.stopPropagation(); void this.moveToAssets(entry); }}
+                            onClick={event => { event.stopPropagation(); void this.materialsPane.moveToAssets(entry); }}
                         >
                             assets へ移動
                         </button>
