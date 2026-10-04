@@ -92,11 +92,13 @@ test('external selection clears filters only when its row is hidden', () => {
   const { widget, calls, roots, send } = fixture();
   widget.qcFilter = true;
   widget.speakerFilter = 'other';
+  widget.autoScrolling = true;
   roots.get('a').root.classList.contains = name => name === 'speaker-hidden';
   send(['a']);
   assert.equal(widget.qcFilter, false);
   assert.equal(widget.speakerFilter, null);
   assert.ok(calls.some(([name, guarded]) => name === 'filter' && guarded === true));
+  assert.equal(widget.autoScrolling, false, 'filter adjustment must release a prior playback scroll guard');
 });
 
 test('manual scroll suppresses later dock or resize reveal until the selection changes', () => {
@@ -202,6 +204,17 @@ test('local Shift range and Ctrl+A preserve scrollTop 3000', () => {
   widget.setSelection({ selected: rowIds, anchorId: null }, false);
   flush();
   assert.equal(widget.rowsNode.scrollTop, 3000, 'select all must not reveal the first row');
+});
+
+test('Ctrl toggle from two rows back to one does not reveal a distant survivor', () => {
+  const { widget, flush } = selectionHarness();
+  widget.setSelection({ selected: ['r10', 'r80'], anchorId: 'r80' }, false);
+  flush();
+  assert.equal(widget.rowsNode.scrollTop, 3000);
+  widget.setSelection({ selected: ['r10'], anchorId: 'r80' }, false);
+  flush();
+  assert.deepEqual(widget.selection, { selected: ['r10'], anchorId: 'r80' });
+  assert.equal(widget.rowsNode.scrollTop, 3000);
 });
 
 test('an open row dock renders a changed selection without forcing its anchor into view', () => {

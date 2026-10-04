@@ -817,12 +817,11 @@ export class AkariDaihonWidget extends BaseWidget {
             if (hiddenByFilter) {
                 this.qcFilter = false;
                 this.speakerFilter = null;
-                const wasAutoScrolling = this.autoScrolling;
                 this.autoScrolling = true;
                 this.applyQcFilter();
                 if (typeof requestAnimationFrame === 'function') {
-                    requestAnimationFrame(() => { this.autoScrolling = wasAutoScrolling; });
-                } else this.autoScrolling = wasAutoScrolling;
+                    requestAnimationFrame(() => { this.autoScrolling = false; });
+                } else this.autoScrolling = false;
             }
             if (this.selection.selected.length === ids.length && this.selection.anchorId === primary
                 && ids.every((id, index) => this.selection.selected[index] === id)) return;
@@ -986,7 +985,11 @@ export class AkariDaihonWidget extends BaseWidget {
             // A resolved row takes priority over filters left by earlier interactions.
             if (this.speakerFilter !== null && this.speakerFilter !== row.speaker) this.speakerFilter = null;
             this.qcFilter = false;
+            this.autoScrolling = true;
             this.applyQcFilter();
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => { this.autoScrolling = false; });
+            } else this.autoScrolling = false;
             this.setSelection({ selected: [row.id], anchorId: row.id });
             this.selectionRevealInterrupted = false;
             if (typeof requestAnimationFrame === 'function') this.scheduleSelectionReveal(row.id);
@@ -4743,7 +4746,9 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
         this.selectionRevealFrame = 0;
         this.selectionRevealInterrupted = false;
-        this.selectionRevealTargetId = next.selected.length === 1 ? next.selected[0] : undefined;
+        const localSingleTarget = next.selected.length === 1 && next.anchorId === next.selected[0]
+            ? next.selected[0] : undefined;
+        this.selectionRevealTargetId = localSingleTarget;
         this.selection = next;
         if (!this.altAll) {
             for (const id of plan.add) this.elements.get(id)?.root.classList.add('selected');
@@ -4755,7 +4760,7 @@ export class AkariDaihonWidget extends BaseWidget {
             if (count === 0) this.closeDock();
             else this.renderDock();
         }
-        if (count === 1) this.scheduleSelectionReveal(next.selected[0]);
+        if (localSingleTarget) this.scheduleSelectionReveal(localSingleTarget);
         if (!sync) return;
         const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));

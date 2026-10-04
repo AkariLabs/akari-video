@@ -15,9 +15,13 @@ function method(name, next, events) {
   const compiled = ts.transpileModule(`class Harness { ${source.slice(start, end)} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 }
   }).outputText;
-  return new Function('window', 'CustomEvent', `${compiled}; return new Harness();`)(
+  return new Function('window', 'CustomEvent', 'captionIdForTreeSelection',
+    'TIMELINE_OVERLAY_SELECTED_EVENT', 'TIMELINE_LAYER_SELECTED_EVENT',
+    `${compiled}; return new Harness();`)(
     { dispatchEvent: event => events.push(event) },
-    class { constructor(type, options) { this.type = type; this.detail = options.detail; } }
+    class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
+    (item, declaredId) => item.itemKind === 'caption' ? declaredId ?? item.id.split('#').at(-1) : undefined,
+    'akari.timeline.overlaySelected', 'akari.timeline.layerSelected'
   );
 }
 
@@ -66,7 +70,21 @@ test('transcript-origin selection retains its origin through the timeline notifi
     { editUri: '/edit.json', captionIds: ['a', 'b'], primaryCaptionId: 'a', origin: 'daihon' });
 });
 
-test('preview click in a mixed clip and caption group publishes no partial caption selection', () => {
+test('the regular timeline path clears the transcript projection for a mixed group', () => {
+  const events = [];
+  const widget = method('protected publishPrimaryPreviewSelection', 'protected shouldToggleMultiSelection', events);
+  Object.assign(widget, {
+    multiSelection: [{ kind: 'caption', id: 'a' }, { kind: 'item', id: 'clip-1', itemKind: 'media' }],
+    selectionModel: {}, layers: [], cutItemIds: [], rawKeyframeItem: () => undefined,
+    applyCaptionStateClasses() {},
+    location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } }
+  });
+  widget.publishPrimaryPreviewSelection({ kind: 'caption', id: 'a' });
+  assert.deepEqual(events.find(event => event.type === 'akari.timeline.captionSelectionChanged').detail,
+    { editUri: '/edit.json', captionIds: [], primaryCaptionId: null });
+});
+
+test('preview click in a mixed clip and caption group sends no caption selection notification', () => {
   const events = [];
   const widget = method('handleCaptionSelection', 'protected revealPreviewSelection', events);
   Object.assign(widget, {
@@ -74,12 +92,31 @@ test('preview click in a mixed clip and caption group publishes no partial capti
     multiSelection: [{ kind: 'caption', id: 'a' }, { kind: 'item', id: 'clip-1' }],
     selection: undefined, selectionModel: { selectedCaptionIds: ['a'] },
     canHandlePlaybackTick: () => true, selectionRenderKeys: () => [],
+    rawKeyframeItem: () => undefined,
     applySelection() { throw new Error('mixed group was replaced'); },
     revealPreviewSelection() {},
     location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } }
   });
   widget.handleCaptionSelection('/edit.json', 'a');
   assert.deepEqual(widget.multiSelection, [{ kind: 'caption', id: 'a' }, { kind: 'item', id: 'clip-1' }]);
-  assert.deepEqual(events.at(-1).detail,
-    { editUri: '/edit.json', captionIds: [], primaryCaptionId: null });
+  assert.deepEqual(events, []);
+});
+
+test('preview click recognizes a caption tree item in a mixed group without clearing selection', () => {
+  const events = [];
+  const widget = method('handleCaptionSelection', 'protected revealPreviewSelection', events);
+  Object.assign(widget, {
+    captions: [{ id: 'a' }],
+    multiSelection: [{ kind: 'item', id: 'caption-item', itemKind: 'caption' },
+      { kind: 'item', id: 'clip-1', itemKind: 'media' }],
+    selection: undefined, selectionModel: { selectedCaptionIds: [] },
+    canHandlePlaybackTick: () => true, selectionRenderKeys: () => [],
+    rawKeyframeItem: id => id === 'caption-item' ? { source: { kind: 'caption', id: 'a' } } : undefined,
+    applySelection() { throw new Error('mixed group was replaced'); },
+    revealPreviewSelection() {},
+    location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } }
+  });
+  widget.handleCaptionSelection('/edit.json', 'a');
+  assert.equal(widget.multiSelection.length, 2);
+  assert.deepEqual(events, []);
 });

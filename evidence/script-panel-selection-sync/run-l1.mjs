@@ -11,13 +11,14 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const shell = path.join(repo, 'apps/shell');
 const out = process.env.AKARI_L1_EVIDENCE_DIR;
 if (!out) throw new Error('AKARI_L1_EVIDENCE_DIR is required');
+const r3Toggle = process.env.AKARI_L1_SCENARIO === 'r3-toggle';
 const scratch = await realpath(await mkdtemp(path.join(os.tmpdir(), 'akari-script-selection-')));
 const project = path.join(scratch, 'project');
 const editUri = pathToFileURL(path.join(project, 'edit.json')).href;
 const cdpPort = Number(process.env.AKARI_L1_CDP_PORT ?? 9370);
 const electron = path.join(shell, 'node_modules/electron/dist/electron.exe');
 const result = { rowCount: 0, final: null, preview: null, timeline: null, manual: null, group: null,
-  range: null, hiddenTab: null, playbackDock: null, sameRowTarget: null, stage: 'fixture', error: null };
+  range: null, hiddenTab: null, playbackDock: null, sameRowTarget: null, r3Toggle: null, stage: 'fixture', error: null };
 let child;
 let electronLog = '';
 let electronExit;
@@ -126,7 +127,7 @@ const snapshot = () => evaluate(`(() => {
 
 async function capture(name) {
   const png = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  await writeFile(path.join(out, `r2-${name}.png`), Buffer.from(png.data, 'base64'));
+  await writeFile(path.join(out, `${r3Toggle ? 'r3' : 'r2'}-${name}.png`), Buffer.from(png.data, 'base64'));
 }
 async function click(point, modifiers = 0) {
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1, modifiers });
@@ -193,6 +194,36 @@ try {
     await sleep(1000);
   }
   await sleep(600);
+  if (r3Toggle) {
+    result.stage = 'r3-toggle'; console.error('[l1] Ctrl toggle distant row');
+    await command('akari.daihon.open', { captionId: 'c-0010', open: 'template' });
+    await sleep(350);
+    const initialScroll = await evaluate(`(() => { const rows = document.querySelector('.akari-daihon-rows');
+      rows.style.scrollBehavior = 'auto'; rows.scrollTop = 3000; return rows.scrollTop; })()`);
+    await sleep(250);
+    const beforeAdd = await evaluate(`(() => { const rows = document.querySelector('.akari-daihon-rows');
+      const row = document.querySelector('.akari-daihon-row[data-caption-id="c-0080"]');
+      rows.scrollTop = row.offsetTop - 80; return rows.scrollTop; })()`);
+    await sleep(250);
+    const point = await rowPoint('c-0080');
+    if (!point) throw new Error('row 80 missing');
+    await click(point, 2);
+    await sleep(400);
+    const afterAdd = await snapshot();
+    await capture('ctrl-add');
+    await click(point, 2);
+    await sleep(400);
+    const afterRemove = await snapshot();
+    await capture('ctrl-remove');
+    result.r3Toggle = { initialScroll, beforeAdd, point, afterAdd, afterRemove };
+    if (initialScroll !== 3000 || afterAdd.selected.length !== 2
+      || !afterAdd.selected.includes('c-0010') || !afterAdd.selected.includes('c-0080')
+      || afterRemove.selected.length !== 1 || afterRemove.selected[0] !== 'c-0010'
+      || Math.abs(afterAdd.scrollTop - beforeAdd) > 1
+      || Math.abs(afterRemove.scrollTop - beforeAdd) > 1) {
+      throw new Error('r3 Ctrl toggle acceptance assertion failed');
+    }
+  } else {
   result.stage = 'measure'; console.error('[l1] measure and capture');
   result.final = await snapshot();
   result.rowCount = result.final.count;
@@ -341,6 +372,7 @@ try {
     || Math.abs(result.playbackDock.afterTab.scrollTop - result.playbackDock.afterFollow.scrollTop) > 1) {
     throw new Error('selection acceptance assertion failed');
   }
+  }
 } catch (error) {
   result.error = String(error?.message ?? error);
 } finally {
@@ -350,7 +382,7 @@ try {
     const stopped = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { encoding: 'utf8' });
     result.cleanup = { pid: child.pid, exit: stopped.status, error: stopped.error?.message ?? null };
   }
-  await writeFile(path.join(out, 'r2-result.json'), `${JSON.stringify(result, null, 2)}\n`);
+  await writeFile(path.join(out, r3Toggle ? 'r3-result.json' : 'r2-result.json'), `${JSON.stringify(result, null, 2)}\n`);
   const tempRoot = await realpath(os.tmpdir());
   if (!scratch.startsWith(tempRoot + path.sep)) throw new Error('scratch path escaped temp root');
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -361,6 +393,9 @@ try {
     }
   }
 }
-console.log(JSON.stringify({ rowCount: result.rowCount, finalVisible: result.final?.fullyVisible,
-  previewSelected: result.preview?.selected, error: result.error }));
+console.log(JSON.stringify(r3Toggle
+  ? { initialScroll: result.r3Toggle?.initialScroll, afterAdd: result.r3Toggle?.afterAdd?.scrollTop,
+    afterRemove: result.r3Toggle?.afterRemove?.scrollTop, error: result.error }
+  : { rowCount: result.rowCount, finalVisible: result.final?.fullyVisible,
+    previewSelected: result.preview?.selected, error: result.error }));
 if (result.error) process.exitCode = 1;

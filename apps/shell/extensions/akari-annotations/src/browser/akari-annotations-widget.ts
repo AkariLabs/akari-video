@@ -5033,20 +5033,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (this.captions.some(caption => caption.id === captionId)) {
-            const inGroup = this.multiSelection.some(item => item.kind === 'caption' && item.id === captionId
-                || this.selectionRenderKeys(item).includes(`caption:${captionId}`));
+            const selectedCaptionId = (item: TimelineSelectionItem): string | undefined => {
+                if (item.kind === 'caption') return item.id;
+                if (item.kind !== 'item') return undefined;
+                const raw = this.rawKeyframeItem(item.id);
+                return captionIdForTreeSelection(item,
+                    raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            };
+            const inGroup = this.multiSelection.some(item => selectedCaptionId(item) === captionId);
             if (!inGroup && (this.selection?.kind !== 'caption' || this.selection.id !== captionId)) {
                 this.applySelection({ kind: 'caption', id: captionId }, false);
                 this.selectionModel.selectedCaptionIds = [captionId];
                 this.applyCaptionStateClasses();
             }
-            const selectedCaptionIds = inGroup ? this.multiSelection.flatMap(item => item.kind === 'caption' ? [item.id]
-                : this.selectionRenderKeys(item).filter(key => key.startsWith('caption:')).map(key => key.slice(8))) : [captionId];
-            const captionIds = inGroup && selectedCaptionIds.length !== this.multiSelection.length ? [] : selectedCaptionIds;
-            if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
-                detail: { editUri: this.location?.editUri?.normalizePath?.().toString() ?? editUri,
-                    captionIds, primaryCaptionId: captionIds.includes(captionId) ? captionId : null }
-            }));
+            const selectedCaptionIds = inGroup ? this.multiSelection.flatMap(item => selectedCaptionId(item) ?? []) : [captionId];
+            // The regular timeline path already published [] for a mixed group. Avoid clearing the preview caption.
+            if (!inGroup || selectedCaptionIds.length === this.multiSelection.length) {
+                if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
+                    detail: { editUri: this.location?.editUri?.normalizePath?.().toString() ?? editUri,
+                        captionIds: selectedCaptionIds, primaryCaptionId: captionId }
+                }));
+            }
             this.revealPreviewSelection();
         }
     }
