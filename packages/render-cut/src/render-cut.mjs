@@ -235,7 +235,7 @@ async function runAudioMixStage({ options, codec, container, projectRoot, edit, 
   }
 
   if (codec === "png") {
-    const mixedAudioPath = plan.commands.audio_mix.output;
+    const mixedAudioPath = plan.commands.audio_mix.output ?? plan.commands.audio_mix.args.at(-1);
     await rm(join(finalPath, "audio.wav"), { force: true });
     await rename(mixedAudioPath, join(finalPath, "audio.wav"));
   }
