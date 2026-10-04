@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const panel = readFileSync(new URL('../src/browser/akari-review-panel-widget.ts', import.meta.url), 'utf8');
-const timeline = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const timeline = readAllSourceText();
 
 test('注釈の重複見出しを空のスロットにし、フィルタとボードボタンの位置を維持する', () => {
     const heading = panel.slice(panel.indexOf('const heading ='), panel.indexOf("this.filterSelect.setAttribute('aria-label'"));

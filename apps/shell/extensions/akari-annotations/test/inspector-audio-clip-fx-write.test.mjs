@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import {
     AUDIO_CLIP_FX_RANGES,
@@ -11,7 +11,7 @@ import {
 } from '../lib/browser/inspector/audio-clip-fx.js';
 import { audioDocument, audioSnapshot, fxSections, handleAudioClipFxWrite } from './helpers/audio-clip-fx-fixture.mjs';
 
-const timelineSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const timelineSource = readAllSourceText();
 
 test('clip FX の patch は v2 source / item と legacy 平置きを区別する', () => {
     for (const [field, value, source] of [

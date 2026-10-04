@@ -1,6 +1,6 @@
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -11,10 +11,7 @@ import {
 } from '../lib/browser/inspector/audio-master.js';
 
 const inspectorSource = readInspectorSource();
-const timelineSource = readFileSync(
-  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url),
-  'utf8'
-);
+const timelineSource = readAllSourceText();
 
 test('マスター 4 行を 4 kind の文書レベル write へ対応付ける', () => {
   for (const [name, kind] of [
