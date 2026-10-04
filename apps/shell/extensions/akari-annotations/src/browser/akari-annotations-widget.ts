@@ -542,7 +542,7 @@ const PAN_SETTLE_RATIO = 0.25;
 const LAYOUT_PERCENT_MIN = -60;
 const LAYOUT_PERCENT_MAX = 160;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
-const PLAYHEAD_COLOR = '#3b82f6';
+const PLAYHEAD_COLOR = '#fff';
 const MICRO_CLIP_WIDTH_PX = 28;
 /** 細いチップでもポインタで掴める実効当たり幅の目標下限（px）。 */
 const MIN_CLIP_HIT_WIDTH_PX = 24;
@@ -1400,6 +1400,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected lastAudioClick: { id: string; time: number; x: number; y: number } | undefined;
     protected audioDurationNoticeShown = false;
     protected suppressNextStripClick = false;
+    protected pendingLineGrab?: { pointerId: number; startX: number; startY: number };
+    protected activeLineMarquee?: { pointerId: number; cancel: () => void };
+    protected activePlayheadScrubCleanup?: () => void;
     protected rightPaneSyncRevision = 0;
     protected rightPaneSyncTail: Promise<void> = Promise.resolve();
     protected clipboard: TimelineFragment | undefined;
@@ -1845,9 +1848,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.hoverSeek.dataset.testid = 'akari-timeline-hover-seek';
         this.hoverSeek.setAttribute('aria-hidden', 'true');
         Object.assign(this.playhead.style, {
-            position: 'absolute', top: '0', bottom: '0', width: '2px',
-            background: PLAYHEAD_COLOR, left: '0%', pointerEvents: 'none',
-            boxShadow: `0 0 4px 1px ${PLAYHEAD_COLOR}`
+            position: 'absolute', top: '0', bottom: '0', width: '1px',
+            background: PLAYHEAD_COLOR, left: '0%', transform: 'translateX(-50%)', pointerEvents: 'none'
         });
         Object.assign(this.playheadHandle.style, {
             position: 'absolute', top: '0', left: '50%', width: '14px', height: '16px',
@@ -1856,12 +1858,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.playheadHandle.setAttribute('aria-hidden', 'true');
         this.playheadHandle.innerHTML =
             `<svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">` +
-            `<path d="M0 0H14V10L7 16L0 10Z" fill="${PLAYHEAD_COLOR}"/></svg>`;
+            `<path d="M0 0H14V10L7 16L0 10Z" fill="none" stroke="${PLAYHEAD_COLOR}" stroke-width="1.25"/></svg>`;
         this.playheadHandle.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
         const playheadLineHit = document.createElement('div');
         playheadLineHit.dataset.testid = 'akari-playhead-line-hit';
         Object.assign(playheadLineHit.style, {
-            position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, left: '-3px', width: '8px',
+            position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, left: '-4px', width: '9px',
             pointerEvents: 'auto', cursor: 'ew-resize'
         });
         playheadLineHit.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
@@ -1950,6 +1952,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             if (this.toolMode === 'frame' && !this.frameToolSelectionTarget(event)) this.onStripPointerDown(event);
         }, true);
+        this.strip.addEventListener('pointerdown', event => this.onSelectPlayheadLinePointerDown(event), true);
+        this.strip.addEventListener('pointermove', event => this.onSelectPlayheadLinePointerMove(event), true);
+        this.strip.addEventListener('pointerup', event => this.onSelectPlayheadLinePointerUp(event), true);
+        this.strip.addEventListener('pointercancel', event => this.onSelectPlayheadLinePointerUp(event), true);
+        this.stripScroll.addEventListener('pointermove', event => {
+            const rect = this.strip.getBoundingClientRect();
+            const inside = this.toolMode === 'select' && event.buttons === 0
+                && event.clientY >= rect.top && event.clientY <= rect.bottom
+                && event.clientX >= rect.left && event.clientX <= rect.right;
+            const playheadRect = this.playhead.getBoundingClientRect();
+            this.stripScroll.classList.toggle('akari-annotations-line-grab-hover',
+                !!this.activePlayheadScrubCleanup || inside && isPlayheadLineGrab({
+                    clientX: event.clientX, playheadClientX: playheadRect.left + playheadRect.width / 2,
+                    tolerancePx: 4
+                }));
+        });
+        this.stripScroll.addEventListener('pointerleave', () => {
+            if (!this.activePlayheadScrubCleanup) this.stripScroll.classList.remove('akari-annotations-line-grab-hover');
+        });
+        this.toDispose.push({ dispose: () => {
+            this.pendingLineGrab = undefined;
+            this.activeLineMarquee?.cancel();
+            this.activePlayheadScrubCleanup?.();
+            this.stripScroll.classList.remove('akari-annotations-line-grab-hover');
+        } });
         this.strip.addEventListener('click', event => {
             if (this.toolMode === 'frame' && !this.frameToolSelectionTarget(event)) {
                 event.preventDefault(); event.stopImmediatePropagation();
@@ -17989,23 +18016,46 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
+        this.beginPlayheadScrub(event);
+    }
+
+    protected beginPlayheadScrub(event: PointerEvent, initialMove = false): void {
+        this.activePlayheadScrubCleanup?.();
+        this.playheadHandle.dataset.grabbing = 'true';
+        this.stripScroll?.classList.add('akari-annotations-line-grab-hover');
         this.playheadHandle.setPointerCapture(event.pointerId);
         const onMove = (moveEvent: PointerEvent): void => {
+            if (moveEvent.pointerId !== event.pointerId) return;
             const outputT = this.timeAtClientX(moveEvent.clientX);
             this.playheadT = outputT;
             this.playhead.style.left = `${this.percent(outputT)}%`;
             void this.requestSeek(outputT, { domain: 'output' });
         };
-        const onUp = (upEvent: PointerEvent): void => {
-            this.playheadHandle.releasePointerCapture(upEvent.pointerId);
+        const cleanup = (): void => {
+            try {
+                if (this.playheadHandle.hasPointerCapture(event.pointerId)) {
+                    this.playheadHandle.releasePointerCapture(event.pointerId);
+                }
+            } catch {
+                // The handle may have been detached during a timeline refresh.
+            }
             this.playheadHandle.removeEventListener('pointermove', onMove);
             this.playheadHandle.removeEventListener('pointerup', onUp);
             this.playheadHandle.removeEventListener('pointercancel', onUp);
+            delete this.playheadHandle.dataset.grabbing;
+            this.stripScroll?.classList.remove('akari-annotations-line-grab-hover');
+            this.activePlayheadScrubCleanup = undefined;
+        };
+        const onUp = (upEvent: PointerEvent): void => {
+            if (upEvent.pointerId !== event.pointerId) return;
+            cleanup();
             this.selectedSourceT = this.outputToSource(this.playheadT);
         };
+        this.activePlayheadScrubCleanup = cleanup;
         this.playheadHandle.addEventListener('pointermove', onMove);
         this.playheadHandle.addEventListener('pointerup', onUp);
         this.playheadHandle.addEventListener('pointercancel', onUp);
+        if (initialMove) onMove(event);
     }
 
     protected panViewBy(deltaSeconds: number): void {
@@ -18440,6 +18490,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 playheadClientX: playheadRect.left + playheadRect.width / 2, tolerancePx: 4 });
     }
 
+    protected isSelectPlayheadLineGrab(event: PointerEvent): boolean {
+        if (this.toolMode !== 'select' || event.button !== 0) return false;
+        const target = event.target instanceof Element ? event.target : undefined;
+        if (!target || this.playhead.contains(target)
+            || target.closest('.akari-beat-marker, .akari-annotations-pin, .akari-track-header-row')) return false;
+        const rect = this.playhead.getBoundingClientRect();
+        return isPlayheadLineGrab({ clientX: event.clientX,
+            playheadClientX: rect.left + rect.width / 2, tolerancePx: 4 });
+    }
+
+    protected onSelectPlayheadLinePointerDown(event: PointerEvent): void {
+        this.pendingLineGrab = this.isSelectPlayheadLineGrab(event)
+            ? { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY }
+            : undefined;
+    }
+
+    protected onSelectPlayheadLinePointerMove(event: PointerEvent): void {
+        const pending = this.pendingLineGrab;
+        if (!pending || event.pointerId !== pending.pointerId) return;
+        const dx = event.clientX - pending.startX;
+        const dy = event.clientY - pending.startY;
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        this.pendingLineGrab = undefined;
+        if (Math.abs(dx) < Math.abs(dy)) return;
+        this.activeLineMarquee?.pointerId === event.pointerId && this.activeLineMarquee.cancel();
+        if (this.dragState?.pointerId === event.pointerId) this.cancelDrag(this.dragState);
+        this.selectionMarquee.style.display = 'none';
+        this.suppressNextStripClick = true;
+        this.beginPlayheadScrub(event, true);
+    }
+
+    protected onSelectPlayheadLinePointerUp(event: PointerEvent): void {
+        if (this.pendingLineGrab?.pointerId === event.pointerId) this.pendingLineGrab = undefined;
+    }
+
     protected onStripPointerDown(event: PointerEvent): void {
         if (this.toolMode === 'frame') {
             if (this.frameToolPlayheadLineGrab(event)) {
@@ -18468,7 +18553,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const startX = event.clientX;
         const startY = event.clientY;
         let dragged = false;
+        let cancelled = false;
         this.strip.setPointerCapture(event.pointerId);
+        const cancel = (): void => {
+            cancelled = true;
+            this.strip.removeEventListener('pointermove', onMove);
+            this.strip.removeEventListener('pointerup', onUp);
+            this.strip.removeEventListener('pointercancel', onUp);
+            this.selectionMarquee.style.display = 'none';
+            if (this.activeLineMarquee?.pointerId === event.pointerId) this.activeLineMarquee = undefined;
+        };
+        if (this.pendingLineGrab?.pointerId === event.pointerId) {
+            this.activeLineMarquee = { pointerId: event.pointerId, cancel };
+        }
         const overlayRect = (): DOMRect => this.timelineOverlay.getBoundingClientRect();
         const updateMarquee = (clientX: number, clientY: number): void => {
             const rect = overlayRect();
@@ -18481,6 +18578,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionMarquee.style.display = 'block';
         };
         const onMove = (moveEvent: PointerEvent): void => {
+            if (cancelled) return;
             if (!dragged && Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < DRAG_THRESHOLD_PX) {
                 return;
             }
@@ -18488,10 +18586,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             updateMarquee(moveEvent.clientX, moveEvent.clientY);
         };
         const onUp = (upEvent: PointerEvent): void => {
-            this.strip.removeEventListener('pointermove', onMove);
-            this.strip.removeEventListener('pointerup', onUp);
-            this.strip.removeEventListener('pointercancel', onUp);
-            this.selectionMarquee.style.display = 'none';
+            const interrupted = cancelled;
+            cancel();
+            if (interrupted) return;
             if (!dragged) {
                 if (upEvent.type === 'pointerup' && !event.shiftKey && this.selectGapAt(startX, startY)) {
                     this.suppressNextStripClick = true;

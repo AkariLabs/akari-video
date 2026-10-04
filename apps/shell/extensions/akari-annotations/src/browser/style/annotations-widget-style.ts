@@ -494,6 +494,9 @@ export const ANNOTATIONS_WIDGET_CSS = `
         left: -4px; width: 9px; pointer-events: auto; cursor: ew-resize;
     }
     .akari-annotations-tool-frame .akari-annotations-frame-playhead-line-hit { display: block; }
+    .akari-annotations-line-grab-hover,
+    .akari-annotations-line-grab-hover * { cursor: ew-resize !important; }
+    [data-grabbing="true"] svg path { fill: #fff; }
     .akari-annotations-frame-pending {
         position: absolute; z-index: 8; box-sizing: border-box; pointer-events: none;
         display: flex; align-items: center; padding: 0 6px; overflow: hidden;
