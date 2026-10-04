@@ -2219,7 +2219,11 @@ function captionVerticalHeightVars(style: UnknownRecord, output: { width: number
     if (style.vertical !== true || !output || !finitePositive(output.height)) return {};
     const pct = finitePositive(style.wrap_width_pct) ? style.wrap_width_pct
         : finitePositive(style.max_width_pct) ? style.max_width_pct : 90;
-    return { '--caption-vertical-max-height': `${formatCssNumber(output.height * pct / 100)}px` };
+    const height = `${formatCssNumber(output.height * pct / 100)}px`;
+    return {
+        '--caption-vertical-max-height': height,
+        ...(finitePositive(style.wrap_width_pct) ? { '--caption-vertical-wrap-height': height } : {})
+    };
 }
 
 export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { width: number; height: number } | undefined): { vars: Record<string, string>; layout?: ResolvedCaptionLayout } {

@@ -292,7 +292,7 @@ export function captionTextStyleVars(style: LegacyPreviewCaptionTextStyle | unde
 
 function captionTransformStyleVars(style: PreviewCaptionTextStyle | undefined): Record<string, string> {
     const vars: Record<string, string> = {};
-    if (typeof style?.wrap_width_pct === 'number' && Number.isFinite(style.wrap_width_pct)
+    if (!style?.vertical && typeof style?.wrap_width_pct === 'number' && Number.isFinite(style.wrap_width_pct)
         && style.wrap_width_pct > 0 && style.wrap_width_pct <= 100) {
         vars['--caption-wrap-width'] = `${style.wrap_width_pct}%`;
     }

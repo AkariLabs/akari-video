@@ -4909,7 +4909,11 @@ ${indent}`);
         if (style.vertical !== true || !output || !finitePositive4(output.height))
           return {};
         const pct = finitePositive4(style.wrap_width_pct) ? style.wrap_width_pct : finitePositive4(style.max_width_pct) ? style.max_width_pct : 90;
-        return { "--caption-vertical-max-height": `${formatCssNumber(output.height * pct / 100)}px` };
+        const height = `${formatCssNumber(output.height * pct / 100)}px`;
+        return {
+          "--caption-vertical-max-height": height,
+          ...finitePositive4(style.wrap_width_pct) ? { "--caption-vertical-wrap-height": height } : {}
+        };
       }
       function resolveCaptionStyleForOutput(style, output) {
         let layout;

@@ -4901,7 +4901,11 @@ var require_caption_display = __commonJS({
       if (style.vertical !== true || !output || !finitePositive3(output.height))
         return {};
       const pct = finitePositive3(style.wrap_width_pct) ? style.wrap_width_pct : finitePositive3(style.max_width_pct) ? style.max_width_pct : 90;
-      return { "--caption-vertical-max-height": `${formatCssNumber(output.height * pct / 100)}px` };
+      const height = `${formatCssNumber(output.height * pct / 100)}px`;
+      return {
+        "--caption-vertical-max-height": height,
+        ...finitePositive3(style.wrap_width_pct) ? { "--caption-vertical-wrap-height": height } : {}
+      };
     }
     function resolveCaptionStyleForOutput(style, output) {
       let layout;

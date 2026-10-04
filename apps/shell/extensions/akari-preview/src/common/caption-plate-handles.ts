@@ -24,6 +24,22 @@ export function captionWrapWidthDrag(
         centerX };
 }
 
+/** The vertical counterpart uses output height as the percentage denominator. */
+export function captionWrapHeightDrag(
+    side: 'n' | 's', start: { top: number; bottom: number },
+    delta: CaptionHandlePoint, rotate: number, scale: number, outputHeight: number
+): { heightPct: number; top: number; bottom: number } {
+    const radians = rotate * Math.PI / 180;
+    const localDelta = (-delta.x * Math.sin(radians) + delta.y * Math.cos(radians))
+        / (Number.isFinite(scale) && scale > 0 ? scale : 1);
+    const height = Math.min(outputHeight, Math.max(8,
+        start.bottom - start.top + (side === 's' ? localDelta : -localDelta)));
+    const heightPct = Math.round(height / outputHeight * 10000) / 100;
+    const roundedHeight = heightPct / 100 * outputHeight;
+    return side === 's' ? { heightPct, top: start.top, bottom: start.top + roundedHeight }
+        : { heightPct, top: start.bottom - roundedHeight, bottom: start.bottom };
+}
+
 export function captionCornerTransform(
     kind: 'nw' | 'ne' | 'sw' | 'se', layout: { left: number; right: number; top: number; bottom: number },
     baseScale: number, rotation: number, pointer: CaptionHandlePoint, startPointer?: CaptionHandlePoint
