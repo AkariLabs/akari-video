@@ -563,9 +563,31 @@ export function previewBootstrapScript(): string {
             // 入力は pointerup で解放する。DOM と host refresh は未完了の保存ごとに保護する。
             const selectionGestures = new Set();
             let captionGestureCount = 0;
+            let pendingCaptionUpdate = null;
+            const replayPendingCaptionUpdate = () => {
+                if (captionGestureCount || !pendingCaptionUpdate) return;
+                const next = pendingCaptionUpdate;
+                pendingCaptionUpdate = null;
+                window.postMessage?.({ type: 'akari-preview-captions-update', captions: next }, '*');
+            };
             const captionPositionOverrides = new Map();
+            const latestCaptionMove = new Map();
             const rememberCaptionPosition = (id, value) => {
-                captionPositionOverrides.set(id, { value, saved: false });
+                const pending = { value, saved: false };
+                captionPositionOverrides.set(id, pending);
+                return pending;
+            };
+            const captionPositionMatches = (actual, expected) => !!actual
+                && Math.abs(Number(actual.x ?? 0) - Number(expected.x ?? 0)) < 0.000001
+                && Math.abs(Number(actual.y ?? 0) - Number(expected.y ?? 0)) < 0.000001;
+            const captionUpdateIsStale = incoming => {
+                for (const [id, pending] of captionPositionOverrides) {
+                    const cue = incoming.find(item => (item.sourceCueId || item.id) === id);
+                    if (!cue || !captionPositionMatches(cue.textStyle?.position, pending.value.position)) {
+                        return true;
+                    }
+                }
+                return false;
             };
             const protectCaptionUpdate = incoming => incoming.map(cue => {
                 const id = cue.sourceCueId || cue.id;
@@ -573,9 +595,7 @@ export function previewBootstrapScript(): string {
                 if (!pending) return cue;
                 const position = cue.textStyle?.position;
                 const expected = pending.value.position;
-                if (pending.saved && position
-                    && Math.abs(Number(position.x ?? 0) - Number(expected.x ?? 0)) < 0.000001
-                    && Math.abs(Number(position.y ?? 0) - Number(expected.y ?? 0)) < 0.000001) {
+                if (pending.saved && captionPositionMatches(position, expected)) {
                     captionPositionOverrides.delete(id);
                     return cue;
                 }
@@ -5521,8 +5541,10 @@ export function previewBootstrapScript(): string {
                 const captionPlate = handle && captionSelectBox.contains(handle)
                     ? selectedCaptionPlate() : event.target.closest('.caption-row-plate');
                 if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
-                captionGestureCount += 1;
-                window.akari.reportGesture('begin');
+                const captionMoveToken = {};
+                if (typeof latestCaptionMove !== 'undefined') latestCaptionMove.set(cueId, captionMoveToken);
+                if (typeof captionGestureCount !== 'undefined') captionGestureCount += 1;
+                window.akari.reportGesture?.('begin');
                 event.preventDefault();
                 event.stopPropagation();
                 const placedText = caption.timeDomain === 'output';
@@ -5538,11 +5560,22 @@ export function previewBootstrapScript(): string {
                 const startPlateRect = captionVisualRect();
                 const startLayoutRect = captionLayoutRect();
                 const startTransform = captionTransformValues(captionPlate);
+                // The previous drag can still be waiting for captions.json. Its live
+                // displacement is on the plate, while captions still has the old base.
+                const captionTranslateNow = plate => {
+                    const [x, y] = String(plate.style.translate || '').trim().split(' ');
+                    return { x: parseFloat(x) || 0, y: parseFloat(y) || 0 };
+                };
+                const startPlateTranslate = captionTranslateNow(captionPlate);
+                const startRowTranslates = new Map();
                 const startOutputPoint = captionOutputPoint(startClientX, startClientY);
                 const moveIds = !groupMode && selectedCaptionIds.has(cueId)
                     ? [...selectedCaptionIds].filter(id => captions.some(item => (item.sourceCueId || item.id) === id))
                     : [];
                 const multiMove = moveIds.length > 1;
+                if (typeof latestCaptionMove !== 'undefined') {
+                    for (const id of moveIds) latestCaptionMove.set(id, captionMoveToken);
+                }
                 const startRects = new Map();
                 const startLayoutRects = new Map();
                 const startTransforms = new Map();
@@ -5557,6 +5590,7 @@ export function previewBootstrapScript(): string {
                         const visible = [...captionRows.values()].find(row =>
                             (row.caption.sourceCueId || row.caption.id) === id);
                         if (visible) {
+                            startRowTranslates.set(id, captionTranslateNow(visible.plate));
                             startRects.set(id, captionVisualRect(visible.plate));
                             startLayoutRects.set(id, captionLayoutRect(visible.plate));
                             startTransforms.set(id, captionTransformValues(visible.plate));
@@ -5653,17 +5687,29 @@ export function previewBootstrapScript(): string {
                     lastOutputDelta = { x: outputDx, y: outputDy };
                     if (multiMove) {
                         for (const row of captionRows.values()) {
-                            if (selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id)) {
-                                row.plate.style.translate = outputDx + 'px ' + outputDy + 'px';
+                            const id = row.caption.sourceCueId || row.caption.id;
+                            if (selectedCaptionIds.has(id)) {
+                                const start = startRowTranslates.get(id)
+                                    ?? (id === cueId ? startPlateTranslate : { x: 0, y: 0 });
+                                row.plate.style.translate = (start.x + outputDx) + 'px '
+                                    + (start.y + outputDy) + 'px';
                             }
                         }
                         updateCaptionSelectBox();
                     } else {
+                        outputDx += startPlateTranslate.x;
+                        outputDy += startPlateTranslate.y;
                         captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
                         updateCaptionSelectBoxForRect(captionVisualRect());
                     }
                 };
                 let captionFinished = false;
+                const writtenPositions = new Map();
+                const rememberThisCaptionPosition = (id, value) => {
+                    if (typeof rememberCaptionPosition !== 'undefined') {
+                        writtenPositions.set(id, rememberCaptionPosition(id, value));
+                    }
+                };
                 const finish = async cancelled => {
                     if (captionFinished) return;
                     captionFinished = true;
@@ -5671,13 +5717,19 @@ export function previewBootstrapScript(): string {
                     if (cancelled || !moved) {
                         for (const row of captionRows.values()) {
                             if (multiMove && selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id)) {
-                                row.plate.style.translate = '';
+                                const id = row.caption.sourceCueId || row.caption.id;
+                                const start = startRowTranslates.get(id)
+                                    ?? (id === cueId ? startPlateTranslate : { x: 0, y: 0 });
+                                row.plate.style.translate = start.x || start.y
+                                    ? start.x + 'px ' + start.y + 'px' : '';
                             }
                         }
-                        captionPlate.style.translate = '';
+                        captionPlate.style.translate = startPlateTranslate.x || startPlateTranslate.y
+                            ? startPlateTranslate.x + 'px ' + startPlateTranslate.y + 'px' : '';
                         updateCaptionSelectBox();
-                        captionGestureCount -= 1;
-                        window.akari.reportGesture('end');
+                        if (typeof captionGestureCount !== 'undefined') captionGestureCount -= 1;
+                        window.akari.reportGesture?.('end');
+                        if (typeof replayPendingCaptionUpdate !== 'undefined') replayPendingCaptionUpdate();
                         return;
                     }
                     pendingCaptionDragReload = true;
@@ -5717,7 +5769,9 @@ export function previewBootstrapScript(): string {
                                 );
                                 return { captionId: id, value };
                             });
-                            for (const { captionId, value } of cuePositions) rememberCaptionPosition(captionId, value);
+                            for (const { captionId, value } of cuePositions) {
+                                rememberThisCaptionPosition(captionId, value);
+                            }
                             await window.akari.engine.captionWrite(cueId, { cuePositions });
                             for (const id of moveIds) captionCuePositionKnown.set(id, true);
                         } else {
@@ -5726,32 +5780,38 @@ export function previewBootstrapScript(): string {
                                 { anchor: startAnchor, clamp: clampOn,
                                     timeDomain: caption.timeDomain, ...startTransform }
                             );
-                            rememberCaptionPosition(cueId, cuePosition);
+                            rememberThisCaptionPosition(cueId, cuePosition);
                             await window.akari.engine.captionWrite(cueId, {
                                 cuePosition
                             });
                             captionCuePositionKnown.set(cueId, true);
                         }
-                        window.akari.reportGesture('saved');
+                        window.akari.reportGesture?.('saved');
                     } catch (error) {
-                        captionPositionOverrides.delete(cueId);
-                        for (const id of moveIds) captionPositionOverrides.delete(id);
-                        pendingCaptionDragReload = false;
-                        if (multiMove) for (const row of captionRows.values()) row.plate.style.translate = '';
-                        captionPlate.style.translate = '';
+                        for (const [id, pending] of writtenPositions) {
+                            if (captionPositionOverrides.get(id) === pending) captionPositionOverrides.delete(id);
+                        }
+                        if (typeof latestCaptionMove === 'undefined'
+                            || latestCaptionMove.get(cueId) === captionMoveToken) {
+                            pendingCaptionDragReload = false;
+                            if (multiMove) for (const row of captionRows.values()) row.plate.style.translate = '';
+                            captionPlate.style.translate = '';
+                        }
                         console.warn('[akari-preview] caption position write rejected; reverting', error);
                         window.akari.showWriteError(error);
                     }
-                    for (const id of [cueId, ...moveIds]) {
-                        const pending = captionPositionOverrides.get(id);
-                        if (pending) pending.saved = true;
+                    for (const [id, pending] of writtenPositions) {
+                        if (captionPositionOverrides.get(id) === pending) pending.saved = true;
                     }
-                    captionGestureCount -= 1;
-                    window.akari.reportGesture('end');
-                    if (!captionGestureCount && !selectionGestures.size) pendingSelectionModel = null;
-                    else {
-                        const flush = flushPendingSelectionModel;
-                        flush();
+                    if (typeof captionGestureCount !== 'undefined') captionGestureCount -= 1;
+                    window.akari.reportGesture?.('end');
+                    if (typeof replayPendingCaptionUpdate !== 'undefined') replayPendingCaptionUpdate();
+                    if (typeof selectionGestures !== 'undefined') {
+                        if (!captionGestureCount && !selectionGestures.size) pendingSelectionModel = null;
+                        else {
+                            const flush = flushPendingSelectionModel;
+                            flush();
+                        }
                     }
                     updateCaptionSelectBox();
                 };
@@ -10137,10 +10197,17 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
-                    if (captionGestureCount) return;
+                    if (captionGestureCount) {
+                        pendingCaptionUpdate = Array.isArray(message.captions) ? message.captions : [];
+                        return;
+                    }
+                    const nextCaptions = Array.isArray(message.captions) ? message.captions : [];
+                    // textStyleVars, not textStyle, drives the plate's actual CSS. A stale
+                    // message cannot be repaired by changing textStyle alone.
+                    if (captionUpdateIsStale(nextCaptions)) return;
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated();
-                    captions = protectCaptionUpdate(Array.isArray(message.captions) ? message.captions : []);
+                    captions = protectCaptionUpdate(nextCaptions);
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();
                     if (!window.akari.frameEngineClock) rebuildSegments();
