@@ -6,6 +6,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { catalogCachePath, resolveAkariHome, resolveCatalogSource } from './env.mjs';
 import { join } from 'node:path';
 import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
+import { assetTier } from './tier.mjs';
 
 function normalizeCatalog(catalog) {
   if (!catalog || !Array.isArray(catalog.items)) {
@@ -16,10 +17,21 @@ function normalizeCatalog(catalog) {
 
 export async function readCatalogCache(env = process.env) {
   try {
-    return normalizeCatalog(JSON.parse(await readFile(catalogCachePath(env), 'utf8')));
+    return publicCatalog(normalizeCatalog(JSON.parse(await readFile(catalogCachePath(env), 'utf8'))));
   } catch {
     return null;
   }
+}
+
+function publicCatalog(catalog) {
+  return {
+    ...catalog,
+    items: catalog.items.map(item => {
+      if (item.state !== 'locked' && assetTier(item) !== 'pro') return item;
+      const { files, ...visible } = item;
+      return visible;
+    }),
+  };
 }
 
 /** The update preference is the shared source for shell and resolver automatic requests. */
@@ -39,7 +51,7 @@ export async function catalogNetworkAllowed(intent = 'user', env = process.env) 
 export async function cacheCatalog(env = process.env, catalog) {
   const home = resolveAkariHome(env);
   await mkdir(home, { recursive: true });
-  await writeFile(catalogCachePath(env), `${JSON.stringify(catalog, null, 2)}\n`);
+  await writeFile(catalogCachePath(env), `${JSON.stringify(publicCatalog(normalizeCatalog(catalog)), null, 2)}\n`);
 }
 
 /**

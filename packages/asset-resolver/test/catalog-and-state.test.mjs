@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { loadCatalog } from '../src/catalog.mjs';
+import { cacheCatalog, loadCatalog, readCatalogCache } from '../src/catalog.mjs';
 import { composeState } from '../src/state.mjs';
 import { setupFixtureEnv } from './helpers.mjs';
 
@@ -11,6 +11,26 @@ test('loadCatalog はローカルパス指定のカタログを読める', async
   const loaded = await loadCatalog({ env });
   assert.equal(loaded.schema, 'akari-assets-catalog/v0');
   assert.equal(loaded.items.length, catalog.items.length);
+});
+
+test('catalog cache drops files for locked and Pro items before writing and on old-cache reads', async () => {
+  const { env, home, catalog } = setupFixtureEnv();
+  catalog.items[0].tier = 'free';
+  catalog.items[1].tier = 'pro';
+  catalog.items[1].files = [{ name: 'private.zip', url: 'https://example.invalid/private.zip' }];
+  catalog.items.push({ id: 'locked-free', category: 'audio', tier: 'free', state: 'locked', files: [{ name: 'secret.mp3', url: 'https://example.invalid/secret.mp3' }] });
+  await cacheCatalog(env, catalog);
+  const cachePath = path.join(home, 'catalog-cache.json');
+  const saved = JSON.parse(readFileSync(cachePath, 'utf8'));
+  assert.ok(saved.items[0].files.length > 0);
+  assert.equal(Object.hasOwn(saved.items[1], 'files'), false);
+  assert.equal(Object.hasOwn(saved.items[2], 'files'), false);
+  assert.ok(catalog.items[1].files.length > 0, 'caller catalog is not mutated');
+
+  writeFileSync(cachePath, JSON.stringify(catalog));
+  const oldCache = await readCatalogCache(env);
+  assert.equal(Object.hasOwn(oldCache.items[1], 'files'), false);
+  assert.equal(Object.hasOwn(oldCache.items[2], 'files'), false);
 });
 
 test('composeState: entitlements 無しでは無料素材が available・有料素材が locked', async () => {
