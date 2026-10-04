@@ -37,7 +37,7 @@ import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { captionRowWrapRect } from '../common/caption-row-box';
 import { captionPositionFromVisualRect, placedCaptionPositionFromRects } from '../common/caption-zone-write';
-import { captionWrapWidthDrag, captionCornerTransform } from '../common/caption-plate-handles';
+import { captionWrapWidthDrag, captionWrapHeightDrag, captionCornerTransform } from '../common/caption-plate-handles';
 import {
     captionOrientedFrame,
     captionWrapAnchorDelta,
@@ -4714,6 +4714,9 @@ export function previewBootstrapScript(): string {
                     const edgeLayout = captionEdgeHandleLayoutFn(captionSelectBox.offsetHeight * chromeScaleY);
                     captionSelectBox.style.setProperty('--akari-caption-edge-outset',
                         edgeLayout.edgeOutset / chromeScaleX + 'px');
+                    const verticalEdgeLayout = captionEdgeHandleLayoutFn(captionSelectBox.offsetWidth * chromeScaleX);
+                    captionSelectBox.style.setProperty('--akari-caption-vertical-edge-outset',
+                        verticalEdgeLayout.edgeOutset / chromeScaleY + 'px');
                 }
                 captionSelectBox.style.transform = 'rotate(' + captionTransform.rotate + 'deg)';
                 captionSelectBox.style.setProperty('--caption-box-rotate', captionTransform.rotate + 'deg');
@@ -5293,10 +5296,11 @@ export function previewBootstrapScript(): string {
                     event.stopPropagation();
                 }
             });
+            const captionWrapHeightDragFn = (${captionWrapHeightDrag.toString()});
             const beginCaptionHandleDrag = (event, handle, caption, cueId) => {
                 const captionPlate = handle.closest('.caption-row-plate') || selectedCaptionPlate();
                 const kind = handle.getAttribute('data-h');
-                if (!['nw', 'ne', 'sw', 'se', 'rot', 'e', 'w', 'move'].includes(kind)) return false;
+                if (!['nw', 'ne', 'sw', 'se', 'rot', 'e', 'w', 'n', 's', 'move'].includes(kind)) return false;
                 if (kind === 'move') return false;
                 event.preventDefault();
                 event.stopPropagation();
@@ -5319,9 +5323,11 @@ export function previewBootstrapScript(): string {
                 const baseScale = Number.isFinite(currentScale) ? currentScale : 1;
                 const baseRotate = Number.isFinite(currentRotate) ? currentRotate : 0;
                 const fixedSide = kind === 'e' ? 'w' : 'e';
-                const startCorners = (kind === 'e' || kind === 'w')
+                const startCorners = ['e', 'w', 'n', 's'].includes(kind)
                     ? captionOrientedFrameFn(layoutRect, baseScale, baseRotate).corners : null;
                 const originalWrap = captionPlate.style.getPropertyValue('--caption-wrap-width');
+                const originalVerticalWrap = captionPlate.style.getPropertyValue('--caption-vertical-wrap-height');
+                const originalVerticalMax = captionPlate.style.getPropertyValue('--caption-vertical-max-height');
                 const originalPlateMargin = captionPlate.style.getPropertyValue('--caption-plate-margin');
                 const originalLeft = captionPlate.style.getPropertyValue('--caption-left');
                 const originalTop = captionPlate.style.getPropertyValue('--caption-top');
@@ -5335,7 +5341,7 @@ export function previewBootstrapScript(): string {
                 const gestureLabel = document.createElement('div');
                 gestureLabel.className = kind === 'rot' ? 'akari-interaction-angle' : 'akari-interaction-hint';
                 gestureLabel.setAttribute('data-akari-interaction', kind === 'rot' ? 'rotation-angle' : 'handle-hint');
-                gestureLabel.textContent = kind === 'e' || kind === 'w' ? '折り返し幅'
+                gestureLabel.textContent = ['e', 'w', 'n', 's'].includes(kind) ? '折り返し幅'
                     : kind === 'rot' ? '回転' : '大きさ';
                 gestureLabel.style.left = event.clientX + 12 + 'px';
                 gestureLabel.style.top = event.clientY + 12 + 'px';
@@ -5348,6 +5354,10 @@ export function previewBootstrapScript(): string {
                     else captionPlate.style.setProperty('--caption-rotate', baseRotate + 'deg');
                     if (originalWrap) captionPlate.style.setProperty('--caption-wrap-width', originalWrap);
                     else captionPlate.style.removeProperty('--caption-wrap-width');
+                    if (originalVerticalWrap) captionPlate.style.setProperty('--caption-vertical-wrap-height', originalVerticalWrap);
+                    else captionPlate.style.removeProperty('--caption-vertical-wrap-height');
+                    if (originalVerticalMax) captionPlate.style.setProperty('--caption-vertical-max-height', originalVerticalMax);
+                    else captionPlate.style.removeProperty('--caption-vertical-max-height');
                     if (originalPlateMargin) captionPlate.style.setProperty('--caption-plate-margin', originalPlateMargin);
                     else captionPlate.style.removeProperty('--caption-plate-margin');
                     if (originalLeft) captionPlate.style.setProperty('--caption-left', originalLeft);
@@ -5389,6 +5399,35 @@ export function previewBootstrapScript(): string {
                             if (Math.abs(angle - target) <= 4) angle = target;
                         }
                         patch = { rotate: angle };
+                    } else if (kind === 'n' || kind === 's') {
+                        const outputWidth = Number(summary.output?.width) || 1280;
+                        const outputHeight = Number(summary.output?.height) || 720;
+                        const wrap = captionWrapHeightDragFn(kind, layoutRect,
+                            { x: now.x - start.x, y: now.y - start.y }, baseRotate, baseScale, outputHeight);
+                        const wrapHeight = wrap.heightPct / 100 * outputHeight + 'px';
+                        captionPlate.style.setProperty('--caption-vertical-wrap-height', wrapHeight);
+                        captionPlate.style.setProperty('--caption-vertical-max-height', wrapHeight);
+                        captionPlate.style.setProperty('--caption-left', layoutRect.left / outputWidth * 100 + '%');
+                        captionPlate.style.setProperty('--caption-top', wrap.top / outputHeight * 100 + '%');
+                        captionPlate.style.setProperty('--caption-bottom', 'auto');
+                        captionPlate.style.setProperty('--caption-translate', 'none');
+                        const nextLayout = captionLayoutRect(captionPlate);
+                        const candidateLeft = layoutRect.right - (nextLayout.right - nextLayout.left);
+                        captionPlate.style.setProperty('--caption-left', candidateLeft / outputWidth * 100 + '%');
+                        const movedCorners = captionOrientedFrameFn(
+                            captionLayoutRect(captionPlate), baseScale, baseRotate).corners;
+                        const fixedCorner = kind === 's' ? 1 : 2;
+                        const anchorDelta = {
+                            x: startCorners[fixedCorner].x - movedCorners[fixedCorner].x,
+                            y: startCorners[fixedCorner].y - movedCorners[fixedCorner].y
+                        };
+                        const placement = captionWrapPositionFn(candidateLeft + anchorDelta.x,
+                            wrap.top + anchorDelta.y,
+                            outputWidth, outputHeight);
+                        patch = { wrapWidthPct: wrap.heightPct,
+                            cuePosition: { captionId: cueId, value: placement } };
+                        captionPlate.style.setProperty('--caption-left', placement.position.x * 100 + '%');
+                        captionPlate.style.setProperty('--caption-top', placement.position.y * 100 + '%');
                     } else if (kind === 'e' || kind === 'w') {
                         const outputWidth = Number(summary.output?.width) || 1280;
                         const outputHeight = Number(summary.output?.height) || 720;
@@ -6894,7 +6933,7 @@ export function previewBootstrapScript(): string {
                 if (!style) return '';
                 let css = '';
                 if (typeof style.opacity === 'number') css += '.akari-caption--opacity{opacity:var(--caption-opacity,1);}';
-                if (style.vertical) css += '.akari-caption--vertical{text-orientation:var(--caption-text-orientation,mixed);}.akari-caption--vertical .akari-caption__line{writing-mode:vertical-rl;max-height:var(--caption-vertical-max-height,90vh);margin:0;white-space:pre-wrap;overflow-wrap:anywhere;}.akari-caption.akari-caption--vertical .akari-caption__plate{left:var(--caption-left,0);right:var(--caption-right,0);width:var(--caption-width,max-content);margin-inline:0;writing-mode:horizontal-tb;align-items:var(--caption-align-items,center);}';
+                if (style.vertical) css += '.akari-caption--vertical{text-orientation:var(--caption-text-orientation,mixed);}.akari-caption--vertical .akari-caption__line{writing-mode:vertical-rl;max-height:var(--caption-vertical-max-height,90vh);box-sizing:border-box;width:auto;max-width:none;height:var(--caption-vertical-wrap-height,max-content);margin:0;white-space:pre-wrap;overflow-wrap:anywhere;}.akari-caption.akari-caption--vertical .akari-caption__plate{left:var(--caption-left,0);right:var(--caption-right,0);width:var(--caption-width,max-content);margin-inline:0;writing-mode:horizontal-tb;align-items:var(--caption-align-items,center);}.akari-caption.akari-caption--vertical .akari-caption__plate{flex-direction:row-reverse;align-items:flex-start;}';
                 if (style.underline || style.strikethrough) {
                     css += '.akari-caption--decorated,.akari-caption--decorated .akari-caption__line,.akari-caption--decorated .akari-caption__tok{text-decoration:none!important;}';
                     css += '.akari-caption--decorated .akari-caption__line{position:relative;}';
@@ -7189,6 +7228,9 @@ export function previewBootstrapScript(): string {
             const captionStyleVariableNames = ${JSON.stringify(RESOLVED_CAPTION_STYLE_VARIABLE_NAMES)};
             const applyCaptionStyleVars = (caption, captionPlate) => {
                 captionPlate.style.removeProperty('--caption-plate-fit');
+                captionPlate.style.removeProperty('--caption-wrap-width');
+                captionPlate.style.removeProperty('--caption-vertical-wrap-height');
+                captionPlate.style.removeProperty('--caption-vertical-max-height');
                 for (const name of captionStyleVariableNames) {
                     captionPlate.style.removeProperty(name);
                 }
@@ -7232,10 +7274,39 @@ export function previewBootstrapScript(): string {
                 if (!caption) return;
                 const handleBox = document.createElement('div');
                 handleBox.className = 'akari-caption-handle-box';
-                for (const kind of ['nw', 'ne', 'sw', 'se', 'e', 'w', 'rot', 'move']) {
+                const handleKinds = ['nw', 'ne', 'sw', 'se', 'e', 'w', 'rot', 'move'];
+                for (const kind of caption.textStyle?.vertical
+                    ? [...handleKinds.filter(kind => kind !== 'e' && kind !== 'w'), 'n', 's']
+                    : handleKinds) {
                     const handle = document.createElement('i');
                     handle.className = 'akari-caption-handle';
                     handle.setAttribute('data-h', kind);
+                    if (kind === 'n' || kind === 's') {
+                        // The shared handle stylesheet is outside this lane; keep the vertical control local.
+                        handle.style.left = '50%';
+                        handle.style[kind === 'n' ? 'top' : 'bottom'] =
+                            'calc(0px - var(--akari-caption-vertical-edge-outset,0px))';
+                        handle.style.width = '20px';
+                        handle.style.height = '11px';
+                        handle.style.border = '0';
+                        handle.style.borderRadius = '0';
+                        handle.style.background = 'transparent';
+                        handle.style.boxShadow = 'none';
+                        handle.style.transform = (kind === 'n' ? 'translate(-50%,-50%)' : 'translate(-50%,50%)')
+                            + ' scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1))';
+                        handle.style.cursor = 'ns-resize';
+                        const grip = document.createElement('span');
+                        grip.style.position = 'absolute';
+                        grip.style.left = '3px';
+                        grip.style.top = '3px';
+                        grip.style.width = '14px';
+                        grip.style.height = '5px';
+                        grip.style.borderRadius = '3px';
+                        grip.style.background = '#fff';
+                        grip.style.boxShadow = '0 1px 4px rgba(0,0,0,.35)';
+                        grip.style.pointerEvents = 'none';
+                        handle.appendChild(grip);
+                    }
                     handleBox.appendChild(handle);
                 }
                 captionSelectBox.appendChild(handleBox);

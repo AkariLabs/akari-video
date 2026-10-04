@@ -6040,7 +6040,11 @@ var AkariEditKernel = (() => {
   function captionVerticalHeightVars(style, output) {
     if (style.vertical !== true || !output || !finitePositive2(output.height)) return {};
     const pct = finitePositive2(style.wrap_width_pct) ? style.wrap_width_pct : finitePositive2(style.max_width_pct) ? style.max_width_pct : 90;
-    return { "--caption-vertical-max-height": `${formatCssNumber(output.height * pct / 100)}px` };
+    const height = `${formatCssNumber(output.height * pct / 100)}px`;
+    return {
+      "--caption-vertical-max-height": height,
+      ...finitePositive2(style.wrap_width_pct) ? { "--caption-vertical-wrap-height": height } : {}
+    };
   }
   var CAPTION_TEXT_TRANSFORM_MAP = {
     upper: "uppercase",
