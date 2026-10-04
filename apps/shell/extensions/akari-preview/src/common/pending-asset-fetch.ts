@@ -28,10 +28,32 @@ export function pendingAssetFetchKey(relativePath: string): string {
     return relativePath.replace(/\\/g, '/');
 }
 
+export function summarizeFetchFailure(message: string): string {
+    const lines = message.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const first = lines[0] ?? '';
+    const reason = lines.slice(1).find(line => line.startsWith('- '));
+    return (reason ? `${first}: ${reason.slice(2).trim()}` : first).slice(0, 120);
+}
+
 export class PendingAssetFetchStore {
     private readonly entries = new Map<string, PendingAssetFetch>();
     private readonly counts = new Map<string, number>();
     private readonly listeners = new Set<(relativePath: string) => void>();
+    private readonly failureReasons = new Map<string, { reason: string; notedAt: number }>();
+
+    noteFailureReason(catalogKey: string, reason: string): void {
+        const now = Date.now();
+        for (const [key, entry] of this.failureReasons) {
+            if (now - entry.notedAt > 600_000) this.failureReasons.delete(key);
+        }
+        this.failureReasons.set(catalogKey, { reason, notedAt: now });
+    }
+
+    takeFailureReason(catalogKey: string): string | undefined {
+        const entry = this.failureReasons.get(catalogKey);
+        this.failureReasons.delete(catalogKey);
+        return entry && Date.now() - entry.notedAt <= 600_000 ? entry.reason : undefined;
+    }
 
     begin(entry: Omit<PendingAssetFetch, 'startedAt'> & { startedAt?: number }): void {
         const key = pendingAssetFetchKey(entry.relativePath);

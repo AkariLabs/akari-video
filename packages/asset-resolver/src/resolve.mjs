@@ -15,7 +15,8 @@ import { spawnSync } from 'node:child_process';
 import { constants, existsSync, realpathSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { format } from 'node:util';
 import { loadCatalogForResolve } from './catalog.mjs';
 import { resolveEffectiveBase } from './env.mjs';
 import { AssetResolverError } from './errors.mjs';
@@ -31,6 +32,54 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // fetch-akari-sounds.mjs（packages/audio-library-setup/bin/）と同じ深さの相対規約。
 const repoRoot = path.resolve(here, '..', '..', '..');
 const VALIDATE_ASSET_SCRIPT = path.join(repoRoot, 'packages', 'schemas', 'bin', 'validate-asset.mjs');
+
+let validationQueue = Promise.resolve();
+let validationRun = 0;
+
+class ValidationExit extends Error {
+  constructor(status) {
+    super('validate-asset exited');
+    this.status = status;
+  }
+}
+
+async function validateAsset(assetDir) {
+  const run = validationQueue.then(async () => {
+    const original = {
+      argv: process.argv, exit: process.exit, exitCode: process.exitCode,
+      log: console.log, error: console.error,
+    };
+    let stdout = '';
+    let stderr = '';
+    try {
+      process.argv = [process.execPath, VALIDATE_ASSET_SCRIPT, assetDir];
+      process.exitCode = 0;
+      process.exit = code => { throw new ValidationExit(code ?? process.exitCode ?? 0); };
+      console.log = (...args) => { stdout += `${format(...args)}\n`; };
+      console.error = (...args) => { stderr += `${format(...args)}\n`; };
+      try {
+        await import(`${pathToFileURL(VALIDATE_ASSET_SCRIPT).href}?v=${++validationRun}`);
+        return { status: Number(process.exitCode ?? 0), stdout, stderr };
+      } catch (error) {
+        if (error instanceof ValidationExit) return { status: Number(error.status), stdout, stderr };
+        throw error;
+      }
+    } finally {
+      process.argv = original.argv;
+      process.exit = original.exit;
+      process.exitCode = original.exitCode;
+      console.log = original.log;
+      console.error = original.error;
+    }
+  });
+  validationQueue = run.then(() => {}, () => {});
+  try {
+    return await run;
+  } catch {
+    // Module loading failures are outside the validator's ordinary NG result.
+    return spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, assetDir], { encoding: 'utf8' });
+  }
+}
 
 export { AssetResolverError };
 
@@ -172,7 +221,7 @@ export async function resolve(
 
     // still / scene3d 等、meta.json を実体に持つ素材は validate-asset で契約検証してから登録する
     if (hasMeta) {
-      const result = spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, tempAssetDir], { encoding: 'utf8' });
+      const result = await validateAsset(tempAssetDir);
       if (result.status !== 0) {
         const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
         throw new AssetResolverError(`validate-asset 検証に失敗しました: ${item.id}\n${output}`, 'validation');
@@ -256,7 +305,7 @@ async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, 
     }
 
     {
-      const result = spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, tempAssetDir], { encoding: 'utf8' });
+      const result = await validateAsset(tempAssetDir);
       if (result.status !== 0) {
         const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
         throw new AssetResolverError(`validate-asset 検証に失敗しました: ${item.id}\n${output}`, 'validation');
