@@ -1,6 +1,7 @@
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
 import { AKARI_CATALOG_ROOT_PREFERENCE, CATALOG_GRID_GAP, CATALOG_GRID_COLUMNS, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
+import { AkariLintPane, LintPaneHost } from './akari-lint-pane';
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
@@ -466,12 +467,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected topView: TopView = 'materials';
     /** ファイルをドラッグ中か（取り込み可能であることを枠で見せる。renderDropOverlay 参照）。 */
     protected dragActive = false;
-    protected lintAvailable = false;
-    protected lintCount?: number;
-    protected lintRunning = false;
     protected outputsPane!: AkariOutputsPane;
     protected materialsPane!: AkariMaterialsPane;
     protected libraryPane!: AkariLibraryPane;
+    protected lintPane!: AkariLintPane;
 
 
     /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
@@ -673,6 +672,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             renderCatalogItem: item => widget().renderCatalogItem(item)
         };
         this.libraryPane = new AkariLibraryPane(libraryHost);
+        const lintHost: LintPaneHost = {
+            get workflow() { return widget().workflow; },
+            get projectService() { return widget().projectService; },
+            get messages() { return widget().messages; },
+            update: () => widget().update()
+        };
+        this.lintPane = new AkariLintPane(lintHost);
         this.toDispose.push(this.shapeShelf.onDidChange(() => this.update()));
         const saveMyStyle = (event: Event): void => {
             const detail = (event as CustomEvent<{ style: MyStyle; resolve: () => void; reject: (error: unknown) => void }>).detail;
@@ -838,7 +844,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected refresh(): void {
         void this.loadMaterials();
         void this.outputsPane.loadOutputs();
-        void this.refreshLint();
+        void this.lintPane.refreshLint();
     }
 
     protected selectTopView(view: TopView, refreshCatalog = true): void {
@@ -1836,40 +1842,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
-    // --- lint バッジ ---------------------------------------------------------
-
-    protected async refreshLint(notify = false): Promise<void> {
-        const root = this.workflow.workspaceRoot;
-        if (!root) {
-            this.lintAvailable = false;
-            this.lintCount = undefined;
-            this.lintRunning = false;
-            this.update();
-            return;
-        }
-        if (this.lintRunning) return;
-        // 押しても画面が何も変わらない（件数が前回と同じなら尚更）状態を潰す
-        // （2026-09-26 オーナー指示「リントを押しても反応がない」）: 実行中は
-        // ボタン自身が「確認中…」になり、終わったら結果をトーストで必ず返す。
-        this.lintRunning = notify;
-        if (notify) this.update();
-        try {
-            const outcome = await this.projectService.runEditLint(root.toString());
-            this.lintAvailable = outcome.available;
-            this.lintCount = outcome.available ? outcome.issueCount : undefined;
-            if (notify) {
-                if (!outcome.available) this.messages.warn('編集内容のチェックはこのプロジェクトでは実行できません。');
-                else if (outcome.issueCount) this.messages.warn(`編集内容のチェック: ${outcome.issueCount} 件の指摘があります。`);
-                else this.messages.info('編集内容のチェック: 指摘はありません。');
-            }
-        } catch (error) {
-            if (notify) this.messages.error(`編集内容をチェックできませんでした: ${this.errorMessage(error)}`);
-        } finally {
-            this.lintRunning = false;
-            this.update();
-        }
-    }
-
     // --- 描画 -----------------------------------------------------------------
 
     /**
@@ -1914,7 +1886,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     openLab={() => this.showSiteLab()}
                     request={this.libraryImportRequest} consumed={() => { this.libraryImportRequest = undefined; }} pick={mode => this.pickLibraryImport(mode)}
                     imported={result => this.finishLibraryImport(result)} stopAudio={() => this.stopCatalogAudio()} />}
-                {this.renderLintBadge()}
+                {this.lintPane.renderLintBadge()}
                 {this.renderLibraryOverlays()}
             </div>
         );
@@ -3486,31 +3458,5 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <span className={playing ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' style={{ fontSize: '12px' }} />
             </button>
         );
-    }
-
-    protected renderLintBadge(): React.ReactNode {
-        if (!this.lintAvailable) {
-            return undefined;
-        }
-        const label = this.lintRunning ? '確認中…' : this.lintCount === undefined ? '未実行' : `${this.lintCount} 件`;
-        return (
-            <div style={{ flex: '0 0 auto', borderTop: AKARI_BORDER.hairline, padding: '6px' }}>
-                <button
-                    className='theia-button secondary'
-                    data-akari-lint-running={this.lintRunning ? 'true' : undefined}
-                    disabled={this.lintRunning}
-                    title='クリックして再実行'
-                    onClick={() => void this.refreshLint(true)}
-                    style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                    <span>Lint</span>
-                    <span>{label}</span>
-                </button>
-            </div>
-        );
-    }
-
-    protected errorMessage(error: unknown): string {
-        return error instanceof Error ? error.message : String(error);
     }
 }
