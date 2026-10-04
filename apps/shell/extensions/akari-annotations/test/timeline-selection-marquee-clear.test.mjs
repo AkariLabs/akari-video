@@ -34,6 +34,7 @@ function marqueeState() {
   const state = {
     selectionMarquee: { style: { display: 'block' } },
     canvasRange: { at: 20, duration: 30 },
+    preserveMarqueeRange: false,
     selection: { kind: 'item', id: 'old' },
     multiSelection: [],
     selectedGap: undefined,
@@ -63,6 +64,25 @@ test('changing or clearing selection removes the marquee and canvas range', () =
   }
 });
 
+test('selection methods keep their three-argument and no-argument signatures', () => {
+  assert.match(source, /protected applySelection\(selection: TimelineSelection, notifyPreview = true, directSingle = false\): void \{/u);
+  assert.match(source, /protected pushSelectionSnapshot\(\): void \{/u);
+});
+
+test('selection snapshot preserves the range only during marquee commit', () => {
+  const state = marqueeState();
+  state.selectionModel = { inspectorOwner: {} };
+  state.pushSelectionSnapshot = method('pushSelectionSnapshot');
+  state.preserveMarqueeRange = true;
+  state.pushSelectionSnapshot();
+  assert.equal(state.selectionMarquee.style.display, 'block');
+  assert.deepEqual(state.canvasRange, { at: 20, duration: 30 });
+  state.preserveMarqueeRange = false;
+  state.pushSelectionSnapshot();
+  assert.equal(state.selectionMarquee.style.display, 'none');
+  assert.equal(state.canvasRange, undefined);
+});
+
 test('a committed marquee retains its canvas range until another selection is made', () => {
   const state = marqueeState();
   state.strip = emitter();
@@ -83,6 +103,7 @@ test('a committed marquee retains its canvas range until another selection is ma
   state.strip.fire('pointerup', pointer(140, 130));
   assert.equal(state.selectionMarquee.style.display, 'block');
   assert.deepEqual(state.canvasRange, { at: 10, duration: 4 });
+  assert.equal(state.preserveMarqueeRange, false);
   state.applySelection({ kind: 'item', id: 'another' });
   assert.equal(state.selectionMarquee.style.display, 'none');
   assert.equal(state.canvasRange, undefined);
@@ -137,6 +158,13 @@ test('Escape clears a range even when no item is selected', () => {
     preventDefault() { prevented = true; }, stopPropagation() {} });
   assert.equal(prevented, true);
   assert.equal(state.selectionMarquee.style.display, 'none');
+  assert.equal(state.canvasRange, undefined);
+});
+
+test('range clearing also works without a marquee element', () => {
+  const state = marqueeState();
+  state.selectionMarquee = undefined;
+  state.clearMarqueeRange();
   assert.equal(state.canvasRange, undefined);
 });
 
