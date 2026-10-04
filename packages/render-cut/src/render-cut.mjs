@@ -268,40 +268,7 @@ async function runAudioMixStage({ options, codec, container, projectRoot, edit, 
   emitTiming("audio_mix", audioMixStarted);
 }
 
-export async function renderProject(input, options = {}, io = console) {
-  const engineRequested = options.engine ?? "auto";
-  const codec = options.codec ?? "h264";
-  if (options.noAudio && codec === "png") throw new RefusalError("--no-audio is only supported for video containers");
-  const env = options.env ?? process.env;
-  const forceGpu = engineRequested === "gpu" && readForceGpu(env);
-  assertCodecEngine(codec, engineRequested);
-  const container = containerForCodec(codec);
-  let resolvedEngine = container.kind === "directory" || container.ext === "mov"
-    ? "osr"
-    : engineRequested === RETIRED_ENGINE ? RETIRED_ENGINE : resolveEngineChoice(engineRequested, process.platform);
-  const projectRoot = resolve(input);
-  const editPath = options.editPath ? resolve(projectRoot, options.editPath) : join(projectRoot, "edit.json");
-  const editText = await readRequired(editPath, options.editPath ?? "edit.json");
-  const parsedEdit = parseJson(editText, options.editPath ?? "edit.json");
-  const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
-  const captionsRoot = await readJsonIfPresent(join(projectRoot, "captions.json"));
-  const captions = captionsRoot === undefined ? undefined : toAnchorCaptions(captionsRoot);
-  const normalizedEdit = parsedEdit?.version === 2 && parsedEdit.sources === undefined
-    ? { ...parsedEdit, sources: [] } : parsedEdit;
-  const renderRead = readRenderEdit(normalizedEdit, renderTmpRoot, { captions });
-  let edit = renderRead.edit;
-  const internalEdit = renderRead.internal;
-  validateEditShape(edit, internalEdit);
-  // CLI legacy is retired. API callers still receive the vgpu-specific refusal before
-  // capability probing or any render setup; other retired-engine calls keep their refusal.
-  if (!["gpu", "osr"].includes(resolvedEngine)) {
-    const overlays = await loadOverlays(projectRoot, edit, env);
-    if (overlays.some(overlay => /data-akari-vgpu-scene/u.test(overlay.html))) {
-      throw new RefusalError("vgpu overlays require --engine gpu");
-    }
-    resolveEngineChoice(engineRequested, process.platform);
-  }
-
+async function collectRenderInputs({ options, codec, env, projectRoot, editText, edit, internalEdit }) {
   const lint = await validateLint(projectRoot, options.force === true);
   const capabilities = await measureCapabilities(
     projectRoot,
@@ -336,6 +303,44 @@ export async function renderProject(input, options = {}, io = console) {
     ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
     : null;
   const loadedOverlays = await loadOverlays(projectRoot, edit, env);
+  return { lint, capabilities, encodingPolicy, plannedCaptions, captionFontAsset, declaredInputs, inputSnapshot, inputs, captionOverlays, captionLayout, loadedOverlays };
+}
+
+export async function renderProject(input, options = {}, io = console) {
+  const engineRequested = options.engine ?? "auto";
+  const codec = options.codec ?? "h264";
+  if (options.noAudio && codec === "png") throw new RefusalError("--no-audio is only supported for video containers");
+  const env = options.env ?? process.env;
+  const forceGpu = engineRequested === "gpu" && readForceGpu(env);
+  assertCodecEngine(codec, engineRequested);
+  const container = containerForCodec(codec);
+  let resolvedEngine = container.kind === "directory" || container.ext === "mov"
+    ? "osr"
+    : engineRequested === RETIRED_ENGINE ? RETIRED_ENGINE : resolveEngineChoice(engineRequested, process.platform);
+  const projectRoot = resolve(input);
+  const editPath = options.editPath ? resolve(projectRoot, options.editPath) : join(projectRoot, "edit.json");
+  const editText = await readRequired(editPath, options.editPath ?? "edit.json");
+  const parsedEdit = parseJson(editText, options.editPath ?? "edit.json");
+  const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
+  const captionsRoot = await readJsonIfPresent(join(projectRoot, "captions.json"));
+  const captions = captionsRoot === undefined ? undefined : toAnchorCaptions(captionsRoot);
+  const normalizedEdit = parsedEdit?.version === 2 && parsedEdit.sources === undefined
+    ? { ...parsedEdit, sources: [] } : parsedEdit;
+  const renderRead = readRenderEdit(normalizedEdit, renderTmpRoot, { captions });
+  let edit = renderRead.edit;
+  const internalEdit = renderRead.internal;
+  validateEditShape(edit, internalEdit);
+  // CLI legacy is retired. API callers still receive the vgpu-specific refusal before
+  // capability probing or any render setup; other retired-engine calls keep their refusal.
+  if (!["gpu", "osr"].includes(resolvedEngine)) {
+    const overlays = await loadOverlays(projectRoot, edit, env);
+    if (overlays.some(overlay => /data-akari-vgpu-scene/u.test(overlay.html))) {
+      throw new RefusalError("vgpu overlays require --engine gpu");
+    }
+    resolveEngineChoice(engineRequested, process.platform);
+  }
+
+  const { lint, capabilities, encodingPolicy, plannedCaptions, captionFontAsset, declaredInputs, inputSnapshot, inputs, captionOverlays, captionLayout, loadedOverlays } = await collectRenderInputs({ options, codec, env, projectRoot, editText, edit, internalEdit });
   const shouldEvaluateGpu = container.ext === "mp4" && (engineRequested === "gpu" || engineRequested === "auto");
   const gpuEligibility = shouldEvaluateGpu
     ? evaluateGpuEligibility({
