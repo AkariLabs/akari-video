@@ -52,6 +52,15 @@ export function createPreviewLiveDomController(context: LiveDomContext) {
         liveMarked.add(overlay);
         liveShapeKey = key;
     };
+    const adoptShapeBase = (key: string): void => {
+        const id = key.slice(key.indexOf(':') + 1);
+        const overlay = Array.from(context.stage.querySelectorAll<HTMLElement>('[data-overlay-id]'))
+            .find(element => element.dataset.overlayId === id);
+        for (const element of liveShapeBase.keys()) {
+            if (element !== overlay) liveShapeBase.delete(element);
+        }
+        if (overlay) liveShapeBase.set(overlay, overlay.innerHTML);
+    };
     const captureOverlayCss = (overlay: HTMLElement): void => {
         liveOverlayCss = Object.fromEntries(['--x', '--y', '--scale', '--scale-x', '--scale-y',
             '--rotate', 'opacity'].map(name => [name, overlay.style.getPropertyValue(name)])
@@ -130,6 +139,6 @@ export function createPreviewLiveDomController(context: LiveDomContext) {
             }
         }
     };
-    return { key: (): string | undefined => liveOverride?.key, update, updateShape,
+    return { key: (): string | undefined => liveOverride?.key, update, updateShape, adoptShapeBase,
         captureOverlayCss, paint, clear };
 }

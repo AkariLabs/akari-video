@@ -27,3 +27,28 @@ test('字幕更新中は図形ライブ色を保ち、モデル確定時に古�
     handoff.clearLiveOverride();
     assert.equal(shape.innerHTML, next);
 });
+
+test('stale model A keeps live B and matching model B releases without old markup', () => {
+    const writes = [];
+    const shape = { dataset: { overlayId: 'box-a' },
+        get innerHTML() { return writes.at(-1); }, set innerHTML(value) { writes.push(value); } };
+    shape.innerHTML = 'A';
+    let base = 'A';
+    const liveDom = {
+        updateShape(_key, html) { shape.innerHTML = html; },
+        adoptShapeBase() { base = shape.innerHTML; },
+        clear() { shape.innerHTML = base; }
+    };
+    const window = { akari: { state: { summary: { overlays: [{ id: 'box-a', html: 'A' }] } } } };
+    const handoff = create(liveDom, window, { querySelectorAll: () => [shape] });
+    handoff.pending({ key: 'item:box-a', id: 'box-a', html: 'B' });
+    shape.innerHTML = 'B';
+    shape.innerHTML = 'A'; // runtime replacement and reconciliation happen in one task
+    window.akari.reconcileShapeLive('box-a', 'A');
+    assert.equal(shape.innerHTML, 'B');
+    shape.innerHTML = 'B';
+    window.akari.reconcileShapeLive('box-a', 'B');
+    assert.equal(shape.innerHTML, 'B');
+    handoff.clearLiveOverride();
+    assert.equal(shape.innerHTML, 'B');
+});

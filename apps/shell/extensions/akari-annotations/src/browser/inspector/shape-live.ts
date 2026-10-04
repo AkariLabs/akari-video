@@ -1,5 +1,6 @@
 import { shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
 import { shapeNumber, shapeOptionValue } from './shape-fields';
+import { parsePaint } from './color-model';
 
 export interface ShapeLiveSource {
     itemId: string;
@@ -20,7 +21,7 @@ export function shapeLiveParams(
     shape: string | undefined,
     params: Readonly<Record<string, unknown>>,
     key: string,
-    rawValue: string | number
+    rawValue: string | number | object
 ): Record<string, unknown> | undefined {
     if (!shape) return undefined;
     const next: Record<string, unknown> = { ...params };
@@ -39,9 +40,10 @@ export function shapeLiveParams(
         return next;
     }
     if (key === 'fill' || key === 'stroke') {
-        const value = String(rawValue);
-        if (!COLOR_PATTERN.test(value)) return undefined;
-        next[key] = value;
+        if (typeof rawValue === 'string') {
+            if (!COLOR_PATTERN.test(rawValue) && !(key === 'fill' && rawValue === 'none')) return undefined;
+        } else if (key !== 'fill' || parsePaint(rawValue) === undefined) return undefined;
+        next[key] = rawValue;
         return next;
     }
     if (NUMBER_KEYS.has(key)) {
@@ -62,7 +64,7 @@ export function shapeLiveParams(
 export function shapeLiveMarkup(
     source: ShapeLiveSource,
     key: string,
-    rawValue: string | number
+    rawValue: string | number | object
 ): string | undefined {
     const params = shapeLiveParams(source.shape, source.params ?? {}, key, rawValue);
     if (!params) return undefined;

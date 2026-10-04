@@ -51,3 +51,34 @@ test('図形の追加と SVG 構造変更は全体のマウントへ戻す', asy
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(calls, ['mount', 'mount', 'mount']);
 });
+
+test('live shape replaces a gradient structure and reapplies latest HTML in the same tick', () => {
+    const calls = [];
+    const runtime = { mount() { calls.push('mount'); },
+        replaceShapeHtml(id, html) { calls.push(['replace', id, html]); return true; }, tick() {} };
+    const first = { overlays: [{ id: 'shape', html: '<svg><rect fill="#112233"/></svg>' }] };
+    const state = { summary: first };
+    const akari = { runtime, state, shapeLivePendingId: () => 'shape',
+        reconcileShapeLive: (id, html) => calls.push(['reconcile', id, html]) };
+    vm.runInNewContext(script, { window: { akari },
+        document: { getElementById: () => ({ children: [], append() {} }), querySelectorAll: () => [] }, console });
+    runtime.mount(first);
+    state.summary = { overlays: [{ id: 'shape',
+        html: '<svg><defs><linearGradient id="g"></linearGradient></defs><rect fill="url(#g)"/></svg>' }] };
+    runtime.tick(1, false);
+    assert.deepEqual(calls, ['mount', ['replace', 'shape', state.summary.overlays[0].html],
+        ['reconcile', 'shape', state.summary.overlays[0].html]]);
+});
+
+test('matching saved shape releases a live value even without a shape patch', () => {
+    const calls = [];
+    const first = { overlays: [{ id: 'shape', html: 'B' }] };
+    const runtime = { mount() {}, replaceShapeHtml() { throw Error('unexpected patch'); }, tick() {} };
+    const akari = { runtime, state: { summary: first }, shapeLivePendingId: () => 'shape',
+        shapeLivePendingHtml: () => 'B', reconcileShapeLive: (...args) => calls.push(args) };
+    vm.runInNewContext(script, { window: { akari },
+        document: { getElementById: () => ({ children: [], append() {} }), querySelectorAll: () => [] }, console });
+    runtime.mount(first);
+    runtime.tick(1, false);
+    assert.deepEqual(calls, [['shape', 'B']]);
+});

@@ -61,7 +61,10 @@ export function shapeControlGroups(shape: string | undefined, params: Record<str
     const field = (key: string, label: string, kind: ShapeField['kind'], fallback: unknown,
         options?: readonly string[], min?: number, max?: number): ShapeField => ({
         key, label, kind, value: kind === 'select' && optionSets[key]
-            ? shapeOptionLabel(key, params[key] ?? fallback) : String(params[key] ?? fallback),
+            ? shapeOptionLabel(key, params[key] ?? fallback)
+            : kind === 'color' && params[key] && typeof params[key] === 'object'
+                ? String((params[key] as { stops?: { color?: string }[] }).stops?.[0]?.color ?? '')
+                : String(params[key] ?? fallback),
         ...(options ? { options } : {}), ...(min === undefined ? {} : { min }), ...(max === undefined ? {} : { max })
     });
     const number = (key: string, label: string, fallback: number, min: number, max: number) =>

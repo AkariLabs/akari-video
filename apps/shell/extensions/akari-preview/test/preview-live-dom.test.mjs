@@ -93,6 +93,18 @@ test('shape markup override swaps the overlay SVG and clear restores it', () => 
     assert.equal(shape.attrs.has('data-akari-live-override'), false);
 });
 
+test('shape base follows a replaced model before a later clear', () => {
+    const shape = element({ overlayId: 'box-a' });
+    shape.innerHTML = 'old';
+    const live = controller({ overlay: shape });
+    live.updateShape('item:box-a', 'latest');
+    shape.innerHTML = 'saved';
+    live.adoptShapeBase('item:box-a');
+    live.updateShape('item:box-a', 'latest');
+    live.clear();
+    assert.equal(shape.innerHTML, 'saved');
+});
+
 test('live shape parameter changes the mounted element fill before save', () => {
     const shape = element({ overlayId: 'box-a' });
     shape.innerHTML = '<svg><rect fill="#112233"></rect></svg>';

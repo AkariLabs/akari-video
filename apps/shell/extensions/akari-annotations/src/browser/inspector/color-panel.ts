@@ -819,7 +819,7 @@ export class ColorPanelView {
 }
 
 /** 色の行に置く丸（押すと色パネルを開く）。 */
-export function createColorRowSwatch(value: string, label: string, open: () => void): HTMLButtonElement {
+export function createColorRowSwatch(value: Paint, label: string, open: () => void): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'akari-inspector-color-swatch';
@@ -835,4 +835,3 @@ export function createColorRowSwatch(value: string, label: string, open: () => v
     });
     return button;
 }
-
