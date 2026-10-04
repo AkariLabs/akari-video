@@ -39,8 +39,8 @@ export interface SnapExclusion {
 /** 永続化キー（ユーザー設定。プロジェクトを跨いで同じ値を使う）。 */
 export const SNAP_ENABLED_STORAGE_KEY = 'akari.timeline.snapEnabled.v1';
 
-/** 既定はマグネット OFF（オーナー実機 2026-09-02「つけてないのに反応する」= 起動時 ON が真因）。 */
-export const SNAP_ENABLED_DEFAULT = false;
+/** 保存値が無いときの既定はマグネット ON。 */
+export const SNAP_ENABLED_DEFAULT = true;
 
 export interface SnapStorageLike {
     getItem(key: string): string | null;

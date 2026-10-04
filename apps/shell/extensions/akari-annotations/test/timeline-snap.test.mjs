@@ -89,13 +89,11 @@ test('px 閾値は表示幅と表示秒数から秒へ換算し、幅が無け�
     assert.equal(snapThresholdSecondsFor(6, 825, 0), undefined);
 });
 
-test('マグネットの既定は OFF で、保存値 1/0 だけを読む', () => {
-    assert.equal(SNAP_ENABLED_DEFAULT, false);
+test('マグネットの既定は ON で、保存値 1/0 だけを読む', () => {
+    assert.equal(SNAP_ENABLED_DEFAULT, true);
     const storage = new MemoryStorage();
-    assert.equal(readStoredSnapEnabled(storage), false);
-    assert.equal(readStoredSnapEnabled(undefined), false);
     storage.setItem(SNAP_ENABLED_STORAGE_KEY, 'yes');
-    assert.equal(readStoredSnapEnabled(storage), false);
+    assert.equal(readStoredSnapEnabled(storage), true);
     writeStoredSnapEnabled(storage, true);
     assert.equal(storage.getItem(SNAP_ENABLED_STORAGE_KEY), '1');
     assert.equal(readStoredSnapEnabled(storage), true);
@@ -103,8 +101,13 @@ test('マグネットの既定は OFF で、保存値 1/0 だけを読む', () =
     assert.equal(readStoredSnapEnabled(storage), false);
 });
 
+test('保存値が無いときは既定でマグネットが ON になる', () => {
+    assert.equal(readStoredSnapEnabled(undefined), true);
+    assert.equal(readStoredSnapEnabled(new MemoryStorage()), true);
+});
+
 test('storage が例外を投げても既定値で続行する', () => {
     const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
-    assert.equal(readStoredSnapEnabled(broken), false);
+    assert.equal(readStoredSnapEnabled(broken), true);
     assert.doesNotThrow(() => writeStoredSnapEnabled(broken, true));
 });
