@@ -1,5 +1,6 @@
 import { CommandRegistry, Disposable, DisposableCollection } from '@theia/core/lib/common';
 import { isOSX } from '@theia/core/lib/common/os';
+import { shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
 import {
     alignDelta, AlignMode, BarItem, barItems, CAP_OPTIONS, ContextBarState, ContextLayerList, DASH_OPTIONS,
     elementMenuPosition, formatRange, geometryValues, parseContextBarState, shortcutLabel, windowValues
@@ -893,6 +894,22 @@ export class PreviewContextBar implements Disposable {
         if (!field || input.type !== 'range') return;
         const twin = this.pop.querySelector<HTMLInputElement>(`input[type="number"][data-field="${field}"]`);
         if (twin) twin.value = input.value;
+        if (field === 'weight') {
+            const state = this.state;
+            const source = state?.item?.source as ShapeSourceV2 | undefined;
+            const width = Number(input.value);
+            if ((state?.kind === 'shape' || state?.kind === 'line') && state.selectedId
+                && source?.kind === 'shape' && Number.isFinite(width)) {
+                const params = { ...source.params, strokeWidth: width };
+                if (width > 0 && state.kind === 'shape' && (!params.stroke || params.stroke === 'none')) {
+                    params.stroke = '#000000';
+                }
+                this.host.sendMessage({ type: 'akari-preview-live-transform',
+                    target: { kind: 'item', id: state.selectedId }, field: 'shape', value: 0,
+                    shapeHtml: shapeMarkup({ ...source, params }, state.selectedId,
+                        state.output.width, state.item?.transform) });
+            }
+        }
     }
 
     protected onPopChange(event: Event): void {
