@@ -755,6 +755,13 @@ interface OverlayWriteBatchRequest {
     writes: Array<Pick<OverlayWriteRequest, 'overlayId' | 'patch'>>;
 }
 
+interface MixedMoveRequest {
+    type: 'akari-preview-mixed-move';
+    requestId: string;
+    writes: PreviewItemWriteCommand[];
+    cuePositions: Array<{ captionId: string; value: CaptionCuePosition }>;
+}
+
 // ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。#/$defs/layerCrop）。
 interface LayerCropPatch {
     x: number;
@@ -1281,6 +1288,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly timelineLayerSelections = new Map<string, string | null>();
     protected readonly primaryTimelineSelections = new Map<string, { kind: 'cut' | 'caption'; id: string } | null>();
     protected readonly timelineCaptionSelections = new Map<string, { captionIds: string[]; primaryCaptionId: string | null }>();
+    protected readonly timelineGroupSelections = new Map<string, Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>>();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
@@ -1667,6 +1675,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const detail = (event as CustomEvent<{ editUri?: string; selection: { kind: 'cut' | 'caption'; id: string } | null }>).detail;
             if (!detail?.editUri) return;
             const key = new URI(detail.editUri).normalizePath().toString();
+            this.timelineGroupSelections.delete(key);
+            this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-set-selected-group', selection: [] });
             this.primaryTimelineSelections.set(key, detail.selection);
             this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-select-primary', selection: detail.selection });
         };
@@ -1689,6 +1699,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged)
         });
+        const onTimelineGroupSelectionChanged = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: unknown; selection?: unknown }>).detail;
+            if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.selection)) return;
+            const selection = detail.selection.filter((item: any) => item
+                && ['caption', 'layer', 'overlay'].includes(item.kind) && typeof item.id === 'string'
+                && item.id.length > 0);
+            const key = new URI(detail.editUri).normalizePath().toString();
+            this.timelineGroupSelections.set(key, selection);
+            const captionIds = selection.filter(item => item.kind === 'caption').map(item => item.id);
+            this.timelineCaptionSelections.set(key, { captionIds, primaryCaptionId: captionIds[0] ?? null });
+            this.timelineLayerSelections.set(key, selection.find(item => item.kind === 'layer')?.id ?? null);
+            this.timelineOverlaySelections.set(key, selection.find(item => item.kind === 'overlay')?.id ?? null);
+            this.primaryTimelineSelections.set(key, null);
+            this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-set-selected-group', selection });
+        };
+        window.addEventListener('akari.timeline.groupSelectionChanged', onTimelineGroupSelectionChanged);
+        this.lifecycleDisposables.push({ dispose: () =>
+            window.removeEventListener('akari.timeline.groupSelectionChanged', onTimelineGroupSelectionChanged) });
         const onCaptionPanelPreview = (event: Event): void => {
             const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown; committed?: boolean }>).detail;
             if (typeof detail?.captionId !== 'string') return;
@@ -3838,6 +3866,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         type: 'akari-preview-set-selected-captions', ...this.timelineCaptionSelections.get(key)
                     });
                 }
+                if (key && this.timelineGroupSelections.has(key)) widget.sendMessage({
+                    type: 'akari-preview-set-selected-group', selection: this.timelineGroupSelections.get(key)
+                });
             }
             if (message?.type === 'akari-preview-generation-request' && kind === 'output') {
                 this.queueGenerationUpdate(widget);
@@ -3916,10 +3947,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isCaptionSelectedRequest(message)) {
                 this.forwardCaptionSelection(widget, message);
             }
-            if (this.isCaptionWriteRequest(message)) {
-                this.captionWriteTail = this.captionWriteTail.catch(error => {
-                    console.error('[akari-preview] previous caption write failed', error);
-                }).then(() => this.handleCaptionWrite(widget, message));
+            if (message?.type === 'akari-preview-mixed-selected' && Array.isArray(message.selection)
+                && message.selection.every((item: any) => item && ['caption', 'layer', 'overlay'].includes(item.kind)
+                    && typeof item.id === 'string' && item.id.length > 0)) {
+                const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+                if (editUri) window.dispatchEvent(new CustomEvent('akari.preview.mixedSelected', {
+                    detail: { editUri, selection: message.selection }
+                }));
+            }
+            if (message?.type === 'akari-preview-mixed-move') {
+                const itemTail = this.previewItemWriteTail;
+                const captionTail = this.captionWriteTail;
+                const operation = Promise.all([itemTail, captionTail]).then(() =>
+                    this.handleMixedMove(widget, message));
+                this.previewItemWriteTail = operation.catch(error => console.error('[akari-preview] mixed move failed', error));
+                this.captionWriteTail = this.previewItemWriteTail;
+            }
+            if (message?.type === 'akari-preview-caption-write') {
+                if (!this.isCaptionWriteRequest(message)) {
+                    if (typeof message.requestId === 'string') widget.sendMessage({
+                        type: 'akari-preview-caption-write-response', requestId: message.requestId,
+                        ok: false, error: '字幕の書き込み要求が不正です'
+                    });
+                } else {
+                    this.captionWriteTail = this.captionWriteTail.catch(error => {
+                        console.error('[akari-preview] previous caption write failed', error);
+                    }).then(() => this.handleCaptionWrite(widget, message));
+                }
             }
             if (message?.type === 'akari-preview-caption-inspector'
                 && ['caption-style', 'caption-style-color', 'caption-style-stroke-color', 'caption-style-bg-color'].includes(message.field)) {
@@ -4412,6 +4466,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!editUri) {
             return;
         }
+        this.timelineGroupSelections?.delete(editUri.normalizePath().toString());
         window.dispatchEvent(new CustomEvent(PREVIEW_OVERLAY_SELECTED_EVENT, {
             detail: {
                 videoUri: editUri.normalizePath().toString(),
@@ -4432,6 +4487,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!editUri) {
             return;
         }
+        this.timelineGroupSelections?.delete(editUri.normalizePath().toString());
         window.dispatchEvent(new CustomEvent(PREVIEW_LAYER_SELECTED_EVENT, {
             detail: {
                 editUri: editUri.normalizePath().toString(),
@@ -4469,6 +4525,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         const key = editUri.normalizePath().toString();
+        this.timelineGroupSelections?.delete(key);
         const previous = this.timelineCaptionSelections.get(key)?.captionIds ?? [];
         const captionIds = message.captionId && previous.includes(message.captionId)
             ? previous : message.captionId ? [message.captionId] : [];
@@ -7811,6 +7868,61 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    protected async handleMixedMove(widget: PreviewWidgetMarker, message: any): Promise<void> {
+        const respond = (ok: boolean, error?: string): void => widget.sendMessage({
+            type: 'akari-preview-mixed-move-response', requestId: message.requestId, ok, error
+        });
+        try {
+            if (typeof message.requestId !== 'string'
+                || !Array.isArray(message.writes) || !Array.isArray(message.cuePositions)
+                || message.writes.length + message.cuePositions.length < 2
+                || !message.writes.every((write: any) => write
+                    && ['layer', 'overlay'].includes(write.kind) && typeof write.itemId === 'string'
+                    && write.patch?.transform && Number.isFinite(write.patch.transform.x)
+                    && Number.isFinite(write.patch.transform.y))
+                || !message.cuePositions.every((entry: any) => typeof entry?.captionId === 'string'
+                    && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(entry.value?.anchor)
+                    && Number.isFinite(entry.value?.position?.y)
+                    && (entry.value?.position?.x === undefined || Number.isFinite(entry.value.position.x)))) {
+                throw new Error('混在移動の書き込み要求が不正です');
+            }
+            const editUri = widget.akariPreviewEditUri;
+            if (!editUri) throw new Error('編集中の edit.json がありません');
+            const captionsUri = widget.akariPreviewCaptionsUri;
+            if (message.cuePositions.length && !captionsUri) throw new Error('captions.json がありません');
+            const writes = message.writes as PreviewItemWriteCommand[];
+            const editBefore = await this.readText(editUri);
+            const editAfter = writes.length ? resolvePreviewItemWriteBatch(editBefore, writes).candidateText : editBefore;
+            if (!editAfter) throw new Error('移動結果の edit.json がありません');
+            const editLint = await this.previewService.lintEditCandidate({ editUri: editUri.toString(), candidateText: editAfter });
+            if (!editLint.pass) throw new Error(editLint.errors[0] ?? 'edit-lint が変更を拒否しました');
+            const captionsBefore = captionsUri ? await this.readText(captionsUri) : undefined;
+            const captionsAfter = message.cuePositions.length && captionsBefore
+                ? updateCaptionCuePositionsSource(captionsBefore, message.cuePositions) : undefined;
+            if (captionsUri && captionsAfter) {
+                const captionsLint = await this.previewService.lintEditCandidate({
+                    editUri: captionsUri.toString(), candidateText: captionsAfter
+                });
+                if (!captionsLint.pass) throw new Error(captionsLint.errors[0] ?? 'edit-lint が変更を拒否しました');
+            }
+            const command = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform');
+            if (!command) throw new Error('まとめて移動する編集コマンドがありません');
+            const handled = await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                editUri.toString(), { kind: 'mixed-move', writes,
+                    ...(captionsBefore && captionsAfter ? { captions: { before: captionsBefore, after: captionsAfter } } : {}) });
+            if (handled !== true) throw new Error('まとめて移動を保存できませんでした');
+            this.markRecentWrite(editUri);
+            this.queueRefresh(widget, editUri, 'output', undefined, false, await this.readText(editUri));
+            if (captionsUri && captionsAfter) {
+                this.markRecentWrite(captionsUri);
+                this.queueCaptionsUpdate(widget);
+            }
+            respond(true);
+        } catch (error) {
+            respond(false, error instanceof Error ? error.message : String(error));
+        }
+    }
+
     protected isCaptionWriteRequest(message: any): message is CaptionWriteRequest {
         const hasZone = typeof message?.patch?.zone === 'string';
         const hasText = typeof message?.patch?.text === 'string';
@@ -7838,7 +7950,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const hasCuePositions = Array.isArray(cuePositions) && cuePositions.length > 1
             && cuePositions.every((entry: any) => typeof entry?.captionId === 'string'
                 && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(entry.value?.anchor)
-                && Number.isFinite(entry.value?.position?.x)
+                && (entry.value?.position?.x === undefined
+                    || Number.isFinite(entry.value?.position?.x))
                 && Number.isFinite(entry.value?.position?.y));
         const hasCuePositionReset = message?.patch?.cuePositionReset === true;
         const geometryReset = message?.patch?.cueGeometryReset;

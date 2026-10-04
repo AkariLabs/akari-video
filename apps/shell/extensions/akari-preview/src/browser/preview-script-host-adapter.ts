@@ -225,6 +225,11 @@ export function hostAdapterScript(): string {
                     pending.set(requestId, { kind: 'caption-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-caption-write', requestId, captionId, patch });
                 }),
+                mixedMove: (writes, cuePositions) => new Promise((resolve, reject) => {
+                    const requestId = 'akari-preview-' + (++sequence);
+                    pending.set(requestId, { kind: 'mixed-move', resolve, reject });
+                    vscode.postMessage({ type: 'akari-preview-mixed-move', requestId, writes, cuePositions });
+                }),
                 // task/2026-08-09-drop-hevc-proxy: <video> が実際に再生失敗したときだけ呼ぶ
                 // フォールバック要求。成功時はホスト側が widget を丸ごとリロードするので、呼び出し側
                 // (previewBootstrapScript) は resolve を特に処理しない — 失敗時だけ通常のエラー表示に
@@ -968,6 +973,9 @@ export function hostAdapterScript(): string {
                 else if (selectedPrimary?.kind === 'caption') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
             };
+            window.akari.reportMixedSelection = selection => {
+                vscode.postMessage({ type: 'akari-preview-mixed-selected', selection });
+            };
             window.akari.reportCaptionEditFocus = focused =>
                 vscode.postMessage({ type: 'akari-preview-caption-edit-focus', focused });
             window.akari.requestCaptionInspector = field => {
@@ -1023,6 +1031,7 @@ export function hostAdapterScript(): string {
                 'layer-write': 'akari-preview-layer-write-response',
                 'cut-write': 'akari-preview-cut-write-response',
                 'caption-write': 'akari-preview-caption-write-response',
+                'mixed-move': 'akari-preview-mixed-move-response',
                 'hevc-fallback': 'akari-preview-hevc-fallback-response',
                 'photo-analyze': 'akari-preview-photo-analyze-response'
             };

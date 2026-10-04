@@ -658,6 +658,8 @@ export function previewBootstrapScript(): string {
             let audioNoticeShown = false;
 
             let selectedCaptionIds = new Set();
+            let selectedMixedGroup = [];
+            let applyingMixedSelection = false;
             let captionAltAll = false;
 
 
@@ -2598,9 +2600,10 @@ export function previewBootstrapScript(): string {
             });
             const selectLayer = (layerId, options) => {
                 const report = !options || options.report !== false;
+                if (report && typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
                 const nextId = layerId && findLayerEntry(layerId) ? layerId : null;
                 if (nextId && cropModeActive && photoCropTarget?.kind === 'cut') setCropMode(false);
-                if (nextId) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
+                if (nextId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
                 if (nextId === selectedLayerId) {
                     updateLayerSelectBox();
                     if (report) window.akari.reportLayerSelection(selectedLayerId);
@@ -2613,7 +2616,7 @@ export function previewBootstrapScript(): string {
                 selectedLayerId = nextId;
                 // ㉓ 選択の排他制御: layer を選ぶと cut/caption 選択は外れる（逆方向はそれぞれの select 側）。
                 if (nextId && typeof deselectCut === 'function') deselectCut({ report: false });
-                if (nextId && typeof deselectCaption === 'function') deselectCaption({ report: false });
+                if (nextId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection) && typeof deselectCaption === 'function') deselectCaption({ report: false });
                 if (nextId) {
                     const measured = findLayerEntry(nextId);
                     // 選択時点のフレームで測り直す（updateLayerSelectBox が遅延計測する）
@@ -4648,6 +4651,9 @@ export function previewBootstrapScript(): string {
                     bottom: bottomRight.y
                 };
             };
+            const frameCaptionPosition = (candidate, value) => candidate?.textStyle?.background?.fit === 'frame'
+                || candidate?.textStyleVars?.['--caption-plate-fit'] === 'frame'
+                ? { ...value, anchor: value.anchor[0] + 'c', position: { y: value.position.y } } : value;
             const captionLayoutRect = (captionPlate = selectedCaptionPlate()) => {
                 const plate = captionPlate.querySelector('.akari-caption__plate') || captionPlate;
                 const previousTransform = plate.style.transform;
@@ -4974,12 +4980,13 @@ export function previewBootstrapScript(): string {
             };
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
+                if (report && typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
                 // Keep a host-selected group when one of its cues becomes primary.
                 if (!options?.preserveGroup && !(selectedCaptionIds.size > 1 && selectedCaptionIds.has(captionId))) {
                     selectedCaptionIds = captionId ? new Set([captionId]) : new Set();
                 }
                 applyCaptionSelectionAttrs();
-                if (captionId) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
+                if (captionId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
                 if (captionId === selectedCaptionId) {
                     updateCaptionSelectBox();
                     if (report) window.akari.reportCaptionSelection(selectedCaptionId);
@@ -4988,7 +4995,7 @@ export function previewBootstrapScript(): string {
                 selectedCaptionId = captionId;
                 captionStylePreview.selectionChanged(captionId);
                 window.akari.syncRunSelection?.();
-                if (captionId) {
+                if (captionId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) {
                     selectLayer(null, { report: false });
                     deselectCut({ report: false });
                 }
@@ -5592,6 +5599,14 @@ export function previewBootstrapScript(): string {
                 const frameCaptionPosition = (candidate, value) => candidate?.textStyle?.background?.fit === 'frame'
                     || candidate?.textStyleVars?.['--caption-plate-fit'] === 'frame'
                     ? { ...value, anchor: value.anchor[0] + 'c', position: { y: value.position.y } } : value;
+                if (typeof selectedMixedGroup !== 'undefined' && selectedMixedGroup.length > 1
+                    && selectedMixedGroup.some(item => item.kind !== 'caption')
+                    && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+                    const plate = event.target.closest?.('.caption-row-plate');
+                    const row = plate && captionRows.get(plate.dataset.captionKey);
+                    if (row && selectedMixedGroup.some(item => item.kind === 'caption'
+                        && item.id === (row.caption.sourceCueId || row.caption.id))) return;
+                }
                 if (activeCaptionEdit) return;
                 if (event.button !== 0) return;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
@@ -10088,6 +10103,241 @@ export function previewBootstrapScript(): string {
             };
             // BEGIN preview bag response (bootstrap owns summary and persistent plates)
             let bagMountTail = Promise.resolve();
+            const mixedSelectionFrames = document.createElement('div');
+            mixedSelectionFrames.id = 'akari-mixed-selection-frames';
+            mixedSelectionFrames.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2147483646';
+            previewPane.appendChild(mixedSelectionFrames);
+            const mixedSelectionElement = item => item.kind === 'caption'
+                ? [...captionRows.values()].find(row => (row.caption.sourceCueId || row.caption.id) === item.id)?.plate
+                : item.kind === 'layer' ? findLayerEntry(item.id)?.video
+                    : [...stage.querySelectorAll('[data-overlay-id]')].find(node => node.dataset.overlayId === item.id);
+            const mixedSelectionRect = (item, element) => {
+                if (item.kind === 'caption') {
+                    const block = element.querySelector('.akari-caption__block');
+                    const elements = (block ? [block] : [...element.querySelectorAll('.akari-caption__line')])
+                        .concat([...element.querySelectorAll('.akari-caption__run')]);
+                    if (!elements.length) return null;
+                    const rects = elements.map(node => node.getBoundingClientRect());
+                    const left = Math.min(...rects.map(rect => rect.left));
+                    const top = Math.min(...rects.map(rect => rect.top));
+                    const right = Math.max(...rects.map(rect => rect.right));
+                    const bottom = Math.max(...rects.map(rect => rect.bottom));
+                    return { left, top, width: right - left, height: bottom - top };
+                }
+                if (item.kind === 'overlay') return window.akari.interaction?.fragmentBounds?.(element) || null;
+                return element.getBoundingClientRect();
+            };
+            const nativeMixedFrameVisible = frame => {
+                if (!frame || frame.hidden) return false;
+                const style = getComputedStyle(frame);
+                if (style.display === 'none' || style.visibility === 'hidden') return false;
+                const rect = frame.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            };
+            const hasNativeMixedFrame = item => item.kind === 'caption'
+                ? item.id === selectedCaptionId && captionSelectBox.classList.contains('is-active')
+                    && nativeMixedFrameVisible(captionSelectBox)
+                : item.kind === 'layer'
+                    ? item.id === selectedLayerId && layerSelectBox.classList.contains('is-active')
+                        && nativeMixedFrameVisible(layerSelectBox)
+                    : item.id === window.akari.interaction?.selectedId
+                        && nativeMixedFrameVisible(document.querySelector('[data-akari-interaction="selection-frame"]'));
+            let mixedFrameLoop = false;
+            const drawMixedSelectionFrames = () => {
+                mixedSelectionFrames.replaceChildren();
+                if (selectedMixedGroup.length < 2) { mixedFrameLoop = false; return; }
+                const pane = previewPane.getBoundingClientRect();
+                const scaleX = pane.width && previewPane.offsetWidth ? pane.width / previewPane.offsetWidth : 1;
+                const scaleY = pane.height && previewPane.offsetHeight ? pane.height / previewPane.offsetHeight : 1;
+                for (const item of selectedMixedGroup) {
+                    const element = mixedSelectionElement(item);
+                    if (!element || getComputedStyle(element).visibility === 'hidden') continue;
+                    if (hasNativeMixedFrame(item)) continue;
+                    const rect = mixedSelectionRect(item, element);
+                    if (!rect) continue;
+                    if (!(rect.width > 0 && rect.height > 0)) continue;
+                    const frame = document.createElement('div');
+                    frame.dataset.akariMixedSelected = item.kind + ':' + item.id;
+                    frame.style.cssText = 'position:absolute;box-sizing:border-box;border:2px solid var(--akari-accent,#65aaff);';
+                    frame.style.left = (rect.left - pane.left) / scaleX + 'px';
+                    frame.style.top = (rect.top - pane.top) / scaleY + 'px';
+                    frame.style.width = rect.width / scaleX + 'px';
+                    frame.style.height = rect.height / scaleY + 'px';
+                    mixedSelectionFrames.appendChild(frame);
+                }
+                requestAnimationFrame(drawMixedSelectionFrames);
+            };
+            const applyMixedSelection = selection => {
+                selectedMixedGroup = selection.filter(item => item && ['caption', 'layer', 'overlay'].includes(item.kind)
+                    && typeof item.id === 'string' && item.id.length > 0);
+                applyingMixedSelection = true;
+                const captionsInGroup = selectedMixedGroup.filter(item => item.kind === 'caption').map(item => item.id);
+                selectedCaptionIds = new Set(captionsInGroup);
+                selectLayer(selectedMixedGroup.find(item => item.kind === 'layer')?.id || null, { report: false });
+                selectCaption(captionsInGroup[0] || null, { report: false, preserveGroup: true });
+                requestedOverlayId = selectedMixedGroup.find(item => item.kind === 'overlay')?.id || null;
+                applyRequestedOverlaySelection();
+                if (requestedOverlayId && window.akari.interaction?.hasSelectionTree
+                    && window.akari.interaction.selectedId !== requestedOverlayId) {
+                    // Shapes can be rendered as overlays without a selection-tree node.
+                    // Keep their mixed frame, but remove an unrelated native overlay frame.
+                    window.akari.interaction.clearSelection?.();
+                }
+                requestAnimationFrame(() => { applyingMixedSelection = false; });
+                if (selectedMixedGroup.length > 1 && !mixedFrameLoop) {
+                    mixedFrameLoop = true;
+                    requestAnimationFrame(drawMixedSelectionFrames);
+                } else if (selectedMixedGroup.length < 2) mixedSelectionFrames.replaceChildren();
+            };
+            const mixedSelectionHit = event => {
+                const element = event.target instanceof Element ? event.target : event.target?.parentElement;
+                if (element?.closest('[data-akari-interaction="selection-frame"]')
+                    && window.akari.interaction?.selectedId) {
+                    return { kind: 'overlay', id: window.akari.interaction.selectedId };
+                }
+                const captionPlate = element?.closest('.caption-row-plate');
+                if (captionPlate) {
+                    const row = captionRows.get(captionPlate.dataset.captionKey);
+                    if (row) return { kind: 'caption', id: row.caption.sourceCueId || row.caption.id };
+                }
+                const layer = element?.closest('[data-akari-layer-id]');
+                if (layer) return { kind: 'layer', id: layer.dataset.akariLayerId };
+                const overlay = element?.closest('[data-overlay-id]');
+                if (overlay) return { kind: 'overlay', id: overlay.dataset.overlayId };
+                if (element?.closest('#caption-select-box') && selectedCaptionId) return { kind: 'caption', id: selectedCaptionId };
+                if (element?.closest('#layer-select-box') && selectedLayerId) return { kind: 'layer', id: selectedLayerId };
+                if (element === previewStage || element?.id === 'frame-engine-canvas') {
+                    const visualHitAt = findVisualMediaHitAt;
+                    const media = visualHitAt(event);
+                    if (media?.dataset?.akariLayerId) {
+                        return { kind: 'layer', id: media.dataset.akariLayerId };
+                    }
+                    // A cut uses the separate cut transform/write path; mixedMove accepts
+                    // layer/overlay writes and caption positions, so a cut cannot join it.
+                }
+                return null;
+            };
+            window.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || !(event.shiftKey || event.ctrlKey || event.metaKey)) return;
+                const hit = mixedSelectionHit(event);
+                if (!hit) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                suppressMixedClick = true;
+                const current = selectedMixedGroup.length ? [...selectedMixedGroup]
+                    : [selectedCaptionId && { kind: 'caption', id: selectedCaptionId },
+                        selectedLayerId && { kind: 'layer', id: selectedLayerId },
+                        window.akari.interaction?.selectedId
+                            && { kind: 'overlay', id: window.akari.interaction.selectedId }].filter(Boolean);
+                const index = current.findIndex(item => item.kind === hit.kind && item.id === hit.id);
+                if (index >= 0) current.splice(index, 1);
+                else current.push(hit);
+                applyMixedSelection(current);
+                window.akari.reportMixedSelection?.(current);
+            }, true);
+            let suppressMixedClick = false;
+            window.addEventListener('pointerup', () => {
+                if (suppressMixedClick) setTimeout(() => { suppressMixedClick = false; }, 0);
+            }, true);
+            window.addEventListener('click', event => {
+                if (!suppressMixedClick) return;
+                suppressMixedClick = false;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }, true);
+            window.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey
+                    || selectedMixedGroup.length < 2
+                    || selectedMixedGroup.every(item => item.kind === 'caption')) return;
+                const hit = mixedSelectionHit(event);
+                if (!hit || !selectedMixedGroup.some(item => item.kind === hit.kind && item.id === hit.id)) return;
+                const members = selectedMixedGroup.map(item => ({ item, element: mixedSelectionElement(item) }))
+                    .filter(row => row.element);
+                if (members.length !== selectedMixedGroup.length) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const pointerId = event.pointerId;
+                const origin = captionOutputPoint(event.clientX, event.clientY);
+                const rows = members.map(row => {
+                    const css = String(row.element.style.translate || '').trim().split(' ');
+                    return { ...row, rect: row.item.kind === 'caption'
+                        ? captionVisualRect(row.element) : row.element.getBoundingClientRect(),
+                        layoutRect: row.item.kind === 'caption' ? captionLayoutRect(row.element) : null,
+                        captionTransform: row.item.kind === 'caption' ? captionTransformValues(row.element) : null,
+                        translate: { x: parseFloat(css[0]) || 0, y: parseFloat(css[1]) || 0 } };
+                });
+                let delta = { x: 0, y: 0 };
+                let moved = false;
+                window.akari.reportGesture?.('begin');
+                const stop = () => {
+                    window.removeEventListener('pointermove', move, true);
+                    window.removeEventListener('pointerup', up, true);
+                    window.removeEventListener('pointercancel', cancel, true);
+                };
+                const restore = () => {
+                    for (const row of rows) row.element.style.translate = row.translate.x || row.translate.y
+                        ? row.translate.x + 'px ' + row.translate.y + 'px' : '';
+                };
+                const move = next => {
+                    if (next.pointerId !== pointerId) return;
+                    const point = captionOutputPoint(next.clientX, next.clientY);
+                    delta = { x: point.x - origin.x, y: point.y - origin.y };
+                    if (!moved && Math.hypot(delta.x, delta.y) > CLICK_THRESHOLD_PX) moved = true;
+                    if (!moved) return;
+                    next.preventDefault();
+                    for (const row of rows) row.element.style.translate = (row.translate.x + delta.x) + 'px '
+                        + (row.translate.y + delta.y) + 'px';
+                };
+                let finished = false;
+                const finish = async cancelled => {
+                    if (finished) return;
+                    finished = true;
+                    try {
+                        stop();
+                        if (cancelled || !moved) return;
+                        suppressMixedClick = true;
+                        const writes = [];
+                        const cuePositions = [];
+                        for (const row of rows) {
+                            const { item } = row;
+                            if (item.kind === 'caption') {
+                                const caption = captions.find(candidate => (candidate.sourceCueId || candidate.id) === item.id);
+                                if (!caption) continue;
+                                const movedRect = { left: row.rect.left + delta.x, right: row.rect.right + delta.x,
+                                    top: row.rect.top + delta.y, bottom: row.rect.bottom + delta.y };
+                                const value = frameCaptionPosition(caption, captionPositionFromVisualRect(
+                                    movedRect, row.layoutRect, captionOutputFrame(), {
+                                        anchor: caption.textStyle?.text_anchor || 'bc',
+                                        clamp: captionClampEnabled(caption), timeDomain: caption.timeDomain,
+                                        ...row.captionTransform
+                                    }));
+                                cuePositions.push({ captionId: item.id, value });
+                            } else {
+                                const spec = item.kind === 'layer' ? findLayerEntry(item.id)?.spec
+                                    : summary.overlays?.find(candidate => candidate.id === item.id)
+                                        || summary.tree?.find(candidate => candidate.id === item.id);
+                                if (!spec) continue;
+                                writes.push({ kind: item.kind, itemId: item.id, patch: { transform: {
+                                    x: (Number(spec.transform?.x) || 0) + delta.x,
+                                    y: (Number(spec.transform?.y) || 0) + delta.y
+                                } } });
+                            }
+                        }
+                        if (writes.length + cuePositions.length !== rows.length) throw new Error('選択素材の位置を取得できません');
+                        await window.akari.engine.mixedMove(writes, cuePositions);
+                        window.akari.reportGesture?.('saved');
+                    } catch (error) {
+                        window.akari.showWriteError(error);
+                    } finally {
+                        try { restore(); } finally { window.akari.reportGesture?.('end'); }
+                    }
+                };
+                const up = next => { if (next.pointerId === pointerId) void finish(false); };
+                const cancel = next => { if (next.pointerId === pointerId) void finish(true); };
+                window.addEventListener('pointermove', move, true);
+                window.addEventListener('pointerup', up, true);
+                window.addEventListener('pointercancel', cancel, true);
+            }, true);
             window.addEventListener('message', event => {
                 const message = event.data;
                 if (message?.type === 'akari-preview-optimistic-item-update') {
@@ -10376,6 +10626,10 @@ export function previewBootstrapScript(): string {
                     applyCaptionSelectionAttrs();
                     captionStylePreview.selectionChanged(selectedCaptionId);
                     updateCaptionSelectBox();
+                    return;
+                }
+                if (message?.type === 'akari-preview-set-selected-group' && Array.isArray(message.selection)) {
+                    applyMixedSelection(message.selection);
                     return;
                 }
                 if (message && message.type === 'akari-preview-caption-style-preview') {
@@ -10810,12 +11064,20 @@ export function previewBootstrapScript(): string {
                 if (selectedOverlayId !== lastReportedOverlayId || force === true
                     || selectedOverlayIds.length !== lastReportedOverlayIds.length
                     || selectedOverlayIds.some((id, index) => id !== lastReportedOverlayIds[index])) {
+                    if ((typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)
+                        || (typeof selectedMixedGroup !== 'undefined'
+                            && selectedMixedGroup.length > 1 && (!force || !notify))
+                        || (requestedOverlayId && !selectedOverlayId && !force)) {
+                        lastReportedOverlayId = selectedOverlayId;
+                        lastReportedOverlayIds = [...selectedOverlayIds];
+                        return;
+                    }
                     if (!selectedOverlayId && requestedOverlayId
                         && !overlaySelectionInRange(requestedOverlayId, outputTime)
                         && !(force && notify)) return;
                     lastReportedOverlayId = selectedOverlayId;
                     lastReportedOverlayIds = [...selectedOverlayIds];
-                    if (selectedOverlayId) {
+                    if (selectedOverlayId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) {
                         requestedCutId = undefined;
                         selectLayer(null, { report: false });
                         deselectCut({ report: false });
@@ -10823,6 +11085,7 @@ export function previewBootstrapScript(): string {
                     }
                     requestedOverlayId = selectedOverlayId || undefined;
                     if (notify && selectedOverlayId !== applyingOverlaySelection) {
+                        if (typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
                         if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId, interaction.scopeId, selectedOverlayIds);
                         else window.akari.reportOverlaySelection(selectedOverlayId);
                     }
