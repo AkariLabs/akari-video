@@ -1,21 +1,24 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
-import { CommandService } from '@theia/core/lib/common';
+import { CommandService, MessageService } from '@theia/core/lib/common';
 import { QuickInputService } from '@theia/core/lib/browser';
+import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
-import { CATALOG_CATEGORIES, CatalogItemMeta, CatalogViewMode } from '../common/catalog-reader';
-import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus, PresetShowcaseKind, PresetShowcaseItem } from '../common/akari-project-protocol';
+import { CATALOG_CATEGORIES, CatalogItemMeta, CatalogViewMode, catalogItemCategoryChipKey } from '../common/catalog-reader';
+import { AkariProjectService, AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus, PresetShowcaseKind, PresetShowcaseItem } from '../common/akari-project-protocol';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import { CatalogPackGroup, deriveCatalogEmptyStateKind, deriveCatalogResolverNotice, formatCatalogPackBreakdown, summarizeCatalogPackDistribution } from '../common/asset-catalog-view';
 import { rankRecentLibraryItems } from '../common/library-source-view';
 import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import { TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryDotsCorner } from './library-card-view';
-import { LibraryMenuTarget } from '../common/library-card-menu';
-import { type MyStyle } from '../common/my-style';
+import { libraryAssetInfoCard, libraryPresetInfoCard, libraryMenuTargetKey, LibraryInfoCardModel, LibraryMenuTarget } from '../common/library-card-menu';
+import { libraryRemovalWarning } from '../common/library-card-context-menu-items';
+import { LIBRARY_GROUPS, LibraryGroupDefinition, LibraryCategoryKey, LibraryCategoryDefinition } from '../common/library-home-view';
+import { myStylePartLabel, type MyStyle } from '../common/my-style';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
@@ -38,7 +41,7 @@ export const CATALOG_GRID_COLUMNS =
 export interface LibraryPaneHost {
     readonly dialogs: Pick<FileDialogService, 'showOpenDialog'>;
     readonly preferences: Pick<PreferenceService, 'get' | 'set'>;
-    readonly files: Pick<FileService, 'resolve'>;
+    readonly files: Pick<FileService, 'resolve' | 'delete'>;
     readonly update: () => void;
     readonly loadAssetCatalogView: (intent?: 'automatic' | 'user') => Promise<void>;
     readonly commandService: Pick<CommandService, 'executeCommand'>;
@@ -58,6 +61,10 @@ export interface LibraryPaneHost {
     readonly handleLibraryTransitionDragEnd: () => void;
     readonly renderMyStyles: () => React.ReactNode;
     readonly renderPresetShowcase: (kind: PresetShowcaseKind) => React.ReactNode;
+    readonly projectService: Pick<AkariProjectService, 'getLibraryUsage'>;
+    readonly messages: Pick<MessageService, 'info' | 'error'>;
+    readonly libraryMenuTargetItem: (target: LibraryMenuTarget) => { preset?: PresetShowcaseItem; style?: MyStyle };
+    readonly libraryCategoryDefinition: (key: LibraryCategoryKey) => LibraryCategoryDefinition;
 }
 
 export class AkariLibraryPane {
@@ -508,5 +515,55 @@ export class AkariLibraryPane {
             return 'codicon codicon-play';
         }
         return 'codicon codicon-symbol-text';
+    }
+
+    public libraryInfoModel(target: LibraryMenuTarget): LibraryInfoCardModel | undefined {
+        const favorite = this.host.libraryFavorites.has(libraryMenuTargetKey(target));
+        if (target.kind === 'asset') {
+            const chip = catalogItemCategoryChipKey(target.item);
+            const category = (LIBRARY_GROUPS as readonly LibraryGroupDefinition[]).flatMap(group => group.categories)
+                .find(candidate => candidate.chipKey === chip);
+            const item = this.host.assetCatalogItems.find(entry => entry.key === target.item.key) ?? target.item;
+            return libraryAssetInfoCard(item, category?.label ?? item.category, favorite);
+        }
+        if (target.kind === 'transition') {
+            const transition = TRANSITION_VOCABULARY.find(entry => `transition/${entry.id}` === target.key);
+            return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: transition.labelJa,
+                categoryLabel: 'トランジション', tags: [transition.category] }, favorite);
+        }
+        const { preset, style } = this.host.libraryMenuTargetItem(target);
+        if (preset) {
+            return libraryPresetInfoCard({ key: target.key, kind: preset.kind, name: preset.name,
+                categoryLabel: this.host.libraryCategoryDefinition(preset.kind).label, tags: [preset.category, ...preset.tags].filter(Boolean) as string[] }, favorite);
+        }
+        if (style) {
+            return libraryPresetInfoCard({ key: target.key, kind: 'mystyle', name: style.name, categoryLabel: 'マイスタイル',
+                tags: [style.when_to_use, ...style.parts.map(part => myStylePartLabel(part.kind))], author: style.author }, favorite);
+        }
+        return undefined;
+    }
+
+    public async copyLibraryCredit(text: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.host.messages.info('クレジットをコピーしました');
+        } catch (error) {
+            this.host.messages.error(`クレジットをコピーできませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    public async removeLibraryItem(item: AssetCatalogViewItem): Promise<void> {
+        if (!item.libraryDir) return;
+        try {
+            const usage = await this.host.projectService.getLibraryUsage();
+            const warning = libraryRemovalWarning(item, usage[item.key]?.projects ?? []);
+            const confirmed = await new ConfirmDialog({
+                title: `${item.title} をライブラリから消しますか？`, msg: warning,
+                ok: 'ゴミ箱へ移す', cancel: 'キャンセル'
+            }).open();
+            if (!confirmed) return;
+            await this.host.files.delete(URI.fromFilePath(item.libraryDir), { recursive: true, useTrash: true });
+            await this.host.loadAssetCatalogView('user');
+        } catch (error) { this.host.messages.error(`ライブラリから消せませんでした: ${String(error)}`); }
     }
 }

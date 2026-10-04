@@ -51,7 +51,6 @@ import { isEditDataFileName } from '../common/edit-data-file';
 import {
     CatalogCategoryChip,
     CatalogViewMode,
-    catalogItemCategoryChipKey,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
     normalizeCatalogViewMode
@@ -65,14 +64,13 @@ import {
     countLibraryCategory, filterLibraryCatalogItems,
     LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankRecentLibraryItems
 } from '../common/library-source-view';
-import { libraryRemovalWarning } from '../common/library-card-context-menu-items';
 import {
     EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
     presetMatchesLibraryFilter, toggleLibraryFilterOption
 } from '../common/library-filter';
 import {
-    isPlaceableLibraryCategory, libraryAssetInfoCard, libraryCardMenuEntries, LibraryInfoCardModel, LibraryMenuActionId,
-    LibraryMenuTarget, libraryMenuTargetKey, libraryPresetInfoCard, premiumPromptText
+    isPlaceableLibraryCategory, libraryCardMenuEntries, LibraryInfoCardModel, LibraryMenuActionId,
+    LibraryMenuTarget, libraryMenuTargetKey, premiumPromptText
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
 import {
@@ -669,6 +667,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get catalogQuery() { return widget().catalogQuery; },
             get libraryFavorites() { return widget().libraryFavorites; },
             get transitionPreviewUrls() { return widget().transitionPreviewUrls; },
+            get projectService() { return widget().projectService; },
+            get messages() { return widget().messages; },
             update: () => widget().update(),
             loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent),
             renderCatalogItem: item => widget().renderCatalogItem(item),
@@ -677,7 +677,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             openLibraryInfo: (target, anchor) => widget().openLibraryInfo(target, anchor),
             handleLibraryTransitionDragEnd: () => widget().handleLibraryTransitionDragEnd(),
             renderMyStyles: () => widget().renderMyStyles(),
-            renderPresetShowcase: kind => widget().renderPresetShowcase(kind)
+            renderPresetShowcase: kind => widget().renderPresetShowcase(kind),
+            libraryMenuTargetItem: target => widget().libraryMenuTargetItem(target),
+            libraryCategoryDefinition: key => widget().libraryCategoryDefinition(key)
         };
         this.libraryPane = new AkariLibraryPane(libraryHost);
         const lintHost: LintPaneHost = {
@@ -2796,32 +2798,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             onSelect: id => void this.runLibraryAction(target, id as LibraryMenuActionId, card) });
     }
 
-    protected libraryInfoModel(target: LibraryMenuTarget): LibraryInfoCardModel | undefined {
-        const favorite = this.libraryFavorites.has(libraryMenuTargetKey(target));
-        if (target.kind === 'asset') {
-            const chip = catalogItemCategoryChipKey(target.item);
-            const category = (LIBRARY_GROUPS as readonly LibraryGroupDefinition[]).flatMap(group => group.categories)
-                .find(candidate => candidate.chipKey === chip);
-            const item = this.assetCatalogItems.find(entry => entry.key === target.item.key) ?? target.item;
-            return libraryAssetInfoCard(item, category?.label ?? item.category, favorite);
-        }
-        if (target.kind === 'transition') {
-            const transition = TRANSITION_VOCABULARY.find(entry => `transition/${entry.id}` === target.key);
-            return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: transition.labelJa,
-                categoryLabel: 'トランジション', tags: [transition.category] }, favorite);
-        }
-        const { preset, style } = this.libraryMenuTargetItem(target);
-        if (preset) {
-            return libraryPresetInfoCard({ key: target.key, kind: preset.kind, name: preset.name,
-                categoryLabel: this.libraryCategoryDefinition(preset.kind).label, tags: [preset.category, ...preset.tags].filter(Boolean) as string[] }, favorite);
-        }
-        if (style) {
-            return libraryPresetInfoCard({ key: target.key, kind: 'mystyle', name: style.name, categoryLabel: 'マイスタイル',
-                tags: [style.when_to_use, ...style.parts.map(part => myStylePartLabel(part.kind))], author: style.author }, favorite);
-        }
-        return undefined;
-    }
-
     /** ⋯ = 情報カード。押したカードだけを残して周りを暗くし、横に情報カードを出す。 */
     protected openLibraryInfo(target: LibraryMenuTarget, anchor: HTMLElement): void {
         this.stopCatalogAudio();
@@ -2851,7 +2827,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             else if (id === 'agent-import') await this.libraryPane.importCatalogItem(item);
             else if (id === 'ask') await this.libraryPane.askAgentAboutCatalogItem(item);
             else if (id === 'reveal' && item.libraryDir) await this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir));
-            else if (id === 'remove-library') await this.removeLibraryItem(item);
+            else if (id === 'remove-library') await this.libraryPane.removeLibraryItem(item);
             return;
         }
         const { preset, style } = this.libraryMenuTargetItem(target);
@@ -2913,15 +2889,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
-    protected async copyLibraryCredit(text: string): Promise<void> {
-        try {
-            await navigator.clipboard.writeText(text);
-            this.messages.info('クレジットをコピーしました');
-        } catch (error) {
-            this.messages.error(`クレジットをコピーできませんでした: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
-
     protected toggleLibraryFilterPopover(): void {
         if (this.libraryFilterAnchor) {
             this.libraryFilterAnchor = undefined;
@@ -2935,7 +2902,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     /** 浮く部品（情報カード・ライセンスの窓・フィルター・促しのシート）。document.body へ出す。 */
     protected renderLibraryOverlays(): React.ReactNode {
         const info = this.libraryInfo;
-        const model = info && this.libraryInfoModel(info.target);
+        const model = info && this.libraryPane.libraryInfoModel(info.target);
         const premium = this.libraryPremiumPrompt ? this.assetCatalogItems.find(entry => entry.key === this.libraryPremiumPrompt) : undefined;
         const prompt = premium && premiumPromptText(premium);
         return <>
@@ -2961,28 +2928,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 } : undefined}
                 onClose={this.closeLibraryInfo} />}
             {this.libraryLicense && <LibraryLicenseDialog sheet={this.libraryLicense.sheet}
-                onCopyCredit={this.libraryLicense.credit ? () => void this.copyLibraryCredit(this.libraryLicense!.credit!) : undefined}
+                onCopyCredit={this.libraryLicense.credit ? () => void this.libraryPane.copyLibraryCredit(this.libraryLicense!.credit!) : undefined}
                 onMore={url => this.windowService.openNewWindow(url, { external: true })}
                 onClose={() => { this.libraryLicense = undefined; this.update(); }} />}
             {premium && prompt && <LibraryPremiumSheet title={prompt.title} body={prompt.body} actionLabel={prompt.action}
                 onLab={() => { this.libraryPremiumPrompt = undefined; this.update(); this.openLibraryLab(premium); }}
                 onClose={() => { this.libraryPremiumPrompt = undefined; this.update(); }} />}
         </>;
-    }
-
-    protected async removeLibraryItem(item: AssetCatalogViewItem): Promise<void> {
-        if (!item.libraryDir) return;
-        try {
-            const usage = await this.projectService.getLibraryUsage();
-            const warning = libraryRemovalWarning(item, usage[item.key]?.projects ?? []);
-            const confirmed = await new ConfirmDialog({
-                title: `${item.title} をライブラリから消しますか？`, msg: warning,
-                ok: 'ゴミ箱へ移す', cancel: 'キャンセル'
-            }).open();
-            if (!confirmed) return;
-            await this.files.delete(URI.fromFilePath(item.libraryDir), { recursive: true, useTrash: true });
-            await this.loadAssetCatalogView('user');
-        } catch (error) { this.messages.error(`ライブラリから消せませんでした: ${String(error)}`); }
     }
 
     protected renderPresetShowcase(kind: PresetShowcaseKind): React.ReactNode {
