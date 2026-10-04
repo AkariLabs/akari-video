@@ -80,13 +80,23 @@ function readJsonFile(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
-function titleFromMeta(assetRoot) {
+function readAssetMeta(assetRoot) {
   try {
-    const meta = readJsonFile(path.join(assetRoot, 'meta.json'));
-    return typeof meta.title === 'string' && meta.title ? meta.title : null;
+    return readJsonFile(path.join(assetRoot, 'meta.json'));
   } catch {
     return null;
   }
+}
+
+function declaredTier(...sources) {
+  for (const source of sources) {
+    if (source && Object.hasOwn(source, 'tier')) return source.tier === 'free' ? 'free' : 'pro';
+  }
+  for (const source of sources) {
+    if (source?.price === 0) return 'free';
+    if (typeof source?.price === 'number' && source.price > 0) return 'pro';
+  }
+  return 'pro';
 }
 
 function isSafePathSegment(value) {
@@ -124,6 +134,7 @@ function flattenPackContents(pack, packRoot) {
         throw new Error('PACK.json の contents[] に不正な id / path があります');
       }
       const assetRoot = pathWithin(packRoot, asset.path);
+      const meta = readAssetMeta(assetRoot);
       if (!Array.isArray(asset.files) || asset.files.length === 0) {
         throw new Error(`PACK.json の item に files[] がありません: ${asset.id}`);
       }
@@ -147,9 +158,10 @@ function flattenPackContents(pack, packRoot) {
       items.push({
         id: asset.id,
         title: (typeof asset.title === 'string' && asset.title)
-          || titleFromMeta(assetRoot)
+          || (typeof meta?.title === 'string' && meta.title)
           || (typeof parentTitle === 'string' && parentTitle)
           || asset.id,
+        tier: declaredTier(asset, meta, pack),
         path: asset.path,
         version,
         files

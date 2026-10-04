@@ -361,7 +361,7 @@ test('store install --from: SKU 入れ子形 PACK.json を平坦化して instal
     const second = path.join(packRoot, 'assets', 'scene3d', 'text-two');
     mkdirSync(first, { recursive: true });
     mkdirSync(second, { recursive: true });
-    writeFileSync(path.join(first, 'meta.json'), JSON.stringify({ title: 'メタ由来タイトル' }));
+    writeFileSync(path.join(first, 'meta.json'), JSON.stringify({ title: 'メタ由来タイトル', tier: 'pro' }));
     writeFileSync(path.join(first, 'fragment.html'), 'one');
     writeFileSync(path.join(second, 'fragment.html'), 'two');
     writeFileSync(path.join(packRoot, 'PACK.json'), JSON.stringify({
@@ -372,7 +372,7 @@ test('store install --from: SKU 入れ子形 PACK.json を平坦化して instal
         title: '親タイトル',
         assets: [
           { id: 'text-one', path: 'assets/scene3d/text-one', version: 1, files: [{ path: 'fragment.html', bytes: 3, sha256: 'a'.repeat(64) }] },
-          { id: 'text-two', path: 'assets/scene3d/text-two', version: 1, files: [{ path: 'fragment.html', bytes: 3, sha256: 'b'.repeat(64) }] }
+          { id: 'text-two', path: 'assets/scene3d/text-two', version: 1, tier: 'free', files: [{ path: 'fragment.html', bytes: 3, sha256: 'b'.repeat(64) }] }
         ]
       }]
     }));
@@ -388,6 +388,7 @@ test('store install --from: SKU 入れ子形 PACK.json を平坦化して instal
     assert.equal(index.packs['text-pack'].items.length, 2);
     assert.equal(index.packs['text-pack'].items[0].title, 'メタ由来タイトル');
     assert.equal(index.packs['text-pack'].items[1].title, '親タイトル');
+    assert.deepEqual(index.packs['text-pack'].items.map(item => item.tier), ['pro', 'free']);
     assert.ok(path.isAbsolute(index.packs['text-pack'].root));
     assert.ok(ctx.lines.includes('akari assets list に 2 件を登録しました'));
     assert.ok(ctx.lines.includes('次の一手: akari assets fetch text-one'));

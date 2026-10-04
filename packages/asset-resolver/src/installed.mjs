@@ -1,6 +1,6 @@
 // `akari store install` が書くローカル導入索引を、カタログ item の形へ変換する。
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
@@ -43,6 +43,17 @@ function catalogItem(packId, pack, item) {
     throw new Error(`導入済み素材索引の item に files[] がありません: ${item.id}`);
   }
   const itemRoots = (pack.readRoots ?? [pack.root]).map(root => localPathWithin(root, item.path));
+  let metaTier;
+  for (const root of itemRoots) {
+    try {
+      const meta = JSON.parse(readFileSync(path.join(root, 'meta.json'), 'utf8'));
+      if (Object.hasOwn(meta, 'tier') || Object.hasOwn(meta, 'price')) metaTier = assetTier(meta);
+      break;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') break;
+    }
+  }
+  const tier = Object.hasOwn(item, 'tier') ? assetTier(item) : metaTier;
 
   return {
     id: item.id,
@@ -50,7 +61,7 @@ function catalogItem(packId, pack, item) {
     category: categoryFromItemPath(item.path),
     version: item.version,
     price: 0,
-    tier: item.tier === 'pro' ? 'pro' : 'free',
+    ...(tier ? { tier } : {}),
     source: 'installed',
     files: item.files.map((file) => {
       if (!file || typeof file.path !== 'string' || !file.path
@@ -119,9 +130,9 @@ export function mergeInstalledItems(catalog, installedItems) {
     const position = positions.get(item.id);
     if (position === undefined) {
       positions.set(item.id, items.length);
-      items.push(item);
+      items.push({ ...item, tier: item.tier ?? assetTier(item) });
     } else {
-      items[position] = { ...item, tier: assetTier(items[position]) };
+      items[position] = { ...item, tier: item.tier ?? assetTier(items[position]) };
     }
   }
   return { ...catalog, items };

@@ -99,10 +99,6 @@ export async function resolve(
 
   const tier = assetTier(item);
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;
-  if (tier === 'pro' && hasFiles && item.source !== 'installed') {
-    throw new AssetResolverError(`Pro カタログ item に files[] を含められません: ${item.id}`, 'invalid_catalog_item');
-  }
-
   const destDir = localAssetDir(env, item.category, item.id);
 
   // キャッシュヒット → 即返す（未購入だったとしても、一度取得済みなら手元にある実体をそのまま使う。
@@ -117,6 +113,10 @@ export async function resolve(
       result.projectDir = await copyIntoProject(cachedDir, project, item.category, item.id);
     }
     return result;
+  }
+
+  if (tier === 'pro' && hasFiles && item.source !== 'installed') {
+    throw new AssetResolverError(`Pro カタログ item に files[] を含められません: ${item.id}`, 'invalid_catalog_item');
   }
 
   if (tier === 'pro' && item.source !== 'installed') {

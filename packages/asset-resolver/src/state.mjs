@@ -85,10 +85,13 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
     return local ? { ...item, ...local, tier: item.tier ?? assetTier(item), files: item.files ?? local.files, preview: item.preview ?? local.preview,
       ...(item.source === 'installed' ? { source: item.source } : {}) } : item;
   });
+  const localOnlyKeys = new Set(localItems.keys());
   merged.push(...[...localItems.values()].filter(Boolean));
   const items = merged.map((item) => {
     const key = `${item.category}/${item.id}`;
-    const tier = assetTier(item);
+    const tier = localOnlyKeys.has(key) && !Object.hasOwn(item, 'tier')
+      && item.price !== 0 && !(typeof item.price === 'number' && item.price > 0)
+      ? 'free' : assetTier(item);
     let state;
     if (installed.has(key)) state = 'cached';
     else if (tier === 'pro' && item.source !== 'installed' && !isAssetEntitled(item, entitlementsResult.ids)) state = 'locked';

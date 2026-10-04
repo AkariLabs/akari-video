@@ -23,14 +23,14 @@ function asset(root, id, meta = {}, category = 'audio') {
   return dir;
 }
 
-test('local meta without tier or price fails closed as Pro while remaining cached', async t => {
+test('local meta without tier or price displays Free while remaining cached', async t => {
   const { env } = fixture(t);
-  // R1 reversed the legacy price rule: missing tier and price must not imply Free.
+  // N2 supersedes R1 for local-only assets; catalog-derived entries remain fail-closed.
   asset(env.AKARI_LIBRARY_ROOT, 'legacy-tierless', { tier: undefined });
   const item = (await composeState({ env })).items.find(row => row.id === 'legacy-tierless');
-  assert.equal(item.tier, 'pro');
+  assert.equal(item.tier, 'free');
   assert.equal(item.state, 'cached');
-  assert.ok(item.machineTags.includes('tier:pro'));
+  assert.ok(item.machineTags.includes('tier:free'));
 });
 
 test('local items contain actual files, metadata, timestamp, thumbnail, credit and origin fields', async t => {

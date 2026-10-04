@@ -43,9 +43,10 @@
 
   /* ---- グリッド ---- */
   const grid = $('#grid');
+  const tierLabel = (item) => item.tier === 'free' ? '無料' : 'Pro';
   function badgeOf(item) {
     if (item.state === 'cached') return '<span class="badge got">✓ 取得済み</span>';
-    if (item.state === 'locked') return `<span class="badge paid">¥${(item.price ?? 0).toLocaleString()}</span>`;
+    if (item.state === 'locked') return `<span class="badge paid">${tierLabel(item)}</span>`;
     return '<span class="badge">☁ 未取得</span>';
   }
   function renderGrid() {
@@ -76,9 +77,9 @@
     const isAudio = item.category === 'audio';
     detail.append(el(`<div>
       ${item.preview && !isAudio ? `<img class="big" src="/thumb/${encodeURIComponent(item.id)}" alt="">` : ''}
-      ${item.preview && isAudio ? `<audio controls preload="none" src="/media/${encodeURIComponent(item.id)}"></audio>` : ''}
+      ${isAudio && item.mediaAvailable ? `<audio controls preload="none" src="/media/${encodeURIComponent(item.id)}"></audio>` : ''}
       <h2>${esc(item.title)}</h2>
-      <p class="id">${esc(item.id)} ・ ${esc(item.license?.spdx ?? '')}${item.price ? ` ・ ¥${item.price.toLocaleString()}` : ' ・ 無料'}</p>
+      <p class="id">${esc(item.id)} ・ ${esc(item.license?.spdx ?? '')} ・ ${tierLabel(item)}</p>
       <div class="tagrow">${(item.tags || []).map((t) => `<span>${esc(t)}</span>`).join('')}</div>
       ${item.provenance?.prompt ? `<details class="prompt"><summary>生成プロンプト</summary><p>${esc(item.provenance.prompt)}</p></details>` : ''}
       <div class="actions" id="actions"></div>
@@ -89,7 +90,7 @@
     const say = (ok, text) => { msg.className = `msg ${ok ? 'ok' : 'err'}`; msg.textContent = text; };
 
     if (item.state === 'locked') {
-      actions.append(el(`<button class="btn" disabled>未購入（¥${(item.price ?? 0).toLocaleString()}） — AKARI Video Lab で購入してください</button>`));
+      actions.append(el('<button class="btn" disabled>Pro — AKARI Video Lab で利用資格を確認してください</button>'));
     } else if (item.state === 'cached') {
       actions.append(el('<p class="note">✓ ライブラリに取得済みです。</p>'));
     } else {
