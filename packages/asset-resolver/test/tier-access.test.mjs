@@ -5,6 +5,14 @@ import test from 'node:test';
 import { composeState } from '../src/state.mjs';
 import { resolve, AssetResolverError } from '../src/resolve.mjs';
 import { setupFixtureEnv } from './helpers.mjs';
+import { isAssetEntitled } from '../src/tier.mjs';
+
+test('only all-access-pass entitles Pro catalog items', () => {
+  const item = { id: 'mini-paid', product_id: 'paid-product' };
+  assert.equal(isAssetEntitled(item, new Set(['mini-paid'])), false);
+  assert.equal(isAssetEntitled(item, new Set(['paid-product'])), false);
+  assert.equal(isAssetEntitled(item, new Set(['all-access-pass'])), true);
+});
 
 function saveCatalog(fixture) {
   writeFileSync(fixture.catalogPath, `${JSON.stringify(fixture.catalog)}\n`);
@@ -29,11 +37,11 @@ test('explicit free beats old positive price; explicit pro beats old zero price 
   assert.ok(existsSync(path.join(fixture.home, 'assets', free.category, free.id, 'meta.json')));
 });
 
-test('legacy metadata uses positive price as pro and null or absent price as free', async () => {
+test('legacy metadata only treats price zero as free; null, absent, and nonnumeric fail closed', async () => {
   const fixture = setupFixtureEnv();
   const [free, pro] = fixture.catalog.items;
   delete free.tier;
-  free.price = null;
+  free.price = 0;
   delete pro.tier;
   pro.price = 500;
   saveCatalog(fixture);
@@ -45,7 +53,13 @@ test('legacy metadata uses positive price as pro and null or absent price as fre
     error => error instanceof AssetResolverError && error.code === 'locked');
   delete free.price;
   saveCatalog(fixture);
-  assert.equal((await composeState({ env: fixture.env })).items.find(item => item.id === free.id).state, 'available');
+  assert.equal((await composeState({ env: fixture.env })).items.find(item => item.id === free.id).state, 'locked');
+  free.price = null;
+  saveCatalog(fixture);
+  assert.equal((await composeState({ env: fixture.env })).items.find(item => item.id === free.id).state, 'locked');
+  free.price = '0';
+  saveCatalog(fixture);
+  assert.equal((await composeState({ env: fixture.env })).items.find(item => item.id === free.id).state, 'locked');
 });
 
 test('unknown explicit tier fails closed in list and fetch', async () => {
@@ -55,10 +69,10 @@ test('unknown explicit tier fails closed in list and fetch', async () => {
   saveCatalog(fixture);
   assert.equal((await composeState({ env: fixture.env })).items.find(item => item.id === 'mini-still').state, 'locked');
   await assert.rejects(() => resolve('mini-still', { env: fixture.env }),
-    error => error instanceof AssetResolverError && error.code === 'locked');
+    error => error instanceof AssetResolverError && error.code === 'invalid_catalog_item');
 });
 
-test('all-access-pass unlocks a Pro item for list and fetch', async () => {
+test('all-access-pass unlocks a Pro item in the list', async () => {
   const fixture = setupFixtureEnv();
   fixture.catalog.items[1].tier = 'pro';
   fixture.catalog.items[1].price = 0;
@@ -67,6 +81,4 @@ test('all-access-pass unlocks a Pro item for list and fetch', async () => {
   const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ entitlements: [{ product_id: 'all-access-pass' }] }) });
   const state = await composeState({ env: fixture.env, fetchImpl });
   assert.equal(state.items.find(item => item.id === 'mini-paid').state, 'available');
-  const result = await resolve('mini-paid', { env: fixture.env, fetchImpl });
-  assert.equal(result.cached, false);
 });

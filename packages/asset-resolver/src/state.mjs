@@ -95,7 +95,9 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
     else state = 'available';
     const sources = sourceFields(item, catalogKeys.has(key) || item.source === 'installed');
     const machineTags = (sources.machineTags ?? item.machineTags ?? []).filter(tag => !tag.startsWith('tier:'));
-    return { ...item, tier, state, ...sources, machineTags: [...machineTags, `tier:${tier}`] };
+    const visible = { ...item, tier, state, ...sources, machineTags: [...machineTags, `tier:${tier}`] };
+    if (state === 'locked') delete visible.files;
+    return visible;
   });
 
   return {

@@ -98,7 +98,6 @@ export function buildFixtureCatalog(baseDir) {
         license: { spdx: 'CC0-1.0' },
         price: 500,
         version: 1,
-        files: paid.files,
         preview: paid.preview,
         provenance: { model: 'fixture', prompt: 'a fixture paid still image', generated_at: '2026-08-04T00:00:00Z' },
       },
