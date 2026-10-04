@@ -1,20 +1,31 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
-import { CommandService } from '@theia/core/lib/common';
+import { CommandService, MessageService } from '@theia/core/lib/common';
 import { QuickInputService } from '@theia/core/lib/browser';
+import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
-import { CATALOG_CATEGORIES, CatalogItemMeta, CatalogViewMode } from '../common/catalog-reader';
-import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus } from '../common/akari-project-protocol';
+import { CATALOG_CATEGORIES, CatalogItemMeta, CatalogViewMode, catalogItemCategoryChipKey } from '../common/catalog-reader';
+import { AkariProjectService, AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus, PresetShowcaseKind, PresetShowcaseItem } from '../common/akari-project-protocol';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import { CatalogPackGroup, deriveCatalogEmptyStateKind, deriveCatalogResolverNotice, formatCatalogPackBreakdown, summarizeCatalogPackDistribution } from '../common/asset-catalog-view';
 import { rankRecentLibraryItems } from '../common/library-source-view';
-import { AKARI_BORDER } from '../common/akari-surface-tokens';
+import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
+import { TransitionStrip } from './library-shelf-visuals-view';
+import { LibraryDotsCorner } from './library-card-view';
+import { libraryAssetInfoCard, libraryPresetInfoCard, libraryMenuTargetKey, LibraryInfoCardModel, LibraryMenuTarget } from '../common/library-card-menu';
+import { libraryRemovalWarning } from '../common/library-card-context-menu-items';
+import { LIBRARY_GROUPS, LibraryGroupDefinition, LibraryCategoryKey, LibraryCategoryDefinition } from '../common/library-home-view';
+import { myStylePartLabel, type MyStyle } from '../common/my-style';
+import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
+import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 export const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
+const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
+const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
 
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
 // どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
@@ -30,7 +41,7 @@ export const CATALOG_GRID_COLUMNS =
 export interface LibraryPaneHost {
     readonly dialogs: Pick<FileDialogService, 'showOpenDialog'>;
     readonly preferences: Pick<PreferenceService, 'get' | 'set'>;
-    readonly files: Pick<FileService, 'resolve'>;
+    readonly files: Pick<FileService, 'resolve' | 'delete'>;
     readonly update: () => void;
     readonly loadAssetCatalogView: (intent?: 'automatic' | 'user') => Promise<void>;
     readonly commandService: Pick<CommandService, 'executeCommand'>;
@@ -41,6 +52,19 @@ export interface LibraryPaneHost {
     readonly catalogViewMode: CatalogViewMode;
     readonly assetCatalogItems: AssetCatalogViewItem[];
     readonly renderCatalogItem: (item: AssetCatalogViewItem) => React.ReactNode;
+    readonly catalogQuery: string;
+    readonly libraryFavorites: Set<string>;
+    readonly transitionPreviewUrls: Record<string, { preview: string; strip: string }>;
+    readonly presetPassesLibraryFilter: (key: string, source?: 'lab' | 'own') => boolean;
+    readonly openLibraryMenuAt: (event: React.MouseEvent<HTMLElement>, target: LibraryMenuTarget) => void;
+    readonly openLibraryInfo: (target: LibraryMenuTarget, anchor: HTMLElement) => void;
+    readonly handleLibraryTransitionDragEnd: () => void;
+    readonly renderMyStyles: () => React.ReactNode;
+    readonly renderPresetShowcase: (kind: PresetShowcaseKind) => React.ReactNode;
+    readonly projectService: Pick<AkariProjectService, 'getLibraryUsage'>;
+    readonly messages: Pick<MessageService, 'info' | 'error'>;
+    readonly libraryMenuTargetItem: (target: LibraryMenuTarget) => { preset?: PresetShowcaseItem; style?: MyStyle };
+    readonly libraryCategoryDefinition: (key: LibraryCategoryKey) => LibraryCategoryDefinition;
 }
 
 export class AkariLibraryPane {
@@ -351,5 +375,195 @@ export class AkariLibraryPane {
                 </p>
             </div>
         );
+    }
+
+    protected handleLibraryTransitionDragStart(
+        event: React.DragEvent<HTMLElement>,
+        transition: { readonly id: TransitionType; readonly labelJa: string }
+    ): void {
+        const payload: { kind: 'transition'; id: TransitionType; name: string } = {
+            kind: 'transition',
+            id: transition.id,
+            name: transition.labelJa
+        };
+        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+    }
+
+    public renderTransitionLibrary(): React.ReactNode {
+        const normalizedQuery = this.host.catalogQuery.trim().toLowerCase();
+        const filtered = TRANSITION_VOCABULARY.filter(transition => this.host.presetPassesLibraryFilter(`transition/${transition.id}`) && (!normalizedQuery
+            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery)));
+        const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
+        return (
+            <div
+                data-akari-transition-count={TRANSITION_VOCABULARY.length}
+                data-akari-transition-visible-count={filtered.length}
+                data-akari-transition-category-count={categories.length}
+                style={{ padding: '2px 10px 12px' }}
+            >
+                {categories.map(category => {
+                    const transitions = filtered.filter(transition => transition.category === category);
+                    if (!transitions.length) {
+                        return undefined;
+                    }
+                    return (
+                        <section key={category} style={{ marginTop: '10px' }}>
+                            <div style={{ padding: '4px 0 6px', fontSize: '0.74em', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.7 }}>
+                                {category}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }}>
+                                {transitions.map(transition => (
+                                    <div
+                                        key={transition.id}
+                                        role='button'
+                                        tabIndex={0}
+                                        draggable
+                                        data-akari-library-transition={transition.id}
+                                        data-akari-library-category='transition'
+                                        data-akari-library-card='grid'
+                                        data-akari-favorite={this.host.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
+                                        title={`${transition.labelJa} — カット境界へドラッグ`}
+                                        onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
+                                        onDragEnd={() => this.host.handleLibraryTransitionDragEnd()}
+                                        onContextMenu={event => this.host.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
+                                        style={{
+                                            position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
+                                            padding: '9px 5px 7px', cursor: 'grab', borderRadius: `${AKARI_RADIUS.panel}px`,
+                                            background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost
+                                        }}
+                                    >
+                                        <LibraryDotsCorner label={transition.labelJa}
+                                            onOpen={anchor => this.host.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, anchor)} />
+                                        <span aria-hidden='true' style={{ display: 'block', width: '100%', aspectRatio: '16 / 9',
+                                            overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px` }}>
+                                            <TransitionStrip url={this.host.transitionPreviewUrls[transition.id]?.preview}
+                                                stripUrl={this.host.transitionPreviewUrls[transition.id]?.strip} />
+                                        </span>
+                                        <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em' }}>
+                                            {transition.labelJa}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    );
+                })}
+                {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
+            </div>
+        );
+    }
+
+    public renderPresetLibraryBody(kinds: readonly PresetShowcaseKind[]): React.ReactNode {
+        if (this.host.catalogLoading) {
+            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+        }
+        const labels: Readonly<Record<PresetShowcaseKind, string>> = {
+            lut: 'LUT',
+            textanim: 'テキストアニメ',
+            textstyle: 'テキストスタイル'
+        };
+        return (
+            <div data-akari-library-preset-sections={kinds.length}>
+                {kinds.includes('textstyle') && this.host.renderMyStyles()}
+                {kinds.map((kind, index) => (
+                    <section key={kind} data-akari-library-preset-section={kind}>
+                        {(kinds.length > 1 || index > 0) && (
+                            <div style={{
+                                position: 'sticky', top: '62px', zIndex: 4, padding: '7px 10px 5px',
+                                background: AKARI_SURFACE.card, borderBottom: AKARI_BORDER.hairline,
+                                fontSize: '0.76em', fontWeight: 700, letterSpacing: '0.04em'
+                            }}>
+                                {labels[kind]}
+                            </div>
+                        )}
+                        {this.host.renderPresetShowcase(kind)}
+                    </section>
+                ))}
+                <div style={{ padding: '0 10px 10px' }}>{this.renderCatalogDeveloperLinkRow()}</div>
+            </div>
+        );
+    }
+
+    public playMyStyleSample(container: HTMLDivElement, style: MyStyle): void {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const animation = style.parts.find(part => part.kind === 'motion')?.animation as Record<string, unknown> | undefined;
+        const slot = (animation?.in ?? animation?.loop ?? animation?.out) as Record<string, unknown> | undefined;
+        const target = container.querySelector<HTMLElement>('[data-akari-my-style-preview]');
+        if (!slot || !target) return;
+        target.getAnimations().forEach(item => item.cancel());
+        const id = typeof slot.id === 'string' ? slot.id : '';
+        const sample = textAnimationSampleKeyframes(id, animation?.in ? 'in' : animation?.loop ? 'loop' : 'out',
+            typeof slot.amp === 'number' ? slot.amp : undefined,
+            typeof slot.duration_sec === 'number' ? slot.duration_sec : undefined);
+        target.animate(sample.keyframes, { duration: sample.durationMs, iterations: 1, easing: 'ease-out' });
+    }
+
+    public presetShowcaseTitle(item: PresetShowcaseItem): string {
+        if (item.kind === 'lut') {
+            return [item.description, item.whenToUse].filter(Boolean).join('\n');
+        }
+        return [item.name, item.category, item.description, item.sampleText].filter(Boolean).join('\n');
+    }
+
+    public presetShowcaseIcon(item: PresetShowcaseItem): string {
+        if (item.kind === 'lut') {
+            return 'codicon codicon-color-mode';
+        }
+        if (item.kind === 'textanim') {
+            return 'codicon codicon-play';
+        }
+        return 'codicon codicon-symbol-text';
+    }
+
+    public libraryInfoModel(target: LibraryMenuTarget): LibraryInfoCardModel | undefined {
+        const favorite = this.host.libraryFavorites.has(libraryMenuTargetKey(target));
+        if (target.kind === 'asset') {
+            const chip = catalogItemCategoryChipKey(target.item);
+            const category = (LIBRARY_GROUPS as readonly LibraryGroupDefinition[]).flatMap(group => group.categories)
+                .find(candidate => candidate.chipKey === chip);
+            const item = this.host.assetCatalogItems.find(entry => entry.key === target.item.key) ?? target.item;
+            return libraryAssetInfoCard(item, category?.label ?? item.category, favorite);
+        }
+        if (target.kind === 'transition') {
+            const transition = TRANSITION_VOCABULARY.find(entry => `transition/${entry.id}` === target.key);
+            return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: transition.labelJa,
+                categoryLabel: 'トランジション', tags: [transition.category] }, favorite);
+        }
+        const { preset, style } = this.host.libraryMenuTargetItem(target);
+        if (preset) {
+            return libraryPresetInfoCard({ key: target.key, kind: preset.kind, name: preset.name,
+                categoryLabel: this.host.libraryCategoryDefinition(preset.kind).label, tags: [preset.category, ...preset.tags].filter(Boolean) as string[] }, favorite);
+        }
+        if (style) {
+            return libraryPresetInfoCard({ key: target.key, kind: 'mystyle', name: style.name, categoryLabel: 'マイスタイル',
+                tags: [style.when_to_use, ...style.parts.map(part => myStylePartLabel(part.kind))], author: style.author }, favorite);
+        }
+        return undefined;
+    }
+
+    public async copyLibraryCredit(text: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.host.messages.info('クレジットをコピーしました');
+        } catch (error) {
+            this.host.messages.error(`クレジットをコピーできませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    public async removeLibraryItem(item: AssetCatalogViewItem): Promise<void> {
+        if (!item.libraryDir) return;
+        try {
+            const usage = await this.host.projectService.getLibraryUsage();
+            const warning = libraryRemovalWarning(item, usage[item.key]?.projects ?? []);
+            const confirmed = await new ConfirmDialog({
+                title: `${item.title} をライブラリから消しますか？`, msg: warning,
+                ok: 'ゴミ箱へ移す', cancel: 'キャンセル'
+            }).open();
+            if (!confirmed) return;
+            await this.host.files.delete(URI.fromFilePath(item.libraryDir), { recursive: true, useTrash: true });
+            await this.host.loadAssetCatalogView('user');
+        } catch (error) { this.host.messages.error(`ライブラリから消せませんでした: ${String(error)}`); }
     }
 }
