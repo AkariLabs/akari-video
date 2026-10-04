@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// 素材ライブラリ契約 v0 の構造を、Node.js 組み込み機能だけで検証する。
+// 素材ライブラリ契約 v1 の構造を、Node.js 組み込み機能だけで検証する。
 
 import fs from "node:fs";
 import { runtimes, validateRuntimeDeclarations } from "../../overlay-runtime/runtimes.mjs";
@@ -24,6 +24,7 @@ const assetDir = path.resolve(assetArgument);
 const metaPath = path.join(assetDir, "meta.json");
 const previewPath = path.join(assetDir, "preview.png");
 const errors = [];
+const warnings = [];
 
 if (!isDirectory(assetDir)) {
   fail(`素材ディレクトリが見つかりません: ${assetDir}`);
@@ -67,7 +68,7 @@ function validateMeta(value) {
     "provenance",
     "author",
     "license",
-    "price",
+    "tier",
   ];
   // source / remote / matched_by / version / min_app_version / min_overlay_runtime_version / motion_presets は
   // 任意フィールド。後方互換のため必須フィールドには加えない（version は 2026-07-30 導入で、既存エントリは未設定。
@@ -81,6 +82,7 @@ function validateMeta(value) {
     "min_app_version",
     "min_overlay_runtime_version",
     "motion_presets",
+    "price", // deprecated; optional until the next contract version
   ];
   const allowedFields = [...requiredFields, ...optionalFields];
   for (const field of requiredFields) {
@@ -111,7 +113,17 @@ function validateMeta(value) {
   validateProvenance(value.provenance);
   validateLicense(value.license);
 
-  if (value.price !== null && (!isFiniteNumber(value.price) || value.price < 0)) {
+  if (value.tier !== "free" && value.tier !== "pro") {
+    fail("tier は free / pro のいずれかである必要があります");
+  }
+  if (value.tier === "pro" && value.license?.spdx === "CC0-1.0") {
+    fail("tier: pro の素材に license.spdx: CC0-1.0 は指定できません");
+  }
+  if (value.tier === "free" && isPlainObject(value.license) && value.license.spdx !== "CC0-1.0") {
+    warn("tier: free の素材には license.spdx: CC0-1.0 を推奨します");
+  }
+
+  if (hasOwn(value, "price") && value.price !== null && (!isFiniteNumber(value.price) || value.price < 0)) {
     fail("price は null または 0 以上の有限数である必要があります");
   }
 
@@ -681,7 +693,12 @@ function fail(message) {
   errors.push(message);
 }
 
+function warn(message) {
+  warnings.push(message);
+}
+
 function finish() {
+  for (const warning of warnings) console.warn(`WARN: ${warning}`);
   if (errors.length > 0) {
     console.error(`NG: ${assetDir}`);
     for (const error of errors) console.error(`- ${error}`);
