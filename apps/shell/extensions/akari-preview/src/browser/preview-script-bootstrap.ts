@@ -562,6 +562,46 @@ export function previewBootstrapScript(): string {
             const pendingSelectionValues = new Map();
             // 入力は pointerup で解放する。DOM と host refresh は未完了の保存ごとに保護する。
             const selectionGestures = new Set();
+            let captionGestureCount = 0;
+            let pendingCaptionUpdate = null;
+            const replayPendingCaptionUpdate = () => {
+                if (captionGestureCount || !pendingCaptionUpdate) return;
+                const next = pendingCaptionUpdate;
+                pendingCaptionUpdate = null;
+                window.postMessage?.({ type: 'akari-preview-captions-update', captions: next }, '*');
+            };
+            const captionPositionOverrides = new Map();
+            const latestCaptionMove = new Map();
+            const rememberCaptionPosition = (id, value) => {
+                const pending = { value, saved: false };
+                captionPositionOverrides.set(id, pending);
+                return pending;
+            };
+            const captionPositionMatches = (actual, expected) => !!actual
+                && Math.abs(Number(actual.x ?? 0) - Number(expected.x ?? 0)) < 0.000001
+                && Math.abs(Number(actual.y ?? 0) - Number(expected.y ?? 0)) < 0.000001;
+            const captionUpdateIsStale = incoming => {
+                for (const [id, pending] of captionPositionOverrides) {
+                    const cue = incoming.find(item => (item.sourceCueId || item.id) === id);
+                    if (!cue || !captionPositionMatches(cue.textStyle?.position, pending.value.position)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            const protectCaptionUpdate = incoming => incoming.map(cue => {
+                const id = cue.sourceCueId || cue.id;
+                const pending = captionPositionOverrides.get(id);
+                if (!pending) return cue;
+                const position = cue.textStyle?.position;
+                const expected = pending.value.position;
+                if (pending.saved && captionPositionMatches(position, expected)) {
+                    captionPositionOverrides.delete(id);
+                    return cue;
+                }
+                return { ...cue, textStyle: { ...cue.textStyle, text_anchor: pending.value.anchor,
+                    position: expected } };
+            });
             const latestSelectionGesture = new WeakMap();
             const beginSelectionGesture = target => {
                 const gesture = { target, key: target.entry || target.media || target };
@@ -571,7 +611,7 @@ export function previewBootstrapScript(): string {
                 return gesture;
             };
             const flushPendingSelectionModel = () => {
-                if (selectionGestures.size || !pendingSelectionModel) return;
+                if (selectionGestures.size || captionGestureCount || !pendingSelectionModel) return;
                 const next = { ...pendingSelectionModel };
                 for (const [kind, entries] of [['layer', 'layers'], ['cut', 'cuts']]) {
                     if (!Array.isArray(next[entries])) continue;
@@ -585,6 +625,7 @@ export function previewBootstrapScript(): string {
                 clearLiveOverride();
                 applyIncrementalModel(next);
             };
+            window.akari.flushPendingGestureModel = flushPendingSelectionModel;
             const endSelectionGesture = gesture => {
                 if (!selectionGestures.delete(gesture)) return;
                 if (pendingSelectionModel) {
@@ -2870,6 +2911,11 @@ export function previewBootstrapScript(): string {
                     const liveItem = previewMotionLiveItemFn(motion.item, original);
                     motion = { ...motion, item: liveItem, visible: window.akari.itemMotion.evaluateItemMotion(
                         liveItem, motion.time, motion.parents) };
+                } else if (motion && positionOnly && target.visualNow) {
+                    // Keyframed items use the pose currently on screen as the next grab's
+                    // origin; their cached spec can lag behind a previous pending write.
+                    const live = target.visualNow();
+                    motion = { ...motion, visible: { ...motion.visible, x: live.x, y: live.y } };
                 }
                 const movingControls = rotating || handleKind === 'move' || !handleKind;
                 const gestureLabel = document.createElement('div');
@@ -5537,6 +5583,10 @@ export function previewBootstrapScript(): string {
                 const captionPlate = handle && captionSelectBox.contains(handle)
                     ? selectedCaptionPlate() : event.target.closest('.caption-row-plate');
                 if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
+                const captionMoveToken = {};
+                if (typeof latestCaptionMove !== 'undefined') latestCaptionMove.set(cueId, captionMoveToken);
+                if (typeof captionGestureCount !== 'undefined') captionGestureCount += 1;
+                window.akari.reportGesture?.('begin');
                 event.preventDefault();
                 event.stopPropagation();
                 const placedText = caption.timeDomain === 'output';
@@ -5552,11 +5602,22 @@ export function previewBootstrapScript(): string {
                 const startPlateRect = captionVisualRect();
                 const startLayoutRect = captionLayoutRect();
                 const startTransform = captionTransformValues(captionPlate);
+                // The previous drag can still be waiting for captions.json. Its live
+                // displacement is on the plate, while captions still has the old base.
+                const captionTranslateNow = plate => {
+                    const [x, y] = String(plate.style.translate || '').trim().split(' ');
+                    return { x: parseFloat(x) || 0, y: parseFloat(y) || 0 };
+                };
+                const startPlateTranslate = captionTranslateNow(captionPlate);
+                const startRowTranslates = new Map();
                 const startOutputPoint = captionOutputPoint(startClientX, startClientY);
                 const moveIds = !groupMode && selectedCaptionIds.has(cueId)
                     ? [...selectedCaptionIds].filter(id => captions.some(item => (item.sourceCueId || item.id) === id))
                     : [];
                 const multiMove = moveIds.length > 1;
+                if (typeof latestCaptionMove !== 'undefined') {
+                    for (const id of moveIds) latestCaptionMove.set(id, captionMoveToken);
+                }
                 const startRects = new Map();
                 const startLayoutRects = new Map();
                 const startTransforms = new Map();
@@ -5571,6 +5632,7 @@ export function previewBootstrapScript(): string {
                         const visible = [...captionRows.values()].find(row =>
                             (row.caption.sourceCueId || row.caption.id) === id);
                         if (visible) {
+                            startRowTranslates.set(id, captionTranslateNow(visible.plate));
                             startRects.set(id, captionVisualRect(visible.plate));
                             startLayoutRects.set(id, captionLayoutRect(visible.plate));
                             startTransforms.set(id, captionTransformValues(visible.plate));
@@ -5667,26 +5729,49 @@ export function previewBootstrapScript(): string {
                     lastOutputDelta = { x: outputDx, y: outputDy };
                     if (multiMove) {
                         for (const row of captionRows.values()) {
-                            if (selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id)) {
-                                row.plate.style.translate = outputDx + 'px ' + outputDy + 'px';
+                            const id = row.caption.sourceCueId || row.caption.id;
+                            if (selectedCaptionIds.has(id)) {
+                                const start = startRowTranslates.get(id)
+                                    ?? (id === cueId ? startPlateTranslate : { x: 0, y: 0 });
+                                row.plate.style.translate = (start.x + outputDx) + 'px '
+                                    + (start.y + outputDy) + 'px';
                             }
                         }
                         updateCaptionSelectBox();
                     } else {
+                        outputDx += startPlateTranslate.x;
+                        outputDy += startPlateTranslate.y;
                         captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
                         updateCaptionSelectBoxForRect(captionVisualRect());
                     }
                 };
+                let captionFinished = false;
+                const writtenPositions = new Map();
+                const rememberThisCaptionPosition = (id, value) => {
+                    if (typeof rememberCaptionPosition !== 'undefined') {
+                        writtenPositions.set(id, rememberCaptionPosition(id, value));
+                    }
+                };
                 const finish = async cancelled => {
+                    if (captionFinished) return;
+                    captionFinished = true;
                     cleanup();
                     if (cancelled || !moved) {
                         for (const row of captionRows.values()) {
                             if (multiMove && selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id)) {
-                                row.plate.style.translate = '';
+                                const id = row.caption.sourceCueId || row.caption.id;
+                                const start = startRowTranslates.get(id)
+                                    ?? (id === cueId ? startPlateTranslate : { x: 0, y: 0 });
+                                row.plate.style.translate = start.x || start.y
+                                    ? start.x + 'px ' + start.y + 'px' : '';
                             }
                         }
-                        captionPlate.style.translate = '';
+                        captionPlate.style.translate = startPlateTranslate.x || startPlateTranslate.y
+                            ? startPlateTranslate.x + 'px ' + startPlateTranslate.y + 'px' : '';
                         updateCaptionSelectBox();
+                        if (typeof captionGestureCount !== 'undefined') captionGestureCount -= 1;
+                        window.akari.reportGesture?.('end');
+                        if (typeof replayPendingCaptionUpdate !== 'undefined') replayPendingCaptionUpdate();
                         return;
                     }
                     pendingCaptionDragReload = true;
@@ -5726,6 +5811,9 @@ export function previewBootstrapScript(): string {
                                 );
                                 return { captionId: id, value };
                             });
+                            for (const { captionId, value } of cuePositions) {
+                                rememberThisCaptionPosition(captionId, value);
+                            }
                             await window.akari.engine.captionWrite(cueId, { cuePositions });
                             for (const id of moveIds) captionCuePositionKnown.set(id, true);
                         } else {
@@ -5734,17 +5822,38 @@ export function previewBootstrapScript(): string {
                                 { anchor: startAnchor, clamp: clampOn,
                                     timeDomain: caption.timeDomain, ...startTransform }
                             );
+                            rememberThisCaptionPosition(cueId, cuePosition);
                             await window.akari.engine.captionWrite(cueId, {
                                 cuePosition
                             });
                             captionCuePositionKnown.set(cueId, true);
                         }
+                        window.akari.reportGesture?.('saved');
                     } catch (error) {
-                        pendingCaptionDragReload = false;
-                        if (multiMove) for (const row of captionRows.values()) row.plate.style.translate = '';
-                        captionPlate.style.translate = '';
+                        for (const [id, pending] of writtenPositions) {
+                            if (captionPositionOverrides.get(id) === pending) captionPositionOverrides.delete(id);
+                        }
+                        if (typeof latestCaptionMove === 'undefined'
+                            || latestCaptionMove.get(cueId) === captionMoveToken) {
+                            pendingCaptionDragReload = false;
+                            if (multiMove) for (const row of captionRows.values()) row.plate.style.translate = '';
+                            captionPlate.style.translate = '';
+                        }
                         console.warn('[akari-preview] caption position write rejected; reverting', error);
                         window.akari.showWriteError(error);
+                    }
+                    for (const [id, pending] of writtenPositions) {
+                        if (captionPositionOverrides.get(id) === pending) pending.saved = true;
+                    }
+                    if (typeof captionGestureCount !== 'undefined') captionGestureCount -= 1;
+                    window.akari.reportGesture?.('end');
+                    if (typeof replayPendingCaptionUpdate !== 'undefined') replayPendingCaptionUpdate();
+                    if (typeof selectionGestures !== 'undefined') {
+                        if (!captionGestureCount && !selectionGestures.size) pendingSelectionModel = null;
+                        else {
+                            const flush = flushPendingSelectionModel;
+                            flush();
+                        }
                     }
                     updateCaptionSelectBox();
                 };
@@ -9790,6 +9899,7 @@ export function previewBootstrapScript(): string {
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
+                nextSummary = window.akari.interaction?.protectModelSummary?.(nextSummary) ?? nextSummary;
                 const nextLayers = Array.isArray(nextSummary.layers) ? nextSummary.layers : [];
                 const previousLayerIds = new Set(layerEntries.map(entry => String(entry.spec.id)));
                 const retainedLayerOrderChanged = layerEntries
@@ -9798,6 +9908,10 @@ export function previewBootstrapScript(): string {
                     !== nextLayers.filter(layer => previousLayerIds.has(String(layer.id)))
                         .map(layer => String(layer.id)).join('\u0000');
                 const addedLayers = nextLayers.filter(layer => !previousLayerIds.has(String(layer.id)));
+                const oldOverlays = Array.isArray(summary.overlays) ? summary.overlays : [];
+                const newOverlays = Array.isArray(nextSummary.overlays) ? nextSummary.overlays : [];
+                const overlaysAppended = newOverlays.length > oldOverlays.length
+                    && oldOverlays.every((overlay, index) => overlay.id === newOverlays[index]?.id);
                 if (window.akari.frameEngineClock?.updateModel) {
                     playbackModelUpdate = window.akari.frameEngineClock.updateModel(nextSummary);
                 } else if (initial.frameEngineEnabled) {
@@ -9830,6 +9944,11 @@ export function previewBootstrapScript(): string {
                 }
                 layerEntries.splice(0, layerEntries.length,
                     ...nextLayers.map(layer => byId.get(String(layer.id))).filter(Boolean));
+                if (overlaysAppended) {
+                    window.akari.interaction?.clearSelection?.();
+                    void window.akari.runtime.mount(summary).catch(error =>
+                        console.warn('[akari-preview] incremental overlay mount failed', error));
+                }
                 for (const layer of addedLayers) {
                     const entry = createLayerEntry(layer, layerEntries.length);
                     layerEntries.push(entry);
@@ -9901,6 +10020,7 @@ export function previewBootstrapScript(): string {
                         window.akari.optimisticallyRemovedIds.delete(id);
                     }
                 }
+                window.akari.interaction?.restorePendingDragTransforms?.();
                 window.akari.requestGenerationUpdate?.();
                 const renderedModel = playbackModelUpdate;
                 void Promise.resolve(renderedModel).then(() => Promise.all(addedLayers.map(layer => {
@@ -10246,9 +10366,17 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
+                    if (captionGestureCount) {
+                        pendingCaptionUpdate = Array.isArray(message.captions) ? message.captions : [];
+                        return;
+                    }
+                    const nextCaptions = Array.isArray(message.captions) ? message.captions : [];
+                    // textStyleVars, not textStyle, drives the plate's actual CSS. A stale
+                    // message cannot be repaired by changing textStyle alone.
+                    if (captionUpdateIsStale(nextCaptions)) return;
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated();
-                    captions = Array.isArray(message.captions) ? message.captions : [];
+                    captions = protectCaptionUpdate(nextCaptions);
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();
                     if (!window.akari.frameEngineClock) rebuildSegments();
@@ -10279,7 +10407,8 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {
-                    if (selectionGestures.size) {
+                    if (selectionGestures.size || captionGestureCount
+                        || window.akari.interaction?.activePointerOperation) {
                         pendingSelectionModel = message.summary;
                         return;
                     }

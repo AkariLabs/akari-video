@@ -199,6 +199,59 @@ function marqueeHits(candidates, rect) {
   let writeTail = Promise.resolve();
   let writeGeneration = 0;
   let lastTransformWrite = null;
+  const pendingDragTransforms = new Map();
+  let activeModelPose = null;
+  function endDragGesture() {
+    window.akari.reportGesture?.('end');
+    window.akari.flushPendingGestureModel?.();
+  }
+
+  // A model message may have been prepared before the write that just completed.
+  // Keep the visible pose until the model actually contains that write.
+  function protectModelSummary(next) {
+    if (!next || !Array.isArray(next.overlays)) return next;
+    const active = activeDrag && !activeDrag.group && activeDrag.overlayId
+      ? { container: activeDrag.container, transform: readTransform(activeDrag.container) } : null;
+    activeModelPose = active;
+    const overlays = next.overlays.map(overlay => {
+      const pending = overlay.id === activeDrag?.overlayId ? active : pendingDragTransforms.get(overlay.id);
+      if (!pending) return overlay;
+      if (pending === active) return { ...overlay,
+        transform: { ...overlay.transform, ...pending.transform } };
+      const matches = pending.keyframes
+        ? JSON.stringify(overlay.keyframes) !== pending.beforeKeyframes
+        : Number(overlay.transform?.x ?? 0) === pending.transform.x
+          && Number(overlay.transform?.y ?? 0) === pending.transform.y;
+      if (pending.saved && matches) {
+        pendingDragTransforms.delete(overlay.id);
+        delete pending.container.dataset.akariMotionDragging;
+        return overlay;
+      }
+      return { ...overlay, transform: { ...overlay.transform, ...pending.transform } };
+    });
+    const tree = Array.isArray(next.tree) ? next.tree.map(node => {
+      const pending = node.id === activeDrag?.overlayId ? active : pendingDragTransforms.get(node.id);
+      return pending && node.kind === 'leaf'
+        ? { ...node, transform: { ...node.transform, ...pending.transform } } : node;
+    }) : next.tree;
+    return { ...next, overlays, tree };
+  }
+
+  function restorePendingDragTransforms() {
+    for (const [id, pending] of pendingDragTransforms) {
+      if (pending.container.isConnected === false) {
+        pending.container = containerById(id) ?? pending.container;
+        if (pending.keyframes) pending.container.dataset.akariMotionDragging = 'true';
+      }
+      pending.container.style.setProperty('--x', `${pending.transform.x}px`);
+      pending.container.style.setProperty('--y', `${pending.transform.y}px`);
+    }
+    if (activeModelPose) {
+      activeModelPose.container.style.setProperty('--x', `${activeModelPose.transform.x}px`);
+      activeModelPose.container.style.setProperty('--y', `${activeModelPose.transform.y}px`);
+      activeModelPose = null;
+    }
+  }
 
   function errorText(error) {
     return error instanceof Error ? error.message : String(error);
@@ -1652,6 +1705,7 @@ function marqueeHits(candidates, rect) {
     releasePointer(drag);
     hideSnapGuides();
     refreshSelectionFrame();
+    endDragGesture();
   }
 
   function finishDrag() {
@@ -1664,6 +1718,7 @@ function marqueeHits(candidates, rect) {
 
     if (drag.group) return finishGroupDrag(drag);
     if (!drag.moved) {
+      endDragGesture();
       if (drag.motionDriven) delete drag.container.dataset.akariMotionDragging;
       return null;
     }
@@ -1678,6 +1733,7 @@ function marqueeHits(candidates, rect) {
       Math.abs(transform.x - drag.startX) < WRITE_EPSILON_PX &&
       Math.abs(transform.y - drag.startY) < WRITE_EPSILON_PX
     ) {
+      endDragGesture();
       // 端数を残さないよう開始値へ戻し、何も書かずに終える
       drag.container.style.setProperty("--x", `${drag.startX}px`);
       drag.container.style.setProperty("--y", `${drag.startY}px`);
@@ -1692,6 +1748,21 @@ function marqueeHits(candidates, rect) {
       { transform: patch, ...(drag.duplicate ? { duplicate: true } : {}) },
       "transform"
     );
+    const source = window.akari.state?.summary?.overlays?.find(item => item.id === drag.overlayId);
+    const pending = { container: drag.container, transform,
+      keyframes: Array.isArray(source?.keyframes),
+      beforeKeyframes: JSON.stringify(source?.keyframes), saved: false };
+    pendingDragTransforms.set(drag.overlayId, pending);
+    if (pending.keyframes) drag.container.dataset.akariMotionDragging = 'true';
+    record.promise.then(() => { pending.saved = true; }, () => {
+      if (pendingDragTransforms.get(drag.overlayId) === pending) {
+        pending.failedWhileLatest = true;
+        pendingDragTransforms.delete(drag.overlayId);
+        delete drag.container.dataset.akariMotionDragging;
+      }
+    });
+    record.promise.then(() => window.akari.reportGesture?.('saved'), () => undefined)
+      .finally(endDragGesture);
     if (drag.duplicate) {
       drag.container.style.setProperty('--x', `${drag.startX}px`);
       drag.container.style.setProperty('--y', `${drag.startY}px`);
@@ -1700,6 +1771,7 @@ function marqueeHits(candidates, rect) {
     } else {
       syncLeafTransformOnSuccess(record, drag.overlayId, transform);
       if (drag.motionDriven) record.promise.catch(() => {
+        if (!pending.failedWhileLatest) return;
         delete drag.container.dataset.akariMotionDragging;
         drag.container.style.setProperty('--x', `${drag.startX}px`);
         drag.container.style.setProperty('--y', `${drag.startY}px`);
@@ -2977,6 +3049,7 @@ function marqueeHits(candidates, rect) {
   function beginLeafDrag(event, container) {
     if (!container || !isMovable(container)) return;
     const transform = readTransform(container);
+    window.akari.reportGesture?.('begin');
     const motionDriven = container.dataset.akariMotionDriven === 'true';
     if (motionDriven) container.dataset.akariMotionDragging = 'true';
     activeDrag = {
@@ -4029,6 +4102,8 @@ function marqueeHits(candidates, rect) {
   }
 
   return {
+    protectModelSummary,
+    restorePendingDragTransforms,
     get pointerOwner() { return pointerOwner; },
     get activePointerOperation() { return Boolean(activeDrag || activeResize || activeRotate || activeLine || marqueeFrame); },
     canBeginPointerInteraction,
