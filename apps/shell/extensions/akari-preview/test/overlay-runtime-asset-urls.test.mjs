@@ -2,9 +2,9 @@
 // URL で配る（getOverlayRuntimeAssetUrls）。従来は本文（フォントは base64 data: URI）を
 // prepareHtml() の HTML に埋めていたため、開くたびに約 15 MB の setHTML になっていた。
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { readInspectorSource } from '../../akari-annotations/test/helpers/inspector-source.mjs';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
@@ -50,7 +50,7 @@ test('overlay runtime assets are served by content-hashed URL with immutable cac
         assert.equal(urls.bundledCaptionFontFaces.some(face => face.id === 'noto-sans-jp'), false);
         assert.equal((await fetch(directNoto.url)).status, 200);
         assert.match(bundledCaptionFontFaceCss(urls.bundledCaptionFontFaces), /font-family: "Noto Sans JP"; src: url\(/u);
-        const inspector = readFileSync(new URL('../../akari-annotations/src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+        const inspector = readInspectorSource();
         assert.match(inspector, /\{ id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900'/u);
         const dela = urls.bundledCaptionFontFaces.find(face => face.id === 'dela-gothic-one');
         assert.equal(dela.family, 'Dela Gothic One');
