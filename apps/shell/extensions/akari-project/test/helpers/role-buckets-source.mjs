@@ -14,6 +14,7 @@ export const ROLE_BUCKETS_SOURCE_FILES = [
   { key: 'outputs', base: 'akari-outputs-pane', className: 'AkariOutputsPane' },
   { key: 'materials', base: 'akari-materials-pane', className: 'AkariMaterialsPane' },
   { key: 'library', base: 'akari-library-pane', className: 'AkariLibraryPane' },
+  { key: 'lint', base: 'akari-lint-pane', className: 'AkariLintPane' },
 ];
 
 const defaultRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
