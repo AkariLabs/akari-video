@@ -65,11 +65,12 @@ import {
   splitCaptionLines,
   groupWordsIntoDisplayLines,
 } from '/caption-line-layout.js';
-import { isImageLayerSrc, isImageLayer, layerPlaybackPath } from '/layer-source.js';
+import { isImageLayer, layerPlaybackPath, getVideoSource, isStillImageCutSegment } from '/layer-source.js';
 import { outputSizePx, cropOf, layerIntrinsicSize, perspectiveOf, layerRectForVideoRect, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
 import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup, getActiveCaptions } from '/caption-markup.js';
 import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
 import { clipLookForCut, sourceEffectsForCut, layerChromaEffects } from '/video-fx-source.js';
+import { engineRenderTime, transitionAudioBoundaries, snapToCut } from '/timeline-read.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -334,11 +335,11 @@ async function init() {
       // 先頭カットが静止画ソースのときは <img> を初期表示にする（0秒地点で <video> に
       // その src を割り当てても再生できないだけで実害は無いが、表示の出し分けを合わせておく）。
       const seg0 = getActiveSegment(0);
-      if (seg0 && isStillImageCutSegment(seg0)) {
+      if (seg0 && isStillImageCutSegment(timelineData, seg0)) {
         showStillImageForSegment(seg0);
       } else {
         showVideoBase();
-        video.src = getVideoSource(0);
+        video.src = getVideoSource(timelineData, 0);
       }
     }
     updateStageScale();
@@ -380,7 +381,7 @@ async function init() {
         requestAudioRefresh();
       }
       // 終端位置ではなく最後の有効フレームを要求する（第16項。engineRenderTime の注記参照）。
-      outputTime = frameEnginePreview.seek(engineRenderTime(outputTime));
+      outputTime = frameEnginePreview.seek(engineRenderTime(totalDuration, fps, outputTime));
     }
     await window.__akariCaptionFontReady;
     captionFontsReady = true;
@@ -413,33 +414,13 @@ async function init() {
   }
 }
 
-// 不具合メモ 第16項（最終フレームの次の終端位置で追加映像だけ消える）。
-// 総尺（totalDuration）は「最後の有効フレームの **次**」= 終端位置で、そこに有効なフレームは無い。
-// frame-engine の追加映像（layers[]）は `frame >= startFrame && frame < endFrame` の半開区間で
-// 可視判定する（packages/frame-engine/src/timeline/plan.ts の isLayerActiveAt）ため、終了位置が
-// 総尺と一致するレイヤーは終端位置の描画要求でちょうど外れる。一方ベース映像は最後の画を保持する
-// ので「左（ベース）は残って右（追加映像）だけ黒くなる」に見えた（実機: 総尺 158682 フレーム・
-// 30fps・bookend-outro-right が 158401 開始 / 281 フレームで終了位置 158682）。
-// 半開区間の判定は frame-engine の正本なので触らず、**要求側でフレームを揃える**:
-// 描画要求は必ず最後の有効フレームまでに丸める（総尺そのものは要求しない）。
-// 総尺の表示・シークバーの上限は従来どおり totalDuration のまま（尺は 1 フレームも変えない）。
-function lastRenderableFrame() {
-  // フレーム数は frame-engine の可視判定と同じ切り上げ規律（`ceil(sec * fps - 1e-6)`）で数える。
-  return Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1);
-}
-function engineRenderTime(t) {
-  const clamped = Math.max(0, Math.min(Number.isFinite(t) ? t : 0, totalDuration));
-  if (!(fps > 0) || !(totalDuration > 0)) return clamped;
-  return Math.min(clamped, lastRenderableFrame() / fps);
-}
-
 function applyFrameEngineSnapshot() {
   const snapshot = frameEnginePreview?.snapshot();
   if (!snapshot) return;
   totalDuration = snapshot.totalDuration;
   segments = snapshot.segments;
   seek.max = totalDuration;
-  outputTime = engineRenderTime(outputTime);
+  outputTime = engineRenderTime(totalDuration, fps, outputTime);
   frameEngineRequestedTime = outputTime;
   seek.value = outputTime;
   updateTimeLabel();
@@ -595,25 +576,13 @@ function setVideoSourceIfChanged(el, src) {
   if (src && !isSameVideoSource(el, src)) el.src = src;
 }
 
-function getVideoSource(cutIndex) {
-  const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
-  return clip ? clip.src : (timelineData.clips[0]?.src || '');
-}
-
-// docs/contract-2026-08-12-still-image-cut-source-v0.md: cuts[] の静止画ソース区間はメインの
-// <video id="preview-video"> ではなく <img id="preview-image"> で表示する（layers[] の静止画判定
-// isImageLayerSrc と同じ拡張子集合 -- /layer-source.js から import している）。
-function isStillImageCutSegment(seg) {
-  return !!seg && !seg.isGap && seg.index >= 0 && isImageLayerSrc(getVideoSource(seg.index));
-}
-
 // 静止画区間へ入る: <video> は止めて隠す（音声グラフ(MediaElementAudioSourceNode)へ古い映像の
 // 音が漏れないように、src はそのまま残して pause するだけ -- 要素は作り直さない）。<img> の
 // src は画像なので currentTime 相当のシークは不要、一度セットしたら区間内は据え置きでよい。
 function showStillImageForSegment(seg) {
   video.pause();
   video.style.display = 'none';
-  const src = getVideoSource(seg.index);
+  const src = getVideoSource(timelineData, seg.index);
   setVideoSourceIfChanged(img, src);
   // '' の代入はインライン宣言を消すだけで、index.html のスタイルシート既定
   // `#preview-image { display: none; }` を打ち消さない（#preview-video 側は CSS に
@@ -2027,8 +1996,8 @@ function setupAudioGraph() {
   }
 
   const scrubSources = [...new Set(segments
-    .filter(seg => !seg.isGap && seg.index >= 0 && !isStillImageCutSegment(seg))
-    .map(seg => getVideoSource(seg.index))
+    .filter(seg => !seg.isGap && seg.index >= 0 && !isStillImageCutSegment(timelineData, seg))
+    .map(seg => getVideoSource(timelineData, seg.index))
     .filter(Boolean))];
   void scrubAudio?.prepare(scrubSources);
 
@@ -2109,13 +2078,9 @@ function teardownTimelineAudioGraph() {
   sfxNodes = [];
 }
 
-function transitionAudioBoundaries() {
-  return (timelineMap.transitionWindows ?? []).map(window => ({ at: window.end, duration: window.duration }));
-}
-
 function updateBaseAudioTransition(t) {
   if (!audioCtx || !baseAudioTransitionGain) return;
-  const target = transitionApproximationGain(t, transitionAudioBoundaries());
+  const target = transitionApproximationGain(t, transitionAudioBoundaries(timelineMap));
   const param = baseAudioTransitionGain.gain;
   const now = audioCtx.currentTime;
   param.cancelScheduledValues(now);
@@ -2508,7 +2473,7 @@ function playedCutLocalSeconds(seg) {
   if (!seg || seg.isGap) return 0;
   // 静止画区間は video.currentTime を進めない（画像はシークしないため）ので、代わりに
   // マスタークロック outputTime からカット内経過秒を直接出す。
-  if (isStillImageCutSegment(seg)) return outputTime - seg.outStart;
+  if (isStillImageCutSegment(timelineData, seg)) return outputTime - seg.outStart;
   const speed = seg.speed > 0 ? seg.speed : 1;
   return ((video.currentTime || 0) - seg.inSec) / speed;
 }
@@ -2569,7 +2534,7 @@ function pauseAllPlaybackForFreeze() {
 function resumeAllPlaybackForFreeze() {
   // 静止画区間では <video> を再生してはいけない（隠れているだけで、再生すると古いカットの
   // 音声が MediaElementAudioSourceNode 経由で漏れる）。
-  if (video.paused && !isStillImageCutSegment(getActiveSegment(outputTime))) video.play();
+  if (video.paused && !isStillImageCutSegment(timelineData, getActiveSegment(outputTime))) video.play();
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   for (const lv of layerVideos) if (lv.visible && !lv.isFilter) lv.el.play();
 }
@@ -2586,7 +2551,7 @@ function seekTo(t) {
   if (frameEngineEnabled) {
     // 終端へのシーク（End キー・シークバー右端・波形の末尾クリック・再構築後の位置復元）も
     // 最後の有効フレームへ揃える（第16項。engineRenderTime の注記参照）。
-    frameEngineRequestedTime = engineRenderTime(outputTime);
+    frameEngineRequestedTime = engineRenderTime(totalDuration, fps, outputTime);
     outputTime = frameEnginePreview?.seek(frameEngineRequestedTime) ?? frameEngineRequestedTime;
     updateAudioStatus();
     requestAudioPriority(outputTime);
@@ -2605,14 +2570,14 @@ function seekTo(t) {
     const seg = getActiveSegment(outputTime);
     if (seg && seg.index >= 0) {
       video.playbackRate = seg.speed > 0 ? seg.speed : 1;
-      if (isStillImageCutSegment(seg)) {
+      if (isStillImageCutSegment(timelineData, seg)) {
         // 静止画には currentTime シークの概念が無い。src を合わせて表示を切り替えるだけでよい。
         showStillImageForSegment(seg);
       } else {
         // 音量をゼロへランプしてから source/currentTime を変え、切替後に戻す。ユーザー操作の
         // シークもカット境界と同じ経路を通すことで、不連続なサンプルを直接 destination へ出さない。
         showVideoBase();
-        const src = getVideoSource(seg.index);
+        const src = getVideoSource(timelineData, seg.index);
         requestBaseVideoSeek(src, vt);
         scrubAudio?.onSeek({ outputTime, sourceTime: vt, src, isPlaying });
       }
@@ -2653,7 +2618,7 @@ function play() {
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   // 静止画区間の開始位置から再生を始めるときは <video> を動かさない（隠れたまま古い映像の
   // 音声が漏れるのを防ぐ -- resumeAllPlaybackForFreeze と同じ理由）。
-  const onStillImage = isStillImageCutSegment(getActiveSegment(outputTime));
+  const onStillImage = isStillImageCutSegment(timelineData, getActiveSegment(outputTime));
   const active = getActiveSegment(outputTime);
   if (active && !active.isGap) video.playbackRate = active.speed > 0 ? active.speed : 1;
   if (!onStillImage && baseAudioDeClick?.pending) {
@@ -2718,8 +2683,8 @@ function playbackLoop() {
     // 停止判定は素の壁時計で行う（尺は変えない）。描画要求だけを最後の有効フレームへ丸める
     // -- renderPlayback は `Math.round(sec * fps)` で要求フレームを決めるため、丸めずに渡すと
     // 末尾の半フレーム手前（158681.5）で終端フレームを要求し、追加映像だけが消える（第16項）。
-    if (frameEngineRequestedTime >= totalDuration) { outputTime = engineRenderTime(totalDuration); pause(); return; }
-    const frameEngineRenderTime = engineRenderTime(frameEngineRequestedTime);
+    if (frameEngineRequestedTime >= totalDuration) { outputTime = engineRenderTime(totalDuration, fps, totalDuration); pause(); return; }
+    const frameEngineRenderTime = engineRenderTime(totalDuration, fps, frameEngineRequestedTime);
     outputTime = frameEnginePreview?.renderPlayback(frameEngineRenderTime) ?? frameEngineRenderTime;
     // 音声の最初の窓が揃うまでは絵の時計も開始位置に留める（frame-engine 側のゲート）。
     const held = frameEnginePreview?.heldStartSec() ?? null;
@@ -2761,7 +2726,7 @@ function playbackLoop() {
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
     video.playbackRate = seg.speed > 0 ? seg.speed : 1;
-    if (isStillImageCutSegment(seg)) {
+    if (isStillImageCutSegment(timelineData, seg)) {
       // 静止画には currentTime シークも play() 復帰も無い。表示の出し分けだけでよい。
       showStillImageForSegment(seg);
     } else {
@@ -2771,7 +2736,7 @@ function playbackLoop() {
       // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
       // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
       // 補正が必要な場合は 12ms で下地音声をゼロへ落としてから source/currentTime を切り替える。
-      syncBaseVideoTime(getVideoSource(seg.index), target, SYNC_DEADBAND_SEC);
+      syncBaseVideoTime(getVideoSource(timelineData, seg.index), target, SYNC_DEADBAND_SEC);
       // src の差し替えで paused に戻った場合も、時刻を合わせてから再生を復帰する。
       // 読み込み直後の play() が失敗しても、再生中だけ次フレームで再試行される。
       ensureMediaPlaying(video, isPlaying);
@@ -2829,7 +2794,7 @@ function updateTransitions() {
 
   const p = transitionProgressAt(window, outputTime);
   const incoming = window.incoming;
-  setVideoSourceIfChanged(transitionVideo, getVideoSource(incoming.cutIndex));
+  setVideoSourceIfChanged(transitionVideo, getVideoSource(timelineData, incoming.cutIndex));
   transitionVideo.playbackRate = incoming.speed > 0 ? incoming.speed : 1;
   const target = (incoming.in ?? 0) + (outputTime - incoming.outStart) * transitionVideo.playbackRate;
   syncMediaCurrentTime(transitionVideo, target, isPlaying ? SYNC_DEADBAND_SEC : 0.001);
@@ -2841,7 +2806,7 @@ function updateTransitions() {
     definition?.labelJa || String(window.type),
   );
   const outgoingSegment = getActiveSegment(outputTime);
-  const outgoingElement = isStillImageCutSegment(outgoingSegment) ? img : video;
+  const outgoingElement = isStillImageCutSegment(timelineData, outgoingSegment) ? img : video;
   const outgoingCut = outgoingSegment && !outgoingSegment.isGap
     ? summary?.cuts?.[outgoingSegment.index] ?? null : null;
   const os = outputSizePx(summary);
@@ -3323,19 +3288,6 @@ seek.addEventListener('input', () => {
 // （seek-visual は pointer-events:none でクリックを受けられないため range 側で受ける）
 seek.title = 'ドラッグ / クリックで移動・ダブルクリックでカット情報';
 seek.addEventListener('dblclick', () => { showCutInfoAt(Number(seek.value)); });
-// カット境界へジャンプ（P2-2: 旧実装は区間内の t をそのまま返す恒等関数だった）
-function snapToCut(t, dir) {
-  if (!segments.length) return t;
-  const EPS = 0.001;
-  const bounds = [...new Set(segments.flatMap(seg => [seg.outStart, seg.outEnd]))]
-    .sort((left, right) => left - right);
-  if (dir > 0) {
-    const next = bounds.find(b => b > t + EPS);
-    return next !== undefined ? next : t;
-  }
-  const prev = bounds.filter(b => b < t - EPS).pop();
-  return prev !== undefined ? prev : 0;
-}
 
 // 文字入力を受ける input 型だけ素通しする（シェルの isEditable と同じ判定）。
 // INPUT を無差別に除外すると、シークバー（type=range）をクリックした後フォーカスが
@@ -3356,8 +3308,8 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowDown': e.preventDefault(); pause(); seekTo(outputTime + 10); break;
     case 'Home': e.preventDefault(); seekTo(0); break;
     case 'End': e.preventDefault(); seekTo(totalDuration); break;
-    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, -1)); break;
-    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, 1)); break;
+    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(segments, outputTime, -1)); break;
+    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(segments, outputTime, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
     case 'Escape': shortcutHelp.hidden = true; setLayerSelected(null); closeCutInfo(); break;
     case 'Digit0': e.preventDefault(); resetSelectedOverlayTransform(); break;
