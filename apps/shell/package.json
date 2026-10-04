@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.99",
+  "version": "1.0.1",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -189,10 +189,17 @@
           "bin/avatar-vrm/find-chrome.mjs",
           "bin/media.mjs",
           "bin/probe-frame.mjs",
-          "bin/render-when-idle.sh",
+          "bin/render-when-idle.mjs",
           "bin/word-book.mjs",
           "bin/world.mjs",
           "src/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/frame-engine",
+        "to": "packages/frame-engine",
+        "filter": [
+          "generated/**/*"
         ]
       },
       {
@@ -201,8 +208,7 @@
         "filter": [
           "package.json",
           "bin/**/*",
-          "src/**/*",
-          "generated/**/*"
+          "src/**/*"
         ]
       },
       {
@@ -211,8 +217,7 @@
         "filter": [
           "package.json",
           "bin/**/*",
-          "src/**/*",
-          "generated/**/*"
+          "src/**/*"
         ]
       },
       {
@@ -339,6 +344,7 @@
           "bin/validate-word-book.mjs",
           "word-book.schema.json",
           "gen-models.json",
+          "ai-models.json",
           "gen-models.schema.json",
           "generation-meta.schema.json",
           "connections.schema.json",

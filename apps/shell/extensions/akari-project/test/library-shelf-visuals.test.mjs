@@ -2,12 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { fontPreviewPath, shelfPreviewPath } from '../lib/common/library-shelf-visuals.js';
+import { fitStyleSpecimen, fontPreviewPath, libraryTextStyleSample, shelfPreviewPath } from '../lib/common/library-shelf-visuals.js';
 import { planFontApply, selectedFontStyleFromCaptions } from '../lib/common/library-font-shelf.js';
 import { textAnimationSampleKeyframes } from '../lib/common/text-animation-sample.js';
 import { LIBRARY_GROUPS, LIBRARY_PRIMARY_TILES } from '../lib/common/library-home-view.js';
 
 const repo = resolve(import.meta.dirname, '../../../../..');
+
+test('large style specimens fit inside the fixed card stage', () => {
+    assert.equal(fitStyleSpecimen(100, 48, 50, 20), 1);
+    assert.ok(fitStyleSpecimen(100, 48, 200, 80) < 0.4);
+    assert.ok(fitStyleSpecimen(54, 32, 100, 20) < 0.3);
+});
+
+test('library textstyle specimen reflects the v1 gradient and stroke', async () => {
+    const file = join(repo, 'packages/edit-store/test/fixtures/library-textstyle/textstyle/library-gold-sample/preset.json');
+    const preset = JSON.parse(await readFile(file, 'utf8'));
+    const style = libraryTextStyleSample(preset.style);
+    assert.match(style.backgroundImage, /linear-gradient\(180deg/u);
+    assert.match(style.WebkitTextStroke, /#382400/u);
+    assert.equal(style.fontWeight, 800);
+});
 
 test('LUT とトランジションの同梱見本へ安全な相対パスを作る', async () => {
     const luts = (await readdir(join(repo, 'presets/luts'), { withFileTypes: true })).filter(entry => entry.isDirectory() && entry.name !== 'test');

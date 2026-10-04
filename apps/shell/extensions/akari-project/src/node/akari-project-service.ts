@@ -5,6 +5,8 @@ import { AssetSite, AssetSiteListing, AssetSiteRecommendation, siteUrlAllowed } 
 import { libraryImportScript, libraryPacksScript, libraryImportWaveformScript } from './library-import-scripts';
 import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
 import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
+import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
+import type { LibraryTextstylePreset } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
 import { interpretCaptionsResult } from '../common/captions-result';
 import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
@@ -69,7 +71,7 @@ import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-read
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
-import { parsePresetShowcaseJsonl } from '../common/preset-showcase';
+import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import { shelfPreviewPath } from '../common/library-shelf-visuals';
 import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
 import { parseShapeShelfJsonl, ShapeShelfPreset } from '../common/shape-shelf';
@@ -352,9 +354,12 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * フィールドで返す — フロントはこれを見て「未取得（オフライン等）」と
      * 「取得できたが 0 件」を区別する（catalog-account-first-ux task.md §1）。
      */
-    async getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView> {
+    // preferenceRoot は参照先の指定だけに使い、通信の意図は第 2 引数だけで決める。
+    // 呼び出し側が省略した場合は起動時の取得と同じ automatic に倒す。
+    // resolver/CLI 自体の既定 intent は user のまま維持する。
+    async getAssetCatalogView(preferenceRoot: string | undefined, intent: 'automatic' | 'user' = 'automatic'): Promise<AssetCatalogView> {
         const [resolverResult, local, libraryPacks] = await Promise.all([
-            this.loadResolverCatalogItems(),
+            this.loadResolverCatalogItems(intent),
             this.loadLocalCatalogViewItems(preferenceRoot),
             this.loadLibraryPacks()
         ]);
@@ -377,7 +382,14 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             this.loadPresetShowcaseIndex('textanim'),
             this.loadPresetShowcaseIndex('textstyle')
         ]);
-        return { lut, textanim, textstyle };
+        const library = loadTextstyleCatalogSync({ env: process.env }).library;
+        return { lut, textanim, textstyle: appendLibraryTextstyleShowcaseItems(textstyle, library,
+            item => item.previewPath && existsSync(item.previewPath)
+                ? pathToFileURL(item.previewPath).toString() : undefined) };
+    }
+
+    async getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]> {
+        return loadTextstyleCatalogSync({ env: process.env }).library;
     }
 
     async getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>> {
@@ -733,7 +745,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * いずれも fail-soft（ローカル catalog/ の表示は継続）だが、原因（error）は
      * 開発者向け折りたたみでの手がかりに残す。
      */
-    protected async loadResolverCatalogItems(): Promise<{
+    protected async loadResolverCatalogItems(intent: 'automatic' | 'user' = 'automatic'): Promise<{
         items: AssetCatalogViewItem[];
         status: 'ok' | 'failed';
         entitlementsStatus: AssetEntitlementsStatus;
@@ -753,7 +765,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         const stateModuleUrl = pathToFileURL(join(srcDir, 'state.mjs')).toString();
         const script = `
 import { composeState } from ${JSON.stringify(stateModuleUrl)};
-const { base, items, entitlementsStatus, entitledProducts } = await composeState();
+const { base, items, entitlementsStatus, entitledProducts } = await composeState({ intent: ${JSON.stringify(intent)} });
 process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledProducts }));
 `;
         const { code, stdout, stderr } = await this.runResolverScript(script);

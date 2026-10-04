@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readHandlerSource, methodBody } from './helpers/handler-source.mjs';
 
-const source = await readFile(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const captureCss = source.slice(source.indexOf('/* Capture-only presentation.'), source.indexOf('.icon-button { display: inline-grid;'));
 const rules = [...captureCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors, declarations]) => ({ selectors, declarations }));
 const ruleFor = selector => {
@@ -40,8 +40,7 @@ test('capture hides selection/resize/crop handles and boxes, interaction guides,
 });
 
 test('host restores the webview before starting phase-two PNG conversion', () => {
-    const start = source.indexOf('protected async capturePreviewFrame(');
-    const handler = source.slice(start, source.indexOf('protected previewDiagnosticsGuardScript', start));
+    const handler = methodBody('capturePreviewFrame');
     const snapshot = handler.indexOf('const snapshot = await Promise.race(');
     const restore = handler.indexOf("send('akari-preview-capture-restore', { keepFrozen: true });", snapshot);
     const encode = handler.indexOf('const captured = await window.electronAkariPreview.finishPreviewFrame(captureId)');

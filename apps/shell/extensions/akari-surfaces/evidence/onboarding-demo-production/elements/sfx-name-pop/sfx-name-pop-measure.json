@@ -1,0 +1,64 @@
+{
+  "element": "sfx-name-pop",
+  "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-pop-ding.m4a",
+  "file_md5": "ebadffece346be33ecd9f1f33533a405",
+  "file_format": "AAC-LC 128 kbps / 48 kHz / stereo / 0.500 s（24000 サンプル・edit list で priming 1024 を除外）/ start_time 0 / faststart / bitexact",
+  "source": {
+    "id": "sfx-pop-ding",
+    "path": "~/Akari/library/audio/akari-sounds-sfx/sfx-pop-ding.mp3",
+    "md5": "5ff54570ae103ac2a7cb77f191841807",
+    "sha256": "fb89816dd85d27671f74e87cfe2c19895f3e7a7dc338a9ce33828c179f348829",
+    "ledger": "内部リポ assets/audio/provenance.jsonl の sfx-pop-ding-b（Suno 0c428c1d…・curated）",
+    "license": "LicenseRef-AKARI-Sounds-v0（商用可・単体再配布／配信登録／Content ID 登録は禁止）",
+    "price": 0,
+    "status_note": "2026-08-23 のオーナー裁定で akari-sounds-sfx のパックからは引退（sfx-retirement-2026-08-23.json）。sfx-review.json の判定は replace「キラリンにしてはちょっとでかいし、強調しすぎ」→ 後継指定は OtoLogic ベルアクセント10(High)（CC BY 4.0・参照配布のみで同梱不可）"
+  },
+  "cut": "asetpts=N/SR/TB,atrim=end_sample=24000,afade=t=out:start_sample=22560:nb_samples=1440（0〜0.5 s・頭は切らない・末尾 30 ms・音量は素材のまま）",
+  "file_vs_source": {
+    "xcorr_lag_samples": 0,
+    "onset_-30dBFS_s": { "file": 0.005, "source": 0.005 },
+    "sample_peak": { "file_dbfs": -1.08, "source_dbfs": -1.06, "at_s": 0.0094 },
+    "env10ms_peak_dbfs": { "file": -6.28, "source": -6.29 },
+    "aac_snr_db": 23.1,
+    "pre_echo_before_attack_dbfs": "−43〜−24（0〜4.8 ms。攻撃の 5 ms 前以内・書き出しでは −49 dBFS 以下。前方マスキングで聞こえない）",
+    "tail_last_1ms_dbfs": -74.2,
+    "ignore_editlist_shift_ms": 21.33
+  },
+  "edit_item_used": {
+    "track": "demo-sfx", "id": "demo-sfx-name-pop", "at": 107, "duration": 15, "role": "sfx", "gain_db": -6,
+    "source": { "kind": "media", "src": "demo-sfx-pop-ding", "in": 0, "out": 0.5 }
+  },
+  "render_cut_check": {
+    "how": "隔離プロジェクト（C:/t/sfxpop-namepop・AKARI_HOME 隔離・空の作業フォルダ）で本編 0〜7.5 s + この item を edit-lint PASS → render-cut（gpu / osr）。効果音だけは本編トラック muted: true で別に書き出し",
+    "filter": "[1:a]atrim=start=0:end=0.5,asetpts=PTS-STARTPTS,volume=-6dB,adelay=3567:all=1 → amix normalize=0",
+    "sfx_onset_-30dBFS_s": 3.572,
+    "sfx_sample_peak": { "dbfs": -7.21, "at_s": 3.5764 },
+    "sfx_env10ms_peak": { "dbfs": -12.29, "plan_target": -12 },
+    "ding_part_peak": { "dbfs": -12.05, "at_s": 3.7005 },
+    "sfx_true_peak_dbtp": -7.2,
+    "sfx_momentary_max_lufs": -14.4,
+    "silent_outside_item": true,
+    "same_in_gpu_and_osr": true
+  },
+  "sync": {
+    "word": "アカリビデオ",
+    "plan_word_s": 3.59,
+    "voice_onset_source_s": 3.599,
+    "voice_onset_export_s": 3.576,
+    "badge_first_visible_frame": "f107 = 3.567（OSR 書き出しで f106 は名札なし・f107 で出現を目視）",
+    "sfx_onset_minus_badge_first_frame_ms": 5,
+    "sfx_onset_minus_plan_word_ms": -18,
+    "sfx_onset_minus_voice_onset_export_ms": -4,
+    "verdict": "狙い ±30 ms・許容 ±150 ms の内"
+  },
+  "masking_check": {
+    "voice_minus_sfx_band_db_3.572_3.72": { "100-500": "+30〜+46", "500-1000": "+36〜+41", "1000-1800": "+21〜+28", "1800-3000": "−23〜−29", "3000-5000": "0〜+8" },
+    "note": "効果音は 2.1 kHz（ポン）/ 2.65 kHz（ディン）の帯に集中し、「ア」の第 1・第 2 フォルマント帯は声が支配。ただし 3.6〜3.9 s の瞬時ラウドネスは声だけ −23〜−21 LUFS に対し mix −14.6〜−13.5 LUFS で、社名の頭 0.3 秒は効果音が前に出る（目利きで大きいと感じたら gain_db −9 で env10 −15.3 dBFS）"
+  },
+  "export_voice_offset_observation": "render-cut の書き出しで本編（clip.mp4・AAC 44.1 kHz・edit list media_time 1024）の声が元素材の復号より 1115 サンプル@48k = 23.2 ms 早い（gpu / osr 共通・相互相関 0.998）。cut_audio 段単体では再現せず、composite 以降の段と推定（packages 側・未特定）。効果音の位置は予定どおり",
+  "evidence": [
+    "sfx-name-pop-sync.png",
+    "side-finding-gpu-export-motion-vocab.png",
+    "cut-sfx-pop-ding.sh"
+  ]
+}

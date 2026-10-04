@@ -12,7 +12,7 @@
       "script": "./run-shell.mjs",
       "args": [],
       "exit": 0,
-      "output": "scale-x: PASS\nscale-y: PASS\nrotated: PASS\ngroup-leaf: PASS\nuniform-rotated: PASS\nkeyframes: PASS\nlegacy-keyframes: PASS\n/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-results.json\n"
+      "output": "scale-x: PASS\nscale-y: PASS\nrotated: PASS\ngroup-leaf: PASS\nuniform-rotated: PASS\nkeyframes: PASS\nlegacy-keyframes: PASS\n<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-results.json\n"
     },
     {
       "script": "./run.mjs",
@@ -33,7 +33,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\nscale-x gpu: passed\n"
@@ -46,7 +46,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nscale-x osr: passed\n"
@@ -70,7 +70,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\nscale-y gpu: passed\n"
@@ -83,7 +83,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nscale-y osr: passed\n"
@@ -107,7 +107,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\nrotated gpu: passed\n"
@@ -120,7 +120,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nrotated osr: passed\n"
@@ -144,7 +144,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\ngroup-leaf gpu: passed\n"
@@ -157,7 +157,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\ngroup-leaf osr: passed\n"
@@ -181,7 +181,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\nuniform-rotated gpu: passed\n"
@@ -194,7 +194,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nuniform-rotated osr: passed\n"
@@ -218,7 +218,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\nkeyframes gpu: passed\n"
@@ -231,7 +231,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nkeyframes osr: passed\n"
@@ -255,7 +255,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\nlegacy gpu: passed\n"
@@ -268,7 +268,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nlegacy osr: passed\n"
@@ -292,7 +292,7 @@
         "--surface",
         "gpu",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=5 total=5\nlegacy-keyframes gpu: passed\n"
@@ -305,7 +305,7 @@
         "--surface",
         "osr",
         "--electron",
-        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+        "<WORKTREE>/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       ],
       "exit": 0,
       "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nlegacy-keyframes osr: passed\n"

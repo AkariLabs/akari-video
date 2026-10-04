@@ -72,27 +72,27 @@
   "outputs": [
     {
       "frameNumber": 0,
-      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-0.png",
+      "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-0.png",
       "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
     },
     {
       "frameNumber": 15,
-      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-15.png",
+      "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-15.png",
       "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
     },
     {
       "frameNumber": 30,
-      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-30.png",
+      "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-30.png",
       "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
     },
     {
       "frameNumber": 45,
-      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-45.png",
+      "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-45.png",
       "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
     },
     {
       "frameNumber": 59,
-      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-59.png",
+      "path": "<WORKTREE>/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-59.png",
       "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
     }
   ],

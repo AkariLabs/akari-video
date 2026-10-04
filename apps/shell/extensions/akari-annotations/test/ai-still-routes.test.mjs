@@ -10,11 +10,13 @@ import { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } from '../lib/node/stil
 import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
 import { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
+import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
 const bin = fileURLToPath(new URL('./fixtures/ai-still-routes-bin/', import.meta.url));
 const findAsset = async path => join(repo, path);
 const request = { projectRootUri: 'unused', itemId: 'clip-1', prompt: 'A garden', aspect: '16:9' };
+const secretEnv = { FAL_KEY: 'secret', GROQ_API_KEY: 'secret', OPENAI_API_KEY: 'secret', GEMINI_API_KEY: 'secret', GOOGLE_API_KEY: 'secret', XAI_API_KEY: 'secret' };
 
 async function workspace() {
   const dir = await mkdtemp(join(tmpdir(), 'akari-routes-'));
@@ -186,27 +188,40 @@ for (const route of ['codex', 'antigravity', 'grok']) test(`${route} は PNG と
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('JPEG を PNG に直し、PNG 不在は理由つきで失敗し、鍵を渡さない', async () => {
+test('JPEG を PNG に直し、鍵を渡さない', async t => {
+  if (!requireFfmpeg(t)) return;
   const dir = await workspace();
   try {
     await writeFile(join(dir, 'image-state'), 'jpeg');
-    const env = { FAL_KEY: 'secret', GROQ_API_KEY: 'secret', OPENAI_API_KEY: 'secret', GEMINI_API_KEY: 'secret', GOOGLE_API_KEY: 'secret', XAI_API_KEY: 'secret' };
-    const done = await manager(dir, env).startGenerateStill(dir, { ...request, route: 'grok' });
+    const done = await manager(dir, secretEnv).startGenerateStill(dir, { ...request, route: 'grok' });
     assert.equal(done.ok, true, done.reason);
     assert.deepEqual([done.width, done.height], [320, 180]);
     assert.equal((await readFile(join(dir, done.relativePath))).subarray(1, 4).toString('ascii'), 'PNG');
     await writeFile(join(dir, 'image-state'), 'jpeg-sibling');
-    const sibling = await manager(dir, env).startGenerateStill(dir, { ...request, route: 'antigravity' });
+    const sibling = await manager(dir, secretEnv).startGenerateStill(dir, { ...request, route: 'antigravity' });
     assert.equal(sibling.ok, true, sibling.reason);
     assert.deepEqual([sibling.width, sibling.height], [320, 180]);
     assert.equal((await readFile(join(dir, sibling.relativePath))).subarray(1, 4).toString('ascii'), 'PNG');
     const calls = (await readFile(join(dir, 'calls.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
     assert.ok(calls.every(x => x.keys.length === 0));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('PNG 不在は理由つきで失敗し、鍵を渡さない', async () => {
+  const dir = await workspace();
+  try {
     await writeFile(join(dir, 'image-state'), 'missing-png');
-    const failed = await manager(dir).startGenerateStill(dir, { ...request, route: 'antigravity' });
+    const failed = await manager(dir, secretEnv).startGenerateStill(dir, { ...request, route: 'antigravity' });
     assert.equal(failed.ok, false);
     assert.match(failed.reason, /PNG がありません/u);
     assert.match(failed.reason, /image_gen returned no image/u);
+    const log = await readFile(join(dir, 'calls.jsonl'), 'utf8').catch(error => {
+      if (error.code === 'ENOENT') return '';
+      throw error;
+    });
+    assert.ok(log.trim(), 'missing-png must record a fake CLI call');
+    const calls = log.trim().split('\n').map(JSON.parse);
+    assert.ok(calls.every(x => x.keys.length === 0));
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

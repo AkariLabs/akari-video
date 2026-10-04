@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+const source = readAllSourceText();
 test('台本ヘッダの読み上げボタンは選択 ID と editUri を共通コマンドへ渡す', () => {
     assert.match(source, /readAloudButton\.className = 'akari-daihon-retime akari-daihon-read-aloud'/);
     assert.match(source, /readAloudButton\.textContent = '🔊 読み上げ'/);

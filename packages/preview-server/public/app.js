@@ -26,7 +26,7 @@ import {
   createPlatinumGradient,
   drawPenSegment as drawPenSegmentShared,
 } from '/pen-visuals.bundle.js';
-import { replaceCaptionStyleVariables } from '/caption-style.js';
+import { replaceCaptionStyleVariables, applyRichCaptionLayers } from '/caption-style.js';
 // cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
 import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
 import { composeCutVisualStyle } from '/cut-transform-visual.js';
@@ -56,6 +56,20 @@ import { relocateCutIndex } from '/cut-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
 import { computeAdjustCssVisual } from '/edit-kernel.bundle.js';
+import {
+  groupWordsIntoLines,
+  isPortraitOutput,
+  captionLineBudget,
+  captionLineBudgetFor,
+  defaultCaptionFontSize,
+  splitCaptionLines,
+  groupWordsIntoDisplayLines,
+} from '/caption-line-layout.js';
+import { isImageLayerSrc, isImageLayer, layerPlaybackPath } from '/layer-source.js';
+import { outputSizePx, cropOf, layerIntrinsicSize, perspectiveOf, layerRectForVideoRect, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
+import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup, getActiveCaptions } from '/caption-markup.js';
+import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
+import { clipLookForCut, sourceEffectsForCut, layerChromaEffects } from '/video-fx-source.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -202,7 +216,7 @@ let captionStylesInjected = false;
 // caption-layout/v1（resolved timeline）は既に出力秒なのでそのまま。
 let captionsOutputClock = [];
 function refreshCaptionClock() {
-  const caps = getActiveCaptions();
+  const caps = getActiveCaptions(summary, captionsData);
   if (captionsResolvedTimeline || !caps.length) {
     captionsOutputClock = caps;
     return;
@@ -500,31 +514,16 @@ async function refreshAudioSummary() {
 
 if (frameEngineEnabled) setInterval(updateAudioStatus, 250);
 
-async function apiReadError(response, label) {
-  try {
-    const body = await response.json();
-    if (body?.error) return body.error;
-  } catch {}
-  return `${label}: HTTP ${response.status}`;
-}
-
 // --- P1-2: ステージ座標系をビデオ枠（出力フレーム矩形）に一致させる ---
 // 正本は shell の updateStageScale（akari-preview-open-handler.ts）。stage / layer-container を
 // 論理サイズ = 出力 px（overlay/layer の px 座標・字幕の px 指定が render-cut と同じ意味になる）
 // にし、transform: scale(frameScale) で preview-stage の出力フレーム矩形へ写像する。
 // preview-stage はペイン内へ output 比で fit し、その外側はペインの台紙色のまま残す。
 let frameScale = 1;
-function outputSizePx() {
-  const os = summary?.output || {};
-  return {
-    width: Number(os.width) > 0 ? Number(os.width) : 1280,
-    height: Number(os.height) > 0 ? Number(os.height) : 720
-  };
-}
 // Web UI は px + clientWidth 実測を正本にする。wrapper（ペイン content box 全面）へ
 // output 比を contain した寸法を preview-stage に与える。
 function applyPreviewStageSize() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const boxW = wrapper.clientWidth;
   const boxH = wrapper.clientHeight;
   if (!(boxW > 0) || !(boxH > 0)) {
@@ -540,7 +539,7 @@ function applyPreviewStageSize() {
 // akari-preview-open-handler.ts の aspectRatio>=1 分岐。基準辺 120px は従来の横長既定
 // 120x67.5 を保つ値 — 16:9 では従来どおり 120x67.5 のまま、回帰なし）。
 function applyMinimapAspectRatio() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const ratio = os.width / os.height;
   const base = 120;
   minimap.style.width = `${ratio >= 1 ? base : base * ratio}px`;
@@ -552,7 +551,7 @@ function computeOutputFrameRect() {
 function updateStageScale() {
   applyPreviewStageSize();
   applyMinimapAspectRatio();
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const rect = computeOutputFrameRect();
   const next = rect.width / os.width;
   frameScale = Number.isFinite(next) && next > 0 ? next : 1;
@@ -603,8 +602,7 @@ function getVideoSource(cutIndex) {
 
 // docs/contract-2026-08-12-still-image-cut-source-v0.md: cuts[] の静止画ソース区間はメインの
 // <video id="preview-video"> ではなく <img id="preview-image"> で表示する（layers[] の静止画判定
-// isImageLayerSrc/IMAGE_LAYER_SRC_PATTERN と同じ拡張子集合 -- 定義は下の setupLayers 節にある。
-// 関数宣言なので巻き上げにより、このファイル内のどの実行順序からでも呼べる）。
+// isImageLayerSrc と同じ拡張子集合 -- /layer-source.js から import している）。
 function isStillImageCutSegment(seg) {
   return !!seg && !seg.isGap && seg.index >= 0 && isImageLayerSrc(getVideoSource(seg.index));
 }
@@ -676,70 +674,6 @@ function buildSegments() {
 }
 
 // --- B-roll layers ---
-// baked レイヤーの実体（アルファ付き .mov）は ProRes 4444 でブラウザがデコードできない。
-// baked は同じ場所へプレビュー用サイドカー（.preview.webm / VP9 + アルファ）を必ず
-// 併せて持つ規約なので、そちらを再生する。shell の previewProxyUri と同じ命名規約。
-function layerPlaybackPath(layer) {
-  if (layer.kind !== 'baked') return layer.src;
-  return /\.mov$/i.test(layer.src)
-    ? layer.src.replace(/\.mov$/i, '.preview.webm')
-    : `${layer.src}.preview.webm`;
-}
-
-// task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
-// （schema の kind は 'video' のまま不変）。render-cut 側の同じ判定
-// （packages/render-cut/src/layers.mjs の isImageLayerSource, plan.mjs の画像判定と同一集合）と
-// 対象拡張子を完全に揃える。'baked' はここでは常に false 扱い -- layerPlaybackPath() が baked を
-// 元の拡張子に関わらず常に .preview.webm サイドカーへ差し替えるため（上の layerPlaybackPath 参照）、
-// 実際に配信されるバイト列は常に動画。'video' kind のみ元ファイルをそのまま配信するので、
-// layer.src の拡張子判定がそのまま安全に使える。
-const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
-function isImageLayerSrc(src) {
-  return typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
-}
-function isImageLayer(layer) {
-  return layer.kind !== 'baked' && isImageLayerSrc(layer.src);
-}
-
-// ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。contract-2026-08-02-preview-parity.md）。
-// crop 未指定は既定 {x:0,y:0,w:1,h:1} = 全面（従来と完全に見た目が同じになる境界値）。
-function cropOf(el) {
-  const cw = Number(el.dataset.layerCropW);
-  const ch = Number(el.dataset.layerCropH);
-  return {
-    x: Number(el.dataset.layerCropX) || 0,
-    y: Number(el.dataset.layerCropY) || 0,
-    w: Number.isFinite(cw) && cw > 0 ? cw : 1,
-    h: Number.isFinite(ch) && ch > 0 ? ch : 1,
-  };
-}
-
-function layerIntrinsicSize(el) {
-  // 配置の正本は媒体メタデータの実寸。person-matte 等の intake 出力寸法はプロジェクトの
-  // output 寸法と一致する保証がないため、frame-engine の成否から寸法を推定しない。
-  //
-  // これは frame-engine の構図の基準（原本の論理寸法 = NativeFrameSource.logicalSize。
-  // 不具合メモ 第10項）と一致している: この要素が読むのは `summary.layers[].src`
-  // （= 原本。setupLayers → layerPlaybackPath → syncLayerLazyLoad）で、再生用コピーの
-  // proxy 差し替え（preview-layer-proxies.mjs）は frame-engine へ渡す edit にだけ効き、
-  // サーバも素材要求を横取りして proxy を返したりしない（server.mjs は常に原本を返す）。
-  // ハンドル位置・crop 窓・perspective 箱をキャンバスと一致させるため、**この要素へ proxy を
-  // 読ませないこと**（読ませるなら、ここも原本の宣言寸法を引くように直す必要がある）。
-  return { width: Number(el.videoWidth) || 0, height: Number(el.videoHeight) || 0 };
-}
-
-// ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
-// §2.4.4）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
-function perspectiveOf(el) {
-  const raw = el.dataset.layerPerspectiveCorners;
-  if (!raw) return null;
-  try {
-    const corners = JSON.parse(raw);
-    return Array.isArray(corners) && corners.length === 4 ? { corners } : null;
-  } catch {
-    return null;
-  }
-}
 
 // レイヤー1件の位置・サイズ・pivot・変形・切り抜きを一括で書く単一の正本（2026-08-06
 // web-layer-placement-parity）。shell の updateStageScale レイヤーループと同じ中心基準へ統一
@@ -755,7 +689,7 @@ function perspectiveOf(el) {
 // 箱はクロップ矩形の描画済み（scale 込み）px サイズ -- scale はもはや別関数ではなく箱サイズへ
 // 焼き込むため、shell と同じ box 単位になった（layer-perspective-visual.js のコメント参照）。
 function applyLayerLayout(el, x, y, scale, rotate) {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const scaleX = Number(el.dataset.layerScaleX) || scale;
   const scaleY = Number(el.dataset.layerScaleY) || scale;
   el.style.left = `${os.width / 2 + x}px`;
@@ -945,43 +879,6 @@ function configureVideoFxRail(rail, key, effects) {
   void rail.configure(effects);
 }
 
-function clipLookForCut(cutIndex) {
-  const cut = summary?.cuts?.[cutIndex];
-  const adjust = cut?.adjust;
-  if (!adjust || adjust.sections?.lut === false || !adjust.lut
-    || typeof adjust.lut.lut !== 'string') return null;
-  const cubeText = summary?.adjustLutCubeTexts?.[String(cut.id)];
-  if (typeof cubeText !== 'string') return null;
-  const intensity = Number.isFinite(adjust.lut.intensity)
-    ? Math.max(0, Math.min(1, adjust.lut.intensity)) : 1;
-  return { cubeText, intensity };
-}
-
-function sourceEffectsForCut(cutIndex, allowClipLut = true) {
-  const config = summary?.videoFx;
-  const sourceId = summary?.cuts?.[cutIndex]?.src;
-  const chromaKey = sourceId && config?.sources?.[sourceId];
-  const clipLook = allowClipLut ? clipLookForCut(cutIndex) : null;
-  const look = clipLook || config?.look;
-  return {
-    ...(look ? { look } : {}),
-    ...(chromaKey ? { chromaKey } : {}),
-  };
-}
-
-function layerChromaEffects(layer) {
-  const raw = layer?.chroma_key;
-  if (!raw) return null;
-  return {
-    chromaKey: {
-      color: raw.color,
-      similarity: raw.similarity,
-      blend: raw.blend,
-      mode: 'layer',
-    },
-  };
-}
-
 function disposeVideoFx() {
   for (const rail of videoFxRails) rail.dispose();
   videoFxRails = [];
@@ -997,7 +894,7 @@ function setupVideoFx() {
   videoFxFailedIndicators.clear();
   const config = summary?.videoFx;
   const sourceEffects = Object.values(config?.sources ?? {});
-  const firstClipLook = (summary?.cuts ?? []).map((_cut, index) => clipLookForCut(index)).find(Boolean) ?? null;
+  const firstClipLook = (summary?.cuts ?? []).map((_cut, index) => clipLookForCut(summary, index)).find(Boolean) ?? null;
   const hasBaseVideoFx = Boolean(firstClipLook || config?.look || sourceEffects.length > 0);
   const representativeEffects = hasBaseVideoFx ? {
     ...(firstClipLook || config?.look ? { look: firstClipLook || config.look } : {}),
@@ -1032,18 +929,18 @@ function setupVideoFx() {
 function renderVideoFx(timelineTime) {
   if (!videoFxRails.length) return;
   const segment = getActiveSegment(timelineTime);
-  const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(segment.index) : {};
+  const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(summary, segment.index) : {};
   const baseKey = `base:${segment?.index ?? 'gap'}`;
   configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
   configureVideoFxRail(stillVideoFxRail, `${baseKey}:still`,
-    segment?.index >= 0 ? sourceEffectsForCut(segment.index, false) : {});
+    segment?.index >= 0 ? sourceEffectsForCut(summary, segment.index, false) : {});
   baseVideoFxRail?.render(timelineTime);
   stillVideoFxRail?.render(timelineTime);
 
   const transitionWindow = (timelineMap.transitionWindows ?? [])
     .find(candidate => timelineTime >= candidate.start && timelineTime < candidate.end);
   const incomingCutIndex = transitionWindow?.incoming?.cutIndex;
-  const transitionEffects = incomingCutIndex >= 0 ? sourceEffectsForCut(incomingCutIndex) : {};
+  const transitionEffects = incomingCutIndex >= 0 ? sourceEffectsForCut(summary, incomingCutIndex) : {};
   configureVideoFxRail(transitionVideoFxRail, `transition:${incomingCutIndex ?? 'none'}`, transitionEffects);
   transitionVideoFxRail?.render(timelineTime);
 
@@ -1347,46 +1244,6 @@ function setLayerSelected(id) {
 // 移動と操作が衝突しないための排他モード切替。8 方向ハンドルで layers[].crop
 // （0..1 正規化・ソースフレーム相対）を編集し、確定（pointerup）時のみ書き戻す。
 let cropModeActive = false;
-const CROP_MIN = 0.02;
-function clampCrop(x, y, w, h) {
-  const cw = Math.min(1, Math.max(CROP_MIN, Number.isFinite(w) ? w : 1));
-  const ch = Math.min(1, Math.max(CROP_MIN, Number.isFinite(h) ? h : 1));
-  const cx = Math.min(1 - cw, Math.max(0, Number.isFinite(x) ? x : 0));
-  const cy = Math.min(1 - ch, Math.max(0, Number.isFinite(y) ? y : 0));
-  return { x: cx, y: cy, w: cw, h: ch };
-}
-function layerTransformOf(el) {
-  return {
-    x: Number(el.dataset.layerX) || 0,
-    y: Number(el.dataset.layerY) || 0,
-    scale: Number(el.dataset.layerScale) || 1,
-    ...(el.dataset.layerScaleX !== undefined ? { scaleX: Number(el.dataset.layerScaleX) } : {}),
-    ...(el.dataset.layerScaleY !== undefined ? { scaleY: Number(el.dataset.layerScaleY) } : {}),
-    rotate: Number(el.dataset.layerRotate) || 0,
-  };
-}
-// ソース px（ネイティブ px。videoWidth/videoHeight）の矩形を、layerContainer ローカル座標
-// （frameScale/zoom 適用前の「出力論理 px」空間 -- video 要素自身と同じ単位。frameScale/zoom は
-// 親コンテナの scale() が別途処理する）へ正写像する。shell の layerScreenRectForVideoRect と
-// 同型の幾何（画面 px への変換〔frameRect/frameScale 乗算〕だけ、Web はこの空間のまま
-// layerContainer の子として置くため省く）。2026-08-06 web-layer-placement-parity: 中心基準統一
-// に伴い el.offsetLeft 依存の旧実装を置き換えた -- 旧実装は「el 自身の静的位置に transform.x を
-// 加算する」慣習だったが、新基準では transform.x は既に el.style.left（= outputWidth/2+x）へ
-// 焼き込まれているため、el.offsetLeft から独立に「ネイティブ px 空間 → transform による配置」を
-// 導出する必要がある（shell と同じ formula: P' = outputSize/2 + T + s·R(θ)·(P-pivot)）。
-function layerRectForVideoRect(transform, videoRect, pivotPx) {
-  const os = outputSizePx();
-  const outputW = videoRect.w * (transform.scaleX ?? transform.scale);
-  const outputH = videoRect.h * (transform.scaleY ?? transform.scale);
-  const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * (transform.scaleX ?? transform.scale);
-  const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * (transform.scaleY ?? transform.scale);
-  const rad = transform.rotate * Math.PI / 180;
-  const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
-  const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
-  const centerX = os.width / 2 + transform.x + rotOffX;
-  const centerY = os.height / 2 + transform.y + rotOffY;
-  return { left: centerX - outputW / 2, top: centerY - outputH / 2, width: outputW, height: outputH, rotOffX, rotOffY };
-}
 // 画面クライアント座標 → ソースフレーム正規化座標（0..1）の逆写像。layerRectForVideoRect の逆
 // （shell の layerVideoPointForPivot と同型）。pivotFrac はソースフレーム正規化座標（クロップ
 // ハンドルは常に全面中心 {0.5,0.5} を使う -- shell と同じ規約。呼び出し元 fullPivot 参照）。
@@ -1396,7 +1253,7 @@ function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
   const viewScale = contRect.width / layerContainer.offsetWidth;
   const px = (clientX - contRect.left) / viewScale;
   const py = (clientY - contRect.top) / viewScale;
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const { width: vw, height: vh } = layerIntrinsicSize(el);
   if (!(vw > 0 && vh > 0)) return null;
   const pivotPx = { x: pivotFrac.x * vw, y: pivotFrac.y * vh };
@@ -1477,8 +1334,8 @@ function updateLayerCropBox() {
   // 近似だったが、それだと錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見える
   // ため、実際の合成 pivot と統一した — shell の updateLayerCropBox と同型の判断）。
   const cropPivot = { x: (crop.x + crop.w / 2) * vw, y: (crop.y + crop.h / 2) * vh };
-  const outer = layerRectForVideoRect(transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
-  const inner = layerRectForVideoRect(transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
+  const outer = layerRectForVideoRect(summary, transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
+  const inner = layerRectForVideoRect(summary, transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
   layerCropBox.style.display = 'block';
   layerCropBox.style.left = `${outer.left}px`;
   layerCropBox.style.top = `${outer.top}px`;
@@ -1723,36 +1580,12 @@ function positionLayerPerspectiveToggle(el) {
   }
 }
 
-function layerPerspectiveNow(el) {
-  const raw = el.dataset.layerPerspectiveCorners;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length === 4 ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function applyLayerPerspectiveNow(el, corners) {
   if (corners) el.dataset.layerPerspectiveCorners = JSON.stringify(corners);
   else delete el.dataset.layerPerspectiveCorners;
   layerPerspectiveToggle.style.borderColor = corners ? '#ffb84d' : '#4da3ff';
   const transform = layerTransformOf(el);
   applyLayerLayout(el, transform.x, transform.y, transform.scale, transform.rotate);
-}
-
-// プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の便宜であり、
-// schema には「プリセット」「角度」という概念自体は存在しない（shell 側と同一の式・
-// contract-2026-08-02-preview-parity.md §2.4.4。意図的なコード重複）。
-function perspectivePresetCorners(preset, angleDeg) {
-  const compression = Math.max(0, Math.min(0.9, Math.sin((Number(angleDeg) || 0) * Math.PI / 180)));
-  const half = compression / 2;
-  if (preset === 'right') return [[0, 0], [1, half], [0, 1], [1, 1 - half]];
-  if (preset === 'left') return [[0, half], [1, 0], [0, 1 - half], [1, 1]];
-  if (preset === 'top') return [[half, 0], [1 - half, 0], [0, 1], [1, 1]];
-  if (preset === 'bottom') return [[0, 0], [1, 0], [half, 1], [1 - half, 1]];
-  return null;
 }
 
 async function commitLayerPerspective(el, corners) {
@@ -1842,7 +1675,7 @@ window.addEventListener('keydown', (e) => {
 
 // zoom 込みの実効倍率（表示 px / 論理出力 px）。frameScale 直参照だと zoom>1 でずれる
 function layerEffectiveScale() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const rect = layerContainer.getBoundingClientRect();
   return rect.width > 0 ? rect.width / os.width : 1;
 }
@@ -2697,7 +2530,7 @@ function applyCutFramingVisual() {
   const seg = getActiveSegment(outputTime);
   const cut = seg && !seg.isGap ? seg : null;
   const framingVisual = computeCutFramingVisual(cut ? cut.framing : null, playedCutLocalSeconds(seg));
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const motionState = cut && (cut.motion || cut.motionSource || Array.isArray(cut.keyframes))
     ? window.akari.itemMotion.evaluateOverlayMotion({ ...cut, start: cut.outStart,
       duration: cut.durationSec, keyframeUnit: 'seconds' }, outputTime, fps) : null;
@@ -3011,7 +2844,7 @@ function updateTransitions() {
   const outgoingElement = isStillImageCutSegment(outgoingSegment) ? img : video;
   const outgoingCut = outgoingSegment && !outgoingSegment.isGap
     ? summary?.cuts?.[outgoingSegment.index] ?? null : null;
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const outgoingFramingVisual = computeCutFramingVisual(
     outgoingSegment?.framing,
     playedCutLocalSeconds(outgoingSegment),
@@ -3116,28 +2949,6 @@ function updateSeekVisual() {
 let selectedCutIndex = -1;
 let selectedCutAcc = 0;
 
-async function editSaveErrorMessage(res) {
-  try {
-    const body = await res.json();
-    if (Array.isArray(body.findings) && body.findings.length) {
-      // warning が先頭に混ざると真因が埋もれる — error のみ表示（P2-5）。
-      // error が無い異常応答では従来どおり全 findings にフォールバック
-      const errors = body.findings.filter((f) => f.severity === 'error');
-      const shown = errors.length ? errors : body.findings;
-      return shown.map((f) => f.message || f.check).filter(Boolean).join(' / ');
-    }
-    return body.error || `保存に失敗しました (HTTP ${res.status})`;
-  } catch {
-    return `保存に失敗しました (HTTP ${res.status})`;
-  }
-}
-
-function resolveMediaUrl(pathOrSrc) {
-  if (!pathOrSrc) return null;
-  if (/^(https?:|blob:)/.test(pathOrSrc)) return pathOrSrc;
-  return `/${String(pathOrSrc).replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')}`;
-}
-
 async function reloadSummary() {
   const res = await fetch(api.summary);
   if (!res.ok) throw new Error(await apiReadError(res, 'summary'));
@@ -3157,11 +2968,6 @@ function requestSoftReload(changedPaths = [], overlayIds = []) {
     console.warn('[preview] soft reload failed; falling back to full reload', err);
     location.reload();
   });
-}
-
-// 断片の「顔ぶれ」— これが変わらない限り DOM は作り直さない（位置や見た目の変更は貼り直しで足りる）
-function overlaySignature(s) {
-  return JSON.stringify((s?.overlays || []).map(o => [String(o.id), o.html, o.start, o.duration]));
 }
 
 async function applySoftReload(changedPaths = [], overlayIds = []) {
@@ -3824,10 +3630,6 @@ function ensureItemMotionRuntime() {
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
-// 辺あたり倍率。座標・時刻・ツマミ値は等倍の書き出しと共有する。
-function normalizeVgpuPreviewScale(value) {
-  return value === 1 || value === 0.5 || value === 0.25 ? value : 0.5;
-}
 let previewVgpuScale = 0.5;
 previewVgpuScale = normalizeVgpuPreviewScale(savedSettings.vgpuPreviewScale);
 const vgpuScalePresets = document.querySelectorAll('#zoom-popup .vgpu-scale-preset');
@@ -4181,10 +3983,6 @@ function showHint(text, holdMs = 2600) {
     editHintTimer = setTimeout(() => { editHintTimer = 0; editHint.style.opacity = '0'; }, holdMs);
   }
 }
-function fmtRange(sec) {
-  const m = Math.floor(sec / 60), s2 = (sec % 60).toFixed(1).padStart(4, '0');
-  return `${m}:${s2}`;
-}
 // 何を掴んでいるかを常に出す。断片は画面いっぱいに広がるものが多く、いま見ている場面の
 // 部品を掴んだつもりで「動画全体に敷いてある背景」を掴んでいることがある
 // （bg-live は 0〜123.6 秒 = 全編。実機報告 2026-08-07「次の背景も同じ量だけ動く」の正体）。
@@ -4347,7 +4145,7 @@ function applyCaptionStyle(caption, captionPlate) {
   const merged = mergeCaptionLineTextStyles(dts, ts);
   vars = resolveCaptionLineStyleVars(merged, summary?.output);
   if (!Object.prototype.hasOwnProperty.call(vars, '--caption-font-size')) {
-    vars['--caption-font-size'] = defaultCaptionFontSize() + 'px';
+    vars['--caption-font-size'] = defaultCaptionFontSize(summary) + 'px';
   }
   const scale = merged?.scale;
   const rotate = merged?.rotate;
@@ -4359,210 +4157,6 @@ function applyCaptionStyle(caption, captionPlate) {
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
 }
 
-function collectExcludedCaptionIds(edit) {
-  const result = new Set();
-  const visit = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
-    const source = value.source;
-    if (source?.kind === 'captions' && Array.isArray(source.exclude)) {
-      for (const id of source.exclude) if (typeof id === 'string') result.add(id);
-    }
-    for (const key of ['items', 'children']) {
-      if (Array.isArray(value[key])) value[key].forEach(visit);
-    }
-  };
-  for (const track of edit?.tracks ?? []) {
-    for (const key of ['items', 'children']) {
-      if (Array.isArray(track?.[key])) track[key].forEach(visit);
-    }
-  }
-  return result;
-}
-function filterCaptionRootByExcludedIds(root, excluded) {
-  const filter = captions => captions.filter(caption => !excluded.has(caption?.id));
-  if (Array.isArray(root)) return filter(root);
-  if (root && typeof root === 'object' && Array.isArray(root.captions)) {
-    return { ...root, captions: filter(root.captions) };
-  }
-  return root;
-}
-function getActiveCaptions() {
-  // captions.json が正本（shell と同一）。edit.json 埋め込みはフォールバックのみ
-  const excluded = collectExcludedCaptionIds(summary);
-  if (Array.isArray(captionsData) && captionsData.length > 0) {
-    return filterCaptionRootByExcludedIds(captionsData, excluded);
-  }
-  const fromEdit = summary?.captions;
-  return Array.isArray(fromEdit) ? filterCaptionRootByExcludedIds(fromEdit, excluded) : [];
-}
-function normalizeWords(words) {
-  if (!Array.isArray(words) || !words.length) return [];
-  return words.map(w => ({
-    start: w.start ?? w.t ?? 0,
-    end: w.end ?? (w.t ?? 0) + (w.d ?? 0.3),
-    text: w.text ?? w.word ?? w.w ?? '',
-  }));
-}
-const EMPHASIS_STYLE_MAP = { pain: 'one-char-bang', surprise: 'one-char-bang', anger: 'one-char-bang', joy: 'size-pulse', emphasis: 'size-pulse' };
-function findMatchingEmphasis(word, list) {
-  return list?.find(e =>
-    e.t_end > word.start && e.t_start < word.end &&
-    (word.text === e.word || e.word.includes(word.text))
-  ) || null;
-}
-function resolveEmphasisStyle(emphasis) {
-  return emphasis.style_hint || EMPHASIS_STYLE_MAP[emphasis.emotion] || 'color-accent';
-}
-function groupWordsIntoLines(words, maxLen = 13) {
-  const lines = [];
-  let cur = [], len = 0;
-  for (const w of words) {
-    const wlen = Array.from(w.text).length;
-    if (len + wlen > maxLen && cur.length > 0) { lines.push(cur); cur = []; len = 0; }
-    cur.push(w); len += wlen;
-  }
-  if (cur.length > 0) lines.push(cur);
-  return lines;
-}
-// --- render-cut とのパリティ層（正本: packages/render-cut/src/captions.mjs）---
-// 縦長出力では「行を短く（10 字）・文字を大きく（幅 6%）・複数行字幕は行単位の順送り（reveal）」
-// が焼き込み側の既定。プレビューも同じ既定で描く。ロジックは意図的な文字列/コード重複
-// （render-cut は CLI パッケージで相互 import しない方針）。
-function isPortraitOutput() {
-  const os = summary?.output || {};
-  return Number(os.height) > Number(os.width);
-}
-function captionLineBudget() { return isPortraitOutput() ? 10 : 20; }
-function captionLineBudgetFor(caption) {
-  // render-cut mergeCaptionTextStyles と同じく各段を先に検証し、不正値は次の段へ落とす。
-  for (const value of [caption?.text_style?.max_characters, summary?.default_text_style?.max_characters]) {
-    if (Number.isInteger(value) && value > 0) return value;
-  }
-  return captionLineBudget();
-}
-function defaultCaptionFontSize() {
-  const os = summary?.output || {};
-  return isPortraitOutput() ? Math.round(Number(os.width) * 0.06) : 38;
-}
-const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
-function splitCaptionLines(text, maximum) {
-  const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : 20;
-  const lines = [];
-  for (const value of String(text).split(/\r?\n/u)) {
-    if (value.length === 0) { lines.push(''); continue; }
-    for (const segment of splitAfterPunctuation(value)) {
-      lines.push(...splitAtNaturalBoundaries(segment, limit));
-    }
-  }
-  return lines;
-}
-function splitAfterPunctuation(value) {
-  const characters = Array.from(value);
-  const segments = [];
-  let start = 0;
-  for (let index = 0; index < characters.length; index += 1) {
-    if ((characters[index] === '、' || characters[index] === '。') && index + 1 < characters.length) {
-      segments.push(characters.slice(start, index + 1).join(''));
-      start = index + 1;
-    }
-  }
-  segments.push(characters.slice(start).join(''));
-  return segments;
-}
-function splitAtNaturalBoundaries(value, maximum) {
-  const lines = [];
-  let remaining = Array.from(value);
-  while (remaining.length > maximum) {
-    const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
-    const phraseBoundary = spaceBoundary ?? findLastPhraseBoundary(remaining, maximum);
-    const boundary = phraseBoundary ?? maximum;
-    lines.push(remaining.slice(0, boundary).join(''));
-    remaining = remaining.slice(boundary);
-  }
-  if (remaining.length > 0) lines.push(remaining.join(''));
-  return lines;
-}
-function findLastSpaceBoundary(characters, maximum) {
-  for (let index = maximum - 1; index > 0; index -= 1) {
-    if (characters[index] === ' ' || characters[index] === '　') return index + 1;
-  }
-  return null;
-}
-function findLastPhraseBoundary(characters, maximum) {
-  const prefix = characters.slice(0, maximum).join('');
-  let best = null;
-  for (const boundary of CAPTION_BOUNDARIES) {
-    const index = prefix.lastIndexOf(boundary);
-    if (index >= 0) {
-      const candidate = Array.from(prefix.slice(0, index + boundary.length)).length;
-      if (candidate > 0 && (best === null || candidate > best)) best = candidate;
-    }
-  }
-  return best;
-}
-// splitCaptionLines の分割点を word 境界へスナップして words を行へ配る
-// （captions.mjs groupDisplayTokensIntoLines の words 専用ポート）。
-function groupWordsIntoDisplayLines(words, maximum) {
-  if (words.length === 0) return [];
-  const text = words.map(w => w.text).join('');
-  const desiredBoundaries = [];
-  let desiredOffset = 0;
-  for (const line of splitCaptionLines(text, maximum).slice(0, -1)) {
-    desiredOffset += Array.from(line).length;
-    desiredBoundaries.push(desiredOffset);
-  }
-  const ranges = [];
-  let offset = 0;
-  for (const word of words) {
-    const start = offset;
-    offset += Array.from(word.text).length;
-    ranges.push({ word, start, end: offset });
-  }
-  const boundaries = [];
-  let previous = 0;
-  for (const desired of desiredBoundaries) {
-    const containing = ranges.find(({ start, end }) => start < desired && desired < end);
-    let snapped = desired;
-    if (containing) {
-      const candidates = [containing.start, containing.end]
-        .filter(candidate => candidate > previous && candidate < offset);
-      const withinTolerance = candidates.filter(candidate => candidate - previous <= maximum + 2);
-      const eligible = withinTolerance.length > 0 ? withinTolerance : candidates;
-      if (eligible.length === 0) continue;
-      snapped = eligible.reduce((best, candidate) =>
-        Math.abs(candidate - desired) < Math.abs(best - desired) ? candidate : best);
-    }
-    if (snapped > previous && snapped < offset) { boundaries.push(snapped); previous = snapped; }
-  }
-  const lines = [];
-  let start = 0;
-  for (const end of [...boundaries, offset]) {
-    const line = ranges.filter(r => r.end > start && r.start < end).map(r => r.word);
-    if (line.length > 0) lines.push(line);
-    start = end;
-  }
-  return lines;
-}
-// 行グループを開始時刻ごとに束ねて順送り表示の markup を作る
-// （captions.mjs renderRevealGroups のポート。preview は速度リマップ無しの source 秒）。
-function renderRevealGroupsMarkup(lines, rangeStart, rangeEnd, renderLine) {
-  const groups = [];
-  for (const line of lines) {
-    const start = line[0]?.start ?? rangeStart;
-    const previous = groups[groups.length - 1];
-    if (previous && previous.start === start) previous.lines.push(line);
-    else groups.push({ start, lines: [line] });
-  }
-  return groups.map((group, index) => {
-    const nextStart = groups[index + 1]?.start ?? rangeEnd;
-    const delay = Math.max(0, group.start - rangeStart);
-    const duration = Math.max(0.01, nextStart - group.start);
-    const lineMarkup = group.lines
-      .map(line => `<p class="akari-caption__line">${renderLine(line)}</p>`)
-      .join('');
-    return `<div class="akari-caption__reveal-group" style="--akari-reveal-delay:${delay.toFixed(3)}s;--akari-reveal-dur:${duration.toFixed(3)}s">${lineMarkup}</div>`;
-  }).join('');
-}
 function injectCaptionStyles() {
   if (captionStylesInjected) return;
   captionStylesInjected = true;
@@ -4723,6 +4317,8 @@ function updateCaption() {
 }
 function renderCaptionRow(active, captionPlate) {
   applyCaptionStyle(active, captionPlate);
+  const richStyle = captionsResolvedTimeline ? active.text_style
+    : mergeCaptionLineTextStyles(summary?.default_text_style, active.text_style);
   const words = normalizeWords(active.words);
   const karaoke = active.text_style?.karaoke || summary?.default_text_style?.karaoke
     ? { ...(summary?.default_text_style?.karaoke ?? {}), ...(active.text_style?.karaoke ?? {}) } : null;
@@ -4749,8 +4345,8 @@ function renderCaptionRow(active, captionPlate) {
   // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
   const displayText = active.display_text || active.text || '';
   const wantsReveal = hasWords && (style === 'reveal'
-    || (!style && isPortraitOutput()
-      && splitCaptionLines(displayText, captionLineBudgetFor(active)).length > 1));
+    || (!style && isPortraitOutput(summary)
+      && splitCaptionLines(displayText, captionLineBudgetFor(active, summary)).length > 1));
   const wordStyle = explicitStyle ?? (hasEmphasis ? 'emphasis' : null);
   // 座布団 block モード: 行群を 1 枚板ラッパーで包む（shell / render-cut と同じ構造）
   const blockMode = (active.text_style?.background?.mode
@@ -4763,13 +4359,14 @@ function renderCaptionRow(active, captionPlate) {
   injectCaptionStyles();
   if (captionsResolvedTimeline && active.word_styles?.length && active.words?.length) {
     captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${renderResolvedWordTokens(active)}</span>`;
+    applyRichCaptionLayers(captionPlate, richStyle);
     delete captionPlate.dataset.captionStart;
     return;
   }
   if (wantsReveal) {
     const start = Number(active.start) || 0;
     const end = Number(active.end) || (words[words.length - 1]?.end ?? start);
-    const lines = groupWordsIntoDisplayLines(words, captionLineBudget());
+    const lines = groupWordsIntoDisplayLines(words, captionLineBudget(summary));
     captionPlate.innerHTML = `<div class="akari-caption akari-caption--reveal${frameClass}"><div class="akari-caption__plate">${
       wrapPlate(renderRevealGroupsMarkup(lines, start, end, line =>
         line.map(w => {
@@ -4781,7 +4378,7 @@ function renderCaptionRow(active, captionPlate) {
     captionPlate.dataset.captionStart = String(start);
   } else if (wordStyle && hasWords) {
     const start = Number(active.start) || 0;
-    const lines = groupWordsIntoLines(words, captionLineBudget());
+    const lines = groupWordsIntoLines(words, captionLineBudget(summary));
     captionPlate.innerHTML = `<div class="akari-caption akari-caption--${wordStyle}${frameClass}"><div class="akari-caption__plate">${
       wrapPlate(lines.map(line => `<p class="akari-caption__line">${
         line.map(w => {
@@ -4797,13 +4394,14 @@ function renderCaptionRow(active, captionPlate) {
       captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${esc(active.text || '')}</span>`;
     } else {
       // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
-      const lines = splitCaptionLines(displayText, captionLineBudgetFor(active));
+      const lines = splitCaptionLines(displayText, captionLineBudgetFor(active, summary));
       captionPlate.innerHTML = `<div class="akari-caption${frameClass}"><div class="akari-caption__plate">${
         wrapPlate(lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join(''))
       }</div></div>`;
     }
     delete captionPlate.dataset.captionStart;
   }
+  applyRichCaptionLayers(captionPlate, richStyle);
 }
 function syncCaptionAnimations() {
   for (const { plate } of captionRows.values()) {

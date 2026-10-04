@@ -539,9 +539,9 @@ test("win32・未設定・auto・GPU 出口: registry.write → spawn → regist
     const out = join(root, "video.mp4");
     const mocks = gpuPreferenceMocks();
     const calls = [];
-    const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu" }, {
+    const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu", gpuPreference: "auto" }, {
       spawnImpl: spawnMock({ calls, beforeClose: async () => { mocks.log.push(["spawn"]); await writeFile(out, "video"); } }),
-      env: { PATH: "/usr/bin" }, platform: "win32", ...mocks,
+      env: { PATH: "/usr/bin", AKARI_HOME: root }, platform: "win32", ...mocks,
     });
     assert.deepEqual(mocks.log, [
       ["read", WINDOWS_ELECTRON_NORMALIZED],
@@ -569,7 +569,7 @@ test("win32: 子が exit ≠ 0 でも spawn が error を emit しても restore
     for (const spawnImpl of [spawnMock({ code: 1 }), spawnMock({ beforeClose: () => { throw new Error("spawn ENOENT"); } })]) {
       const mocks = gpuPreferenceMocks();
       await assert.rejects(
-        launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu" }, { spawnImpl, env: {}, platform: "win32", ...mocks }),
+        launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu", gpuPreference: "auto" }, { spawnImpl, env: { AKARI_HOME: root }, platform: "win32", ...mocks }),
         (error) => {
           assert.equal(error.gpuPreference.applied, true);
           assert.equal(error.gpuPreference.restored, true);
@@ -589,14 +589,14 @@ test("win32: 利用者の GpuPreference=1; は auto で尊重し、force は復�
   try {
     const out = join(root, "video.mp4");
     const respected = gpuPreferenceMocks({ [WINDOWS_ELECTRON_NORMALIZED]: "GpuPreference=1;" });
-    const auto = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu" }, {
-      spawnImpl: spawnMock({ beforeClose: () => writeFile(out, "video") }), env: {}, platform: "win32", ...respected,
+    const auto = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu", gpuPreference: "auto" }, {
+      spawnImpl: spawnMock({ beforeClose: () => writeFile(out, "video") }), env: { AKARI_HOME: root }, platform: "win32", ...respected,
     });
     assert.equal(respected.log.filter(([name]) => name === "write" || name === "remove").length, 0);
     assert.equal(auto.gpuPreference.reason, "user-preference-respected");
     const forced = gpuPreferenceMocks({ [WINDOWS_ELECTRON_NORMALIZED]: "GpuPreference=1;" });
     const force = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), gpuPreference: "force" }, {
-      spawnImpl: spawnMock({ beforeClose: async () => { forced.log.push(["spawn"]); await writeFile(out, "video"); } }), env: {}, platform: "win32", ...forced,
+      spawnImpl: spawnMock({ beforeClose: async () => { forced.log.push(["spawn"]); await writeFile(out, "video"); } }), env: { AKARI_HOME: root }, platform: "win32", ...forced,
     });
     assert.deepEqual(forced.log.filter(([name]) => name !== "read" && name !== "sidecar"), [
       ["write", WINDOWS_ELECTRON_NORMALIZED, "GpuPreference=2;"],
@@ -619,15 +619,15 @@ test("darwin / linux / soft / off / OSR 出口の auto は registry に触らず
       { platform: "linux", options: { exit: "gpu" }, env: {}, reason: "platform" },
       { platform: "win32", options: { soft: true, exit: "gpu" }, env: {}, reason: "soft" },
       { platform: "win32", options: { exit: "gpu" }, env: { AKARI_EXPORT_GPU_PREFERENCE: "off" }, reason: "policy-off" },
-      { platform: "win32", options: { exit: "osr" }, env: {}, reason: "not-gpu-exit" },
-      { platform: "win32", options: {}, env: {}, reason: "not-gpu-exit" },
+      { platform: "win32", options: { exit: "osr", gpuPreference: "auto" }, env: {}, reason: "not-gpu-exit" },
+      { platform: "win32", options: {}, env: {}, reason: "policy-off" },
     ];
     for (const { platform, options, env, reason } of cases) {
       const mocks = gpuPreferenceMocks();
       const calls = [];
       const launchOptions = { ...exportOptions(out), ...options, userDataDir: join(root, "explicit-user-data") };
       const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, launchOptions, {
-        spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }), env, platform, ...mocks,
+        spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }), env: { AKARI_HOME: root, ...env }, platform, ...mocks,
       });
       assert.equal(mocks.log.filter(([name]) => name === "write" || name === "remove").length, 0, `${platform}/${reason}`);
       assert.equal(result.gpuPreference.reason, reason);
@@ -646,8 +646,8 @@ test("win32: 冒頭に stale な sidecar があれば先に復元して recovere
     const mocks = gpuPreferenceMocks({ [WINDOWS_ELECTRON_NORMALIZED]: "GpuPreference=2;" });
     await mocks.sidecar.write({ version: 1, executable: WINDOWS_ELECTRON_NORMALIZED, previous: null, written_at: "2026-08-31T00:00:00.000Z" });
     mocks.log.length = 0;
-    const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu" }, {
-      spawnImpl: spawnMock({ beforeClose: async () => { mocks.log.push(["spawn"]); await writeFile(out, "video"); } }), env: {}, platform: "win32", ...mocks,
+    const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "gpu", gpuPreference: "auto" }, {
+      spawnImpl: spawnMock({ beforeClose: async () => { mocks.log.push(["spawn"]); await writeFile(out, "video"); } }), env: { AKARI_HOME: root }, platform: "win32", ...mocks,
     });
     assert.deepEqual(mocks.log.slice(0, 2), [["read", WINDOWS_ELECTRON_NORMALIZED], ["remove", WINDOWS_ELECTRON_NORMALIZED]]);
     assert.equal(result.gpuPreference.recovered_stale, true);
@@ -663,7 +663,7 @@ test("不正な gpuPreference は spawn 前に許容値付きで throw する（
   const mocks = gpuPreferenceMocks();
   await assert.rejects(
     launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions("/out.mp4"), gpuPreference: "always" }, {
-      spawnImpl: () => assert.fail("must not spawn"), env: {}, platform: "win32", ...mocks,
+      spawnImpl: () => assert.fail("must not spawn"), env: { AKARI_HOME: join(tmpdir(), "akari-gpu-test-absent") }, platform: "win32", ...mocks,
     }),
     /gpuPreference must be one of auto\|off\|force, got: always/u,
   );
@@ -709,8 +709,8 @@ test("win32: OSR 出口（exit osr）の auto は registry に書かず、記録
     const out = join(root, "video.mp4");
     const mocks = gpuPreferenceMocks();
     const calls = [];
-    const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "osr" }, {
-      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }), env: {}, platform: "win32", ...mocks,
+    const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "osr", gpuPreference: "auto" }, {
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }), env: { AKARI_HOME: root }, platform: "win32", ...mocks,
     });
     assert.equal(mocks.log.filter(([name]) => name === "write" || name === "remove" || name === "sidecar").length, 0);
     assert.equal(calls.length, 1);
@@ -720,7 +720,7 @@ test("win32: OSR 出口（exit osr）の auto は registry に書かず、記録
     });
     const forced = gpuPreferenceMocks();
     const force = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, { ...exportOptions(out), exit: "osr", gpuPreference: "force" }, {
-      spawnImpl: spawnMock({ beforeClose: async () => { forced.log.push(["spawn"]); await writeFile(out, "video"); } }), env: {}, platform: "win32", ...forced,
+      spawnImpl: spawnMock({ beforeClose: async () => { forced.log.push(["spawn"]); await writeFile(out, "video"); } }), env: { AKARI_HOME: root }, platform: "win32", ...forced,
     });
     assert.deepEqual(forced.log.filter(([name]) => name !== "read" && name !== "sidecar"), [
       ["write", WINDOWS_ELECTRON_NORMALIZED, "GpuPreference=2;"],

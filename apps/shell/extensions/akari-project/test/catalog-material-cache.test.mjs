@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readCompiledSource } from './helpers/role-buckets-source.mjs';
 import * as placement from '../lib/common/library-asset-placement.js';
-const source=readFileSync(new URL('../lib/browser/akari-role-buckets-widget.js',import.meta.url),'utf8');
+const source=readCompiledSource('widget').text;
 const start=source.indexOf('    async resolveCatalogMaterial('),rest=source.slice(start);
 assert.notEqual(start,-1);
 class URI {

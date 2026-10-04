@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 
 test('main window Escape ends a brush once and clears the inspector state', () => {
     const body = source.match(/const onMainEscape = \(event: KeyboardEvent\): void => \{([\s\S]*?)\n        \};/u)?.[1];

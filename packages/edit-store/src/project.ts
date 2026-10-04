@@ -1,11 +1,9 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { parseCaptions, type CaptionRecord, type CaptionTextStyle } from './caption-store';
+import { loadTextstyleCatalogSync } from './textstyle-library-node';
 import { serializeCaptions, serializeEdit, serializeMotion } from './canonical';
-import type {
-    KeyframeV2,
-    MotionV0 as ItemMotionV0,
-} from './edit-v2';
+import type { KeyframeV2 } from './edit-v2';
 import {
     attachEditHelpers,
     clone,
@@ -107,7 +105,7 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
     const captionsRoot = captionsText === undefined ? undefined : JSON.parse(captionsText) as unknown;
     const parsedCaptions = captionsText === undefined
         ? { captions: [] as CaptionRecord[], warnings: [] as string[] }
-        : parseCaptions(captionsText);
+        : parseCaptions(captionsText, { catalog: loadTextstyleCatalogSync({ env: process.env }).catalog });
     const captions: ProjectCaptions = {
         rows: parsedCaptions.captions,
         ...(parsedCaptions.defaultTextStyle !== undefined
@@ -279,10 +277,6 @@ const CAPTION_STYLE_NAMES: Record<string, string> = {
 
 function camelToSnake(key: string): string {
     return CAPTION_STYLE_NAMES[key] ?? key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-}
-
-function snapshotCaptions(captions: ProjectCaptions): string {
-    return stableJson({ rows: captions.rows, defaultTextStyle: captions.defaultTextStyle });
 }
 
 function stableJson(value: unknown): string {

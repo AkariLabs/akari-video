@@ -2,21 +2,21 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import * as visual from '../lib/common/caption-visual-contract.js';
-import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../lib/common/caption-text-animation-recipes.js';
+import { evaluateHostTemplate } from './helpers/host-template.mjs';
 import { captionEntryAnimationsSettled } from '../lib/common/caption-hit-region.js';
 import { createCaptionStylePreviewController } from '../lib/common/caption-style-preview.js';
 import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 const require = createRequire(import.meta.url);
 const { applyCaptionRunsToHtml } = require('../../../../../packages/edit-store/lib/index.js');
 
-export const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+export const source = readHandlerSource();
 
 // 司令塔補正（2026-09-06 合流時）: 評価器はコミット済みの generated バンドルから読む。
 // packages/frame-engine/dist は CI の shell レーンでは作られないため、そこへの直 import は
 // ERR_MODULE_NOT_FOUND になる（webview が実際に読むのもこのバンドル）。
 export const frameEngine = vm.runInNewContext(
-    readFileSync(new URL('../generated/frame-engine.js', import.meta.url), 'utf8') + ';AkariFrameEngine',
+    readFileSync(new URL('../../../../../packages/frame-engine/generated/frame-engine.iife.js', import.meta.url), 'utf8') + ';AkariFrameEngine',
     { console }
 );
 
@@ -26,9 +26,8 @@ function section(text, from, to) {
     assert.ok(start >= 0 && end > start, `missing webview section: ${from}`);
     // Evaluate the host template first, exactly as previewBootstrapScript does. The second VM
     // has only browser globals/stubs, so accidental references to host module names fail.
-    return vm.runInNewContext('`' + text.slice(start, end) + '`', {
-        ...visual, PREVIEW_CAPTION_ANIMATION_RECIPES
-    });
+    const fragment = text.slice(start, end);
+    return evaluateHostTemplate(text, fragment);
 }
 
 export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [], applyAnimator, output, selectedIds = [] } = {}) {

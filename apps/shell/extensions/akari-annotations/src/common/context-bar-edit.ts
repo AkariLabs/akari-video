@@ -282,7 +282,7 @@ export interface StyleClip {
     values: Record<string, unknown>;
 }
 
-/** 種類ごとに写す見た目（notes の口述: 図形 = 塗り・枠・太さ・角の丸み・不透明度 / ライン = 色・太さ・線種・端・不透明度 / 文字 = スタイル・フォント・動き・不透明度）。 */
+/** 種類ごとに写す見た目。図形 = 塗り・枠・太さ・角の丸み・不透明度 / ライン = 色・太さ・線種・端・不透明度 / 文字 = スタイル・フォント・動き・不透明度。 */
 export const STYLE_PATHS: Record<ContextBarKind, readonly string[]> = {
     shape: ['source.params.fill', 'source.params.stroke', 'source.params.strokeWidth', 'source.params.cornerRadius', 'opacity'],
     line: ['source.params.stroke', 'source.params.strokeWidth', 'source.params.dash', 'source.params.lineCap',

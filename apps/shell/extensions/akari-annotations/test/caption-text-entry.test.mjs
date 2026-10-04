@@ -1,11 +1,13 @@
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
 
-const inspector = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const inspector = readInspectorSource();
 const contextBar = readFileSync(new URL('../src/browser/context-bar-controller.ts', import.meta.url), 'utf8');
-const preview = readFileSync(new URL('../../akari-preview/src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const preview = readHandlerSource();
 
 test('forwarded iframe keys are ignored by the context bar while caption edit owns focus', () => {
     const iframe = {};

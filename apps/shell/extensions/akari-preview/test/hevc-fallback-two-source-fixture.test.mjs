@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { basename, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 import { getH264Proxy } from '../lib/node/hevc-proxy.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const handlerSource = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const handlerSource = readHandlerSource();
 
 const commandExists = command => {
     try {
@@ -32,7 +32,7 @@ const probeVideo = path => JSON.parse(execFileSync('ffprobe', [
 
 const extractHostFallbackMethod = () => {
     const startMarker = '    protected async handleHevcFallbackRequest(';
-    const endMarker = '\n    protected isOpenOutputRequest';
+    const endMarker = '\n    protected async handleOpenOutputRequest';
     const start = handlerSource.indexOf(startMarker);
     const end = handlerSource.indexOf(endMarker, start);
     assert.notEqual(start, -1, `missing start marker: ${startMarker}`);

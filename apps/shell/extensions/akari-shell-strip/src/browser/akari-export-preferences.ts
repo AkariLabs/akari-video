@@ -8,6 +8,7 @@ export const AKARI_EXPORT_ENCODER = 'akari.export.encoder';
 export const AKARI_EXPORT_CODEC = 'akari.export.codec';
 export const AKARI_EXPORT_FPS = 'akari.export.fps';
 export const AKARI_EXPORT_OUTPUT_DIRECTORY = 'akari.export.outputDirectory';
+export const AKARI_EXPORT_GPU_PREFERENCE_CONSENT = 'akari.export.temporaryGpuPreference';
 
 const platform = OS.type() === OS.Type.OSX
     ? 'darwin'
@@ -43,6 +44,10 @@ const AKARI_EXPORT_PREFERENCE_SCHEMA: PreferenceSchema = {
             type: 'string',
             default: '',
             description: '書き出し先フォルダの URI。空欄ではプロジェクトの exports/ を使います。'
+        },
+        [AKARI_EXPORT_GPU_PREFERENCE_CONSENT]: {
+            type: 'boolean',
+            description: 'Windows で書き出す間だけ、AKARI Video に高性能 GPU を割り当てます。書き出し後は元に戻します。'
         }
     }
 };

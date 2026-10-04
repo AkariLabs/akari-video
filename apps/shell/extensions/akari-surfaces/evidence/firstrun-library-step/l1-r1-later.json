@@ -9,7 +9,7 @@
   ],
   "firstRunShown": 0,
   "cardSection": "id=akari-settings-storage class=akari-set-page data-akari-settings-section=storage aria-labelledby=akari-settings-storage-heading style=flex: 1 1 0%; min-height: 0px; overflow-y: auto; | heading=ストレージ",
-  "usageText": "素材の置き場\n現在の場所\n<SCRATCH>/run-later/home/Akari/library\nFinder で開く\n場所を変える…\n合計\n2.6 MB\nLab から\n1.9 MB（1 個）\n素材サイトから\n684 KB（1 個）\n自分の\n12 KB（1 個）\n取り直せるもの\nLab から受け取った素材だけを一覧で確認してからゴミ箱へ移します\n取り直せるものを片づける",
+  "usageText": "素材の置き場\n現在の場所\n<SCRATCH>/run-later/<HOME>/Akari/library\nFinder で開く\n場所を変える…\n合計\n2.6 MB\nLab から\n1.9 MB（1 個）\n素材サイトから\n684 KB（1 個）\n自分の\n12 KB（1 個）\n取り直せるもの\nLab から受け取った素材だけを一覧で確認してからゴミ箱へ移します\n取り直せるものを片づける",
   "cleanupDialogText": "取り直せる素材を片づける\n\nLab から受け取った 1 個、合計 1.9 MB をゴミ箱へ移します。\n\nLab の曲（1.9 MB）\nやめる\nゴミ箱へ移す",
   "libAfterCleanup": [
     "broll/intro/clip.mp4",
@@ -17,7 +17,7 @@
     "still/site-photo/meta.json",
     "still/site-photo/site-photo.png"
   ],
-  "usageAfterCleanup": "素材の置き場\n現在の場所\n<SCRATCH>/run-later/home/Akari/library\nFinder で開く\n場所を変える…\n合計\n695 KB\nLab から\n0.0 MB（0 個）\n素材サイトから\n684 KB（1 個）\n自分の\n12 KB（1 個）\n取り直せるもの\nLab から受け取った素材だけを一覧で確認してからゴミ箱へ移します\n取り直せるものを片づける",
+  "usageAfterCleanup": "素材の置き場\n現在の場所\n<SCRATCH>/run-later/<HOME>/Akari/library\nFinder で開く\n場所を変える…\n合計\n695 KB\nLab から\n0.0 MB（0 個）\n素材サイトから\n684 KB（1 個）\n自分の\n12 KB（1 個）\n取り直せるもの\nLab から受け取った素材だけを一覧で確認してからゴミ箱へ移します\n取り直せるものを片づける",
   "overlayAtPlus": [
     "data-akari-project-launcher-dialog"
   ],

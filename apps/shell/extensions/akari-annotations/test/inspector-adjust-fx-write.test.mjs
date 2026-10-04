@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -136,7 +137,7 @@ test('sections.fx は効果を保持して無効化し ON と null で疎辞書�
 });
 
 // 既存 transition テストと同様、Theia を起動せず実際のフィールド生成関数を実行する。
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
 const factory = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name.text === 'ADJUST_SECTIONS');
 assert.ok(factory);

@@ -1,15 +1,13 @@
 import { settleDecisionLog } from "../../akari-tools/src/decision-log/settle.mjs";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants, createReadStream, existsSync, readdirSync } from "node:fs";
+import { constants as fsConstants, existsSync } from "node:fs";
 import {
   access,
   copyFile,
   lstat,
   mkdir,
-  mkdtemp,
   open,
-  readdir,
   readFile,
   realpath,
   rename,
@@ -18,19 +16,15 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { resolveCaptionPlan } from "./caption-resolve.mjs";
-import { deriveContactSheetTimestamps, renderContactSheet } from "./contact-sheet.mjs";
 import {
-  ENCODER_CHOICES,
-  QUALITY_LEVELS,
   containerForCodec,
   resolveEncodingPolicy,
 } from "./encode-preset.mjs";
 import { buildPlan, selectDefaultOutput } from "./plan.mjs";
 import { isImageLayerSource } from "./layers.mjs";
-import { runChecked, runCheckedWithProgress } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
 import { createProgressReporter } from "./progress.mjs";
 import {
@@ -58,30 +52,26 @@ import {
   projectRendererCompatibilityEdit,
   readRenderEdit,
 } from "./internal-render.mjs";
-import {
-  judgeAudioLevel,
-  judgeMotion,
-  measureAudioLevel,
-} from "./verify-declared.mjs";
-import { blankFramesFromLuma, scanBlankFrames, scanBlankFramesStreaming } from "./verify-blank.mjs";
 
-const VERSION = 1;
+import { ExecutionError, RefusalError, messageOf, parseJson } from "./errors.mjs";
+import { RETIRED_ENGINE, applyOutputScaleToPlan, assertCodecEngine, assertGpuEligibility, assertHevcPresetSupported, assertOsrLauncherAvailable, formatGpuEligibilityFailures, parseArguments, readForceGpu, resolveEngineChoice } from "./cli-arguments.mjs";
+import { cleanupFailedRunTemporaryDirectory, createRunTemporaryDirectory } from "./run-directory.mjs";
+import { parseRate, probeMedia, verifyArtifact } from "./verify-artifact.mjs";
+import { addWarning, additionalBgmInputs, isNonEmptyString, relativeOrAbsolute, sha256, sha256File } from "./render-support.mjs";
+import { buildInitialRenderState, runCutAudioStage, runVerifyStage, runContactSheetStage, runReceiptStage } from "./render-stages.mjs";
+export { ExecutionError, RefusalError } from "./errors.mjs";
+export { applyOutputScaleToPlan, assertCodecEngine, assertGpuEligibility, assertHevcPresetSupported, assertOsrLauncherAvailable, buildEngineProvenance, parseArguments, parseScaleToValue, readForceGpu, resolveEngineChoice } from "./cli-arguments.mjs";
+export { cleanupFailedRunTemporaryDirectory, cleanupStaleRunDirectories, createRunTemporaryDirectory, isProcessAlive, parseRunDirectoryOwner } from "./run-directory.mjs";
+export { VIDEO_STREAM_IDENTITY_FIELDS, fpsWithinOneFrameTolerance, hashVideoBitstream, oneFrameFpsTolerance, proveVideoStreamIdentity, resolveVideoEvidenceReuse, reusableGpuVerificationResult, verifyArtifact } from "./verify-artifact.mjs";
+export { sha256PngDirectory } from "./render-support.mjs";
+
 const packageRequire = createRequire(import.meta.url);
 const {
   timelineDurationSeconds,
   projectLegacyAudioView,
   toAnchorCaptions,
 } = packageRequire("../../edit-store/lib/index.js");
-// owner.json lets the next run reclaim a crashed process immediately. Directories created before
-// owner tracking retain the 24h fallback, while a live owner is never touched.
-const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
 const activeMediaReferencePaths = new Set();
-const RETIRED_ENGINE = "legacy";
-const ENGINE_CHOICES = ["auto", "gpu", "osr"];
-const RETIRED_ENGINE_MESSAGE = "--engine legacy は廃止されました（書き出しは gpu / osr の 2 出口。ffmpeg フィルタグラフ合成は v0.1.3x で終了）";
-const OSR_ELECTRON_REFUSAL = "OSR 書き出しに必要な Electron が見つかりません。インストール済み AKARI Video の同梱 Electron を使うか、`npm install electron` を実行するか、`AKARI_OSR_ELECTRON=<path>` を指定してください。";
-const GPU_PREFERENCE_CHOICES = ["auto", "off", "force"];
-const CODEC_CHOICES = ["h264", "hevc", "prores422", "png"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
   [--codec h264|hevc|prores422|png] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
@@ -96,19 +86,11 @@ output.fps; --progress emits stage lines, engine-originated "PROGRESS frame=<n> 
 audio-cut "PROGRESS out_time_ms=<n> total_ms=<n>" lines, then "PROGRESS done total_ms=<n>".
 --engine defaults to auto; eligible projects use gpu and ineligible projects use osr on every platform.
 --gpu-preference (Windows hybrid GPU only) controls the temporary per-app GPU setting written for the
-export child process: auto (default; gpu engine only, skipped when the user pinned a preference), off,
-or force (gpu and osr engines). Omitting it defers to AKARI_EXPORT_GPU_PREFERENCE, then auto. Other
+export child process: auto (gpu engine only, skipped when the user pinned a preference), off,
+or force (gpu and osr engines). Omitting it defers to AKARI_EXPORT_GPU_PREFERENCE, then saved consent, then off. Other
 platforms ignore it.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
-
-export class RefusalError extends Error {
-  constructor(message, exitCode = 1) {
-    super(message);
-    this.exitCode = exitCode;
-  }
-}
-export class ExecutionError extends Error {}
 
 export async function runGpuWithRuntimeFallback({ engineRequested, runGpu, runOsr }) {
   try {
@@ -191,6 +173,99 @@ function warningType(warning) {
     .replace(/audio\.sfx\[\d+\]/gu, "audio.sfx[]")
     .replace(/^narration [^:]+:/u, "narration <id>:")
     .replace(/(?<![\p{L}\p{N}_])[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?/giu, "<value>");
+}
+
+async function runAudioMixStage({ options, codec, container, projectRoot, edit, capabilities, declaredInputs, inputSnapshot, captionLayout, explicitOutput, outputPath, temporaryDirectory, plan, state, reporter, emitTiming, compositePath }) {
+  reporter.stageStart("audio-mix");
+  const audioMixStarted = performance.now();
+  const finalPath = container.kind === "directory"
+    ? compositePath
+    : join(temporaryDirectory, `final.${container.ext}`);
+  const audioExecution = await executeAudioPlan(plan.commands.audio_mix, capabilities.ffmpegVersion, {
+    projectRoot, temporaryDirectory, audioItemCount: countAudioItems(edit.audio),
+  });
+  const audioMaster = !options.noAudio && edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
+  if (audioMaster && audioExecution.error) {
+    state.audio_qc = measurementErrorAudioQc({
+      master: audioMaster,
+      phase: "filter_report",
+      code: audioExecution.error.code,
+      message: audioExecution.error.message,
+      toolVersion: capabilities.ffmpegVersion,
+      toolVersionError: capabilities.ffmpegVersionError,
+    });
+    if (codec === "png") throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
+    const failedArtifactPath = await persistFailedRenderArtifact(projectRoot, compositePath);
+    const failedVerification = verifyArtifact({
+      outputPath: failedArtifactPath,
+      plan,
+      inputs: state.provenance.sources,
+      edit,
+      ffprobeCommand: capabilities.ffprobeCommand,
+      ffmpegCommand: capabilities.ffmpegCommand,
+      verifyBlank: options.verifyBlank,
+    });
+    state.artifacts = [{
+      path: relativeOrAbsolute(projectRoot, failedArtifactPath),
+      sha256: await sha256File(failedArtifactPath),
+      ffprobe: failedVerification.measured,
+    }];
+    if (failedVerification.verdict === "pass") {
+      const receipt = await createImmutableRenderReceipt({
+        projectRoot,
+        declaredInputs,
+        inputSnapshot,
+        outputPath: failedArtifactPath,
+        ffprobe: failedVerification.measured,
+        plan,
+        verify: failedVerification,
+        tools: {
+          node: capabilities.nodeVersion,
+          ffmpeg: capabilities.ffmpegVersion,
+          ffprobe: capabilities.ffprobeVersion,
+        },
+        captionLayout,
+        audioQc: state.audio_qc,
+        provenance: state.provenance,
+        createdAt: options.receiptCreatedAt,
+      });
+      state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
+    }
+    throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
+  }
+
+  if (codec === "png") {
+    const mixedAudioPath = plan.commands.audio_mix.output;
+    await rm(join(finalPath, "audio.wav"), { force: true });
+    await rename(mixedAudioPath, join(finalPath, "audio.wav"));
+  }
+  await mkdir(dirname(outputPath), { recursive: true });
+  if (explicitOutput) {
+    await rm(outputPath, { recursive: codec === "png", force: true });
+    await rename(finalPath, outputPath);
+  } else if (codec === "png") {
+    await rename(finalPath, outputPath);
+  } else {
+    await copyFile(finalPath, outputPath, fsConstants.COPYFILE_EXCL);
+    await rm(finalPath, { force: true });
+  }
+  state.phase = "rendered";
+  if (audioMaster) {
+    state.audio_qc = buildAudioQc({
+      master: audioMaster,
+      audioCodec: plan.preset.audio_codec,
+      filterStderr: audioExecution.stderr,
+      outputPath: codec === "png" ? join(outputPath, "audio.wav") : outputPath,
+      ffmpegCommand: capabilities.ffmpegCommand,
+      toolVersion: capabilities.ffmpegVersion,
+      toolVersionError: capabilities.ffmpegVersionError,
+    });
+    if (state.audio_qc.verdict === "INCONCLUSIVE") {
+      addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
+    }
+  }
+  reporter.stageEnd("audio-mix");
+  emitTiming("audio_mix", audioMixStarted);
 }
 
 export async function renderProject(input, options = {}, io = console) {
@@ -326,54 +401,7 @@ export async function renderProject(input, options = {}, io = console) {
   });
   applyOutputScaleToPlan(plan, edit.output, options.scaleTo);
   assertHevcPresetSupported(plan.preset);
-  const state = {
-    version: VERSION,
-    phase: "planned",
-    inputs,
-    // State warnings grow throughout execution. Keep them detached from the immutable command
-    // plan so a post-verify warning cannot change the plan hash after the receipt is written.
-    warnings: [...(plan.commands.audio_mix.warnings ?? [])],
-    validation: {
-      lint,
-      environment: {
-        node: capabilities.nodeVersion,
-        ffmpeg: capabilities.ffmpegVersion,
-        ffprobe: capabilities.ffprobeVersion,
-      },
-    },
-    plan,
-    provenance: {
-      audio: {
-        envelope: plan.commands.audio_mix.envelope,
-        clip_fx: plan.commands.audio_mix.clip_fx,
-      },
-      sources: capabilities.sourceInputs.map((source) => ({
-        id: source.id,
-        path: relativeOrAbsolute(projectRoot, source.path),
-        duration_seconds: source.duration,
-        has_audio: source.hasAudio,
-        width: source.width,
-        height: source.height,
-        fps: source.fps,
-        pix_fmt: source.pixFmt,
-        color_range: source.colorRange,
-      })),
-      proxy_used: false,
-      render_tmp_dir: relativeOrAbsolute(projectRoot, temporaryDirectory),
-      rasterizer: { planned: plan.rasterizer.selected, adopted: null, attempts: [] },
-      environment: {
-        node: capabilities.nodeVersion,
-        ffmpeg: capabilities.ffmpegVersion,
-        ffprobe: capabilities.ffprobeVersion,
-      },
-      ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility, codec),
-      codec,
-    },
-    artifacts: [],
-    verify: null,
-    ...(gpuForceBypassed ? { gpu_forced: true } : {}),
-    ...(captionLayout ? { caption_layout: captionLayout } : {}),
-  };
+  const state = buildInitialRenderState({ lint, inputs, plan, capabilities, projectRoot, temporaryDirectory, engineRequested, gpuEligibility, codec, gpuForceBypassed, captionLayout });
   if (engineRequested === "auto" && gpuEligibility?.eligible === false) {
     addWarning(state, `GPU export is ineligible; using OSR: ${formatGpuEligibilityFailures(gpuEligibility)}`);
   }
@@ -434,31 +462,7 @@ export async function renderProject(input, options = {}, io = console) {
 
     reporter.stageStart("prepare");
     reporter.stageEnd("prepare");
-    reporter.stageStart("audio-cut");
-    const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
-    const cutCommand = plan.commands.cut_audio;
-    for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
-    if (cutCommand.concat_list) {
-      await writeFile(cutCommand.concat_list.path, cutCommand.concat_list.content, "utf8");
-    }
-    for (const chunk of cutCommand.chunks ?? []) {
-      runChecked(capabilities.ffmpegCommand, chunk.args, { cwd: projectRoot });
-    }
-    if (progressEnabled) {
-      await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
-        cwd: projectRoot,
-        onProgress: (seconds) => reporter.cutTime(seconds, plan.predicted_duration_seconds),
-      });
-    } else {
-      runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
-    }
-
-    const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
-    if (plan.commands.tail_pad_audio) {
-      runChecked(plan.commands.tail_pad_audio.command, plan.commands.tail_pad_audio.args, { cwd: projectRoot });
-    }
-    const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
-    reporter.stageEnd("audio-cut");
+    const audioSourcePath = await runCutAudioStage({ state, plan, capabilities, projectRoot, temporaryDirectory, progressEnabled, reporter });
     const compositePath = join(temporaryDirectory, container.kind === "directory" ? "composite" : `composite.${container.ext}`);
     const alphaLayers = await prepareAlphaLayers(planningEdit, { projectRoot });
     for (const warning of alphaLayers.warnings) addWarning(state, warning);
@@ -475,7 +479,7 @@ export async function renderProject(input, options = {}, io = console) {
       frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
       quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
       codec,
-      // --gpu-preference auto|off|force（省略時 undefined → env AKARI_EXPORT_GPU_PREFERENCE → auto）。Windows 以外は no-op。
+      // --gpu-preference auto|off|force（省略時 undefined → env AKARI_EXPORT_GPU_PREFERENCE → saved consent → off）。Windows 以外は no-op。
       gpuPreference: options.gpuPreference,
       ffmpegCommand: capabilities.ffmpegCommand,
       ffprobeCommand: capabilities.ffprobeCommand,
@@ -546,229 +550,13 @@ export async function renderProject(input, options = {}, io = console) {
     });
     reporter.stageEnd("render");
 
-    reporter.stageStart("audio-mix");
-    const audioMixStarted = performance.now();
-    const finalPath = container.kind === "directory"
-      ? compositePath
-      : join(temporaryDirectory, `final.${container.ext}`);
-    const audioExecution = await executeAudioPlan(plan.commands.audio_mix, capabilities.ffmpegVersion, {
-      projectRoot, temporaryDirectory, audioItemCount: countAudioItems(edit.audio),
-    });
-    const audioMaster = !options.noAudio && edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
-    if (audioMaster && audioExecution.error) {
-      state.audio_qc = measurementErrorAudioQc({
-        master: audioMaster,
-        phase: "filter_report",
-        code: audioExecution.error.code,
-        message: audioExecution.error.message,
-        toolVersion: capabilities.ffmpegVersion,
-        toolVersionError: capabilities.ffmpegVersionError,
-      });
-      if (codec === "png") throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
-      const failedArtifactPath = await persistFailedRenderArtifact(projectRoot, compositePath);
-      const failedVerification = verifyArtifact({
-        outputPath: failedArtifactPath,
-        plan,
-        inputs: state.provenance.sources,
-        edit,
-        ffprobeCommand: capabilities.ffprobeCommand,
-        ffmpegCommand: capabilities.ffmpegCommand,
-        verifyBlank: options.verifyBlank,
-      });
-      state.artifacts = [{
-        path: relativeOrAbsolute(projectRoot, failedArtifactPath),
-        sha256: await sha256File(failedArtifactPath),
-        ffprobe: failedVerification.measured,
-      }];
-      if (failedVerification.verdict === "pass") {
-        const receipt = await createImmutableRenderReceipt({
-          projectRoot,
-          declaredInputs,
-          inputSnapshot,
-          outputPath: failedArtifactPath,
-          ffprobe: failedVerification.measured,
-          plan,
-          verify: failedVerification,
-          tools: {
-            node: capabilities.nodeVersion,
-            ffmpeg: capabilities.ffmpegVersion,
-            ffprobe: capabilities.ffprobeVersion,
-          },
-          captionLayout,
-          audioQc: state.audio_qc,
-          provenance: state.provenance,
-          createdAt: options.receiptCreatedAt,
-        });
-        state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
-      }
-      throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
-    }
-
-    if (codec === "png") {
-      const mixedAudioPath = plan.commands.audio_mix.output;
-      await rm(join(finalPath, "audio.wav"), { force: true });
-      await rename(mixedAudioPath, join(finalPath, "audio.wav"));
-    }
-    await mkdir(dirname(outputPath), { recursive: true });
-    if (explicitOutput) {
-      await rm(outputPath, { recursive: codec === "png", force: true });
-      await rename(finalPath, outputPath);
-    } else if (codec === "png") {
-      await rename(finalPath, outputPath);
-    } else {
-      await copyFile(finalPath, outputPath, fsConstants.COPYFILE_EXCL);
-      await rm(finalPath, { force: true });
-    }
-    state.phase = "rendered";
-    if (audioMaster) {
-      state.audio_qc = buildAudioQc({
-        master: audioMaster,
-        audioCodec: plan.preset.audio_codec,
-        filterStderr: audioExecution.stderr,
-        outputPath: codec === "png" ? join(outputPath, "audio.wav") : outputPath,
-        ffmpegCommand: capabilities.ffmpegCommand,
-        toolVersion: capabilities.ffmpegVersion,
-        toolVersionError: capabilities.ffmpegVersionError,
-      });
-      if (state.audio_qc.verdict === "INCONCLUSIVE") {
-        addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
-      }
-    }
-    reporter.stageEnd("audio-mix");
-    emitTiming("audio_mix", audioMixStarted);
-    reporter.stageStart("verify");
-    const verifyStarted = performance.now();
-    // 不具合メモ第22項: 再利用判定をここで 1 回だけ解決する。判定結果は verifyArtifact へ渡すほか、
-    // 黒画面検査を先行実行するかどうかの判断にも使う（先行実行は進捗を出せる非同期版）。
-    // GPU 段の検査値は copy 経路に限らず渡す。音声が作り直されていても、映像ストリームの
-    // 同一性を実証できたときだけ映像の証拠を引き継ぐ判定は resolveVideoEvidenceReuse が行う。
-    const videoEvidence = codec === "png"
-      ? null
-      : resolveVideoEvidenceReuse({
-          plan,
-          gpuVerification: reusableGpuVerification,
-          outputPath,
-          ffprobeCommand: capabilities.ffprobeCommand,
-          ffmpegCommand: capabilities.ffmpegCommand,
-          onTiming: recordParentTiming,
-          onCheck: (check, status) => reporter.verifyCheck(check, status),
-        });
-    if (videoEvidence?.scope === "video") {
-      state.provenance.verify_evidence_reuse = videoEvidence.record;
-    }
-    const blankFrameScan = await prescanBlankFramesWithProgress({
-      // verifyArtifact の既定（省略時 true）と揃える。--no-verify-blank のときだけ走らせない。
-      enabled: options.verifyBlank !== false && codec !== "png",
-      evidence: videoEvidence,
-      outputPath,
-      fps: plan.preset.fps,
-      edit,
-      ffmpegCommand: capabilities.ffmpegCommand,
-      expectedFrames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
-      reporter,
-      onTiming: recordParentTiming,
-    });
-    const verification = verifyArtifact({
-      outputPath,
-      plan,
-      inputs: state.provenance.sources,
-      edit,
-      ffprobeCommand: capabilities.ffprobeCommand,
-      ffmpegCommand: capabilities.ffmpegCommand,
-      verifyBlank: options.verifyBlank,
-      gpuVerification: reusableGpuVerification,
-      videoEvidence,
-      blankFrameScan,
-      onTiming: recordParentTiming,
-      onCheck: (check, status) => reporter.verifyCheck(check, status),
-    });
-    state.verify = verification;
-    reporter.stageEnd("verify");
-    emitTiming("verify_total", verifyStarted);
-    state.artifacts = codec === "png"
-      ? [
-          {
-            path: relativeOrAbsolute(projectRoot, outputPath),
-            kind: "directory",
-            frames: verification.measured.frame_count,
-            sha256: await sha256PngDirectory(outputPath),
-          },
-          {
-            path: relativeOrAbsolute(projectRoot, join(outputPath, "audio.wav")),
-            sha256: await sha256File(join(outputPath, "audio.wav")),
-            ffprobe: verification.measured.audio,
-          },
-        ]
-      : [
-          {
-            path: relativeOrAbsolute(projectRoot, outputPath),
-            sha256: await sha256File(outputPath),
-            ffprobe: verification.measured,
-          },
-        ];
-    state.phase = "verified";
+    await runAudioMixStage({ options, codec, container, projectRoot, edit, capabilities, declaredInputs, inputSnapshot, captionLayout, explicitOutput, outputPath, temporaryDirectory, plan, state, reporter, emitTiming, compositePath });
+    const verification = await runVerifyStage({ reusableGpuVerification, plan, outputPath, capabilities, recordParentTiming, emitTiming, reporter, state, options, codec, edit, projectRoot });
     if (verification.verdict === "pass" && codec !== "png") {
-      const contactSheetStarted = performance.now();
-      const contactSheetTimestamps = deriveContactSheetTimestamps({
-        cuts: edit.cuts,
-        overlays: [...loadedOverlays, ...captionOverlays],
-        durationSeconds: plan.predicted_duration_seconds,
-        fps: plan.preset.fps,
-      });
-      const contactSheetPath = join(projectRoot, ".akari", "reports", "contact-sheet.png");
-      await mkdir(dirname(contactSheetPath), { recursive: true });
-      const generatedContactSheet = await renderContactSheet({
-        ffmpegCommand: capabilities.ffmpegCommand,
-        videoPath: outputPath,
-        timestamps: contactSheetTimestamps,
-        temporaryDirectory,
-        outputPath: contactSheetPath,
-      });
-      if (generatedContactSheet) {
-        state.contact_sheet = {
-          path: relativeOrAbsolute(projectRoot, contactSheetPath),
-          timestamps_seconds: contactSheetTimestamps,
-        };
-      }
-      emitTiming("contact_sheet", contactSheetStarted);
+      await runContactSheetStage({ edit, loadedOverlays, captionOverlays, plan, projectRoot, capabilities, outputPath, temporaryDirectory, state, emitTiming });
     }
-    let receiptDeclaredInputs = declaredInputs;
-    let receiptInputSnapshot = inputSnapshot;
     if (verification.verdict === "pass" && codec !== "png") {
-      await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
-      const receiptEditText = await readFile(editPath, "utf8");
-      receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
-        projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit, env,
-      });
-      receiptDeclaredInputs.push(...await additionalBgmInputs({
-        projectRoot, edit, editText: receiptEditText, internalEdit, env,
-      }));
-      receiptDeclaredInputs.sort((a, b) => a.role.localeCompare(b.role, "en") || a.path.localeCompare(b.path, "en"));
-      receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
-      const receiptStarted = performance.now();
-      const receipt = await createImmutableRenderReceipt({
-        projectRoot,
-        declaredInputs: receiptDeclaredInputs,
-        inputSnapshot: receiptInputSnapshot,
-        outputPath,
-        ffprobe: verification.measured,
-        plan,
-        verify: verification,
-        tools: {
-          node: capabilities.nodeVersion,
-          ffmpeg: capabilities.ffmpegVersion,
-          ffprobe: capabilities.ffprobeVersion,
-        },
-        captionLayout,
-        audioQc: state.audio_qc ?? null,
-        provenance: state.provenance,
-        createdAt: options.receiptCreatedAt,
-      });
-      state.render_receipt = {
-        path: receipt.path,
-        sha256: receipt.sha256,
-      };
-      emitTiming("receipt", receiptStarted);
+      await runReceiptStage({ editPath, outputPath, projectRoot, edit, internalEdit, captionFontAsset, env, state, plan, verification, capabilities, captionLayout, options, emitTiming, declaredInputs, inputSnapshot });
     }
     if (state.audio_qc?.verdict === "MEASUREMENT_ERROR") {
       throw new RefusalError("audio QC decoded artifact measurement failed");
@@ -875,228 +663,6 @@ export async function withRenderMediaReferences(projectRoot, inputs, run) {
       activeMediaReferencePaths.delete(path);
     }
   }
-}
-
-export function parseArguments(argv, env = process.env) {
-  const options = {
-    projectRoot: null,
-    planOnly: false,
-    out: null,
-    force: false,
-    help: false,
-    // Left undefined (not null) unless the corresponding flag is actually present in argv: buildPlan
-    // treats "flag absent" and "flag present with its default value" differently (see
-    // src/encode-preset.mjs) so that omitting every new flag reproduces today's exact ffmpeg
-    // command lines (task 2026-07-25-export-options's backward-compat requirement).
-    quality: undefined,
-    encoder: undefined,
-    engine: "auto",
-    codec: "h264",
-    // undefined のまま exportWithGpu / exportWithOsr → launchElectronExport へ渡すと env AKARI_EXPORT_GPU_PREFERENCE → auto に落ちる。
-    gpuPreference: undefined,
-    fps: undefined,
-    scaleTo: undefined,
-    progress: false,
-    preview: undefined,
-    verifyBlank: true,
-    noAudio: false,
-    settle: true,
-  };
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument === "--help" || argument === "-h") options.help = true;
-    else if (argument === "--plan-only") options.planOnly = true;
-    else if (argument === "--force") options.force = true;
-    else if (argument === "--progress") options.progress = true;
-    else if (argument === "--no-settle") options.settle = false;
-    else if (argument === "--no-verify-blank") options.verifyBlank = false;
-    else if (argument === "--no-audio") options.noAudio = true;
-    else if (argument === "--preview") {
-      if (index + 1 >= argv.length) throw new Error("--preview requires a value");
-      options.preview = parsePreviewValue(argv[++index]);
-    } else if (argument.startsWith("--preview=")) options.preview = parsePreviewValue(argument.slice(10));
-    else if (argument === "--codec") {
-      if (index + 1 >= argv.length) throw new Error("--codec requires a value");
-      options.codec = parseCodecValue(argv[++index]);
-    } else if (argument.startsWith("--codec=")) options.codec = parseCodecValue(argument.slice(8));
-    else if (argument === "--engine") {
-      if (index + 1 >= argv.length) throw new Error("--engine requires a value");
-      options.engine = parseEngineValue(argv[++index]);
-    } else if (argument.startsWith("--engine=")) options.engine = parseEngineValue(argument.slice(9));
-    else if (argument === "--gpu-preference") {
-      if (index + 1 >= argv.length) throw new Error("--gpu-preference requires a value");
-      options.gpuPreference = parseGpuPreferenceValue(argv[++index]);
-    } else if (argument.startsWith("--gpu-preference=")) options.gpuPreference = parseGpuPreferenceValue(argument.slice(17));
-    else if (argument === "--out") {
-      if (index + 1 >= argv.length) throw new Error("--out requires a path");
-      options.out = argv[++index];
-    } else if (argument.startsWith("--out=")) options.out = argument.slice(6);
-    else if (argument === "--quality") {
-      if (index + 1 >= argv.length) throw new Error("--quality requires a value");
-      options.quality = parseQualityValue(argv[++index]);
-    } else if (argument.startsWith("--quality=")) options.quality = parseQualityValue(argument.slice(10));
-    else if (argument === "--encoder") {
-      if (index + 1 >= argv.length) throw new Error("--encoder requires a value");
-      options.encoder = parseEncoderValue(argv[++index]);
-    } else if (argument.startsWith("--encoder=")) options.encoder = parseEncoderValue(argument.slice(10));
-    else if (argument === "--fps") {
-      if (index + 1 >= argv.length) throw new Error("--fps requires a number");
-      options.fps = parseFpsValue(argv[++index]);
-    } else if (argument.startsWith("--fps=")) options.fps = parseFpsValue(argument.slice(6));
-    else if (argument === "--scale-to") {
-      if (index + 1 >= argv.length) throw new Error("--scale-to requires a value");
-      options.scaleTo = parseScaleToValue(argv[++index]);
-    } else if (argument.startsWith("--scale-to=")) options.scaleTo = parseScaleToValue(argument.slice(11));
-    else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
-    else if (options.projectRoot === null) options.projectRoot = argument;
-    else throw new Error("Only one project root may be provided");
-  }
-  if (!options.help && options.projectRoot === null) throw new Error("A project root is required");
-  return options;
-}
-
-export function resolveEngineChoice(requested, platform, eligibility = null) {
-  if (requested === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
-  if (requested !== "auto") return requested;
-  return eligibility?.eligible === true ? "gpu" : "osr";
-}
-
-export function assertCodecEngine(codec, requested) {
-  if ((codec === "prores422" || codec === "png") && requested === "gpu") {
-    throw new RefusalError("この形式は GPU 直結では出せません");
-  }
-}
-
-export function buildEngineProvenance(requested, platform, launcher = undefined, eligibility = null, codec = "h264") {
-  return {
-    engine_requested: requested,
-    engine: codec === "prores422" || codec === "png"
-      ? "osr"
-      : resolveEngineChoice(requested, platform, eligibility),
-  };
-}
-
-export function readForceGpu(env) {
-  return env?.AKARI_FORCE_GPU === "1";
-}
-
-export function assertGpuEligibility(requested, eligibility, { force = false } = {}) {
-  if (requested !== "gpu" || eligibility?.eligible === true) return;
-  if (force && eligibility?.summary?.unsupported === 0) return;
-  const suffix = force ? "（AKARI_FORCE_GPU は degraded のみ対象）" : "";
-  throw new RefusalError(`GPU export is ineligible: ${formatGpuEligibilityFailures(eligibility)}${suffix}`);
-}
-
-export function assertOsrLauncherAvailable(launcher) {
-  if (launcher?.tier !== 3) return;
-  throw new RefusalError(`${OSR_ELECTRON_REFUSAL} (${launcher.reason ?? "Electron unavailable"})`, 2);
-}
-
-function formatGpuEligibilityFailures(eligibility) {
-  if (!eligibility?.entries) return "eligibility result is missing";
-  return eligibility.entries.filter((entry) => entry.forced === true || ["degraded", "unsupported"].includes(entry.classification))
-    .map((entry) => `${entry.kind}:${entry.id}:${entry.reason}`).join("; ") || "unknown reason";
-}
-
-function parseEngineValue(value) {
-  if (value === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
-  if (!ENGINE_CHOICES.includes(value)) {
-    throw new Error(`--engine must be one of ${ENGINE_CHOICES.join("|")}, got: ${value}`);
-  }
-  return value;
-}
-
-function parsePreviewValue(value) {
-  if (value !== "auto" && value !== "off") throw new Error(`--preview must be auto|off, got: ${value}`);
-  return value;
-}
-
-function parseCodecValue(value) {
-  if (!CODEC_CHOICES.includes(value)) {
-    throw new Error(`--codec must be one of ${CODEC_CHOICES.join("|")}, got: ${value}`);
-  }
-  return value;
-}
-
-function parseGpuPreferenceValue(value) {
-  if (!GPU_PREFERENCE_CHOICES.includes(value)) {
-    throw new Error(`--gpu-preference must be one of ${GPU_PREFERENCE_CHOICES.join("|")}, got: ${value}`);
-  }
-  return value;
-}
-
-function parseQualityValue(value) {
-  if (!QUALITY_LEVELS.includes(value)) {
-    throw new Error(`--quality must be one of ${QUALITY_LEVELS.join("|")}, got: ${value}`);
-  }
-  return value;
-}
-
-function parseEncoderValue(value) {
-  if (!ENCODER_CHOICES.includes(value)) {
-    throw new Error(`--encoder must be one of ${ENCODER_CHOICES.join("|")}, got: ${value}`);
-  }
-  return value;
-}
-
-function parseFpsValue(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`--fps must be a positive number, got: ${value}`);
-  }
-  return parsed;
-}
-
-export function parseScaleToValue(value) {
-  const match = /^(\d+)x(\d+)$/iu.exec(String(value).trim());
-  if (!match) throw new Error(`--scale-to must be <width>x<height>, got: ${value}`);
-  const width = Number(match[1]);
-  const height = Number(match[2]);
-  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
-    throw new Error(`--scale-to dimensions must be positive integers, got: ${value}`);
-  }
-  if (width % 2 !== 0 || height % 2 !== 0) {
-    throw new Error(`--scale-to dimensions must be even, got: ${value}`);
-  }
-  return { width, height };
-}
-
-export function applyOutputScaleToPlan(plan, editOutput, scaleTo) {
-  if (!scaleTo) return plan;
-  const fromWidth = Number(editOutput?.width);
-  const fromHeight = Number(editOutput?.height);
-  const toWidth = Number(scaleTo.width);
-  const toHeight = Number(scaleTo.height);
-  const fromRatio = fromWidth / fromHeight;
-  const toRatio = toWidth / toHeight;
-  const ratioDifference = Math.abs(toRatio - fromRatio) / fromRatio;
-  if (![fromWidth, fromHeight, toWidth, toHeight, fromRatio, toRatio].every(Number.isFinite)
-    || [fromWidth, fromHeight, toWidth, toHeight].some(value => value <= 0)) {
-    throw new RefusalError("--scale-to requires valid positive source and target dimensions");
-  }
-  if (ratioDifference > 0.01) {
-    throw new RefusalError(
-      `--scale-to must preserve edit.output aspect ratio within 1%: ${fromWidth}x${fromHeight} -> ${toWidth}x${toHeight}`,
-    );
-  }
-  const fromPixels = fromWidth * fromHeight;
-  const toPixels = toWidth * toHeight;
-  plan.preset = { ...plan.preset, width: toWidth, height: toHeight };
-  plan.output_scale = {
-    from: [fromWidth, fromHeight],
-    to: [toWidth, toHeight],
-    mode: toPixels > fromPixels ? "up" : toPixels < fromPixels ? "down" : "none",
-  };
-  return plan;
-}
-
-export function assertHevcPresetSupported(preset) {
-  if (preset?.video_codec !== "hevc") return;
-  const pixels = Number(preset.width) * Number(preset.height);
-  const samplesPerSecond = pixels * Number(preset.fps);
-  if (Number.isFinite(pixels) && Number.isFinite(samplesPerSecond)
-    && pixels > 0 && pixels <= 8_912_896 && samplesPerSecond <= 1_069_547_520) return;
-  throw new RefusalError(`HEVC Main profile Level 5.2 を超える出力には対応していません: ${preset.width}x${preset.height}@${preset.fps}fps`);
 }
 
 async function validateLint(projectRoot, force) {
@@ -1218,23 +784,6 @@ export async function enumerateProjectRenderInputs({
     internalEdit: renderRead.internal,
     env,
   });
-}
-
-async function additionalBgmInputs({ projectRoot, edit, editText, internalEdit, env }) {
-  const bgms = projectLegacyAudioView(internalEdit).bgms ?? [];
-  const extra = [];
-  for (const [index, bgm] of bgms.slice(1).entries()) {
-    const single = await enumerateDeclaredRenderInputs({
-      projectRoot,
-      edit: { ...edit, cuts: [], sources: [], overlays: [], layers: [], audio: { bgm } },
-      editText,
-      internalEdit: null,
-      env,
-    });
-    const input = single.find(value => value.role === "audio:bgm");
-    if (input) extra.push({ ...input, role: `audio:bgm:${index + 1}` });
-  }
-  return extra;
 }
 
 async function collectInputReceipts(projectRoot, edit, editText) {
@@ -1413,694 +962,6 @@ async function persistFailedRenderArtifact(projectRoot, sourcePath) {
   return join(resolve(projectRoot), relative(root, target));
 }
 
-export function parseRunDirectoryOwner(text) {
-  try {
-    const owner = JSON.parse(text);
-    return owner !== null && typeof owner === "object" && !Array.isArray(owner) ? owner : null;
-  } catch {
-    return null;
-  }
-}
-
-export function isProcessAlive(pid, kill = process.kill.bind(process)) {
-  if (!Number.isInteger(pid) || pid <= 0) return true;
-  try {
-    kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error?.code !== "ESRCH";
-  }
-}
-
-export async function cleanupFailedRunTemporaryDirectory(
-  temporaryDirectory,
-  env = process.env,
-  removeDirectory = rm,
-) {
-  if (!temporaryDirectory || env?.AKARI_KEEP_FAILED_RENDER_TMP === "1") return false;
-  try {
-    await removeDirectory(temporaryDirectory, { recursive: true, force: true });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Allocates this run's own render-tmp subdirectory (fs.mkdtemp-equivalent uniqueness: an
-// ISO8601-ish timestamp + pid prefix, plus mkdtemp's own random suffix, so even two processes
-// starting in the same millisecond never collide). Runs a best-effort sweep for stale directories
-// first so crashed runs don't leak disk space forever, without ever touching a directory an active
-// concurrent run still owns (see cleanupStaleRunDirectories).
-export async function createRunTemporaryDirectory(renderTmpRoot, {
-  pid = process.pid,
-  now = Date.now,
-  isPidAlive = isProcessAlive,
-} = {}) {
-  await mkdir(renderTmpRoot, { recursive: true });
-  const started = new Date(now());
-  await cleanupStaleRunDirectories(renderTmpRoot, {
-    now: () => started.getTime(),
-    isPidAlive,
-  });
-  const isoStamp = started.toISOString().replace(/[:.]/gu, "-");
-  const temporaryDirectory = await mkdtemp(join(renderTmpRoot, `${isoStamp}-${pid}-`));
-  try {
-    await writeFile(
-      join(temporaryDirectory, "owner.json"),
-      `${JSON.stringify({ pid, started: started.toISOString() }, null, 2)}\n`,
-      "utf8",
-    );
-  } catch (error) {
-    await cleanupFailedRunTemporaryDirectory(temporaryDirectory, {});
-    throw error;
-  }
-  return temporaryDirectory;
-}
-
-async function readRunDirectoryOwner(entryPath) {
-  try {
-    return parseRunDirectoryOwner(await readFile(join(entryPath, "owner.json"), "utf8"));
-  } catch (error) {
-    if (error?.code === "ENOENT") return null;
-    throw error;
-  }
-}
-
-export async function cleanupStaleRunDirectories(renderTmpRoot, {
-  now = Date.now,
-  isPidAlive = isProcessAlive,
-} = {}) {
-  let entries;
-  try {
-    entries = await readdir(renderTmpRoot, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  const nowMs = now();
-  await Promise.all(
-    entries
-      .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
-        const entryPath = join(renderTmpRoot, entry.name);
-        try {
-          const owner = await readRunDirectoryOwner(entryPath);
-          if (owner !== null) {
-            if (Number.isInteger(owner.pid) && owner.pid > 0 && !isPidAlive(owner.pid)) {
-              await rm(entryPath, { recursive: true, force: true });
-            }
-            return;
-          }
-          const info = await stat(entryPath);
-          if (nowMs - info.mtimeMs > STALE_RUN_DIRECTORY_MS) {
-            await rm(entryPath, { recursive: true, force: true });
-          }
-        } catch {
-          // Best-effort: another process may be concurrently using or removing this directory.
-        }
-      }),
-  );
-}
-
-export function verifyArtifact({
-  outputPath,
-  plan,
-  inputs = [],
-  edit = null,
-  ffprobeCommand = resolveFfprobe(),
-  ffmpegCommand = resolveFfmpeg(),
-  spawnSyncImpl = spawnSync,
-  verifyBlank = true,
-  gpuVerification = null,
-  // 事前に解決済みの再利用判定。render パスは 1 回だけ解決して黒画面検査の先行実行にも使う。
-  videoEvidence = null,
-  // 進捗付きで先行実行した signalstats 走査の結果（scanBlankFramesStreaming の戻り値）。
-  blankFrameScan = null,
-  onTiming = null,
-  onCheck = null,
-}) {
-  if (plan.preset?.video_codec === "png") {
-    return verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl });
-  }
-  const evidence = videoEvidence ?? resolveVideoEvidenceReuse({
-    plan, gpuVerification, outputPath, ffprobeCommand, ffmpegCommand, spawnSyncImpl, onTiming, onCheck,
-  });
-  const reusable = evidence.scope === "none" ? null : evidence;
-  const measured = evidence.measured;
-  const video = measured.streams.find((stream) => stream.codec_type === "video");
-  const audio = measured.streams.find((stream) => stream.codec_type === "audio");
-  const actualDuration = Number(measured.format?.duration ?? video?.duration);
-  const actualFps = parseRate(video?.avg_frame_rate ?? video?.r_frame_rate);
-  const expected = plan.preset;
-  const expectedVideoCodec = expected.video_codec ?? "h264";
-  const expectedVideoProfile = expected.profile ?? (expectedVideoCodec === "hevc" ? "main" : "high");
-  const expectedPixelFormat = expected.pixel_format ?? "yuv420p";
-  const expectedAudioCodec = expected.audio_codec ?? "aac";
-  const findings = [];
-  // docs/contract-2026-08-18-v1-render-parity.md §2: v1's cuts[].track / at declarations now
-  // reach a real gap-aware or track-stack render path under both the default and custom
-  // timeline.tracks orders (see buildPlan's v1 dispatch and buildTrackStackPlan in plan.mjs), so the
-  // 2026-08-04 "declared but never rendered" hint this comparison used to append on a mismatch no
-  // longer has a live cause to point at -- removed rather than left stale/misleading.
-  const durationOk = Number.isFinite(actualDuration)
-    && Math.abs(actualDuration - plan.predicted_duration_seconds) <= plan.duration_tolerance_seconds;
-  compare(findings, "verify.duration", durationOk, `duration ${actualDuration}s; expected ${plan.predicted_duration_seconds}s ±${plan.duration_tolerance_seconds}s`);
-
-  // 検査 1 + 2（task 2026-08-04-render-verify-media-checks）: 1 パスの全デコードで
-  // (a) 実フレーム数と (b) デコードエラーの有無を同時に測る。ffprobe -count_frames も同じだけ
-  // デコードが要るので、長尺で二重にコストを払わないよう ffmpeg 側 1 回に統合する。
-  const decodeStarted = performance.now();
-  notifyVerifyCheck(onCheck, "decode", reusable ? "reused" : "start");
-  const decodePass = reusable
-    ? reusedDecodePass({ evidence, video, audio, outputPath, ffmpegCommand, spawnSyncImpl, onCheck })
-    : decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl);
-  notifyVerifyCheck(onCheck, "decode", "end");
-  reportTiming(onTiming, "verify_decode", decodeStarted);
-  const expectedFrameCount = Math.round(plan.predicted_duration_seconds * expected.fps);
-  const frameTolerance = Math.round(plan.duration_tolerance_seconds * expected.fps);
-  compare(
-    findings,
-    "verify.frame-count",
-    decodePass.frameCount !== null && Math.abs(decodePass.frameCount - expectedFrameCount) <= frameTolerance,
-    `frame count ${decodePass.frameCount ?? "unknown"}; expected ${expectedFrameCount} ±${frameTolerance}`,
-  );
-
-  compare(findings, "verify.resolution", video?.width === expected.width && video?.height === expected.height, `resolution ${video?.width ?? "missing"}x${video?.height ?? "missing"}; expected ${expected.width}x${expected.height}`);
-  // task 2026-08-07-render-frame-accounting: avg_frame_rate is the container's own
-  // nb_frames/duration bookkeeping, not an independent measurement -- it inherits whatever
-  // sub-frame rounding the mux step accumulates. Real (non-lavfi) footage run through a
-  // multi-segment trim/setpts/atempo/concat graph into a real encoder (verified empirically with
-  // the actual reel: 13 cuts, 5 speed changes, 1 dissolve, h264_videotoolbox) legitimately lands
-  // exactly 1 frame off nominal fps in either direction -- once as nb_frames landing 1 short of
-  // what the declared duration implies (the original v4/v5 render: 1470 frames for a
-  // 1471-frame-shaped duration), once as the declared duration landing 1 frame long of nb_frames
-  // even though a full decode confirmed every one of the 1471 expected frames was actually
-  // present (this task's own repro against the reel's real source footage + cuts + encoder args --
-  // see report.md for both runs' raw ffprobe numbers). Both are within verify.duration's and
-  // verify.frame-count's own tolerances already; only fps's exact-equality check was flagging
-  // them. fpsWithinOneFrameTolerance is intentionally narrower than frame-count's own
-  // ±duration_tolerance_seconds*fps (which already accepts up to ~3 frames here) so a genuine
-  // multi-frame drop -- like the original v1 3-frame loss this same reel had before its cut
-  // boundaries were snapped to the fps grid -- still fails (regression: verify-fps-tolerance.test.mjs).
-  compare(
-    findings,
-    "verify.fps",
-    fpsWithinOneFrameTolerance(actualFps, expected.fps, expectedFrameCount),
-    `fps ${actualFps}; expected ${expected.fps} ±${oneFrameFpsTolerance(expected.fps, expectedFrameCount)} (1 frame of ${expectedFrameCount})`,
-  );
-  compare(findings, "verify.video-codec", video?.codec_name === expectedVideoCodec, `video codec ${video?.codec_name ?? "missing"}; expected ${expectedVideoCodec}`);
-  const profileOk = expectedVideoCodec === "prores"
-    ? video?.profile === 3 || String(video?.profile ?? "").toLowerCase() === "hq"
-    : String(video?.profile ?? "").toLowerCase() === expectedVideoProfile;
-  compare(findings, "verify.video-profile", profileOk, `video profile ${video?.profile ?? "missing"}; expected ${expectedVideoProfile}`);
-  compare(findings, "verify.pixel-format", video?.pix_fmt === expectedPixelFormat, `pixel format ${video?.pix_fmt ?? "missing"}; expected ${expectedPixelFormat}`);
-  compare(
-    findings,
-    "verify.color-range",
-    video?.color_range !== "pc",
-    `color range ${video?.color_range ?? "missing (defaults to tv)"}; expected ${expected.color_range ?? "tv"}`,
-  );
-  if (plan.audio_enabled === false) {
-    compare(findings, "verify.audio", !audio, `audio stream ${audio ? "present" : "absent"}; expected absent`);
-  } else {
-    compare(findings, "verify.audio", audio?.codec_name === expectedAudioCodec, `audio codec ${audio?.codec_name ?? "missing"}; expected ${expectedAudioCodec}`);
-  }
-  if (plan.commands.audio_mix?.hasNarration) {
-    compare(findings, "verify.narration-audio", Boolean(audio), `narration audio stream present: ${Boolean(audio)}; expected an audio stream because edit.json has audio.narration`);
-  }
-  compare(
-    findings,
-    "verify.decode",
-    decodePass.ok,
-    decodePass.ok ? "all frames decoded without error" : `decode error: ${decodePass.errorExcerpt}`,
-  );
-  const audioReasons = declaredAudioReasons({ plan, inputs, edit });
-  const declaredAudio = plan.commands.audio_mix?.hasAudibleAudio === true
-    || inputs.some((input) => input?.has_audio === true || input?.hasAudio === true);
-  // 音圧測定は成果物そのものを毎回測る。GPU 段が測ったのは音声合成**前**の composite なので、
-  // 映像ストリームが同一と実証できても音声側の測定値は決して引き継がない。
-  const audioMeasurement = audio
-    ? (() => {
-        const started = performance.now();
-        notifyVerifyCheck(onCheck, "audio-level", "start");
-        const result = measureAudioLevel({
-          outputPath,
-          durationSeconds: actualDuration,
-          ffmpegCommand,
-          spawnSyncImpl,
-        });
-        notifyVerifyCheck(onCheck, "audio-level", "end");
-        reportTiming(onTiming, "verify_audio", started);
-        return result;
-      })()
-    : null;
-  if (!audio) {
-    notifyVerifyCheck(onCheck, "audio-level", "skipped");
-    reportTiming(onTiming, "verify_audio", performance.now());
-  }
-  const audioLevel = judgeAudioLevel({
-    declared: declaredAudio,
-    reasons: audioReasons,
-    hasAudioStream: Boolean(audio),
-    measurement: audioMeasurement,
-  });
-  if (audioLevel.finding) findings.push(audioLevel.finding);
-
-  const motionStarted = performance.now();
-  notifyVerifyCheck(onCheck, "motion", "start");
-  const motion = judgeMotion({
-    outputPath,
-    cuts: edit?.cuts ?? [],
-    fps: expected.fps,
-    durationSeconds: actualDuration,
-    ffmpegCommand,
-    spawnSyncImpl,
-  });
-  notifyVerifyCheck(onCheck, "motion", "end");
-  reportTiming(onTiming, "verify_motion", motionStarted);
-  findings.push(...motion.findings);
-  const blankStarted = performance.now();
-  // 走査の優先順位: (1) 映像が同一と実証できたときの GPU 段 luma、(2) 呼び出し側が進捗付きで
-  // 先行実行した走査結果、(3) この場での同期走査。いずれも同じ判定器を通るので結果は同じ。
-  const reusedLuma = verifyBlank
-    ? blankFramesFromLuma({ luma: reusable?.luma, fps: expected.fps, edit })
-    : null;
-  if (!verifyBlank) notifyVerifyCheck(onCheck, "blank-frames", "skipped");
-  else if (reusedLuma) notifyVerifyCheck(onCheck, "blank-frames", "reused");
-  else if (!blankFrameScan) notifyVerifyCheck(onCheck, "blank-frames", "start");
-  const blankFrames = verifyBlank
-    ? (reusedLuma
-      ?? blankFrameScan
-      ?? scanBlankFrames({
-          outputPath,
-          fps: expected.fps,
-          edit,
-          ffmpegCommand,
-          spawnSyncImpl,
-        }))
-    : { intervals: [], findings: [] };
-  if (verifyBlank && !reusedLuma && !blankFrameScan) notifyVerifyCheck(onCheck, "blank-frames", "end");
-  // 先行実行された走査の所要時間は呼び出し側が verify_blank として記録済み（0ms で上書きしない）。
-  if (!blankFrameScan) reportTiming(onTiming, "verify_blank", blankStarted);
-  findings.push(...blankFrames.findings);
-  return {
-    verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
-    findings,
-    ...(evidence.scope === "video" ? { evidence_reuse: evidence.record } : {}),
-    measured: {
-      duration_seconds: actualDuration,
-      width: video?.width ?? null,
-      height: video?.height ?? null,
-      fps: actualFps,
-      video_codec: video?.codec_name ?? null,
-      video_profile: video?.profile ?? null,
-      pixel_format: video?.pix_fmt ?? null,
-      color_range: video?.color_range ?? null,
-      audio_codec: audio?.codec_name ?? null,
-      frame_count: decodePass.frameCount,
-    },
-    declared: {
-      audio_level: audioLevel.record,
-      motion: motion.records,
-      blank_frames: blankFrames.intervals,
-    },
-  };
-}
-
-export function reusableGpuVerificationResult(gpuVerification) {
-  const finalVerify = gpuVerification?.finalVerify;
-  const measured = finalVerify?.measured;
-  const decodeStderr = finalVerify?.decode?.stderr;
-  const video = measured?.streams?.find((stream) => stream?.codec_type === "video");
-  if (!measured || !Array.isArray(measured.streams) || !measured.format
-    || typeof decodeStderr !== "string" || !video || finiteFrameCount(video.nb_read_frames) === null) return null;
-  return { measured, decodeStderr, luma: gpuVerification?.luma ?? null };
-}
-
-// 引き継ぎの前に「同じ映像か」を確かめる項目。復号後の画の性質を決めるものだけを並べる。
-// 時刻系（avg_frame_rate / duration）は `-t` の末尾サンプル丸めで数桁だけ動くことがあり、
-// しかも成果物側で verify.duration / verify.fps が毎回測り直すので同一性の条件には入れない。
-export const VIDEO_STREAM_IDENTITY_FIELDS = Object.freeze([
-  "codec_name",
-  "profile",
-  "width",
-  "height",
-  "pix_fmt",
-  "color_range",
-  "r_frame_rate",
-]);
-
-/**
- * 映像ストリームのパケットペイロードだけを demux して sha256 を取る（`-c copy` なのでデコードしない）。
- * 実測（4K 600 フレーム・157MB・本機 16 コア）: 全デコード 1.24s / signalstats 走査 16.7s に対し
- * このパスは 0.47s。streamhash muxer を持たない ffmpeg では非 0 終了するので null を返し、
- * 呼び出し側は「同一性を実証できない」= 再走査へ倒れる。
- */
-export function hashVideoBitstream({ path, ffmpegCommand = resolveFfmpeg(), spawnSyncImpl = spawnSync }) {
-  const result = spawnSyncImpl(
-    ffmpegCommand,
-    [
-      "-hide_banner", "-v", "error", "-nostdin",
-      "-i", path,
-      "-map", "0:v:0",
-      "-c", "copy",
-      "-f", "streamhash",
-      "-hash", "sha256",
-      "-",
-    ],
-    { encoding: "utf8", maxBuffer: 1024 * 1024 },
-  );
-  if (result?.error || result?.status !== 0) return null;
-  const match = /,v,SHA256=([0-9a-f]{64})/iu.exec(String(result?.stdout ?? ""));
-  return match ? match[1].toLowerCase() : null;
-}
-
-/**
- * audio_mix の入力（GPU 段が測った composite）と成果物の映像ストリームが同一であることを実証する。
- * 「plan が `-c:v copy` だったのだから同じはず」という前提では判定しない。実際に
- *   1. 復号後の画の性質（コーデック / プロファイル / 解像度 / pix_fmt / color_range / 公称 fps）
- *   2. フレーム数（GPU 段が数えた nb_read_frames と、成果物コンテナの nb_frames）
- *   3. 映像パケットのペイロードの sha256（= ビットストリームそのもの）
- * の 3 つが全て一致したときだけ identical を返す。どれか 1 つでも確かめられなければ
- * 安全側（再走査）へ倒すため identical:false を返す。
- */
-export function proveVideoStreamIdentity({
-  referencePath,
-  referenceStream,
-  referenceFrames,
-  candidatePath,
-  candidateStream,
-  ffmpegCommand = resolveFfmpeg(),
-  spawnSyncImpl = spawnSync,
-}) {
-  const unproven = (reason) => ({ identical: false, reason, frames: null, sha256: null });
-  if (typeof referencePath !== "string" || referencePath === "") {
-    return unproven("audio_mix の入力パスが plan に無い");
-  }
-  if (!referenceStream || !candidateStream) return unproven("映像ストリームの測定値が揃っていない");
-  for (const field of VIDEO_STREAM_IDENTITY_FIELDS) {
-    const left = referenceStream[field] ?? null;
-    const right = candidateStream[field] ?? null;
-    if (String(left) !== String(right)) {
-      return unproven(`映像ストリームの ${field} が違う（${String(left)} → ${String(right)}）`);
-    }
-  }
-  if (finiteFrameCount(referenceFrames) === null) return unproven("GPU 段の数えたフレーム数が読めない");
-  const candidateFrames = finiteFrameCount(candidateStream.nb_frames);
-  if (candidateFrames === null) return unproven("成果物のフレーム数（nb_frames）がコンテナから読めない");
-  if (candidateFrames !== Number(referenceFrames)) {
-    return unproven(`フレーム数が違う（${referenceFrames} → ${candidateFrames}）`);
-  }
-  const referenceHash = hashVideoBitstream({ path: referencePath, ffmpegCommand, spawnSyncImpl });
-  if (referenceHash === null) return unproven("audio_mix 入力の映像ビットストリームを読めない");
-  const candidateHash = hashVideoBitstream({ path: candidatePath, ffmpegCommand, spawnSyncImpl });
-  if (candidateHash === null) return unproven("成果物の映像ビットストリームを読めない");
-  if (referenceHash !== candidateHash) return unproven("映像ビットストリームが一致しない");
-  return { identical: true, reason: null, frames: candidateFrames, sha256: candidateHash };
-}
-
-/**
- * 不具合メモ第22項（2026-09-18）: 書き出し後検査が映像を何度も走査していた問題への対処。
- *
- * GPU 段は composite に対して既に「全フレームを数える ffprobe」と「エンコード対象 canvas から
- * 集めた全フレーム luma」を持っている。audio_mix が音声だけを作り直す（映像は `-c:v copy`）
- * 書き出しでは、映像の証拠だけは同じものを使い回せる余地がある。ただし
- *
- *   - 引き継ぎの前に映像ストリームの同一性を実証する（proveVideoStreamIdentity）。
- *   - **音声の証拠は決して引き継がない**。GPU 段が測ったのは音声合成前の composite なので、
- *     最終音声の証拠にはならない。scope "video" では ffprobe の測定値は成果物を測り直し、
- *     音声のデコード検査も音圧測定も成果物に対して毎回実行する。
- *
- * 返す scope の意味:
- *   full  … audio_mix が composite のバイト単位コピー。最終ファイル = GPU 段が測ったファイル。
- *   video … 映像ビットストリームの同一性を実証できた。映像の証拠だけ引き継ぐ。
- *   none  … 実証できなかった / GPU 段の検査値が無い。従来どおり全部測り直す。
- */
-export function resolveVideoEvidenceReuse({
-  plan,
-  gpuVerification = null,
-  outputPath,
-  ffprobeCommand = resolveFfprobe(),
-  ffmpegCommand = resolveFfmpeg(),
-  spawnSyncImpl = spawnSync,
-  onTiming = null,
-  onCheck = null,
-}) {
-  const audioPlan = plan?.commands?.audio_mix ?? {};
-  const reusable = reusableGpuVerificationResult(gpuVerification);
-  const probeStarted = performance.now();
-  if (reusable !== null && audioPlan.operation === "copy") {
-    notifyVerifyCheck(onCheck, "probe", "reused");
-    reportTiming(onTiming, "verify_probe", probeStarted);
-    const video = reusable.measured.streams.find((stream) => stream?.codec_type === "video");
-    return {
-      scope: "full",
-      reason: "audio_mix は composite のバイトコピーなので最終ファイルは GPU 段が測ったファイルそのもの",
-      measured: reusable.measured,
-      decodeStderr: reusable.decodeStderr,
-      frameCount: finiteFrameCount(video?.nb_read_frames),
-      luma: reusable.luma,
-      identity: null,
-      record: null,
-    };
-  }
-  notifyVerifyCheck(onCheck, "probe", "start");
-  const measured = probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
-  notifyVerifyCheck(onCheck, "probe", "end");
-  reportTiming(onTiming, "verify_probe", probeStarted);
-  const unreusable = (reason, identity = null) => ({
-    scope: "none",
-    reason,
-    measured,
-    decodeStderr: null,
-    frameCount: null,
-    luma: null,
-    identity,
-    record: null,
-  });
-  if (reusable === null) {
-    return unreusable(gpuVerification === null
-      ? "GPU 段の映像検査値が無い（OSR 経路など）"
-      : "GPU 段の映像検査値が引き継げる形をしていない");
-  }
-  const referenceStream = reusable.measured.streams.find((stream) => stream?.codec_type === "video");
-  const candidateStream = measured.streams?.find((stream) => stream?.codec_type === "video");
-  notifyVerifyCheck(onCheck, "video-identity", "start");
-  const identityStarted = performance.now();
-  const identity = proveVideoStreamIdentity({
-    referencePath: audioPlan.input,
-    referenceStream,
-    referenceFrames: referenceStream?.nb_read_frames,
-    candidatePath: outputPath,
-    candidateStream,
-    ffmpegCommand,
-    spawnSyncImpl,
-  });
-  reportTiming(onTiming, "verify_video_identity", identityStarted);
-  notifyVerifyCheck(onCheck, "video-identity", "end");
-  if (!identity.identical) {
-    return unreusable(`映像ストリームの同一性を実証できない: ${identity.reason}`, identity);
-  }
-  return {
-    scope: "video",
-    reason: "映像ビットストリームが audio_mix 入力と同一",
-    measured,
-    decodeStderr: reusable.decodeStderr,
-    frameCount: identity.frames,
-    luma: reusable.luma,
-    identity,
-    record: {
-      scope: "video-only",
-      audio_mix_operation: audioPlan.operation ?? null,
-      video_bitstream_sha256: identity.sha256,
-      video_frames: identity.frames,
-      video_luma_reused: Boolean(reusable.luma),
-      // 音声の証拠は成果物を毎回測り直す（GPU 段の音声検査は最終音声の証拠にならない）。
-      audio_evidence_reused: false,
-    },
-  };
-}
-
-function reusedDecodePass({ evidence, video, audio, outputPath, ffmpegCommand, spawnSyncImpl, onCheck }) {
-  const videoDecode = evidence.decodeStderr.trim();
-  const frameCount = evidence.frameCount ?? finiteFrameCount(video?.nb_read_frames);
-  if (evidence.scope === "full") {
-    return {
-      ok: videoDecode === "",
-      frameCount,
-      errorExcerpt: videoDecode || "ffprobe exited successfully",
-    };
-  }
-  // scope "video": 映像は同一と実証済みなので GPU 段のデコード結果を引き継ぐが、
-  // 音声は audio_mix が作り直しているため、音声のデコード検査だけは必ず成果物に対して実行する。
-  notifyVerifyCheck(onCheck, "audio-decode", audio ? "start" : "skipped");
-  const audioDecode = audio
-    ? decodeAudioStreamOnly(ffmpegCommand, outputPath, spawnSyncImpl)
-    : { ok: true, errorExcerpt: "no audio stream to decode" };
-  if (audio) notifyVerifyCheck(onCheck, "audio-decode", "end");
-  const failures = [
-    ...(videoDecode === "" ? [] : [`video(reused): ${videoDecode}`]),
-    ...(audioDecode.ok ? [] : [`audio: ${audioDecode.errorExcerpt}`]),
-  ];
-  return {
-    ok: failures.length === 0,
-    frameCount,
-    errorExcerpt: failures.join(" / ") || "video decode reused from the identical bitstream; audio decoded without error",
-  };
-}
-
-// 音声だけをデコードする（`-vn`）。映像を一切触らないので 4K でも数秒で終わる。
-function decodeAudioStreamOnly(ffmpegCommand, outputPath, spawnSyncImpl = spawnSync) {
-  const result = spawnSyncImpl(
-    ffmpegCommand,
-    [
-      "-hide_banner", "-v", "error", "-nostdin",
-      "-i", outputPath,
-      "-vn", "-sn", "-dn",
-      "-f", "null", "-",
-    ],
-    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-  );
-  const stderr = String(result?.stderr ?? "");
-  const spawnFailed = Boolean(result?.error);
-  return {
-    ok: !spawnFailed && result?.status === 0 && stderr.trim() === "",
-    errorExcerpt: spawnFailed
-      ? messageOf(result.error)
-      : (stderr.trim() || `ffmpeg exited ${result?.status ?? "unknown"} with no stderr output`)
-          .split(/\r?\n/u)
-          .slice(0, 5)
-          .join(" / "),
-  };
-}
-
-function notifyVerifyCheck(callback, check, status) {
-  if (typeof callback === "function") callback(check, status);
-}
-
-/**
- * 不具合メモ第22項の 3 点目: 黒画面検査を進捗付きで先行実行する。
- * 88 分 4K では走査に約 57 分かかるため、spawnSync のまま（= 終わるまで 1 バイトも読めない）だと
- * 親の進捗ログが無音になり「レンダーが停止した」ように見えていた。走査の引数列と判定器は
- * 同期版とまったく同じなので、出す結果は変わらない。
- * 映像の同一性が実証できて luma を引き継げるときは走査そのものを行わない（null を返し、
- * verifyArtifact 側が luma から同じ判定器で結果を作る）。
- */
-async function prescanBlankFramesWithProgress({
-  enabled,
-  evidence,
-  outputPath,
-  fps,
-  edit,
-  ffmpegCommand,
-  expectedFrames,
-  reporter,
-  onTiming,
-}) {
-  if (enabled !== true) return null;
-  if (blankFramesFromLuma({ luma: evidence?.luma ?? null, fps, edit }) !== null) return null;
-  const started = performance.now();
-  reporter.verifyCheck("blank-frames", "start");
-  const result = await scanBlankFramesStreaming({
-    outputPath,
-    fps,
-    edit,
-    ffmpegCommand,
-    totalFrames: expectedFrames,
-    onProgress: ({ frames, totalFrames }) => reporter.verifyCheckFrames("blank-frames", frames, totalFrames),
-  });
-  reporter.verifyCheck("blank-frames", "end");
-  reportTiming(onTiming, "verify_blank", started);
-  return result;
-}
-
-function finiteFrameCount(value) {
-  const number = Number(value);
-  return Number.isInteger(number) && number >= 0 ? number : null;
-}
-
-function reportTiming(callback, name, started) {
-  if (typeof callback !== "function") return;
-  callback(name, Math.max(0, Math.round(performance.now() - started)));
-}
-
-function verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl }) {
-  const frameFiles = readdirSync(outputPath)
-    .filter((name) => /^frame-\d{5}\.png$/u.test(name))
-    .sort();
-  const expectedFrames = Math.round(plan.predicted_duration_seconds * plan.preset.fps);
-  const first = frameFiles[0] ? probeMedia(ffprobeCommand, join(outputPath, frameFiles[0]), spawnSyncImpl) : null;
-  const last = frameFiles.length > 1 ? probeMedia(ffprobeCommand, join(outputPath, frameFiles.at(-1)), spawnSyncImpl) : first;
-  const firstVideo = first?.streams?.find((stream) => stream.codec_type === "video");
-  const lastVideo = last?.streams?.find((stream) => stream.codec_type === "video");
-  const audio = probeMedia(ffprobeCommand, join(outputPath, "audio.wav"), spawnSyncImpl);
-  const audioStream = audio.streams?.find((stream) => stream.codec_type === "audio");
-  const audioDuration = Number(audio.format?.duration ?? audioStream?.duration);
-  const findings = [];
-  compare(findings, "verify.frame-count", frameFiles.length === expectedFrames, `frame count ${frameFiles.length}; expected ${expectedFrames} ±0`);
-  compare(findings, "verify.first-resolution", firstVideo?.width === plan.preset.width && firstVideo?.height === plan.preset.height, `first PNG resolution ${firstVideo?.width ?? "missing"}x${firstVideo?.height ?? "missing"}; expected ${plan.preset.width}x${plan.preset.height}`);
-  compare(findings, "verify.last-resolution", lastVideo?.width === plan.preset.width && lastVideo?.height === plan.preset.height, `last PNG resolution ${lastVideo?.width ?? "missing"}x${lastVideo?.height ?? "missing"}; expected ${plan.preset.width}x${plan.preset.height}`);
-  compare(findings, "verify.audio", audioStream?.codec_name === "pcm_s16le", `audio codec ${audioStream?.codec_name ?? "missing"}; expected pcm_s16le`);
-  compare(findings, "verify.audio-duration", Number.isFinite(audioDuration) && Math.abs(audioDuration - plan.predicted_duration_seconds) <= 1 / plan.preset.fps, `audio duration ${audioDuration}s; expected ${plan.predicted_duration_seconds}s ±${1 / plan.preset.fps}s`);
-  return {
-    verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
-    findings,
-    measured: {
-      duration_seconds: audioDuration,
-      width: firstVideo?.width ?? null,
-      height: firstVideo?.height ?? null,
-      fps: plan.preset.fps,
-      video_codec: "png",
-      video_profile: null,
-      pixel_format: firstVideo?.pix_fmt ?? null,
-      color_range: null,
-      audio_codec: audioStream?.codec_name ?? null,
-      frame_count: frameFiles.length,
-      first,
-      last,
-      audio,
-    },
-    declared: { audio_level: null, motion: [], blank_frames: [] },
-  };
-}
-
-// render-cut ハードルール 10: ffmpeg 本体を直叩き（ラッパー禁止）。task が挙げる
-// `ffmpeg -v error -i <out> -f null -` 相当（map 指定なし = 全ストリームをデコード）に
-// `-progress pipe:1` を足し、stdout に構造化された frame=N の進捗行（常に映像フレーム数）を
-// 吐かせつつ stderr は `-v error` のみ（デコードエラーだけが載る）にすることで、1 回の全デコード
-// から実フレーム数とデコード成否の両方を取り出す（検査 1 + 2 の統合。task 契約が許容する範囲）。
-function decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl = spawnSync) {
-  const result = spawnSyncImpl(
-    ffmpegCommand,
-    [
-      "-hide_banner",
-      "-v",
-      "error",
-      "-nostdin",
-      "-i",
-      outputPath,
-      "-progress",
-      "pipe:1",
-      "-f",
-      "null",
-      "-",
-    ],
-    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-  );
-  const stdout = result.stdout ?? "";
-  const stderr = result.stderr ?? "";
-  const frameMatches = [...stdout.matchAll(/^frame=(\d+)$/gmu)];
-  const frameCount = frameMatches.length > 0 ? Number(frameMatches.at(-1)[1]) : null;
-  const spawnFailed = Boolean(result.error);
-  const ok = !spawnFailed && result.status === 0 && stderr.trim() === "";
-  const errorExcerpt = spawnFailed
-    ? messageOf(result.error)
-    : (stderr.trim() || `ffmpeg exited ${result.status ?? "unknown"} with no stderr output`)
-        .split(/\r?\n/u)
-        .slice(0, 5)
-        .join(" / ");
-  return { ok, frameCount, errorExcerpt };
-}
-
 async function writeState(state, statePath, reportPath, projectRoot) {
   const root = await realpath(projectRoot);
   const akariDirectory = dirname(statePath);
@@ -2181,13 +1042,6 @@ function validateEditShape(edit, internalEdit) {
   if (!Array.isArray(edit.overlays)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
 }
 
-function probeMedia(command, path, spawnSyncImpl = spawnSync) {
-  const result = spawnSyncImpl(command, ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], { encoding: "utf8" });
-  if (result.error) throw new ExecutionError(messageOf(result.error));
-  if (result.status !== 0) throw new ExecutionError(`ffprobe failed for ${basename(path)}: ${result.stderr.trim()}`);
-  return parseJson(result.stdout, `ffprobe ${basename(path)}`);
-}
-
 export function commandVersion(command, args) {
   return probeToolVersion(command, args).version;
 }
@@ -2202,11 +1056,6 @@ export function ffmpegInstallHint(platform = process.platform) {
   return `set the FFMPEG environment variable to its path, or install it (${install})`;
 }
 
-function addWarning(state, warning) {
-  state.warnings ??= [];
-  if (!state.warnings.includes(warning)) state.warnings.push(warning);
-}
-
 export function logVerificationResult(state, io = console) {
   for (const finding of state.verify?.findings ?? []) {
     if (finding.severity === "warning") {
@@ -2218,105 +1067,6 @@ export function logVerificationResult(state, io = console) {
   }
   io.log(`${state.verify.verdict.toUpperCase()}: ${state.plan.output}`);
   return state.verify.verdict === "pass" ? 0 : 1;
-}
-
-async function appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state }) {
-  let source;
-  let edit;
-  try {
-    source = await readFile(editPath, "utf8");
-    edit = JSON.parse(source);
-  } catch (error) {
-    addWarning(state, `rendered source was not added to edit.json: ${messageOf(error)}`);
-    return;
-  }
-
-  if (edit?.version !== 2 || !Array.isArray(edit.sources)) {
-    return;
-  }
-
-  const outputSourcePath = relativeOrAbsolute(projectRoot, outputPath).replaceAll("\\", "/");
-  if (edit.sources.some(entry => typeof entry?.path === "string"
-    && entry.path.replaceAll("\\", "/") === outputSourcePath)) return;
-
-  const existingIds = new Set(edit.sources.map(entry => entry?.id).filter(isNonEmptyString));
-  const sourceId = uniqueRenderedSourceId(outputPath, existingIds);
-  let updated;
-  try {
-    updated = appendJsonArrayEntry(source, "sources", {
-      id: sourceId,
-      path: outputSourcePath,
-      proxy: null,
-    });
-  } catch (error) {
-    addWarning(state, `rendered source was not added to edit.json: ${messageOf(error)}`);
-    return;
-  }
-
-  try {
-    await writeFile(editPath, updated, "utf8");
-  } catch (error) {
-    addWarning(state, `rendered source was not added to edit.json: ${messageOf(error)}`);
-  }
-}
-
-function uniqueRenderedSourceId(outputPath, existingIds) {
-  const stem = basename(outputPath, extname(outputPath));
-  const base = stem
-    .normalize("NFKC")
-    .replace(/[^\p{Letter}\p{Number}._-]+/gu, "-")
-    .replace(/^-+|-+$/gu, "") || "rendered-output";
-  if (!existingIds.has(base)) return base;
-  for (let suffix = 2; ; suffix += 1) {
-    const candidate = `${base}-${suffix}`;
-    if (!existingIds.has(candidate)) return candidate;
-  }
-}
-
-function appendJsonArrayEntry(source, propertyName, entry) {
-  const propertyPattern = new RegExp(`"${propertyName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}"\\s*:\\s*\\[`, "gu");
-  const propertyMatch = propertyPattern.exec(source);
-  if (!propertyMatch) throw new Error(`${propertyName} array was not found`);
-  const opening = propertyMatch.index + propertyMatch[0].lastIndexOf("[");
-  const closing = findMatchingJsonBracket(source, opening);
-  const closingLineStart = source.lastIndexOf("\n", closing - 1) + 1;
-  const closingIndent = source.slice(closingLineStart, closing);
-  if (!/^[ \t]*$/u.test(closingIndent)) {
-    const compact = JSON.stringify(entry);
-    const empty = source.slice(opening + 1, closing).trim() === "";
-    return `${source.slice(0, closing)}${empty ? "" : ", "}${compact}${source.slice(closing)}`;
-  }
-  let contentEnd = closing;
-  while (contentEnd > opening + 1 && /\s/u.test(source[contentEnd - 1])) contentEnd -= 1;
-  const itemIndent = `${closingIndent}  `;
-  const serialized = JSON.stringify(entry, null, 2)
-    .split("\n")
-    .map(line => `${itemIndent}${line}`)
-    .join("\n");
-  const separator = contentEnd === opening + 1 ? "" : ",";
-  return `${source.slice(0, contentEnd)}${separator}\n${serialized}${source.slice(contentEnd)}`;
-}
-
-function findMatchingJsonBracket(source, opening) {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = opening; index < source.length; index += 1) {
-    const character = source[index];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (character === "\\") escaped = true;
-      else if (character === '"') inString = false;
-      continue;
-    }
-    if (character === '"') inString = true;
-    else if (character === "[") depth += 1;
-    else if (character === "]") {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  throw new Error("JSON array brackets are unbalanced");
 }
 
 function addReference(map, root, label, path) {
@@ -2379,62 +1129,11 @@ function usedSources(edit) {
   return edit.sources.filter((source) => referencedIds.has(source.id));
 }
 
-function declaredAudioReasons({ plan, inputs, edit }) {
-  const reasons = [];
-  const audioPlan = plan.commands.audio_mix ?? {};
-  if (audioPlan.hasAudibleAudio === true) {
-    if (edit?.audio?.bgm) reasons.push("bgm");
-    if (Array.isArray(edit?.audio?.sfx) && edit.audio.sfx.length > 0) reasons.push("sfx");
-    if (audioPlan.hasNarration === true) reasons.push("narration");
-    if (edit?.audio?.master && typeof edit.audio.master === "object") reasons.push("master");
-    if (reasons.length === 0) reasons.push("audio_mix");
-  }
-  if (inputs.some((input) => input?.has_audio === true || input?.hasAudio === true)) {
-    reasons.push("素材音声");
-  }
-  return [...new Set(reasons)];
-}
-
-function compare(findings, check, passed, message) {
-  findings.push({ severity: passed ? "info" : "error", check, message });
-}
-
-// task 2026-08-07-render-frame-accounting: how much avg_frame_rate is allowed to drift from the
-// nominal fps before verify.fps fails, expressed as "1 frame's worth of container-duration
-// rounding" -- see the call site in verifyArtifact for the empirical justification. Exported (and
-// kept pure/number-only) so the exact boundary -- 1 frame passes, a genuine multi-frame drop like
-// v1's still fails -- can be pinned in tests without needing to reproduce the encoder/mux quirk
-// that motivated it in an actual media file.
-export function oneFrameFpsTolerance(expectedFps, expectedFrameCount) {
-  return expectedFrameCount > 0 ? expectedFps / expectedFrameCount : 0;
-}
-
-export function fpsWithinOneFrameTolerance(actualFps, expectedFps, expectedFrameCount) {
-  if (!Number.isFinite(actualFps)) return false;
-  // +1e-9 absorbs float noise at the exact boundary (a real 1-frame-off case, like the reel's
-  // v4/v5 render, lands diff === tolerance to within float precision, not strictly under it).
-  return Math.abs(actualFps - expectedFps) <= oneFrameFpsTolerance(expectedFps, expectedFrameCount) + 1e-9;
-}
-
-function parseRate(value) {
-  if (typeof value !== "string") return Number.NaN;
-  const [top, bottom = "1"] = value.split("/");
-  return Number(top) / Number(bottom);
-}
-
 async function readRequired(path, label) {
   try {
     return await readFile(path, "utf8");
   } catch (error) {
     throw new ExecutionError(`${label} could not be read: ${messageOf(error)}`);
-  }
-}
-
-function parseJson(text, label) {
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new ExecutionError(`${label} is not valid JSON: ${messageOf(error)}`);
   }
 }
 
@@ -2446,47 +1145,6 @@ async function isRegularFile(path) {
   }
 }
 
-function messageOf(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function positive(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
-
-function isNonEmptyString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-
-async function sha256File(path) {
-  const hash = createHash("sha256");
-  await new Promise((resolvePromise, rejectPromise) => {
-    const stream = createReadStream(path);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("error", rejectPromise);
-    stream.on("end", resolvePromise);
-  });
-  return hash.digest("hex");
-}
-
-export async function sha256PngDirectory(directory) {
-  const frames = (await readdir(directory))
-    .filter((name) => /^frame-\d{5}\.png$/u.test(name))
-    .sort();
-  if (frames.length === 0) throw new ExecutionError("PNG sequence contains no frames");
-  const digests = await Promise.all([
-    sha256File(join(directory, frames[0])),
-    sha256File(join(directory, frames.at(-1))),
-    sha256File(join(directory, "audio.wav")),
-  ]);
-  return sha256(digests.join("\n"));
-}
-
-function sha256(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function relativeOrAbsolute(root, value) {
-  const result = relative(root, value);
-  return result.startsWith("..") ? value : result;
 }

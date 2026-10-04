@@ -120,7 +120,7 @@ function applyV2(
 ): ApplyCutRangesResult {
     const raw = JSON.parse(source) as EditV2;
     const validated = readEditV2(raw);
-    const fps = requireFps(opts.fps ?? validated.output.fps);
+    requireFps(opts.fps ?? validated.output.fps);
     const edit = JSON.parse(JSON.stringify(raw)) as EditV2;
     const warnings: string[] = [];
     const affectedTrackIds = new Set<string>();

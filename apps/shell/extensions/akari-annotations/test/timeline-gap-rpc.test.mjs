@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
 const exec = promisify(execFile);
 const vendor = fileURLToPath(new URL(`../../../../../packages/media-bin/vendor/${process.platform}-${process.arch}/ffmpeg`, import.meta.url));
 const ffmpeg = process.env.AKARI_FFMPEG_BIN || (await stat(vendor).catch(() => null))?.isFile() && (process.env.AKARI_FFMPEG_BIN || vendor) || 'ffmpeg';
@@ -21,6 +22,7 @@ async function fixture(t) {
   return { root, temp, service, request };
 }
 test('RPC extracts source-sized PNG, reuses a file sequentially and concurrently, and preserves edit', async t => {
+  if (!requireFfmpeg(t)) return;
   const f = await fixture(t);
   await exec(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=30', '-t', '2', '-c:v', 'libx264', join(f.root, f.request.sourcePath)]);
   const before = '{"version":2,"tracks":[]}\n'; await writeFile(join(f.root, 'edit.json'), before);
@@ -38,6 +40,7 @@ test('RPC extracts source-sized PNG, reuses a file sequentially and concurrently
   assert.equal(await readFile(join(f.root, 'edit.json'), 'utf8'), before);
 });
 test('capture seconds round to three decimals while the hash retains the exact source time', async t => {
+  if (!requireFfmpeg(t)) return;
   const f = await fixture(t);
   await exec(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=30', '-t', '4', '-c:v', 'libx264', join(f.root, f.request.sourcePath)]);
   const request = { ...f.request, atSeconds: 3 - 1 / 30 };
@@ -51,6 +54,7 @@ test('capture seconds round to three decimals while the hash retains the exact s
   assert.match(zero.relativePath, /frame-source-0-[a-f0-9]+\.png$/);
 });
 test('image returns the original relative path and hash without creating captures', async t => {
+  if (!requireFfmpeg(t)) return;
   const f = await fixture(t); const relativePath = 'assets/still.png';
   await exec(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=red:s=160x90', '-frames:v', '1', join(f.root, relativePath)]);
   const result = await f.service.extractSourceFrame({ ...f.request, sourcePath: relativePath });

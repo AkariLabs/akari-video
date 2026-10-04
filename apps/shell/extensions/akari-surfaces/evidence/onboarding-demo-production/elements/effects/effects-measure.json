@@ -1,0 +1,485 @@
+{
+ "element": "effects",
+ "revision": "2026-10-01 目利きの差し戻し (a)(b)(c) の直し（前版 79263850… → 本版）",
+ "kind": "キーワード＋画面効果（効果音・エフェクト・パッ！）",
+ "words": "喋ってる途中に効果音(17.50)とか、エフェクト(18.74)を、パッ(19.70)と。ほら(20.55)、こんな感じで(21.10)。",
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-effects/fragment.html",
+ "file_md5": "7fcaba307ac7db3d6d3b94e077b8e1e2",
+ "file_bytes": 48570,
+ "build": "build-effects-fragment.py（乱数なし・コマごとの値と紙吹雪の軌跡を式から計算し、舞台・人物・字幕帯の境界を組み立て時に assert）＋ make-effects-fonts.py",
+ "edit_item_unchanged": {
+  "track": "demo-stage",
+  "id": "demo-effects",
+  "at": 524,
+  "duration": 135,
+  "source": {
+   "kind": "html",
+   "path": "overlays/demo-effects/fragment.html"
+  }
+ },
+ "fixes": {
+  "a_chips": {
+   "asked": "札を高さ 64・32px/900・アイコン 30px、文字を札の中央に。♪効果音は 17.50 に音の輪 2 本（48→120px・.6→0・0.4 s）、✦エフェクトは 18.74 に ✦ の軌跡のキラッ 3 個",
+   "done": "札 2 枚を高さ 64・Noto Sans JP 900 の 32px・アイコン 30px に。左右の余白を描いた字形で実測して揃えた（札 1: ♪ の左 29px・音 の右 29px、札 2: ✦ の左 30px・ト の右 30px、上下 18/17px）。♪ を中心に輪 2 本（48→120px・opacity .6→0・0.4 s・17.50 と 17.633 から・札の上）。✦ は左上の外から 4 コマで回りながら飛び込み、通ったコマの位置にキラッ 3 個（22/17/13px）が 1 つずつ残って 0.45 s で消える",
+   "layout": "札の並び x 740〜1195（札 1 740〜928・札 2 941〜1195）・y 92〜156"
+  },
+  "b_pa_pop": {
+   "asked": "19.70 から scale .3→1.28（0.10 s）→.92（0.22 s）→1（0.34 s）、rotate −14°→−6°、0.10〜0.20 s に ±6px の揺れ 3 コマ",
+   "done": "19.70 = .3（閃光・放射線と同じコマ）→ 19.733 = .99 → 19.767 = 1.24 → 19.80 = 1.28（最大）→ 揺れ +6/−6/+5px（19.833〜19.90）→ 19.933 = .92（底）→ 20.033 = 1。傾きは −14° から −6° へ（19.80 で −6°、少し行き過ぎて戻る）。コマ位置に値を置いた線形 keyframes（書き出しの各コマはこの表の値そのもの）",
+   "deviation": "縦は 1.28 どおり、横は 1.17 で止めた。静止時の擬音は幅 427px（x 787〜1214）あり、一様に 1.28 倍すると 547px で右の舞台（x 720〜1240・幅 520px）に入らない（試した版で x 714〜1264 まではみ出した）。横 1.17・縦 1.28 の縦に伸びる『ボヨン』にして、同じコマで左へ 21px・上へ 7px 寄せ、全コマ舞台の中に収めた",
+   "frames": [
+    {
+     "abs_s": 19.667,
+     "opacity": 0.0,
+     "scale_x": 0.3,
+     "scale_y": 0.3,
+     "rotate_deg_total": -14.0,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "abs_s": 19.7,
+     "opacity": 1.0,
+     "scale_x": 0.3,
+     "scale_y": 0.3,
+     "rotate_deg_total": -14.0,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "abs_s": 19.733,
+     "opacity": 1.0,
+     "scale_x": 0.99,
+     "scale_y": 0.99,
+     "rotate_deg_total": -10.5,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "abs_s": 19.767,
+     "opacity": 1.0,
+     "scale_x": 1.148,
+     "scale_y": 1.244,
+     "rotate_deg_total": -7.8,
+     "translate_px": [
+      -18.3,
+      -6.1
+     ]
+    },
+    {
+     "abs_s": 19.8,
+     "opacity": 1.0,
+     "scale_x": 1.17,
+     "scale_y": 1.28,
+     "rotate_deg_total": -6.0,
+     "translate_px": [
+      -21.0,
+      -7.0
+     ]
+    },
+    {
+     "abs_s": 19.833,
+     "opacity": 1.0,
+     "scale_x": 1.136,
+     "scale_y": 1.224,
+     "rotate_deg_total": -5.0,
+     "translate_px": [
+      -10.8,
+      -8.6
+     ]
+    },
+    {
+     "abs_s": 19.867,
+     "opacity": 1.0,
+     "scale_x": 1.061,
+     "scale_y": 1.1,
+     "rotate_deg_total": -5.0,
+     "translate_px": [
+      -13.5,
+      0.5
+     ]
+    },
+    {
+     "abs_s": 19.9,
+     "opacity": 1.0,
+     "scale_x": 0.976,
+     "scale_y": 0.976,
+     "rotate_deg_total": -5.5,
+     "translate_px": [
+      5.0,
+      -2.0
+     ]
+    },
+    {
+     "abs_s": 19.933,
+     "opacity": 1.0,
+     "scale_x": 0.92,
+     "scale_y": 0.92,
+     "rotate_deg_total": -6.0,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "abs_s": 19.967,
+     "opacity": 1.0,
+     "scale_x": 0.964,
+     "scale_y": 0.964,
+     "rotate_deg_total": -6.0,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "abs_s": 20.0,
+     "opacity": 1.0,
+     "scale_x": 0.991,
+     "scale_y": 0.991,
+     "rotate_deg_total": -6.0,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "abs_s": 20.033,
+     "opacity": 1.0,
+     "scale_x": 1.0,
+     "scale_y": 1.0,
+     "rotate_deg_total": -6.0,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "abs_s": 20.067,
+     "opacity": 1.0,
+     "scale_x": 1.0,
+     "scale_y": 1.0,
+     "rotate_deg_total": -6.0,
+     "translate_px": [
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  },
+  "c_hora_konna": {
+   "asked": "ほら 20.55: 擬音 1→1.15→1（0.25 s）、40〜72px のキラッ 10〜12 個が半径 120〜200px へ放射（0.6 s）、橙と黄の紙吹雪 16 枚（8〜12px）を x≥740 で 20.55〜21.5。こんな感じで 21.10: 札 2 枚の右上に ✓ バッジ（24px）が overshoot。人物側（120°〜150°・x<720）に飛ばさない",
+   "done": "擬音 1→1.08→1.14→1.15→…→1（20.517〜20.783、基点は右寄り 64%/55% で右端 1240 を越えない）。キラッ 12 個（40〜72px・角度 162/190/218/246/272/298/324/350/16/42/68/94°、120〜150° は空ける）が中心 50px から半径 145/172/198px へ --ease-hard-out で飛び、外側で最大になってから縮んで消える（0.6 s）。紙吹雪 16 枚（8〜12 × 6〜8px・橙/淡橙/強調橙/黄）: 擬音と同じ色なので擬音の上では見えない → 擬音の縁の裏から、上組 8 枚は上の空き（y 164〜230）へ弾けてひらひら、下組 8 枚は下の空いた壁（y 440〜545）へ舞い落ちる（〜21.47）。✓ バッジ（白地・橙の縁と ✓・24px）が 21.10 に札 1、21.20 に札 2 の右上へ --ease-overshoot で付く"
+  }
+ },
+ "sync_export": {
+  "method": "render-cut --engine osr（stamp 照合あり）で本編 16.8〜22.3 s＋閃光（段 demo-flash、擬音より下）＋パンチイン＋効果音 3 本＋この断片を書き出し、断片だけ外した同条件の書き出しとの差で見せ場の箱が最初に変わったコマ（tools/measure-export.py）",
+  "parts": [
+   {
+    "part": "札「♪ 効果音」",
+    "word": "効果音",
+    "word_s": 17.5,
+    "box": [
+     740,
+     88,
+     940,
+     160
+    ],
+    "method": "appear",
+    "threshold": 2.0,
+    "first_visible_frame_in_mini": 21,
+    "first_visible_s": 17.5,
+    "delta_s": 0.0,
+    "within_0.15": true,
+    "series_from_frame": 15
+   },
+   {
+    "part": "札「✦ エフェクト」（✦ の軌跡のキラッを含む）",
+    "word": "エフェクト",
+    "word_s": 18.74,
+    "box": [
+     940,
+     40,
+     1210,
+     160
+    ],
+    "method": "appear",
+    "threshold": 2.0,
+    "first_visible_frame_in_mini": 58,
+    "first_visible_s": 18.733,
+    "delta_s": -0.007,
+    "within_0.15": true,
+    "series_from_frame": 50
+   },
+   {
+    "part": "擬音「パッ!」＋放射線＋衝撃の輪",
+    "word": "パッ",
+    "word_s": 19.7,
+    "box": [
+     820,
+     230,
+     1200,
+     440
+    ],
+    "method": "appear",
+    "threshold": 2.0,
+    "first_visible_frame_in_mini": 87,
+    "first_visible_s": 19.7,
+    "delta_s": 0.0,
+    "within_0.15": true,
+    "series_from_frame": 80
+   },
+   {
+    "part": "ほら: 擬音の跳ね＋キラッ 12 個＋紙吹雪",
+    "word": "ほら",
+    "word_s": 20.55,
+    "box": [
+     760,
+     160,
+     1240,
+     600
+    ],
+    "method": "change",
+    "threshold": 1.0,
+    "first_visible_frame_in_mini": 112,
+    "first_visible_s": 20.533,
+    "delta_s": -0.017,
+    "within_0.15": true,
+    "series_from_frame": 100
+   },
+   {
+    "part": "こんな感じで: ✓ バッジ（札 1）",
+    "word": "こんな感じで",
+    "word_s": 21.1,
+    "box": [
+     905,
+     72,
+     960,
+     118
+    ],
+    "method": "change",
+    "threshold": 2.0,
+    "first_visible_frame_in_mini": 129,
+    "first_visible_s": 21.1,
+    "delta_s": 0.0,
+    "within_0.15": true,
+    "series_from_frame": 120
+   }
+  ],
+  "verdict": "5 つの見せ場すべて語頭の −1〜0 コマ（|差| ≤ 0.017 s。許容 ±0.15・狙い ±0.05 の内側）"
+ },
+ "export_vs_harness": {
+  "stage_mad_mean": 1.018,
+  "stage_mad_max": 2.559,
+  "compression_noise_person_area": {
+   "mean": 1.323,
+   "max": 1.814,
+   "note": "人物側（x 0-600・y 400-700）で、断片あり／なしの書き出しの差 = 圧縮の揺らぎの大きさ"
+  },
+  "verdict": "舞台の差は圧縮の揺らぎと同じ大きさ = 書き出しはハーネスとコマ単位で同じ絵・同じ時刻",
+  "osr_verify": {
+   "mode": "stamp",
+   "retriesTotal": 34,
+   "retryHistogram": {
+    "0": 137,
+    "1": 23,
+    "2": 4,
+    "3": 1
+   },
+   "hashPolicyAmbiguous": 0,
+   "preVerifyDeltaHistogram": {
+    "0": 137,
+    "-1": 28
+   },
+   "budget": {
+    "budget_ms": 3000,
+    "maximum_retries": 32
+   },
+   "retryElapsedMs": {
+    "total": 1288,
+    "max": 151,
+    "maxFrame": 154
+   }
+  },
+  "note": "AKARI_OSR_VERIFY=off で書き出すと、重いコマ（19.70〜19.80・20.55 前後・抜け）で OSR が 1 コマ前の描画を掴み、札 1 と擬音が 1 コマ遅れて見えた（stamp 照合ありでは 28 コマを取り直して一致）。アプリの書き出しは既定で stamp 照合なので問題ないが、照合を切った測定はこの断片では 1 コマずれることがある"
+ },
+ "keep_out": {
+  "method": "透過で全 135 コマを描画し alpha > 8 の画素を数えた（tools/keepout.py）",
+  "person_reach_px_max": 0,
+  "caption_band_px_max": 0,
+  "outside_stage_px_max": 0,
+  "union_bbox": [
+   721,
+   52,
+   1239,
+   558
+  ]
+ },
+ "lint": {
+  "mini_project": "edit-lint verdict pass。この断片由来の finding 0 件（残る 1 件は demo-flash の duration 12 の warning = 別要素・意図どおり）",
+  "negative_check": "わざと exit の 100% から opacity を抜いた版・var(--x) を使った版では keyframes-sparse / reserved-css-var-reference が出る（断片が検査されている）",
+  "tests": "apps/shell/extensions/akari-surfaces/src/node/onboarding-demo.test.mjs 6/6 pass（easing 変数のフォールバック・段階 0〜8 の lint を含む）"
+ },
+ "gpu_fallback_parity": "motion-vocab.css を敷かずに描いた 135 コマ（GPU 書き出しと同じ条件）が、敷いた描画と画素単位で一致（最大差 0）。var(--ease-*) はすべて語彙と同じ値のフォールバック付き",
+ "structure": {
+  "root": ".demo-effects（1 つ・data-start/duration なし・--x/--y/--scale/--rotate 不使用）",
+  "animations_rules": 26,
+  "keyframes": 25,
+  "gate": "animation はすべて [data-akari-active] 付きのルール。delay はローカル秒の CSS 変数（calc 含む）",
+  "properties": "transform / opacity のみ。blur・backdrop-filter・JS・乱数なし",
+  "base_state": "札・擬音・✓ は最終の静止状態が base。放射線・輪・キラッ・紙吹雪・音の輪は過渡 FX で base opacity 0",
+  "layers_bottom_to_top": [
+   "放射線 14 本＋衝撃の輪",
+   "紙吹雪 16 枚（擬音の裏）",
+   "擬音「パッ!」（白フチ → 墨の縁と厚み → 黄→橙グラデ）",
+   "キラッ 12 個",
+   "札 2 枚（音の輪・✦ の軌跡・✓ バッジは札の上）"
+  ]
+ },
+ "fonts": {
+  "sans": {
+   "family": "AKARI Demo Sans",
+   "weight": 900,
+   "source": "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf を wght=900 に固定",
+   "chars": "効果音エフェクト",
+   "unicode_range": "U+30A7,U+30A8,U+30AF,U+30C8,U+30D5,U+52B9,U+679C,U+97F3"
+  },
+  "display": {
+   "family": "AKARI Demo Display",
+   "weight": 400,
+   "source": "assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf",
+   "chars": "パッ!",
+   "unicode_range": "U+0021,U+30C3,U+30D1"
+  },
+  "license": "どちらも SIL OFL 1.1。family を別名にし（Noto の RFN 'Source' を名乗らない）、著作権（nameID 0）と OFL（13/14）は保持。unicode-range で自分の字だけを受け持つ（同じ家族名の別断片と同じ文書に並んでも混ざらない）"
+ },
+ "knobs": {
+  "audit": [
+   {
+    "knob": "--fx-chips-left",
+    "value": "700px",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-chip-top",
+    "value": "120px",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-chips-gap",
+    "value": "30px",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-pa-left",
+    "value": "980px",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-pa-top",
+    "value": "300px",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-pa-size",
+    "value": "150px",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-pa-rotate",
+    "value": "-2deg",
+    "seek": 3.8
+   },
+   {
+    "knob": "--demo-ink",
+    "value": "#2A4B7C",
+    "seek": 3.8
+   },
+   {
+    "knob": "--demo-accent",
+    "value": "#2F9E44",
+    "seek": 3.8
+   },
+   {
+    "knob": "--demo-accent-hot",
+    "value": "#2F9E44",
+    "seek": 3.8
+   },
+   {
+    "knob": "--demo-accent-soft",
+    "value": "#2F9E44",
+    "seek": 3.3
+   },
+   {
+    "knob": "--demo-spark",
+    "value": "#2F9E44",
+    "seek": 3.8
+   },
+   {
+    "knob": "--demo-card",
+    "value": "#DDEEFF",
+    "seek": 3.8
+   },
+   {
+    "knob": "--demo-card-line",
+    "value": "rgba(255,0,0,.9)",
+    "seek": 3.8
+   },
+   {
+    "knob": "--demo-shadow",
+    "value": "0 0 0 rgba(0,0,0,0)",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-chip1-at",
+    "value": "99s",
+    "seek": 0.1
+   },
+   {
+    "knob": "--fx-chip2-at",
+    "value": "99s",
+    "seek": 1.4
+   },
+   {
+    "knob": "--fx-pa-at",
+    "value": "99s",
+    "seek": 2.4
+   },
+   {
+    "knob": "--fx-sparkle-at",
+    "value": "99s",
+    "seek": 3.2
+   },
+   {
+    "knob": "--fx-check-at",
+    "value": "99s",
+    "seek": 3.8
+   },
+   {
+    "knob": "--fx-exit-at",
+    "value": "3.7s",
+    "seek": 3.8
+   }
+  ],
+  "result": "21 本すべて値を変えると画素が変わる（無反応 0）。削った旧ツマミ: --fx-chip1-left / --fx-chip2-left / --fx-chip1-width / --fx-chip2-width（札の幅は中身＋左右の余白で決まるので --fx-chips-left / --fx-chips-gap に置き換え。edit.json・コードからの参照なし）"
+ },
+ "audio_note": "音は別要素（sfx-kouka-pop 17.467 / sfx-pa-whoosh 19.367 / sfx-hora-sparkle 20.567）の担当ファイルをミニ書き出しに入れただけ（触っていない）。21.10 の ✓ には音が無い — 付けるなら UI の小さな『ポン』（−18〜−21 dBFS）を 21.10 に置く案をディレクター・組み込みへ提案",
+ "evidence_files": {
+  "effects-render-seek-*.png": "透過のハーネス描画（コマ位置ちょうど）: 0.033=17.50 札1 / 1.267・1.333=✦ の飛び込み / 2.233=19.70 / 2.267 / 2.333=最大 / 2.500=底の後 / 3.100・3.233=ほら / 3.500 / 3.667=✓ / 3.933 / 4.333=抜け",
+  "effects-seek-on-clip.jpg": "同じ見せ場のコマを本編（パンチイン・閃光込み）に重ねたもの",
+  "effects-export-osr-16.80-22.30s.mp4": "ミニ書き出し（stamp 照合あり・音声あり）",
+  "effects-export-osr-impact.jpg": "書き出し 19.667〜20.10 の全コマ（擬音の伸び・揺れ・底・着地）",
+  "effects-export-osr-chips.jpg": "書き出し 17.47〜17.77（音の輪）と 18.70〜19.00（✦ の飛び込みと軌跡）",
+  "effects-export-osr-hora.jpg": "書き出し 20.50〜21.57 の 2 コマおき（キラッの放射・紙吹雪・✓）",
+  "effects-export-osr-every-4th-frame.jpg": "書き出し 17.47〜21.93 の 4 コマおき（右半分）",
+  "effects-export-vs-harness.jpg": "書き出し（上）とハーネス（下）",
+  "effects-keepout-guides.jpg": "書き出しに人物の届く範囲（赤）・字幕帯（青）・舞台（緑）を重ねたもの",
+  "tools/": "render-effects.mjs（ハーネスの Windows 写し）/ composite.py / sheet.py / keepout.py / measure-export.py"
+ }
+}

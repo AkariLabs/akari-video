@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -9,8 +9,8 @@ import { buildOsrPage } from "../../osr-export/src/page-builder.mjs";
 import { buildGpuPage, loadAndBuildGpuPage } from "../src/page-builder.mjs";
 
 // captions.json の display_policy（1 行ずつ順送り）は edit-store の resolveCaptionDisplay が唯一の解決器。
-// 書き出しが旧 generateCaptionOverlays で字幕を焼き直すと、読点の直後で必ず割られて
-// プレビュー 1 行 / 納品物 2 行になる（プレビュー parity 違反）。このファイルはその退行を捕まえる。
+// 書き出しが display_policy を通さず generateCaptionOverlays で字幕を焼き直すと、
+// 20 字の既定上限で 2 行になり、プレビュー 1 行 / 納品物 2 行になる。この退行を捕まえる。
 const displayPolicy = {
   mode: "single_line_sequential",
   algorithm: "a4-ja-two-fragment-v1",
@@ -43,6 +43,26 @@ const buildArgs = captions => ({
 const gpuPage = captions => buildGpuPage({ ...buildArgs(captions), slotParamsRuntime: "", itemKeyframesRuntime: "" });
 const captionLines = html => (String(html).match(/<p class="akari-caption__line">/gu) ?? []).length;
 
+test('rich caption metadata reaches GPU fallback and v0 manifest stays unchanged', async () => {
+  const richStyle = { size_px: 86, reference_height_px: 1080,
+    fill: { type: 'solid', color: '#ef4444' },
+    strokes: [{ color: '#210c0c', width_px: 31, offset_y: 9 }] };
+  const rich = gpuPage({ default_text_style: richStyle, captions: [punctuated] });
+  const sprite = rich.spriteManifest.captions[0];
+  assert.deepEqual(sprite.richTextStyle, richStyle);
+  assert.match(sprite.html, /akari-caption__rich-fill/u);
+  assert.equal(Object.hasOwn(gpuPage([punctuated]).spriteManifest.captions[0], 'richTextStyle'), false);
+  const runtime = await readFile(new URL('../src/page-runtime.js', import.meta.url), 'utf8');
+  assert.match(runtime, /captionRichInkExtentEm\(value\.richTextStyle, unitMeasurement\.emPx\)/u);
+  assert.match(runtime, /x: 0, y: 0, width: config\.width, height: config\.height/u);
+  assert.match(runtime, /captionRichPhaseHtml\(value, config, html/u);
+  assert.match(runtime, /hasColor && hasGeometry && !value\.richTextStyle/u);
+  assert.match(runtime, /const richBaseCss = value\.richTextStyle[\s\S]*?-webkit-text-fill-color:var\(--caption-color,#fff\)!important;background-image:none!important/u);
+  assert.match(runtime, /const richHighlightCss = value\.richTextStyle[\s\S]*?-webkit-text-fill-color:var\(--caption-highlight-color,#ffd94a\)!important;background-image:none!important/u);
+  assert.match(runtime, /\$\{settleCss\}\$\{baseCss\}\$\{richBaseCss\}/u);
+  assert.match(runtime, /\$\{settleCss\}\$\{highlightCss\}\$\{richHighlightCss\}/u);
+});
+
 test("display_policy の読点字幕は書き出しでも 1 行で焼く", () => {
   const resolved = gpuPage(policyRoot([punctuated]));
   assert.equal(resolved.spriteManifest.captions.length, 1);
@@ -53,7 +73,7 @@ test("display_policy の読点字幕は書き出しでも 1 行で焼く", () =>
   assert.match(sprite.html, /AKARI Noto Sans JP/u);
   assert.equal(sprite.id, "c-0007-occ-0001-part-1");
 
-  // 同じ文面を display_policy 抜きで通すと旧経路の splitCaptionLines が読点で割る = 退行時の姿。
+  // display_policy 抜きでは同じ文面が既定の 20 字上限を超え、読点を優先して折れる。
   const legacy = gpuPage([punctuated]);
   assert.equal(captionLines(legacy.spriteManifest.captions[0].html), 2);
 });

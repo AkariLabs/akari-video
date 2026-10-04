@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readLintSource } from '../../edit-lint/test/helpers/read-lint-source.mjs';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -23,7 +24,6 @@ test('production edit paths contain no v0/v1 version dispatch', async () => {
     exclude: new Set(['migrate']),
   });
   const renderCut = await sourceFiles(join(repositoryRoot, 'packages/render-cut/src'));
-  const editLint = join(repositoryRoot, 'packages/edit-lint/src/edit-lint.mjs');
   const failures = [];
   for (const path of [...editStore, ...renderCut]) {
     const source = await readFile(path, 'utf8');
@@ -32,8 +32,10 @@ test('production edit paths contain no v0/v1 version dispatch', async () => {
       failures.push(path);
     }
   }
-  const lintSource = await readFile(editLint, 'utf8');
+  const lintSource = await readLintSource();
   if (/\bedit\??\.version\s*(?:===|==|!==|!=)\s*[01]\b/u.test(lintSource)
-    || /\b(?:sourceVersion|usesDefaultTrackOrder)\b/u.test(lintSource)) failures.push(editLint);
+    || /\b(?:sourceVersion|usesDefaultTrackOrder)\b/u.test(lintSource)) {
+    failures.push('packages/edit-lint/src (concatenated)');
+  }
   assert.deepEqual(failures, []);
 });

@@ -1,0 +1,420 @@
+[
+ {
+  "id": "c-0001",
+  "text": "こんにちは。",
+  "t": 0.775,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    605,
+    653
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    605,
+    653
+   ]
+  ]
+ },
+ {
+  "id": "c-0002",
+  "text": "今日はですね、",
+  "t": 2.97,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    602,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    602,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0003",
+  "text": "アカリビデオっていう",
+  "t": 4.3,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    602,
+    653
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    602,
+    653
+   ]
+  ]
+ },
+ {
+  "id": "c-0004",
+  "text": "動画編集ツールを",
+  "t": 5.73,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0005",
+  "text": "試してみてます。",
+  "t": 6.8,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    654
+   ]
+  ]
+ },
+ {
+  "id": "c-0006",
+  "text": "これ、AIと対話する",
+  "t": 8.87,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    602,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    602,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0007",
+  "text": "だけでいいんですよ。",
+  "t": 10.31,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    605,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    605,
+    654
+   ]
+  ]
+ },
+ {
+  "id": "c-0008",
+  "text": "喋ってるだけで、",
+  "t": 11.935,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0009",
+  "text": "編集はもう終わってる",
+  "t": 13.31,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0010",
+  "text": "感じです。",
+  "t": 14.27,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    654
+   ]
+  ]
+ },
+ {
+  "id": "c-0011",
+  "text": "例えば、喋ってる",
+  "t": 16.105,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0012",
+  "text": "途中に効果音とか",
+  "t": 17.67,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    602,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    602,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0013",
+  "text": "エフェクトをパッと、",
+  "t": 19.645,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    596,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    596,
+    656
+   ]
+  ]
+ },
+ {
+  "id": "c-0014",
+  "text": "ほら、こんな感じで。",
+  "t": 21.115,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0015",
+  "text": "あと、こういう",
+  "t": 23.21,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    605,
+    653
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    605,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0016",
+  "text": "図解も出せますし、",
+  "t": 24.395,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0017",
+  "text": "スマホの",
+  "t": 27.42,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    605,
+    652
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    605,
+    652
+   ]
+  ]
+ },
+ {
+  "id": "c-0018",
+  "text": "モックアップとかも、",
+  "t": 28.61,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    602,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    602,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0019",
+  "text": "BGMも、",
+  "t": 30.04,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    605,
+    653
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    605,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0020",
+  "text": "字幕のカラオケ表示もいけます。",
+  "t": 31.585,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    596,
+    653
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    596,
+    653
+   ]
+  ]
+ },
+ {
+  "id": "c-0021",
+  "text": "まあ、僕は喋ってる",
+  "t": 34.045,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    603,
+    655
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    603,
+    655
+   ]
+  ]
+ },
+ {
+  "id": "c-0022",
+  "text": "だけなんですけどね。",
+  "t": 35.215,
+  "after_lines": 1,
+  "after_bands": [
+   [
+    605,
+    654
+   ]
+  ],
+  "before_lines": 1,
+  "before_bands": [
+   [
+    605,
+    654
+   ]
+  ]
+ }
+]

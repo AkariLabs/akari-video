@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { installOverlayBoxRequestListener, measureOverlayBoxInStage, unscaleOverlayBox } from '../lib/common/preview-overlay-measure.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 test('縮小して測った box はコンテナ中心を基準に元の座標へ戻る', () => {
     const output = { width: 1280, height: 720 };
@@ -159,7 +160,7 @@ test('probe.getAnimations が無いときは文書内の probe のアニメー�
 });
 
 test('埋め込み listener は自身のスコープで stage と出力寸法を取り、例外でも返事する', async () => {
-    const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const handler = readHandlerSource();
     assert.doesNotMatch(handler, /const unscaleOverlayBox = \(\$\{unscaleOverlayBox\.toString\(\)\}\);/u);
     assert.match(handler, /installOverlayBoxRequestListenerFn\(window, document, measureOverlayBoxFn,/u);
     assert.doesNotMatch(handler, /measureOverlayBoxFn\(stage, request\.fragment, request\.vars \?\? \{\}, output\)/u);
@@ -202,13 +203,15 @@ test('注入関数の本体はモジュール外の関数名に依存しない',
 });
 
 test('別 script の返答口だけを window 経由で呼ぶ', async () => {
-    const text = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-    assert.match(text, /<script>\$\{this\.hostAdapterScript\(\)\}<\/script>/u);
-    assert.match(text, /<script>\$\{this\.previewBootstrapScript\(\)\}<\/script>/u);
+    const text = readHandlerSource();
+    assert.match(text, /<script>\$\{hostAdapterScript\(\)\}<\/script>/u);
+    assert.match(text, /<script>\$\{previewBootstrapScript\(\)\}<\/script>/u);
     const ast = ts.createSourceFile('preview.ts', text, ts.ScriptTarget.Latest, true);
-    const owner = ast.statements.find(node => ts.isClassDeclaration(node)
-        && node.members.some(member => member.name?.getText(ast) === 'hostAdapterScript'));
-    const method = name => owner.members.find(member => member.name?.getText(ast) === name).getText(ast);
+    const method = name => {
+        const declaration = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.getText(ast) === name);
+        assert.ok(declaration, name);
+        return declaration.getText(ast);
+    };
     const adapter = method('hostAdapterScript');
     const bootstrap = method('previewBootstrapScript');
     assert.match(adapter, /const vscode = acquireVsCodeApi\(\);/u);

@@ -6,11 +6,12 @@ import { createPreviewAudioHost } from './helpers/preview-audio-host.mjs';
 import { resolveSfxTrimWindow } from '../lib/common/audio-schedule.js';
 import { resolveSpeechSidecarFormat } from '../lib/common/preview-audio-eligibility.js';
 import { buildWebAudioSchedule, isAudioItemAudible, isCutAudioAudible, projectSpeechDeclarations } from '../../../../../packages/edit-store/lib/index.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 // Use the same checked-in bundle as the shell; package dist may belong to an older build.
 const createPreviewAudioSupply = vm.runInNewContext(readFileSync(
-    new URL('../generated/frame-engine.js', import.meta.url), 'utf8') + '\nAkariFrameEngine.createPreviewAudioSupply;', {
+    new URL('../../../../../packages/frame-engine/generated/frame-engine.iife.js', import.meta.url), 'utf8') + '\nAkariFrameEngine.createPreviewAudioSupply;', {
     console, performance, setTimeout, clearTimeout, setInterval, clearInterval, AbortController,
     URL, Headers, TextDecoder
 });

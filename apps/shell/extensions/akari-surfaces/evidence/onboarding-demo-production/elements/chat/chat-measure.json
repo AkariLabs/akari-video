@@ -1,0 +1,202 @@
+{
+ "element": "chat",
+ "fragment": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-chat/fragment.html",
+ "edit_item": {
+  "track": "demo-stage",
+  "id": "demo-chat",
+  "name": "AI との対話",
+  "at": 256,
+  "duration": 73,
+  "start_s": 8.5333,
+  "end_s": 10.9667,
+  "source": {
+   "kind": "html",
+   "path": "overlays/demo-chat/fragment.html"
+  }
+ },
+ "sync": [
+  {
+   "element": "カード",
+   "word": "AI",
+   "word_onset_plan": 8.55,
+   "word_onset_voice_envelope": 8.535,
+   "first_visible_frame": 256,
+   "first_visible_s": 8.5333,
+   "diff_vs_plan_s": -0.017,
+   "diff_vs_envelope_s": -0.002
+  },
+  {
+   "element": "あなたの吹き出し",
+   "word": "AI",
+   "word_onset_plan": 8.55,
+   "word_onset_voice_envelope": 8.535,
+   "first_visible_frame": 256,
+   "first_visible_s": 8.5333,
+   "diff_vs_plan_s": -0.017,
+   "diff_vs_envelope_s": -0.002
+  },
+  {
+   "element": "AI のアイコン＋入力中の点",
+   "word": "対話",
+   "word_onset_plan": 9.26,
+   "word_onset_voice_envelope": 9.245,
+   "first_visible_frame": 277,
+   "first_visible_s": 9.2333,
+   "diff_vs_plan_s": -0.027,
+   "diff_vs_envelope_s": -0.012
+  },
+  {
+   "element": "返事「できました！」",
+   "word": "だけ",
+   "word_onset_plan": 9.9,
+   "word_onset_voice_envelope": 9.91,
+   "first_visible_frame": 297,
+   "first_visible_s": 9.9,
+   "diff_vs_plan_s": 0.0,
+   "diff_vs_envelope_s": -0.01
+  },
+  {
+   "element": "チェック",
+   "word": "だけ",
+   "word_onset_plan": 9.9,
+   "word_onset_voice_envelope": 9.91,
+   "first_visible_frame": 298,
+   "first_visible_s": 9.9333,
+   "diff_vs_plan_s": 0.033,
+   "diff_vs_envelope_s": 0.023
+  }
+ ],
+ "last_visible": {
+  "frame": 327,
+  "s": 10.9
+ },
+ "first_invisible_in_item": {
+  "frame": 328,
+  "s": 10.9333,
+  "note": "抜けは 2.15→2.40 で区間の最後のフレーム（328）までに消え切る。次の主役 done（11.27）まで 0.37 秒空く"
+ },
+ "extent_all_frames_px": {
+  "with_shadow_alpha_gt_12": [
+   753,
+   140,
+   1238,
+   443
+  ],
+  "card_body_alpha_ge_60": [
+   770,
+   140,
+   1237,
+   409
+  ],
+  "note": "入り・抜けの途中を含む全 73 フレームの外接矩形 [x0,y0,x1,y1]。右の舞台（y<460 は x720–1240）に収まり、人物の届く範囲（y<470 で x<690）と字幕帯（x300–980・y≥628）に入らない"
+ },
+ "parity_preview_vs_export": {
+  "max_channel_diff": 8,
+  "frames": 73,
+  "note": "プレビュー経路（CSS animation を currentTime=ローカル秒で seek）と書き出し経路（rasterize.mjs と同じ paused WAAPI クローン化・delay+start・合成秒で seek、12 本すべてクローン成功）の全フレーム比較"
+ },
+ "voice_envelope_note": "clip.mp4 を 16kHz モノ・10ms RMS で実測: 「AI」の立ち上がり 8.53→8.54（-55→-21 dBFS）、「対話」9.24→9.25、「だけ」は d の閉鎖 9.88–9.91 の直後 9.91",
+ "renderer": "<TMP>/render-seq.mjs（harness/render-fragment.mjs と同じ入れ子とモーション語彙 + 容器に data-akari-active + rasterize.mjs と同じクローン化 + 本編フレームの背景）。静的 fallback は harness/render-fragment.mjs をパスだけ Windows に直して実行（ゲート無し = base の見た目）",
+ "lint": {
+  "tool": "packages/edit-lint の lintProject（隔離プロジェクト C:/t/demo-chat-lint・この断片 1 件の v2 edit.json）",
+  "findings": "[\"warning geometry.fit-compat\"]",
+  "overlay_findings": 0,
+  "note": "geometry.fit-compat は検査用ダミー素材 sample.mp4 の寸法由来で断片と無関係",
+  "negative_control": "base に opacity:0 と疎な keyframes を注入すると overlays.base-hidden-state と overlays.keyframes-sparse が出る（断片が実際に検査されている）"
+ },
+ "font": {
+  "family": "AKARI Demo Sans",
+  "source": "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf（OFL 1.1）",
+  "weights": [
+   800,
+   500
+  ],
+  "subset_chars": " AIかきけしせたてでにまるわトナパー合編話集！",
+  "woff2_bytes": {
+   "800": 6220,
+   "500": 6120
+  },
+  "unicode_range": true,
+  "name_table": "著作権（RFN Source の記載）と OFL の許諾文を保持、family/PS 名は AKARI Demo Sans に改名"
+ },
+ "render_cut_export": {
+  "command": "render-cut <隔離プロジェクト C:/t/chat-l0/proj> --engine osr（AKARI_EXPORT_ALLOW_DESKTOP=0・AKARI_HOME/TMP を C:/t/chat-l0 へ隔離・作業フォルダは空の C:/t/chat-l0/cwd）。本編 8.0〜11.5 秒を 105 フレームに切り出し、demo-chat を at 16 / duration 73（本番の at 256 と同じ局所時刻）、効果音 sfx-pop-bubble-big を at 16 / 37（本番 256 / 277）。edit-lint PASS（0 findings）",
+  "osr_verify": "stamp（既定）",
+  "file": "chat-export-osr-8.00-11.50s.mp4",
+  "sync": [
+   {
+    "element": "カード",
+    "word": "AI",
+    "word_onset_plan": 8.55,
+    "word_onset_voice_envelope": 8.535,
+    "first_visible_frame": 256,
+    "first_visible_s": 8.5333,
+    "diff_vs_plan_s": -0.017,
+    "diff_vs_envelope_s": -0.002
+   },
+   {
+    "element": "あなたの吹き出し",
+    "word": "AI",
+    "word_onset_plan": 8.55,
+    "word_onset_voice_envelope": 8.535,
+    "first_visible_frame": 256,
+    "first_visible_s": 8.5333,
+    "diff_vs_plan_s": -0.017,
+    "diff_vs_envelope_s": -0.002
+   },
+   {
+    "element": "AI のアイコン＋入力中の点",
+    "word": "対話",
+    "word_onset_plan": 9.26,
+    "word_onset_voice_envelope": 9.245,
+    "first_visible_frame": 277,
+    "first_visible_s": 9.2333,
+    "diff_vs_plan_s": -0.027,
+    "diff_vs_envelope_s": -0.012
+   },
+   {
+    "element": "返事「できました！」",
+    "word": "だけ",
+    "word_onset_plan": 9.9,
+    "word_onset_voice_envelope": 9.91,
+    "first_visible_frame": 297,
+    "first_visible_s": 9.9,
+    "diff_vs_plan_s": 0.0,
+    "diff_vs_envelope_s": -0.01
+   },
+   {
+    "element": "チェック",
+    "word": "だけ",
+    "word_onset_plan": 9.9,
+    "word_onset_voice_envelope": 9.91,
+    "first_visible_frame": 297,
+    "first_visible_s": 9.9,
+    "diff_vs_plan_s": 0.0,
+    "diff_vs_envelope_s": -0.01
+   }
+  ],
+  "last_visible_frame": 327,
+  "parity_vs_harness": {
+   "max_mean_abs_diff_card_region": 2.44,
+   "note": "73 フレームすべてで描画確認用レンダラの絵と圧縮ノイズの範囲で一致"
+  },
+  "keepout_mean_abs_diff_vs_source": {
+   "person": 2.56,
+   "person_low": 2.27,
+   "caption_band": 2.46,
+   "noise_before_item_mean": 2.24,
+   "noise_before_item_max": 2.32
+  },
+  "keepout_note": "人物域（y<470 で x<690 / y 470〜660 で x<815）と字幕帯（x300〜980・y≥628）の差は区間の前（オーバーレイ無し）のノイズ水準と同じ = 触れていない"
+ },
+ "osr_verify_off_finding": {
+  "summary": "AKARI_OSR_VERIFY=off で書き出すと、入りのフレームが 1〜2 フレーム遅れて写る（古いフレームの取り込み）。実行ごとに揺れる。既定の stamp 検証ありでは描画確認用レンダラと一致し、遅れない",
+  "observed": [
+   "verify=off 1 回目: カードの初出 f257（本来 f256）、AI の行 f279（本来 f277）、返事 f298（本来 f297）",
+   "verify=off 2 回目: カードの初出 f258、AI の行 f278、返事 f297（同じ入力で結果が変わる）",
+   "verify=stamp: カード f256・AI の行 f277・返事 f297（期待どおり）"
+  ],
+  "probe": "緑の箱 6 個の最小断片（C:/t/chat-l0/proj3）でも verify=off で同じ遅れと同一フレームの重複（k=22・k=28）を再現",
+  "advice": "目利きの ±0.15 秒の実測は verify を切らずに書き出した mp4 で行う（off で測ると 1〜2 フレーム遅れて見える）"
+ }
+}

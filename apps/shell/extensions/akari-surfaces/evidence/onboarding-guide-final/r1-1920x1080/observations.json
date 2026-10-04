@@ -1,0 +1,1056 @@
+{
+  "label": "r1",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "electronPid": 15788,
+  "startedAt": "2026-10-01T14:18:23.394Z",
+  "shots": [
+    "01-tour-example.jpg",
+    "02-caption-preview.jpg",
+    "03-caption-3s-ring.jpg",
+    "04-daihon-script.jpg",
+    "05-export-sub0.jpg",
+    "06-export-sub2-dialog.jpg",
+    "07-back-from-3.jpg",
+    "08-back-from-2-menu-closed.jpg",
+    "09-redo-menu-after-back-from-2.jpg",
+    "10-redo-dialog-after-back-from-2.jpg",
+    "11-back-from-1-daihon-sub2.jpg",
+    "12-next-from-daihon-sub2.jpg",
+    "13-assist-sub0-menu-open.jpg",
+    "14-export-running.jpg",
+    "15-export-result.jpg",
+    "16-done.jpg"
+  ],
+  "checks": {
+    "tour": [
+      {
+        "step": "tour0",
+        "title": "画面の構成を知りましょう",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour0",
+        "title": "これが AKARI Video の画面です",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour1",
+        "title": "① 左は「素材」です",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour2",
+        "title": "② 上は「プレビュー」です",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour2",
+        "title": "② 下は「タイムライン」です",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour3",
+        "title": "③ 右は「AI パートナー」です",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour3",
+        "title": "では、これを一緒につくってみましょう",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      }
+    ],
+    "tourShot": true,
+    "sampleCardClick": "help-next",
+    "captionPreview": {
+      "lines": [
+        "AI と話すだけで動画編集",
+        "ほら、",
+        "こんな感じで。"
+      ],
+      "hasFullwidthComma": false,
+      "hasIdeographicComma": true
+    },
+    "captionRing": {
+      "ring": {
+        "x": 485.765625,
+        "y": 372.2214660644531,
+        "width": 476.890625,
+        "height": 137.5625
+      },
+      "subtitle": {
+        "x": 617.234375,
+        "y": 401.546875,
+        "width": 213.96875,
+        "height": 88.609375
+      },
+      "lines": 2,
+      "contains": true
+    },
+    "daihon": {
+      "excerpt": "22 行\n添付:\n全部\n文字だけ\n隠す\n字幕を作る\nT この行から文字を置く\n🔊 読み上げ\n⏱ 発話に合わせ直す\n🕘 履歴\n⚙ 表示 18字 · 1行\n🎨 テンプレ\nQC ⚠ 8\n無音短縮…\nカット候補へ（0 / 0）\n0:00.59 – 0:00.89\n✂\n⧉\n⚙\n🎨 標準字幕\n⚡ 速い 16.7 字/秒\n表示 0.6 秒未満\nこんにちは。\nT AI と話すだけで動画編集 · 全体\n0:00.89 – 0:02.24\n✂\n⧉\n⚙\n🎨 標準字幕\n今日はですね、··· 1.11\n0:02.24 – 0:04.16\n✂\n⧉\n⚙\n🎨 標準字幕\nあかりビデオっていう\n0:04.16 – 0:05.70\n✂\n⧉\n⚙\n🎨 標準字幕\n動画編集ツールを\n0:05.70 – 0:07.16\n✂\n⧉\n⚙\n🎨 標準字幕\n試してみてます。\n0:07.82 – 0:08.80\n✂\n⧉\n⚙\n🎨 標準",
+      "hasFullwidthComma": false,
+      "hasIdeographicComma": true,
+      "commaContexts": []
+    },
+    "bodyFullwidthComma": [],
+    "previewFullwidthComma": [],
+    "r1": {
+      "from3": {
+        "ok": true,
+        "menuOpen": true,
+        "dialogOpen": false,
+        "exportButton": {
+          "visible": true,
+          "rect": [
+            74,
+            559,
+            275,
+            35
+          ],
+          "topmost": "BUTTON.theia-button secondary",
+          "topmostIsTarget": true
+        }
+      },
+      "from2": {
+        "ok": true,
+        "menuOpen": false,
+        "menuButton": {
+          "visible": true,
+          "rect": [
+            0,
+            146,
+            48,
+            48
+          ],
+          "topmost": "DIV.lm-TabBar-tabIcon codicon codicon-menu",
+          "topmostIsTarget": true
+        }
+      },
+      "redoMenu": {
+        "ms": 968,
+        "menuOpen": true,
+        "exportButton": {
+          "visible": true,
+          "rect": [
+            74,
+            559,
+            275,
+            35
+          ],
+          "topmost": "BUTTON.theia-button secondary",
+          "topmostIsTarget": true
+        }
+      },
+      "redoExport": {
+        "ms": 256,
+        "dialogOpen": true
+      },
+      "from2Again": {
+        "ok": true,
+        "menuOpen": false
+      },
+      "from1": {
+        "ok": true,
+        "step": "daihon",
+        "title": "プレビューがこの場面へ飛びました",
+        "back": true,
+        "menuOpen": false,
+        "daihonVisible": {
+          "visible": true,
+          "rect": [
+            1083,
+            71,
+            789,
+            983
+          ],
+          "topmost": "DIV.akari-daihon-row-head",
+          "topmostIsTarget": true
+        }
+      },
+      "nextFromDaihon": {
+        "step": "export",
+        "title": "書き出しは、左のメニューから",
+        "menuOpen": false
+      },
+      "assistSub0": {
+        "title": "「書き出し…」を押します",
+        "menuOpen": true,
+        "exportButton": {
+          "visible": true,
+          "rect": [
+            74,
+            559,
+            275,
+            35
+          ],
+          "topmost": "BUTTON.theia-button secondary",
+          "topmostIsTarget": true
+        }
+      }
+    },
+    "exportRunning": {
+      "step": "export",
+      "title": "書き出しています",
+      "back": false,
+      "dialogOpen": false
+    },
+    "exportMs": 17364,
+    "exportResult": {
+      "step": "export",
+      "title": "書き出せました",
+      "back": false,
+      "dialogOpen": false
+    },
+    "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ",
+    "captionFiles": [
+      {
+        "path": "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-01-first-video\\captions.json",
+        "count": 23,
+        "fullwidthComma": 0,
+        "ideographicComma": 11,
+        "displayDiffersFromText": 0
+      }
+    ]
+  },
+  "exportBack": [
+    {
+      "from": "③「書き出す」",
+      "before": "標準のまま「書き出す」",
+      "backHit": {
+        "visible": true,
+        "rect": [
+          1136,
+          759,
+          39,
+          29
+        ],
+        "topmost": "BUTTON.ao-back",
+        "topmostIsTarget": true,
+        "stack": {
+          "at": [
+            "BUTTON.ao-back",
+            "DIV.ao-actions",
+            "DIV.ao-coach   ",
+            "DIV.right",
+            "DIV.rwrap",
+            "DIV.pb",
+            "DIV.popup",
+            "DIV.dialogContent"
+          ],
+          "chain": [
+            {
+              "el": "BUTTON.ao-back",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-actions",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach   ",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach-host",
+              "pe": "none",
+              "z": "9",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV#akari-onboarding-v1.",
+              "pe": "none",
+              "z": "2147483000",
+              "pos": "fixed",
+              "inert": false
+            },
+            {
+              "el": "BODY.monaco-enable-motion underline-links vs-dark dark-",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "HTML.notranslate",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            }
+          ],
+          "dialogHost": {
+            "z": "2147482999",
+            "pos": "fixed",
+            "parent": "BODY.monaco-enable-motion underline-links vs-dark dark-"
+          },
+          "bodyClass": "monaco-enable-motion underline-links vs-dark dark-theia windows theia-dark akari-onboarding-active akari-onboarding-export-active",
+          "topLayerDialogs": 0
+        }
+      },
+      "after": {
+        "step": "export",
+        "title": "「書き出し…」を押します",
+        "back": true,
+        "dialogOpen": false
+      },
+      "menuPanelOpen": true,
+      "expectTitle": "「書き出し…」を押します",
+      "ok": true,
+      "menuButton": {
+        "visible": true,
+        "rect": [
+          0,
+          146,
+          48,
+          48
+        ],
+        "topmost": "DIV.ao-input-blocker",
+        "topmostIsTarget": false
+      },
+      "exportButton": {
+        "visible": true,
+        "rect": [
+          74,
+          559,
+          275,
+          35
+        ],
+        "topmost": "BUTTON.theia-button secondary",
+        "topmostIsTarget": true
+      }
+    },
+    {
+      "from": "②「書き出し…」",
+      "before": "「書き出し…」を押します",
+      "backHit": {
+        "visible": true,
+        "rect": [
+          381,
+          607,
+          39,
+          29
+        ],
+        "topmost": "BUTTON.ao-back",
+        "topmostIsTarget": true,
+        "stack": {
+          "at": [
+            "BUTTON.ao-back",
+            "DIV.ao-actions",
+            "DIV.ao-coach   ",
+            "DIV.ao-input-blocker",
+            "IFRAME.webview",
+            "DIV#plugin-webview:akari-output-preview-1gqd9e2.lm-Widget theia-webview lm-DockPanel-widget",
+            "DIV#theia-main-content-panel.lm-Widget lm-DockPanel lm-SplitPanel-child",
+            "DIV#theia-bottom-split-panel.lm-Widget lm-Panel lm-SplitPanel lm-SplitPanel-chi"
+          ],
+          "chain": [
+            {
+              "el": "BUTTON.ao-back",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-actions",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach   ",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach-host",
+              "pe": "none",
+              "z": "9",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV#akari-onboarding-v1.",
+              "pe": "none",
+              "z": "2147483000",
+              "pos": "fixed",
+              "inert": false
+            },
+            {
+              "el": "BODY.monaco-enable-motion underline-links vs-dark dark-",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "HTML.notranslate",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            }
+          ],
+          "dialogHost": null,
+          "bodyClass": "monaco-enable-motion underline-links vs-dark dark-theia windows theia-dark akari-onboarding-active akari-onboarding-export-active",
+          "topLayerDialogs": 0
+        }
+      },
+      "after": {
+        "step": "export",
+        "title": "書き出しは、左のメニューから",
+        "back": true,
+        "dialogOpen": false
+      },
+      "menuPanelOpen": false,
+      "expectTitle": "書き出しは、左のメニューから",
+      "ok": true,
+      "menuButton": {
+        "visible": true,
+        "rect": [
+          0,
+          146,
+          48,
+          48
+        ],
+        "topmost": "DIV.lm-TabBar-tabIcon codicon codicon-menu",
+        "topmostIsTarget": true
+      },
+      "exportButton": {
+        "missing": false,
+        "visible": false
+      }
+    },
+    {
+      "from": "③「書き出す」(2 回目)",
+      "before": "標準のまま「書き出す」",
+      "backHit": {
+        "visible": true,
+        "rect": [
+          1136,
+          759,
+          39,
+          29
+        ],
+        "topmost": "BUTTON.ao-back",
+        "topmostIsTarget": true,
+        "stack": {
+          "at": [
+            "BUTTON.ao-back",
+            "DIV.ao-actions",
+            "DIV.ao-coach   ",
+            "DIV.right",
+            "DIV.rwrap",
+            "DIV.pb",
+            "DIV.popup",
+            "DIV.dialogContent"
+          ],
+          "chain": [
+            {
+              "el": "BUTTON.ao-back",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-actions",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach   ",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach-host",
+              "pe": "none",
+              "z": "9",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV#akari-onboarding-v1.",
+              "pe": "none",
+              "z": "2147483000",
+              "pos": "fixed",
+              "inert": false
+            },
+            {
+              "el": "BODY.monaco-enable-motion underline-links vs-dark dark-",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "HTML.notranslate",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            }
+          ],
+          "dialogHost": {
+            "z": "2147482999",
+            "pos": "fixed",
+            "parent": "BODY.monaco-enable-motion underline-links vs-dark dark-"
+          },
+          "bodyClass": "monaco-enable-motion underline-links vs-dark dark-theia windows theia-dark akari-onboarding-active akari-onboarding-export-active",
+          "topLayerDialogs": 0
+        }
+      },
+      "after": {
+        "step": "export",
+        "title": "「書き出し…」を押します",
+        "back": true,
+        "dialogOpen": false
+      },
+      "menuPanelOpen": true,
+      "expectTitle": "「書き出し…」を押します",
+      "ok": true,
+      "menuButton": {
+        "visible": true,
+        "rect": [
+          0,
+          146,
+          48,
+          48
+        ],
+        "topmost": "DIV.ao-input-blocker",
+        "topmostIsTarget": false
+      },
+      "exportButton": {
+        "visible": true,
+        "rect": [
+          74,
+          559,
+          275,
+          35
+        ],
+        "topmost": "BUTTON.theia-button secondary",
+        "topmostIsTarget": true
+      }
+    },
+    {
+      "from": "②「書き出し…」(2 回目)",
+      "before": "「書き出し…」を押します",
+      "backHit": {
+        "visible": true,
+        "rect": [
+          381,
+          608,
+          39,
+          29
+        ],
+        "topmost": "BUTTON.ao-back",
+        "topmostIsTarget": true,
+        "stack": {
+          "at": [
+            "BUTTON.ao-back",
+            "DIV.ao-actions",
+            "DIV.ao-coach   ",
+            "DIV.ao-input-blocker",
+            "IFRAME.webview",
+            "DIV#plugin-webview:akari-output-preview-1gqd9e2.lm-Widget theia-webview lm-DockPanel-widget",
+            "DIV#theia-main-content-panel.lm-Widget lm-DockPanel lm-SplitPanel-child",
+            "DIV#theia-bottom-split-panel.lm-Widget lm-Panel lm-SplitPanel lm-SplitPanel-chi"
+          ],
+          "chain": [
+            {
+              "el": "BUTTON.ao-back",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-actions",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach   ",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach-host",
+              "pe": "none",
+              "z": "9",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV#akari-onboarding-v1.",
+              "pe": "none",
+              "z": "2147483000",
+              "pos": "fixed",
+              "inert": false
+            },
+            {
+              "el": "BODY.monaco-enable-motion underline-links vs-dark dark-",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "HTML.notranslate",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            }
+          ],
+          "dialogHost": null,
+          "bodyClass": "monaco-enable-motion underline-links vs-dark dark-theia windows theia-dark akari-onboarding-active akari-onboarding-export-active",
+          "topLayerDialogs": 0
+        }
+      },
+      "after": {
+        "step": "export",
+        "title": "書き出しは、左のメニューから",
+        "back": true,
+        "dialogOpen": false
+      },
+      "menuPanelOpen": false,
+      "expectTitle": "書き出しは、左のメニューから",
+      "ok": true,
+      "menuButton": {
+        "visible": true,
+        "rect": [
+          0,
+          146,
+          48,
+          48
+        ],
+        "topmost": "DIV.lm-TabBar-tabIcon codicon codicon-menu",
+        "topmostIsTarget": true
+      },
+      "exportButton": {
+        "missing": false,
+        "visible": false
+      }
+    },
+    {
+      "from": "①「≡」",
+      "before": "書き出しは、左のメニューから",
+      "backHit": {
+        "visible": true,
+        "rect": [
+          80,
+          202,
+          39,
+          29
+        ],
+        "topmost": "BUTTON.ao-back",
+        "topmostIsTarget": true,
+        "stack": {
+          "at": [
+            "BUTTON.ao-back",
+            "DIV.ao-actions",
+            "DIV.ao-coach   ",
+            "DIV.ao-input-blocker",
+            "IFRAME.webview",
+            "DIV#plugin-webview:akari-output-preview-1gqd9e2.lm-Widget theia-webview lm-DockPanel-widget",
+            "DIV#theia-main-content-panel.lm-Widget lm-DockPanel lm-SplitPanel-child",
+            "DIV#theia-bottom-split-panel.lm-Widget lm-Panel lm-SplitPanel lm-SplitPanel-chi"
+          ],
+          "chain": [
+            {
+              "el": "BUTTON.ao-back",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-actions",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach   ",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV.ao-coach-host",
+              "pe": "none",
+              "z": "9",
+              "pos": "absolute",
+              "inert": false
+            },
+            {
+              "el": "DIV#akari-onboarding-v1.",
+              "pe": "none",
+              "z": "2147483000",
+              "pos": "fixed",
+              "inert": false
+            },
+            {
+              "el": "BODY.monaco-enable-motion underline-links vs-dark dark-",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            },
+            {
+              "el": "HTML.notranslate",
+              "pe": "auto",
+              "z": "auto",
+              "pos": "static",
+              "inert": false
+            }
+          ],
+          "dialogHost": null,
+          "bodyClass": "monaco-enable-motion underline-links vs-dark dark-theia windows theia-dark akari-onboarding-active akari-onboarding-export-active",
+          "topLayerDialogs": 0
+        }
+      },
+      "after": {
+        "step": "daihon",
+        "title": "プレビューがこの場面へ飛びました",
+        "back": true,
+        "dialogOpen": false
+      },
+      "menuPanelOpen": false,
+      "expectTitle": "飛びました",
+      "ok": true,
+      "menuButton": {
+        "visible": true,
+        "rect": [
+          0,
+          146,
+          48,
+          48
+        ],
+        "topmost": "DIV.ao-coach   ",
+        "topmostIsTarget": false
+      },
+      "exportButton": {
+        "missing": false,
+        "visible": false
+      }
+    }
+  ],
+  "pageErrors": [
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません"
+  ],
+  "exportLog": [
+    {
+      "t": 207,
+      "title": "書き出しは、左のメニューから",
+      "dialog": false
+    },
+    {
+      "t": 210,
+      "click": "menu-button",
+      "trusted": true
+    },
+    {
+      "t": 418,
+      "title": "「書き出し…」を押します",
+      "dialog": false
+    },
+    {
+      "t": 1119,
+      "click": "export-button",
+      "trusted": true
+    },
+    {
+      "t": 1160,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 1182,
+      "title": "",
+      "dialog": true
+    },
+    {
+      "t": 1336,
+      "title": "標準のまま「書き出す」",
+      "dialog": true
+    },
+    {
+      "t": 2329,
+      "click": "back",
+      "trusted": true
+    },
+    {
+      "t": 2330,
+      "click": "×",
+      "trusted": false
+    },
+    {
+      "t": 2345,
+      "title": "標準のまま「書き出す」",
+      "dialog": false
+    },
+    {
+      "t": 2359,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 2544,
+      "title": "「書き出し…」を押します",
+      "dialog": false
+    },
+    {
+      "t": 4126,
+      "click": "back",
+      "trusted": true
+    },
+    {
+      "t": 4162,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 4341,
+      "title": "書き出しは、左のメニューから",
+      "dialog": false
+    },
+    {
+      "t": 5897,
+      "click": "menu-button",
+      "trusted": true
+    },
+    {
+      "t": 6023,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 6117,
+      "title": "「書き出し…」を押します",
+      "dialog": false
+    },
+    {
+      "t": 6996,
+      "click": "export-button",
+      "trusted": true
+    },
+    {
+      "t": 7014,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 7031,
+      "title": "",
+      "dialog": true
+    },
+    {
+      "t": 7200,
+      "title": "標準のまま「書き出す」",
+      "dialog": true
+    },
+    {
+      "t": 8139,
+      "click": "back",
+      "trusted": true
+    },
+    {
+      "t": 8139,
+      "click": "×",
+      "trusted": false
+    },
+    {
+      "t": 8145,
+      "title": "標準のまま「書き出す」",
+      "dialog": false
+    },
+    {
+      "t": 8157,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 8343,
+      "title": "「書き出し…」を押します",
+      "dialog": false
+    },
+    {
+      "t": 9820,
+      "click": "back",
+      "trusted": true
+    },
+    {
+      "t": 9850,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 10029,
+      "title": "書き出しは、左のメニューから",
+      "dialog": false
+    },
+    {
+      "t": 11507,
+      "click": "back",
+      "trusted": true
+    },
+    {
+      "t": 11765,
+      "title": "プレビューがこの場面へ飛びました",
+      "dialog": false
+    },
+    {
+      "t": 13249,
+      "click": "next",
+      "trusted": true
+    },
+    {
+      "t": 13458,
+      "title": "書き出しは、左のメニューから",
+      "dialog": false
+    },
+    {
+      "t": 15103,
+      "click": "help-next",
+      "trusted": true
+    },
+    {
+      "t": 15345,
+      "title": "「書き出し…」を押します",
+      "dialog": false
+    },
+    {
+      "t": 16208,
+      "click": "export-button",
+      "trusted": true
+    },
+    {
+      "t": 16230,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 16250,
+      "title": "",
+      "dialog": true
+    },
+    {
+      "t": 16408,
+      "title": "標準のまま「書き出す」",
+      "dialog": true
+    },
+    {
+      "t": 17251,
+      "click": "export-submit",
+      "trusted": true
+    },
+    {
+      "t": 17262,
+      "title": "",
+      "dialog": true
+    },
+    {
+      "t": 17278,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 17435,
+      "title": "書き出しています",
+      "dialog": false
+    },
+    {
+      "t": 33314,
+      "click": "×",
+      "trusted": false
+    },
+    {
+      "t": 33390,
+      "title": "",
+      "dialog": false
+    },
+    {
+      "t": 33580,
+      "title": "書き出せました",
+      "dialog": false
+    },
+    {
+      "t": 35637,
+      "click": "next",
+      "trusted": true
+    },
+    {
+      "t": 35670,
+      "title": "",
+      "dialog": false
+    }
+  ],
+  "finishedAt": "2026-10-01T14:20:25.730Z"
+}

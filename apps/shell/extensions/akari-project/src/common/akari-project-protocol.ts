@@ -5,6 +5,7 @@ import type { MyStyle } from './my-style';
 import type { ShapeShelfPreset } from './shape-shelf';
 export type { MyStyle } from './my-style';
 export { PresetShowcase, PresetShowcaseItem, PresetShowcaseKind } from './preset-showcase';
+import type { LibraryTextstylePreset } from '@akari-video/edit-store';
 
 export const AKARI_PROJECT_SERVICE_PATH = '/services/akari-project';
 export const AkariProjectService = Symbol('AkariProjectService');
@@ -371,10 +372,12 @@ export interface AkariProjectService {
      * 開発配置フォールバックの解決規約は resolveCatalogRoot と同じ）をマージして返す。
      * id 重複（`${category}/${id}`）時は resolver 側を優先する。resolver 側が
      * 到達不能（未デプロイ・開発配置なし等）でもローカル分は表示を継続する（fail-soft）。
+     * intent 省略時は automatic。利用者が開く・再読み込みする経路だけ user を明示する。
      */
-    getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView>;
+    getAssetCatalogView(preferenceRoot: string | undefined, intent?: 'automatic' | 'user'): Promise<AssetCatalogView>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
     getPresetShowcase(): Promise<PresetShowcase>;
+    getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]>;
     getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>>;
     /** 図形の棚（presets/shapes/index.jsonl）。読めなければ空配列。 */
     getShapeShelf(): Promise<ShapeShelfPreset[]>;

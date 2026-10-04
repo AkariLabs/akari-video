@@ -7,10 +7,17 @@ import {
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
     normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
+    showTemporaryGpuPreferenceSetting,
     QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, QUALITY_TIER_RESERVED_NOTE
 } from '../../lib/common/settings-sections.js';
 
 const source = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+
+test('一時 GPU 設定は Windows の設定画面だけに出す', () => {
+    assert.equal(showTemporaryGpuPreferenceSetting('win32'), true);
+    assert.equal(showTemporaryGpuPreferenceSetting('darwin'), false);
+    assert.equal(showTemporaryGpuPreferenceSetting('linux'), false);
+});
 
 test('全節の設定キーは節へ往復し、複数の節に重複しない', () => {
     const keys = new Set();

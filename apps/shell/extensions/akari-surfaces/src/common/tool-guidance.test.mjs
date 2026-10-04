@@ -92,9 +92,9 @@ test('VOICEVOX はクレジット表記義務を明示する', () => {
     assert.match(TOOL_UI.voicevox.note, /クレジット表記が必要/);
 });
 
-test('FFmpeg はほぼ必須、yt-dlp は既定 ON と明示する', () => {
+test('FFmpeg はほぼ必須、yt-dlp はアドバンスと表示する', () => {
     assert.match(TOOL_UI.ffmpeg.badge, /ほぼ必須/);
-    assert.match(TOOL_UI['yt-dlp'].badge, /既定 ON/);
+    assert.equal(TOOL_UI['yt-dlp'].badge, 'アドバンス');
 });
 
 test('install フィールドは廃止されている（コマンド文字列を UI から全廃 — 裁定 A1）', () => {

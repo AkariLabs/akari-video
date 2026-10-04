@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { findActiveCaptions } from '../../../../../packages/edit-store/lib/caption-window.js';
+import { evaluateHostTemplate } from './helpers/host-template.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 function section(from, to) {
   const start = source.indexOf(from), end = source.indexOf(to, start);
   assert.ok(start >= 0 && end > start);
@@ -23,6 +24,11 @@ class Element {
   remove() { if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1); this.parent = null; }
   getAnimations() { return [this.animation]; }
 }
+
+test('host template rejects a page binding absent from the host imports', () => {
+  assert.throws(() => evaluateHostTemplate(source, '${missingHostBinding.toString()}'),
+    /missing host import for template binding: missingHostBinding/);
+});
 
 test('concurrent rows keep independent styles, animation clocks, hit regions and event identity', () => {
   const layer = new Element(), rows = new Map(), synced = [];
@@ -43,6 +49,7 @@ test('concurrent rows keep independent styles, animation clocks, hit regions and
     captionEntryAnimationsSettledFn: () => true,
   });
   vm.runInContext(section('const captionForEvent = event => {', 'const previewMessage ='), context);
+  vm.runInContext(evaluateHostTemplate(source, section('const applyRichCaptionLayers =', 'const richPreviewWords =')), context);
   vm.runInContext(section('const renderCaptionRow = (caption, row) => {', 'const renderTransitionPlate ='), context);
   vm.runInContext('renderCaption()', context);
   assert.deepEqual(layer.children.map(p => p.innerHTML), ['lower', 'upper']);

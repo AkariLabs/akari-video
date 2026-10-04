@@ -1,27 +1,21 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { readHandlerSource, sliceBetween, methodBody } from './helpers/handler-source.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const source = readHandlerSource();
 
 const extractBetween = (startMarker, endMarker) => {
     const start = source.indexOf(startMarker);
     const end = source.indexOf(endMarker, start);
     assert.notEqual(start, -1, `missing start marker: ${startMarker}`);
     assert.notEqual(end, -1, `missing end marker: ${endMarker}`);
-    return source.slice(start, end);
+    return sliceBetween(startMarker, endMarker, { source });
 };
 
 test('host fallback gate is source-pinned and simulated because its browser module cannot load in node:test', () => {
     // The Theia/Lumino browser module requires a real DOM and cannot load in node:test. Pinning the
     // production method text guarantees that the simulation below remains a copy of its gate order.
-    const methodSource = extractBetween(
-        '    protected async handleHevcFallbackRequest(',
-        '\n    protected isOpenOutputRequest'
-    );
+    const methodSource = methodBody('handleHevcFallbackRequest') + '\n';
     assert.match(methodSource, /widget\.akariPreviewFallbackSourceUris\?\.has\(request\.videoUri\)/u);
     assert.match(methodSource, /respond\(false, '動画ソースがプレビューの宣言と一致しません'\)/u);
     assert.match(methodSource, /const key = videoUri\.toString\(\);/u);

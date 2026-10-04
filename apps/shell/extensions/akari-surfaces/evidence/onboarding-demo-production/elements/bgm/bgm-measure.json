@@ -1,0 +1,119 @@
+{
+  "element": "bgm",
+  "made": "2026-10-01",
+  "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/bgm.m4a",
+  "file_md5": "199ab0b8a71f2bf845351b3926dc86f7",
+  "file_sha256": "224b07e8d0dfe612109d728f8d04ef378c8bcd36ef141cff3f3a34ee0a6ca0a4",
+  "replaces_sha256": "829c903a4c6c21a355bce0d6e7cf4e3d03d7c90c22a8696ba7f470044d9bd10e（079cc861e の bgm.m4a。main には未合流。preview/2026-09-30-onboarding にだけある）",
+  "format": "AAC-LC 96 kbps / 48 kHz / stereo / m4a（+faststart・bitexact）。37.600 s = 1,804,800 サンプル。make-bgm.sh で再生成して md5 一致を確認",
+  "source": {
+    "id": "bgm-lofi-minimal-085",
+    "title": "Midnight Notepad（AKARI Sounds・Suno v5.5 生成）",
+    "path_read": "~/Akari/library/audio/akari-sounds-bgm/bgm-lofi-minimal-085.mp3（読むだけ）",
+    "md5": "982faf7ae59a77f7e5c45787c84f0058",
+    "meta": "akari-video-internal assets/audio/bgm-lofi-minimal-085/meta.json",
+    "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要。単体再配布／音楽配信登録／Content ID 登録は禁止）、price 0",
+    "beat_grid_declared": "bpm 84.9987 / beat_offset_s 0.007 / 4/4（meta.json の ai_usage。lab/beatgrid-audit の相関法・1 ms 分解能）",
+    "integrated_lufs_of_cut_at_0db": -15.9
+  },
+  "recipe": "make-bgm.sh（原曲の 3456 サンプル目 = 0.072 s から 1,804,800 サンプルを atrim → AAC 96k。音量・フェードは焼かない）",
+  "offset": {
+    "used_s": 0.072,
+    "plan_said_s": 0.080,
+    "why_not_0.080": "構成表の 0.080 は旧ファイルの打点を目で読んだ 19.78 からの丸め。曲の拍グリッド宣言では拍 28 = 原曲 19.772 s（実測のドラムの立ち上がりも 19.770〜19.775）なので、0.072 で 19.700 に乗る。0.080 だと 19.692（声の破裂 19.7046 より 13 ms 早い）。どちらも許容 ±0.02 の内側だが、0.072 のほうが声・whoosh と 1〜2 ms で重なり、BGM 札のイコライザが前提にした拍 29.582（= 19.70 + 14 拍）とも一致する（0.072 で拍 42 = 29.583）",
+    "first_hit_bonus": "0.072 では曲の最初の打点が 0.30 s に来て、「こんにちは」の語頭 0.29 と重なる"
+  },
+  "beat_check": {
+    "target": "19.70 ± 0.02 s",
+    "source_kick_grid_s": 19.772,
+    "source_kick_onset_measured_s": "19.770〜19.775（120〜500 Hz 帯の 10 ms RMS が −22.9 → −5.6 dBFS に跳ねる）",
+    "file_alignment": "ffmpeg 復号・Electron 39.8.7 decodeAudioData（ffmpeg.dll md5 0b4fe392…）とも、同梱ファイル[t] = 原曲[t + 3456 サンプル]（1 s・19 s・36 s の 3 窓で相互相関の誤差 0 サンプル）。AAC の priming は両方の復号で除かれる",
+    "decoded_length": { "electron_decodeAudioData": 1804800, "ffmpeg_n8.1.2": 1805312, "note": "ffmpeg は末尾の 512 サンプル（パディング）を残すが、書き出しは atrim=duration=37.6 で切るので影響なし。Electron はちょうど 37.600 s で、source.out 37.6 と一致（警告なし）" },
+    "export_kick_onset_s": "19.700〜19.706（BGM だけの書き出し。10 ms RMS が 19.70 窓で −42.6 → −34.7、19.71 窓で −25.7 dBFS。2 ms RMS が直前の中央値 +12 dB を越えるのは 19.706）",
+    "voice_pa_burst_source_s": 19.7046,
+    "whoosh_impact_s": 19.7051,
+    "old_file_kick_s": 19.78,
+    "verdict": "PASS（拍の打点 19.700〜19.706、語頭 19.7046 との差 ≤ 5 ms）"
+  },
+  "edit_item_final": {
+    "track": "onboarding-bgm",
+    "source_entry": { "id": "onboarding-bgm", "path": "assets/onboarding-bgm.m4a" },
+    "item": {
+      "id": "onboarding-bgm", "at": 0, "duration": 1128, "role": "bgm",
+      "gain_db": -17, "fade_in": 0.6, "fade_out": 1.2,
+      "keyframes": [
+        { "t": 750, "gain_db": 0 },
+        { "t": 765, "gain_db": 8 },
+        { "t": 812, "gain_db": 0, "easing": "in-cubic" },
+        { "t": 879, "gain_db": 0 },
+        { "t": 888, "gain_db": 8, "easing": "out-cubic" },
+        { "t": 942, "gain_db": 0, "easing": "in-quart" },
+        { "t": 1070, "gain_db": 0 },
+        { "t": 1080, "gain_db": 12, "easing": "out-cubic" }
+      ],
+      "source": { "kind": "media", "src": "onboarding-bgm", "in": 0, "out": 37.6 }
+    },
+    "reading": "基準 −17 dB（声の下 ≈ −33 LUFS）。25.00→25.50 で +8（2 秒の間を −25 LUFS の音楽で埋め、27.07「スマホ」の直前で in-cubic で戻す）。29.30→29.60 で +8（「BGM」29.45 で 1 dB 以内まで上がり切る）→ 31.40 までに in-quart で戻す（読点の間 30.25〜30.63 は +7〜+7.6 を保つ）。35.67→36.00 で +12（−5 dB で締め）→ fade_out 1.2 s で 37.6 に消える。ducking は書かない（下の composition_rules を参照）",
+    "keyframe_count_limit": "8 点まで。9 点以上だと edit-store の保存で motion 袋へ移され、保存そのものが lint で拒否される（下の finding_bag）"
+  },
+  "deviations_from_plan": [
+    "切り出し 0.080 → 0.072 s（offset.why_not_0.080）",
+    "gain_db −9 + ducking true（duck −8 / attack 0.15 / release 0.5）+ keyframes 絶対値 → gain_db −17 + ducking なし + 相対 keyframes 8 点。理由: (1) 実装では keyframes の gain_db は item の gain_db に『加算』（contract-2026-09-02-audio-envelope-v1 §2・§3「実効ゲインは gain_db + keyframes(t) + duck(t)」）。構成表の値をそのまま書くと基準 −18 dB・持ち上げても −11 dB になる（書き出しで実測: 効きゲイン = 共通カーネルの計算値 ±0.08 dB）。(2) この案件では ducking が書き出しでもプレビューでも効かない（composition_rules.ducking）。発話中／間の音量差は keyframes でしか作れない",
+    "締めの −4 dB → −5 dB（keyframes の gain_db 上限 +12。基準 −17 + 12）",
+    "間ごとの持ち上げ（構成表の『間 ≈ −25 LUFS』）は 2 秒の間（25.00〜27.07）だけ。1 秒の間 1.26〜2.35 などは基準のまま（8 点の上限。1.26〜2.35 は曲自体が減衰していて −36.8 LUFS）"
+  ],
+  "composition_rules": {
+    "keyframes_vs_gain_db": "加算（dB）。fade は別に線形で掛かる。書き出し: volume=gain_db → afade → env-*.f32 を amultiply（plan.mjs）。プレビュー: base GainNode（gain_db × fade）と第 2 GainNode（envelopeEvents）。両方とも edit-store の envelope.ts（evaluateEnvelopeDb / composeEnvelopesDb）を使う",
+    "keyframe_time_unit": "v2 の audio item は item 相対の整数フレーム。legacy-audio-view が output.fps で秒へ直す（t 879 → 29.30 s）",
+    "ducking": {
+      "export": "render-cut の speech 鍵はプロジェクト直下の analysis.json だけを読む。お手本は解析を .akari/sidecars/assets/サンプル動画.mp4.analysis/analysis.json に書くので鍵が空になり、『speech duck key: analysis.json is unavailable』『audio ducking target bgm: no duck key intervals are available; ducking was not applied』の警告だけ出て効かない（構成表どおりの edit で実測、render.json provenance.audio.envelope.ducked_items = []）",
+      "preview": "preview-audio-supply は buildWebAudioSchedule に duckKeyIntervals を渡さない。speech 鍵になるのは分割した音声（audio.speech）だけで、本編に埋め込まれた声は鍵にならない。構成表どおりの edit でスケジュールを組むと同じ『no duck key intervals are available; ducking was not applied』が出る",
+      "conclusion": "本編の声が動画に入ったままの素材では、ducking: true はどちらの経路でも効かない。発話中／間の差は keyframes で書く"
+    },
+    "finding_bag": "BGM に音量 keyframes を 9 点以上書くと、edit-store の openProject().save()（CLI・アプリの編集保存）が motion/<id>.json へ移して { path, count } に置き換える。その状態は edit-lint が『audio keyframes must contain at least two points』『keyframes bag does not exist or is not valid JSON』のエラーにするので、無関係な編集（本編 item の name 変更）の保存まで拒否される（C:/t/bgm-0930 の複製で実測）。legacy-audio-view も参照オブジェクトをそのまま渡すため、プレビュー・書き出しとも音量変化が消える。お手本は 8 点に収めた",
+    "finding_lint_false_warning": "edit-lint は v2 の audio item を legacy 形（edit.json#audio.bgm）にも投影して検査するとき、keyframes の t（フレーム）を秒と比べて『keyframe t 750s exceeds effective duration 37.6s』の warning を 8 件出す（v2 側の検査 tracks[].items[] はフレームで正しく通る）。PASS は変わらない。お手本の lint 表示に warning 8 件が乗る",
+    "finding_export_voice_shift": "書き出し（render-cut・gpu エンジン）では、本編に埋め込まれた声だけが素材 clip.mp4 の時刻より 23.2 ms（48 kHz で 1115 サンプル = 44.1 kHz の AAC 1 フレーム）早く出る。2〜6 s・10〜14 s・18〜22 s・30〜34 s の 4 窓で一定。cut_audio と同じフィルタ列を PCM に直接出すとずれない（誤差 1 サンプル）ので、AAC の中間ファイル（cut-audio.mp4）から合成動画への mux のどこかで素材の priming 分が二重に除かれているとみられる（原因箇所は未特定）。BGM はずれない（書き出しの BGM と素材の位置合わせで確認）。効果音も BGM と同じ audio_mix 経路なのでずれないはずだが未測定。書き出しでは声が絵・BGM・効果音より 23 ms 先行する（知覚の閾値内。構成表の ±0.15 s の判定にも影響しない）"
+  },
+  "measurements_export": {
+    "method": "隔離した複製プロジェクト（C:/t/bgm-0930/proj-*、AKARI_HOME・作業フォルダ・TMP を隔離、AKARI_EXPORT_ALLOW_DESKTOP=0 で worktree の Electron 39.8.7 = tier 2、engine gpu）を render-cut で書き出した。本編 + BGM の edit（createOnboardingEdit と同じ形）を 3 通り: 声 + BGM（final）／無音の声 + BGM（BGM だけ）／声だけ。amix は normalize=0 の単純和なので BGM だけの書き出し = ミックスの中の BGM（final − 声 − BGM の残差 −32.4 dB = AAC の量子化雑音）",
+    "loudness_lufs": {
+      "all_voiced_runs": { "voice": -15.0, "bgm": -31.7, "voice_minus_bgm_lu": 16.7 },
+      "voiced_excluding_bgm_showcase_29.30-31.40": { "voice": -15.1, "bgm": -32.8, "voice_minus_bgm_lu": 17.7 },
+      "voiced_inside_bgm_showcase": { "voice": -14.2, "bgm": -26.0, "voice_minus_bgm_lu": 11.8, "note": "「BGMも、字幕の」の区間だけ意図して声との差を 12 LU に縮めている" },
+      "dead_air_25.00-27.07": { "bgm": -25.9 },
+      "pause_1.26-2.35": { "bgm": -36.8 },
+      "outro_35.63-37.60": { "bgm": -26.2, "bgm_sample_peak_dbfs": -6.4 },
+      "whole": { "voice": -16.0, "bgm": -30.6, "mix": -16.2, "mix_sample_peak_dbfs": -2.8 },
+      "voiced_runs_source": "analysis/word-timing.json の voiced_runs_minus45dB（38 区間）を aselect で連結し ebur128"
+    },
+    "applied_gain_vs_kernel": "書き出しの BGM ÷ 素材（50 ms 窓・0.7〜36.3 s の 712 窓）と、共通カーネルの計算値（gain_db + keyframes + fade）の差: 平均 −0.02 dB・95% 点 0.08 dB・最大 0.29 dB",
+    "lift_timing_s": { "bgm_lift_reaches_-13dB": 29.365, "bgm_lift_reaches_-10dB": 29.455, "bgm_lift_back_below_-13dB": 31.115, "dead_air_reaches_-13dB": 25.255, "outro_reaches_-9dB": 35.77 },
+    "check_comma_pause_vs_natural_gap": {
+      "plan_rule": "読点の間 30.25〜30.63 の BGM が、自然な間 28.80〜29.25 より 6 dB 以上大きい",
+      "applied_gain_db": { "natural_gap": -17.01, "comma_pause": -9.27, "difference": 7.74, "verdict": "PASS（掛けた音量の差）" },
+      "absolute_bgm_rms_dbfs": { "natural_gap": -28.09, "comma_pause": -27.44, "difference": 0.65, "verdict": "FAIL（文字どおりの窓の比較）" },
+      "momentary_lufs": { "natural_gap_windows": [-27.9, -27.8, -27.6, -27.9], "comma_pause_windows": [-23.3, -24.3, -25.1, -26.9], "difference_lu": "2.7〜4.5" },
+      "why": "曲そのものの音量が窓で 7 dB 違う。28.80〜29.25 には拍 41 のドラム（28.88・素材 100 ms RMS −6 dBFS）が入っていて素材 RMS −11.1 dBFS、30.25〜30.63 は曲の谷で素材 RMS −18.2 dBFS。持ち上げ自体は 29.0〜30.3 の曲が平らな区間（素材 −15〜−18）にかかるので、『BGM』の語頭で持続音が 8 dB 上がるのは聞き取れる。文字どおりの条件を満たすには 13 dB 以上の持ち上げか、曲の切り出し位置（小節単位でずらす）の変更が要る。目利きの耳で足りないと判断されたら、案は (a) 888 の +8 を +10、(b) 0.072 + 2.8236×n s の別の小節から切り出す"
+    },
+    "renders": "C:/t/bgm-0930/proj-{final,final-bgmonly,nobgm,director,director-bgmonly}/exports/*.mp4（リポ外・コミットしない）"
+  },
+  "measurements_preview_equivalent": {
+    "method": "edit.json → readInternalEdit → resolvePreviewItemKeyframes（akari-preview/lib）→ projectLegacyAudioView → プレビューのハンドラと同じ項目の写し → buildWebAudioSchedule（edit-store/lib）で組んだ予定表を、Electron 39.8.7（show:false・ffmpeg.dll md5 0b4fe392…）の OfflineAudioContext で frame-engine と同じ形（BufferSource → base GainNode → envelope GainNode）に流した。アプリ本体の L1 ではない",
+    "schedule_warnings": [],
+    "envelope_events": 207,
+    "preview_minus_export_applied_gain_db": { "mean": 0.019, "p95_abs": 0.081, "max_abs": 0.303 },
+    "preview_vs_export_lag_samples": 1,
+    "lift_timing_s": { "bgm_lift_reaches_-10dB": 29.455 }
+  },
+  "edit_lint": "PASS（error 0・上記の false warning 8 件）。構成表どおりの edit も PASS（warning 6 件）",
+  "renders_png": [
+    "bgm-loudness-timeline.png（声・BGM の 400 ms ラウドネスの全編と、BGM に掛かった音量: カーネル計算値・書き出し実測・プレビュー相当の実測）",
+    "bgm-beat-19.70.png（19.40〜20.00 s の 4 ms RMS: 作り直した BGM の打点・声の破裂・前の bgm.m4a の打点）"
+  ],
+  "for_wiring": [
+    "writeExample / resetTourExample: edit_item_final.item をそのまま書く（ducking・duck_* は書かない）。sources に { id: 'onboarding-bgm', path: 'assets/onboarding-bgm.m4a' }",
+    "既存のお手本プロジェクトに前の assets/onboarding-bgm.m4a（sha256 829c903a…）が残っていると COPYFILE_EXCL で差し替わらず、拍が 80 ms ずれた古い曲に新しい音量設計が乗る。対象はオーナーの開発プレビュー（preview/2026-09-30-onboarding）だけだが、transcript と同じく『宛先が旧 sha256 と一致したら上書き』にするか、宛先名を変える（例: assets/onboarding-bgm-v2.m4a）とよい",
+    "LOG の BGM 行は『声の下に BGM を入れ、「BGM も」で音を持ち上げました』のままで実態と合う（ダッキングという語は使わない）"
+  ],
+  "owner_decision": "2026-10-01 オーナーがアプリへの同梱を了承（bgm-lofi-minimal-085・LicenseRef-AKARI-Sounds-v0・price 0・単体再配布禁止は変えない）。使った長さ 37.6 s（原曲 0.072〜37.672 s）"
+}

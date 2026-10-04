@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { isProjectVideoCandidatePath, videoCandidatePreviewTime } from '../lib/common/video-candidate-preview.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 test('only project-local generated mp4 for the selected item is accepted', () => {
   const good = 'assets/generated/candidates/clip-frame/fal-h3-123.mp4';
@@ -24,7 +24,7 @@ test('candidate clock trims long video and holds the last frame of short video',
 });
 
 test('host streams only a resolved project file and requests its FLAC sidecar', async () => {
-  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const source = readHandlerSource();
   const ast = ts.createSourceFile('host.ts', source, ts.ScriptTarget.Latest, true);
   const klass = ast.statements.find(row => ts.isClassDeclaration(row) && row.name?.text === 'AkariPreviewOpenHandler');
   const methods = ['clearVideoCandidatePreview', 'showVideoCandidatePreview']

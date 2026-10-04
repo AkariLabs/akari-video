@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -6,10 +7,11 @@ import test from 'node:test';
 
 import { resolveLayerHitRegionClip } from '../lib/common/layer-hit-region.js';
 import { computeLayerPerspectiveVisual } from '../lib/common/layer-perspective-visual.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
-const compiled = readFileSync(join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'), 'utf8');
+const source = readHandlerSource();
+const compiled = readHandlerCompiled();
 
 function extractTemplate(methodName) {
     const methodAt = compiled.lastIndexOf(`${methodName}()`);

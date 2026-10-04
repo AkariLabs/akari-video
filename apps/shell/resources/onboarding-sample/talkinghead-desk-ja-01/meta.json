@@ -15,18 +15,18 @@
     "vlog"
   ],
   "knobs": [],
-  "ai_usage": "編集練習用の素材。設計上の仕込みが 3 つある。(1) 余白: 人物は画面左に固定され右へ動かないため、x が 55%〜100% の領域が全編にわたって空いている。テロップ・図解・スマートフォンのモックアップの置き場に使える。(2) 無音の間: 1.333s から 1.019 秒（「こんにちは！」直後・テンポとして残す想定）と 25.065s から 2.016 秒（意図的に死なせた間・詰める練習用）。同じ素材の中に「残す間」と「詰める間」が両方入っているので、無音カットの判断を練習できる。(3) 書き起こし: transcript.json にセグメント単位（信頼できる粒度）とトークン単位（概算）の両方、transcript.srt に字幕形式。字幕・カラオケ表示の練習に使える。登場人物・音声はいずれも AI 生成であり実在しない。",
+  "ai_usage": "編集練習用の素材。設計上の仕込みが 3 つある。(1) 余白: 人物は画面左に固定され右へ動かないため、x が 55%〜100% の領域が全編にわたって空いている。テロップ・図解・スマートフォンのモックアップの置き場に使える。(2) 無音の間: 1.333s から 1.019 秒（「こんにちは！」直後・テンポとして残す想定）と 25.065s から 2.016 秒（意図的に死なせた間・詰める練習用）。同じ素材の中に「残す間」と「詰める間」が両方入っているので、無音カットの判断を練習できる。(3) 書き起こし: transcript.json にセグメント単位（信頼できる粒度）とトークン単位（2026-10-01 に声で合わせ直した語の時刻・語頭 ±0.05〜0.10 秒）の両方、transcript.srt に字幕形式。字幕・カラオケ表示の練習に使える。登場人物・音声はいずれも AI 生成であり実在しない。 お手本の追加図解と BGM の出所は provenance.origin を参照。お手本の効果音 14 本と BGM の出所・ライセンス・切り出した秒数は audio-sources.json に記録。",
   "requires": [],
   "provenance": {
-    "origin": "2026-09-03〜04 に AKARI Labs が生成。(1) 静止画 = Codex CLI 内蔵 image_generation（プロンプトは fieldtest/2026-09-03-h3-vlog-demo/refs/prompt-vlogger.txt、3 案から b を採用）。(2) 音声 = fal 経由 Gemini 3.1 Flash TTS / voice=Charon / language_code=Japanese (Japan) / 日本語のスタイル指示つき。無音の間は TTS のタグでは秒数が安定しないため、通しテイクの句切れを検出して ffmpeg で 1.000 秒・2.000 秒に置換（実測 1.000023 / 2.000227）。(3) 映像 = fal 経由 Kling AI Avatar v2 standard（音声駆動アバター・request_id 01a06680-e5b3-7602-85e9-c418a8aef711・$2.02）。制作記録: fieldtest/2026-09-03-h3-vlog-demo/planning/concept.md §8",
+    "origin": "2026-09-03〜04 に AKARI Labs が生成。(1) 静止画 = Codex CLI 内蔵 image_generation（プロンプトは fieldtest/2026-09-03-h3-vlog-demo/refs/prompt-vlogger.txt、3 案から b を採用）。(2) 音声 = fal 経由 Gemini 3.1 Flash TTS / voice=Charon / language_code=Japanese (Japan) / 日本語のスタイル指示つき。無音の間は TTS のタグでは秒数が安定しないため、通しテイクの句切れを検出して ffmpeg で 1.000 秒・2.000 秒に置換（実測 1.000023 / 2.000227）。(3) 映像 = fal 経由 Kling AI Avatar v2 standard（音声駆動アバター・request_id 01a06680-e5b3-7602-85e9-c418a8aef711・$2.02）。制作記録: fieldtest/2026-09-03-h3-vlog-demo/planning/concept.md §8。オンボーディングお手本の追加素材（2026-10-01 作り直し）: 右 45% に出す演出 9 本（overlays/demo-{title,chat,done,effects,flash,diagram,phone,bgm,credit}/fragment.html）は、声で合わせ直した transcript.json の語の時刻に合わせて AKARI Video 用 HTML/CSS 断片として新規制作した。書体は Noto Sans JP（SIL OFL 1.1）と Dela Gothic One（SIL OFL 1.1）から使う字だけを切り出し、別名（AKARI Demo Sans / AKARI Demo Display 系）で埋め込んだ（フォント内の著作権表示と許諾は保持）。スマホの枠は工房の phone-2d（CC0-1.0）が元。効果音 14 本（audio/*.m4a）はオーナー所有の AKARI Sounds（元は AKARI Sounds の素材。このセットに含む切り出しは MIT、2026-10-04 オーナー裁定）から切り出した: sfx-whoosh-air-soft（0〜0.95 秒）、sfx-pop-ding（0〜0.5 秒）、sfx-pop-bubble-big（0〜0.15 秒・ピークを −12 dBFS にそろえ左右を中央へ）、sfx-correct-tone（0〜0.55 秒・−4.85 dB）、sfx-pop-cork（0〜0.15 秒・−7.51 dB・AAC 192 kbps）、sfx-whoosh-punchy（頭に 63 ms の無音＋0〜0.687 秒・−3.3 dB）、sfx-shimmer-sparkle（2026-10-01 作り直し: 「ほら」のキラッとして sfx-pop-ding の 0〜0.2 秒と sfx-shimmer-sparkle の 0.35〜1.8 秒（−8 dB・尾を +4 dB）を重ねた合成・1.45 秒）、sfx-diagram-pon（AKARI Sounds sfx-blip-marimba の 3 打目 0.231〜0.691 秒・AAC 192 kbps・このセットの切り出しは MIT）、sfx-diagram-stack（sfx-click-soft-ui の 2 つの打音を重ねて 40 ms 間隔で 3 つ・AAC 192 kbps・このセットの切り出しは MIT）、sfx-diagram-playhead（sfx-whoosh-paper の 0〜0.20 秒・AAC 192 kbps・このセットの切り出しは MIT）、sfx-diagram-count（sfx-pop-ding の ding 0.128〜0.688 秒・AAC 192 kbps・このセットの切り出しは MIT）、sfx-swoosh-up（0.113〜0.763 秒）、sfx-click-mouse-single（0〜0.15 秒・AAC 192 kbps）、sfx-ding-single（0〜1.4 秒・AAC 192 kbps）。各音の出所の md5 と切り出しの手順は apps/shell/extensions/akari-surfaces/evidence/onboarding-demo-production/elements/ にある。BGM はオーナー所有の AKARI Sounds bgm-lofi-minimal-085（Midnight Notepad。このセットの切り出しは MIT）から原曲の 0.072〜37.672 秒（2026-10-01 に作り直し。曲のビートグリッド宣言 bpm 84.9987・beat_offset_s 0.007 で拍が「パッ」19.70 に乗る位置）を ffmpeg で AAC 96 kbps の bgm.m4a に切り出した。フェード・音量（gain_db と音量キーフレーム）は音源へ焼かず edit.json で設定。効果音 14 本と BGM は 2026-10-01 にオーナーの了承を得てアプリに正式に同梱した（このセットに含む切り出しは 2026-10-04 オーナー裁定で MIT。AKARI Sounds 元ライブラリ全体の条件は変更しない）。音源ごとの出所・切り出した秒数・ハッシュは audio-sources.json。 2026-10-01: transcript.json の tokens（131 個）の語の時刻を、clip.mp4 の声の 10 ms 包絡・閉鎖と摩擦音・母音のフォルマントと 30 fps の口の開閉で合わせ直した（元は whisper.cpp のトークン時刻で、語頭が最大 1.46 秒早かった）。文字列・個数・順序は同じで、「あかり」だけ「アカリ」に表記を直した（segments の 1 行目も）。旧版（sha256 b384cae6…）が残っている既存ユーザーのライブラリは、アプリが同梱版へ差し替える。",
     "generator": "Kling AI Avatar v2 standard / Gemini 3.1 Flash TTS (Charon) / Codex image_generation"
   },
   "author": "AKARI Labs",
   "license": {
-    "spdx": "LicenseRef-AKARI-Assets-v0",
-    "scope": "無料・商用可・クレジット不要・改変可。素材ファイル単体の再配布/再販/他素材集への再収録は禁止。登場人物は AI 生成の架空の人物であり、実在の人物として提示する用途・実在人物に似せる加工・本人の発言や推薦を装う用途は禁止。著作権は AKARI Labs 保有（planning/contract-2026-08-22-asset-license-v0.md §2）",
+    "spdx": "MIT",
+    "scope": "commercial-ok",
     "attribution_required": false,
-    "ai_training_allowed": false
+    "ai_training_allowed": true
   },
   "price": 0,
   "version": 1

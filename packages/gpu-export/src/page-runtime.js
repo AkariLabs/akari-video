@@ -601,6 +601,7 @@
 
   const CAPTION_WORD_FREEZE_CSS = `
     .akari-caption__tok--karaoke{animation:none!important}
+    .akari-caption__tok--karaoke-smooth::after{display:none!important}
     .akari-caption__tok--pop{animation:none!important}
     .akari-caption__tok--reveal-word{animation:none!important;opacity:1!important}
     .akari-caption__emphasis-char{animation:none!important;opacity:1!important}
@@ -646,6 +647,61 @@
     return root;
   }
 
+  // SVG foreignObject does not run the phase script in a caption fragment. Resolve
+  // the same line coordinates in the measured DOM before serializing the texture.
+  function captionRichPhaseHtml(value, config, html, extraCss) {
+    if (!value.richTextStyle) return html;
+    const root = captionRoot(value, config, html, extraCss);
+    try {
+      const caption = root.querySelector('.akari-caption--rich');
+      if (caption) {
+        const fillType = caption.getAttribute('data-rich-fill-type');
+        const gradient = fillType === 'gradient';
+        const pattern = fillType === 'pattern';
+        const patternGradient = pattern && caption.getAttribute('data-rich-pattern-bg') === 'gradient';
+        const patternId = caption.getAttribute('data-rich-pattern-id');
+        const thunder = patternId === 'thunder';
+        const fragmentPattern = pattern && (patternId === 'diamond' || patternId === 'dot' || patternId === 'gingham');
+        for (const line of caption.querySelectorAll('.akari-caption__line,.akari-caption__resolved-line')) {
+          const lineRect = line.getBoundingClientRect();
+          for (const fill of line.querySelectorAll('.akari-caption__rich-fill')) {
+            const rect = fill.getBoundingClientRect();
+            const x = Number((lineRect.left - rect.left).toFixed(3));
+            const y = Number((lineRect.top - rect.top).toFixed(3));
+            const patternPosition = `${Number((x + (thunder ? 4 : 0)).toFixed(3))}px ${Number((y + (thunder ? 2 : 0)).toFixed(3))}px`;
+            if (fragmentPattern) {
+              const position = `${x}px ${y}px`;
+              const sizes = getComputedStyle(fill).backgroundSize.split(',').map(part => part.trim());
+              const halfTile = Number.parseFloat(sizes[0]) / 2;
+              const positions = patternId === 'diamond' ? [position, position, position, position]
+                : patternId === 'dot' ? [position, `${Number((x + halfTile).toFixed(3))}px ${Number((y + halfTile).toFixed(3))}px`, position]
+                  : [position, position, position];
+              fill.style.setProperty('--caption-rich-fill-position', positions.join(', '));
+              const lineSize = `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`;
+              fill.style.setProperty('--caption-rich-fill-size', sizes.map(size => size === '100% 100%' ? lineSize : size).join(', '));
+              continue;
+            }
+            fill.style.setProperty('--caption-rich-fill-position', patternGradient
+              ? `${patternPosition}, ${x}px ${y}px`
+              : pattern ? patternPosition : `${x}px ${y}px`);
+            if (gradient) fill.style.setProperty('--caption-rich-fill-size',
+              `${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            if (patternGradient) {
+              const tile = getComputedStyle(fill).backgroundSize.split(',')[0];
+              fill.style.setProperty('--caption-rich-fill-size',
+                `${tile}, ${Number(lineRect.width.toFixed(3))}px ${Number(lineRect.height.toFixed(3))}px`);
+            }
+          }
+        }
+      }
+      root.querySelector('style')?.remove();
+      root.querySelectorAll('script[data-akari-rich-phase]').forEach(script => script.remove());
+      return root.innerHTML;
+    } finally {
+      root.remove();
+    }
+  }
+
   function captionMeasurementKey(value, config, html, cssVariants, unitIndex) {
     return JSON.stringify([
       config.width,
@@ -672,13 +728,14 @@
     if (element.classList.contains("akari-caption__emphasis-char")) return "emphasis-bang";
     if (element.classList.contains("akari-caption__tok--size-pulse")) return "emphasis-pulse";
     if (element.classList.contains("akari-caption__tok--karaoke")) return "karaoke";
+    if (element.classList.contains("akari-caption__tok--karaoke-smooth")) return "karaoke-smooth";
     if (element.classList.contains("akari-caption__tok--pop")) return "pop";
     if (element.classList.contains("akari-caption__tok--reveal-word")) return "reveal-word";
     return "plain";
   }
 
   function tokenStyle(element, role) {
-    if (role === "karaoke" || role === "pop" || role === "reveal-word") return role;
+    if (role === "karaoke" || role === "karaoke-smooth" || role === "pop" || role === "reveal-word") return role;
     const token = element.closest(".akari-caption__tok") ?? element;
     for (const style of [
       "one-char-bang", "one-char-jumble", "size-pulse", "color-accent", "color-only",
@@ -696,7 +753,7 @@
 
   function tokenTiming(element, role, emPx) {
     if (role === "plain") return null;
-    if (role === "karaoke") return {
+    if (role === "karaoke" || role === "karaoke-smooth") return {
       role, delaySec: cssSeconds(element, "--akari-tok-delay", 0),
       durationSec: cssSeconds(element, "--akari-tok-dur", 0.2), emPx,
     };
@@ -733,19 +790,24 @@
       const role = tokenRole(parent);
       const line = element.closest(".akari-caption__line");
       const lineIndex = line ? [...unitElement.querySelectorAll(".akari-caption__line")].indexOf(line) : 0;
-      return [...element.getClientRects()].map((rect, rectIndex) => ({
-        tokenIndex: chars.length ? Number(element.getAttribute("data-akari-char")) : tokenIndex,
-        ...(chars.length ? {
-          charIndex: Number(element.getAttribute("data-akari-char")),
-          wordIndex: words.indexOf(element.closest(".akari-caption__tok")),
-        } : {}),
-        rectIndex,
-        role,
-        style: tokenStyle(parent, role),
-        timing: tokenTiming(parent, role, emPx),
-        rect: relativeRect(rect, origin),
-        lineIndex: Math.max(0, lineIndex),
-      }));
+      const fillRects = chars.length && role === "karaoke-smooth" ? [...parent.getClientRects()] : [];
+      return [...element.getClientRects()].map((rect, rectIndex) => {
+        const fillRect = fillRects.find((fill) => fill.top < rect.bottom && fill.bottom > rect.top);
+        return {
+          tokenIndex: chars.length ? Number(element.getAttribute("data-akari-char")) : tokenIndex,
+          ...(chars.length ? {
+            charIndex: Number(element.getAttribute("data-akari-char")),
+            wordIndex: words.indexOf(element.closest(".akari-caption__tok")),
+          } : {}),
+          rectIndex,
+          role,
+          style: tokenStyle(parent, role),
+          timing: tokenTiming(parent, role, emPx),
+          rect: relativeRect(rect, origin),
+          ...(fillRect ? { fillRect: relativeRect(fillRect, origin) } : {}),
+          lineIndex: Math.max(0, lineIndex),
+        };
+      });
     });
     const lines = [...unitElement.querySelectorAll(".akari-caption__line")]
       .map((line) => relativeRect(line.getBoundingClientRect(), origin));
@@ -1365,6 +1427,7 @@
       probe.remove();
     }
     const units = [];
+    let rasterHtml = null;
     let layoutMaxDeltaPx = 0;
     for (let unitIndex = 0; unitIndex < unitCount; unitIndex += 1) {
       const revealIndex = unitCount > 1 || html.includes("akari-caption__reveal-group") ? unitIndex : null;
@@ -1382,18 +1445,26 @@
         );
         unitMeasurement = probeMeasurement;
         const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
-        const hasColor = roles.has("karaoke");
+        const hasColor = roles.has("karaoke") || roles.has("karaoke-smooth");
         const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
-        if (hasColor && hasGeometry) throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
-        mode = hasColor ? "color" : hasGeometry || animators.length > 0 ? "geometry" : "sprite";
+        if (hasColor && hasGeometry && !value.richTextStyle) {
+          throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
+        }
+        mode = hasColor && hasGeometry ? "sprite"
+          : hasColor ? "color" : hasGeometry || animators.length > 0 ? "geometry" : "sprite";
+        if (FE.captionRichInkExtentEm(value.richTextStyle, probeMeasurement.emPx) > 0.35) mode = "sprite";
         if (mode === "color") {
-          const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
-          const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
+          const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-color,#fff)!important}`;
+          const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-highlight-color,#ffd94a)!important}`;
+          const richBaseCss = value.richTextStyle
+            ? '.akari-caption--rich .akari-caption__tok--karaoke .akari-caption__rich-fill,.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill{-webkit-text-fill-color:var(--caption-color,#fff)!important;background-image:none!important}' : '';
+          const richHighlightCss = value.richTextStyle
+            ? '.akari-caption--rich .akari-caption__tok--karaoke .akari-caption__rich-fill,.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill{-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a)!important;background-image:none!important}' : '';
           const [baseMeasurement, highlightMeasurement] = await measureCaptionVariantsStable(
             value,
             config,
             html,
-            [`${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${highlightCss}`],
+            [`${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${baseCss}` + richBaseCss, `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${highlightCss}` + richHighlightCss],
             unitIndex,
             attemptsLog,
             differencesLog,
@@ -1403,7 +1474,7 @@
           // instead of hiding a real layout mismatch by widening the tolerance.
           layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(baseMeasurement, highlightMeasurement, id));
           unitMeasurement = baseMeasurement;
-          bandCss = [`${settleCss}${baseCss}`, `${settleCss}${highlightCss}`];
+          bandCss = [`${settleCss}${baseCss}${richBaseCss}`, `${settleCss}${highlightCss}${richHighlightCss}`];
           secondaryId = `${id}::b`;
         } else if (mode === "geometry") {
           const plateCss = `${captionUnitCss(revealIndex)}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
@@ -1437,15 +1508,21 @@
         startupMetrics.measure.degradedUnits += 1;
         warn(`caption ${value.id} unit ${unitIndex} degraded to sprite: ${CAPTION_MEASURE_UNSTABLE_REASON}`);
       }
-      const textureRect = FE.captionWordTextureRect(unitMeasurement, config);
+      const inkExtentEm = FE.captionRichInkExtentEm(value.richTextStyle, unitMeasurement.emPx);
+      const textureRect = inkExtentEm > 0.35
+        ? { x: 0, y: 0, width: config.width, height: config.height, right: config.width, bottom: config.height }
+        : FE.captionWordTextureRect(unitMeasurement, config);
       tiles = mode === "sprite"
         ? null
-        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect, ...(animators.length ? { includeTokens: true } : {}) });
+        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect, inkExtentEm,
+          ...(mode === "color" || animators.length ? { includeTokens: true } : {}) });
+      if (rasterHtml === null) rasterHtml = captionRichPhaseHtml(value, config, html,
+        `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}`);
       units.push({
         id,
         secondaryId,
         value: { id: value.id, motion: value.motion, vars: value.vars },
-        html,
+        html: rasterHtml,
         sharedCss: `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}`,
         bandCss,
         textureRect,
@@ -1560,6 +1637,46 @@
         rotateDeg: (tile.rotateDeg ?? 0) + rotateDeg,
       };
     });
+  }
+
+  // The OSR smooth fill clips the highlighted copy of the text inside its span.
+  // The compositor accepts one color mix per integer tile, so partition at the
+  // two fractional clip edges and use coverage for their one-pixel columns.
+  const CAPTION_KARAOKE_TIME_EPSILON_SEC = 1e-6;
+
+  function karaokeDelayReached(timing, localSeconds) {
+    return localSeconds >= timing.delaySec - CAPTION_KARAOKE_TIME_EPSILON_SEC;
+  }
+
+  function karaokeSmoothTilesAt(tile, localSeconds, state = tile.static, canvasSize = null) {
+    const { timing, token } = tile;
+    const rect = token.fillRect ?? token.rect;
+    const duration = Math.max(0, timing.durationSec);
+    const progress = !karaokeDelayReached(timing, localSeconds) ? 0
+      : duration === 0 ? 1
+      : Math.max(0, Math.min(1, (localSeconds - timing.delaySec) / duration));
+    const left = rect.x;
+    const right = left + rect.width * progress;
+    const start = tile.static.x;
+    const end = start + tile.static.width;
+    const breaks = [...new Set([start, end, Math.floor(left), Math.ceil(left), Math.floor(right), Math.ceil(right)])]
+      .filter((x) => x >= start && x <= end).sort((a, b) => a - b);
+    return breaks.slice(0, -1).map((x, index) => {
+      const next = breaks[index + 1];
+      const mix = Math.max(0, Math.min(1, Math.min(x + 1, right) - Math.max(x, left)));
+      const centerOffset = x + (next - x) / 2 - (start + tile.static.width / 2);
+      const radians = (state.rotateDeg ?? 0) * Math.PI / 180;
+      const aspect = canvasSize ? canvasSize.height / canvasSize.width : 1;
+      // SpriteCompositor rotates/scales each tile around that tile's center.
+      // Keep every fragment on the original tile's affine transform.
+      return { ...state, x, width: next - x, mix,
+        translateX: (state.translateX ?? 0) + (Math.cos(radians) * (state.scaleX ?? 1) - 1) * centerOffset,
+        translateY: (state.translateY ?? 0) - Math.sin(radians) * (state.scaleX ?? 1) * aspect * centerOffset };
+    });
+  }
+
+  function karaokeWordMixAt(timing, localSeconds, interpolatedMix) {
+    return timing.durationSec === 0 ? Number(karaokeDelayReached(timing, localSeconds)) : interpolatedMix;
   }
 
   function buildCaptionBatches(units, maxUnits = CAPTION_BATCH_MAX_UNITS, maxHeight = CAPTION_BATCH_MAX_HEIGHT_PX) {
@@ -1767,7 +1884,104 @@
     };
   }
 
-  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null, vgpuRecords = null) {
+  // null は全面 canvas・opacity 1 を従来の素の draw に保ち、出力を 1 バイトも変えないための値。
+  // false は面積 0（display:none / hidden）で、OSR と同様に描かない。オブジェクトは SpriteDraw の配置。
+  // 回転と鏡映は「回転 × 軸ごとの拡大」に分け、CSS と逆向きの rotateDeg と符号付き scaleY で表す。
+  // 画素の原点をフレーム中心に明示すると spriteTransformMatrix が縦横比を補正できる。
+  // せん断は SpriteDraw で表せないため、別の絵を黙って出さずに投げる。
+  function threeCanvasDrawState(rect, layout, matrix, width, height, opacity = 1) {
+    const numbers = [rect.left, rect.top, rect.width, rect.height, layout.width, layout.height,
+      matrix.a, matrix.b, matrix.c, matrix.d, width, height, opacity];
+    if (!numbers.every(Number.isFinite) || width <= 0 || height <= 0
+      || rect.width < 0 || rect.height < 0 || layout.width < 0 || layout.height < 0) {
+      throw new Error("3D sprite canvas has invalid bounds or transform");
+    }
+    if (rect.width === 0 || rect.height === 0 || layout.width === 0 || layout.height === 0) return false;
+    const { a, b, c, d } = matrix;
+    const axisX = Math.hypot(a, b);
+    const axisY = Math.hypot(c, d);
+    const determinant = a * d - b * c;
+    if (![axisX, axisY, determinant].every(Number.isFinite)) {
+      throw new Error("3D sprite canvas has invalid transform");
+    }
+    if (axisX <= 0 || axisY <= 0 || Math.abs(a * c + b * d) > 1e-4 * axisX * axisY) {
+      throw new Error("3D sprite canvas has unsupported shear");
+    }
+    const translateX = rect.left + rect.width / 2 - width / 2;
+    const translateY = rect.top + rect.height / 2 - height / 2;
+    if (Math.abs(b) <= 1e-6 && Math.abs(c) <= 1e-6 && a > 0 && d > 0) {
+      if (Math.abs(rect.left) <= 0.01 && Math.abs(rect.top) <= 0.01
+        && Math.abs(rect.left + rect.width - width) <= 0.01
+        && Math.abs(rect.top + rect.height - height) <= 0.01) return opacity < 1 ? { opacity } : null;
+      return { translateX, translateY, scaleX: rect.width / width, scaleY: rect.height / height,
+        ...(opacity < 1 ? { opacity } : {}) };
+    }
+    return {
+      translateX, translateY,
+      scaleX: layout.width * axisX / width,
+      scaleY: layout.height * determinant / axisX / height,
+      rotateDeg: -Math.atan2(b, a) * 180 / Math.PI,
+      originX: width / 2, originY: height / 2,
+      ...(opacity < 1 ? { opacity } : {}),
+    };
+  }
+
+  function threeCanvasMatrix(transform) {
+    if (!transform || transform === "none") return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+    if (!transform.startsWith("matrix(") || !transform.endsWith(")")) {
+      throw new Error("3D sprite canvas has unsupported 3D transform");
+    }
+    const parts = transform.slice(7, -1).split(",").map((part) => part.trim());
+    if (parts.some((part) => !part)) throw new Error("3D sprite canvas has invalid transform");
+    const values = parts.map(Number);
+    if (values.length !== 6 || !values.every(Number.isFinite)) {
+      throw new Error("3D sprite canvas has invalid transform");
+    }
+    const [a, b, c, d, e, f] = values;
+    return { a, b, c, d, e, f };
+  }
+
+  function threeCanvasStateFromStyles(rect, layout, styles, width, height) {
+    let matrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+    let opacity = 1;
+    for (const style of styles) {
+      const part = threeCanvasMatrix(style.transform);
+      const { a, b, c, d, e, f } = matrix;
+      matrix = {
+        a: a * part.a + c * part.b, b: b * part.a + d * part.b,
+        c: a * part.c + c * part.d, d: b * part.c + d * part.d,
+        e: a * part.e + c * part.f + e, f: b * part.e + d * part.f + f,
+      };
+      const value = Number.parseFloat(style.opacity);
+      if (!Number.isFinite(value)) throw new Error("3D sprite canvas has invalid opacity");
+      opacity *= Math.max(0, Math.min(1, value));
+    }
+    return threeCanvasDrawState(rect, layout, matrix, width, height, opacity);
+  }
+
+  // オーバーレイ iframe は出力フレームと同じ大きさで (0,0) にあり、getBoundingClientRect() はそのまま出力画素になる。
+  // アイテムの x / y / scale / rotate は host（.akari-overlay-container）に付くので、host から canvas までの変換を掛けて読む。
+  // host から canvas までの opacity も積算し、直描きの draw に載せる。
+  function threeCanvasPlacement(canvas, container, width, height) {
+    const host = container.parentElement;
+    if (!host?.classList?.contains("akari-overlay-container")) throw new Error("3D sprite canvas host is missing");
+    const view = canvas.ownerDocument.defaultView;
+    let reachedHost = false;
+    const chain = [];
+    for (let node = canvas; node; node = node.parentElement) {
+      chain.push(node);
+      if (node === host) { reachedHost = true; break; }
+    }
+    if (!reachedHost) throw new Error("3D sprite canvas is outside its host");
+    const styles = chain.reverse().map((node) => {
+      const computed = view.getComputedStyle(node);
+      return { transform: computed.transform, opacity: computed.opacity };
+    });
+    return threeCanvasStateFromStyles(canvas.getBoundingClientRect(),
+      { width: canvas.offsetWidth, height: canvas.offsetHeight }, styles, width, height);
+  }
+
+  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null, vgpuRecords = null, threeRecords = null) {
     const values = [];
     for (const value of manifest.statics) {
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
@@ -1782,7 +1996,11 @@
           ? threeEntranceStateAt(value.entrance, seconds - value.start)
           : { opacity: 1 };
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
-      values.push({ z, index: value.index, id: value.id, ...state });
+      // false はその 3D を飛ばし、null は従来どおり配置なしの draw にする。
+      const placement = value.entranceMode === "none" ? threeRecords?.get(value.id)?.draw : null;
+      if (placement === false) continue;
+      const drawState = value.entranceMode === "none" ? { ...state, opacity: placement?.opacity ?? 1 } : state;
+      values.push({ z, index: value.index, id: value.id, ...placement, ...drawState });
     }
     for (const value of manifest.vgpu ?? []) {
       if (activeAt(value, seconds)) values.push({ z: value.z ?? 0, index: value.index, id: value.id, opacity: 1, ...vgpuRecords?.get(value.id)?.draw });
@@ -2541,7 +2759,8 @@
   window.__akariGpuDomInternals = {
     sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
     sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame, preserve3dSampleTimes,
-    detectPreserve3dOrderConflicts, vgpuDrawState,
+    detectPreserve3dOrderConflicts, vgpuDrawState, threeCanvasDrawState,
+    threeCanvasStateFromStyles, threeCanvasPlacement,
   };
 
   // ブレンドがあるフレームだけ使う WebGL パス。SpriteCompositor の通常描画を区切り、
@@ -2891,7 +3110,10 @@
           } catch (error) {
             throw new Error(`3D sprite canvas is missing: ${value.id}: ${error.message}`, { cause: error });
           }
-          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor });
+          const draw = value.entranceMode === "none"
+            ? threeCanvasPlacement(canvas, container, config.width, config.height)
+            : null;
+          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor, draw });
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
         if (config.spriteManifest.vgpu?.length > 0) {
@@ -3051,7 +3273,7 @@
           const domFrameCost = performance.now() - domStarted;
           stages.dom.push(domFrameCost);
           if (activeDomRuns > 0) domRuntime.recordFrameCost(domFrameCost);
-          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates, vgpuRecords);
+          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates, vgpuRecords, threeRecords);
           for (const unit of captionUnits) {
             if (seconds >= unit.cueStart + unit.cueDuration) {
               releaseCaptionUnit(unit, spriteCompositor);
@@ -3115,7 +3337,13 @@
             }
             let tiles = unit.tiles.map((tile) => {
               if (tile.timing === null) return tile.static;
+              if (tile.timing.role === "karaoke-smooth") return tile.static;
               const wordState = FE.captionWordStateAt(tile.timing, localSeconds);
+              // CSS zero-duration animations with fill:both use the end state at
+              // the exact delay. Frame-engine clamps duration to 1e-9 instead.
+              if (tile.timing.role === "karaoke") {
+                wordState.mix = karaokeWordMixAt(tile.timing, localSeconds, wordState.mix);
+              }
               return {
                 ...tile.static,
                 mix: wordState.mix,
@@ -3128,6 +3356,8 @@
               };
             });
             if (unit.animator) tiles = captionAnimatorTilesAt(unit, tiles, seconds, config);
+            tiles = tiles.flatMap((tile, index) => unit.tiles[index].timing?.role === "karaoke-smooth"
+              ? karaokeSmoothTilesAt(unit.tiles[index], localSeconds, tile, config) : [tile]);
             if (unit.mode === "geometry") {
               draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
                 originX: unit.originX, originY: unit.originY, ...state });

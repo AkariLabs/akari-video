@@ -44,12 +44,6 @@
 //   --layer-id-prefix <s>         レイヤー id の接頭辞（既定 eye-bar）
 //   --apply                       edit.json へ追記する（省略時は stdout の JSON のみ）
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
-const writerVersion = (() => {
-  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
-  catch { return undefined; }
-})();
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -59,30 +53,12 @@ import { generateBarAsset } from "../src/eye-bar/bar-asset.mjs";
 import { appendLayersAdditive, loadEditJson } from "../src/eye-bar/edit-apply.mjs";
 import { resolveTargetSourceId } from "../src/eye-bar/resolve-source.mjs";
 import { probeSourceDisplaySize } from "../src/eye-bar/source-probe.mjs";
-import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { checkMediaAvailability } from "../src/common/media-availability.mjs";
+import { printJson, summarize } from "../src/common/json-output.mjs";
+import { stampSavedBy } from "../src/common/writer-stamp.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const validateEditScript = resolve(scriptDir, "..", "..", "schemas", "bin", "validate-edit.mjs");
-
-function printJson(value) {
-  process.stdout.write(`${JSON.stringify(value)}\n`);
-}
-
-function summarize(value, fallback) {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  return text ? text.slice(0, 500) : fallback;
-}
-
-function checkAvailability() {
-  for (const [label, resolver] of [["ffmpeg", resolveFfmpeg], ["ffprobe", resolveFfprobe]]) {
-    try {
-      resolver();
-    } catch (error) {
-      return { available: false, reason: `${label}: ${summarize(error?.message, "解決できません")}` };
-    }
-  }
-  return { available: true };
-}
 
 function parseArguments(argv) {
   const result = {
@@ -184,7 +160,7 @@ async function main() {
     return;
   }
 
-  const availability = checkAvailability();
+  const availability = checkMediaAvailability({ fallback: "解決できません", max: 500, optionalError: true });
   if (options.check) {
     printJson(availability);
     return;
@@ -315,7 +291,7 @@ async function main() {
         return;
       }
       if (basename(options.edit) === "edit.json") {
-        await writeSavedByStamp(dirname(options.edit), writerVersion);
+        await stampSavedBy(dirname(options.edit));
       }
       const validation = spawnSync(process.execPath, [validateEditScript, options.edit], { encoding: "utf8" });
       output.applied = { addedIds: applied.addedIds };

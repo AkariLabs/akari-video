@@ -1,0 +1,203 @@
+{
+ "element": "title",
+ "task": "2026-10-01-onboarding-demo-text",
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-title/fragment.html",
+ "file_bytes": 18975,
+ "file_md5": "e6538d6691d7406b379e87b9a165f5c7",
+ "base_md5_aa43cb9f4": "18287ec7f5ad924b4ab49073cc4ee64b",
+ "edit_item_unchanged": {
+  "track": "demo-stage",
+  "id": "demo-title",
+  "at": 7,
+  "duration": 217,
+  "vars": null
+ },
+ "what_changed": {
+  "text_px_1280": {
+   "lead「AI と話すだけで」": [
+    40,
+    48,
+    "1.20x"
+   ],
+   "main「動画編集」": [
+    64,
+    80,
+    "1.25x"
+   ],
+   "badge「AKARI Video」": [
+    26,
+    34,
+    "1.31x"
+   ]
+  },
+  "text_px_at_640_preview": {
+   "lead": 24,
+   "main": 40,
+   "badge": 17,
+   "before": {
+    "lead": 20,
+    "main": 32,
+    "badge": 13
+   }
+  },
+  "card": "left 760→730 / width 460→502（右端 1220→1232、舞台 720〜1240 の中央 981）/ 内側余白 22px 28px→24px 26px / 角丸 22→24 / 高さ 181→214.5（実測）",
+  "mic": "直径 88→92（文字との間 28px）",
+  "underline": "高さ 8→10・角丸 4→5、文字との間 14→16",
+  "badge": "カード上端から 190→226（カードの下 11.5px）。高さ 46→60.2。ポップの中心を 30%→13%（✦ の位置）にして、膨らみ（最大 1.144 倍）が舞台の左端より人物側へ出ないようにした（不透明部の最小 x 724）",
+  "rise": "1 行目 translateY 14→17・2 行目 18→22（字が大きくなったぶん比例）。keyframes 名を rise-lead / rise-main に",
+  "timing": "変更なし（全段の発火時刻・長さ・イージングは前段のまま）",
+  "unchanged": "白カード（.97）・墨 #17130F・橙 #F97316・淡橙 #FDBA74・影 0 18px 44px rgba(58,38,20,.22)・書体 AKARI Demo Sans（同じ 21 字形の切り出し）"
+ },
+ "layout_measured_hold_5300": {
+  "card": [
+   728,
+   60,
+   504,
+   214.5
+  ],
+  "lead": [
+   755,
+   85,
+   330.8,
+   58.5
+  ],
+  "main": [
+   755,
+   145.5,
+   326.4,
+   104
+  ],
+  "underline": [
+   755,
+   239.5,
+   324.8,
+   10
+  ],
+  "mic": [
+   1113,
+   121.3,
+   92,
+   92
+  ],
+  "badge": [
+   728,
+   286,
+   310.4,
+   60.2
+  ],
+  "ink": {
+   ".demo-title__lead": {
+    "x": 755,
+    "y": 79,
+    "w": 330.8,
+    "h": 70
+   },
+   ".demo-title__main": {
+    "x": 755,
+    "y": 131.5,
+    "w": 326.4,
+    "h": 116
+   },
+   ".demo-title__name": {
+    "x": 796.6,
+    "y": 291.8,
+    "w": 212.9,
+    "h": 49
+   }
+  }
+ },
+ "sync_table": [
+  {
+   "part": "カード",
+   "word": "こんにちは",
+   "onset_s": 0.29,
+   "render_first_visible": {
+    "frame": 8,
+    "s": 0.2667,
+    "alpha_max": 26
+   },
+   "delta_s": -0.023
+  },
+  {
+   "part": "名札",
+   "word": "アカリビデオ",
+   "word_s": 3.59,
+   "onset_s": 3.57,
+   "render_first_visible": {
+    "frame": 107,
+    "s": 3.5667
+   },
+   "delta_s": -0.023,
+   "export_osr_first_visible": {
+    "frame": 108,
+    "s": 3.6
+   },
+   "export_delta_s": 0.01
+  },
+  {
+   "part": "下線",
+   "word": "動画編集ツール",
+   "word_s": 5.1,
+   "onset_s": 5.08,
+   "render_first_visible": {
+    "frame": 152,
+    "s": 5.0667
+   },
+   "delta_s": -0.033,
+   "export_osr_first_visible": {
+    "frame": 153,
+    "s": 5.1
+   },
+   "export_delta_s": 0.0
+  },
+  {
+   "part": "抜け",
+   "word": "試してみてます。（言い終わり 7.17）",
+   "render_last_visible": {
+    "frame": 222,
+    "s": 7.4
+   },
+   "render_gone": {
+    "frame": 223,
+    "s": 7.4333
+   },
+   "export_osr_gone": {
+    "frame": 223
+   }
+  }
+ ],
+ "sync_note": "前段の測定（title-measure.json・同じフレーム番号）と一致。OSR 書き出しは名札・下線とも自前の描画の 1 フレーム後（前段で記録済みの書き出し側の挙動）で、±0.15 秒の内",
+ "placement_check": {
+  "method": "区間 f7〜f223 の全 217 フレームを透過 PNG（1280×720）で描き、alpha > 8/255 の画素を数えた",
+  "person_x_lt_704_pixels_all_frames": 0,
+  "person_zone_plan_pixels_all_frames": 0,
+  "caption_band_pixels_all_frames": 0,
+  "max_alpha_in_x_lt_704": 5,
+  "bbox_alpha_gt8_all_frames": [
+   709,
+   57,
+   1274,
+   375
+  ],
+  "bbox_note": "x > 1240 は入りの 0.1 秒の横移動（translateX 48）と静止中の影の裾（右端 1252）だけ。y の最大 375 は名札の影。舞台の y 460 より下には何も出ない",
+  "opaque_min_x": 724
+ },
+ "preview_vs_export_mode": "render-title.mjs の preview モード（ローカル秒で seek）と export モード（rasterize.mjs と同じ paused WAAPI クローン・合成秒で seek）を 6 時刻で比べ、画素差の最大 0",
+ "export_check": {
+  "project": "C:/t/title-1001/proj（本編 8 秒 + demo-title だけの隔離プロジェクト。AKARI_HOME・TMP・作業フォルダは C:/t/title-1001 の下）",
+  "edit_lint": "PASS（0 findings, 6 skipped）",
+  "render_cut": "--engine osr --gpu-preference off で PASS（240 フレーム・8.000 秒・md5 107e39906bca35905c0eabe1025b853c）",
+  "overlap_in_export": "書き出しと元の clip / 重ね無しの書き出しの差（> 24、3×3 収縮）で人物側に出る差は、本編の絵が 1〜2 フレームずれたフレーム（重ねの区間外の f238 にも出る）だけ。重ねの画素は透過描画で 0 を確認済み。字幕帯は 0"
+ },
+ "renders": {
+  "title-before-after-640.jpg": "前段と今回を 6 時刻（0.05 / 0.60 / 3.40 / 3.70 / 5.30 / 7.10）で、どちらも 640×360 に縮めて並べたもの",
+  "title-hold-5.300-1280.png": "静止状態（全部そろった絵）を本編に重ねた原寸",
+  "title-hold-5.300-640.png": "同じ絵を 640×360 に縮めたもの（アプリのプレビュー枠相当）",
+  "title-seek-on-clip-640.jpg": "6 時刻を 640×360 で並べた一覧",
+  "title-seek-on-clip-1280.jpg": "6 時刻を 1280×720 で並べた一覧",
+  "title-sync-badge-underline.jpg": "名札 f105〜111・下線 f150〜156 を自前の描画（上）と OSR 書き出し（下）で並べたもの",
+  "title-export-osr-640.jpg": "OSR 書き出しの f8 / 25 / 109 / 118 / 166 / 220 / 222 / 224 を 640×360 に縮めたもの",
+  "render-title.mjs": "確認に使ったレンダラ（内部リポ harness/render-fragment.mjs の入れ子とモーション語彙をそのまま写し、Windows のパス・活性ゲート・連続 seek・背景・export モード・寸法の計測を足したもの）"
+ },
+ "renderer": "harness/render-fragment.mjs と同じ入れ子（.akari-overlay-container > .scene-content > 断片）と packages/overlay-runtime/src/motion-vocab.css を、Windows 用に写した render-title.mjs で描いた（Playwright の chrome-headless-shell 1234 + worktree の puppeteer-core）。harness 本体は Mac のパス固定で本機では動かない。640 版は 1280 の描画を lanczos で縮小"
+}

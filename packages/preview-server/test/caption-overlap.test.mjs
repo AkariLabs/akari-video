@@ -3,6 +3,23 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { findActiveCaptions } from '../public/edit-kernel.bundle.js';
+import {
+  isPortraitOutput,
+  splitCaptionLines,
+  captionLineBudget,
+  captionLineBudgetFor,
+  defaultCaptionFontSize,
+  groupWordsIntoDisplayLines,
+  groupWordsIntoLines,
+} from '../public/caption-line-layout.js';
+import {
+  collectExcludedCaptionIds,
+  filterCaptionRootByExcludedIds,
+  normalizeWords,
+  findMatchingEmphasis,
+  resolveEmphasisStyle,
+  renderRevealGroupsMarkup,
+} from '../public/caption-markup.js';
 const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const section = (from, to) => {
   const start = source.indexOf(from), end = source.indexOf(to, start);
@@ -35,11 +52,15 @@ test('Web UI renders concurrent rows in array order with independent styles and 
     captionPlate: layer, captionFontsReady: true, captionsOutputClock: cues, outputTime: 3,
     captionsResolvedTimeline: true, summary: {}, findActiveCaptions,
     document: { createElement: () => new Plate() },
-    normalizeWords: value => value ?? [], isPortraitOutput: () => false,
+    normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup,
+    collectExcludedCaptionIds, filterCaptionRootByExcludedIds,
+    isPortraitOutput, splitCaptionLines, captionLineBudget, captionLineBudgetFor,
+    defaultCaptionFontSize, groupWordsIntoDisplayLines, groupWordsIntoLines,
     replaceCaptionStyleVariables: (style, vars) => { for (const [k, v] of Object.entries(vars)) style.setProperty(k, v); },
+    applyRichCaptionLayers() {},
     injectCaptionStyles() {}, esc: value => value,
   });
-  vm.runInContext(section('const CAPTION_STYLE_VARS =', 'function collectExcludedCaptionIds'), context);
+  vm.runInContext(section('const CAPTION_STYLE_VARS =', 'function injectCaptionStyles'), context);
   vm.runInContext(section('const captionRows = new Map();', 'function esc(s)'), context);
   vm.runInContext('updateCaption(); syncCaptionAnimations()', context);
   const [speech, placed] = layer.children;

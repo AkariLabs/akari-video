@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -108,7 +109,7 @@ test('待ち・生成中の秒数・失敗の理由と再試行行', () => withI
 }));
 
 test('動画候補は 160px のサムネイルと 2 列のコンパクトな行を使う', () => {
-  const css = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
   const row = css.match(/\.akari-inspector-ai-video-candidate\s*\{([^}]*)\}/u)?.[1];
   const thumbnail = css.match(/\.akari-inspector-ai-video-candidate-thumbnail\s*\{([^}]*)\}/u)?.[1];
   assert.match(row, /display:\s*grid/u);
@@ -235,7 +236,7 @@ test('候補の採用は sources と item を一手で変え、undo で復元し
   assert.equal(candidates.length, 2);
 });
 
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(row => ts.isClassDeclaration(row) && row.name?.text === 'AkariInspectorWidget');
 const method = name => widget.members.find(row => row.name?.getText(ast) === name).getText(ast);

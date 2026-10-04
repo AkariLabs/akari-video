@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 
 // Read the template's cooked text without emitting lib/ or mounting the webview.
 function extractTemplate(methodName) {
     const ast = ts.createSourceFile('handler.ts', source, ts.ScriptTarget.Latest, true);
     let template;
     function visit(node) {
-        if (ts.isMethodDeclaration(node) && node.name.getText(ast) === methodName) {
+        if ((ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) && node.name?.getText(ast) === methodName) {
             template = node.body.statements.find(ts.isReturnStatement)?.expression;
         } else {
             ts.forEachChild(node, visit);

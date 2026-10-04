@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AkariPreviewServiceImpl } from '../lib/node/akari-preview-service.js';
 import { recordProjectReference } from '../../../../../packages/asset-resolver/src/project-references.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 test('preview RPC は共通 node resolver で参照を URL 化し、実体を優先する', async t => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'preview-reference-')));
@@ -65,7 +66,7 @@ test('まとめる・参照を外す際は edit.json 不変でもプレビュー
     const { createRequire } = await import('node:module');
     const require = createRequire(import.meta.url);
     const ts = require('typescript'), URI = require('@theia/core/lib/common/uri').default;
-    const source = ts.createSourceFile('handler.ts', readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
+    const source = ts.createSourceFile('handler.ts', readHandlerSource(), ts.ScriptTarget.Latest, true);
     let initializer;
     const visit = node => {
         if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'handleFilesChanged') initializer = node.initializer.getText(source);

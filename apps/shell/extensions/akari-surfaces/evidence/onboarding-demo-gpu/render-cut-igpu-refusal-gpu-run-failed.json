@@ -1,0 +1,348 @@
+{
+  "version": 1,
+  "status": "failed",
+  "error": "Error: WebCodecs H.264 config is unsupported: prefer-hardware (avc1.640028 1280x720@30fps 8000000bps) renderer=ANGLE (Intel, Intel(R) UHD Graphics (0x0000A7A8) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "codec": "h264",
+  "framesRequested": 1128,
+  "gpu": {
+    "platform": "win32",
+    "chromium": "142.0.7444.265",
+    "renderer": {
+      "vendor": "Google Inc. (Intel)",
+      "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x0000A7A8) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    "encoder_support": {
+      "prefer-hardware": false,
+      "prefer-software": true
+    },
+    "devices": [
+      {
+        "vendor_id": 32902,
+        "device_id": 42920,
+        "device_string": "Intel(R) UHD Graphics",
+        "active": true,
+        "gpu_preference": 2
+      },
+      {
+        "vendor_id": 4318,
+        "device_id": 11545,
+        "device_string": "NVIDIA GeForce RTX 5060 Laptop GPU",
+        "active": false,
+        "gpu_preference": 3
+      },
+      {
+        "vendor_id": 5140,
+        "device_id": 140,
+        "device_string": "Microsoft Basic Render Driver",
+        "active": false,
+        "gpu_preference": 0
+      }
+    ]
+  },
+  "preview": {
+    "mode": "auto",
+    "frames": 0
+  },
+  "memory": {
+    "profile": "gpu",
+    "warningBytes": 9603907584,
+    "hardStopBytes": 12806258688,
+    "workerBudgetBytes": 12806258688,
+    "budgetScale": 1,
+    "machineFloor": true,
+    "machineCapped": false,
+    "totalMemoryBytes": 51226636288,
+    "peakBytes": 1050394624,
+    "warningExceeded": false,
+    "hardStopExceeded": false,
+    "samples": [
+      {
+        "elapsedMs": 0,
+        "phase": "start",
+        "rssBytes": 145534976
+      },
+      {
+        "elapsedMs": 4303,
+        "phase": "failed",
+        "rssBytes": 1050394624
+      }
+    ],
+    "decoderSessions": null
+  },
+  "eligibility": {
+    "eligible": true,
+    "entries": [
+      {
+        "kind": "overlay",
+        "id": "demo-flash",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-title",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-chat",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-done",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-effects",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-diagram",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-phone",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing",
+          "advanced-css"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-credit",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "overlay",
+        "id": "demo-bgm-chip",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      },
+      {
+        "kind": "caption",
+        "id": "c-0001",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0002",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0003",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0004",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0005",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0006",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0007",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0008",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0009",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0010",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0011",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0012",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0013",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0014",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0015",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0016",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0017",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0018",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0019",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0020",
+        "classification": "same",
+        "reason": "words-native",
+        "conditions": [
+          "words"
+        ]
+      },
+      {
+        "kind": "caption",
+        "id": "c-0021",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      },
+      {
+        "kind": "caption",
+        "id": "c-0022",
+        "classification": "same",
+        "reason": "caption-sprite",
+        "conditions": []
+      }
+    ],
+    "summary": {
+      "same": 22,
+      "three": 0,
+      "dom": 9,
+      "degraded": 0,
+      "unsupported": 0
+    }
+  },
+  "viewport": {
+    "requested": {
+      "width": 1280,
+      "height": 720
+    },
+    "measured": {
+      "width": 1280,
+      "height": 720
+    },
+    "emulated": false,
+    "display": {
+      "width": 1920,
+      "height": 1080
+    }
+  },
+  "output_scale": {
+    "from": [
+      1280,
+      720
+    ],
+    "to": [
+      1280,
+      720
+    ],
+    "mode": "none"
+  }
+}

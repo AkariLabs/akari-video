@@ -42,7 +42,7 @@ await copyFile(
   path.join(overlayRuntimeDestination, 'webview-kernel.js')
 );
 await copyFile(
-  path.join(shellRoot, 'extensions', 'akari-preview', 'generated', 'frame-engine.js'),
+  path.join(repoRoot, 'packages', 'frame-engine', 'generated', 'frame-engine.iife.js'),
   path.join(overlayRuntimeDestination, 'frame-engine.js')
 );
 await copyFile(
@@ -52,10 +52,6 @@ await copyFile(
 await copyFile(
   path.join(shellRoot, 'extensions', 'akari-preview', 'generated', 'scrub-audio.js'),
   path.join(overlayRuntimeDestination, 'scrub-audio.js')
-);
-await copyFile(
-  path.join(repoRoot, 'packages', 'osr-export', 'generated', 'frame-engine.js'),
-  path.join(overlayRuntimeDestination, 'osr-frame-engine.js')
 );
 console.log(`Copied overlay-runtime assets to ${path.relative(shellRoot, overlayRuntimeDestination)}`);
 

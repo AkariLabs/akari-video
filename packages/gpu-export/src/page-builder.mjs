@@ -12,7 +12,7 @@ import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { classifyCaptionWordMode, evaluateGpuEligibility } from "./eligibility.mjs";
 import { parseThreeEntrance } from "./three-entrance.mjs";
-import { buildMediaPlaneSummary } from "./media-plane-summary.mjs";
+import { buildMediaPlaneSummary, hasEffectiveItemAdjust, inferDuration, inlineScript, readJsonIfPresent, resolveItemAdjustLutCubeTexts, safeJson } from "../../osr-export/src/page-build-shared.mjs";
 import { GPU_BLEND_MODES, gpuBlendGlsl } from "./blend-modes.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,9 +26,9 @@ const {
   resolveRecordTrackZ,
   partitionPreviewMediaPlanes,
   toAnchorCaptions,
-  TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
-const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
+const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
+const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "..", "frame-engine", "generated", "frame-engine.iife.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 // data-akari-slot への文言注入。legacy（render-cut rasterize）・プレビュー（overlay-runtime）と同じ
 // 1 実装をページへ読み込み、静的スプライトと DOM 層の両方で source.params を適用する（issue #32）。
@@ -173,6 +173,8 @@ export function buildGpuPage({
         // page-runtime の caption 計測（emPx）と CSS の font-size が同じ実効 px を指すための単一経路。
         emPx: captionFontSizePx(overlay.vars) ?? Number(textStyle?.size_px ?? (portrait ? Math.round(width * 0.06) : 38)),
         motion: textStyle?.animation ?? null,
+        ...(textStyle && (textStyle.fill !== undefined || textStyle.strokes !== undefined)
+          ? { richTextStyle: textStyle } : {}),
         wordMode: word.wordMode,
         styleId: word.effectiveStyle,
         emphasisStyles: word.emphasisStyles,
@@ -423,7 +425,7 @@ export async function loadAndBuildGpuPage({
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
   // プリセット適用と除外フィルタは animator 射影の入力に要るのでここでも通す。
   // buildGpuPage 側の resolveCaptionPlan が同じ前段をもう一度かけるが、どちらも冪等。
-  const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root;
+  const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], loadTextstyleCatalogSync({ env: process.env }).catalog).root;
   const filteredCaptions = filterCaptionRootByExcludedIds(
     styledCaptions,
     collectExcludedCaptionIds(prepared.edit),
@@ -527,62 +529,6 @@ function projectCaptionAnimators(filteredRoot, sourceRoot, internal, trackZByIte
   return { captions: Array.isArray(filteredRoot) ? captions : { ...filteredRoot, captions }, overlayIds };
 }
 
-function effectiveAdjustLutRef(item) {
-  if (item?.adjust?.sections?.lut === false) return null;
-  const ref = item?.adjust?.lut?.lut;
-  return typeof ref === "string" && ref !== "" ? ref : null;
-}
-
-function hasEffectiveItemAdjust(edit) {
-  return [...(edit?.cuts ?? []), ...(edit?.layers ?? [])].some((item) => {
-    const adjust = item?.adjust;
-    const basic = item?.adjust?.sections?.basic === false ? null : item?.adjust?.basic;
-    const hasBasic = basic && Object.values(basic).some((value) => Number.isFinite(value) && Math.abs(value) > 1e-6);
-    const intensity = Number(item?.adjust?.lut?.intensity ?? 1);
-    // Match kernel normalization and identity tolerances without a runtime dependency.
-    const clamp01 = value => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
-    const hasWheels = adjust?.sections?.wheels !== false
-      && ['lift', 'gamma', 'gain', 'offset'].some(wheel =>
-        ['r', 'g', 'b'].some(channel => {
-          const value = adjust?.wheels?.[wheel]?.[channel];
-          return Number.isFinite(value) && value !== 0;
-        }));
-    const hasCurves = adjust?.sections?.curves !== false
-      && ['master', 'r', 'g', 'b'].some(channel => {
-        const raw = adjust?.curves?.[channel];
-        if (raw == null) return false;
-        const points = raw.map(point => ({ in: clamp01(point.in), out: clamp01(point.out) }))
-          .sort((a, b) => a.in - b.in);
-        return !(points.length === 2
-          && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5
-          && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
-      });
-    const hasHue = adjust?.sections?.hue !== false
-      && ['hue', 'sat', 'luma'].some(channel =>
-        (adjust?.hue?.[channel] ?? []).some(point =>
-          Math.abs((Number.isFinite(point.value) ? clamp01(point.value) : 0.5) - 0.5) > 1e-4));
-    return Boolean(hasBasic || hasWheels || hasCurves || hasHue || (effectiveAdjustLutRef(item) && (!Number.isFinite(intensity) || intensity > 0)));
-  });
-}
-
-async function resolveItemAdjustLutCubeTexts(edit, projectRoot) {
-  const table = {};
-  const items = [
-    ...(edit?.cuts ?? []).map((item, index) => ({ item, id: String(item?.id ?? `cut-${index}`) })),
-    ...(edit?.layers ?? []).map((item, index) => ({ item, id: String(item?.id ?? `layer-${index}`) })),
-  ];
-  await Promise.all(items.map(async ({ item, id }) => {
-    const ref = effectiveAdjustLutRef(item);
-    if (!ref) return;
-    try {
-      table[id] = await readFile(resolveLutPath(projectRoot, ref), "utf8");
-    } catch (error) {
-      throw new Error(`item adjust LUT ${ref} for ${id} could not be resolved: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }));
-  return table;
-}
-
 // render-cut captionTextStyleVars が書いた `<number>px` の --caption-font-size を数値へ戻す。
 // 変数が無い / px 以外なら null（呼び出し側が従来の既定へ落とす）。
 function captionFontSizePx(vars) {
@@ -600,26 +546,4 @@ function mergeTextStyle(base, override) {
     ? { ...(base?.animation ?? {}), ...(override?.animation ?? {}) }
     : undefined;
   return { ...(base ?? {}), ...(override ?? {}), ...(animation ? { animation } : {}) };
-}
-
-function inferDuration(edit) {
-  return (edit.cuts ?? []).reduce((total, cut) => {
-    const speed = Number(cut.speed ?? 1) || 1;
-    const freeze = Number(cut.freeze?.duration_sec ?? 0) || 0;
-    const transition = Number(cut.transition_out?.duration ?? 0) || 0;
-    return total + Math.max(0, (Number(cut.out ?? 0) - Number(cut.in ?? 0)) / speed + freeze - transition);
-  }, 0);
-}
-
-async function readJsonIfPresent(path, fallback) {
-  try { return JSON.parse(await readFile(path, "utf8")); }
-  catch (error) { if (error?.code === "ENOENT") return fallback; throw error; }
-}
-
-function safeJson(value) {
-  return JSON.stringify(value).replaceAll("<", "\\u003c").replaceAll("\u2028", "\\u2028").replaceAll("\u2029", "\\u2029");
-}
-
-function inlineScript(value) {
-  return value.replace(/<\/script/giu, "<\\/script");
 }

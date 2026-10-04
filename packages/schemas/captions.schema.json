@@ -37,6 +37,81 @@
         "width_px": { "type": "number", "minimum": 0 }
       }
     },
+    "richTextStrokeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["color", "width_px"],
+      "properties": {
+        "color": { "$ref": "#/$defs/hexColor" },
+        "width_px": { "type": "number", "minimum": 0 },
+        "offset_x": { "type": "number" },
+        "offset_y": { "type": "number" }
+      }
+    },
+    "textFillStop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "color"],
+      "properties": {
+        "at": { "type": "number", "minimum": 0, "maximum": 100 },
+        "color": { "$ref": "#/$defs/hexColor" }
+      }
+    },
+    "textFillStyle": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "color"],
+          "properties": {
+            "type": { "const": "solid" },
+            "color": { "$ref": "#/$defs/hexColor" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "stops", "angle_deg"],
+          "properties": {
+            "type": { "const": "gradient" },
+            "stops": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/textFillStop" } },
+            "angle_deg": { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "pattern"],
+          "properties": {
+            "type": { "const": "pattern" },
+            "pattern": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "scale", "fg", "bg"],
+              "properties": {
+                "id": { "enum": ["diamond", "dot", "stripe", "gingham", "skull", "hazard", "night", "heart", "thunder"] },
+                "scale": { "type": "number", "exclusiveMinimum": 0 },
+                "fg": { "$ref": "#/$defs/hexColor" },
+                "bg": {
+                  "oneOf": [
+                    { "$ref": "#/$defs/hexColor" },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["stops", "angle_deg"],
+                      "properties": {
+                        "stops": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/textFillStop" } },
+                        "angle_deg": { "type": "number" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
     "textInnerStrokeStyle": {
       "type": "object",
       "additionalProperties": false,
@@ -275,6 +350,8 @@
         "glow": { "$ref": "#/$defs/textGlowStyle" },
         "animation": { "$ref": "#/$defs/textAnimation" },
         "stroke": { "$ref": "#/$defs/textStrokeStyle" },
+        "strokes": { "type": "array", "items": { "$ref": "#/$defs/richTextStrokeStyle" } },
+        "fill": { "$ref": "#/$defs/textFillStyle" },
         "stroke_inner": { "$ref": "#/$defs/textInnerStrokeStyle" },
         "fill_gradient": { "$ref": "#/$defs/textFillGradient" },
         "extrude": { "$ref": "#/$defs/textExtrude" },

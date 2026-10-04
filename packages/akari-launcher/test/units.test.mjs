@@ -265,7 +265,7 @@ async function writeRepoMarkers(root) {
     ['packages', 'creator-root', 'src', 'index.mjs'],
     ['packages', 'akari-tools', 'bin', 'beatmap.mjs'],
     ['packages', 'akari-tools', 'bin', 'probe-frame.mjs'],
-    ['packages', 'akari-tools', 'bin', 'render-when-idle.sh']
+    ['packages', 'akari-tools', 'bin', 'render-when-idle.mjs']
   ];
   for (const segments of markers) {
     const filePath = join(root, ...segments);

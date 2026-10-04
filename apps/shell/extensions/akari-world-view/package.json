@@ -8,7 +8,7 @@
     { "frontend": "lib/browser/akari-world-view-frontend-module" },
     { "backend": "lib/node/akari-world-view-backend-module" }
   ],
-  "scripts": { "build": "tsc -b", "clean": "rimraf lib", "test": "node --test test/*.test.mjs" },
+  "scripts": { "build": "tsc -b", "clean": "rimraf lib", "test": "tsc -b && node --test test/*.test.mjs" },
   "dependencies": {
     "@theia/core": "1.73.1",
     "@theia/plugin-ext": "1.73.1",

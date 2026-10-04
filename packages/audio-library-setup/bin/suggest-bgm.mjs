@@ -42,15 +42,23 @@ function resolveLibraryRoot(env = process.env) {
 }
 
 function parseArguments(argv, env = process.env) {
+  function valueAfter(index, option, example) {
+    const value = argv[index + 1];
+    if (value === undefined || value.startsWith('--')) {
+      console.error(`${option} には値が必要です（例: ${example}）`);
+      process.exit(1);
+    }
+    return value;
+  }
   const options = { tones: [], tempo: null, decisionLog: null, count: 5, catalog: null, declarations: env.AKARI_SOUNDS_DECLARATIONS || null, json: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--from-decision-log') { options.decisionLog = path.resolve(argv[++i]); continue; }
-    if (arg === '--tone') { options.tones.push(argv[++i]); continue; }
-    if (arg === '--tempo') { options.tempo = argv[++i]; continue; }
-    if (arg === '--count') { options.count = Number(argv[++i]); continue; }
-    if (arg === '--catalog') { options.catalog = path.resolve(argv[++i]); continue; }
-    if (arg === '--declarations') { options.declarations = argv[++i]; continue; }
+    if (arg === '--from-decision-log') { options.decisionLog = path.resolve(valueAfter(i++, arg, '--from-decision-log <path>')); continue; }
+    if (arg === '--tone') { options.tones.push(valueAfter(i++, arg, '--tone 真面目')); continue; }
+    if (arg === '--tempo') { options.tempo = valueAfter(i++, arg, '--tempo 標準'); continue; }
+    if (arg === '--count') { options.count = Number(valueAfter(i++, arg, '--count 5')); continue; }
+    if (arg === '--catalog') { options.catalog = path.resolve(valueAfter(i++, arg, '--catalog <path>')); continue; }
+    if (arg === '--declarations') { options.declarations = valueAfter(i++, arg, '--declarations <path>'); continue; }
     if (arg === '--json') { options.json = true; continue; }
     throw new Error(`Unknown option: ${arg}`);
   }

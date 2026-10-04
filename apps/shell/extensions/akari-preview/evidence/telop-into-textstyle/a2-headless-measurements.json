@@ -1,0 +1,47 @@
+{
+  "note": "headless (Edge/Chromium) fixture of overlay-runtime interaction.js — NOT the installed Electron app",
+  "cases": {
+    "telopSelected": {
+      "edges": {
+        "n": false,
+        "e": false,
+        "s": false,
+        "w": false
+      },
+      "corners": {
+        "nw": true,
+        "ne": true,
+        "sw": true,
+        "se": true
+      },
+      "hint": "サイズ",
+      "cornerWrite": {
+        "x": 51.93965517241378,
+        "y": 18.698275862068954,
+        "scale": 1.2077586206896551,
+        "rotate": 0
+      }
+    },
+    "ordinarySelected": {
+      "edges": {
+        "n": true,
+        "e": true,
+        "s": true,
+        "w": true
+      }
+    },
+    "savedNonuniform": {
+      "onMount": {
+        "writes": 0,
+        "scaleX": "1.6",
+        "scaleY": "1"
+      },
+      "cornerWrite": {
+        "x": -42.151079485357684,
+        "y": 38.82561138527123,
+        "scale": 1.4313956820585694,
+        "rotate": 0
+      }
+    }
+  }
+}

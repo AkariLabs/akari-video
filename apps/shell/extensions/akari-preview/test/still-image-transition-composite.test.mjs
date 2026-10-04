@@ -1,19 +1,15 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(
-    join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'),
-    'utf8'
-);
-const compiled = readFileSync(
-    join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const source = readHandlerSource();
+const compiled = readHandlerCompiled();
 
 // open handler の webview はテンプレート文字列として生成されるため、既存の webview
 // wiring テストと同じく compiled lib から実行時相当の JS を抜いて構文も検査する。

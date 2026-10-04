@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText, sliceBetween } from './helpers/role-buckets-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { presetShowcaseBottomPadding, textStylePlaceOptions } from '../lib/common/preset-showcase.js';
 
-const widget = readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
+const widget = readAllSourceText();
 const home = readFileSync(new URL('../src/common/library-home-view.ts', import.meta.url), 'utf8');
 
 test('テキストスタイルだけが placeText の stylePreset 引数になる', () => {
@@ -14,17 +15,13 @@ test('テキストスタイルだけが placeText の stylePreset 引数にな�
 });
 
 test('マイスタイルの＋は見た目込みの placeText を一度だけ呼ぶ', () => {
-  const start = widget.indexOf('protected async addMyStyleAtPlayhead(');
-  const end = widget.indexOf('\n    protected ', start + 1);
-  const body = widget.slice(start, end);
+  const body = sliceBetween('protected async addMyStyleAtPlayhead(', '\n    protected ');
   assert.match(body, /executeCommand\('akari\.caption\.placeText', \{ myStyle: style \}\)/);
   assert.doesNotMatch(body, /akari\.mystyle\.apply/);
 });
 
 test('grid と list のかけるカードはドラッグでき、文字の新規配置は右クリックと情報カードへ畳む', () => {
-  const start = widget.indexOf('protected renderPresetLibraryCard(');
-  const end = widget.indexOf('\n    protected ', start + 1);
-  const body = widget.slice(start, end);
+  const body = sliceBetween('protected renderPresetLibraryCard(', '\n    protected ');
   for (const method of ['renderPresetShowcaseListRow', 'renderPresetShowcaseCard']) {
     assert.match(widget, new RegExp(`protected ${method}\\(item: PresetShowcaseItem\\): React\\.ReactNode \\{\\n\\s+return this\\.renderPresetLibraryCard\\(item, '(grid|list)'\\);`));
   }
@@ -48,7 +45,7 @@ test('FAB を避ける下余白は textstyle の grid/list 共通の一覧だけ
   assert.equal(presetShowcaseBottomPadding('textstyle'), 110);
   assert.equal(presetShowcaseBottomPadding('textanim'), undefined);
   assert.equal(presetShowcaseBottomPadding('lut'), undefined);
-  const showcase = widget.slice(widget.indexOf('protected renderPresetShowcase('), widget.indexOf('protected renderPresetShowcaseItem('));
+  const showcase = sliceBetween('protected renderPresetShowcase(', 'protected renderPresetShowcaseItem(');
   assert.match(showcase, /presetShowcaseBottomPadding\(kind\)/);
   assert.match(showcase, /style\.paddingBottom = `\$\{bottomPadding\}px`/);
 });

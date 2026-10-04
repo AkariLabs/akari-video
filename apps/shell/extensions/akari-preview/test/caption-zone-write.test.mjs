@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import {
     captionPositionFromVisualRect,
@@ -26,9 +24,9 @@ import {
     resetCaptionCueGeometrySource
 } from '../lib/common/caption-zone-write.js';
 import { captionTextStyleVars } from '../../../../../packages/render-cut/src/captions.mjs';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const handlerSource = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const handlerSource = readHandlerSource();
 const require = createRequire(import.meta.url);
 const { lintProjectCandidates } = require('../../../../../packages/edit-store/lib/write-gate.js');
 const { captionAnchorPositionVars, resolveCaptionLineStyleVars } = require('../../../../../packages/edit-store/lib/index.js');
@@ -460,8 +458,7 @@ test('caption text の 1 語置換は未編集語の words を温存する', () 
 
 test('successful caption write refreshes the webview instead of suppressing its own watcher only', () => {
     const start = handlerSource.indexOf('protected async handleCaptionWrite');
-    const end = handlerSource.indexOf('protected isCaptionWriteRequest', start);
-    const handler = handlerSource.slice(start, end);
+    const handler = sliceBetween('protected async handleCaptionWrite', 'protected async persistCaptionGroupZoneForWidget', { source: handlerSource, from: start });
     assert.match(handler, /persistCaptionZone/);
     assert.match(handler, /this\.queueCaptionsUpdate\(widget\)/);
 });

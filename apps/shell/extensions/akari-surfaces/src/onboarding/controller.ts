@@ -1,10 +1,19 @@
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AiAnswer, INITIAL_ONBOARDING_STATE, nextOnboardingState, OnboardingState, OnboardingStep,
-    onboardingCount, onboardingRevisit, previousOnboardingStep } from './model';
+    onboardingCaptionSeekTime, onboardingCount, onboardingRevisit, previousGuidePosition } from './model';
 import { AkariOnboardingService, SampleInformation } from './protocol';
 import { ONBOARDING_CSS } from './style';
 import { automaticGuideTransition, guideRecoveryView } from './recovery-model';
+import { BEFORE_AFTER_DATA_URL } from './before-after-data';
+import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
+    guideBlockerClipPath, pointInGuideCutouts, shouldBlockGuidePointer, partnerFallbackReady, askHighlightTarget,
+    askConnectionCopy, captionCoachPosition, materialPreviewTransportRect, needsCaptionStyleSelection,
+    outputCaptionBandRect, GuideRect } from './guide-ui-model';
+import { introVisual, inviteMarkup } from './intro-model';
+import { groupChatLines } from './chat-model';
+import { CAPTION_GUIDE_COPY, DAIHON_GUIDE_COPY, MATERIAL_PREVIEW_SELECT_COPY,
+    guideOffersHelpNext, guideWaitingHint, HELP_DELAY } from './guide-copy';
 
 interface CoachSpec {
     key?: string;
@@ -26,18 +35,24 @@ interface CoachSpec {
     place?: 'left' | 'right' | 'top' | 'bottom';
 }
 
-const PROMPT = 'この動画を編集したいです。右上に動画のタイトルを入れて、下に字幕を入れてください。';
-const HELP_DELAY = { hint: 4000, next: 10000 } as const;
-const LOG: Array<{ t: number; lines: string[]; live?: string; count?: number; title?: boolean }> = [
+const PROMPT = 'この動画を編集したいです。話している内容に合わせて、テロップ・図解・効果音・BGM を入れてください。';
+const LOG: Array<{ t: number; lines: string[]; live?: string; count?: number;
+    captions?: boolean; stage?: number; lint?: boolean }> = [
     { t: 500, live: '素材を確認しています…', lines: ['素材を確認します。'] },
-    { t: 1400, lines: ['akari media probe assets/サンプル動画.mp4', '37.6 秒 · 1280×720 · 30fps · 音声あり'] },
-    { t: 2500, live: '書き起こしを探しています…', lines: ['素材に書き起こしが付いていたので、それを使います（文字起こしは不要でした）。'] },
-    { t: 3500, live: '本編を置いています…', lines: ['edit.json', '本編を置きました'], count: 0 },
-    { t: 4500, live: '字幕を置いています…', lines: ['akari captions .', '字幕を短く分けてつくりました → captions.json'] },
-    { t: 8100, live: 'タイトルを考えています…', lines: ['話の中心は「AI と話すだけで編集が終わる」なので、タイトルは「AI と話すだけで動画編集」にします。'] },
-    { t: 9200, live: 'タイトルを置いています…', lines: ['edit.json', '右上にタイトルを置きました'], title: true },
-    { t: 10200, live: '確認しています…', lines: ['edit-lint .', '問題なし'] },
-    { t: 11100, live: 'できました', lines: ['できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。'] }
+    { t: 1300, lines: ['akari media probe assets/サンプル動画.mp4', '37.6 秒 · 1280×720 · 30fps · 音声あり'] },
+    { t: 2300, live: '声の区切りを調べています…', lines: ['書き起こしの語の時刻を、声の波形に合わせ直しました。'] },
+    { t: 3000, live: '本編を置いています…', lines: ['edit.json', '本編を置きました'], count: 0 },
+    { t: 4000, live: '字幕を置いています…', lines: ['字幕を短く分けてつくりました → captions.json'], captions: true },
+    { t: 7400, live: 'タイトルを置いています…', lines: ['冒頭にタイトル、「アカリビデオ」で名札を出しました'], stage: 1 },
+    { t: 8400, live: 'テロップを置いています…', lines: ['「AI と対話」「編集はもう終わってる」をテロップにしました'], stage: 2 },
+    { t: 9500, live: '効果音を合わせています…', lines: ['「パッと」に合わせて、効果音・フラッシュ・ズームを入れました'], stage: 3 },
+    { t: 10700, live: '図解を置いています…', lines: ['「こういう図解」と言った瞬間に、この動画の中身をタイムラインで出しました'], stage: 4 },
+    { t: 11800, live: 'スマホの画面をつくっています…', lines: ['スマホのモックアップに、この動画を縦にして映しました'], stage: 5 },
+    { t: 12900, live: 'BGM を入れています…', lines: ['声の下に BGM を入れ、「BGM も」で音を持ち上げました'], stage: 6 },
+    { t: 13900, live: '字幕を仕上げています…', lines: ['「カラオケ表示」の字幕を、声に合わせて塗られるようにしました'], stage: 7 },
+    { t: 14900, live: 'オチをつけています…', lines: ['最後に「編集 AI」のクレジットを入れました'], stage: 8 },
+    { t: 15800, live: '確認しています…', lines: ['edit-lint .', '問題なし'], lint: true },
+    { t: 16400, live: 'できました', lines: ['できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。'] }
 ];
 const esc = (value: string): string => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
 
@@ -57,6 +72,7 @@ export class OnboardingController {
     protected timers: number[] = [];
     protected exportPoll?: number;
     protected exportFinishing = false;
+    protected exportInertObserver?: MutationObserver;
     protected placeFrame?: number;
     protected lastRects = '';
     protected fogFrom: DOMRect[] = [];
@@ -67,6 +83,7 @@ export class OnboardingController {
     protected dragStarted = false;
     protected dragHintTimer?: number;
     protected bounceTimer?: number;
+    protected captionRingReady = false;
     protected tourTimer?: number;
     protected sourceExample = false;
     protected helpTimers: number[] = [];
@@ -79,6 +96,10 @@ export class OnboardingController {
     protected lastInteractionAt = 0;
     protected idleCloseTimer?: number;
     protected stepSerial = 0;
+    protected revealedPartnerSerial = -1;
+    protected partnerRevealAttempts = 0;
+    protected lastPartnerRevealAt = 0;
+    protected inputCutouts: GuideRect[] = [];
 
     constructor(
         protected readonly service: AkariOnboardingService,
@@ -104,7 +125,7 @@ export class OnboardingController {
         this.root = document.createElement('div');
         this.root.id = 'akari-onboarding-v1';
         this.root.setAttribute('data-akari-onboarding-step', this.state.step);
-        this.root.innerHTML = `<style>${ONBOARDING_CSS}</style><div class="ao-example-host"></div><div class="ao-chat-host"></div><div class="ao-dim"></div><div class="ao-holes"></div><div class="ao-rings"></div><div class="ao-hint"></div><div class="ao-takeover-host"></div><div class="ao-finder-host"></div><div class="ao-coach-host"></div><div class="ao-recovery-host"></div><div class="ao-close-host"></div>`;
+        this.root.innerHTML = `<style>${ONBOARDING_CSS}</style><div class="ao-example-host"></div><div class="ao-chat-host"></div><div class="ao-dim"></div><div class="ao-input-blocker"></div><div class="ao-holes"></div><div class="ao-rings"></div><div class="ao-hint"></div><div class="ao-takeover-host"></div><div class="ao-finder-host"></div><div class="ao-coach-host"></div><div class="ao-recovery-host"></div><div class="ao-close-host"></div>`;
         this.root.addEventListener('click', event => void this.handleClick(event));
         this.root.addEventListener('dragstart', event => {
             if ((event.target as Element).closest('[data-ao-file]')) {
@@ -122,8 +143,9 @@ export class OnboardingController {
         document.addEventListener('click', this.handleExternalClick, true);
         document.addEventListener('drop', this.handleDrop, true);
         document.addEventListener('dragover', this.handleDragOver, true);
-        document.addEventListener('keydown', this.handleKeyDown, true);
-        document.addEventListener('input', this.handleInput, true);
+        window.addEventListener('keydown', this.handleKeyDown, true);
+        for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
+            document.addEventListener(type, this.guardPointer, true);
         window.addEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.addEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
         if (this.state.projectUri) {
@@ -132,7 +154,10 @@ export class OnboardingController {
                 this.sample = prepared.sample;
                 if (this.state.step !== 'invite') {
                     await this.showOutput(this.state.projectUri);
-                    if (this.state.step === 'caption') await this.seekOutput(this.state.projectUri, 8.7);
+                    if (this.state.step === 'caption') {
+                        const time = onboardingCaptionSeekTime(this.sample.segments);
+                        if (time !== undefined) await this.seekOutput(this.state.projectUri, time);
+                    }
                 }
             } catch (error) {
                 this.live = error instanceof Error ? error.message : String(error);
@@ -157,6 +182,8 @@ export class OnboardingController {
         for (const timer of this.timers) window.clearTimeout(timer);
         this.timers = [];
         if (this.exportPoll) window.clearInterval(this.exportPoll);
+        this.exportInertObserver?.disconnect();
+        this.exportInertObserver = undefined;
         if (this.placeFrame) cancelAnimationFrame(this.placeFrame);
         if (this.fogFrame) cancelAnimationFrame(this.fogFrame);
         if (this.dragHintTimer) window.clearTimeout(this.dragHintTimer);
@@ -165,14 +192,19 @@ export class OnboardingController {
         this.clearHelp();
         this.root?.remove();
         this.root = undefined;
+        this.revealedPartnerSerial = -1;
+        this.partnerRevealAttempts = 0;
+        this.inputCutouts = [];
         document.body.classList.remove('akari-onboarding-active');
+        document.body.classList.remove('akari-onboarding-export-active');
         document.body.classList.remove('akari-onboarding-chat-active');
         document.body.classList.remove('akari-onboarding-daihon-active');
         document.removeEventListener('click', this.handleExternalClick, true);
         document.removeEventListener('drop', this.handleDrop, true);
         document.removeEventListener('dragover', this.handleDragOver, true);
-        document.removeEventListener('keydown', this.handleKeyDown, true);
-        document.removeEventListener('input', this.handleInput, true);
+        window.removeEventListener('keydown', this.handleKeyDown, true);
+        for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
+            document.removeEventListener(type, this.guardPointer, true);
         window.removeEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.removeEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
         if (this.videoUrl) URL.revokeObjectURL(this.videoUrl);
@@ -265,8 +297,10 @@ export class OnboardingController {
             await this.showOutput(this.state.projectUri);
         if (step === 'prompt') this.startPromptTypewriter();
         if (step === 'work') void this.startWork();
-        if ((step === 'play' || step === 'caption') && this.state.projectUri)
-            await this.seekOutput(this.state.projectUri, step === 'caption' ? 8.7 : 0);
+        if ((step === 'play' || step === 'caption') && this.state.projectUri) {
+            const time = step === 'caption' ? onboardingCaptionSeekTime(this.sample?.segments ?? []) : 0;
+            if (time !== undefined) await this.seekOutput(this.state.projectUri, time);
+        }
         if (step === 'export') this.beginExportPoll();
         if (step === 'done') await this.service.markSeen();
     }
@@ -291,21 +325,35 @@ export class OnboardingController {
         this.stepEnteredAt = performance.now();
         this.lastInteractionAt = this.stepEnteredAt;
         const serial = ++this.stepSerial;
+        this.partnerRevealAttempts = 0;
+        if (shouldRevealPartner(this.state.step, serial, this.revealedPartnerSerial)) this.revealPartner();
         this.scheduleHelp();
+        this.ensureCaptionStyleSelection(serial);
         if (this.tourTimer) window.clearTimeout(this.tourTimer);
-        const automatic = automaticGuideTransition(this.state.step, this.state.sub);
-        if (automatic) {
-            this.tourTimer = window.setTimeout(() => {
-                if (this.root && serial === this.stepSerial) void this.advanceAutomatically();
-            }, automatic.delayMs);
-            this.recoveryTimers.push(window.setTimeout(() => {
-                if (this.root && serial === this.stepSerial) this.renderRecovery();
-            }, automatic.delayMs + 3000));
-        }
         this.scheduleIdleClose(serial);
         this.renderRecovery();
         if (this.state.step === 'drag' && !this.state.imported) this.scheduleDragHint();
         if (this.state.step === 'done') this.celebrate();
+    }
+
+    protected revealPartner(): void {
+        this.revealedPartnerSerial = this.stepSerial;
+        this.partnerRevealAttempts++;
+        this.lastPartnerRevealAt = performance.now();
+        window.dispatchEvent(new Event('akari.onboarding.revealPartner'));
+    }
+
+    protected ensureCaptionStyleSelection(serial: number, attempt = 0): void {
+        if (this.state.step !== 'caption' || this.state.sub !== 1) return;
+        this.helpTimers.push(window.setTimeout(() => {
+            if (!this.root || serial !== this.stepSerial) return;
+            const color = document.querySelector<HTMLElement>('[data-akari-bar-item="captionTextColor"]');
+            const visible = !!color && getComputedStyle(color).display !== 'none'
+                && getComputedStyle(color).visibility === 'visible' && color.getClientRects().length > 0;
+            if (!needsCaptionStyleSelection(this.state.step, this.state.sub, visible)) return;
+            window.dispatchEvent(new Event('akari.onboarding.assistCaptionSelection'));
+            if (attempt < 2) this.ensureCaptionStyleSelection(serial, attempt + 1);
+        }, 200 + attempt * 450));
     }
 
     protected scheduleIdleClose(serial: number): void {
@@ -372,25 +420,15 @@ export class OnboardingController {
     }
 
     protected waitingHint(): string | undefined {
-        const { step, sub } = this.state;
-        if (step === 'drag' && !this.state.imported) return 'サンプル動画を左の素材へドラッグしてください。';
-        if (step === 'matpreview' && sub === 0) return '左のサンプル動画カードを押してください。';
-        if (step === 'ask' && sub === 0) return '使っている AI を選んでください。';
-        if (step === 'prompt') return sub === 0 ? '「入力欄に入れる」を押してください。' : '右の「送る」を押してください。';
-        if (step === 'play' && sub === 0) return 'プレビューの ▶ を押してください。';
-        if (step === 'caption' && sub < 3) return ['プレビューの字幕を押してください。', '上の「大きさ」を押してください。', 'つまみを動かしてください。'][sub];
-        if (step === 'daihon' && sub < 2) return sub === 0 ? '右端の紙のアイコンを押してください。' : '光っている最初の行を押してください。';
-        if (step === 'export' && sub < 3) return ['左上の ≡ を押してください。', '「書き出し…」を押してください。', '「書き出す」を押してください。'][sub];
-        return undefined;
+        return guideWaitingHint(this.state);
     }
 
     protected scheduleHelp(): void {
         this.clearHelp();
         const hint = this.waitingHint();
-        if (!hint) return;
         const key = `${this.state.step}:${this.state.sub}`;
         this.helpKey = key;
-        this.helpTimers.push(window.setTimeout(() => {
+        if (hint) this.helpTimers.push(window.setTimeout(() => {
             if (!this.root || this.helpKey !== key) return;
             const body = this.root.querySelector<HTMLElement>('.ao-coach .ao-body');
             if (body && !body.querySelector('.ao-help')) body.insertAdjacentHTML('beforeend', `<p class="ao-help">${esc(hint)}</p>`);
@@ -398,6 +436,7 @@ export class OnboardingController {
             this.lastRects = '';
             this.placeCoach();
         }, HELP_DELAY.hint));
+        if (!guideOffersHelpNext(this.state)) return;
         this.helpTimers.push(window.setTimeout(() => {
             if (!this.root || this.helpKey !== key) return;
             const coach = this.root.querySelector<HTMLElement>('.ao-coach');
@@ -427,11 +466,7 @@ export class OnboardingController {
         }
         if (step === 'caption') {
             if (sub === 0) window.dispatchEvent(new Event('akari.onboarding.assistCaptionSelection'));
-            if (sub === 1) document.querySelector<HTMLElement>('[data-akari-onboarding-target="caption-size"]')?.click();
-            if (sub === 2) {
-                const slider = document.querySelector<HTMLInputElement>('[data-akari-onboarding-target="caption-size-slider"]');
-                if (slider) { slider.value = String(Math.min(Number(slider.max), Number(slider.value) + 2)); slider.dispatchEvent(new Event('input', { bubbles: true })); slider.dispatchEvent(new Event('change', { bubbles: true })); }
-            }
+            if (sub === 2) return this.go('daihon');
             return this.setSub(sub + 1);
         }
         if (step === 'daihon') {
@@ -439,15 +474,20 @@ export class OnboardingController {
             return this.setSub(sub + 1);
         }
         if (step === 'export') {
-            document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${['menu-button', 'export-button', 'export-submit'][sub]}"]`)?.click();
+            if (sub === 0) {
+                if (!this.exportMenuIsOpen()) this.pressExportMenuTab();
+                if (this.exportMenuIsOpen()) await this.setSub(1);
+            } else {
+                document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${['menu-button', 'export-button', 'export-submit'][sub]}"]`)?.click();
+            }
         }
     }
 
     protected takeover(): string {
-        const brand = '<div class="ao-brand">AKARI VIDEO</div>';
+        const brand = introVisual(this.state.step).brand ? '<div class="ao-brand">AKARI VIDEO</div>' : '';
         if (this.state.step === 'welcome') return `${brand}<h2>AKARI Video へようこそ</h2><div class="ao-actions"><button class="primary" data-ao="next">次へ</button></div>`;
-        if (this.state.step === 'first') return `${brand}<h2>AKARI Video を使うのは、はじめてですか？</h2><div class="ao-actions"><button class="primary" data-ao="yes">はじめて</button><button data-ao="no">使ったことがある</button></div>`;
-        if (this.state.step === 'invite') return `${brand}<h2>一緒に 1 本、つくってみませんか？</h2><p>用意した動画に、AI でタイトルと字幕を入れて、書き出すところまで。5 分ほどです。途中でやめても大丈夫です。</p><div class="ao-chip">サンプル動画<small>0:37 · 話している人の動画 · 用意してあります</small></div>${this.busy ? '<p>準備しています… 作業場とプロジェクトを作っています</p>' : `${this.prepareError ? `<p role="alert">${esc(this.prepareError)}</p>` : ''}<div class="ao-actions"><button class="primary" data-ao="start">${this.prepareError ? 'もう一度' : 'やってみる'}</button><button data-ao="later">あとで（自分で始める）</button></div>`}`;
+        if (this.state.step === 'first') return '<h2>AKARI Video を使うのは、はじめてですか？</h2><div class="ao-actions"><button class="primary" data-ao="yes">はじめて</button><button data-ao="no">使ったことがある</button></div>';
+        if (this.state.step === 'invite') return inviteMarkup(this.busy, esc(this.prepareError));
         return `<div class="ao-congrats">おめでとうございます</div><h2>はじめての 1 本ができました</h2><button class="ao-magic" data-ao="own"><span>自分の動画で始める</span><b>→</b><i>✦</i><i>✦</i><i>✦</i></button><div class="ao-secondary"><button data-ao="explore">このまま触ってみる</button><span>·</span><button data-ao="again">もう一度見る</button><span>·</span><button data-ao="learn">使い方を学ぶ</button></div>`;
     }
 
@@ -455,7 +495,7 @@ export class OnboardingController {
         const sub = this.state.sub;
         switch (this.state.step) {
             case 'tour0': return sub === 0
-                ? { title: '画面の構成を知りましょう', body: '', minimal: true, fullFog: true }
+                ? { title: '画面の構成を知りましょう', body: '', minimal: true, fullFog: true, buttons: [['次へ', 'next', true]] }
                 : { title: 'これが AKARI Video の画面です', body: '', minimal: true, noDim: true,
                     buttons: [['次へ →', 'next', false]] };
             case 'tour1': return { title: '① 左は「素材」です', holes: ['assets'], labels: ['① 素材'],
@@ -468,21 +508,21 @@ export class OnboardingController {
             case 'tour3': return sub === 0
                 ? { title: '③ 右は「AI パートナー」です', holes: ['replay-chat'], labels: ['③ AI パートナー'], place: 'left',
                     body: '<p>やりたいことを文章で頼むと、AI が編集を進めます。</p><p>右のように、頼んだことと AI の返事が並びます。</p>', buttons: [['次へ', 'next', true]] }
-                : { title: 'では、これを一緒につくってみましょう', body: '', minimal: true, fullFog: true };
+                : { title: 'では、これを一緒につくってみましょう', body: '', minimal: true, fullFog: true, buttons: [['次へ', 'next', true]] };
             case 'drag': return this.state.imported
                 ? { title: '素材はもう入っています', holes: ['assets'], body: '<p>次へ進みましょう。</p>', buttons: [['次へ', 'next', true]] }
                 : { title: 'まず素材を入れます', holes: ['assets'], rings: ['finder-file'], wide: true,
                 body: `<p>用意した動画を、左の「素材」へドラッグしてください。</p><p class="ao-note">${navigator.platform.includes('Mac') ? 'Finder' : 'エクスプローラー'}の右側で、中身を再生して確かめられます。</p>`,
                 link: ['import', 'ドラッグしづらいときは、ここを押して入れる'] };
             case 'matpreview': return sub === 0
-                ? { title: '素材を押すと、中身が見られます', clear: ['assets'], rings: ['sample-card'], body: '<p>入った動画を押してみてください。</p>' }
-                : { title: 'ここは「素材プレビュー」です', holes: ['material-preview'], body: '<p>取り込んだ素材を、そのまま再生して確かめられます。確かめたら次へ。</p>', buttons: [['次へ', 'next', true]] };
+                ? { ...MATERIAL_PREVIEW_SELECT_COPY, clear: ['assets'], rings: ['sample-card'] }
+                : { title: 'ここは「素材プレビュー」です', holes: ['material-preview'], rings: ['material-play-toggle'], body: '<p>下の ▶ で再生できます。確かめたら次へ。</p>', buttons: [['次へ', 'next', true]] };
             case 'ask': return sub === 0
                 ? { title: '編集は、右の AI に頼みます', holes: ['partner'], rings: ['answer-choices'], wide: true, place: 'left',
                     body: '<p>やりたいことを文章で伝えると、AI がタイムラインを組み立てます。いま使っている AI はありますか？</p>',
                     choices: [['claude', 'Claude', 'Pro・Max'], ['chatgpt', 'ChatGPT', '無料のアカウントでも可'], ['google', 'Google', 'AI Pro・無料のアカウント'], ['none', 'どれも使っていない', ''], ['other', 'ほかの AI', 'Cursor・Copilot・Devin など']] }
-                : { title: '今回は、お手本で流れを見ます', holes: [this.state.answer === 'claude' ? 'partner-claude' : this.state.answer === 'chatgpt' ? 'partner-codex' : this.state.answer === 'google' ? 'partner-antigravity' : 'partner'], wide: true, place: 'left',
-                    body: `<p>${({ claude: 'Claude の Pro・Max なら、つなぐのは「Claude Code CLI」です（光っているところ）。', chatgpt: 'ChatGPT なら、つなぐのは「Codex CLI」です（光っているところ）。無料のアカウントでも使えます。', google: 'Google のアカウントなら、つなぐのは「Antigravity CLI」です（光っているところ）。', none: 'AI とつながなくても、流れはお手本で見られます。', other: 'お使いの AI は、あとでこの一覧からつなげます。' } as Record<AiAnswer, string>)[this.state.answer ?? 'none']}</p><p>このあとは AI を使わずに、頼んでから仕上がるまでをお手本で再生します。本物の AI とは、最後につなげます。</p>`,
+                : { title: '今回は、お手本で流れを見ます', holes: [askHighlightTarget(this.state.answer)], wide: true, place: 'left',
+                    body: `<p>${askConnectionCopy(this.state.answer)}</p><p>このあとは AI を使わずに、頼んでから仕上がるまでをお手本で再生します。本物の AI とは、最後につなげます。</p>`,
                     buttons: [['お手本を始める', 'replay', true]], link: ['reanswer', '選び直す'] };
             case 'prompt': return onboardingRevisit(this.state) === 'completed'
                 ? { title: 'お手本はもう終わっています', clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
@@ -494,23 +534,20 @@ export class OnboardingController {
                 : { title: '「送る」を押してください', clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
                     body: '<p>ここから先は、用意したお手本を再生します。AI は使いません。</p>', buttons: [['送る', 'send', true]] };
             case 'work': return { title: 'AI が編集しています', noDim: true, narrow: true,
-                body: `<p class="ao-live">${esc(this.live)}</p><p>下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。</p><p class="ao-note">試作は 18 秒に縮めています。実際には数分かかることがあります（未計測）。</p>`,
+                body: `<p class="ao-live">${esc(this.live)}</p><p>下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。</p><p class="ao-note">お手本は約 18 秒です。実際には数分かかることがあります（未計測）。</p>`,
                 buttons: this.workError ? [['もう一度', 'retry-work', true]] : undefined };
             case 'play': return sub === 0 ? { title: 'できました。再生してみましょう', clear: ['output'], rings: ['play-button'], bounce: true, body: '<p>▶ を押してください。</p>' }
-                : { title: 'タイトルと字幕が入りました', holes: ['output'], body: '<p>止めるときは、もう一度 ▶ を押します。見終わったら次へ。</p>', buttons: [['次へ', 'next', true]] };
+                : { title: 'テロップ・図解・効果音・BGM が入りました', holes: ['output'], body: '<p>話に合わせて、言ったその瞬間に出ます。止めるときは、もう一度 ▶ を押します。見終わったら次へ。</p>', buttons: [['次へ', 'next', true]] };
             case 'caption': return ([
-                { title: '字幕を押すと、その場で直せます', clear: ['output'], rings: ['caption-text'], body: '<p>プレビューの字幕を押してください。</p>' },
-                { title: '大きさを変えてみましょう', clear: ['output'], rings: ['caption-size'], body: '<p>上に出たメニューの「大きさ」を押します。</p>' },
-                { title: 'つまみを動かしてみてください', clear: ['output'], rings: ['caption-size-slider'], body: '<p>いまは全部の字幕が一緒に変わります。字幕の上の小さなボタンで「この字幕だけ」にも切り替えられます。</p>' },
-                { title: '位置も動かせます', clear: ['output'], rings: ['caption-text'], body: '<p>字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。</p>', buttons: [['次へ', 'next', true]] }
-            ] as CoachSpec[])[Math.min(sub, 3)];
+                { ...CAPTION_GUIDE_COPY[0], clear: ['output'], rings: ['caption-text'], bounce: true },
+                { ...CAPTION_GUIDE_COPY[1], clear: ['output', 'caption-style'], rings: ['caption-style'],
+                    buttons: [['次へ', 'next', true]] },
+                { ...CAPTION_GUIDE_COPY[2], clear: ['output'], rings: ['caption-text'], buttons: [['次へ', 'next', true]] }
+            ] as CoachSpec[])[Math.min(sub, 2)];
             case 'daihon': return sub === 0
-                ? { title: '字幕の全文は「台本」で見られます', clear: ['daihon-button'], rings: ['daihon-button'], bounce: true, place: 'left',
-                    body: '<p>字幕はタイムラインでも見られますが、全文を通して読みたいときは右の「台本」で。</p><p>右端のアイコンで、右のパネルの中身を切り替えられます。紙のアイコンを押してください。</p>' }
-                : sub === 1 ? { title: 'この行を押してみてください', clear: ['daihon', 'output'], rings: ['daihon-first-row'], place: 'top',
-                    body: '<p>右の台本の最初の行を押すと、その場面へ飛びます。</p>' }
-                : { title: 'プレビューがこの場面へ飛びました', clear: ['daihon', 'output'], place: 'top',
-                    body: '<p>ダブルクリックで文字も直せます。AI パートナーへは右端のいちばん上のアイコンから戻れます。</p>', buttons: [['次へ', 'next', true]] };
+                ? { ...DAIHON_GUIDE_COPY[0], clear: ['daihon-button'], rings: ['daihon-button'], bounce: true, place: 'left' }
+                : sub === 1 ? { ...DAIHON_GUIDE_COPY[1], clear: ['daihon', 'output'], rings: ['daihon-first-row'], place: 'top' }
+                : { ...DAIHON_GUIDE_COPY[2], clear: ['daihon', 'output'], place: 'top', buttons: [['次へ', 'next', true]] };
             case 'export': return ([
                 { title: '書き出しは、左のメニューから', clear: ['menu-button'], rings: ['menu-button'], bounce: true, body: '<p>≡ を押してください。</p>' },
                 { title: '「書き出し…」を押します', clear: ['menu-panel'], rings: ['export-button'], bounce: true, body: '<p>編集データ（edit.json）ができていると押せます。</p>' },
@@ -542,9 +579,14 @@ export class OnboardingController {
 
     protected chat(): string {
         const tour = this.state.step.startsWith('tour');
-        if (!tour && !['prompt', 'work', 'play', 'caption'].includes(this.state.step)) return '';
+        if (!guideShowsChat(this.state.step)) return '';
         const lines = tour ? [`完成例です。この動画は、AI にこう頼んでつくりました。`, `> ${PROMPT}`, ...LOG.flatMap(entry => entry.lines)] : this.logLines;
-        return `<div class="ao-chat" data-akari-onboarding-target="replay-chat"><h3>${tour ? 'AI パートナー（完成例）' : 'お手本（AI なし）'}</h3><div class="ao-chat-log">${lines.map(esc).join('\n')}</div><textarea class="ao-chat-input" data-akari-onboarding-target="replay-input" ${this.state.step === 'prompt' && !this.state.workCompleted ? '' : 'readonly'}>${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? esc(PROMPT) : ''}</textarea><button data-ao="send" ${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? '' : 'disabled'}>送る</button></div>`;
+        const grouped = groupChatLines(lines);
+        const messages = grouped.messages.map(message => {
+            const content = message.lines.map(line => line.kind === 'code' ? `<code>${esc(line.text)}</code>` : `<p>${esc(line.text)}</p>`).join('');
+            return `<div class="ao-message ${message.role}"><span class="ao-message-name">${message.role === 'user' ? 'あなた' : 'AI パートナー'}</span><div class="ao-bubble">${content}</div></div>`;
+        }).join('');
+        return `<div class="ao-chat" data-akari-onboarding-target="replay-chat"><h3>${tour ? 'AI パートナー（完成例）' : 'お手本（AI なし）'}</h3><div class="ao-chat-log">${grouped.note ? `<p class="ao-chat-note">${esc(grouped.note)}</p>` : ''}${messages}</div><textarea class="ao-chat-input" data-akari-onboarding-target="replay-input" ${this.state.step === 'prompt' && !this.state.workCompleted ? '' : 'readonly'}>${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? esc(PROMPT) : ''}</textarea><button data-ao="send" ${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? '' : 'disabled'}>送る</button></div>`;
     }
 
     protected render(): void {
@@ -552,8 +594,9 @@ export class OnboardingController {
         const takeover = ['welcome', 'first', 'invite', 'done'].includes(this.state.step);
         const spec = this.coach();
         this.root.setAttribute('data-akari-onboarding-step', this.state.step);
-        document.body.classList.toggle('akari-onboarding-chat-active',
-            this.state.step.startsWith('tour') || ['prompt', 'work', 'play', 'caption'].includes(this.state.step));
+        this.syncExportModalAccess();
+        document.body.classList.toggle('akari-onboarding-export-active', this.state.step === 'export');
+        document.body.classList.toggle('akari-onboarding-chat-active', guideShowsChat(this.state.step));
         document.body.classList.toggle('akari-onboarding-daihon-active', this.state.step === 'daihon');
         const takeHost = this.root.querySelector<HTMLElement>('.ao-takeover-host')!;
         if (takeover) {
@@ -561,7 +604,7 @@ export class OnboardingController {
             if (takeHost.dataset.kind !== (intro ? 'intro' : 'done')) {
                 takeHost.dataset.kind = intro ? 'intro' : 'done';
                 takeHost.innerHTML = intro
-                    ? `<div class="ao-takeover"><div class="ao-takeover-inner"><div class="ao-hero">${this.hero ? `<img src="${this.hero}" alt="">` : ''}</div><div class="ao-text in"></div></div></div>`
+                    ? `<div class="ao-takeover"><div class="ao-takeover-inner"><div class="ao-hero"></div><div class="ao-text in"></div></div></div>`
                     : `<div class="ao-takeover ao-done"><div class="ao-celebrate"></div><div class="ao-text in"></div></div>`;
             }
             if (takeHost.dataset.step !== this.state.step || this.state.step === 'invite') {
@@ -572,10 +615,22 @@ export class OnboardingController {
                 void textNode.offsetWidth;
                 textNode.classList.add('in');
             }
-            takeHost.querySelector('.ao-hero')?.classList.toggle('small', this.state.step !== 'welcome');
+            const hero = takeHost.querySelector<HTMLElement>('.ao-hero');
+            if (hero) {
+                const visual = introVisual(this.state.step, this.busy);
+                hero.hidden = visual.hero === 'none';
+                hero.classList.toggle('before-after', visual.hero === 'before-after');
+                hero.innerHTML = visual.hero === 'welcome'
+                    ? (this.hero ? `<img src="${this.hero}" alt="">` : '')
+                    : visual.hero === 'before-after'
+                        ? `<img src="${BEFORE_AFTER_DATA_URL}" alt="左は素材そのままの動画、右はタイトル・字幕・図解・BGM が入った仕上がり"><div class="ao-before-after-labels"><span>ビフォー</span><span>アフター</span></div><div class="ao-before-after-note">タイトル・字幕・図解・BGM</div>`
+                        : '';
+            }
         } else { takeHost.replaceChildren(); takeHost.dataset.kind = ''; takeHost.dataset.step = ''; }
         this.root.querySelector<HTMLElement>('.ao-finder-host')!.innerHTML = this.finder();
-        this.root.querySelector<HTMLElement>('.ao-chat-host')!.innerHTML = this.chat();
+        const chatHost = this.root.querySelector<HTMLElement>('.ao-chat-host')!;
+        chatHost.innerHTML = this.chat();
+        chatHost.classList.toggle('ao-chat-target', guideTargetsChat(this.state.step, this.state.sub));
         const exampleHost = this.root.querySelector<HTMLElement>('.ao-example-host')!;
         if (this.state.step.startsWith('tour')) {
             if (!exampleHost.firstElementChild) exampleHost.innerHTML = `<div class="ao-example-preview"><video muted autoplay loop playsinline></video><div class="ao-example-title">AI と話すだけで動画編集</div><div class="ao-example-caption"></div><span class="ao-example-tag">完成例</span></div>`;
@@ -588,6 +643,9 @@ export class OnboardingController {
         const coachHost = this.root.querySelector<HTMLElement>('.ao-coach-host')!;
         const key = spec ? `${this.state.step}:${this.state.sub}:${onboardingRevisit(this.state) ?? ''}` : '';
         if (key !== this.coachKey) {
+            if (this.bounceTimer) window.clearTimeout(this.bounceTimer);
+            this.bounceTimer = undefined;
+            this.captionRingReady = false;
             this.coachKey = key;
             const token = ++this.coachToken;
             const mount = (): void => {
@@ -596,7 +654,14 @@ export class OnboardingController {
                 this.lastRects = '';
                 this.placeCoach();
                 this.timers.push(window.setTimeout(() => this.placeCoach(), 450));
-                if (spec?.bounce) this.bounceTimer = window.setTimeout(() => this.root?.querySelector('.ao-ring')?.classList.add('bounce'), 3000);
+                if (spec?.bounce) this.bounceTimer = window.setTimeout(() => {
+                    if (this.state.step === 'caption' && this.state.sub === 0) {
+                        this.captionRingReady = true;
+                        this.lastRects = '';
+                        this.placeCoach();
+                    }
+                    this.root?.querySelector('.ao-ring')?.classList.add('bounce');
+                }, this.state.step === 'caption' && this.state.sub === 0 ? 2500 : 3000);
             };
             if (coachHost.firstElementChild && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 coachHost.firstElementChild.classList.add('out');
@@ -620,7 +685,7 @@ export class OnboardingController {
         const choices = spec.choices?.map(([answer, label, note]) => `<button data-ao="answer" data-answer="${answer}"><span class="ao-choice-icon">${icon[answer]}</span><span>${label}${note ? `<small>${note}</small>` : ''}</span></button>`).join('') ?? '';
         const count = onboardingCount(this.state.step);
         const eyebrow = this.state.step.startsWith('tour') ? '画面を知る' : count ? `STEP ${count.current} / ${count.total}` : '';
-        const back = previousOnboardingStep(this.state.step) && !spec.minimal ? '<button class="ao-back" data-ao="back">← 戻る</button>' : '';
+        const back = previousGuidePosition(this.state) && !spec.minimal ? '<button class="ao-back" data-ao="back">← 戻る</button>' : '';
         return `<div class="ao-coach ${spec.wide ? 'wide' : ''} ${spec.narrow ? 'narrow' : ''} ${spec.minimal ? 'minimal' : ''}" role="dialog" aria-live="polite">${eyebrow && !spec.minimal ? `<div class="ao-count">${eyebrow}</div>` : ''}<h3>${spec.title}</h3><div class="ao-body">${spec.body}</div>${choices ? `<div class="ao-choices">${choices}</div>` : ''}${spec.link ? `<button class="ao-link" data-ao="${spec.link[0]}">${spec.link[1]}</button>` : ''}${back || actions ? `<div class="ao-actions">${back}${actions}</div>` : ''}</div>`;
     }
 
@@ -658,24 +723,86 @@ export class OnboardingController {
         const spec = this.coach();
         const dim = this.root.querySelector<HTMLElement>('.ao-dim');
         const coach = this.root.querySelector<HTMLElement>('.ao-coach');
-        if (!spec || !dim) { dim?.classList.add('clear'); return; }
+        const blocker = this.root.querySelector<HTMLElement>('.ao-input-blocker');
+        if (!spec || !dim) { dim?.classList.add('clear'); if (blocker) blocker.hidden = true; this.inputCutouts = []; return; }
         const rectOf = (name: string): DOMRect | undefined => {
+            if (name === 'caption-text') {
+                if (this.state.step === 'caption' && this.state.sub === 0 && !this.captionRingReady) return undefined;
+                const frame = document.querySelector<HTMLIFrameElement>('[data-akari-onboarding-target="output"] iframe');
+                const outer = frame?.getBoundingClientRect();
+                if (outer && outer.width > 0 && outer.height > 0) {
+                    const band = outputCaptionBandRect(outer);
+                    return new DOMRect(band.x, band.y, band.width, band.height);
+                }
+            }
+            if (name === 'caption-style') {
+                const color = document.querySelector<HTMLElement>('[data-akari-bar-item="captionTextColor"]');
+                const target = color && getComputedStyle(color).display !== 'none' && color.getClientRects().length
+                    ? color : document.querySelector<HTMLElement>('[data-akari-bar-item="overflow"]');
+                const rect = target?.getBoundingClientRect();
+                return rect && rect.width > 0 && rect.height > 0 ? rect : undefined;
+            }
+            if (name === 'material-play-toggle') {
+                const frame = document.querySelector<HTMLIFrameElement>('[data-akari-onboarding-target="material-preview"] iframe');
+                try {
+                    const play = frame?.contentDocument?.querySelector<HTMLElement>('#play-toggle');
+                    const outer = frame?.getBoundingClientRect(), inner = play?.getBoundingClientRect();
+                    if (outer && inner && inner.width > 0 && inner.height > 0)
+                        return new DOMRect(outer.left + inner.left, outer.top + inner.top, inner.width, inner.height);
+                } catch { /* The preview may use a separate origin while loading. */ }
+                // A Theia webview can have a separate origin. The play button shifts in a narrow grid.
+                // Frame the whole transport row instead of guessing its horizontal position.
+                const outer = frame?.getBoundingClientRect();
+                if (outer && outer.width > 0 && outer.height > 0) {
+                    const row = materialPreviewTransportRect(outer);
+                    return new DOMRect(row.x, row.y, row.width, row.height);
+                }
+            }
             let element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${name}"]`);
             if (name === 'export-dialog') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-submit"]')?.closest<HTMLElement>('[role="dialog"]') ?? undefined;
-            if (!element && name === 'caption-text') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="output"] #caption-plate .caption-row-plate:not([hidden])');
             const rect = element?.getBoundingClientRect();
-            return rect && rect.width > 0 && rect.height > 0 ? rect : undefined;
+            return rect && rect.width > 0 && rect.height > 0 && element && getComputedStyle(element).display !== 'none'
+                && getComputedStyle(element).visibility === 'visible' ? rect : undefined;
         };
         const chat = this.root.querySelector<HTMLElement>('.ao-chat');
         const partner = rectOf('partner');
-        if (chat && partner) Object.assign(chat.style, {
-            left: `${partner.left}px`, top: `${partner.top}px`, width: `${partner.width}px`, height: `${partner.height}px`
-        });
+        if (guideNeedsPartner(this.state.step) && !partner && this.partnerRevealAttempts > 0 && this.partnerRevealAttempts < 4
+            && performance.now() - this.lastPartnerRevealAt >= 700) this.revealPartner();
+        const fallbackReady = partnerFallbackReady(this.partnerRevealAttempts, this.lastPartnerRevealAt, performance.now());
+        const panel = document.querySelector<HTMLElement>('#theia-right-content-panel')?.getBoundingClientRect();
+        const fallbackWidth = Math.min(390, innerWidth * .32);
+        const fallback = panel && panel.width > 48 && panel.height > 0
+            ? new DOMRect(panel.left, panel.top, panel.width - 48, panel.height)
+            : new DOMRect(Math.max(0, innerWidth - 48 - fallbackWidth), 40, fallbackWidth, innerHeight - 65);
+        if (chat) {
+            chat.hidden = !partner && !fallbackReady;
+            const bounds = partner ?? fallback;
+            Object.assign(chat.style, { left: `${bounds.left}px`, top: `${bounds.top}px`, width: `${bounds.width}px`, height: `${bounds.height}px` });
+            chat.classList.toggle('ao-chat-fallback', !partner);
+        }
         const framed = (spec.holes ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
         const clear = (spec.clear ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
-        const ring = spec.rings?.[0] ? rectOf(spec.rings[0]) : undefined;
+        const ringRects = (spec.rings ?? []).map(rectOf).filter((rect): rect is DOMRect => !!rect);
+        const ring = ringRects[0];
+        const captionObstacles = this.state.step === 'caption' && this.state.sub > 0
+            ? Array.from(document.querySelectorAll<HTMLElement>('[data-akari-bar-item], [data-akari-window]'))
+                .filter(element => getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility === 'visible')
+                .map(element => element.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
+            : [];
+        if (this.state.step === 'caption' && this.state.sub > 0) {
+            const band = rectOf('caption-text');
+            if (band) captionObstacles.push(band);
+        }
+        this.inputCutouts = guideInputCutouts(framed, clear, ringRects);
+        if (blocker) {
+            blocker.hidden = false;
+            blocker.style.clipPath = guideBlockerClipPath(innerWidth, innerHeight, this.inputCutouts);
+        }
         const all = [...framed, ...clear];
-        const serial = JSON.stringify([this.state.step, this.state.sub, ...all.map(rect => [rect.x, rect.y, rect.width, rect.height]), ring && [ring.x, ring.y, ring.width, ring.height]]);
+        const chatRect = chat?.getBoundingClientRect();
+        const serial = JSON.stringify([this.state.step, this.state.sub, ...all.map(rect => [rect.x, rect.y, rect.width, rect.height]),
+            ring && [ring.x, ring.y, ring.width, ring.height], chatRect && [chatRect.x, chatRect.y, chatRect.width, chatRect.height],
+            ...captionObstacles.map(rect => [rect.x, rect.y, rect.width, rect.height])]);
         if (serial === this.lastRects) return;
         this.lastRects = serial;
         dim.classList.toggle('clear', !!spec.noDim);
@@ -717,6 +844,11 @@ export class OnboardingController {
         if (this.state.step === 'work') { x = 20; y = innerHeight * .53; }
         if (this.state.step === 'drag') { x = (anchor?.right ?? 240) + 14; y = innerHeight - height - 24; }
         if (this.state.step === 'daihon' && this.state.sub > 0) { x = 12; y = 66; }
+        if (this.state.step === 'caption' && this.state.sub > 0) {
+            const outputRect = rectOf('output');
+            if (outputRect) ({ x, y } = captionCoachPosition({ width: innerWidth, height: innerHeight },
+                { width, height }, outputRect, captionObstacles));
+        }
         coach.style.left = `${Math.max(8, Math.min(x, innerWidth - width - 8))}px`;
         coach.style.top = `${Math.max(8, Math.min(y, innerHeight - height - 32))}px`;
     }
@@ -729,7 +861,12 @@ export class OnboardingController {
         const mask = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
         dim.style.maskImage = mask;
         dim.style.webkitMaskImage = mask;
-        holes.innerHTML = rects.slice(0, framed).map((rect, index) => `<div class="ao-hole" style="left:${rect.x - 4}px;top:${rect.y - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px">${labels?.[index] ? `<span class="ao-hole-label">${labels[index]}</span>` : ''}</div>`).join('');
+        const chat = this.root.querySelector<HTMLElement>('.ao-chat');
+        const chatRect = chat?.getBoundingClientRect();
+        const frames = rects.slice(0, framed).map((rect, index) => `<div class="ao-hole" style="left:${rect.x - 4}px;top:${rect.y - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px">${labels?.[index] ? `<span class="ao-hole-label">${labels[index]}</span>` : ''}</div>`).join('');
+        holes.innerHTML = frames + (guideTargetsChat(this.state.step, this.state.sub)
+            && chatRect && chatRect.width > 0 && chatRect.height > 0
+            ? `<div class="ao-hole ao-chat-frame" style="left:${chatRect.x - 4}px;top:${chatRect.y - 4}px;width:${chatRect.width + 8}px;height:${chatRect.height + 8}px"></div>` : '');
     }
 
     protected animateFog(target: DOMRect[], framed: number, labels?: string[]): void {
@@ -854,13 +991,16 @@ export class OnboardingController {
         if (action === 'next') {
             const step = this.state.step;
             if (step === 'welcome') return this.go('first');
+            if (step === 'tour0' && this.state.sub === 0) return this.setSub(1);
             if (step === 'tour0' && this.state.sub === 1) return this.go('tour1');
             if (step === 'tour2' && this.state.sub === 0) return this.setSub(1);
             if (step === 'tour3' && this.state.sub === 0) return this.setSub(1);
+            if (step === 'tour3' && this.state.sub === 1) return this.go('drag');
             if (step === 'prompt' && this.state.workCompleted) return this.go('play');
             if (step === 'drag' && this.state.imported) return this.go('matpreview');
+            if (step === 'caption' && this.state.sub === 1) return this.setSub(2);
             if (['tour0', 'matpreview', 'play', 'caption', 'daihon', 'export'].includes(step)
-                && (step === 'tour0' ? this.state.sub < 1 : step === 'caption' ? this.state.sub < 3
+                && (step === 'tour0' ? this.state.sub < 1 : step === 'caption' ? this.state.sub < 2
                     : step === 'export' ? this.state.sub < 4 : step === 'daihon' ? this.state.sub < 2 : this.state.sub < 1)) return this.nudge();
             const next: Partial<Record<OnboardingStep, OnboardingStep>> = {
                 tour1: 'tour2', tour2: 'tour3', matpreview: 'ask', play: 'caption', caption: 'daihon',
@@ -869,8 +1009,16 @@ export class OnboardingController {
             if (next[step]) await this.go(next[step]!);
         } else if (action === 'yes') await this.go('invite');
         else if (action === 'back') {
-            const previous = previousOnboardingStep(this.state.step);
-            if (previous) await this.go(previous);
+            const previous = previousGuidePosition(this.state);
+            if (previous) {
+                if (this.state.step === 'export') this.restoreExportBackSurface();
+                if (previous.step === 'caption' && previous.sub === 0)
+                    window.dispatchEvent(new Event('akari.onboarding.clearPreviewSelection'));
+                if (previous.step === this.state.step) await this.setSub(previous.sub);
+                else await this.go(previous.step, previous.sub);
+                if (this.state.step === 'daihon' && this.state.sub === 0)
+                    window.dispatchEvent(new Event('akari.onboarding.revealPartner'));
+            }
         }
         else if (action === 'no' || action === 'later') { await this.service.returnToHome(); this.closeVisual(); }
         else if (action === 'start') await this.prepare();
@@ -950,6 +1098,52 @@ export class OnboardingController {
         finally { this.busy = false; }
     }
 
+    protected restoreExportBackSurface(): void {
+        if (this.state.sub === 2) {
+            // Setup has not submitted an export yet. Closing it restores access to the menu action.
+            document.querySelector<HTMLElement>('.akari-export-dialog-host button[aria-label="閉じる"]')?.click();
+            if (!this.exportMenuIsOpen()) this.pressExportMenuTab();
+        } else if (this.state.sub === 1 && this.exportMenuIsOpen()) {
+            this.pressExportMenuTab();
+        }
+    }
+
+    protected exportMenuIsOpen(): boolean {
+        const menu = document.querySelector<HTMLElement>('[data-akari-onboarding-target="menu-panel"]');
+        return !!menu && menu.getClientRects().length > 0 && getComputedStyle(menu).visibility === 'visible';
+    }
+
+    protected pressExportMenuTab(): void {
+        const tab = document.querySelector<HTMLElement>('[data-akari-onboarding-target="menu-button"]');
+        if (!tab) return;
+        const rect = tab.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const clientX = rect.left + rect.width / 2;
+        const clientY = rect.top + rect.height / 2;
+        for (const [type, buttons] of [['pointerdown', 1], ['pointerup', 0]] as const) {
+            tab.dispatchEvent(new PointerEvent(type, {
+                bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+                button: 0, buttons, clientX, clientY
+            }));
+        }
+    }
+
+    protected syncExportModalAccess(): void {
+        if (!this.root || this.state.step !== 'export') {
+            this.exportInertObserver?.disconnect();
+            this.exportInertObserver = undefined;
+            return;
+        }
+        if (this.exportInertObserver) return;
+        const root = this.root;
+        // Theia makes every other body child inert while its modal is open. Keep the guide's controls clickable.
+        this.exportInertObserver = new MutationObserver(() => {
+            if (this.root === root && this.state.step === 'export' && root.hasAttribute('inert')) root.removeAttribute('inert');
+        });
+        this.exportInertObserver.observe(root, { attributes: true, attributeFilter: ['inert'] });
+        if (root.hasAttribute('inert')) root.removeAttribute('inert');
+    }
+
     protected handleExternalClick = (event: MouseEvent): void => {
         if (!this.root || this.root.contains(event.target as Node)) return;
         this.noteInteraction();
@@ -959,7 +1153,6 @@ export class OnboardingController {
             this.state = { ...this.state, materialOpened: true };
             void this.setSub(1);
         }
-        else if (this.state.step === 'caption' && name === 'caption-size' && this.state.sub === 1) void this.setSub(2);
         else if (this.state.step === 'daihon' && name === 'daihon-button' && this.state.sub === 0) void this.setSub(1);
         else if (this.state.step === 'daihon' && name === 'daihon-first-row' && this.state.sub === 1) void this.setSub(2);
         else if (this.state.step === 'export') {
@@ -983,13 +1176,33 @@ export class OnboardingController {
     };
 
     protected handleKeyDown = (event: KeyboardEvent): void => {
-        if (event.key === 'Escape' && this.root) { event.stopImmediatePropagation(); void this.close(); }
-        else if (this.root) this.noteInteraction();
+        if (!this.root) return;
+        if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); void this.close(); return; }
+        if (event.key === 'F1' || ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p')) {
+            event.preventDefault(); event.stopImmediatePropagation(); return;
+        }
+        if (event.key === 'Tab') {
+            event.preventDefault(); event.stopImmediatePropagation();
+            const focusable = Array.from(this.root.querySelectorAll<HTMLElement>('button:not(:disabled),textarea:not([readonly]),a[href]'))
+                .filter(node => node.getClientRects().length > 0);
+            const index = focusable.indexOf(document.activeElement as HTMLElement);
+            focusable[(index + (event.shiftKey ? focusable.length - 1 : 1)) % focusable.length]?.focus();
+            return;
+        }
+        const target = event.target instanceof Element ? event.target : undefined;
+        const insideGuide = !!target && this.root.contains(target);
+        const rect = target?.getBoundingClientRect();
+        const allowed = rect && pointInGuideCutouts(rect.left + rect.width / 2, rect.top + rect.height / 2, this.inputCutouts);
+        if (!insideGuide && !allowed) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+        this.noteInteraction();
     };
 
-    protected handleInput = (event: Event): void => {
-        if (this.state.step === 'caption' && this.state.sub === 2 && event.target instanceof Element
-            && event.target.matches('[data-akari-onboarding-target="caption-size-slider"]')) void this.setSub(3);
+    protected guardPointer = (event: Event): void => {
+        if (!this.root || this.root.contains(event.target as Node)) return;
+        const pointer = event as MouseEvent;
+        if (shouldBlockGuidePointer(event.isTrusted, pointer.clientX, pointer.clientY, this.inputCutouts)) {
+            event.preventDefault(); event.stopImmediatePropagation();
+        }
     };
 
     protected handlePlayback = (event: CustomEvent<{ playing?: boolean }>): void => {
@@ -1010,10 +1223,13 @@ export class OnboardingController {
         this.logLines = [`> ${PROMPT}`];
         this.render();
         const started = performance.now();
+        const staged = this.service as AkariOnboardingService & { writeExample(
+            projectUri: string, sourcePath: string, segments: SampleInformation['segments'],
+            count: number, title: boolean, progress: { stage: number }): Promise<void> };
         try {
             for (const entry of LOG) {
                 await new Promise<void>(resolve => {
-                    this.timers.push(window.setTimeout(resolve, Math.max(0, entry.t * 1.5 - (performance.now() - started))));
+                    this.timers.push(window.setTimeout(resolve, Math.max(0, entry.t - (performance.now() - started))));
                 });
                 if (!this.root || this.state.step !== 'work') return;
                 this.live = entry.live ?? this.live;
@@ -1022,7 +1238,7 @@ export class OnboardingController {
                     window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
                     await this.seekOutput(this.state.projectUri, 1).catch(() => undefined);
                 }
-                if (entry.t === 4500) {
+                if (entry.captions) {
                     for (let count = 1; count <= this.sample.segments.length; count++) {
                         await new Promise<void>(resolve => { this.timers.push(window.setTimeout(resolve, Math.max(75, Math.floor(3150 / this.sample!.segments.length)))); });
                         if (!this.root || this.state.step !== 'work') return;
@@ -1034,19 +1250,22 @@ export class OnboardingController {
                         await this.seekOutput(this.state.projectUri, (segment.start + segment.end) / 2).catch(() => undefined);
                     }
                 }
-                if (entry.title) {
-                    await this.service.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments, this.sample.segments.length, true);
+                if (entry.stage !== undefined) {
+                    await staged.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments,
+                        this.sample.segments.length, true, { stage: entry.stage });
                     window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
-                    await this.seekOutput(this.state.projectUri, 8.6).catch(() => undefined);
+                    const moments: Record<number, number> = { 1: 4.2, 2: 13.5, 3: 20.25, 4: 25.2,
+                        5: 28.6, 6: 30.1, 7: 31.9, 8: 36.9 };
+                    await this.seekOutput(this.state.projectUri, moments[entry.stage]).catch(() => undefined);
                 }
-                if (entry.t === 10200) {
+                if (entry.lint) {
                     const errors = await this.service.lintExample(this.state.projectUri);
                     if (errors !== 0) throw new Error(`edit-lint: ${errors} 件の指摘`);
                 }
                 this.logLines.push(...entry.lines);
                 this.render();
             }
-            await new Promise<void>(resolve => { this.timers.push(window.setTimeout(resolve, 1500)); });
+            await new Promise<void>(resolve => { this.timers.push(window.setTimeout(resolve, 700)); });
             if (this.root && this.state.step === 'work') {
                 this.state = { ...this.state, workCompleted: true };
                 await this.service.save(this.state);

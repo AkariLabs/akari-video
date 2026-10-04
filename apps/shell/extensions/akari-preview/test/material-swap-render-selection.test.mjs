@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-const source=readFileSync(new URL('../src/browser/akari-preview-open-handler.ts',import.meta.url),'utf8');
+import { readHandlerSource } from './helpers/handler-source.mjs';
+const source=readHandlerSource();
 function renderSelectionHarness(requestedId, selected = true) {
  const applyStart = source.indexOf('            const applyCutVisual = segment => {');
  const applyEnd = source.indexOf('                const transform = segment.transform;', applyStart);

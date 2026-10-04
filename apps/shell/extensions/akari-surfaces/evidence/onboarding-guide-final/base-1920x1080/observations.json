@@ -1,0 +1,205 @@
+{
+  "label": "base",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "electronPid": 22508,
+  "startedAt": "2026-10-01T12:44:13.137Z",
+  "shots": [
+    "01-tour-example.jpg",
+    "02-caption-preview.jpg",
+    "03-daihon-script.jpg",
+    "04-export-sub0.jpg",
+    "05-export-sub2-dialog.jpg",
+    "06-back-from-3.jpg",
+    "07-export-running.jpg",
+    "08-back-during-export.jpg",
+    "09-export-result.jpg",
+    "10-done.jpg"
+  ],
+  "checks": {
+    "tour": [
+      {
+        "step": "tour2",
+        "title": "② 下は「タイムライン」です",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour3",
+        "title": "③ 右は「AI パートナー」です",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      },
+      {
+        "step": "tour3",
+        "title": "では、これを一緒につくってみましょう",
+        "previewCaptionLines": [
+          "AI と話すだけで動画編集"
+        ],
+        "fullwidthCommaInPreview": false,
+        "fullwidthCommaInBody": []
+      }
+    ],
+    "tourShot": true,
+    "sampleCardClick": "help-next",
+    "captionPreview": {
+      "lines": [
+        "AI と話すだけで動画編集",
+        "ほら，こんな感じで。"
+      ],
+      "hasFullwidthComma": true,
+      "hasIdeographicComma": false
+    },
+    "daihon": {
+      "excerpt": "22 行\n添付:\n全部\n文字だけ\n隠す\n字幕を作る\nT この行から文字を置く\n🔊 読み上げ\n⏱ 発話に合わせ直す\n🕘 履歴\n⚙ 表示 18字 · 1行\n🎨 テンプレ\nQC ⚠ 8\n無音短縮…\nカット候補へ（0 / 0）\n0:00.59 – 0:00.89\n✂\n⧉\n⚙\n🎨 標準字幕\n⚡ 速い 16.7 字/秒\n表示 0.6 秒未満\nこんにちは。\nT AI と話すだけで動画編集 · 全体\n0:00.89 – 0:02.24\n✂\n⧉\n⚙\n🎨 標準字幕\n今日はですね、··· 1.11\n0:02.24 – 0:04.16\n✂\n⧉\n⚙\n🎨 標準字幕\nあかりビデオっていう\n0:04.16 – 0:05.70\n✂\n⧉\n⚙\n🎨 標準字幕\n動画編集ツールを\n0:05.70 – 0:07.16\n✂\n⧉\n⚙\n🎨 標準字幕\n試してみてます。\n0:07.82 – 0:08.80\n✂\n⧉\n⚙\n🎨 標準",
+      "hasFullwidthComma": false,
+      "hasIdeographicComma": true,
+      "commaContexts": []
+    },
+    "bodyFullwidthComma": [],
+    "previewFullwidthComma": [],
+    "exportRunning": {
+      "step": "export",
+      "title": "書き出しています",
+      "back": true,
+      "dialogOpen": false,
+      "afterBack": {
+        "step": "export",
+        "title": "書き出しています",
+        "back": true,
+        "dialogOpen": false
+      }
+    },
+    "exportMs": 44194,
+    "exportResult": {
+      "step": "export",
+      "title": "書き出せました",
+      "back": true,
+      "dialogOpen": false
+    },
+    "done": "おめでとうございます はじめての 1 本ができました 自分の動画で始める→ ✦ ✦ ✦ このまま触ってみる · もう一度見る · 使い方を学ぶ",
+    "captionFiles": [
+      {
+        "path": "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-10-01-first-video\\captions.json",
+        "count": 23,
+        "fullwidthComma": 11,
+        "ideographicComma": 0,
+        "displayDiffersFromText": 11
+      }
+    ]
+  },
+  "exportBack": [
+    {
+      "from": "③「書き出す」",
+      "before": "標準のまま「書き出す」",
+      "backHit": {
+        "visible": true,
+        "rect": [
+          1136,
+          759,
+          39,
+          29
+        ],
+        "topmost": "DIV.right",
+        "topmostIsTarget": false
+      },
+      "after": {
+        "step": "export",
+        "title": "標準のまま「書き出す」",
+        "back": true,
+        "dialogOpen": true
+      },
+      "expectTitle": "「書き出し…」を押します",
+      "ok": false,
+      "menuButton": {
+        "visible": true,
+        "rect": [
+          0,
+          146,
+          48,
+          48
+        ],
+        "topmost": "DIV.lm-Widget dialogOverlay akari-export-dialog-host",
+        "topmostIsTarget": false
+      },
+      "exportButton": {
+        "visible": true,
+        "rect": [
+          74,
+          559,
+          275,
+          35
+        ],
+        "topmost": "DIV.lm-Widget dialogOverlay akari-export-dialog-host",
+        "topmostIsTarget": false
+      }
+    },
+    {
+      "from": "④「書き出しています」",
+      "before": "書き出しています",
+      "backHit": {
+        "visible": true,
+        "rect": [
+          990,
+          712,
+          39,
+          29
+        ],
+        "topmost": "DIV.right",
+        "topmostIsTarget": false
+      },
+      "after": {
+        "step": "export",
+        "title": "書き出しています",
+        "back": true,
+        "dialogOpen": false
+      },
+      "expectTitle": "",
+      "ok": false,
+      "menuButton": {
+        "visible": true,
+        "rect": [
+          0,
+          146,
+          48,
+          48
+        ],
+        "topmost": "DIV.lm-Widget dialogOverlay akari-export-dialog-host",
+        "topmostIsTarget": false
+      },
+      "exportButton": {
+        "visible": true,
+        "rect": [
+          74,
+          559,
+          275,
+          35
+        ],
+        "topmost": "DIV.lm-Widget dialogOverlay akari-export-dialog-host",
+        "topmostIsTarget": false
+      }
+    }
+  ],
+  "pageErrors": [
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません",
+    "アセット resolver が見つかりません"
+  ],
+  "finishedAt": "2026-10-01T12:46:56.127Z"
+}

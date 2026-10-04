@@ -1,0 +1,359 @@
+<div class="demo-done" lang="ja">
+<style>
+/*
+  編集完了（demo-done）: 「喋ってるだけで、編集はもう終わってる感じです。」
+  edit.json では段 demo-stage、at 338 / duration 108（11.2667〜14.8667 秒）。
+  時刻はすべてクリップ先頭 0 のローカル秒（30 fps。フレーム n のローカル秒 = (n - 338) / 30）。
+    1 行目   0.000 → 0.30   強調テロップ「🎙 喋ってるだけで ▮▮▮▮▮」が下から（translateY 14→0、--ease-smooth）。
+                             不透明度は 0.10 秒で立てる（語頭 11.30 = フレーム 339 で 3 割見える）。
+                             マイクは同時に scale .6→1 でポップ（0.36 秒、--ease-overshoot-soft）
+    声の波形 常時           右の棒 5 本が scaleY で跳ねる（中心起点）。周期は BGM と同じ 85 BPM の 1 拍
+                             （.7059 秒）。棒ごとに 0 / .18 / .09 / .27 / .13 秒ずらし、左端の棒の山を
+                             BGM の拍（19.70 − 11 × .70588 = 11.935 = ローカル .6686）に置く（BGM 札 demo-bgm と同じ位相）
+    2 行目   1.270 → 1.59   「編集は」が下から（translateY 20→0）。語頭 12.57 → フレーム 377 で見える
+    判子     2.090 → 2.29   「終わってる」の語頭 13.42 に叩きつける。フレーム 401（13.367）で大きく薄く現れ、
+                             0.08 秒で 13.44 に着地（scale 1.9→.92→1.03→1）。
+                             正解音（13.40）の直後に着地が来るよう、着地を先に合わせてある
+    着地     2.170          朱の輪が判子の縁から広がって消える（scale 1→1.22・opacity .6→0、0.30 秒。
+                             1.22 = 輪の右端が舞台の右端 1240 を越えない上限）、2 行目が横に小さく揺れる（0.14 秒）
+    抜け     3.280 → 3.53   全体が上へ 10px 抜けて消える（--ease-accelerate、forwards）
+  base（アニメ無しの見た目）は最終の静止状態。朱の輪だけは最終状態も不可視の過渡なので base で隠す。
+  判子は地を持たない（透明）。朱の二重円（外 7px・内 2px）と朱の「完了」だけを壁に押した印影。
+  朱は左上 100% → 右下の縁 80% の押しムラ。回転 −12° は判子の外枠ごと（輪も字も一緒に）回す。
+  「完了」は字の外形（2 字の墨の範囲）の中心を円の中心に合わせる（build-demo-done.py が書体から計算）。
+
+  書体:
+    AKARI Demo Sans（系統）= Noto Sans JP（SIL Open Font License 1.1、著作権 Adobe、Reserved Font
+                         Name 'Source'）の wght 900 を、この断片で使う文字だけに切り出した改変版
+    AKARI Demo Display（系統）= Dela Gothic One（SIL Open Font License 1.1、著作権 The Dela Gothic
+                         Project Authors）を「完了」の 2 字だけに切り出した改変版
+    どちらも別名で埋め込み、フォント内に著作権表示と許諾を保持。@font-face の family は
+    この断片専用の「AKARI Demo Sans Done」「AKARI Demo Display Done」にし、unicode-range で自分の字
+    （＋空白）だけを受け持つ。書き出しとプレビューは全断片を 1 枚の文書に並べるため、共通名
+    （AKARI Demo Sans）の面が unicode-range 無しで他の断片にあると、同じ太さの字をそちらの面が
+    先に取る（2026-10-01 実測）。専用名ならどの断片と並んでも同じ絵になる。空白（U+0020）を
+    含めるのは、行の高さの基準になる「最初に使える書体」を OS の書体でなくこの書体に固定するため
+
+  ツマミ（edit.json の overlays[].vars で上書きする）:
+    --done-lead-left / --done-lead-top / --done-lead-width / --done-lead-size / --done-lead-gap
+                              1 行目（マイク・文字・波形）の左端・上端・幅・文字サイズ・部品の間隔
+                              （既定 {{LEAD_LEFT}}px / 140px / {{LEAD_WIDTH}}px / 56px / {{LEAD_GAP}}px。部品は幅の中で中央揃え。
+                              既定ではマイクの左端が 2 行目「編」の左端と、波形の右端が判子の右端と揃う）
+    --done-mic-size           マイクの高さ（既定 40px。幅は形なりの 32.4px）
+    --done-beat / --done-beat-peak
+                              波形の周期と、左端の棒の最初の山の時刻（既定 .7059s / .6686s）
+    --done-head-left / --done-head-top / --done-head-size
+                              2 行目の左端・上端・文字サイズ（既定 {{HEAD_LEFT}}px / 250px / 84px。
+                              「は」の白フチと判子の輪の間が 12px 以上空く位置）
+    --done-stamp-cx / --done-stamp-cy / --done-stamp-size / --done-stamp-rotate
+                              判子の中心・朱の輪の外径・傾き（既定 1132px / 300px / 176px / -12deg）
+    --done-halo / --done-halo-color / --done-shadow-color
+                              壁に直に置く文字・マイク・波形の白フチの太さ・色、文字の下の柔らかい影の色
+                              （既定 9px / #FFFFFF / rgba(58,38,20,.085) × 8 点 = 影 0 4px 14px 相当）
+    --demo-ink / --demo-accent / --demo-stamp
+                              墨（文字）・橙（マイクと波形）・朱（判子）
+    --done-font / --done-stamp-font
+                              書体（既定 AKARI Demo Sans Done / AKARI Demo Display Done → Hiragino Sans → Yu Gothic UI …）
+    --done-lead-delay / --done-head-delay / --done-stamp-delay / --done-exit-delay
+                              各段の発火時刻（ローカル秒。着地の輪と揺れは判子 + 0.08 秒に従う）
+  イージングは語彙（--ease-*）を名前で呼び、語彙と同じ値をフォールバックに添える（GPU 書き出しの
+  DOM 層は motion-vocab.css を読まないため）。
+*/
+@font-face {
+  font-family: "AKARI Demo Sans Done";
+  src: url(data:font/woff2;base64,{{SANS900}}) format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: {{SANS900_RANGE}};
+}
+@font-face {
+  font-family: "AKARI Demo Display Done";
+  src: url(data:font/woff2;base64,{{DISPLAY}}) format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  unicode-range: {{DISPLAY_RANGE}};
+}
+
+.demo-done,
+.demo-done *,
+.demo-done *::before,
+.demo-done *::after { box-sizing: border-box; }
+
+.demo-done {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--done-font, "AKARI Demo Sans Done", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-feature-settings: "palt" 1;
+  font-synthesis: none;
+  color: var(--demo-ink, #17130F);
+  -webkit-font-smoothing: antialiased;
+}
+
+.demo-done__group {
+  position: absolute;
+  inset: 0;
+}
+
+.demo-done svg {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+/* ── 壁に直に置く文字（白フチ 9px ＋ 暖色の影）──────────────── */
+.demo-done__lead-text,
+.demo-done__head-text {
+  display: block;
+  white-space: nowrap;
+  line-height: 1;
+  font-weight: 900;
+  /* 白フチ: 半径 --done-halo の円周 32 点へ文字の形を白でずらし置いた丸い輪（角が丸く出る。
+     -webkit-text-stroke は HTML の文字では角が尖る＝stroke-linejoin が効かない）。
+     その下に、同じ円の 8 点から暖色の柔らかい影を落として、白フチごと壁から浮かせる */
+  text-shadow:
+{{HALO_SHADOW}};
+}
+
+/* ── 1 行目: 強調テロップ（マイク・文字・声の波形）─────────── */
+.demo-done__lead {
+  position: absolute;
+  left: var(--done-lead-left, {{LEAD_LEFT}}px);
+  top: var(--done-lead-top, 140px);
+  width: var(--done-lead-width, {{LEAD_WIDTH}}px);
+  height: var(--done-lead-size, 56px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--done-lead-gap, {{LEAD_GAP}}px);
+}
+
+.demo-done__lead-text {
+  font-size: var(--done-lead-size, 56px);
+  letter-spacing: 0;
+}
+
+/* マイク（demo-title と同じ形。viewBox は形の外形ぴったり 32 × 39.5）。白フチは同じ形を白い太線で下に敷く */
+.demo-done__mic {
+  width: calc(var(--done-mic-size, 40px) * .8101);
+  height: var(--done-mic-size, 40px);
+  color: var(--demo-accent, #F97316);
+  transform: scale(1);
+}
+.demo-done__mic-halo {
+  fill: var(--done-halo-color, #FFFFFF);
+  stroke: var(--done-halo-color, #FFFFFF);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* 高さ 39.5 単位を 40px に描くので、ユーザー単位 1 = 1.0127px。白フチ 9px = 8.89 単位（× 2 = 線の太さ） */
+.demo-done__mic-halo rect { stroke-width: calc(var(--done-halo, 9px) * 1.975); }
+.demo-done__mic-halo path { fill: none; stroke-width: calc(4px + var(--done-halo, 9px) * 1.975); }
+
+/* 声の波形: 棒 5 本（幅 6・高さ 12〜36）。線の端を丸め、太さは拡縮しない（non-scaling-stroke）ので
+   scaleY で縮んでも丸い棒のまま。白フチは同じ棒を白い太線で下に敷く */
+.demo-done__bar {
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transform: scaleY(var(--bar-rest, .7));
+}
+.demo-done__wave-ink .demo-done__bar {
+  stroke: var(--demo-accent, #F97316);
+  stroke-width: 6px;
+}
+.demo-done__wave-halo .demo-done__bar {
+  stroke: var(--done-halo-color, #FFFFFF);
+  stroke-width: calc(6px + var(--done-halo, 9px) * 2);
+}
+
+/* ── 2 行目 ─────────────────────────────────────────── */
+.demo-done__head {
+  position: absolute;
+  left: var(--done-head-left, {{HEAD_LEFT}}px);
+  top: var(--done-head-top, 250px);
+}
+
+.demo-done__head-text {
+  font-size: var(--done-head-size, 84px);
+  letter-spacing: .01em;
+}
+
+/* ── 判子（地は透明。朱の二重円と朱の字だけ）──────────────── */
+.demo-done__stamp {
+  position: absolute;
+  left: calc(var(--done-stamp-cx, 1132px) - var(--done-stamp-size, 176px) / 2);
+  top: calc(var(--done-stamp-cy, 300px) - var(--done-stamp-size, 176px) / 2);
+  width: var(--done-stamp-size, 176px);
+  height: var(--done-stamp-size, 176px);
+  transform: rotate(var(--done-stamp-rotate, -12deg));
+}
+
+.demo-done__slam {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.demo-done__slam svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.demo-done__ink-ring,
+.demo-done__ink-line {
+  fill: none;
+  stroke: var(--demo-stamp, #E8541E);
+}
+.demo-done__ink-ring { stroke-width: 7; }
+.demo-done__ink-line { stroke-width: 2; }
+
+.demo-done__stamp-text {
+  font-family: var(--done-stamp-font, "AKARI Demo Display Done", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif);
+  font-size: {{STAMP_SIZE}}px;
+  font-weight: 400;
+  font-feature-settings: normal;
+  letter-spacing: 0;
+  fill: var(--demo-stamp, #E8541E);
+}
+
+/* 着地の輪（最終状態も不可視の過渡 FX） */
+.demo-done__ring {
+  position: absolute;
+  left: calc(var(--done-stamp-cx, 1132px) - var(--done-stamp-size, 176px) / 2);
+  top: calc(var(--done-stamp-cy, 300px) - var(--done-stamp-size, 176px) / 2);
+  width: var(--done-stamp-size, 176px);
+  height: var(--done-stamp-size, 176px);
+  border-radius: 50%;
+  border: 6px solid var(--demo-stamp, #E8541E);
+  opacity: 0;
+  transform: scale(1);
+}
+
+/* ── 動き（活性区間だけ宣言する）────────────────────── */
+[data-akari-active] .demo-done__group {
+  animation: demo-done-exit .25s var(--ease-accelerate, cubic-bezier(1, 0, 0.98, 0.8)) var(--done-exit-delay, 3.28s) forwards;
+}
+[data-akari-active] .demo-done__lead {
+  animation:
+    demo-done-rise-14 .30s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--done-lead-delay, 0s) both,
+    demo-done-fade-in .10s var(--ease-linear, linear) var(--done-lead-delay, 0s) both;
+}
+[data-akari-active] .demo-done__mic {
+  animation: demo-done-mic-pop .36s var(--ease-overshoot-soft, cubic-bezier(0.17, 2.21, 0.17, 0.97)) var(--done-lead-delay, 0s) both;
+}
+[data-akari-active] .demo-done__bar {
+  animation: demo-done-bar var(--done-beat, .7059s) var(--ease-linear, linear) infinite both;
+  animation-delay: calc(var(--done-beat-peak, .6686s) - var(--done-beat, .7059s) * 1.5 + var(--bar-offset, 0s));
+}
+[data-akari-active] .demo-done__head-text {
+  animation:
+    demo-done-rise-20 .32s var(--ease-smooth, cubic-bezier(0.38, 0, 0.1, 1.1)) var(--done-head-delay, 1.27s) both,
+    demo-done-fade-in .10s var(--ease-linear, linear) var(--done-head-delay, 1.27s) both;
+}
+[data-akari-active] .demo-done__head {
+  animation: demo-done-shake .14s var(--ease-linear, linear) calc(var(--done-stamp-delay, 2.09s) + .08s) forwards;
+}
+[data-akari-active] .demo-done__slam {
+  animation:
+    demo-done-slam .20s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both,
+    demo-done-fade-in .06s var(--ease-linear, linear) var(--done-stamp-delay, 2.09s) both;
+}
+[data-akari-active] .demo-done__ring {
+  animation: demo-done-ring .30s var(--ease-slowdown, cubic-bezier(0.11, 0.86, 0.98, 0.9)) calc(var(--done-stamp-delay, 2.09s) + .08s) forwards;
+}
+
+@keyframes demo-done-rise-14 {
+  0%   { transform: translateY(14px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-done-rise-20 {
+  0%   { transform: translateY(20px); }
+  100% { transform: translateY(0); }
+}
+@keyframes demo-done-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes demo-done-mic-pop {
+  0%   { transform: scale(.6); }
+  100% { transform: scale(1); }
+}
+/* 山（50%）の手前 0.085 秒で一気に上がり、残りで落ちる（BGM 札と同じメーターの形） */
+@keyframes demo-done-bar {
+  0%   { transform: scaleY(.35); }
+  38%  { transform: scaleY(.42); }
+  50%  { transform: scaleY(1); }
+  62%  { transform: scaleY(.78); }
+  80%  { transform: scaleY(.52); }
+  100% { transform: scaleY(.35); }
+}
+@keyframes demo-done-slam {
+  0%   { transform: scale(1.9); }
+  40%  { transform: scale(.92); }
+  70%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@keyframes demo-done-ring {
+  0%   { transform: scale(1);    opacity: .6; }
+  100% { transform: scale(1.22); opacity: 0; }
+}
+@keyframes demo-done-shake {
+  0%   { transform: translateX(0); }
+  33%  { transform: translateX(-3px); }
+  66%  { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+@keyframes demo-done-exit {
+  0%   { transform: translateY(0);     opacity: 1; }
+  100% { transform: translateY(-10px); opacity: 0; }
+}
+</style>
+<div class="demo-done__group">
+  <div class="demo-done__lead">
+    <svg class="demo-done__mic" viewBox="6 3 32 39.5" aria-hidden="true">
+      <g class="demo-done__mic-halo"><rect x="14.5" y="3" width="15" height="24" rx="7.5"/><path d="M8 19.5a14 14 0 0 0 28 0M22 33.5V40M14.5 40.5H29.5"/></g>
+      <rect x="14.5" y="3" width="15" height="24" rx="7.5" fill="currentColor"/><path d="M8 19.5a14 14 0 0 0 28 0M22 33.5V40M14.5 40.5H29.5" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+    <span class="demo-done__lead-text" data-akari-slot="lead">喋ってるだけで</span>
+    <svg class="demo-done__wave" viewBox="0 0 {{WAVE_W}} 36" width="{{WAVE_W}}" height="36" aria-hidden="true">
+      <g class="demo-done__wave-halo">
+{{WAVE_HALO}}
+      </g>
+      <g class="demo-done__wave-ink">
+{{WAVE_INK}}
+      </g>
+    </svg>
+  </div>
+  <div class="demo-done__head"><span class="demo-done__head-text" data-akari-slot="headline">編集は</span></div>
+  <i class="demo-done__ring"></i>
+  <div class="demo-done__stamp">
+    <div class="demo-done__slam">
+      <svg viewBox="0 0 176 176" aria-hidden="true">
+        <defs>
+          <!-- 押しムラ: 朱の濃さを左上 100% → 右下の縁 80% へ落とす -->
+          <radialGradient id="demo-done-ink-density" cx="30%" cy="26%" r="95%">
+            <stop offset="0" stop-color="#FFFFFF"/>
+            <stop offset=".6" stop-color="#FFFFFF"/>
+            <stop offset="1" stop-color="#CCCCCC"/>
+          </radialGradient>
+          <mask id="demo-done-ink-mask" maskUnits="userSpaceOnUse" x="-8" y="-8" width="192" height="192">
+            <rect x="-8" y="-8" width="192" height="192" fill="url(#demo-done-ink-density)"/>
+          </mask>
+        </defs>
+        <g mask="url(#demo-done-ink-mask)">
+          <circle class="demo-done__ink-ring" cx="88" cy="88" r="84.5"/>
+          <circle class="demo-done__ink-line" cx="88" cy="88" r="{{INNER_R}}"/>
+          <text class="demo-done__stamp-text" x="{{TEXT_X}}" y="{{TEXT_Y}}" text-anchor="middle">完了</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>
+</div>

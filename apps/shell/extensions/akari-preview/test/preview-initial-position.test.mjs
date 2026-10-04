@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
     resolvePreviewRefreshRestore,
     shouldCapturePreviewPlaybackTick
 } from '../lib/common/preview-refresh-state.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const seekStart = source.indexOf('            const seekTimelineTime = timelineValue => {');
 const start = source.indexOf('            const applyInitialPosition = () => {');
 const end = source.indexOf('            const zoomToSlider =', start);

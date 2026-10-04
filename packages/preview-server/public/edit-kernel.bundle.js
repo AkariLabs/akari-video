@@ -5628,6 +5628,13 @@ function normalizeCaptionLineTextStyle(value) {
       ...typeof value.stroke.color === "string" ? { color: value.stroke.color } : {},
       ...finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {}
     } } : {},
+    ...Array.isArray(value.strokes) ? { strokes: value.strokes.map((stroke) => ({
+      color: stroke.color,
+      width_px: stroke.width_px,
+      ...finiteNumber(stroke.offset_x) ? { offset_x: stroke.offset_x } : {},
+      ...finiteNumber(stroke.offset_y) ? { offset_y: stroke.offset_y } : {}
+    })) } : {},
+    ...isRecord4(value.fill) ? { fill: value.fill } : {},
     ...isRecord4(value.stroke_inner) ? { stroke_inner: {
       ...typeof value.stroke_inner.color === "string" ? { color: value.stroke_inner.color } : {},
       ...finiteNumber(value.stroke_inner.width_px) ? { width_px: value.stroke_inner.width_px } : {}
@@ -5754,6 +5761,101 @@ function cssCaptionFontFamily(value) {
   if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim())) return value;
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
+var RICH_PATTERN_SHAPES = {
+  diamond: { size: 26, svgSize: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity="0.5"/>' },
+  dot: { size: 16, viewBox: 16, shape: "" },
+  stripe: { size: 14, viewBox: 14, shape: '<path d="M0 0h14v7H0z" fill="FG"/>' },
+  gingham: { size: 22, viewBox: 22, shape: "" },
+  skull: { size: 30, viewBox: 24, shape: '<g fill="FG" fill-opacity=".9"><circle cx="12" cy="10" r="6.5"/><rect x="8.5" y="14" width="7" height="4.5" rx="1.5"/></g><circle cx="9.6" cy="9.6" r="1.7" fill="BG"/><circle cx="14.4" cy="9.6" r="1.7" fill="BG"/><path d="M12 12l-1.2 2.1h2.4z" fill="BG"/>' },
+  hazard: { size: 22, viewBox: 24, shape: '<polygon points="12,5 20,19 4,19" fill="FG" fill-opacity=".85"/>' },
+  night: { size: 26, viewBox: 26, shape: '<circle cx="4" cy="6" r="1.2" fill="FG"/><circle cx="19" cy="21" r="1.1" fill="FG"/><path d="M16 3l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5z" fill="FG"/>' },
+  // Geometry, intrinsic SVG size, and opacity follow the source fragment data URIs.
+  heart: { size: 14, viewBox: 24, shape: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="FG" fill-opacity="0.6"/>' },
+  thunder: { size: 30, viewBox: 24, shape: '<path d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="FG" fill-opacity="0.95"/>' }
+};
+var RICH_SOURCE_PATTERN_URIS = {
+  heart: {
+    uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"%3E%3Cpath d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="%23e8a0f8" fill-opacity="0.6"/%3E%3C/svg%3E',
+    sourceColor: "%23e8a0f8"
+  },
+  thunder: {
+    uri: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30"%3E%3Cpath d="M13 2 4.5 13.5h5L7 22l11.5-13h-6L13 2z" fill="%23fff26a" fill-opacity="0.95"/%3E%3C/svg%3E',
+    sourceColor: "%23fff26a"
+  }
+};
+function richPatternImage(pattern, layered) {
+  const source = RICH_SOURCE_PATTERN_URIS[pattern.id];
+  if (source) {
+    const uri = source.uri.replace(source.sourceColor, encodeURIComponent(pattern.fg));
+    if (layered) return `url('${uri}')`;
+    const svg3 = decodeURIComponent(uri.slice("data:image/svg+xml,".length)).replace(">", `><rect width="100%" height="100%" fill="${pattern.bg}"/>`);
+    return `url("data:image/svg+xml,${encodeURIComponent(svg3)}")`;
+  }
+  const template = RICH_PATTERN_SHAPES[pattern.id];
+  const rect = layered ? "" : `<rect width="100%" height="100%" fill="${pattern.bg}"/>`;
+  const bg = layered ? "transparent" : pattern.bg;
+  const svg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="${template.svgSize ?? template.size}" height="${template.svgSize ?? template.size}" viewBox="0 0 ${template.viewBox} ${template.viewBox}">${rect}${template.shape.replace(/FG/g, pattern.fg).replace(/BG/g, bg)}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg2)}")`;
+}
+function resolveCaptionRichFillVars(fill, scale = 1) {
+  if (fill.type === "solid") return { "--caption-rich-fill-color": fill.color };
+  if (fill.type === "gradient") return {
+    "--caption-rich-fill-color": "transparent",
+    "--caption-rich-fill-image": `linear-gradient(${fill.angle_deg}deg, ${fill.stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ")})`,
+    "--caption-rich-fill-size": "100% 100%",
+    "--caption-rich-fill-position": "0 0"
+  };
+  const pattern = fill.pattern;
+  const bg = pattern.bg;
+  const tile = formatCssNumber(RICH_PATTERN_SHAPES[pattern.id].size * pattern.scale * scale);
+  const offset = pattern.id === "thunder" ? "4px 2px" : "0 0";
+  if (pattern.id === "diamond" || pattern.id === "dot" || pattern.id === "gingham") {
+    const factor = pattern.scale * scale;
+    const px = (value) => `${formatCssNumber(value * factor)}px`;
+    const fg = pattern.fg;
+    const tint = (percent) => `color-mix(in srgb, ${fg} ${percent}%, transparent)`;
+    const ground = typeof bg === "string" ? `linear-gradient(${bg}, ${bg})` : `linear-gradient(${bg.angle_deg}deg, ${bg.stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ")})`;
+    const stripe = (angle, width, period, alpha) => `repeating-linear-gradient(${angle}deg, ${tint(alpha)} 0 ${px(width)}, transparent ${px(width)} ${px(period)})`;
+    let images;
+    let sizes;
+    let positions;
+    if (pattern.id === "diamond") {
+      images = [stripe(45, 2, 13, 32), stripe(-45, 2, 13, 32), richPatternImage(pattern, true)];
+      sizes = ["100% 100%", "100% 100%", `${tile}px ${tile}px`];
+      positions = ["0 0", "0 0", "0 0"];
+    } else if (pattern.id === "dot") {
+      images = [
+        `radial-gradient(circle, ${tint(50)} ${px(2)}, transparent ${px(3)})`,
+        `radial-gradient(circle, ${tint(35)} ${px(1.6)}, transparent ${px(2.6)})`
+      ];
+      sizes = [`${tile}px ${tile}px`, `${tile}px ${tile}px`];
+      positions = ["0 0", `${px(8)} ${px(8)}`];
+    } else {
+      images = [stripe(90, 9, 22, 55), stripe(0, 9, 22, 55)];
+      sizes = ["100% 100%", "100% 100%"];
+      positions = ["0 0", "0 0"];
+    }
+    return {
+      "--caption-rich-fill-color": "transparent",
+      "--caption-rich-fill-image": [...images, ground].join(", "),
+      "--caption-rich-fill-size": [...sizes, "100% 100%"].join(", "),
+      "--caption-rich-fill-position": [...positions, "0 0"].join(", ")
+    };
+  }
+  if (typeof bg === "string") return {
+    "--caption-rich-fill-color": "transparent",
+    "--caption-rich-fill-image": richPatternImage(pattern, false),
+    "--caption-rich-fill-size": `${tile}px ${tile}px`,
+    "--caption-rich-fill-position": offset
+  };
+  const background = `linear-gradient(${bg.angle_deg}deg, ${bg.stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ")})`;
+  return {
+    "--caption-rich-fill-color": "transparent",
+    "--caption-rich-fill-image": `${richPatternImage(pattern, true)}, ${background}`,
+    "--caption-rich-fill-size": `${tile}px ${tile}px, 100% 100%`,
+    "--caption-rich-fill-position": `${offset}, 0 0`
+  };
+}
 function resolveCaptionLineStyleVarsAtScale(style, scale) {
   const vars = {};
   const px = (value) => scaleCaptionPx(value, scale);
@@ -5763,6 +5865,7 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     vars["--caption-plate-fit"] = "frame";
   }
   if (typeof style.color === "string") vars["--caption-color"] = style.color;
+  if (isRecord4(style.fill)) Object.assign(vars, resolveCaptionRichFillVars(style.fill, scale));
   if (isRecord4(style.karaoke) && typeof style.karaoke.done_color === "string") vars["--caption-highlight-color"] = style.karaoke.done_color;
   if (finiteNumber(style.size_px)) vars["--caption-font-size"] = `${px(style.size_px)}px`;
   if (isRecord4(style.stroke) && (typeof style.stroke.color === "string" || finiteNumber(style.stroke.width_px))) {
@@ -5770,8 +5873,9 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     const color2 = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.9)";
     vars["--caption-stroke"] = `${width * 2}px ${color2}`;
   }
+  if (Array.isArray(style.strokes)) vars["--caption-stroke"] = "0 transparent";
   if (isRecord4(style.stroke_inner) && !isRecord4(style.stroke)) vars["--caption-stroke"] = "0 transparent";
-  if (isRecord4(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color2) => typeof color2 === "string" && HEX_COLOR.test(color2)) && finiteNumber(style.fill_gradient.angle_deg)) {
+  if (!isRecord4(style.fill) && isRecord4(style.fill_gradient) && Array.isArray(style.fill_gradient.colors) && style.fill_gradient.colors.length >= 2 && style.fill_gradient.colors.length <= 3 && style.fill_gradient.colors.every((color2) => typeof color2 === "string" && HEX_COLOR.test(color2)) && finiteNumber(style.fill_gradient.angle_deg)) {
     vars["--caption-fill-gradient"] = `linear-gradient(${style.fill_gradient.angle_deg}deg, ${style.fill_gradient.colors.join(", ")})`;
     vars["--caption-fill-clip"] = "text";
     vars["--caption-fill-color"] = "transparent";
@@ -5887,7 +5991,7 @@ function captionTextShadowValue(shadow, glow, scale = 1) {
 }
 function captionRichTextShadowValue(style, scale) {
   const parts = [];
-  if (isRecord4(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
+  if (!Array.isArray(style.strokes) && isRecord4(style.stroke_inner) && finiteNonNegative2(style.stroke_inner.width_px) && style.stroke_inner.width_px > 0) {
     const radius = scaleCaptionPx(style.stroke_inner.width_px, scale);
     const color2 = typeof style.stroke_inner.color === "string" && HEX_COLOR.test(style.stroke_inner.color) ? style.stroke_inner.color : "#ffffff";
     for (let index = 0; index < 16; index++) {

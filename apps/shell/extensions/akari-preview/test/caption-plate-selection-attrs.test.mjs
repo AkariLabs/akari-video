@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const source = readFileSync(join(extensionRoot, 'src/browser/akari-preview-open-handler.ts'), 'utf8');
+const source = readHandlerSource();
 
 test('台本選択と ⌥ 全体モードを caption plate まで配線する', () => {
   for (const token of [

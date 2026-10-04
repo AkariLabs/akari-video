@@ -1,0 +1,20 @@
+ℹ tests 2795
+ℹ pass 2780
+ℹ fail 15
+ℹ cancelled 0
+ℹ skipped 0
+✖ Codex の turn/start へ localImage、Grok の指示へ image_edit と絶対パスを渡し meta に記録
+✖ Grok の aspect_ratio には 8 種とも選択値を渡す
+✖ L1 fixture copies project-default, produces two real videos and passes edit-lint without Electron
+✖ RPC rejects project escape: assets-symlink
+✖ RPC rejects project escape: captures-symlink
+✖ RPC rejects project escape: source-symlink
+✖ 作り方の読み口は project 外パスと sidecar の symlink 逃げを拒否する
+✖ 偽 app-server の PNG と検証済み meta を書き、next を引き継ぐ
+✖ 切りそろえオンはフィルタと cropped_from を記録し、オフは元寸法のまま
+✖ 台帳に載ったライブラリ素材を読み、プロジェクトの meta に draft を保存する
+✖ 同梱フォントの太さ一覧は全ファイルの OS/2 と fvar.wght に一致する
+✖ 失敗は理由を返して PNG・meta を公開しない
+✖ 新設時もプロジェクト外の画像 symlink と壊れた PNG を拒否し meta/tmp を残さない
+✖ 状態確認は ready / signed-out / missing / 5 秒打ち切りで秘密を伏せる
+✖ 静止画の枠 meta は開始中だけ generating、成功・失敗・中止で元に戻る

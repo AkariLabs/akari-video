@@ -1,0 +1,19 @@
+
+> @akari-video/shell@0.1.99 lint
+> eslint "extensions/*/src/**/*.{ts,tsx}"
+
+
+C:\Users\kyach\akari-wt\integrate-2026-09-29\apps\shell\extensions\akari-annotations\src\browser\akari-annotations-widget.ts
+  6669:15  warning  'probeStartedAt' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\kyach\akari-wt\integrate-2026-09-29\apps\shell\extensions\akari-companion\src\browser\akari-companion-contribution.ts
+  293:30  warning  '_ignored' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\kyach\akari-wt\integrate-2026-09-29\apps\shell\extensions\akari-preview\src\browser\preview-library-drop.ts
+  103:19  warning  'rect' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  337:15  warning  'host' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  338:15  warning  'rect' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 5 problems (0 errors, 5 warnings)
+
+lint=0

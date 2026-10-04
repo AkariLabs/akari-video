@@ -16,6 +16,7 @@ import {
 import { createRequire } from "node:module";
 import { migrateFixtureTree } from "./helpers/v2-fixture.mjs";
 import { prepareCutAudioFixtures } from "./helpers/cut-audio-fixtures.mjs";
+import { readLintSource } from "./helpers/read-lint-source.mjs";
 
 // 幾何の統一 G1: 未移行の v2（output.geometry 未指定）には geometry.fit-compat の warning が
 // 必ず 1 件付く。各検査の「所見ゼロ」判定はこの移行案内を除いて数える
@@ -26,7 +27,6 @@ function withoutGeometryNotice(findings) {
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "edit-lint.mjs");
-const lintSourcePath = join(packageRoot, "src", "edit-lint.mjs");
 const fixtureRoot = join(packageRoot, "fixtures");
 const preparedFixtureRoot = await mkdtemp(join(tmpdir(), "edit-lint-v2-fixtures-"));
 const preparedFixtures = join(preparedFixtureRoot, "fixtures");
@@ -1727,7 +1727,7 @@ test("off-grid legacy cuts no longer produce the removed frame-grid check", asyn
 });
 
 test("edit-lint source cannot emit the removed cuts.frame-grid check", async () => {
-  const source = await readFile(lintSourcePath, "utf8");
+  const source = await readLintSource();
   assert.equal(source.includes("cuts.frame-grid"), false);
 });
 

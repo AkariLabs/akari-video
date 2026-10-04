@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { findTopLevelVariable } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
-import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
 const { orderDataEntries, dataFileIcon } = require('../lib/common/output-data-order.js');
@@ -10,12 +9,7 @@ const FILE_ORDER = ['edit.json', 'captions.json', 'review.json'];
 const data = (name, mtime) => ({ kind: 'data', name, mtime });
 
 test('file order mirrors the widget PROJECT_DATA_FILES definition', () => {
-    const source = ts.createSourceFile('widget.tsx', readFileSync(
-        new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'
-    ), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    const declaration = source.statements.filter(ts.isVariableStatement)
-        .flatMap(statement => [...statement.declarationList.declarations])
-        .find(node => node.name.getText(source) === 'PROJECT_DATA_FILES');
+    const { ast: source, declaration } = findTopLevelVariable('PROJECT_DATA_FILES', { in: 'widget' });
     assert.ok(declaration?.initializer);
     const files = new Function(`return ${declaration.initializer.getText(source)};`)();
     assert.deepEqual(files.map(file => file.name), FILE_ORDER);

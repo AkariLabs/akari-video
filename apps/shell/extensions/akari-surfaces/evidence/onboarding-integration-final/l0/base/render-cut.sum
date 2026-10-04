@@ -1,0 +1,47 @@
+ℹ tests 699
+ℹ pass 654
+ℹ fail 44
+ℹ cancelled 0
+ℹ skipped 1
+✖ 136 repeated effects use one source input and an asplit without starting ffmpeg
+✖ a source reached through an in-project assets symlink resolves and hashes as a project input
+✖ a source whose final path component is an in-project file symlink resolves and records project scope
+✖ akari-apply-textstyle.mjs runs identically through a symlink
+✖ an assets symlink escaping projectRoot keeps the existing refusal message
+✖ audio filter process failure preserves a content-addressed artifact and MEASUREMENT_ERROR receipt
+✖ caption font resolver rejects missing, escaping, and unsupported topologies
+✖ commandVersion reads the installed ffmpeg version when available
+✖ commandVersion returns a trimmed version-like first line
+✖ CSS data URIs containing nested url text do not become undeclared inputs
+✖ cuts 0 件の v2 plan は overlays + sfx の導出尺を使う
+✖ cuts 1 件以上の cut_audio args は従来の引数列を保つ
+✖ explicit -1.7 dBTP real render keeps filter output and independent decoded input evidence distinct and receipt-bound
+✖ failed-render-artifacts
+✖ fill-caption-words.mjs runs identically through a symlink
+✖ glass-free 2D and 3D sheets match pre-glass baseline bytes
+✖ gpu plan-only binds all audio roles and layer audio to existing both files
+✖ gpu plan-only binds all audio roles and layer audio to existing legacy files
+✖ gpu plan-only binds all audio roles and layer audio to existing new files
+✖ invalid glass descriptors and remote paths fail input enumeration
+✖ invalid new still tries old
+✖ legacy output keeps the original CSS bytes
+✖ narration in/out adds the trim prefix while an omitted window keeps the legacy filter byte-identical with one probe per item
+✖ narration out overrun below one frame is silently clamped
+✖ narration out overrun of two frames is clamped with a warning
+✖ osr plan-only binds all audio roles and layer audio to existing both files
+✖ osr plan-only binds all audio roles and layer audio to existing legacy files
+✖ osr plan-only binds all audio roles and layer audio to existing new files
+✖ outside symlink both
+✖ outside symlink new
+✖ outside symlink old
+✖ render-receipts
+✖ reports
+✖ retargeted-reports
+✖ retargeting a project input parent symlink cannot bind the receipt to the old source
+✖ SFX out overrun below one frame is silently clamped
+✖ SFX out overrun of two frames is clamped with a warning
+✖ sfx.in at/beyond the material's real duration is silently skipped with a warning
+✖ sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte
+✖ single BGM plan and ffmpeg graph equal HEAD baseline
+✖ undeclared HTML assets, path escape, and symlink escape are refused
+✖ verify.color-range fails pc and passes tv or an unreported H.264 range

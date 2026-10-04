@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -7,10 +8,7 @@ import vm from 'node:vm';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const extensionRoot = resolve(here, '..');
-const compiledHandler = readFileSync(
-    join(extensionRoot, 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const compiledHandler = readHandlerCompiled();
 
 function extractTemplate(methodName) {
     const methodAt = compiledHandler.lastIndexOf(`${methodName}()`);
@@ -121,7 +119,7 @@ function executeWatchdog({ error, rejection, engine = {}, root = null, engineErr
 test('frame-engine scripts は watchdog、bundle、bootstrap の順で注入する', () => {
     assert.match(
         compiledHandler,
-        /\? `<script>\$\{this\.frameEngineWatchdogScript\(\)\}<\/script>\\n\$\{this\.externalScriptTag\(assets\.frameEngineJavaScriptUrl\)\}\\n<script>\$\{this\.frameEngineBootstrapScript\(\)\}<\/script>\\n`\s*: '';/u
+        /\? `<script>\$\{\(0, preview_script_frame_engine_watchdog_1\.frameEngineWatchdogScript\)\(\)\}<\/script>\\n\$\{this\.externalScriptTag\(assets\.frameEngineJavaScriptUrl\)\}\\n<script>\$\{\(0, preview_script_frame_engine_bootstrap_1\.frameEngineBootstrapScript\)\(\)\}<\/script>\\n`\s*: '';/u
     );
 });
 

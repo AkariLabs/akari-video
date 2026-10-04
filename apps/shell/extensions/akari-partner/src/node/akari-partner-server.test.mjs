@@ -1,6 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
+import { AkariPartnerServerImpl, resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
+
+test('同意なしの導入要求は説明表を含む結果になる', async () => {
+    class StubServer extends AkariPartnerServerImpl {
+        spawnBootstrapProcess() {
+            const child = new EventEmitter();
+            child.stdout = new PassThrough();
+            child.stderr = new PassThrough();
+            child.kill = () => undefined;
+            setImmediate(() => {
+                child.stdout.write('{"consentRequired":true}\n');
+                child.emit('exit', 0);
+            });
+            return child;
+        }
+    }
+    const result = await new StubServer().bootstrap('claude');
+    assert.equal(result.consentRequired, true);
+    assert.equal(result.disclosure.name, 'Claude Code');
+    assert.ok(result.disclosure.provider);
+    assert.ok(result.disclosure.termsUrl);
+});
 
 test('Windows の Command Code npm shim は cmd.exe 経由で PTY 起動する', () => {
     assert.deepEqual(

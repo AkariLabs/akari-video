@@ -30,7 +30,7 @@ import type {
   PreviewAudioSupplyDebug,
   ResolvedTimelinePlan,
 } from '../../frame-engine/src/index.ts';
-import type { PreviewAudioDeclaration, PreviewSpeechDeclaration } from '../../frame-engine/src/audio/preview-audio-supply.ts';
+import type { PreviewAudioDeclaration, PreviewSpeechCut, PreviewSpeechDeclaration } from '../../frame-engine/src/audio/preview-audio-supply.ts';
 
 interface PreviewOptions {
   edit: any;
@@ -190,7 +190,7 @@ function audioDeclarations(edit: any): PreviewAudioDeclaration[] {
 }
 
 function speechDeclarations(edit: any, fps: number, choices: Map<string, SourceChoice>): PreviewSpeechDeclaration[] {
-  const cuts = normalizedCuts(edit);
+  const cuts = normalizedCuts(edit) as unknown as readonly PreviewSpeechCut[];
   const embedded = edit?.audio?.embeddedSpeech ?? (Array.isArray(edit?.audio?.speech)
     && !edit.audio.speech.some((item: any) => item.role === 'speech') ? edit.audio.speech : undefined);
   const projected = Array.isArray(embedded) ? embedded : projectSpeechDeclarations(cuts, { fps });
@@ -1240,6 +1240,8 @@ class FrameEngineRuntime {
   }
 }
 
+export type FrameEnginePreview = Awaited<ReturnType<typeof createFrameEnginePreview>>;
+
 export async function createFrameEnginePreview(options: PreviewOptions): Promise<{
   snapshot(): PreviewSnapshot;
   seek(seconds: number): number;
@@ -1323,7 +1325,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     }
   };
   let runtime = (await prepareRuntime(options.edit, options.timelineData, options.fps, 0))!;
-  const preview = {
+  const preview: FrameEnginePreview = {
     snapshot: () => runtime.snapshot(),
     seek: seconds => runtime.seek(seconds),
     renderPlayback: seconds => runtime.renderPlayback(seconds),

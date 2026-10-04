@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { applyAdjustBypass } from '../lib/common/adjust-bypass.js';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 for (const fn of [applyAdjustBypass, new Function('return (' + applyAdjustBypass.toString() + ')')()]) {
   test('adjust bypass removes only target adjustment and preserves raw summary', () => {
@@ -19,10 +20,10 @@ for (const fn of [applyAdjustBypass, new Function('return (' + applyAdjustBypass
   });
 }
 test('A/B event, engine projection and DOM bypass are connected', () => {
-  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const source = readHandlerSource();
   assert.match(source, /TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass'/u);
   assert.match(source, /const onAdjustBypass[\s\S]+type: 'akari-preview-adjust-bypass'/u);
-  assert.match(source, /removeEventListener\(TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass\)/u);
+  assert.match(source, /lifecycleDisposables\.push\(listen\(window, TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass\)\)/u);
   assert.ok(source.includes('${applyAdjustBypass.toString()}'));
   assert.match(source, /message.type === 'akari-preview-adjust-bypass'[\s\S]+adjustBypassIds.add\(String\(id\)\)[\s\S]+adjustBypassIds.delete\(String\(id\)\)/u);
   assert.match(source, /effectiveSummary = applyAdjustBypassFn\(nextSummary, \[\.\.\.adjustBypassIds\]\)/u);
@@ -30,16 +31,16 @@ test('A/B event, engine projection and DOM bypass are connected', () => {
   assert.match(source, /refreshAdjustBypass\(\)[\s\S]+queueEngineSummaryUpdate\(current => current, false\)/u);
   assert.match(source, /computeAdjustCssVisualFn\(adjustOfItem\(item\)/u);
   assert.match(source, /const adjust = adjustOfItem\(segment\)/u);
-  const handler = source.slice(source.indexOf("if (message && message.type === 'akari-preview-adjust-bypass'"));
+  const handler = sliceBetween("if (message && message.type === 'akari-preview-adjust-bypass'", "if (message && message.type === 'akari-preview-live-transform'");
   assert.match(handler, /setAdjustBaseFilter\(entry.video, entry.spec\)/u);
   assert.match(handler, /setAdjustBaseFilter\(entry.element, entry.spec\)/u);
 });
 
 test('A/B widget state seeds both webview scripts across setHTML and edit changes', () => {
-  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const source = readHandlerSource();
   const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
   assert.match(source, /akariPreviewAdjustBypassIds\?: Set<string>/u);
-  const handler = source.slice(source.indexOf('const onAdjustBypass'), source.indexOf('window.addEventListener(TIMELINE_ADJUST_BYPASS_EVENT'));
+  const handler = sliceBetween('const onAdjustBypass', 'listen(window, TIMELINE_ADJUST_BYPASS_EVENT');
   assert.ok(handler.indexOf('ids.add(String(id))') < handler.indexOf('widget.sendMessage'));
   assert.match(handler, /else ids.delete\(String\(id\)\)/u);
   const compiledHandler = compiled.slice(compiled.indexOf('const onAdjustBypass'));
@@ -56,7 +57,7 @@ test('A/B widget state seeds both webview scripts across setHTML and edit change
   assert.ok(messageId);
   const resolveWebviewId = new Function('summary', 'target', messageId[0] + '\nreturn id;');
   assert.equal(resolveWebviewId(widget.akariPreviewSummary, { kind: 'cut', index: 1 }), 'cut-b');
-  const sessionBlock = source.slice(source.indexOf('model.session = {'));
+  const sessionBlock = sliceBetween('model.session = {', 'if (model.editUri)');
   const sessionValue = sessionBlock.match(/adjustBypassIds: (\[\.\.\.\(widget.akariPreviewAdjustBypassIds \?\? \[\]\)\])/u);
   assert.ok(sessionValue);
   const seedSession = new Function('widget', 'return ' + sessionValue[1]);

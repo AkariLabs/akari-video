@@ -45,6 +45,8 @@ import { maybeStageInBackground, resolveCachePath } from '../src/update-check.mj
  */
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const currentVersion = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')).version;
+const nextVersion = `${Number(currentVersion.split('.')[0]) + 1}.0.0`;
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -167,12 +169,12 @@ serverTest('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 �
     const appDir = await seedOldApp(env, '0.1.0');
     assert.match(akariVersionOf(appDir, env), /^v0\.1\.0$/m);
 
-    const tarball = await buildAppTarball({ version: '0.2.0' });
+    const tarball = await buildAppTarball({ version: nextVersion });
     const expectedSha = sha256(tarball);
-    const notesUrl = 'https://github.com/AkariLabs/akari-video/releases/tag/v0.2.0';
+    const notesUrl = `https://github.com/AkariLabs/akari-video/releases/tag/v${nextVersion}`;
     const feedFactory = (baseUrl) => ({
       schema: 1,
-      product: '0.2.0',
+      product: nextVersion,
       channel: 'prerelease',
       notes_url: notesUrl,
       components: { app: { url: `${baseUrl}/app.tgz`, sha256: expectedSha } }
@@ -185,11 +187,11 @@ serverTest('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 �
       await stageForNextLaunch(env, appDir, feed);
 
       const cacheAfterFirstLaunch = JSON.parse(await readFile(resolveCachePath(env), 'utf8'));
-      assert.equal(cacheAfterFirstLaunch.feed.product, '0.2.0');
+      assert.equal(cacheAfterFirstLaunch.feed.product, nextVersion);
       assert.ok(cacheAfterFirstLaunch.staged, '1 回目の起動後、staged がキャッシュに記録されていること');
-      assert.equal(cacheAfterFirstLaunch.staged.version, '0.2.0');
+      assert.equal(cacheAfterFirstLaunch.staged.version, nextVersion);
       assert.equal(cacheAfterFirstLaunch.staged.sha256, expectedSha);
-      assert.equal(existsSync(resolveStagingDir(env, '0.2.0')), true, 'staging ディレクトリが実在すること');
+      assert.equal(existsSync(resolveStagingDir(env, nextVersion)), true, 'staging ディレクトリが実在すること');
       // まだ適用（スワップ）はされていないこと（ディスク上を直接確認 — `--version` の呼び出し
       // 自体が「起動」として自動適用を誘発してしまうため、それを経由せずに確かめる）。
       assert.equal(await packageVersionAt(appDir), '0.1.0');
@@ -199,9 +201,9 @@ serverTest('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 �
       //     bin/akari.mjs の先頭で自動適用が走り、その場で新版に切り替わる。
       const result = akariVersionOf(appDir, env);
 
-      assert.match(result, /v0\.2\.0 に更新しました/, result);
+      assert.ok(result.includes(`v${nextVersion} に更新しました`), result);
       assert.ok(result.includes(notesUrl), result);
-      assert.match(result, /^v0\.2\.0$/m, 'akari --version が新版を返すこと');
+      assert.ok(result.split('\n').includes(`v${nextVersion}`), 'akari --version が新版を返すこと');
 
       const previousDir = resolveAppPreviousDir(env);
       const previousPkg = JSON.parse(await readFile(join(previousDir, 'packages', 'akari-launcher', 'package.json'), 'utf8'));
@@ -215,18 +217,18 @@ serverTest('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 �
       //     （staging ディレクトリが既に消費済みのため自然に no-op）。
       const thirdResult = akariVersionOf(appDir, env);
       assert.ok(!thirdResult.includes('に更新しました'), '3 回目の起動では再適用の通知が出ないこと');
-      assert.match(thirdResult, /^v0\.2\.0$/m);
+      assert.ok(thirdResult.split('\n').includes(`v${nextVersion}`));
     });
   });
 });
 serverTest('U5: AKARI_NO_AUTO_UPDATE=1 では 1 回目の起動で staging が作られず、2 回目の起動でも適用されない', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
-    const tarball = await buildAppTarball({ version: '0.2.0' });
+    const tarball = await buildAppTarball({ version: nextVersion });
     const expectedSha = sha256(tarball);
     const feedFactory = (baseUrl) => ({
       schema: 1,
-      product: '0.2.0',
+      product: nextVersion,
       notes_url: 'https://example.invalid/notes',
       components: { app: { url: `${baseUrl}/app.tgz`, sha256: expectedSha } }
     });
@@ -238,7 +240,7 @@ serverTest('U5: AKARI_NO_AUTO_UPDATE=1 では 1 回目の起動で staging が�
       // 1 回目の起動相当: opt-out 環境では staging 自体が適格性判定で弾かれる。
       const staged = await maybeStageInBackground({ env: optOutEnv, feed, launcherRoot: appDir });
       assert.equal(staged, null, 'opt-out では staging を試みないこと');
-      assert.equal(existsSync(resolveStagingDir(env, '0.2.0')), false);
+      assert.equal(existsSync(resolveStagingDir(env, nextVersion)), false);
 
       // U2 の通知用フィード取得自体は独立して続く（ここでは directly cache に書いて模す —
       // runBackgroundFetch 自体の「opt-out でも feed は書く」は update-check.test.mjs で検証済み）。
@@ -254,13 +256,13 @@ serverTest('U5: AKARI_NO_AUTO_UPDATE=1 では 1 回目の起動で staging が�
 serverTest('U5: staging の tarball が改竄されていれば staged が記録されず、2 回目の起動でも app は不変', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
-    const tarball = await buildAppTarball({ version: '0.2.0' });
+    const tarball = await buildAppTarball({ version: nextVersion });
     const correctSha = sha256(tarball);
     const tampered = Buffer.from(tarball);
     tampered[0] = tampered[0] ^ 0xff;
     const feedFactory = (baseUrl) => ({
       schema: 1,
-      product: '0.2.0',
+      product: nextVersion,
       notes_url: 'https://example.invalid/notes',
       // フィードには「正しい」sha256 を載せる（転送物だけ改竄されている状況を模す）。
       components: { app: { url: `${baseUrl}/app.tgz`, sha256: correctSha } }
@@ -270,7 +272,7 @@ serverTest('U5: staging の tarball が改竄されていれば staged が記録
       const feed = feedFactory(baseUrl);
       const staged = await maybeStageInBackground({ env, feed, launcherRoot: appDir });
       assert.equal(staged.ok, false, '検証 NG では staging が失敗として返ること');
-      assert.equal(existsSync(resolveStagingDir(env, '0.2.0')), false);
+      assert.equal(existsSync(resolveStagingDir(env, nextVersion)), false);
 
       await writeFile(resolveCachePath(env), JSON.stringify({ schema: 1, fetched_at: 't0', feed, dismissed: {} }), 'utf8');
 

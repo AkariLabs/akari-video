@@ -3,12 +3,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(
-  join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'),
-  'utf8',
-);
+const source = readHandlerSource();
 const serviceSource = readFileSync(
   join(here, '..', 'src', 'node', 'akari-preview-service.ts'),
   'utf8',
@@ -71,7 +69,7 @@ test('cut の crop も transform と同じ version-routing ヘルパーを 1 pat
   // ホスト側は layerWrite と同じ crop 検証を通してから resolvePreviewItemWrite へ渡す。
   assert.match(
     source,
-    /this\.validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? this\.validateLayerCropPatch\(request\.patch\.crop\)/,
+    /validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? validateLayerCropPatch\(request\.patch\.crop\)/,
   );
   assert.match(source, /resolvePreviewItemWrite\(originalText, write\)/u);
 });

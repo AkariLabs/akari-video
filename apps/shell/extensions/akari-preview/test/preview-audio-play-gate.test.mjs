@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
-const source = await readFile(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const section = (text, start, end) => {
     const from = text.indexOf(start);
     const to = text.indexOf(end, from + start.length);
     assert.ok(from >= 0 && to > from, `${start} … ${end}`);
-    return text.slice(from, to);
+    return sliceBetween(start, end, { source: text });
 };
 
 test('clock.tick は音声時計を読んだ直後にゲート中の壁時計を再アンカーし描画する', () => {

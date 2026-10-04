@@ -5,7 +5,9 @@ import {
     describeToolInstallOutcome,
     filterInstallableSelection,
     formatInstallProgressLabel,
-    shortenHomePath
+    shortenHomePath,
+    TOOL_INSTALL_NOTICE,
+    TOOL_PROVIDERS
 } from '../../lib/common/tool-install-ui.js';
 
 test('unsupported は初回にも previous に残っていても選択しない', () => {
@@ -13,7 +15,7 @@ test('unsupported は初回にも previous に残っていても選択しない'
         { id: 'speech-analyzer', available: false, unsupported: true },
         { id: 'whisper', available: false, needs: ['モデルが無い'] }
     ];
-    assert.deepEqual([...deriveToolSelection(tools)], ['whisper']);
+    assert.deepEqual([...deriveToolSelection(tools)], []);
     const previous = {
         selectedIds: new Set(['speech-analyzer', 'whisper']),
         unavailableIds: new Set(['speech-analyzer', 'whisper'])
@@ -43,14 +45,14 @@ test('skipped は手動導入の 1 行、message があればその案内を表�
     assert.equal(describeToolInstallOutcome({ ...result, message: '手動の案内' }, 'SpeechAnalyzer'), '手動の案内');
 });
 
-test('初回チェック（previous 無し）は未導入の道具を全部 既定 ON にする', () => {
+test('初回チェックでは未導入の道具も選択しない', () => {
     const tools = [
         { id: 'ffmpeg', available: false },
         { id: 'blender', available: true },
         { id: 'yt-dlp', available: false }
     ];
     const selection = deriveToolSelection(tools);
-    assert.deepEqual([...selection].sort(), ['ffmpeg', 'yt-dlp']);
+    assert.deepEqual([...selection].sort(), []);
 });
 
 test('再チェックでもユーザーが外したチェックは尊重される（同じ道具が引き続き未導入のとき）', () => {
@@ -63,14 +65,22 @@ test('再チェックでもユーザーが外したチェックは尊重され�
     assert.deepEqual([...selection].sort(), ['yt-dlp']);
 });
 
-test('新たに未導入と判明した道具は既定 ONに戻る（前回は無かった/導入済みだった）', () => {
+test('新たに未導入と判明した道具も選択しない', () => {
     const tools = [
         { id: 'ffmpeg', available: false }, // 前回は available だった
         { id: 'blender', available: false } // 前回は結果に無かった
     ];
     const previous = { selectedIds: new Set(), unavailableIds: new Set() };
     const selection = deriveToolSelection(tools, previous);
-    assert.deepEqual([...selection].sort(), ['blender', 'ffmpeg']);
+    assert.deepEqual([...selection].sort(), []);
+});
+
+test('導入前の説明と全道具の提供元・規約が揃う', () => {
+    assert.match(TOOL_INSTALL_NOTICE, /winget.*Homebrew.*利用規約に同意/u);
+    for (const id of ['ffmpeg', 'whisper', 'yt-dlp', 'voicevox', 'blender', 'xcode-clt', 'speech-analyzer']) {
+        assert.ok(TOOL_PROVIDERS[id]?.provider, id);
+        assert.match(TOOL_PROVIDERS[id]?.termsUrl ?? '', /^https:\/\//u, id);
+    }
 });
 
 test('導入済みになった道具は選択集合から外れる', () => {

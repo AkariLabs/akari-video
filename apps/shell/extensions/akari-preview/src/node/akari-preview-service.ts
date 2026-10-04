@@ -1,7 +1,8 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
-import { applyCaptionStylePresets, bindingShaFor, projectLegacyEdit, readInternalEdit, resolveCaptionDisplay, TEXTSTYLE_CATALOG, toAnchorCaptions } from '@akari-video/edit-store';
+import { applyCaptionStylePresets, bindingShaFor, projectLegacyEdit, readInternalEdit, resolveCaptionDisplay, toAnchorCaptions } from '@akari-video/edit-store';
+import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
@@ -347,6 +348,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
     protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
     protected bundledCaptionFontBuffers?: Map<string, Buffer>;
+    protected readonly bundledCaptionFontWarnings = new Set<string>();
     protected libraryCaptionFontWarningReported = false;
     protected frameEngineSource: Buffer | null | undefined;
     protected previewAudioWorkletSource: Buffer | null | undefined;
@@ -515,9 +517,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 scrubAudioJavaScriptUrl: url('scrub-audio.js', scrubAudio, javascript)
             } : {}),
             captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf'),
-            bundledCaptionFontFaces: [...BUNDLED_CAPTION_FONT_FACES.map(face => ({ ...face,
-                url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`,
-                    fontBuffers.get(`${face.sourceId ?? face.id}/${face.file}`)!, 'font/ttf') })),
+            bundledCaptionFontFaces: [...BUNDLED_CAPTION_FONT_FACES.flatMap(face => {
+                const body = fontBuffers.get(`${face.sourceId ?? face.id}/${face.file}`);
+                return body ? [{ ...face, url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`, body, 'font/ttf') }] : [];
+            }),
                 ...libraryFontFaces]
         };
     }
@@ -542,14 +545,22 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     protected loadBundledCaptionFontBuffers(): Map<string, Buffer> {
-        if (!this.bundledCaptionFontBuffers) {
-            this.bundledCaptionFontBuffers = new Map(BUNDLED_CAPTION_FONT_FACES.map(face => {
-                const sourceId = face.sourceId ?? face.id;
-                const key = `${sourceId}/${face.file}`;
-                return [key, readFileSync(this.findFontAssetPath(join('assets', 'font', sourceId, face.file)))] as const;
-            }));
+        const buffers = this.bundledCaptionFontBuffers ?? new Map<string, Buffer>();
+        for (const face of BUNDLED_CAPTION_FONT_FACES) {
+            const sourceId = face.sourceId ?? face.id;
+            const key = `${sourceId}/${face.file}`;
+            if (buffers.has(key)) continue;
+            try {
+                buffers.set(key, readFileSync(this.findFontAssetPath(join('assets', 'font', sourceId, face.file))));
+            } catch (error) {
+                if (!this.bundledCaptionFontWarnings.has(key)) {
+                    this.bundledCaptionFontWarnings.add(key);
+                    console.warn(`[akari-preview] bundled caption font unavailable: ${key}`, error);
+                }
+            }
         }
-        return this.bundledCaptionFontBuffers;
+        if (buffers.size > 0) this.bundledCaptionFontBuffers = buffers;
+        return buffers;
     }
 
     protected registerStaticAsset(name: string, body: Buffer, mimeType: string): string {
@@ -1460,7 +1471,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         // display_policy 経路だけ前処理を欠き、行の style_preset が無視されていた。
         // legacy の parsePreviewCaptions、Web UI、render-cut、page-builder は解決済みで、
         // 公開字幕プリセット契約 §3 も captions.json 消費側での前処理を必須としている。
-        captionsRoot = applyCaptionStylePresets(captionsRoot, TEXTSTYLE_CATALOG).root;
+        captionsRoot = applyCaptionStylePresets(captionsRoot, loadTextstyleCatalogSync({ env: process.env }).catalog).root;
         const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         let rawEdit = JSON.parse(editText);
@@ -2115,7 +2126,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     // frame-engine の webview 用 IIFE。配布時は overlay-runtime と同居し、開発時は
-    // akari-preview の追跡済み generated/ を読む。legacy 明示時は呼ばれない任意資産。
+    // 中央の追跡済み frame-engine IIFE を読む。legacy 明示時は呼ばれない任意資産。
     protected findFrameEngineBundle(): string | undefined {
         const fileName = 'frame-engine.js';
         const packagedCandidate = resolve(__dirname, '../overlay-runtime', fileName);
@@ -2127,8 +2138,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         for (let depth = 0; depth < 10; depth++) {
             const candidate = resolve(
                 ancestor,
-                'apps/shell/extensions/akari-preview/generated',
-                fileName
+                'packages/frame-engine/generated',
+                'frame-engine.iife.js'
             );
             if (this.isFile(candidate)) {
                 return candidate;

@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readAllSourceText, sliceBetween } from './helpers/role-buckets-source.mjs';
 
 const commands = readFileSync(new URL('../src/browser/akari-catalog-command-contribution.ts', import.meta.url), 'utf8');
-const widget = readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
+const widget = readAllSourceText();
 
 test('catalog commands expose open options and category summaries', () => {
     for (const snippet of [
@@ -31,7 +32,7 @@ test('focusAssetCard searches all five card attributes', () => {
     assert.notEqual(start, -1);
     const end = widget.indexOf('\n    protected ', start + 1);
     assert.notEqual(end, -1);
-    const focusAssetCard = widget.slice(start, end);
+    const focusAssetCard = sliceBetween('protected async focusAssetCard(', '\n    protected ');
     for (const attribute of [
         'data-akari-material-path',
         'data-akari-catalog-item',

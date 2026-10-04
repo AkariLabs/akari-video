@@ -1,0 +1,176 @@
+{
+ "schema": "akari-onboarding-demo-element-measure/v1",
+ "element": "phone",
+ "role": "producer",
+ "created": "2026-10-01",
+ "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-phone/fragment.html",
+ "file_sha256": "9a8b06c2b1681db6aad1ceae4ce4186fac65face73d1fca069a4f48b77299270",
+ "file_bytes": 16280,
+ "edit_item": {
+  "track": "demo-stage",
+  "id": "demo-phone",
+  "name": "スマホ",
+  "at": 809,
+  "duration": 179,
+  "source": {
+   "kind": "html",
+   "path": "overlays/demo-phone/fragment.html"
+  }
+ },
+ "base_asset": {
+  "id": "phone-2d",
+  "path": "内部リポの phone-2d オーバーレイ素材",
+  "license": "CC0-1.0",
+  "used": "外形 px・内側は短辺比・チタン調の枠のグラデ・センサー窓・側面ボタンの比率・ガラスの反射を移植。画面は切り抜き（下の段を透かす）"
+ },
+ "font": {
+  "family": "AKARI Demo Sans",
+  "weight": 800,
+  "source": "assets/font/noto-sans-jp/NotoSansJP-Variable.ttf (OFL-1.1, RFN 'Source')",
+  "subset_text": "AKARI Video@akari_video",
+  "woff2_bytes": 2376,
+  "how": "tools/make-font.py（wght=800 に固定 → 16 文字に subset → name を AKARI Demo Sans に改名・著作権/ライセンス行は保持）。再生成は head.modified 以外の全テーブルが一致"
+ },
+ "geometry": {
+  "director_spec": {
+   "left": 894,
+   "top": 92,
+   "width": 236,
+   "height": 488,
+   "corner_radius_pct": 11,
+   "frame_thickness_pct": 2.6,
+   "hole": "x 900.1〜1123.8 / y 98.1〜573.8, r≈19.8"
+  },
+  "problem": "phone-screen（映像）の四隅は直角。本体の外角の中心 (919.96,117.96) から映像の角 (900.16,98.15) までの距離が 28.01px で外角の半径 25.96px より 2.05px 大きく、映像の角が本体の角丸の外へはみ出す（描画で 4 隅に映像の点が出るのを確認: 初回ハーネス描画）",
+  "final": {
+   "left": 891,
+   "top": 89,
+   "width": 242,
+   "height": 494,
+   "center": [
+    1012,
+    336
+   ],
+   "corner_radius_pct": 10.8,
+   "corner_radius_px": 26.14,
+   "frame_thickness_pct": 2.6,
+   "metal_px": 6.29,
+   "screen_box_inset_px": 9.15,
+   "screen_box": "x 900.14〜1123.86 / y 98.14〜573.86（= phone-screen の箱。DOM 実測 900.141,98.141,223.719,475.719）",
+   "bezel_overlap_px": 1.2,
+   "visible_window": "x 901.35〜1122.65 / y 99.35〜572.65, r≈15.8",
+   "corner_check": "映像の角から外角中心まで 24.02px < 半径 26.14px（内側に 2.12px）→ 角は不透明な枠の下"
+  },
+  "phone_screen_item_unchanged": true,
+  "optional": "phone-screen に frame.cornerRadius（短辺の半分に対する %）を付けて映像の角を丸める手もある（frame-engine の photoFrameUniforms は全合成層に効く）。本断片はそれ無しで成立する"
+ },
+ "sync": {
+  "body_first_visible": {
+   "frame": 809,
+   "abs": 26.9667,
+   "plan": 26.9667,
+   "word": "スマホ 27.07",
+   "opacity_at_27_067": 0.887,
+   "note": "27.07（f812）で不透明度 0.887・位置は最終より 68px 下（6 割以上見えている）"
+  },
+  "screen_on_first_changed": {
+   "frame": 833,
+   "abs": 27.7667,
+   "word": "モックアップ 27.77",
+   "delta_s": -0.0033,
+   "note": "起動画面の fade・波紋・UI を lead 33ms で開始。f832 は変化なし（波紋の 0% を不可視に）、f833 で起動画面 0.725・波紋 0.553・UI 0.116"
+  },
+  "like_pop": {
+   "frame": 854,
+   "abs": 28.4667,
+   "note": "ハートが橙に塗られてポップ（ローカル 1.50）"
+  },
+  "cover_again": {
+   "frames": "974〜977",
+   "abs": "32.467→32.567",
+   "note": "起動画面が 0→1 で戻り、phone-screen が終わる f977 で完全に覆う"
+  },
+  "exit": {
+   "frames": "978〜987",
+   "abs": "32.60→32.93",
+   "note": "translateY 0→150（ease-accelerate）＋最後の 0.15s で不透明度→0"
+  }
+ },
+ "stillness_27_40_to_32_60": {
+  "dom": "f821〜f978（ローカル 0.40〜5.633）の .demo-phone__frame の矩形が全コマ (891, 89, 242, 494) で同一",
+  "export_gpu": {
+   "frames": "12..169 (27.3667～32.6000)",
+   "top_edge_y_min": 94.5,
+   "top_edge_y_max": 94.5,
+   "top_edge_range_px": 0.0,
+   "left_edge_x_min": 896.5,
+   "left_edge_x_max": 896.5,
+   "left_edge_range_px": 0.0
+  },
+  "export_osr": {
+   "frames": "12..169 (27.3667～32.6000)",
+   "top_edge_y_min": 94.5,
+   "top_edge_y_max": 94.5,
+   "top_edge_range_px": 0.0,
+   "left_edge_x_min": 896.5,
+   "left_edge_x_max": 896.5,
+   "left_edge_range_px": 0.0
+  }
+ },
+ "hole_edges": {
+  "method": "phone-screen を単色マゼンタの動画に差し替えて GPU 書き出し（tools/phone-test-edit-magenta.json）。はみ出し = 本体外形（+1.5px）の外のマゼンタ画素、隙間 = 見える窓の縁 3px 帯でマゼンタでもベゼルでもない画素",
+  "overflow_px_frames_833_986": 0,
+  "gap_px_frames_836_974": 0,
+  "export_28_5": "phone-export-gpu-28.500s.png / -edges-x6.png（実映像）・phone-export-magenta-28.500s-edges-x6.png"
+ },
+ "keep_out": {
+  "person": "人物の届く範囲への画素 0（ハーネスのアルファで全シーク 0。書き出しの差分は符号化の揺れ 0〜10px のみ）",
+  "caption_band": "静止中（f821〜f978）は 0。入りの f809〜f813（26.967〜27.100）と抜けの f986（32.867）だけ、本体下端・接地影が x 891〜980 / y≥628 を通過。その時刻の字幕は f809〜f811 は無し（c-0016 は 25.01 で終わり c-0017 は 27.07 から）、f812〜f813 は「スマホの」（中央寄せ・x≈528〜752）で画素の重なり無し、f986 は無し（c-0020 は 32.54 で終わり c-0021 は 33.30 から）",
+  "stage": "外接矩形（影込み）x 861〜1162 / y 73〜626。舞台（y<460 は x≥720、y 460〜610 は x≥830）の外へは影の裾（アルファ ≤10/255, y 611〜626）だけ"
+ },
+ "parity": {
+  "gpu_vs_osr_mad_phone_region_mean": 2.23,
+  "max": 2.569,
+  "note": "同じコマの平均絶対差（0〜255）。符号化の差の水準で、絵は一致（phone-export-gpu-sheet.jpg / -osr-sheet.jpg）"
+ },
+ "lint": {
+  "edit_lint": "PASS 0 findings（隔離プロジェクト tools/phone-test-edit.json）",
+  "rules": "ルート 1 つ・data-start/duration 無し・--x/--y/--scale/--rotate 不使用・animation は [data-akari-active] 付きルール・delay はローカル秒の CSS 変数・base は最終静止状態（起動画面は見えている＝アニメが失敗しても画面は覆われたまま）・keyframes 全段全プロパティ・transform/opacity だけ・blur/backdrop-filter/JS 無し・keyframes 名 demo-phone-*"
+ },
+ "gpu_eligibility": {
+  "classification": "dom",
+  "reason": "dom-layer-draw-element",
+  "conditions": [
+   "animation-timing",
+   "advanced-css"
+  ],
+  "advanced_css": "枠の輪を mask-composite: exclude で抜いているため。GPU・OSR とも描画一致を確認"
+ },
+ "finding_gpu_motion_vocab": {
+  "severity": "high（お手本全体に効く）",
+  "what": "GPU 書き出し（render-cut の既定 --engine auto → gpu）の DOM 層は motion-vocab.css を読み込まない（packages/gpu-export の page-builder / page-runtime に --ease-* の定義が無い。OSR は rasterize.mjs が埋め込む）。var(--ease-smooth) のようにフォールバック無しで語彙を参照する animation 宣言は計算値で無効になり、断片が最終静止状態のまま一切動かない",
+  "evidence": [
+   "本断片の最初の GPU 書き出しは 179 コマ全部が静止（起動画面のまま）→ フォールバックを足して解消",
+   "demo-chat を単独で GPU 書き出し: 0.05 / 0.40 / 1.00 / 2.40 s が同一の最終状態（finding-gpu-motion-vocab-demo-chat-static.png。2.18〜2.43 の抜けも起きない）"
+  ],
+  "affected_now": {
+   "demo-chat": 10,
+   "demo-credit": 12,
+   "demo-diagram": 29,
+   "demo-done": 10,
+   "demo-effects": 11,
+   "demo-title": 14,
+   "demo-flash": "0（フォールバック付き）",
+   "demo-phone": "0（フォールバック付き）"
+  },
+  "fix_options": [
+   "各断片で var(--ease-x, <語彙と同じ値>) のフォールバックを付ける（本断片の方式・所有者ごとに即日可）",
+   "gpu-export の DOM ステージへ motion-vocab.css を注入する（packages/ の修正・本タスクの所有外。恒久対策）"
+  ],
+  "note": "各要素の制作担当は OSR で書き出して確認しているため気づけない。目利きの render-cut が auto（GPU）なら静止した絵を見ることになる"
+ },
+ "notes_for_others": [
+  "bgm-chip: 本体の左端が 894→891（ボタン込み 888.8）に 3px 寄った。札（left 748・幅 136・−4°）の右下の角は x≈885.5 で、ボタンまで約 3px。10px 空けたいなら札を left 745 へ",
+  "director: 図解の抜けは 26.85 に終わり、スマホは 26.967 に出る（主役どうしの間 0.117s < 0.3s）。スマホは 27.07 に見えている必要があるので、空けるなら図解の抜けを 0.2s 早める"
+ ]
+}

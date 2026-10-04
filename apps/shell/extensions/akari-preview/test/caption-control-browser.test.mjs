@@ -1,18 +1,25 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { launchBrowser } from '../../../../../packages/overlay-runtime/test-harness/fixtures/browser.mjs';
 import { captionControlScale } from '../lib/common/caption-control-scale.js';
 import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-handles-style.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 const from = handler.indexOf('#caption-select-box .akari-caption-handle-box {');
 const to = handler.indexOf('.caption-row-plate.akari-caption-host--editing,', from);
 assert.ok(from >= 0 && to > from);
 const baseCss = handler.slice(from, to);
 
-test('caption handles stay at display sizes when the output stage is scaled to 332×187', async () => {
-  const browser = await launchBrowser();
+test('caption handles stay at display sizes when the output stage is scaled to 332×187', async t => {
+  let browser;
+  try {
+    browser = await launchBrowser();
+  } catch (error) {
+    if (error?.message !== 'headless Chrome が見つかりません') throw error;
+    t.skip('headless Chrome 不在（Chrome のある環境でのみ実行）');
+    return;
+  }
   try {
     const page = await browser.newPage();
     const widthScale = 332 / 1920, heightScale = 187 / 1080;

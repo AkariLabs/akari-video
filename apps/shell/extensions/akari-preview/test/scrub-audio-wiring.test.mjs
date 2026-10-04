@@ -4,8 +4,9 @@ import test from 'node:test';
 
 import { createScrubAudioController } from '../../../../../packages/preview-server/public/audio-scrub.js';
 import { resolveScrubSeek } from '../lib/common/scrub-audio-wiring.js';
+import { readHandlerSource, methodBody } from './helpers/handler-source.mjs';
 
-const handlerSource = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handlerSource = readHandlerSource();
 const frontendSource = readFileSync(new URL('../src/browser/akari-preview-frontend-module.ts', import.meta.url), 'utf8');
 const wiringSource = readFileSync(new URL('../src/common/scrub-audio-wiring.ts', import.meta.url), 'utf8');
 
@@ -192,7 +193,7 @@ test('正本 controller が追い越された Range fetch を abort する', asy
 });
 
 test('webview 配線は共有 AudioContext を BGM の有無と分離して使う', () => {
-    const host = section('    protected hostAdapterScript(): string {', '    protected previewBootstrapScript(): string {');
+    const host = methodBody('hostAdapterScript');
     const ensureAt = host.indexOf('window.akari.ensurePreviewAudioContext = () =>');
     const createAt = host.indexOf('const createPreviewAudio = () =>');
     assert.ok(ensureAt >= 0 && ensureAt < createAt);

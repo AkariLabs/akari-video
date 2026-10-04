@@ -1,0 +1,29 @@
+]).status===0){const r=spawnSync(process.execPath,['resources/scripts/build-photo-mask-helper.mjs'],{stdio:'inherit'});if(r.status!==0)console.warn('背景を消す補助を作れませんでした。開発ビルドを続けます。')}" && theia build --mode production
+
+
+> @akari-video/shell@0.1.99 build:ext
+> tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-partner extensions/akari-surfaces extensions/akari-world-view extensions/akari-tabs extensions/akari-transcript extensions/akari-companion
+
+Found cached ffmpeg library.
+Successfully replaced "C:\Users\kyach\akari-wt\integrate-2026-09-29\node_modules\electron\dist\ffmpeg.dll".
+[akari dev-env] @theia/ffmpeg codec check skipped (ffmpeg.node not built)
+(node:22524) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[build/browser] Build started
+
+[build/browser] Finished with 0 errors in 31454ms.
+
+[build/node] Build started
+
+[build/node] Finished with 0 errors in 20288ms.
+
+[build/electron] Build started
+
+[build/electron] Finished with 0 errors in 266ms.
+
+
+> @akari-video/shell@0.1.99 postbuild
+> node scripts/resign-electron.mjs
+
+[resign-electron] platform=win32: darwin 専用のステップのため no-op
+build exit=0 secs=96

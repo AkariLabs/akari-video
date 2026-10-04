@@ -51,13 +51,26 @@ jobs:
             "apps/shell/extensions/akari-surfaces/src/node/tool-install.test.mjs:340|synthetic test path (/Users/fixture) — identifies no machine"
             "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:65|synthetic test path (/Users/fixture/) — identifies no machine"
             "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:71|synthetic test path (/Users/fixture/) — identifies no machine"
-            "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:101|synthetic test path (/Users/fixture/) — identifies no machine; shortenHomePath fixture"
-            "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:107|synthetic test path (/Users/fixture/) — identifies no machine; shortenHomePath fixture"
+            "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:111|synthetic test path (/Users/fixture/) — identifies no machine; shortenHomePath fixture"
+            "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:117|synthetic test path (/Users/fixture/) — identifies no machine; shortenHomePath fixture"
             "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:90|synthetic residual path (file:///Users/another/) — the redactor under test must be handed a /Users/<name>/ shape to prove it collapses one to <path>; identifies no machine"
             "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:91|synthetic residual path (/private/tmp/unrelated/) — same test, the /private/tmp/ shape; identifies no machine"
             "apps/shell/extensions/akari-preview/evidence/item-keyframes/prepare-fixture.mjs:14|realpath guard: asserts the fixture dir is under /private/tmp/ (macOS /tmp symlink breaks the Theia workspace boundary) — generic prefix, identifies no machine"
             "apps/shell/extensions/akari-preview/evidence/item-keyframes/run-l1.mjs:21|same realpath guard as prepare-fixture.mjs:14 — generic /private/tmp/ prefix, identifies no machine"
             "apps/shell/extensions/akari-preview/evidence/item-keyframes/compare-html-sha.cjs:146|synthetic source URI (/private/tmp/<name>/source.mp4) fed to prepareHtml for sha comparison — identifies no machine"
+            "apps/shell/extensions/akari-preview/evidence/preview-drop-materials/README.md:23|generic macOS /tmp and /private/tmp symlink example needed to explain the URI mismatch; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:22|synthetic expected URI verifies macOS /tmp symlink normalization; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:24|synthetic URI verifies encoded Unicode and macOS /tmp symlink equivalence; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:28|synthetic URI verifies project path case sensitivity after symlink normalization; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:34|synthetic URI verifies media paths under a normalized project root; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/preview-drop-materials.test.mjs:184|synthetic drag URI verifies material drop behavior with a macOS realpath; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:51|synthetic home path in log fixture verifies diagnostics redaction; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:53|synthetic home path in project fixture verifies diagnostics redaction; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:92|synthetic home path verifies text redaction while preserving the filename; identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/settings-maintenance-service.test.mjs:98|synthetic home path verifies redaction inside JSON; identifies no machine"
+            "evidence/f1a-crop-and-frame/l1/run-l1.mjs:18|generic macOS temp directory used by a capture script; the suffix is generated at runtime and identifies no machine"
+            "evidence/fx4-photo-preview-select/run-l1.mjs:25|generic macOS temp directory used by a capture script; the suffix is generated at runtime and identifies no machine"
+            "packages/render-cut/evidence/caption-export-fonts/scripts/bytes-eq.mjs:9|generic macOS realpath prefix is required to normalize /tmp aliases in byte comparisons; identifies no machine"
           )
 
           is_allowed() {
@@ -187,3 +200,43 @@ jobs:
           fi
 
           echo "Governance gate passed — no tracked-file leaks detected."
+
+  # 証跡（evidence/）の増加を止める（2026-10-02 オーナー裁定）。evidence/ は L1 実機検証の記録で、
+  # 公開リポの追跡バイトの大半を占め、ローカルの絶対パスや作業場所の名前を含みやすい。
+  # 新しく足すのは再現スクリプトと README（テキストのコード）だけにし、スクショ・動画・音声・ログ・
+  # 計測 JSON などの記録物はリポの外（タスクの記録側）に置く。既存の evidence/ はそのまま残す。
+  evidence-growth:
+    name: evidence-growth (新規の証跡バイナリ・記録物を足さない)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject newly added evidence artifacts
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -uo pipefail
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "比較元のコミットが無いので検査を省略する（${BASE_SHA:-none}）"
+            exit 0
+          fi
+          # 例外が本当に要るときだけ、ここに path を足す（理由を併記する）
+          ALLOWED=(
+          )
+          added="$(git diff --name-only --diff-filter=A "${BASE_SHA}" HEAD -- ':(glob)**/evidence/**' \
+            | grep -iE '\.(png|jpe?g|gif|webp|avif|svg|mp4|mov|webm|wav|mp3|m4a|flac|ogg|txt|log|json|jsonl|ndjson|csv|html|diff|patch|rgba|raw|bin|zip|tgz)$' || true)"
+          bad=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            for a in ${ALLOWED[@]+"${ALLOWED[@]}"}; do [ "$a" = "$f" ] && continue 2; done
+            bad="${bad}${f}"$'\n'
+          done <<< "$added"
+          if [ -n "$bad" ]; then
+            echo "::error::evidence/ に記録物が新しく足されています（$(printf '%s' "$bad" | grep -c .) 件）"
+            printf '%s' "$bad" | head -50 | sed 's/^/  /'
+            echo "  -> スクショ・動画・音声・ログ・計測 JSON などの検証記録はリポにコミットしない（skills/verify/SKILL.md の L1「観測・記録」）。"
+            echo "     evidence/ に足してよいのは再現スクリプト（.mjs / .cjs / .js / .sh）と README.md だけ。"
+            exit 1
+          fi
+          echo "evidence-growth passed — 新しい証跡の記録物は無い"

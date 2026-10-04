@@ -615,7 +615,7 @@ jobs:
           NODE
       - name: Record unsupported encoder or verify encoded output
         run: |
-          status="$(node -p "require('$RUNNER_TEMP/gpu-run-a/run.json').status")"
+          status="$(node -p "require(process.argv[1]).status" "$RUNNER_TEMP/gpu-run-a/run.json")"
           echo "gpu-export Windows run status=$status"
           if [ "$status" = "unsupported" ]; then
             echo "GPU_H264_ENCODER=no" >> "$GITHUB_ENV"
@@ -642,4 +642,4 @@ jobs:
           node packages/gpu-export/bin/akari-gpu-export.mjs \
             "$RUNNER_TEMP/gpu-fixture" --out "$RUNNER_TEMP/gpu-run-trap/composite.mp4" \
             --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --trap-readback
-          node -e "const r=require('$RUNNER_TEMP/gpu-run-trap/run.json');if(r.status!=='completed'||Object.values(r.gpu.readbackCounters).some(Boolean))process.exit(1)"
+          node -e "const r=require(process.argv[1]);if(r.status!=='completed'||Object.values(r.gpu.readbackCounters).some(Boolean))process.exit(1)" "$RUNNER_TEMP/gpu-run-trap/run.json"

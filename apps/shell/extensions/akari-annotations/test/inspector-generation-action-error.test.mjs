@@ -1,9 +1,11 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = await readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
+const css = await readFile(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const names = ['appendRow', 'generationIdentity'];
@@ -52,7 +54,7 @@ test('ok:false はボタン直上に赤文言を描画し、再描画しても�
   assert.ok(footer.children[1].all().includes(button()));
   w.render();
   assert.equal(w.body.querySelector(errorSelector).textContent, error.textContent);
-  assert.match(source, /\.akari-inspector-generation-error\s*\{\s*color: var\(--theia-errorForeground\)/);
+  assert.match(css, /\.akari-inspector-generation-error\s*\{\s*color: var\(--theia-errorForeground\)/);
 });
 for (const event of ['click', 'input', 'change']) test(`次の ${event} で消え、再描画でも復活しない`, async () => {
   const { w, button } = setup();

@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { resolveLayerDeclaredSize, layerDeclaredGeometryHitAt } from '../lib/common/layer-declared-geometry.js';
 import { previewPhotoSourcePoint, frontmostPreviewHit } from '../lib/common/preview-photo-hit.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const injected = { resolveLayerDeclaredSize, layerDeclaredGeometryHitAt, previewPhotoSourcePoint, frontmostPreviewHit };
-const bootstrapStart = source.indexOf('    protected previewBootstrapScript(): string {');
+const bootstrapStart = source.indexOf('export function previewBootstrapScript(): string {');
 assert.notEqual(bootstrapStart, -1);
-const bootstrapEnd = source.indexOf('\n    }', bootstrapStart);
+const bootstrapEnd = source.indexOf('\n}', bootstrapStart);
 assert.ok(bootstrapEnd > bootstrapStart);
 const bootstrapSource = source.slice(bootstrapStart, bootstrapEnd);
 function expandInjectedFunctions(text) {

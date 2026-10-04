@@ -1,0 +1,14 @@
+ℹ tests 378
+ℹ pass 368
+ℹ fail 8
+ℹ cancelled 1
+ℹ skipped 1
+✖ 12 line presets keep render, shell, Web UI, and display_policy styles in parity
+✖ 12 presets expose the same authored line-style variables on all four surfaces
+✖ preview-server fixes the default 3D font route and configures the runtime
+✖ test\preview.test.mjs
+✖ tick: CSS アニメ同期を 3D 分岐より先に通す（3D 断片を同期から外さない）
+✖ tick: CSS 同期を通したうえで three の描画も従来どおり呼ぶ
+✖ tick: three ランタイム読み込み待ちでも CSS 同期は止めない
+✖ WebSocket seek advances uniform and axis keyframes in overlay-only previews
+✖ 実 preview: seeked までミュートを維持して 5s→15s 境界の段差を除去する

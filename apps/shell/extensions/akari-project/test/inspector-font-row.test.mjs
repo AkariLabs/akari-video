@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import ts from 'typescript';
+import { readInspectorSource } from '../../akari-annotations/test/helpers/inspector-source.mjs';
 
 const readSource = relativePath => readFile(new URL(relativePath, import.meta.url), 'utf8');
 const stateSource = await readSource('../../akari-annotations/src/common/caption-panel-state.ts');
@@ -17,7 +18,7 @@ new Function('exports', ts.transpileModule(catalogSource, {
 }).outputText)(catalogExports);
 const { CAPTION_PANEL_FONTS } = catalogExports;
 
-const source = await readSource('../../akari-annotations/src/browser/akari-inspector-widget.ts');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
 const declaration = ast.statements.find(statement => ts.isFunctionDeclaration(statement)
     && statement.name.text === 'captionFontFamilyField');

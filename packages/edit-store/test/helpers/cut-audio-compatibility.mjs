@@ -15,7 +15,9 @@ export async function compatibilityFixtures() {
     for (const entry of await readdir(join(repositoryRoot, directory), { withFileTypes: true })) {
       const path = `${directory}/${entry.name}`;
       if (entry.isDirectory()) {
-        if (!entry.name.startsWith('edit-v2-cut-audio-') && entry.name !== 'caption-policy-fail-open') {
+        // library-textstyle contains asset preset/meta JSON, not edit.json compatibility fixtures.
+        if (!entry.name.startsWith('edit-v2-cut-audio-') && entry.name !== 'caption-policy-fail-open'
+          && entry.name !== 'library-textstyle') {
           await visit(path, examples);
         }
       } else if (entry.name.endsWith('.json') && (!examples || entry.name === 'edit.json')) {

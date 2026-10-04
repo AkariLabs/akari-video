@@ -7,6 +7,7 @@ import {
     readLegacyEditEmphasisWords,
     resolvePreviewEmphasisWords
 } from '../lib/common/preview-emphasis-seat.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const captionsSeat = [{
     id: 'e-0001',
@@ -52,10 +53,7 @@ test('両席が在るとき captions.json 側だけを採用しマージしな�
 });
 
 test('席の優先順ヘルパーが RPC・直接読取・loadPreviewModel まで配線されている', async () => {
-    const handlerSource = await readFile(
-        new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url),
-        'utf8'
-    );
+    const handlerSource = readHandlerSource();
     const serviceSource = await readFile(
         new URL('../src/node/akari-preview-service.ts', import.meta.url),
         'utf8'

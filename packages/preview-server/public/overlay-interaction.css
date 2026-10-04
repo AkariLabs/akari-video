@@ -121,6 +121,9 @@
 .akari-interaction-selection-frame:not([data-akari-selection-kind=leaf]) .is-edge {
   display: none;
 }
+.akari-interaction-selection-frame.is-telop .is-edge {
+  display: none;
+}
 .akari-interaction-rotate-stem {
   position: absolute;
   left: 50%;

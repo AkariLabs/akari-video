@@ -1,11 +1,9 @@
 import {
-    applyCaptionTextEdit,
     insertCaptionLine,
     parseCaptions as parseCaptionRecords,
     removeCaptionLine,
     setCaptionTimingLine,
-    type CaptionRecord,
-    type CaptionTextEditRecord
+    type CaptionRecord
 } from '@akari-video/edit-store';
 import {
     createCaptionIdAllocator,
@@ -13,6 +11,7 @@ import {
     planSplitSpans,
     type CaptionLineOp
 } from '@akari-video/edit-store/lib/caption-line-diff';
+import { decodeJsonString, replaceCaptionLine } from '@akari-video/edit-store/lib/caption-line-ops';
 import { clipUnrecognizedToRange } from '../common/daihon-unrecognized';
 
 export interface CaptionSourceRef {
@@ -75,40 +74,7 @@ export interface DerivedCaptionWord {
     text: string;
 }
 
-/**
- * This intentionally mirrors the small akari-surfaces helper instead of importing it.
- * The extensions are independent TypeScript projects; keeping this pure helper local
- * avoids coupling their build roots while preserving the one-physical-line write rule.
- */
-export function replaceCaptionLine(source: string, captionId: string, text: string): string {
-    if (!captionId) {
-        throw new Error('字幕の識別情報がありません。');
-    }
-    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
-    let matches = 0;
-    const updated = lines.map(line => {
-        const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
-        if (!idMatch || decodeJsonString(idMatch[1]) !== captionId) {
-            return line;
-        }
-        matches++;
-        const openIndex = line.indexOf('{');
-        const closeIndex = line.lastIndexOf('}');
-        if (openIndex < 0 || closeIndex < openIndex) {
-            throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
-        }
-        const record = JSON.parse(line.slice(openIndex, closeIndex + 1)) as CaptionTextEditRecord;
-        const updated = applyCaptionTextEdit(record, text).record;
-        if (updated === record) return line;
-        return line.slice(0, openIndex) + JSON.stringify(updated) + line.slice(closeIndex + 1);
-    }).join('');
-    if (matches !== 1) {
-        throw new Error(matches === 0
-            ? `字幕 ${captionId} が字幕データにありません。`
-            : `字幕 ${captionId} が字幕データに複数あります。`);
-    }
-    return updated;
-}
+export { replaceCaptionLine } from '@akari-video/edit-store/lib/caption-line-ops';
 
 export function replaceCaptionDisplayTextLine(source: string, captionId: string, text: string): string {
     if (!captionId) {
@@ -772,12 +738,4 @@ function normalizeUnrecognized(value: any): { start: number; end: number }[] | u
         ? [{ start: span.start, end: span.end }]
         : []);
     return spans.length > 0 ? spans : undefined;
-}
-
-function decodeJsonString(value: string): string {
-    try {
-        return JSON.parse(`"${value}"`);
-    } catch {
-        return value;
-    }
 }

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const { isEditDataFileName } = require('../lib/common/edit-data-file.js');
@@ -21,7 +21,7 @@ test('preview edit names match timeline discovery for canonical, variant, and in
 });
 
 test('output preview opener gives every edit variant priority 1200', () => {
-    const source = ts.createSourceFile('open-handler.ts', readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
+    const source = ts.createSourceFile('open-handler.ts', readHandlerSource(), ts.ScriptTarget.Latest, true);
     const handler = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariOutputPreviewOpenHandler');
     assert.ok(handler);
     const method = handler.members.find(node => node.name?.getText(source) === 'canHandle');

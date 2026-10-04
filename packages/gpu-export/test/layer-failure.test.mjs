@@ -17,7 +17,7 @@ import { renderMediaReferencesPath } from "../../osr-export/src/static-server.mj
 const LAYER_404 = "image fetch failed (404): /media/assets/still/bg-canvas/bg.png";
 
 async function loadFrameAt(url, marker, endMarker, FE, globals = {}) {
-  const source = await readFile(url, "utf8");
+  const source = (await readFile(url, "utf8")).replace(/\r\n/gu, "\n");
   const start = source.indexOf(marker);
   assert.ok(start >= 0, `${url}: ${marker.trim()} not found`);
   const end = source.indexOf(endMarker, start);

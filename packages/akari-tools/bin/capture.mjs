@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { existsSync, realpathSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { dirname, isAbsolute, parse, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
+import { isMainModule } from "../src/common/main-module.mjs";
 import { CAPTURE_USAGE } from "../src/capture/arguments.mjs";
 import { runCapture } from "../src/capture/run.mjs";
 
@@ -47,8 +47,4 @@ function nearestProjectRoot(start) {
   }
 }
 
-let isEntrypoint = false;
-try {
-  isEntrypoint = realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
-} catch {}
-if (isEntrypoint) process.exitCode = await main();
+if (isMainModule(import.meta.url)) process.exitCode = await main();

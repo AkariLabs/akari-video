@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import {buildTimelineMap} from '../../../../../packages/edit-store/lib/timeline-map.js';
-const source=readFileSync(new URL('../src/browser/akari-preview-open-handler.ts',import.meta.url),'utf8');
+import { readHandlerSource } from './helpers/handler-source.mjs';
+const source=readHandlerSource();
 const fragment=source.slice(source.indexOf('            let selectionCutSource;'),source.indexOf('            const cutInteractionMedia ='));
 test('selected cut uses its full interval and own transform even when another cut is on top',()=>{
  const summary={output:{fps:30},cuts:[{id:'base',at:0,in:0,out:10,transform:{x:20,scale:1}},{id:'upper',at:2,in:0,out:4,transform:{x:100,scale:.5}}]};

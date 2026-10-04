@@ -3,9 +3,12 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import vm from 'node:vm';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
-const preview = read('../src/browser/akari-preview-open-handler.ts');
+const read = path => path === '../src/browser/akari-preview-open-handler.ts'
+    ? readHandlerSource()
+    : readFileSync(new URL(path, import.meta.url), 'utf8');
+const preview = readHandlerSource();
 const methodCode = new Map();
 function hostMethod(path, name, bindings = {}) {
     const key = `${path}:${name}`;

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 const service = readFileSync(new URL('../src/node/akari-preview-service.ts', import.meta.url), 'utf8');
 
 test('video-fx runtime is read synchronously and injected before the preview bootstrap', () => {

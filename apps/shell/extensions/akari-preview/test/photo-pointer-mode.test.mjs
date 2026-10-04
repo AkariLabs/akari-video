@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-handles-style.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 
 test('photo selection and brush activate pointer input only while active', () => {
   const ordinary = previewSelectionHandlesStyle.indexOf('#layer-select-box.is-active, #cut-select-box.is-active');

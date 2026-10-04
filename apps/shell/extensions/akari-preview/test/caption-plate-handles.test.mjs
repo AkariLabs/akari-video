@@ -17,11 +17,12 @@ import {
   updateCaptionTransformSource,
 } from '../lib/common/caption-plate-handles.js';
 import { harness } from './caption-animator-webview-harness.mjs';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const { captionAnchorPositionVars } = require(resolve(extensionRoot, '../../../../packages/edit-store/lib/index.js'));
-const handlerSource = readFileSync(join(extensionRoot, 'src/browser/akari-preview-open-handler.ts'), 'utf8');
+const handlerSource = readHandlerSource();
 const pureSource = readFileSync(join(extensionRoot, 'src/common/caption-plate-handles.ts'), 'utf8');
 const renderCaptionSource = readFileSync(resolve(extensionRoot, '../../../../packages/render-cut/src/captions.mjs'), 'utf8');
 const visualContract = JSON.parse(readFileSync(
@@ -240,5 +241,5 @@ test('explicit-x caption handles measure the ink box and preserve the opposite c
 
 test('resolved display_lines render one paragraph per line', () => {
   assert.match(handlerSource, /Array\.isArray\(caption\.displayLines\)[\s\S]*caption\.displayLines\.length >= 2/u);
-  assert.match(handlerSource, /caption\.displayLines\.map\(line => renderText\(line\)\)\.join\([\s\S]*akari-caption__line/u);
+  assert.match(handlerSource, /caption\.displayLines\.map\(line =>[\s\S]*?\? richPreviewWords\(line, renderText\) : renderText\(line\)\)\.join\(\s*'<\/p><p class="akari-caption__line">'/u);
 });

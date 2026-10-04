@@ -30,7 +30,7 @@
       "outputs": [
         {
           "frameNumber": 0,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-0.png",
+          "path": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-0.png",
           "measured": {
             "width": 125,
             "height": 75,
@@ -53,7 +53,7 @@
         },
         {
           "frameNumber": 15,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-15.png",
+          "path": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-15.png",
           "measured": {
             "width": 125,
             "height": 75,
@@ -76,7 +76,7 @@
         },
         {
           "frameNumber": 30,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-30.png",
+          "path": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-30.png",
           "measured": {
             "width": 125,
             "height": 75,
@@ -99,7 +99,7 @@
         },
         {
           "frameNumber": 45,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-45.png",
+          "path": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-45.png",
           "measured": {
             "width": 125,
             "height": 75,
@@ -122,7 +122,7 @@
         },
         {
           "frameNumber": 59,
-          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-59.png",
+          "path": "<WORKTREE>/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/legacy/web/frame-59.png",
           "measured": {
             "width": 125,
             "height": 75,

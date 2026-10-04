@@ -534,7 +534,7 @@ test('再生中の組み直しが最初の窓を待つ間に届いた次の read
   } });
   const marker = { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } };
   const voice = pcmDeclaration('voice', 120, 'narration', { t: 0 });
-  const bed = pcmDeclaration();
+  const bed = pcmDeclaration('bed', 120, 'bgm', { ducking: false });
   const queuedVoice = { ...voice, spec: { ...voice.spec, sidecarState: 'queued', sidecar: undefined } };
   const queuedBed = { ...bed, spec: { ...bed.spec, sidecarState: 'generating', sidecar: undefined } };
   const { supply, context, clock, requests, warnings } = pcmSupply(t, {
@@ -619,7 +619,7 @@ for (const action of ['pause', 'seek', 'dispose']) {
 test('同じ tick の updateAudio は prefetch に合流し、finally と then が重なっても組み直しは 1 回だけ行う', async t => {
   const marker = { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } };
   const voice = { kind: 'narration', id: 'voice', url: '/voice.flac', spec: { t: 0, sidecarState: 'ready' } };
-  const bed = pcmDeclaration();
+  const bed = pcmDeclaration('bed', 120, 'bgm', { ducking: false });
   const queuedVoice = { ...voice, spec: { ...voice.spec, sidecarState: 'queued' } };
   const queuedBed = { ...bed, spec: { ...bed.spec, sidecarState: 'queued', sidecar: undefined } };
   const gate = deferred();

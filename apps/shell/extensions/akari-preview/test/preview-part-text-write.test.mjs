@@ -4,12 +4,13 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import vm from 'node:vm';
 import { resolvePreviewItemWrite } from '../../../../../packages/edit-store/lib/edit-v2-item-write.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const fixture = readFileSync(new URL('../../../../../packages/render-cut/test/fixtures/object-tree-html-bag/edit.json', import.meta.url), 'utf8');
-const methods = ['handleOverlayWrite', 'isOverlayWriteRequest'].map(name => {
+const methods = ['handleOverlayWrite'].map(name => {
   const start = source.search(new RegExp(`^    protected (?:async )?${name}\\(`, 'mu'));
   const end = source.indexOf('\n    }', start);
   assert.ok(start >= 0 && end > start);
@@ -18,6 +19,7 @@ const methods = ['handleOverlayWrite', 'isOverlayWriteRequest'].map(name => {
 const code = ts.transpileModule(`class Host { ${methods} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText;
+const { isOverlayWriteRequest } = require('../lib/browser/preview-host-message-guards.js');
 const Host = vm.runInNewContext(`${code}; Host`, {
   resolvePreviewItemWrite, BinaryBuffer: { fromString: value => value }, Error
 });
@@ -25,6 +27,7 @@ const request = patch => ({ type: 'akari-preview-overlay-write', requestId: 'tes
 const uri = value => ({ toString: () => value, resolve: child => uri(`${value}/${child}`) });
 function hostFixture() {
   const host = new Host(), writes = [], responses = [], linted = [];
+  host.isOverlayWriteRequest = isOverlayWriteRequest;
   host.readText = async () => fixture;
   host.recentWrites = new Map();
   host.fileService = { exists: async () => true, writeFile: async (target, text) => writes.push({ target: target.toString(), text }) };
@@ -35,7 +38,7 @@ function hostFixture() {
 }
 
 test('overlay request guard admits strings including empty text, rejects every non-string text', () => {
-  const host = new Host();
+  const host = { isOverlayWriteRequest };
   for (const patch of [{ text: 'new' }, { text: '' }, { html: '<b>plain</b>' }, { params: { title: 'slot' } }]) {
     assert.equal(host.isOverlayWriteRequest(request(patch)), true);
   }

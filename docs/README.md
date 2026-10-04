@@ -98,6 +98,8 @@ All contracts follow the
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` id reference, resolution order, generated textstyle catalog, picker batch-apply RPC, row badges, and the three free caption presets (Japanese) |
 | [contract-2026-09-24-style-v0.md](./contract-2026-09-24-style-v0.md) | My Styles v0: portable parts bundle, library storage, effective caption look capture, and value-copy application (Japanese) |
 | [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | Caption grapheme range styles, overlap precedence, rendering, and text edit rebasing (Japanese) |
+| [contract-2026-10-02-textstyle-v1-rich.md](./contract-2026-10-02-textstyle-v1-rich.md) | Rich textstyle v1 vocabulary, layered strokes, gradient and pattern fills, rendering paths, and overlay boundary (Japanese) |
+| [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | Fragment `@font-face` glyph lint (`edit-lint` `overlays.fragment-font-glyphs`) implemented; export-time automatic subsetting and cache cleanup planned (Japanese) |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | Still-image cut source v0 — allow still images (extension-based detection) as cuts[] sources, extending speed/freeze coverage |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | Timeline placement principles, multiple audio tracks, audio trim, source trimmer |

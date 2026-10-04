@@ -1,9 +1,10 @@
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = readFileSync(new URL('../../akari-preview/src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const ast = ts.createSourceFile('preview.ts', source, ts.ScriptTarget.Latest, true);
 const functions = ['captionMotionTextTargets', 'shouldResumeCaptionMotion'];
 const definitions = functions.map(name => {

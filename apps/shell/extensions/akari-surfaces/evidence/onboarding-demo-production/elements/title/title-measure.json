@@ -1,0 +1,186 @@
+{
+  "element": "title",
+  "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-title/fragment.html",
+  "file_bytes": 17824,
+  "file_md5": "1a13985d617ec6081bbd345a0d84a2e8",
+  "edit_item": {
+    "track": "demo-stage",
+    "id": "demo-title",
+    "name": "タイトル",
+    "at": 7,
+    "duration": 217,
+    "source": {
+      "kind": "html",
+      "path": "overlays/demo-title/fragment.html"
+    }
+  },
+  "look": {
+    "card": "白いカード left 760 / top 60 / width 460 / 高さ 180（実測）、角丸 22、縁 1px rgba(23,19,15,.07)、影 0 18px 44px rgba(58,38,20,.22)、内側余白 22px 28px",
+    "text": "1 行目「AI と話すだけで」40px/900 墨・2 行目「動画編集」64px/900 墨（字間 .02em）。和文は palt で詰める",
+    "underline": "2 行目の文字幅いっぱい・高さ 8・角丸 4・橙 #F97316",
+    "mic": "構成表からの追加: カード右側の空きにマイクの丸（直径 88、地 #FFF3E8・橙の輪 3px・マイクの絵柄 = 図解の「話す」と同じ）。話している間だけ淡橙 #FDBA74 の 2 重の輪が広がる（「こんにちは」の途中 0.633 秒と「今日は」の語頭 2.35 秒）。カード右 170px の余白が空いて見えたのを、タイトルの意味（話すだけで）を絵で補う形で埋めた",
+    "badge": "カードの下 left 760 / top 250 に橙の名札ピル「✦ AKARI Video」（高さ 46・白 26px/900・✦ は SVG の 4 芒星）。ポップ時に ✦ が回りながら開き、白い斜めの光（太い帯 + 細い筋）が横切る",
+    "font": "AKARI Demo Sans = Noto Sans JP（OFL 1.1）を wght 900 に固定し 21 字形だけに切り出した woff2 3,464 bytes を data URI で埋め込み。名前表は別名に差し替え、著作権表示（nameID 0）と許諾（13/14）は保持。元の md5 f11bfc28629ade532e6e551e69d444f9、切り出し後 9bcaf556e9fc2a4f5a174708a83dfbdb"
+  },
+  "local_timeline_s": {
+    "card_in": [
+      -0.033,
+      0.387
+    ],
+    "lead_in": [
+      0.1,
+      0.45
+    ],
+    "main_in": [
+      0.18,
+      0.55
+    ],
+    "mic_pop": [
+      0.25,
+      0.57
+    ],
+    "ripple_1": [
+      0.4,
+      1.26
+    ],
+    "ripple_2": [
+      2.084,
+      2.944
+    ],
+    "badge_pop": [
+      3.315,
+      3.635
+    ],
+    "star_open": [
+      3.345,
+      3.845
+    ],
+    "shine": [
+      3.45,
+      3.85
+    ],
+    "underline": [
+      4.8,
+      5.15
+    ],
+    "exit": [
+      6.95,
+      7.2
+    ]
+  },
+  "voice_onsets_measured_s": {
+    "method": "clip.mp4 の声を 16 kHz モノラル・10 ms 窓の RMS 包絡にし、無音（約 −75 dBFS）から −40 dBFS を超えた最初の窓",
+    "こんにちは": 0.29,
+    "アカリビデオ（ア）": 3.57,
+    "動画編集ツール（ど）": 5.08,
+    "試してみてます。の言い終わり": 7.17
+  },
+  "sync_table": [
+    {
+      "part": "カード",
+      "word": "こんにちは",
+      "word_s": 0.29,
+      "render_first_visible": {
+        "frame": 8,
+        "s": 0.2667
+      },
+      "delta_s": -0.023,
+      "note": "フレーム 7（区間の頭 0.2333）は opacity 0.02 でほぼ不可視。0.29 を含むフレーム 8 から見える"
+    },
+    {
+      "part": "マイクの丸",
+      "word": "（効果音 whoosh の山 0.49）",
+      "word_s": 0.49,
+      "render_first_visible": {
+        "frame": 15,
+        "s": 0.5
+      },
+      "delta_s": 0.01,
+      "export_osr_first_visible": {
+        "frame": 15,
+        "s": 0.5
+      }
+    },
+    {
+      "part": "名札",
+      "word": "アカリビデオ",
+      "word_s": 3.59,
+      "onset_s": 3.57,
+      "render_first_visible": {
+        "frame": 107,
+        "s": 3.5667
+      },
+      "delta_s": -0.023,
+      "export_osr_first_visible": {
+        "frame": 108,
+        "s": 3.6
+      },
+      "export_delta_s": 0.01,
+      "note": "3.59 を挟むフレーム 107（3.567・薄く小さい出始め）と 108（3.600・ほぼ全体）で見えている"
+    },
+    {
+      "part": "下線",
+      "word": "動画編集ツール",
+      "word_s": 5.1,
+      "onset_s": 5.08,
+      "render_first_visible": {
+        "frame": 152,
+        "s": 5.0667
+      },
+      "delta_s": -0.033,
+      "export_osr_first_visible": {
+        "frame": 153,
+        "s": 5.1
+      },
+      "export_delta_s": 0.0
+    },
+    {
+      "part": "抜け",
+      "word": "試してみてます。（言い終わり）",
+      "word_s": 7.17,
+      "render_exit_start": {
+        "frame": 216,
+        "s": 7.2
+      },
+      "render_last_visible": {
+        "frame": 222,
+        "s": 7.4
+      },
+      "render_gone": {
+        "frame": 223,
+        "s": 7.4333
+      },
+      "note": "区間の最後のフレーム 223 で完全に消える（区間の終わりで絵が途切れない）"
+    }
+  ],
+  "placement_check": {
+    "method": "ローカル 0〜7.2 秒の全 217 フレームを透過 PNG で描き、alpha > 8/255 の画素を数えた",
+    "person_zone_pixels_all_frames": 0,
+    "caption_band_pixels_all_frames": 0,
+    "bbox_all_frames_px": [
+      737,
+      55,
+      1262,
+      325
+    ],
+    "outside_stage": "x > 1240 に出るのは (a) 静止中の影の裾（alpha ≤ 10/255・x ≤ 1242）(b) 入りの最初の 0.1 秒と抜けの最後の 0.1 秒の横移動（x ≤ 1254・画面内）だけ。舞台の y 460 より下には何も出ない",
+    "export_vs_clip_noise": "書き出しと元 clip の差（最大チャンネル差の平均）: 人物域 3.4〜4.1・字幕帯 3.5〜3.8 で、タイトルの前（f2・f5）と表示中（f60・f150・f200）で同じ = 再エンコードの雑音のみ。舞台だけ 60〜67 に上がる"
+  },
+  "export_check": {
+    "project": "C:/t/title-lint-1001（本編 8 秒 + demo-title のみの隔離プロジェクト。作業ツリーの外）",
+    "edit_lint": "PASS（0 findings）。故意に壊した写し（ルートに data-start・keyframes の 0% から opacity を抜く）では overlays.data-attributes / keyframes-sparse / root-data-attributes が出ることも確認（規則が効いている）",
+    "render_cut": "--engine osr --gpu-preference off で PASS を 2 回（verify: probe / blank-frames 240/240 / decode / audio-level）。--engine gpu は本機の既定 GPU（Intel UHD）で H.264 ハードウェアエンコーダが使えず停止。HKCU の GPU 設定を一時的に書き換える --gpu-preference auto は他レーンと同じ exe を共有しているため使わず、GPU 出口の絵は未確認",
+    "gpu_eligibility": "evaluateGpuEligibility: eligible / classification dom / 条件は animation-timing のみ（data URI のフォントは外部資産に数えられない）",
+    "osr_stale_frames": "OSR 書き出しを 2 回回し、2 回とも同じフレームで重ね絵が自前の描画の 1 フレーム前の状態だった: f11〜12・f107〜108・f110〜111・f117・f123・f152（他のフレームは一致・抜け f214〜225 は全一致）。アニメの始まり付近に偏るので、書き出し側（WAAPI 化した transform / opacity の反映が 1 フレーム遅れる）の挙動と見ている。断片の時刻計算は自前の描画で語頭のフレームに合っている。書き出しでも名札 3.60（語 3.59 の +0.01）・下線 5.10（±0）で ±0.15 秒の内"
+  },
+  "knobs_verified": "--title-left / --title-top / --title-width / --demo-accent / --title-main-size / --title-badge-gap を振ると絵が変わる（13 万画素差）、--title-badge-delay 3.0 で名札が 3.2 秒に出る（既定では出ない）ことを確認",
+  "renders": {
+    "title-seek-on-clip.jpg": "--seek 0.05 / 0.6 / 3.40 / 3.70 / 5.30 / 7.10 を clip の同時刻（+0.2333）に重ねた 6 枚",
+    "title-hold-5.300-on-clip.jpg": "静止状態（全部そろった絵）の原寸",
+    "title-render-seek-5.300.png": "断片だけの透過 PNG（1280×720）",
+    "title-sync-badge-underline.jpg": "名札 f105〜111・下線 f150〜156 を自前の描画と OSR 書き出しで並べたもの",
+    "title-export-osr.jpg": "OSR 書き出しの f8 / 25 / 72 / 109 / 118 / 166 / 220 / 222 / 224",
+    "title-every-3rd-frame.jpg": "区間 f7〜224 を 3 フレームおきに並べた一覧"
+  },
+  "renderer": "harness/render-fragment.mjs と同じ入れ子（.akari-overlay-container > .scene-content > 断片）とモーション語彙を、Windows 用に写したスクリプトで描いた（ヘッドレスの Microsoft Edge 154.0.4258.37 + puppeteer-core 25.2.1）。container に data-akari-active を立て、プレビューの overlay-runtime と同じく currentTime = ローカル秒 × 1000 で止めて撮影。harness/render-fragment.mjs 本体は Mac のパス固定（puppeteer の Chrome・公開リポの場所）で本機では動かない"
+}

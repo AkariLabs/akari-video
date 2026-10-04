@@ -1,3 +1,5 @@
+import type { LibraryTextstylePreset } from '@akari-video/edit-store';
+
 export type PresetShowcaseKind = 'lut' | 'textanim' | 'textstyle';
 
 export interface PresetShowcaseItem {
@@ -10,6 +12,7 @@ export interface PresetShowcaseItem {
     whenToUse?: string;
     sampleText?: string;
     previewUrl?: string;
+    origin?: 'builtin' | 'library';
     style?: Record<string, unknown>;
 }
 
@@ -17,6 +20,19 @@ export interface PresetShowcase {
     lut: PresetShowcaseItem[];
     textanim: PresetShowcaseItem[];
     textstyle: PresetShowcaseItem[];
+}
+
+/** Installed styles follow the built-in shelf; matching ids always keep the built-in card. */
+export function appendLibraryTextstyleShowcaseItems(
+    builtin: readonly PresetShowcaseItem[], library: readonly LibraryTextstylePreset[],
+    previewUrl: (preset: LibraryTextstylePreset) => string | undefined = () => undefined
+): PresetShowcaseItem[] {
+    const ids = new Set(builtin.map(item => item.id));
+    return [...builtin, ...library.filter(item => !ids.has(item.id)).map(item => ({
+        kind: 'textstyle' as const, id: item.id, name: item.name,
+        category: item.category, tags: [item.category], sampleText: item.sampleText,
+        style: item.style, origin: 'library' as const, previewUrl: previewUrl(item)
+    }))];
 }
 
 export function presetApplyPayload(item: PresetShowcaseItem): { kind: PresetShowcaseKind; id: string;

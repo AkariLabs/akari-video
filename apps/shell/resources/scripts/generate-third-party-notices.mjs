@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { BUNDLED_CLI_NPM_ENTRIES } from './bundled-cli-npm-entries.mjs';
+import { BINARY_MANIFEST, BUNDLED_LICENSE_TEXTS, WHISPER_CPP_SOURCE, currentTarget } from '../../../../packages/media-bin/src/binary-manifest.mjs';
 
 // 配布物(app.asar + lib/ バンドル)に同梱される全サードパーティ依存のライセンス通知
 // ThirdPartyNotices.txt を機械生成する。prepackage で毎回再生成し、electron-builder の
@@ -22,8 +23,11 @@ import { BUNDLED_CLI_NPM_ENTRIES } from './bundled-cli-npm-entries.mjs';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const shellRoot = path.resolve(scriptDir, '../..');
 const repoRoot = path.resolve(shellRoot, '../..');
-const outDir = path.join(shellRoot, 'resources', 'generated-notices');
+const outDir = process.env.AKARI_NOTICE_OUTPUT_FOR_TEST ?? path.join(shellRoot, 'resources', 'generated-notices');
 const licenseTextsDir = path.join(scriptDir, 'license-texts');
+const frameBundle = path.join(repoRoot, 'packages/frame-engine/generated/frame-engine.iife.js');
+const overlayVendor = path.join(repoRoot, 'packages/overlay-runtime/src/vendor');
+const mediaBin = process.env.AKARI_NOTICE_MEDIA_BIN_FOR_TEST ?? path.join(shellRoot, 'resources/vendor-ffmpeg');
 
 async function isDirectory(candidate) {
   return stat(candidate).then(s => s.isDirectory(), () => false);
@@ -89,6 +93,17 @@ async function readLicenseFiles(packageDir) {
     }
   }
   return texts;
+}
+
+function licenseFromText(text) {
+  if (/Apache License\s+Version 2\.0/u.test(text) && /TERMS AND CONDITIONS FOR USE/u.test(text)) return 'Apache-2.0';
+  if ((/\bMIT License\b|The MIT License/u.test(text) || /The above copyright notice and this permission notice shall be/u.test(text)) &&
+      /Permission is hereby granted/u.test(text) && /THE SOFTWARE IS PROVIDED "AS IS"/u.test(text)) return 'MIT';
+  if (/Redistribution and use in source and binary forms/u.test(text)) {
+    return /Neither the name of/u.test(text) ? 'BSD-3-Clause' : 'BSD-2-Clause';
+  }
+  if (/Permission to use, copy, modify, and\/or distribute this software/u.test(text)) return 'ISC';
+  return null;
 }
 
 // ライセンス式(単一 ID / "A OR B" / "A WITH C")から、付録に本文を持つ ID を選ぶ。
@@ -199,6 +214,172 @@ if (unresolved.length > 0) {
   process.exit(1);
 }
 
+// frame-engine の生成物に記録された入力パスを出典とする。av-cliper は vendor コピーの
+// パスで記録されるため、同生成物のそのパスがある場合だけ npm 原本を照合する。
+try {
+  const frameSource = await readFile(frameBundle, 'utf8');
+  const frameNames = new Set([...frameSource.matchAll(/node_modules\/(?:@[^/]+\/)?[^/\s"']+/gu)]
+    .map(match => match[0].slice('node_modules/'.length)));
+  if (frameSource.includes('packages/frame-engine/vendor/av-cliper/av-cliper.js')) frameNames.add('@webav/av-cliper');
+  // release は apps/shell だけ npm install する。frame-engine の 4 依存は
+  // リポ内の固定 LICENSE を正本にし、開発機で npm 原本があれば版と本文を照合する。
+  const frameLicenses = {
+    '@webav/av-cliper': {
+      version: '1.2.8', spdx: 'MIT', source: 'https://github.com/WebAV-Tech/WebAV',
+      licenseFile: path.join(repoRoot, 'packages/frame-engine/vendor/av-cliper/LICENSE'),
+    },
+    '@webav/internal-utils': {
+      version: '1.2.8', spdx: 'MIT', source: 'https://github.com/WebAV-Tech/WebAV',
+      licenseFile: path.join(licenseTextsDir, 'frame-engine/internal-utils.txt'),
+    },
+    'opfs-tools': {
+      version: '0.7.4', spdx: 'MIT', source: 'https://github.com/hughfenghen/opfs-tools',
+      licenseFile: path.join(licenseTextsDir, 'frame-engine/opfs-tools.txt'),
+    },
+    'wave-resampler': {
+      version: '1.0.0', spdx: 'MIT', source: 'https://github.com/rochars/wave-resampler',
+      licenseFile: path.join(licenseTextsDir, 'frame-engine/wave-resampler.txt'),
+    },
+  };
+  const framePackageRootForTest = process.env.AKARI_NOTICE_FRAME_PACKAGE_ROOT_FOR_TEST;
+  for (const name of [...frameNames].sort()) {
+    if (name === '@webav/mp4box.js') {
+      if (![...thirdParty.values()].some(record => record.name === name)) {
+        throw new Error('frame-engine 同梱依存 @webav/mp4box.js が通知にありません。bundled CLI 依存と node_modules を確認してください');
+      }
+      continue; // BUNDLED_CLI_NPM_ENTRIES による収集と重複させない
+    }
+    const expected = frameLicenses[name];
+    if (!expected) throw new Error(`frame-engine 同梱依存 ${name} の表とライセンス文がありません。両方を追加してください`);
+    let licenseBytes;
+    try {
+      licenseBytes = await readFile(expected.licenseFile);
+    } catch {
+      throw new Error(`frame-engine 同梱依存 ${name} の固定 LICENSE がありません: ${expected.licenseFile}。本文を追加してください`);
+    }
+    const licenseText = licenseBytes.toString('utf8');
+    if (licenseFromText(licenseText) !== expected.spdx) {
+      throw new Error(`frame-engine 同梱依存 ${name} の固定 LICENSE と ${expected.spdx} が一致しません。本文と表を確認してください`);
+    }
+    const packageDir = framePackageRootForTest !== undefined
+      ? (await isDirectory(path.join(framePackageRootForTest, name)) ? path.join(framePackageRootForTest, name) : null)
+      : await resolvePackageDir(name, shellRoot);
+    if (packageDir) {
+      const packageJson = JSON.parse(await readFile(path.join(packageDir, 'package.json'), 'utf8'));
+      if (packageJson.name !== name || packageJson.version !== expected.version) {
+        throw new Error(`frame-engine 同梱依存 ${name} の版が固定表と異なります。表と LICENSE の写しを更新してください`);
+      }
+      const declared = normalizeLicenseExpression(packageJson);
+      if (declared !== 'UNKNOWN' && declared !== expected.spdx) {
+        throw new Error(`frame-engine 同梱依存 ${name} の SPDX が固定表と異なります。表と LICENSE の写しを確認してください`);
+      }
+      let installedLicense;
+      try {
+        installedLicense = await readFile(path.join(packageDir, 'LICENSE'));
+      } catch {
+        throw new Error(`frame-engine 同梱依存 ${name} の npm LICENSE がありません。依存を確認してください`);
+      }
+      if (!installedLicense.equals(licenseBytes)) {
+        throw new Error(`frame-engine 同梱依存 ${name} の LICENSE が固定の写しと異なります。写しを更新してください`);
+      }
+    }
+    const existing = [...thirdParty.values()].find(record => record.name === name);
+    if (existing && (existing.version !== expected.version || existing.licenseExpression !== expected.spdx)) {
+      throw new Error(`frame-engine 同梱依存 ${name} の既存通知と固定表が一致しません。版とライセンスを確認してください`);
+    }
+    if (!existing) thirdParty.set(`frame-engine:${name}`, {
+      name, version: expected.version, licenseExpression: expected.spdx,
+      author: null, repository: expected.source,
+      licenseTexts: [licenseText], aliases: new Set(),
+    });
+  }
+
+  // 版は README の npm tarball 記録、BudouX の同梱 LICENSE、VRM バンドル先頭の
+  // バージョン表示から確定する。確定できない liquid-glass-js は vendored のままにする。
+  const overlayLicenses = {
+    'three': { spdx: 'MIT', version: '0.185.1', npmName: 'three', evidence: 'three@0.185.1' },
+    'vgpu': { spdx: 'MIT', version: '0.4.0', npmName: 'vgpu', evidence: 'vgpu@0.4.0' },
+    'troika-three-text': { spdx: 'MIT', version: '0.52.4', npmName: 'troika-three-text', evidence: 'troika-three-text@0.52.4' },
+    'opentype.js': { spdx: 'MIT', version: '1.3.4', npmName: 'opentype.js', evidence: 'opentype.js@1.3.4' },
+    'matter-js': { spdx: 'MIT', version: '0.20.0', npmName: 'matter-js', evidence: 'matter-js@0.20.0' },
+    'poly-decomp': { spdx: 'MIT', version: '0.3.0', npmName: 'poly-decomp', evidence: 'poly-decomp@0.3.0' },
+    'three-vrm': { spdx: 'MIT', version: '3.5.5', npmName: '@pixiv/three-vrm', evidence: '@pixiv/three-vrm v3.5.5' },
+    'budoux': { spdx: 'Apache-2.0', version: '0.9.0', npmName: 'budoux', evidence: 'budoux 0.9.0', name: 'BudouX' },
+    'liquid-glass-js': { spdx: 'MIT', version: 'vendored', source: 'https://github.com/dashersw/liquid-glass-js' },
+  };
+  const vendorEntries = await readdir(overlayVendor);
+  const bundleLicenses = {
+    'three-bundle.js': ['three'],
+    'vgpu-bundle.js': ['vgpu'],
+    'avatar-vrm-bundle.js': ['three-vrm'],
+    'budoux-ja-bundle.js': ['budoux'],
+    'vendor-3d-text-bundle.js': ['troika-three-text', 'opentype.js'],
+  };
+  for (const bundle of vendorEntries.filter(name => name.endsWith('-bundle.js'))) {
+    if (!bundleLicenses[bundle]) throw new Error(`overlay vendor ${bundle} にライセンス対応表がありません。対応を追加してください`);
+  }
+  const vendorLicenseNames = vendorEntries.filter(name => name.endsWith('-LICENSE.txt') || name.startsWith('LICENSE.'));
+  const overlayReadme = await readFile(path.join(repoRoot, 'packages/overlay-runtime/README.md'), 'utf8');
+  const vrmBundle = await readFile(path.join(overlayVendor, 'avatar-vrm-bundle.js'), 'utf8');
+  for (const file of vendorLicenseNames.sort()) {
+    const name = file.startsWith('LICENSE.') ? file.slice('LICENSE.'.length) : file.slice(0, -'-LICENSE.txt'.length);
+    const expected = overlayLicenses[name];
+    if (!expected) throw new Error(`overlay vendor ${file} にライセンス対応表がありません。対応を追加してください`);
+    const licenseText = await readFile(path.join(overlayVendor, file), 'utf8');
+    if (licenseFromText(licenseText) !== expected.spdx) {
+      throw new Error(`overlay vendor ${file} の LICENSE 本文と ${expected.spdx} が一致しません。本文を確認してください`);
+    }
+    const evidence = name === 'three-vrm' ? vrmBundle : name === 'budoux' ? licenseText : overlayReadme;
+    if (expected.evidence && !evidence.includes(expected.evidence)) {
+      throw new Error(`overlay vendor ${name} の版 ${expected.version} を確認できません。バンドルと記録を確認してください`);
+    }
+    thirdParty.set(`overlay-vendor:${name}`, {
+      name: expected.name ?? name, version: expected.version, licenseExpression: expected.spdx,
+      author: null,
+      repository: expected.source ?? `https://www.npmjs.com/package/${expected.npmName}/v/${expected.version}`,
+      licenseTexts: [licenseText], aliases: new Set(),
+    });
+  }
+  for (const name of Object.keys(overlayLicenses)) {
+    const file = name === 'liquid-glass-js' ? `LICENSE.${name}` : `${name}-LICENSE.txt`;
+    if (!vendorLicenseNames.includes(file)) throw new Error(`overlay vendor ${name} の LICENSE がありません。対応する本文を配置してください`);
+  }
+  for (const names of Object.values(bundleLicenses)) for (const name of names) {
+    if (!overlayLicenses[name]) throw new Error(`overlay vendor ${name} のライセンス対応表がありません`);
+  }
+
+  const ffmpegSource = BINARY_MANIFEST[currentTarget()]?.source;
+  if (!ffmpegSource) throw new Error(`FFmpeg ${currentTarget()} のソース情報が manifest にありません。対応を追加してください`);
+  const ffmpegVersion = ffmpegSource.ffmpegRevision.match(/^n(\d+\.\d+\.\d+)/u)?.[1];
+  if (!ffmpegVersion) throw new Error('FFmpeg の版を manifest の ffmpegRevision から判別できません');
+  for (const [key, name, version, license, repository, details] of [
+    ['ffmpeg', 'FFmpeg', ffmpegVersion, 'GPL-3.0-or-later', ffmpegSource.ffmpegSource, [
+      `build: ${ffmpegSource.distributor}`, `build scripts: ${ffmpegSource.buildScripts}`,
+      `revision: ${ffmpegSource.ffmpegRevision}`, `license text: ${BUNDLED_LICENSE_TEXTS.ffmpeg.fileName}`,
+    ]],
+    ['whisper', 'whisper.cpp', WHISPER_CPP_SOURCE.tag.replace(/^v/u, ''), 'MIT',
+      `${WHISPER_CPP_SOURCE.repository}/tree/${WHISPER_CPP_SOURCE.tag}`, []],
+  ]) {
+    const entry = BUNDLED_LICENSE_TEXTS[key];
+    let licenseText;
+    try {
+      licenseText = await readFile(path.join(mediaBin, entry.fileName), 'utf8');
+    } catch {
+      throw new Error(`media-bin/${entry.fileName} がありません。先に bundle-media-binaries.mjs を実行してください`);
+    }
+    thirdParty.set(`media:${key}`, {
+      name, version, licenseExpression: license, author: null, repository,
+      details, licenseTexts: [licenseText], aliases: new Set(),
+    });
+  }
+} catch (error) {
+  const detail = error.code === 'ENOENT'
+    ? `${error.path} が見つかりません。frame-engine の生成物、overlay vendor、依存パッケージを確認してください`
+    : error.message;
+  console.error(`THIRD-PARTY-NOTICES FAILED — ${detail}`);
+  process.exit(1);
+}
+
 // Electron / Chromium のライセンス文。electron-builder は win/linux では実行ファイル横に
 // 自動で置くが mac では .app に入れない(実測)ため、全 platform で自前同梱に統一する。
 // electron も hoisting 次第で置き場が揺れるため resolvePackageDir で実在位置を引く。
@@ -207,7 +388,7 @@ if (!electronPackageDir) {
   console.error('THIRD-PARTY-NOTICES FAILED — electron パッケージが node_modules に見つかりません。');
   process.exit(1);
 }
-const electronDist = path.join(electronPackageDir, 'dist');
+const electronDist = process.env.AKARI_NOTICE_ELECTRON_DIST_FOR_TEST ?? path.join(electronPackageDir, 'dist');
 const electronLicense = path.join(electronDist, 'LICENSE');
 const chromiumLicenses = path.join(electronDist, 'LICENSES.chromium.html');
 for (const required of [electronLicense, chromiumLicenses]) {
@@ -238,6 +419,9 @@ for (const record of records) {
   }
   if (record.repository) {
     lines.push(`   source: ${record.repository}`);
+  }
+  for (const detail of record.details ?? []) {
+    lines.push(`   ${detail}`);
   }
   lines.push('');
   if (record.licenseTexts.length > 0) {
@@ -310,6 +494,7 @@ await writeFile(
 );
 await copyFile(electronLicense, path.join(outDir, 'LICENSE.electron.txt'));
 await copyFile(chromiumLicenses, path.join(outDir, 'LICENSES.chromium.html'));
+await copyFile(path.join(repoRoot, 'LICENSE'), path.join(outDir, 'LICENSE.akari-video.txt'));
 
 const withText = records.filter(record => record.licenseTexts.length > 0).length;
 console.log(

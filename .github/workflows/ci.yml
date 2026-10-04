@@ -32,6 +32,8 @@ jobs:
       # Node 組み込みのみで追加 install は不要なため、依存 staging より先に実行する。
       - name: check-no-gpl-redistribution
         run: node scripts/release/check-no-gpl-redistribution.mjs
+      - name: check-no-proprietary-licenses
+        run: node scripts/release/check-no-proprietary-licenses.mjs
       # v0.1.25 の同梱漏れ（packages/gpu-export / skills/analyze-footage/bin/person-matte / @webav/mp4box.js）は
       # モノレポのテストでは見えず、実ビルドのパッケージ版でだけ ERR_MODULE_NOT_FOUND になった。
       # release.yml と同じ手順で同梱 npm 入口を staging し、extraResources どおりの模擬 Resources から
@@ -84,8 +86,16 @@ jobs:
       # スクリプトを読み、一時ディレクトリへ再生成してバイト比較するため working tree を汚さない。
       - name: check generated bundle drift (frame-engine 3 consumers + preview-server 6 bundles)
         run: node scripts/ci/check-frame-engine-drift.mjs
+      # preview-server の frame-engine-client.ts は esbuild でバンドルされるだけで型検査されていなかった。
+      # tsconfig（noEmit・frame-engine の設定を継承）で strict の型検査を通す
+      - name: typecheck (preview-server frame-engine-client.ts)
+        run: npm --prefix packages/preview-server run typecheck
       - name: unit tests (lane pure)
         run: node scripts/ci/run-unit-tests.mjs --lane pure
+      # edit-store / pen-visuals の lib/ は追跡対象の生成物。pure レーンの npm test が src から作り直すので、
+      # ここで差分が出たら「src を変えたのに lib を再生成していない」= stale lib が出荷される
+      - name: generated lib drift (edit-store / pen-visuals)
+        run: git diff --exit-code --stat -- packages/edit-store/lib packages/pen-visuals/lib
 
   # 参考: main で既に赤いパッケージ（理由はレーン定義のコメント参照）。required に入れると初日から赤で
   # 止まるので隔離し、修正タスクで緑になったら pure へ移す。
@@ -181,8 +191,14 @@ jobs:
       # symlink を張る（2026-09-02 ローカル実測）。旧「registry 版をローカル実体へ張り替える」ステップは
       # lock 追跡で不要になった。
 
-      - name: build:ext (tsc -b, 9 extensions)
+      - name: build:ext (tsc -b, 11 extensions)
         run: npm run build:ext
+
+      # 拡張のテストの一部（akari-annotations の photo-panel-state / akari-preview の cut-size-basis・
+      # photo-preview-mask）は packages/frame-engine/dist（git 管理外のビルド産物）を import する。
+      # ここで作らないと clean checkout では ERR_MODULE_NOT_FOUND で必ず落ちる（手元は dist が残っていて気づけない）。
+      - name: build frame-engine dist (拡張テストが import する)
+        run: npm --prefix ../../packages/frame-engine run build
 
       - name: lint (eslint)
         run: npm run lint

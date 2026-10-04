@@ -1,0 +1,551 @@
+{
+ "schema": "akari-onboarding-integration/v1",
+ "round": "r2（目利きの差し戻しの直しの組み込み）",
+ "created": "2026-10-01",
+ "by": "組み込み担当（Claude Opus 5.5・配線の編集は codex gpt-6-sol/high、session 01a0f3c9-36ee-7d51-8f59-329fd42ba391 ほか 1 往復）",
+ "wiring_changes": [
+  "stage 4 の図解クリック 3 本（sfx-click-soft-ui）→ 4 本（sfx-diagram-pon 697 / stack 713 / playhead 727 / count 743・gain −3）",
+  "audio/sfx-click-soft-ui.m4a を削除",
+  "パンチイン 1.06→1.10 倍、19.70 から 2 フレームで寄せ 593〜595 に ±4px の揺れ、21.10 から 0.3 秒（642）で戻る",
+  "閃光を専用段 demo-flash（demo-stage の下）へ（制作 flash 担当の配線を引き継ぎ）",
+  "controller LOG の図解行を「この動画の中身をタイムラインで出しました」に",
+  "plan.json の sfx_sources に 4 本を追加し、build_diagram.py で図解を再生成（効果音 15）",
+  "meta.json の provenance を 4 本に"
+ ],
+ "export": {
+  "tool": "render-cut --engine auto（カラオケで OSR）--gpu-preference off・AKARI_FFMPEG_BIN=vendor n8.1・隔離（AKARI_HOME/TMP=C:/t/int-r2・作業フォルダ空）",
+  "frames": 1128,
+  "verdict": "PASS",
+  "mp4_md5": "35b73316dcb204884f964f1cb418ec78"
+ },
+ "edit_lint": [
+  {
+   "stage": "count-0",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 0
+  },
+  {
+   "stage": "captions-22",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 6
+  },
+  {
+   "stage": "stage-1",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 6
+  },
+  {
+   "stage": "stage-2",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 6
+  },
+  {
+   "stage": "stage-3",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 7
+  },
+  {
+   "stage": "stage-4",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 7
+  },
+  {
+   "stage": "stage-5",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 7
+  },
+  {
+   "stage": "stage-6",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 13
+  },
+  {
+   "stage": "stage-7",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 13
+  },
+  {
+   "stage": "stage-8",
+   "verdict": "pass",
+   "errors": 0,
+   "warnings": 13
+  }
+ ],
+ "timing_table_visual": [
+  {
+   "id": "title-card",
+   "element": "タイトルのカード",
+   "word": "こんにちは",
+   "word_s": 0.29,
+   "first_visible_s": 0.267,
+   "delta_s": -0.023,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "title-badge",
+   "element": "タイトルの名札 ✦ AKARI Video",
+   "word": "アカリビデオ",
+   "word_s": 3.59,
+   "first_visible_s": 3.567,
+   "delta_s": -0.023,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "chat-card",
+   "element": "AI との対話カード",
+   "word": "AI",
+   "word_s": 8.55,
+   "first_visible_s": 8.533,
+   "delta_s": -0.017,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "chat-typing",
+   "element": "AI の行（入力中）",
+   "word": "対話",
+   "word_s": 9.26,
+   "first_visible_s": 9.267,
+   "delta_s": 0.007,
+   "within_0.15": true,
+   "method": "self"
+  },
+  {
+   "id": "chat-reply",
+   "element": "返事「できました！」",
+   "word": "だけ",
+   "word_s": 9.9,
+   "first_visible_s": 9.9,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "self"
+  },
+  {
+   "id": "done-lead",
+   "element": "強調テロップ「喋ってるだけで」＋マイク＋波形",
+   "word": "喋ってる",
+   "word_s": 11.3,
+   "first_visible_s": 11.3,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "done-head",
+   "element": "テロップ「編集は」",
+   "word": "編集",
+   "word_s": 12.57,
+   "first_visible_s": 12.567,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "done-stamp",
+   "element": "判子「完了」",
+   "word": "終わってる",
+   "word_s": 13.42,
+   "first_visible_s": 13.367,
+   "delta_s": -0.053,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-chip-sfx",
+   "element": "札「♪ 効果音」＋音の輪",
+   "word": "効果音",
+   "word_s": 17.5,
+   "first_visible_s": 17.5,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-chip-fx",
+   "element": "札「✦ エフェクト」＋軌跡のキラッ",
+   "word": "エフェクト",
+   "word_s": 18.74,
+   "first_visible_s": 18.733,
+   "delta_s": -0.007,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-pa",
+   "element": "擬音「パッ!」",
+   "word": "パッ",
+   "word_s": 19.7,
+   "first_visible_s": 19.7,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "flash",
+   "element": "閃光（擬音より下の段）",
+   "word": "パッ",
+   "word_s": 19.7,
+   "first_visible_s": 19.7,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "punch-in",
+   "element": "パンチイン（人物側 1.10 倍＋揺れ）",
+   "word": "パッ",
+   "word_s": 19.7,
+   "first_visible_s": 19.7,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-hora",
+   "element": "ほら: 擬音の跳ね＋キラッ放射＋紙吹雪",
+   "word": "ほら",
+   "word_s": 20.55,
+   "first_visible_s": 20.567,
+   "delta_s": 0.017,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "effects-check",
+   "element": "こんな感じで: ✓ バッジ",
+   "word": "こんな感じで",
+   "word_s": 21.1,
+   "first_visible_s": 21.1,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "diagram-card",
+   "element": "図解カード＋段のラベル",
+   "word": "こういう",
+   "word_s": 23.27,
+   "first_visible_s": 23.267,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "diagram-build",
+   "element": "図解 ブロックの積み上げ",
+   "word": "図解",
+   "word_s": 23.78,
+   "first_visible_s": 23.767,
+   "delta_s": -0.013,
+   "within_0.15": true,
+   "method": "self"
+  },
+  {
+   "id": "diagram-playhead",
+   "element": "図解 再生ヘッド（0 秒から走る）",
+   "word": "出せます",
+   "word_s": 24.37,
+   "first_visible_s": 24.4,
+   "delta_s": 0.03,
+   "within_0.15": true,
+   "method": "dark"
+  },
+  {
+   "id": "diagram-count",
+   "element": "図解 件数「テロップ 7・効果音 15・BGM 1・字幕 22」",
+   "word": "し",
+   "word_s": 24.78,
+   "first_visible_s": 24.8,
+   "delta_s": 0.02,
+   "within_0.15": true,
+   "method": "orange"
+  },
+  {
+   "id": "phone-body",
+   "element": "スマホ本体",
+   "word": "スマホ",
+   "word_s": 27.07,
+   "first_visible_s": 26.967,
+   "delta_s": -0.103,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "phone-screen",
+   "element": "スマホ画面点灯（この動画）",
+   "word": "モックアップ",
+   "word_s": 27.77,
+   "first_visible_s": 27.767,
+   "delta_s": -0.003,
+   "within_0.15": true,
+   "method": "lum"
+  },
+  {
+   "id": "bgm-chip",
+   "element": "BGM の札",
+   "word": "BGM",
+   "word_s": 29.45,
+   "first_visible_s": 29.433,
+   "delta_s": -0.017,
+   "within_0.15": true,
+   "method": "src"
+  },
+  {
+   "id": "karaoke",
+   "element": "カラオケ字幕の塗り始め",
+   "word": "字幕の",
+   "word_s": 30.63,
+   "first_visible_s": 30.633,
+   "delta_s": 0.003,
+   "within_0.15": true,
+   "method": "karaoke"
+  },
+  {
+   "id": "credit",
+   "element": "クレジット「出演 僕／編集 AI」",
+   "word": "ね（言い切り）",
+   "word_s": 35.63,
+   "first_visible_s": 35.667,
+   "delta_s": 0.037,
+   "within_0.15": true,
+   "method": "src"
+  }
+ ],
+ "timing_table_sfx": [
+  {
+   "id": "title-whoosh",
+   "word": "こんにちは（カードの着地）",
+   "word_s": 0.49,
+   "item_at_s": 0.0,
+   "kind": "山",
+   "measured_s": 0.493,
+   "delta_s": 0.003,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -13.1
+  },
+  {
+   "id": "name-pop",
+   "word": "アカリビデオ",
+   "word_s": 3.59,
+   "item_at_s": 3.567,
+   "kind": "出",
+   "measured_s": 3.568,
+   "delta_s": -0.022,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -9.0
+  },
+  {
+   "id": "chat-pop-1",
+   "word": "AI",
+   "word_s": 8.55,
+   "item_at_s": 8.533,
+   "kind": "出",
+   "measured_s": 8.535,
+   "delta_s": -0.015,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -19.4
+  },
+  {
+   "id": "chat-pop-2",
+   "word": "対話",
+   "word_s": 9.26,
+   "item_at_s": 9.233,
+   "kind": "出",
+   "measured_s": 9.234,
+   "delta_s": -0.026,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -19.6
+  },
+  {
+   "id": "done-tone",
+   "word": "終わってる",
+   "word_s": 13.42,
+   "item_at_s": 13.4,
+   "kind": "出",
+   "measured_s": 13.401,
+   "delta_s": -0.019,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -16.9
+  },
+  {
+   "id": "kouka-pop",
+   "word": "効果音",
+   "word_s": 17.5,
+   "item_at_s": 17.467,
+   "kind": "出",
+   "measured_s": 17.488,
+   "delta_s": -0.012,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -15.0
+  },
+  {
+   "id": "pa-whoosh",
+   "word": "パッ（衝撃）",
+   "word_s": 19.7,
+   "item_at_s": 19.367,
+   "kind": "衝撃",
+   "measured_s": 19.703,
+   "delta_s": 0.003,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -6.9
+  },
+  {
+   "id": "hora-sparkle",
+   "word": "ほら",
+   "word_s": 20.55,
+   "item_at_s": 20.567,
+   "kind": "出",
+   "measured_s": 20.568,
+   "delta_s": 0.018,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -13.6
+  },
+  {
+   "id": "diagram-pon",
+   "word": "こういう（カード）",
+   "word_s": 23.27,
+   "item_at_s": 23.233,
+   "kind": "出",
+   "measured_s": 23.251,
+   "delta_s": -0.019,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -15.7
+  },
+  {
+   "id": "diagram-stack",
+   "word": "図解（積み上げ）",
+   "word_s": 23.78,
+   "item_at_s": 23.767,
+   "kind": "出",
+   "measured_s": 23.769,
+   "delta_s": -0.011,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -14.5
+  },
+  {
+   "id": "diagram-playhead",
+   "word": "出せます（再生ヘッド）",
+   "word_s": 24.37,
+   "item_at_s": 24.233,
+   "kind": "山",
+   "measured_s": 24.37,
+   "delta_s": 0.0,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -15.1
+  },
+  {
+   "id": "diagram-count",
+   "word": "し（件数）",
+   "word_s": 24.78,
+   "item_at_s": 24.767,
+   "kind": "出",
+   "measured_s": 24.77,
+   "delta_s": -0.01,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -14.8
+  },
+  {
+   "id": "phone-swoosh",
+   "word": "スマホ",
+   "word_s": 27.07,
+   "item_at_s": 26.833,
+   "kind": "山",
+   "measured_s": 27.079,
+   "delta_s": 0.009,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -19.3
+  },
+  {
+   "id": "phone-tap",
+   "word": "モックアップ",
+   "word_s": 27.77,
+   "item_at_s": 27.767,
+   "kind": "出",
+   "measured_s": 27.768,
+   "delta_s": -0.002,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -18.2
+  },
+  {
+   "id": "punchline-ding",
+   "word": "ね（言い切り）",
+   "word_s": 35.63,
+   "item_at_s": 35.633,
+   "kind": "出",
+   "measured_s": 35.634,
+   "delta_s": 0.004,
+   "within_0.15": true,
+   "peak_5ms_dbfs": -10.9
+  }
+ ],
+ "bgm_applied_gain_db": {
+  "speech 5.2-6.3": -14.01,
+  "speech 15.4-16.8": -14.01,
+  "speech 33.4-34.7": -14.0,
+  "gap 1.3-2.3": -14.02,
+  "gap 25.1-26.8": -14.01,
+  "pause 28.80-29.25": -14.0,
+  "lifted 30.25-30.63": -6.03,
+  "tail 36.2-36.8": -4.62
+ },
+ "loudness_lufs": {
+  "all 0-37.6": {
+   "full": -16.0,
+   "bgm_sfx_only(novoice)": -25.7,
+   "voice_over_bgm_lu": 9.7
+  },
+  "speech 5.2-6.3": {
+   "full": -14.5,
+   "bgm_sfx_only(novoice)": -30.0,
+   "voice_over_bgm_lu": 15.5
+  },
+  "speech 15.4-16.8": {
+   "full": -16.5,
+   "bgm_sfx_only(novoice)": -31.0,
+   "voice_over_bgm_lu": 14.5
+  },
+  "speech 33.4-34.7": {
+   "full": -16.8,
+   "bgm_sfx_only(novoice)": -28.8,
+   "voice_over_bgm_lu": 12.0
+  },
+  "lift 29.6-30.6": {
+   "full": -13.5,
+   "bgm_sfx_only(novoice)": -21.0,
+   "voice_over_bgm_lu": 7.5
+  }
+ },
+ "overlap": {
+  "person_region_frames_with_hits": 0,
+  "caption_frames_with_hits": 0,
+  "exempt": "588-639（閃光・パンチインは全画面の例外）"
+ },
+ "punch_in_person_extent": "19.80 / 20.30 のフレームで人物・ノート PC の右端 ≈ x 808（≤ 815）を目視（frames/punch-in-19.800s.jpg・punch-in-20.300s.jpg）",
+ "flash_under_pa": "19.70 のフレームで擬音「パッ！」の墨の縁が閃光の上に見える（frames/effects-pa-start-19.700s.jpg）",
+ "L1": {
+  "how": "l1-production.mjs（シェル開発起動・theia build 後に ffmpeg.dll を 0b4fe392 へ戻す・隔離 C:/t/i2l1・初期設定なし）",
+  "result": "ようこそ→ツアー→作業ログ（17.1 秒・stage 8・効果音 15 本・html 9）→再生→字幕→台本→書き出し（アプリ内 62.9 秒）→おわり まで完走、errors 0",
+  "evidence": "l1/l1-r2.json・l1/preview-l1-r2-zoom-sheet.jpg"
+ },
+ "L0": {
+  "onboarding_tests": "14/14 pass（onboarding-demo・demo-rich・onboarding-sample-timing）",
+  "akari_surfaces": "415 件 388 pass 27 fail — FAIL の集合は基点（flash-fix 時点）と同一、新規 FAIL 0",
+  "build_ext": 0,
+  "lint": "0（warning 5 は他の拡張の既存）"
+ },
+ "not_addressed_in_r2": [
+  "global: title / chat / bgm-chip / credit の断片は r2 で作り直されておらず、舞台の文字の最小 26px・1.2〜1.3 倍の見直しは未適用（640px 縮小で chat の内側の文字・BGM 札・クレジットのラベルは読みにくい）",
+  "global: 字幕の読点「，」は model.ts（並走レーン caption-steps の所有）で未対応 — 司令塔へ申し送り"
+ ]
+}

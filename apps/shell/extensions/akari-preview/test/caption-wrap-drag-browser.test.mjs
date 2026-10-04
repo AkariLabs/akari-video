@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { launchBrowser } from '../../../../../packages/overlay-runtime/test-harness/fixtures/browser.mjs';
 import { captionControlScale } from '../lib/common/caption-control-scale.js';
@@ -8,8 +7,9 @@ import { captionOrientedFrame, captionWrapAnchorDelta, captionWrapResize } from 
 import { captionWrapPosition } from '../lib/common/caption-wrap-position.js';
 import { captionAnchorPositionVars } from '@akari-video/edit-store';
 import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-handles-style.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 const start = handler.indexOf('const beginCaptionHandleDrag =');
 const end = handler.indexOf("const onCaptionPointerDown = event =>", start);
 assert.ok(start >= 0 && end > start);
@@ -18,8 +18,15 @@ const cssStart = handler.indexOf('#caption-select-box .akari-caption-handle-box 
 const cssEnd = handler.indexOf('.caption-row-plate.akari-caption-host--editing,', cssStart);
 const baseCss = handler.slice(cssStart, cssEnd);
 
-test('a selected output caption keeps its grabbed edge and writes wrap width without changing size', async () => {
-  const browser = await launchBrowser();
+test('a selected output caption keeps its grabbed edge and writes wrap width without changing size', async t => {
+  let browser;
+  try {
+    browser = await launchBrowser();
+  } catch (error) {
+    if (error?.message !== 'headless Chrome が見つかりません') throw error;
+    t.skip('headless Chrome 不在（Chrome のある環境でのみ実行）');
+    return;
+  }
   try {
     const page = await browser.newPage();
     const sx = 332 / 1920, sy = 187 / 1080;

@@ -1,0 +1,8 @@
+{
+  "format": "akari-textstyle",
+  "version": "1.0",
+  "id": "neon",
+  "name": "衝突確認用ネオン",
+  "category": "test",
+  "style": { "color": "#123456" }
+}

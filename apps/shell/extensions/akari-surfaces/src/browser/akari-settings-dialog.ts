@@ -31,7 +31,7 @@ import {
 import { generationOptions, generationSourceLabel } from '../common/generation-defaults-view';
 import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../common/store-entitlements-visibility';
 import { dialogOutsideClick } from '../common/dialog-outside-click';
-import { describeToolInstallOutcome, formatInstallProgressLabel } from '../common/tool-install-ui';
+import { describeToolInstallOutcome, formatInstallProgressLabel, TOOL_INSTALL_NOTICE, TOOL_PROVIDERS } from '../common/tool-install-ui';
 import { computeDownloadPercent, formatDownloadProgressLabel } from '../common/tool-install-progress';
 import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
 import { AKARI_VIDEO_LICENSE_URL, AKARI_VIDEO_NEW_ISSUE_URL, AKARI_VIDEO_REPO_URL } from '../common/repo-links';
@@ -49,6 +49,7 @@ import {
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     AKARI_TIMELINE_VISUAL_THUMBNAILS,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
+    AKARI_EXPORT_GPU_PREFERENCE_CONSENT, showTemporaryGpuPreferenceSetting,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, TRANSCRIBE_MODE_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
@@ -60,7 +61,7 @@ import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AK
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
-import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
+import { AkariSettingsMaintenanceService, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
 import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai-models-protocol';
 import { AiModelsView } from './ai-models/ai-models-view';
 import { parseUpdateCache, resolveUpdateDownloadUrl } from '../common/update-feed';
@@ -129,6 +130,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected storeState: StoreConnectionFlowState = { connection: { connected: false }, connectionLoading: true, phase: 'idle' };
     protected storeReconnect = false;
     protected storeStatusGeneration = 0;
+    protected storeConnectPending = false;
     protected readonly notice = element('p');
     protected preferenceWrites: Promise<unknown> = Promise.resolve();
     protected readonly localPreferenceWrites = new Set<string>();
@@ -188,12 +190,15 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 if (this.isDisposed) { return; }
                 this.storeState = state;
                 this.renderStore();
-                void this.refreshStoreEntitlements();
+                if (state.phase === 'error' || state.phase === 'expired') this.storeConnectPending = false;
+                const intent = this.storeConnectPending && state.connection.connected && state.phase === 'idle' ? 'user' : 'automatic';
+                if (intent === 'user') this.storeConnectPending = false;
+                void this.refreshStoreEntitlements(intent);
             }
         });
         this.toDispose.push(this.storeController);
         this.toolsView = new SettingsToolsView({ title: '道具', onWorkspaceCreated: async () => undefined, onFinished: () => undefined },
-            files, env, toolsService, commands);
+            files, env, toolsService, commands, windows);
         this.toolsView.onToolsChanged = () => { if (!this.isDisposed) { this.renderSection('start'); } };
         this.toDispose.push(this.toolsView);
         this.buildDom();
@@ -546,6 +551,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                         this.close();
                         void this.commands.executeCommand(CommonCommands.OPEN_PREFERENCES.id);
                     }, { small: true }))),
+                ...(showTemporaryGpuPreferenceSetting(platform) ? [groupCard('Windows の GPU 設定',
+                    this.preferenceSwitch(AKARI_EXPORT_GPU_PREFERENCE_CONSENT, '一時的に高性能 GPU を使う', false,
+                        '書き出しの間だけ AKARI Video に高性能 GPU を割り当て、終了後に元へ戻します。'))] : []),
                 groupCard('書き出しのあと',
                     this.preferenceSwitch('akari.export.openFolderAfter', '終わったらフォルダを開く', false, 'Finder で書き出したファイルを選んだ状態に'),
                     this.preferenceSwitch('akari.export.notifyAfter', '終わったら知らせる', true, 'ウィンドウが背面のときだけ'),
@@ -851,6 +859,15 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 ? settingsNote('開発版のため更新は確認できません')
                 : this.createAboutUpdateRow();
             this.aboutUpdateRow = capabilities && !capabilities.updateUiEnabled ? undefined : updateRow;
+            const networkExplanation = el('div');
+            networkExplanation.setAttribute('data-akari-network-explanation', 'true');
+            networkExplanation.append(
+                settingsNote('AKARI Video は利用状況を送りません。'),
+                settingsNote('新しい版と素材の一覧を自動で確認します。何も送らず、取得するだけです。'),
+                settingsNote('AI 機能は使ったときだけ、あなたの API キーで各社に送ります。'),
+                settingRow('プライバシーポリシー', 'https://akari.video/privacy',
+                    action('開く', () => this.windows.openNewWindow('https://akari.video/privacy', { external: true }), { small: true }))
+            );
             const main = groupCard(undefined, hero,
                 updateRow,
                 settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
@@ -858,11 +875,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                         this.savePreference('akari.update.channel', value);
                         void this.maintenance.setUpdateSettings({ channel: value });
                     } })),
-                settingRow('自動で確認する', '起動したときに右下の通知でお知らせ', switchControl({ label: '自動で確認する',
+                settingRow('更新と素材の自動確認', '新しい版・素材の一覧・購入済み素材・拡張の更新を自動で確認します', switchControl({ label: '更新と素材の自動確認',
                     checked: updateSettings?.autoCheck ?? this.preferences.get<boolean>('akari.update.autoCheck', true), onChange: checked => {
                         this.savePreference('akari.update.autoCheck', checked);
                         void this.maintenance.setUpdateSettings({ autoCheck: checked });
-                    } })));
+                    } })),
+                networkExplanation);
             section.append(main);
             if (info.recentChanges) {
                 const release = element('div'); release.className = 'akari-set-about-release';
@@ -1586,7 +1604,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.renderSection('start');
     }
 
-    protected async refreshStoreEntitlements(): Promise<void> {
+    protected async refreshStoreEntitlements(intent: 'automatic' | 'user' = 'automatic'): Promise<void> {
         const generation = ++this.storeStatusGeneration;
         if (!this.storeState.connection.connected || this.storeState.phase !== 'idle') {
             this.storeReconnect = false;
@@ -1594,7 +1612,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             return;
         }
         try {
-            const view = await this.storeService.getAssetCatalogView(undefined);
+            const view = await this.storeService.getAssetCatalogView(undefined, intent);
             if (this.isDisposed || generation !== this.storeStatusGeneration) { return; }
             this.storeReconnect = storeReconnectRequired(true, view.entitlementsStatus);
             this.renderStore();
@@ -1638,10 +1656,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const controls = element('div');
         controls.className = 'akari-set-store-controls';
         if (busy) {
-            controls.append(action('キャンセル', () => this.storeController.cancel(), { small: true }));
+            controls.append(action('キャンセル', () => { this.storeConnectPending = false; this.storeController.cancel(); }, { small: true }));
         } else {
             if (!state.connection.connected || this.storeReconnect) {
-                const connect = action(this.storeReconnect ? '再接続する' : '接続する', () => void this.storeController.start(), { variant: 'primary' });
+                const connect = action(this.storeReconnect ? '再接続する' : '接続する', () => {
+                    this.storeConnectPending = true;
+                    void this.storeController.start();
+                }, { variant: 'primary' });
                 connect.disabled = state.connectionLoading;
                 controls.append(connect);
             }
@@ -1985,6 +2006,8 @@ class SettingsToolsView extends AkariFirstRunSetupDialog {
         recheck.setAttribute('data-akari-tool-recheck', 'true');
         recheck.disabled = this.checkingTools || this.installingTools;
         const card = groupCard('道具', ...rows);
+        const installNotice = settingsNote(`${TOOL_INSTALL_NOTICE} Blender などでは管理者の確認が表示される場合があります。`);
+        card.prepend(installNotice);
         if (!this.toolCheck && this.checkingTools) {
             const status = settingsNote('道具を確認しています…');
             status.setAttribute('role', 'status');
@@ -2019,6 +2042,17 @@ class SettingsToolsView extends AkariFirstRunSetupDialog {
         const purpose = element('span', info.purpose);
         purpose.className = 'akari-set-tool-desc';
         body.append(name, purpose);
+        const providerLine = element('span', `提供元: ${TOOL_PROVIDERS[tool.id].provider} · `);
+        providerLine.className = 'akari-set-tool-extra';
+        const terms = document.createElement('a');
+        terms.href = TOOL_PROVIDERS[tool.id].termsUrl;
+        terms.textContent = '利用規約・ライセンス';
+        terms.addEventListener('click', event => {
+            event.preventDefault();
+            this.openExternalToolUrl(terms.href);
+        });
+        providerLine.append(terms);
+        body.append(providerLine);
         const extra = (text: string, tone?: 'error'): void => {
             const line = element('span', text);
             line.className = 'akari-set-tool-extra';
@@ -2102,12 +2136,15 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(WidgetManager) protected readonly widgetManager!: WidgetManager;
     @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
     @inject(PluginServer) protected readonly pluginServer!: PluginServer;
-    protected maintenance?: AkariSettingsMaintenanceService;
+    @inject(AkariSettingsMaintenanceService) protected readonly maintenance!: AkariSettingsMaintenanceService;
     protected dialog: AkariSettingsDialog | undefined;
     protected requestedSection: SettingsSectionId | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand({ id: 'akari.update.isAutoCheckEnabled' }, {
+            execute: async () => (await this.maintenance.getUpdateSettings()).autoCheck === true
+        });
         commands.registerCommand({ id: 'akari.library.isMoving' }, { execute: () => this.tools.isLibraryMoving() });
         commands.registerCommand({ id: 'akari.library.changeLocation', label: '素材の置き場を変える…' }, {
             execute: async () => {
@@ -2220,7 +2257,6 @@ export class AkariSettingsCommandContribution implements CommandContribution {
 
     protected async openSettings(): Promise<void> {
         await this.preferences.ready;
-        this.maintenance ??= this.connectionsProvider.createProxy<AkariSettingsMaintenanceService>(AKARI_SETTINGS_MAINTENANCE_PATH);
         const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
         const aiModels = this.connectionsProvider.createProxy<AkariAiModelsService>(AKARI_AI_MODELS_SERVICE_PATH);
         const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.requestedSection);

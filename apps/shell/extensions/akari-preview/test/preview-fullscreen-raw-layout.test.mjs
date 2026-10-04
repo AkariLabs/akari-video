@@ -1,15 +1,15 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const compiled = readFileSync(
-    join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const preview_host_constants_1 = createRequire(import.meta.url)('../lib/browser/preview-host-constants.js');
+const compiled = readHandlerCompiled();
 
 function extractMethod(name) {
     const start = compiled.indexOf(`    ${name}(`);
@@ -100,6 +100,7 @@ function createFullscreenRuntime() {
     const context = {
         PREVIEW_FULLSCREEN_CLASS: 'akari-preview-fullscreen',
         PREVIEW_FULLSCREEN_ANCESTOR_CLASS: 'akari-preview-fullscreen-ancestor',
+        preview_host_constants_1,
         disposable_1: {
             Disposable: {
                 create: dispose => ({ dispose })
@@ -195,6 +196,7 @@ test('全画面 widget の破棄でも祖先クラスを漏れなく復元する
 
 test('全画面スタイルは祖先の z-index スタッキングコンテキストを解除する', () => {
     const ensureStyle = vm.runInNewContext(`(function ${extractMethod('ensurePreviewFullscreenStyle')})`, {
+        preview_host_constants_1,
         PREVIEW_FULLSCREEN_CLASS: 'akari-preview-fullscreen',
         PREVIEW_FULLSCREEN_ANCESTOR_CLASS: 'akari-preview-fullscreen-ancestor',
         PREVIEW_FULLSCREEN_STYLE_ID: 'akari-preview-fullscreen-style'

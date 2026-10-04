@@ -1,6 +1,7 @@
 import * as MP4BoxNamespace from '@webav/mp4box.js';
 import { readVideoCodecFromMoov } from './codec-probe.js';
 import { calculateDecoderTimestampOffsetUs, type MediaEdit } from './keyframe-index.js';
+import { prefersEarlierFrame } from './nearest-frame.js';
 import {
   childBoxes,
   describeIndexParseFailure,
@@ -284,7 +285,7 @@ export function sampleAtPresentationTime(
   const previous = table.samples[order[low]!]!;
   if (!resolveNearestFrameDefault() || low === order.length - 1) return previous;
   const next = table.samples[order[low + 1]!]!;
-  return targetUs - previous.timestampUs <= next.timestampUs - targetUs ? previous : next;
+  return prefersEarlierFrame(previous.timestampUs, next.timestampUs, targetUs) ? previous : next;
 }
 
 export function resolveNearestFrameDefault(): boolean {

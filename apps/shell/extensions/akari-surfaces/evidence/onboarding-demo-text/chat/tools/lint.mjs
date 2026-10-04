@@ -1,0 +1,12 @@
+import { cp, readFile, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+const WT = "<WORKTREE>";
+const { lintProject } = await import(pathToFileURL(WT + "/packages/edit-lint/src/edit-lint.mjs").href);
+const { migrateFixtureTree } = await import(pathToFileURL(WT + "/packages/edit-lint/test/helpers/v2-fixture.mjs").href);
+const project = "C:/t/chat-text/lint/proj";
+await cp(WT + "/apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-chat/fragment.html", project + "/overlays/demo-chat/fragment.html");
+await migrateFixtureTree(project);
+const result = await lintProject(project, { writeReports: false });
+const mine = result.findings.filter(f => /overlay|demo-chat/i.test(JSON.stringify(f)));
+console.log(JSON.stringify({ status: result.status ?? result.ok, total: result.findings.length, overlayFindings: mine }, null, 1));
+console.log(JSON.stringify(result.findings.map(f => f.severity + " " + f.check)));

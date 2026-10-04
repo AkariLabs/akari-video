@@ -7,9 +7,12 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { preloadMediaBin, resolveMediaCommand } from "./media-bin-loader.mjs";
 import { resolveLauncherAssets } from "./repo-assets.mjs";
 import { listProfiles, readFalKey, readProviderKey, resolveVoiceProfile } from "./voice-command.mjs";
 import { FAL_TTS_ENGINES, DIRECT_TTS_ENGINES, falTtsEngine, ttsEngine, estimateTtsCost, referenceDataUri } from "./tts-engines.mjs";
+
+await preloadMediaBin();
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
 const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
@@ -1003,7 +1006,7 @@ function durationForAudio(buffer, outputPath, engine, warnings) {
       }
     }
   } else {
-    const result = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", outputPath], { encoding: "utf8" });
+    const result = spawnSync(resolveMediaCommand("ffprobe"), ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", outputPath], { encoding: "utf8" });
     const seconds = Number(result.stdout?.trim());
     if (result.status === 0 && Number.isFinite(seconds) && seconds >= 0) return Number(seconds.toFixed(3));
   }

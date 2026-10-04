@@ -13,6 +13,7 @@ import { describeGenerationChip, generationChipLabel } from '../lib/common/gener
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { validateInputs } from '../../../../../packages/generate/src/validate-inputs.mjs';
 import { runVideoCommand } from '../../../../../packages/generate/src/cli/video.mjs';
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 const catalog = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url))).models.filter(row => row.kind === 'video');
 const h3 = catalog.find(row => row.id === 'fal:h3-i2v');
 const actions = Object.fromEntries(['update', 'generate', 'resume', 'retry', 'copyAdjacent', 'finalQuality'].map(key => [key, async () => ({ ok: true })]));
@@ -81,7 +82,9 @@ test('下書き done + 元静止画 next だけに本番の画質にする…と
   }
 });
 function harness(file, className, names, dependencies = {}) {
-  const source = readFileSync(new URL(`../src/browser/${file}`, import.meta.url), 'utf8');
+  const source = file === 'inspector.ts'
+    ? readInspectorSource()
+    : readFileSync(new URL(`../src/browser/${file}`, import.meta.url), 'utf8');
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const cls = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === className);
   const methods = names.map(name => { const node = cls.members.find(node => node.name?.getText(ast) === name); assert.ok(node, name); return node.getText(ast); });
@@ -252,7 +255,7 @@ test('再試行: 遅れた選択 snapshot を待ってから open コマンド�
 });
 
 let approval, dialogCount = 0;
-const Inspector = harness('akari-inspector-widget.ts', 'AkariInspectorWidget', ['focusField', 'retryGenerationFromTimeline', 'confirmAndStartGeneration', 'updateGenerationDraft', 'prepareGenerationFinal', 'readGenerationOriginalNext'], {
+const Inspector = harness('inspector.ts', 'AkariInspectorWidget', ['focusField', 'retryGenerationFromTimeline', 'confirmAndStartGeneration', 'updateGenerationDraft', 'prepareGenerationFinal', 'readGenerationOriginalNext'], {
   generationFields: fields.generationFields, window: { setTimeout, clearTimeout },
   ConfirmDialog: class { constructor(options) { assert.equal(options.title, '費用承認'); dialogCount++; } open() { return approval; } }
 });
@@ -350,7 +353,7 @@ test('既存 RPC と CLI は done mp4 の next で同一 item を再生成し映
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-const Loader = harness('akari-inspector-widget.ts', 'AkariInspectorWidget',
+const Loader = harness('inspector.ts', 'AkariInspectorWidget',
   ['loadGeneration', 'readGenerationOriginalNext', 'generationIdentity', 'generationSectionFields'],
   { generationFields: fields.generationFields, generationDraftFromDone, selectGenerationSidecarForSource });
 test('done item の実 loader → placeholder 読込後も比較パネルから旧 1 本経路を呼ばない', async () => {

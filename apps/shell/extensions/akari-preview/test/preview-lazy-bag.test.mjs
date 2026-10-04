@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { expandBagOverlays, projectBagChildren, scanHtmlParts } from '../../../../../packages/overlay-runtime/src/parts.mjs';
+import { readHandlerSource, methodBody } from './helpers/handler-source.mjs';
 
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const source = readHandlerSource();
 const host = source.slice(source.indexOf('let collapsedBagSummary:'), source.indexOf('// 診断', source.indexOf('let collapsedBagSummary:')));
 const bridge = source.slice(source.indexOf('let bagExpansionRequest ='), source.indexOf('window.akari.reportOverlaySelection ='))
   + source.slice(source.indexOf('// BEGIN preview bag response'), source.indexOf('// END preview bag response'));
@@ -23,7 +23,8 @@ test('webview sends a generation with each scope request and serializes current 
   assert.match(bridge, /window\.akari\.requestBagExpansion = bagId =>/u);
   assert.match(bridge, /type: 'akari-preview-expand-bag', bagId, requestId: \+\+bagExpansionRequest/u);
   assert.match(bridge, /!window\.akari\.isCurrentBagExpansion\(message\.requestId\)\) return/u);
-  assert.ok(source.indexOf('// BEGIN preview bag response') > source.indexOf('protected previewBootstrapScript()'),
+  const bootstrap = methodBody('previewBootstrapScript');
+  assert.ok(bootstrap.indexOf('// BEGIN preview bag response') > bootstrap.indexOf('export function previewBootstrapScript()'),
     'response must share lexical scope with summary, plates and applyIncrementalModel');
   assert.match(bridge, /bagMountTail = bagMountTail\.then\(async \(\) =>/u);
   assert.match(bridge, /window\.akari\.state\.summary = summary;\s*await window\.akari\.runtime\.mount\(summary\);[\s\S]*stage\.append\(transitionPlate, transitionFallbackLabel, captionLayer\);\s*applyIncrementalModel\(summary\)/u);

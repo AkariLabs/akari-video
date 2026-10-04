@@ -1,0 +1,76 @@
+{
+  "element": "sfx-pa-whoosh",
+  "file": "apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/audio/sfx-whoosh-punchy.m4a",
+  "file_md5": "3a9c245e0ca46b7d98e321614590b2be",
+  "format": "AAC-LC 128 kbps / 48 kHz / stereo / m4a（+faststart・bitexact。同じ手順で再生成して md5 一致を確認）",
+  "duration_s": 0.768,
+  "source": {
+    "id": "sfx-whoosh-punchy",
+    "path_read": "<WORKTREE>/assets/audio/sfx/sfx-whoosh-punchy.mp3（~/Akari/library/audio/akari-sounds-sfx/ と同一）",
+    "md5": "df86b3f68a24dddadb0f96b7c252babe",
+    "meta": "akari-video-internal assets/audio/sfx-whoosh-punchy/meta.json",
+    "license": "LicenseRef-AKARI-Sounds-v0（商用可・クレジット不要・単体再配布/音楽配信登録/Content ID 登録は禁止）、price 0",
+    "duration_s": 1.801,
+    "sample_peak_dbfs": -0.69,
+    "integrated_lufs": -12.8,
+    "whoosh_rise_s": [0.10, 0.275],
+    "impact_onset_s": 0.2752,
+    "impact_onset_def": "吸い込みの後、振幅が 3 ms で約 +12 dB 跳ねて −8 dBFS を越える最初のサンプル",
+    "rms10ms_max_s": 0.29,
+    "sample_peak_s": 0.3312,
+    "note": "構成表の「山 0.33 s」はサンプル最大で、衝撃の胴（0.275〜0.39 s）の途中。耳に「当たった」と聞こえるのは 0.275 s の立ち上がり"
+  },
+  "recipe": [
+    "ffmpeg で素材を 48 kHz ステレオ float に復号（mp3 の encoder delay は ffmpeg が除く）",
+    "頭に無音 3024 サンプル（63 ms）を置き、素材 0〜0.687 s（32976 サンプル）を続ける。素材の頭 5 ms にフェードイン（−47 dBFS のヒスの段差消し）",
+    "0.72〜0.75 s に 30 ms のフェードアウト（素材はそこで既に −55 dBFS 未満）",
+    "−3.30 dB（サンプルピーク −4.0 dBFS）",
+    "尾に無音 864 サンプルを足して 36864 サンプル = 0.768 s（AAC 36 フレーム）",
+    "ffmpeg -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart -map_metadata -1 -fflags +bitexact -flags:a +bitexact"
+  ],
+  "edit_item_unchanged": {
+    "track": "demo-sfx", "id": "demo-sfx-pa-whoosh", "at": 581, "duration": 23, "role": "sfx", "gain_db": -4,
+    "source": { "kind": "media", "src": "demo-sfx-whoosh-punchy", "in": 0, "out": 0.75 }
+  },
+  "file_marks_s": {
+    "head_silence_end": 0.063,
+    "whoosh_audible_from_minus40dbfs": 0.1803,
+    "impact_onset": 0.3381,
+    "sample_peak": 0.3942,
+    "fade_out": [0.72, 0.75],
+    "out": 0.75,
+    "end": 0.768
+  },
+  "decode_check": {
+    "ffmpeg_9.0": { "samples": 36864, "impact_onset_s": 0.3381, "sample_peak_dbfs": -3.97, "lag_vs_pcm_samples": 0 },
+    "electron_39.8.7_decodeAudioData": { "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a", "samples": 36864, "impact_onset_s": 0.3381, "sample_peak_dbfs": -3.97, "lag_vs_pcm_samples": 0 },
+    "note": "AAC の priming は両方の復号で除かれ、書き出し（render-cut: atrim→volume→adelay）とプレビュー（decodeAudioData→AudioBufferSourceNode）で同じ位置に鳴る。0.750 s ちょうどのファイルだと Chromium の復号は 35999 サンプルで out 0.75 を 1 サンプル超えるため、尾に無音を足した"
+  },
+  "timeline": {
+    "item_start_s": 19.3667,
+    "render_cut_adelay_ms": 19367,
+    "impact_onset_s": 19.7051,
+    "rms10ms_max_s": 19.725,
+    "sample_peak_s": 19.7612,
+    "whoosh_audible_from_s": 19.547,
+    "item_end_s": 20.1333,
+    "voice_pa_burst_s": 19.7046,
+    "voice_pa_burst_def": "clip.mp4 の音声で 19.60 以降に −50 dBFS を最初に越えるサンプル（直前 19.36〜19.70 は −70 dBFS 前後の無音）",
+    "sync_error_s": 0.0005,
+    "planned_visuals": "閃光 590 f（19.667）の出・591 f（19.700）で最大、ズーム 590→592 f、「パッ！」591 f。唇は f591 で閉じ、破裂の後の f592（19.733）で開く（clip.mp4 の実フレーム）",
+    "alternative_rejected": "構成表の原案どおり素材を頭から置く（サンプル最大 0.331 s を 19.697 に合わせる）と、衝撃の立ち上がりは 19.643 で「パ」より 62 ms 早く、映像（591 f）よりも音が先に来る。ファイルの頭に 63 ms の無音を入れ、edit_item は変えずに立ち上がりを 19.705 に合わせた"
+  },
+  "levels": {
+    "whoosh_at_gain_-4": { "sample_peak_dbfs": -7.97, "true_peak_dbfs": -8.0, "momentary_max_lufs_19.40_20.15": -19.7, "integrated_lufs_19.40_20.15": -19.8 },
+    "voice_19.40_20.15": { "momentary_max_lufs": -21.6, "integrated_lufs": -23.0, "sample_peak_dbfs": -6.41 },
+    "bgm_approx_19.3_20.2_sample_peak_dbfs": -12.28,
+    "mix_19.3_20.2_sample_peak_dbfs": -4.01,
+    "mix_whole_sample_peak_dbfs": -3.14,
+    "note": "BGM は計画値（bgm-lofi-minimal-085 を +0.080 s で切り出し・gain −9・duck −8 / attack 0.15 / release 0.5・声の区間は word-timing.json の voiced_runs）の近似。書き出しの実測ではない。「パッと」の区間は声が短く小さいので、whoosh の momentary は声より約 2 LU 大きい（本編の頂点として意図どおり。強すぎる場合は gain_db −4 → −6）"
+  },
+  "no_overlap_with_other_sfx": "前の sfx-kouka-pop は 17.633 で終わり、次の sfx-hora-sparkle は 20.567 から。demo-sfx 段で重ならない",
+  "renders": [
+    "sfx-pa-whoosh-sync.png（19.2〜20.3 s の声・BGM・whoosh の包絡と実フレーム・口元）",
+    "sfx-pa-whoosh-cut.png（素材と同梱ファイルの包絡、当てる点の定義）"
+  ]
+}

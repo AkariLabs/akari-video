@@ -1,3 +1,4 @@
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -13,10 +14,7 @@ import { dirname, join } from 'node:path';
 // を検査する。実 DOM での駆動（クリック選択・シーク挙動）は Electron 実機の領分。
 
 const here = dirname(fileURLToPath(import.meta.url));
-const compiled = readFileSync(
-    join(here, '..', 'lib', 'browser', 'akari-preview-open-handler.js'),
-    'utf8'
-);
+const compiled = readHandlerCompiled();
 
 /**
  * compiled lib のメソッド定義から、最初のバッククォートで始まるテンプレートリテラル本体を
@@ -25,7 +23,7 @@ const compiled = readFileSync(
  * 規則で解釈する。返り値は「実行時に生成されるスクリプト文字列」と構文的に等価なテキスト。
  */
 function extractTemplate(methodName) {
-    // prepareHtml 内の呼び出し（`this.previewBootstrapScript()`）が定義より先に現れるため、
+    // prepareHtml 内の呼び出し（`previewBootstrapScript()`）が定義より先に現れるため、
     // 後方から探してメソッド定義本体を取る。
     const methodAt = compiled.lastIndexOf(`${methodName}()`);
     assert.notEqual(methodAt, -1, `${methodName}() が compiled lib に見つからない`);

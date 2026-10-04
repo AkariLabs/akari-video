@@ -7,6 +7,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { RESOLVED_CAPTION_WORD_PRESET_CSS } from '../../../../../packages/render-cut/src/captions.mjs';
+import { CAPTION_RICH_LAYER_CSS as WEB_CAPTION_RICH_LAYER_CSS } from '../../../../../packages/preview-server/public/caption-style.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -16,7 +18,7 @@ const {
 } = require('../lib/browser/akari-preview-captions.js');
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
 const shellVisualContract = require('../lib/common/caption-visual-contract.js');
-const { captionAnchorPositionVars, resolveCaptionDisplay } = require('../../../../../packages/edit-store/lib/index.js');
+const { captionAnchorPositionVars, resolveCaptionDisplay, CAPTION_RICH_LAYER_CSS } = require('../../../../../packages/edit-store/lib/index.js');
 const { TEXTSTYLE_CATALOG } = require('../../../../../packages/edit-store/lib/index.js');
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(extensionRoot, '../../../..');
@@ -28,9 +30,7 @@ const checkedVisualContract = JSON.parse(await readFile(join(
 ), 'utf8'));
 
 test('webview に埋め込む語プリセット CSS は render-cut と一致する', async () => {
-    const source = await readFile(join(
-        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
-    ), 'utf8');
+    const source = readHandlerSource();
     const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;[^']+\.akari-caption__tok--preset\{[^']+\})'/u);
     assert.equal(embedded?.[1], RESOLVED_CAPTION_WORD_PRESET_CSS);
 });
@@ -49,9 +49,7 @@ test('無装飾字幕も fragment 経路で描画する（plain 流し込みに�
     // plain の textContent 経路では焼き込みと同じ複数行分割が使われず、長い字幕が折り返されなかった。
     // 合流時に webview のモジュール読み込み（inversify の @inject）へ依存しない形へ直した:
     // 上の語プリセット CSS テストと同じく open-handler のソース文字列を見る。
-    const source = await readFile(join(
-        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
-    ), 'utf8');
+    const source = readHandlerSource();
     assert.ok(!source.includes("captionPlate.textContent = caption ? caption.text : ''"));
     assert.ok(source.includes('renderPlainCaptionFragment(caption, captionAnimation)'));
 });
@@ -437,9 +435,7 @@ test('shared caption-style contract reaches shell RPC and renderer unchanged', a
         await writeFile(captionsPath, JSON.stringify(withStyle(styleParity.caption_style_contract.accepted.style)));
         await assert.rejects(resolveFrom(service, captionsPath, editPath), /style cannot be combined with display_policy/u);
 
-        const rendererSource = await readFile(join(
-            extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
-        ), 'utf8');
+        const rendererSource = readHandlerSource();
         assert.match(rendererSource, /akari-caption__tok--reveal-word/u);
         assert.match(rendererSource, /--akari-tok-delay/u);
         assert.match(rendererSource, /akari-caption-reveal-word/u);
@@ -523,13 +519,20 @@ test('word preset style_vars are identical across kernel, render, preview API, a
 });
 
 test('word variable contract exactly matches render and Web preview preset consumers', async () => {
+    const variablesOf = css => [...css.matchAll(/var\((--caption-tok-[a-z-]+)/gu)].map(match => match[1]);
+    const expected = new Set(checkedVisualContract.resolved_caption_word_style_variable_names);
     const renderVariables = [...RESOLVED_CAPTION_WORD_PRESET_CSS.matchAll(/var\((--caption-tok-[a-z-]+)/gu)]
         .map(match => match[1]);
-    assert.deepEqual(new Set(renderVariables), new Set(checkedVisualContract.resolved_caption_word_style_variable_names));
+    const renderSource = await readFile(join(repositoryRoot, 'packages/render-cut/src/captions.mjs'), 'utf8');
+    assert.match(renderSource, /\.replace\('<\/style>', `\$\{CAPTION_RICH_LAYER_CSS\}<\/style>`\)/u);
+    assert.deepEqual(new Set([...renderVariables, ...variablesOf(CAPTION_RICH_LAYER_CSS)]), expected);
     const source = await readFile(join(repositoryRoot, 'packages/preview-server/public/app.js'), 'utf8');
+    assert.match(source, /import \{ replaceCaptionStyleVariables, applyRichCaptionLayers \} from '\/caption-style\.js'/u);
     const rule = source.match(/\.akari-caption__tok--preset \{([^}]+)\}/u)?.[1] ?? '';
     const previewVariables = [...rule.matchAll(/var\((--caption-tok-[a-z-]+)/gu)].map(match => match[1]);
     assert.deepEqual(previewVariables, renderVariables);
+    assert.equal(WEB_CAPTION_RICH_LAYER_CSS, CAPTION_RICH_LAYER_CSS);
+    assert.deepEqual(new Set([...previewVariables, ...variablesOf(WEB_CAPTION_RICH_LAYER_CSS)]), expected);
 });
 
 test('shell backend supplies protect_break terms and matches soft-fallback fragments', async () => {

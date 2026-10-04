@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
-const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+import { readHandlerSource } from './helpers/handler-source.mjs';
+const source = readHandlerSource();
 const start = source.indexOf("                if (message?.type === 'akari-preview-set-zoom')");
 const end = source.indexOf("                if (message?.type === 'akari-preview-select-primary')", start);
 assert.ok(start > 0 && end > start);

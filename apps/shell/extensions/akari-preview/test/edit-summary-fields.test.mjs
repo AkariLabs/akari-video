@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 
@@ -12,6 +11,7 @@ import {
     normalizeLayerKeyframesForSummary,
     normalizeLayerPerspectiveForSummary
 } from '../lib/common/edit-summary-fields.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const { TRANSITION_TYPE_IDS } = createRequire(import.meta.url)(
     '../../../../../packages/edit-store/lib/index.js'
@@ -107,7 +107,7 @@ test('buildLayerSummaryBase: absent mask stays absent; invalid masks warn once a
 });
 
 test('v2 layer mask resolves a sources id or projected path through ensureAssetStream into the existing URL seat', () => {
-    const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const handler = readHandlerSource();
     const start = handler.indexOf('const resolveLayerItem = async');
     const end = handler.indexOf('const layerResolutions =', start);
     assert.ok(start >= 0 && end > start);

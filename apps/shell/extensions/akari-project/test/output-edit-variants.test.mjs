@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
+import { readSourceFile, findMember, findTopLevelVariable } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import test from 'node:test';
 
@@ -35,27 +35,28 @@ test('all edit variants appear after canonical edit and before other data', () =
     assert.equal(editVariantDataFileLabel('edit.timeline-2.json'), '編集データ（timeline-2）');
     assert.equal(dataFileIcon('edit.v20.json'), dataFileIcon('edit.json'));
 });
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const method = name => widget.members.find(node => node.name?.getText(source) === name);
+const source = readSourceFile('widget').ast;
+const paneSource = readSourceFile('outputs').ast;
+const method = name => findMember(name, { in: 'widget' }).node;
 const harness = (name, dependencies) => {
     const code = ts.transpileModule('class Harness { ' + method(name).getText(source) + ' }', { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     return new Function(...Object.keys(dependencies), code + '\nreturn Harness;')(...Object.values(dependencies));
 };
+const paneMethod = name => findMember(name, { in: 'outputs' }).node;
+const paneHarness = (name, dependencies) => {
+    const code = ts.transpileModule('class Harness { ' + paneMethod(name).getText(paneSource) + ' }', { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+    return new Function(...Object.keys(dependencies), code + '\nreturn Harness;')(...Object.values(dependencies));
+};
 
 test('outputs collection includes root edit variants and keeps canonical edit first', async () => {
-    const Harness = harness('loadOutputs', {
-        isEditDataFileName, orderDataEntries,
-        PROJECT_DATA_FILES: [{ name: 'edit.json' }, { name: 'captions.json' }, { name: 'review.json' }],
-        ROOT_REPORT_FILES: []
-    });
+    const Harness = paneHarness('loadOutputs', { isEditDataFileName, orderDataEntries });
     const root = { toString: () => 'root', resolve: name => ({ toString: () => name }) };
     const names = ['edit.v20.json', 'captions.json', 'edit.json', 'edit.timeline-2.json', 'edit.V20.json', 'review.json'];
     const files = names.map((name, mtime) => ({ resource: { path: { base: name } }, mtime, size: 1 }));
     const instance = new Harness();
-    instance.workflow = { workspaceRoot: root };
+    instance.host = { workflow: { workspaceRoot: root }, update: () => {},
+        projectDataFiles: [{ name: 'edit.json' }, { name: 'captions.json' }, { name: 'review.json' }], rootReportFiles: [] };
     instance.outputsGeneration = 0;
-    instance.update = () => {};
     instance.collectTopLevelFiles = async uri => uri === root ? files : [];
     instance.collectPlanFiles = async () => [];
     instance.collectRootFilesNamed = async () => [];
@@ -83,14 +84,12 @@ test('opening an edit output opens its preview and requested timeline', async ()
 });
 
 test('fixed data labels come from PROJECT_DATA_FILES, while the helper labels only variants', async () => {
-    const declaration = source.statements.filter(ts.isVariableStatement)
-        .flatMap(statement => [...statement.declarationList.declarations])
-        .find(node => node.name.getText(source) === 'PROJECT_DATA_FILES');
+    const { declaration } = findTopLevelVariable('PROJECT_DATA_FILES', { in: 'widget' });
     assert.ok(declaration?.initializer);
     const projectDataFiles = new Function('return ' + declaration.initializer.getText(source))();
-    const Harness = harness('buildOutputEntry', { PROJECT_DATA_FILES: projectDataFiles, editVariantDataFileLabel });
+    const Harness = paneHarness('buildOutputEntry', { editVariantDataFileLabel });
     const instance = new Harness();
-    instance.workflow = { relativePath: uri => uri.path.base };
+    instance.host = { workflow: { relativePath: uri => uri.path.base }, projectDataFiles };
     const entry = name => instance.buildOutputEntry({}, { resource: { path: { base: name } }, mtime: 1, size: 1 }, 'data');
     assert.equal((await entry('edit.json')).title, '編集データ');
     assert.equal((await entry('captions.json')).title, '字幕データ');

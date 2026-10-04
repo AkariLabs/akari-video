@@ -7,12 +7,14 @@
 //         即死していた（件数 `-` / 0.0 秒の赤）。shell: true での回避も禁止する（引数がシェル解釈にさらされる）
 //   (b) pure（CI required）レーンに外部ツール依存のテストファイルが混入していないこと
 //       — required は「どの環境でも同じ結果になる」ものだけ、というレーン分けの原則の機械化
+//   (c) 追跡・未追跡テストの孤児、除外の帳尻、今回 pure へ移したテストの純度
 //
 // 併せて scripts/ci/check-preview-server-drift.mjs も同じ観点（shebang 付き JS を直接 spawn しない）で検査する。
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +26,7 @@ import {
   PREVIEW_SERVER_PURE_EXCLUSIONS,
   childEnv,
   commandFor,
+  coveredTestFiles,
   resolveNpmCli
 } from '../ci/run-unit-tests.mjs';
 
@@ -216,4 +219,63 @@ test('skills レーンの ffmpeg・swiftc 依存の除外指定が残ってい�
   const skills = LANES.pure.entries.find(entry => entry.id.startsWith('skills/*'));
   assert.ok(skills?.exclude?.some(pattern => pattern.test('skills/analyze-footage/test/vision-tracks-assembly.test.mjs')));
   assert.ok(skills?.exclude?.some(pattern => pattern.test('skills/analyze-footage/test/vision-tracks-check.test.mjs')));
+});
+
+// ---------------------------------------------------------------- (c) 孤児と今回の pure 移動
+
+const normalized = file => file.split(path.sep).join('/');
+const gitFiles = () => {
+  const result = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+    cwd: repoRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return [...new Set(result.stdout.split('\0').filter(Boolean).map(normalized))];
+};
+const testFile = /\.(?:test|spec)\.(?:mjs|js|cjs|ts|tsx)$/u;
+// Governance 管理の evidence は L1 スクリプトの記録領域。node_modules と .git はソースではない。
+const OUT_OF_SCOPE = /(?:^|\/)(?:node_modules|\.git|evidence)\//u;
+const testSources = () => gitFiles().filter(file => testFile.test(file) && !OUT_OF_SCOPE.test(file));
+const excludedFiles = () => NOT_COVERED.map(item => ({
+  item,
+  matches: (item.paths ?? []).map(pattern => ({
+    pattern,
+    files: new Set(globSync(pattern, { cwd: repoRoot }).map(normalized))
+  }))
+}));
+
+test('追跡・未追跡のテストに孤児が無い', () => {
+  const covered = coveredTestFiles(repoRoot);
+  const excluded = new Set(excludedFiles().flatMap(({ matches }) => matches.flatMap(({ files }) => [...files])));
+  const orphan = testSources().filter(file => !covered.has(file) && !excluded.has(file));
+  assert.deepEqual(orphan, [],
+    `どのレーンにも NOT_COVERED にも載っていないテスト: ${orphan.join(', ')}。run-unit-tests.mjs の LANES か NOT_COVERED へ足してください`);
+});
+
+test('NOT_COVERED は実在し、pure と二重管理しない', () => {
+  const excluded = excludedFiles();
+  const stale = excluded.flatMap(({ item, matches }) => [
+    ...(!matches.length ? [`${item.what}: paths が空`] : []),
+    ...matches.filter(({ files }) => files.size === 0).map(({ pattern }) => `${item.what}: ${pattern}`)
+  ]);
+  assert.deepEqual(stale, [], `NOT_COVERED の paths が実在ファイルに一致しない: ${stale.join(', ')}`);
+  const pure = coveredTestFiles(repoRoot, 'pure');
+  const duplicate = excluded.flatMap(({ matches }) => matches.flatMap(({ files }) => [...files].filter(file => pure.has(file))));
+  assert.deepEqual(duplicate, [], `pure と NOT_COVERED の二重管理: ${duplicate.join(', ')}`);
+});
+
+test('今回 pure へ移したテストは外部ツールの目印を含まない', () => {
+  const moved = [
+    ...globSync('scripts/release/test/*.test.mjs', { cwd: repoRoot }).map(normalized)
+      .filter(file => !file.endsWith('check-packaged-imports.test.mjs')),
+    'presets/luts/previews.test.mjs',
+    'presets/shapes/generate.test.mjs',
+    ...globSync('packages/export-nle/test/*.test.mjs', { cwd: repoRoot }).map(normalized)
+      .filter(file => !file.endsWith('migration-regression.test.mjs'))
+  ];
+  for (const file of moved) {
+    // electron-builder の生成物との比較だけで Electron 実体を起動しない。
+    const allowed = file === 'scripts/release/test/gen-app-update-yml.test.mjs' ? ['/electron/iu'] : [];
+    const markers = markersIn(readFileSync(path.join(repoRoot, file), 'utf8')).filter(marker => !allowed.includes(marker));
+    assert.deepEqual(markers, [], `${file} が外部ツールを参照している`);
+  }
 });

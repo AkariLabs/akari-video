@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { memberText } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
-import { isTextTelop, textTelopItems } from '../lib/common/library-telop-shelf.js';
+import { catalogItemsWithoutShelvedTelops, isTelopAsset, textTelopItems } from '../lib/common/library-telop-shelf.js';
 import { isPremiumLocked } from '../lib/common/library-filter.js';
 import { storeProductUrl } from '../lib/common/asset-catalog-view.js';
 
@@ -15,14 +15,19 @@ test('テロップ棚は overlay のタグまたは telop- ID だけを選ぶ', 
     ];
     assert.deepEqual(textTelopItems(items).map(item => item.key),
         ['overlay/telop-rich-one', 'overlay/caption-plate']);
-    assert.equal(isTextTelop(items[2]), false);
+    assert.equal(isTelopAsset(items[2]), false);
+});
+
+test('overlay category excludes telops but search can find them', () => {
+    const telop = { category: 'overlay', id: 'telop-title', tags: ['telop'] };
+    const frame = { category: 'overlay', id: 'frame', tags: [] };
+    assert.deepEqual(catalogItemsWithoutShelvedTelops([telop, frame], 'overlay', ''), [frame]);
+    assert.deepEqual(catalogItemsWithoutShelvedTelops([telop, frame], 'overlay', 'telop'), [telop, frame]);
+    assert.deepEqual(catalogItemsWithoutShelvedTelops([telop, frame], 'all', ''), [telop, frame]);
 });
 
 test('パックの Lab 導線は素材 id でなく product_id を開く', () => {
-    const raw = readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
-    const ast = ts.createSourceFile('widget.tsx', raw, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-    const method = widget.members.find(member => member.name?.getText(ast) === 'openLibraryLab').getText(ast);
+    const method = memberText('openLibraryLab', { in: 'widget' });
     const code = ts.transpileModule(`class Link { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     const Link = new Function('storeProductUrl', `${code}\nreturn Link;`)(storeProductUrl);
     const link = new Link();
@@ -35,10 +40,7 @@ test('パックの Lab 導線は素材 id でなく product_id を開く', () =>
 });
 
 test('テキスト棚の有料テロップは王冠 1 つで、押すと促しのシートだけを出す', () => {
-    const raw = readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
-    const ast = ts.createSourceFile('widget.tsx', raw, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-    const method = widget.members.find(member => member.name?.getText(ast) === 'renderTextLookPage').getText(ast);
+    const method = memberText('renderTextLookPage', { in: 'widget' });
     const code = ts.transpileModule(`class Shelf { ${method} }`, { compilerOptions: {
         target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
     const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }) };

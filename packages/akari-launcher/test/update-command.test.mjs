@@ -140,7 +140,7 @@ test('akari update: 新版があれば現在版・最新版・リリースノー
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, fetched_at: 't0', feed: VALID_FEED, dismissed: {} });
     const { log, lines } = collectLogs();
-    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
+    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH, npmAvailable: true });
 
     assert.ok(lines.some((line) => line === '現在のバージョン: v0.1.0'));
     assert.ok(lines.some((line) => line === '最新バージョン: v0.2.0（プレリリース）'));
@@ -156,7 +156,7 @@ test('akari update: tarball URL が無ければ npm i -g akari-video@latest に�
     const feedWithoutTarball = { ...VALID_FEED, components: { cli: { version: '0.2.0' } } };
     await writeCacheFixture(env, { schema: 1, feed: feedWithoutTarball, dismissed: {} });
     const { log, lines } = collectLogs();
-    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
+    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH, npmAvailable: true });
     assert.ok(lines.some((line) => line.includes('npm i -g akari-video@latest')));
   });
 });
@@ -214,7 +214,7 @@ test('install-ref 取り残し回帰: 更新必要判定・数字表示・--forc
 
     const status = checkForUpdateSync({ env });
     assert.equal(status.available, true, 'CLI 版ではなく install-ref の本体版を基準に更新必要となること');
-    assert.equal(status.cliVersion, '0.1.12');
+    assert.equal(status.cliVersion, readOwnVersion());
     assert.equal(status.appVersion, '0.1.11');
     assert.equal(status.currentVersion, '0.1.11');
     assert.equal(status.mismatch, true);
@@ -238,7 +238,7 @@ test('install-ref 取り残し回帰: 更新必要判定・数字表示・--forc
       applySelfUpdate: applyFixture
     });
     assert.equal(updated.applied, true, '外側の npm CLI から管理本体を更新できること');
-    assert.ok(first.lines.some(line => line.includes('CLI バージョン: v0.1.12')));
+    assert.ok(first.lines.some(line => line.includes(`CLI バージョン: v${readOwnVersion()}`)));
     assert.ok(first.lines.some(line => line.includes('本体バージョン: v0.1.11')));
     assert.ok(first.lines.some(line => line.includes('本体が古い')));
     assert.equal((await readFile(resolveInstallRefPath(env), 'utf8')).trim(), 'v0.1.12');

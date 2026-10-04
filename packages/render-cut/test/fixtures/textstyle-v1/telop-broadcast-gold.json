@@ -1,0 +1,28 @@
+{
+  "id": "telop-broadcast-gold",
+  "text": "金のテロップ",
+  "style": {
+    "size_px": 72,
+    "reference_height_px": 1080,
+    "strokes": [
+      { "color": "#00000000", "width_px": 6.66 },
+      { "color": "#050505", "width_px": 5.58 },
+      { "color": "#402f10", "width_px": 3.42 },
+      { "color": "#f3d36d", "width_px": 1.51 },
+      { "color": "#32250d", "width_px": 0.43 }
+    ],
+    "fill": {
+      "type": "gradient",
+      "angle_deg": 180,
+      "stops": [
+        { "at": 0, "color": "#684d1a" },
+        { "at": 26, "color": "#c89432" },
+        { "at": 44, "color": "#e6cfa3" },
+        { "at": 50, "color": "#f5ecda" },
+        { "at": 58, "color": "#e6cfa3" },
+        { "at": 78, "color": "#c89432" },
+        { "at": 100, "color": "#684d1a" }
+      ]
+    }
+  }
+}

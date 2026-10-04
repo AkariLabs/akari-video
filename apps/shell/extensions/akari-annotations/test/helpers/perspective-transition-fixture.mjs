@@ -1,3 +1,4 @@
+import { readInspectorSource } from './inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
@@ -16,7 +17,7 @@ import * as motionMarks from '../../lib/browser/inspector/motion-marks.js';
 import { composeInspectorSections } from '../../lib/browser/inspector/section-model.js';
 import { nextPhotoBrushItem } from '../../lib/browser/inspector/photo-brush-state.js';
 
-export const inspectorSource = readFileSync(new URL('../../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+export const inspectorSource = readInspectorSource();
 export const timelineSource = readFileSync(new URL('../../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const names = [

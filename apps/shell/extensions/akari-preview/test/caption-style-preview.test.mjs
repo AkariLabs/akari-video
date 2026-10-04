@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { createCaptionStylePreviewController } from '../lib/common/caption-style-preview.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const cue = { id: 'fragment-1', sourceCueId: 'c-0001', textStyle: {
     color: '#ffffff', background: { color: '#000000', opacity: 0.6 },
@@ -57,8 +57,8 @@ test('フォント読み込みを待ち、離脱・選択変更・閉じる・�
 });
 
 test('ホスト通知と webview の字幕再描画口が接続されている', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-    assert.match(source, /addEventListener\('akari-caption-panel-preview', onCaptionPanelPreview\)/u);
+    const source = readHandlerSource();
+    assert.match(source, /listen\(window, 'akari-caption-panel-preview', onCaptionPanelPreview\)/u);
     assert.match(source, /type: 'akari-preview-caption-style-preview'/u);
     assert.match(source, /caption = captionStylePreview\.resolve\(caption, selectedCaptionId\)/u);
     assert.match(source, /captionStylePreview\.captionsUpdated\(\);[\s\S]*?renderCaption\(\)/u);

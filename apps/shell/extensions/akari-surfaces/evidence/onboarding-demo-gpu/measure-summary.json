@@ -1,0 +1,57 @@
+{
+ "task": "2026-10-02-onboarding-demo-gpu",
+ "eligibility": {
+  "before": "unsupported 1 (caption c-0020 caption-karaoke-fill-osr)",
+  "after": "eligible true, unsupported 0, degraded 0 (same 22 / dom 9)"
+ },
+ "render_cut_auto": {
+  "engine": "gpu",
+  "renderer": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "launcher_tier": 2,
+  "gpu_preference": "off (HKCU 未変更)",
+  "electron_dist": "ELECTRON_OVERRIDE_DIST_PATH = inspector-tabs-v1 の同版 39.8.7 dist（HKCU に GpuPreference=2 登録済み・読み取り専用で借用）",
+  "ineligible_warning": false,
+  "without_borrow": "既定の tier 2 dist（未登録）は Intel UHD に載り WebCodecs prefer-hardware unsupported で書き出し拒否（gpu-run-failed.json）"
+ },
+ "karaoke_onset": {
+  "after_max_abs_delta_s": 0.13,
+  "before_max_abs_delta_s": 0.113,
+  "glyphs": 15,
+  "tolerance_s": 0.15,
+  "look": "前段 = 字の中を左から右へ塗る（fill smooth）／今回 = 語ごとに白→#FB923C へ色が移る（GPU color バンド）"
+ },
+ "frame_diff": {
+  "frames": 1128,
+  "visible_change_frames": 38,
+  "outside_karaoke": [
+   {
+    "n": 426,
+    "t": 14.2,
+    "mad": 2.538,
+    "hot": 1,
+    "bbox": [
+     512,
+     608,
+     528,
+     624
+    ]
+   }
+  ],
+  "inside_bbox": [
+   176,
+   592,
+   1056,
+   656
+  ],
+  "note": "区間外の 1 件（14.20 秒・字幕「感じです。」の縁の 16px 1 ブロック・平均差 24.9 で閾値 24 をわずかに超えたエンコード差。目視で同一）",
+  "audio": "PCM 完全一致",
+  "frames_duration": "1128 frames / 37.6 s 同一"
+ },
+ "l1": {
+  "export_engine": "gpu",
+  "renderer": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "ineligible_warning": false,
+  "policy": "off",
+  "ffmpeg_dll_md5": "0b4fe39267e47a79b87d468511ed083a"
+ }
+}

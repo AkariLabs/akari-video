@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const source = readHandlerSource();
 
 test('プレビュー舞台は light/dark 両テーマで黒いキャンバスと外側を区別し輪郭線を描かない', () => {
     assert.match(source, /--akari-preview-pasteboard:\s*#2b2d30/);

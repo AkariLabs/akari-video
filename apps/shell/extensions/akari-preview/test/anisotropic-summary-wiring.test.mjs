@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { previewTransformAxes } from '../src/common/preview-transform.ts';
 import { buildItemKeyframeSummaryFields, resolvePreviewItemKeyframes } from '../src/common/item-keyframes-summary.ts';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const handler = readHandlerSource();
 
 test('transform() spreads only finite positive axis overrides alongside unchanged legacy fields', () => {
   assert.match(handler, /protected transform\(value: any\): OverlayTransform\s*\{\s*return \{\s*x: this\.finiteNumber\(value\?\.x, 0\),\s*y: this\.finiteNumber\(value\?\.y, 0\),\s*scale: this\.finiteNumber\(value\?\.scale, 1\),\s*\.\.\.previewTransformAxes\(value\),\s*rotate: this\.finiteNumber\(value\?\.rotate, 0\)/u);

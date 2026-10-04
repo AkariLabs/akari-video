@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const shell = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+const shell = readHandlerSource();
 const osr = readFileSync(new URL('../../../../../packages/osr-export/src/page-builder.mjs', import.meta.url), 'utf8');
 
 function entries(source, declaration) {

@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -79,7 +80,7 @@ test('aspect replacement changes source and transform in one undo entry', () => 
 });
 
 function aspectHarness() {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
   const widgetClass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
   const methods = ['setEmptyFrameAspect', 'sendFrameAspectLive', 'ensureFrameSourceSize', 'readFrameSourceSize']
@@ -90,7 +91,7 @@ function aspectHarness() {
 }
 
 function stillPanelHarness(appendPanel) {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
   const widgetClass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
   const method = widgetClass.members.find(node => node.name?.getText(ast) === 'appendStillPanel').getText(ast);

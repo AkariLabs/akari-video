@@ -116,6 +116,7 @@
 .akari-interaction-handle.is-s { bottom: 0; left: 50%; transform: translate(-50%, 50%); cursor: ns-resize; }
 .akari-interaction-handle.is-w { top: 50%; left: 0; transform: translate(-50%, -50%); cursor: ew-resize; }
 .akari-interaction-selection-frame:not([data-akari-selection-kind="leaf"]) .is-edge { display: none; }
+.akari-interaction-selection-frame.is-telop .is-edge { display: none; }
 
 .akari-interaction-rotate-stem {
   position: absolute;

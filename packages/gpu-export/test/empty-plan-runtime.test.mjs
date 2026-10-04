@@ -4,7 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 async function loadFrameAt(FE) {
-  const source = await readFile(new URL('../src/page-runtime.js', import.meta.url), 'utf8');
+  const source = (await readFile(new URL('../src/page-runtime.js', import.meta.url), 'utf8')).replace(/\r\n/gu, '\n');
   const start = source.indexOf('    async frameAt(seconds) {');
   assert.ok(start >= 0, 'GpuFrameEngineRuntime.frameAt not found');
   const end = source.indexOf('\n    dispose() {', start);

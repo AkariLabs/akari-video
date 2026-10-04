@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
     captionCuePositionFromRects,
     updateCaptionCuePositionsSource
 } from '../lib/common/caption-zone-write.js';
+import { readHandlerSource } from './helpers/handler-source.mjs';
 
 test('one output-pixel delta is distributed to three cue positions', () => {
     const frame = { x: 0, y: 0, width: 1280, height: 720 };
@@ -49,15 +49,15 @@ test('batch position source writes all three cues in one document and preserves 
 });
 
 test('preview multi-move sends one batch request while keeping all-captions mode separate', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const source = readHandlerSource();
     assert.match(source, /if \(groupMode\)[\s\S]*?else if \(multiMove\)[\s\S]*?captionWrite\(cueId, \{ cuePositions \}\)/u);
     assert.match(source, /const multiMove = moveIds\.length > 1/u);
     assert.match(source, /const snap = window\.akari\.interaction\.computeSnapCorrection\(/u);
 });
 
 test('timeline caption selection message carries IDs and primary into the webview', () => {
-    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-    assert.match(source, /window\.addEventListener\('akari\.timeline\.captionSelectionChanged', onTimelineCaptionSelectionChanged\)/u);
+    const source = readHandlerSource();
+    assert.match(source, /listen\(window, 'akari\.timeline\.captionSelectionChanged', onTimelineCaptionSelectionChanged\)/u);
     assert.match(source, /sendMessage\(\{ type: 'akari-preview-set-selected-captions', \.\.\.selection \}\)/u);
     assert.match(source, /selectedCaptionIds = new Set\(Array\.isArray\(message\.captionIds\)/u);
     assert.match(source, /selectCaption\(selectedCaptionIds\.has\(message\.primaryCaptionId\)/u);

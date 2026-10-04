@@ -204,9 +204,36 @@ function integerTile(x: number, y: number, width: number, height: number): Capti
   return { x, y, width, height, mix: 0, visible: true, opacity: 1 };
 }
 
+/** Conservative visible ink radius around the measured glyph box, in em. */
+export function captionRichInkExtentEm(style: unknown, emPx: number): number {
+  if (!style || typeof style !== 'object') return 0;
+  const record = style as Record<string, any>;
+  if (record.fill === undefined && record.strokes === undefined) return 0;
+  const font = Math.max(1, Number(emPx) || Number(record.size_px) || 38);
+  const scale = Number(record.reference_height_px) > 0 ? font / (Number(record.size_px) || font) : 1;
+  let extent = 0;
+  const strokes = Array.isArray(record.strokes) ? record.strokes
+    : record.stroke ? [record.stroke] : [];
+  for (const stroke of strokes) {
+    if (!stroke || typeof stroke !== 'object') continue;
+    const x = Math.abs(Number(stroke.offset_x) || 0);
+    const y = Math.abs(Number(stroke.offset_y) || 0);
+    extent = Math.max(extent, ((Number(stroke.width_px) || 0) + Math.max(x, y)) * scale / font);
+  }
+  if (record.shadow && typeof record.shadow === 'object') {
+    extent = Math.max(extent, ((Number(record.shadow.distance_px) || 0)
+      + 2 * (Number(record.shadow.blur_px) || 0)) * scale / font);
+  }
+  if (record.glow && typeof record.glow === 'object') {
+    extent = Math.max(extent, ((Number(record.glow.spread) || 0)
+      + Math.max(Math.abs(Number(record.glow.offset_x) || 0), Math.abs(Number(record.glow.offset_y) || 0))) * scale / font);
+  }
+  return extent;
+}
+
 export function buildCaptionWordTiles(
   measurement: CaptionWordTileMeasurement,
-  size: { width: number; height: number; textureRect?: CaptionWordRect; includeTokens?: boolean }
+  size: { width: number; height: number; textureRect?: CaptionWordRect; includeTokens?: boolean; inkExtentEm?: number }
 ): CaptionWordTile[] | null {
   const width = Number(size.width);
   const height = Number(size.height);
@@ -214,6 +241,7 @@ export function buildCaptionWordTiles(
     throw new Error('caption tile dimensions must be positive integers');
   }
   if (!measurement || measurement.tokens.length === 0) return null;
+  if (Number(size.inkExtentEm) > 0.35) return null;
   const textureRect = size.textureRect ?? {
     x: 0, y: 0, width, height, right: width, bottom: height
   };
