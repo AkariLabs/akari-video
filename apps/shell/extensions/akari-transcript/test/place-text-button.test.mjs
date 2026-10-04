@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { findMember, readAllSourceText } from './helpers/daihon-source.mjs';
+import { readAllSourceText as readAnnotationsSourceText } from '../../akari-annotations/test/helpers/widget-source.mjs';
 import { PLACE_TEXT_COMMAND_ID, nextDaihonCaptionId } from '../../akari-annotations/lib/common/place-text.js';
 import { nextDaihonCaptionId as rowCaptionId } from '../lib/common/daihon-caption-id.js';
 
@@ -59,7 +60,7 @@ test('only the transcript entry remains; the placement command and timeline tool
     assert.match(text, /placeTextButton\.className = 'akari-daihon-retime akari-daihon-place-text'/);
     assert.match(text, /placeTextButton\.textContent = 'T この行から文字を置く'/);
     assert.match(text, /placeTextButton\.addEventListener\('click', \(\) => void this\.placeTextFromSelection\(\)\)/);
-    const timeline = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+    const timeline = readAnnotationsSourceText();
     assert.doesNotMatch(timeline, /placeTextButton|akari-timeline-place-text|T 文字を置く/);
     assert.match(timeline, /this\.selectToolButton, this\.razorToolButton, this\.frameToolButton,/);
     const commands = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-commands.ts', import.meta.url), 'utf8');
