@@ -8097,7 +8097,7 @@ export class AkariInspectorWidget extends BaseWidget {
             if (!result.ok) {
                 revert();
                 if (field.liveSelect) field.liveSelect(undefined);
-                if (field.liveColor) field.liveColor(editValue);
+                if (field.liveColor) this.restoreShapePaintLive(fieldName, snapshot, editValue, field.liveColor);
                 this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
                 return false;
             }
@@ -8405,7 +8405,11 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         if (field.inputKind === 'color') {
-            this.appendColorInput(row, fieldName, editValue, commitValue, field.label, field.liveColor);
+            const shapePaintKey = /^shape-(fill|stroke)$/u.exec(fieldName)?.[1];
+            const shapePaint = shapePaintKey && snapshot.kind === 'item'
+                ? parsePaint(snapshot.shapeParams?.[shapePaintKey]) : undefined;
+            this.appendColorInput(row, fieldName, editValue, commitValue, field.label, field.liveColor,
+                shapePaint);
             parent.appendChild(row);
             return;
         }
@@ -8633,13 +8637,34 @@ export class AkariInspectorWidget extends BaseWidget {
         });
     }
 
+    protected restoreShapePaintLive(
+        fieldName: string, snapshot: InspectorSnapshot, editValue: string,
+        liveColor: (value: string) => void
+    ): void {
+        const shapePaintKey = /^shape-(fill|stroke)$/u.exec(fieldName)?.[1];
+        if (shapePaintKey && snapshot.kind === 'item') {
+            const originalPaint = parsePaint(snapshot.shapeParams?.[shapePaintKey]);
+            if (originalPaint && typeof originalPaint !== 'string') {
+                const shapeHtml = shapeLiveMarkup({ itemId: snapshot.id, shape: snapshot.shape,
+                    params: snapshot.shapeParams, outputWidth: snapshot.outputWidth,
+                    transform: snapshot.transform }, shapePaintKey, originalPaint);
+                if (shapeHtml !== undefined) this.model.requestLivePreview?.({
+                    target: { kind: 'item', id: snapshot.id }, field: 'shape', value: 0, shapeHtml
+                });
+                return;
+            }
+        }
+        liveColor(editValue);
+    }
+
     protected appendColorInput(
         row: HTMLDivElement,
         fieldName: string,
         editValue: string,
         commitValue: (nextValue: string, revert: () => void) => Promise<boolean>,
         label = '色',
-        onInput?: (value: string) => void
+        onInput?: (value: string) => void,
+        currentPaint?: Paint
     ): void {
         const container = document.createElement('div');
         container.className = 'akari-inspector-color-field';
@@ -8647,17 +8672,18 @@ export class AkariInspectorWidget extends BaseWidget {
         // 丸を押すと、同じ列の中が色パネルに切り替わる（戻るボタンで元の列へ）。色番号はこの欄にも直接打てる。
         const swatch = createColorRowSwatch(editValue, label,
             () => this.openColorPanel({ target: { kind: 'field', field: fieldName } }));
+        if (currentPaint) swatch.style.background = swatchBackground(currentPaint);
         const textInput = document.createElement('input');
         textInput.type = 'text';
         textInput.className = 'akari-inspector-row-input';
         textInput.value = editValue;
-        const paintSwatch = (value: string): void => {
+        const paintSwatch = (value: Paint): void => {
             const paint = parsePaint(value);
             if (paint !== undefined) swatch.style.background = swatchBackground(paint);
         };
         const revert = (): void => {
             textInput.value = editValue;
-            paintSwatch(editValue);
+            paintSwatch(currentPaint ?? editValue);
         };
         textInput.addEventListener('input', () => {
             paintSwatch(textInput.value);
@@ -8726,7 +8752,9 @@ export class AkariInspectorWidget extends BaseWidget {
      * 引数 `{ target, allowGradient?, allowTransparent?, title?, toggle? }`（inspector/color-model.ts の ColorPanelOpenRequest）。
      */
     openColorPanel(raw: unknown): boolean {
-        const request = parseColorPanelOpenRequest(raw);
+        const parsedRequest = parseColorPanelOpenRequest(raw);
+        const request = parsedRequest?.target.kind === 'field' && parsedRequest.target.field === 'shape-fill'
+            ? { ...parsedRequest, allowGradient: true, allowTransparent: true } : parsedRequest;
         const key = this.colorPanelSelectionKey();
         if (!request || !key) {
             if (!key) this.showFieldNotice('色を変えるものをタイムラインで選んでください。');
@@ -8757,14 +8785,25 @@ export class AkariInspectorWidget extends BaseWidget {
                     const write = field.write;
                     const value = (field.getEditValue ?? field.getValue)(rowSnapshot);
                     const liveColor = field.liveColor;
+                    const shapePaintKey = /^shape-(fill|stroke)$/u.exec(fieldName)?.[1];
+                    const shapeSource = shapePaintKey && rowSnapshot.kind === 'item'
+                        ? { itemId: rowSnapshot.id, shape: rowSnapshot.shape, params: rowSnapshot.shapeParams,
+                            outputWidth: rowSnapshot.outputWidth, transform: rowSnapshot.transform } : undefined;
                     resolved = {
                         title: field.label === '色' ? `${section.label}の色` : field.label,
-                        current: parsePaint(value),
-                        write: async (paint: Paint) => typeof paint === 'string' && paint !== TRANSPARENT_PAINT
-                            ? write(rowSnapshot, paint)
-                            : { ok: false, message: 'この欄は単色だけです。' },
-                        ...(liveColor ? { preview: (paint: Paint) => {
-                            if (typeof paint === 'string' && paint !== TRANSPARENT_PAINT) liveColor(paint);
+                        current: shapeSource ? parsePaint(shapeSource.params?.[shapePaintKey!]) : parsePaint(value),
+                        write: async (paint: Paint) => shapeSource
+                            ? this.writeItemColor(shapeSource.itemId, `source.params.${shapePaintKey}`, paint)
+                            : typeof paint === 'string' && paint !== TRANSPARENT_PAINT
+                                ? write(rowSnapshot, paint)
+                                : { ok: false, message: 'この欄は単色だけです。' },
+                        ...(liveColor || shapeSource ? { preview: (paint: Paint) => {
+                            if (shapeSource) {
+                                const shapeHtml = shapeLiveMarkup(shapeSource, shapePaintKey!, paint);
+                                if (shapeHtml !== undefined) this.model.requestLivePreview?.({
+                                    target: { kind: 'item', id: shapeSource.itemId }, field: 'shape', value: 0, shapeHtml
+                                });
+                            } else if (typeof paint === 'string' && paint !== TRANSPARENT_PAINT) liveColor?.(paint);
                         } } : {})
                     };
                 }
@@ -8782,7 +8821,6 @@ export class AkariInspectorWidget extends BaseWidget {
                     ?? (shapeKey ? parsePaint((selectedShapeSource ?? host.shapeSource(itemId))?.params?.[shapeKey]) : undefined),
                 write: paint => this.writeItemColor(itemId, path, paint),
                 ...(shapeKey ? { preview: (paint: Paint) => {
-                    if (typeof paint !== 'string' || paint === TRANSPARENT_PAINT) return;
                     const shapeSource = selectedShapeSource ?? host.shapeSource(itemId);
                     if (!shapeSource?.shape) return;
                     const shapeHtml = shapeLiveMarkup(shapeSource, shapeKey, paint);

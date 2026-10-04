@@ -8551,15 +8551,27 @@ export function previewBootstrapScript(): string {
                 if (!pending) { liveDom.clear(); return; }
                 const saved = window.akari?.state?.summary?.overlays?.find(
                     overlay => String(overlay.id) === pending.id);
-                liveDom.clear();
                 if (saved?.html === pending.html) {
+                    liveDom.adoptShapeBase?.(pending.key);
+                    liveDom.clear();
                     const overlay = Array.from(stage.querySelectorAll('[data-overlay-id]'))
                         .find(element => element.dataset.overlayId === pending.id);
-                    if (overlay) overlay.innerHTML = pending.html;
+                    if (overlay && overlay.innerHTML !== pending.html) overlay.innerHTML = pending.html;
                     pendingShapeLive = null;
                 } else {
                     liveDom.updateShape(pending.key, pending.html);
                 }
+            };
+            window.akari.shapeLivePendingId = () => pendingShapeLive?.id;
+            window.akari.shapeLivePendingHtml = () => pendingShapeLive?.html;
+            window.akari.reconcileShapeLive = (id, savedHtml) => {
+                const pending = pendingShapeLive;
+                if (!pending || pending.id !== id) return;
+                liveDom.adoptShapeBase(pending.key);
+                if (savedHtml === pending.html) {
+                    liveDom.clear();
+                    pendingShapeLive = null;
+                } else liveDom.updateShape(pending.key, pending.html);
             };
             const paintLiveOverride = () => liveDom.paint();
             const tick = (immediatePlaybackTick = false) => {

@@ -43,6 +43,8 @@ interface ColorPanelSession {
     view: ColorPanelView;
     resolved?: ColorPanelResolved;
     committedPaint?: Paint;
+    writing?: boolean;
+    queuedPaint?: Paint;
 }
 
 export class ColorPanelHost {
@@ -165,28 +167,36 @@ export class ColorPanelHost {
 
     protected async commit(session: ColorPanelSession, paint: Paint): Promise<void> {
         const resolved = session.resolved;
-        if (!resolved || this.session !== session) return;
-        let result: { ok: boolean; message?: string };
-        try {
-            result = await resolved.write(paint);
-        } catch (error) {
-            result = { ok: false, message: String(error) };
+        if (!resolved) return;
+        if (session.writing) { session.queuedPaint = paint; return; }
+        session.writing = true;
+        let current: Paint | undefined = paint;
+        while (current !== undefined) {
+            let result: { ok: boolean; message?: string };
+            try { result = await resolved.write(current); }
+            catch (error) { result = { ok: false, message: String(error) }; }
+            const next = session.queuedPaint;
+            session.queuedPaint = undefined;
+            if (result.ok) {
+                session.committedPaint = current;
+                resolved.current = current;
+                this.history = pushColorHistory(this.history, current);
+                this.writeHistory();
+                if (this.session === session && next === undefined) {
+                    this.updateView();
+                    void this.refreshSources();
+                }
+            } else {
+                if (next === undefined && this.session === session) {
+                    const restore = session.committedPaint ?? resolved.current;
+                    if (restore !== undefined) resolved.preview?.(restore);
+                    session.view.resetDraft();
+                }
+                this.deps.notice(result.message ?? '色を反映できませんでした。');
+            }
+            current = next;
         }
-        if (!result.ok) {
-            const restore = session.committedPaint ?? resolved.current;
-            if (restore !== undefined) resolved.preview?.(restore);
-            if (this.session === session) session.view.resetDraft();
-            this.deps.notice(result.message ?? '色を反映できませんでした。');
-            return;
-        }
-        session.committedPaint = paint;
-        resolved.current = paint;
-        this.history = pushColorHistory(this.history, paint);
-        this.writeHistory();
-        if (this.session === session) {
-            this.updateView();
-            void this.refreshSources();
-        }
+        session.writing = false;
     }
 
     protected async updateBrand(command: string, color: string, done?: string): Promise<void> {

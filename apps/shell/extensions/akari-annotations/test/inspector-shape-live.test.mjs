@@ -3,6 +3,26 @@ import test from 'node:test';
 import { shapeMarkup } from '@akari-video/edit-store';
 import { shapeLiveMarkup, shapeLiveParams } from '../lib/browser/inspector/shape-live.js';
 
+test('gradient and no fill produce live shape markup', () => {
+    const gradient = { type: 'linear', angle: 45, stops: [
+        { color: '#ff0000', offset: 0 }, { color: '#0000ff', offset: 1 }
+    ] };
+    const source = { itemId: 'box-a', shape: 'rounded-rect', params: { width: 600, height: 340, fill: '#112233' }, outputWidth: 1920 };
+    assert.equal(shapeLiveMarkup(source, 'fill', gradient),
+        shapeMarkup({ shape: source.shape, params: { ...source.params, fill: gradient } }, 'box-a', 1920));
+    assert.equal(shapeLiveMarkup(source, 'fill', 'none'),
+        shapeMarkup({ shape: source.shape, params: { ...source.params, fill: 'none' } }, 'box-a', 1920));
+    for (const changed of [
+        { ...gradient, stops: [{ color: '#00ff00', offset: 0 }, gradient.stops[1]] },
+        { ...gradient, stops: [gradient.stops[0], { color: '#ffff00', offset: 1 }] },
+        { ...gradient, angle: 135 }
+    ]) {
+        assert.notEqual(shapeLiveMarkup(source, 'fill', changed), shapeLiveMarkup(source, 'fill', gradient));
+    }
+    assert.equal(shapeLiveParams(source.shape, { ...source.params, fill: gradient }, 'fill', '#123456').fill,
+        '#123456');
+});
+
 const rect = {
     shape: 'rounded-rect',
     params: { width: 600, height: 340, fill: '#a6a6a6', strokeWidth: 0, cornerRadius: 0 }

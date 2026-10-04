@@ -233,7 +233,8 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
       const beforeOther = { ...before, html: null };
       const afterOther = { ...after, html: null };
       const structure = svgStructure(before.html);
-      if (!structure || structure !== svgStructure(after.html)
+      const activeShape = window.akari?.shapeLivePendingId?.() === String(after.id);
+      if (!structure || !activeShape && structure !== svgStructure(after.html)
           || JSON.stringify(beforeOther) !== JSON.stringify(afterOther)) return null;
       changed = after;
     }
@@ -258,6 +259,7 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
       if (patch) {
         try {
           if (runtime.replaceShapeHtml(String(patch.id), patch.html, patch.params)) {
+            window.akari?.reconcileShapeLive?.(String(patch.id), patch.html);
             mountedSignature = nextSignature;
             mountedOverlays = summary.overlays;
             return tick(timelineTime, isPlaying);
@@ -274,6 +276,9 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
       try { result = Promise.resolve(mount(summary)); }
       catch (error) { result = Promise.reject(error); }
       remounting = result.then(() => {
+        for (const overlay of summary?.overlays || []) {
+          window.akari?.reconcileShapeLive?.(String(overlay.id), overlay.html);
+        }
         if (stage) stage.append(...hosts.filter(host => ![...stage.children].includes(host)));
         restorePresentation(presentation);
         tick(timelineTime, isPlaying);
@@ -287,7 +292,14 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
         });
       return;
     }
-    if (!remounting) return tick(timelineTime, isPlaying);
+    if (!remounting) {
+      const pendingId = window.akari?.shapeLivePendingId?.();
+      const saved = summary?.overlays?.find(overlay => String(overlay.id) === pendingId);
+      if (saved && saved.html === window.akari?.shapeLivePendingHtml?.()) {
+        window.akari?.reconcileShapeLive?.(pendingId, saved.html);
+      }
+      return tick(timelineTime, isPlaying);
+    }
   };
   Object.defineProperty(runtime, '__akariItemKeyframesSoftReload', { value: true });
 })();`;

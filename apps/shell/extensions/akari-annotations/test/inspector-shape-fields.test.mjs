@@ -5,6 +5,29 @@ import {
 } from '../lib/browser/inspector/shape-fields.js';
 import { itemSections, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
 
+test('gradient fill uses a meaningful color field and retains the none choice', () => {
+  const gradient = { type: 'linear', angle: 45, stops: [
+    { color: '#ff0000', offset: 0 }, { color: '#0000ff', offset: 1 }
+  ] };
+  const fields = shapeControlGroups('rounded-rect', { fill: gradient })[0].fields;
+  assert.equal(fields.find(field => field.key === 'fill').value, '#ff0000');
+  assert.deepEqual(fields.find(field => field.key === 'fillMode').options, ['色', 'なし']);
+});
+
+test('gradient fill writes a solid string and fill mode can write none', async () => {
+  const gradient = { type: 'linear', angle: 0, stops: [
+    { color: '#ff0000', offset: 0 }, { color: '#0000ff', offset: 1 }
+  ] };
+  const snapshot = visualSnapshot('item', { shape: 'rounded-rect', shapeParams: { fill: gradient } });
+  const requests = [];
+  const fields = itemSections(snapshot, async request => { requests.push(request); return { ok: true }; })
+    .find(section => section.id === 'appearance').fields;
+  assert.equal(fields.find(field => field.name === 'shape-fill').getEditValue(snapshot), '#ff0000');
+  await fields.find(field => field.name === 'shape-fill').write(snapshot, '#123456');
+  await fields.find(field => field.name === 'shape-fillMode').write(snapshot, 'なし');
+  assert.deepEqual(requests.map(request => request.value), ['#123456', 'none']);
+});
+
 test('path の外観は塗り・枠・直線角の丸みを表示する', () => {
   const [appearance] = shapeControlGroups('path', { path: { d: 'M0 0L10 0L10 10Z' }, fill: '#a6a6a6' });
   assert.deepEqual(appearance.fields.map(field => field.label),
