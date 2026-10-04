@@ -4,10 +4,13 @@
 - 状態: 実装契約 v1
 - 関連: [素材ライブラリ契約](contract-2026-07-13-asset-library.md)
 
-`meta.json` の `tier: "free" | "pro"` は必須。`price` は廃止予定の任意フィールドとして残すが、`tier` がある場合は無視し、1 版後に削除する。旧メタを読むときだけ、`tier` が無ければ数値の `price > 0` を `pro`、それ以外（`null`・欠落を含む）を `free` と解釈する。新規メタと v1 validator には `tier` が必要。
+`meta.json` の `tier: "free" | "pro"` は必須。`price` は廃止予定の任意フィールドとして残すが、`tier` がある場合は無視し、1 版後に削除する。旧メタを読むときだけ、`tier` が無ければ `price === 0` の場合に限り `free` と解釈し、`null`・欠落・非数値を含むそれ以外は `pro` とする（fail-closed）。新規メタと v1 validator には `tier` が必要。
 
 `tier: "pro"` と `license.spdx: "CC0-1.0"` の組み合わせは validator のエラー。`tier: "free"` には CC0 を推奨し、それ以外のライセンスには warning を出す。tier はライセンスの許諾内容を置き換えない。
 
+切替前に CC0 で取得されたコピーは CC0 のまま。後から tier を変更しても、既に配布された CC0 コピーの利用条件は変更されない。
+
 - 鍵はライブラリ側に置く。`composeState` は `tier === "pro" && !entitled` を `locked` とし、fetch も同じ条件で認可する。`all-access-pass` で解錠し、取得済み素材は `cached` のまま使える。
 - resolver の一覧出力は各 item に `tier` と `machineTags` の `tier:<tier>` を持たせる。
+- 公開 catalog の Pro 項目は `files` を持たない。非空の `files` があれば `invalid_catalog_item` として取得を拒否する。locked 項目の一覧・`/api/items` 応答にも `files` を含めない。
 - 利用者取り込み（`akari assets add`）は `tier: "free"` とする。

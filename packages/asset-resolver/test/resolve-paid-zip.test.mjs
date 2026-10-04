@@ -116,7 +116,7 @@ function fetchImplFor(id, { entitled, zipPath }) {
     const s = String(url);
     if (s.endsWith('/v1/entitlements')) {
       assert.equal(options.headers?.authorization, 'Bearer akst_test');
-      return { ok: true, json: async () => ({ entitlements: entitled ? [{ product_id: id }] : [] }) };
+      return { ok: true, json: async () => ({ entitlements: entitled ? [{ product_id: 'all-access-pass' }] : [] }) };
     }
     if (s.endsWith(`/v1/download/${id}`)) {
       assert.equal(options.headers?.authorization, 'Bearer akst_test');

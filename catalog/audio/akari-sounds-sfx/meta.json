@@ -21,6 +21,7 @@
     "attribution_required": false,
     "ai_training_allowed": false
   },
+  "tier": "free",
   "price": null,
   "source": {
     "url": "https://github.com/AkariLabs/akari-sounds/releases/tag/v0",

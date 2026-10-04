@@ -121,6 +121,7 @@ function sharedMetaFields(pack, { tag }) {
             attribution_required: false,
             ai_training_allowed: false,
         },
+        tier: 'free',
         price: null,
         source: {
             url: releasePageUrl(tag),

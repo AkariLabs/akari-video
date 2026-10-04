@@ -82,7 +82,7 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
     localItems.delete(key);
     // Preserve remote download descriptors/preview keys for existing consumers.
     // Local-only assets use the actual directory listing assembled above.
-    return local ? { ...item, ...local, files: item.files ?? local.files, preview: item.preview ?? local.preview,
+    return local ? { ...item, ...local, tier: item.tier ?? assetTier(item), files: item.files ?? local.files, preview: item.preview ?? local.preview,
       ...(item.source === 'installed' ? { source: item.source } : {}) } : item;
   });
   merged.push(...[...localItems.values()].filter(Boolean));
@@ -91,11 +91,13 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
     const tier = assetTier(item);
     let state;
     if (installed.has(key)) state = 'cached';
-    else if (tier === 'pro' && !isAssetEntitled(item, entitlementsResult.ids)) state = 'locked';
+    else if (tier === 'pro' && item.source !== 'installed' && !isAssetEntitled(item, entitlementsResult.ids)) state = 'locked';
     else state = 'available';
     const sources = sourceFields(item, catalogKeys.has(key) || item.source === 'installed');
     const machineTags = (sources.machineTags ?? item.machineTags ?? []).filter(tag => !tag.startsWith('tier:'));
-    return { ...item, tier, state, ...sources, machineTags: [...machineTags, `tier:${tier}`] };
+    const visible = { ...item, tier, state, ...sources, machineTags: [...machineTags, `tier:${tier}`] };
+    if (state === 'locked') delete visible.files;
+    return visible;
   });
 
   return {

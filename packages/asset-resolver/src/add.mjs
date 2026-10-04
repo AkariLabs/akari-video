@@ -163,7 +163,6 @@ export function createImportMeta(entry, options = {}) {
     author: 'user',
     license: { spdx: 'LicenseRef-user-owned', scope: 'private-owned', attribution_required: Boolean(credit), ai_training_allowed: false },
     tier: 'free',
-    price: 0,
   };
   if (origin === 'site') {
     meta.source = {

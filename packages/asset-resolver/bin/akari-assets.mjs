@@ -63,11 +63,12 @@ function validateArgs(sub, args) {
   }
 }
 
-const STATE_BADGE = { cached: '✓', locked: '¥', available: '☁' };
+const STATE_BADGE = { cached: '✓', locked: '🔒 Pro', available: '☁' };
 
 function badgeOf(item) {
   if (item.source === 'installed') return '[installed]';
-  if (item.state === 'locked') return `¥${(item.price ?? 0).toLocaleString()}`;
+  if (item.state === 'locked') return STATE_BADGE.locked;
+  if (item.state === 'available' && item.tier === 'pro') return '✓ Pro';
   return STATE_BADGE[item.state] ?? '?';
 }
 

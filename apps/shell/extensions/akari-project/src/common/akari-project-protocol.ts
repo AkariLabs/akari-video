@@ -159,6 +159,8 @@ export interface AssetCatalogViewItem {
     mediaUrl?: string;
     /** origin='resolver' のみ。円建て価格（0 = 無料）。 */
     price?: number;
+    /** resolver が確定したアクセス区分。 */
+    tier?: 'free' | 'pro';
     /** origin='resolver' のみ。 */
     state?: AssetCatalogItemState;
     /** origin='resolver' のみ。provenance.prompt（生成プロンプト）。 */

@@ -22,6 +22,7 @@ test('composeState: entitlements 無しでは無料素材が available・有料�
   const paid = items.find((i) => i.id === 'mini-paid');
   assert.equal(free.state, 'available');
   assert.equal(paid.state, 'locked');
+  assert.equal(Object.hasOwn(paid, 'files'), false);
   assert.equal(entitlementsStatus, 'no_credentials');
   assert.ok(home.endsWith('home') || home.includes('home'));
 });
@@ -38,6 +39,22 @@ test('composeState: entitlements 取得失敗の status を返しつつ locked �
   });
   assert.equal(entitlementsStatus, 'unauthorized');
   assert.equal(items.find((item) => item.id === 'mini-paid').state, 'locked');
+});
+
+test('composeState strips files from a locked Pro item even if catalog includes them', async () => {
+  const { env, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[1].files = [{ name: 'payload.mp3', url: 'https://example.invalid/private.mp3' }];
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  const item = (await composeState({ env })).items.find(entry => entry.id === 'mini-paid');
+  assert.equal(item.state, 'locked');
+  assert.equal(Object.hasOwn(item, 'files'), false);
+});
+
+test('a product or item entitlement does not unlock Pro without all-access-pass', async () => {
+  const { env, home } = setupFixtureEnv();
+  writeFileSync(path.join(home, 'store-credentials.json'), JSON.stringify({ url: 'https://example.invalid/api/store', token: 'akst_test' }));
+  const state = await composeState({ env, fetchImpl: async () => ({ ok: true, json: async () => ({ entitlements: [{ product_id: 'mini-paid' }] }) }) });
+  assert.equal(state.items.find(item => item.id === 'mini-paid').state, 'locked');
 });
 
 test('composeState: ローカルに実体があるものは cached になる', async () => {

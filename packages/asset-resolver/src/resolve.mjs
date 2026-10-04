@@ -7,7 +7,7 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 // 失敗は fail-closed（一時ディレクトリを破棄し、登録先には部分状態を残さない）。
 // 有料未購入（locked）は resolve を拒否する。
 //
-// 有料 item（price > 0）は catalog に files[] を持たない（実体は非公開 R2 のまま）。entitled
+// Pro item は公開 catalog に files[] を持たない（実体は非公開 R2 のまま）。entitled
 // なら resolvePaidZip() が `/api/store/v1/download/<id>` から zip を取得し、展開 →
 // checksums.txt 検証（paid-zip.mjs）→ 同じ validate-asset / 原子的 move の経路に合流する。
 
@@ -97,6 +97,12 @@ export async function resolve(
     throw new AssetResolverError(`未知の素材 id です: ${id}`, 'not_found');
   }
 
+  const tier = assetTier(item);
+  const hasFiles = Array.isArray(item.files) && item.files.length > 0;
+  if (tier === 'pro' && hasFiles && item.source !== 'installed') {
+    throw new AssetResolverError(`Pro カタログ item に files[] を含められません: ${item.id}`, 'invalid_catalog_item');
+  }
+
   const destDir = localAssetDir(env, item.category, item.id);
 
   // キャッシュヒット → 即返す（未購入だったとしても、一度取得済みなら手元にある実体をそのまま使う。
@@ -113,9 +119,7 @@ export async function resolve(
     return result;
   }
 
-  const tier = assetTier(item);
-  const hasFiles = Array.isArray(item.files) && item.files.length > 0;
-  if (tier === 'pro') {
+  if (tier === 'pro' && item.source !== 'installed') {
     const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
     if (!isAssetEntitled(item, entitlements)) {
       throw new AssetResolverError(

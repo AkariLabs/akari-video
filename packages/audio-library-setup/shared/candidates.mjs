@@ -214,6 +214,7 @@ export function buildLibraryMeta(item, categoryLabelJa, fileNames, { registeredA
             attribution_required: Boolean(item.license.attribution_required),
             ai_training_allowed: Boolean(item.license.ai_training_allowed),
         },
+        tier: 'free',
         price: null,
         source: {
             url: item.download_page_url,
@@ -249,6 +250,7 @@ export function buildCatalogMeta(item, categoryLabelJa) {
             attribution_required: Boolean(item.license.attribution_required),
             ai_training_allowed: Boolean(item.license.ai_training_allowed),
         },
+        tier: 'free',
         price: null,
         remote: true,
         source: {

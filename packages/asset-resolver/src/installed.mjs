@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
+import { assetTier } from './tier.mjs';
 
 export const INSTALLED_ASSETS_SCHEMA = 'akari-installed-assets/v0';
 
@@ -49,6 +50,7 @@ function catalogItem(packId, pack, item) {
     category: categoryFromItemPath(item.path),
     version: item.version,
     price: 0,
+    tier: item.tier === 'pro' ? 'pro' : 'free',
     source: 'installed',
     files: item.files.map((file) => {
       if (!file || typeof file.path !== 'string' || !file.path
@@ -119,7 +121,7 @@ export function mergeInstalledItems(catalog, installedItems) {
       positions.set(item.id, items.length);
       items.push(item);
     } else {
-      items[position] = item;
+      items[position] = { ...item, tier: assetTier(items[position]) };
     }
   }
   return { ...catalog, items };
