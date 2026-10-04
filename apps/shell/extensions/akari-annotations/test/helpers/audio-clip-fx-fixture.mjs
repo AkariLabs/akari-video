@@ -1,15 +1,10 @@
-import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { createAudioClipFxWriteRequest, updateAudioClipFxDocument } from '../../lib/browser/inspector/audio-clip-fx.js';
 import { composeInspectorSections } from '../../lib/browser/inspector/section-model.js';
 import { readInspectorSource } from './inspector-source.mjs';
+import { findMember } from './widget-source.mjs';
 
 // Theia の DOM / DI を起動せず、実ソースの factory と handler を実行する。
-function sourceFile(name) {
-    return ts.createSourceFile(name, readFileSync(new URL(`../../src/browser/${name}`, import.meta.url), 'utf8'),
-        ts.ScriptTarget.Latest, true);
-}
-
 const inspector = ts.createSourceFile('inspector.ts', readInspectorSource(), ts.ScriptTarget.Latest, true);
 const functions = new Map(inspector.statements.filter(ts.isFunctionDeclaration)
     .map(statement => [statement.name.text, statement.getText(inspector)]));
@@ -29,10 +24,7 @@ export const { fxSections, audioSections } = new Function(
 )(createAudioClipFxWriteRequest, composeInspectorSections,
     { duckDb: -12, duckAttack: 0.3, duckRelease: 0.8 }, ['linear', 'hold', 'ease-in-out']);
 
-const timeline = sourceFile('akari-annotations-widget.ts');
-const widget = timeline.statements.find(statement => ts.isClassDeclaration(statement)
-    && statement.members.some(member => member.name?.getText(timeline) === 'handleAudioClipFxWrite'));
-const handler = widget.members.find(member => member.name?.getText(timeline) === 'handleAudioClipFxWrite');
+const { ast: timeline, node: handler } = findMember('handleAudioClipFxWrite', { in: 'widget' });
 const handlerCode = ts.transpileModule(`class Handler { ${handler.getText(timeline)} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
