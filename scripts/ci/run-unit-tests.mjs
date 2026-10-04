@@ -168,6 +168,7 @@ export const PREVIEW_SERVER_PURE_TESTS = [
   'test/proxy-moov-quarantine.test.mjs',
   'test/runtime-registry.test.mjs',
   'test/still-image-display.test.mjs',
+  'test/timeline-read.test.mjs',
   'test/transition-recipe-supply-chain.test.mjs',
   'test/transition-visual.test.mjs',
   'test/v2-object-tree-put.test.mjs',
