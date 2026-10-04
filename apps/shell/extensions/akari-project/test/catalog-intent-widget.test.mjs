@@ -27,9 +27,9 @@ test('initial catalog load defaults to automatic and the backend receives the in
 });
 
 test('retry button and a user-opened library segment request user intent', () => {
-    const retry = member('renderCatalogResolverRetry');
+    const retry = findMember('renderCatalogResolverRetry', { in: 'library' });
     assert.ok(retry, 'catalog retry renderer');
-    assert.match(retry.getText(source), /data-akari-catalog-retry[\s\S]*?loadAssetCatalogView\('user'\)/);
+    assert.match(retry.text, /data-akari-catalog-retry[\s\S]*?loadAssetCatalogView\('user'\)/);
     const select = member('selectTopView');
     assert.equal(calls(select, 'this.loadAssetCatalogView')[0].arguments[0].getText(source), "'user'");
     const controls = member('renderTopControls');
