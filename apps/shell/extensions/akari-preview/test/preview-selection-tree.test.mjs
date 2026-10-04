@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { readAllSourceText } from '../../akari-annotations/test/helpers/widget-source.mjs';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const handler = readHandlerSource();
@@ -49,7 +49,7 @@ test('selection-floor and optional scopeId use the existing one-way notification
   assert.match(handler, /'akari\.timeline\.selectionFloor'[\s\S]*?type: 'akari-preview-selection-floor', scopeId: detail\.scopeId/u);
   assert.match(handler, /message\.type === 'akari-preview-selection-floor'[\s\S]*?setSelectionFloor\(message\.scopeId\)/u);
   assert.match(handler, /data-akari-ui="preview-scope-breadcrumb"/u);
-  const widget = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  const widget = readAllSourceText();
   assert.match(widget, /this\.focusScope = scope;\s*this\.dispatchPreviewEvent\('akari\.timeline\.selectionFloor', \{ scopeId: scope\.rootId \}\)/u);
 });
 
