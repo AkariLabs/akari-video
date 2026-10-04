@@ -99,7 +99,7 @@ export async function resolve(
 
   const tier = assetTier(item);
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;
-  if (tier === 'pro' && hasFiles) {
+  if (tier === 'pro' && hasFiles && item.source !== 'installed') {
     throw new AssetResolverError(`Pro カタログ item に files[] を含められません: ${item.id}`, 'invalid_catalog_item');
   }
 
@@ -119,7 +119,7 @@ export async function resolve(
     return result;
   }
 
-  if (tier === 'pro') {
+  if (tier === 'pro' && item.source !== 'installed') {
     const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
     if (!isAssetEntitled(item, entitlements)) {
       throw new AssetResolverError(

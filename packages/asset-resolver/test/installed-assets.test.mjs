@@ -61,6 +61,7 @@ test('installed item をカタログへマージし、CLI は [installed] と so
   assert.equal(item.source, 'installed');
   assert.equal(item.category, 'scene3d');
   assert.equal(item.price, 0);
+  assert.equal(item.tier, 'free');
   assert.ok(path.isAbsolute(item.files[0].local_path));
   assert.deepEqual(Object.keys(item.files[0]).sort(), ['bytes', 'local_path', 'name', 'sha256']);
 
@@ -82,6 +83,19 @@ test('同じ id はリモート catalog より installed item を優先する', 
   assert.equal(item.category, 'scene3d');
   assert.equal(item.source, 'installed');
   assert.equal(item.state, 'available');
+});
+
+test('installed replacement retains the catalog tier while allowing its local files', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[0].tier = 'pro';
+  delete catalog.items[0].files;
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  writeInstalled({ home, id: 'mini-still', category: 'still' });
+  const { items } = await composeState({ env });
+  const item = items.find((entry) => entry.id === 'mini-still');
+  assert.equal(item.tier, 'pro');
+  assert.equal(item.state, 'available');
+  assert.ok(item.files.length > 0);
 });
 
 test('installed item の fetch はローカル実体をコピーし sha256 一致時だけ登録する', async () => {
