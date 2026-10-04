@@ -162,3 +162,13 @@ test('browse app omits audio controls when media is unavailable', async () => {
   assert.doesNotMatch((await renderBrowseItem({ ...item, mediaAvailable: false })).detail, /<audio\b/);
   assert.match((await renderBrowseItem({ ...item, mediaAvailable: true })).detail, /<audio\b/);
 });
+
+test('browse app uses tier instead of legacy price in card and detail', async () => {
+  const pro = await renderBrowseItem({ id: 'pro-one', title: 'Pro', category: 'still', state: 'locked', tier: 'pro', price: 0 });
+  assert.match(pro.card, /badge paid">Pro/);
+  assert.match(pro.detail, /・ Pro<\/p>/);
+  assert.doesNotMatch(pro.card + pro.detail, /¥0|無料/);
+  const free = await renderBrowseItem({ id: 'free-one', title: 'Free', category: 'still', state: 'available', tier: 'free', price: 500 });
+  assert.match(free.detail, /・ 無料<\/p>/);
+  assert.doesNotMatch(free.detail, /¥500/);
+});
