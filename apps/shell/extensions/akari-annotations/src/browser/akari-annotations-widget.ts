@@ -4954,13 +4954,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!plan.target) return;
         const target = plan.target;
         let createdTrackId: string | undefined;
-        void this.commitImmediateItemMutation(label, doc => {
+        const mutate = (doc: EditV2Document): EditV2Document => {
             const result = 'track' in target
                 ? moveTreeV2Item(doc, id, target, { at: plan.atFrames! })
                 : moveTreeV2Item(doc, id, target);
             createdTrackId = result.createdTrackId;
             return result.document;
-        }).then(() => {
+        };
+        void (typeof this.commitImmediateItemMutation === 'function'
+            ? this.commitImmediateItemMutation(label, mutate)
+            : this.commitEditMutation(label, mutate)).then(() => {
             if (createdTrackId) {
                 const name = this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId;
                 this.showNotice(`${name} を追加しました`);
@@ -5815,27 +5818,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (captionId !== undefined && (selection.kind === 'caption' || this.rawV2Item(selection.id) === undefined)) {
                 const caption = this.captions.find(candidate => candidate.id === captionId);
                 if (!caption) throw new Error("字幕が見つかりません。");
-                const previousCaptions = this.captions;
-                this.captions = previousCaptions.filter(candidate => candidate.id !== captionId);
-                this.applySelection(undefined);
-                this.renderStrip();
-                if (location.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
-                    detail: { editUri: location.editUri.toString(), removedIds: [captionId] }
-                }));
-                try {
+                if (typeof this.projectImmediateItemEdit === 'function') {
+                    const previousCaptions = this.captions;
+                    this.captions = previousCaptions.filter(candidate => candidate.id !== captionId);
+                    this.applySelection(undefined);
+                    this.renderStrip();
+                    if (location.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
+                        detail: { editUri: location.editUri.toString(), removedIds: [captionId] }
+                    }));
+                    try {
+                        await this.withHistory(caption.timeDomain === 'output' ? '文字の削除' : '字幕の削除', async () => {
+                            await this.annotationsService.removeCaption({
+                                captionsUri: location.captionsUri.toString(),
+                                projectRootUri: location.root.toString(), captionId: caption.id
+                            });
+                        });
+                    } catch (error) {
+                        this.captions = previousCaptions;
+                        this.renderStrip();
+                        if (location.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
+                            detail: { editUri: location.editUri.toString(), rollback: true }
+                        }));
+                        throw error;
+                    }
+                } else {
                     await this.withHistory(caption.timeDomain === 'output' ? '文字の削除' : '字幕の削除', async () => {
                         await this.annotationsService.removeCaption({
                             captionsUri: location.captionsUri.toString(),
                             projectRootUri: location.root.toString(), captionId: caption.id
                         });
                     });
-                } catch (error) {
-                    this.captions = previousCaptions;
-                    this.renderStrip();
-                    if (location.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
-                        detail: { editUri: location.editUri.toString(), rollback: true }
-                    }));
-                    throw error;
                 }
                 await this.reloadEdit();
                 await this.reloadCaptions();
@@ -5847,14 +5859,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 const narrationSelected = selection.kind === 'audio'
                     && this.audioNarration.some(item => item.id === selection.id);
-                await this.commitImmediateItemMutation("クリップの削除", doc =>
+                const mutate = (doc: EditV2Document): EditV2Document =>
                     narrationSelected
                         ? removeAudioNarrationPreferV2(doc, selection.id)
                         : selection.kind === "audio"
                             ? removeAudioSfxPreferV2(doc, selection.id)
                             : selection.kind === 'item'
                                 ? removeTreeV2Item(doc, selection.id).document
-                                : removeV2Item(doc, selection.id), [selection.id]);
+                                : removeV2Item(doc, selection.id);
+                if (typeof this.commitImmediateItemMutation === 'function') {
+                    await this.commitImmediateItemMutation("クリップの削除", mutate, [selection.id]);
+                } else {
+                    await this.commitEditMutation("クリップの削除", mutate);
+                }
                 this.footer.textContent = "クリップを削除しました。";
             }
             this.applySelection(undefined);
@@ -5883,7 +5900,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.footer.textContent = `${retained.length} 件はロック中のため残しました`;
             return;
         }
-        if (this.editDocument?.version === 2 && selected.every(item => item.kind !== 'cut' && item.kind !== 'caption')) {
+        if (typeof this.commitImmediateItemMutation === 'function'
+            && this.editDocument?.version === 2 && selected.every(item => item.kind !== 'cut' && item.kind !== 'caption')) {
             const ids = [...new Set(selected.filter((item): item is Exclude<TimelineSelectionItem, { kind: 'cut' }> =>
                 item.kind !== 'cut').map(item => item.id).filter(id => id !== 'bgm'))];
             try {
@@ -5897,7 +5915,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return;
         }
-        const immediateCaptions = this.editDocument?.version === 2
+        const immediateCaptions = typeof this.projectImmediateItemEdit === 'function' && this.editDocument?.version === 2
             && selected.every(item => item.kind !== 'cut') && selected.some(item => item.kind === 'caption');
         const captionsAtStart = this.captions;
         if (immediateCaptions) {
@@ -13451,7 +13469,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const trackId = this.trackIdOfSelection(caption);
             if (this.isTrackLocked(trackId)) { this.showLockedTrack(trackId); return; }
         }
-        const audioOnly = altKey && captions.length === 0 && itemIds.size > 0
+        const audioOnly = typeof this.commitImmediateItemMutation === 'function'
+            && altKey && captions.length === 0 && itemIds.size > 0
             && [...itemIds].every(id => {
                 const pair = this.linkedCutAudioPair(id);
                 return pair && id === pair.audioItemId && !itemIds.has(pair.cutId);
