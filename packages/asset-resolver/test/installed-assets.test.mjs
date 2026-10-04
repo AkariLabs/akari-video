@@ -98,6 +98,29 @@ test('installed replacement retains the catalog tier while allowing its local fi
   assert.ok(item.files.length > 0);
 });
 
+test('installed tier follows index, then asset meta, then catalog', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[0].tier = 'pro';
+  delete catalog.items[0].files;
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  const { assetRoot, indexPath } = writeInstalled({ home, id: 'mini-still', category: 'still' });
+  const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+  const indexed = index.packs['fixture-pack'].items[0];
+  indexed.tier = 'free';
+  writeFileSync(path.join(assetRoot, 'meta.json'), JSON.stringify({ tier: 'pro' }));
+  writeFileSync(indexPath, JSON.stringify(index));
+  assert.equal((await loadCatalog({ env })).items.find(item => item.id === 'mini-still').tier, 'free');
+
+  delete indexed.tier;
+  writeFileSync(indexPath, JSON.stringify(index));
+  assert.equal((await loadCatalog({ env })).items.find(item => item.id === 'mini-still').tier, 'pro');
+
+  writeFileSync(path.join(assetRoot, 'meta.json'), '{}');
+  catalog.items[0].tier = 'free';
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  assert.equal((await loadCatalog({ env })).items.find(item => item.id === 'mini-still').tier, 'free');
+});
+
 test('installed item の fetch はローカル実体をコピーし sha256 一致時だけ登録する', async () => {
   const { env, home, root } = setupFixtureEnv();
   const payload = 'verified local payload';
