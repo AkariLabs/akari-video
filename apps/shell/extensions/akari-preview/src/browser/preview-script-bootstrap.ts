@@ -3105,6 +3105,11 @@ export function previewBootstrapScript(): string {
                 if (!entry) return;
                 beginLayerMoveDrag(entry, event);
             });
+            const cutSegmentAtOutputTime = () => frontmostPreviewHitFn(segments
+                .filter(segment => segment.kind === 'src' && Number.isInteger(segment.cutIndex)
+                    && outputTime >= segment.outStart && outputTime < segment.outEnd)
+                .map((segment, order) => ({ element: segment,
+                    z: zForItem(segment.id, zForTrack(segment.trackId)), order })));
             const findVisualMediaHitAt = event => {
                 const sourcePoint = typeof previewPhotoSourcePointFn === 'function' ? previewPhotoSourcePointFn : null;
                 const stagePoint = sourcePoint
@@ -3145,27 +3150,36 @@ export function previewBootstrapScript(): string {
                         } else if (!layerGeometryHitAt(entry, event.clientX, event.clientY, hasSourceSize ? undefined : size)) continue;
                         hits.push({ element: entry.video, z: Number(entry.video.style.zIndex) || 0, order: order++ });
                     }
-                    const segment = segments[activeSegmentIndex];
+                    const segment = typeof cutSegmentAtOutputTime === 'function'
+                        ? cutSegmentAtOutputTime() : segments[activeSegmentIndex];
                     const hasCut = Number.isInteger(segment?.cutIndex)
                         || (video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined);
                     if (segment?.kind === 'src' && hasCut
                         && !allTracksHiddenByScope.cuts
                         && !hiddenTracksByScope.cuts.has(segment.track)) {
+                        const cutHitZ = typeof zForItem === 'function' && typeof zForTrack === 'function'
+                            ? zForItem(segment.id, zForTrack(segment.trackId)) : Number(video.style.zIndex) || 0;
                         if (Number.isInteger(segment.cutIndex)
-                            && video.dataset.akariCutIndex !== String(segment.cutIndex)) {
+                            && (video.dataset.akariCutIndex !== String(segment.cutIndex)
+                                || video.dataset.akariCutId !== (segment.id || ''))) {
                             video.dataset.akariCutIndex = String(segment.cutIndex);
                             video.dataset.akariCutId = typeof segment.id === 'string' ? segment.id : '';
+                            const transform = segment.transform || {};
+                            video.dataset.akariTransformX = String(transform.x ?? 0);
+                            video.dataset.akariTransformY = String(transform.y ?? 0);
+                            video.dataset.akariTransformScale = String(transform.scale ?? 1);
+                            video.dataset.akariTransformRotate = String(transform.rotate ?? 0);
                         }
                         const point = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
                         if (typeof cutSelectBoxGeometry === 'function'
                             && typeof previewMotionBoxHitAtFn === 'function' && point) {
                             if (previewMotionBoxHitAtFn(cutSelectBoxGeometry(), point))
-                                hits.push({ element: video, z: Number(video.style.zIndex) || 0, order: -1 });
+                                hits.push({ element: video, z: cutHitZ, order: -1 });
                         } else {
                             const bounds = video.getBoundingClientRect();
                             if (event.clientX >= bounds.left && event.clientX <= bounds.right
                                 && event.clientY >= bounds.top && event.clientY <= bounds.bottom)
-                                hits.push({ element: video, z: Number(video.style.zIndex) || 0, order: -1 });
+                                hits.push({ element: video, z: cutHitZ, order: -1 });
                         }
                     }
                     return typeof frontmostPreviewHitFn === 'function' ? frontmostPreviewHitFn(hits)
@@ -3794,7 +3808,8 @@ export function previewBootstrapScript(): string {
             let selectionProxySource;
             const selectionCutProxy = document.createElement('video');
             const cutInteractionSegment = () => {
-                if (requestedCutId === undefined) return segments[activeSegmentIndex];
+                if (requestedCutId === undefined) return frameEngineMediaIdle
+                    ? cutSegmentAtOutputTime() : segments[activeSegmentIndex];
                 const index = summary.cuts.findIndex(cut => cut.id === requestedCutId);
                 const cut = summary.cuts[index];
                 if (!cut) return undefined;

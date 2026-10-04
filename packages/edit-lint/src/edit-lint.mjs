@@ -2088,7 +2088,7 @@ function validateCutTransformFields(cuts, findings) {
       });
       continue;
     }
-    const allowedKeys = new Set(["x", "y", "scale", "rotate"]);
+    const allowedKeys = new Set(["x", "y", "scale", "scaleX", "scaleY", "rotate"]);
     for (const key of Object.keys(cut.transform)) {
       if (!allowedKeys.has(key)) {
         addFinding(findings, {
@@ -2109,13 +2109,15 @@ function validateCutTransformFields(cuts, findings) {
         });
       }
     }
-    if (Object.hasOwn(cut.transform, "scale") && !isPositiveNumber(cut.transform.scale)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "cuts.transform",
-        message: "transform.scale must be a positive number when present",
-        path: `${path}.transform.scale`,
-      });
+    for (const field of ["scale", "scaleX", "scaleY"]) {
+      if (Object.hasOwn(cut.transform, field) && !isPositiveNumber(cut.transform[field])) {
+        addFinding(findings, {
+          severity: "error",
+          check: "cuts.transform",
+          message: `transform.${field} must be a positive number when present`,
+          path: `${path}.transform.${field}`,
+        });
+      }
     }
   }
 }
