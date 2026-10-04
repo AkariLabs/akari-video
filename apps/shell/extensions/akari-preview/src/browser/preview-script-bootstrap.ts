@@ -4969,6 +4969,17 @@ export function previewBootstrapScript(): string {
                     updateCaptionSelectTools();
                     return;
                 }
+                const handleBox = captionSelectBox.querySelector('.akari-caption-handle-box');
+                if (handleBox && !captionGestureCount && !selectionDragActive) {
+                    const vertical = Boolean(caption.textStyle?.vertical);
+                    const verticalHandles = Boolean(handleBox.querySelector('[data-h="n"]'))
+                        && Boolean(handleBox.querySelector('[data-h="s"]'));
+                    const horizontalHandles = Boolean(handleBox.querySelector('[data-h="e"]'))
+                        && Boolean(handleBox.querySelector('[data-h="w"]'));
+                    if (vertical ? !verticalHandles || horizontalHandles : !horizontalHandles || verticalHandles) {
+                        applyCaptionSelectionAttrs();
+                    }
+                }
                 const rect = captionVisualRect();
                 updateCaptionSelectBoxForRect(rect);
             };
