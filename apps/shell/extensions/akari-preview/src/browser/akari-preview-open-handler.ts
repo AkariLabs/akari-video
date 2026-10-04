@@ -2657,105 +2657,189 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }));
         let collapsedBagSummary: EditSummary | undefined;
         let projectedBagSummary: EditSummary | undefined;
-        disposables.push(widget.onMessage(message => {
-            if (message?.type === 'akari-preview-caption-edit-focus' && kind === 'output') {
-                widget.node.dataset.akariCaptionEditingFocus = message.focused ? 'true' : 'false';
-                return;
-            }
-            if (message?.type === PREVIEW_CONTEXT_BOX_MESSAGE) {
-                contextBar?.receive(message);
-                return;
-            }
-            if (message?.type === 'akari-preview-photo-analyze' && kind === 'output') {
-                void dispatchPhotoAnalysis({ editUri: widget.akariPreviewEditUri?.toString(),
-                    id: message.itemId, kind: message.kind }, detail => {
-                    window.dispatchEvent(new CustomEvent('akari.photo.analyze', { detail }));
-                }, (callback, delay) => { window.setTimeout(callback, delay); }).then(result => {
-                    widget.sendMessage({ type: 'akari-preview-photo-analyze-response',
-                        requestId: message.requestId, ok: true, result });
-                });
-                return;
-            }
-            if (message?.type === 'akari-preview-photo-brush-end' && kind === 'output') {
-                window.dispatchEvent(new CustomEvent('akari.photo.brush-end', { detail: {
-                    editUri: widget.akariPreviewEditUri?.toString()
-                } }));
-                return;
-            }
-            if (message?.type === 'akari-preview-photo-stroke' && kind === 'output'
-                && typeof message.itemId === 'string' && message.stroke) {
-                window.dispatchEvent(new CustomEvent('akari.photo.stroke', { detail: {
-                    editUri: widget.akariPreviewEditUri?.toString(), id: message.itemId, stroke: message.stroke
-                } }));
-                return;
-            }
-            if (message?.type === 'akari-preview-photo-click' && kind === 'output'
-                && typeof message.itemId === 'string' && Array.isArray(message.point)) {
-                window.dispatchEvent(new CustomEvent('akari.photo.click', { detail: {
-                    editUri: widget.akariPreviewEditUri?.toString(), id: message.itemId, point: message.point
-                } }));
-                return;
-            }
-            if (message?.type === 'akari-preview-photo-hover' && kind === 'output'
-                && typeof message.itemId === 'string') {
-                window.dispatchEvent(new CustomEvent('akari.photo.hover', { detail: {
-                    editUri: widget.akariPreviewEditUri?.toString(), id: message.itemId,
-                    point: Array.isArray(message.point) ? message.point : null
-                } }));
-                return;
-            }
-            if (message?.type === 'akari-preview-photo-select-end' && kind === 'output'
-                && typeof message.itemId === 'string') {
-                window.dispatchEvent(new CustomEvent('akari.photo.select-end', { detail: { id: message.itemId } }));
-                return;
-            }
-            if (message?.type === 'akari-preview-capture-frame') {
-                const token = message.startToken;
-                if (token === undefined) void this.capturePreviewFrame(widget, message);
-                else if (typeof token === 'string' && typeof message.pageId === 'string'
-                    && this.pendingFrameCaptures.take(token, widget, message.pageId)) {
-                    void this.capturePreviewFrame(widget, message).then(path =>
-                        this.pendingFrameCaptures.resolve(token, widget, message.pageId, path), error =>
-                        this.pendingFrameCaptures.reject(token, widget, message.pageId,
-                            error instanceof Error ? error : new Error(String(error))));
+        // 先勝ち（条件を満たせば return で抜ける）メッセージの表。true = 処理済み（呼び出し側が return）、false = 条件外（次の if へ落ちる）。
+        const firstWinsMessages = new Map<string, (message: any) => boolean>([
+            ['akari-preview-caption-edit-focus', message => {
+                if (message?.type === 'akari-preview-caption-edit-focus' && kind === 'output') {
+                    widget.node.dataset.akariCaptionEditingFocus = message.focused ? 'true' : 'false';
+                    return true;
                 }
-                return;
-            }
-            if (message?.type === 'akari-preview-capture-busy' && typeof message.token === 'string'
-                && typeof message.pageId === 'string') {
-                this.pendingFrameCaptures.reject(message.token, widget, message.pageId,
-                    new Error('前のコマを保存中です'));
-                return;
-            }
-            if (message?.type === 'akari-preview-expand-bag' && kind === 'output'
-                && (message.bagId === null || typeof message.bagId === 'string')
-                && Number.isSafeInteger(message.requestId)) {
-                const current = widget.akariPreviewSummary;
-                if (!current) return;
-                if (current !== projectedBagSummary) collapsedBagSummary = current;
-                const base = collapsedBagSummary ?? current;
-                const bagId: string | null = message.bagId;
-                const bagNode = base.tree?.find(node => node.id === bagId && node.kind === 'bag'
-                    && 'lazy' in node && node.lazy === true);
-                if (bagId !== null && !bagNode) return;
-                // Only an untouched, all-scanned bag reaches here. Its renderer
-                // record already contains group composition, clipping and assets.
-                // Keep those fields and use the shared projector for the masks.
-                const overlays = base.overlays.flatMap(overlay => {
-                    if (overlay.id !== bagId) return [overlay];
-                    const bag = { id: overlay.id, at: overlay.start, duration: overlay.duration,
-                        source: { kind: 'html', html: overlay.html }, declaration: overlay };
-                    const children = projectBagChildren(bag, scanHtmlParts(overlay.html));
-                    return expandBagOverlays({ tracks: [{ items: [{ ...bag, children }] }] })
-                        .map(part => ({ ...overlay, id: part.id, html: part.html,
-                            parentId: overlay.id, part: part.part }));
-                });
-                projectedBagSummary = { ...base, overlays };
-                widget.akariPreviewSummary = projectedBagSummary;
-                widget.sendMessage({ type: 'akari-preview-expand-bag', bagId,
-                    requestId: message.requestId, summary: projectedBagSummary });
-                return;
-            }
+                return false;
+            }],
+            [PREVIEW_CONTEXT_BOX_MESSAGE, message => {
+                if (message?.type === PREVIEW_CONTEXT_BOX_MESSAGE) {
+                    contextBar?.receive(message);
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-photo-analyze', message => {
+                if (message?.type === 'akari-preview-photo-analyze' && kind === 'output') {
+                    void dispatchPhotoAnalysis({ editUri: widget.akariPreviewEditUri?.toString(),
+                        id: message.itemId, kind: message.kind }, detail => {
+                        window.dispatchEvent(new CustomEvent('akari.photo.analyze', { detail }));
+                    }, (callback, delay) => { window.setTimeout(callback, delay); }).then(result => {
+                        widget.sendMessage({ type: 'akari-preview-photo-analyze-response',
+                            requestId: message.requestId, ok: true, result });
+                    });
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-photo-brush-end', message => {
+                if (message?.type === 'akari-preview-photo-brush-end' && kind === 'output') {
+                    window.dispatchEvent(new CustomEvent('akari.photo.brush-end', { detail: {
+                        editUri: widget.akariPreviewEditUri?.toString()
+                    } }));
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-photo-stroke', message => {
+                if (message?.type === 'akari-preview-photo-stroke' && kind === 'output'
+                    && typeof message.itemId === 'string' && message.stroke) {
+                    window.dispatchEvent(new CustomEvent('akari.photo.stroke', { detail: {
+                        editUri: widget.akariPreviewEditUri?.toString(), id: message.itemId, stroke: message.stroke
+                    } }));
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-photo-click', message => {
+                if (message?.type === 'akari-preview-photo-click' && kind === 'output'
+                    && typeof message.itemId === 'string' && Array.isArray(message.point)) {
+                    window.dispatchEvent(new CustomEvent('akari.photo.click', { detail: {
+                        editUri: widget.akariPreviewEditUri?.toString(), id: message.itemId, point: message.point
+                    } }));
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-photo-hover', message => {
+                if (message?.type === 'akari-preview-photo-hover' && kind === 'output'
+                    && typeof message.itemId === 'string') {
+                    window.dispatchEvent(new CustomEvent('akari.photo.hover', { detail: {
+                        editUri: widget.akariPreviewEditUri?.toString(), id: message.itemId,
+                        point: Array.isArray(message.point) ? message.point : null
+                    } }));
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-photo-select-end', message => {
+                if (message?.type === 'akari-preview-photo-select-end' && kind === 'output'
+                    && typeof message.itemId === 'string') {
+                    window.dispatchEvent(new CustomEvent('akari.photo.select-end', { detail: { id: message.itemId } }));
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-capture-frame', message => {
+                if (message?.type === 'akari-preview-capture-frame') {
+                    const token = message.startToken;
+                    if (token === undefined) void this.capturePreviewFrame(widget, message);
+                    else if (typeof token === 'string' && typeof message.pageId === 'string'
+                        && this.pendingFrameCaptures.take(token, widget, message.pageId)) {
+                        void this.capturePreviewFrame(widget, message).then(path =>
+                            this.pendingFrameCaptures.resolve(token, widget, message.pageId, path), error =>
+                            this.pendingFrameCaptures.reject(token, widget, message.pageId,
+                                error instanceof Error ? error : new Error(String(error))));
+                    }
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-capture-busy', message => {
+                if (message?.type === 'akari-preview-capture-busy' && typeof message.token === 'string'
+                    && typeof message.pageId === 'string') {
+                    this.pendingFrameCaptures.reject(message.token, widget, message.pageId,
+                        new Error('前のコマを保存中です'));
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-expand-bag', message => {
+                if (message?.type === 'akari-preview-expand-bag' && kind === 'output'
+                    && (message.bagId === null || typeof message.bagId === 'string')
+                    && Number.isSafeInteger(message.requestId)) {
+                    const current = widget.akariPreviewSummary;
+                    if (!current) return true;
+                    if (current !== projectedBagSummary) collapsedBagSummary = current;
+                    const base = collapsedBagSummary ?? current;
+                    const bagId: string | null = message.bagId;
+                    const bagNode = base.tree?.find(node => node.id === bagId && node.kind === 'bag'
+                        && 'lazy' in node && node.lazy === true);
+                    if (bagId !== null && !bagNode) return true;
+                    // Only an untouched, all-scanned bag reaches here. Its renderer
+                    // record already contains group composition, clipping and assets.
+                    // Keep those fields and use the shared projector for the masks.
+                    const overlays = base.overlays.flatMap(overlay => {
+                        if (overlay.id !== bagId) return [overlay];
+                        const bag = { id: overlay.id, at: overlay.start, duration: overlay.duration,
+                            source: { kind: 'html', html: overlay.html }, declaration: overlay };
+                        const children = projectBagChildren(bag, scanHtmlParts(overlay.html));
+                        return expandBagOverlays({ tracks: [{ items: [{ ...bag, children }] }] })
+                            .map(part => ({ ...overlay, id: part.id, html: part.html,
+                                parentId: overlay.id, part: part.part }));
+                    });
+                    projectedBagSummary = { ...base, overlays };
+                    widget.akariPreviewSummary = projectedBagSummary;
+                    widget.sendMessage({ type: 'akari-preview-expand-bag', bagId,
+                        requestId: message.requestId, summary: projectedBagSummary });
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-diagnostics', message => {
+                // 診断（第11・12項）: ページ側の段の報告。届かないこと自体も証跡になる
+                // （ホスト側の監視が「報告なし」として記録する）。
+                if (isPreviewDiagnosticsReport(message)) {
+                    widget.akariPreviewDiagnostics?.ingest(message);
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-raw-audio-request', message => {
+                if (kind === 'raw' && message?.type === 'akari-preview-raw-audio-request') {
+                    const rawAudio = widget.akariPreviewRawAudio;
+                    if (rawAudio?.pageId === message.pageId && rawAudio.url) {
+                        widget.sendMessage({ type: 'akari-preview-raw-audio-ready',
+                            pageId: rawAudio.pageId, url: rawAudio.url });
+                    }
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-gesture', message => {
+                if (message?.type === 'akari-preview-gesture'
+                    && (message.phase === 'begin' || message.phase === 'saved' || message.phase === 'end')) {
+                    const result = reducePreviewGesture(
+                        this.previewGestureGuards.get(widget) ?? { active: false },
+                        { type: message.phase }
+                    );
+                    this.previewGestureGuards.set(widget, result.state);
+                    if (result.refresh) {
+                        this.queueRefresh(widget, identityUri, kind,
+                            result.refresh.seekTimeOverride, result.refresh.forceRebuild, result.refresh.editSource);
+                    }
+                    return true;
+                }
+                return false;
+            }],
+            ['akari-preview-live-values', message => {
+                if (message?.type === 'akari-preview-live-values') {
+                    const values = previewLiveValues(message);
+                    if (!values) return true;
+                    window.dispatchEvent(new CustomEvent('akari.preview.liveValues', {
+                        detail: { ...values, editUri: widget.akariPreviewEditUri?.normalizePath().toString() }
+                    }));
+                    return true;
+                }
+                return false;
+            }]
+        ]);
+        disposables.push(widget.onMessage(message => {
+            if (firstWinsMessages.get(message?.type)?.(message)) return;
             const trial = this.swapTrialPlaybacks?.get(widget.akariPreviewEditUri?.normalizePath().toString() ?? '');
             if (trial && message?.type === 'akari-preview-swap-user-control') {
                 logSwapTrial(trial.identity, 'playback_cancel', { reason: 'user_control' }); trial.cancel();
@@ -2764,20 +2848,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     trial.event({ type: 'observed', playing: message.playing === true, userStopped: message.userStopped });
                     logSwapTrial(trial.identity, 'playback_state', { playing: message.playing, userStopped: message.userStopped, source: 'renderer' });
                 }
-            }
-            // 診断（第11・12項）: ページ側の段の報告。届かないこと自体も証跡になる
-            // （ホスト側の監視が「報告なし」として記録する）。
-            if (isPreviewDiagnosticsReport(message)) {
-                widget.akariPreviewDiagnostics?.ingest(message);
-                return;
-            }
-            if (kind === 'raw' && message?.type === 'akari-preview-raw-audio-request') {
-                const rawAudio = widget.akariPreviewRawAudio;
-                if (rawAudio?.pageId === message.pageId && rawAudio.url) {
-                    widget.sendMessage({ type: 'akari-preview-raw-audio-ready',
-                        pageId: rawAudio.pageId, url: rawAudio.url });
-                }
-                return;
             }
             if (message?.type === 'akari-preview-alt-all' && typeof message.on === 'boolean') {
                 window.dispatchEvent(new CustomEvent('akari.selection.altAll', { detail: { on: message.on } }));
@@ -2824,27 +2894,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         context: widget.node
                     });
                 }
-            }
-            if (message?.type === 'akari-preview-gesture'
-                && (message.phase === 'begin' || message.phase === 'saved' || message.phase === 'end')) {
-                const result = reducePreviewGesture(
-                    this.previewGestureGuards.get(widget) ?? { active: false },
-                    { type: message.phase }
-                );
-                this.previewGestureGuards.set(widget, result.state);
-                if (result.refresh) {
-                    this.queueRefresh(widget, identityUri, kind,
-                        result.refresh.seekTimeOverride, result.refresh.forceRebuild, result.refresh.editSource);
-                }
-                return;
-            }
-            if (message?.type === 'akari-preview-live-values') {
-                const values = previewLiveValues(message);
-                if (!values) return;
-                window.dispatchEvent(new CustomEvent('akari.preview.liveValues', {
-                    detail: { ...values, editUri: widget.akariPreviewEditUri?.normalizePath().toString() }
-                }));
-                return;
             }
             const selectionKey = widget.akariPreviewEditUri?.normalizePath().toString();
             if (selectionKey && message?.type === 'akari-preview-cut-selected' && message.cutId) {

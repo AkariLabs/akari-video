@@ -42,7 +42,7 @@ function hostFixture() {
     const identity = {};
     const queue = (force = false, text) => host.queueRefresh(widget, identity, 'output', undefined, force, text);
     // Execute the actual receiver, including its end -> queueRefresh wiring.
-    const receiver = section("            if (message?.type === 'akari-preview-gesture'", '            const selectionKey =');
+    const receiver = section("                if (message?.type === 'akari-preview-gesture'", "            }],\n            ['akari-preview-live-values'");
     const receive = vm.runInNewContext(`(function (message) { ${receiver} })`, {
         reducePreviewGesture, widget, identityUri: identity, kind: 'output'
     }).bind(host);

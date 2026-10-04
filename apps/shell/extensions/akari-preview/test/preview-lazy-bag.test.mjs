@@ -4,7 +4,7 @@ import { expandBagOverlays, projectBagChildren, scanHtmlParts } from '../../../.
 import { readHandlerSource, methodBody } from './helpers/handler-source.mjs';
 
 const source = readHandlerSource();
-const host = source.slice(source.indexOf('let collapsedBagSummary:'), source.indexOf('// 診断', source.indexOf('let collapsedBagSummary:')));
+const host = source.slice(source.indexOf('let collapsedBagSummary:'), source.indexOf("['akari-preview-diagnostics'", source.indexOf('let collapsedBagSummary:')));
 const bridge = source.slice(source.indexOf('let bagExpansionRequest ='), source.indexOf('window.akari.reportOverlaySelection ='))
   + source.slice(source.indexOf('// BEGIN preview bag response'), source.indexOf('// END preview bag response'));
 test('host accepts only known lazy bags or collapse and returns a widget-local derived summary', () => {
