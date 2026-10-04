@@ -27,6 +27,12 @@ export const previewSelectionHandlesStyle = `
 .akari-interaction-snap-guide.is-item.is-vertical[data-akari-interaction] { border-left: 1px dashed #ff8b2c; width: 0; }
 .akari-interaction-snap-guide.is-item.is-horizontal[data-akari-interaction] { border-top: 1px dashed #ff8b2c; height: 0; }
 .akari-interaction-snap-guide[data-akari-interaction] { position: fixed; background: #ff8b2c; }
+.akari-interaction-snap-guide:not(.is-item)[data-akari-interaction]::before,
+.akari-interaction-snap-guide:not(.is-item)[data-akari-interaction]::after { content: ''; position: absolute; background: #ff8b2c; pointer-events: none; }
+.akari-interaction-snap-guide:not(.is-item).is-vertical[data-akari-interaction]::before { left: 0; top: -100vh; width: 1px; height: 100vh; }
+.akari-interaction-snap-guide:not(.is-item).is-vertical[data-akari-interaction]::after { left: 0; bottom: -100vh; width: 1px; height: 100vh; }
+.akari-interaction-snap-guide:not(.is-item).is-horizontal[data-akari-interaction]::before { top: 0; left: -100vw; width: 100vw; height: 1px; }
+.akari-interaction-snap-guide:not(.is-item).is-horizontal[data-akari-interaction]::after { top: 0; right: -100vw; width: 100vw; height: 1px; }
 .akari-interaction-angle, .akari-interaction-hint { position: fixed; z-index: 2147483647; pointer-events: none; padding: 3px 6px; border-radius: 4px; background: var(--theia-editor-background, #252526); color: var(--theia-editor-foreground, #eee); box-shadow: 0 2px 6px rgba(0,0,0,.3); font-size: 11px; white-space: nowrap; }
 #layer-select-box, #cut-select-box { z-index: 2147483647; border: 1px solid var(--akari-accent); box-shadow: none; }
 #layer-select-box.is-active, #cut-select-box.is-active { pointer-events: none; }

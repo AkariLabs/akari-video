@@ -3085,7 +3085,8 @@ export function previewBootstrapScript(): string {
                         window.akari.interaction?.hideSnapGuides?.();
                     } else {
                         const visual = previewMotionGeometryTransformFn(original,
-                            motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible);
+                            motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration, original)?.visible,
+                            entry.previewVisiblePosition);
                         const bounds = layerOutputBoundsForTransform(entry, { ...visual,
                             x: visual.x + nextX - original.x, y: visual.y + nextY - original.y });
                         const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
@@ -3327,7 +3328,8 @@ export function previewBootstrapScript(): string {
                             const segment = cutInteractionSegment();
                             const visual = previewMotionGeometryTransformFn(original,
                                 motionAtForSpec(segment, segment?.outStart,
-                                    Number(segment?.outEnd) - Number(segment?.outStart))?.visible);
+                                    Number(segment?.outEnd) - Number(segment?.outStart), original)?.visible,
+                                cutPreviewVisiblePosition);
                             const bounds = outputBoundsForCenteredBox(
                                 outputWidth / 2 + visual.x + nextX - original.x,
                                 outputHeight / 2 + visual.y + nextY - original.y,
