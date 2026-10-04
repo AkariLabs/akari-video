@@ -46,6 +46,20 @@ test('preview and export resolve the same placement for center, side, and off-fr
     }
 });
 
+test('drag write keeps frame-fit captions centered and changes only y', () => {
+    const source = JSON.stringify({ captions: [{ id: 'frame', style_preset: 'subtitle-news',
+        text_style: { background: { fit: 'frame' }, position: { x: 0.13, y: 0.2 } } }] });
+    const updated = JSON.parse(updateCaptionCuePositionSource(source, 'frame',
+        { anchor: 'tl', position: { x: 0.32, y: 0.6 } }));
+    assert.deepEqual(updated.captions[0].text_style.position, { y: 0.6 });
+    assert.equal(updated.captions[0].text_style.text_anchor, 'tc');
+    const override = JSON.stringify({ default_text_style: { background: { fit: 'frame' } },
+        captions: [{ id: 'text', text_style: { background: { fit: 'text' } } }] });
+    const ordinary = JSON.parse(updateCaptionCuePositionSource(override, 'text',
+        { anchor: 'tl', position: { x: 0.32, y: 0.6 } }));
+    assert.deepEqual(ordinary.captions[0].text_style.position, { x: 0.32, y: 0.6 });
+});
+
 test('visual rectangle inverse keeps the ink center across scale, rotation and all anchors', () => {
     const frame = { x: 0, y: 0, width: 1280, height: 720 };
     const width = 218;

@@ -735,7 +735,8 @@ export class PreviewLibraryDrop {
             const placedText = await this.commands.executeCommand<string | undefined>('akari.caption.placeText', {
                 start: geometry.time, center: { x: point.x / geometry.output.width,
                     y: point.y / geometry.output.height },
-                ...(payload.kind === 'textstyle' ? { stylePreset: payload.id } : {}),
+                ...(payload.kind === 'textstyle' ? { stylePreset: payload.id,
+                    ...(payload.style ? { stylePresetLook: payload.style } : {}) } : {}),
                 ...(payload.kind === 'mystyle' ? { myStyle: payload.style } : {}),
                 ...(!event.altKey ? { canvasAware: true } : {}),
                 outsideCanvas: event.altKey

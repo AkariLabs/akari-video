@@ -1,4 +1,5 @@
-import { applyCaptionTextEdit, type CaptionTextEditRecord } from '@akari-video/edit-store';
+import { applyCaptionTextEdit, captionStyleFitsFrame, TEXTSTYLE_CATALOG,
+    type CaptionTextEditRecord } from '@akari-video/edit-store';
 
 export const PREVIEW_CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -37,6 +38,19 @@ export interface CaptionCuePosition {
 }
 
 export type CaptionGroupPosition = CaptionCuePosition;
+
+/** Keep frame-width plates centered even when a caller supplies a visual left edge. */
+export function frameFitCuePosition(root: unknown, caption: unknown, value: CaptionCuePosition): CaptionCuePosition {
+    const document = root && typeof root === 'object' ? root as Record<string, unknown> : {};
+    const cue = caption && typeof caption === 'object' ? caption as Record<string, unknown> : {};
+    const preset = typeof cue.style_preset === 'string' ? TEXTSTYLE_CATALOG[cue.style_preset]?.style : undefined;
+    const cueStyle = cue.text_style && typeof cue.text_style === 'object' ? cue.text_style : undefined;
+    const background = Object.assign({}, ...[document.default_text_style, preset, cueStyle].map(style =>
+        style && typeof style === 'object' && 'background' in style
+            && style.background && typeof style.background === 'object' ? style.background : {}));
+    if (!captionStyleFitsFrame({ background })) return value;
+    return { anchor: `${value.anchor[0]}c` as CaptionPositionAnchor, position: { y: value.position.y } };
+}
 
 export interface CaptionPlateRect {
     left: number;
@@ -310,10 +324,11 @@ export function placedCaptionPositionFromRects(
 export function updateCaptionGroupPositionSource(source: string, value: CaptionGroupPosition): string {
     const root = captionObjectRoot(source);
     const style = defaultTextStyle(root);
-    style.text_anchor = value.anchor;
-    style.position = value.position.x === undefined
-        ? { y: value.position.y }
-        : { x: value.position.x, y: value.position.y };
+    const position = frameFitCuePosition(root, undefined, value);
+    style.text_anchor = position.anchor;
+    style.position = position.position.x === undefined
+        ? { y: position.position.y }
+        : { x: position.position.x, y: position.position.y };
     delete style.zone;
     return `${JSON.stringify(root, undefined, 2)}\n`;
 }
@@ -329,10 +344,11 @@ export function updateCaptionCuePositionSource(
     const caption = list[captionIndex(list, captionId)] as Record<string, unknown>;
     const currentStyle = caption.text_style && typeof caption.text_style === 'object'
         && !Array.isArray(caption.text_style) ? caption.text_style as Record<string, unknown> : {};
-    currentStyle.text_anchor = value.anchor;
-    currentStyle.position = value.position.x === undefined
-        ? { y: value.position.y }
-        : { x: value.position.x, y: value.position.y };
+    const position = frameFitCuePosition(root, caption, value);
+    currentStyle.text_anchor = position.anchor;
+    currentStyle.position = position.position.x === undefined
+        ? { y: position.position.y }
+        : { x: position.position.x, y: position.position.y };
     delete currentStyle.zone;
     caption.text_style = currentStyle;
     return `${JSON.stringify(root, undefined, 2)}\n`;
@@ -353,10 +369,11 @@ export function updateCaptionCuePositionsSource(
         const current = caption.text_style;
         const style = current && typeof current === 'object' && !Array.isArray(current)
             ? current as Record<string, unknown> : {};
-        style.text_anchor = value.anchor;
-        style.position = value.position.x === undefined
-            ? { y: value.position.y }
-            : { x: value.position.x, y: value.position.y };
+        const position = frameFitCuePosition(root, caption, value);
+        style.text_anchor = position.anchor;
+        style.position = position.position.x === undefined
+            ? { y: position.position.y }
+            : { x: position.position.x, y: position.position.y };
         delete style.zone;
         caption.text_style = style;
     }

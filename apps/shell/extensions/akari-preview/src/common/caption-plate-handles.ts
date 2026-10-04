@@ -208,10 +208,12 @@ function applyCuePosition(root: unknown, cuePosition: CaptionPlateCuePosition): 
     const list = captionList(root);
     const caption = list[captionIndex(list, cuePosition.captionId)] as Record<string, unknown>;
     const style = captionStyle(caption);
-    style.text_anchor = cuePosition.value.anchor;
-    style.position = cuePosition.value.position.x === undefined
-        ? { y: cuePosition.value.position.y }
-        : { x: cuePosition.value.position.x, y: cuePosition.value.position.y };
+    // Preview normalizes frame-fit positions before this source-only writer is called.
+    const position = cuePosition.value;
+    style.text_anchor = position.anchor;
+    style.position = position.position.x === undefined
+        ? { y: position.position.y }
+        : { x: position.position.x, y: position.position.y };
     delete style.zone;
     caption.text_style = style;
 }

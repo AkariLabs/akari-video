@@ -10,6 +10,7 @@ export interface PlaceTextOptions {
     center?: { x: number; y: number };
     textAnchor?: 'mc';
     stylePreset?: string;
+    stylePresetLook?: unknown;
     canvasAware?: boolean;
     canvasId?: string;
     outsideCanvas?: boolean;

@@ -105,7 +105,8 @@ import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
 import { fitStyleSpecimen } from '../common/library-shelf-visuals';
-import { libraryTextStyleSample } from 'akari-preview/lib/common/textstyle-sample';
+import { LIBRARY_TEXTSTYLE_SAMPLE_CSS, libraryTextStyleSample,
+    type LibraryTextStyleSample } from 'akari-preview/lib/common/textstyle-sample';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
@@ -368,7 +369,7 @@ interface MaterialCardEntry {
  * （AkariRoleBucketsWidget.ID）は akari-shell-strip 側が文字列リテラルで参照して
  * いるため変更しない。
  */
-function StyleSpecimen(props: { style: React.CSSProperties; myStyle?: boolean }): React.ReactElement {
+function StyleSpecimen(props: { sample: LibraryTextStyleSample; myStyle?: boolean }): React.ReactElement {
     const stage = React.useRef<HTMLSpanElement>(null);
     const sample = React.useRef<HTMLSpanElement>(null);
     const [scale, setScale] = React.useState(1);
@@ -384,14 +385,25 @@ function StyleSpecimen(props: { style: React.CSSProperties; myStyle?: boolean })
         if (stage.current) observer.observe(stage.current);
         if (sample.current) observer.observe(sample.current);
         return () => observer.disconnect();
-    }, [props.style]);
-    return <span ref={stage} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+    }, [props.sample]);
+    const { sample: look } = props;
+    return <><style>{LIBRARY_TEXTSTYLE_SAMPLE_CSS}</style><span ref={stage} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden' }}>
         <span ref={sample} draggable={false} data-akari-preset-sample-text={!props.myStyle || undefined}
             data-akari-my-style-preview={props.myStyle || undefined}
-            style={{ ...props.style, display: 'inline-block', flex: '0 0 auto', whiteSpace: 'nowrap',
-                lineHeight: 1.2, transform: `scale(${scale})` }}>{CAPTION_SAMPLE_TEXT}</span>
-    </span>;
+            className={'akari-caption akari-caption--single-line akari-caption--sample'
+                + (look.rich ? ' akari-caption--rich' : '') + (look.frameFit ? ' akari-caption--sample-frame' : '')}
+            style={{ ...(look.vars as React.CSSProperties), flex: '0 0 auto', transform: `scale(${scale})` }}>
+            <span className='akari-caption__plate'><span className='akari-caption__line'>
+                {look.rich ? <span className='akari-caption__tok'><span className='akari-caption__rich-segment'>
+                    <span className='akari-caption__rich-shadow' aria-hidden='true'>{CAPTION_SAMPLE_TEXT}</span>
+                    {look.strokes.map((stroke, index) => <span key={index} className='akari-caption__rich-stroke'
+                        aria-hidden='true' style={stroke as React.CSSProperties}>{CAPTION_SAMPLE_TEXT}</span>)}
+                    <span className='akari-caption__rich-fill'>{CAPTION_SAMPLE_TEXT}</span>
+                </span></span> : CAPTION_SAMPLE_TEXT}
+            </span></span>
+        </span>
+    </span></>;
 }
 
 @injectable()
@@ -4588,7 +4600,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     const look = style.parts.find(part => part.kind === 'look')?.text_style;
                     const sampleStyle = libraryTextStyleSample(
                         look && typeof look === 'object' && !Array.isArray(look) ? look as Record<string, unknown> : {}
-                    ) as React.CSSProperties;
+                    );
                     const key = `mystyle/${style.id}`;
                     const target: LibraryMenuTarget = { kind: 'mystyle', key };
                     const info = this.libraryInfo?.target;
@@ -4609,7 +4621,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                         onContextMenu={event => this.openLibraryMenuAt(event, target)}
                         onInfo={anchor => this.openLibraryInfo(target, anchor)}
-                        face={<StyleSpecimen style={sampleStyle} myStyle />} />;
+                        face={<StyleSpecimen sample={sampleStyle} myStyle />} />;
                 })}
             </div>
         </section>;
@@ -4804,7 +4816,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             face={item.kind === 'lut'
                 ? <LutPreview url={item.previewUrl} />
                 : textstyle
-                ? <StyleSpecimen style={libraryTextStyleSample(item.style ?? {}) as React.CSSProperties} />
+                ? <StyleSpecimen sample={libraryTextStyleSample(item.style ?? {})} />
                 : item.sampleText
                 ? <span draggable={false} data-akari-preset-sample-text data-akari-textanim-sample={item.kind === 'textanim' ? true : undefined}
                     style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

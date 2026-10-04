@@ -21,6 +21,7 @@ exports.usesExtendedPerLineBackground = usesExtendedPerLineBackground;
 exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
 exports.scaleCaptionPx = scaleCaptionPx;
 exports.captionAnchorPositionVars = captionAnchorPositionVars;
+exports.captionStyleFitsFrame = captionStyleFitsFrame;
 exports.deriveMetallicStops = deriveMetallicStops;
 exports.readMetallicHue = readMetallicHue;
 exports.resolveCaptionRichFillVars = resolveCaptionRichFillVars;
@@ -1765,7 +1766,7 @@ function scaleCaptionPx(value, scale) {
  * b は下端、t は上端、m は中心をその座標へ合わせる。
  * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
  */
-function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
+function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue, frameFit = false) {
     const anchor = typeof anchorValue === 'string' && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue)
         ? anchorValue : undefined;
     const position = isRecord(positionValue) ? positionValue : undefined;
@@ -1801,7 +1802,10 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
         if (vertical === 'm')
             vars['--caption-justify-content'] = 'center';
     }
-    if (typeof position?.x === 'number' && Number.isFinite(position.x)) {
+    if (frameFit) {
+        vars['--caption-text-align'] = 'center';
+    }
+    else if (typeof position?.x === 'number' && Number.isFinite(position.x)) {
         const left = Math.round(position.x * 10000) / 100;
         vars['--caption-left'] = `${left}%`;
         // Keep the legacy right variable for consumers that read it, while
@@ -1823,6 +1827,12 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
         vars['--caption-line-max-width'] = '100%';
     }
     return vars;
+}
+/** The resolved vars and the source style are both valid entry points for preview captions. */
+function captionStyleFitsFrame(style, vars) {
+    const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+    return (object(style) && object(style.background) && style.background.fit === 'frame')
+        || vars?.['--caption-plate-fit'] === 'frame';
 }
 function cssCaptionFontFamily(value) {
     if (value.includes(',') || /^(['"]).*\1$/s.test(value.trim()))
@@ -2076,7 +2086,8 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     if (textShadow !== null)
         vars['--caption-text-shadow'] = textShadow;
     Object.assign(vars, captionZoneVars(style.zone));
-    Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical ? undefined : style.vertical_align));
+    const frameFit = captionStyleFitsFrame(style, vars);
+    Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical ? undefined : style.vertical_align, frameFit));
     // A vertical containing block resolves an overconstrained plate from its
     // right edge. An explicit x always denotes the visible left edge instead.
     if (style.vertical && isRecord(style.position) && finiteNumber(style.position.x)) {
@@ -2104,8 +2115,14 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
         && vars['--caption-right'] !== undefined && vars['--caption-right'] !== 'auto') {
         vars['--caption-right'] = 'auto';
     }
-    if (style.align) {
+    if (style.align && !frameFit) {
         vars['--caption-text-align'] = style.align;
+    }
+    if (frameFit) {
+        for (const name of ['--caption-left', '--caption-right', '--caption-width', '--caption-align-items',
+            '--caption-line-margin', '--caption-line-max-width'])
+            delete vars[name];
+        vars['--caption-text-align'] = 'center';
     }
     return vars;
 }

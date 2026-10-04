@@ -1879,7 +1879,8 @@ export function scaleCaptionPx(value: number, scale: number): number {
 export function captionAnchorPositionVars(
     anchorValue: unknown,
     positionValue: unknown,
-    verticalAlignValue: unknown
+    verticalAlignValue: unknown,
+    frameFit = false
 ): Record<string, string> {
     const anchor = typeof anchorValue === 'string' && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue)
         ? anchorValue : undefined;
@@ -1912,7 +1913,9 @@ export function captionAnchorPositionVars(
         vars['--caption-bottom'] = vertical === 'b' ? '7%' : vertical === 'm' ? '0' : 'auto';
         if (vertical === 'm') vars['--caption-justify-content'] = 'center';
     }
-    if (typeof position?.x === 'number' && Number.isFinite(position.x)) {
+    if (frameFit) {
+        vars['--caption-text-align'] = 'center';
+    } else if (typeof position?.x === 'number' && Number.isFinite(position.x)) {
         const left = Math.round(position.x * 10000) / 100;
         vars['--caption-left'] = `${left}%`;
         // Keep the legacy right variable for consumers that read it, while
@@ -1933,6 +1936,14 @@ export function captionAnchorPositionVars(
         vars['--caption-line-max-width'] = '100%';
     }
     return vars;
+}
+
+/** The resolved vars and the source style are both valid entry points for preview captions. */
+export function captionStyleFitsFrame(style: unknown, vars?: Record<string, string>): boolean {
+    const object = (value: unknown): value is Record<string, unknown> =>
+        value !== null && typeof value === 'object' && !Array.isArray(value);
+    return (object(style) && object(style.background) && style.background.fit === 'frame')
+        || vars?.['--caption-plate-fit'] === 'frame';
 }
 
 function cssCaptionFontFamily(value: string): string {
@@ -2171,8 +2182,9 @@ function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number)
     const textShadow = captionRichTextShadowValue(style, scale);
     if (textShadow !== null) vars['--caption-text-shadow'] = textShadow;
     Object.assign(vars, captionZoneVars(style.zone));
+    const frameFit = captionStyleFitsFrame(style, vars);
     Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position,
-        style.vertical ? undefined : style.vertical_align));
+        style.vertical ? undefined : style.vertical_align, frameFit));
     // A vertical containing block resolves an overconstrained plate from its
     // right edge. An explicit x always denotes the visible left edge instead.
     if (style.vertical && isRecord(style.position) && finiteNumber(style.position.x)) {
@@ -2198,8 +2210,13 @@ function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number)
         && vars['--caption-right'] !== undefined && vars['--caption-right'] !== 'auto') {
         vars['--caption-right'] = 'auto';
     }
-    if (style.align) {
+    if (style.align && !frameFit) {
         vars['--caption-text-align'] = style.align;
+    }
+    if (frameFit) {
+        for (const name of ['--caption-left', '--caption-right', '--caption-width', '--caption-align-items',
+            '--caption-line-margin', '--caption-line-max-width']) delete vars[name];
+        vars['--caption-text-align'] = 'center';
     }
     return vars;
 }
