@@ -562,6 +562,26 @@ export function previewBootstrapScript(): string {
             const pendingSelectionValues = new Map();
             // 入力は pointerup で解放する。DOM と host refresh は未完了の保存ごとに保護する。
             const selectionGestures = new Set();
+            let captionGestureCount = 0;
+            const captionPositionOverrides = new Map();
+            const rememberCaptionPosition = (id, value) => {
+                captionPositionOverrides.set(id, { value, saved: false });
+            };
+            const protectCaptionUpdate = incoming => incoming.map(cue => {
+                const id = cue.sourceCueId || cue.id;
+                const pending = captionPositionOverrides.get(id);
+                if (!pending) return cue;
+                const position = cue.textStyle?.position;
+                const expected = pending.value.position;
+                if (pending.saved && position
+                    && Math.abs(Number(position.x ?? 0) - Number(expected.x ?? 0)) < 0.000001
+                    && Math.abs(Number(position.y ?? 0) - Number(expected.y ?? 0)) < 0.000001) {
+                    captionPositionOverrides.delete(id);
+                    return cue;
+                }
+                return { ...cue, textStyle: { ...cue.textStyle, text_anchor: pending.value.anchor,
+                    position: expected } };
+            });
             const latestSelectionGesture = new WeakMap();
             const beginSelectionGesture = target => {
                 const gesture = { target, key: target.entry || target.media || target };
@@ -571,7 +591,7 @@ export function previewBootstrapScript(): string {
                 return gesture;
             };
             const flushPendingSelectionModel = () => {
-                if (selectionGestures.size || !pendingSelectionModel) return;
+                if (selectionGestures.size || captionGestureCount || !pendingSelectionModel) return;
                 const next = { ...pendingSelectionModel };
                 for (const [kind, entries] of [['layer', 'layers'], ['cut', 'cuts']]) {
                     if (!Array.isArray(next[entries])) continue;
@@ -585,6 +605,7 @@ export function previewBootstrapScript(): string {
                 clearLiveOverride();
                 applyIncrementalModel(next);
             };
+            window.akari.flushPendingGestureModel = flushPendingSelectionModel;
             const endSelectionGesture = gesture => {
                 if (!selectionGestures.delete(gesture)) return;
                 if (pendingSelectionModel) {
@@ -2868,6 +2889,11 @@ export function previewBootstrapScript(): string {
                     const liveItem = previewMotionLiveItemFn(motion.item, original);
                     motion = { ...motion, item: liveItem, visible: window.akari.itemMotion.evaluateItemMotion(
                         liveItem, motion.time, motion.parents) };
+                } else if (motion && positionOnly && target.visualNow) {
+                    // Keyframed items use the pose currently on screen as the next grab's
+                    // origin; their cached spec can lag behind a previous pending write.
+                    const live = target.visualNow();
+                    motion = { ...motion, visible: { ...motion.visible, x: live.x, y: live.y } };
                 }
                 const movingControls = rotating || handleKind === 'move' || !handleKind;
                 const gestureLabel = document.createElement('div');
@@ -5495,6 +5521,8 @@ export function previewBootstrapScript(): string {
                 const captionPlate = handle && captionSelectBox.contains(handle)
                     ? selectedCaptionPlate() : event.target.closest('.caption-row-plate');
                 if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
+                captionGestureCount += 1;
+                window.akari.reportGesture('begin');
                 event.preventDefault();
                 event.stopPropagation();
                 const placedText = caption.timeDomain === 'output';
@@ -5635,7 +5663,10 @@ export function previewBootstrapScript(): string {
                         updateCaptionSelectBoxForRect(captionVisualRect());
                     }
                 };
+                let captionFinished = false;
                 const finish = async cancelled => {
+                    if (captionFinished) return;
+                    captionFinished = true;
                     cleanup();
                     if (cancelled || !moved) {
                         for (const row of captionRows.values()) {
@@ -5645,6 +5676,8 @@ export function previewBootstrapScript(): string {
                         }
                         captionPlate.style.translate = '';
                         updateCaptionSelectBox();
+                        captionGestureCount -= 1;
+                        window.akari.reportGesture('end');
                         return;
                     }
                     pendingCaptionDragReload = true;
@@ -5684,6 +5717,7 @@ export function previewBootstrapScript(): string {
                                 );
                                 return { captionId: id, value };
                             });
+                            for (const { captionId, value } of cuePositions) rememberCaptionPosition(captionId, value);
                             await window.akari.engine.captionWrite(cueId, { cuePositions });
                             for (const id of moveIds) captionCuePositionKnown.set(id, true);
                         } else {
@@ -5692,17 +5726,32 @@ export function previewBootstrapScript(): string {
                                 { anchor: startAnchor, clamp: clampOn,
                                     timeDomain: caption.timeDomain, ...startTransform }
                             );
+                            rememberCaptionPosition(cueId, cuePosition);
                             await window.akari.engine.captionWrite(cueId, {
                                 cuePosition
                             });
                             captionCuePositionKnown.set(cueId, true);
                         }
+                        window.akari.reportGesture('saved');
                     } catch (error) {
+                        captionPositionOverrides.delete(cueId);
+                        for (const id of moveIds) captionPositionOverrides.delete(id);
                         pendingCaptionDragReload = false;
                         if (multiMove) for (const row of captionRows.values()) row.plate.style.translate = '';
                         captionPlate.style.translate = '';
                         console.warn('[akari-preview] caption position write rejected; reverting', error);
                         window.akari.showWriteError(error);
+                    }
+                    for (const id of [cueId, ...moveIds]) {
+                        const pending = captionPositionOverrides.get(id);
+                        if (pending) pending.saved = true;
+                    }
+                    captionGestureCount -= 1;
+                    window.akari.reportGesture('end');
+                    if (!captionGestureCount && !selectionGestures.size) pendingSelectionModel = null;
+                    else {
+                        const flush = flushPendingSelectionModel;
+                        flush();
                     }
                     updateCaptionSelectBox();
                 };
@@ -9698,6 +9747,11 @@ export function previewBootstrapScript(): string {
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
+                nextSummary = window.akari.interaction?.protectModelSummary?.(nextSummary) ?? nextSummary;
+                const oldOverlays = Array.isArray(summary.overlays) ? summary.overlays : [];
+                const newOverlays = Array.isArray(nextSummary.overlays) ? nextSummary.overlays : [];
+                const overlaysAppended = newOverlays.length > oldOverlays.length
+                    && oldOverlays.every((overlay, index) => overlay.id === newOverlays[index]?.id);
                 const addedLayers = Array.isArray(nextSummary.layers)
                     ? nextSummary.layers.slice(layerEntries.length) : [];
                 if (window.akari.frameEngineClock?.updateModel) {
@@ -9714,6 +9768,11 @@ export function previewBootstrapScript(): string {
                     ? segments[activeSegmentIndex].cutIndex : null;
                 summary = nextSummary;
                 window.akari.state.summary = summary;
+                if (overlaysAppended) {
+                    window.akari.interaction?.clearSelection?.();
+                    void window.akari.runtime.mount(summary).catch(error =>
+                        console.warn('[akari-preview] incremental overlay mount failed', error));
+                }
                 for (const layer of addedLayers) {
                     const entry = createLayerEntry(layer, layerEntries.length);
                     layerEntries.push(entry);
@@ -9766,6 +9825,7 @@ export function previewBootstrapScript(): string {
                     ]);
                 }
                 if (addedLayers.length === 0) tick(true);
+                window.akari.interaction?.restorePendingDragTransforms?.();
                 window.akari.requestGenerationUpdate?.();
                 const renderedModel = playbackModelUpdate;
                 void Promise.resolve(renderedModel).then(() => Promise.all(addedLayers.map(layer => {
@@ -10077,9 +10137,10 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
+                    if (captionGestureCount) return;
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated();
-                    captions = Array.isArray(message.captions) ? message.captions : [];
+                    captions = protectCaptionUpdate(Array.isArray(message.captions) ? message.captions : []);
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();
                     if (!window.akari.frameEngineClock) rebuildSegments();
@@ -10110,7 +10171,8 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {
-                    if (selectionGestures.size) {
+                    if (selectionGestures.size || captionGestureCount
+                        || window.akari.interaction?.activePointerOperation) {
                         pendingSelectionModel = message.summary;
                         return;
                     }

@@ -908,7 +908,15 @@ export function hostAdapterScript(): string {
             window.akari.requestGenerationUpdate = () => {
                 vscode.postMessage({ type: 'akari-preview-generation-request' });
             };
+            // Several drags may be waiting for their writes at once. Keep the host guard
+            // raised until the last response, even if another pointer gesture has begun.
+            let pendingGestureWrites = 0;
             window.akari.reportGesture = phase => {
+                if (phase === 'begin') {
+                    if (pendingGestureWrites++ !== 0) return;
+                } else if (phase === 'end') {
+                    if (pendingGestureWrites === 0 || --pendingGestureWrites !== 0) return;
+                }
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
             let pendingLiveValues = null;

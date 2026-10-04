@@ -3848,13 +3848,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 void this.handlePreviewAudioPriority(widget, message.time);
             }
             if (this.isOverlayWriteRequest(message)) {
-                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleOverlayWrite(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
+                    console.error('[akari-preview] previous item write failed', error);
+                }).then(() => this.handleOverlayWrite(widget, message));
             }
             if (this.isOverlayWriteBatchRequest(message)) {
-                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleOverlayWriteBatch(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
+                    console.error('[akari-preview] previous item write failed', error);
+                }).then(() => this.handleOverlayWriteBatch(widget, message));
             }
             if (this.isLayerWriteRequest(message)) {
-                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleLayerWrite(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
+                    console.error('[akari-preview] previous item write failed', error);
+                }).then(() => this.handleLayerWrite(widget, message));
             }
             if (message?.type === 'akari-preview-open-audio-meter') {
                 void this.openAudioMeter();
@@ -3897,13 +3903,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.forwardCutSelection(widget, message);
             }
             if (this.isCutWriteRequest(message)) {
-                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleCutWrite(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
+                    console.error('[akari-preview] previous item write failed', error);
+                }).then(() => this.handleCutWrite(widget, message));
             }
             if (this.isCaptionSelectedRequest(message)) {
                 this.forwardCaptionSelection(widget, message);
             }
             if (this.isCaptionWriteRequest(message)) {
-                this.captionWriteTail = this.captionWriteTail.then(() => this.handleCaptionWrite(widget, message));
+                this.captionWriteTail = this.captionWriteTail.catch(error => {
+                    console.error('[akari-preview] previous caption write failed', error);
+                }).then(() => this.handleCaptionWrite(widget, message));
             }
             if (message?.type === 'akari-preview-caption-inspector'
                 && ['caption-style', 'caption-style-color', 'caption-style-stroke-color', 'caption-style-bg-color'].includes(message.field)) {
@@ -4735,7 +4745,32 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 表示 cue がまだ無く差分が none の場合も、次の字幕更新には最新の宣言を使う。
         widget.akariPreviewCaptionAnimatorInternal = model.captionAnimatorInternal;
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
-            const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
+            const previousSnapshot = widget.akariPreviewModelSnapshot;
+            let updateKind = classifyPreviewModelUpdate(previousSnapshot, nextSnapshot);
+            // Caption geometry can be delivered before the summary. Appended overlays
+            // can be mounted inside the existing stage. Neither needs a new iframe.
+            if (updateKind === 'rebuild') {
+                const oldOverlays = (previousSnapshot.summary.overlays ?? []) as Array<{ id?: unknown }>;
+                const newOverlays = (nextSnapshot.summary.overlays ?? []) as Array<{ id?: unknown }>;
+                const overlaysAppended = newOverlays.length > oldOverlays.length
+                    && oldOverlays.every((overlay, index) => overlay?.id === newOverlays[index]?.id);
+                const captionsChanged = JSON.stringify(previousSnapshot.captions)
+                    !== JSON.stringify(nextSnapshot.captions);
+                if (captionsChanged || overlaysAppended) {
+                    const comparable = {
+                        ...previousSnapshot,
+                        ...(captionsChanged ? { captions: nextSnapshot.captions } : {}),
+                        ...(overlaysAppended ? { overlayUris: nextSnapshot.overlayUris,
+                            assetUris: nextSnapshot.assetUris } : {}),
+                        summary: overlaysAppended
+                            ? { ...previousSnapshot.summary, tree: nextSnapshot.summary.tree }
+                            : previousSnapshot.summary
+                    };
+                    if (classifyPreviewModelUpdate(comparable, nextSnapshot) !== 'rebuild') {
+                        updateKind = 'incremental';
+                    }
+                }
+            }
             const updateAction = previewModelUpdateAction(updateKind, frameEngineEnabled);
             if (updateAction === 'none') {
                 if (model.motionBagUris?.length || widget.akariPreviewMotionBagResources?.size) {
