@@ -1938,7 +1938,9 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
      * プレビュー・書き出しと同じ `asset-resolver` の shell-reference 経由で台帳を引く。
      *
      * プロジェクト内に実体があるものは resolver も同じ答えを返すため、
-     * **ローカルに全部そろっているときは解決自体を省く**（子プロセスを起こさない）。
+     * **ローカルに全部そろっているときは解決自体を省く**。
+     * 編集のたびに全素材を調べるため、通常の解決では子プロセスを起こさない。
+     * ESM は new Function 内の import() で読み、tsc の require() への変換を避ける。
      * 解決できないもの（resolver が無い・台帳に無い）はキーを持たず、呼び出し側は
      * 従来どおり `join(root, declared)` へ落ちる。
      */
@@ -1959,6 +1961,39 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) {
             return resolved;
+        }
+        type ResolveProjectAssetPath = (project: string, declared: string) => Promise<string | null>;
+        const cacheOwner = this as typeof this & {
+            assetResolverImports?: Map<string, Promise<ResolveProjectAssetPath>>;
+        };
+        const imports = cacheOwner.assetResolverImports ??= new Map<string, Promise<ResolveProjectAssetPath>>();
+        let modulePromise = imports.get(srcDir);
+        if (!modulePromise) {
+            modulePromise = Promise.resolve().then(() => {
+                const importEsm = new Function('specifier', 'return import(specifier)') as
+                    (specifier: string) => Promise<{ resolveProjectAssetPath?: ResolveProjectAssetPath }>;
+                return importEsm(pathToFileURL(join(srcDir, 'shell-reference.mjs')).toString());
+            }).then(module => {
+                if (typeof module.resolveProjectAssetPath !== 'function') {
+                    throw new TypeError('resolveProjectAssetPath が見つかりません');
+                }
+                return module.resolveProjectAssetPath;
+            });
+            imports.set(srcDir, modulePromise);
+        }
+        try {
+            const resolveProjectAssetPath = await modulePromise;
+            for (const path of missing) {
+                try {
+                    const actual = await resolveProjectAssetPath(root, path);
+                    if (actual) {
+                        resolved.set(path, actual);
+                    }
+                } catch { /* 1 件だけ解決できなければ従来どおり見つからない扱い。 */ }
+            }
+            return resolved;
+        } catch {
+            // ESM の読み込み自体に失敗した場合だけ、従来の子プロセス経路を使う。
         }
         const result = await this.runResolverScript(`
 import { resolveProjectAssetPath } from ${JSON.stringify(pathToFileURL(join(srcDir, 'shell-reference.mjs')).toString())};
