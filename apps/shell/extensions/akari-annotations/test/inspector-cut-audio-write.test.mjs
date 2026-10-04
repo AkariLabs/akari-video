@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
@@ -11,11 +11,6 @@ import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 
 // audio-clip-fx-fixture と同じく、Theia の DOM / DI を起動せず実 factory / handler を実行する。
-function sourceFile(name) {
-  return ts.createSourceFile(name, readFileSync(new URL(`../src/browser/${name}`, import.meta.url), 'utf8'),
-    ts.ScriptTarget.Latest, true);
-}
-
 function compile(code, bindings, result) {
   const output = ts.transpileModule(code, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
@@ -37,11 +32,10 @@ const cutSections = compile(cutFactory.getText(inspector), {
   cutTransitionFields: () => []
 }, 'CUT_SECTIONS');
 
-const timeline = sourceFile('akari-annotations-widget.ts');
-const widget = timeline.statements.find(statement => ts.isClassDeclaration(statement)
-  && statement.members.some(member => member.name?.getText(timeline) === 'handleInspectorWriteV2'));
+const { ast: timeline } = findMember('handleInspectorWriteV2', { in: 'widget' });
 const methodNames = ['snapshotForSelection', 'handleInspectorWriteV2'];
-const methods = widget.members.filter(member => methodNames.includes(member.name?.getText(timeline)));
+const methods = methodNames.map(name => findMember(name, { in: 'widget' }))
+  .sort((a, b) => a.node.pos - b.node.pos).map(item => item.node);
 const Handler = compile(`class Handler { ${methods.map(method => method.getText(timeline)).join('\n')} }`, {
   readCutFreeze,
   readInspectorAdjustSnapshot: () => undefined,

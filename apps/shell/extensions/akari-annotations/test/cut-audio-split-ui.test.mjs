@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText, findMember } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
@@ -14,11 +15,9 @@ const { isTrackLocked, lockedTrackMessage } = require('../lib/common/track-lock-
 const { audioClipFxFieldsForSnapshot } = require('../lib/browser/inspector/audio-clip-fx.js');
 const { updateAudioClipFxDocument } = require('../lib/browser/inspector/audio-clip-fx.js');
 const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
-const widgetText = read('browser/akari-annotations-widget.ts');
-const source = ts.createSourceFile('widget.ts', widgetText, ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
+const widgetText = readAllSourceText();
 const method = name => {
-    const member = widget.members.find(node => node.name?.getText(source) === name);
+    const { ast: source, node: member } = findMember(name, { in: 'widget' });
     assert.ok(member, name);
     return member.getText(source);
 };

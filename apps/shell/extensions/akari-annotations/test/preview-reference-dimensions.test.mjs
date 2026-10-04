@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { memberText } from './helpers/widget-source.mjs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
@@ -8,13 +8,10 @@ import { pendingAssetFetches } from 'akari-preview/lib/common/pending-asset-fetc
 
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
-const source = ts.createSourceFile('widget.ts', readFileSync(
-    new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const names = ['addMaterialAtOutputPoint', 'refreshReferenceMediaUris', 'resolveEditMediaUri',
     // 再試行の本体は実物を回す（1 回ぶんの読み取りだけ差し替える）。
     'readMediaSizeInRenderer'];
-const methods = names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source));
+const methods = names.map(name => memberText(name, { in: 'widget' }));
 const code = ts.transpileModule(`class Handler { ${methods.join('\n')} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;

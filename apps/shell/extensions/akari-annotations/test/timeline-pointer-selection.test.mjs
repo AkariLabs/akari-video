@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { startsPlacedTextVerticalDrag } from '../lib/common/placed-text-drag.js';
 
 // Exercise the actual widget listeners without booting Theia's application services.
-const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const source = readCompiledSource('widget').text;
 const start = source.indexOf('    updateTrimAffordance(');
 const end = source.indexOf('    updateDragPreview(', start);
 const modifierStart = source.indexOf('    shouldToggleMultiSelection(');

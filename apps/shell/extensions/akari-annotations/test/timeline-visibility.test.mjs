@@ -1,4 +1,5 @@
 import './timeline-harness-dependencies.mjs';
+import { findMember } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -67,11 +68,7 @@ test('自動表示とタイムラインのゴーストは隠す間は止める',
 });
 
 test('表示されていないタイムラインもプレビューの再生位置を受け取れる', () => {
-    const source = ts.createSourceFile('widget.ts', readFileSync(new URL(
-        '../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-    const widget = source.statements.find(node => ts.isClassDeclaration(node)
-        && node.name?.text === 'AkariAnnotationsWidget');
-    const method = widget.members.find(member => member.name?.getText(source) === 'canHandlePlaybackTick');
+    const { ast: source, node: method } = findMember('canHandlePlaybackTick', { in: 'widget' });
     const code = ts.transpileModule(`class Timeline { ${method.getText(source)} }`, {
         compilerOptions: { target: ts.ScriptTarget.ES2021 }
     }).outputText;

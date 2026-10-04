@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { memberText } from './helpers/widget-source.mjs';
 import { mkdtemp, readFile, writeFile, rm, access, unlink, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,9 +17,7 @@ import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-servi
 import { composeTransforms, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
     resolveItemAnchors } from '@akari-video/edit-store';
 
-const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-const declaration = source.statements.find(item => ts.isClassDeclaration(item) && item.name.text === 'AkariAnnotationsWidget');
-const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => memberText(name, { in: 'widget' })).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Widget = new Function('placeTextCaption', 'centeredPreviewTextPlacement', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'supportedMyStyleAttachPart', 'canvasAtFrame', 'canvasDropTargets', 'placeTreeV2CaptionIntoCanvas', 'resolveItemAnchors', 'insertCaptionLine', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
     placeTextCaption, centeredPreviewTextPlacement, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
     placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,

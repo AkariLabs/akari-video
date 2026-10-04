@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -6,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 // task 2026-09-02-timeline-undo-snap-fixes: widget 側の配線を文字列で固定する（既存テストの流儀）。
 const here = dirname(fileURLToPath(import.meta.url));
-const widget = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+const widget = readAllSourceText();
 const protocol = readFileSync(join(here, '..', 'src', 'common', 'akari-annotations-protocol.ts'), 'utf8');
 
 function between(source, startNeedle, endNeedle) {

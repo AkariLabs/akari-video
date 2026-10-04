@@ -6,10 +6,11 @@ import * as lengths from '../lib/common/still-cut-length.js';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readCompiledSource, readAllSourceText } from './helpers/widget-source.mjs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
-const widget = read('../lib/browser/akari-annotations-widget.js');
+const widget = readCompiledSource('widget').text;
 const inspector = read('../lib/browser/inspector/sections/cut-sections.js');
-const source = read('../src/browser/akari-annotations-widget.ts');
+const source = readAllSourceText();
 const inspectorSource = readInspectorSource();
 function between(text, start, end, offset = 0) {
     const a = text.indexOf(start, offset);

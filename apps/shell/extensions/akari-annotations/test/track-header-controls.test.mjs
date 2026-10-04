@@ -1,20 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/widget-source.mjs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
 const { trackHeaderControls } = require('../lib/common/track-header-controls.js');
-const source = ts.createSourceFile('widget.ts', readFileSync(
-  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
-), ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const methods = [
   'trackHeaderRow', 'trackHeaderButton', 'eyeSvg', 'captionFragmentBreaksSvg', 'speakerSvg', 'lockSvg',
   'captionFragmentBreaksVisible', 'toggleCaptionFragmentBreaks'
 ].map(name => {
-  const method = widget.members.find(member => member.name?.getText(source) === name);
+  const { ast: source, node: method } = findMember(name, { in: 'widget' });
   assert.ok(method, name);
   return method.getText(source);
 });

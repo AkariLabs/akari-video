@@ -1,7 +1,7 @@
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
@@ -189,7 +189,7 @@ test('widget: 音声選択が残っていても素材表示中は edit.json の�
   assert.equal(renders, 2, '音声表示へ戻ると edit.json 変更を監視する');
 });
 
-const timelineSource = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const timelineSource = readCompiledSource('widget').text;
 function timelineMethod(name) {
   const start = timelineSource.search(new RegExp(`    (async )?${name}\\(`));
   assert.notEqual(start, -1, name);

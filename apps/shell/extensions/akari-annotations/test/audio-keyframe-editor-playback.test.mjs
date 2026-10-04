@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
@@ -17,7 +18,7 @@ import {
 } from '../lib/common/audio-keyframe-editor-geometry.js';
 
 const dialog = readFileSync(new URL('../src/browser/akari-audio-keyframe-dialog.ts', import.meta.url), 'utf8');
-const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const widget = readSourceFile('widget').text;
 
 function section(source, startNeedle, endNeedle) {
   const start = source.indexOf(startNeedle);

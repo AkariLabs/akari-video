@@ -1,6 +1,6 @@
 import test from 'node:test';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { previewSelectionSeekTime } from '../lib/common/preview-selection-seek.js';
 
@@ -21,7 +21,7 @@ test('playback, added selections, marquee, all and history restoration do not se
 });
 
 test('applySelection applies the timeline and inspector before a seek that never ticks', () => {
-    const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+    const source = readCompiledSource('widget').text;
     const start = source.indexOf('    applySelection(selection, notifyPreview = true, directSingle = false) {');
     const end = source.indexOf('    publishPrimaryPreviewSelection(selection) {', start);
     assert.ok(start >= 0 && end > start);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { effectiveMyStyleLook, effectiveMyStyleMotion, myStyleSaveParts, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle,
   placedMyStyleMotion, appliedMyStyleKinds, unsupportedMyStyleLookFields, replaceMyStyleLookInSource, replaceMyStylePartsInSource, appendMyStyleUsage,
@@ -69,7 +69,7 @@ test('手で移動した印付き要素は時刻を保ちアンカーと印を�
   edit.tracks[0].items.push(manual);
   detachMovedStyleItem(edit, 'manual');
   assert.deepEqual(manual.anchor, { caption: 'c-0001' });
-  const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  const widget = readSourceFile('widget').text;
   const drag = widget.slice(widget.indexOf('protected async commitEditV2Drag('),
     widget.indexOf('protected async ', widget.indexOf('protected async commitEditV2Drag(') + 10));
   assert.match(drag, /this\.rawV2Item\(movedId\)\?\.anchor\?\.attached_by/);

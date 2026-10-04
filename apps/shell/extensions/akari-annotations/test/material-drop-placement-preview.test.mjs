@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { memberText } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 
@@ -13,15 +13,12 @@ import { shouldShowTimelineGhost } from '../lib/common/timeline-visibility.js';
 
 globalThis.document = { documentElement: { dataset: { akariTimelineHidden: 'false' } } };
 
-const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'),
-    ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const names = ['resolveMaterialDropTarget', 'timelineTrackDropLayouts', 'materialDropTargetWithoutOverlap',
     'materialGhostDurationSeconds', 'materialGhostAllowed', 'updateMaterialGhost', 'hideMaterialGhost',
     'showMaterialDropBadge', 'updateShapeDropGhost', 'updateTextStyleDropGhost', 'textStyleDropBandLayout',
     'addShapeAt', 'handleMaterialDrop', 'positionInsertionGhost', 'showTrackInsertIndicatorAt',
     'hideTrackInsertIndicator', 'setGhostRejected'];
-const methods = names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source));
+const methods = names.map(name => memberText(name, { in: 'widget' }));
 const code = ts.transpileModule(`class Handler { ${methods.join('\n')} }`,
     { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const bindings = {

@@ -1,9 +1,9 @@
 import test from 'node:test';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 
-const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const source = readCompiledSource('widget').text;
 function method(name) {
     const start = source.search(new RegExp('    (async )?' + name + '\\('));
     assert.notEqual(start, -1, name);

@@ -1,4 +1,5 @@
 import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -7,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const contribution = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-contribution.ts'), 'utf8');
-const widget = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+const widget = readAllSourceText();
 
 test('preview caption ID selection reaches the caption inspector snapshot', () => {
     assert.match(contribution, /const PREVIEW_CAPTION_SELECTED_EVENT = 'akari\.preview\.captionSelected'/);

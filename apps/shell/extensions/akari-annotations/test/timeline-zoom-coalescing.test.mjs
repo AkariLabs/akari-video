@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
 
 // task/2026-09-02-preview-perf: ピンチズーム（ctrl+wheel）が wheel イベントごとに同期 renderStrip() を
@@ -8,7 +8,7 @@ import test from 'node:test';
 // 「1 フレーム 1 回の描画」と「ノード再利用 + CSS / canvas 更新」になっていることを
 // clip-media-keyed-geometry.test.mjs と同じ流儀（ソース断片の契約）で固定する。
 
-const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const source = readAllSourceText();
 
 function method(startNeedle, endNeedle) {
   const start = source.indexOf(startNeedle);

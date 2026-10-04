@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+const source = readAllSourceText();
 const { TRANSITION_CATEGORIES, TRANSITION_VOCABULARY } = createRequire(import.meta.url)(
   '../../../../../packages/edit-store/lib/index.js'
 );

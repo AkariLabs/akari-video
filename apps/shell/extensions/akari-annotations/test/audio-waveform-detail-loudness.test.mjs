@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText, readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
 
 import {
@@ -22,15 +22,9 @@ import {
   quantizeAudioWaveformWindow,
 } from '../lib/common/filmstrip-geometry.js';
 
-const widgetSource = readFileSync(
-  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8',
-);
-const metricsSource = readFileSync(
-  new URL('../src/browser/timeline/timeline-metrics.ts', import.meta.url), 'utf8',
-);
-const cssSource = readFileSync(
-  new URL('../src/browser/style/annotations-widget-style.ts', import.meta.url), 'utf8',
-);
+const widgetSource = readAllSourceText();
+const metricsSource = readSourceFile('metrics').text;
+const cssSource = readSourceFile('style').text;
 
 const peakAtDb = db => 10 ** (db / 20);
 
