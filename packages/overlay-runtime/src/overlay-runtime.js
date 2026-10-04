@@ -533,6 +533,22 @@ function createOverlayRuntime(options = {}) {
   // Leave legacy-only records and all selection/handle DOM untouched.
   function applyAxisSummary(summary) {
     const next = new Map((summary?.overlays ?? []).map(value => [String(value.id), value]));
+    for (let index = mountedOverlays.length - 1; index >= 0; index -= 1) {
+      const mounted = mountedOverlays[index];
+      if (next.has(mounted.container.dataset.overlayId)) continue;
+      for (const animation of mounted.animations ?? []) releaseAnimation(animation);
+      for (const runtime of overlayRuntimes(mounted)) runtime.dispose(mounted.container);
+      mounted.container.remove();
+      mountedOverlays.splice(index, 1);
+    }
+    const order = new Map((summary?.overlays ?? []).map((value, index) => [String(value.id), index]));
+    mountedOverlays.sort((left, right) =>
+      (order.get(left.container.dataset.overlayId) ?? 0) - (order.get(right.container.dataset.overlayId) ?? 0));
+    if (mountedStage) {
+      const firstHost = [...mountedStage.children].find(child => !child.hasAttribute?.("data-overlay-id")
+        && child.dataset?.overlayId === undefined) ?? null;
+      for (const mounted of mountedOverlays) mountedStage.insertBefore(mounted.container, firstHost);
+    }
     for (const mounted of mountedOverlays) {
       const value = next.get(mounted.container.dataset.overlayId);
       if (!value || (!mounted.hasAxisTransform && !hasAxisTransform(value))) continue;

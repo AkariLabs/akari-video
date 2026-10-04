@@ -4967,7 +4967,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!plan.target) return;
         const target = plan.target;
         let createdTrackId: string | undefined;
-        void this.commitEditMutation(label, doc => {
+        void this.commitImmediateItemMutation(label, doc => {
             const result = 'track' in target
                 ? moveTreeV2Item(doc, id, target, { at: plan.atFrames! })
                 : moveTreeV2Item(doc, id, target);
@@ -5828,12 +5828,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (captionId !== undefined && (selection.kind === 'caption' || this.rawV2Item(selection.id) === undefined)) {
                 const caption = this.captions.find(candidate => candidate.id === captionId);
                 if (!caption) throw new Error("字幕が見つかりません。");
-                await this.withHistory(caption.timeDomain === 'output' ? '文字の削除' : '字幕の削除', async () => {
-                    await this.annotationsService.removeCaption({
-                        captionsUri: location.captionsUri.toString(),
-                        projectRootUri: location.root.toString(), captionId: caption.id
+                const previousCaptions = this.captions;
+                this.captions = previousCaptions.filter(candidate => candidate.id !== captionId);
+                this.applySelection(undefined);
+                this.renderStrip();
+                if (location.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
+                    detail: { editUri: location.editUri.toString(), removedIds: [captionId] }
+                }));
+                try {
+                    await this.withHistory(caption.timeDomain === 'output' ? '文字の削除' : '字幕の削除', async () => {
+                        await this.annotationsService.removeCaption({
+                            captionsUri: location.captionsUri.toString(),
+                            projectRootUri: location.root.toString(), captionId: caption.id
+                        });
                     });
-                });
+                } catch (error) {
+                    this.captions = previousCaptions;
+                    this.renderStrip();
+                    if (location.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
+                        detail: { editUri: location.editUri.toString(), rollback: true }
+                    }));
+                    throw error;
+                }
                 await this.reloadEdit();
                 await this.reloadCaptions();
                 this.footer.textContent = caption.timeDomain === 'output' ? '文字を削除しました。' : '字幕を削除しました。';
@@ -5844,14 +5860,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 const narrationSelected = selection.kind === 'audio'
                     && this.audioNarration.some(item => item.id === selection.id);
-                await this.commitEditMutation("クリップの削除", doc =>
+                await this.commitImmediateItemMutation("クリップの削除", doc =>
                     narrationSelected
                         ? removeAudioNarrationPreferV2(doc, selection.id)
                         : selection.kind === "audio"
                             ? removeAudioSfxPreferV2(doc, selection.id)
                             : selection.kind === 'item'
                                 ? removeTreeV2Item(doc, selection.id).document
-                                : removeV2Item(doc, selection.id));
+                                : removeV2Item(doc, selection.id), [selection.id]);
                 this.footer.textContent = "クリップを削除しました。";
             }
             this.applySelection(undefined);
@@ -5870,6 +5886,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (this.multiSelection.some(item => this.linkedPairForSelection(item))) {
+            // Linked cut/audio deletion may change the base duration; keep its full reload path.
             await this.performLinkedDeletion(this.multiSelection, altKey, '複数アイテムを削除');
             return;
         }
@@ -5879,7 +5896,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.footer.textContent = `${retained.length} 件はロック中のため残しました`;
             return;
         }
+        if (this.editDocument?.version === 2 && selected.every(item => item.kind !== 'cut' && item.kind !== 'caption')) {
+            const ids = [...new Set(selected.filter((item): item is Exclude<TimelineSelectionItem, { kind: 'cut' }> =>
+                item.kind !== 'cut').map(item => item.id).filter(id => id !== 'bgm'))];
+            try {
+                await this.commitImmediateItemMutation('複数アイテムを削除', doc => ids.reduce(
+                    (next, id) => removeTreeV2Item(next, id).document, doc), ids);
+                this.footer.textContent = '選択したアイテムを削除しました。';
+            } catch (error) {
+                const detail = this.errorMessage(error);
+                this.showNotice(`選択項目を削除できません: ${detail}`);
+                this.messages.error(`選択項目を削除できません: ${detail}`);
+            }
+            return;
+        }
+        const immediateCaptions = this.editDocument?.version === 2
+            && selected.every(item => item.kind !== 'cut') && selected.some(item => item.kind === 'caption');
+        const captionsAtStart = this.captions;
+        if (immediateCaptions) {
+            try {
+                const captionIds = new Set(selected.flatMap(item => item.kind === 'caption' ? [item.id] : []));
+                const itemIds = selected.flatMap(item => item.kind !== 'caption' && item.kind !== 'cut' ? [item.id] : []);
+                this.captions = this.captions.filter(caption => !captionIds.has(caption.id));
+                let next = structuredClone(this.editDocument!);
+                for (const id of itemIds) next = removeTreeV2Item(next, id).document;
+                for (const id of captionIds) {
+                    next = removeStyleAttachedItems(next as unknown as EditV2, id) as unknown as EditV2Document;
+                }
+                ++this.immediateItemRevision;
+                this.projectImmediateItemEdit(next, [...itemIds, ...captionIds]);
+            } catch (error) {
+                this.captions = captionsAtStart;
+                await this.reloadEdit();
+                const detail = this.errorMessage(error);
+                this.showNotice(`選択項目を削除できません: ${detail}`);
+                this.messages.error(`選択項目を削除できません: ${detail}`);
+                return;
+            }
+        }
+        // A mixed cut snapshot still uses the full path because it changes output time.
         try {
+            if (immediateCaptions) await this.editMutationTail;
             const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
             const hasCaptions = selected.some(item => item.kind === 'caption');
             const captionsBefore = hasCaptions
@@ -5967,6 +6024,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.footer.textContent = retained.length > 0
                 ? `${retained.length} 件はロック中のため残しました` : '選択したアイテムを削除しました。';
         } catch (error) {
+            if (immediateCaptions) {
+                this.captions = captionsAtStart;
+                await this.reloadEdit();
+                await this.reloadCaptions();
+                window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
+                    detail: { editUri: location.editUri.toString(), rollback: true }
+                }));
+            }
             const detail = this.errorMessage(error);
             this.showNotice(`選択項目を削除できません: ${detail}`);
             this.messages.error(`選択項目を削除できません: ${detail}`);
@@ -7953,6 +8018,85 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected editReloadGeneration = 0;
     protected readonly htmlPartsCache = new Map<string, Promise<Array<{ id: string; order: number }>>>();
     protected editMutationTail: Promise<unknown> = Promise.resolve();
+    protected immediateItemRevision = 0;
+
+    /** The currently loaded edit is enough to draw a removal or z-order change. Keep cached
+     * media URIs, sidecars and HTML parts until the ordinary post-save reload. Base cut
+     * removal (which changes output time) stays on the full reload path. */
+    protected projectImmediateItemEdit(document: EditV2Document, removedIds: readonly string[]): void {
+        ++this.editReloadGeneration;
+        const internal = this.readEdit(JSON.stringify(document));
+        const view = projectLegacyEdit(internal);
+        const speechView = projectLegacyEdit({ ...internal, tracks: internal.tracks.map(track =>
+            track.lane === 'audio' ? { ...track, muted: false } : track) });
+        this.invalidateContentExtent();
+        this.editDocument = document;
+        this.itemLocations = indexEditV2Items(document);
+        this.timelineTreeTracks = internal.tracks;
+        this.cutItemIds = [];
+        for (const track of internal.tracks) for (const item of track.items) {
+            if (item.legacy.collection === 'cuts') this.cutItemIds[item.legacy.index] = item.id;
+        }
+        this.compatibilityCuts = view.cuts as Array<EditCut & { transition_out?: unknown }>;
+        this.cuts = this.compatibilityCuts.map(cut => ({ ...cut,
+            ...(cut.transitionOut === undefined && cut.transition_out && typeof cut.transition_out === 'object'
+                ? { transitionOut: cut.transition_out as EditCut['transitionOut'] } : {}) }));
+        this.editSources = internal.sources;
+        this.rebuildSourceMap();
+        this.overlays = view.overlays;
+        this.beats = view.beats ?? [];
+        this.layers = view.layers;
+        this.audioSfx = this.withSfxFade(internal);
+        this.audioNarration = this.withNarrationEnvelope(view.audioNarration, internal);
+        this.audioSpeech = this.withNarrationEnvelope(speechView.audioSpeech ?? [], internal, 'speech').map(item => {
+            const raw = this.rawV2Item(item.id);
+            return { ...item, duration: Number(raw?.duration ?? 0) / view.fps,
+                ...(typeof raw?.fade_in === 'number' ? { fadeIn: raw.fade_in } : {}),
+                ...(typeof raw?.fade_out === 'number' ? { fadeOut: raw.fade_out } : {}) };
+        });
+        this.audioNarration.push(...this.audioSpeech);
+        this.audioBgm = this.withBgmEnvelope(view.audioBgm, internal);
+        this.compatibilityTimelineTracks = view.timeline?.tracks
+            ?? sortDefaultTimelineTracks(derivedLegacyTracks(internal));
+        this.timelineTracks = this.pinAudioGroupToBottom(this.compatibilityTimelineTracks);
+        this.fps = view.fps;
+        this.applySelection(undefined);
+        this.rebuildSegments();
+        this.pushSelectionSnapshot();
+        this.renderStrip();
+        const itemOrder = (item: typeof internal.tracks[number]['items'][number]): string[] =>
+            [item.id, ...item.children.flatMap(itemOrder)];
+        if (this.location?.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
+            detail: { editUri: this.location.editUri.toString(), removedIds,
+                order: internal.tracks.flatMap(track => track.items.flatMap(itemOrder)) }
+        }));
+    }
+
+    protected commitImmediateItemMutation(
+        label: string, mutate: (doc: EditV2Document) => EditV2Document, removedIds: readonly string[] = []
+    ): Promise<{ before: string; after: string; result: WriteBackResult }> {
+        if (!this.editDocument || this.editDocument.version !== 2 || this.materialSwap) {
+            return this.commitEditMutation(label, mutate);
+        }
+        const revision = ++this.immediateItemRevision;
+        try {
+            this.projectImmediateItemEdit(mutate(structuredClone(this.editDocument)), removedIds);
+        } catch (error) {
+            return Promise.reject(error);
+        }
+        return this.commitEditMutation(label, mutate, { reload: false }).then(async result => {
+            if (revision === this.immediateItemRevision) await this.reloadEdit();
+            return result;
+        }, async error => {
+            if (revision === this.immediateItemRevision) {
+                await this.reloadEdit();
+                if (this.location?.editUri) window.dispatchEvent(new CustomEvent('akari.preview.optimisticItemUpdate', {
+                    detail: { editUri: this.location.editUri.toString(), rollback: true }
+                }));
+            }
+            throw error;
+        });
+    }
 
     protected async loadSavedByContext(): Promise<{
         stampText?: string; currentVersion?: string;
@@ -13320,6 +13464,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const trackId = this.trackIdOfSelection(caption);
             if (this.isTrackLocked(trackId)) { this.showLockedTrack(trackId); return; }
         }
+        const audioOnly = altKey && captions.length === 0 && itemIds.size > 0
+            && [...itemIds].every(id => {
+                const pair = this.linkedCutAudioPair(id);
+                return pair && id === pair.audioItemId && !itemIds.has(pair.cutId);
+            });
+        if (audioOnly) {
+            try {
+                await this.commitImmediateItemMutation(label, doc => {
+                    let next = doc;
+                    for (const id of itemIds) {
+                        const pair = this.linkedCutAudioPair(id, next);
+                        if (pair) next = { ...removeCutAudioLinked(next as unknown as EditV2,
+                            { ...pair, target: 'audio-only' }) };
+                    }
+                    return next;
+                }, [...itemIds]);
+                this.footer.textContent = '選択したアイテムを削除しました。';
+                this.hideNotice();
+            } catch (error) {
+                this.showNotice(this.errorMessage(error));
+            }
+            return;
+        }
+        // A linked base cut changes output duration; retain the coordinated full reload.
         try {
             const captionsBefore = captions.length && this.location
                 ? (await this.fileService.readFile(this.location.captionsUri)).value.toString() : undefined;

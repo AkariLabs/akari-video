@@ -174,3 +174,38 @@ test('assetUris / overlayUris は登録順が違っても同じ資源集合な�
     const changed = { ...base(), assetUris: [...base().assetUris, 'file:///project/new.mov'] };
     assert.notEqual(classifyPreviewModelUpdate(previous, changed), 'none');
 });
+
+test('removing and reordering retained media layers updates incrementally', () => {
+    const previous = base();
+    previous.summary.layers.push({ ...previous.summary.layers[0], id: 'second', src: 'stream://second' });
+    previous.assetUris.push('file:///project/second.mov');
+    previous.summary.tree = [{ id: 'pip' }, { id: 'second' }];
+    previous.summary.canvasDropTargets = ['pip', 'second'];
+    previous.summary.indicators = ['two layers'];
+    const reordered = structuredClone(previous);
+    reordered.summary.layers.reverse();
+    reordered.summary.itemStackZ = { pip: 2, second: 1 };
+    reordered.summary.trackStackZ = { V1: 2, V2: 1 };
+    assert.equal(classifyPreviewModelUpdate(previous, reordered), 'incremental');
+    const removed = structuredClone(previous);
+    removed.summary.layers.shift();
+    removed.assetUris.shift();
+    removed.summary.tree.shift();
+    removed.summary.canvasDropTargets.shift();
+    removed.summary.indicators = ['one layer'];
+    assert.equal(classifyPreviewModelUpdate(previous, removed), 'incremental');
+    const replaced = structuredClone(previous);
+    replaced.summary.layers[0].src = 'stream://other';
+    assert.equal(classifyPreviewModelUpdate(previous, replaced), 'rebuild');
+});
+
+test('deleting the final HTML overlay stays incremental while deleting a base cut rebuilds', () => {
+    const previous = base();
+    const withoutOverlay = structuredClone(previous);
+    withoutOverlay.summary.overlays = [];
+    withoutOverlay.overlayUris = [];
+    assert.equal(classifyPreviewModelUpdate(previous, withoutOverlay), 'incremental');
+    const withoutCut = structuredClone(previous);
+    withoutCut.summary.cuts = [];
+    assert.equal(classifyPreviewModelUpdate(previous, withoutCut), 'rebuild');
+});

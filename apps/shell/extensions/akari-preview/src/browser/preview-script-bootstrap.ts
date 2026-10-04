@@ -1457,6 +1457,8 @@ export function previewBootstrapScript(): string {
             };
             const layerEntries = (Array.isArray(summary.layers) ? summary.layers : [])
                 .map((layer, index) => createLayerEntry(layer, index, true));
+            const optimisticallyRemovedIds = new Set();
+            window.akari.optimisticallyRemovedIds = optimisticallyRemovedIds;
             let videoCandidatePreview = null;
             const clearVideoCandidatePreview = () => {
                 if (!videoCandidatePreview) return;
@@ -8304,6 +8306,12 @@ export function previewBootstrapScript(): string {
                     const activeWindow = !allTracksHiddenByScope.layers
                         && !hiddenTracksByScope.layers.has(layer.track)
                         && timelineTime >= layer.t && timelineTime < layer.t + layer.duration;
+                    if (optimisticallyRemovedIds.has(String(layer.id))) {
+                        layerVideo.style.display = 'none';
+                        if (entry.deferredPlaceholder) entry.deferredPlaceholder.style.display = 'none';
+                        if (!layerVideo.paused) layerVideo.pause();
+                        continue;
+                    }
                     if (layerVideo.akariPhotoFrameBorder) {
                         layerVideo.akariPhotoFrameBorder.style.display = activeWindow && !layer.proxyMissing
                             && typeof layer.src === 'string' && layer.src ? 'block' : 'none';
@@ -9770,8 +9778,14 @@ export function previewBootstrapScript(): string {
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
-                const addedLayers = Array.isArray(nextSummary.layers)
-                    ? nextSummary.layers.slice(layerEntries.length) : [];
+                const nextLayers = Array.isArray(nextSummary.layers) ? nextSummary.layers : [];
+                const previousLayerIds = new Set(layerEntries.map(entry => String(entry.spec.id)));
+                const retainedLayerOrderChanged = layerEntries
+                    .filter(entry => nextLayers.some(layer => String(layer.id) === String(entry.spec.id)))
+                    .map(entry => String(entry.spec.id)).join('\u0000')
+                    !== nextLayers.filter(layer => previousLayerIds.has(String(layer.id)))
+                        .map(layer => String(layer.id)).join('\u0000');
+                const addedLayers = nextLayers.filter(layer => !previousLayerIds.has(String(layer.id)));
                 if (window.akari.frameEngineClock?.updateModel) {
                     playbackModelUpdate = window.akari.frameEngineClock.updateModel(nextSummary);
                 } else if (initial.frameEngineEnabled) {
@@ -9786,6 +9800,24 @@ export function previewBootstrapScript(): string {
                     ? segments[activeSegmentIndex].cutIndex : null;
                 summary = nextSummary;
                 window.akari.state.summary = summary;
+                const byId = new Map(layerEntries.map(entry => [String(entry.spec.id), entry]));
+                for (const entry of layerEntries) {
+                    if (nextLayers.some(layer => String(layer.id) === String(entry.spec.id))) continue;
+                    entry.video.pause();
+                    entry.video.removeAttribute('src');
+                    if (entry.video.tagName === 'VIDEO') entry.video.load();
+                    entry.video.remove();
+                    entry.video.akariPhotoFrameBorder?.remove();
+                    entry.deferredPlaceholder?.remove();
+                    if (entry.fxRail) {
+                        entry.fxRail.dispose?.();
+                        railMeta.delete(entry.fxRail);
+                        const railIndex = videoFxRails.indexOf(entry.fxRail);
+                        if (railIndex >= 0) videoFxRails.splice(railIndex, 1);
+                    }
+                }
+                layerEntries.splice(0, layerEntries.length,
+                    ...nextLayers.map(layer => byId.get(String(layer.id))).filter(Boolean));
                 for (const layer of addedLayers) {
                     const entry = createLayerEntry(layer, layerEntries.length);
                     layerEntries.push(entry);
@@ -9794,6 +9826,13 @@ export function previewBootstrapScript(): string {
                     entry.fxRail = !frameEngineMediaIdle && entry.spec.chromaKey
                         ? mountVideoFxRail(entry.video, 'layer:' + entry.spec.id,
                             { chromaKey: entry.spec.chromaKey }) : null;
+                }
+                for (const [index, entry] of layerEntries.entries()) {
+                    entry.video.dataset.akariLayerIndex = String(index);
+                    if (retainedLayerOrderChanged) {
+                        layersStage.appendChild(entry.video);
+                        if (entry.deferredPlaceholder) layersStage.appendChild(entry.deferredPlaceholder);
+                    }
                 }
                 window.akari.updateEmptyCanvasHint?.(outputTime);
                 window.akari.runtime.applyAxisSummary?.(summary);
@@ -9838,6 +9877,18 @@ export function previewBootstrapScript(): string {
                     ]);
                 }
                 if (addedLayers.length === 0) tick(true);
+                for (const id of window.akari.optimisticallyRemovedIds ?? []) {
+                    const layer = findLayerEntry(id);
+                    if (layer) layer.video.style.display = 'none';
+                    const overlay = stage.querySelector('[data-overlay-id="' + CSS.escape(id) + '"]');
+                    if (overlay) overlay.style.display = 'none';
+                }
+                for (const id of [...(window.akari.optimisticallyRemovedIds ?? [])]) {
+                    if (!nextLayers.some(layer => String(layer.id) === id)
+                        && !(summary.overlays ?? []).some(overlay => String(overlay.id) === id)) {
+                        window.akari.optimisticallyRemovedIds.delete(id);
+                    }
+                }
                 window.akari.requestGenerationUpdate?.();
                 const renderedModel = playbackModelUpdate;
                 void Promise.resolve(renderedModel).then(() => Promise.all(addedLayers.map(layer => {
@@ -9851,10 +9902,44 @@ export function previewBootstrapScript(): string {
                     }));
                 }).catch(error => console.warn('[akari-preview] incremental paint unavailable', error));
             };
+            const applyOptimisticItemUpdate = message => {
+                if (message.rollback) {
+                    optimisticallyRemovedIds.clear();
+                    for (const entry of layerEntries) entry.video.style.display = '';
+                    for (const { plate } of captionRows.values()) plate.style.display = '';
+                    applyOverlayTracks();
+                    tick(true);
+                    return;
+                }
+                for (const id of message.removedIds ?? []) {
+                    optimisticallyRemovedIds.add(String(id));
+                    const layer = findLayerEntry(id);
+                    if (layer) layer.video.style.display = 'none';
+                    const overlay = stage.querySelector('[data-overlay-id="' + CSS.escape(String(id)) + '"]');
+                    if (overlay) overlay.style.display = 'none';
+                    const caption = captionRows.get(String(id));
+                    if (caption) caption.plate.style.display = 'none';
+                }
+                if (Array.isArray(message.order) && message.order.length) {
+                    const visual = new Map();
+                    for (const entry of layerEntries) visual.set(String(entry.spec.id), entry.video);
+                    for (const element of stage.querySelectorAll('[data-overlay-id]')) {
+                        visual.set(element.getAttribute('data-overlay-id'), element);
+                    }
+                    const ordered = message.order.map(id => visual.get(String(id))).filter(Boolean);
+                    const zValues = ordered.map(element => Number(element.style.zIndex))
+                        .filter(Number.isFinite).sort((a, b) => a - b);
+                    ordered.forEach((element, index) => { element.style.zIndex = String(zValues[index] ?? index); });
+                }
+            };
             // BEGIN preview bag response (bootstrap owns summary and persistent plates)
             let bagMountTail = Promise.resolve();
             window.addEventListener('message', event => {
                 const message = event.data;
+                if (message?.type === 'akari-preview-optimistic-item-update') {
+                    applyOptimisticItemUpdate(message);
+                    return;
+                }
                 if (message?.type !== 'akari-preview-expand-bag' || !message.summary
                     || !window.akari.isCurrentBagExpansion(message.requestId)) return;
                 // Serialize mounts; discard replies superseded by a later scope.

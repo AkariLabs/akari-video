@@ -188,6 +188,7 @@ test('webview のモデル更新はページを保ったまま image layer の�
     const pageEvents = new Map();
     const element = tag => ({ tagName: tag.toUpperCase(), style: {}, dataset: {}, naturalWidth: 80,
         naturalHeight: 80, complete: true, addEventListener() {}, appendChild() {},
+        removeAttribute() {}, remove() { const index = children.indexOf(this); if (index >= 0) children.splice(index, 1); },
         decode: () => Promise.resolve() });
     const initialLayer = { id: 'first', src: 'stream://first', kind: 'media', isImage: true };
     const nextLayer = { id: 'second', src: 'stream://second', kind: 'media', isImage: true };
@@ -197,7 +198,13 @@ test('webview のモデル更新はページを保ったまま image layer の�
         reportReadySeek: message => messages.push(message), updateLayerLayout() {} } };
     const noop = () => {};
     const context = { exports: {}, window: page, document: { createElement: element },
-        layersStage: { appendChild: child => children.push(child) }, initialLayer,
+        stage: { querySelector: () => null, querySelectorAll: () => [] }, captionRows: new Map(),
+        CSS: { escape: value => value },
+        layersStage: { appendChild: child => {
+            const index = children.indexOf(child);
+            if (index >= 0) children.splice(index, 1);
+            children.push(child);
+        } }, initialLayer,
         initial: { frameEngineEnabled: true, playbackPageId: 'page-1' },
         summary: { layers: [initialLayer], audio: {}, tracks: {} }, segments: [], activeSegmentIndex: 0,
         outputTime: 0, filterEntries: [], frameEngineMediaIdle: true, isPlaying: false,
@@ -209,10 +216,15 @@ test('webview のモデル更新はページを保ったまま image layer の�
         findLayerEntry: id => context.exports.layerEntries.find(entry => entry.spec.id === id),
         probeSfxDurations: () => Promise.resolve(), console };
     vm.runInNewContext(`${factory}\nconst layerEntries = [createLayerEntry(initialLayer, 0, true)];
+        const optimisticallyRemovedIds = new Set();
+        window.akari.optimisticallyRemovedIds = optimisticallyRemovedIds;
         let playbackModelUpdate;
         ${update}
         exports.layerEntries = layerEntries;
-        exports.receive = message => { if (message.type === 'akari-preview-model-update') applyIncrementalModel(message.summary); };`, context);
+        exports.receive = message => {
+            if (message.type === 'akari-preview-model-update') applyIncrementalModel(message.summary);
+            if (message.type === 'akari-preview-optimistic-item-update') applyOptimisticItemUpdate(message);
+        };`, context);
     pageEvents.get('akari-frame-engine-ready')();
     assert.equal(messages.at(-1)?.initialPaint, true);
     assert.equal(messages.at(-1)?.layerIds[0], 'first');
@@ -225,6 +237,18 @@ test('webview のモデル更新はページを保ったまま image layer の�
     assert.equal(context.exports.layerEntries.length, 2);
     assert.equal(messages.at(-1)?.type, 'akari-preview-model-painted');
     assert.equal(messages.at(-1)?.layerIds[0], 'second');
+    context.exports.receive({ type: 'akari-preview-optimistic-item-update', removedIds: ['first'] });
+    assert.equal(context.exports.layerEntries[0].video.style.display, 'none');
+    context.exports.receive({ type: 'akari-preview-optimistic-item-update', rollback: true });
+    assert.equal(context.exports.layerEntries[0].video.style.display, '');
+    context.exports.receive({ type: 'akari-preview-model-update', summary: {
+        layers: [nextLayer, initialLayer], audio: {}, tracks: {}, filters: [] } });
+    assert.deepEqual(children.map(child => child.dataset.akariLayerId), ['second', 'first']);
+    assert.deepEqual([...context.exports.layerEntries].map(entry => entry.spec.id), ['second', 'first']);
+    context.exports.receive({ type: 'akari-preview-model-update', summary: {
+        layers: [nextLayer], audio: {}, tracks: {}, filters: [] } });
+    assert.deepEqual(children.map(child => child.dataset.akariLayerId), ['second']);
+    assert.deepEqual([...context.exports.layerEntries].map(entry => entry.spec.id), ['second']);
 });
 
 test('drop は最初の await より前にゴーストを控え、dragend 後も描画通知まで残す', async () => {
