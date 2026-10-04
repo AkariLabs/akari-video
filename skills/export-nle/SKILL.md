@@ -67,7 +67,7 @@ AKARI Video のセーブデータ SSOT（edit.json）には lock-in がない、
   NLE のクリップ名には安定識別子 `item.id` を使う。blend は FCPXML へ移し、xmeml では warning を出す）、
   transition_out（dissolve は素直に、fade-black/white は cross dissolve 近似）、焼き済みの
   html / telop（アルファ付き mov 等を通常の素材クリップとして）、narration / sfx / bgm
-  （現行どおり `edit.audio.*` から配置 + gain。bgm はループ展開 + フェード）、
+  （`tracks[]` の audio lane または `edit.audio.*` から配置 + gain。bgm はループ展開 + フェード）、
   captions.json（SRT のプレーンテキストへ）
 - **移らない**（dropped[] で報告）: ducking、audio.master（loudnorm / denoise）、
   output.look（LUT）、chroma_key、字幕スタイル（カラオケ演出・座布団）
@@ -82,10 +82,14 @@ AKARI Video のセーブデータ SSOT（edit.json）には lock-in がない、
 | `filter` | 相互運用できるクリップ表現がないため書き出さず、`dropped[]` に記録する。必要なら映像へ焼く |
 
 未焼成の html / telop を HTML パスやプリセット名のままメディア参照に偽装しない。
-音声はまだ `tracks[]` の正式メンバーではないため、現行は `edit.audio.narration / sfx / bgm` を読む。
-入力の `tracks[]` に直接書かれた audio lane item があれば黙って無視せず `dropped[]` に記録する。
-`readInternalEdit` が `edit.audio.*` から同じ lane へ射影した item は実際に音声として書き出すため、
-`dropped[]` には重ねて載せない。
+audio lane の narration / sfx / bgm item は `tracks[]` から書き出す。
+`tracks[]` に audio item がない文書は `edit.audio.narration / sfx / bgm` を従来どおり読む。
+ミュートされた item、speech role、2 本目以降の bgm など、書き出さない audio item は `dropped[]` に理由を記録する。
+`tracks[]` の sfx は、sfx を含む audio lane の順に NLE トラック番号を 0 から振り直す（空の番号は詰める）。
+ducking は `edit.audio.bgm.ducking` キーがあればそれを優先し、無ければ書き出す bgm item から読み、
+従来どおり `dropped[]` の `audio.bgm.ducking` で報告する（migrate 後は bgm item に移る）。
+audio.master は従来どおりトップレベル `edit.audio.master` から読み、`dropped[]` で報告する。
+bgm item の `at > 0` は書き出し器が 0 秒始まりで配置するため移らず、`dropped[]` の `tracks[…].items[…].at` で報告する。
 
 ## 非スコープ
 

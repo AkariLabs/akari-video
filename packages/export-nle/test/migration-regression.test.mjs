@@ -53,7 +53,7 @@ test("migrate 後に edit.audio.* から射影された audio item は dropped �
     overlays: [],
     layers: [],
     audio: {
-      narration: [{ id: "n-0001", path: "narration.mp3", t: 0.5 }],
+      narration: [{ id: "n-0001", path: "narration.mp3", t: 0.5, provenance: { provider: "test-tts" } }],
       sfx: [{ id: "s-0001", path: "hit.wav", t: 1, in: 0, out: 1 }],
       bgm: { path: "bgm.mp3", gain_db: -18 },
     },
@@ -67,11 +67,16 @@ test("migrate 後に edit.audio.* から射影された audio item は dropped �
   const fcpxml = buildFcpxml(model, context);
   const xmeml = buildXmeml(model, context);
 
+  assert.equal(model.narration.length, 1);
+  assert.equal(model.sfx.length, 1);
+  assert.ok(model.bgm);
   assert.equal(model.unsupportedItems.filter((entry) => entry.field.startsWith("tracks[")).length, 0);
   assert.equal(fcpxml.dropped.filter((entry) => entry.field.startsWith("tracks[")).length, 0);
   assert.equal(xmeml.dropped.filter((entry) => entry.field.startsWith("tracks[")).length, 0);
   assert.match(fcpxml.xml, /name="n-0001"/);
   assert.match(xmeml.xml, /<name>n-0001<\/name>/);
+  assert.match(fcpxml.xml, /offset="1\/2s"[^>]*name="n-0001"/);
+  assert.match(fcpxml.xml, /offset="1s"[^>]*name="hit.wav"/);
 });
 
 test("migrate 後に media になった layer も blend を報告し、item.id をクリップ名に保つ", () => {
