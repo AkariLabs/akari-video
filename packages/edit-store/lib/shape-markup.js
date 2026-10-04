@@ -21,8 +21,9 @@ function color(value, fallback) {
     const normalized = value.replace(/\s+/gu, ' ').trim();
     return normalized.length > 0 ? normalized : fallback;
 }
-function svg(width, height, body) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`;
+function svg(width, height, body, strokeWidth = 0) {
+    const overflow = strokeWidth > DEFAULT_LINE_STROKE_WIDTH ? ' overflow="visible"' : '';
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"${overflow}>${body}</svg>`;
 }
 function filledShapeAttributes(fill, stroke, strokeWidth) {
     return `fill="${fill}" stroke="${stroke ?? 'none'}" stroke-width="${strokeWidth}"`;
@@ -45,29 +46,29 @@ function shapeMarkup(source, itemId, outputWidth, transform) {
     const attributes = filledShapeAttributes(fill, stroke, strokeWidth);
     switch (source.shape) {
         case 'rect':
-            return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" ${attributes}/>`);
+            return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" ${attributes}/>`, strokeWidth);
         case 'rounded-rect': {
             const radius = nonNegativeNumber(params.cornerRadius, DEFAULT_CORNER_RADIUS);
-            return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" ${attributes}/>`);
+            return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" ${attributes}/>`, strokeWidth);
         }
         case 'ellipse':
-            return svg(width, height, `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${width / 2}" ry="${height / 2}" ${attributes}/>`);
+            return svg(width, height, `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${width / 2}" ry="${height / 2}" ${attributes}/>`, strokeWidth);
         case 'line': {
             const lineColor = stroke ?? fill;
-            return svg(width, height, `<line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`);
+            return svg(width, height, `<line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`, strokeWidth);
         }
         case 'arrow': {
             const lineColor = stroke ?? fill;
             const centerY = height / 2;
             const headStart = width - Math.min(width, centerY);
-            return svg(width, height, `<path d="M 0 ${centerY} H ${headStart} M ${headStart} 0 L ${width} ${centerY} L ${headStart} ${height}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`);
+            return svg(width, height, `<path d="M 0 ${centerY} H ${headStart} M ${headStart} 0 L ${width} ${centerY} L ${headStart} ${height}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`, strokeWidth);
         }
         case 'speech-bubble': {
             const bodyBottom = height * 0.75;
             const tailStart = width * 0.6;
             const tailTip = width * 0.72;
             const tailEnd = width * 0.82;
-            return svg(width, height, `<path d="M 0 0 H ${width} V ${bodyBottom} H ${tailEnd} L ${tailTip} ${height} L ${tailStart} ${bodyBottom} H 0 Z" ${attributes}/>`);
+            return svg(width, height, `<path d="M 0 0 H ${width} V ${bodyBottom} H ${tailEnd} L ${tailTip} ${height} L ${tailStart} ${bodyBottom} H 0 Z" ${attributes}/>`, strokeWidth);
         }
     }
 }
