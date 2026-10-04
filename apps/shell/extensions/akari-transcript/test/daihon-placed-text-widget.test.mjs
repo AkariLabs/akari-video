@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Module, { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 
 const require = createRequire(import.meta.url);
 const editMutations = require('akari-annotations/lib/common/edit-v2-mutations');
@@ -175,7 +175,7 @@ test('範囲変更/全体/削除は各 1 手で undo・redo。timeDomain を書�
 });
 
 test('範囲カードは行に挿入せずパネル下端に重なる', () => {
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.match(source, /this\.rowsRegion\.append\(this\.rowsNode, this\.placedEditor\)/);
   assert.match(source, /this\.node\.append\(header, this\.rowsRegion, this\.footer\)/);
   assert.match(source, /\.akari-daihon-rows-region \{ position:relative; flex:1; min-height:0; overflow:hidden/);
@@ -332,7 +332,7 @@ test('タブ切替はドックの高さを書き換えず行リストにも挿�
       assert.deepEqual(tabs.children.map(node => node.dataset.dockTab), ['template', 'look', 'anim', 'emphasis', 'time']);
     }
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.match(source, /\.akari-daihon-dock \{[^}]*height:var\(--dockh, 50%\)/);
   assert.match(source, /\.akari-daihon-dock-body \{[^}]*flex:1; min-height:0; overflow-y:auto/);
 });
@@ -394,7 +394,7 @@ test('rowShortcut の clear は選択を外して開いたドックを閉じる'
   editor.classList.toggle('open', false);
   instance.handleRowShortcut('clear');
   assert.deepEqual(calls, [['selection', []]], '閉じたドックには作用しない');
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.match(source, /const rowShortcut = \(event: Event\): void => \{[\s\S]*?this\.handleRowShortcut\(action\)/);
 });
 
@@ -419,7 +419,7 @@ test('見た目の色は選択印と説明を持つ四角い swatch', () => {
     assert.equal(none.classList.contains('selected'), true);
     assert.equal(none.attributes['aria-label'], '座布団の色: なし');
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.match(source, /button\.akari-daihon-look-swatch \{[^}]*width:20px; height:20px/);
   assert.match(source, /button\.akari-daihon-look-swatch\.none \{ background:repeating-linear-gradient/);
 });
@@ -474,14 +474,14 @@ test('つまみの高さを保存し、再生成した widget が記憶値を読
 });
 
 test('行内のテンプレと強調のピッカーに入口が残らない', () => {
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.equal([...source.matchAll(/this\.openTplPicker\(/g)].length, 0);
   assert.equal([...source.matchAll(/this\.openWordPresetPicker\(/g)].length, 0);
   assert.match(source, /protected openWordBar\(\): void \{[\s\S]*?this\.openRowDock\('emphasis'\)/);
 });
 
 test('棒の当たりは左右 5px 広く、選択時だけ先頭と末尾につまみを出す', () => {
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.match(source, /\.akari-daihon-widget \.akari-daihon-placed-bar::before \{ content:""; position:absolute; inset:0 -5px; \}/);
   assert.match(source, /\.akari-daihon-widget \.akari-daihon-placed-bar \{[^}]*width:4px/);
   assert.match(source, /\.akari-daihon-row\.has-placed-handle \{ z-index:2; \}/);
@@ -725,7 +725,7 @@ test('行の選択は帯を作らず、ドックのヘッダーと解除を更�
     if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
     if (oldEvent === undefined) delete globalThis.CustomEvent; else globalThis.CustomEvent = oldEvent;
   }
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.doesNotMatch(source, /akari-daihon-selbar|selectionBar\s*=|selectionCount\s*=/);
   assert.match(source, /this\.dockSelectionHint\.textContent = 'Shift=範囲 \/ ⌘=追加'/);
   assert.match(source, /dockClose\.addEventListener\('click', \(\) => this\.dismissDock\(\)\)/);

@@ -1,13 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 import test from 'node:test';
 
-const testRoot = dirname(fileURLToPath(import.meta.url));
-const source = await readFile(join(
-  testRoot, '..', 'src', 'browser', 'daihon', 'akari-daihon-widget.ts'
-), 'utf8');
+const source = readAllSourceText();
 
 test('台本の語 span は emphasis preset の属性・色変数・薄い下線を持つ', () => {
   assert.match(source, /span\.dataset\.emphasisPreset = preset/u);

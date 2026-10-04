@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { DARK, LIGHT } from '../../akari-theme/lib/browser/akari-theme-tokens.js';
 import { placedTextRanges } from '../lib/common/daihon-placed-text.js';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 
-const widget = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+const widget = readAllSourceText();
 const rule = selector => {
     const start = widget.indexOf(`${selector} {`);
     assert.ok(start >= 0, selector);
