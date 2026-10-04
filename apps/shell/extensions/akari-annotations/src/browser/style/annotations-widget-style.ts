@@ -489,6 +489,27 @@ export const ANNOTATIONS_WIDGET_CSS = `
     .akari-annotations-frame-draw.akari-annotations-frame-draw-audio {
         border-color: #6bd6a0; background: rgba(66, 177, 120, .18); color: #d8ffe9;
     }
+    .akari-annotations-frame-playhead-line-hit {
+        display: none; position: absolute; top: ${RULER_BAND_HEIGHT_PX}px; bottom: 0;
+        left: -4px; width: 9px; pointer-events: auto; cursor: ew-resize;
+    }
+    .akari-annotations-tool-frame .akari-annotations-frame-playhead-line-hit { display: block; }
+    .akari-annotations-frame-pending {
+        position: absolute; z-index: 8; box-sizing: border-box; pointer-events: none;
+        display: flex; align-items: center; padding: 0 6px; overflow: hidden;
+        border: 1px dashed #b69aff; border-radius: 3px;
+        background: rgba(151, 104, 235, .22); color: #eee5ff;
+        font-size: 11px; white-space: nowrap; opacity: .85;
+        animation: akari-frame-pending-pulse 1.2s ease-in-out infinite alternate;
+    }
+    .akari-annotations-frame-pending-audio {
+        border-color: #6bd6a0; background: rgba(66, 177, 120, .22); color: #d8ffe9;
+    }
+    .akari-annotations-widget:not(.akari-annotations-tool-frame) .akari-annotations-frame-pending { display: none; }
+    @keyframes akari-frame-pending-pulse { to { opacity: .55; } }
+    @media (prefers-reduced-motion: reduce) {
+        .akari-annotations-frame-pending { animation: none; }
+    }
     .akari-annotations-frame-new-track {
         position: absolute; box-sizing: border-box; pointer-events: none; z-index: 49;
         border: 1px dashed rgba(203, 200, 255, .8); background: rgba(151, 104, 235, .14);

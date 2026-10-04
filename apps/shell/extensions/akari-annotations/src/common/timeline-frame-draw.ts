@@ -1,6 +1,14 @@
 import { resolveSnapTime, type SnapCandidate } from './timeline-snap';
 
 export interface FrameDrawRange { at: number; duration: number }
+export function isPlayheadLineGrab(options: {
+    clientX: number; playheadClientX: number; tolerancePx: number;
+}): boolean {
+    const { clientX, playheadClientX, tolerancePx } = options;
+    return Number.isFinite(clientX) && Number.isFinite(playheadClientX)
+        && Number.isFinite(tolerancePx) && tolerancePx >= 0
+        && Math.abs(clientX - playheadClientX) <= tolerancePx;
+}
 export type FrameDrawDestination =
     | { lane: 'visual' | 'audio'; trackId: string }
     | { lane: 'visual' | 'audio'; insertIndex: number };

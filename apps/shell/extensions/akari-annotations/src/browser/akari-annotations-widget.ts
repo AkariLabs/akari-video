@@ -19,7 +19,7 @@ import { writePreviewCaptionWrap, duplicatePreviewCaption, type PreviewCaptionWr
 import { AkariReadAloudDialog, type ReadAloudPlacement } from './read-aloud/akari-read-aloud-dialog';
 import { selectReadAloudRows, staleNarrations } from '../common/read-aloud-model';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
-import { calculateFrameDraw, frameDrawDestination, nextFrameTrackNumber, type FrameDrawDestination, type FrameDrawRange } from '../common/timeline-frame-draw';
+import { calculateFrameDraw, frameDrawDestination, isPlayheadLineGrab, nextFrameTrackNumber, type FrameDrawDestination, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
 import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
 import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
@@ -1866,6 +1866,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         playheadLineHit.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
         this.playhead.append(playheadLineHit, this.playheadHandle);
+        const framePlayheadLineHit = document.createElement('div');
+        framePlayheadLineHit.className = 'akari-annotations-frame-playhead-line-hit';
+        framePlayheadLineHit.addEventListener('pointerdown', event => {
+            if (this.toolMode === 'frame') this.onPlayheadHandlePointerDown(event);
+        });
+        this.playhead.insertBefore(framePlayheadLineHit, this.playheadHandle);
         Object.assign(this.snapGuide.style, {
             position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
             background: SNAP_GUIDE_COLOR_DEFAULT, pointerEvents: 'none'
@@ -1938,6 +1944,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }, true);
         // Capture only the frame tool: existing clip/marquee listeners remain unchanged.
         this.strip.addEventListener('pointerdown', event => {
+            if (this.toolMode === 'frame' && this.frameToolPlayheadLineGrab(event)) {
+                this.onStripPointerDown(event);
+                return;
+            }
             if (this.toolMode === 'frame' && !this.frameToolSelectionTarget(event)) this.onStripPointerDown(event);
         }, true);
         this.strip.addEventListener('click', event => {
@@ -1946,6 +1956,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }, true);
         this.toDispose.push({ dispose: () => this.cancelFrameDraw?.() });
+        this.toDispose.push({ dispose: () => {
+            for (const clear of this.pendingFrameClearers) clear();
+        } });
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => {
@@ -17875,6 +17888,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         void this.requestSeek(outputT, { domain: 'output' });
     }
 
+    protected readonly pendingFrameClearers = new Set<() => void>();
+
     protected beginFrameDraw(event: PointerEvent): void {
         this.cancelFrameDraw?.();
         const target = event.target instanceof Element ? event.target : undefined;
@@ -17957,7 +17972,55 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (pointer.pointerId !== event.pointerId) return;
             update(pointer);
             cleanup();
-            if (range) void this.commitEmptyFrame(destination, range, fps);
+            if (!range) return;
+            const confirmedRange = range;
+            const project = this.location?.editUri?.toString();
+            const pending = document.createElement('div');
+            pending.dataset.akariFramePending = 'true';
+            pending.className = `akari-annotations-frame-pending${destination.lane === 'audio' ? ' akari-annotations-frame-pending-audio' : ''}`;
+            pending.textContent = destination.lane === 'audio' ? '空の枠（音） · 作成中' : '空の枠 · 作成中';
+            this.stripContent.appendChild(pending);
+            let pendingFrame: number | undefined;
+            let pendingActive = true;
+            let modeObserver: MutationObserver | undefined;
+            const clearPending = (): void => {
+                if (!pendingActive) return;
+                pendingActive = false;
+                if (pendingFrame !== undefined) cancelAnimationFrame(pendingFrame);
+                modeObserver?.disconnect();
+                pending.remove();
+                this.pendingFrameClearers.delete(clearPending);
+            };
+            if (this.node && typeof MutationObserver !== 'undefined') {
+                modeObserver = new MutationObserver(() => { if (this.toolMode !== 'frame') clearPending(); });
+                modeObserver.observe(this.node, { attributes: true, attributeFilter: ['class'] });
+            }
+            this.pendingFrameClearers.add(clearPending);
+            const placePending = (): void => {
+                if (!pendingActive) return;
+                if (this.isDisposed || this.toolMode !== 'frame'
+                    || this.location?.editUri?.toString() !== project) {
+                    clearPending();
+                    return;
+                }
+                const rows = [...this.laneLayout.tracks].sort((a, b) => a.top - b.top);
+                const row = 'trackId' in destination ? rows.find(candidate => candidate.id === destination.trackId) : undefined;
+                const last = rows[rows.length - 1];
+                const bandHeight = destination.lane === 'visual'
+                    ? Math.min(52, rows[0]?.top ?? 0)
+                    : Math.min(52, Math.max(0, this.strip.clientHeight - (last ? last.top + last.height : 0)));
+                const top = row?.top ?? (destination.lane === 'visual'
+                    ? (rows[0]?.top ?? 0) - bandHeight : (last ? last.top + last.height : 0));
+                Object.assign(pending.style, {
+                    left: `${this.layoutPercent(confirmedRange.at / fps)}%`,
+                    width: `${confirmedRange.duration / fps / (this.layoutViewDuration > 0
+                        ? this.layoutViewDuration : this.visibleDuration()) * 100}%`,
+                    top: `${top}px`, height: `${row?.height ?? bandHeight}px`
+                });
+                pendingFrame = requestAnimationFrame(placePending);
+            };
+            placePending();
+            void this.commitEmptyFrame(destination, confirmedRange, fps, clearPending);
         };
         this.cancelFrameDraw = cleanup;
         this.strip.setPointerCapture(event.pointerId);
@@ -18102,9 +18165,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } finally { this.gapCommitting = false; }
     }
 
-    protected async commitEmptyFrame(target: string | FrameDrawDestination, range: FrameDrawRange, fps: number): Promise<void> {
+    protected async commitEmptyFrame(
+        target: string | FrameDrawDestination, range: FrameDrawRange, fps: number, clearPending?: () => void
+    ): Promise<void> {
         const location = this.location;
-        if (!location) return;
+        if (!location) { clearPending?.(); return; }
         const destination: FrameDrawDestination = typeof target === 'string'
             ? { lane: (this.editDocument?.tracks as Array<{ id: string; lane: 'visual' | 'audio' }> | undefined)
                 ?.find(track => track.id === target)?.lane ?? 'visual', trackId: target } : target;
@@ -18151,6 +18216,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     source: { kind: 'media', src: sourceId, in: 0, out: range.duration / fps }
                 });
             });
+            if (clearPending) {
+                this.renderStrip();
+                clearPending();
+            }
             if (destination.lane === 'audio') this.applySelection({ kind: 'audio', id: itemId });
             else {
                 const index = this.cutItemIds.indexOf(itemId);
@@ -18165,7 +18234,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.requestSeek(this.playheadT, { domain: 'output' });
             this.showNotice('空の枠を置きました。');
         } catch (error) {
+            clearPending?.();
             this.showNotice(`空の枠を置けません: ${this.errorMessage(error)}`);
+        } finally {
+            clearPending?.();
         }
     }
 
@@ -18174,8 +18246,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return !!target?.closest('[data-akari-item-kind], .akari-track-header-row, .akari-annotations-pin, .akari-beat-marker');
     }
 
+    protected frameToolPlayheadLineGrab(event: PointerEvent): boolean {
+        const playheadRect = this.playhead?.getBoundingClientRect?.();
+        return this.toolMode === 'frame' && event.button === 0 && !!playheadRect
+            && isPlayheadLineGrab({ clientX: event.clientX,
+                playheadClientX: playheadRect.left + playheadRect.width / 2, tolerancePx: 4 });
+    }
+
     protected onStripPointerDown(event: PointerEvent): void {
         if (this.toolMode === 'frame') {
+            if (this.frameToolPlayheadLineGrab(event)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                this.onPlayheadHandlePointerDown(event);
+                return;
+            }
             if (this.frameToolSelectionTarget(event)) return;
             event.preventDefault();
             event.stopImmediatePropagation();
