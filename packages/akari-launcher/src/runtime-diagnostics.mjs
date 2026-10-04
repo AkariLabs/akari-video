@@ -4,6 +4,7 @@ import path, { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { findExecutable } from './path-lookup.mjs';
+import { loadMediaBinModule } from './media-bin-loader.mjs';
 import { readInstalledAppVersionInfo, readOwnVersion, resolveAkariHome } from './update-check.mjs';
 import { resolveLauncherAssets } from './repo-assets.mjs';
 
@@ -245,22 +246,6 @@ async function resolveMediaTools(options) {
     ffmpeg: resolveMediaTool('ffmpeg', mediaBin?.resolveFfmpeg, options),
     ffprobe: resolveMediaTool('ffprobe', mediaBin?.resolveFfprobe, options),
   };
-}
-
-async function loadMediaBinModule() {
-  const candidates = [
-    new URL('../../media-bin/src/index.mjs', import.meta.url),
-    new URL('../vendor/packages/media-bin/src/index.mjs', import.meta.url),
-  ];
-  let lastError;
-  for (const candidate of candidates) {
-    try {
-      return await import(candidate.href);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError ?? new Error('media-bin is unavailable');
 }
 
 function resolveMediaTool(name, resolver, options) {

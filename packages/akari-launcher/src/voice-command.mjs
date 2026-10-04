@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { preloadMediaBin, resolveMediaCommand } from './media-bin-loader.mjs';
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { resolveAkariHome as fallbackResolveAkariHome } from './update-check.mjs';
 import { FAL_TTS_ENGINES, DIRECT_TTS_ENGINES, referenceDataUri } from './tts-engines.mjs';
@@ -23,6 +24,7 @@ try {
 } catch {
   // 部分的な vendor や壊れた optional module でもランチャー全体は起動させる。
 }
+await preloadMediaBin();
 
 export const VOICE_SCRIPTS = Object.freeze({
   'quick-v1': 'こんにちは。今日は、いつもの調子で、ゆっくり話してみます。朝、コーヒーを淹れながら、今日やることを整理します。窓の外では、街がゆっくり動き出しています。準備ができたら、ひとつずつ、形にしていきましょう。',
@@ -175,7 +177,7 @@ function profileSummary(meta, id, avatar, legacy, env) {
 }
 function audioLevels(audio, runtime) {
   if (runtime.measureAudio) return runtime.measureAudio(audio);
-  const result = spawnSync('ffmpeg', ['-v', 'error', '-i', audio, '-ac', '1', '-ar', '16000', '-f', 's16le', 'pipe:1'], { maxBuffer: 16 * 1024 * 1024 });
+  const result = spawnSync(resolveMediaCommand('ffmpeg'), ['-v', 'error', '-i', audio, '-ac', '1', '-ar', '16000', '-f', 's16le', 'pipe:1'], { maxBuffer: 16 * 1024 * 1024 });
   if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : `音声を測定できません: ${result.stderr?.toString().slice(0, 200)}`);
   const pcm = result.stdout, count = Math.floor(pcm.length / 2);
   if (!count) throw new VoiceError('音声が空です');
@@ -220,7 +222,7 @@ export async function checkVoiceRecording({ audio, script, backend = 'auto' }, r
 }
 function ffmpegConvert(source, destination, runtime, sampleRate = 48000, maxDurationS = null) {
   if (runtime.convertAudio) return runtime.convertAudio(source, destination, maxDurationS, sampleRate);
-  const result = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', source,
+  const result = spawnSync(resolveMediaCommand('ffmpeg'), ['-v', 'error', '-y', '-i', source,
     ...(maxDurationS === null ? [] : ['-t', String(maxDurationS)]), '-ac', '1', '-ar', String(sampleRate), '-c:a', 'pcm_s16le', destination]);
   if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : '録音を wav に変換できません');
 }
@@ -254,7 +256,7 @@ function durationFromWav(buffer) {
   return bytesPerSecond && offset >= 0 ? Number((buffer.readUInt32LE(offset + 4) / bytesPerSecond).toFixed(3)) : null;
 }
 function probeDuration(file) {
-  const result = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', file], { encoding: 'utf8' });
+  const result = spawnSync(resolveMediaCommand('ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', file], { encoding: 'utf8' });
   const value = Number(result.stdout?.trim());
   return result.status === 0 && Number.isFinite(value) && value >= 0 ? Number(value.toFixed(3)) : null;
 }
@@ -372,7 +374,7 @@ async function execute(sub, o, runtime, env) {
     try {
       if (runtime.concatAudio) await runtime.concatAudio(recording, o.audio, staged);
       else {
-        const result = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', recording, '-i', o.audio,
+        const result = spawnSync(resolveMediaCommand('ffmpeg'), ['-v', 'error', '-y', '-i', recording, '-i', o.audio,
           '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1', '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', staged]);
         if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : '録音を連結できません');
       }
