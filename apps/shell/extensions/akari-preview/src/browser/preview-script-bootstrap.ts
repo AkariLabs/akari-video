@@ -4657,6 +4657,7 @@ export function previewBootstrapScript(): string {
                 const groupOn = captionGroupToolEnabled || captionDragGroupActive;
                 captionClampChip.classList.toggle('on', clampOn);
                 captionTool('snap').classList.toggle('on', captionSnapEnabled);
+                captionTool('snap').setAttribute?.('aria-pressed', String(captionSnapEnabled));
                 captionTool('group').classList.toggle('on', groupOn);
                 captionTool('bold').classList.toggle('on',
                     (caption?.textStyle?.weight ?? caption?.textStyle?.font_weight) === 900);

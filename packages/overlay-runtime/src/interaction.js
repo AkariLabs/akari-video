@@ -2102,6 +2102,65 @@ function marqueeHits(candidates, rect) {
     }
   }
 
+  function lineEndpointArtwork(container, pose) {
+    const svg = container.querySelector('svg');
+    if (!svg) return null;
+    const body = Array.from(svg.children).find(child => child.tagName.toLowerCase() === 'line');
+    if (!body) return null;
+    const width = Number(svg.getAttribute('width'));
+    const height = Number(svg.getAttribute('height'));
+    if (!(width > 0) || !(height > 0)) return null;
+    const scaleX = pose.scaleX ?? pose.scale;
+    const scaleY = pose.scaleY ?? pose.scale;
+    const parts = Array.from(svg.children).filter(child => child !== body &&
+      child.tagName.toLowerCase() !== 'defs');
+    const groups = parts.map((part, index) => {
+      const existing = part.getAttribute('data-line-cap');
+      let end = existing === 'end';
+      if (!existing) {
+        if (parts.length === 2) end = index === 1;
+        else {
+          const box = part.getBBox();
+          end = box.x + box.width / 2 > width / 2;
+        }
+      }
+      const group = existing ? part : document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      if (!existing) {
+        part.parentNode.insertBefore(group, part);
+        group.appendChild(part);
+      }
+      return { group, transient: !existing, originalTransform: group.getAttribute('transform'),
+        x: end ? width : 0, y: height / 2 };
+    });
+    return { body, x1: body.getAttribute('x1'), x2: body.getAttribute('x2'),
+      width, scaleX, scaleY, groups };
+  }
+
+  function updateLineEndpointArtwork(artwork, scaleX, scaleY) {
+    if (!artwork || !(scaleX > 0) || !(scaleY > 0)) return;
+    const x1 = Number(artwork.x1) * artwork.scaleX / scaleX;
+    const x2 = artwork.width - (artwork.width - Number(artwork.x2)) * artwork.scaleX / scaleX;
+    artwork.body.setAttribute('x1', String(x1));
+    artwork.body.setAttribute('x2', String(Math.max(x1, x2)));
+    for (const part of artwork.groups) {
+      const sx = part.transient ? artwork.scaleX / scaleX : 1 / scaleX;
+      const sy = part.transient ? artwork.scaleY / scaleY : 1 / scaleY;
+      part.group.setAttribute('transform', `translate(${part.x} ${part.y}) scale(${sx} ${sy})${
+        part.transient ? ` translate(${-part.x} ${-part.y})` : ''}`);
+    }
+  }
+
+  function restoreLineEndpointArtwork(artwork) {
+    if (!artwork) return;
+    artwork.body.setAttribute('x1', artwork.x1);
+    artwork.body.setAttribute('x2', artwork.x2);
+    for (const part of artwork.groups) {
+      if (part.transient) part.group.replaceWith(...part.group.childNodes);
+      else if (part.originalTransform === null) part.group.removeAttribute('transform');
+      else part.group.setAttribute('transform', part.originalTransform);
+    }
+  }
+
   function beginLineEndpoint(event, handleEl) {
     if (!selectedOverlay || !globalThis.akariHandleGeometry) return;
     const pose = readTransform(selectedOverlay);
@@ -2121,7 +2180,8 @@ function marqueeHits(candidates, rect) {
       movingEndpoint, handleEl, pointerId: event.pointerId,
       pointerOffset: { x: (movingEndpoint === 'start' ? a : b).x - pointer.x,
         y: (movingEndpoint === 'start' ? a : b).y - pointer.y },
-      moved: false, writeContext: captureWriteContext() };
+      moved: false, artwork: lineEndpointArtwork(selectedOverlay, pose),
+      writeContext: captureWriteContext() };
     handleHint?.remove();
     handleHint = document.createElement('div');
     handleHint.className = 'akari-interaction-hint';
@@ -2154,6 +2214,7 @@ function marqueeHits(candidates, rect) {
     line.container.style.setProperty('--y', `${pose.y}px`);
     line.container.style.setProperty('--scale-x', String(pose.scaleX));
     line.container.style.setProperty('--scale-y', String(pose.scaleY));
+    updateLineEndpointArtwork(line.artwork, pose.scaleX, pose.scaleY);
     line.container.style.setProperty('--rotate', `${pose.rotate}deg`);
     line.moved = true;
     showSnapGuides(solved.snap.x, solved.snap.y);
@@ -2168,6 +2229,7 @@ function marqueeHits(candidates, rect) {
     releaseResizePointer(line);
     hideSnapGuides();
     if (cancelled || !line.moved) {
+      restoreLineEndpointArtwork(line.artwork);
       for (const [name, value] of [['--x', `${line.pose.x}px`], ['--y', `${line.pose.y}px`],
         ['--scale', String(line.pose.scale)], ['--rotate', `${line.pose.rotate}deg`]]) {
         line.container.style.setProperty(name, value);

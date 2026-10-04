@@ -8388,6 +8388,7 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #caption-select-box [data-caption-tool][hidden] { display: none; }
 #caption-select-box [data-caption-tool]:hover { background: #2b2f38; color: #fff; }
 #caption-select-box [data-caption-tool].on { background: #2d3b52; color: #bcdcff; }
+#caption-select-box [data-caption-tool="snap"].on { box-shadow: inset 0 0 0 2px var(--akari-focus-pulse); }
 #caption-select-box [data-caption-tool] svg { width: 16px; height: 16px; display: block; }
 #caption-select-box [data-caption-tool="bold"] { font: 900 15px Georgia, serif; }
 #caption-select-box [data-caption-tool="color"]::after { content: ''; position: absolute; left: 7px; right: 7px; bottom: 3px; height: 3px; border-radius: 2px; background: var(--caption-tool-color, #fff); }
@@ -8671,7 +8672,7 @@ ${previewSelectionHandlesStyle}
           <div id="caption-select-box"><div class="akari-caption-select-tools">
             <button type="button" data-caption-tool="group" aria-label="全字幕モード"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="2" y="10" width="12" height="3" rx="1" opacity=".45"/></svg><span class="akari-caption-tool-tip">全字幕モード（Alt ドラッグでも操作）</span></button>
             <span class="akari-caption-tool-separator"></span>
-            <button type="button" data-caption-tool="snap" class="on" aria-label="吸着"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4M12 15l4 4"/></svg><span class="akari-caption-tool-tip">吸着のオン・オフ</span></button>
+            <button type="button" data-caption-tool="snap" class="on" aria-label="吸着" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4M12 15l4 4"/></svg><span class="akari-caption-tool-tip">吸着のオン・オフ</span></button>
             <button type="button" data-caption-tool="clamp" aria-label="はみ出し防止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9V7h2M17 9V7h-2M7 15v2h2M17 15v2h-2"/></svg><span class="akari-caption-tool-tip">はみ出し防止のオン・オフ</span></button>
             <span class="akari-caption-tool-separator" data-caption-optional-separator></span>
             <button type="button" data-caption-tool="bold" hidden aria-label="太字">B<span class="akari-caption-tool-tip">太字のオン・オフ</span></button>
