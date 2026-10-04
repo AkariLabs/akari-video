@@ -26,7 +26,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
-import { CAPTION_SAMPLE_TEXT, registerLibraryTextstylePresets, TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
+import { CAPTION_SAMPLE_TEXT, registerLibraryTextstylePresets, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import {
     AKARI_BORDER,
     AKARI_INK,
@@ -76,7 +76,7 @@ import {
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
 import {
-    LibraryAssetCard, LibraryCardStyles, LibraryDotsCorner, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
+    LibraryAssetCard, LibraryCardStyles, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
 } from './library-card-view';
 import { AssetBinChildNode } from '../common/asset-bin-grouping';
@@ -87,7 +87,7 @@ import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadd
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
 import { fitStyleSpecimen, libraryTextStyleSample } from '../common/library-shelf-visuals';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
-import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
+import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
 import { LibraryTextTelopPage } from './library-text-telop-page';
 import { catalogItemsWithoutShelvedTelops, textTelopItems } from '../common/library-telop-shelf';
@@ -667,9 +667,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get catalogLoading() { return widget().catalogLoading; },
             get catalogViewMode() { return widget().catalogViewMode; },
             get assetCatalogItems() { return widget().assetCatalogItems; },
+            get catalogQuery() { return widget().catalogQuery; },
+            get libraryFavorites() { return widget().libraryFavorites; },
+            get transitionPreviewUrls() { return widget().transitionPreviewUrls; },
             update: () => widget().update(),
             loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent),
-            renderCatalogItem: item => widget().renderCatalogItem(item)
+            renderCatalogItem: item => widget().renderCatalogItem(item),
+            presetPassesLibraryFilter: (key, source) => widget().presetPassesLibraryFilter(key, source),
+            openLibraryMenuAt: (event, target) => widget().openLibraryMenuAt(event, target),
+            openLibraryInfo: (target, anchor) => widget().openLibraryInfo(target, anchor),
+            handleLibraryTransitionDragEnd: () => widget().handleLibraryTransitionDragEnd()
         };
         this.libraryPane = new AkariLibraryPane(libraryHost);
         const lintHost: LintPaneHost = {
@@ -2534,7 +2541,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderLibraryCategoryBody(key: LibraryCategoryKey): React.ReactNode {
         if (key === 'transition') {
-            return this.renderTransitionLibrary();
+            return this.libraryPane.renderTransitionLibrary();
         }
         if (key === 'pack') {
             return this.renderLibraryPackBody();
@@ -2649,86 +2656,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    protected handleLibraryTransitionDragStart(
-        event: React.DragEvent<HTMLElement>,
-        transition: { readonly id: TransitionType; readonly labelJa: string }
-    ): void {
-        const payload: { kind: 'transition'; id: TransitionType; name: string } = {
-            kind: 'transition',
-            id: transition.id,
-            name: transition.labelJa
-        };
-        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
-        event.dataTransfer.effectAllowed = 'copy';
-        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
-    }
-
     protected handleLibraryTransitionDragEnd(): void {
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_END_EVENT));
-    }
-
-    protected renderTransitionLibrary(): React.ReactNode {
-        const normalizedQuery = this.catalogQuery.trim().toLowerCase();
-        const filtered = TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`) && (!normalizedQuery
-            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery)));
-        const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
-        return (
-            <div
-                data-akari-transition-count={TRANSITION_VOCABULARY.length}
-                data-akari-transition-visible-count={filtered.length}
-                data-akari-transition-category-count={categories.length}
-                style={{ padding: '2px 10px 12px' }}
-            >
-                {categories.map(category => {
-                    const transitions = filtered.filter(transition => transition.category === category);
-                    if (!transitions.length) {
-                        return undefined;
-                    }
-                    return (
-                        <section key={category} style={{ marginTop: '10px' }}>
-                            <div style={{ padding: '4px 0 6px', fontSize: '0.74em', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.7 }}>
-                                {category}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }}>
-                                {transitions.map(transition => (
-                                    <div
-                                        key={transition.id}
-                                        role='button'
-                                        tabIndex={0}
-                                        draggable
-                                        data-akari-library-transition={transition.id}
-                                        data-akari-library-category='transition'
-                                        data-akari-library-card='grid'
-                                        data-akari-favorite={this.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
-                                        title={`${transition.labelJa} — カット境界へドラッグ`}
-                                        onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
-                                        onDragEnd={() => this.handleLibraryTransitionDragEnd()}
-                                        onContextMenu={event => this.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
-                                        style={{
-                                            position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
-                                            padding: '9px 5px 7px', cursor: 'grab', borderRadius: `${AKARI_RADIUS.panel}px`,
-                                            background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost
-                                        }}
-                                    >
-                                        <LibraryDotsCorner label={transition.labelJa}
-                                            onOpen={anchor => this.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, anchor)} />
-                                        <span aria-hidden='true' style={{ display: 'block', width: '100%', aspectRatio: '16 / 9',
-                                            overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px` }}>
-                                            <TransitionStrip url={this.transitionPreviewUrls[transition.id]?.preview}
-                                                stripUrl={this.transitionPreviewUrls[transition.id]?.strip} />
-                                        </span>
-                                        <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em' }}>
-                                            {transition.labelJa}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    );
-                })}
-                {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
-            </div>
-        );
     }
 
     /** 一覧のスクロール領域の外へ置く共有試聴ドック。 */

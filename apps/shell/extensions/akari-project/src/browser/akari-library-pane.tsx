@@ -11,10 +11,16 @@ import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStat
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import { CatalogPackGroup, deriveCatalogEmptyStateKind, deriveCatalogResolverNotice, formatCatalogPackBreakdown, summarizeCatalogPackDistribution } from '../common/asset-catalog-view';
 import { rankRecentLibraryItems } from '../common/library-source-view';
-import { AKARI_BORDER } from '../common/akari-surface-tokens';
+import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
+import { TransitionStrip } from './library-shelf-visuals-view';
+import { LibraryDotsCorner } from './library-card-view';
+import { LibraryMenuTarget } from '../common/library-card-menu';
+import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 export const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
+const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
+const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
 
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
 // どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
@@ -41,6 +47,13 @@ export interface LibraryPaneHost {
     readonly catalogViewMode: CatalogViewMode;
     readonly assetCatalogItems: AssetCatalogViewItem[];
     readonly renderCatalogItem: (item: AssetCatalogViewItem) => React.ReactNode;
+    readonly catalogQuery: string;
+    readonly libraryFavorites: Set<string>;
+    readonly transitionPreviewUrls: Record<string, { preview: string; strip: string }>;
+    readonly presetPassesLibraryFilter: (key: string, source?: 'lab' | 'own') => boolean;
+    readonly openLibraryMenuAt: (event: React.MouseEvent<HTMLElement>, target: LibraryMenuTarget) => void;
+    readonly openLibraryInfo: (target: LibraryMenuTarget, anchor: HTMLElement) => void;
+    readonly handleLibraryTransitionDragEnd: () => void;
 }
 
 export class AkariLibraryPane {
@@ -349,6 +362,84 @@ export class AkariLibraryPane {
                 <p style={{ margin: 0, opacity: 0.7 }}>
                     {resolverFailed ? CATALOG_FETCH_FAILED_MESSAGE : CATALOG_EMPTY_MESSAGE}
                 </p>
+            </div>
+        );
+    }
+
+    protected handleLibraryTransitionDragStart(
+        event: React.DragEvent<HTMLElement>,
+        transition: { readonly id: TransitionType; readonly labelJa: string }
+    ): void {
+        const payload: { kind: 'transition'; id: TransitionType; name: string } = {
+            kind: 'transition',
+            id: transition.id,
+            name: transition.labelJa
+        };
+        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+    }
+
+    public renderTransitionLibrary(): React.ReactNode {
+        const normalizedQuery = this.host.catalogQuery.trim().toLowerCase();
+        const filtered = TRANSITION_VOCABULARY.filter(transition => this.host.presetPassesLibraryFilter(`transition/${transition.id}`) && (!normalizedQuery
+            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery)));
+        const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
+        return (
+            <div
+                data-akari-transition-count={TRANSITION_VOCABULARY.length}
+                data-akari-transition-visible-count={filtered.length}
+                data-akari-transition-category-count={categories.length}
+                style={{ padding: '2px 10px 12px' }}
+            >
+                {categories.map(category => {
+                    const transitions = filtered.filter(transition => transition.category === category);
+                    if (!transitions.length) {
+                        return undefined;
+                    }
+                    return (
+                        <section key={category} style={{ marginTop: '10px' }}>
+                            <div style={{ padding: '4px 0 6px', fontSize: '0.74em', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.7 }}>
+                                {category}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }}>
+                                {transitions.map(transition => (
+                                    <div
+                                        key={transition.id}
+                                        role='button'
+                                        tabIndex={0}
+                                        draggable
+                                        data-akari-library-transition={transition.id}
+                                        data-akari-library-category='transition'
+                                        data-akari-library-card='grid'
+                                        data-akari-favorite={this.host.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
+                                        title={`${transition.labelJa} — カット境界へドラッグ`}
+                                        onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
+                                        onDragEnd={() => this.host.handleLibraryTransitionDragEnd()}
+                                        onContextMenu={event => this.host.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
+                                        style={{
+                                            position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
+                                            padding: '9px 5px 7px', cursor: 'grab', borderRadius: `${AKARI_RADIUS.panel}px`,
+                                            background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost
+                                        }}
+                                    >
+                                        <LibraryDotsCorner label={transition.labelJa}
+                                            onOpen={anchor => this.host.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, anchor)} />
+                                        <span aria-hidden='true' style={{ display: 'block', width: '100%', aspectRatio: '16 / 9',
+                                            overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px` }}>
+                                            <TransitionStrip url={this.host.transitionPreviewUrls[transition.id]?.preview}
+                                                stripUrl={this.host.transitionPreviewUrls[transition.id]?.strip} />
+                                        </span>
+                                        <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em' }}>
+                                            {transition.labelJa}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    );
+                })}
+                {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
             </div>
         );
     }
