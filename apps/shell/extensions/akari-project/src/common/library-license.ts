@@ -87,11 +87,13 @@ export type LibraryLicenseKind = 'builtin' | 'cc0' | 'premium' | 'by' | 'nc' | '
 export const LAB_PREMIUM_SPDX = 'LicenseRef-AKARI-Assets-v0';
 
 export type LibraryLicenseKindInput = Pick<AssetCatalogViewItem,
-    'origin' | 'licenseSpdx' | 'licenseScope' | 'licenseAttributionRequired' | 'price' | 'sourceKind' | 'distribution'>;
+    'origin' | 'licenseSpdx' | 'licenseScope' | 'licenseAttributionRequired' | 'price' | 'machineTags' | 'sourceKind' | 'distribution'>;
 
 export function libraryLicenseKind(item: LibraryLicenseKindInput): LibraryLicenseKind {
     const spdx = item.licenseSpdx?.trim();
-    if (spdx === LAB_PREMIUM_SPDX || (item.origin === 'resolver' && (item.price ?? 0) > 0)) return 'premium';
+    const isPro = item.machineTags?.includes('tier:pro')
+        || (!item.machineTags?.includes('tier:free') && (item.price ?? 0) > 0);
+    if (spdx === LAB_PREMIUM_SPDX || (item.origin === 'resolver' && isPro)) return 'premium';
     if (isNonCommercialSpdx(spdx)) return 'nc';
     if (isAttributionSpdx(spdx)) return 'by';
     if (spdx === 'CC0-1.0') return 'cc0';

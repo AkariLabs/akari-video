@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    formatYen, isPlaceableLibraryCategory, libraryAssetInfoCard, libraryCardMenuEntries, libraryPresetInfoCard, premiumPromptText
+    isPlaceableLibraryCategory, libraryAssetInfoCard, libraryCardMenuEntries, libraryPresetInfoCard, premiumPromptText
 } from '../lib/common/library-card-menu.js';
 
 const asset = (extra = {}) => ({ origin: 'resolver', key: 'still/photo', id: 'photo', category: 'still', title: '夕暮れの海岸',
@@ -42,11 +42,11 @@ test('フォントは選択中の文字へ当てる', () => {
     assert.equal(entries[0].label, '選択中に当てる');
 });
 
-test('プレミアム未購入: Lab で見る（¥価格）/ プレイヘッドに置く（押すと促しのシート）/ ★ / 情報を見る', () => {
+test('Pro 未契約: Lab で見る / プレイヘッドに置く（押すと促しのシート）/ ★ / 情報を見る', () => {
     const premium = asset({ sourceKind: 'lab', state: 'locked', price: 2980 });
     const entries = libraryCardMenuEntries({ kind: 'asset', item: premium }, false);
     assert.deepEqual(ids(entries), ['lab', 'place', 'favorite', 'info']);
-    assert.equal(entries[0].label, 'Lab で見る（¥2,980）');
+    assert.equal(entries[0].label, 'Pro を Lab で見る');
     // 置けない種類のプレミアムには「置く」を出さない。
     assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'asset', item: { ...premium, category: 'overlay' } }, false)), ['lab', 'place', 'favorite', 'info']);
 });
@@ -96,14 +96,14 @@ test('情報カード: 名前・作成元・料金・ライセンス名・キー
     assert.deepEqual(libraryAssetInfoCard(asset({ tags: ['bgm', 'BGM', '明るい'] }), 'BGM', false).keywords, ['BGM', '明るい']);
 });
 
-test('情報カード: プレミアム未購入は王冠 · 価格と「Lab で見る」1 つ（+ ★）', () => {
+test('情報カード: Pro 未契約は鍵と「Lab で見る」1 つ（+ ★）', () => {
     const card = libraryAssetInfoCard(asset({ sourceKind: 'lab', state: 'locked', price: 2980, author: 'AKARI Video Lab' }), '画像', false);
-    assert.deepEqual(card.price, { kind: 'premium', label: 'プレミアム · ¥2,980' });
+    assert.deepEqual(card.price, { kind: 'premium', label: 'Pro · 鍵付き' });
     assert.deepEqual(card.actions.map(action => action.id), ['lab', 'favorite']);
-    assert.equal(card.actions[0].label, 'Lab で見る（¥2,980）');
+    assert.equal(card.actions[0].label, 'Pro を Lab で見る');
     assert.equal(card.license.kind, 'premium');
     const bought = libraryAssetInfoCard(asset({ sourceKind: 'lab', state: 'available', price: 2980 }), '画像', false);
-    assert.deepEqual(bought.price, { kind: 'purchased', label: '購入済み' });
+    assert.deepEqual(bought.price, { kind: 'purchased', label: 'Pro · 利用可能' });
     assert.equal(bought.creator, 'AKARI Video Lab');
 });
 
@@ -123,11 +123,11 @@ test('情報カード: プリセット・マイスタイル', () => {
     assert.equal(lut.actions[0].primary, true);
 });
 
-test('促しのシートの文言は price から作り、置いていないことを伝える', () => {
+test('促しのシートは all-access-pass と未配置を伝え、価格を表示しない', () => {
     const text = premiumPromptText({ title: '金色の飾り枠', price: 2980 });
-    assert.equal(text.title, '「金色の飾り枠」は Lab のプレミアムです');
-    assert.match(text.body, /¥2,980/);
+    assert.equal(text.title, '「金色の飾り枠」は Pro 素材です');
+    assert.match(text.body, /all-access-pass/);
+    assert.doesNotMatch(`${text.title} ${text.body} ${text.action}`, /¥|2,980/);
     assert.match(text.body, /まだ置いていません/);
     assert.equal(text.action, 'Lab で見る');
-    assert.equal(formatYen(undefined), '¥0');
 });
