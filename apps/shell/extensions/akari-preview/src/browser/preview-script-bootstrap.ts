@@ -10411,6 +10411,7 @@ export function previewBootstrapScript(): string {
                         }
                     }
                     renderCaption();
+                    applyCaptionSelectionAttrs();
                     resumeCaptionMotionAfterRender();
                     window.akari.refreshActiveCaptionRuns?.();
                     updateCaptionSelectBox();

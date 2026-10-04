@@ -167,14 +167,45 @@ export async function applyCaptionContextField(id: string, field: string, value:
     const ids = [...new Set([id, ...targetIds])];
     const before = await deps.readSource();
     let after = before;
+    const parsed = field === 'vertical' && toggle && toggle.stage
+        ? JSON.parse(before) as { captions?: Array<{ id?: string; text_style?: Record<string, unknown> }>;
+            default_text_style?: Record<string, unknown> } | Array<{ id?: string; text_style?: Record<string, unknown> }>
+        : undefined;
+    const cues = Array.isArray(parsed) ? parsed : parsed?.captions;
+    const defaults = parsed && !Array.isArray(parsed) ? parsed.default_text_style ?? {} : {};
     for (const targetId of ids) {
+        const cue = cues?.find(row => row.id === targetId);
+        const style = { ...defaults, ...cue?.text_style };
+        let paddingDelta = 0;
+        if (field === 'vertical' && toggle?.stage) {
+            // Both the wrap length and the position swap use unscaled stage pixels.
+            const background = style.background && typeof style.background === 'object'
+                ? style.background as { mode?: unknown; padding_px?: unknown } : undefined;
+            const symmetricPadding = background?.mode === 'block'
+                || typeof background?.padding_px === 'number' && Number.isFinite(background.padding_px);
+            const fontSize = typeof style.size_px === 'number' && Number.isFinite(style.size_px)
+                ? style.size_px : 38;
+            const referenceHeight = typeof style.reference_height_px === 'number' && style.reference_height_px > 0
+                ? style.reference_height_px
+                : typeof toggle.outputHeight === 'number' && toggle.outputHeight > 0
+                    ? toggle.outputHeight : toggle.stage.height;
+            paddingDelta = symmetricPadding ? 0 : .68 * fontSize * toggle.stage.height / referenceHeight;
+        }
+        if (field === 'vertical' && toggle && toggle.stage && cue
+            && Boolean(style.vertical) !== fieldValue
+            && typeof cue.text_style?.wrap_width_pct === 'number'
+            && Number.isFinite(cue.text_style.wrap_width_pct)
+            && Number.isFinite(toggle.stage.width) && Number.isFinite(toggle.stage.height)
+            && toggle.stage.width > 0 && toggle.stage.height > 0) {
+            const oldAxis = fieldValue === true ? toggle.stage.width : toggle.stage.height;
+            const newAxis = fieldValue === true ? toggle.stage.height : toggle.stage.width;
+            const length = cue.text_style.wrap_width_pct / 100 * oldAxis
+                + (fieldValue === true ? -paddingDelta : paddingDelta);
+            const wrapPct = Math.min(100, Math.max(8,
+                Math.round(length / newAxis * 10000) / 100));
+            after = replaceCueField(after, targetId, 'wrap_width_pct', wrapPct);
+        }
         if (field === 'vertical' && toggle && targetId === id && toggle.box && toggle.stage) {
-            const parsed = JSON.parse(before) as { captions?: Array<{ id?: string; text_style?: Record<string, unknown> }>;
-                default_text_style?: Record<string, unknown> } | Array<{ id?: string; text_style?: Record<string, unknown> }>;
-            const cues = Array.isArray(parsed) ? parsed : parsed.captions;
-            const cue = cues?.find(row => row.id === targetId);
-            const defaults = Array.isArray(parsed) ? {} : parsed.default_text_style ?? {};
-            const style = { ...defaults, ...cue?.text_style };
             const { box, stage } = toggle;
             const scale = typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale > 0
                 ? style.scale : 1;
@@ -182,20 +213,7 @@ export async function applyCaptionContextField(id: string, field: string, value:
                 && stage.width > 0 && stage.height > 0
                 && [box.left, box.top, box.width, box.height, stage.left, stage.top, stage.width, stage.height]
                     .every(Number.isFinite)) {
-                // Writing mode exchanges the text axes. The line's default
-                // horizontal padding (.42em) differs from its vertical padding
-                // (.08em), so the plate dimensions do not simply exchange.
-                const background = style.background && typeof style.background === 'object'
-                    ? style.background as { mode?: unknown; padding_px?: unknown } : undefined;
-                const symmetricPadding = background?.mode === 'block'
-                    || typeof background?.padding_px === 'number' && Number.isFinite(background.padding_px);
-                const fontSize = typeof style.size_px === 'number' && Number.isFinite(style.size_px)
-                    ? style.size_px : 38;
-                const referenceHeight = typeof style.reference_height_px === 'number' && style.reference_height_px > 0
-                    ? style.reference_height_px
-                    : typeof toggle.outputHeight === 'number' && toggle.outputHeight > 0
-                        ? toggle.outputHeight : stage.height;
-                const paddingDelta = symmetricPadding ? 0 : .68 * fontSize * stage.height / referenceHeight;
+                // Writing mode exchanges the text axes; padding differs by .68em.
                 const nextWidth = Math.max(0, box.height / scale + paddingDelta);
                 const nextHeight = Math.max(0, box.width / scale - paddingDelta);
                 const visualWidth = nextWidth * scale;
