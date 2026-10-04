@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from "node:test";
-import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import * as geometry from "../lib/common/filmstrip-geometry.js";
 import { CLIP_HEADER_HEIGHT } from "../lib/browser/timeline/timeline-metrics.js";
@@ -14,7 +14,7 @@ import {
 assert.equal(CLIP_HEADER_HEIGHT, 14);
 
 // Theia 全体を起動せず、コンパイル済みの実描画メソッドへ canvas 境界を注入する。
-const widgetSource = readFileSync(new URL("../lib/browser/akari-annotations-widget.js", import.meta.url), "utf8");
+const widgetSource = readCompiledSource('widget').text;
 function widgetMethod(name, nextName) {
   const start = widgetSource.indexOf(`    ${name}(`);
   const end = widgetSource.indexOf(`    ${nextName}(`, start);

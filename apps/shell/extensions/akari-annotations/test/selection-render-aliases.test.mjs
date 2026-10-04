@@ -1,7 +1,7 @@
 import test from 'node:test';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../lib/browser/akari-annotations-widget.js',import.meta.url),'utf8');
+const source=readCompiledSource('widget').text;
 function method(name){const r=source.slice(source.indexOf('    '+name+'('));return r.slice(0,r.indexOf('\n    }')+6)}
 const Widget=new Function('timeline_selection_model_1',`return class {${method('selectionRenderKeys')} ${method('applySelectionClass')}}`)({captionIdForTreeSelection:(s,id)=>id});
 test('preview tree item selection highlights its rendered HTML/cut/layer chip',()=>{

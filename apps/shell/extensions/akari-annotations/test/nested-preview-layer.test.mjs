@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { writeNestedPreviewLayer } from '../lib/browser/inspector/nested-preview-layer.js';
 import { applyTimelineCollapsedRows } from '../lib/browser/timeline/timeline-tree-model.js';
@@ -65,7 +65,7 @@ test('canvas photo crop is written to its child', () => {
 });
 
 test('preview selection opens a closed canvas and selects its photo row', () => {
-    const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+    const source = readCompiledSource('widget').text;
     const method = name => {
         const start = source.indexOf(`    ${name}(`);
         const end = source.indexOf('\n    }', start) + 6;
@@ -106,7 +106,7 @@ test('preview selection opens a closed canvas and selects its photo row', () => 
 });
 
 test('selected canvas child supplies the photo fields to the inspector', () => {
-    const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+    const source = readCompiledSource('widget').text;
     const start = source.indexOf('    treeItemSnapshot(');
     const end = source.indexOf('\n    }', start) + 6;
     assert.ok(start >= 0 && end > start);

@@ -1,8 +1,8 @@
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 
-import { readFileSync } from 'node:fs';
 
 import test from 'node:test';
 
@@ -273,7 +273,7 @@ test('widget: 音声以外の文字起こしはナレーションキャッシュ
   assert.equal(widget.narrationSourcePath, 'assets/generated/frame.wav');
 });
 
-const timelineSource = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const timelineSource = readCompiledSource('widget').text;
 
 function timelineMethod(name) {
   const start = timelineSource.search(new RegExp(`    (async )?${name}\\(`));

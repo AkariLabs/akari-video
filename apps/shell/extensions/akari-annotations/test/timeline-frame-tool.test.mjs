@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
 import { initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
 import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
 import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
 
-const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const source = readCompiledSource('widget').text;
 function method(name, next) {
   return source.slice(source.indexOf(`    ${name}(`), source.indexOf(`    ${next}(`, source.indexOf(`    ${name}(`)));
 }

@@ -1,10 +1,10 @@
 import test from 'node:test';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import * as editStore from '@akari-video/edit-store';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 
-const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const source = readCompiledSource('widget').text;
 const rest = source.slice(source.indexOf('    computeContentEndDuration('));
 const method = rest.slice(0, rest.indexOf('\n    }') + 6);
 // Bind the imported modules by their emitted aliases, without assuming tsc's numbering.
