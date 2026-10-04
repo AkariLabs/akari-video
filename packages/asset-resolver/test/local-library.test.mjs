@@ -38,7 +38,7 @@ test('local items contain actual files, metadata, timestamp, thumbnail, credit a
   assert.ok(Number.isFinite(Date.parse(item.addedAt)));
   assert.deepEqual(item.files.find(file => file.name === 'sound.wav'), { name: 'sound.wav', bytes: 5 });
   assert.deepEqual(item.tags, ['calm']);
-  assert.deepEqual(item.machineTags, ['origin:site', 'site:music', 'folder:Tracks', 'pack:set', 'license:subscription']);
+  assert.deepEqual(item.machineTags, ['origin:site', 'site:music', 'folder:Tracks', 'pack:set', 'license:subscription', 'tier:free']);
   assert.equal(item.folder, 'Tracks');
   assert.equal(item.site, 'music');
   assert.equal(item.subscription, true);
@@ -104,7 +104,7 @@ for (const kind of ['bgm', 'jingle', 'sfx']) {
     });
     const item = (await composeState({ env })).items.find(item => item.id === id);
     assert.equal(item.sourceKind, 'lab');
-    assert.deepEqual(item.machineTags, []);
+    assert.deepEqual(item.machineTags, ['tier:free']);
   });
 }
 

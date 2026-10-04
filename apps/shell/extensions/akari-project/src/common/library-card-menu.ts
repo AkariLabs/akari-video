@@ -78,7 +78,7 @@ export function libraryCardMenuEntries(target: LibraryMenuTarget, favorite: bool
 function assetMenuEntries(item: AssetCatalogViewItem, favorite: boolean): LibraryMenuEntry[] {
     const entries: LibraryMenuEntry[] = [];
     if (isPremiumLocked(item)) {
-        entries.push({ id: 'lab', label: `Lab で見る（${formatYen(item.price)}）`, icon: 'link-external' });
+        entries.push({ id: 'lab', label: 'Pro を Lab で見る', icon: 'link-external' });
         if (isPlaceableLibraryCategory(item)) entries.push({ id: 'place', label: 'プレイヘッドに置く', icon: 'add' });
         entries.push(favoriteEntry(favorite, true), INFO);
         return entries;
@@ -148,8 +148,8 @@ function unique(values: readonly (string | undefined)[]): string[] {
 
 function priceRow(item: AssetCatalogViewItem): LibraryInfoCardModel['price'] {
     const kind = libraryItemPrice(item);
-    if (kind === 'premium') return { kind, label: `プレミアム · ${formatYen(item.price)}` };
-    if (kind === 'purchased') return { kind, label: '購入済み' };
+    if (kind === 'premium') return { kind, label: 'Pro · 鍵付き' };
+    if (kind === 'purchased') return { kind, label: 'Pro · 利用可能' };
     if (kind === 'external') return { kind, label: item.distribution === 'subscription' ? 'サブスク（各自入手）' : '有料（各自入手）' };
     return { kind, label: '無料' };
 }
@@ -209,12 +209,11 @@ export function libraryPresetInfoCard(input: LibraryPresetInfoInput, favorite: b
     };
 }
 
-/** 促しのシートの文言（price と既存の商品ページの経路だけから作る）。 */
+/** Pro 素材の促しのシートの文言。 */
 export function premiumPromptText(item: Pick<AssetCatalogViewItem, 'title' | 'price'>): { title: string; body: string; action: string } {
     return {
-        title: `「${item.title}」は Lab のプレミアムです`,
-        body: `${formatYen(item.price)} で購入すると、このライブラリからそのまま置けるようになります。`
-            + 'パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。',
+        title: `「${item.title}」は Pro 素材です`,
+        body: 'all-access-pass があれば、このライブラリから使えます。Lab でプランを確認できます。まだ置いていません。',
         action: 'Lab で見る'
     };
 }

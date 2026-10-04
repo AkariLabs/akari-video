@@ -25,6 +25,7 @@ import { sha256File } from './hash.mjs';
 import { cachedAssetDir, localAssetDir } from './library.mjs';
 import { downloadPaidZip, extractZip, verifyPaidZipContents } from './paid-zip.mjs';
 import { recordProjectReference } from './project-references.mjs';
+import { assetTier, isAssetEntitled } from './tier.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // src/ の 1 つ上（パッケージ root）のさらに 2 つ上（packages/）のさらに 1 つ上（リポ root）。
@@ -112,13 +113,13 @@ export async function resolve(
     return result;
   }
 
-  const price = item.price ?? 0;
+  const tier = assetTier(item);
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;
-  if (price > 0) {
+  if (tier === 'pro') {
     const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
-    if (!entitlements.has(item.id) && !entitlements.has(item.product_id)) {
+    if (!isAssetEntitled(item, entitlements)) {
       throw new AssetResolverError(
-        `未購入の素材です（¥${price.toLocaleString()}）。AKARI Video Lab で購入してから再度お試しください: ${item.id}`,
+        `Pro 素材は all-access-pass が必要です: ${item.id}`,
         'locked',
       );
     }

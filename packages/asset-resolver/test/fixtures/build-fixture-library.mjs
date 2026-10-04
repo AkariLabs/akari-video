@@ -29,7 +29,8 @@ function metaJsonBuffer(id, category, { price }) {
     requires: [],
     provenance: { origin: 'asset-resolver test fixture', generator: null },
     author: 'test',
-    license: { spdx: 'CC0-1.0', scope: 'commercial-ok', attribution_required: false, ai_training_allowed: true },
+    license: { spdx: price > 0 ? 'LicenseRef-AKARI-Assets-v0' : 'CC0-1.0', scope: 'commercial-ok', attribution_required: false, ai_training_allowed: true },
+    tier: price > 0 ? 'pro' : 'free',
     price,
     version: 1,
   };

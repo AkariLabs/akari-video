@@ -39,6 +39,7 @@ function paidMetaBuffer(id, category) {
     provenance: { origin: 'asset-resolver test fixture', generator: null },
     author: 'test',
     license: { spdx: 'LicenseRef-fixture', scope: 'paid-license-required', attribution_required: false, ai_training_allowed: false },
+    tier: 'pro',
     price: category === 'overlay' ? null : 2980,
     version: 1,
   };
@@ -136,6 +137,7 @@ function addPaidCatalogItem(catalog, catalogPath, id, category, price, productId
     title: `フィクスチャ有料素材 ${id}`,
     tags: ['fixture', 'paid'],
     license: { spdx: 'LicenseRef-fixture' },
+    tier: 'pro',
     price,
     ...(productId ? { product_id: productId } : {}),
     version: 1,
@@ -195,7 +197,7 @@ test('resolvePaidZip: 未購入は locked で拒否され、download エンド�
     (error) => {
       assert.ok(error instanceof AssetResolverError);
       assert.equal(error.code, 'locked');
-      assert.match(error.message, /2,980|2980/);
+      assert.match(error.message, /all-access-pass/);
       return true;
     },
   );

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:akari-video:schema:asset-meta:v0",
-  "title": "AKARI Video Asset Metadata v0",
-  "description": "AKARI Video 素材ライブラリの meta.json 契約 v0。",
+  "$id": "urn:akari-video:schema:asset-meta:v1",
+  "title": "AKARI Video Asset Metadata v1",
+  "description": "AKARI Video 素材ライブラリの meta.json 契約 v1。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,7 +18,7 @@
     "provenance",
     "author",
     "license",
-    "price"
+    "tier"
   ],
   "properties": {
     "id": {
@@ -85,7 +85,13 @@
     "license": {
       "$ref": "#/$defs/license"
     },
+    "tier": {
+      "enum": ["free", "pro"],
+      "description": "素材の取得階層。pro は all-access-pass の権利が必要。"
+    },
     "price": {
+      "deprecated": true,
+      "description": "廃止予定の旧価格。tier があれば無視し、次版で削除する。",
       "oneOf": [
         { "type": "null" },
         { "type": "number", "minimum": 0 }

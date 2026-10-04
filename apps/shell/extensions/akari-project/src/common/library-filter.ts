@@ -2,7 +2,7 @@
  * ライブラリの絞り込み（検索欄の右の 1 個のボタン → 4 節のポップオーバー）の純関数。
  *
  * - 出どころ: 全部 / 自分の / 素材サイト / Lab（旧「出どころの 1 行」をここへ畳んだ。1 つだけ選ぶ）
- * - 料金: 無料 / プレミアム / 購入済み
+ * - tier: 無料 / Pro（内部の price キーは既存ウィジェットとの互換のため維持）
  * - ライセンス: 商用 OK / 帰属表示あり / 商用不可（library-license.ts の 2 軸で判定）
  * - 状態: 取得済み / 未取得 / ★
  *
@@ -26,7 +26,7 @@ export interface LibraryFilterState {
 
 export const EMPTY_LIBRARY_FILTER: LibraryFilterState = { source: 'all', price: [], license: [], status: [] };
 
-export type LibraryFilterSectionKey = 'source' | 'price' | 'license' | 'status';
+export type LibraryFilterSectionKey = 'source' | 'tier' | 'price' | 'license' | 'status';
 
 export interface LibraryFilterSection {
     key: LibraryFilterSectionKey;
@@ -38,8 +38,8 @@ export interface LibraryFilterSection {
 
 export const LIBRARY_FILTER_SECTIONS: readonly LibraryFilterSection[] = [
     { key: 'source', label: '出どころ', single: true, options: LIBRARY_SOURCE_FILTERS },
-    { key: 'price', label: '料金', single: false, options: [
-        { key: 'free', label: '無料' }, { key: 'premium', label: 'プレミアム' }, { key: 'purchased', label: '購入済み' }] },
+    { key: 'tier', label: 'tier', single: false, options: [
+        { key: 'free', label: '無料' }, { key: 'premium', label: 'Pro' }] },
     { key: 'license', label: 'ライセンス', single: false, options: [
         { key: 'commercial', label: '商用 OK' }, { key: 'attribution', label: '帰属表示あり' }, { key: 'noncommercial', label: '商用不可' }] },
     { key: 'status', label: '状態', single: false, options: [
@@ -52,7 +52,7 @@ export function libraryFilterCount(filter: LibraryFilterState): number {
 }
 
 export function isLibraryFilterOptionOn(filter: LibraryFilterState, section: LibraryFilterSectionKey, option: string): boolean {
-    return section === 'source' ? filter.source === option : (filter[section] as readonly string[]).includes(option);
+    return section === 'source' ? filter.source === option : (filter[section === 'tier' ? 'price' : section] as readonly string[]).includes(option);
 }
 
 /** チップを押したときの次の状態。出どころは押し直しで「全部」へ戻す。 */
@@ -61,18 +61,21 @@ export function toggleLibraryFilterOption(filter: LibraryFilterState, section: L
         const next = (filter.source === option ? 'all' : option) as LibrarySourceFilter;
         return { ...filter, source: next };
     }
-    const current = filter[section] as readonly string[];
+    const field = section === 'tier' ? 'price' : section;
+    const current = filter[field] as readonly string[];
     const values = current.includes(option) ? current.filter(value => value !== option) : [...current, option];
-    return { ...filter, [section]: values };
+    return { ...filter, [field]: values };
 }
 
 /**
- * 料金の区分。Lab の有料素材は未購入 = premium・購入済み = purchased。
- * ローカル索引の「各自入手（有料）/ サブスク」は Lab のプレミアムではないので external（料金の絞り込みでは出さない）。
+ * tier の区分。resolver は machineTags の tier を優先し、旧データは price で読む。
+ * purchased は従来の内部状態名として残す。Pro フィルタには未契約と契約済みの両方を含む。
  */
-export function libraryItemPrice(item: Pick<AssetCatalogViewItem, 'origin' | 'state' | 'price' | 'distribution'>): LibraryPriceFilter | 'external' {
+export function libraryItemPrice(item: Pick<AssetCatalogViewItem, 'origin' | 'state' | 'price' | 'distribution' | 'machineTags'>): LibraryPriceFilter | 'external' {
     if (item.origin === 'resolver') {
         if (item.state === 'locked') return 'premium';
+        if (item.machineTags?.includes('tier:pro')) return 'purchased';
+        if (item.machineTags?.includes('tier:free')) return 'free';
         return (item.price ?? 0) > 0 ? 'purchased' : 'free';
     }
     return item.distribution === 'paid' || item.distribution === 'subscription' ? 'external' : 'free';
@@ -96,7 +99,9 @@ function matchesLicense(item: AssetCatalogViewItem, wanted: readonly LibraryLice
 
 export function matchesLibraryFilter(item: AssetCatalogViewItem, filter: LibraryFilterState, favorites: ReadonlySet<string>): boolean {
     if (filter.source !== 'all' && libraryItemSource(item) !== filter.source) return false;
-    if (filter.price.length && !filter.price.includes(libraryItemPrice(item) as LibraryPriceFilter)) return false;
+    const itemTier = libraryItemPrice(item);
+    if (filter.price.length && !filter.price.includes(itemTier as LibraryPriceFilter)
+        && !(itemTier === 'purchased' && filter.price.includes('premium'))) return false;
     if (filter.license.length && !matchesLicense(item, filter.license)) return false;
     if (filter.status.length) {
         const cached = isLibraryItemCached(item);

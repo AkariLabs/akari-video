@@ -56,13 +56,13 @@ export function localLibraryAssetPlacementSource(item: AssetCatalogViewItem): Li
  */
 export function plannedLibraryAssetMedia(
     item: Pick<AssetCatalogViewItem, 'origin' | 'category' | 'state' | 'id'
-        | 'mediaFile' | 'plannedMediaName' | 'price'> & { sourceKind?: AssetCatalogViewItem['sourceKind'] }
+        | 'mediaFile' | 'plannedMediaName' | 'price' | 'machineTags'> & { sourceKind?: AssetCatalogViewItem['sourceKind'] }
 ): { relativePath: string; kind: MaterialKind; mediaName: string } | undefined {
     if (!canPlaceLibraryAsset(item)) return undefined;
     // 置き場（own / site）はコピー経路で、取り寄せの待ちが無い。当てる必要がない。
     if (item.sourceKind === 'own' || item.sourceKind === 'site') return undefined;
     // 有料は zip 経路（中身は catalog に出ていない）。購入判定も絡むので当てない。
-    if ((item.price ?? 0) > 0) return undefined;
+    if (item.machineTags?.includes('tier:pro') || (!item.machineTags?.includes('tier:free') && (item.price ?? 0) > 0)) return undefined;
     const kind: MaterialKind = item.category === 'audio' ? 'audio'
         : item.category === 'broll' ? 'video' : item.category === 'still' ? 'image' : 'other';
     if (kind === 'other') return undefined;

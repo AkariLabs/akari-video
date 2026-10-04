@@ -12,7 +12,7 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 function meta(category, id, extra = {}) {
   return { id, category, title: id, description: 'fixture', when_to_use: 'test', tags: [], knobs: [],
     ai_usage: 'test', requires: [], provenance: { origin: 'test', generator: null }, author: 'test',
-    license: { spdx: 'CC0-1.0', scope: 'commercial-ok', attribution_required: false, ai_training_allowed: true }, price: 0, ...extra };
+    license: { spdx: 'CC0-1.0', scope: 'commercial-ok', attribution_required: false, ai_training_allowed: true }, tier: 'free', price: 0, ...extra };
 }
 async function asset(root, category, id, data = meta(category, id), files = {}) {
   const dir = path.join(root, category, id);
