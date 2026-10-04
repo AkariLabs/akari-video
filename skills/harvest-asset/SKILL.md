@@ -31,7 +31,7 @@ source fragment と同階層の依存 asset を読み、作業用一時ディレ
 
 1. fragment 内の `--name: value` と `var(--name, fallback)` を列挙する。
 2. 重複を除き、runtime 所有の `--x`、`--y`、`--scale`、`--rotate` と素材固有 knob を区別する。
-3. default は宣言値または fallback から取り、fragment と preview の確認に使う。schema v0 にない `default` field は `meta.json` へ追加せず、値を発明しない。
+3. default は宣言値または fallback から取り、fragment と preview の確認に使う。schema v1 で許された `knobs[].default` の型を守り、値を発明しない。
 4. 型を次の語彙へ機械的に寄せる。
    - 色値 → `color`
    - 数値 + 単位 → `slider`。`min` / `max` は根拠が抽出できる場合だけ付ける
@@ -55,18 +55,19 @@ source fragment と同階層の依存 asset を読み、作業用一時ディレ
 - `title` / `description` / `tags`: 見た目、役割、aspect、scene を source と利用文脈から要約する。
 - `provenance`: origin project、元 path、生成手、prompt、日時を既存情報から埋める。分からない値を捏造しない。
 - media の寸法、duration、codec、model 情報は `sips`、`ffprobe`、利用可能な GLB inspector などで読める場合だけ確認し、description / tags / preview 判断へ使う。schema にないトップレベル field は追加しない。
-- `author` は既知の project / git 情報から、`price` は現行契約どおり `null` とする。
+- `author` は既知の project / git 情報から埋める。`tier`（`free` / `pro`）は本人に確認し、推測で決めない。旧 `price` は新規メタに書かない。
 
-`meta.json` は `docs/contract-2026-07-13-asset-library.md` の schema v0 に合わせ、正式 key `when_to_use` を使う。依頼文中の `when_use` はこの key の意味と扱う。
+`meta.json` は `packages/schemas/asset-meta.schema.json` の v1 と `docs/contract-2026-10-04-asset-tier-v1.md` に合わせ、正式 key `when_to_use` を使う。依頼文中の `when_use` はこの key の意味と扱う。
 
-## 3. 人間判断が必要な 4 項目だけを聞く
+## 3. 人間判断が必要な 5 項目だけを聞く
 
-自動抽出結果を短く見せ、次の 4 項目を一度に質問する。それ以外は質問しない。
+自動抽出結果を短く見せ、次の 5 項目を一度に質問する。それ以外は質問しない。
 
 1. **when_use** → `when_to_use`: どの scene / 目的で使うか。
 2. **ai_usage**: AI が変えてよい部分、守る部分、禁止する改変。
 3. **license**: SPDX、commercial scope、attribution 要否、AI training 可否。license 不明を既定許可にしない。
-4. **登録先スコープ**: `local`（そのプロジェクトのみ）/ `shared`（上位ディレクトリの `.akari/assets/`、事業・組織単位）/ `user`（`<ライブラリの置き場>/`、全プロジェクト共通の定番）/ `builtin`（製品リポ。昇格は PR 経路）。目安を添えて聞く: プロジェクト固有の文言・素材が残るなら `local`、汎用化できたなら `user`。黙って `builtin` に入れない。
+4. **tier**: `free` / `pro` のどちらかを本人に確認する。`pro` と CC0 は組み合わせられない。
+5. **登録先スコープ**: `local`（そのプロジェクトのみ）/ `shared`（上位ディレクトリの `.akari/assets/`、事業・組織単位）/ `user`（`<ライブラリの置き場>/`、全プロジェクト共通の定番）/ `builtin`（製品リポ。昇格は PR 経路）。目安を添えて聞く: プロジェクト固有の文言・素材が残るなら `local`、汎用化できたなら `user`。黙って `builtin` に入れない。
 
 回答を `meta.json` に反映する。license が確定しない asset はどの層にも入れない。
 
@@ -82,7 +83,7 @@ preview は中身を識別するためのものとし、source と違う架空�
 
 ## 5. 選ばれたスコープの `assets/<category>/` へ配置する
 
-配置先は**登録先スコープ（手順 3 で確定）の** `assets/<category>/<id>/` とし、階層を増やさない。スコープの実ディレクトリ（`local` = プロジェクト内 / `shared` = 上位の `.akari/assets/` / `user` = `<ライブラリの置き場>/`）が無ければ category と INDEX.md ごと新設する。層が違っても構造・meta.json v0・validator は同一。最低限、次をそろえる。
+配置先は**登録先スコープ（手順 3 で確定）の** `assets/<category>/<id>/` とし、階層を増やさない。スコープの実ディレクトリ（`local` = プロジェクト内 / `shared` = 上位の `.akari/assets/` / `user` = `<ライブラリの置き場>/`）が無ければ category と INDEX.md ごと新設する。層が違っても構造・meta.json v1・validator は同一。最低限、次をそろえる。
 
 - `meta.json`
 - `preview.png`

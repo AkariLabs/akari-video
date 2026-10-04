@@ -46,3 +46,5 @@ description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ�
 - 人物切り抜き、HEVC alpha、text-behind-person: [text-behind-person.md](text-behind-person.md)
 
 静止サムネイル用 HTML シートは動画オーバーレイではないため timing data 属性を不要とする。ただし、CSS 変数化、単一ルート、ローカル資産、決定的なスクリーンショットという考え方は維持する。
+
+ライブラリへ収めるオーバーレイの `meta.json` は素材契約 v1 の `tier` を必ず宣言する。例: `"tier": "free"` と `"license": { "spdx": "CC0-1.0", ... }`。Pro は `"tier": "pro"` とし、`license.spdx` に `CC0-1.0` を指定しない。階層は本人に確認する（[素材 tier 契約](../../docs/contract-2026-10-04-asset-tier-v1.md)）。
