@@ -3848,19 +3848,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 void this.handlePreviewAudioPriority(widget, message.time);
             }
             if (this.isOverlayWriteRequest(message)) {
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleOverlayWrite(widget, message));
                 this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
-                    console.error('[akari-preview] previous item write failed', error);
-                }).then(() => this.handleOverlayWrite(widget, message));
+                    console.error('[akari-preview] item write failed', error);
+                });
             }
             if (this.isOverlayWriteBatchRequest(message)) {
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleOverlayWriteBatch(widget, message));
                 this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
-                    console.error('[akari-preview] previous item write failed', error);
-                }).then(() => this.handleOverlayWriteBatch(widget, message));
+                    console.error('[akari-preview] item write failed', error);
+                });
             }
             if (this.isLayerWriteRequest(message)) {
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleLayerWrite(widget, message));
                 this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
-                    console.error('[akari-preview] previous item write failed', error);
-                }).then(() => this.handleLayerWrite(widget, message));
+                    console.error('[akari-preview] item write failed', error);
+                });
             }
             if (message?.type === 'akari-preview-open-audio-meter') {
                 void this.openAudioMeter();
@@ -3903,9 +3906,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.forwardCutSelection(widget, message);
             }
             if (this.isCutWriteRequest(message)) {
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleCutWrite(widget, message));
                 this.previewItemWriteTail = this.previewItemWriteTail.catch(error => {
-                    console.error('[akari-preview] previous item write failed', error);
-                }).then(() => this.handleCutWrite(widget, message));
+                    console.error('[akari-preview] item write failed', error);
+                });
             }
             if (this.isCaptionSelectedRequest(message)) {
                 this.forwardCaptionSelection(widget, message);
