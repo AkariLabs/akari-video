@@ -23,3 +23,14 @@ export function isImageLayer(layer) {
   return layer.kind !== 'baked' && isImageLayerSrc(layer.src);
 }
 
+export function getVideoSource(timelineData, cutIndex) {
+  const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
+  return clip ? clip.src : (timelineData.clips[0]?.src || '');
+}
+
+// docs/contract-2026-08-12-still-image-cut-source-v0.md: cuts[] の静止画ソース区間はメインの
+// <video id="preview-video"> ではなく <img id="preview-image"> で表示する（layers[] の静止画判定
+// isImageLayerSrc と同じ拡張子集合 -- /layer-source.js から import している）。
+export function isStillImageCutSegment(timelineData, seg) {
+  return !!seg && !seg.isGap && seg.index >= 0 && isImageLayerSrc(getVideoSource(timelineData, seg.index));
+}
