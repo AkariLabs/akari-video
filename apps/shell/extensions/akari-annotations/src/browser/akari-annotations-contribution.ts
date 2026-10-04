@@ -567,10 +567,13 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(SELECT_TIMELINE_CAPTIONS, {
             execute: (request: unknown) => {
-                const detail = request as { editUri?: unknown; captionIds?: unknown } | undefined;
+                const detail = request as { editUri?: unknown; captionIds?: unknown;
+                    primaryCaptionId?: unknown; origin?: unknown } | undefined;
                 if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
                 const ids = detail.captionIds.filter((id): id is string => typeof id === 'string');
-                this.timelineWidget?.selectCaptions(detail.editUri, ids);
+                this.timelineWidget?.selectCaptions(detail.editUri, ids,
+                    typeof detail.primaryCaptionId === 'string' ? detail.primaryCaptionId : null,
+                    detail.origin === 'daihon' ? 'daihon' : undefined);
             }
         });
         commands.registerCommand(SELECT_DOC_BLOCK, {
