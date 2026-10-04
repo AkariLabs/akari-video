@@ -62,6 +62,13 @@ function fakeElement(tagName, host) {
       return next;
     },
     appendChild(node) { element.children.push(node); return node; },
+    insertBefore(node, before) {
+      element.children = element.children.filter(child => child !== node);
+      const index = before ? element.children.indexOf(before) : -1;
+      element.children.splice(index < 0 ? element.children.length : index, 0, node);
+      return node;
+    },
+    remove() { host.stage.children = host.stage.children.filter(child => child !== element); },
     replaceChildren(...nodes) {
       element.children = nodes.flatMap((node) => (node.nodeType === 11 ? node.children : [node]));
       for (const node of nodes) {
@@ -782,6 +789,25 @@ test("runtime hiding does not overwrite host track display", async () => {
   host.runtime.tick(0.1,false);
   assert.equal(container.hasAttribute("data-akari-runtime-hidden"),true,
     "host display update does not expose a hidden overlay");
+});
+
+test("incremental overlay summary removes retired DOM and updates retained order", async () => {
+  const host = createHost();
+  await host.runtime.mount({overlays:[
+    {id:"first",start:0,duration:3,html:CAPTION_HTML},
+    {id:"second",start:0,duration:3,html:CAPTION_HTML},
+  ]});
+  const first = host.stage.children[0];
+  const second = host.stage.children[1];
+  host.runtime.applyAxisSummary({overlays:[
+    {id:"second",start:0,duration:3}, {id:"first",start:0,duration:3},
+  ]});
+  assert.deepEqual(host.stage.children, [second, first]);
+  host.runtime.applyAxisSummary({overlays:[{id:"second",start:0,duration:3}]});
+  assert.equal(host.stage.children.includes(first), false);
+  assert.equal(host.stage.children.includes(second), true);
+  host.runtime.applyAxisSummary({overlays:[]});
+  assert.equal(host.stage.children.length, 0);
 });
 
 test("pending pause cannot write after an overlay is hidden or unmounted", async () => {

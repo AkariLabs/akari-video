@@ -60,6 +60,11 @@ const stableJson = (value: unknown): string => JSON.stringify(value) ?? 'undefin
 const sameJson = (left: unknown, right: unknown): boolean => stableJson(left) === stableJson(right);
 const unchangedPrefix = <T>(previous: readonly T[], next: readonly T[]): boolean =>
     previous.length <= next.length && previous.every((entry, index) => sameJson(entry, next[index]));
+const retainedLayerIdentities = (previous: readonly unknown[], next: readonly unknown[]): boolean => {
+    const byId = new Map(previous.map(value => [(value as { id?: unknown }).id, layerDomIdentity(value)]));
+    return next.every(value => byId.has((value as { id?: unknown }).id)
+        && sameJson(byId.get((value as { id?: unknown }).id), layerDomIdentity(value)));
+};
 
 // Sidecar completion is delivered by audio-update, independently of the visual model.
 const withoutAudioSidecars = (value: unknown): unknown => {
@@ -71,7 +76,9 @@ const withoutAudioSidecars = (value: unknown): unknown => {
 };
 
 const withoutIncrementalFields = (summary: PreviewModelDiffInput['summary']): Record<string, unknown> => {
-    const incrementalKeys = new Set(['cuts', 'layers', 'overlays', 'audio', 'tracks', 'timelineTracks']);
+    const incrementalKeys = new Set(['cuts', 'layers', 'overlays', 'audio', 'tracks', 'timelineTracks',
+        'itemStackZ', 'trackStackZ', 'captionTrackId', 'tree', 'canvasDropTargets',
+        'barrierZ', 'captionItemTrackIds', 'indicators']);
     const stable: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(summary)) {
         if (!incrementalKeys.has(key)) stable[key] = value;
@@ -148,13 +155,23 @@ export const classifyPreviewModelUpdate = (
     }
     const sourceRecovered = unchangedPrefix(previous.sourceUris, next.sourceUris)
         ? undefined : recoveredSource(previous, next);
-    if ((!unchangedPrefix(previous.sourceUris, next.sourceUris) && !sourceRecovered)
+    const previousLayers = Array.isArray(previous.summary.layers) ? previous.summary.layers : [];
+    const nextLayers = Array.isArray(next.summary.layers) ? next.summary.layers : [];
+    const layersRemoved = nextLayers.length < previousLayers.length
+        && retainedLayerIdentities(previousLayers, nextLayers);
+    const removedOnly = (before: readonly string[], after: readonly string[]): boolean =>
+        after.every(value => before.includes(value));
+    const overlaysRemoved = (previous.summary.overlays?.length ?? 0) > (next.summary.overlays?.length ?? 0);
+    if ((!unchangedPrefix(previous.sourceUris, next.sourceUris) && !sourceRecovered
+            && !(layersRemoved && removedOnly(previous.sourceUris, next.sourceUris)))
         // 素材解決は並列化されて登録順が揺れうる（task/2026-09-02-preview-perf）。集合として比べる。
-        || previous.assetUris.some(uri => !next.assetUris.includes(uri) && uri !== sourceRecovered?.from)
+        || previous.assetUris.some(uri => !next.assetUris.includes(uri) && uri !== sourceRecovered?.from && !layersRemoved)
         || next.assetUris.length !== new Set(next.assetUris).size
-        || !samePageOverlayReferences(previous, next)
+        || (!samePageOverlayReferences(previous, next)
+            && !(overlaysRemoved && removedOnly(previous.overlayUris, next.overlayUris)))
         || !sameJson(previous.output, next.output)
-        || !sameJson(previous.overlayRuntimeAssets, next.overlayRuntimeAssets)
+        || (!sameJson(previous.overlayRuntimeAssets, next.overlayRuntimeAssets)
+            && !(overlaysRemoved && (next.summary.overlays?.length ?? 0) === 0))
         || !sameJson(previous.captions, next.captions)
         || !sameJson(previous.emphasisWords, next.emphasisWords)) {
         return 'rebuild';
@@ -167,9 +184,8 @@ export const classifyPreviewModelUpdate = (
     if (!sameJson(previousCuts.map(cutDomIdentity), nextCuts.map(cutDomIdentity))) {
         return 'rebuild';
     }
-    const previousLayers = Array.isArray(previous.summary.layers) ? previous.summary.layers : [];
-    const nextLayers = Array.isArray(next.summary.layers) ? next.summary.layers : [];
-    if (!unchangedPrefix(previousLayers.map(layerDomIdentity), nextLayers.map(layerDomIdentity))) {
+    if (!unchangedPrefix(previousLayers.map(layerDomIdentity), nextLayers.map(layerDomIdentity))
+        && !retainedLayerIdentities(previousLayers, nextLayers)) {
         return 'rebuild';
     }
     if (next.sourceUris.length > previous.sourceUris.length || nextLayers.length > previousLayers.length) {
@@ -198,7 +214,15 @@ export const classifyPreviewModelUpdate = (
         overlays: value.overlays,
         audio: withoutAudioSidecars(value.audio),
         tracks: value.tracks,
-        timelineTracks: value.timelineTracks
+        timelineTracks: value.timelineTracks,
+        itemStackZ: value.itemStackZ,
+        trackStackZ: value.trackStackZ,
+        captionTrackId: value.captionTrackId,
+        tree: value.tree,
+        canvasDropTargets: value.canvasDropTargets,
+        barrierZ: value.barrierZ,
+        captionItemTrackIds: value.captionItemTrackIds,
+        indicators: value.indicators
     });
     return sameJson(incrementalFields(previous.summary), incrementalFields(next.summary))
         && sameJson(previous.sourceUris, next.sourceUris)

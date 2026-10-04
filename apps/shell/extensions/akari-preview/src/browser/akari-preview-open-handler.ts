@@ -934,6 +934,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
     akariPreviewExtraStreamIds?: string[];
     akariPreviewAssetStreamIds?: string[];
+    akariPreviewAssetStreamIdByUri?: Map<string, string>;
     akariPreviewRawAudio?: RawPreviewAudioState;
     akariPreviewSummary?: EditSummary;
     akariPreviewSeekable?: boolean;
@@ -4099,6 +4100,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         disposables.push({
             dispose: () => window.removeEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite)
         });
+        const onOptimisticItemUpdate = (event: Event): void => {
+            if (kind !== 'output' || widget.isDisposed || !widget.akariPreviewEditUri) return;
+            const detail = (event as CustomEvent<{ editUri?: string; removedIds?: string[];
+                order?: string[]; rollback?: boolean }>).detail;
+            if (detail?.editUri !== widget.akariPreviewEditUri.toString()) return;
+            widget.sendMessage({ type: 'akari-preview-optimistic-item-update',
+                removedIds: detail.removedIds ?? [], order: detail.order ?? [], rollback: detail.rollback === true });
+        };
+        window.addEventListener('akari.preview.optimisticItemUpdate', onOptimisticItemUpdate);
+        disposables.push({ dispose: () => window.removeEventListener('akari.preview.optimisticItemUpdate', onOptimisticItemUpdate) });
         const clearOnboardingSelection = (): void => {
             if (kind === 'output' && !widget.isDisposed) {
                 widget.sendMessage({ type: 'akari-preview-onboarding-clear-selection' });
@@ -4738,9 +4749,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             const updateAction = previewModelUpdateAction(updateKind, frameEngineEnabled);
             if (updateAction === 'none') {
-                if (model.motionBagUris?.length || widget.akariPreviewMotionBagResources?.size) {
-                    Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
-                }
+                Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
                 if (frameEngineEnabled) {
                     const summary = this.summaryWithPreviousAssetUrls(widget, model);
                     widget.akariPreviewSummary = summary;
@@ -4759,13 +4768,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (updateAction === 'legacy-incremental' || updateAction === 'frame-engine-incremental') {
                 const previousSnapshot = widget.akariPreviewModelSnapshot;
                 const previousSummary = widget.akariPreviewSummary;
-                if (model.motionBagUris?.length || widget.akariPreviewMotionBagResources?.size) {
-                    Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
-                }
+                Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
                 const previousLayerCount = widget.akariPreviewSummary?.layers.length ?? 0;
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 const previousAssetUrls = widget.akariPreviewAssetUrlByUri ?? new Map<string, string>();
                 const acquiredAssets = [...(model.assetUrlByUri ?? new Map<string, string>())];
+                const streamIdsByUri = widget.akariPreviewAssetStreamIdByUri ?? new Map<string, string>();
+                const nextAssetUris = new Set(acquiredAssets.map(([uri]) => uri));
+                const retiredStreamIds: string[] = [];
+                for (const [uri, id] of streamIdsByUri) {
+                    if (nextAssetUris.has(uri)) continue;
+                    streamIdsByUri.delete(uri);
+                    previousAssetUrls.delete(uri);
+                    retiredStreamIds.push(id);
+                }
+                if (retiredStreamIds.length) {
+                    const retired = new Set(retiredStreamIds);
+                    widget.akariPreviewAssetStreamIds = (widget.akariPreviewAssetStreamIds ?? [])
+                        .filter(id => !retired.has(id));
+                    void this.disposeAssetStreams(retiredStreamIds);
+                }
                 const previousUris = new Set(widget.akariPreviewModelSnapshot.assetUris);
                 const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
                     akariPreviewJustAddedSuffixes?: Map<string, number> };
@@ -4784,6 +4806,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 recent.akariPreviewJustAddedSuffixes = addedSuffixes;
                 const addedAssetIds = new Set(acquiredAssets.flatMap(([uri], index) =>
                     !previousAssetUrls.has(uri) && model.assetStreamIds[index] ? [model.assetStreamIds[index]] : []));
+                for (const [index, [uri]] of acquiredAssets.entries()) {
+                    if (!streamIdsByUri.has(uri) && model.assetStreamIds[index]) {
+                        streamIdsByUri.set(uri, model.assetStreamIds[index]);
+                    }
+                }
+                widget.akariPreviewAssetStreamIdByUri = streamIdsByUri;
                 for (const [uri, url] of acquiredAssets) {
                     if (!previousAssetUrls.has(uri)) previousAssetUrls.set(uri, url);
                 }
@@ -4982,6 +5010,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             ...(primaryIsStillImage && videoStream ? [videoStream.id] : []),
             ...[...imageAssetStreams.values()].map(stream => stream.id)
         ];
+        widget.akariPreviewAssetStreamIdByUri = new Map(
+            [...(model.assetUrlByUri ?? new Map<string, string>()).keys()]
+                .map((uri, index) => [uri, model.assetStreamIds[index]] as const)
+                .filter((entry): entry is readonly [string, string] => typeof entry[1] === 'string'));
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewRelatedEditUri = model.relatedEditUri;
         widget.akariPreviewVideoUri = videoUri;
