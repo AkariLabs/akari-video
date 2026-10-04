@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { matchesPreviewZOrderSelection, planAdjacentVisualTrackMove, planZOrderMove }
   from '../lib/browser/inspector/keyboard-shortcuts.js';
@@ -95,7 +95,7 @@ test('shortcut and preview receiver share the plan, and mismatched selection exi
   assert.equal(matchesPreviewZOrderSelection('a', ['a', 'b'], false), false);
   assert.equal(matchesPreviewZOrderSelection('a', ['a'], true), false);
   assert.equal(matchesPreviewZOrderSelection('bag#part', ['bag#part'], false), false);
-  const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  const widget = readAllSourceText();
   const receiver = widget.slice(widget.indexOf('    runPreviewZOrderCommand('), widget.indexOf('    protected moveSelectedZOrder('));
   assert.match(receiver, /if \(!matchesPreviewZOrderSelection\(id, selectedIds, this\.multiSelection\.length > 0\)\) return;/u);
   assert.match(receiver, /this\.moveSelectedZOrder\(id, op, '重なり順を変更'\)/u);

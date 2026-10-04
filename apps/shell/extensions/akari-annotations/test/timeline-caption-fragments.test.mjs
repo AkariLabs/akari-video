@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText, readSourceFile } from './helpers/widget-source.mjs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
 
 import { parseCaptions } from '@akari-video/edit-store';
 import { computeCaptionSubrowLayout } from '../lib/common/caption-subrow-layout.js';
@@ -46,8 +44,7 @@ test('captions.json の分割本文を検知して字幕帯ブロックが 1 か
     }
 });
 
-const here = dirname(fileURLToPath(import.meta.url));
-const widget = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+const widget = readAllSourceText();
 
 function between(source, startNeedle, endNeedle) {
     const start = source.indexOf(startNeedle);
@@ -91,7 +88,7 @@ test('字幕と edit の reload は共通ヘルパから各 1 回だけ表示断
 });
 
 test('字幕サブブロックは最小幅を持ち、親帯からはみ出さない', () => {
-    const css = readFileSync(join(here, '..', 'src', 'browser', 'style', 'caption-fragment-blocks.css'), 'utf8');
+    const css = readSourceFile('fragmentCss').text;
     assert.match(css, /\.akari-annotations-caption-fragmented\s*\{[^}]*overflow:\s*hidden;/s);
     assert.match(css, /\.akari-annotations-caption-fragment\s*\{[^}]*min-width:\s*3px;/s);
 });

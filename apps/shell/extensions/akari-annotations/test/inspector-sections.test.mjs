@@ -1,4 +1,5 @@
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -195,7 +196,7 @@ test('キャンバス欄と図形の外観欄は映像タブに一度ずつ置�
   assert.equal(names.length, new Set(names).size);
 });
 
-const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const widgetSource = readAllSourceText();
 const inspectorWidgetSource = readInspectorSource();
 
 // Theia の DOM / DI を起動せず、実ソースの行描画・KF 判定・メニューを実行する。

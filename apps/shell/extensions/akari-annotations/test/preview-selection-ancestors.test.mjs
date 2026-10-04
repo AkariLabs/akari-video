@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { selectionAncestorIds } from '../../../../../packages/overlay-runtime/src/selection-scope.mjs';
@@ -18,7 +19,7 @@ test('scoped rows cannot expand parents outside focus; malformed cycles terminat
   assert.deepEqual(selectionAncestorIds([{ id: 'a', parentId: 'b' }, { id: 'b', parentId: 'a' }], 'a'), ['b']);
 });
 test('widget helper equals the tested pure function and uses the header persistence/refresh path', () => {
-  const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  const widget = readSourceFile('widget').text;
   const pure = readFileSync(new URL('../../../../../packages/overlay-runtime/src/selection-scope.mjs', import.meta.url), 'utf8');
   const body = widget.match(/protected previewSelectionAncestorIds[^\n]*\{([\s\S]*?)\n    \}/u)?.[1];
   const canonical = pure.match(/function selectionAncestorIds[^\n]*\{([\s\S]*?)\n\}/u)?.[1];

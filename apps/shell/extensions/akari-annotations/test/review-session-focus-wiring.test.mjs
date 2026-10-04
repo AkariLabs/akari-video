@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const timelineSource = readFileSync(
-    new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
-);
+const timelineSource = readSourceFile('widget').text;
 const panelSource = readFileSync(
     new URL('../src/browser/akari-review-panel-widget.ts', import.meta.url), 'utf8'
 );

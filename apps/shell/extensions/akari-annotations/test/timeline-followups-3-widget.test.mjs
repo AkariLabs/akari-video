@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 // task 2026-09-02-timeline-followups-3: オーナー実機 2 回目の報告 3 点の配線を文字列で固定する。
-const here = dirname(fileURLToPath(import.meta.url));
-const widget = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+const widget = readAllSourceText();
 
 function between(source, startNeedle, endNeedle) {
     const start = source.indexOf(startNeedle);

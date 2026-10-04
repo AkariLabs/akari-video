@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const dialog = readFileSync(new URL('../src/browser/akari-audio-keyframe-dialog.ts', import.meta.url), 'utf8');
-const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const widget = readAllSourceText();
 const menu = readFileSync(new URL('../src/browser/akari-timeline-context-menu.ts', import.meta.url), 'utf8');
 
 function section(source, startNeedle, endNeedle) {

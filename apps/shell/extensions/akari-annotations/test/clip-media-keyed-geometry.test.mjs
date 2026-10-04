@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
 
-const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const source = readSourceFile('widget').text;
 
 function method(startNeedle, endNeedle) {
   const start = source.indexOf(startNeedle);
