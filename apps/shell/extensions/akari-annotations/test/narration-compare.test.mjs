@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/widget-source.mjs';
 import { pathToFileURL } from 'node:url';
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/index.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
@@ -17,10 +17,7 @@ const engines = [
   { id: 'gemini-tts', label: 'Gemini', place: 'cloud', availability: { state: 'available' }, price: { value: 0.04, unit: 'usd_per_1000_chars' } },
   { id: 'fal-qwen3', label: 'Qwen', place: 'cloud', availability: { state: 'available' }, price: { value: 0.2, unit: 'usd_per_1000_chars' } }
 ];
-const timelineSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const timelineAst = ts.createSourceFile('akari-annotations-widget.ts', timelineSource, ts.ScriptTarget.Latest, true);
-const timelineClass = timelineAst.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const generationForPathMethod = timelineClass.members.find(node => node.name?.getText(timelineAst) === 'generationForPath');
+const { ast: timelineAst, node: generationForPathMethod } = findMember('generationForPath', { in: 'widget' });
 assert.ok(generationForPathMethod);
 const compiledTimeline = ts.transpileModule(`class Timeline { ${generationForPathMethod.getText(timelineAst)} }`,
   { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;

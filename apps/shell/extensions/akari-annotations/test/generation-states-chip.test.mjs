@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import ts from 'typescript';
 import postcss from 'postcss';
+import { readAllSourceText, readSourceFile, findMember, findTopLevelFunction } from './helpers/widget-source.mjs';
 
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { describeGenerationChip, generationChipLabel, resolveGenerationState } from '../lib/common/generation-sidecar.js';
@@ -15,23 +16,20 @@ import { selectGenerationSidecarForSource } from '../../../../../packages/edit-s
 import { assertChipLayout, selectClipsByLabel, layoutCapturePlan } from '../evidence/generation-states/scripts/cdp-lib.mjs';
 
 const fixture = new URL('./fixtures/generation-states/', import.meta.url);
-const widgetSource = await readFile(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const widgetSource = readAllSourceText();
 const chipLayoutFixture = JSON.parse(await readFile(new URL('chip-layout.json', fixture), 'utf8'));
 
 test('秒表示は started_at に従い、オーロラとスピナーは動きを減らす設定で止まる', async () => {
   const started = '2026-09-26T00:00:00.000Z';
   assert.equal(describeGenerationChip('generating', { status: 'generating',
     job: { started_at: started } }, Date.parse(started) + 32_000).badge, '生成中 · 32 秒');
-  const css = await readFile(new URL('../src/browser/style/generation-chip.css', import.meta.url), 'utf8');
+  const css = readSourceFile('chipCss').text;
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.akari-generation-generating \{ animation: none; \}/u);
   assert.match(css, /\.akari-generation-generating \.akari-generation-badge::before \{ animation: none; \}/u);
 });
 
 function widgetMethod(name, dependencies) {
-  const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
-  const widget = ast.statements.find(statement => ts.isClassDeclaration(statement)
-    && statement.name?.text === 'AkariAnnotationsWidget');
-  const method = widget.members.find(member => member.name?.getText(ast) === name);
+  const { ast, node: method } = findMember(name, { in: 'widget' });
   assert.ok(method, name);
   const code = ts.transpileModule(`class Widget { ${method.getText(ast)} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
@@ -40,8 +38,7 @@ function widgetMethod(name, dependencies) {
 }
 
 function widgetFunction(name) {
-  const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
-  const declaration = ast.statements.find(statement => ts.isFunctionDeclaration(statement) && statement.name?.text === name);
+  const { ast, node: declaration } = findTopLevelFunction(name, { in: 'widget' });
   assert.ok(declaration, name);
   const code = ts.transpileModule(declaration.getText(ast).replace(/^export\s+/u, ''), {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
@@ -513,7 +510,7 @@ test('planned と generating のオーロラ層は一枚だけで、終了状態
     applyGenerationChip.call({}, element, { state });
     assert.equal(layers().length, 0, state);
   }
-  const css = await readFile(new URL('../src/browser/style/generation-chip.css', import.meta.url), 'utf8');
+  const css = readSourceFile('chipCss').text;
   assert.match(css, /\.akari-generation-aurora-layer\s*\{[^}]*z-index:\s*1;[^}]*pointer-events:\s*none;/u);
   assert.match(css, /\.akari-generation-generating > \.akari-generation-aurora-layer\s*\{[^}]*animation:\s*akari-generation-aurora 6s/u);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.akari-generation-generating > \.akari-generation-aurora-layer \{ animation: none; \}/u);
@@ -574,7 +571,7 @@ test('全8状態は札1枚をヘッダに置き、名前・時刻と省略前の
 });
 
 test('CSS の実際の幅条件は時刻128 → 名前96 → 札64の順で隠す（境界を含む）', async () => {
-  const css = postcss.parse(await readFile(new URL('../src/browser/style/generation-chip.css', import.meta.url), 'utf8'));
+  const css = postcss.parse(readSourceFile('chipCss').text);
   const queries = [];
   css.walkAtRules('container', rule => {
     const match = rule.params.match(/^akari-generation-chip \(width < (\d+)px\)$/u);

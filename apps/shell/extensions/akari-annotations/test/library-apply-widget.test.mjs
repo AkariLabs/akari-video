@@ -1,15 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { planLibraryApply } from '../lib/browser/library-apply-plan.js';
 import { replaceMyStylePartsInSource } from '../lib/browser/my-style-look.js';
 import { updateInspectorAdjust } from '../lib/browser/inspector/adjust-fields.js';
 
-const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'),
-    ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const method = widget.members.find(member => member.name?.getText(source) === 'applyLibraryItem');
+const { ast: source, node: method } = findMember('applyLibraryItem', { in: 'widget' });
 const compiled = ts.transpileModule(`class Harness { ${method.getText(source)} }`,
     { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Harness = new Function('planLibraryApply', `${compiled}\nreturn Harness;`)(planLibraryApply);

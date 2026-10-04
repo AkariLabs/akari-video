@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { projectLegacyEdit, readInternalEdit } from '@akari-video/edit-store';
@@ -9,17 +9,12 @@ import {
 } from '../lib/common/edit-v2-mutations.js';
 
 // Execute the real handlers and commit path without booting Theia DOM / DI.
-const source = ts.createSourceFile('akari-annotations-widget.ts', readFileSync(
-  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
-), ts.ScriptTarget.Latest, true);
 const names = [
   'trackFlagStorageKey', 'applyStoredTrackFlags', 'toggleTimelineTrackFlag',
   'commitEditMutation', 'performEditMutation', 'frameAt', 'writeEditSnapshotGuarded',
 ];
-const widget = source.statements.find(statement => ts.isClassDeclaration(statement)
-  && statement.members.some(member => member.name?.getText(source) === 'commitEditMutation'));
 const methods = names.map(name => {
-  const method = widget.members.find(member => member.name?.getText(source) === name);
+  const { ast: source, node: method } = findMember(name, { in: 'widget' });
   assert.ok(method, name);
   return method.getText(source);
 });

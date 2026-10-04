@@ -14,6 +14,7 @@ import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-servi
 import { validateInputs } from '../../../../../packages/generate/src/validate-inputs.mjs';
 import { runVideoCommand } from '../../../../../packages/generate/src/cli/video.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readSourceFile, findMember } from './helpers/widget-source.mjs';
 const catalog = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url))).models.filter(row => row.kind === 'video');
 const h3 = catalog.find(row => row.id === 'fal:h3-i2v');
 const actions = Object.fromEntries(['update', 'generate', 'resume', 'retry', 'copyAdjacent', 'finalQuality'].map(key => [key, async () => ({ ok: true })]));
@@ -84,9 +85,13 @@ test('下書き done + 元静止画 next だけに本番の画質にする…と
 function harness(file, className, names, dependencies = {}) {
   const source = file === 'inspector.ts'
     ? readInspectorSource()
-    : readFileSync(new URL(`../src/browser/${file}`, import.meta.url), 'utf8');
-  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-  const cls = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === className);
+    : file === 'akari-annotations-widget.ts' ? readSourceFile('widget').text
+      : readFileSync(new URL(`../src/browser/${file}`, import.meta.url), 'utf8');
+  const ast = file === 'akari-annotations-widget.ts' ? readSourceFile('widget').ast
+    : ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const cls = file === 'akari-annotations-widget.ts'
+    ? { members: names.map(name => findMember(name, { in: 'widget' }).node) }
+    : ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === className);
   const methods = names.map(name => { const node = cls.members.find(node => node.name?.getText(ast) === name); assert.ok(node, name); return node.getText(ast); });
   const code = ts.transpileModule(`class Widget { ${methods.join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
   return new Function(...Object.keys(dependencies), `${code}; return Widget;`)(...Object.values(dependencies));

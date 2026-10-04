@@ -1,6 +1,6 @@
 import { readInspectorSource, readInspectorSourceWithStyle } from './helpers/inspector-source.mjs';
+import { memberText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { describeGenerationChip, generationChipLabel } from '../lib/common/generation-sidecar.js';
@@ -38,10 +38,7 @@ class Node {
   }
 }
 
-const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const widgetAst = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
-const widget = widgetAst.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const member = name => widget.members.find(node => node.name?.getText(widgetAst) === name)?.getText(widgetAst);
+const member = name => memberText(name, { in: 'widget' });
 const harnessCode = ts.transpileModule(`class Harness {
   ${member('audioFrameLabels')}
   ${member('applyGenerationChip')}

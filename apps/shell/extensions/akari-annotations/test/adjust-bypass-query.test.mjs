@@ -1,17 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile, findMember, findTopLevelVariable } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const ast = ts.createSourceFile('akari-annotations-widget.ts', source, ts.ScriptTarget.Latest, true);
-const widgetClass = ast.statements.find(statement => ts.isClassDeclaration(statement)
-  && statement.members.some(member => member.name?.getText(ast) === 'dispatchPreviewEvent'));
-const dispatch = widgetClass.members.find(member => member.name?.getText(ast) === 'dispatchPreviewEvent');
-const bypassRequest = widgetClass.members.find(member => member.name?.getText(ast) === 'inspectorRequestAdjustBypass');
-const constants = ast.statements.filter(statement => ts.isVariableStatement(statement)
-  && statement.declarationList.declarations.some(declaration =>
-    ['TIMELINE_ADJUST_BYPASS_EVENT', 'PREVIEW_ADJUST_BYPASS_QUERY_EVENT'].includes(declaration.name.getText(ast))));
+const source = readSourceFile('widget').text;
+const ast = readSourceFile('widget').ast;
+const dispatch = findMember('dispatchPreviewEvent', { in: 'widget' }).node;
+const bypassRequest = findMember('inspectorRequestAdjustBypass', { in: 'widget' }).node;
+const constants = ['TIMELINE_ADJUST_BYPASS_EVENT', 'PREVIEW_ADJUST_BYPASS_QUERY_EVENT']
+  .map(name => findTopLevelVariable(name, { in: 'widget' }).statement)
+  .sort((a, b) => a.pos - b.pos);
 // Run the complete bypass scope, including registration and disposal, from the real widget.
 const start = source.indexOf('const onAdjustBypassQuery =');
 const end = source.indexOf('this.toDispose.push(this.selectionModel.onChanged', start);
