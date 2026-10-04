@@ -42,7 +42,8 @@ import {
 import { resolveCaptionApiPayload } from './caption-api.mjs';
 import { prepareFrameEngineAudioSummary, promotePreviewAudioSummaryAt } from './preview-audio-summary.mjs';
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
-import { assertNoSessionAssetUrl, patchFragmentSourceText } from '../../overlay-runtime/src/fragment-source-write.mjs';
+import { assertNoSessionAssetUrl, materializedFragmentPlan, patchFragmentSourceText, replaceFragmentReference, withoutFragmentRootTiming } from '../../overlay-runtime/src/fragment-source-write.mjs';
+import { resolveProjectAssetPathSync } from '../../asset-resolver/src/shell-reference-sync.mjs';
 
 // The companion CLI carries the product version in both source and packaged layouts.
 const writerVersion = (() => {
@@ -760,32 +761,66 @@ const router = {
     if (typeof htmlPath !== 'string' || !htmlPath) {
       return respond(res, 422, { error: `overlays[].html がファイル参照ではありません: ${id}` });
     }
-    const target = resolveSafe(projectRoot, htmlPath);
+    let target = resolveSafe(projectRoot, htmlPath);
     if (!target) return respond(res, 422, { error: 'プロジェクト外への書き込みは拒否しました' });
+    let materialized = null;
+    let sourcePath = target;
     try {
-      if (!fs.statSync(target).isFile()) throw new Error('not a file');
-    } catch {
-      return respond(res, 422, { error: 'このテロップは文字を直接変えられません（ライブラリの素材のため）' });
+      if (!fs.existsSync(target)) {
+        sourcePath = resolveProjectAssetPathSync(projectRoot, htmlPath);
+        if (!sourcePath) throw new Error(htmlPath.replaceAll('\\', '/').startsWith('assets/overlay/')
+          ? `ライブラリに断片の実体がありません: ${htmlPath}`
+          : `断片ファイルがありません: ${htmlPath}`);
+        const plan = materializedFragmentPlan(htmlPath, id, crypto.randomUUID().replaceAll('-', ''));
+        materialized = { ...plan, directory: path.join(projectRoot, plan.targetDirectory) };
+        if (fs.existsSync(materialized.directory)) throw new Error('断片の実体化先が既にあります');
+        target = path.join(projectRoot, plan.targetPath);
+      }
+      if (!fs.statSync(sourcePath).isFile()) throw new Error(`断片が通常のファイルではありません: ${htmlPath}`);
+    } catch (e) {
+      return respond(res, 422, { error: e.message });
     }
     let source;
     let candidate;
     try {
-      source = fs.readFileSync(target, 'utf8');
+      source = fs.readFileSync(sourcePath, 'utf8');
       candidate = patchFragmentSourceText(source, html);
       assertNoSessionAssetUrl(candidate);
     } catch (e) {
       return respond(res, 422, { error: e.message });
     }
     if (candidate === source) return respond(res, 200, { ok: true, changed: false });
+    let originalEdit;
+    let editWriteAttempted = false;
     try {
-      markSelfWrite(htmlPath);
-      await writeAtomic(target, candidate);
+      let editCandidate;
+      if (materialized) {
+        originalEdit = fs.readFileSync(path.join(projectRoot, 'edit.json'), 'utf8');
+        editCandidate = replaceFragmentReference(originalEdit, id, htmlPath, materialized.targetPath, serializeEdit);
+        let sourceDirectory = path.dirname(sourcePath);
+        for (let depth = 1; depth < htmlPath.split(/[\\/]/).length - 3; depth++) sourceDirectory = path.dirname(sourceDirectory);
+        fs.mkdirSync(path.dirname(materialized.directory), { recursive: true });
+        fs.cpSync(sourceDirectory, materialized.directory, { recursive: true, errorOnExist: true, force: false });
+      }
+      markSelfWrite(materialized?.targetPath ?? htmlPath);
+      await writeAtomic(target, materialized ? withoutFragmentRootTiming(candidate) : candidate);
+      if (editCandidate) {
+        if (!noLint) {
+          const lintResult = await lintProjectCandidates(projectRoot, { 'edit.json': editCandidate });
+          if (!lintResult.pass) throw new Error(lintResult.findings?.[0]?.message ?? 'edit-lint が変更を拒否しました');
+        }
+        editWriteAttempted = true;
+        await writeProjectFilesGuarded(projectRoot, { 'edit.json': editCandidate });
+        markSelfWrite();
+      }
       overlayWatchTargets = watchedOverlayPaths();
       wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now(),
-        changedPaths: [htmlPath.replaceAll('\\', '/')], overlayIds: [id] }));
+        changedPaths: [materialized?.targetPath ?? htmlPath].map(value => value.replaceAll('\\', '/')), overlayIds: [id] }));
       respond(res, 200, { ok: true, changed: true });
     } catch (e) {
-      respond(res, 500, { error: e.message });
+      if (editWriteAttempted) await writeAtomic(path.join(projectRoot, 'edit.json'), originalEdit).catch(() => {});
+      if (materialized) fs.rmSync(materialized.directory, { recursive: true, force: true });
+      respond(res, materialized ? 422 : 500, { error: e.message });
     }
   },
   'GET /api/codec-info': (req, res) => {

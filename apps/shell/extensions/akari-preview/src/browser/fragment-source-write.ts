@@ -1,1 +1,1 @@
-export { assertNoSessionAssetUrl, patchFragmentSourceText } from '../../../../../../packages/overlay-runtime/src/fragment-source-write.mjs';
+export { assertNoSessionAssetUrl, materializedFragmentPlan, patchFragmentSourceText, replaceFragmentReference, withoutFragmentRootTiming } from '../../../../../../packages/overlay-runtime/src/fragment-source-write.mjs';
