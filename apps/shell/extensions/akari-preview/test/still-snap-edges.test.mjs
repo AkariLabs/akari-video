@@ -31,6 +31,7 @@ function dragHarness(kind, spec, original) {
     let bounds;
     let snap;
     let transform;
+    let setPreviewPosition;
     const context = {
         summary: { output }, outputTime: 0,
         previewMotionGeometryTransformFn: previewMotionGeometryTransform,
@@ -71,6 +72,7 @@ function dragHarness(kind, spec, original) {
             '// 選択済みレイヤーは描画画素ではなく選択枠を操作面にする。');
         vm.runInContext(`${drag}\nthis.runDrag = beginLayerMoveDrag;`, context);
         const entry = { spec, video: { videoWidth: 200, videoHeight: 100 }, previewVisiblePosition: null };
+        setPreviewPosition = position => { entry.previewVisiblePosition = position; };
         context.drag = () => context.runDrag(entry, {});
     } else {
         const startMarker = 'beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {';
@@ -79,12 +81,14 @@ function dragHarness(kind, spec, original) {
         assert.ok(start >= 0 && end > start);
         const callback = source.slice(start + startMarker.indexOf('(moveEvent, original)'), end) + '\n}';
         vm.runInContext(`this.runDrag = ${callback};`, context);
+        setPreviewPosition = position => { context.cutPreviewVisiblePosition = position; };
         context.drag = () => { transform = context.runDrag(
             { shiftKey: false, metaKey: false, ctrlKey: false }, original); };
     }
     return {
-        move(x, y) {
+        move(x, y, visiblePosition = null) {
             context.movement = { x, y };
+            setPreviewPosition(visiblePosition);
             context.drag();
             return { bounds, snap, transform };
         }
@@ -122,6 +126,18 @@ for (const kind of ['layer', 'cut']) {
             assert.equal(result.snap.y?.target, target, edge);
             assert.equal(result.snap.y?.correction, correction, edge);
         }
+    });
+
+    test(`${kind} move does not count an in-flight preview position twice`, () => {
+        const spec = { t: 0, duration: 2, outStart: 0, outEnd: 2,
+            transform: { x: 0, y: 0, scale: 0.5, rotate: 0 } };
+        const live = { x: 100, y: 25, scale: kind === 'layer' ? 1 : 0.4, rotate: 0 };
+        const drag = dragHarness(kind, spec, live);
+        const result = drag.move(73, 41, { x: live.x + 48, y: live.y + 27 });
+        assert.equal(result.bounds.centerX, output.width / 2 + live.x + 73);
+        assert.equal(result.bounds.centerY, output.height / 2 + live.y + 41);
+        assert.equal(result.transform.x, live.x + 73);
+        assert.equal(result.transform.y, live.y + 41);
     });
 }
 
