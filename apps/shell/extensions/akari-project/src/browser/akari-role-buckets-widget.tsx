@@ -1,6 +1,6 @@
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
-import { AKARI_CATALOG_ROOT_PREFERENCE, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
+import { AKARI_CATALOG_ROOT_PREFERENCE, CATALOG_GRID_GAP, CATALOG_GRID_COLUMNS, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
@@ -55,16 +55,10 @@ import {
     deriveCatalogFilteredEmptyKind,
     normalizeCatalogViewMode
 } from '../common/catalog-reader';
-import { composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import {
     catalogCardUiEventTarget,
-    CatalogPackGroup,
-    deriveCatalogEmptyStateKind,
-    deriveCatalogResolverNotice,
-    formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
-    storeProductUrl,
-    summarizeCatalogPackDistribution
+    storeProductUrl
 } from '../common/asset-catalog-view';
 import {
     countLibraryCategory, filterLibraryCatalogItems,
@@ -182,17 +176,7 @@ function installCatalogAudioDockStyle(): void {
 
 const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
 const AKARI_LIBRARY_DETAILS_STORAGE_KEY = 'akari.library.detailsOpen';
-// 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
-// どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
-// — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
-const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
-const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
 const EMPTY_PRESET_SHOWCASE: PresetShowcase = { lut: [], textanim: [], textstyle: [] };
-
-// 320px 前後のパネルでも左右 padding 20px を差し引いた幅へ 3 列を保証する。
-const CATALOG_GRID_GAP = '8px';
-const CATALOG_GRID_COLUMNS =
-    'repeat(auto-fill, minmax(min(96px, calc(33.333% - 6px)), 1fr))';
 
 /**
  * 一度に DOM へ出すカタログ項目の上限。カードは 1 枚ごとに IntersectionObserver /
@@ -679,8 +663,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get files() { return widget().files; },
             get commandService() { return widget().commandService; },
             get quickInputService() { return widget().quickInputService; },
+            get catalogResolver() { return widget().catalogResolver; },
+            get catalogEntitlementsStatus() { return widget().catalogEntitlementsStatus; },
+            get catalogLoading() { return widget().catalogLoading; },
+            get catalogViewMode() { return widget().catalogViewMode; },
+            get assetCatalogItems() { return widget().assetCatalogItems; },
             update: () => widget().update(),
-            loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent)
+            loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent),
+            renderCatalogItem: item => widget().renderCatalogItem(item)
         };
         this.libraryPane = new AkariLibraryPane(libraryHost);
         this.toDispose.push(this.shapeShelf.onDidChange(() => this.update()));
@@ -1442,28 +1432,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.playingCatalogAudioKey = undefined;
         this.playingCatalogAudioTitle = undefined;
         this.update();
-    }
-
-    /** パック棚ヘッダ「まとめて取り込む」の対象 = パック内の未 installed の free 品目。 */
-    protected packImportCandidates(group: CatalogPackGroup): AssetCatalogViewItem[] {
-        return group.items.filter(item => !item.installed && item.distribution === 'free');
-    }
-
-    /**
-     * パック棚ヘッダ「まとめて取り込む」— 個別カードの「取り込む」と同じ思想
-     * （アプリ自身は DL しない。定型プロンプトをエージェントへ投げるだけ）。
-     * 対象 0 件（全品目が同梱済み or 無料 DL 以外）のときは何もしない
-     * （呼び出し側のボタンも disabled にする）。
-     */
-    protected async importCatalogPack(group: CatalogPackGroup): Promise<void> {
-        const candidates = this.packImportCandidates(group);
-        if (!candidates.length) {
-            return;
-        }
-        await this.commandService.executeCommand(
-            PARTNER_INJECT_PROMPT_COMMAND_ID,
-            composeCatalogPackImportPrompt(group.pack.title, candidates.map(item => this.libraryPane.toLocalCatalogItemMeta(item)))
-        );
     }
 
     /**
@@ -2614,7 +2582,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.catalogLoading) {
             content = <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         } else if (!this.assetCatalogItems.length) {
-            content = this.renderCatalogEmptyState();
+            content = this.libraryPane.renderCatalogEmptyState();
         } else if (!filtered.length) {
             const emptyKind = deriveCatalogFilteredEmptyKind(this.assetCatalogItems, this.catalogCategory);
             content = (
@@ -2650,7 +2618,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-catalog-item-count={this.assetCatalogItems.length}
                 data-akari-catalog-view-mode={this.catalogViewMode}
             >
-                {this.renderCatalogResolverRetry()}
+                {this.libraryPane.renderCatalogResolverRetry()}
                 {content}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>
                     {this.libraryPane.renderCatalogDeveloperLinkRow()}
@@ -2696,12 +2664,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const totalGroups = groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
         return (
             <div data-akari-catalog-pack-count={totalGroups} style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-                {this.renderCatalogResolverRetry()}
+                {this.libraryPane.renderCatalogResolverRetry()}
                 {this.catalogLoading
                     ? <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>
                     : groups.length
                         ? <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 0' }}>
-                            {groups.map(group => this.renderCatalogPackSection(group))}
+                            {groups.map(group => this.libraryPane.renderCatalogPackSection(group))}
                         </div>
                         : <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するパックがありません。</p>}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>{this.libraryPane.renderCatalogDeveloperLinkRow()}</div>
@@ -2787,107 +2755,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     );
                 })}
                 {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
-            </div>
-        );
-    }
-
-    protected renderCatalogResolverRetry(): React.ReactNode {
-        const notice = deriveCatalogResolverNotice(
-            this.catalogResolver?.status ?? 'ok',
-            this.catalogEntitlementsStatus
-        );
-        if (!notice) {
-            return undefined;
-        }
-        return (
-            <div
-                data-akari-catalog-retry-row
-                data-akari-catalog-entitlements-status={this.catalogEntitlementsStatus}
-                data-akari-catalog-entitlements-unauthorized={notice.kind === 'unauthorized' ? 'true' : undefined}
-                style={{ padding: '6px 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78em', opacity: 0.8 }}
-            >
-                <span>{notice.message}</span>
-                {notice.retry && (
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        data-akari-catalog-retry
-                        data-akari-catalog-retry-inline
-                        disabled={this.catalogLoading}
-                        style={{ padding: '1px 8px', fontSize: 'inherit' }}
-                        onClick={() => void this.loadAssetCatalogView('user')}
-                    >
-                        再試行
-                    </button>
-                )}
-            </div>
-        );
-    }
-
-    /**
-     * パック棚 1 件分（ヘッダ = タイトル + 内訳 + まとめて取り込む + summary、下にカード群）。
-     * data-akari-catalog-pack-* は目視検収・E2E 用のフック。
-     */
-    protected renderCatalogPackSection(group: CatalogPackGroup): React.ReactNode {
-        const candidates = this.packImportCandidates(group);
-        return (
-            <div
-                key={`pack:${group.pack.id}`}
-                data-akari-catalog-pack={group.pack.id}
-                style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 10px 10px', borderBottom: AKARI_BORDER.hairline }}
-            >
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700 }}>{group.pack.title}</span>
-                        <span data-akari-catalog-pack-breakdown style={{ fontSize: '0.78em', opacity: 0.75 }}>
-                            {formatCatalogPackBreakdown(summarizeCatalogPackDistribution(group.items))}
-                        </span>
-                    </div>
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        disabled={!candidates.length}
-                        data-akari-catalog-pack-import
-                        title={candidates.length
-                            ? `未取得の無料素材 ${candidates.length} 件をまとめてエージェントに取り込ませる`
-                            : 'まとめて取り込める未取得の無料素材はありません'}
-                        style={{ fontSize: '0.78em', padding: '2px 8px', opacity: candidates.length ? 1 : 0.6 }}
-                        onClick={() => void this.importCatalogPack(group)}
-                    >
-                        まとめて取り込む
-                    </button>
-                </div>
-                {group.pack.summary && (
-                    <p style={{ margin: 0, fontSize: '0.78em', opacity: 0.75 }}>{group.pack.summary}</p>
-                )}
-                <div style={this.catalogViewMode === 'grid'
-                    ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }
-                    : { display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {rankRecentLibraryItems(group.items).map(item => this.renderCatalogItem(item))}
-                </div>
-            </div>
-        );
-    }
-
-    /**
-     * カタログ 0 件の空状態。原因（resolver 取得失敗 / 取得できたが 0 件）で文言を分ける
-     * （deriveCatalogEmptyStateKind — task.md 指示2）。resolverStatus が未読み込み（undefined）
-     * のときは 'empty' 相当の素直な文言にフォールバックする（catalogLoading=true の間は
-     * renderCatalogBody が先に「読み込み中…」を返すため、実際にここへ来るのは
-     * 読み込み完了後のみ）。どちらの分岐も `akari.catalog.root` / 「カタログの場所」を
-     * 含まない — その 2 語は renderDeveloperCatalogPanelBody の折りたたみ内だけに置く。
-     */
-    protected renderCatalogEmptyState(): React.ReactNode {
-        const kind = deriveCatalogEmptyStateKind(this.assetCatalogItems.length, this.catalogResolver?.status ?? 'ok');
-        const resolverFailed = kind === 'resolver-failed';
-        return (
-            <div
-                data-akari-catalog-empty-kind={kind}
-                style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}
-            >
-                <p style={{ margin: 0, opacity: 0.7 }}>
-                    {resolverFailed ? CATALOG_FETCH_FAILED_MESSAGE : CATALOG_EMPTY_MESSAGE}
-                </p>
             </div>
         );
     }
