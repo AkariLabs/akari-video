@@ -4,7 +4,7 @@ import { explorerMaterial, nearestOutputPoint, outputOffset, outputRectInHost, p
 import { canvasAtFrame, canvasDropLabel, type CanvasDropTarget } from '../common/canvas-drop-target';
 import { claimScene3dDrop, previewOverlayKind } from '../common/preview-overlay-drop';
 import { previewShapeDropBox, previewShapePayload } from '../common/preview-shape-drop';
-import { pendingAssetFetches } from '../common/pending-asset-fetch';
+import { pendingAssetFetches, summarizeFetchFailure } from '../common/pending-asset-fetch';
 
 const MIME = 'application/x-akari-library-item';
 const MATERIAL_MIME = 'application/x-akari-material';
@@ -84,7 +84,10 @@ export class PreviewLibraryDrop {
     private closePrompt?: () => void;
     private readonly subscriptions: Array<{ dispose(): void }> = [];
     /** 取り寄せ中の下敷き（置いた場所に粗い絵とクルクルを出す）。鍵は置いた参照。 */
-    private readonly fetchOverlays = new Map<string, HTMLElement>();
+    private fetchOverlays = new Map<string, HTMLElement>();
+    private fetchFailures = new Map<string, HTMLElement>();
+    private indicatorStops = new WeakMap<HTMLElement, () => void>();
+    private lastVisibleWidgetRect?: DOMRect;
 
     constructor(private readonly widget: WebviewWidget, private readonly commands: CommandService,
         private readonly messages: MessageService,
@@ -585,6 +588,7 @@ export class PreviewLibraryDrop {
         }
         const geometry = await fresh ?? latest;
         const bounds = this.widget?.node.getBoundingClientRect();
+        if (bounds?.width && bounds.height) this.lastVisibleWidgetRect = bounds;
         const left = bounds && (bounds.left ?? bounds.x);
         const top = bounds && (bounds.top ?? bounds.y);
         const insideWidget = !bounds || position.x >= left! && position.y >= top!
@@ -670,6 +674,17 @@ export class PreviewLibraryDrop {
          * ここが無かったため、ライブラリからプレビューへ落としても何も起きなかった。
          */
         if (payload.kind === 'asset') {
+            const earlyPath = `catalog:${payload.key ?? ''}`;
+            const earlyThumb = payload.thumb;
+            if (earlyThumb && payload.category !== 'audio') {
+                try {
+                    this.showFetchOverlay({ relativePath: earlyPath, kind: 'image', cached: false },
+                        geometry, point, payload, earlyThumb, payload.title);
+                } catch (error) {
+                    this.hideFetchOverlay(earlyPath);
+                    console.warn('[akari-preview] Could not show fetch overlay', error);
+                }
+            }
             /*
              * 取り寄せを待ってから置くと、ライブラリの素材は数秒ただ固まって見える
              * （2026-09-27 オーナー裁定）。置き先が当てられて大きさも分かっている素材は、
@@ -681,31 +696,15 @@ export class PreviewLibraryDrop {
             if (plan?.relativePath && this.canPlaceOptimistically(plan, payload)) {
                 placementStarted = true;
                 keepGhost = true;
-                await this.placeThenFetch(plan, payload, geometry, point, editUri, event.altKey);
+                this.hideFetchOverlay(earlyPath);
+                const fetching = this.placeThenFetch(plan, payload, geometry, point, editUri, event.altKey);
+                await fetching;
                 return;
             }
-            const material = await this.commands.executeCommand<{ relativePath: string; kind: string } | undefined>(
-                'akari.catalog.resolveMaterial', payload.key
-            ).catch(() => undefined);
-            if (!material?.relativePath) {
-                this.messages.warn('この素材は取り寄せできませんでした。');
-                return;
-            }
-            placementStarted = true;
-            const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addMaterialAtOutputPoint', {
-                relativePath: material.relativePath, kind: material.kind, t: geometry.time,
-                ...(material.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
-                // カタログは解像度を知っている。渡すと probe を省けて速く、原寸で置かれる事故も防げる。
-                ...(typeof payload.width === 'number' ? { sourceWidth: payload.width } : {}),
-                editUri, outsideCanvas: event.altKey,
-                ...(!event.altKey ? { canvasAware: true } : {})
-            });
-            if (!placed && heldGhost) { placementStarted = false; return; }
-            keepGhost = material.kind !== 'audio';
-            await this.commands.executeCommand('akari.preview.seekOutput', {
-                editUri, time: geometry.time, waitForReady: true
-            });
-            if (material.kind === 'audio') finishGhost();
+            this.hideFetchOverlay(earlyPath);
+            const placement = await this.placeAfterFetch(plan, payload, geometry, point, editUri, event.altKey,
+                Boolean(heldGhost), started => { placementStarted = started; }, finishGhost);
+            keepGhost = placement.keepGhost;
             return;
         }
         const overlayKind = previewOverlayKind(payload);
@@ -786,6 +785,57 @@ export class PreviewLibraryDrop {
         }
     }
 
+    private async placeAfterFetch(plan: PlannedMaterial | undefined, payload: Payload, geometry: Geometry,
+        point: { x: number; y: number }, editUri: string, outsideCanvas: boolean,
+        hasHeldGhost = false, onPlacementStarted?: (started: boolean) => void,
+        finishGhost?: () => void): Promise<{ keepGhost: boolean }> {
+        const relativePath = plan?.relativePath ?? `catalog:${payload.key ?? ''}`;
+        const displayPlan: PlannedMaterial = plan?.relativePath ? plan : {
+            relativePath, kind: payload.category === 'audio' ? 'audio' : 'image', cached: false
+        };
+        const thumb = plan?.thumb ?? payload.thumb;
+        if (thumb && displayPlan.kind !== 'audio') {
+            this.showFetchOverlay(displayPlan, geometry, point, payload, thumb, plan?.title ?? payload.title);
+        } else {
+            this.hideFetchOverlay(relativePath);
+        }
+        let material: { relativePath: string; kind: string } | undefined;
+        try {
+            material = await this.commands.executeCommand<{ relativePath: string; kind: string } | undefined>(
+                'akari.catalog.resolveMaterial', payload.key);
+        } catch {
+            // The resolver has its own notification; keep the existing single warning below.
+        }
+        if (!material?.relativePath) {
+            const recordedReason = payload.key ? pendingAssetFetches.takeFailureReason(payload.key) : undefined;
+            const reason = recordedReason || '理由は通知を確認してください';
+            this.showFetchFailure?.(displayPlan, geometry, point, payload, thumb, reason, () => {
+                this.hideFetchFailure?.(relativePath);
+                void this.placeAfterFetch(plan, payload, geometry, point, editUri, outsideCanvas);
+            });
+            this.hideFetchOverlay(relativePath);
+            this.messages.warn('この素材は取り寄せできませんでした。');
+            return { keepGhost: false };
+        }
+        this.hideFetchOverlay(relativePath);
+        onPlacementStarted?.(true);
+        const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addMaterialAtOutputPoint', {
+            relativePath: material.relativePath, kind: material.kind, t: geometry.time,
+            ...(material.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
+            ...(typeof payload.width === 'number' ? { sourceWidth: payload.width } : {}),
+            editUri, outsideCanvas, ...(!outsideCanvas ? { canvasAware: true } : {})
+        });
+        if (!placed && hasHeldGhost) {
+            onPlacementStarted?.(false);
+            return { keepGhost: false };
+        }
+        await this.commands.executeCommand('akari.preview.seekOutput', {
+            editUri, time: geometry.time, waitForReady: true
+        });
+        if (material.kind === 'audio') finishGhost?.();
+        return { keepGhost: material.kind !== 'audio' };
+    }
+
     /**
      * 楽観配置に載せられるか。画像・動画は原寸が分かっていることが条件
      * （分からないと大きさを実体から測ることになり、実体が無い間は測れない＝原寸で
@@ -825,7 +875,9 @@ export class PreviewLibraryDrop {
             const fetchOutcome = this.commands.executeCommand<{ relativePath: string; kind: string } | undefined>(
                 'akari.catalog.resolveMaterial', payload.key)
                 .then(material => ({ material }), error => ({ error }));
-            void fetchOutcome.then(endWaiting).catch(error => console.warn('[akari-preview] 取り寄せ表示を消せませんでした', error));
+            void fetchOutcome.then(fetched => {
+                if (!('error' in fetched) && fetched.material?.relativePath) endWaiting();
+            }).catch(error => console.warn('[akari-preview] 取り寄せ表示を消せませんでした', error));
             placedId = await this.commands.executeCommand<string | undefined>('akari.timeline.addMaterialAtOutputPoint', {
                 relativePath: plan.relativePath, kind: plan.kind, t: geometry.time,
                 ...(plan.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
@@ -855,6 +907,14 @@ export class PreviewLibraryDrop {
                 });
             }
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const recordedReason = payload.key ? pendingAssetFetches.takeFailureReason(payload.key) : undefined;
+            const reason = recordedReason || errorMessage || '理由は通知を確認してください';
+            this.showFetchFailure?.(plan, geometry, point, payload, thumb, reason, () => {
+                this.hideFetchFailure?.(plan.relativePath);
+                void this.placeThenFetch(plan, payload, geometry, point, editUri, outsideCanvas);
+            });
+            endWaiting();
             if (placedId) {
                 await this.commands.executeCommand('akari.timeline.removePlacedMaterial', { editUri, itemId: placedId })
                     .catch(() => undefined);
@@ -875,25 +935,57 @@ export class PreviewLibraryDrop {
      * 置いた場所に、置かれる大きさで粗い絵とクルクルを出す。下書き（ghost）と同じ寸法規約
      * （previewDropBox）で描くので、実体が来たときに絵が飛ばない。
      */
+    private trackIndicator(element: HTMLElement, geometry: Geometry, point: { x: number; y: number },
+        width: number, height: number): (width: number, height: number) => void {
+        const current = this.widget.node.getBoundingClientRect();
+        const original = current.width && current.height ? current : this.lastVisibleWidgetRect ?? current;
+        const centerX = geometry.rect.x + point.x * geometry.rect.width / geometry.output.width;
+        const centerY = geometry.rect.y + point.y * geometry.rect.height / geometry.output.height;
+        const referenceWidth = original.width || geometry.rect.width || 1;
+        const referenceHeight = original.height || geometry.rect.height || 1;
+        const relativeX = (centerX - (original.left ?? original.x)) / referenceWidth;
+        const relativeY = (centerY - (original.top ?? original.y)) / referenceHeight;
+        let relativeWidth = width / referenceWidth;
+        let relativeHeight = height / referenceHeight;
+        const update = (): void => {
+            const bounds = this.widget.node.getBoundingClientRect();
+            if (this.widget.isVisible === false || !bounds.width || !bounds.height) {
+                element.style.display = 'none';
+                return;
+            }
+            const w = relativeWidth * bounds.width;
+            const h = relativeHeight * bounds.height;
+            element.style.left = `${(bounds.left ?? bounds.x) + relativeX * bounds.width - w / 2}px`;
+            element.style.top = `${(bounds.top ?? bounds.y) + relativeY * bounds.height - h / 2}px`;
+            element.style.width = `${w}px`;
+            element.style.height = `${h}px`;
+            element.style.display = 'flex';
+        };
+        update();
+        const timer = setInterval(update, 200);
+        (this.indicatorStops ??= new WeakMap()).set(element, () => clearInterval(timer));
+        return (w, h) => {
+            relativeWidth = w / referenceWidth;
+            relativeHeight = h / referenceHeight;
+            update();
+        };
+    }
+
     private showFetchOverlay(plan: PlannedMaterial, geometry: Geometry, point: { x: number; y: number },
         payload: Payload, thumb?: string, title?: string): void {
         this.hideFetchOverlay(plan.relativePath);
-        const bounds = this.widget.node.getBoundingClientRect();
-        const centerX = geometry.rect.x + point.x * geometry.rect.width / geometry.output.width;
-        const centerY = geometry.rect.y + point.y * geometry.rect.height / geometry.output.height;
         const box = plan.kind === 'audio' ? undefined
-            : previewDropBox(geometry.output, { width: payload.width, height: payload.height }, 0.25);
+            : previewDropBox(geometry.output, { width: payload.width ?? 16, height: payload.height ?? 9 }, 0.25);
         const width = box ? box.width * geometry.rect.width / geometry.output.width : 180;
         const height = box ? box.height * geometry.rect.height / geometry.output.height : 46;
         const overlay = document.createElement('div');
         overlay.dataset.akariPreviewFetchOverlay = plan.relativePath;
         Object.assign(overlay.style, {
-            position: 'fixed', left: `${centerX - width / 2}px`, top: `${centerY - height / 2}px`,
-            width: `${width}px`, height: `${height}px`, zIndex: '2147483646', pointerEvents: 'none',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            position: 'fixed', zIndex: '2147483646', pointerEvents: 'none',
+            alignItems: 'center', justifyContent: 'center', gap: '6px',
             borderRadius: 'var(--theia-borderRadius, 6px)', overflow: 'hidden',
             border: '1px solid var(--theia-focusBorder, #d49a5b)',
-            background: thumb ? `center / cover no-repeat url(${JSON.stringify(thumb)})`
+            background: thumb ? `center / contain no-repeat url(${JSON.stringify(thumb)})`
                 : 'var(--theia-editorHoverWidget-background, rgba(30,30,30,.85))',
             color: '#fff', fontSize: '11px'
         });
@@ -908,16 +1000,89 @@ export class PreviewLibraryDrop {
         status.append(spinner, document.createTextNode(width >= 120 ? 'ダウンロード中' : ''));
         status.title = `${title ?? '素材'}をダウンロード中`;
         overlay.append(veil, status);
-        // 画面の外にはみ出したままにならないよう、widget の枠でだけ出す。
-        if (centerX < bounds.left || centerY < bounds.top
-            || centerX > bounds.left + bounds.width || centerY > bounds.top + bounds.height) return;
         document.body.appendChild(overlay);
-        this.fetchOverlays.set(plan.relativePath, overlay);
+        (this.fetchOverlays ??= new Map()).set(plan.relativePath, overlay);
+        const resize = this.trackIndicator(overlay, geometry, point, width, height);
+        this.resizeFromThumbnail(thumb, payload, geometry, plan.relativePath, overlay, this.fetchOverlays, resize);
+    }
+
+    private resizeFromThumbnail(thumb: string | undefined, payload: Payload, geometry: Geometry,
+        path: string, element: HTMLElement, entries: Map<string, HTMLElement>,
+        resize: (width: number, height: number) => void): void {
+        if (!thumb || payload.width && payload.height || typeof Image === 'undefined') return;
+        const image = new Image();
+        image.onload = () => {
+            if (entries.get(path) !== element || !(image.naturalWidth > 0 && image.naturalHeight > 0)) return;
+            const box = previewDropBox(geometry.output,
+                { width: image.naturalWidth, height: image.naturalHeight }, 0.25);
+            if (box) resize(box.width * geometry.rect.width / geometry.output.width,
+                box.height * geometry.rect.height / geometry.output.height);
+        };
+        image.src = thumb;
     }
 
     private hideFetchOverlay(relativePath: string): void {
-        this.fetchOverlays.get(relativePath)?.remove();
-        this.fetchOverlays.delete(relativePath);
+        const overlay = this.fetchOverlays?.get(relativePath);
+        if (overlay) {
+            this.indicatorStops?.get(overlay)?.();
+            overlay.remove();
+        }
+        this.fetchOverlays?.delete(relativePath);
+    }
+
+    private showFetchFailure(plan: PlannedMaterial, geometry: Geometry, point: { x: number; y: number },
+        payload: Payload, thumb: string | undefined, reason: string, retry: () => void): void {
+        this.hideFetchFailure(plan.relativePath);
+        const box = previewDropBox(geometry.output,
+            { width: payload.width ?? 16, height: payload.height ?? 9 }, 0.25);
+        const width = box ? box.width * geometry.rect.width / geometry.output.width : 180;
+        const height = box ? box.height * geometry.rect.height / geometry.output.height : 46;
+        const failure = document.createElement('div');
+        failure.dataset.akariPreviewFetchFailure = plan.relativePath;
+        failure.setAttribute('role', 'alert');
+        failure.title = reason;
+        Object.assign(failure.style, {
+            position: 'fixed', zIndex: '2147483646', pointerEvents: 'none',
+            alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+            gap: '4px', border: '2px solid #e66', borderRadius: '6px',
+            background: 'rgba(60,20,20,.85)', color: '#fff', fontSize: '11px'
+        });
+        const art = document.createElement('div');
+        Object.assign(art.style, { position: 'absolute', inset: '0', opacity: '0.45',
+            background: thumb ? `center / contain no-repeat url(${JSON.stringify(thumb)})` : 'transparent' });
+        const veil = document.createElement('div');
+        Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'rgba(40,0,0,.55)' });
+        const label = document.createElement('div');
+        label.textContent = '⚠ 取り寄せできませんでした';
+        label.style.position = 'relative';
+        const explanation = document.createElement('div');
+        explanation.textContent = summarizeFetchFailure(reason) || '理由は通知を確認してください';
+        explanation.style.position = 'relative';
+        const actions = document.createElement('div');
+        actions.style.position = 'relative';
+        const retryButton = document.createElement('button');
+        retryButton.textContent = 'もう一度';
+        retryButton.style.pointerEvents = 'auto';
+        retryButton.addEventListener('click', () => retry());
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '×';
+        closeButton.style.pointerEvents = 'auto';
+        closeButton.addEventListener('click', () => this.hideFetchFailure(plan.relativePath));
+        actions.append(retryButton, closeButton);
+        failure.append(art, veil, label, explanation, actions);
+        document.body.appendChild(failure);
+        (this.fetchFailures ??= new Map()).set(plan.relativePath, failure);
+        const resize = this.trackIndicator(failure, geometry, point, width, height);
+        this.resizeFromThumbnail(thumb, payload, geometry, plan.relativePath, failure, this.fetchFailures, resize);
+    }
+
+    private hideFetchFailure(relativePath: string): void {
+        const failure = this.fetchFailures?.get(relativePath);
+        if (failure) {
+            this.indicatorStops?.get(failure)?.();
+            failure.remove();
+        }
+        this.fetchFailures?.delete(relativePath);
     }
 
     private showApplyMiss(payload: Payload, position: { x: number; y: number }): void {
@@ -968,7 +1133,8 @@ export class PreviewLibraryDrop {
     }
     private dispose(): void {
         this.clear();
-        for (const path of [...this.fetchOverlays.keys()]) this.hideFetchOverlay(path);
+        for (const path of [...(this.fetchOverlays?.keys() ?? [])]) this.hideFetchOverlay(path);
+        for (const path of [...(this.fetchFailures?.keys() ?? [])]) this.hideFetchFailure(path);
         PreviewLibraryDrop.instances.delete(this);
         this.closePrompt?.();
         for (const item of this.subscriptions) item.dispose();

@@ -10,6 +10,7 @@ import {
     GenerationPickRequest, GenerationPickResult, GenerationPickTimelineSelection, generationPickSelectionChanged
 } from '../common/generation-pick';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
+import { pendingAssetFetches, summarizeFetchFailure } from 'akari-preview/lib/common/pending-asset-fetch';
 import { CAPTION_FONT_FAMILY, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
 import { MaterialCardHoverPreview } from './material-card-hover-preview';
 import type { TranscriptState } from '../common/akari-project-protocol';
@@ -2532,6 +2533,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 ? await this.projectService.placeLibraryAsset(localSource, root.toString())
                 : await this.projectService.resolveAsset(item.id, root.toString());
             if (outcome.success === false) {
+                pendingAssetFetches.noteFailureReason(key, summarizeFetchFailure(outcome.error));
                 this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
                 return undefined;
             }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { lstatSync, realpathSync } from 'node:fs';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import fsPromises, { mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
 
 const REFERENCES_FILE = path.join('.akari', 'asset-references.json');
@@ -46,6 +47,85 @@ function referencesPath(projectDir) {
   return path.join(path.resolve(projectDir), REFERENCES_FILE);
 }
 
+async function withReferencesLock(projectDir, operation) {
+  const lock = `${referencesPath(projectDir)}.lock`;
+  await mkdir(path.dirname(lock), { recursive: true });
+  const startedAt = Date.now();
+  const owner = randomUUID();
+  let handle;
+  for (;;) {
+    try {
+      handle = await open(lock, 'wx');
+      break;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      try {
+        const info = await stat(lock);
+        if (Date.now() - info.mtimeMs > 10_000) {
+          await rm(lock, { force: true });
+          continue;
+        }
+      } catch (statError) {
+        if (statError?.code !== 'ENOENT') throw statError;
+      }
+      const remaining = 10_000 - (Date.now() - startedAt);
+      if (remaining <= 0) {
+        const timeout = new Error(`asset reference lock timed out: ${lock}`);
+        timeout.code = 'ETIMEDOUT';
+        throw timeout;
+      }
+      await delay(Math.min(remaining, 25 + Math.floor(Math.random() * 51)));
+    }
+  }
+  let ownerWritten = false;
+  try {
+    await handle.writeFile(owner);
+    ownerWritten = true;
+    return await operation();
+  } finally {
+    try {
+      await handle.close();
+    } finally {
+      // A stale-lock recovery may have replaced our file; never release its new owner.
+      const currentOwner = ownerWritten
+        ? await readFile(lock, 'utf8').catch(error => {
+          if (error?.code === 'ENOENT') return undefined;
+          throw error;
+        })
+        : owner;
+      if (currentOwner === owner) await rm(lock, { force: true });
+    }
+  }
+}
+
+function isBlockedFileAccess(error) {
+  return ['EPERM', 'EBUSY', 'EACCES'].includes(error?.code);
+}
+
+async function renameWithRetry(source, target) {
+  for (let retries = 0; ; retries++) {
+    try {
+      await fsPromises.rename(source, target);
+      return;
+    } catch (error) {
+      if (!isBlockedFileAccess(error) || retries >= 8) throw error;
+      await delay(Math.min(20 * 2 ** retries, 400));
+    }
+  }
+}
+
+async function overwriteWithRetry(target, body) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      await writeFile(target, body, { encoding: 'utf8' });
+      return;
+    } catch (error) {
+      if (!isBlockedFileAccess(error) || attempt === 9) throw error;
+      await delay(100);
+    }
+  }
+}
+
 async function writeProjectReferences(projectDir, references) {
   const target = referencesPath(projectDir);
   await mkdir(path.dirname(target), { recursive: true });
@@ -53,7 +133,13 @@ async function writeProjectReferences(projectDir, references) {
   const body = `${JSON.stringify({ version: REFERENCES_SCHEMA_VERSION, references: normalizeReferences(references) }, null, 2)}\n`;
   try {
     await writeFile(temp, body, { encoding: 'utf8', flag: 'wx' });
-    await rename(temp, target);
+    try {
+      await renameWithRetry(temp, target);
+    } catch (error) {
+      if (!isBlockedFileAccess(error)) throw error;
+      // The caller holds the ledger lock, so the fallback keeps read-modify-write serialized.
+      await overwriteWithRetry(target, body);
+    }
   } finally {
     await rm(temp, { force: true }).catch(() => {});
   }
@@ -71,20 +157,24 @@ export async function readProjectReferences(projectDir) {
 
 export async function recordProjectReference(projectDir, reference) {
   assertReference(reference);
-  const references = await readProjectReferences(projectDir);
-  references.push({ id: reference.id, category: reference.category });
-  const normalized = normalizeReferences(references);
-  await writeProjectReferences(projectDir, normalized);
-  return normalized;
+  return withReferencesLock(projectDir, async () => {
+    const references = await readProjectReferences(projectDir);
+    references.push({ id: reference.id, category: reference.category });
+    const normalized = normalizeReferences(references);
+    await writeProjectReferences(projectDir, normalized);
+    return normalized;
+  });
 }
 
 export async function removeProjectReference(projectDir, reference) {
   assertReference(reference);
-  const references = (await readProjectReferences(projectDir)).filter(
-    (entry) => entry.id !== reference.id || entry.category !== reference.category,
-  );
-  await writeProjectReferences(projectDir, references);
-  return references;
+  return withReferencesLock(projectDir, async () => {
+    const references = (await readProjectReferences(projectDir)).filter(
+      (entry) => entry.id !== reference.id || entry.category !== reference.category,
+    );
+    await writeProjectReferences(projectDir, references);
+    return references;
+  });
 }
 
 function parseDeclaredAssetPath(declaredPath) {
