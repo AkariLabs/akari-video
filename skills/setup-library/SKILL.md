@@ -11,7 +11,7 @@ description: AKARI Video を初めてセットアップするとき、または�
 
 1. **人間の明示承認なしに取得・購入・ログインを実行しない。** 承認前に catalog エントリを `assets/` へ書き込まない。
 2. **在庫を捏造しない。** `catalog/` に存在しないカテゴリ・エントリ・URL・ライセンス表記を提案・記録しない。カタログが空、または該当カテゴリが未整備なら「提案できる素材がない」と正直に報告する。
-3. **license が確定しない素材を `assets/` へ入れない。** `source.license_at_source` を鵜呑みにせず、確認できた範囲だけを書く。確定できなければ配置を止める。
+3. **license が確定しない素材を `assets/` へ入れない。** external の `source.license_at_source` を鵜呑みにせず、確認できた範囲だけを書く。akari-r2 は `source.license_at_source` を持たない。確定できなければ配置を止める。
 4. **`acquisition: login` / `purchase` はエージェントが代理取得しない。** URL を提示してユーザー自身に取得させ、置き場所を確認してから次工程へ進む。
 5. **`assets/` 配置後に `remote` フラグを残さない。** 実体が揃っていないのに `assets/` 側で「配置完了」と報告しない。
 6. **`attribution_required` が true の素材は記録を省略しない。** `assets/<category>/INDEX.md` への明記と、プロジェクト側クレジットが必要になる旨のユーザーへの明示を必須とする。

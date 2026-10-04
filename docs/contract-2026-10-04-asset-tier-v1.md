@@ -14,3 +14,10 @@
 - resolver の一覧出力は各 item に `tier` と `machineTags` の `tier:<tier>` を持たせる。
 - 公開 catalog の Pro 項目は `files` を持たない。非空の `files` があれば `invalid_catalog_item` として取得を拒否する。locked 項目の一覧・`/api/items` 応答にも `files` を含めない。
 - 利用者取り込み（`akari assets add`）は `tier: "free"` とする。
+
+## § `source` の union（2026-10-04）
+
+`source` は **external**（既存 v0）または **akari-r2** の一方だけを取る。external は `url` が必須で、`acquisition`・`license_at_source`・`attribution_required` は従来どおり。akari-r2 は絶対 URL または R2 key の `image` と `preview` が必須で、`width`・`height`・`bytes` は任意の正整数。`url` があれば external、`image` があれば akari-r2 と判別する。両方ある形、どちらもない形は不正。
+
+`remote: true` の素材は実体がディレクトリに無いため akari-r2 の `source` を必須とする。`remote` が無い、または false の素材では `source` は任意。既存の公開 `catalog/` は external + `remote: true` の旧形式のため、validator は `catalog/` 配下に限って互換性を維持する。新規メタは akari-r2 に従う。
+JSON Schema は `remote: true` なら `source` 必須までを表し、akari-r2 必須と既存 `catalog/` の external 互換は validator が経路を見て判定する。
