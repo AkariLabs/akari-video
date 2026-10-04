@@ -76,7 +76,7 @@
     const isAudio = item.category === 'audio';
     detail.append(el(`<div>
       ${item.preview && !isAudio ? `<img class="big" src="/thumb/${encodeURIComponent(item.id)}" alt="">` : ''}
-      ${item.preview && isAudio ? `<audio controls preload="none" src="/media/${encodeURIComponent(item.id)}"></audio>` : ''}
+      ${isAudio && item.mediaAvailable ? `<audio controls preload="none" src="/media/${encodeURIComponent(item.id)}"></audio>` : ''}
       <h2>${esc(item.title)}</h2>
       <p class="id">${esc(item.id)} ・ ${esc(item.license?.spdx ?? '')}${item.price ? ` ・ ¥${item.price.toLocaleString()}` : ' ・ 無料'}</p>
       <div class="tagrow">${(item.tags || []).map((t) => `<span>${esc(t)}</span>`).join('')}</div>
