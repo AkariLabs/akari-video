@@ -22,7 +22,7 @@
 // 実測の根拠（2026-09-02・macOS arm64・Node 26.3.0・ffmpeg / ffprobe なし・Chrome あり・npm install --ignore-scripts）:
 //   pure 15 パッケージ + scripts/test + skills 全 pass（tests 1271 / pass 1265 / fail 0 / skipped 6。edit-store 356/356 を含む）/
 //   shell 7 か所 全 pass（akari-preview はブラウザ 1 ファイル除外で 509 pass）/
-//   quarantine: export-nle 20/21・akari-launcher 317/332 / media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
+//   quarantine: 現在エントリなし（当時 export-nle 20/21・akari-launcher 317/332。両者とも pure へ移動）/ media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
 //   Chrome があるため緑だが、CI Linux では /tmp プロファイルの rmdir ENOTEMPTY で落ち d5f2a7b6 以降 required unit を赤にしていた）
 //   2026-10-04: release 4 本・presets 2 本を ffmpeg 無しで全緑と実測し pure へ追加。
 //   Playwright 形式の server.spec.mjs は実行主体が無いため NOT_COVERED に明記する。
@@ -168,6 +168,7 @@ export const PREVIEW_SERVER_PURE_TESTS = [
   'test/proxy-moov-quarantine.test.mjs',
   'test/runtime-registry.test.mjs',
   'test/still-image-display.test.mjs',
+  'test/timeline-read.test.mjs',
   'test/transition-recipe-supply-chain.test.mjs',
   'test/transition-visual.test.mjs',
   'test/v2-object-tree-put.test.mjs',
@@ -217,10 +218,9 @@ export const LANES = {
       { id: 'scripts/release/test', cwd: '.', files: ['scripts/release/test/*.test.mjs'] },
       { id: 'presets/*', cwd: '.', files: ['presets/luts/previews.test.mjs', 'presets/shapes/generate.test.mjs'] },
       {
-        id: 'packages/export-nle (migration-regression 以外)',
+        id: 'packages/export-nle',
         cwd: 'packages/export-nle',
-        files: ['test/*.test.mjs'],
-        exclude: [/migration-regression\.test\.mjs$/]
+        files: ['test/*.test.mjs']
       },
       {
         id: 'skills/* (package.json を持たないスキル同梱テスト)',
@@ -270,12 +270,6 @@ export const LANES = {
   quarantine: {
     title: 'main で既に赤・修正待ち（CI: 参考）',
     entries: [
-      // 1 件: migration-regression.test.mjs の v1 fixture（narration: { id, path, t }）を edit-store の migrate が
-      // 「path / t / in / out / gain_db / script / reading / provenance が不正」で拒む → migrate の検証強化にテストが未追随
-      // export-nle の赤は fixture ではなくプロダクト側の退行（migrate が音声を tracks[] へ移したのに NLE 書き出しが
-      // 追随していない）。fixture だけ直して緑にすると退行が隠れるので、直るまでここに残す
-      // 他の 18 テストは pure へ移した（2026-10-04）。
-      { id: 'packages/export-nle (migration-regression のみ)', cwd: 'packages/export-nle', files: ['test/migration-regression.test.mjs'] }
     ]
   },
 

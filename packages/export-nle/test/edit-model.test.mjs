@@ -73,7 +73,7 @@ test("source.kind: baked telop だけをクリップ化し、未焼成 html/telo
   ]);
 });
 
-test("手書き v2 の audio track item は 1 件だけ dropped 候補にする", () => {
+test("手書き v2 の audio track item は sfx として書き出す", () => {
   const model = normalizeEdit({
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -82,5 +82,41 @@ test("手書き v2 の audio track item は 1 件だけ dropped 候補にする"
       { id: "music", at: 0, duration: 120, source: { kind: "media", src: "music", in: 0, out: 4 } },
     ] }],
   }, "/tmp/proj");
-  assert.deepEqual(collectBaseDropped(model).map((entry) => entry.field), ["tracks[audio].items[music]"]);
+  assert.deepEqual(model.sfx.map(({ id, path, t, in: sourceIn, out, track }) => ({ id, path, t, in: sourceIn, out, track })), [
+    { id: "music", path: "music.wav", t: 0, in: 0, out: 4, track: 0 },
+  ]);
+  assert.deepEqual(collectBaseDropped(model).map((entry) => entry.field), []);
+});
+
+test("NLE 書き出し対象外となる mute と speech だけを dropped 候補に残す", () => {
+  const model = normalizeEdit({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: "voice", path: "voice.wav" }],
+    tracks: [
+      { id: "audio", lane: "audio", items: [
+        { id: "active", at: 0, duration: 30, source: { kind: "media", src: "voice", in: 0, out: 1 } },
+        { id: "mute-item", at: 30, duration: 30, mute: true, source: { kind: "media", src: "voice", in: 0, out: 1 } },
+        { id: "speech", at: 60, duration: 30, role: "speech", source: { kind: "media", src: "voice", in: 0, out: 1 } },
+      ] },
+      { id: "muted-track", lane: "audio", muted: true, items: [
+        { id: "mute-track", at: 90, duration: 30, source: { kind: "media", src: "voice", in: 0, out: 1 } },
+      ] },
+    ],
+  }, "/tmp/proj");
+  assert.deepEqual(model.sfx.map((item) => item.id), ["active"]);
+  assert.deepEqual(model.unsupportedItems.map((entry) => entry.field), [
+    "tracks[audio].items[mute-item]", "tracks[audio].items[speech]", "tracks[muted-track].items[mute-track]",
+  ]);
+});
+
+test("トップレベル audio.* だけの入力は従来の宣言をそのまま使う", () => {
+  const audio = {
+    narration: [{ id: "n", path: "n.wav", t: 0.5, gain_db: -3 }],
+    sfx: [{ id: "s", path: "s.wav", t: 1, in: 0.25, out: 1.25, track: 2, gain_db: -6 }],
+    bgm: { path: "b.wav", in: 1, fadeIn: 0.5, fadeOut: 1, gain_db: -18, ducking: true },
+    master: { loudnorm: -14 },
+  };
+  const model = normalizeEdit({ ...edit, audio }, "/tmp/proj");
+  assert.deepEqual({ narration: model.narration, sfx: model.sfx, bgm: model.bgm, master: model.master }, audio);
 });

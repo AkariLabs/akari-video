@@ -385,6 +385,25 @@ test("audio.master absent preserves today's copy-only behavior (non-regression)"
   }
 });
 
+test("--codec png with audio.master renames the mixed audio into the frame directory and records audio_qc", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ duration: 2, master: { denoise: "off", loudnorm: -20 } });
+  try {
+    const executed = run(project, ["--codec", "png", "--out", "exports/frames"]);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    assert.ok(state.audio_qc, "audio_qc must be recorded for the png audio.wav");
+    assert.ok(["PASS", "INCONCLUSIVE"].includes(state.audio_qc.verdict), state.audio_qc.verdict);
+    const names = await readdir(join(project, "exports", "frames"));
+    assert.ok(names.includes("audio.wav"), names.join(","));
+    assert.ok(names.some((name) => name.endsWith(".png")));
+    assert.deepEqual(await readdir(join(project, ".akari", "render-tmp")), []);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
 test("audio filter process failure preserves a content-addressed artifact and MEASUREMENT_ERROR receipt", async (t) => {
   const ffmpegPath = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
   if (!ffmpegPath) return t.skip("ffmpeg unavailable");

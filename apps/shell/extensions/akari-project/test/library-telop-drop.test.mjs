@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { memberText } from '../../akari-annotations/test/helpers/widget-source.mjs';
 
-const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'),
-    ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const method = widget.members.find(member => member.name?.getText(source) === 'handleMaterialDrop').getText(source);
+const method = memberText('handleMaterialDrop', { in: 'widget' });
 const code = ts.transpileModule(`class DropHandler { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const DropHandler = new Function('LIBRARY_DRAG_MIME', `${code}\nreturn DropHandler;`)('application/x-akari-library-item');
 

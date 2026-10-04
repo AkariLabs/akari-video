@@ -79,8 +79,8 @@ Windows 実機では起こらない）。
 cd apps\shell
 
 # 1. 依存インストール（apps/shell 単体を --no-workspaces でインストールする。
-#    apps/shell/package-lock.json は 2026-08-19 から追跡対象）
-#    （ロックファイルが無いため）。CI と異なり --ignore-scripts は付けない
+#    apps/shell/package-lock.json は 2026-08-19 から追跡対象）。
+#    CI と異なり --ignore-scripts は付けない
 #    （実機ビルドにはネイティブモジュールの実体が必要なため）
 #
 #    LTO 無効化は必須（issue #6）: Windows 公式 node.exe は ClangCL + thin LTO ビルドで、

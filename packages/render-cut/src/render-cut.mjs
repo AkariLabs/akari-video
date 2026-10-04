@@ -235,7 +235,7 @@ async function runAudioMixStage({ options, codec, container, projectRoot, edit, 
   }
 
   if (codec === "png") {
-    const mixedAudioPath = plan.commands.audio_mix.output;
+    const mixedAudioPath = plan.commands.audio_mix.output ?? plan.commands.audio_mix.args.at(-1);
     await rm(join(finalPath, "audio.wav"), { force: true });
     await rename(mixedAudioPath, join(finalPath, "audio.wav"));
   }
@@ -266,6 +266,44 @@ async function runAudioMixStage({ options, codec, container, projectRoot, edit, 
   }
   reporter.stageEnd("audio-mix");
   emitTiming("audio_mix", audioMixStarted);
+}
+
+async function collectRenderInputs({ options, codec, env, projectRoot, editText, edit, internalEdit }) {
+  const lint = await validateLint(projectRoot, options.force === true);
+  const capabilities = await measureCapabilities(
+    projectRoot,
+    edit,
+    env,
+    options.probeMediaImpl,
+  );
+  const encodingPolicy = options.encodingPolicy ?? resolveEncodingPolicy({
+    cli: { quality: options.quality, encoder: options.encoder, ...(codec === "h264" ? {} : { codec }) },
+    edit,
+    capabilities,
+  });
+  const plannedCaptions = await loadCaptions(projectRoot, edit);
+  // Caption HTML embeds this exact canonical file URL. Resolve the binding once only when an
+  // overlay will actually be rasterized, then hand the same binding to the receipt enumerator.
+  const captionFontAsset = plannedCaptions.overlays.length > 0
+    ? resolveCanonicalCaptionFontAsset()
+    : null;
+  const declaredInputs = await collectDeclaredRenderInputs({
+    projectRoot, edit, editText, captionFontAsset, internalEdit, env,
+  });
+  const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
+  const inputs = Object.fromEntries(
+    inputSnapshot.map((input) => [input.path, {
+      sha256: input.sha256,
+      bytes: input.bytes,
+      ...(input.scope === "library" ? { scope: "library" } : {}),
+    }]),
+  );
+  const captionOverlays = plannedCaptions.overlays;
+  const captionLayout = plannedCaptions.layout
+    ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
+    : null;
+  const loadedOverlays = await loadOverlays(projectRoot, edit, env);
+  return { lint, capabilities, encodingPolicy, plannedCaptions, captionFontAsset, declaredInputs, inputSnapshot, inputs, captionOverlays, captionLayout, loadedOverlays };
 }
 
 export async function renderProject(input, options = {}, io = console) {
@@ -302,40 +340,7 @@ export async function renderProject(input, options = {}, io = console) {
     resolveEngineChoice(engineRequested, process.platform);
   }
 
-  const lint = await validateLint(projectRoot, options.force === true);
-  const capabilities = await measureCapabilities(
-    projectRoot,
-    edit,
-    env,
-    options.probeMediaImpl,
-  );
-  const encodingPolicy = options.encodingPolicy ?? resolveEncodingPolicy({
-    cli: { quality: options.quality, encoder: options.encoder, ...(codec === "h264" ? {} : { codec }) },
-    edit,
-    capabilities,
-  });
-  const plannedCaptions = await loadCaptions(projectRoot, edit);
-  // Caption HTML embeds this exact canonical file URL. Resolve the binding once only when an
-  // overlay will actually be rasterized, then hand the same binding to the receipt enumerator.
-  const captionFontAsset = plannedCaptions.overlays.length > 0
-    ? resolveCanonicalCaptionFontAsset()
-    : null;
-  const declaredInputs = await collectDeclaredRenderInputs({
-    projectRoot, edit, editText, captionFontAsset, internalEdit, env,
-  });
-  const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
-  const inputs = Object.fromEntries(
-    inputSnapshot.map((input) => [input.path, {
-      sha256: input.sha256,
-      bytes: input.bytes,
-      ...(input.scope === "library" ? { scope: "library" } : {}),
-    }]),
-  );
-  const captionOverlays = plannedCaptions.overlays;
-  const captionLayout = plannedCaptions.layout
-    ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
-    : null;
-  const loadedOverlays = await loadOverlays(projectRoot, edit, env);
+  const { lint, capabilities, encodingPolicy, plannedCaptions, captionFontAsset, declaredInputs, inputSnapshot, inputs, captionOverlays, captionLayout, loadedOverlays } = await collectRenderInputs({ options, codec, env, projectRoot, editText, edit, internalEdit });
   const shouldEvaluateGpu = container.ext === "mp4" && (engineRequested === "gpu" || engineRequested === "auto");
   const gpuEligibility = shouldEvaluateGpu
     ? evaluateGpuEligibility({

@@ -18,7 +18,8 @@ function fixture(t) {
     widget: 'export class AkariRoleBucketsWidget { alpha() {} loadMaterials() {} }\nconst PROJECT_DATA_FILES = [1];\n',
     outputs: 'export class AkariOutputsPane { renderOutputCard() {} }\n',
     materials: 'export class AkariMaterialsPane { loadMaterials() {} renderMaterialCard() {} }\n',
-    library: 'export class AkariLibraryPane { end() {} }\n'
+    library: 'export class AkariLibraryPane { end() {} }\n',
+    lint: 'export class AkariLintPane {}\n'
   };
   const sourcePath = key => join(extensionRoot, 'src/browser', `${ROLE_BUCKETS_SOURCE_FILES.find(entry => entry.key === key).base}.tsx`);
   const compiledPath = key => join(extensionRoot, 'lib/browser', `${ROLE_BUCKETS_SOURCE_FILES.find(entry => entry.key === key).base}.js`);
@@ -31,12 +32,13 @@ function fixture(t) {
 
 test('real source bytes, fixed order, classes and pane coverage', () => {
   const entries = readRoleBucketsSources();
-  assert.deepEqual(entries.map(entry => entry.key), ['widget', 'outputs', 'materials', 'library']);
+  assert.deepEqual(entries.map(entry => entry.key), ['widget', 'outputs', 'materials', 'library', 'lint']);
   const originalPaths = {
     widget: new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url),
     outputs: new URL('../src/browser/akari-outputs-pane.tsx', import.meta.url),
     materials: new URL('../src/browser/akari-materials-pane.tsx', import.meta.url),
-    library: new URL('../src/browser/akari-library-pane.tsx', import.meta.url)
+    library: new URL('../src/browser/akari-library-pane.tsx', import.meta.url),
+    lint: new URL('../src/browser/akari-lint-pane.tsx', import.meta.url)
   };
   for (const entry of entries) {
     assert.equal(readSourceFile(entry.key).text, readFileSync(originalPaths[entry.key], 'utf8'));

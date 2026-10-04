@@ -1,6 +1,7 @@
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
-import { AKARI_CATALOG_ROOT_PREFERENCE, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
+import { AKARI_CATALOG_ROOT_PREFERENCE, CATALOG_GRID_GAP, CATALOG_GRID_COLUMNS, AkariLibraryPane, LibraryPaneHost } from './akari-library-pane';
+import { AkariLintPane, LintPaneHost } from './akari-lint-pane';
 import { LibraryImportSheet } from './library-import-sheet';
 import { LibraryImportResult } from '../common/library-import';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
@@ -25,7 +26,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
-import { CAPTION_SAMPLE_TEXT, registerLibraryTextstylePresets, TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
+import { CAPTION_SAMPLE_TEXT, registerLibraryTextstylePresets, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import {
     AKARI_BORDER,
     AKARI_INK,
@@ -49,40 +50,31 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { isEditDataFileName } from '../common/edit-data-file';
 import {
     CatalogCategoryChip,
-    CatalogItemMeta,
     CatalogViewMode,
-    catalogItemCategoryChipKey,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
     normalizeCatalogViewMode
 } from '../common/catalog-reader';
-import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import {
     catalogCardUiEventTarget,
-    CatalogPackGroup,
-    deriveCatalogEmptyStateKind,
-    deriveCatalogResolverNotice,
-    formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
-    storeProductUrl,
-    summarizeCatalogPackDistribution
+    storeProductUrl
 } from '../common/asset-catalog-view';
 import {
     countLibraryCategory, filterLibraryCatalogItems,
     LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankRecentLibraryItems
 } from '../common/library-source-view';
-import { libraryRemovalWarning } from '../common/library-card-context-menu-items';
 import {
     EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
     presetMatchesLibraryFilter, toggleLibraryFilterOption
 } from '../common/library-filter';
 import {
-    isPlaceableLibraryCategory, libraryAssetInfoCard, libraryCardMenuEntries, LibraryInfoCardModel, LibraryMenuActionId,
-    LibraryMenuTarget, libraryMenuTargetKey, libraryPresetInfoCard, premiumPromptText
+    isPlaceableLibraryCategory, libraryCardMenuEntries, LibraryInfoCardModel, LibraryMenuActionId,
+    LibraryMenuTarget, libraryMenuTargetKey, premiumPromptText
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
 import {
-    LibraryAssetCard, LibraryCardStyles, LibraryDotsCorner, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
+    LibraryAssetCard, LibraryCardStyles, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
 } from './library-card-view';
 import { AssetBinChildNode } from '../common/asset-bin-grouping';
@@ -92,8 +84,7 @@ import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
 import { fitStyleSpecimen, libraryTextStyleSample } from '../common/library-shelf-visuals';
-import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
-import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
+import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
 import { LibraryTextTelopPage } from './library-text-telop-page';
 import { catalogItemsWithoutShelvedTelops, textTelopItems } from '../common/library-telop-shelf';
@@ -183,17 +174,7 @@ function installCatalogAudioDockStyle(): void {
 
 const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
 const AKARI_LIBRARY_DETAILS_STORAGE_KEY = 'akari.library.detailsOpen';
-// 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
-// どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
-// — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
-const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
-const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
 const EMPTY_PRESET_SHOWCASE: PresetShowcase = { lut: [], textanim: [], textstyle: [] };
-
-// 320px 前後のパネルでも左右 padding 20px を差し引いた幅へ 3 列を保証する。
-const CATALOG_GRID_GAP = '8px';
-const CATALOG_GRID_COLUMNS =
-    'repeat(auto-fill, minmax(min(96px, calc(33.333% - 6px)), 1fr))';
 
 /**
  * 一度に DOM へ出すカタログ項目の上限。カードは 1 枚ごとに IntersectionObserver /
@@ -483,12 +464,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected topView: TopView = 'materials';
     /** ファイルをドラッグ中か（取り込み可能であることを枠で見せる。renderDropOverlay 参照）。 */
     protected dragActive = false;
-    protected lintAvailable = false;
-    protected lintCount?: number;
-    protected lintRunning = false;
     protected outputsPane!: AkariOutputsPane;
     protected materialsPane!: AkariMaterialsPane;
     protected libraryPane!: AkariLibraryPane;
+    protected lintPane!: AkariLintPane;
 
 
     /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
@@ -678,10 +657,38 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get dialogs() { return widget().dialogs; },
             get preferences() { return widget().preferences; },
             get files() { return widget().files; },
+            get commandService() { return widget().commandService; },
+            get quickInputService() { return widget().quickInputService; },
+            get catalogResolver() { return widget().catalogResolver; },
+            get catalogEntitlementsStatus() { return widget().catalogEntitlementsStatus; },
+            get catalogLoading() { return widget().catalogLoading; },
+            get catalogViewMode() { return widget().catalogViewMode; },
+            get assetCatalogItems() { return widget().assetCatalogItems; },
+            get catalogQuery() { return widget().catalogQuery; },
+            get libraryFavorites() { return widget().libraryFavorites; },
+            get transitionPreviewUrls() { return widget().transitionPreviewUrls; },
+            get projectService() { return widget().projectService; },
+            get messages() { return widget().messages; },
             update: () => widget().update(),
-            loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent)
+            loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent),
+            renderCatalogItem: item => widget().renderCatalogItem(item),
+            presetPassesLibraryFilter: (key, source) => widget().presetPassesLibraryFilter(key, source),
+            openLibraryMenuAt: (event, target) => widget().openLibraryMenuAt(event, target),
+            openLibraryInfo: (target, anchor) => widget().openLibraryInfo(target, anchor),
+            handleLibraryTransitionDragEnd: () => widget().handleLibraryTransitionDragEnd(),
+            renderMyStyles: () => widget().renderMyStyles(),
+            renderPresetShowcase: kind => widget().renderPresetShowcase(kind),
+            libraryMenuTargetItem: target => widget().libraryMenuTargetItem(target),
+            libraryCategoryDefinition: key => widget().libraryCategoryDefinition(key)
         };
         this.libraryPane = new AkariLibraryPane(libraryHost);
+        const lintHost: LintPaneHost = {
+            get workflow() { return widget().workflow; },
+            get projectService() { return widget().projectService; },
+            get messages() { return widget().messages; },
+            update: () => widget().update()
+        };
+        this.lintPane = new AkariLintPane(lintHost);
         this.toDispose.push(this.shapeShelf.onDidChange(() => this.update()));
         const saveMyStyle = (event: Event): void => {
             const detail = (event as CustomEvent<{ style: MyStyle; resolve: () => void; reject: (error: unknown) => void }>).detail;
@@ -847,7 +854,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected refresh(): void {
         void this.loadMaterials();
         void this.outputsPane.loadOutputs();
-        void this.refreshLint();
+        void this.lintPane.refreshLint();
     }
 
     protected selectTopView(view: TopView, refreshCatalog = true): void {
@@ -1443,77 +1450,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
-    protected catalogPlaceholderIcon(category: string): string {
-        switch (category) {
-            case 'scene3d': return 'codicon codicon-package';
-            case 'overlay': return 'codicon codicon-text-size';
-            case 'still': return 'codicon codicon-file-media';
-            case 'audio': return 'codicon codicon-unmute';
-            case 'broll': return 'codicon codicon-device-camera-video';
-            case 'font': return 'codicon codicon-symbol-key';
-            default: return 'codicon codicon-file';
-        }
-    }
-
-    /**
-     * origin='local'（ローカル catalog/ 由来。resolver 合成分には無い項目）専用の
-     * 「取り込む」「頼む」が要る CatalogItemMeta 形へ戻すアダプタ。catalog-context-packet.ts
-     * は既存パケット文言をそのまま維持するため変更しない（フィールド名の対応だけをここで吸収する）。
-     */
-    protected toLocalCatalogItemMeta(item: AssetCatalogViewItem): CatalogItemMeta {
-        return {
-            id: item.id,
-            category: item.category,
-            title: item.title,
-            description: item.description,
-            tags: item.tags,
-            when_to_use: item.whenToUse,
-            license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
-            source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
-        };
-    }
-
-    /** 「取り込む」— 固定パケット。取得・配置は setup-library 系スキルの領分（origin='local' 専用）。 */
-    protected async importCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, composeCatalogImportPrompt(this.toLocalCatalogItemMeta(item)));
-    }
-
-    /** 「頼む」— quick-input 1 行 → 同要素 + when_to_use 先頭 1 文 + 入力文（origin='local' 専用）。 */
-    protected async askAgentAboutCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        const request = await this.quickInputService.input({
-            placeHolder: 'この素材で何をしますか'
-        });
-        if (!request || !request.trim()) {
-            return;
-        }
-        await this.commandService.executeCommand(
-            PARTNER_INJECT_PROMPT_COMMAND_ID,
-            composeCatalogAskAgentPrompt(this.toLocalCatalogItemMeta(item), request)
-        );
-    }
-
-    /** パック棚ヘッダ「まとめて取り込む」の対象 = パック内の未 installed の free 品目。 */
-    protected packImportCandidates(group: CatalogPackGroup): AssetCatalogViewItem[] {
-        return group.items.filter(item => !item.installed && item.distribution === 'free');
-    }
-
-    /**
-     * パック棚ヘッダ「まとめて取り込む」— 個別カードの「取り込む」と同じ思想
-     * （アプリ自身は DL しない。定型プロンプトをエージェントへ投げるだけ）。
-     * 対象 0 件（全品目が同梱済み or 無料 DL 以外）のときは何もしない
-     * （呼び出し側のボタンも disabled にする）。
-     */
-    protected async importCatalogPack(group: CatalogPackGroup): Promise<void> {
-        const candidates = this.packImportCandidates(group);
-        if (!candidates.length) {
-            return;
-        }
-        await this.commandService.executeCommand(
-            PARTNER_INJECT_PROMPT_COMMAND_ID,
-            composeCatalogPackImportPrompt(group.pack.title, candidates.map(item => this.toLocalCatalogItemMeta(item)))
-        );
-    }
-
     /**
      * 「使う」— origin='resolver' の無料/取得済み素材専用（resolver 直行・エージェント非経由）。
      * resolveAsset() 完了で (1) バッジを cached へ更新 (2) 素材箱（loadMaterials）を再読込して
@@ -1916,40 +1852,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
-    // --- lint バッジ ---------------------------------------------------------
-
-    protected async refreshLint(notify = false): Promise<void> {
-        const root = this.workflow.workspaceRoot;
-        if (!root) {
-            this.lintAvailable = false;
-            this.lintCount = undefined;
-            this.lintRunning = false;
-            this.update();
-            return;
-        }
-        if (this.lintRunning) return;
-        // 押しても画面が何も変わらない（件数が前回と同じなら尚更）状態を潰す
-        // （2026-09-26 オーナー指示「リントを押しても反応がない」）: 実行中は
-        // ボタン自身が「確認中…」になり、終わったら結果をトーストで必ず返す。
-        this.lintRunning = notify;
-        if (notify) this.update();
-        try {
-            const outcome = await this.projectService.runEditLint(root.toString());
-            this.lintAvailable = outcome.available;
-            this.lintCount = outcome.available ? outcome.issueCount : undefined;
-            if (notify) {
-                if (!outcome.available) this.messages.warn('編集内容のチェックはこのプロジェクトでは実行できません。');
-                else if (outcome.issueCount) this.messages.warn(`編集内容のチェック: ${outcome.issueCount} 件の指摘があります。`);
-                else this.messages.info('編集内容のチェック: 指摘はありません。');
-            }
-        } catch (error) {
-            if (notify) this.messages.error(`編集内容をチェックできませんでした: ${this.errorMessage(error)}`);
-        } finally {
-            this.lintRunning = false;
-            this.update();
-        }
-    }
-
     // --- 描画 -----------------------------------------------------------------
 
     /**
@@ -1994,7 +1896,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     openLab={() => this.showSiteLab()}
                     request={this.libraryImportRequest} consumed={() => { this.libraryImportRequest = undefined; }} pick={mode => this.pickLibraryImport(mode)}
                     imported={result => this.finishLibraryImport(result)} stopAudio={() => this.stopCatalogAudio()} />}
-                {this.renderLintBadge()}
+                {this.lintPane.renderLintBadge()}
                 {this.renderLibraryOverlays()}
             </div>
         );
@@ -2642,16 +2544,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderLibraryCategoryBody(key: LibraryCategoryKey): React.ReactNode {
         if (key === 'transition') {
-            return this.renderTransitionLibrary();
+            return this.libraryPane.renderTransitionLibrary();
         }
         if (key === 'pack') {
             return this.renderLibraryPackBody();
         }
         if (key === 'textstyle') {
-            return this.renderPresetLibraryBody(['textstyle']);
+            return this.libraryPane.renderPresetLibraryBody(['textstyle']);
         }
         if (key === 'textanim' || key === 'lut') {
-            return this.renderPresetLibraryBody([key]);
+            return this.libraryPane.renderPresetLibraryBody([key]);
         }
         return this.renderCatalogBody();
     }
@@ -2662,7 +2564,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.catalogLoading) {
             content = <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         } else if (!this.assetCatalogItems.length) {
-            content = this.renderCatalogEmptyState();
+            content = this.libraryPane.renderCatalogEmptyState();
         } else if (!filtered.length) {
             const emptyKind = deriveCatalogFilteredEmptyKind(this.assetCatalogItems, this.catalogCategory);
             content = (
@@ -2698,42 +2600,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-catalog-item-count={this.assetCatalogItems.length}
                 data-akari-catalog-view-mode={this.catalogViewMode}
             >
-                {this.renderCatalogResolverRetry()}
+                {this.libraryPane.renderCatalogResolverRetry()}
                 {content}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>
                     {this.libraryPane.renderCatalogDeveloperLinkRow()}
                 </div>
-            </div>
-        );
-    }
-
-    protected renderPresetLibraryBody(kinds: readonly PresetShowcaseKind[]): React.ReactNode {
-        if (this.catalogLoading) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
-        }
-        const labels: Readonly<Record<PresetShowcaseKind, string>> = {
-            lut: 'LUT',
-            textanim: 'テキストアニメ',
-            textstyle: 'テキストスタイル'
-        };
-        return (
-            <div data-akari-library-preset-sections={kinds.length}>
-                {kinds.includes('textstyle') && this.renderMyStyles()}
-                {kinds.map((kind, index) => (
-                    <section key={kind} data-akari-library-preset-section={kind}>
-                        {(kinds.length > 1 || index > 0) && (
-                            <div style={{
-                                position: 'sticky', top: '62px', zIndex: 4, padding: '7px 10px 5px',
-                                background: AKARI_SURFACE.card, borderBottom: AKARI_BORDER.hairline,
-                                fontSize: '0.76em', fontWeight: 700, letterSpacing: '0.04em'
-                            }}>
-                                {labels[kind]}
-                            </div>
-                        )}
-                        {this.renderPresetShowcase(kind)}
-                    </section>
-                ))}
-                <div style={{ padding: '0 10px 10px' }}>{this.libraryPane.renderCatalogDeveloperLinkRow()}</div>
             </div>
         );
     }
@@ -2744,12 +2615,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const totalGroups = groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
         return (
             <div data-akari-catalog-pack-count={totalGroups} style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-                {this.renderCatalogResolverRetry()}
+                {this.libraryPane.renderCatalogResolverRetry()}
                 {this.catalogLoading
                     ? <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>
                     : groups.length
                         ? <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 0' }}>
-                            {groups.map(group => this.renderCatalogPackSection(group))}
+                            {groups.map(group => this.libraryPane.renderCatalogPackSection(group))}
                         </div>
                         : <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するパックがありません。</p>}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>{this.libraryPane.renderCatalogDeveloperLinkRow()}</div>
@@ -2757,187 +2628,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    protected handleLibraryTransitionDragStart(
-        event: React.DragEvent<HTMLElement>,
-        transition: { readonly id: TransitionType; readonly labelJa: string }
-    ): void {
-        const payload: { kind: 'transition'; id: TransitionType; name: string } = {
-            kind: 'transition',
-            id: transition.id,
-            name: transition.labelJa
-        };
-        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
-        event.dataTransfer.effectAllowed = 'copy';
-        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
-    }
-
     protected handleLibraryTransitionDragEnd(): void {
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_END_EVENT));
-    }
-
-    protected renderTransitionLibrary(): React.ReactNode {
-        const normalizedQuery = this.catalogQuery.trim().toLowerCase();
-        const filtered = TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`) && (!normalizedQuery
-            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery)));
-        const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
-        return (
-            <div
-                data-akari-transition-count={TRANSITION_VOCABULARY.length}
-                data-akari-transition-visible-count={filtered.length}
-                data-akari-transition-category-count={categories.length}
-                style={{ padding: '2px 10px 12px' }}
-            >
-                {categories.map(category => {
-                    const transitions = filtered.filter(transition => transition.category === category);
-                    if (!transitions.length) {
-                        return undefined;
-                    }
-                    return (
-                        <section key={category} style={{ marginTop: '10px' }}>
-                            <div style={{ padding: '4px 0 6px', fontSize: '0.74em', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.7 }}>
-                                {category}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }}>
-                                {transitions.map(transition => (
-                                    <div
-                                        key={transition.id}
-                                        role='button'
-                                        tabIndex={0}
-                                        draggable
-                                        data-akari-library-transition={transition.id}
-                                        data-akari-library-category='transition'
-                                        data-akari-library-card='grid'
-                                        data-akari-favorite={this.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
-                                        title={`${transition.labelJa} — カット境界へドラッグ`}
-                                        onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
-                                        onDragEnd={() => this.handleLibraryTransitionDragEnd()}
-                                        onContextMenu={event => this.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
-                                        style={{
-                                            position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
-                                            padding: '9px 5px 7px', cursor: 'grab', borderRadius: `${AKARI_RADIUS.panel}px`,
-                                            background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost
-                                        }}
-                                    >
-                                        <LibraryDotsCorner label={transition.labelJa}
-                                            onOpen={anchor => this.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, anchor)} />
-                                        <span aria-hidden='true' style={{ display: 'block', width: '100%', aspectRatio: '16 / 9',
-                                            overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px` }}>
-                                            <TransitionStrip url={this.transitionPreviewUrls[transition.id]?.preview}
-                                                stripUrl={this.transitionPreviewUrls[transition.id]?.strip} />
-                                        </span>
-                                        <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em' }}>
-                                            {transition.labelJa}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    );
-                })}
-                {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
-            </div>
-        );
-    }
-
-    protected renderCatalogResolverRetry(): React.ReactNode {
-        const notice = deriveCatalogResolverNotice(
-            this.catalogResolver?.status ?? 'ok',
-            this.catalogEntitlementsStatus
-        );
-        if (!notice) {
-            return undefined;
-        }
-        return (
-            <div
-                data-akari-catalog-retry-row
-                data-akari-catalog-entitlements-status={this.catalogEntitlementsStatus}
-                data-akari-catalog-entitlements-unauthorized={notice.kind === 'unauthorized' ? 'true' : undefined}
-                style={{ padding: '6px 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78em', opacity: 0.8 }}
-            >
-                <span>{notice.message}</span>
-                {notice.retry && (
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        data-akari-catalog-retry
-                        data-akari-catalog-retry-inline
-                        disabled={this.catalogLoading}
-                        style={{ padding: '1px 8px', fontSize: 'inherit' }}
-                        onClick={() => void this.loadAssetCatalogView('user')}
-                    >
-                        再試行
-                    </button>
-                )}
-            </div>
-        );
-    }
-
-    /**
-     * パック棚 1 件分（ヘッダ = タイトル + 内訳 + まとめて取り込む + summary、下にカード群）。
-     * data-akari-catalog-pack-* は目視検収・E2E 用のフック。
-     */
-    protected renderCatalogPackSection(group: CatalogPackGroup): React.ReactNode {
-        const candidates = this.packImportCandidates(group);
-        return (
-            <div
-                key={`pack:${group.pack.id}`}
-                data-akari-catalog-pack={group.pack.id}
-                style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 10px 10px', borderBottom: AKARI_BORDER.hairline }}
-            >
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700 }}>{group.pack.title}</span>
-                        <span data-akari-catalog-pack-breakdown style={{ fontSize: '0.78em', opacity: 0.75 }}>
-                            {formatCatalogPackBreakdown(summarizeCatalogPackDistribution(group.items))}
-                        </span>
-                    </div>
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        disabled={!candidates.length}
-                        data-akari-catalog-pack-import
-                        title={candidates.length
-                            ? `未取得の無料素材 ${candidates.length} 件をまとめてエージェントに取り込ませる`
-                            : 'まとめて取り込める未取得の無料素材はありません'}
-                        style={{ fontSize: '0.78em', padding: '2px 8px', opacity: candidates.length ? 1 : 0.6 }}
-                        onClick={() => void this.importCatalogPack(group)}
-                    >
-                        まとめて取り込む
-                    </button>
-                </div>
-                {group.pack.summary && (
-                    <p style={{ margin: 0, fontSize: '0.78em', opacity: 0.75 }}>{group.pack.summary}</p>
-                )}
-                <div style={this.catalogViewMode === 'grid'
-                    ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }
-                    : { display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {rankRecentLibraryItems(group.items).map(item => this.renderCatalogItem(item))}
-                </div>
-            </div>
-        );
-    }
-
-    /**
-     * カタログ 0 件の空状態。原因（resolver 取得失敗 / 取得できたが 0 件）で文言を分ける
-     * （deriveCatalogEmptyStateKind — task.md 指示2）。resolverStatus が未読み込み（undefined）
-     * のときは 'empty' 相当の素直な文言にフォールバックする（catalogLoading=true の間は
-     * renderCatalogBody が先に「読み込み中…」を返すため、実際にここへ来るのは
-     * 読み込み完了後のみ）。どちらの分岐も `akari.catalog.root` / 「カタログの場所」を
-     * 含まない — その 2 語は renderDeveloperCatalogPanelBody の折りたたみ内だけに置く。
-     */
-    protected renderCatalogEmptyState(): React.ReactNode {
-        const kind = deriveCatalogEmptyStateKind(this.assetCatalogItems.length, this.catalogResolver?.status ?? 'ok');
-        const resolverFailed = kind === 'resolver-failed';
-        return (
-            <div
-                data-akari-catalog-empty-kind={kind}
-                style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}
-            >
-                <p style={{ margin: 0, opacity: 0.7 }}>
-                    {resolverFailed ? CATALOG_FETCH_FAILED_MESSAGE : CATALOG_EMPTY_MESSAGE}
-                </p>
-            </div>
-        );
     }
 
     /** 一覧のスクロール領域の外へ置く共有試聴ドック。 */
@@ -3106,32 +2798,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             onSelect: id => void this.runLibraryAction(target, id as LibraryMenuActionId, card) });
     }
 
-    protected libraryInfoModel(target: LibraryMenuTarget): LibraryInfoCardModel | undefined {
-        const favorite = this.libraryFavorites.has(libraryMenuTargetKey(target));
-        if (target.kind === 'asset') {
-            const chip = catalogItemCategoryChipKey(target.item);
-            const category = (LIBRARY_GROUPS as readonly LibraryGroupDefinition[]).flatMap(group => group.categories)
-                .find(candidate => candidate.chipKey === chip);
-            const item = this.assetCatalogItems.find(entry => entry.key === target.item.key) ?? target.item;
-            return libraryAssetInfoCard(item, category?.label ?? item.category, favorite);
-        }
-        if (target.kind === 'transition') {
-            const transition = TRANSITION_VOCABULARY.find(entry => `transition/${entry.id}` === target.key);
-            return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: transition.labelJa,
-                categoryLabel: 'トランジション', tags: [transition.category] }, favorite);
-        }
-        const { preset, style } = this.libraryMenuTargetItem(target);
-        if (preset) {
-            return libraryPresetInfoCard({ key: target.key, kind: preset.kind, name: preset.name,
-                categoryLabel: this.libraryCategoryDefinition(preset.kind).label, tags: [preset.category, ...preset.tags].filter(Boolean) as string[] }, favorite);
-        }
-        if (style) {
-            return libraryPresetInfoCard({ key: target.key, kind: 'mystyle', name: style.name, categoryLabel: 'マイスタイル',
-                tags: [style.when_to_use, ...style.parts.map(part => myStylePartLabel(part.kind))], author: style.author }, favorite);
-        }
-        return undefined;
-    }
-
     /** ⋯ = 情報カード。押したカードだけを残して周りを暗くし、横に情報カードを出す。 */
     protected openLibraryInfo(target: LibraryMenuTarget, anchor: HTMLElement): void {
         this.stopCatalogAudio();
@@ -3158,10 +2824,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 if (isPremiumLocked(item)) this.showPremiumPrompt(item.key);
                 else await this.addCatalogAssetAtPlayhead(item);
             } else if (id === 'import') await this.useAssetCatalogItem(item);
-            else if (id === 'agent-import') await this.importCatalogItem(item);
-            else if (id === 'ask') await this.askAgentAboutCatalogItem(item);
+            else if (id === 'agent-import') await this.libraryPane.importCatalogItem(item);
+            else if (id === 'ask') await this.libraryPane.askAgentAboutCatalogItem(item);
             else if (id === 'reveal' && item.libraryDir) await this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir));
-            else if (id === 'remove-library') await this.removeLibraryItem(item);
+            else if (id === 'remove-library') await this.libraryPane.removeLibraryItem(item);
             return;
         }
         const { preset, style } = this.libraryMenuTargetItem(target);
@@ -3223,15 +2889,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
-    protected async copyLibraryCredit(text: string): Promise<void> {
-        try {
-            await navigator.clipboard.writeText(text);
-            this.messages.info('クレジットをコピーしました');
-        } catch (error) {
-            this.messages.error(`クレジットをコピーできませんでした: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
-
     protected toggleLibraryFilterPopover(): void {
         if (this.libraryFilterAnchor) {
             this.libraryFilterAnchor = undefined;
@@ -3245,7 +2902,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     /** 浮く部品（情報カード・ライセンスの窓・フィルター・促しのシート）。document.body へ出す。 */
     protected renderLibraryOverlays(): React.ReactNode {
         const info = this.libraryInfo;
-        const model = info && this.libraryInfoModel(info.target);
+        const model = info && this.libraryPane.libraryInfoModel(info.target);
         const premium = this.libraryPremiumPrompt ? this.assetCatalogItems.find(entry => entry.key === this.libraryPremiumPrompt) : undefined;
         const prompt = premium && premiumPromptText(premium);
         return <>
@@ -3271,28 +2928,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 } : undefined}
                 onClose={this.closeLibraryInfo} />}
             {this.libraryLicense && <LibraryLicenseDialog sheet={this.libraryLicense.sheet}
-                onCopyCredit={this.libraryLicense.credit ? () => void this.copyLibraryCredit(this.libraryLicense!.credit!) : undefined}
+                onCopyCredit={this.libraryLicense.credit ? () => void this.libraryPane.copyLibraryCredit(this.libraryLicense!.credit!) : undefined}
                 onMore={url => this.windowService.openNewWindow(url, { external: true })}
                 onClose={() => { this.libraryLicense = undefined; this.update(); }} />}
             {premium && prompt && <LibraryPremiumSheet title={prompt.title} body={prompt.body} actionLabel={prompt.action}
                 onLab={() => { this.libraryPremiumPrompt = undefined; this.update(); this.openLibraryLab(premium); }}
                 onClose={() => { this.libraryPremiumPrompt = undefined; this.update(); }} />}
         </>;
-    }
-
-    protected async removeLibraryItem(item: AssetCatalogViewItem): Promise<void> {
-        if (!item.libraryDir) return;
-        try {
-            const usage = await this.projectService.getLibraryUsage();
-            const warning = libraryRemovalWarning(item, usage[item.key]?.projects ?? []);
-            const confirmed = await new ConfirmDialog({
-                title: `${item.title} をライブラリから消しますか？`, msg: warning,
-                ok: 'ゴミ箱へ移す', cancel: 'キャンセル'
-            }).open();
-            if (!confirmed) return;
-            await this.files.delete(URI.fromFilePath(item.libraryDir), { recursive: true, useTrash: true });
-            await this.loadAssetCatalogView('user');
-        } catch (error) { this.messages.error(`ライブラリから消せませんでした: ${String(error)}`); }
     }
 
     protected renderPresetShowcase(kind: PresetShowcaseKind): React.ReactNode {
@@ -3376,7 +3018,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         infoOpen={info?.kind === 'mystyle' && info.key === key}
                         attributes={{ 'data-akari-my-style-card': style.id, 'data-akari-style-card': `mystyle/${style.id}` }}
                         draggable
-                        onMouseEnter={event => this.playMyStyleSample(event.currentTarget as HTMLDivElement, style)}
+                        onMouseEnter={event => this.libraryPane.playMyStyleSample(event.currentTarget as HTMLDivElement, style)}
                         onMouseLeave={event => event.currentTarget.querySelector('[data-akari-my-style-preview]')?.getAnimations().forEach(animation => animation.cancel())}
                         onDragStart={event => {
                             const payload = { kind: 'mystyle', style };
@@ -3471,20 +3113,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         confirm.focus();
     }
 
-    protected playMyStyleSample(container: HTMLDivElement, style: MyStyle): void {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-        const animation = style.parts.find(part => part.kind === 'motion')?.animation as Record<string, unknown> | undefined;
-        const slot = (animation?.in ?? animation?.loop ?? animation?.out) as Record<string, unknown> | undefined;
-        const target = container.querySelector<HTMLElement>('[data-akari-my-style-preview]');
-        if (!slot || !target) return;
-        target.getAnimations().forEach(item => item.cancel());
-        const id = typeof slot.id === 'string' ? slot.id : '';
-        const sample = textAnimationSampleKeyframes(id, animation?.in ? 'in' : animation?.loop ? 'loop' : 'out',
-            typeof slot.amp === 'number' ? slot.amp : undefined,
-            typeof slot.duration_sec === 'number' ? slot.duration_sec : undefined);
-        target.animate(sample.keyframes, { duration: sample.durationMs, iterations: 1, easing: 'ease-out' });
-    }
-
     protected async addMyStyleAtPlayhead(style: MyStyle): Promise<void> {
         await this.commandService.executeCommand('akari.caption.placeText', { myStyle: style });
     }
@@ -3507,23 +3135,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!confirmed) return;
         try { await this.projectService.deleteMyStyle(style.id); this.myStyles = await this.projectService.listMyStyles(); this.update(); }
         catch (error) { this.messages.error(`削除できません: ${String(error)}`); }
-    }
-
-    protected presetShowcaseTitle(item: PresetShowcaseItem): string {
-        if (item.kind === 'lut') {
-            return [item.description, item.whenToUse].filter(Boolean).join('\n');
-        }
-        return [item.name, item.category, item.description, item.sampleText].filter(Boolean).join('\n');
-    }
-
-    protected presetShowcaseIcon(item: PresetShowcaseItem): string {
-        if (item.kind === 'lut') {
-            return 'codicon codicon-color-mode';
-        }
-        if (item.kind === 'textanim') {
-            return 'codicon codicon-play';
-        }
-        return 'codicon codicon-symbol-text';
     }
 
     protected handleTextStyleDragStart(event: React.DragEvent<HTMLElement>, item: PresetShowcaseItem): void {
@@ -3560,7 +3171,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const info = this.libraryInfo?.target;
         return <LibrarySimpleCard key={key} cardKey={key} name={item.name} layout={layout}
             faceHeight={textstyle && layout === 'grid' ? '48px' : undefined}
-            title={this.presetShowcaseTitle(item)}
+            title={this.libraryPane.presetShowcaseTitle(item)}
             favorite={this.libraryFavorites.has(key)}
             infoOpen={info?.kind === item.kind && info.key === key}
             attributes={{
@@ -3587,7 +3198,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 ? <span draggable={false} data-akari-preset-sample-text data-akari-textanim-sample={item.kind === 'textanim' ? true : undefined}
                     style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     padding: '0 4px', fontSize: layout === 'list' ? '0.69em' : '0.86em', fontWeight: 800 }}>{item.sampleText}</span>
-                : <span draggable={false} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: layout === 'list' ? '1em' : '1.45em', opacity: 0.5 }} />} />;
+                : <span draggable={false} className={this.libraryPane.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: layout === 'list' ? '1em' : '1.45em', opacity: 0.5 }} />} />;
     }
 
     protected renderCatalogListRow(item: AssetCatalogViewItem): React.ReactNode {
@@ -3615,7 +3226,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             cached: isLibraryItemCached(item),
             favorite: this.libraryFavorites.has(item.key),
             thumbnailBroken: this.catalogBrokenThumbnails.has(item.key),
-            placeholderIcon: this.catalogPlaceholderIcon(item.category),
+            placeholderIcon: this.libraryPane.catalogPlaceholderIcon(item.category),
             draggable: interactive && this.canDragCatalogAsset(item),
             infoOpen: info?.kind === 'asset' && info.item.key === item.key,
             audioControl: layout === 'grid' ? this.renderCatalogAudioControl(item) : this.renderCatalogAudioListControl(item),
@@ -3667,31 +3278,5 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <span className={playing ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' style={{ fontSize: '12px' }} />
             </button>
         );
-    }
-
-    protected renderLintBadge(): React.ReactNode {
-        if (!this.lintAvailable) {
-            return undefined;
-        }
-        const label = this.lintRunning ? '確認中…' : this.lintCount === undefined ? '未実行' : `${this.lintCount} 件`;
-        return (
-            <div style={{ flex: '0 0 auto', borderTop: AKARI_BORDER.hairline, padding: '6px' }}>
-                <button
-                    className='theia-button secondary'
-                    data-akari-lint-running={this.lintRunning ? 'true' : undefined}
-                    disabled={this.lintRunning}
-                    title='クリックして再実行'
-                    onClick={() => void this.refreshLint(true)}
-                    style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                    <span>Lint</span>
-                    <span>{label}</span>
-                </button>
-            </div>
-        );
-    }
-
-    protected errorMessage(error: unknown): string {
-        return error instanceof Error ? error.message : String(error);
     }
 }

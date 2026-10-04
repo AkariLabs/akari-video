@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import vm from 'node:vm';
+import { readSourceFile as readDaihonFile } from '../../akari-transcript/test/helpers/daihon-source.mjs';
+import { readSourceFile as readWidgetFile } from '../../akari-annotations/test/helpers/widget-source.mjs';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
-const read = path => path === '../src/browser/akari-preview-open-handler.ts'
-    ? readHandlerSource()
-    : readFileSync(new URL(path, import.meta.url), 'utf8');
+const read = path => {
+    if (path === '../src/browser/akari-preview-open-handler.ts') return readHandlerSource();
+    if (path === '../../akari-transcript/src/browser/daihon/akari-daihon-widget.ts') return readDaihonFile('widget').text;
+    if (path === '../../akari-annotations/src/browser/akari-annotations-widget.ts') return readWidgetFile('widget').text;
+    throw new Error(`unknown source path: ${path}`);
+};
 const preview = readHandlerSource();
 const methodCode = new Map();
 function hostMethod(path, name, bindings = {}) {
