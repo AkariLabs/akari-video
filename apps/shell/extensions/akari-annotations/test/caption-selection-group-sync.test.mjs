@@ -51,3 +51,35 @@ test('transcript group passes its anchor to the preview as primary', () => {
   assert.deepEqual(events.at(-1).detail,
     { editUri: '/edit.json', captionIds: ['a', 'b', 'c'], primaryCaptionId: 'b' });
 });
+
+test('transcript-origin selection retains its origin through the timeline notification', () => {
+  const events = [];
+  const widget = method('selectCaptions', 'protected previewSelectionAncestorIds', events);
+  Object.assign(widget, {
+    canHandlePlaybackTick: () => true, captions: [{ id: 'a' }, { id: 'b' }],
+    multiSelection: [], selectionModel: {}, selection: undefined,
+    location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } },
+    claimInspectorOwner() {}, pushSelectionSnapshot() {}, applySelectionClass() {}, applyCaptionStateClasses() {}
+  });
+  widget.selectCaptions('/edit.json', ['a', 'b'], 'a', 'daihon');
+  assert.deepEqual(events.at(-1).detail,
+    { editUri: '/edit.json', captionIds: ['a', 'b'], primaryCaptionId: 'a', origin: 'daihon' });
+});
+
+test('preview click in a mixed clip and caption group publishes no partial caption selection', () => {
+  const events = [];
+  const widget = method('handleCaptionSelection', 'protected revealPreviewSelection', events);
+  Object.assign(widget, {
+    captions: [{ id: 'a' }],
+    multiSelection: [{ kind: 'caption', id: 'a' }, { kind: 'item', id: 'clip-1' }],
+    selection: undefined, selectionModel: { selectedCaptionIds: ['a'] },
+    canHandlePlaybackTick: () => true, selectionRenderKeys: () => [],
+    applySelection() { throw new Error('mixed group was replaced'); },
+    revealPreviewSelection() {},
+    location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } }
+  });
+  widget.handleCaptionSelection('/edit.json', 'a');
+  assert.deepEqual(widget.multiSelection, [{ kind: 'caption', id: 'a' }, { kind: 'item', id: 'clip-1' }]);
+  assert.deepEqual(events.at(-1).detail,
+    { editUri: '/edit.json', captionIds: [], primaryCaptionId: null });
+});

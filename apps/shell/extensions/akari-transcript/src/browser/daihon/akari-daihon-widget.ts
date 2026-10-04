@@ -577,6 +577,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected autoScrolling = false;
     protected selectionRevealFrame = 0;
     protected selectionRevealInterrupted = false;
+    protected selectionRevealTargetId: string | undefined;
     protected editing: EditingState | undefined;
     protected selection: DaihonSelection = EMPTY_SELECTION;
     protected altAll = false;
@@ -799,7 +800,9 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         };
         const captionSelection = (event: Event): void => {
-            const detail = (event as CustomEvent<{ editUri?: string; captionIds?: string[]; primaryCaptionId?: string | null }>).detail;
+            const detail = (event as CustomEvent<{ editUri?: string; captionIds?: string[];
+                primaryCaptionId?: string | null; origin?: string }>).detail;
+            if (detail?.origin === 'daihon') return;
             if (!detail?.editUri || new URI(detail.editUri).normalizePath().toString() !== this.editUri?.normalizePath().toString()) return;
             const ids = detail.captionIds;
             // The timeline is authoritative. Selections containing non-script captions have no row projection.
@@ -814,11 +817,18 @@ export class AkariDaihonWidget extends BaseWidget {
             if (hiddenByFilter) {
                 this.qcFilter = false;
                 this.speakerFilter = null;
+                const wasAutoScrolling = this.autoScrolling;
+                this.autoScrolling = true;
                 this.applyQcFilter();
+                if (typeof requestAnimationFrame === 'function') {
+                    requestAnimationFrame(() => { this.autoScrolling = wasAutoScrolling; });
+                } else this.autoScrolling = wasAutoScrolling;
             }
             if (this.selection.selected.length === ids.length && this.selection.anchorId === primary
                 && ids.every((id, index) => this.selection.selected[index] === id)) return;
             this.setSelection({ selected: ids, anchorId: primary }, false);
+            this.selectionRevealTargetId = primary;
+            this.scheduleSelectionReveal(primary);
         };
         const attachmentSelection = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; videoUri?: string; overlayId?: string | null;
@@ -978,6 +988,8 @@ export class AkariDaihonWidget extends BaseWidget {
             this.qcFilter = false;
             this.applyQcFilter();
             this.setSelection({ selected: [row.id], anchorId: row.id });
+            this.selectionRevealInterrupted = false;
+            if (typeof requestAnimationFrame === 'function') this.scheduleSelectionReveal(row.id);
             // The frame-based reveal handles the dock in the browser. Keep the direct reveal for headless callers.
             if (typeof requestAnimationFrame !== 'function') {
                 this.elements.get(row.id)?.root.scrollIntoView({ block: 'nearest' });
@@ -4728,7 +4740,10 @@ export class AkariDaihonWidget extends BaseWidget {
         const plan = planSelectionUpdate(previous, next);
         const changed = previous.anchorId !== next.anchorId || plan.add.length > 0 || plan.remove.length > 0;
         if (!changed) return;
+        if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+        this.selectionRevealFrame = 0;
         this.selectionRevealInterrupted = false;
+        this.selectionRevealTargetId = next.selected.length === 1 ? next.selected[0] : undefined;
         this.selection = next;
         if (!this.altAll) {
             for (const id of plan.add) this.elements.get(id)?.root.classList.add('selected');
@@ -4740,12 +4755,13 @@ export class AkariDaihonWidget extends BaseWidget {
             if (count === 0) this.closeDock();
             else this.renderDock();
         }
-        if (count > 0) this.scheduleSelectionReveal();
+        if (count === 1) this.scheduleSelectionReveal(next.selected[0]);
         if (!sync) return;
         const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
         void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID,
-            { ...payload, primaryCaptionId: next.anchorId ?? next.selected[0] ?? null }).catch(() => undefined);
+            { ...payload, primaryCaptionId: next.anchorId ?? next.selected[0] ?? null,
+                origin: 'daihon' }).catch(() => undefined);
     }
 
     protected updateQcSummary(): void {
@@ -4854,6 +4870,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 currentRowVisible: visible,
                 userScrolledRecentlyMs: this.lastUserScrollAt === 0 ? Number.POSITIVE_INFINITY : Date.now() - this.lastUserScrollAt
             })) {
+                this.selectionRevealInterrupted = true;
                 this.autoScrolling = true;
                 current.scrollIntoView({ block: 'nearest' });
                 requestAnimationFrame(() => { this.autoScrolling = false; });
@@ -4905,10 +4922,10 @@ export class AkariDaihonWidget extends BaseWidget {
         return rect.top >= viewport.top && rect.bottom <= viewport.bottom;
     }
 
-    protected scheduleSelectionReveal(): void {
-        if (!this.isVisible || !this.selection.selected.length || this.selectionRevealFrame || this.selectionRevealInterrupted
+    protected scheduleSelectionReveal(id: string | undefined = this.selectionRevealTargetId): void {
+        if (!this.isVisible || !id || !this.selection.selected.includes(id)
+            || this.selectionRevealFrame || this.selectionRevealInterrupted
             || typeof requestAnimationFrame !== 'function') return;
-        const id = this.selection.anchorId ?? this.selection.selected[0];
         this.selectionRevealFrame = requestAnimationFrame(() => {
             this.selectionRevealFrame = 0;
             if (this.selectionRevealInterrupted || !this.selection.selected.includes(id)) return;

@@ -16,7 +16,8 @@ const project = path.join(scratch, 'project');
 const editUri = pathToFileURL(path.join(project, 'edit.json')).href;
 const cdpPort = Number(process.env.AKARI_L1_CDP_PORT ?? 9370);
 const electron = path.join(shell, 'node_modules/electron/dist/electron.exe');
-const result = { rowCount: 0, final: null, preview: null, timeline: null, manual: null, group: null, stage: 'fixture', error: null };
+const result = { rowCount: 0, final: null, preview: null, timeline: null, manual: null, group: null,
+  range: null, hiddenTab: null, playbackDock: null, sameRowTarget: null, stage: 'fixture', error: null };
 let child;
 let electronLog = '';
 let electronExit;
@@ -125,12 +126,15 @@ const snapshot = () => evaluate(`(() => {
 
 async function capture(name) {
   const png = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  await writeFile(path.join(out, `r1-${name}.png`), Buffer.from(png.data, 'base64'));
+  await writeFile(path.join(out, `r2-${name}.png`), Buffer.from(png.data, 'base64'));
 }
-async function click(point) {
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+async function click(point, modifiers = 0) {
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1, modifiers });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1, modifiers });
 }
+const rowPoint = id => evaluate(`(() => { const row = document.querySelector('.akari-daihon-row[data-caption-id="${id}"]');
+  if (!row) return null; const r = row.getBoundingClientRect();
+  return { x: r.left + 10, y: (r.top + r.bottom) / 2 }; })()`);
 async function timelinePoint(id) {
   return evaluate(`(() => { const row = document.querySelector('.akari-annotations-widget '
     + '[data-akari-item-kind="caption"][data-akari-item-id="${id}"]');
@@ -242,6 +246,10 @@ try {
   await sleep(500);
   result.manual.afterTab = await snapshot();
   await capture('manual-scroll');
+  await command('akari.daihon.open', { captionId: 'c-0060', open: 'template' });
+  await sleep(450);
+  result.sameRowTarget = { before: result.manual.afterTab, after: await snapshot() };
+  await capture('same-row-target');
   await command('akari.timeline.selectCaptions', { editUri,
     captionIds: ['c-0001', 'c-0002', 'c-0003'], primaryCaptionId: 'c-0002' });
   await command('akari.preview.seekOutput', { editUri, time: 1.4, waitForReady: true });
@@ -251,6 +259,63 @@ try {
   await sleep(500);
   result.group.after = await snapshot();
   await capture('group-preview-click');
+  result.stage = 'range-selection'; console.error('[l1] Shift range and Ctrl+A');
+  await command('akari.daihon.open', { captionId: 'c-0010', open: 'template' });
+  await sleep(350);
+  const row80 = await evaluate(`(() => { const rows = document.querySelector('.akari-daihon-rows');
+    const row = document.querySelector('.akari-daihon-row[data-caption-id="c-0080"]');
+    rows.style.scrollBehavior = 'auto'; rows.scrollTop = row.offsetTop - 80;
+    return { scrollTop: rows.scrollTop, targetOffset: row.offsetTop }; })()`);
+  await sleep(250);
+  const point80 = await rowPoint('c-0080');
+  if (!point80) throw new Error('row 80 missing');
+  await click(point80, 8);
+  await sleep(350);
+  result.range = { before: row80, afterShift: await snapshot() };
+  await capture('shift-range');
+  await evaluate(`window.__r2KeyTrace = []; window.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'a') window.__r2KeyTrace.push({ key: e.key, ctrl: e.ctrlKey,
+      prevented: e.defaultPrevented, active: document.activeElement?.className,
+      scrollTop: document.querySelector('.akari-daihon-rows')?.scrollTop });
+  }, true)`);
+  await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 2 });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 2 });
+  await sleep(350);
+  result.range.afterAll = await snapshot();
+  result.range.keyboardTrace = await evaluate('window.__r2KeyTrace');
+  await capture('select-all');
+  result.stage = 'hidden-tab'; console.error('[l1] hidden daihon tab selection');
+  await command('akari.cuts.open');
+  await sleep(350);
+  result.hiddenTab = { hidden: await evaluate(`(() => { const panel = document.querySelector('.akari-daihon-widget');
+    return panel && { visible: panel.offsetParent !== null, rect: panel.getBoundingClientRect().width }; })()`) };
+  const point110 = await timelinePoint('c-0110');
+  if (!point110) throw new Error('timeline caption 110 missing');
+  await click(point110);
+  await sleep(350);
+  result.hiddenTab.selectionWhileHidden = await snapshot();
+  await command('akari.daihon.open');
+  await sleep(550);
+  result.hiddenTab.afterShow = await snapshot();
+  await capture('hidden-tab-return');
+  result.stage = 'playback-dock'; console.error('[l1] playback follow then dock tab');
+  await command('akari.daihon.open', { captionId: 'c-0010', open: 'template' });
+  await sleep(2300);
+  await command('akari.preview.seekOutput', { editUri, time: 39.4, waitForReady: true });
+  const beforePlay = await snapshot();
+  await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await sleep(900);
+  const afterFollow = await snapshot();
+  await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  const tabPoint = await evaluate(`(() => { const button = document.querySelector('.akari-daihon-dock-tabs button[data-dock-tab="look"]');
+    const r = button?.getBoundingClientRect(); return r ? { x: (r.left+r.right)/2, y: (r.top+r.bottom)/2 } : null; })()`);
+  if (!tabPoint) throw new Error('dock look tab missing after playback');
+  await click(tabPoint);
+  await sleep(450);
+  result.playbackDock = { beforePlay, afterFollow, afterTab: await snapshot() };
+  await capture('playback-dock-tab');
   const advancing = result.space?.filter(t => t.playing && Number.isFinite(t.time)) ?? [];
   if (result.rowCount !== 120 || !result.final.fullyVisible || result.final.selected[0] !== 'c-0120'
     || !result.timeline.clicked || result.timeline.state?.selected[0] !== 'c-0060'
@@ -260,7 +325,20 @@ try {
     || !result.preview.fullyVisible || result.preview.focused
     || !result.dockOpenSwitch.dockOpen || !result.dockOpenSwitch.dockTitle?.includes('確認用字幕 60')
     || result.manual.afterScroll !== result.manual.afterTab.scrollTop
-    || result.group.after?.selected.length !== 3) {
+    || result.sameRowTarget.before.selected[0] !== 'c-0060'
+    || result.sameRowTarget.before.fullyVisible || !result.sameRowTarget.after.fullyVisible
+    || result.group.after?.selected.length !== 3
+    || result.range.afterShift.selected.length < 2
+    || Math.abs(result.range.afterShift.scrollTop - result.range.before.scrollTop) > 1
+    || result.range.afterAll.selected.length !== 120
+    || Math.abs(result.range.afterAll.scrollTop - result.range.before.scrollTop) > 1
+    || result.hiddenTab.hidden?.visible !== false
+    || Number(result.hiddenTab.selectionWhileHidden.selected[0]?.slice(2)) < 100
+    || result.hiddenTab.afterShow.selected[0] !== result.hiddenTab.selectionWhileHidden.selected[0]
+    || !result.hiddenTab.afterShow.fullyVisible
+    || result.playbackDock.beforePlay.selected[0] !== 'c-0010'
+    || result.playbackDock.afterFollow.scrollTop === result.playbackDock.beforePlay.scrollTop
+    || Math.abs(result.playbackDock.afterTab.scrollTop - result.playbackDock.afterFollow.scrollTop) > 1) {
     throw new Error('selection acceptance assertion failed');
   }
 } catch (error) {
@@ -272,7 +350,7 @@ try {
     const stopped = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { encoding: 'utf8' });
     result.cleanup = { pid: child.pid, exit: stopped.status, error: stopped.error?.message ?? null };
   }
-  await writeFile(path.join(out, 'r1-result.json'), `${JSON.stringify(result, null, 2)}\n`);
+  await writeFile(path.join(out, 'r2-result.json'), `${JSON.stringify(result, null, 2)}\n`);
   const tempRoot = await realpath(os.tmpdir());
   if (!scratch.startsWith(tempRoot + path.sep)) throw new Error('scratch path escaped temp root');
   for (let attempt = 0; attempt < 10; attempt++) {

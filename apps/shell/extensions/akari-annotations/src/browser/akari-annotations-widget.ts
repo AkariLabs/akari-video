@@ -4750,7 +4750,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
-    selectCaptions(editUri: string, captionIds: readonly string[], primaryCaptionId?: string | null): void {
+    selectCaptions(editUri: string, captionIds: readonly string[], primaryCaptionId?: string | null,
+        origin?: 'daihon'): void {
         if (!this.canHandlePlaybackTick(editUri)) return;
         this.previewBagSelection = undefined;
         const requested = new Set(captionIds);
@@ -4770,7 +4771,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyCaptionStateClasses();
         if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
             detail: { editUri: this.location?.editUri?.normalizePath?.().toString() ?? editUri, captionIds: [...ids],
-                primaryCaptionId: primaryCaptionId && ids.includes(primaryCaptionId) ? primaryCaptionId : ids[0] ?? null }
+                primaryCaptionId: primaryCaptionId && ids.includes(primaryCaptionId) ? primaryCaptionId : ids[0] ?? null,
+                ...(origin ? { origin } : {}) }
         }));
     }
 
@@ -5038,11 +5040,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.selectionModel.selectedCaptionIds = [captionId];
                 this.applyCaptionStateClasses();
             }
-            const captionIds = inGroup ? this.multiSelection.flatMap(item => item.kind === 'caption' ? [item.id]
+            const selectedCaptionIds = inGroup ? this.multiSelection.flatMap(item => item.kind === 'caption' ? [item.id]
                 : this.selectionRenderKeys(item).filter(key => key.startsWith('caption:')).map(key => key.slice(8))) : [captionId];
+            const captionIds = inGroup && selectedCaptionIds.length !== this.multiSelection.length ? [] : selectedCaptionIds;
             if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
                 detail: { editUri: this.location?.editUri?.normalizePath?.().toString() ?? editUri,
-                    captionIds, primaryCaptionId: captionId }
+                    captionIds, primaryCaptionId: captionIds.includes(captionId) ? captionId : null }
             }));
             this.revealPreviewSelection();
         }
