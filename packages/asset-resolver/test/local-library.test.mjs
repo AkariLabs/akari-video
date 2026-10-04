@@ -18,10 +18,20 @@ function fixture(t) {
 function asset(root, id, meta = {}, category = 'audio') {
   const dir = path.join(root, category, id);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ id, category, title: id, tags: [], license: { spdx: 'test' }, ...meta }));
+  writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ id, category, title: id, tags: [], license: { spdx: 'test' }, tier: 'free', ...meta }));
   writeFileSync(path.join(dir, 'sound.wav'), 'sound');
   return dir;
 }
+
+test('local meta without tier or price fails closed as Pro while remaining cached', async t => {
+  const { env } = fixture(t);
+  // R1 reversed the legacy price rule: missing tier and price must not imply Free.
+  asset(env.AKARI_LIBRARY_ROOT, 'legacy-tierless', { tier: undefined });
+  const item = (await composeState({ env })).items.find(row => row.id === 'legacy-tierless');
+  assert.equal(item.tier, 'pro');
+  assert.equal(item.state, 'cached');
+  assert.ok(item.machineTags.includes('tier:pro'));
+});
 
 test('local items contain actual files, metadata, timestamp, thumbnail, credit and origin fields', async t => {
   const { env } = fixture(t);

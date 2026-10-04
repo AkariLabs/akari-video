@@ -4,7 +4,7 @@ export function assetTier(item) {
     // Malformed explicit tiers must not silently become free.
     return item.tier === 'free' ? 'free' : 'pro';
   }
-  return typeof item.price === 'number' && item.price > 0 ? 'pro' : 'free';
+  return item.price === 0 ? 'free' : 'pro';
 }
 
 export function isAssetEntitled(item, entitlementIds) {
