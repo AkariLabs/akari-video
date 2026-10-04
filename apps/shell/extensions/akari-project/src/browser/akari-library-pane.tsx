@@ -1,12 +1,17 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
+import { CommandService } from '@theia/core/lib/common';
+import { QuickInputService } from '@theia/core/lib/browser';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
-import { CATALOG_CATEGORIES } from '../common/catalog-reader';
+import { CATALOG_CATEGORIES, CatalogItemMeta } from '../common/catalog-reader';
+import { AssetCatalogViewItem } from '../common/akari-project-protocol';
+import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt } from '../common/catalog-context-packet';
 
 export const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
+const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
 export interface LibraryPaneHost {
     readonly dialogs: Pick<FileDialogService, 'showOpenDialog'>;
@@ -14,6 +19,8 @@ export interface LibraryPaneHost {
     readonly files: Pick<FileService, 'resolve'>;
     readonly update: () => void;
     readonly loadAssetCatalogView: (intent?: 'automatic' | 'user') => Promise<void>;
+    readonly commandService: Pick<CommandService, 'executeCommand'>;
+    readonly quickInputService: Pick<QuickInputService, 'input'>;
 }
 
 export class AkariLibraryPane {
@@ -152,5 +159,54 @@ export class AkariLibraryPane {
     protected toggleDeveloperCatalogSection(): void {
         this.developerCatalogOpen = !this.developerCatalogOpen;
         this.host.update();
+    }
+
+    public catalogPlaceholderIcon(category: string): string {
+        switch (category) {
+            case 'scene3d': return 'codicon codicon-package';
+            case 'overlay': return 'codicon codicon-text-size';
+            case 'still': return 'codicon codicon-file-media';
+            case 'audio': return 'codicon codicon-unmute';
+            case 'broll': return 'codicon codicon-device-camera-video';
+            case 'font': return 'codicon codicon-symbol-key';
+            default: return 'codicon codicon-file';
+        }
+    }
+
+    /**
+     * origin='local'（ローカル catalog/ 由来。resolver 合成分には無い項目）専用の
+     * 「取り込む」「頼む」が要る CatalogItemMeta 形へ戻すアダプタ。catalog-context-packet.ts
+     * は既存パケット文言をそのまま維持するため変更しない（フィールド名の対応だけをここで吸収する）。
+     */
+    public toLocalCatalogItemMeta(item: AssetCatalogViewItem): CatalogItemMeta {
+        return {
+            id: item.id,
+            category: item.category,
+            title: item.title,
+            description: item.description,
+            tags: item.tags,
+            when_to_use: item.whenToUse,
+            license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
+            source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
+        };
+    }
+
+    /** 「取り込む」— 固定パケット。取得・配置は setup-library 系スキルの領分（origin='local' 専用）。 */
+    public async importCatalogItem(item: AssetCatalogViewItem): Promise<void> {
+        await this.host.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, composeCatalogImportPrompt(this.toLocalCatalogItemMeta(item)));
+    }
+
+    /** 「頼む」— quick-input 1 行 → 同要素 + when_to_use 先頭 1 文 + 入力文（origin='local' 専用）。 */
+    public async askAgentAboutCatalogItem(item: AssetCatalogViewItem): Promise<void> {
+        const request = await this.host.quickInputService.input({
+            placeHolder: 'この素材で何をしますか'
+        });
+        if (!request || !request.trim()) {
+            return;
+        }
+        await this.host.commandService.executeCommand(
+            PARTNER_INJECT_PROMPT_COMMAND_ID,
+            composeCatalogAskAgentPrompt(this.toLocalCatalogItemMeta(item), request)
+        );
     }
 }

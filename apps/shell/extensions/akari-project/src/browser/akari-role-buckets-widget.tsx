@@ -49,14 +49,13 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { isEditDataFileName } from '../common/edit-data-file';
 import {
     CatalogCategoryChip,
-    CatalogItemMeta,
     CatalogViewMode,
     catalogItemCategoryChipKey,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
     normalizeCatalogViewMode
 } from '../common/catalog-reader';
-import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
+import { composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import {
     catalogCardUiEventTarget,
     CatalogPackGroup,
@@ -678,6 +677,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get dialogs() { return widget().dialogs; },
             get preferences() { return widget().preferences; },
             get files() { return widget().files; },
+            get commandService() { return widget().commandService; },
+            get quickInputService() { return widget().quickInputService; },
             update: () => widget().update(),
             loadAssetCatalogView: intent => widget().loadAssetCatalogView(intent)
         };
@@ -1443,55 +1444,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
-    protected catalogPlaceholderIcon(category: string): string {
-        switch (category) {
-            case 'scene3d': return 'codicon codicon-package';
-            case 'overlay': return 'codicon codicon-text-size';
-            case 'still': return 'codicon codicon-file-media';
-            case 'audio': return 'codicon codicon-unmute';
-            case 'broll': return 'codicon codicon-device-camera-video';
-            case 'font': return 'codicon codicon-symbol-key';
-            default: return 'codicon codicon-file';
-        }
-    }
-
-    /**
-     * origin='local'（ローカル catalog/ 由来。resolver 合成分には無い項目）専用の
-     * 「取り込む」「頼む」が要る CatalogItemMeta 形へ戻すアダプタ。catalog-context-packet.ts
-     * は既存パケット文言をそのまま維持するため変更しない（フィールド名の対応だけをここで吸収する）。
-     */
-    protected toLocalCatalogItemMeta(item: AssetCatalogViewItem): CatalogItemMeta {
-        return {
-            id: item.id,
-            category: item.category,
-            title: item.title,
-            description: item.description,
-            tags: item.tags,
-            when_to_use: item.whenToUse,
-            license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
-            source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
-        };
-    }
-
-    /** 「取り込む」— 固定パケット。取得・配置は setup-library 系スキルの領分（origin='local' 専用）。 */
-    protected async importCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, composeCatalogImportPrompt(this.toLocalCatalogItemMeta(item)));
-    }
-
-    /** 「頼む」— quick-input 1 行 → 同要素 + when_to_use 先頭 1 文 + 入力文（origin='local' 専用）。 */
-    protected async askAgentAboutCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        const request = await this.quickInputService.input({
-            placeHolder: 'この素材で何をしますか'
-        });
-        if (!request || !request.trim()) {
-            return;
-        }
-        await this.commandService.executeCommand(
-            PARTNER_INJECT_PROMPT_COMMAND_ID,
-            composeCatalogAskAgentPrompt(this.toLocalCatalogItemMeta(item), request)
-        );
-    }
-
     /** パック棚ヘッダ「まとめて取り込む」の対象 = パック内の未 installed の free 品目。 */
     protected packImportCandidates(group: CatalogPackGroup): AssetCatalogViewItem[] {
         return group.items.filter(item => !item.installed && item.distribution === 'free');
@@ -1510,7 +1462,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         await this.commandService.executeCommand(
             PARTNER_INJECT_PROMPT_COMMAND_ID,
-            composeCatalogPackImportPrompt(group.pack.title, candidates.map(item => this.toLocalCatalogItemMeta(item)))
+            composeCatalogPackImportPrompt(group.pack.title, candidates.map(item => this.libraryPane.toLocalCatalogItemMeta(item)))
         );
     }
 
@@ -3158,8 +3110,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 if (isPremiumLocked(item)) this.showPremiumPrompt(item.key);
                 else await this.addCatalogAssetAtPlayhead(item);
             } else if (id === 'import') await this.useAssetCatalogItem(item);
-            else if (id === 'agent-import') await this.importCatalogItem(item);
-            else if (id === 'ask') await this.askAgentAboutCatalogItem(item);
+            else if (id === 'agent-import') await this.libraryPane.importCatalogItem(item);
+            else if (id === 'ask') await this.libraryPane.askAgentAboutCatalogItem(item);
             else if (id === 'reveal' && item.libraryDir) await this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir));
             else if (id === 'remove-library') await this.removeLibraryItem(item);
             return;
@@ -3615,7 +3567,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             cached: isLibraryItemCached(item),
             favorite: this.libraryFavorites.has(item.key),
             thumbnailBroken: this.catalogBrokenThumbnails.has(item.key),
-            placeholderIcon: this.catalogPlaceholderIcon(item.category),
+            placeholderIcon: this.libraryPane.catalogPlaceholderIcon(item.category),
             draggable: interactive && this.canDragCatalogAsset(item),
             infoOpen: info?.kind === 'asset' && info.item.key === item.key,
             audioControl: layout === 'grid' ? this.renderCatalogAudioControl(item) : this.renderCatalogAudioListControl(item),
