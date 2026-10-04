@@ -1849,7 +1849,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.hoverSeek.setAttribute('aria-hidden', 'true');
         Object.assign(this.playhead.style, {
             position: 'absolute', top: '0', bottom: '0', width: '1px',
-            background: PLAYHEAD_COLOR, left: '0%', transform: 'translateX(-50%)', pointerEvents: 'none'
+            background: `linear-gradient(to bottom, transparent 16px, ${PLAYHEAD_COLOR} 16px)`,
+            left: '0%', transform: 'translateX(-50%)', pointerEvents: 'none'
         });
         Object.assign(this.playheadHandle.style, {
             position: 'absolute', top: '0', left: '50%', width: '14px', height: '16px',
@@ -1858,7 +1859,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.playheadHandle.setAttribute('aria-hidden', 'true');
         this.playheadHandle.innerHTML =
             `<svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">` +
-            `<path d="M0 0H14V10L7 16L0 10Z" fill="none" stroke="${PLAYHEAD_COLOR}" stroke-width="1.25"/></svg>`;
+            `<path d="M1 1H13V9.5L7 15L1 9.5Z" fill="none" stroke="${PLAYHEAD_COLOR}" stroke-width="2"/></svg>`;
         this.playheadHandle.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
         const playheadLineHit = document.createElement('div');
         playheadLineHit.dataset.testid = 'akari-playhead-line-hit';
@@ -2111,6 +2112,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const focusedControl = focusedElement?.closest('button, [role="button"], [tabindex]');
             const focusOnControl = !isWebviewKeydown && !!focusedControl && focusedControl !== this.node;
             if (event.key === 'Escape' && focusOutsideTimeline) return;
+            const hadMarqueeRange = event.key === 'Escape'
+                && (this.canvasRange !== undefined || this.selectionMarquee.style.display === 'block');
+            if (hadMarqueeRange && !this.isEditableTarget(event.target)
+                && !this.isEditableTarget(document.activeElement)) this.clearMarqueeRange();
             if (event.key === 'Escape' && this.cancelFrameDraw) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -2136,7 +2141,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.applyFocusScope(exitFocusScope(this.expandedTimelineTreeRows, this.focusScope));
                 return;
             }
-            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0 || this.selectedGap)
+            if (event.key === 'Escape' && this.isAttached
+                && (this.selection || this.multiSelection.length > 0 || this.selectedGap || hadMarqueeRange)
                 && !this.isEditableTarget(event.target) && !this.isEditableTarget(document.activeElement)
                 && !(document.activeElement instanceof HTMLElement
                     && document.activeElement.closest('.akari-inspector-widget'))) {
@@ -2684,7 +2690,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return { kind: 'overlay', id: state.id };
     }
 
-    protected applySelection(selection: TimelineSelection, notifyPreview = true, directSingle = false): void {
+    protected clearMarqueeRange(): void {
+        this.canvasRange = undefined;
+        this.selectionMarquee.style.display = 'none';
+    }
+
+    protected applySelection(selection: TimelineSelection, notifyPreview = true, directSingle = false,
+        preserveMarqueeRange = false): void {
+        if (!preserveMarqueeRange && this.selectionMarquee) this.clearMarqueeRange();
         const seekTime = selection && directSingle && notifyPreview
             ? previewSelectionSeekTime({ range: this.focusRangeFor(selection), playhead: this.playheadT,
                 playing: this.visualPlaying, multiple: false,
@@ -2701,7 +2714,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
             if (selection || hadMultiSelection || hadGap) {
                 this.claimInspectorOwner?.();
-                this.pushSelectionSnapshot();
+                this.pushSelectionSnapshot(preserveMarqueeRange);
                 this.applySelectionClass();
                 if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
                 this.syncRightPane();
@@ -2712,7 +2725,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selection = selection;
         this.preparePhotoForSelection?.(selection);
         this.claimInspectorOwner?.();
-        this.pushSelectionSnapshot();
+        this.pushSelectionSnapshot(preserveMarqueeRange);
         this.applySelectionClass();
         if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
         if (selection && selection.kind !== 'world-stop' && selection.kind !== 'world-edge') {
@@ -5321,7 +5334,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
-    protected pushSelectionSnapshot(): void {
+    protected pushSelectionSnapshot(preserveMarqueeRange = false): void {
+        if (!preserveMarqueeRange && this.selectionMarquee) this.clearMarqueeRange();
         if (this.selectionModel.inspectorOwner && this.selectionModel.inspectorOwner !== this) return;
         if (!this.selectionModel.inspectorOwner) this.claimInspectorOwner?.();
         if (this.selectedGap && (this.selection || this.multiSelection.length > 0)) {
@@ -5948,6 +5962,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             try {
                 await this.commitImmediateItemMutation('複数アイテムを削除', doc => ids.reduce(
                     (next, id) => removeTreeV2Item(next, id).document, doc), ids);
+                this.multiSelection = [];
+                this.selection = undefined;
+                this.pushSelectionSnapshot();
                 this.footer.textContent = '選択したアイテムを削除しました。';
             } catch (error) {
                 const detail = this.errorMessage(error);
@@ -8158,6 +8175,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadEdit(sourceOverride?: string): Promise<void> {
+        if (this.selectionMarquee) this.clearMarqueeRange();
         const generation = ++this.editReloadGeneration;
         this.timelineEmpty = !!this.location && !this.location.editUri;
         if (this.location?.editUri) {
@@ -18628,17 +18646,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const selected = [...hits.values()];
             if (selected.length === 1) {
-                this.applySelection(selected[0]);
+                this.applySelection(selected[0], true, false, true);
             } else if (selected.length > 1) {
                 this.exitTrimmerModeUnlessSelected(undefined);
                 this.selection = undefined;
                 this.multiSelection = selected;
                 this.claimInspectorOwner?.();
-                this.pushSelectionSnapshot();
+                this.pushSelectionSnapshot(true);
                 this.applySelectionClass();
                 this.publishPrimaryPreviewSelection(selected[selected.length - 1]);
             } else {
-                this.applySelection(undefined);
+                this.applySelection(undefined, true, false, true);
             }
         };
         this.strip.addEventListener('pointermove', onMove);
