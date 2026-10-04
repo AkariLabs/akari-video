@@ -3975,7 +3975,7 @@ function dashAttribute(dash, metrics, roundCaps = false) {
   }
   return "";
 }
-function lineBody(p, width, height, metrics, color2) {
+function lineBody(p, width, height, metrics, color2, visibleStrokeWidth, scaleX, scaleY) {
   const sw = metrics.width;
   const y = height / 2;
   const size = metrics.capSize;
@@ -3984,9 +3984,29 @@ function lineBody(p, width, height, metrics, color2) {
   const dash = p.dash ?? "solid";
   const rounded = p.lineCap === "round" && dash !== "dot";
   const dashAttr = dashAttribute(dash, metrics, rounded);
-  const x1 = capInset(start, size) + (rounded && start === "none" ? sw / 2 : 0);
-  const x2 = Math.max(x1, width - capInset(end, size) - (rounded && end === "none" ? sw / 2 : 0));
-  return `<line x1="${num(x1)}" y1="${num(y)}" x2="${num(x2)}" y2="${num(y)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + cap(start, p.startCapFilled ?? true, 0, y, -1, size, color2, sw, metrics.minimumOutline) + cap(end, p.endCapFilled ?? true, width, y, 1, size, color2, sw, metrics.minimumOutline);
+  const stretched = scaleX !== scaleY;
+  const capSize = stretched ? Math.max(visibleStrokeWidth * 3.2, 8) : size;
+  const inset = (kind) => capInset(kind, capSize) / (stretched ? scaleX : 1);
+  const x1 = inset(start) + (rounded && start === "none" ? sw / 2 : 0);
+  const x2 = Math.max(x1, width - inset(end) - (rounded && end === "none" ? sw / 2 : 0));
+  const endPart = (kind, filled, x, direction) => {
+    if (!stretched || kind === "none") {
+      return cap(kind, filled, x, y, direction, size, color2, sw, metrics.minimumOutline);
+    }
+    const part = cap(
+      kind,
+      filled,
+      0,
+      0,
+      direction,
+      capSize,
+      color2,
+      visibleStrokeWidth,
+      1
+    );
+    return `<g data-line-cap="${direction < 0 ? "start" : "end"}" transform="translate(${num(x)} ${num(y)}) scale(${1 / scaleX} ${1 / scaleY})">${part}</g>`;
+  };
+  return `<line x1="${num(x1)}" y1="${num(y)}" x2="${num(x2)}" y2="${num(y)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + endPart(start, p.startCapFilled ?? true, 0, -1) + endPart(end, p.endCapFilled ?? true, width, 1);
 }
 function primitivePath(shape, width, height) {
   if (shape === "ellipse") {
@@ -4025,7 +4045,16 @@ function shapeMarkupV1(source, itemId, outputWidth = 1920, transform) {
   if (line) {
     const color2 = stroke.value === "none" ? fill.value : stroke.value;
     const q = source.shape === "arrow" ? { ...p, endCap: p.endCap ?? "triangle" } : p;
-    return svg2(stroke.def + fill.def, lineBody(q, width, height, metrics, color2));
+    return svg2(stroke.def + fill.def, lineBody(
+      q,
+      width,
+      height,
+      metrics,
+      color2,
+      visibleStrokeWidth,
+      scaleX,
+      scaleY
+    ));
   }
   let d;
   let rule = "nonzero";

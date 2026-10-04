@@ -539,6 +539,9 @@ export const ANNOTATIONS_WIDGET_CSS = `
         background: var(--theia-button-background);
         color: var(--theia-button-foreground);
     }
+    .akari-annotations-widget .theia-button.secondary.akari-annotations-icon-button[aria-label="マグネット"][aria-pressed="true"] {
+        box-shadow: inset 0 0 0 2px var(--akari-accent-light);
+    }
     .akari-annotations-widget .akari-timeline-focus-breadcrumbs {
         display: flex;
         align-items: center;

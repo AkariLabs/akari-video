@@ -155,6 +155,9 @@ function lineBody(
     height: number,
     metrics: StrokeMetrics,
     color: string,
+    visibleStrokeWidth: number,
+    scaleX: number,
+    scaleY: number,
 ): string {
     const sw = metrics.width;
     const y = height / 2;
@@ -164,15 +167,28 @@ function lineBody(
     const dash = p.dash ?? 'solid';
     const rounded = p.lineCap === 'round' && dash !== 'dot';
     const dashAttr = dashAttribute(dash, metrics, rounded);
-    const x1 = capInset(start, size) + (rounded && start === 'none' ? sw / 2 : 0);
-    const x2 = Math.max(x1, width - capInset(end, size) - (rounded && end === 'none' ? sw / 2 : 0));
+    const stretched = scaleX !== scaleY;
+    const capSize = stretched ? Math.max(visibleStrokeWidth * 3.2, 8) : size;
+    const inset = (kind: ShapeCapV1): number => capInset(kind, capSize) / (stretched ? scaleX : 1);
+    const x1 = inset(start) + (rounded && start === 'none' ? sw / 2 : 0);
+    const x2 = Math.max(x1, width - inset(end) - (rounded && end === 'none' ? sw / 2 : 0));
+    const endPart = (kind: ShapeCapV1, filled: boolean, x: number, direction: number): string => {
+        if (!stretched || kind === 'none') {
+            return cap(kind, filled, x, y, direction, size, color, sw, metrics.minimumOutline);
+        }
+        const part = cap(kind, filled, 0, 0, direction, capSize, color,
+            visibleStrokeWidth, 1);
+        return `<g data-line-cap="${direction < 0 ? 'start' : 'end'}" transform="translate(${num(x)} ${
+            num(y)
+        }) scale(${1 / scaleX} ${1 / scaleY})">${part}</g>`;
+    };
     return `<line x1="${num(x1)}" y1="${num(y)}" x2="${num(x2)}" y2="${
         num(y)
     }" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linecap="${
         rounded ? 'round' : 'butt'
     }"${dashAttr}/>` +
-        cap(start, p.startCapFilled ?? true, 0, y, -1, size, color, sw, metrics.minimumOutline) +
-        cap(end, p.endCapFilled ?? true, width, y, 1, size, color, sw, metrics.minimumOutline);
+        endPart(start, p.startCapFilled ?? true, 0, -1) +
+        endPart(end, p.endCapFilled ?? true, width, 1);
 }
 
 function primitivePath(shape: ShapeSourceV2['shape'], width: number, height: number): string {
@@ -228,7 +244,8 @@ export function shapeMarkupV1(
     if (line) {
         const color = stroke.value === 'none' ? fill.value : stroke.value;
         const q = source.shape === 'arrow' ? { ...p, endCap: p.endCap ?? 'triangle' as const } : p;
-        return svg(stroke.def + fill.def, lineBody(q, width, height, metrics, color));
+        return svg(stroke.def + fill.def, lineBody(q, width, height, metrics, color,
+            visibleStrokeWidth, scaleX, scaleY));
     }
     let d: string;
     let rule = 'nonzero';
