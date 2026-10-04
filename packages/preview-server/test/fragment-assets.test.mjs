@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { projectPreviewEdit, migratePreviewCompatibility } from '../src/preview-edit.mjs';
+import { lintProject } from '../../edit-lint/src/edit-lint.mjs';
 
 const htmlPath = 'overlays/lower-third/fragment.html';
 const servers = new Map();
@@ -40,14 +41,15 @@ async function fixture(t, html) {
   return project;
 }
 
-async function startServer(t, project) {
+async function startServer(t, project, env = process.env, { noLint = true } = {}) {
   const probe = net.createServer();
   probe.listen(0, '127.0.0.1');
   await once(probe, 'listening');
   const { port } = probe.address();
   await new Promise(resolve => probe.close(resolve));
   // Inherit stdio so restricted Windows environments do not need child-process pipes.
-  const child = spawn(process.execPath, [path.resolve(import.meta.dirname, '../src/server.mjs'), project, '--port', String(port), '--no-lint'], { stdio: 'inherit' });
+  const child = spawn(process.execPath, [path.resolve(import.meta.dirname, '../src/server.mjs'), project, '--port', String(port),
+    ...(noLint ? ['--no-lint'] : [])], { stdio: 'inherit', env });
   servers.set(project, child);
   let failure;
   child.on('error', error => { failure = error; });
@@ -118,22 +120,68 @@ test('projection preserves htmlPath for compatibility migration', async t => {
   assert.equal(migrated.tracks.flatMap(track => track.items).find(item => item.id === 'logo').source.path, htmlPath);
 });
 
-test('preview-server はプロジェクトに無いライブラリ参照テロップを拒否し本体を保つ', async t => {
+test('preview-server はライブラリ断片を item ごとに実体化し本体と別 item を保つ', async t => {
   const project = await fixture(t, '<div>元の文字</div>');
-  const libraryDir = path.join(project, 'library-home', 'assets', 'overlay', 'telop-fixture');
+  const assetId = `telop-${path.basename(project).replace(/[^a-z0-9-]/gi, '-')}`;
+  const libraryHome = path.join(project, 'library-home');
+  const libraryDir = path.join(libraryHome, 'assets', 'overlay', assetId);
   await mkdir(libraryDir, { recursive: true });
   const libraryFile = path.join(libraryDir, 'fragment.html');
-  await writeFile(libraryFile, '<div>ライブラリの文字</div>');
-  const missingPath = 'assets/overlay/telop-fixture/fragment.html';
+  await writeFile(libraryFile, '<div data-start="0" data-duration="6">ライブラリの文字</div>');
+  await writeFile(path.join(libraryDir, 'picture.png'), 'image');
+  const beforeStat = await stat(libraryFile);
+  const missingPath = `assets/overlay/${assetId}/fragment.html`;
+  const libraryEdit = structuredClone(edit);
+  libraryEdit.sources = [];
+  libraryEdit.tracks = [libraryEdit.tracks[0]];
+  libraryEdit.tracks[0].items[0].source.path = missingPath;
+  libraryEdit.tracks[0].items[0].duration = 300;
+  libraryEdit.tracks[0].items.push({ id: 'other', at: 300, duration: 300,
+    source: { kind: 'html', path: missingPath } });
+  await writeFile(path.join(project, 'edit.json'), JSON.stringify(libraryEdit));
+  await rm(path.join(project, htmlPath));
+  await mkdir(path.join(project, '.akari'), { recursive: true });
+  await writeFile(path.join(project, '.akari', 'asset-references.json'),
+    JSON.stringify({ version: 0, references: [{ category: 'overlay', id: assetId }] }));
+  const { base } = await startServer(t, project, { ...process.env, AKARI_HOME: libraryHome }, { noLint: false });
+  const response = await fetch(`${base}/api/overlay-html`, { method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'logo', html: '<div data-start="0" data-duration="6">変更後</div>' }) });
+  assert.equal(response.status, 200, await response.text());
+  const saved = JSON.parse(await readFile(path.join(project, 'edit.json'), 'utf8'));
+  const copied = saved.tracks[0].items[0].source.path;
+  assert.match(copied, new RegExp(`^assets/overlay/${assetId}-edit-logo-[a-z0-9]+/fragment\\.html$`, 'u'));
+  assert.equal(saved.tracks[0].items[1].source.path, missingPath);
+  const copiedHtml = await readFile(path.join(project, copied), 'utf8');
+  assert.match(copiedHtml, /変更後/u);
+  assert.doesNotMatch(copiedHtml, /\bdata-(?:start|duration)=/u);
+  const lint = await lintProject(project, { writeReports: false, env: { ...process.env, AKARI_HOME: libraryHome } });
+  assert.deepEqual(lint.findings.filter(finding => finding.severity === 'error'), []);
+  assert.equal(await readFile(path.join(project, path.dirname(copied), 'picture.png'), 'utf8'), 'image');
+  assert.equal(await readFile(libraryFile, 'utf8'), '<div data-start="0" data-duration="6">ライブラリの文字</div>');
+  assert.equal((await stat(libraryFile)).mtimeMs, beforeStat.mtimeMs);
+  const again = await fetch(`${base}/api/overlay-html`, { method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'logo', html: '<div>もう一度変更</div>' }) });
+  assert.equal(again.status, 200, await again.text());
+  assert.equal(JSON.parse(await readFile(path.join(project, 'edit.json'), 'utf8')).tracks[0].items[0].source.path, copied);
+  assert.equal(await readFile(path.join(project, copied), 'utf8'), '<div>もう一度変更</div>');
+});
+
+test('preview-server はライブラリの実体が無ければ参照と写しを変更しない', async t => {
+  const project = await fixture(t, '<div>元の文字</div>');
+  const missingPath = 'assets/overlay/missing-fragment/fragment.html';
   const libraryEdit = structuredClone(edit);
   libraryEdit.tracks[0].items[0].source.path = missingPath;
-  await writeFile(path.join(project, 'edit.json'), JSON.stringify(libraryEdit));
+  const originalEdit = JSON.stringify(libraryEdit);
+  await writeFile(path.join(project, 'edit.json'), originalEdit);
   await rm(path.join(project, htmlPath));
   const { base } = await startServer(t, project);
   const response = await fetch(`${base}/api/overlay-html`, { method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: 'logo', html: '<div>変更後</div>' }) });
   assert.equal(response.status, 422);
-  assert.equal((await response.json()).error, 'このテロップは文字を直接変えられません（ライブラリの素材のため）');
-  assert.equal(await readFile(libraryFile, 'utf8'), '<div>ライブラリの文字</div>');
+  assert.match((await response.json()).error, /ライブラリに断片の実体がありません/u);
+  assert.equal(await readFile(path.join(project, 'edit.json'), 'utf8'), originalEdit);
+  await assert.rejects(stat(path.join(project, 'assets', 'overlay', 'missing-fragment', 'fragment.html')));
 });

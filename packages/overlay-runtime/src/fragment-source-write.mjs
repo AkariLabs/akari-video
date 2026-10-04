@@ -101,3 +101,70 @@ export function assertNoSessionAssetUrl(source) {
         throw new Error('一時的なプレビュー資産 URL が含まれるため、断片の保存を拒否しました');
     }
 }
+
+/** Copy an entire referenced asset directory so sibling images and fonts keep their relative URLs. */
+export function materializedFragmentPlan(declaredPath, itemId, nonce) {
+    const segments = typeof declaredPath === 'string' ? declaredPath.replaceAll('\\', '/').split('/') : [];
+    if (segments.length < 4 || segments[0] !== 'assets' || segments[1] !== 'overlay'
+        || segments.some(part => !part || part === '.' || part === '..' || part.includes(':'))
+        || typeof itemId !== 'string' || !itemId || !/^[a-zA-Z0-9_-]+$/.test(nonce)) {
+        throw new Error('ライブラリ断片の参照先が不正です');
+    }
+    const sourceDirectory = segments.slice(0, 3).join('/');
+    const itemSlug = itemId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 48);
+    const targetDirectory = `assets/overlay/${segments[2]}-edit-${itemSlug}-${nonce}`;
+    return { sourceDirectory, targetDirectory,
+        targetPath: `${targetDirectory}/${segments.slice(3).join('/')}` };
+}
+
+/** The placed item's edit.json supplies timing; library root timing must not travel into a project copy. */
+export function withoutFragmentRootTiming(source) {
+    let cursor = 0;
+    while (cursor < source.length) {
+        const start = source.indexOf('<', cursor);
+        if (start < 0) break;
+        if (source.startsWith('<!--', start)) {
+            const end = source.indexOf('-->', start + 4);
+            if (end < 0) throw new Error('HTML コメントが閉じていません');
+            cursor = end + 3;
+            continue;
+        }
+        const tag = /^<([A-Za-z][\w:-]*)(?:"[^"]*"|'[^']*'|[^'">])*>/u.exec(source.slice(start));
+        if (!tag) { cursor = start + 1; continue; }
+        const nameEnd = tag[1].length + 1;
+        const attributes = tag[0].slice(nameEnd, -1);
+        const tokens = /([^\s=/>]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gu;
+        const removals = [];
+        for (const token of attributes.matchAll(tokens)) {
+            if (!/^data-(?:start|duration)$/iu.test(token[1])) continue;
+            let from = token.index;
+            while (from > 0 && /\s/u.test(attributes[from - 1])) from--;
+            removals.push([from, token.index + token[0].length]);
+        }
+        let changed = attributes;
+        for (const [from, to] of removals.reverse()) changed = changed.slice(0, from) + changed.slice(to);
+        return source.slice(0, start + nameEnd) + changed + source.slice(start + tag[0].length - 1);
+    }
+    throw new Error('HTML 断片のルート要素がありません');
+}
+
+/** Change one authored item, leaving every other use of the shared library asset alone. */
+export function replaceFragmentReference(editText, itemId, beforePath, afterPath, serializeEdit) {
+    const edit = JSON.parse(editText);
+    const items = edit.version === 2
+        ? (edit.tracks ?? []).flatMap(track => track.items ?? [])
+        : edit.overlays ?? [];
+    const matches = items.filter(item => item?.id != null && String(item.id) === itemId);
+    if (matches.length !== 1) throw new Error(`断片の item を一意に特定できません: ${itemId}`);
+    const item = matches[0];
+    if (edit.version === 2) {
+        if (item.source?.kind !== 'html' || item.source.path !== beforePath) {
+            throw new Error('断片の参照先が編集中に変わりました');
+        }
+        item.source.path = afterPath;
+    } else {
+        if (item.html !== beforePath) throw new Error('断片の参照先が編集中に変わりました');
+        item.html = afterPath;
+    }
+    return serializeEdit(edit);
+}

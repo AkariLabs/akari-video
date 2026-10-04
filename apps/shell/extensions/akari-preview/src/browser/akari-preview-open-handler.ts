@@ -93,7 +93,8 @@ import {
 } from '../common/akari-preview-protocol';
 import { AudioClipFx, audioClipFxOf, hasAudioClipFx, previewAudioSidecarRequestFor } from '../common/audio-clip-fx';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
-import { assertNoSessionAssetUrl, patchFragmentSourceText } from './fragment-source-write';
+import { assertNoSessionAssetUrl, materializedFragmentPlan, patchFragmentSourceText, replaceFragmentReference, withoutFragmentRootTiming } from './fragment-source-write';
+import { serializeEdit } from '@akari-video/edit-store/lib/canonical';
 import {
     THREE_SCENE_KEYS,
     hasThreeDimensionalTextOverlay,
@@ -7109,6 +7110,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
             return;
         }
+        let materializedDir: URI | undefined;
+        let editTextToRestore: string | undefined;
         try {
             if ('text' in request.patch && typeof request.patch.text !== 'string') {
                 throw new Error('部品の text は文字列である必要があります');
@@ -7141,6 +7144,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 playheadSeconds: request.playheadSeconds ?? widget.akariPreviewLastKnownTime
             };
             const resolved = resolvePreviewItemWrite(originalText, write);
+            let candidateText = resolved.candidateText;
             // 断片テキスト編集の html patch は overlays[].html が指す断片ファイルへ書く。
             // 旧実装はここで html を黙って捨てて ok を返しており、contenteditable の編集が
             // どのサーフェスでも一度も永続化されていなかった（edit.json へマージすると
@@ -7158,40 +7162,55 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (htmlPath.startsWith('/') || htmlPath.split(/[\\/]/).some(segment => segment === '..')) {
                     throw new Error('プロジェクト外への書き込みは拒否しました');
                 }
-                const target = projectRoot.resolve(htmlPath);
+                let target = projectRoot.resolve(htmlPath);
                 if (!`${target.toString()}/`.startsWith(`${projectRoot.toString()}/`)) {
                     throw new Error('プロジェクト外への書き込みは拒否しました');
                 }
-                if (!(await this.fileService.exists(target))) {
-                    throw new Error('このテロップは文字を直接変えられません（ライブラリの素材のため）');
+                const needsMaterialization = !(await this.fileService.exists(target));
+                let sourceUri = target;
+                if (needsMaterialization) {
+                    sourceUri = await this.resolveEditAssetUri(htmlPath, editUri);
+                    if (sourceUri.toString() === target.toString() || !(await this.fileService.exists(sourceUri))) {
+                        throw new Error(htmlPath.replace(/\\/g, '/').startsWith('assets/overlay/')
+                            ? `ライブラリに断片の実体がありません: ${htmlPath}`
+                            : `断片ファイルがありません: ${htmlPath}`);
+                    }
                 }
-                const source = await this.readText(target);
+                const source = await this.readText(sourceUri);
                 const candidate = patchFragmentSourceText(source, request.patch.html);
                 assertNoSessionAssetUrl(candidate);
+                if (candidate !== source && needsMaterialization) {
+                    const plan = materializedFragmentPlan(htmlPath, request.overlayId, crypto.randomUUID().replace(/-/g, ''));
+                    const destination = projectRoot.resolve(plan.targetDirectory);
+                    if (await this.fileService.exists(destination)) throw new Error('断片の実体化先が既にあります');
+                    materializedDir = destination;
+                    let sourceDir = sourceUri.parent;
+                    for (let depth = 1; depth < htmlPath.split(/[\\/]/).length - 3; depth++) sourceDir = sourceDir.parent;
+                    await this.fileService.createFolder(materializedDir.parent);
+                    await this.fileService.copy(sourceDir, materializedDir, { overwrite: false });
+                    target = projectRoot.resolve(plan.targetPath);
+                    candidateText = replaceFragmentReference(candidateText ?? originalText,
+                        request.overlayId, htmlPath, plan.targetPath, serializeEdit);
+                }
                 if (candidate !== source) {
                     this.recentWrites.set(target.toString(), Date.now());
-                    await this.fileService.writeFile(target, BinaryBuffer.fromString(candidate));
+                    await this.fileService.writeFile(target, BinaryBuffer.fromString(
+                        needsMaterialization ? withoutFragmentRootTiming(candidate) : candidate));
                 }
             }
-            if (resolved.candidateText) {
-                const candidateText = resolved.candidateText;
+            if (candidateText) {
                 const lintResult = await this.previewService.lintEditCandidate({
                     editUri: editUri.toString(),
                     candidateText
                 });
                 if (!lintResult.pass) {
-                    widget.sendMessage({
-                        type: 'akari-preview-overlay-write-response',
-                        requestId: request.requestId,
-                        ok: false,
-                        error: lintResult.errors[0] ?? 'edit-lint が変更を拒否しました'
-                    });
-                    return;
+                    throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 }
                 this.recentWrites.set(editUri.toString(), Date.now());
                 if ((request.patch.transform || request.patch.xyKeyframes) && request.patch.html === undefined) {
                     await this.persistPreviewTransform(editUri, candidateText, write);
                 } else {
+                    if (materializedDir) editTextToRestore = originalText;
                     await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
                 }
             }
@@ -7201,6 +7220,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ok: true
             });
         } catch (error) {
+            if (editTextToRestore !== undefined) {
+                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(editTextToRestore)).catch(() => undefined);
+            }
+            if (materializedDir) await this.fileService.delete(materializedDir, { recursive: true }).catch(() => undefined);
             widget.sendMessage({
                 type: 'akari-preview-overlay-write-response',
                 requestId: request.requestId,
