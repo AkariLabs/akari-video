@@ -7,8 +7,6 @@ export function assetTier(item) {
   return item.price === 0 ? 'free' : 'pro';
 }
 
-export function isAssetEntitled(item, entitlementIds) {
-  return entitlementIds.has('all-access-pass')
-    || entitlementIds.has(item.id)
-    || (typeof item.product_id === 'string' && entitlementIds.has(item.product_id));
+export function isAssetEntitled(_item, entitlementIds) {
+  return entitlementIds.has('all-access-pass');
 }
