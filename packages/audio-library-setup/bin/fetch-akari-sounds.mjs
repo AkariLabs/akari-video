@@ -246,6 +246,7 @@ export async function main() {
         const packDir = path.join(options.dest, pack.id);
         await mkdir(packDir, { recursive: true });
         const meta = buildPackLibraryMeta(pack, { tag: options.tag, fetchedAt });
+        meta.tier = 'free';
         await writeFile(path.join(packDir, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`);
         await writeFile(path.join(packDir, '.origin-catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
         const previewPath = path.join(packDir, 'preview.png');

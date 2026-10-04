@@ -80,8 +80,10 @@ test('pack meta builders produce schema v0-shaped metadata (library has no remot
     assert.equal(libraryMeta.license.attribution_required, false);
     assert.equal(libraryMeta.license.ai_training_allowed, false);
     assert.equal(libraryMeta.provenance.generator, 'suno');
+    assert.equal(libraryMeta.tier, 'free');
 
     const catalogMeta = buildPackCatalogMeta(pack, { tag: 'v0' });
     assert.equal(catalogMeta.remote, true);
+    assert.equal(catalogMeta.tier, 'free');
     assert.match(catalogMeta.source.url, /github\.com\/AkariLabs\/akari-sounds\/releases/);
 });

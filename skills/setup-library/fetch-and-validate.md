@@ -49,7 +49,7 @@ catalog 側の `meta.json` をベースに、次を変更する。
    `"catalog/<category>/<id> 由来 / 取得元: <source.url> / acquisition: <direct|login|purchase> / license_at_source: <...> / 取得日: YYYY-MM-DD"`
    分からない値を埋めない。取得日は実行日で確定する。
 3. `source` ブロックは残してもよい（schema 上、`remote` が無くても `source` object は valid）。機械可読な取得記録として残す場合は保持し、`source.url` は実際に取得したファイル/ページの URL に合わせて更新する。不要なら削除してよい。必須なのは 1・2 のみ。
-4. `license` / `tags` / `title` / `description` / `when_to_use` / `ai_usage` / `knobs` / `requires` / `author` / `price` は catalog 側の値を土台にする。authoring が必要な素材では、実際に作った `fragment.html` の CSS 変数・依存と食い違っていないか確認してから確定する。license が確定しない場合は `assets/` へ入れない。
+4. `license` / `tags` / `title` / `description` / `when_to_use` / `ai_usage` / `knobs` / `requires` / `author` / `tier` は catalog 側の値を土台にする。authoring が必要な素材では、実際に作った `fragment.html` の CSS 変数・依存と食い違っていないか確認してから確定する。license が確定しない場合は `assets/` へ入れない。
 
 ### font カテゴリの特例
 

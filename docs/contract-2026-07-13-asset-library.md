@@ -74,11 +74,11 @@ assets/                     ← 当面はローカルディレクトリ。コミ
   "author": "akari",
   "license": { "spdx": "MIT", "scope": "commercial-ok", "attribution_required": false,
                "ai_training_allowed": true },   // Fab の NoAI タグに相当する予約（市場化で必ず問われる）
-  "price": null                           // 予約フィールド（null = 無料。将来のマーケットプレイス用）
+  "tier": "free"                           // free / pro。price は廃止予定の任意フィールド
 }
 ```
 
-- `license` / `author` / `price` は**最初から予約**（後の販売プラットフォーム化で再梱包不要に）
+- `license` / `author` / `tier` は素材メタデータに記録する。`tier` は必須（free / pro）。
 - **`knobs.unit` は「値に付く CSS 単位」**（2026-07-29 明確化）。`px` / `s` のように実際に
   値へ付く単位だけを書き、**無単位の倍率・比率（短辺比など）では `unit` を省略する**。
   意味は `label` に書く（例「木枠の太さ（短辺比。0 で枠なし）」）。この規律により、
@@ -448,7 +448,7 @@ AKARI 配布元は URL を解析し、ホスト github.com かつパスの最初
 `license.attribution_required: true`、source がある場合はその attribution_required も true にする。
 
 取り込みの既定は `license.scope: "private-owned"`、`spdx: "LicenseRef-user-owned"`、
-`ai_training_allowed: false`、`price: 0`。利用者の手持ち素材として保管するための値であり、
+`ai_training_allowed: false`、`tier: "free"`。利用者の手持ち素材として保管するための値であり、
 素材そのものの著作権帰属・商用可否・再配布権を認定するものではない。
 サイト由来は source ブロックに配布ページと元の利用条件を残す。
 

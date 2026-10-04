@@ -30,6 +30,7 @@
     "attribution_required": true,
     "ai_training_allowed": false
   },
+  "tier": "free",
   "price": null,
   "source": {
     "url": "https://otologic.jp/free/se/",
