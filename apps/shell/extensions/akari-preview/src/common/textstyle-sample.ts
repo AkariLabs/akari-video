@@ -1,90 +1,70 @@
-import { resolveCaptionRichFillVars } from '@akari-video/edit-store/lib/caption-display';
+import { CAPTION_RICH_LAYER_CSS, resolveCaptionRichStrokes,
+    resolveCaptionStyleForOutput } from '@akari-video/edit-store/lib/caption-display';
+import { RESOLVED_SINGLE_LINE_CAPTION_CSS } from './caption-visual-contract';
 
-/** One compact CSS specimen for the library shelf and the caption inspector. */
 export const TEXTSTYLE_SHOWCASE_COMMAND_ID = 'akari.library.listTextstyleShowcase';
-/** Mirrors caption-display's fallback font size until edit-store exports it. */
 export const CAPTION_DEFAULT_SIZE_PX = 38;
 
-/** React adds px to numeric lengths; direct DOM style assignment needs it explicitly. */
-export function applyLibraryTextStyleSample(style: CSSStyleDeclaration,
-    sample: Record<string, string | number>): void {
-    for (const [key, value] of Object.entries(sample)) {
-        (style as unknown as Record<string, string>)[key] = typeof value === 'number' && key === 'fontSize'
-            ? `${value}px` : String(value);
-    }
+export interface LibraryTextStyleSample {
+    vars: Record<string, string>;
+    strokes: Record<string, string>[];
+    rich: boolean;
+    frameFit: boolean;
+    // Read-only compatibility fields for callers that inspect the old sample shape.
+    backgroundImage?: string;
+    WebkitTextStroke?: string;
+    fontWeight: number;
+    fontSize: number;
+    textShadow?: string;
+    textTransform?: string;
 }
 
-export function libraryTextStyleSample(raw: Record<string, unknown>): Record<string, string | number> {
-    const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value)
-        ? value as Record<string, unknown> : {};
-    const sourceSize = typeof raw.size_px === 'number' && raw.size_px > 0 ? raw.size_px : CAPTION_DEFAULT_SIZE_PX;
-    const previewSize = 20;
-    const ratio = previewSize / sourceSize;
-    const px = (value: unknown): number => typeof value === 'number' ? value * ratio : 0;
-    const stroke = object(raw.stroke);
-    const background = object(raw.background);
-    const shadow = object(raw.shadow);
-    const glow = object(raw.glow);
-    const result: Record<string, string | number> = {
-        color: typeof raw.color === 'string' ? raw.color : '#ffffff',
-        fontSize: previewSize,
-        fontWeight: typeof raw.weight === 'number' ? raw.weight
-            : typeof raw.font_weight === 'number' ? raw.font_weight : 700,
-        fontFamily: typeof raw.font_family === 'string' ? raw.font_family : 'inherit',
-        letterSpacing: typeof raw.letter_spacing_em === 'number' ? `${raw.letter_spacing_em}em` : 'normal',
-        textTransform: typeof raw.text_transform === 'string' ? raw.text_transform : 'none',
-        borderRadius: `${px(background.radius_px)}px`,
-        padding: typeof background.padding_px === 'number' ? `${px(background.padding_px)}px` : '2px 5px',
-        paintOrder: 'stroke fill'
+/** Same caption CSS and layer order as preview/export, with only card geometry overridden. */
+export const LIBRARY_TEXTSTYLE_SAMPLE_CSS = RESOLVED_SINGLE_LINE_CAPTION_CSS + CAPTION_RICH_LAYER_CSS
+    + '.akari-caption--sample{position:relative;inset:auto;display:inline-block;max-width:none;pointer-events:none;line-height:1.2;white-space:pre;text-align:center;}'
+    + '.akari-caption--sample .akari-caption__plate{position:relative;top:auto;bottom:auto;left:auto;right:auto;translate:none;display:inline-flex;width:auto;max-width:none;transform:none;}'
+    + '.akari-caption--sample .akari-caption__line{position:relative;isolation:isolate;box-sizing:border-box;display:block;max-width:none;white-space:pre;}'
+    + '.akari-caption--sample .akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,0);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
+    + '.akari-caption--sample.akari-caption--sample-frame{display:block;width:100%;}.akari-caption--sample-frame .akari-caption__plate,.akari-caption--sample-frame .akari-caption__line{box-sizing:border-box;width:100%;}'
+    + '.akari-caption--sample .akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;white-space:pre;}'
+    + '.akari-caption--sample.akari-caption--rich{background-image:none!important;}';
+
+export function applyLibraryTextStyleSample(style: CSSStyleDeclaration, sample: LibraryTextStyleSample): void {
+    for (const [name, value] of Object.entries(sample.vars)) style.setProperty(name, value);
+    // Older inspector consumers inspect these properties. Rich text paints in child layers.
+    style.fontSize = `${sample.fontSize}px`;
+    style.fontWeight = String(sample.fontWeight);
+    if (sample.WebkitTextStroke) (style as unknown as Record<string, string>).WebkitTextStroke = sample.WebkitTextStroke;
+    if (sample.textShadow) style.textShadow = sample.textShadow;
+    if (sample.backgroundImage) style.backgroundImage = sample.backgroundImage;
+    if (sample.textTransform) style.textTransform = sample.textTransform;
+}
+
+export function libraryTextStyleSample(raw: Record<string, unknown>): LibraryTextStyleSample {
+    const sourceSize = typeof raw.size_px === 'number' && Number.isFinite(raw.size_px) && raw.size_px > 0
+        ? raw.size_px : CAPTION_DEFAULT_SIZE_PX;
+    const referenceHeight = typeof raw.reference_height_px === 'number' && Number.isFinite(raw.reference_height_px)
+        && raw.reference_height_px > 0 ? raw.reference_height_px : sourceSize;
+    const height = referenceHeight * 20 / sourceSize;
+    const output = { width: height * 16 / 9, height };
+    const style = raw.reference_height_px === undefined ? { ...raw, reference_height_px: referenceHeight } : raw;
+    const vars = resolveCaptionStyleForOutput(style, output).vars;
+    const strokes = resolveCaptionRichStrokes(style, output);
+    const firstStroke = strokes[0];
+    const rich = raw.fill !== undefined || raw.strokes !== undefined;
+    return {
+        vars, strokes, rich,
+        frameFit: vars['--caption-plate-fit'] === 'frame',
+        backgroundImage: vars['--caption-rich-fill-image'],
+        WebkitTextStroke: rich && firstStroke ? `${firstStroke['--caption-rich-stroke-width']} ${firstStroke['--caption-rich-stroke-color']}`
+            : vars['--caption-webkit-text-stroke'] ?? vars['--caption-stroke'],
+        fontWeight: Number(vars['--caption-font-weight'] ?? 700),
+        fontSize: 20,
+        textShadow: rich ? [vars['--caption-text-shadow'], ...strokes.map(layer =>
+            `0px 0px 0px ${layer['--caption-rich-stroke-color']}`),
+            typeof (raw.glow as { color?: unknown } | undefined)?.color === 'string'
+                ? `0px 0px 0px ${(raw.glow as { color: string }).color}` : undefined].filter(Boolean).join(', ')
+            : vars['--caption-text-shadow'],
+        textTransform: vars['--caption-text-transform']
     };
-    if (typeof background.color === 'string' && background.opacity !== 0) {
-        const opacity = typeof background.opacity === 'number' ? Math.max(0, Math.min(1, background.opacity)) : 1;
-        result.backgroundColor = `color-mix(in srgb, ${background.color} ${Math.round(opacity * 100)}%, transparent)`;
-    }
-    const richStrokes = Array.isArray(raw.strokes) ? raw.strokes.filter(objectEntry =>
-        objectEntry && typeof objectEntry === 'object' && !Array.isArray(objectEntry)) as Record<string, unknown>[] : [];
-    const outer = richStrokes[0] ?? stroke;
-    if (typeof outer.color === 'string' && typeof outer.width_px === 'number' && outer.width_px > 0) {
-        result.WebkitTextStroke = `${Math.max(0.5, px(outer.width_px) * (richStrokes.length ? 2 : 1))}px ${outer.color}`;
-    }
-    const shadows: string[] = [];
-    for (const layer of richStrokes.slice(1)) {
-        if (typeof layer.color !== 'string' || typeof layer.width_px !== 'number') continue;
-        const radius = px(layer.width_px);
-        const offsetX = px(layer.offset_x);
-        const offsetY = px(layer.offset_y);
-        for (const [x, y] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-0.7, -0.7], [0.7, -0.7],
-            [-0.7, 0.7], [0.7, 0.7]]) shadows.push(`${offsetX + x * radius}px ${offsetY + y * radius}px 0 ${layer.color}`);
-    }
-    if (typeof shadow.color === 'string' && shadow.opacity !== 0) {
-        const angle = (typeof shadow.angle_deg === 'number' ? shadow.angle_deg : 45) * Math.PI / 180;
-        const distance = px(shadow.distance_px);
-        const blur = px(shadow.blur_px);
-        const opacity = typeof shadow.opacity === 'number' ? Math.max(0, Math.min(1, shadow.opacity)) : 1;
-        shadows.push(`${Math.cos(angle) * distance}px ${Math.sin(angle) * distance}px ${blur}px `
-            + `color-mix(in srgb, ${shadow.color} ${Math.round(opacity * 100)}%, transparent)`);
-    }
-    if (typeof glow.color === 'string' && glow.density !== 0) {
-        const strength = typeof glow.density === 'number' ? Math.max(0, Math.min(100, glow.density)) : 100;
-        shadows.push(`${px(glow.offset_x)}px ${px(glow.offset_y)}px ${px(glow.spread)}px `
-            + `color-mix(in srgb, ${glow.color} ${strength}%, transparent)`);
-    }
-    if (shadows.length) result.textShadow = shadows.join(', ');
-    const fill = object(raw.fill);
-    if (fill.type === 'solid' && typeof fill.color === 'string') result.color = fill.color;
-    const pattern = object(fill.pattern);
-    const richFill = fill.type === 'gradient' && typeof fill.angle_deg === 'number' && Array.isArray(fill.stops)
-        && fill.stops.every(stop => typeof stop?.color === 'string' && typeof stop?.at === 'number')
-        || fill.type === 'pattern' && typeof pattern.scale === 'number' && pattern.scale > 0
-        && ['diamond', 'dot', 'stripe', 'gingham', 'skull', 'hazard', 'night', 'heart', 'thunder'].includes(String(pattern.id));
-    if (richFill) {
-        const vars = resolveCaptionRichFillVars(fill, ratio);
-        result.backgroundImage = vars['--caption-rich-fill-image'];
-        result.backgroundSize = vars['--caption-rich-fill-size'];
-        result.backgroundPosition = vars['--caption-rich-fill-position'];
-        result.backgroundClip = 'text';
-        result.WebkitBackgroundClip = 'text';
-        result.WebkitTextFillColor = 'transparent';
-    }
-    return result;
 }

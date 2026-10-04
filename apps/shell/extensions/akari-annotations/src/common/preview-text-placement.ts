@@ -1,7 +1,7 @@
-import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
+import { TEXTSTYLE_CATALOG, captionStyleFitsFrame } from '@akari-video/edit-store';
 
 type Look = { size_px?: number; reference_height_px?: number; letter_spacing_em?: number;
-    background?: { padding_px?: number } };
+    background?: { padding_px?: number; fit?: string } };
 type DefaultLook = { sizePx?: number; referenceHeightPx?: number; letterSpacingEm?: number;
     background?: { paddingPx?: number } };
 
@@ -10,13 +10,14 @@ const positive = (value: unknown): value is number => typeof value === 'number' 
 /** 明示 x は板の左端、mc の y は板の中心。両消費者の既存 CSS と同じ座標に写す。 */
 export function centeredPreviewTextPlacement(input: {
     point: { x: number; y: number }; output: { width: number; height: number };
-    text?: string; stylePreset?: string; myStyleLook?: unknown; defaultStyle?: DefaultLook;
-}): { position: { x: number; y: number }; textAnchor: 'mc' } {
+    text?: string; stylePreset?: string; stylePresetLook?: unknown; myStyleLook?: unknown; defaultStyle?: DefaultLook;
+}): { position: { x?: number; y: number }; textAnchor: 'mc' } {
     const { point, output } = input;
     const preset = input.stylePreset ? TEXTSTYLE_CATALOG[input.stylePreset]?.style as Look | undefined : undefined;
     const look = input.myStyleLook && typeof input.myStyleLook === 'object' && !Array.isArray(input.myStyleLook)
         ? input.myStyleLook as Look : undefined;
-    const selected = look ?? preset;
+    const selected = look ?? (input.stylePresetLook as Look | undefined) ?? preset;
+    if (captionStyleFitsFrame(selected)) return { position: { y: Math.min(1, Math.max(0, point.y)) }, textAnchor: 'mc' };
     const defaultSize = output.height > output.width ? Math.round(output.width * 0.06) : 38;
     const declaredSize = selected?.size_px ?? input.defaultStyle?.sizePx;
     const referenceHeight = selected?.reference_height_px ?? input.defaultStyle?.referenceHeightPx;

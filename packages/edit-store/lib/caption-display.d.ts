@@ -228,7 +228,9 @@ export declare function scaleCaptionPx(value: number, scale: number): number;
  * b は下端、t は上端、m は中心をその座標へ合わせる。
  * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
  */
-export declare function captionAnchorPositionVars(anchorValue: unknown, positionValue: unknown, verticalAlignValue: unknown): Record<string, string>;
+export declare function captionAnchorPositionVars(anchorValue: unknown, positionValue: unknown, verticalAlignValue: unknown, frameFit?: boolean): Record<string, string>;
+/** The resolved vars and the source style are both valid entry points for preview captions. */
+export declare function captionStyleFitsFrame(style: unknown, vars?: Record<string, string>): boolean;
 export declare function deriveMetallicStops(hue: string, variant: 'gold' | 'navy'): Array<{
     at: number;
     color: string;

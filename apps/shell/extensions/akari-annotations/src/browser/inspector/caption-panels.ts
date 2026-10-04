@@ -5,7 +5,7 @@ import { captionFontRowDetail, captionFontWeights, captionPanelTextStyle,
     renderableCaptionFonts, type CaptionPanel } from '../../common/caption-panel-state';
 import type { CaptionTextStyle } from '../../common/caption-store';
 import { CAPTION_SAMPLE_TEXT, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
-import { applyLibraryTextStyleSample, CAPTION_DEFAULT_SIZE_PX,
+import { applyLibraryTextStyleSample, CAPTION_DEFAULT_SIZE_PX, LIBRARY_TEXTSTYLE_SAMPLE_CSS,
     libraryTextStyleSample } from 'akari-preview/lib/common/textstyle-sample';
 import { scaledLookForCaption } from '../my-style-look';
 
@@ -79,7 +79,7 @@ export const CAPTION_PANEL_CSS = `
 .akari-caption-style-card .akari-caption-hover-preview { width:100%!important;height:62px!important; }
 .akari-caption-style-specimen { display:flex;align-items:center;justify-content:center;height:62px;overflow:hidden;white-space:nowrap; }
 .akari-caption-style-card > span { font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-`;
+` + LIBRARY_TEXTSTYLE_SAMPLE_CSS;
 
 function button(document: Document, label: string, action: () => void, attribute?: [string, string]): HTMLButtonElement {
     const element = document.createElement('button');
@@ -125,9 +125,36 @@ function sampleCard(document: Document, id: string, name: string, raw: Record<st
     sample.style.display = 'none';
     const specimen = document.createElement('div');
     specimen.className = 'akari-caption-style-specimen';
+    const look = libraryTextStyleSample(raw);
     const face = document.createElement('span');
-    face.textContent = CAPTION_SAMPLE_TEXT;
-    applyLibraryTextStyleSample(face.style, libraryTextStyleSample(raw));
+    face.className = 'akari-caption akari-caption--single-line akari-caption--sample'
+        + (look.rich ? ' akari-caption--rich' : '') + (look.frameFit ? ' akari-caption--sample-frame' : '');
+    applyLibraryTextStyleSample(face.style, look);
+    const plate = document.createElement('span');
+    plate.className = 'akari-caption__plate';
+    const line = document.createElement('span');
+    line.className = 'akari-caption__line';
+    if (look.rich) {
+        const token = document.createElement('span');
+        token.className = 'akari-caption__tok';
+        const segment = document.createElement('span');
+        segment.className = 'akari-caption__rich-segment';
+        for (const [index, kind] of ['shadow', ...look.strokes.map(() => 'stroke'), 'fill'].entries()) {
+            const layer = document.createElement('span');
+            layer.className = `akari-caption__rich-${kind}`;
+            layer.textContent = CAPTION_SAMPLE_TEXT;
+            if (kind !== 'fill') layer.setAttribute('aria-hidden', 'true');
+            if (kind === 'stroke') {
+                const vars = look.strokes[index - 1];
+                for (const [name, value] of Object.entries(vars ?? {})) layer.style.setProperty(name, value);
+            }
+            segment.append(layer);
+        }
+        token.append(segment);
+        line.append(token);
+    } else line.textContent = CAPTION_SAMPLE_TEXT;
+    plate.append(line);
+    face.append(plate);
     specimen.append(face);
     const label = document.createElement('span');
     label.textContent = name;

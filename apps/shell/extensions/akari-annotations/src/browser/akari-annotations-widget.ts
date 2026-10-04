@@ -4565,6 +4565,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? centeredPreviewTextPlacement({ point: options.center,
                     output: { width: output!.width!, height: output!.height! }, text: options.text,
                     stylePreset: options.stylePreset,
+                    stylePresetLook: options.stylePresetLook,
                     myStyleLook: options.myStyle?.parts.find(part => part.kind === 'look')?.text_style,
                     defaultStyle: parsedCaptions.defaultTextStyle }) : undefined;
             const parsedEdit = JSON.parse(editSource) as EditV2Document;

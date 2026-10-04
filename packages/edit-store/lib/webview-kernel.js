@@ -5820,7 +5820,7 @@ var AkariEditKernel = (() => {
   function scaleCaptionPx(value, scale) {
     return scale === 1 ? value : Number((value * scale).toFixed(6));
   }
-  function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
+  function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue, frameFit = false) {
     const anchor = typeof anchorValue === "string" && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue) ? anchorValue : void 0;
     const position = isRecord4(positionValue) ? positionValue : void 0;
     const verticalAlign = typeof verticalAlignValue === "string" && CAPTION_VERTICAL_ALIGN_VALUES.has(verticalAlignValue) ? verticalAlignValue : void 0;
@@ -5845,7 +5845,9 @@ var AkariEditKernel = (() => {
       vars["--caption-bottom"] = vertical === "b" ? "7%" : vertical === "m" ? "0" : "auto";
       if (vertical === "m") vars["--caption-justify-content"] = "center";
     }
-    if (typeof position?.x === "number" && Number.isFinite(position.x)) {
+    if (frameFit) {
+      vars["--caption-text-align"] = "center";
+    } else if (typeof position?.x === "number" && Number.isFinite(position.x)) {
       const left = Math.round(position.x * 1e4) / 100;
       vars["--caption-left"] = `${left}%`;
       vars["--caption-right"] = `${Math.round((8 - left) * 100) / 100}%`;
@@ -5862,6 +5864,10 @@ var AkariEditKernel = (() => {
       vars["--caption-line-max-width"] = "100%";
     }
     return vars;
+  }
+  function captionStyleFitsFrame(style, vars) {
+    const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    return object(style) && object(style.background) && style.background.fit === "frame" || vars?.["--caption-plate-fit"] === "frame";
   }
   function cssCaptionFontFamily(value) {
     if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim())) return value;
@@ -6033,10 +6039,12 @@ var AkariEditKernel = (() => {
     const textShadow = captionRichTextShadowValue(style, scale);
     if (textShadow !== null) vars["--caption-text-shadow"] = textShadow;
     Object.assign(vars, captionZoneVars(style.zone));
+    const frameFit = captionStyleFitsFrame(style, vars);
     Object.assign(vars, captionAnchorPositionVars(
       style.text_anchor,
       style.position,
-      style.vertical ? void 0 : style.vertical_align
+      style.vertical ? void 0 : style.vertical_align,
+      frameFit
     ));
     if (style.vertical && isRecord4(style.position) && finiteNumber(style.position.x)) {
       vars["--caption-right"] = "auto";
@@ -6055,8 +6063,19 @@ var AkariEditKernel = (() => {
     if (style.vertical && vars["--caption-left"] !== void 0 && vars["--caption-left"] !== "auto" && vars["--caption-right"] !== void 0 && vars["--caption-right"] !== "auto") {
       vars["--caption-right"] = "auto";
     }
-    if (style.align) {
+    if (style.align && !frameFit) {
       vars["--caption-text-align"] = style.align;
+    }
+    if (frameFit) {
+      for (const name of [
+        "--caption-left",
+        "--caption-right",
+        "--caption-width",
+        "--caption-align-items",
+        "--caption-line-margin",
+        "--caption-line-max-width"
+      ]) delete vars[name];
+      vars["--caption-text-align"] = "center";
     }
     return vars;
   }

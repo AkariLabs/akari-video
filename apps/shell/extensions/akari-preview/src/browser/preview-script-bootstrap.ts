@@ -28,6 +28,7 @@ import { createMotionDrawPointerOwnership } from '../common/preview-motion-point
 import {
     applyCaptionRunsToHtml,
     CAPTION_RICH_LAYER_CSS,
+    captionStyleFitsFrame,
     alignCaptionRichFillPhase,
     isAudioItemAudible,
     resolveInternalTrackZ,
@@ -5347,6 +5348,9 @@ export function previewBootstrapScript(): string {
             });
             const captionWrapHeightDragFn = (${captionWrapHeightDrag.toString()});
             const beginCaptionHandleDrag = (event, handle, caption, cueId) => {
+                const frameCaptionPosition = (candidate, value) => candidate?.textStyle?.background?.fit === 'frame'
+                    || candidate?.textStyleVars?.['--caption-plate-fit'] === 'frame'
+                    ? { ...value, anchor: value.anchor[0] + 'c', position: { y: value.position.y } } : value;
                 const captionPlate = handle.closest('.caption-row-plate') || selectedCaptionPlate();
                 const kind = handle.getAttribute('data-h');
                 if (!['nw', 'ne', 'sw', 'se', 'rot', 'e', 'w', 'n', 's', 'move'].includes(kind)) return false;
@@ -5474,7 +5478,7 @@ export function previewBootstrapScript(): string {
                             wrap.top + anchorDelta.y,
                             outputWidth, outputHeight);
                         patch = { wrapWidthPct: wrap.heightPct,
-                            cuePosition: { captionId: cueId, value: placement } };
+                            cuePosition: { captionId: cueId, value: frameCaptionPosition(caption, placement) } };
                         captionPlate.style.setProperty('--caption-left', placement.position.x * 100 + '%');
                         captionPlate.style.setProperty('--caption-top', placement.position.y * 100 + '%');
                     } else if (kind === 'e' || kind === 'w') {
@@ -5495,9 +5499,7 @@ export function previewBootstrapScript(): string {
                             layoutRect.top + anchorDelta.y,
                             outputWidth, outputHeight);
                         patch = { wrapWidthPct: wrap.widthPct,
-                            cuePosition: { captionId: cueId, value: {
-                                ...placement
-                            } } };
+                            cuePosition: { captionId: cueId, value: frameCaptionPosition(caption, placement) } };
                         captionPlate.style.setProperty('--caption-left', placement.position.x * 100 + '%');
                         captionPlate.style.setProperty('--caption-top', placement.position.y * 100 + '%');
                     } else {
@@ -5505,8 +5507,8 @@ export function previewBootstrapScript(): string {
                         const outputWidth = Number(summary.output?.width) || 1280;
                         const outputHeight = Number(summary.output?.height) || 720;
                         patch = { scale: next.scale, cuePosition: { captionId: cueId,
-                            value: { anchor: 'tl', position: { x: next.left / outputWidth,
-                                y: next.top / outputHeight } } } };
+                            value: frameCaptionPosition(caption, { anchor: 'tl', position: { x: next.left / outputWidth,
+                                y: next.top / outputHeight } }) } };
                         captionPlate.style.setProperty('--caption-left', next.left / outputWidth * 100 + '%');
                         captionPlate.style.setProperty('--caption-top', next.top / outputHeight * 100 + '%');
                         captionPlate.style.setProperty('--caption-bottom', 'auto');
@@ -5572,6 +5574,9 @@ export function previewBootstrapScript(): string {
                 return true;
             };
             const onCaptionPointerDown = event => {
+                const frameCaptionPosition = (candidate, value) => candidate?.textStyle?.background?.fit === 'frame'
+                    || candidate?.textStyleVars?.['--caption-plate-fit'] === 'frame'
+                    ? { ...value, anchor: value.anchor[0] + 'c', position: { y: value.position.y } } : value;
                 if (activeCaptionEdit) return;
                 if (event.button !== 0) return;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
@@ -5777,20 +5782,20 @@ export function previewBootstrapScript(): string {
                     pendingCaptionDragReload = true;
                     try {
                         if (groupMode) {
-                            const groupPosition = captionGroupPositionFromRects(
+                            const groupPosition = frameCaptionPosition(caption, captionGroupPositionFromRects(
                                 captionVisualRect(),
                                 captionLayoutRect(),
                                 outputFrame,
                                 startAnchor,
                                 startTransform
-                            );
+                            ));
                             await window.akari.engine.captionWrite(cueId, { groupPosition });
                         } else if (duplicatePlacedText) {
-                            const cuePosition = captionPositionFromVisualRect(
+                            const cuePosition = frameCaptionPosition(caption, captionPositionFromVisualRect(
                                 captionVisualRect(), captionLayoutRect(), outputFrame,
                                 { anchor: startAnchor, clamp: clampOn,
                                     timeDomain: caption.timeDomain, ...startTransform }
-                            );
+                            ));
                             await window.akari.engine.captionWrite(cueId, { duplicate: cuePosition });
                             captionPlate.style.translate = '';
                         } else if (multiMove) {
@@ -5805,10 +5810,10 @@ export function previewBootstrapScript(): string {
                                 };
                                 const anchor = target.textStyle?.text_anchor || 'bc';
                                 const clamp = captionClampEnabled(target);
-                                const value = captionPositionFromVisualRect(
+                                const value = frameCaptionPosition(target, captionPositionFromVisualRect(
                                     movedRect, startLayoutRects.get(id), outputFrame,
                                     { anchor, clamp, timeDomain: target.timeDomain, ...startTransforms.get(id) }
-                                );
+                                ));
                                 return { captionId: id, value };
                             });
                             for (const { captionId, value } of cuePositions) {
@@ -5822,6 +5827,7 @@ export function previewBootstrapScript(): string {
                                 { anchor: startAnchor, clamp: clampOn,
                                     timeDomain: caption.timeDomain, ...startTransform }
                             );
+                            Object.assign(cuePosition, frameCaptionPosition(caption, cuePosition));
                             rememberThisCaptionPosition(cueId, cuePosition);
                             await window.akari.engine.captionWrite(cueId, {
                                 cuePosition
@@ -6695,6 +6701,7 @@ export function previewBootstrapScript(): string {
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+            const captionStyleFitsFrameFn = (${captionStyleFitsFrame.toString()});
             const formatCaptionSeconds = value => String(Math.round(value * 1000) / 1000);
             const groupWordsIntoLines = (words, maximum = 13) => {
                 const lines = [];
@@ -7193,7 +7200,7 @@ export function previewBootstrapScript(): string {
                     ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
                     : '';
-                const frameFitCss = caption.textStyle?.background?.fit === 'frame'
+                const frameFitCss = captionStyleFitsFrameFn(caption.textStyle, caption.textStyleVars)
                     ? '.akari-caption__plate{left:4%;right:4%;width:auto;}'
                         + '.akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;}'
                         + '.akari-caption__line::before{left:0;right:0;}'
@@ -7249,7 +7256,7 @@ export function previewBootstrapScript(): string {
                     const resolvedRunPlateCss = captionHasScaledRun(caption)
                         ? '.akari-caption--single-line .akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);max-width:none;}'
                         : '';
-                    const resolvedFrameCss = caption.textStyleVars?.['--caption-plate-fit'] === 'frame'
+                    const resolvedFrameCss = captionStyleFitsFrameFn(caption.textStyle, caption.textStyleVars)
                         ? '.akari-caption--single-line .akari-caption__plate{left:4%;right:4%;width:auto;box-sizing:border-box;}'
                             + '.akari-caption--single-line .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;background:var(--plate-bg,var(--plate-ext-bg,transparent));border-radius:var(--plate-radius,var(--plate-ext-radius,0));}'
                         : '';
@@ -7317,7 +7324,7 @@ export function previewBootstrapScript(): string {
                     ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
                     : '';
-                const frameFitCss = caption.textStyle?.background?.fit === 'frame'
+                const frameFitCss = captionStyleFitsFrameFn(caption.textStyle, caption.textStyleVars)
                     ? '.akari-caption__plate{left:4%;right:4%;width:auto;}'
                         + '.akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;}'
                         + '.akari-caption__line::before{left:0;right:0;}'

@@ -36,3 +36,10 @@ test('マイスタイルは参照高さに合わせた文字寸法で配置す�
     assert.ok(Math.abs(placement.position.x * 1280 + width / 2 - 640) < 0.01);
     assert.equal(placement.textAnchor, 'mc');
 });
+
+test('frame fit preset placement stores only vertical position', () => {
+    const placement = centeredPreviewTextPlacement({ point: { x: 0.2, y: 0.4 }, output,
+        stylePresetLook: { size_px: 56, background: { fit: 'frame' } } });
+    assert.deepEqual(placement.position, { y: 0.4 });
+    assert.deepEqual(placeTextCaption({ ...placement, start: 3 }, 0, 12, []).textStyle.position, { y: 0.4 });
+});

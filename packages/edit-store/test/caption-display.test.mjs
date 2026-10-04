@@ -9,6 +9,7 @@ import {
   CaptionDisplayError,
   captionBreakBoundaryBlocked,
   captionAnchorPositionVars,
+  captionStyleFitsFrame,
   dedupeCaptionOccurrences,
   foldCaptionLines,
   joinCaptionLines,
@@ -995,6 +996,19 @@ test('captionAnchorPositionVars maps the nine anchors and 0..1 positions like th
   assert.deepEqual(captionAnchorPositionVars(undefined, undefined, 'middle')['--caption-top'], '0');
   assert.deepEqual(captionAnchorPositionVars('zz', undefined, undefined), {}, 'invalid anchor is ignored');
   assert.deepEqual(captionAnchorPositionVars(undefined, undefined, undefined), {});
+});
+
+test('frame fit ignores explicit x and keeps the full centered plate', () => {
+  const vars = resolveCaptionStyleForOutput({ background: { fit: 'frame', color: '#123456' },
+    text_anchor: 'mc', position: { x: 0.13, y: 0.4 } }, { width: 800, height: 450 }).vars;
+  for (const name of ['--caption-left', '--caption-right', '--caption-width', '--caption-align-items',
+    '--caption-line-margin', '--caption-line-max-width']) assert.equal(vars[name], undefined, name);
+  assert.equal(vars['--caption-top'], '40%');
+  assert.equal(vars['--caption-plate-fit'], 'frame');
+  assert.equal(captionStyleFitsFrame(undefined, vars), true, 'resolved preview path recognizes fit');
+  assert.equal(captionStyleFitsFrame({ background: { fit: 'frame' } }), true, 'source preview path recognizes fit');
+  assert.equal(resolveCaptionStyleForOutput({ text_anchor: 'mc', position: { x: 0.13, y: 0.4 } },
+    { width: 800, height: 450 }).vars['--caption-left'], '13%');
 });
 
 test('captionAnchorPositionVars places bc position.y at the plate bottom edge', () => {
