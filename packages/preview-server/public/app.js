@@ -70,6 +70,7 @@ import { outputSizePx, cropOf, layerIntrinsicSize, perspectiveOf, layerRectForVi
 import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup, getActiveCaptions } from '/caption-markup.js';
 import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
 import { clipLookForCut, sourceEffectsForCut, layerChromaEffects } from '/video-fx-source.js';
+import { engineRenderTime, transitionAudioBoundaries, snapToCut } from '/timeline-read.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -380,7 +381,7 @@ async function init() {
         requestAudioRefresh();
       }
       // 終端位置ではなく最後の有効フレームを要求する（第16項。engineRenderTime の注記参照）。
-      outputTime = frameEnginePreview.seek(engineRenderTime(outputTime));
+      outputTime = frameEnginePreview.seek(engineRenderTime(totalDuration, fps, outputTime));
     }
     await window.__akariCaptionFontReady;
     captionFontsReady = true;
@@ -413,33 +414,13 @@ async function init() {
   }
 }
 
-// 不具合メモ 第16項（最終フレームの次の終端位置で追加映像だけ消える）。
-// 総尺（totalDuration）は「最後の有効フレームの **次**」= 終端位置で、そこに有効なフレームは無い。
-// frame-engine の追加映像（layers[]）は `frame >= startFrame && frame < endFrame` の半開区間で
-// 可視判定する（packages/frame-engine/src/timeline/plan.ts の isLayerActiveAt）ため、終了位置が
-// 総尺と一致するレイヤーは終端位置の描画要求でちょうど外れる。一方ベース映像は最後の画を保持する
-// ので「左（ベース）は残って右（追加映像）だけ黒くなる」に見えた（実機: 総尺 158682 フレーム・
-// 30fps・bookend-outro-right が 158401 開始 / 281 フレームで終了位置 158682）。
-// 半開区間の判定は frame-engine の正本なので触らず、**要求側でフレームを揃える**:
-// 描画要求は必ず最後の有効フレームまでに丸める（総尺そのものは要求しない）。
-// 総尺の表示・シークバーの上限は従来どおり totalDuration のまま（尺は 1 フレームも変えない）。
-function lastRenderableFrame() {
-  // フレーム数は frame-engine の可視判定と同じ切り上げ規律（`ceil(sec * fps - 1e-6)`）で数える。
-  return Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1);
-}
-function engineRenderTime(t) {
-  const clamped = Math.max(0, Math.min(Number.isFinite(t) ? t : 0, totalDuration));
-  if (!(fps > 0) || !(totalDuration > 0)) return clamped;
-  return Math.min(clamped, lastRenderableFrame() / fps);
-}
-
 function applyFrameEngineSnapshot() {
   const snapshot = frameEnginePreview?.snapshot();
   if (!snapshot) return;
   totalDuration = snapshot.totalDuration;
   segments = snapshot.segments;
   seek.max = totalDuration;
-  outputTime = engineRenderTime(outputTime);
+  outputTime = engineRenderTime(totalDuration, fps, outputTime);
   frameEngineRequestedTime = outputTime;
   seek.value = outputTime;
   updateTimeLabel();
@@ -2097,13 +2078,9 @@ function teardownTimelineAudioGraph() {
   sfxNodes = [];
 }
 
-function transitionAudioBoundaries() {
-  return (timelineMap.transitionWindows ?? []).map(window => ({ at: window.end, duration: window.duration }));
-}
-
 function updateBaseAudioTransition(t) {
   if (!audioCtx || !baseAudioTransitionGain) return;
-  const target = transitionApproximationGain(t, transitionAudioBoundaries());
+  const target = transitionApproximationGain(t, transitionAudioBoundaries(timelineMap));
   const param = baseAudioTransitionGain.gain;
   const now = audioCtx.currentTime;
   param.cancelScheduledValues(now);
@@ -2574,7 +2551,7 @@ function seekTo(t) {
   if (frameEngineEnabled) {
     // 終端へのシーク（End キー・シークバー右端・波形の末尾クリック・再構築後の位置復元）も
     // 最後の有効フレームへ揃える（第16項。engineRenderTime の注記参照）。
-    frameEngineRequestedTime = engineRenderTime(outputTime);
+    frameEngineRequestedTime = engineRenderTime(totalDuration, fps, outputTime);
     outputTime = frameEnginePreview?.seek(frameEngineRequestedTime) ?? frameEngineRequestedTime;
     updateAudioStatus();
     requestAudioPriority(outputTime);
@@ -2706,8 +2683,8 @@ function playbackLoop() {
     // 停止判定は素の壁時計で行う（尺は変えない）。描画要求だけを最後の有効フレームへ丸める
     // -- renderPlayback は `Math.round(sec * fps)` で要求フレームを決めるため、丸めずに渡すと
     // 末尾の半フレーム手前（158681.5）で終端フレームを要求し、追加映像だけが消える（第16項）。
-    if (frameEngineRequestedTime >= totalDuration) { outputTime = engineRenderTime(totalDuration); pause(); return; }
-    const frameEngineRenderTime = engineRenderTime(frameEngineRequestedTime);
+    if (frameEngineRequestedTime >= totalDuration) { outputTime = engineRenderTime(totalDuration, fps, totalDuration); pause(); return; }
+    const frameEngineRenderTime = engineRenderTime(totalDuration, fps, frameEngineRequestedTime);
     outputTime = frameEnginePreview?.renderPlayback(frameEngineRenderTime) ?? frameEngineRenderTime;
     // 音声の最初の窓が揃うまでは絵の時計も開始位置に留める（frame-engine 側のゲート）。
     const held = frameEnginePreview?.heldStartSec() ?? null;
@@ -3311,19 +3288,6 @@ seek.addEventListener('input', () => {
 // （seek-visual は pointer-events:none でクリックを受けられないため range 側で受ける）
 seek.title = 'ドラッグ / クリックで移動・ダブルクリックでカット情報';
 seek.addEventListener('dblclick', () => { showCutInfoAt(Number(seek.value)); });
-// カット境界へジャンプ（P2-2: 旧実装は区間内の t をそのまま返す恒等関数だった）
-function snapToCut(t, dir) {
-  if (!segments.length) return t;
-  const EPS = 0.001;
-  const bounds = [...new Set(segments.flatMap(seg => [seg.outStart, seg.outEnd]))]
-    .sort((left, right) => left - right);
-  if (dir > 0) {
-    const next = bounds.find(b => b > t + EPS);
-    return next !== undefined ? next : t;
-  }
-  const prev = bounds.filter(b => b < t - EPS).pop();
-  return prev !== undefined ? prev : 0;
-}
 
 // 文字入力を受ける input 型だけ素通しする（シェルの isEditable と同じ判定）。
 // INPUT を無差別に除外すると、シークバー（type=range）をクリックした後フォーカスが
@@ -3344,8 +3308,8 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowDown': e.preventDefault(); pause(); seekTo(outputTime + 10); break;
     case 'Home': e.preventDefault(); seekTo(0); break;
     case 'End': e.preventDefault(); seekTo(totalDuration); break;
-    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, -1)); break;
-    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, 1)); break;
+    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(segments, outputTime, -1)); break;
+    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(segments, outputTime, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
     case 'Escape': shortcutHelp.hidden = true; setLayerSelected(null); closeCutInfo(); break;
     case 'Digit0': e.preventDefault(); resetSelectedOverlayTransform(); break;
