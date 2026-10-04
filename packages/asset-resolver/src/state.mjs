@@ -7,6 +7,7 @@ import { resolveAkariHome, resolveEffectiveBase, resolveEntitlementsUrl } from '
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
 import { scanLocalLibrary, readLocalLibraryItem, sourceFields } from './library.mjs';
 import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
+import { assetTier, isAssetEntitled } from './tier.mjs';
 
 async function fetchEntitledProducts({ env, fetchImpl }) {
   const credentials = await readStoreCredentials(env);
@@ -62,9 +63,9 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
   }
   const installed = scanLocalLibrary(env);
 
-  // entitlements API は有料商品が無ければ叩く必要がない（無駄な認証リクエストを避ける）
-  const hasPaidItems = catalog.items.some((item) => (item.price ?? 0) > 0);
-  const entitlementsResult = hasPaidItems && networkAllowed
+  // Pro 素材が無ければ認証リクエストは不要。
+  const hasProItems = catalog.items.some((item) => assetTier(item) === 'pro');
+  const entitlementsResult = hasProItems && networkAllowed
     ? await fetchEntitlements({ env, fetchImpl, intent })
     : { ids: new Set(), status: await readStoreCredentials(env) ? 'ok' : 'no_credentials' };
   // entitlements.mjs は id/status だけを返し編集できないため、商品 kind/version は
@@ -87,13 +88,14 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
   merged.push(...[...localItems.values()].filter(Boolean));
   const items = merged.map((item) => {
     const key = `${item.category}/${item.id}`;
-    const price = item.price ?? 0;
+    const tier = assetTier(item);
     let state;
     if (installed.has(key)) state = 'cached';
-    else if (price > 0 && !entitlementsResult.ids.has(item.id)
-      && !entitlementsResult.ids.has(item.product_id)) state = 'locked';
+    else if (tier === 'pro' && !isAssetEntitled(item, entitlementsResult.ids)) state = 'locked';
     else state = 'available';
-    return { ...item, state, ...sourceFields(item, catalogKeys.has(key) || item.source === 'installed') };
+    const sources = sourceFields(item, catalogKeys.has(key) || item.source === 'installed');
+    const machineTags = (sources.machineTags ?? item.machineTags ?? []).filter(tag => !tag.startsWith('tier:'));
+    return { ...item, tier, state, ...sources, machineTags: [...machineTags, `tier:${tier}`] };
   });
 
   return {

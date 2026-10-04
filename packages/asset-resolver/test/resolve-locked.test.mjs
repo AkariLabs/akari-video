@@ -13,7 +13,7 @@ test('resolve: 未購入の有料素材は locked で拒否され、何も登録
     (error) => {
       assert.ok(error instanceof AssetResolverError);
       assert.equal(error.code, 'locked');
-      assert.match(error.message, /500/);
+      assert.match(error.message, /all-access-pass/);
       return true;
     },
   );

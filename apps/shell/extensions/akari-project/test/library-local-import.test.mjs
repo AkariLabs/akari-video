@@ -76,7 +76,7 @@ test('service → apply: 元ファイル不変、meta 検証、folder/pack/credi
     const meta = JSON.parse(await readFile(join(directory, 'meta.json'), 'utf8'));
     for (const tag of ['origin:own', 'folder:input', 'pack:my-pack']) assert.ok(meta.tags.includes(tag));
     assert.equal(meta.license.scope, 'private-owned'); assert.equal(meta.license.ai_training_allowed, false);
-    assert.equal(meta.license.attribution_required, true); assert.equal(meta.price, 0);
+    assert.equal(meta.license.attribution_required, true); assert.equal(meta.price, 0); assert.equal(meta.tier, 'free');
     assert.equal((await readFile(join(directory, 'CREDIT.txt'), 'utf8')).trim(), '作者 A');
     assert.deepEqual(await readFile(source), png);
     assert.deepEqual(await readdir(f.input), ['image.png']);
