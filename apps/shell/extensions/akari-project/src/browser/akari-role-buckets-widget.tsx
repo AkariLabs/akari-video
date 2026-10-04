@@ -86,7 +86,6 @@ import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
 import { fitStyleSpecimen, libraryTextStyleSample } from '../common/library-shelf-visuals';
-import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
 import { LibraryTextTelopPage } from './library-text-telop-page';
@@ -676,7 +675,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             presetPassesLibraryFilter: (key, source) => widget().presetPassesLibraryFilter(key, source),
             openLibraryMenuAt: (event, target) => widget().openLibraryMenuAt(event, target),
             openLibraryInfo: (target, anchor) => widget().openLibraryInfo(target, anchor),
-            handleLibraryTransitionDragEnd: () => widget().handleLibraryTransitionDragEnd()
+            handleLibraryTransitionDragEnd: () => widget().handleLibraryTransitionDragEnd(),
+            renderMyStyles: () => widget().renderMyStyles(),
+            renderPresetShowcase: kind => widget().renderPresetShowcase(kind)
         };
         this.libraryPane = new AkariLibraryPane(libraryHost);
         const lintHost: LintPaneHost = {
@@ -2547,10 +2548,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return this.renderLibraryPackBody();
         }
         if (key === 'textstyle') {
-            return this.renderPresetLibraryBody(['textstyle']);
+            return this.libraryPane.renderPresetLibraryBody(['textstyle']);
         }
         if (key === 'textanim' || key === 'lut') {
-            return this.renderPresetLibraryBody([key]);
+            return this.libraryPane.renderPresetLibraryBody([key]);
         }
         return this.renderCatalogBody();
     }
@@ -2602,37 +2603,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>
                     {this.libraryPane.renderCatalogDeveloperLinkRow()}
                 </div>
-            </div>
-        );
-    }
-
-    protected renderPresetLibraryBody(kinds: readonly PresetShowcaseKind[]): React.ReactNode {
-        if (this.catalogLoading) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
-        }
-        const labels: Readonly<Record<PresetShowcaseKind, string>> = {
-            lut: 'LUT',
-            textanim: 'テキストアニメ',
-            textstyle: 'テキストスタイル'
-        };
-        return (
-            <div data-akari-library-preset-sections={kinds.length}>
-                {kinds.includes('textstyle') && this.renderMyStyles()}
-                {kinds.map((kind, index) => (
-                    <section key={kind} data-akari-library-preset-section={kind}>
-                        {(kinds.length > 1 || index > 0) && (
-                            <div style={{
-                                position: 'sticky', top: '62px', zIndex: 4, padding: '7px 10px 5px',
-                                background: AKARI_SURFACE.card, borderBottom: AKARI_BORDER.hairline,
-                                fontSize: '0.76em', fontWeight: 700, letterSpacing: '0.04em'
-                            }}>
-                                {labels[kind]}
-                            </div>
-                        )}
-                        {this.renderPresetShowcase(kind)}
-                    </section>
-                ))}
-                <div style={{ padding: '0 10px 10px' }}>{this.libraryPane.renderCatalogDeveloperLinkRow()}</div>
             </div>
         );
     }
@@ -3096,7 +3066,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         infoOpen={info?.kind === 'mystyle' && info.key === key}
                         attributes={{ 'data-akari-my-style-card': style.id, 'data-akari-style-card': `mystyle/${style.id}` }}
                         draggable
-                        onMouseEnter={event => this.playMyStyleSample(event.currentTarget as HTMLDivElement, style)}
+                        onMouseEnter={event => this.libraryPane.playMyStyleSample(event.currentTarget as HTMLDivElement, style)}
                         onMouseLeave={event => event.currentTarget.querySelector('[data-akari-my-style-preview]')?.getAnimations().forEach(animation => animation.cancel())}
                         onDragStart={event => {
                             const payload = { kind: 'mystyle', style };
@@ -3191,20 +3161,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         confirm.focus();
     }
 
-    protected playMyStyleSample(container: HTMLDivElement, style: MyStyle): void {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-        const animation = style.parts.find(part => part.kind === 'motion')?.animation as Record<string, unknown> | undefined;
-        const slot = (animation?.in ?? animation?.loop ?? animation?.out) as Record<string, unknown> | undefined;
-        const target = container.querySelector<HTMLElement>('[data-akari-my-style-preview]');
-        if (!slot || !target) return;
-        target.getAnimations().forEach(item => item.cancel());
-        const id = typeof slot.id === 'string' ? slot.id : '';
-        const sample = textAnimationSampleKeyframes(id, animation?.in ? 'in' : animation?.loop ? 'loop' : 'out',
-            typeof slot.amp === 'number' ? slot.amp : undefined,
-            typeof slot.duration_sec === 'number' ? slot.duration_sec : undefined);
-        target.animate(sample.keyframes, { duration: sample.durationMs, iterations: 1, easing: 'ease-out' });
-    }
-
     protected async addMyStyleAtPlayhead(style: MyStyle): Promise<void> {
         await this.commandService.executeCommand('akari.caption.placeText', { myStyle: style });
     }
@@ -3227,23 +3183,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!confirmed) return;
         try { await this.projectService.deleteMyStyle(style.id); this.myStyles = await this.projectService.listMyStyles(); this.update(); }
         catch (error) { this.messages.error(`削除できません: ${String(error)}`); }
-    }
-
-    protected presetShowcaseTitle(item: PresetShowcaseItem): string {
-        if (item.kind === 'lut') {
-            return [item.description, item.whenToUse].filter(Boolean).join('\n');
-        }
-        return [item.name, item.category, item.description, item.sampleText].filter(Boolean).join('\n');
-    }
-
-    protected presetShowcaseIcon(item: PresetShowcaseItem): string {
-        if (item.kind === 'lut') {
-            return 'codicon codicon-color-mode';
-        }
-        if (item.kind === 'textanim') {
-            return 'codicon codicon-play';
-        }
-        return 'codicon codicon-symbol-text';
     }
 
     protected handleTextStyleDragStart(event: React.DragEvent<HTMLElement>, item: PresetShowcaseItem): void {
@@ -3280,7 +3219,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const info = this.libraryInfo?.target;
         return <LibrarySimpleCard key={key} cardKey={key} name={item.name} layout={layout}
             faceHeight={textstyle && layout === 'grid' ? '48px' : undefined}
-            title={this.presetShowcaseTitle(item)}
+            title={this.libraryPane.presetShowcaseTitle(item)}
             favorite={this.libraryFavorites.has(key)}
             infoOpen={info?.kind === item.kind && info.key === key}
             attributes={{
@@ -3307,7 +3246,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 ? <span draggable={false} data-akari-preset-sample-text data-akari-textanim-sample={item.kind === 'textanim' ? true : undefined}
                     style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     padding: '0 4px', fontSize: layout === 'list' ? '0.69em' : '0.86em', fontWeight: 800 }}>{item.sampleText}</span>
-                : <span draggable={false} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: layout === 'list' ? '1em' : '1.45em', opacity: 0.5 }} />} />;
+                : <span draggable={false} className={this.libraryPane.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: layout === 'list' ? '1em' : '1.45em', opacity: 0.5 }} />} />;
     }
 
     protected renderCatalogListRow(item: AssetCatalogViewItem): React.ReactNode {

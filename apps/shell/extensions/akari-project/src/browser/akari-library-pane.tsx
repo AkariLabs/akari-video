@@ -7,7 +7,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { CATALOG_CATEGORIES, CatalogItemMeta, CatalogViewMode } from '../common/catalog-reader';
-import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus } from '../common/akari-project-protocol';
+import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus, PresetShowcaseKind, PresetShowcaseItem } from '../common/akari-project-protocol';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import { CatalogPackGroup, deriveCatalogEmptyStateKind, deriveCatalogResolverNotice, formatCatalogPackBreakdown, summarizeCatalogPackDistribution } from '../common/asset-catalog-view';
 import { rankRecentLibraryItems } from '../common/library-source-view';
@@ -15,6 +15,8 @@ import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import { TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryDotsCorner } from './library-card-view';
 import { LibraryMenuTarget } from '../common/library-card-menu';
+import { type MyStyle } from '../common/my-style';
+import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 export const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
@@ -54,6 +56,8 @@ export interface LibraryPaneHost {
     readonly openLibraryMenuAt: (event: React.MouseEvent<HTMLElement>, target: LibraryMenuTarget) => void;
     readonly openLibraryInfo: (target: LibraryMenuTarget, anchor: HTMLElement) => void;
     readonly handleLibraryTransitionDragEnd: () => void;
+    readonly renderMyStyles: () => React.ReactNode;
+    readonly renderPresetShowcase: (kind: PresetShowcaseKind) => React.ReactNode;
 }
 
 export class AkariLibraryPane {
@@ -442,5 +446,67 @@ export class AkariLibraryPane {
                 {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
             </div>
         );
+    }
+
+    public renderPresetLibraryBody(kinds: readonly PresetShowcaseKind[]): React.ReactNode {
+        if (this.host.catalogLoading) {
+            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+        }
+        const labels: Readonly<Record<PresetShowcaseKind, string>> = {
+            lut: 'LUT',
+            textanim: 'テキストアニメ',
+            textstyle: 'テキストスタイル'
+        };
+        return (
+            <div data-akari-library-preset-sections={kinds.length}>
+                {kinds.includes('textstyle') && this.host.renderMyStyles()}
+                {kinds.map((kind, index) => (
+                    <section key={kind} data-akari-library-preset-section={kind}>
+                        {(kinds.length > 1 || index > 0) && (
+                            <div style={{
+                                position: 'sticky', top: '62px', zIndex: 4, padding: '7px 10px 5px',
+                                background: AKARI_SURFACE.card, borderBottom: AKARI_BORDER.hairline,
+                                fontSize: '0.76em', fontWeight: 700, letterSpacing: '0.04em'
+                            }}>
+                                {labels[kind]}
+                            </div>
+                        )}
+                        {this.host.renderPresetShowcase(kind)}
+                    </section>
+                ))}
+                <div style={{ padding: '0 10px 10px' }}>{this.renderCatalogDeveloperLinkRow()}</div>
+            </div>
+        );
+    }
+
+    public playMyStyleSample(container: HTMLDivElement, style: MyStyle): void {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const animation = style.parts.find(part => part.kind === 'motion')?.animation as Record<string, unknown> | undefined;
+        const slot = (animation?.in ?? animation?.loop ?? animation?.out) as Record<string, unknown> | undefined;
+        const target = container.querySelector<HTMLElement>('[data-akari-my-style-preview]');
+        if (!slot || !target) return;
+        target.getAnimations().forEach(item => item.cancel());
+        const id = typeof slot.id === 'string' ? slot.id : '';
+        const sample = textAnimationSampleKeyframes(id, animation?.in ? 'in' : animation?.loop ? 'loop' : 'out',
+            typeof slot.amp === 'number' ? slot.amp : undefined,
+            typeof slot.duration_sec === 'number' ? slot.duration_sec : undefined);
+        target.animate(sample.keyframes, { duration: sample.durationMs, iterations: 1, easing: 'ease-out' });
+    }
+
+    public presetShowcaseTitle(item: PresetShowcaseItem): string {
+        if (item.kind === 'lut') {
+            return [item.description, item.whenToUse].filter(Boolean).join('\n');
+        }
+        return [item.name, item.category, item.description, item.sampleText].filter(Boolean).join('\n');
+    }
+
+    public presetShowcaseIcon(item: PresetShowcaseItem): string {
+        if (item.kind === 'lut') {
+            return 'codicon codicon-color-mode';
+        }
+        if (item.kind === 'textanim') {
+            return 'codicon codicon-play';
+        }
+        return 'codicon codicon-symbol-text';
     }
 }
