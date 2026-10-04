@@ -9,13 +9,14 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const shell = path.join(repo, 'apps/shell');
-const out = path.join(repo, 'evidence/script-panel-selection-sync');
+const out = process.env.AKARI_L1_EVIDENCE_DIR;
+if (!out) throw new Error('AKARI_L1_EVIDENCE_DIR is required');
 const scratch = await realpath(await mkdtemp(path.join(os.tmpdir(), 'akari-script-selection-')));
 const project = path.join(scratch, 'project');
 const editUri = pathToFileURL(path.join(project, 'edit.json')).href;
-const cdpPort = 9579;
+const cdpPort = Number(process.env.AKARI_L1_CDP_PORT ?? 9370);
 const electron = path.join(shell, 'node_modules/electron/dist/electron.exe');
-const result = { rowCount: 0, final: null, preview: null, timeline: null, manual: null, stage: 'fixture', error: null };
+const result = { rowCount: 0, final: null, preview: null, timeline: null, manual: null, group: null, stage: 'fixture', error: null };
 let child;
 let electronLog = '';
 let electronExit;
@@ -111,6 +112,7 @@ const snapshot = () => evaluate(`(() => {
   const viewport = rect(rows), inspector = rect(dock);
   const visibleBottom = dock?.classList.contains('open') ? Math.min(viewport?.bottom ?? 0,
     (rect(panel.querySelector('.akari-daihon-rows-region'))?.bottom ?? 0) - dock.offsetHeight) : viewport?.bottom;
+  const active = document.activeElement;
   return { count: panel?.querySelectorAll('.akari-daihon-row').length ?? 0,
     selected: selected.map(el => el.dataset.captionId), dockTitle: dock?.querySelector('.akari-daihon-dock-title')?.textContent,
     footer: panel?.querySelector('.akari-daihon-footer')?.textContent,
@@ -118,10 +120,28 @@ const snapshot = () => evaluate(`(() => {
     inspector, rowsRegion: rect(panel?.querySelector('.akari-daihon-rows-region')),
     visibleBottom, fullyVisible: !!row && row.getBoundingClientRect().top >= viewport.top
       && row.getBoundingClientRect().bottom <= visibleBottom,
-    focused: rows === document.activeElement };
+    focused: rows === active, active: active && { tag: active.tagName, className: String(active.className), id: active.id } };
 })()`);
 
+async function capture(name) {
+  const png = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  await writeFile(path.join(out, `r1-${name}.png`), Buffer.from(png.data, 'base64'));
+}
+async function click(point) {
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+}
+async function timelinePoint(id) {
+  return evaluate(`(() => { const row = document.querySelector('.akari-annotations-widget '
+    + '[data-akari-item-kind="caption"][data-akari-item-id="${id}"]');
+    if (!row) return null; row.scrollIntoView({ block: 'nearest' });
+    const rect = row.getBoundingClientRect();
+    return { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2,
+      width: rect.width, height: rect.height }; })()`);
+}
+
 try {
+  await mkdir(out, { recursive: true });
   await makeFixture();
   result.stage = 'launch'; console.error('[l1] launch Electron');
   try { await fetch(`http://127.0.0.1:${cdpPort}/json/version`, { signal: AbortSignal.timeout(1000) });
@@ -146,6 +166,7 @@ try {
   await cdp.connect();
   await cdp.send('Runtime.enable');
   await cdp.send('Page.enable');
+  await capture('wake');
   result.stage = 'wait-layout'; console.error('[l1] wait for layout');
   for (let attempt = 0; attempt < 240; attempt++) {
     if (cdp.closed || electronExit) throw new Error(`Electron page closed during layout: ${electronLog.slice(-2000)}`);
@@ -171,63 +192,75 @@ try {
   result.stage = 'measure'; console.error('[l1] measure and capture');
   result.final = await snapshot();
   result.rowCount = result.final.count;
-  const png = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  await writeFile(path.join(out, 'final-row.png'), Buffer.from(png.data, 'base64'));
+  await capture('final-row');
   result.stage = 'check-timeline'; console.error('[l1] check timeline');
   result.openTimeline = await evaluate(`document.querySelectorAll('.akari-annotations-widget [data-akari-item-kind="caption"]').length`);
   result.stage = 'open-preview'; console.error('[l1] open preview');
   result.openPreview = await command('akari.preview.ensureVisible', { editUri });
   await sleep(400);
-  await evaluate(`window.dispatchEvent(new CustomEvent('akari.preview.captionSelected', {
-    detail: { editUri: ${JSON.stringify(editUri)}, captionId: 'c-0040' } }))`);
-  await sleep(500);
-  result.preview = await snapshot();
-  const previewPng = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  await writeFile(path.join(out, 'preview-row.png'), Buffer.from(previewPng.data, 'base64'));
-  const timelinePoint = await evaluate(`(() => {
-    const row = document.querySelector('.akari-annotations-widget [data-akari-item-kind="caption"][data-akari-item-id="c-0060"]');
-    if (!row) return null;
-    const rect = row.getBoundingClientRect();
-    return { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2,
-      width: rect.width, height: rect.height };
-  })()`);
-  result.timeline = { clicked: !!timelinePoint, point: timelinePoint };
-  if (timelinePoint) {
-    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: timelinePoint.x, y: timelinePoint.y, button: 'left', clickCount: 1 });
-    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: timelinePoint.x, y: timelinePoint.y, button: 'left', clickCount: 1 });
-    await sleep(600);
-    result.timeline.state = await snapshot();
-    const timelinePng = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-    await writeFile(path.join(out, 'timeline-row.png'), Buffer.from(timelinePng.data, 'base64'));
-  }
-  result.manual = await evaluate(`(() => {
-    const rows = document.querySelector('.akari-daihon-rows');
-    rows.style.scrollBehavior = 'auto';
-    rows.scrollTop += 160; return { afterScroll: rows.scrollTop };
-  })()`);
-  await sleep(500);
-  result.manual.afterWait = await snapshot();
+  await evaluate(`document.querySelector('.akari-daihon-dock-close')?.click()`);
+  const point60 = await timelinePoint('c-0060');
+  result.timeline = { clicked: !!point60, point: point60 };
+  if (!point60) throw new Error('timeline caption 60 missing');
+  await click(point60);
+  await sleep(600);
+  result.timeline.state = await snapshot();
+  await capture('timeline-row');
+  await evaluate(`window.__l1Ticks = []; window.addEventListener('akari.preview.playbackTick',
+    e => window.__l1Ticks.push({ time: e.detail?.time, playing: e.detail?.playing }))`);
+  await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await sleep(900);
+  result.space = await evaluate(`window.__l1Ticks.slice(-60)`);
+  await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
   try {
     result.stage = 'preview-click'; console.error('[l1] click preview caption');
     const seek = await command('akari.preview.seekOutput', { editUri, time: 39.4, waitForReady: true });
     await sleep(500);
     const point = { x: 480, y: 260 };
-    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
-    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
+    await click(point);
     await sleep(600);
     result.previewClick = { seek, point, state: await snapshot() };
-    const previewClickPng = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-    await writeFile(path.join(out, 'preview-click-row.png'), Buffer.from(previewClickPng.data, 'base64'));
+    await capture('preview-click-row');
   } catch (error) { result.previewClick = { error: String(error?.message ?? error) }; }
+  result.preview = result.previewClick?.state;
+  await command('akari.daihon.open', { captionId: 'c-0040', open: 'template' });
+  const point60Open = await timelinePoint('c-0060');
+  if (!point60Open) throw new Error('timeline caption 60 missing with dock open');
+  await click(point60Open);
+  await sleep(500);
+  result.dockOpenSwitch = await snapshot();
+  await capture('dock-open-switch');
+  result.manual = await evaluate(`(() => { const rows = document.querySelector('.akari-daihon-rows');
+    rows.style.scrollBehavior = 'auto'; rows.scrollTop = 4000; return { afterScroll: rows.scrollTop }; })()`);
+  await sleep(250);
+  const dockTabPoint = await evaluate(`(() => { const button = document.querySelector('.akari-daihon-dock-tabs button[data-dock-tab="look"]');
+    const r = button?.getBoundingClientRect(); return r ? { x: (r.left+r.right)/2, y: (r.top+r.bottom)/2 } : null; })()`);
+  if (!dockTabPoint) throw new Error('dock tab missing');
+  await click(dockTabPoint);
+  await sleep(500);
+  result.manual.afterTab = await snapshot();
+  await capture('manual-scroll');
+  await command('akari.timeline.selectCaptions', { editUri,
+    captionIds: ['c-0001', 'c-0002', 'c-0003'], primaryCaptionId: 'c-0002' });
+  await command('akari.preview.seekOutput', { editUri, time: 1.4, waitForReady: true });
+  await sleep(500);
+  result.group = { before: await snapshot(), point: { x: 480, y: 260 } };
+  await click(result.group.point);
+  await sleep(500);
+  result.group.after = await snapshot();
+  await capture('group-preview-click');
+  const advancing = result.space?.filter(t => t.playing && Number.isFinite(t.time)) ?? [];
   if (result.rowCount !== 120 || !result.final.fullyVisible || result.final.selected[0] !== 'c-0120'
-    || result.preview.selected[0] !== 'c-0040' || !result.preview.focused
-    || !result.preview.dockTitle?.includes('確認用字幕 40')
     || !result.timeline.clicked || result.timeline.state?.selected[0] !== 'c-0060'
-    || !result.timeline.state?.fullyVisible || !result.timeline.state?.dockTitle?.includes('確認用字幕 60')
-    || result.previewClick?.seek !== 'seeked' || result.previewClick.state?.selected[0] !== 'c-0040'
-    || !result.previewClick.state?.fullyVisible || !result.previewClick.state?.focused
-    || !result.previewClick.state?.dockTitle?.includes('確認用字幕 40')
-    || result.manual.afterScroll !== result.manual.afterWait.scrollTop) {
+    || !result.timeline.state?.fullyVisible || result.timeline.state?.dockOpen
+    || result.timeline.state?.focused || advancing.length < 2 || advancing.at(-1).time <= advancing[0].time
+    || result.previewClick?.seek !== 'seeked' || result.preview?.selected[0] !== 'c-0040'
+    || !result.preview.fullyVisible || result.preview.focused
+    || !result.dockOpenSwitch.dockOpen || !result.dockOpenSwitch.dockTitle?.includes('確認用字幕 60')
+    || result.manual.afterScroll !== result.manual.afterTab.scrollTop
+    || result.group.after?.selected.length !== 3) {
     throw new Error('selection acceptance assertion failed');
   }
 } catch (error) {
@@ -239,7 +272,7 @@ try {
     const stopped = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { encoding: 'utf8' });
     result.cleanup = { pid: child.pid, exit: stopped.status, error: stopped.error?.message ?? null };
   }
-  await writeFile(path.join(out, 'l1-result.json'), `${JSON.stringify(result, null, 2)}\n`);
+  await writeFile(path.join(out, 'r1-result.json'), `${JSON.stringify(result, null, 2)}\n`);
   const tempRoot = await realpath(os.tmpdir());
   if (!scratch.startsWith(tempRoot + path.sep)) throw new Error('scratch path escaped temp root');
   for (let attempt = 0; attempt < 10; attempt++) {

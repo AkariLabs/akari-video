@@ -4,6 +4,7 @@
 import { realpath } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import esbuild from 'esbuild';
+import { browserOptions } from '../../apps/shell/gen-esbuild.browser.mjs';
 import { nodeOptions } from '../../apps/shell/gen-esbuild.node.mjs';
 import { electronOptions } from '../../apps/shell/gen-esbuild.electron.mjs';
 
@@ -33,5 +34,6 @@ const optionalNative = {
   },
 };
 
+await esbuild.build(browserOptions);
 await esbuild.build({ ...nodeOptions, plugins: [optionalNative, ...nodeOptions.plugins] });
 await esbuild.build(electronOptions);

@@ -576,6 +576,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected lastUserScrollAt = 0;
     protected autoScrolling = false;
     protected selectionRevealFrame = 0;
+    protected selectionRevealInterrupted = false;
     protected editing: EditingState | undefined;
     protected selection: DaihonSelection = EMPTY_SELECTION;
     protected altAll = false;
@@ -716,6 +717,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.addEventListener('scroll', () => {
             if (!this.autoScrolling) {
                 this.lastUserScrollAt = Date.now();
+                this.selectionRevealInterrupted = true;
                 if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
                 this.selectionRevealFrame = 0;
             }
@@ -797,29 +799,26 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         };
         const captionSelection = (event: Event): void => {
-            const detail = (event as CustomEvent<{ editUri?: string; captionIds?: string[] }>).detail;
-            if (detail?.editUri !== this.editUri?.normalizePath().toString()) return;
+            const detail = (event as CustomEvent<{ editUri?: string; captionIds?: string[]; primaryCaptionId?: string | null }>).detail;
+            if (!detail?.editUri || new URI(detail.editUri).normalizePath().toString() !== this.editUri?.normalizePath().toString()) return;
             const ids = detail.captionIds;
             // The timeline is authoritative. Selections containing non-script captions have no row projection.
             if (!Array.isArray(ids) || !ids.length || !ids.every(id => this.elements.has(id))) {
                 this.setSelection(clearSelection(), false);
                 return;
             }
-            if (this.selection.selected.length === ids.length
-                && ids.every((id, index) => this.selection.selected[index] === id)) return;
-            if (this.qcFilter || this.speakerFilter !== null) {
+            const primary = detail.primaryCaptionId && ids.includes(detail.primaryCaptionId)
+                ? detail.primaryCaptionId : ids[0];
+            const hiddenByFilter = ids.some(id => { const root = this.elements.get(id)?.root;
+                return root?.classList.contains('qc-hidden') || root?.classList.contains('speaker-hidden'); });
+            if (hiddenByFilter) {
                 this.qcFilter = false;
                 this.speakerFilter = null;
                 this.applyQcFilter();
             }
-            this.setSelection({ selected: ids, anchorId: ids.length === 1 ? ids[0] : null }, false);
-            if (this.dockKind !== 'row') this.openRowDock('template');
-            if (ids.length === 1) {
-                void this.applicationShell.activateWidget(this.id).then(() => {
-                    this.rowsNode.focus({ preventScroll: true });
-                    this.scheduleSelectionReveal();
-                }).catch(() => undefined);
-            }
+            if (this.selection.selected.length === ids.length && this.selection.anchorId === primary
+                && ids.every((id, index) => this.selection.selected[index] === id)) return;
+            this.setSelection({ selected: ids, anchorId: primary }, false);
         };
         const attachmentSelection = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; videoUri?: string; overlayId?: string | null;
@@ -979,7 +978,10 @@ export class AkariDaihonWidget extends BaseWidget {
             this.qcFilter = false;
             this.applyQcFilter();
             this.setSelection({ selected: [row.id], anchorId: row.id });
-            this.scheduleSelectionReveal();
+            // The frame-based reveal handles the dock in the browser. Keep the direct reveal for headless callers.
+            if (typeof requestAnimationFrame !== 'function') {
+                this.elements.get(row.id)?.root.scrollIntoView({ block: 'nearest' });
+            }
             if (validWordRange && target.wordRange) {
                 this.wordRanges = [{ row: row.id, a: target.wordRange.from, b: target.wordRange.to }];
                 this.renderWordSelection();
@@ -1078,6 +1080,11 @@ export class AkariDaihonWidget extends BaseWidget {
         super.onAfterAttach(message);
         this.restoreDockHeight();
         this.update();
+    }
+
+    protected override onAfterShow(message: Message): void {
+        super.onAfterShow(message);
+        this.scheduleSelectionReveal();
     }
 
     protected queueReload(): void {
@@ -4721,6 +4728,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const plan = planSelectionUpdate(previous, next);
         const changed = previous.anchorId !== next.anchorId || plan.add.length > 0 || plan.remove.length > 0;
         if (!changed) return;
+        this.selectionRevealInterrupted = false;
         this.selection = next;
         if (!this.altAll) {
             for (const id of plan.add) this.elements.get(id)?.root.classList.add('selected');
@@ -4732,11 +4740,12 @@ export class AkariDaihonWidget extends BaseWidget {
             if (count === 0) this.closeDock();
             else this.renderDock();
         }
-        if (count === 1) this.scheduleSelectionReveal();
+        if (count > 0) this.scheduleSelectionReveal();
         if (!sync) return;
         const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
-        void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID, payload).catch(() => undefined);
+        void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID,
+            { ...payload, primaryCaptionId: next.anchorId ?? next.selected[0] ?? null }).catch(() => undefined);
     }
 
     protected updateQcSummary(): void {
@@ -4897,11 +4906,12 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected scheduleSelectionReveal(): void {
-        if (this.selection.selected.length !== 1 || this.selectionRevealFrame) return;
-        const id = this.selection.selected[0];
+        if (!this.isVisible || !this.selection.selected.length || this.selectionRevealFrame || this.selectionRevealInterrupted
+            || typeof requestAnimationFrame !== 'function') return;
+        const id = this.selection.anchorId ?? this.selection.selected[0];
         this.selectionRevealFrame = requestAnimationFrame(() => {
             this.selectionRevealFrame = 0;
-            if (this.selection.selected.length !== 1 || this.selection.selected[0] !== id) return;
+            if (this.selectionRevealInterrupted || !this.selection.selected.includes(id)) return;
             const row = this.elements.get(id)?.root;
             if (!row || row.classList.contains('qc-hidden') || row.classList.contains('speaker-hidden')) return;
             const viewport = this.rowsNode.getBoundingClientRect();
