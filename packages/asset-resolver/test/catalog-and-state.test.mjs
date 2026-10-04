@@ -68,6 +68,25 @@ test('composeState: ローカルに実体があるものは cached になる', a
   assert.equal(free.state, 'cached');
 });
 
+test('composeState: legacy local-only metadata without tier displays free while catalog stays fail-closed', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  const dir = path.join(home, 'assets', 'audio', 'old-local');
+  mkdirSync(dir, { recursive: true });
+  const source = { url: 'https://example.invalid/old-local.wav', acquisition: 'direct' };
+  writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ id: 'old-local', title: 'Old Local', category: 'audio', tags: [], license: {}, price: null, source }));
+  writeFileSync(path.join(dir, 'take.wav'), 'audio');
+  delete catalog.items[0].tier;
+  delete catalog.items[0].price;
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+
+  const { items } = await composeState({ env });
+  const local = items.find(item => item.id === 'old-local');
+  assert.deepEqual(local.source, source);
+  assert.equal(local.tier, 'free');
+  assert.ok(local.machineTags.includes('tier:free'));
+  assert.equal(items.find(item => item.id === 'mini-still').tier, 'pro');
+});
+
 test('composeState: entitledProducts に kit 商品を載せ、資格情報なしでは空配列にする', async () => {
   const connected = setupFixtureEnv();
   writeFileSync(
