@@ -10,6 +10,19 @@ import type { InspectorAdjustPath, InspectorAdjustSnapshot, InspectorAdjustValue
 
 import type { KeyframeProperty, KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 
+/** A caption remains selected when the timeline selection also contains other visual items. */
+export function previewCaptionIds(ids: readonly (string | undefined)[]): string[] {
+    return [...new Set(ids.filter((id): id is string => typeof id === 'string' && id.length > 0))];
+}
+
+/** Toggle an item without making the order of visual selections significant. */
+export function togglePreviewSelection<T>(current: readonly T[], item: T, keyOf: (value: T) => string): T[] {
+    const key = keyOf(item);
+    const index = current.findIndex(value => keyOf(value) === key);
+    if (index < 0) return [...current, item];
+    return current.filter((_, position) => position !== index);
+}
+
 export interface TimelineCutSelection {
     kind: 'cut';
     index: number;

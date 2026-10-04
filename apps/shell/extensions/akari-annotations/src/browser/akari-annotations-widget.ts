@@ -475,6 +475,8 @@ import {
     CAPTION_CHIP_SELECTED_CLASS,
     captionChipState,
     captionIdForTreeSelection,
+    previewCaptionIds,
+    togglePreviewSelection,
     resolveTimelineClipName
 } from './timeline-selection-model';
 
@@ -964,7 +966,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const selectedCaptionIds = this.multiSelection.flatMap(item => captionId(item) ?? []);
             const singleCaptionId = this.selection ? captionId(this.selection) : undefined;
             this.selectionModel.selectedCaptionIds = this.multiSelection.length > 0
-                ? selectedCaptionIds.length === this.multiSelection.length ? selectedCaptionIds : []
+                ? previewCaptionIds(selectedCaptionIds)
                 : singleCaptionId ? [singleCaptionId] : [];
             this.selectionModel.keyframeSelection = undefined;
             this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
@@ -1513,6 +1515,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')) {
             this.toDispose.push(this.commandRegistry.registerCommand({ id: 'akari.annotations.commitPreviewTransform' }, {
                 execute: async (editUri: string, command: PreviewItemWriteCommand | PreviewItemWriteCommand[]
+                    | { kind: 'mixed-move'; writes: PreviewItemWriteCommand[];
+                        captions?: { before: string; after: string } }
                     | ({ kind: 'duplicate' } & PreviewDuplicateRequest)
                     | ({ kind: 'caption-wrap' } & PreviewCaptionWrapRequest)
                     | { kind: 'caption-duplicate'; captionId: string;
@@ -1534,6 +1538,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             { captions: { before, after }, optimistic: true });
                         return true;
                     }
+                    if (!Array.isArray(command) && command.kind === 'mixed-move') {
+                        await this.commitEditMutation('複数の素材を移動', doc => {
+                            if (!command.writes.length) return doc;
+                            const result = resolvePreviewItemWriteBatch(JSON.stringify(doc), command.writes);
+                            if (!result.candidateText) throw new Error('移動結果がありません');
+                            return JSON.parse(result.candidateText) as EditV2Document;
+                        }, { captions: command.captions });
+                        return true;
+                    }
                     await this.commitEditMutation('プレビューで変形を変更', doc => {
                         if (!Array.isArray(command) && command.kind === 'layer') {
                             const nested = writeNestedPreviewLayer(doc, command);
@@ -1553,6 +1566,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }));
         }
+        const onPreviewMixedSelected = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri: string;
+                selection: Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }> }>).detail;
+            if (!detail || !this.canHandlePlaybackTick(detail.editUri) || !Array.isArray(detail.selection)) return;
+            this.applyPreviewMixedSelection(detail.selection);
+        };
+        window.addEventListener('akari.preview.mixedSelected', onPreviewMixedSelected);
+        this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.preview.mixedSelected', onPreviewMixedSelected)));
         this.toDispose.push(this.contextKeys.onDidChange(event => {
             if (event.affects(new Set(['akari.worldMap']))) {
                 void this.reloadWorldMap().then(() => this.renderStrip());
@@ -2756,7 +2777,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             else overlayId = selection.id;
         }
         const editUri = this.location?.editUri?.toString() ?? '';
-        window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected', { detail: { editUri, selection: target } }));
+        const selected = this.multiSelection.length > 0 ? this.multiSelection
+            : selection ? [selection] : [];
+        const group = selected.flatMap(item => {
+            if (item.kind === 'caption') return [{ kind: 'caption', id: item.id }];
+            if (item.kind === 'layer') return [{ kind: 'layer', id: item.id }];
+            if (item.kind === 'overlay') return [{ kind: 'overlay', id: item.id }];
+            if (item.kind !== 'item') return [];
+            const raw = this.rawKeyframeItem?.(item.id);
+            const captionId = captionIdForTreeSelection(item,
+                raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            if (captionId) return [{ kind: 'caption', id: captionId }];
+            return [{ kind: this.layers?.some(layer => layer.id === item.id) ? 'layer' : 'overlay', id: item.id }];
+        });
         const selectedCaptionIds = this.multiSelection.flatMap(item => {
             if (item.kind === 'caption') return [item.id];
             if (item.kind !== 'item') return [];
@@ -2766,17 +2799,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return id ? [id] : [];
         });
         const captionIds = this.multiSelection.length > 0
-            ? selectedCaptionIds.length === this.multiSelection.length ? selectedCaptionIds : []
+            ? selectedCaptionIds
             : target?.kind === 'caption' ? [target.id] : [];
         if (!this.selectionModel.inspectorOwner || this.selectionModel.inspectorOwner === this) {
             this.selectionModel.selectedCaptionIds = captionIds;
         }
         this.applyCaptionStateClasses();
+        if (group.length > 1 && group.some(item => item.kind !== 'caption')) {
+            window.dispatchEvent(new CustomEvent('akari.timeline.groupSelectionChanged', {
+                detail: { editUri, selection: group }
+            }));
+            return;
+        }
+        window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected', { detail: { editUri, selection: target } }));
         window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
             detail: { editUri, captionIds, primaryCaptionId: target?.kind === 'caption' ? target.id : null }
         }));
         window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, { detail: { editUri, overlayId } }));
         window.dispatchEvent(new CustomEvent(TIMELINE_LAYER_SELECTED_EVENT, { detail: { editUri, layerId } }));
+        if (group.length > 1) window.dispatchEvent(new CustomEvent('akari.timeline.groupSelectionChanged', {
+            detail: { editUri, selection: group }
+        }));
+    }
+
+    protected applyPreviewMixedSelection(selection: Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>): void {
+        const selected = selection.map(item => {
+            const row = this.timelineTreeRows.find(candidate => candidate.id === item.id
+                || item.kind === 'caption' && this.rawKeyframeItem(candidate.id)?.source?.id === item.id);
+            return row ? { kind: 'item' as const, id: row.id, itemKind: row.itemKind,
+                parentId: row.parentId, trackId: row.trackId }
+                : { kind: item.kind, id: item.id };
+        });
+        this.multiSelection = selected.length > 1 ? selected as TimelineSelectionItem[] : [];
+        this.selection = selected.length === 1 ? selected[0] as TimelineSelectionItem : undefined;
+        this.pushSelectionSnapshot();
+        this.applySelectionClass();
+        this.publishPrimaryPreviewSelection(this.selection ?? selected[selected.length - 1]);
     }
 
     protected shouldToggleMultiSelection(
@@ -2788,13 +2846,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
         this.previewBagSelection = undefined;
-        const candidates = this.multiSelection.length > 0
-            ? [...this.multiSelection]
-            : this.selection ? [this.selection] : [];
-        const key = this.selectionKey(item);
-        const index = candidates.findIndex(candidate => this.selectionKey(candidate) === key);
-        if (index >= 0) candidates.splice(index, 1);
-        else candidates.push(item);
+        const candidates = togglePreviewSelection(this.multiSelection.length > 0
+            ? this.multiSelection : this.selection ? [this.selection] : [], item,
+        candidate => this.selectionKey(candidate));
         this.selection = candidates.length === 1 ? candidates[0] : undefined;
         this.multiSelection = candidates.length > 1 ? candidates : [];
         this.claimInspectorOwner?.();
