@@ -566,7 +566,7 @@
     const xhtml = serializeHtmlToXhtml(html);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:visible;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(vars)}">
           <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
         </div>
       </foreignObject>
