@@ -84,7 +84,7 @@ test('書く item（角丸）: 元の形の path + cornerRadius（角丸を形�
     assert.deepEqual([item.source.params.width, item.source.params.height], [360, 360]);
 });
 
-test('書く item（ライン）: line の params を写す・黒・4px', () => {
+test('書く item（ライン）: line の params を写す・黒・10px', () => {
     const item = place('line-dash-tri-tri');
     assert.equal(item.source.shape, 'line');
     assert.equal(item.source.params.preset, 'line-dash-tri-tri');
@@ -92,7 +92,7 @@ test('書く item（ライン）: line の params を写す・黒・4px', () => 
     assert.equal(item.source.params.startCap, 'triangle');
     assert.equal(item.source.params.endCap, 'triangle');
     assert.equal(item.source.params.stroke, '#000000');
-    assert.equal(item.source.params.strokeWidth, 4);
+    assert.equal(item.source.params.strokeWidth, 10);
     assert.equal(item.source.params.path, undefined);
 });
 
