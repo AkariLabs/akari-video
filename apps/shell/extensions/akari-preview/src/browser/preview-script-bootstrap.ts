@@ -2876,15 +2876,32 @@ export function previewBootstrapScript(): string {
             const layerOutputBoundsForTransform = (entry, transform) => {
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
-                // ㉔ crop 適用中は見えている（=スナップ対象になるべき）footprint が cropW/cropH 分
-                // 小さいので、フルサイズではなくクロップ後の寸法で bounds を組む。
+                const videoWidth = entry.video.videoWidth || entry.video.naturalWidth;
+                const videoHeight = entry.video.videoHeight || entry.video.naturalHeight;
+                const width = videoWidth > 0 && videoHeight > 0 ? videoWidth : outputWidth;
+                const height = videoWidth > 0 && videoHeight > 0 ? videoHeight : outputHeight;
                 const crop = layerCropNow(entry);
-                return outputBoundsForCenteredBox(
-                    outputWidth / 2 + transform.x,
-                    outputHeight / 2 + transform.y,
-                    (entry.video.videoWidth || 0) * crop.w * (transform.scaleX ?? transform.scale),
-                    (entry.video.videoHeight || 0) * crop.h * (transform.scaleY ?? transform.scale)
-                );
+                // 選択枠と同じソース矩形を使う。透明余白を含む素材でも、枠の辺が吸着点になる。
+                const naturalBox = entry.opaqueBox || { x: 0, y: 0, w: width, h: height };
+                const cropBoxPx = { x: crop.x * width, y: crop.y * height,
+                    w: crop.w * width, h: crop.h * height };
+                const ix0 = Math.max(naturalBox.x, cropBoxPx.x);
+                const iy0 = Math.max(naturalBox.y, cropBoxPx.y);
+                const ix1 = Math.min(naturalBox.x + naturalBox.w, cropBoxPx.x + cropBoxPx.w);
+                const iy1 = Math.min(naturalBox.y + naturalBox.h, cropBoxPx.y + cropBoxPx.h);
+                const cb = ix1 > ix0 && iy1 > iy0
+                    ? { x: ix0, y: iy0, w: ix1 - ix0, h: iy1 - iy0 } : cropBoxPx;
+                const pivotPx = { x: (crop.x + crop.w / 2) * width,
+                    y: (crop.y + crop.h / 2) * height };
+                const box = layerScreenRectForVideoRect(transform, cb, pivotPx);
+                const frameRect = window.akari.computeOutputFrameRect();
+                const frameScale = window.akari.stageScale() || 1;
+                const left = (box.left - frameRect.x) / frameScale;
+                const top = (box.top - frameRect.y) / frameScale;
+                const boxWidth = box.width / frameScale;
+                const boxHeight = box.height / frameScale;
+                return { left, right: left + boxWidth, top, bottom: top + boxHeight,
+                    centerX: left + boxWidth / 2, centerY: top + boxHeight / 2 };
             };
             // 裁定 0: 移動 / 角点 / 回転の確定書き戻しは cut と layer で 1 本。対象の違い
             // （dataset の読み書き先・layerWrite / cutWrite・RAF throttle）は記述子が持つ。
@@ -2936,10 +2953,16 @@ export function previewBootstrapScript(): string {
                 let moved = false;
                 let cancelled = false;
                 let finished = false;
+                let settleTimer = null;
+                const clearSettleTimer = () => {
+                    if (settleTimer !== null && typeof clearTimeout === 'function') clearTimeout(settleTimer);
+                    settleTimer = null;
+                };
                 try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const cleanup = () => {
                     selectionDragActive = false;
                     document.body.classList.remove('akari-selection-gesture-active');
+                    clearSettleTimer();
                     document.body.classList.remove('akari-media-transforming');
                     document.body.classList.remove('akari-media-moving');
                     gestureLabel.remove();
@@ -2953,8 +2976,9 @@ export function previewBootstrapScript(): string {
                     }
                     window.akari.interaction?.hideSnapGuides?.();
                 };
-                const onMove = moveEvent => {
+                const onMove = (moveEvent, settled = false) => {
                     if (finished || moveEvent.pointerId !== pointerId) return;
+                    clearSettleTimer();
                     const dx = moveEvent.clientX - startEvent.clientX;
                     const dy = moveEvent.clientY - startEvent.clientY;
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
@@ -2985,6 +3009,13 @@ export function previewBootstrapScript(): string {
                             + '") 16 16, crosshair';
                     }
                     target.applyTransform(latestTransform, previewPatch, visiblePosition);
+                    if (positionOnly && !settled && typeof setTimeout === 'function') {
+                        // 停止後は pointermove が来ないため、同じ座標を再評価して速度だけ減衰させる。
+                        settleTimer = setTimeout(() => {
+                            settleTimer = null;
+                            if (!finished && !cancelled) onMove(moveEvent, true);
+                        }, 96);
+                    }
                 };
                 const finish = async () => {
                     if (finished) return;
@@ -3034,11 +3065,13 @@ export function previewBootstrapScript(): string {
                 };
                 const onUp = upEvent => {
                     if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
-                    onMove(upEvent);
+                    clearSettleTimer();
+                    onMove(upEvent, true);
                     void finish();
                 };
                 const onCancel = cancelEvent => {
                     if (cancelEvent.pointerId !== pointerId) return;
+                    clearSettleTimer();
                     cancelled = true;
                     void finish();
                 };
@@ -3088,7 +3121,7 @@ export function previewBootstrapScript(): string {
                         window.akari.interaction?.hideSnapGuides?.();
                     } else {
                         const visual = previewMotionGeometryTransformFn(original,
-                            motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible);
+                            motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration, original)?.visible);
                         const bounds = layerOutputBoundsForTransform(entry, { ...visual,
                             x: visual.x + nextX - original.x, y: visual.y + nextY - original.y });
                         const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
@@ -3330,7 +3363,7 @@ export function previewBootstrapScript(): string {
                             const segment = cutInteractionSegment();
                             const visual = previewMotionGeometryTransformFn(original,
                                 motionAtForSpec(segment, segment?.outStart,
-                                    Number(segment?.outEnd) - Number(segment?.outStart))?.visible);
+                                    Number(segment?.outEnd) - Number(segment?.outStart), original)?.visible);
                             const bounds = outputBoundsForCenteredBox(
                                 outputWidth / 2 + visual.x + nextX - original.x,
                                 outputHeight / 2 + visual.y + nextY - original.y,
