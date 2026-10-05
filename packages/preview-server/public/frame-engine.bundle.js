@@ -13690,12 +13690,108 @@ var require_envelope = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DEFAULT_DUCK_KEYS = exports.DEFAULT_DUCK_RELEASE_SEC = exports.DEFAULT_DUCK_ATTACK_SEC = exports.DEFAULT_DUCK_DB = void 0;
+    exports.audioFadeProgress = audioFadeProgress;
+    exports.audioFadeMultiplier = audioFadeMultiplier;
+    exports.audioFadeGainEvents = audioFadeGainEvents;
+    exports.audioFadeFfmpegCurve = audioFadeFfmpegCurve;
+    exports.projectAudioFadeShapes = projectAudioFadeShapes;
     exports.easingProgress = easingProgress;
     exports.evaluateEnvelopeDb = evaluateEnvelopeDb;
     exports.composeEnvelopesDb = composeEnvelopesDb;
     exports.envelopeToGainEvents = envelopeToGainEvents;
     exports.sampleEnvelopeLinear = sampleEnvelopeLinear;
     exports.computeDuckEnvelope = computeDuckEnvelope;
+    function audioFadeProgress(shape, progress) {
+      const p2 = Math.min(1, Math.max(0, progress));
+      switch (shape ?? "linear") {
+        case "equal_power":
+          return Math.sin(p2 * Math.PI / 2);
+        case "s_curve":
+          return (1 - Math.cos(p2 * Math.PI)) / 2;
+        case "slow":
+          return p2 * p2;
+        default:
+          return p2;
+      }
+    }
+    function audioFadeMultiplier(localSeconds, durationSeconds, fadeInSeconds, fadeOutSeconds, inShape, outShape) {
+      const duration = Math.max(0, durationSeconds);
+      const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+      const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+      let value = 1;
+      if (fadeIn > 0 && localSeconds < fadeIn)
+        value = Math.min(value, audioFadeProgress(inShape, localSeconds / fadeIn));
+      if (fadeOut > 0 && localSeconds > duration - fadeOut) {
+        value = Math.min(value, audioFadeProgress(outShape, (duration - localSeconds) / fadeOut));
+      }
+      return Math.min(1, Math.max(0, value));
+    }
+    function audioFadeGainEvents(durationSeconds, fadeInSeconds, fadeOutSeconds, inShape, outShape) {
+      const duration = Math.max(0, durationSeconds);
+      const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+      const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+      const times = /* @__PURE__ */ new Set([0, duration]);
+      for (let index = 0; index <= 16; index += 1) {
+        if (fadeIn > 0)
+          times.add(fadeIn * index / 16);
+        if (fadeOut > 0)
+          times.add(duration - fadeOut + fadeOut * index / 16);
+      }
+      return [...times].sort((a, b) => a - b).map((offsetSec, index) => ({
+        offsetSec,
+        value: audioFadeMultiplier(offsetSec, duration, fadeIn, fadeOut, inShape, outShape),
+        method: index === 0 ? "set" : "linear"
+      }));
+    }
+    function audioFadeFfmpegCurve(shape) {
+      switch (shape ?? "linear") {
+        case "equal_power":
+          return "qsin";
+        case "s_curve":
+          return "hsin";
+        case "slow":
+          return "qua";
+        default:
+          return "tri";
+      }
+    }
+    function projectAudioFadeShapes(audio, tracks) {
+      if (!Array.isArray(tracks))
+        return audio;
+      const rawItems = tracks.flatMap((track) => track?.lane === "audio" && Array.isArray(track.items) ? track.items : []).filter((item) => item && typeof item === "object");
+      const shapes = (item) => {
+        const result = {};
+        for (const edge of ["in", "out"]) {
+          const field = `fade_${edge}_shape`;
+          const value = item?.[field];
+          if (value === "linear" || value === "equal_power" || value === "s_curve" || value === "slow") {
+            result[field] = value;
+          }
+        }
+        return result;
+      };
+      if (!rawItems.some((item) => Object.keys(shapes(item)).length > 0))
+        return audio;
+      const byId = new Map(rawItems.filter((item) => typeof item.id === "string").map((item) => [item.id, shapes(item)]));
+      const bgmItems = rawItems.filter((item) => item.role === "bgm");
+      const map = (items, role) => Array.isArray(items) ? items.map((item, index) => {
+        if (!item || typeof item !== "object")
+          return item;
+        const declared = role === "bgm" ? shapes(bgmItems[index]) : byId.get(item.id);
+        return declared && Object.keys(declared).length > 0 ? { ...item, ...declared } : item;
+      }) : items;
+      const next = { ...audio };
+      if (audio["bgm"] && bgmItems.length > 0) {
+        const declared = shapes(bgmItems[0]);
+        if (Object.keys(declared).length > 0)
+          next.bgm = { ...audio["bgm"], ...declared };
+      }
+      for (const role of ["bgms", "sfx", "narration", "speech"]) {
+        if (audio[role] !== void 0)
+          next[role] = map(audio[role], role === "bgms" ? "bgm" : role);
+      }
+      return next;
+    }
     exports.DEFAULT_DUCK_DB = -12;
     exports.DEFAULT_DUCK_ATTACK_SEC = 0.3;
     exports.DEFAULT_DUCK_RELEASE_SEC = 0.8;
@@ -14844,7 +14940,7 @@ var require_edit_v2_keys = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "fade_in_shape", "fade_out_shape", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
     exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -15034,6 +15130,8 @@ var require_edit_v2_keys = __commonJS({
         "keyframes",
         "fade_in",
         "fade_out",
+        "fade_in_shape",
+        "fade_out_shape",
         "ducking",
         "duck_db",
         "duck_attack",

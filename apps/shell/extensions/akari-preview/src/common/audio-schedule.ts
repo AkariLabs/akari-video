@@ -5,6 +5,7 @@
 // module's own node:test unit tests (test/audio-schedule.test.mjs). Keep every function
 // self-contained: no closures over module state, no calls to sibling functions in this file --
 // each one is injected into the browser script independently.
+type AudioFadeShape = 'linear' | 'equal_power' | 's_curve' | 'slow';
 
 export interface SfxTrimWindow {
     skip: boolean;
@@ -195,4 +196,35 @@ export function sfxFadeGainSchedule(
         breakpoints.push({ offsetSec: availableSec, gainMultiplier: terminalMultiplier });
     }
     return breakpoints;
+}
+
+/** Nonlinear fades use 16 linear ramps each; the legacy linear schedule remains unchanged. */
+export function shapedFadeGainSchedule(
+    rawFadeIn: unknown, rawFadeOut: unknown, durationSec: number,
+    elapsedSec: number, availableSec: number,
+    inShape: AudioFadeShape | undefined, outShape: AudioFadeShape | undefined,
+    progress: (shape: AudioFadeShape | undefined, value: number) => number
+): SfxFadeGainBreakpoint[] {
+    if (!(durationSec > 0) || !(availableSec > 0)) return [];
+    const fadeIn = typeof rawFadeIn === 'number' && Number.isFinite(rawFadeIn) && rawFadeIn > 0
+        ? Math.min(rawFadeIn, durationSec / 2) : 0;
+    const fadeOut = typeof rawFadeOut === 'number' && Number.isFinite(rawFadeOut) && rawFadeOut > 0
+        ? Math.min(rawFadeOut, durationSec / 2) : 0;
+    if (fadeIn <= 0 && fadeOut <= 0) return [];
+    const valueAt = (local: number): number => {
+        let value = 1;
+        if (fadeIn > 0 && local < fadeIn) value = Math.min(value, progress(inShape, local / fadeIn));
+        if (fadeOut > 0 && local > durationSec - fadeOut) {
+            value = Math.min(value, progress(outShape, (durationSec - local) / fadeOut));
+        }
+        return Math.max(0, Math.min(1, value));
+    };
+    const end = elapsedSec + availableSec;
+    const times = new Set<number>([elapsedSec, end]);
+    for (let index = 0; index <= 16; index += 1) {
+        if (fadeIn > 0) times.add(fadeIn * index / 16);
+        if (fadeOut > 0) times.add(durationSec - fadeOut + fadeOut * index / 16);
+    }
+    return [...times].filter(at => at >= elapsedSec && at <= end).sort((a, b) => a - b)
+        .map(at => ({ offsetSec: at - elapsedSec, gainMultiplier: valueAt(at) }));
 }

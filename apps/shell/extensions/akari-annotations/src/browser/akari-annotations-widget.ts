@@ -8,6 +8,10 @@ import { topVisualTarget } from './preview-material-placement';
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from './canvas-drop-target';
 import { placePreviewShapeInCanvas } from './shape-canvas-place';
 import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from './timeline/canvas-row-drop';
+import { mountAudioInlineEnvelope } from './timeline/audio-inline-envelope';
+import { AUDIO_FADE_SHAPE_UNAVAILABLE, inlineRemovePoints, patchInlineAudioItem, patchInlineAudioItemForWrite,
+    type InlineAudioPatch } from '../common/audio-inline-envelope';
+import { isAudioFadeShapeWriteRequest } from './inspector/audio-fade-shape-write';
 import { EDGE_ZONE_PX, SNAP_GUIDE_COLOR_DEFAULT, RULER_BAND_HEIGHT_PX, REVIEW_SESSION_LANE_HEIGHT_PX,
     STRIP_BACKGROUND, CLIP_HEADER_HEIGHT, SUBROW_HEIGHT, TRANSITION_BADGE_WARNING_COLOR } from './timeline/timeline-metrics';
 import { ANNOTATIONS_WIDGET_CSS } from './style/annotations-widget-style';
@@ -695,6 +699,8 @@ type EditAudioSfxWithFade = EditAudioSfx & AudioEnvelopeFields & {
 type EditAudioNarrationWithEnvelope = EditAudioNarration & AudioEnvelopeFields;
 type EditAudioBgmWithEnvelope = EditAudioBgm & AudioEnvelopeFields;
 type AudioSelectionSnapshot = TimelineAudioSelection & AudioEnvelopeFields & {
+    fadeInShape?: import('../common/audio-inline-envelope').AudioFadeShape;
+    fadeOutShape?: import('../common/audio-inline-envelope').AudioFadeShape;
     keyframeFrames?: boolean;
     fps?: number;
     playheadSeconds?: number;
@@ -3047,6 +3053,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const narration = sfx ? undefined : this.audioNarration.find(candidate => candidate.id === id);
         const bgm = id === this.audioBgm?.id ? this.audioBgm : undefined;
         const audioKind = bgm ? 'bgm' as const : narration ? 'narration' as const : sfx ? 'sfx' as const : undefined;
+        const shapeItemId = bgm && this.editDocument
+            ? findAudioItemIdByRole(this.editDocument, 'bgm') ?? id : id;
         const audio = bgm ?? narration ?? sfx;
         if (!audioKind || !audio) {
             this.showNotice('音声クリップが見つからないため、音量キーフレームを編集できません。');
@@ -3105,6 +3113,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 gainDb: audio.gainDb,
                 fadeIn: 'fadeIn' in audio ? audio.fadeIn : undefined,
                 fadeOut: 'fadeOut' in audio ? audio.fadeOut : undefined,
+                fadeInShape: this.rawV2Item(shapeItemId)?.fade_in_shape,
+                fadeOutShape: this.rawV2Item(shapeItemId)?.fade_out_shape,
                 fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : [],
                 fetchWaveform: async request => {
                     const result = await this.annotationsService.getClipWaveform({
@@ -3119,6 +3129,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             const dialogValue = await dialog.open();
             if (dialogValue === undefined) return;
+            const shapeChanged = dialogValue.fadeInShape !== (this.rawV2Item(shapeItemId)?.fade_in_shape ?? 'linear')
+                || dialogValue.fadeOutShape !== (this.rawV2Item(shapeItemId)?.fade_out_shape ?? 'linear');
+            if (shapeChanged) {
+                try {
+                    patchInlineAudioItemForWrite(this.editDocument!, shapeItemId, {
+                        fade_in_shape: dialogValue.fadeInShape, fade_out_shape: dialogValue.fadeOutShape
+                    });
+                } catch {
+                    this.showNotice(AUDIO_FADE_SHAPE_UNAVAILABLE);
+                    this.messages.warn(AUDIO_FADE_SHAPE_UNAVAILABLE);
+                    return;
+                }
+            }
             let keyframeResult: InspectorWriteResult;
             try {
                 keyframeResult = await this.handleInspectorWrite({
@@ -3133,6 +3156,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showNotice(`音量キーフレームの書き込みに失敗しました: ${keyframeResult.message ?? '不明なエラー'}`);
                 return;
             }
+            if (shapeChanged) await this.commitEditMutation('フェードの形を変更', doc =>
+                patchInlineAudioItemForWrite(doc, shapeItemId, {
+                    fade_in_shape: dialogValue.fadeInShape, fade_out_shape: dialogValue.fadeOutShape
+                }));
             if (dialogValue.gainDb === (audio.gainDb ?? 0)) return;
             let gainResult: InspectorWriteResult;
             try {
@@ -3193,6 +3220,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async handleInspectorWrite(request: InspectorWriteRequest & { libraryApplyKind?: ApplyPayload['kind'] }): Promise<InspectorWriteResult> {
         if (this.materialSwap) await this.finishMaterialSwap(false);
+        const fadeShapeRequest: unknown = request;
+        if (isAudioFadeShapeWriteRequest(fadeShapeRequest)) {
+            const itemId = fadeShapeRequest.audioKind === 'bgm' && this.editDocument
+                ? findAudioItemIdByRole(this.editDocument, 'bgm') : fadeShapeRequest.id;
+            if (!this.editDocument || !itemId) return { ok: false, message: '音声クリップが見つかりません。' };
+            const patch: InlineAudioPatch = fadeShapeRequest.edge === 'in'
+                ? { fade_in_shape: fadeShapeRequest.value } : { fade_out_shape: fadeShapeRequest.value };
+            try {
+                patchInlineAudioItemForWrite(this.editDocument, itemId, patch);
+                await this.commitEditMutation('フェードの形を変更', doc =>
+                    patchInlineAudioItemForWrite(doc, itemId, patch));
+                return { ok: true };
+            } catch (error) {
+                const message = error instanceof Error ? error.message : AUDIO_FADE_SHAPE_UNAVAILABLE;
+                this.showNotice(message);
+                this.messages.warn(message);
+                return { ok: false, message };
+            }
+        }
         if (request.kind === 'audio-keyframes'
             && audioKeyframeWriteGuard(request.value) === 'too-few') {
             return { ok: false, message: AUDIO_KEYFRAME_MIN_POINTS_NOTICE };
@@ -5794,6 +5840,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {}),
                 ...(sfx.fadeIn !== undefined ? { fadeIn: sfx.fadeIn } : {}),
                 ...(sfx.fadeOut !== undefined ? { fadeOut: sfx.fadeOut } : {}),
+                ...(this.rawV2Item(sfx.id)?.fade_in_shape ? { fadeInShape: this.rawV2Item(sfx.id)?.fade_in_shape } : {}),
+                ...(this.rawV2Item(sfx.id)?.fade_out_shape ? { fadeOutShape: this.rawV2Item(sfx.id)?.fade_out_shape } : {}),
                 ...this.audioEnvelopeFieldsForSnapshot(sfx),
                 ...audioClipFxFieldsForSnapshot(sfx),
                 keyframeFrames: this.rawV2Item(sfx.id) !== undefined,
@@ -5831,6 +5879,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
                 ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
+                ...(bgmItemId && this.rawV2Item(bgmItemId)?.fade_in_shape
+                    ? { fadeInShape: this.rawV2Item(bgmItemId)?.fade_in_shape } : {}),
+                ...(bgmItemId && this.rawV2Item(bgmItemId)?.fade_out_shape
+                    ? { fadeOutShape: this.rawV2Item(bgmItemId)?.fade_out_shape } : {}),
                 ...this.audioEnvelopeFieldsForSnapshot(this.audioBgm),
                 ...audioClipFxFieldsForSnapshot(this.audioBgm),
                 keyframeFrames: bgmItemId !== undefined,
@@ -11392,6 +11444,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
             }
             this.updateBgmWaveform(element, bgm, end, bgmItemHeight, actualDuration);
+            const bgmInlineId = this.editDocument ? findAudioItemIdByRole(this.editDocument, 'bgm') : undefined;
+            if (bgmInlineId && this.rawV2Item(bgmInlineId)) mountAudioInlineEnvelope(element, {
+                id: bgmInlineId, durationSec: end, widthPx: this.audioBarWidthPx(0, end), heightPx: bgmItemHeight,
+                fps: this.fps, fadeIn: bgm.fadeIn ?? 0, fadeOut: bgm.fadeOut ?? 0,
+                fadeInShape: this.rawV2Item(bgmInlineId)?.fade_in_shape,
+                fadeOutShape: this.rawV2Item(bgmInlineId)?.fade_out_shape,
+                gainDb: bgm.gainDb ?? 0, points: this.rawV2Item(bgmInlineId)?.keyframes ?? [],
+                locked: this.isTrackLocked(bgmLayout.id),
+                commit: (label, patch) => this.commitEditMutation(label,
+                    doc => patchInlineAudioItemForWrite(doc, bgmInlineId, patch)),
+                onError: message => { this.showNotice(message); this.messages.warn(message); },
+                selectPoint: frame => { this.selectionModel.keyframeSelection = {
+                    kind: 'keyframe', itemId: bgmInlineId, property: 'gain_db' as KeyframeProperty, times: [frame]
+                }; }
+            });
             this.applyAudioGenerationChip(element, bgm.path);
         }
         // narration を実 track ref の帯に表示する。選択後の gain 更新は v2 item を優先し、
@@ -11456,6 +11523,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateNarrationWaveform(
                 element, narration, durationSeconds, itemHeight, actualDuration
             );
+            if (this.rawV2Item(narration.id)) mountAudioInlineEnvelope(element, {
+                id: narration.id, durationSec: durationSeconds,
+                widthPx: this.audioBarWidthPx(narration.t, end), heightPx: itemHeight,
+                fps: this.fps, fadeIn: this.rawV2Item(narration.id)?.fade_in ?? 0,
+                fadeOut: this.rawV2Item(narration.id)?.fade_out ?? 0,
+                fadeInShape: this.rawV2Item(narration.id)?.fade_in_shape,
+                fadeOutShape: this.rawV2Item(narration.id)?.fade_out_shape,
+                gainDb: narration.gainDb ?? 0, points: this.rawV2Item(narration.id)?.keyframes ?? [],
+                locked: this.isTrackLocked(layout.id),
+                commit: (label, patch) => this.commitEditMutation(label,
+                    doc => patchInlineAudioItemForWrite(doc, narration.id, patch)),
+                onError: message => { this.showNotice(message); this.messages.warn(message); },
+                selectPoint: frame => { this.selectionModel.keyframeSelection = {
+                    kind: 'keyframe', itemId: narration.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                }; }
+            });
             this.applyAudioGenerationChip(element, narration.path);
             const speech = this.audioSpeech?.find(item => item.id === narration.id);
             if (speech) {
@@ -11621,6 +11704,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.rawV2Item(sfx.id) !== undefined
                 );
             }
+            if (this.rawV2Item(sfx.id)) mountAudioInlineEnvelope(element, {
+                id: sfx.id, durationSec: durationSeconds, widthPx: barWidthPx, heightPx: itemHeight,
+                fps: this.fps, fadeIn: sfx.fadeIn ?? 0, fadeOut: sfx.fadeOut ?? 0,
+                fadeInShape: this.rawV2Item(sfx.id)?.fade_in_shape,
+                fadeOutShape: this.rawV2Item(sfx.id)?.fade_out_shape,
+                gainDb: sfx.gainDb ?? 0, points: this.rawV2Item(sfx.id)?.keyframes ?? [],
+                locked: this.isTrackLocked(layout.id),
+                commit: (label, patch) => this.commitEditMutation(label,
+                    doc => patchInlineAudioItemForWrite(doc, sfx.id, patch)),
+                onError: message => { this.showNotice(message); this.messages.warn(message); },
+                selectPoint: frame => { this.selectionModel.keyframeSelection = {
+                    kind: 'keyframe', itemId: sfx.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                }; }
+            });
             this.applyAudioGenerationChip(element, sfx.path);
         });
         // ソーストリマー（R6c2r2）: レンダーパス開始時点の trimmerItemId を固定で使い回す
@@ -12681,6 +12778,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const lockedTrackId = this.trackIdOfItem(selected.itemId);
         if (this.isTrackLocked(lockedTrackId)) {
             this.showLockedTrack(lockedTrackId);
+            return;
+        }
+        if (selected.property === ('gain_db' as KeyframeProperty)) {
+            await this.commitEditMutation('音量キーフレームを削除', doc => {
+                const raw = this.rawV2Item(selected.itemId);
+                const points = Array.isArray(raw?.keyframes) ? raw.keyframes : [];
+                return patchInlineAudioItem(doc, selected.itemId, {
+                    keyframes: inlineRemovePoints(points, selected.times)
+                });
+            });
+            this.selectionModel.keyframeSelection = undefined;
             return;
         }
         const hydratedPoints = this.hydratedKeyframes(selected.itemId);

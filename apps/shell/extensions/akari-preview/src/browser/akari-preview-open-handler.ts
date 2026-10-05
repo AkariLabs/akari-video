@@ -60,6 +60,7 @@ import {
     newerVersionOpenNotice,
     normalizeCaptionClock,
     projectLegacyAudioView,
+    projectAudioFadeShapes,
     projectSpeechDeclarations,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
@@ -5407,7 +5408,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ?? timelineTracks.findIndex(candidate => candidate.id === track.id))
                 .filter(z => z >= 0));
             const audio = await this.resolveAudioAssets(
-                projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
+                projectAudioFadeShapes(projectLegacyAudioView(internal), JSON.parse(editText)?.tracks),
+                editUri, assetStreams, assetUris,
                 previewAudioKeepProbes, previewAudioPendingRequests, sidecarRequests,
                 previewAudioService, previewAudioKeepKeys, ensureAssetStream
             );
@@ -5736,6 +5738,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     out?: unknown;
                     fade_in?: unknown;
                     fade_out?: unknown;
+                    fade_in_shape?: unknown;
+                    fade_out_shape?: unknown;
                     keyframes?: unknown;
                     ducking?: unknown;
                     duck_db?: unknown;
@@ -5780,12 +5784,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!source) return undefined;
                 const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
-                // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out. Same
+                // fade_in/fade_out use the same clip-window rule for timed audio. Same
                 // warned-and-ignored tolerance as bgm's fadeIn/fadeOut parsing above (this
                 // function's own `fades` block further down).
                 let fadeIn: number | undefined;
                 let fadeOut: number | undefined;
-                if (kind === 'sfx') {
+                if (kind === 'sfx' || kind === 'narration' || kind === 'speech') {
                     if (item.fade_in !== undefined) {
                         if (typeof item.fade_in === 'number' && Number.isFinite(item.fade_in) && item.fade_in >= 0) {
                             fadeIn = item.fade_in;
@@ -5813,13 +5817,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
                     ...(trimIn !== undefined ? { in: trimIn } : {}),
                     ...(trimOut !== undefined ? { out: trimOut } : {}),
-                    ...(kind === 'sfx'
-                        ? {
-                            ...duckOptions(item, label),
-                            ...(fadeIn !== undefined ? { fadeIn } : {}),
-                            ...(fadeOut !== undefined ? { fadeOut } : {})
-                        }
-                        : {})
+                    ...(kind === 'sfx' ? duckOptions(item, label) : {}),
+                    ...(fadeIn !== undefined ? { fadeIn } : {}),
+                    ...(fadeOut !== undefined ? { fadeOut } : {}),
+                    ...(['linear', 'equal_power', 's_curve', 'slow'].includes(String(item.fade_in_shape))
+                        ? { fadeInShape: item.fade_in_shape as EditSummaryTimedAudio['fadeInShape'] } : {}),
+                    ...(['linear', 'equal_power', 's_curve', 'slow'].includes(String(item.fade_out_shape))
+                        ? { fadeOutShape: item.fade_out_shape as EditSummaryTimedAudio['fadeOutShape'] } : {})
                 };
             }));
             const resolved: EditSummaryTimedAudio[] = [];
@@ -5848,6 +5852,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 keyframes?: unknown;
                 fadeIn?: unknown;
                 fadeOut?: unknown;
+                fade_in_shape?: unknown;
+                fade_out_shape?: unknown;
                 in?: unknown;
                 track?: unknown;
             } | undefined;
@@ -5895,6 +5901,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             ducking: rawBgm.ducking === true,
                             ...duckOptions(rawBgm, 'audio.bgm'),
                             ...fades,
+                            ...(['linear', 'equal_power', 's_curve', 'slow'].includes(String(rawBgm.fade_in_shape))
+                                ? { fadeInShape: rawBgm.fade_in_shape as EditSummaryBgm['fadeInShape'] } : {}),
+                            ...(['linear', 'equal_power', 's_curve', 'slow'].includes(String(rawBgm.fade_out_shape))
+                                ? { fadeOutShape: rawBgm.fade_out_shape as EditSummaryBgm['fadeOutShape'] } : {}),
                             ...(bgmIn !== undefined ? { in: bgmIn } : {})
                         });
                     }

@@ -31,11 +31,15 @@ test("engine capability table declares the version, engines, and status vocabula
   assert.deepEqual(table.statuses, ["consumed", "partial", "ignored", "other-subsystem"]);
 });
 
-test("generated keys have capability rows including cut audio ownership", () => {
-  assert.equal(canonicalPaths.size, 78);
+test("generated keys have capability rows except reader-gated audio fade shapes", () => {
+  assert.equal(canonicalPaths.size, 80);
   const covered = new Set(table.fields.map(field => field.path));
   assert.ok(covered.has('tracks[].items[].adjust.fx'));
-  assert.deepEqual([...canonicalPaths].filter(path => !covered.has(path)), []);
+  // The v2 reader still rejects these two schema fields. Keep the exception exact until
+  // reader support and the audio capability rows land together.
+  assert.deepEqual([...canonicalPaths].filter(path => !covered.has(path)).sort(), [
+    'tracks[].items[].fade_in_shape', 'tracks[].items[].fade_out_shape'
+  ]);
   for (const key of ['audio', 'link', 'mute']) assert.ok(covered.has(`tracks[].items[].${key}`));
   const doc = JSON.parse(readFileSync(join(packageRoot, 'examples/edit-v2-cut-audio-split-valid/edit.json'), 'utf8'));
   assert.doesNotThrow(() => readInternalEdit(doc));

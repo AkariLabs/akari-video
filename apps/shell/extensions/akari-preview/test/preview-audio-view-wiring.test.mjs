@@ -7,7 +7,7 @@ const handlerSource = readHandlerSource();
 
 test('プレビュー音源列挙は tracks 射影だけを読み、audio.master indicator は宣言を維持する', () => {
     assert.match(handlerSource, /projectLegacyAudioView/);
-    assert.match(handlerSource, /resolveAudioAssets\(\s*projectLegacyAudioView\(internal\),/);
+    assert.match(handlerSource, /resolveAudioAssets\(\s*projectAudioFadeShapes\(projectLegacyAudioView\(internal\), JSON\.parse\(editText\)\?\.tracks\),/);
     assert.doesNotMatch(handlerSource, /resolveAudioAssets\(internal\.declaration\.audio/);
     assert.match(
         handlerSource,
@@ -50,7 +50,7 @@ test('narration と SFX の不正 trim はフィールドごとに無視し、�
     }
 });
 
-test('timed の trim は narration でも sidecar 要求とサマリーへ渡り、fade/duck だけ SFX に限定する', () => {
+test('timed の trim と fade は narration にも渡し、duck だけ SFX に限定する', () => {
     const timed = handlerSource.match(/const timed = async \(items: unknown, kind: 'sfx' \| 'narration' \| 'speech'\)[\s\S]*?\n        const bgms:/)?.[0];
     assert.ok(timed, 'timed audio resolver exists');
     const beforeSource = timed.slice(0, timed.indexOf('const source = await resolveSource'));
@@ -58,9 +58,9 @@ test('timed の trim は narration でも sidecar 要求とサマリーへ渡り
     assert.doesNotMatch(beforeSource, /kind === 'sfx'/);
     assert.match(timed, /resolveSource\(item\.path, label, \{\s*inSec: trimIn \?\? 0,\s*\.\.\.\(trimOut !== undefined \? \{ outSec: trimOut \} : \{\}\)/);
     const summary = timed.slice(timed.indexOf('                return {'));
-    assert.match(summary, /\.\.\.\(trimIn !== undefined \? \{ in: trimIn \} : \{\}\),\s*\.\.\.\(trimOut !== undefined \? \{ out: trimOut \} : \{\}\),\s*\.\.\.\(kind === 'sfx'/);
+    assert.match(summary, /\.\.\.\(trimIn !== undefined \? \{ in: trimIn \} : \{\}\),\s*\.\.\.\(trimOut !== undefined \? \{ out: trimOut \} : \{\}\),\s*\.\.\.\(kind === 'sfx' \? duckOptions/);
     const sfxSummary = summary.slice(summary.indexOf("...(kind === 'sfx'"));
     assert.doesNotMatch(sfxSummary, /trimIn|trimOut/);
     assert.match(sfxSummary, /duckOptions\(item, label\)[\s\S]*fadeIn[\s\S]*fadeOut/);
-    assert.match(timed, /if \(kind === 'sfx'\) \{\s*if \(item\.fade_in !== undefined\)[\s\S]*if \(item\.fade_out !== undefined\)/);
+    assert.match(timed, /if \(kind === 'sfx' \|\| kind === 'narration' \|\| kind === 'speech'\) \{\s*if \(item\.fade_in !== undefined\)[\s\S]*if \(item\.fade_out !== undefined\)/);
 });

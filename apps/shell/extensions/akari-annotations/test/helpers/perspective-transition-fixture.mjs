@@ -55,6 +55,7 @@ export const { perspectiveFields, transitionFields, layerSections, itemSections,
 )(...Object.values(dependencies));
 
 export function timelineMethod(name, dependencies = {}) {
+    dependencies = { isAudioFadeShapeWriteRequest: () => false, ...dependencies };
     const { ast, node: method } = findMember(name, { in: 'widget' });
     assert.ok(method, name);
     const code = ts.transpileModule(`class Handler { ${method.getText(ast)} }`, {

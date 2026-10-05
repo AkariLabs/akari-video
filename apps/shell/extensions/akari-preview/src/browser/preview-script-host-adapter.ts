@@ -1,12 +1,13 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
-import { computeDuckEnvelope, evaluateEnvelopeDb } from '@akari-video/edit-store';
+import { audioFadeProgress, computeDuckEnvelope, evaluateEnvelopeDb } from '@akari-video/edit-store';
 import {
     bgmLoopOffsetSeconds,
     resolveBgmSourceOffset,
     resolveSfxTrimWindow,
     resolveTimedScheduleWindow,
-    sfxFadeGainSchedule
+    sfxFadeGainSchedule,
+    shapedFadeGainSchedule
 } from '../common/audio-schedule';
 import { previewContentEnd } from '../common/preview-content-end';
 import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
@@ -330,6 +331,8 @@ export function hostAdapterScript(): string {
                 const bgmLoopOffsetSecondsFn = (${bgmLoopOffsetSeconds.toString()});
                 const resolveTimedScheduleWindowFn = (${resolveTimedScheduleWindow.toString()});
                 const sfxFadeGainScheduleFn = (${sfxFadeGainSchedule.toString()});
+                const audioFadeProgressFn = (${audioFadeProgress.toString()});
+                const shapedFadeGainScheduleFn = (${shapedFadeGainSchedule.toString()});
                 // 音声エンベロープの正本は packages/edit-store/src/envelope.ts。
                 const computeDuckEnvelopeFn = (${computeDuckEnvelope.toString()});
                 const evaluateEnvelopeDbFn = (${evaluateEnvelopeDb.toString()});
@@ -505,8 +508,12 @@ export function hostAdapterScript(): string {
                     const fadeIn = Number.isFinite(rawIn) && rawIn > 0 ? Math.min(rawIn, total / 2) : 0;
                     const fadeOut = Number.isFinite(rawOut) && rawOut > 0 ? Math.min(rawOut, total / 2) : 0;
                     let multiplier = 1;
-                    if (fadeIn > 0 && local < fadeIn) multiplier = Math.min(multiplier, local / fadeIn);
-                    if (fadeOut > 0 && local > total - fadeOut) multiplier = Math.min(multiplier, (total - local) / fadeOut);
+                    if (fadeIn > 0 && local < fadeIn) multiplier = Math.min(multiplier,
+                        item.fadeInShape && item.fadeInShape !== 'linear'
+                            ? audioFadeProgressFn(item.fadeInShape, local / fadeIn) : local / fadeIn);
+                    if (fadeOut > 0 && local > total - fadeOut) multiplier = Math.min(multiplier,
+                        item.fadeOutShape && item.fadeOutShape !== 'linear'
+                            ? audioFadeProgressFn(item.fadeOutShape, (total - local) / fadeOut) : (total - local) / fadeOut);
                     return Math.max(0, Math.min(1, multiplier));
                 };
                 const applyBgmEnvelope = timelineTime => {
@@ -593,15 +600,23 @@ export function hostAdapterScript(): string {
                             );
                             envelopeGain.gain.value = dbToLinear(envelope.keyframeGainDb + envelope.duckGainDb);
                             // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
-                            // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out, applied as
+                            // fade_in/fade_out are applied to timed audio as
                             // AudioParam automation over the clip's own scheduled window (not a
                             // per-tick poll like bgm's fadeMultiplierAt -- this source is a one-shot
                             // BufferSourceNode, not a continuously re-evaluated loop). hasFade tells
                             // tick()'s mute-sync loop to leave gain.value alone so it doesn't clobber
                             // the in-flight ramp on its next 30Hz pass.
                             let hasFade = false;
-                            if (kind === 'sfx' && (item.fadeIn !== undefined || item.fadeOut !== undefined)) {
-                                const fadeSchedule = sfxFadeGainScheduleFn(item.fadeIn, item.fadeOut, item.durationSec, scheduleWindow.elapsedIntoItemSec, available);
+                            if ((kind === 'sfx' || kind === 'narration')
+                                && (item.fadeIn !== undefined || item.fadeOut !== undefined)) {
+                                const shaped = (item.fadeInShape && item.fadeInShape !== 'linear')
+                                    || (item.fadeOutShape && item.fadeOutShape !== 'linear');
+                                const fadeSchedule = shaped
+                                    ? shapedFadeGainScheduleFn(item.fadeIn, item.fadeOut, item.durationSec,
+                                        scheduleWindow.elapsedIntoItemSec, available, item.fadeInShape, item.fadeOutShape,
+                                        audioFadeProgressFn)
+                                    : sfxFadeGainScheduleFn(item.fadeIn, item.fadeOut, item.durationSec,
+                                        scheduleWindow.elapsedIntoItemSec, available);
                                 if (fadeSchedule.length > 0) {
                                     hasFade = true;
                                     const startTime = contextStart + delay / playbackRate;
