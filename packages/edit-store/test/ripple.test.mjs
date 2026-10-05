@@ -99,6 +99,19 @@ test('linked visual and audio split together with paired links', () => {
   assert.equal(track(fromAudio.edit, 'sfx').items[1].link, track(fromAudio.edit, 'main').items[1].id);
 });
 
+test('range deletion keeps both linked audio pieces paired with the matching visual pieces', () => {
+  const edit = fixture();
+  track(edit, 'sfx').items = [{ ...audio('speech', 0, 600, 'speech'), link: 'story' }];
+  for (const operation of [liftRange, extractRange]) {
+    const result = operation(edit, { start: 240, end: 360 });
+    const [leftVideo, rightVideo] = track(result.edit, 'main').items;
+    const [leftAudio, rightAudio] = track(result.edit, 'sfx').items;
+    assert.equal(leftAudio.link, leftVideo.id);
+    assert.equal(rightAudio.link, rightVideo.id);
+    assert.deepEqual(edit.tracks.find(row => row.id === 'sfx').items[0].link, 'story');
+  }
+});
+
 test('audio source speed, gain envelope and fades survive a split within 1e-6', () => {
   const edit = fixture();
   track(edit, 'sfx').items = [{ ...audio('effect', 0, 300),

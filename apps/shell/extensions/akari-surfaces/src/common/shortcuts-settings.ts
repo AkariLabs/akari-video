@@ -30,6 +30,9 @@ export const AKARI_SHORTCUT_ORDER = [
     'akari.daihon.selectAllRows', 'akari.daihon.clearRowSelection',
     'akari.home.newWindow', 'akari.settings.open', 'akari.inspector.clearSolo',
     'akari.inspector.stepup', 'akari.inspector.stepdown', 'akari.inspector.step10up', 'akari.inspector.step10down',
+    'akari.timeline.setIn', 'akari.timeline.setOut', 'akari.timeline.selectClipRange',
+    'akari.timeline.clearRange', 'akari.timeline.rippleDelete', 'akari.timeline.toggleAutoRipple',
+    'akari.timeline.rippleTrimPrevious', 'akari.timeline.rippleTrimNext', 'akari.timeline.splitAtPlayhead',
     'akari.partner.send'
 ] as const;
 const shortcutOrder = new Map<string, number>(AKARI_SHORTCUT_ORDER.map((id, index) => [id, index]));
