@@ -99,14 +99,18 @@ export async function loadCatalog({ env = process.env, fetchImpl = fetch, includ
 }
 
 /** Resolve uses a valid local cache first; listing/sync remains responsible for freshness. */
-export async function loadCatalogForResolve(id, { env = process.env, fetchImpl = fetch, timeouts } = {}) {
+export async function loadCatalogForResolve(ref, { env = process.env, fetchImpl = fetch, timeouts } = {}) {
+  // ref は category/id か bare id（resolve.mjs の findCatalogItem と同じ受け方）
+  const matches = typeof ref === 'string' && ref.includes('/')
+    ? item => `${item.category}/${item.id}` === ref
+    : item => item.id === ref;
   const installedItems = await loadInstalledItems(env);
-  if (installedItems.some(item => item.id === id)) {
+  if (installedItems.some(matches)) {
     return { schema: 'akari-assets-catalog/v0', version: null, base: null, items: installedItems };
   }
   if (resolveCatalogSource(env).kind === 'url') {
     const cached = await readCatalogCache(env);
-    if (cached && cached.items.some(item => item.id === id)) {
+    if (cached && cached.items.some(matches)) {
       return mergeInstalledItems(cached, installedItems);
     }
   }

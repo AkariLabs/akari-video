@@ -809,8 +809,9 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
      * resolver 直行の取得 + プロジェクト配置。resolve.mjs の resolve() をそのまま呼ぶ
      * （fail-closed・sha256 検証・validate-asset・entitlements 判定は resolver 側の
      * 実装をそのまま透過する — ここでは再実装しない）。
+     * ref は category/id。bare id は一意な場合だけ互換解決される。
      */
-    async resolveAsset(id: string, projectUri: string, options?: { force?: boolean }): Promise<AssetResolveOutcome> {
+    async resolveAsset(ref: string, projectUri: string, options?: { force?: boolean }): Promise<AssetResolveOutcome> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) {
             return { success: false, error: 'アセット resolver が見つかりません（開発配置を確認してください）' };
@@ -820,7 +821,7 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
         const script = `
 import { resolve } from ${JSON.stringify(resolveModuleUrl)};
 try {
-  const result = await resolve(${JSON.stringify(id)}, { project: ${JSON.stringify(projectPath)}, reference: true, force: ${options?.force === true} });
+  const result = await resolve(${JSON.stringify(ref)}, { project: ${JSON.stringify(projectPath)}, reference: true, force: ${options?.force === true} });
   if (result.referenced) {
     const { appendLibraryUsage } = await import(${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())});
     await appendLibraryUsage({ category: result.category, id: result.id, project: ${JSON.stringify(projectPath)} });
@@ -836,7 +837,7 @@ try {
         }
         try {
             const parsed = JSON.parse(stdout);
-            return assetResolveOutcome(parsed, join(projectPath, 'assets', parsed.category ?? '', parsed.id ?? id));
+            return assetResolveOutcome(parsed, join(projectPath, 'assets', parsed.category ?? '', parsed.id ?? ref.slice(ref.lastIndexOf('/') + 1)));
         } catch {
             return { success: false, error: `resolver の応答を解釈できませんでした: ${stdout.slice(0, 300)}` };
         }

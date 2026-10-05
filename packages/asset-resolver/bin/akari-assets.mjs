@@ -4,7 +4,7 @@
 //   akari-assets list [--category <c>] [--source <lab|site|own>] [--json]
 //   akari-assets add <path...> --plan [--json]
 //   akari-assets add --apply <plan.json> [--json]
-//   akari-assets fetch <id> [--project <dir>] [--reference] [--force]
+//   akari-assets fetch <ref> [--project <dir>] [--reference] [--force]  （ref は category/id）
 //   akari-assets bundle --project <dir> [--dry-run]
 //   akari-assets sync
 //   akari-assets browse [--port <n>]
@@ -58,7 +58,7 @@ function validateArgs(sub, args) {
   if (sub === 'bundle' && !seen.has('--project')) throw new Error('--project <dir> が必要です');
   if (sub === 'credits' && !seen.has('--project')) throw new Error('--project <dir> が必要です');
   if (sub === 'fetch') {
-    if (args[0] !== positional[0]) throw new Error('fetch の先頭には素材 ID を指定してください');
+    if (args[0] !== positional[0]) throw new Error('fetch の先頭には素材参照 category/id を指定してください');
     if (seen.has('--reference') && !seen.has('--project')) throw new Error('--reference には --project <dir> が必要です');
   }
 }
@@ -88,7 +88,7 @@ async function cmdList(args, env) {
 
   console.log(`使える素材 ${filtered.length} 件（ライブラリ: ${libraryRoots.write}）`);
   for (const item of filtered) {
-    console.log(`  ${badgeOf(item)}  ${item.id}\t${item.sourceKind}\t[${item.category}]\t${item.title}`);
+    console.log(`  ${badgeOf(item)}  ${item.category}/${item.id}\t${item.sourceKind}\t[${item.category}]\t${item.title}`);
   }
 }
 
@@ -108,9 +108,9 @@ async function cmdAdd(args, env) {
 }
 
 async function cmdFetch(args, env) {
-  const id = args[0];
-  if (!id || id.startsWith('--')) {
-    console.error('使い方: akari-assets fetch <id> [--project <dir>] [--reference] [--force]');
+  const ref = args[0];
+  if (!ref || ref.startsWith('--')) {
+    console.error('使い方: akari-assets fetch <ref> [--project <dir>] [--reference] [--force]（ref は category/id）');
     process.exitCode = 1;
     return;
   }
@@ -123,7 +123,7 @@ async function cmdFetch(args, env) {
     return;
   }
   try {
-    const result = await resolveAsset(id, { env, project, force, reference });
+    const result = await resolveAsset(ref, { env, project, force, reference });
     console.log(`${result.cached ? '取得済み（キャッシュ）を使用' : '取得しました'}: ${result.dir}`);
     if (result.projectDir) console.log(`  プロジェクトへコピー: ${result.projectDir}`);
     if (result.referenced) console.log(`  参照を記帳: ${result.category}/${result.id}`);
@@ -203,8 +203,8 @@ function printUsage() {
                                           出どころ・取得状態つき素材一覧
   add <path...> --plan [--json]           ローカル素材の取り込み計画（書き込みなし）
   add --apply <plan.json> [--json]        計画で選択した素材を複製して登録
-  fetch <id> [--project <dir>] [--reference] [--force]
-                                          素材を解決して登録（--reference はコピーせず参照を記帳）
+  fetch <ref> [--project <dir>] [--reference] [--force]
+                                          ref は category/id（bare id は一意な場合のみ）。--reference はコピーせず参照を記帳
   bundle --project <dir> [--dry-run]      参照素材をプロジェクトへ実体化（素材をまとめる）
   migrate [--dry-run]                     ライブラリを作業場へ移行
   sync                                    カタログを取得してローカルにキャッシュ（オフライン用）

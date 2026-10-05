@@ -170,7 +170,7 @@ test('list CLI filters --source and prints origin in human output', t => {
     assert.equal(rows.length, count);
     assert.ok(rows.every(item => item.sourceKind === source));
   }
-  assert.match(run(['--source', 'own']).stdout, /mine\town\t/);
+  assert.match(run(['--source', 'own']).stdout, /audio\/mine\town\t/);
   assert.equal(run(['--source', 'invalid']).status, 1);
   assert.equal(run(['--source']).status, 2);
 });
