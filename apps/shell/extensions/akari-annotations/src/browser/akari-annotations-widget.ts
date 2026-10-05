@@ -52,6 +52,13 @@ import { CommandRegistry, CommandService, Disposable, MessageService } from '@th
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
+import { StatusBar } from '@theia/core/lib/browser/status-bar/status-bar';
+import { TimelineZoomBar, ZoomBarPart } from './timeline/timeline-zoom-bar';
+import { TimelineEdgeAutoScroll } from './timeline/timeline-edge-auto-scroll';
+import { TimelineStatusMessage, installTimelineFooterSink } from './timeline/timeline-status-message';
+import { clampTrackScale, clampViewRange, dragViewRange, edgeAutoScrollDelta, fitDuration, maximumViewDuration,
+    minimumViewDuration, snapFitDuration, trackScaleFromHandle, zoomBarExtent, zoomPercent as viewZoomPercent,
+    TimelineViewRange } from '../common/timeline-view-range';
 import { shouldShowTimelineGhost } from '../common/timeline-visibility';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
@@ -157,6 +164,7 @@ import {
 // パスは lib/browser/ からの相対 — @theia/core の frontend-application-module と同じ流儀。
 try { require('../../src/browser/style/generation-chip.css'); } catch { /* node 単体テスト環境 */ }
 try { require('../../src/browser/style/caption-fragment-blocks.css'); } catch { /* node 単体テスト環境 */ }
+try { require('../../src/browser/style/timeline-zoom-bar.css'); } catch { /* node 単体テスト環境 */ }
 import {
     canRenderClipMedia, filmstripCellCount,
     isMediaCacheFailure, MediaCacheFailure, mediaCacheRequestAttempt
@@ -324,7 +332,6 @@ import {
 } from '../common/timeline-context-menu-items';
 import { parseTimelineUiTarget } from '../common/doc-target';
 import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
-import { resolveTimelineExtentSeconds } from '../common/timeline-extent';
 import {
     collectEdgeCandidates,
     readStoredSnapEnabled,
@@ -757,11 +764,7 @@ const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
 const SHAPE_PRESET_COMMAND_ID = 'akari.library.shapePreset';
 const SHAPE_PLACED_EVENT = 'akari.library.shapePlaced';
 const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
-/**
- * フッターの既定文言（task 2026-09-08-timeline-file-drop 指示13）。トラックが 1 本でもあるときは
- * 従来どおり時刻選択の案内を出し、**0 本（空のタイムライン）のときだけ**「ここへ置ける」ことを言う。
- * 取り込みだけが起きて何も出ないと「壊れている」と見分けが付かない（issue #64）。
- */
+/** 既定の操作案内はツールバーの title、空状態の案内は帯の中央に置く。 */
 const TIMELINE_FOOTER_DEFAULT_HINT =
     'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
 const TIMELINE_FOOTER_EMPTY_HINT =
@@ -842,6 +845,7 @@ const BEAT_KIND_COLORS: Record<string, string> = {
 const DEFAULT_BEAT_COLOR = 'var(--theia-charts-green, #89d185)';
 
 interface DragBase {
+    startViewStart?: number;
     duplicateFragment?: TimelineFragment;
     duplicateDrop?: { t: number; target: string[]; insertIndex?: number; rejected: boolean };
     altKey?: boolean;
@@ -1079,7 +1083,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const keys = this.keybindings.getKeybindingsForCommand(shortcut.command.id)
                 .map(binding => this.keybindings.acceleratorFor(binding, '+').join(' '));
             return `${keys.join(' / ') || '未割り当て'}: ${shortcut.command.label}`;
-        }).join('\n');
+        }).join('\n') + `\n${TIMELINE_FOOTER_DEFAULT_HINT}`;
     }
 
     @inject(MessageService)
@@ -1096,6 +1100,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @inject(StorageService)
     protected readonly storage!: StorageService;
+
+    @inject(StatusBar)
+    protected readonly statusBar!: StatusBar;
 
     @inject(PreferenceService)
     protected readonly preferences!: PreferenceService;
@@ -1127,10 +1134,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly rulerContent = document.createElement('div');
     protected readonly stripScroll = document.createElement('div');
     protected readonly timelineOverlay = document.createElement('div');
-    protected readonly hScrollbarTrack = document.createElement('div');
-    protected readonly hScrollbarThumb = document.createElement('div');
+    protected hZoomBar!: TimelineZoomBar;
+    protected vZoomBar!: TimelineZoomBar;
     protected readonly strip = document.createElement('div');
     protected readonly stripContent = document.createElement('div');
+    protected readonly beyondEnd = document.createElement('div');
+    protected readonly endLine = document.createElement('div');
     protected readonly hoverSeek = document.createElement('div');
     protected seekHoverPoint: { x: number; y: number } | undefined;
     protected seekHoverRefresh: number | undefined;
@@ -1152,6 +1161,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected pendingLintNewerVersion: string | undefined;
     protected readonly warnedNewerVersionProjects = new Set<string>();
     protected readonly footer = document.createElement('div');
+    protected timelineStatusMessage!: TimelineStatusMessage;
+    protected trackHeightScale = 1;
+    protected hZoomDragOrigin: TimelineViewRange = { start: 0, duration: 0 };
+    protected vZoomDragOrigin = { scale: 1, scrollTop: 0 };
+    protected clipEdgeScroller!: TimelineEdgeAutoScroll;
+    protected materialEdgeScroller!: TimelineEdgeAutoScroll;
 
     @inject(ReviewModel)
     protected readonly review!: ReviewModel;
@@ -1717,7 +1732,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             display: 'grid',
             // An implicit auto track can grow to child max-content, so force the column to shrink to the widget width.
             gridTemplateColumns: 'minmax(0, 1fr)',
-            gridTemplateRows: 'auto minmax(0, 1fr) auto auto auto',
+            gridTemplateRows: 'auto minmax(0, 1fr) auto auto',
             height: '100%',
             overflow: 'hidden',
             background: 'var(--theia-editor-background)'
@@ -1731,8 +1746,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.setAttribute('data-akari-dropzone', 'true');
 
         Object.assign(this.toolbar.style, {
-            alignItems: 'center', display: 'flex', gap: '2px', minHeight: '30px',
-            padding: '2px 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
+            alignItems: 'center', display: 'flex', gap: '2px', minHeight: '26px',
+            padding: '0 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
         this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (V)');
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
@@ -1782,7 +1797,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             color: 'var(--theia-descriptionForeground)', background: 'none', border: '0', padding: '0',
             margin: '0', cursor: 'pointer'
         });
-        this.zoomLabel.addEventListener('click', () => this.applyViewDuration(this.totalDuration(), 0, 0));
+        this.zoomLabel.addEventListener('click', () => this.applyViewDuration(fitDuration(this.contentEndDuration()), 0, 0));
         this.zoomSlider.type = 'range';
         this.zoomSlider.min = '0';
         this.zoomSlider.max = String(ZOOM_SLIDER_RESOLUTION);
@@ -1792,7 +1807,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.zoomSlider.setAttribute('data-testid', 'akari-timeline-zoom-slider');
         Object.assign(this.zoomSlider.style, { width: '80px' });
         this.zoomSlider.addEventListener('input', () => {
-            const proposedDuration = this.sliderValueToViewDuration(Number(this.zoomSlider.value));
+            const proposedDuration = snapFitDuration(this.contentEndDuration(),
+                this.sliderValueToViewDuration(Number(this.zoomSlider.value)));
             const centerTime = this.viewStart + this.visibleDuration() / 2;
             this.applyViewDuration(proposedDuration, centerTime, 0.5);
         });
@@ -1840,6 +1856,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         Object.assign(this.timelineBody.style, {
             position: 'relative', display: 'grid', gridTemplateRows: `${this.rulerRowHeightPx()}px minmax(0, 1fr)`,
+            paddingRight: '14px',
             minWidth: '0', minHeight: '0', margin: '2px 6px 2px 0'
         });
         Object.assign(this.rulerBar.style, {
@@ -1860,7 +1877,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             position: 'absolute', top: '0', left: '0', right: '0', bottom: '0'
         });
         this.rulerBar.appendChild(this.rulerContent);
-        this.strip.appendChild(this.stripContent);
+        this.beyondEnd.className = 'akari-annotations-strip-beyond-end';
+        this.endLine.className = 'akari-annotations-strip-end-line';
+        this.strip.append(this.beyondEnd, this.endLine, this.stripContent);
         Object.assign(this.timelineOverlay.style, {
             position: 'absolute', inset: '0', overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: '9'
         });
@@ -2031,28 +2050,43 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.trackHeaderColumn.addEventListener('wheel', event => this.onTrackHeaderWheel(event), { passive: false });
 
         this.stripScroll.classList.add('akari-timeline-scroll');
-        Object.assign(this.stripScroll.style, { minHeight: '0', overflowX: 'hidden', overflowY: 'scroll', scrollbarGutter: 'stable', overflowAnchor: 'none' });
-        Object.assign(this.hScrollbarTrack.style, {
-            position: 'relative', height: '8px', margin: '0 10px 8px 10px', flex: 'none',
-            background: 'var(--theia-scrollbarSlider-background, rgba(121,121,121,.35))',
-            borderRadius: '4px', cursor: 'pointer', display: 'block'
-        });
+        Object.assign(this.stripScroll.style, { minHeight: '0', overflowX: 'hidden', overflowY: 'scroll', scrollbarGutter: 'auto', overflowAnchor: 'none' });
         const scrollStyle = document.createElement('style');
-        scrollStyle.textContent = '.akari-timeline-scroll::-webkit-scrollbar{width:8px;height:8px}.akari-timeline-scroll::-webkit-scrollbar-track{background:transparent}.akari-timeline-scroll::-webkit-scrollbar-thumb{background:var(--theia-scrollbarSlider-hoverBackground,rgba(100,100,100,.75));border-radius:4px}';
+        scrollStyle.textContent = '.akari-timeline-scroll::-webkit-scrollbar{display:none;width:0;height:0}';
         this.node.appendChild(scrollStyle);
-        this.hScrollbarTrack.setAttribute('data-testid', 'akari-timeline-hscrollbar-track');
-        Object.assign(this.hScrollbarThumb.style, {
-            position: 'absolute', top: '0', bottom: '0', left: '0%', width: '100%',
-            background: 'var(--theia-scrollbarSlider-hoverBackground, rgba(100,100,100,.75))',
-            borderRadius: '5px', cursor: 'grab'
+        this.hZoomBar = new TimelineZoomBar('h', (part, delta) => this.onHorizontalZoomBarDrag(part, delta),
+            ratio => this.onHorizontalZoomBarClick(ratio), () => this.applyViewDuration(fitDuration(this.contentEndDuration()), 0, 0));
+        this.vZoomBar = new TimelineZoomBar('v', (part, delta) => this.onVerticalZoomBarDrag(part, delta),
+            ratio => { this.stripScroll.scrollTop = ratio * this.stripScroll.scrollHeight - this.stripScroll.clientHeight / 2; },
+            () => { this.setTrackHeightScale(1); this.stripScroll.scrollTop = 0; });
+        this.vZoomBar.node.style.top = `${this.rulerRowHeightPx()}px`;
+        this.hZoomBar.node.setAttribute('data-testid', 'akari-timeline-hscrollbar-track');
+        this.hZoomBar.thumb.setAttribute('data-testid', 'akari-timeline-hscrollbar-thumb');
+        const edgeView = (): { left: number; right: number; duration: number } => {
+            const rect = this.strip.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, duration: this.visibleDuration() };
+        };
+        const advanceEdge = (delta: number): boolean => {
+            const before = this.viewStart;
+            this.setViewStart(before + delta);
+            return this.viewStart !== before;
+        };
+        this.clipEdgeScroller = new TimelineEdgeAutoScroll(edgeView, advanceEdge, (x, y) => {
+            const state = this.dragState;
+            if (state?.dragged) this.updateDragPreview(state, x, y, true);
         });
-        this.hScrollbarThumb.setAttribute('data-testid', 'akari-timeline-hscrollbar-thumb');
-        this.hScrollbarTrack.appendChild(this.hScrollbarThumb);
-        this.hScrollbarTrack.addEventListener('click', event => this.onScrollbarTrackClick(event));
-        this.hScrollbarThumb.addEventListener('pointerdown', event => this.onScrollbarThumbPointerDown(event));
+        this.materialEdgeScroller = new TimelineEdgeAutoScroll(edgeView, advanceEdge, (x, y) => {
+            const point = this.materialPanelDropPoint(x, y);
+            if (point.zone === 'strip') this.updateMaterialGhost(point.x, point.y);
+        });
+        this.toDispose.push(Disposable.create(() => {
+            this.clipEdgeScroller.stop();
+            this.materialEdgeScroller.stop();
+        }));
         this.stripScroll.appendChild(this.strip);
         this.stripScroll.addEventListener('scroll', () => {
             this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
+            this.updateVerticalZoomBar?.();
             this.stripRenderThrottle.call();
             this.visualHover?.remove(); this.visualHover = undefined;
         });
@@ -2077,17 +2111,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(Disposable.create(() => stripScrollResizeObserver.disconnect()));
         this.trackHeadersViewport.appendChild(this.trackHeaders);
         this.trackHeaderColumn.append(this.trackHeaderRulerSpacer, this.trackHeadersViewport);
-        this.timelineBody.append(this.rulerBar, this.stripScroll, this.timelineOverlay);
+        this.timelineBody.append(this.rulerBar, this.stripScroll, this.timelineOverlay, this.vZoomBar.node);
         this.timelineViewport.append(this.trackHeaderColumn, this.timelineBody);
-        Object.assign(this.footer.style, {
-            height: '26px', minHeight: '26px', maxHeight: '26px', padding: '5px 10px', boxSizing: 'border-box',
-            borderTop: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
-            fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-        });
-        this.footer.textContent = TIMELINE_FOOTER_DEFAULT_HINT;
-
+        this.timelineStatusMessage = new TimelineStatusMessage(this.statusBar);
+        const uninstallFooterSink = installTimelineFooterSink(this.footer, this.timelineStatusMessage);
+        this.toDispose.push(Disposable.create(uninstallFooterSink));
+        this.toDispose.push(Disposable.create(() => this.timelineStatusMessage.dispose()));
         this.toDispose.push(this.notice);
-        this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice.node, this.footer);
+        this.node.append(this.toolbar, this.timelineViewport, this.hZoomBar.node, this.notice.node);
         const style = document.createElement('style');
         style.textContent = ANNOTATIONS_WIDGET_CSS;
         this.node.appendChild(style);
@@ -6874,7 +6905,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             step: 8
         });
         if (plan.deltaY === 0) {
-            this.stopMaterialDragAutoScroll();
+            this.stopMaterialDragAutoScroll(false);
             return;
         }
         if (this.materialDragAutoScrollFrame === undefined) {
@@ -6895,13 +6926,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             step: 8
         });
         if (plan.deltaY === 0) {
-            this.stopMaterialDragAutoScroll();
+            this.stopMaterialDragAutoScroll(false);
             return;
         }
         const before = this.stripScroll.scrollTop;
         this.stripScroll.scrollTop += plan.deltaY;
         if (this.stripScroll.scrollTop === before) {
-            this.stopMaterialDragAutoScroll();
+            this.stopMaterialDragAutoScroll(false);
             return;
         }
         const point = this.materialPanelDropPoint(
@@ -6914,7 +6945,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialDragAutoScrollFrame = requestAnimationFrame(() => this.runMaterialDragAutoScrollFrame());
     }
 
-    protected stopMaterialDragAutoScroll(): void {
+    protected stopMaterialDragAutoScroll(stopHorizontal = true): void {
+        if (stopHorizontal) this.materialEdgeScroller?.stop();
         this.materialDragAutoScrollPointerY = undefined;
         if (this.materialDragAutoScrollFrame !== undefined) {
             cancelAnimationFrame(this.materialDragAutoScrollFrame);
@@ -6949,6 +6981,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
+        if (point.zone === 'strip') this.materialEdgeScroller?.update(event.clientX, event.clientY);
+        else this.materialEdgeScroller?.stop();
         const applyPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
         if (applyPayload) {
             this.node?.querySelectorAll?.('[data-akari-library-apply-target]').forEach(element =>
@@ -8585,6 +8619,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!editUri) {
             return;
         }
+        const storedScale = await this.storage.getData<number>(this.trackHeightScaleStorageKey(editUri), 1);
         const resizableTracks = this.timelineTracks.filter(track => track.kind !== 'captions');
         const entries = await Promise.all(resizableTracks.map(async track => {
             const fallback = this.defaultTrackHeight(track.kind);
@@ -8593,6 +8628,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return [track.id, height] as const;
         }));
         if (generation !== this.editReloadGeneration) return;
+        this.trackHeightScale = typeof storedScale === 'number' && Number.isFinite(storedScale)
+            ? clampTrackScale(storedScale) : 1;
         this.trackHeights.clear();
         this.trackHeightLoadPromises.clear();
         for (const [id, height] of entries) {
@@ -8602,6 +8639,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected trackHeightStorageKey(editUri: URI, trackId: string): string {
         return `${TRACK_HEIGHT_STORAGE_PREFIX}:${editUri.toString()}:${trackId}`;
+    }
+
+    protected trackHeightScaleStorageKey(editUri: URI): string {
+        return `${TRACK_HEIGHT_STORAGE_PREFIX}:${editUri.toString()}:scale`;
     }
 
     protected trackFlagStorageKey(editUri: URI, trackId: string, field: 'hidden' | 'muted' | 'locked'): string {
@@ -8665,10 +8706,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected trackHeightFor(track: EditTimelineTrack): number {
         const cached = this.trackHeights.get(track.id);
         if (cached !== undefined) {
-            return cached;
+            return Math.round(cached * this.trackHeightScale);
         }
         this.ensureTrackHeightLoaded(track);
-        return this.defaultTrackHeight(track.kind);
+        return Math.round(this.defaultTrackHeight(track.kind) * this.trackHeightScale);
     }
 
     protected visualTrack(track: EditTimelineTrack): boolean {
@@ -9211,12 +9252,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const pointerId = event.pointerId;
         const startY = event.clientY;
         const startHeight = this.trackHeightFor(track);
-        let currentHeight = startHeight;
+        let currentHeight = startHeight / this.trackHeightScale;
         const onMove = (moveEvent: PointerEvent): void => {
             if (moveEvent.pointerId !== pointerId) {
                 return;
             }
-            currentHeight = this.clampTrackHeight(startHeight + (moveEvent.clientY - startY));
+            currentHeight = this.clampTrackHeight((startHeight + (moveEvent.clientY - startY)) / this.trackHeightScale);
             this.trackHeights.set(track.id, currentHeight);
             this.renderStrip();
         };
@@ -10219,7 +10260,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected totalDuration(): number {
-        return resolveTimelineExtentSeconds(this.contentEndDuration(), this.viewDuration);
+        return fitDuration(this.contentEndDuration());
     }
 
     /** source 秒 → 出力秒。cuts が無ければ恒等写像（後方互換）。範囲外は最も近いセグメントへクランプする。 */
@@ -10767,23 +10808,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return result;
     }
 
-    /**
-     * 既定文言だけを空状態に差し替える（task 2026-09-08-timeline-file-drop 指示13）。
-     * 直前の操作結果（「クリップを分割しました。」等）や拒否理由が出ているときは触らない —
-     * 既定文言のままのときだけ入れ替えるので、描画のたびにメッセージを消してしまうことはない。
-     */
-    protected updateDefaultFooterHint(): void {
-        const current = this.footer.textContent;
-        if (current !== TIMELINE_FOOTER_DEFAULT_HINT && current !== TIMELINE_FOOTER_EMPTY_HINT) {
-            return;
-        }
-        const next = this.displayTimelineTracks.length === 0
-            ? TIMELINE_FOOTER_EMPTY_HINT : TIMELINE_FOOTER_DEFAULT_HINT;
-        if (current !== next) {
-            this.footer.textContent = next;
-        }
-    }
-
     protected renderStrip(): void {
         this.hoverSeek.style.display = 'none';
         // 同期描画が別経路で走ったら、次フレームに予約済みの重複描画は 1 回ぶん省く。
@@ -10798,23 +10822,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.waveformT2PanTargets.clear();
         const captionFragmentBreaksVisible = this.captionFragmentBreaksVisible();
 
-        const maxDuration = this.totalDuration();
         if (this.viewDuration !== undefined) {
-            if (this.viewDuration >= maxDuration) {
-                this.viewDuration = undefined;
-                this.viewStart = 0;
-            } else {
-                this.viewStart = Math.min(Math.max(0, this.viewStart), Math.max(0, maxDuration - this.viewDuration));
-            }
+            const range = clampViewRange(this.viewStart, this.viewDuration,
+                this.contentEndDuration(), this.fps, MIN_VIEW_DURATION_FRAMES);
+            this.viewDuration = range.duration;
+            this.viewStart = range.start;
         }
         // DOM 書き込みと交互に読むとアイテム数ぶん同期レイアウトが走るため、描画寸法は冒頭で 1 回だけ読む。
         const stripLayoutWidthPx = this.strip.clientWidth;
         const viewportHeight = this.stripScroll.clientHeight;
-        const stripScrollOffsetWidth = this.stripScroll.offsetWidth;
-        const stripScrollClientWidth = this.stripScroll.clientWidth;
         this.stripLayoutWidthPx = stripLayoutWidthPx;
         this.layoutViewStart = this.viewStart;
         this.layoutViewDuration = this.visibleDuration();
+        this.updateBeyondEnd?.();
         this.panOffsetPx = 0;
         if (this.panSettleHandle !== undefined) {
             cancelAnimationFrame(this.panSettleHandle);
@@ -10830,9 +10850,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.keyedNode('strip', 'timeline-empty-state', 'empty', () => {
                 const message = document.createElement('p');
                 message.dataset.akariUiLabel = 'タイムライン空状態';
-                message.textContent = timelineEmptyStateMessage(false);
+                message.textContent = `${timelineEmptyStateMessage(false)} ${TIMELINE_FOOTER_EMPTY_HINT}`;
                 Object.assign(message.style, {
-                    margin: '24px', color: 'var(--theia-descriptionForeground)',
+                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                    margin: '0', width: '80%', textAlign: 'center',
+                    color: 'var(--theia-descriptionForeground)', opacity: '.65',
                     lineHeight: '1.6', pointerEvents: 'none'
                 });
                 return message;
@@ -10856,7 +10878,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.calculateLaneLayout(centerGapPx);
             stripHeight = stackHeight + centerGapPx * 2;
         }
-        this.updateDefaultFooterHint();
         const beatsBandTop = this.laneLayout.beats.top;
         const beatsBandHeight = this.laneLayout.beats.height;
 
@@ -10864,6 +10885,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.strip.style.height = `${stripHeight}px`;
         this.trackHeaders.style.height = `${stripHeight}px`;
         this.applyInitialVerticalScroll(stripHeight, viewportHeight, centerGapPx);
+        this.updateVerticalZoomBar?.();
         this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         this.renderTrackHeaders(beatsBandTop, beatsBandHeight);
         if (this.worldMapData) {
@@ -11794,9 +11816,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.updateChipHitAreas();
         this.finishKeyedRender('ruler');
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
-        const scrollbarWidth = Math.max(0, stripScrollOffsetWidth - stripScrollClientWidth);
-        this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
-        this.timelineOverlay.style.right = `${scrollbarWidth}px`;
+        this.rulerBar.style.marginRight = '0px';
+        this.timelineOverlay.style.right = '14px';
         this.applySelectionClass();
         this.applyFocusPulseClass();
         this.applyKeyframePropertySelectionClass();
@@ -14162,6 +14183,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const rows = `${this.cachedRulerRowHeightPx}px minmax(0, 1fr)`;
         this.trackHeaderColumn.style.gridTemplateRows = rows;
         this.timelineBody.style.gridTemplateRows = rows;
+        if (this.vZoomBar) this.vZoomBar.node.style.top = `${this.cachedRulerRowHeightPx}px`;
     }
 
     protected stopReviewSessionRefreshRetries(): void {
@@ -16340,12 +16362,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected updateDragPreview(state: DragState, clientX: number, clientY: number, allowGuide: boolean): DragPreview {
         state.lastClientX = clientX;
         state.lastClientY = clientY;
+        state.startViewStart ??= this.viewStart;
+        if (state.dragged) this.clipEdgeScroller?.update(clientX, clientY);
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         // strip 全体で秒/px の縮尺は一定なので、この delta は source 秒・出力秒のどちらにもそのまま使える。
         // トリマーモード中のクリップ本体も通常表示と同一スケールのため、専用の写像は不要
         // （R6c2r2 で撤去。cut-slip もこの delta をそのまま使う）。
-        const delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
+        const delta = (rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0)
+            + (this.viewStart - state.startViewStart);
         const showGuide = allowGuide && this.snapEnabled;
         if (state.duplicateFragment) {
             const fragment = state.duplicateFragment;
@@ -17430,6 +17455,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.hideTrackInsertIndicator();
         this.dragFeedback.style.display = 'none';
         this.dragState = undefined;
+        this.clipEdgeScroller?.stop();
         if (this.renderStripPending) {
             this.renderStripPending = false;
             this.renderStrip();
@@ -17996,16 +18022,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected zoomPercent(): number {
-        const duration = this.visibleDuration();
-        return duration > 0 ? this.totalDuration() / duration * 100 : 100;
+        return viewZoomPercent(this.contentEndDuration(), this.visibleDuration());
     }
 
     protected minViewDurationSeconds(): number {
-        return Math.min(this.totalDuration(), MIN_VIEW_DURATION_FRAMES / this.fps);
+        return minimumViewDuration(this.contentEndDuration(), this.fps, MIN_VIEW_DURATION_FRAMES);
     }
 
     protected sliderValueToViewDuration(sliderValue: number): number {
-        const maxDuration = this.totalDuration();
+        const maxDuration = maximumViewDuration(this.contentEndDuration());
         const minDuration = this.minViewDurationSeconds();
         if (maxDuration <= minDuration) {
             return maxDuration;
@@ -18016,7 +18041,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected viewDurationToSliderValue(duration: number): number {
-        const maxDuration = this.totalDuration();
+        const maxDuration = maximumViewDuration(this.contentEndDuration());
         const minDuration = this.minViewDurationSeconds();
         if (maxDuration <= minDuration) {
             return 0;
@@ -18036,16 +18061,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applyViewDuration(proposedDuration: number, anchorTime: number, anchorRatio: number): void {
-        const maxDuration = this.totalDuration();
-        const minDuration = this.minViewDurationSeconds();
-        const clamped = Math.min(maxDuration, Math.max(minDuration, proposedDuration));
-        if (clamped >= maxDuration - 1e-6) {
+        const fit = fitDuration(this.contentEndDuration());
+        const range = clampViewRange(anchorTime - anchorRatio * proposedDuration, proposedDuration,
+            this.contentEndDuration(), this.fps, MIN_VIEW_DURATION_FRAMES);
+        if (Math.abs(range.duration - fit) < 1e-6) {
             this.viewDuration = undefined;
             this.viewStart = 0;
         } else {
-            const proposedStart = anchorTime - anchorRatio * clamped;
-            this.viewDuration = clamped;
-            this.viewStart = Math.min(Math.max(0, proposedStart), Math.max(0, maxDuration - clamped));
+            this.viewDuration = range.duration;
+            this.viewStart = range.start;
         }
         // 倍率表示は即時、帯の描画は次フレームへ折りたたむ（ピンチ中の wheel は 60〜120 Hz で届く）。
         this.updateZoomHud();
@@ -18063,7 +18087,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected setViewStart(candidate: number): void {
-        const maxStart = Math.max(0, this.totalDuration() - this.visibleDuration());
+        const maxStart = Math.max(0, maximumViewDuration(this.contentEndDuration()) - this.visibleDuration());
         const next = Math.min(Math.max(0, candidate), maxStart);
         if (next === this.viewStart && this.panOffsetPx === 0) {
             return;
@@ -18074,13 +18098,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.stripRenderThrottle.pending()) {
             return;
         }
-        if (!this.dragState
-            && this.layoutViewDuration > 0
+        if (this.layoutViewDuration > 0
             && Math.abs(visibleDuration - this.layoutViewDuration) < 1e-9
-            && Math.abs(next - this.layoutViewStart) <= PAN_TRANSFORM_LIMIT_RATIO * this.layoutViewDuration) {
+            && (this.dragState || Math.abs(next - this.layoutViewStart) <= PAN_TRANSFORM_LIMIT_RATIO * this.layoutViewDuration)) {
             // 細いチップも掴める個別ノードのまま保ち、パン中は全チップの幾何更新から外す。
             this.applyPanTransform();
-            this.schedulePanSettle();
+            if (!this.dragState) this.schedulePanSettle();
             return;
         }
         this.renderStrip();
@@ -18094,6 +18117,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.stripContent.style.transform = value;
         this.rulerContent.style.transform = value;
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        this.updateBeyondEnd?.();
         this.updateScrollbar();
         this.scheduleAudioWaveformT2DuringPan();
     }
@@ -18137,54 +18161,69 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateScrollbar(): void {
-        this.hScrollbarTrack.style.display = 'block';
-        const total = this.totalDuration();
-        const visible = this.visibleDuration();
-        const widthPercent = total > 0 ? Math.min(100, Math.max(2, visible / total * 100)) : 100;
-        const leftPercent = total > 0 ? Math.min(100 - widthPercent, Math.max(0, this.viewStart / total * 100)) : 0;
-        this.hScrollbarThumb.style.width = `${widthPercent}%`;
-        this.hScrollbarThumb.style.left = `${leftPercent}%`;
+        const contentEnd = this.contentEndDuration();
+        const extent = zoomBarExtent(contentEnd, this.viewStart, this.visibleDuration());
+        this.hZoomBar.update(this.viewStart, this.viewStart + this.visibleDuration(), extent, contentEnd);
     }
 
-    protected onScrollbarTrackClick(event: MouseEvent): void {
+    protected updateBeyondEnd(): void {
+        const endRatio = (this.contentEndDuration() - this.viewStart) / Math.max(this.visibleDuration(), 1e-9) * 100;
+        const position = `${Math.max(0, Math.min(100, endRatio))}%`;
+        this.beyondEnd.style.left = position;
+        this.beyondEnd.style.right = '0';
+        this.beyondEnd.style.display = endRatio < 100 ? 'block' : 'none';
+        this.endLine.style.left = position;
+        this.endLine.style.display = endRatio >= 0 && endRatio <= 100 ? 'block' : 'none';
+    }
+
+    protected onHorizontalZoomBarDrag(part: ZoomBarPart, delta: number): void {
         this.lastManualScrollAt = Date.now();
-        if (event.target === this.hScrollbarThumb) {
+        if (delta === 0) {
+            this.hZoomDragOrigin = { start: this.viewStart, duration: this.visibleDuration() };
             return;
         }
-        const rect = this.hScrollbarTrack.getBoundingClientRect();
-        if (rect.width <= 0) {
-            return;
-        }
-        const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-        const total = this.totalDuration();
-        this.setViewStart(ratio * total - this.visibleDuration() / 2);
+        const range = dragViewRange(this.hZoomDragOrigin, part, delta,
+            this.contentEndDuration(), this.fps, MIN_VIEW_DURATION_FRAMES);
+        this.viewDuration = range.duration;
+        this.viewStart = range.start;
+        this.updateZoomHud();
+        this.scheduleStripRender();
+        this.updateScrollbar();
     }
 
-    protected onScrollbarThumbPointerDown(event: PointerEvent): void {
-        event.preventDefault();
-        event.stopPropagation();
-        this.hScrollbarThumb.setPointerCapture(event.pointerId);
-        const trackRect = this.hScrollbarTrack.getBoundingClientRect();
-        const startClientX = event.clientX;
-        const startViewStart = this.viewStart;
-        const total = this.totalDuration();
-        const onMove = (moveEvent: PointerEvent): void => {
-            this.lastManualScrollAt = Date.now();
-            if (trackRect.width <= 0) {
-                return;
-            }
-            const deltaRatio = (moveEvent.clientX - startClientX) / trackRect.width;
-            this.setViewStart(startViewStart + deltaRatio * total);
-        };
-        const onUp = (upEvent: PointerEvent): void => {
-            this.hScrollbarThumb.releasePointerCapture(upEvent.pointerId);
-            this.hScrollbarThumb.removeEventListener('pointermove', onMove);
-            this.hScrollbarThumb.removeEventListener('pointerup', onUp);
-            this.hScrollbarThumb.removeEventListener('pointercancel', onUp);
-        };
-        this.hScrollbarThumb.addEventListener('pointermove', onMove);
-        this.hScrollbarThumb.addEventListener('pointerup', onUp);
-        this.hScrollbarThumb.addEventListener('pointercancel', onUp);
+    protected onHorizontalZoomBarClick(ratio: number): void {
+        this.lastManualScrollAt = Date.now();
+        const extent = zoomBarExtent(this.contentEndDuration(), this.viewStart, this.visibleDuration());
+        this.setViewStart(Math.max(0, Math.min(1, ratio)) * extent - this.visibleDuration() / 2);
+    }
+
+    protected updateVerticalZoomBar(): void {
+        if (!this.vZoomBar) return;
+        const extent = Math.max(this.stripScroll.scrollHeight, this.stripScroll.clientHeight, 1);
+        this.vZoomBar.update(this.stripScroll.scrollTop,
+            this.stripScroll.scrollTop + this.stripScroll.clientHeight, extent, extent);
+    }
+
+    protected onVerticalZoomBarDrag(part: ZoomBarPart, delta: number): void {
+        if (delta === 0) {
+            this.vZoomDragOrigin = { scale: this.trackHeightScale, scrollTop: this.stripScroll.scrollTop };
+            return;
+        }
+        if (part === 'thumb') {
+            this.stripScroll.scrollTop = this.vZoomDragOrigin.scrollTop + delta;
+            return;
+        }
+        this.setTrackHeightScale(trackScaleFromHandle(this.vZoomDragOrigin.scale, delta,
+            this.stripScroll.clientHeight, part));
+    }
+
+    protected setTrackHeightScale(value: number): void {
+        const next = clampTrackScale(value);
+        if (Math.abs(next - this.trackHeightScale) < 1e-6) return;
+        this.trackHeightScale = next;
+        const editUri = this.location?.editUri;
+        if (editUri) void this.storage.setData(this.trackHeightScaleStorageKey(editUri), next);
+        this.renderStrip();
     }
 
     /** playhead 上端のピン型ハンドルをドラッグしている間、継続的にプレビューへシークする（スクラブ）。 */
@@ -18206,9 +18245,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.playheadHandle.setPointerCapture(event.pointerId);
         let pendingSeekFrame: number | undefined;
         let latestSeekTime = this.playheadT;
-        const onMove = (moveEvent: PointerEvent): void => {
-            if (moveEvent.pointerId !== event.pointerId) return;
-            const outputT = this.timeAtClientX(moveEvent.clientX);
+        let autoScrollFrame: number | undefined;
+        let lastClientX = event.clientX;
+        const seekAt = (clientX: number): void => {
+            const outputT = this.timeAtClientX(clientX);
             this.playheadT = outputT;
             this.playhead.style.left = `${this.percent(outputT)}%`;
             latestSeekTime = outputT;
@@ -18221,7 +18261,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
             }
         };
+        const autoScroll = (): void => {
+            autoScrollFrame = undefined;
+            const rect = this.strip.getBoundingClientRect();
+            const delta = this.timelineEdgeScrollDelta?.(lastClientX, rect.left, rect.right) ?? 0;
+            if (delta === 0) return;
+            const before = this.viewStart;
+            this.setViewStart(before + delta);
+            if (this.viewStart !== before) {
+                seekAt(lastClientX);
+                autoScrollFrame = requestAnimationFrame(autoScroll);
+            }
+        };
+        const onMove = (moveEvent: PointerEvent): void => {
+            if (moveEvent.pointerId !== event.pointerId) return;
+            lastClientX = moveEvent.clientX;
+            seekAt(lastClientX);
+            const rect = this.strip.getBoundingClientRect();
+            if ((this.timelineEdgeScrollDelta?.(lastClientX, rect.left, rect.right) ?? 0) !== 0) {
+                if (autoScrollFrame === undefined) autoScrollFrame = requestAnimationFrame(autoScroll);
+            } else if (autoScrollFrame !== undefined) {
+                cancelAnimationFrame(autoScrollFrame);
+                autoScrollFrame = undefined;
+            }
+        };
         const cleanup = (): void => {
+            if (autoScrollFrame !== undefined) cancelAnimationFrame(autoScrollFrame);
             if (pendingSeekFrame !== undefined) {
                 cancelAnimationFrame(pendingSeekFrame);
                 pendingSeekFrame = undefined;
@@ -18257,6 +18322,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected panViewBy(deltaSeconds: number): void {
         this.lastManualScrollAt = Date.now();
         this.setViewStart(this.viewStart + deltaSeconds);
+    }
+
+    protected timelineEdgeScrollDelta(pointerX: number, left: number, right: number): number {
+        return edgeAutoScrollDelta(pointerX, left, right, this.visibleDuration());
     }
 
     protected timeAtClientX(clientX: number): number {

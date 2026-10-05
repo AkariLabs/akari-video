@@ -78,6 +78,30 @@ body :is(input, textarea, [contenteditable]:not([contenteditable="false"]),
 #theia-bottom-content-panel .lm-TabBar {
     border-top: none;
 }
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+    font-size: 11px;
+}
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-content,
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-toolbar {
+    height: 20px;
+    min-height: 20px;
+}
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-tab {
+    height: 18px;
+    min-height: 18px;
+    line-height: 18px;
+    margin-top: 1px;
+    margin-bottom: 1px;
+    font-size: 11px;
+}
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-tabIcon,
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-tabCloseIcon {
+    font-size: 11px;
+    line-height: 18px;
+}
 /* 分割エディタの上辺も同様（縦分割時にだけ出る）。 */
 #theia-main-content-panel .lm-DockPanel-handle[data-orientation="vertical"] + .lm-TabBar {
     border-top: none;
