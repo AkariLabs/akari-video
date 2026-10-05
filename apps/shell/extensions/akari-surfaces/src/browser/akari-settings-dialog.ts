@@ -47,7 +47,7 @@ import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
-    AKARI_TIMELINE_VISUAL_THUMBNAILS,
+    AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
     AKARI_EXPORT_GPU_PREFERENCE_CONSENT, showTemporaryGpuPreferenceSetting,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
@@ -479,7 +479,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                         onChange: value => this.savePreference(AKARI_QUALITY_TIER, value) }),
                     settingsNote(QUALITY_TIER_RESERVED_NOTE)),
                 groupCard('タイムライン', this.preferenceSwitch(AKARI_TIMELINE_VISUAL_THUMBNAILS, 'HTML / 3D 素材の絵を出す', false,
-                    '素材が多いと開くのが遅くなります。オフなら種別の色と名前だけ')));
+                    '素材が多いと開くのが遅くなります。オフなら種別の色と名前だけ'),
+                    settingRow('トラックの詰め方の表示', '札: 切る / ずらす / 固定を 1 枚で切り替え。2 スイッチ: ターゲットと同期ロックを別々に切り替え',
+                        segmentedControl({ label: 'トラックの詰め方の表示',
+                            options: [{ value: 'tag', label: '札' }, { value: 'switches', label: '2 スイッチ' }],
+                            value: this.preferences.get(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY) === 'switches' ? 'switches' : 'tag',
+                            onChange: value => this.savePreference(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, value) }))));
         } else if (id === 'notifications') {
             section.append(groupCard(undefined, this.preferenceSwitch(AKARI_AGENT_TURN_END_NOTIFICATION, 'AI 完了通知', true,
                 'Claude Code などの処理が終わったとき、通知でお知らせします（ウィンドウが背面のときだけ）')));

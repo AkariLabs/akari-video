@@ -1,0 +1,564 @@
+{
+  "port": 9466,
+  "checks": {
+    "main_only_without_selection": {
+      "pass": true,
+      "value": {
+        "label": "本編だけ切る（他は固定）",
+        "after": {
+          "a-bgm": [
+            false,
+            false
+          ],
+          "a-sfx": [
+            false,
+            false
+          ],
+          "v-main": [
+            true,
+            true
+          ],
+          "v-broll": [
+            false,
+            false
+          ],
+          "v-telop": [
+            false,
+            false
+          ],
+          "captions": [
+            null,
+            null
+          ]
+        }
+      }
+    },
+    "selected_track_only": {
+      "pass": true,
+      "value": {
+        "label": "選んだトラックだけ切る（他は固定）",
+        "after": {
+          "a-bgm": [
+            false,
+            false
+          ],
+          "a-sfx": [
+            true,
+            true
+          ],
+          "v-main": [
+            false,
+            false
+          ],
+          "v-broll": [
+            false,
+            false
+          ],
+          "v-telop": [
+            false,
+            false
+          ],
+          "captions": [
+            null,
+            null
+          ]
+        }
+      }
+    },
+    "header_context_menu": {
+      "pass": true,
+      "value": {
+        "items": [
+          "このトラック: 切る",
+          "このトラック: ずらす",
+          "このトラック: 固定"
+        ],
+        "after": [
+          false,
+          true
+        ],
+        "captionItems": 0
+      }
+    },
+    "switches_layout": {
+      "pass": true,
+      "value": {
+        "switches-20": [
+          {
+            "id": "captions",
+            "height": 24,
+            "nameWidth": 34,
+            "switches": [],
+            "overlap": false
+          },
+          {
+            "id": "v-telop",
+            "height": 22,
+            "nameWidth": 24,
+            "switches": [
+              {
+                "field": "target",
+                "x": 113,
+                "y": 321.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 127,
+                "y": 321.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "v-broll",
+            "height": 20,
+            "nameWidth": 24,
+            "switches": [
+              {
+                "field": "target",
+                "x": 113,
+                "y": 344.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 127,
+                "y": 344.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "v-main",
+            "height": 20,
+            "nameWidth": 24,
+            "switches": [
+              {
+                "field": "target",
+                "x": 113,
+                "y": 366.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 127,
+                "y": 366.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "a-sfx",
+            "height": 24,
+            "nameWidth": 42,
+            "switches": [
+              {
+                "field": "target",
+                "x": 113,
+                "y": 390.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 127,
+                "y": 390.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "a-bgm",
+            "height": 24,
+            "nameWidth": 42,
+            "switches": [
+              {
+                "field": "target",
+                "x": 113,
+                "y": 416.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 127,
+                "y": 416.5,
+                "w": 14,
+                "h": 18,
+                "icon": 12,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          }
+        ],
+        "switches-60": [
+          {
+            "id": "captions",
+            "height": 24,
+            "nameWidth": 34,
+            "switches": [],
+            "overlap": false
+          },
+          {
+            "id": "v-telop",
+            "height": 62,
+            "nameWidth": 39,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 245,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 245,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "v-broll",
+            "height": 60,
+            "nameWidth": 39,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 309,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 309,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "v-main",
+            "height": 60,
+            "nameWidth": 39,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 371,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 371,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "a-sfx",
+            "height": 60,
+            "nameWidth": 59,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 433,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 433,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "a-bgm",
+            "height": 60,
+            "nameWidth": 59,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 495,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 495,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          }
+        ],
+        "switches-zoom-3": [
+          {
+            "id": "captions",
+            "height": 24,
+            "nameWidth": 34,
+            "switches": [],
+            "overlap": false
+          },
+          {
+            "id": "v-telop",
+            "height": 182,
+            "nameWidth": 39,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 151,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 151,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "v-broll",
+            "height": 180,
+            "nameWidth": 39,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 335,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 335,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "v-main",
+            "height": 180,
+            "nameWidth": 39,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 517,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 517,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": true,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "a-sfx",
+            "height": 180,
+            "nameWidth": 59,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 699,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": null,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 699,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": null,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          },
+          {
+            "id": "a-bgm",
+            "height": 180,
+            "nameWidth": 59,
+            "switches": [
+              {
+                "field": "target",
+                "x": 11,
+                "y": 881,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": null,
+                "clipped": false
+              },
+              {
+                "field": "sync",
+                "x": 74,
+                "y": 881,
+                "w": 62,
+                "h": 18,
+                "icon": 14,
+                "hit": null,
+                "clipped": false
+              }
+            ],
+            "overlap": false
+          }
+        ]
+      }
+    },
+    "settings_screen": {
+      "pass": true,
+      "value": {
+        "schema": {
+          "description": "タイムライン: トラックの詰め方の表示（札 / ターゲットと同期ロックの 2 スイッチ）",
+          "enum": [
+            "tag",
+            "switches"
+          ],
+          "default": "tag"
+        },
+        "shown": [
+          "Track Ripple Display",
+          "タイムライン: トラックの詰め方の表示（札 / ターゲットと同期ロックの 2 スイッチ）",
+          "tag",
+          "Track Ripple Display",
+          "タイムライン: トラックの詰め方の表示（札 / ターゲットと同期ロックの 2 スイッチ）",
+          "tag"
+        ]
+      }
+    }
+  },
+  "screenshots": [
+    "<results>/header-context-menu.png",
+    "<results>/switches-20.png",
+    "<results>/switches-60.png",
+    "<results>/switches-zoom-3.png",
+    "<results>/settings-preferences.png"
+  ]
+}

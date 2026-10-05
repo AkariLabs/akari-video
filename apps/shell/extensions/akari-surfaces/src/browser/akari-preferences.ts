@@ -13,6 +13,7 @@ export const AKARI_NARRATION_IRODORI_URL = 'akari.narration.irodoriUrl';
 
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
 export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
+export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 // 読む側の文字列ミラー。スキーマは akari-project/src/browser/akari-project-frontend-module.ts が所有する。
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
 // パートナー PTY（Claude Code 等）の応答完了 OS 通知（読む側: akari-partner の
@@ -49,6 +50,10 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
         [AKARI_TIMELINE_VISUAL_THUMBNAILS]: {
             type: 'boolean', default: false,
             description: 'タイムラインに HTML / 3D 素材の絵を出す（オフのときは種別の色と名前だけ）'
+        },
+        [AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY]: {
+            type: 'string', enum: ['tag', 'switches'], default: 'tag',
+            description: 'タイムライン: トラックの詰め方の表示（札 / ターゲットと同期ロックの 2 スイッチ）'
         },
         [AKARI_AGENT_TURN_END_NOTIFICATION]: {
             type: 'boolean',
