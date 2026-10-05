@@ -15732,7 +15732,7 @@ var require_ripple = __commonJS({
         }
       return { edit: result, changed: true };
     }
-    function removeInside(track, range, fps, ids) {
+    function removeInside(track, range, fps, ids, origins) {
       let changed = false;
       const result = [];
       for (const item of track.items) {
@@ -15741,7 +15741,11 @@ var require_ripple = __commonJS({
           continue;
         }
         changed = true;
-        result.push(...removeTimelineItemRange(item, range, fps, ids));
+        const pieces = removeTimelineItemRange(item, range, fps, ids);
+        for (const piece of pieces)
+          if (piece.id !== item.id)
+            origins.set(piece.id, item.id);
+        result.push(...pieces);
       }
       track.items = result;
       return changed;
@@ -15769,6 +15773,7 @@ var require_ripple = __commonJS({
         return unchanged(edit, "\u7BC4\u56F2\u304C\u4E0D\u6B63\u3067\u3059");
       const result = clone(edit);
       const ids = idsIn(result);
+      const origins = /* @__PURE__ */ new Map();
       const blocked = [];
       let changed = false;
       for (const track of result.tracks) {
@@ -15779,9 +15784,24 @@ var require_ripple = __commonJS({
         if (mode === "fixed" && !selectedTrackIds?.has(track.id))
           continue;
         if (cut)
-          changed = removeInside(track, range, result.output.fps, ids) || changed;
+          changed = removeInside(track, range, result.output.fps, ids, origins) || changed;
         if (ripple)
           changed = shiftAfter(track, range, blocked) || changed;
+      }
+      if (origins.size) {
+        const visual = result.tracks.filter((track) => itemsTrack(track) && track.lane === "visual").flatMap((track) => track.items);
+        for (const track of result.tracks)
+          if (itemsTrack(track) && track.lane === "audio") {
+            for (const item of track.items) {
+              if (!item.link)
+                continue;
+              const candidates = visual.filter((candidate) => candidate.id === item.link || origins.get(candidate.id) === item.link);
+              const overlap = (candidate) => Math.max(0, Math.min(endOf(item), endOf(candidate)) - Math.max(item.at, candidate.at));
+              const best = candidates.sort((a, b) => overlap(b) - overlap(a))[0];
+              if (best && overlap(best) > 0)
+                item.link = best.id;
+            }
+          }
       }
       return { edit: result, changed, ...ripple ? { removedFrames: range.end - range.start, blocked } : {} };
     }
