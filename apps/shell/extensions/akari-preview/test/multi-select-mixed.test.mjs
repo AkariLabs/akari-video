@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import ts from 'typescript';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 import { updateCaptionCuePositionsSource } from '../lib/common/caption-zone-write.js';
 import { resolvePreviewItemWriteBatch } from '../../../../../packages/edit-store/lib/edit-v2-item-write.js';
 
 const source = readHandlerSource();
+// origin/main の分割（F-50）で isCaptionWriteRequest は preview-host-message-guards の関数になった
+const { isCaptionWriteRequest } = createRequire(import.meta.url)('../lib/browser/preview-host-message-guards.js');
 const parsed = ts.createSourceFile('handler.ts', source, ts.ScriptTarget.Latest, true);
 function hostMethod(name, bindings = {}) {
     const member = parsed.statements.filter(ts.isClassDeclaration)
@@ -25,7 +28,7 @@ function declaration(name) {
 }
 
 test('batched caption write accepts center placement without x and rejects invalid x', () => {
-    const host = hostMethod('isCaptionWriteRequest');
+    const host = { isCaptionWriteRequest };
     const request = { type: 'akari-preview-caption-write', requestId: 'r1', captionId: 'c1',
         patch: { cuePositions: [
             { captionId: 'c1', value: { anchor: 'mc', position: { y: 0.5723 } } },
@@ -153,7 +156,7 @@ test('preview Shift and Ctrl clicks add unlike and same-kind items', () => {
 });
 
 test('invalid caption writes receive an explicit failure response', () => {
-    assert.match(source, /if \(message\?\.type === 'akari-preview-caption-write'\) \{\s*if \(!this\.isCaptionWriteRequest\(message\)\)/);
+    assert.match(source, /if \(message\?\.type === 'akari-preview-caption-write'\) \{\s*if \(!isCaptionWriteRequest\(message\)\)/);
     assert.match(source, /type: 'akari-preview-caption-write-response', requestId: message\.requestId,\s*ok: false/);
 });
 

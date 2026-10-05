@@ -1,13 +1,13 @@
 import test from 'node:test';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { MaterialTrialHistory } from '../lib/common/material-trial-history.js';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 import * as replacement from '../lib/common/material-replacement.js';
 import * as playback from '../../akari-preview/lib/common/swap-trial-playback.js';
 import * as trialWindow from '../lib/common/material-trial-window.js';
-const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const source = readCompiledSource('widget').text;
 function method(name) {
  const start = source.search(new RegExp('    (async )?' + name + '\\(')); assert.notEqual(start, -1, name);
  const rest = source.slice(start); return rest.slice(0, rest.indexOf('\n    }') + 6);

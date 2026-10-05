@@ -1,4 +1,5 @@
 import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { AKARI_BORDER, AKARI_INK, AKARI_LINE, AKARI_RADIUS, AKARI_SURFACE } from 'akari-project/lib/common/akari-surface-tokens';
 import { CommandService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -27,7 +28,8 @@ import {
     filterInstallableSelection,
     formatInstallProgressLabel,
     shortenHomePath,
-    ToolSelectionSnapshot
+    ToolSelectionSnapshot,
+    TOOL_INSTALL_NOTICE, TOOL_PROVIDERS
 } from '../common/tool-install-ui';
 import {
     computeDownloadPercent,
@@ -107,12 +109,19 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         protected readonly newProjectService: AkariNewProjectService,
         // v2 では接続ゲートのコマンドをもう起動しないため未使用だが、呼び出し元
         // （akari-home-widget.tsx、並走タスクの所有）の位置引数を崩さないため残す。
-        protected readonly _commands: CommandService
+        protected readonly _commands: CommandService,
+        protected readonly windowService?: WindowService
     ) {
         super(props);
         ensureIndeterminateProgressStyleInjected();
         this.buildDom();
         this.renderState();
+    }
+
+    protected openExternalToolUrl(url: string): void {
+        const host = window as Window & { theia?: { container: { get<T>(key: symbol): T } } };
+        const service = this.windowService ?? host.theia?.container.get<WindowService>(WindowService);
+        service?.openNewWindow(url, { external: true });
     }
 
     override close(): void {
@@ -266,7 +275,9 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         const copy = document.createElement('div');
         copy.append(
             createTitle('道具チェック'),
-            createLead('必要な道具にチェックが入っています。「インストール」を押すだけで導入できます。'),
+            createLead('導入したい道具を選んでください。'),
+            createLead(TOOL_INSTALL_NOTICE),
+            createLead('Blender などの導入では管理者の確認が表示される場合があります。'),
             createLead('あとから AI パートナーとの会話で「道具をそろえて」と頼んでも、同じ道具を導入できます。')
         );
         const recheck = createButton(this.checkingTools ? '確認中…' : '再チェック', 'secondary');
@@ -381,6 +392,16 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
 
         const body = document.createElement('div');
         Object.assign(body.style, { minWidth: '0', flex: '1 1 auto' });
+        const provider = document.createElement('div');
+        provider.textContent = `提供元: ${TOOL_PROVIDERS[tool.id].provider} · `;
+        const terms = document.createElement('a');
+        terms.href = TOOL_PROVIDERS[tool.id].termsUrl;
+        terms.textContent = '利用規約・ライセンス';
+        terms.addEventListener('click', event => {
+            event.preventDefault();
+            this.openExternalToolUrl(terms.href);
+        });
+        provider.appendChild(terms);
         const nameRow = document.createElement('div');
         Object.assign(nameRow.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '7px' });
         const name = document.createElement('strong');
@@ -421,7 +442,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         Object.assign(purpose.style, {
             color: BODY_TEXT_COLOR, fontSize: '12px', lineHeight: '1.6', margin: '5px 0 0'
         });
-        body.append(nameRow, purpose);
+        body.append(nameRow, purpose, provider);
         if (shouldShowToolNote(tool)) {
             const note = document.createElement('p');
             note.textContent = info.note ?? '';

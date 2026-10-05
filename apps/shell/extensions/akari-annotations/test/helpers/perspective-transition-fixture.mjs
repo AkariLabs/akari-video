@@ -1,5 +1,6 @@
+import { readInspectorSource } from './inspector-source.mjs';
+import { readAllSourceText, findMember } from './widget-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import * as perspective from '../../lib/browser/inspector/perspective-fields.js';
@@ -16,8 +17,8 @@ import * as motionMarks from '../../lib/browser/inspector/motion-marks.js';
 import { composeInspectorSections } from '../../lib/browser/inspector/section-model.js';
 import { nextPhotoBrushItem } from '../../lib/browser/inspector/photo-brush-state.js';
 
-export const inspectorSource = readFileSync(new URL('../../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
-export const timelineSource = readFileSync(new URL('../../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+export const inspectorSource = readInspectorSource();
+export const timelineSource = readAllSourceText();
 const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const names = [
     'PERSPECTIVE_FIELDS', 'cutTransitionFields', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
@@ -54,10 +55,7 @@ export const { perspectiveFields, transitionFields, layerSections, itemSections,
 )(...Object.values(dependencies));
 
 export function timelineMethod(name, dependencies = {}) {
-    const ast = ts.createSourceFile('timeline.ts', timelineSource, ts.ScriptTarget.Latest, true);
-    const widget = ast.statements.find(statement => ts.isClassDeclaration(statement)
-        && statement.name?.text === 'AkariAnnotationsWidget');
-    const method = widget.members.find(member => member.name?.getText(ast) === name);
+    const { ast, node: method } = findMember(name, { in: 'widget' });
     assert.ok(method, name);
     const code = ts.transpileModule(`class Handler { ${method.getText(ast)} }`, {
         compilerOptions: { target: ts.ScriptTarget.ES2021 }

@@ -1,4 +1,5 @@
 import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -9,7 +10,7 @@ import {
   ungroupTreeV2Item,
 } from '../lib/common/edit-v2-mutations.js';
 
-const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const widgetSource = readAllSourceText();
 const interactionSource = readFileSync(
   new URL('../../../../../packages/overlay-runtime/src/interaction.js', import.meta.url), 'utf8'
 );

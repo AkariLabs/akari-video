@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -10,6 +11,6 @@ test('brush button toggles its pressed item and can switch photos', () => {
 });
 
 test('inspector exposes the pressed brush state', () => {
-    const inspector = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const inspector = readInspectorSource();
     assert.match(inspector, /action\.setAttribute\('aria-pressed', String\(field\.pressed\(\)\)\)/u);
 });

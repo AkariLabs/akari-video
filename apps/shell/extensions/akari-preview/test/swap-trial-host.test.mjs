@@ -6,6 +6,8 @@ import vm from 'node:vm';
 import * as playback from '../lib/common/swap-trial-playback.js';
 import * as gesture from '../lib/common/preview-gesture-guard.js';
 import * as refresh from '../lib/common/preview-refresh-state.js';
+import { createRequire } from 'node:module';
+const preview_host_constants_1 = createRequire(import.meta.url)('../lib/browser/preview-host-constants.js');
 const previousStorage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
 test.before(()=>Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=> '1'}}));
 test.after(()=>{if(previousStorage)Object.defineProperty(globalThis,'localStorage',previousStorage);else delete globalThis.localStorage;});
@@ -14,7 +16,7 @@ const method=name=>{const start=source.search(new RegExp('    (async )?'+name+'\
 const forwarded=[];
 class CustomEvent { constructor(type,options){this.type=type;this.detail=options.detail;} }
 class URI{constructor(value){this.value=value;}normalizePath(){return this;}toString(){return this.value;}}
-const Host=new Function('uri_1','swap_trial_playback_1','preview_gesture_guard_1','preview_refresh_state_1','window','CustomEvent','PREVIEW_PLAYBACK_TICK_EVENT',`return class { ${['beginSwapTrial','endSwapTrial','playSwapTrial','noteSwapReload','refreshSwapTrial','queueRefresh','pauseOutputPreview','forwardPlaybackTick'].map(method).join('\n')} }`)({default:URI},playback,gesture,refresh,{dispatchEvent:event=>forwarded.push(event)},CustomEvent,'akari.preview.playbackTick');
+const Host=new Function('uri_1','swap_trial_playback_1','preview_gesture_guard_1','preview_refresh_state_1','window','CustomEvent','PREVIEW_PLAYBACK_TICK_EVENT','preview_host_constants_1',`return class { ${['beginSwapTrial','endSwapTrial','playSwapTrial','noteSwapReload','refreshSwapTrial','queueRefresh','pauseOutputPreview','forwardPlaybackTick'].map(method).join('\n')} }`)({default:URI},playback,gesture,refresh,{dispatchEvent:event=>forwarded.push(event)},CustomEvent,'akari.preview.playbackTick',preview_host_constants_1);
 test('host sends a tokened request, checks actual page state, and retries only play after a lost first send',async()=>{
  const listeners=new Set(),messages=[], seeks=[];let attempts=0,playing=false;
  const widget={akariPreviewPlaybackPageId:'page',akariPreviewEditUri:new URI('edit'),

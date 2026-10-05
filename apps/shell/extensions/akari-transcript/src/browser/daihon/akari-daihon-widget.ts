@@ -42,6 +42,7 @@ import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotation
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
+import { selectionScrollTop } from './selection-reveal';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
 import { shouldUseKaraokeWords } from '../../common/karaoke-words';
 import { planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
@@ -574,6 +575,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected lastOutputT = 0;
     protected lastUserScrollAt = 0;
     protected autoScrolling = false;
+    protected selectionRevealFrame = 0;
+    protected selectionRevealInterrupted = false;
+    protected selectionRevealTargetId: string | undefined;
     protected editing: EditingState | undefined;
     protected selection: DaihonSelection = EMPTY_SELECTION;
     protected altAll = false;
@@ -712,8 +716,16 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
         this.rowsNode.addEventListener('scroll', () => {
-            if (!this.autoScrolling) this.lastUserScrollAt = Date.now();
+            if (!this.autoScrolling) {
+                this.lastUserScrollAt = Date.now();
+                this.selectionRevealInterrupted = true;
+                if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+                this.selectionRevealFrame = 0;
+            }
         }, { passive: true });
+        this.toDispose.push({ dispose: () => {
+            if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+        } });
         this.rowsNode.addEventListener('click', event => {
             if (!this.suppressRowClick) return;
             this.suppressRowClick = false;
@@ -754,9 +766,13 @@ export class AkariDaihonWidget extends BaseWidget {
         this.node.append(header, this.rowsRegion, this.footer);
         this.restoreDockHeight();
         if (typeof ResizeObserver !== 'undefined') {
-            const observer = new ResizeObserver(() => this.restoreDockHeight());
+            const observer = new ResizeObserver(() => {
+                this.restoreDockHeight();
+                this.scheduleSelectionReveal();
+            });
             observer.observe(this.node);
             observer.observe(this.rowsRegion);
+            observer.observe(this.placedEditor);
             this.toDispose.push({ dispose: () => observer.disconnect() });
         }
         this.dockGrip.addEventListener('pointerdown', event => this.startDockResize(event));
@@ -783,6 +799,36 @@ export class AkariDaihonWidget extends BaseWidget {
                 if (id !== this.attachmentSelection) { this.attachmentSelection = id; this.renderPlacedText(); }
             }
         };
+        const captionSelection = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; captionIds?: string[];
+                primaryCaptionId?: string | null; origin?: string }>).detail;
+            if (detail?.origin === 'daihon') return;
+            if (!detail?.editUri || new URI(detail.editUri).normalizePath().toString() !== this.editUri?.normalizePath().toString()) return;
+            const ids = detail.captionIds;
+            // The timeline is authoritative. Selections containing non-script captions have no row projection.
+            if (!Array.isArray(ids) || !ids.length || !ids.every(id => this.elements.has(id))) {
+                this.setSelection(clearSelection(), false);
+                return;
+            }
+            const primary = detail.primaryCaptionId && ids.includes(detail.primaryCaptionId)
+                ? detail.primaryCaptionId : ids[0];
+            const hiddenByFilter = ids.some(id => { const root = this.elements.get(id)?.root;
+                return root?.classList.contains('qc-hidden') || root?.classList.contains('speaker-hidden'); });
+            if (hiddenByFilter) {
+                this.qcFilter = false;
+                this.speakerFilter = null;
+                this.autoScrolling = true;
+                this.applyQcFilter();
+                if (typeof requestAnimationFrame === 'function') {
+                    requestAnimationFrame(() => { this.autoScrolling = false; });
+                } else this.autoScrolling = false;
+            }
+            if (this.selection.selected.length === ids.length && this.selection.anchorId === primary
+                && ids.every((id, index) => this.selection.selected[index] === id)) return;
+            this.setSelection({ selected: ids, anchorId: primary }, false);
+            this.selectionRevealTargetId = primary;
+            this.scheduleSelectionReveal(primary);
+        };
         const attachmentSelection = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; videoUri?: string; overlayId?: string | null;
                 layerId?: string | null }>).detail;
@@ -794,11 +840,13 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         window.addEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
         window.addEventListener('akari.timeline.primarySelected', timelineSelection);
+        window.addEventListener('akari.timeline.captionSelectionChanged', captionSelection);
         for (const name of ['akari.timeline.overlaySelected', 'akari.timeline.layerSelected',
             'akari.preview.overlaySelected', 'akari.preview.layerSelected']) window.addEventListener(name, attachmentSelection);
         this.toDispose.push({ dispose: () => {
             window.removeEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
             window.removeEventListener('akari.timeline.primarySelected', timelineSelection);
+            window.removeEventListener('akari.timeline.captionSelectionChanged', captionSelection);
             for (const name of ['akari.timeline.overlaySelected', 'akari.timeline.layerSelected',
                 'akari.preview.overlaySelected', 'akari.preview.layerSelected']) window.removeEventListener(name, attachmentSelection);
         } });
@@ -937,9 +985,18 @@ export class AkariDaihonWidget extends BaseWidget {
             // A resolved row takes priority over filters left by earlier interactions.
             if (this.speakerFilter !== null && this.speakerFilter !== row.speaker) this.speakerFilter = null;
             this.qcFilter = false;
+            this.autoScrolling = true;
             this.applyQcFilter();
-            this.elements.get(row.id)?.root.scrollIntoView({ block: 'center' });
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => { this.autoScrolling = false; });
+            } else this.autoScrolling = false;
             this.setSelection({ selected: [row.id], anchorId: row.id });
+            this.selectionRevealInterrupted = false;
+            if (typeof requestAnimationFrame === 'function') this.scheduleSelectionReveal(row.id);
+            // The frame-based reveal handles the dock in the browser. Keep the direct reveal for headless callers.
+            if (typeof requestAnimationFrame !== 'function') {
+                this.elements.get(row.id)?.root.scrollIntoView({ block: 'nearest' });
+            }
             if (validWordRange && target.wordRange) {
                 this.wordRanges = [{ row: row.id, a: target.wordRange.from, b: target.wordRange.to }];
                 this.renderWordSelection();
@@ -1038,6 +1095,11 @@ export class AkariDaihonWidget extends BaseWidget {
         super.onAfterAttach(message);
         this.restoreDockHeight();
         this.update();
+    }
+
+    protected override onAfterShow(message: Message): void {
+        super.onAfterShow(message);
+        this.scheduleSelectionReveal();
     }
 
     protected queueReload(): void {
@@ -2040,6 +2102,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.dockTab = tab;
         delete this.placedEditor.dataset.captionId;
         this.renderDock();
+        this.scheduleSelectionReveal();
     }
 
     protected dockTargetIds(): string[] {
@@ -2079,6 +2142,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.placedEditor.classList.add('open');
         this.placedEditor.hidden = false;
         this.rowsNode.classList.add('docked');
+        this.scheduleSelectionReveal();
     }
 
     protected renderDockText(range: PlacedTextRange): void {
@@ -4679,6 +4743,12 @@ export class AkariDaihonWidget extends BaseWidget {
         const plan = planSelectionUpdate(previous, next);
         const changed = previous.anchorId !== next.anchorId || plan.add.length > 0 || plan.remove.length > 0;
         if (!changed) return;
+        if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+        this.selectionRevealFrame = 0;
+        this.selectionRevealInterrupted = false;
+        const localSingleTarget = next.selected.length === 1 && next.anchorId === next.selected[0]
+            ? next.selected[0] : undefined;
+        this.selectionRevealTargetId = localSingleTarget;
         this.selection = next;
         if (!this.altAll) {
             for (const id of plan.add) this.elements.get(id)?.root.classList.add('selected');
@@ -4690,10 +4760,13 @@ export class AkariDaihonWidget extends BaseWidget {
             if (count === 0) this.closeDock();
             else this.renderDock();
         }
+        if (localSingleTarget) this.scheduleSelectionReveal(localSingleTarget);
         if (!sync) return;
         const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
-        void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID, payload).catch(() => undefined);
+        void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID,
+            { ...payload, primaryCaptionId: next.anchorId ?? next.selected[0] ?? null,
+                origin: 'daihon' }).catch(() => undefined);
     }
 
     protected updateQcSummary(): void {
@@ -4802,6 +4875,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 currentRowVisible: visible,
                 userScrolledRecentlyMs: this.lastUserScrollAt === 0 ? Number.POSITIVE_INFINITY : Date.now() - this.lastUserScrollAt
             })) {
+                this.selectionRevealInterrupted = true;
                 this.autoScrolling = true;
                 current.scrollIntoView({ block: 'nearest' });
                 requestAnimationFrame(() => { this.autoScrolling = false; });
@@ -4851,6 +4925,33 @@ export class AkariDaihonWidget extends BaseWidget {
         const viewport = this.rowsNode.getBoundingClientRect();
         const rect = row.getBoundingClientRect();
         return rect.top >= viewport.top && rect.bottom <= viewport.bottom;
+    }
+
+    protected scheduleSelectionReveal(id: string | undefined = this.selectionRevealTargetId): void {
+        if (!this.isVisible || !id || !this.selection.selected.includes(id)
+            || this.selectionRevealFrame || this.selectionRevealInterrupted
+            || typeof requestAnimationFrame !== 'function') return;
+        this.selectionRevealFrame = requestAnimationFrame(() => {
+            this.selectionRevealFrame = 0;
+            if (this.selectionRevealInterrupted || !this.selection.selected.includes(id)) return;
+            const row = this.elements.get(id)?.root;
+            if (!row || row.classList.contains('qc-hidden') || row.classList.contains('speaker-hidden')) return;
+            const viewport = this.rowsNode.getBoundingClientRect();
+            const bottom = this.dockKind && this.placedEditor.classList.contains('open')
+                ? Math.min(viewport.bottom, this.rowsRegion.getBoundingClientRect().bottom - this.placedEditor.offsetHeight)
+                : viewport.bottom;
+            const rect = row.getBoundingClientRect();
+            const target = selectionScrollTop(rect.top, rect.bottom, viewport.top, bottom, this.rowsNode.scrollTop);
+            if (target === null) return;
+            this.autoScrolling = true;
+            const behavior = this.rowsNode.style.scrollBehavior;
+            this.rowsNode.style.scrollBehavior = 'auto';
+            this.rowsNode.scrollTop = target;
+            requestAnimationFrame(() => {
+                this.rowsNode.style.scrollBehavior = behavior;
+                this.autoScrolling = false;
+            });
+        });
     }
 
     protected async seek(time: number | null): Promise<void> {

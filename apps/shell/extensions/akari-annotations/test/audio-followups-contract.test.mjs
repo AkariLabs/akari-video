@@ -1,11 +1,13 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const [model, inspector, widget, protocol] = await Promise.all([
   readFile(new URL('../src/browser/timeline-selection-model.ts', import.meta.url), 'utf8'),
-  readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8'),
-  readFile(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'),
+  readInspectorSource(),
+  readAllSourceText(),
   readFile(new URL('../src/common/akari-annotations-protocol.ts', import.meta.url), 'utf8')
 ]);
 

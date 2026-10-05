@@ -4,8 +4,10 @@
 
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { catalogCachePath, resolveAkariHome, resolveCatalogSource } from './env.mjs';
+import { join } from 'node:path';
 import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
 import { fetchTimed, readTimedJson } from './fetch-file.mjs';
+import { assetTier } from './tier.mjs';
 
 function normalizeCatalog(catalog) {
   if (!catalog || !Array.isArray(catalog.items)) {
@@ -16,26 +18,56 @@ function normalizeCatalog(catalog) {
 
 export async function readCatalogCache(env = process.env) {
   try {
-    return normalizeCatalog(JSON.parse(await readFile(catalogCachePath(env), 'utf8')));
+    return publicCatalog(normalizeCatalog(JSON.parse(await readFile(catalogCachePath(env), 'utf8'))));
   } catch {
     return null;
   }
 }
 
+function publicCatalog(catalog) {
+  return {
+    ...catalog,
+    items: catalog.items.map(item => {
+      if (item.state !== 'locked' && assetTier(item) !== 'pro') return item;
+      const { files, ...visible } = item;
+      return visible;
+    }),
+  };
+}
+
+/** The update preference is the shared source for shell and resolver automatic requests. */
+export async function automaticChecksEnabled(env = process.env) {
+  try {
+    const settings = JSON.parse(await readFile(join(resolveAkariHome(env), 'update-preferences.json'), 'utf8'));
+    return settings.autoCheck !== false;
+  } catch {
+    return true;
+  }
+}
+
+export async function catalogNetworkAllowed(intent = 'user', env = process.env) {
+  return intent !== 'automatic' || await automaticChecksEnabled(env);
+}
+
 export async function cacheCatalog(env = process.env, catalog) {
   const home = resolveAkariHome(env);
   await mkdir(home, { recursive: true });
-  await writeFile(catalogCachePath(env), `${JSON.stringify(catalog, null, 2)}\n`);
+  await writeFile(catalogCachePath(env), `${JSON.stringify(publicCatalog(normalizeCatalog(catalog)), null, 2)}\n`);
 }
 
 /**
  * カタログを読む。リモート取得が失敗した場合（オフライン等）はローカルキャッシュへ
  * フォールバックする（黙って劣化させるのではなく、キャッシュが無ければ明示的に失敗する）。
  */
-export async function loadCatalog({ env = process.env, fetchImpl = fetch, includeInstalled = true, timeouts, fallbackToCache = true } = {}) {
+export async function loadCatalog({ env = process.env, fetchImpl = fetch, includeInstalled = true, intent = 'user', timeouts, fallbackToCache = true } = {}) {
   const source = resolveCatalogSource(env);
   const installedItems = includeInstalled ? await loadInstalledItems(env) : [];
   let catalog;
+
+  if (source.kind === 'url' && !await catalogNetworkAllowed(intent, env)) {
+    catalog = await readCatalogCache(env) ?? { schema: 'akari-assets-catalog/v0', version: null, base: null, items: [] };
+    return includeInstalled ? mergeInstalledItems(catalog, installedItems) : catalog;
+  }
 
   if (source.kind === 'file') {
     const raw = await readFile(source.value, 'utf8');

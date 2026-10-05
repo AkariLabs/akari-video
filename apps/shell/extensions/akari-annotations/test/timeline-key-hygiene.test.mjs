@@ -1,12 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import ts from 'typescript';
 import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
 
-const source = ts.createSourceFile('timeline.ts', readFileSync(
-    new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
-), ts.ScriptTarget.Latest, true);
+const source = readSourceFile('widget').ast;
 let handler;
 function visit(node) {
     if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'keydown'

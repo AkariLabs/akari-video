@@ -7,7 +7,7 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 // 失敗は fail-closed（一時ディレクトリを破棄し、登録先には部分状態を残さない）。
 // 有料未購入（locked）は resolve を拒否する。
 //
-// 有料 item（price > 0）は catalog に files[] を持たない（実体は非公開 R2 のまま）。entitled
+// Pro item は公開 catalog に files[] を持たない（実体は非公開 R2 のまま）。entitled
 // なら resolvePaidZip() が `/api/store/v1/download/<id>` から zip を取得し、展開 →
 // checksums.txt 検証（paid-zip.mjs）→ 同じ validate-asset / 原子的 move の経路に合流する。
 
@@ -26,6 +26,7 @@ import { sha256File } from './hash.mjs';
 import { cachedAssetDir, localAssetDir } from './library.mjs';
 import { downloadPaidZip, extractZip, verifyPaidZipContents } from './paid-zip.mjs';
 import { recordProjectReference } from './project-references.mjs';
+import { assetTier, isAssetEntitled } from './tier.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // src/ の 1 つ上（パッケージ root）のさらに 2 つ上（packages/）のさらに 1 つ上（リポ root）。
@@ -47,7 +48,7 @@ async function validateAsset(assetDir) {
   const run = validationQueue.then(async () => {
     const original = {
       argv: process.argv, exit: process.exit, exitCode: process.exitCode,
-      log: console.log, error: console.error,
+      log: console.log, warn: console.warn, error: console.error,
     };
     let stdout = '';
     let stderr = '';
@@ -56,6 +57,8 @@ async function validateAsset(assetDir) {
       process.exitCode = 0;
       process.exit = code => { throw new ValidationExit(code ?? process.exitCode ?? 0); };
       console.log = (...args) => { stdout += `${format(...args)}\n`; };
+      // 新しい validator は WARN を console.warn へ出す（同一プロセスでも出力に含める）
+      console.warn = (...args) => { stderr += `${format(...args)}\n`; };
       console.error = (...args) => { stderr += `${format(...args)}\n`; };
       try {
         await import(`${pathToFileURL(VALIDATE_ASSET_SCRIPT).href}?v=${++validationRun}`);
@@ -69,6 +72,7 @@ async function validateAsset(assetDir) {
       process.exit = original.exit;
       process.exitCode = original.exitCode;
       console.log = original.log;
+      console.warn = original.warn;
       console.error = original.error;
     }
   });
@@ -145,6 +149,8 @@ export async function resolve(
     throw new AssetResolverError(`未知の素材 id です: ${id}`, 'not_found');
   }
 
+  const tier = assetTier(item);
+  const hasFiles = Array.isArray(item.files) && item.files.length > 0;
   const destDir = localAssetDir(env, item.category, item.id);
 
   // キャッシュヒット → 即返す（未購入だったとしても、一度取得済みなら手元にある実体をそのまま使う。
@@ -161,14 +167,16 @@ export async function resolve(
     return result;
   }
 
-  const price = item.price ?? 0;
-  const hasFiles = Array.isArray(item.files) && item.files.length > 0;
-  if (price > 0) {
-    const { ids: entitlements, error: entitlementError } = await fetchEntitlements({ env, fetchImpl, timeouts });
-    if (entitlementError?.includes('時間切れ')) throw new AssetResolverError(entitlementError, 'timeout');
-    if (!entitlements.has(item.id) && !entitlements.has(item.product_id)) {
+  if (tier === 'pro' && hasFiles && item.source !== 'installed') {
+    throw new AssetResolverError(`Pro カタログ item に files[] を含められません: ${item.id}`, 'invalid_catalog_item');
+  }
+
+  if (tier === 'pro' && item.source !== 'installed') {
+    const entitlementsResult = await fetchEntitlements({ env, fetchImpl, timeouts });
+    if (entitlementsResult.error?.includes('時間切れ')) throw new AssetResolverError(entitlementsResult.error, 'timeout');
+    if (!isAssetEntitled(item, entitlementsResult)) {
       throw new AssetResolverError(
-        `未購入の素材です（¥${price.toLocaleString()}）。AKARI Video Lab で購入してから再度お試しください: ${item.id}`,
+        `Pro 素材は all-access-pass（Lifetime パス）または購入済み product_id が必要です: ${item.id}`,
         'locked',
       );
     }

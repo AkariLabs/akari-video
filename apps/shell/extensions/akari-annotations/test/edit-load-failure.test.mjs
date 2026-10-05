@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../lib/common/edit-load-failure.js';
 
-const here = dirname(fileURLToPath(import.meta.url));
 const fixturePath = new URL('../../../../../packages/edit-store/test/fixtures/edit-v2.json', import.meta.url);
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
 
@@ -70,7 +68,7 @@ test('旧版 edit.json の変換 blockers を通知済みの失敗は notice を
     { kind: 'reported' }
   );
 
-  const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+  const source = readSourceFile('widget').text;
   const reloadStart = source.indexOf('protected async reloadEdit');
   const resolveStart = source.indexOf('protected async resolveLegacyEditForOpen', reloadStart);
   const reloadMethod = source.slice(reloadStart, resolveStart);
@@ -82,7 +80,7 @@ test('旧版 edit.json の変換 blockers を通知済みの失敗は notice を
 });
 
 test('reloadEdit は読み込み例外を分類し、invalid を notice と console に出す', () => {
-  const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+  const source = readSourceFile('widget').text;
   const start = source.indexOf('protected async reloadEdit');
   const end = source.indexOf('protected async resolveLegacyEditForOpen', start);
   const method = source.slice(start, end);

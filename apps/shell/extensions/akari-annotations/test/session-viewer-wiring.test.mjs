@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 
 const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 
@@ -33,7 +34,7 @@ test('panel keeps its grid and the preview handler receives seek ticks', async (
   const panel = await source('../src/browser/akari-review-panel-widget.ts');
   assert.match(panel, /data-review-session-viewer/);
   assert.match(panel, /gridTemplateColumns: 'auto minmax\(0, 1fr\) auto auto'/);
-  const handler = await source('../../akari-preview/src/browser/akari-preview-open-handler.ts');
+  const handler = readHandlerSource();
   assert.match(handler, /akari\.review\.session\.viewer\.sync/);
   assert.match(handler, /'akari-preview-seek'/);
 });

@@ -1,5 +1,5 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { MessageService } from '@theia/core/lib/common';
+import { CommandService, MessageService } from '@theia/core/lib/common';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { VSXExtensionsModel } from '@theia/vsx-registry/lib/browser/vsx-extensions-model';
@@ -38,6 +38,9 @@ export class PartnerExtensionUpdater {
 
     @inject(WindowService)
     protected readonly windowService!: WindowService;
+
+    @inject(CommandService)
+    protected readonly commands!: CommandService;
 
     protected readonly inFlight = new Map<string, Promise<ExtensionUpdateOutcome>>();
     protected startupCheck?: Promise<void>;
@@ -127,6 +130,15 @@ export class PartnerExtensionUpdater {
     }
 
     protected async runStartupCheck(): Promise<void> {
+        // The surfaces command reads the same persisted setting as electron-updater.
+        // Missing commands and failures skip this automatic network request.
+        let enabled: boolean | undefined = false;
+        try {
+            enabled = await this.commands.executeCommand<boolean>('akari.update.isAutoCheckEnabled');
+        } catch {
+            return;
+        }
+        if (enabled !== true) return;
         const notices: string[] = [];
         for (const entry of PARTNER_CATALOG) {
             if (entry.form !== 'extension') {

@@ -20,5 +20,6 @@
     "ai_training_allowed": false
   },
   "price": null,
+  "tier": "pro",
   "version": 1
 }

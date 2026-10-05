@@ -1,3 +1,5 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -18,12 +20,8 @@ import {
   updateCutFraming
 } from '../lib/browser/inspector/framing-fields.js';
 
-const inspectorSource = readFileSync(
-  new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8'
-);
-const timelineSource = readFileSync(
-  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
-);
+const inspectorSource = readInspectorSource();
+const timelineSource = readAllSourceText();
 const selectionModelSource = readFileSync(
   new URL('../src/browser/timeline-selection-model.ts', import.meta.url), 'utf8'
 );

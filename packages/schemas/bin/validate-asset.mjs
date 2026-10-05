@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// 素材ライブラリ契約 v0 の構造を、Node.js 組み込み機能だけで検証する。
+// 素材ライブラリ契約 v1 の構造を、Node.js 組み込み機能だけで検証する。
 
 import fs from "node:fs";
 import { runtimes, validateRuntimeDeclarations } from "../../overlay-runtime/runtimes.mjs";
@@ -24,6 +24,9 @@ const assetDir = path.resolve(assetArgument);
 const metaPath = path.join(assetDir, "meta.json");
 const previewPath = path.join(assetDir, "preview.png");
 const errors = [];
+const warnings = [];
+let sourceKind = null;
+const catalogRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../catalog");
 
 if (!isDirectory(assetDir)) {
   fail(`素材ディレクトリが見つかりません: ${assetDir}`);
@@ -67,7 +70,7 @@ function validateMeta(value) {
     "provenance",
     "author",
     "license",
-    "price",
+    "tier",
   ];
   // source / remote / matched_by / version / min_app_version / min_overlay_runtime_version / motion_presets は
   // 任意フィールド。後方互換のため必須フィールドには加えない（version は 2026-07-30 導入で、既存エントリは未設定。
@@ -81,6 +84,7 @@ function validateMeta(value) {
     "min_app_version",
     "min_overlay_runtime_version",
     "motion_presets",
+    "price", // deprecated; optional until the next contract version
   ];
   const allowedFields = [...requiredFields, ...optionalFields];
   for (const field of requiredFields) {
@@ -111,7 +115,17 @@ function validateMeta(value) {
   validateProvenance(value.provenance);
   validateLicense(value.license);
 
-  if (value.price !== null && (!isFiniteNumber(value.price) || value.price < 0)) {
+  if (value.tier !== "free" && value.tier !== "pro") {
+    fail("tier は free / pro のいずれかである必要があります");
+  }
+  if (value.tier === "pro" && value.license?.spdx === "CC0-1.0") {
+    fail("tier: pro の素材に license.spdx: CC0-1.0 は指定できません");
+  }
+  if (value.tier === "free" && isPlainObject(value.license) && value.license.spdx !== "CC0-1.0") {
+    warn("tier: free の素材には license.spdx: CC0-1.0 を推奨します");
+  }
+
+  if (hasOwn(value, "price") && value.price !== null && (!isFiniteNumber(value.price) || value.price < 0)) {
     fail("price は null または 0 以上の有限数である必要があります");
   }
 
@@ -142,10 +156,12 @@ function validateMeta(value) {
     fail("remote は boolean である必要があります");
   }
   if (hasOwn(value, "source")) {
-    validateSource(value.source);
+    sourceKind = validateSource(value.source);
   }
   if (isRemote && !hasOwn(value, "source")) {
     fail("remote: true のエントリには source ブロックが必須です");
+  } else if (isRemote && sourceKind !== "akari-r2" && !isLegacyCatalogExternal()) {
+    fail("remote: true のエントリには akari-r2 の source が必須です");
   }
 
   if (hasOwn(value, "motion_presets")) {
@@ -180,11 +196,22 @@ function validateMotionPresets(motionPresets) {
 function validateSource(source) {
   if (!isPlainObject(source)) {
     fail("source は object である必要があります");
-    return;
+    return null;
   }
 
-  const sourceFields = ["url", "acquisition", "license_at_source", "attribution_required", "preview_url"];
-  const requiredSourceFields = ["url", "acquisition", "license_at_source", "attribution_required"];
+  const hasUrl = hasOwn(source, "url");
+  const hasImage = hasOwn(source, "image");
+  if (hasUrl === hasImage) {
+    fail("source は url または image の一方だけを持つ必要があります");
+    return null;
+  }
+  const kind = hasUrl ? "external" : "akari-r2";
+  const sourceFields = hasUrl
+    ? ["url", "acquisition", "license_at_source", "attribution_required", "preview_url"]
+    : ["image", "preview", "width", "height", "bytes"];
+  const requiredSourceFields = hasUrl
+    ? ["url", "acquisition", "license_at_source", "attribution_required"]
+    : ["image", "preview"];
   for (const field of requiredSourceFields) {
     if (!hasOwn(source, field)) fail(`source.${field} は必須です`);
   }
@@ -192,22 +219,41 @@ function validateSource(source) {
     if (!sourceFields.includes(field)) fail(`source.${field} は未定義のフィールドです`);
   }
 
-  validateHttpUrl(source.url, "source.url");
+  if (hasUrl) {
+    validateHttpUrl(source.url, "source.url");
 
-  const acquisitionTypes = new Set(["direct", "login", "purchase"]);
-  if (typeof source.acquisition !== "string" || !acquisitionTypes.has(source.acquisition)) {
-    fail("source.acquisition は direct / login / purchase のいずれかである必要があります");
+    const acquisitionTypes = new Set(["direct", "login", "purchase"]);
+    if (typeof source.acquisition !== "string" || !acquisitionTypes.has(source.acquisition)) {
+      fail("source.acquisition は direct / login / purchase のいずれかである必要があります");
+    }
+
+    validateNonEmptyString(source.license_at_source, "source.license_at_source");
+
+    if (typeof source.attribution_required !== "boolean") {
+      fail("source.attribution_required は boolean である必要があります");
+    }
+
+    if (hasOwn(source, "preview_url")) {
+      validateHttpUrl(source.preview_url, "source.preview_url");
+    }
+  } else {
+    if (typeof source.image !== "string" || !/^(?:https?:\/\/[^\s]+|[A-Za-z0-9][A-Za-z0-9._/-]*)$/.test(source.image)) {
+      fail("source.image は絶対 http(s) URL または R2 key である必要があります");
+    }
+    validateNonEmptyString(source.preview, "source.preview");
+    for (const field of ["width", "height", "bytes"]) {
+      if (hasOwn(source, field) && (!Number.isInteger(source[field]) || source[field] <= 0)) {
+        fail(`source.${field} は正整数である必要があります`);
+      }
+    }
   }
+  return kind;
+}
 
-  validateNonEmptyString(source.license_at_source, "source.license_at_source");
-
-  if (typeof source.attribution_required !== "boolean") {
-    fail("source.attribution_required は boolean である必要があります");
-  }
-
-  if (hasOwn(source, "preview_url")) {
-    validateHttpUrl(source.preview_url, "source.preview_url");
-  }
+function isLegacyCatalogExternal() {
+  // 公開 catalog の既存 external + remote メタだけを後方互換で受け入れる。
+  const relative = path.relative(catalogRoot, assetDir);
+  return sourceKind === "external" && relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function validateHttpUrl(value, label) {
@@ -681,7 +727,12 @@ function fail(message) {
   errors.push(message);
 }
 
+function warn(message) {
+  warnings.push(message);
+}
+
 function finish() {
+  for (const warning of warnings) console.warn(`WARN: ${warning}`);
   if (errors.length > 0) {
     console.error(`NG: ${assetDir}`);
     for (const error of errors) console.error(`- ${error}`);
@@ -689,5 +740,6 @@ function finish() {
   }
 
   console.log(`OK: ${assetDir}`);
+  if (sourceKind) console.log(`source: ${sourceKind}`);
   process.exit(0);
 }

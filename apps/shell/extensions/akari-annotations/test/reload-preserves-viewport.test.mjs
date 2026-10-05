@@ -1,7 +1,7 @@
 import test from 'node:test';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../lib/browser/akari-annotations-widget.js',import.meta.url),'utf8');
+const source=readCompiledSource('widget').text;
 const rest=source.slice(source.indexOf('    async reloadEdit('));const method=rest.slice(0,rest.indexOf('\n    }')+6);
 const Widget=new Function(`return class {${method}}`)();
 test('pending file reads never publish an empty timeline; superseded reads do not replace it',async()=>{

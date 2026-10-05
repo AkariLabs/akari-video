@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { AssetResolverError, resolve as resolveAsset } from '../src/resolve.mjs';
@@ -13,7 +13,7 @@ test('resolve: 未購入の有料素材は locked で拒否され、何も登録
     (error) => {
       assert.ok(error instanceof AssetResolverError);
       assert.equal(error.code, 'locked');
-      assert.match(error.message, /500/);
+      assert.match(error.message, /all-access-pass/);
       return true;
     },
   );
@@ -21,8 +21,10 @@ test('resolve: 未購入の有料素材は locked で拒否され、何も登録
   assert.equal(existsSync(path.join(home, 'assets', 'still', 'mini-paid')), false);
 });
 
-test('resolve: entitlements に含まれていれば有料素材も解決できる', async () => {
-  const { env, home } = setupFixtureEnv();
+test('resolve: Pro catalog item with files is invalid even when entitled', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[1].files = [{ name: 'payload.zip', url: 'https://example.invalid/private.zip' }];
+  writeFileSync(catalogPath, JSON.stringify(catalog));
   writeFileSync(
     path.join(home, 'store-credentials.json'),
     `${JSON.stringify({ url: 'https://example.invalid/api/store', token: 'akst_test', email: 'demo@example.invalid' }, null, 2)}\n`,
@@ -39,7 +41,22 @@ test('resolve: entitlements に含まれていれば有料素材も解決でき�
     throw new Error(`想定外の fetch 呼び出し: ${url}`);
   };
 
-  const result = await resolveAsset('mini-paid', { env, fetchImpl });
-  assert.equal(result.cached, false);
-  assert.ok(existsSync(path.join(home, 'assets', 'still', 'mini-paid', 'meta.json')));
+  await assert.rejects(() => resolveAsset('mini-paid', { env, fetchImpl }),
+    error => error instanceof AssetResolverError && error.code === 'invalid_catalog_item');
+  assert.equal(existsSync(path.join(home, 'assets', 'still', 'mini-paid')), false);
+});
+
+test('resolve: cached Pro is returned before rejecting public files', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[1].files = [{ name: 'private.mp3', url: 'https://example.invalid/private.mp3' }];
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  const cachedDir = path.join(home, 'assets', 'still', 'mini-paid');
+  mkdirSync(cachedDir, { recursive: true });
+  writeFileSync(path.join(cachedDir, 'payload.txt'), 'already downloaded');
+
+  const result = await resolveAsset('mini-paid', { env });
+  assert.equal(result.cached, true);
+  assert.equal(result.dir, cachedDir);
+  await assert.rejects(() => resolveAsset('mini-paid', { env, force: true }),
+    error => error instanceof AssetResolverError && error.code === 'invalid_catalog_item');
 });

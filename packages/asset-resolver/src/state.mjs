@@ -2,11 +2,12 @@
 // 「このアカウントで使える素材 = 無料全部 + 購入済み」の 1 ビュー（設計契約 §8）の核。
 
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
-import { loadCatalog } from './catalog.mjs';
+import { loadCatalog, catalogNetworkAllowed } from './catalog.mjs';
 import { resolveAkariHome, resolveEffectiveBase, resolveEntitlementsUrl } from './env.mjs';
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
 import { scanLocalLibrary, readLocalLibraryItem, sourceFields } from './library.mjs';
 import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
+import { assetTier, isAssetEntitled } from './tier.mjs';
 
 async function fetchEntitledProducts({ env, fetchImpl }) {
   const credentials = await readStoreCredentials(env);
@@ -39,11 +40,12 @@ async function fetchEntitledProducts({ env, fetchImpl }) {
  * @returns {Promise<{ home: string, base: string, catalogVersion: string|null, entitlementsStatus: 'ok'|'no_credentials'|'unauthorized'|'error', items: Array }>}
  * items の各要素はカタログ項目に `state`（'cached' | 'available' | 'locked'）を足したもの。
  */
-export async function composeState({ env = process.env, fetchImpl = fetch } = {}) {
+export async function composeState({ env = process.env, fetchImpl = fetch, intent = 'user' } = {}) {
   const home = resolveAkariHome(env);
+  const networkAllowed = await catalogNetworkAllowed(intent, env);
   const warnings = [];
   let remoteCatalog;
-  try { remoteCatalog = await loadCatalog({ env, fetchImpl, includeInstalled: false }); }
+  try { remoteCatalog = await loadCatalog({ env, fetchImpl, includeInstalled: false, intent }); }
   catch (error) {
     warnings.push(error.message);
     remoteCatalog = { items: [], version: null };
@@ -61,14 +63,14 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
   }
   const installed = scanLocalLibrary(env);
 
-  // entitlements API は有料商品が無ければ叩く必要がない（無駄な認証リクエストを避ける）
-  const hasPaidItems = catalog.items.some((item) => (item.price ?? 0) > 0);
-  const entitlementsResult = hasPaidItems
-    ? await fetchEntitlements({ env, fetchImpl })
-    : { ids: new Set(), status: await readStoreCredentials(env) ? 'ok' : 'no_credentials' };
-  // entitlements.mjs は id/status だけを返し編集できないため、商品 kind/version は
+  // Pro 素材が無ければ認証リクエストは不要。
+  const hasProItems = catalog.items.some((item) => assetTier(item) === 'pro');
+  const entitlementsResult = hasProItems && networkAllowed
+    ? await fetchEntitlements({ env, fetchImpl, intent })
+    : { ids: new Set(), status: await readStoreCredentials(env) ? 'ok' : 'no_credentials', pass: null };
+  // entitlements.mjs は商品 kind/version を返さないため、商品詳細は
   // 同じ API への 2 回目の fail-soft 取得で補う。
-  const entitledProducts = await fetchEntitledProducts({ env, fetchImpl });
+  const entitledProducts = networkAllowed ? await fetchEntitledProducts({ env, fetchImpl }) : [];
 
   const localItems = new Map([...installed].map(key => {
     const [category, id] = key.split('/');
@@ -80,19 +82,25 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
     localItems.delete(key);
     // Preserve remote download descriptors/preview keys for existing consumers.
     // Local-only assets use the actual directory listing assembled above.
-    return local ? { ...item, ...local, files: item.files ?? local.files, preview: item.preview ?? local.preview,
+    return local ? { ...item, ...local, tier: item.tier ?? assetTier(item), files: item.files ?? local.files, preview: item.preview ?? local.preview,
       ...(item.source === 'installed' ? { source: item.source } : {}) } : item;
   });
+  const localOnlyKeys = new Set(localItems.keys());
   merged.push(...[...localItems.values()].filter(Boolean));
   const items = merged.map((item) => {
     const key = `${item.category}/${item.id}`;
-    const price = item.price ?? 0;
+    const tier = localOnlyKeys.has(key) && !Object.hasOwn(item, 'tier')
+      && item.price !== 0 && !(typeof item.price === 'number' && item.price > 0)
+      ? 'free' : assetTier(item);
     let state;
     if (installed.has(key)) state = 'cached';
-    else if (price > 0 && !entitlementsResult.ids.has(item.id)
-      && !entitlementsResult.ids.has(item.product_id)) state = 'locked';
+    else if (tier === 'pro' && item.source !== 'installed' && !isAssetEntitled(item, entitlementsResult)) state = 'locked';
     else state = 'available';
-    return { ...item, state, ...sourceFields(item, catalogKeys.has(key) || item.source === 'installed') };
+    const sources = sourceFields(item, catalogKeys.has(key) || item.source === 'installed');
+    const machineTags = (sources.machineTags ?? item.machineTags ?? []).filter(tag => !tag.startsWith('tier:'));
+    const visible = { ...item, tier, state, ...sources, machineTags: [...machineTags, `tier:${tier}`] };
+    if (state === 'locked') delete visible.files;
+    return visible;
   });
 
   return {

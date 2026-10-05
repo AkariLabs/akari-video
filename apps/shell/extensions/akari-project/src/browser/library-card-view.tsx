@@ -1,7 +1,7 @@
 /**
  * ライブラリのカードまわりの描画（ウィジェット本体から切り出した部品）。
  *
- * - カード = 顔（サムネ）+ 名前 + ⋯。サムネの上に残すのは プレミアムの王冠（左上）・取得状態の印（左下）・
+ * - カード = 顔（サムネ）+ 名前 + ⋯。サムネの上に残すのは Pro の鍵（左上）・取得状態の印（左下）・
  *   ⋯（右上）・音の試聴（右下）だけ。ライセンス・タグ・カテゴリ・使用回数・＋・使う・価格はカードに出さない
  * - ⋯ = 情報カード（周りを暗くして押したカードだけ残し、横に情報カード）
  * - ⓘ = ライセンスの窓 / 検索の右のフィルター / プレミアムの促しのシート
@@ -87,13 +87,13 @@ function Codicon(props: { name: string; size?: number; style?: React.CSSProperti
 
 export function PremiumCrownBadge(): React.ReactElement {
     return (
-        <span data-akari-premium-crown title='Lab のプレミアム' aria-label='Lab のプレミアム'
+        <span data-akari-pro-lock title='Pro 素材（鍵付き）' aria-label='Pro 素材（鍵付き）'
             style={{
                 position: 'absolute', left: '5px', top: '5px', zIndex: 1, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', width: '22px', height: '22px', borderRadius: '999px',
+                justifyContent: 'center', gap: '4px', padding: '3px 6px', borderRadius: `${AKARI_RADIUS.chip}px`,
                 background: ON_THUMB, color: CROWN_ON_THUMB, pointerEvents: 'auto'
             }}>
-            <CrownIcon size={13} />
+            <Codicon name='lock' size={12} />Pro
         </span>
     );
 }
@@ -243,8 +243,8 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
                     </span>
                     {props.audioError}
                 </div>
-                {props.premium && <span data-akari-premium-crown title='Lab のプレミアム' aria-label='Lab のプレミアム'
-                    style={{ flex: '0 0 auto', color: ACCENT_LIGHT, display: 'flex' }}><CrownIcon size={13} /></span>}
+                {props.premium && <span data-akari-pro-lock title='Pro 素材（鍵付き）' aria-label='Pro 素材（鍵付き）'
+                    style={{ flex: '0 0 auto', color: ACCENT_LIGHT, display: 'flex', alignItems: 'center', gap: '4px' }}><Codicon name='lock' size={12} />Pro</span>}
                 {!props.premium && <span data-akari-asset-mark={props.cached ? 'cached' : 'remote'}
                     title={props.cached ? '取得済み' : '未取得（使うときに取得）'}
                     style={{ flex: '0 0 auto', color: AKARI_FAINT, display: 'flex' }}><Codicon name={props.cached ? 'check' : 'cloud'} size={12} /></span>}
@@ -475,7 +475,7 @@ export function LibraryInfoCard(props: LibraryInfoCardProps): React.ReactElement
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '4px 16px 2px' }}>
                         <span data-akari-info-price={model.price.kind} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
-                            {model.price.kind === 'premium' && <span style={{ color: ACCENT_LIGHT, display: 'flex' }}><CrownIcon size={14} /></span>}
+                            {model.price.kind === 'premium' && <span style={{ color: ACCENT_LIGHT, display: 'flex' }}><Codicon name='lock' size={14} /></span>}
                             {model.price.label}
                         </span>
                         <button type='button' data-akari-license-open onClick={props.onOpenLicense} title='ライセンスを詳しく見る' aria-label='ライセンスを詳しく見る'
@@ -617,7 +617,7 @@ export function LibraryPremiumSheet(props: LibraryPremiumSheetProps): React.Reac
                     </div>
                     <div style={{ margin: '14px 0 0', padding: '7px 10px', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.card,
                         border: AKARI_BORDER.hairline, color: MUTED, fontSize: '11.5px' }}>
-                        検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます
+                        検索の右の絞り込みで「tier › 無料」を選ぶと、無料の素材だけを表示できます
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
                         <button type='button' data-akari-premium-close onClick={props.onClose}
@@ -649,7 +649,7 @@ export function LibraryFilterButton(props: LibraryFilterButtonProps): React.Reac
     const active = count > 0;
     return (
         <button type='button' data-akari-library-filter-button aria-haspopup='dialog' aria-expanded={props.open ? 'true' : 'false'}
-            aria-label={active ? `絞り込み（${count} 件の条件）` : '絞り込み'} title='絞り込み（出どころ・料金・ライセンス・状態）'
+            aria-label={active ? `絞り込み（${count} 件の条件）` : '絞り込み'} title='絞り込み（出どころ・tier・ライセンス・状態）'
             onClick={event => { event.stopPropagation(); props.onToggle(); }}
             style={{
                 position: 'relative', flex: '0 0 auto', width: '30px', margin: 0, padding: 0, cursor: 'pointer',
@@ -704,7 +704,7 @@ export function LibraryFilterPopover(props: LibraryFilterPopoverProps): React.Re
                                                 background: on ? AKARI_SURFACE.elevated : AKARI_SURFACE.card,
                                                 color: on ? ACCENT_LIGHT : AKARI_INK, fontWeight: on ? 700 : 400
                                             }}>
-                                            {section.key === 'price' && option.key === 'premium' && <CrownIcon size={11} />}
+                                            {section.key === 'tier' && option.key === 'premium' && <Codicon name='lock' size={11} />}
                                             {section.key === 'status' && option.key === 'favorite' && <Codicon name='star-full' size={11} />}
                                             {option.label}
                                         </button>

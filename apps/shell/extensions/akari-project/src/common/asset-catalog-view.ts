@@ -36,6 +36,7 @@ export interface ResolverRawCatalogItem {
     author?: string;
     creditText?: string | null;
     price?: number | null;
+    tier?: 'free' | 'pro';
     state?: 'cached' | 'available' | 'locked';
     provenance?: { prompt?: string };
     /** 実体ファイル一覧。mediaUrl（試聴用）の選定元 — selectResolverAudioFileRef を参照。 */
@@ -121,7 +122,8 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
             ? { licenseAttributionRequired: item.license.attribution_required } : {}),
         ...(typeof item.author === 'string' && item.author.trim() ? { author: item.author } : {}),
         ...(typeof item.creditText === 'string' && item.creditText ? { creditText: item.creditText } : {}),
-        price: item.price ?? 0,
+        price: typeof item.price === 'number' ? item.price : undefined,
+        tier: item.tier,
         state: item.state,
         previewUrl,
         mediaUrl,
@@ -200,35 +202,33 @@ export function catalogCardUiEventTarget(item: Pick<AssetCatalogViewItem, 'key' 
  * カード状態バッジの短い表示文言。origin='local'（state undefined）は
  * バッジを持たないので undefined を返す（呼び出し側はバッジ自体を出さない）。
  *
- * `available` は「無料でそのまま使える」と「有料だが購入済み（未取得のみ）」の 2 通りがある
- * — price > 0 のときは「購入済み」と明示し、無料の「☁ 未取得」と混同させない
- * （task.md B-2「available かつ price > 0 = 購入済み」）。
+ * `available` の Pro はパスで利用可能になった状態を示す。
  */
-export function assetStateBadgeText(item: Pick<AssetCatalogViewItem, 'state' | 'price'>): string | undefined {
+export function assetStateBadgeText(item: Pick<AssetCatalogViewItem, 'state' | 'tier'>): string | undefined {
     if (!item.state) {
         return undefined;
     }
     if (item.state === 'locked') {
-        return `¥${(item.price ?? 0).toLocaleString()}`;
+        return '🔒 Pro';
     }
     if (item.state === 'cached') {
         return '✓';
     }
-    return (item.price ?? 0) > 0 ? '✓ 購入済み' : '☁';
+    return item.tier === 'pro' ? '✓ Pro' : '☁';
 }
 
 /** assetStateBadgeText と対になる、カードのツールチップ用の長め文言。 */
-export function assetStateBadgeTitle(item: Pick<AssetCatalogViewItem, 'state' | 'price'>): string | undefined {
+export function assetStateBadgeTitle(item: Pick<AssetCatalogViewItem, 'state' | 'tier'>): string | undefined {
     if (!item.state) {
         return undefined;
     }
     if (item.state === 'locked') {
-        return `¥${(item.price ?? 0).toLocaleString()} 未購入`;
+        return 'Pro パスが必要';
     }
     if (item.state === 'cached') {
         return '取得済み';
     }
-    return (item.price ?? 0) > 0 ? '購入済み（未取得）' : '未取得';
+    return item.tier === 'pro' ? 'Pro（未取得）' : '未取得';
 }
 
 // --- locked カードの購入案内（価格 + ストア URL） --------------------------------------------
@@ -239,18 +239,17 @@ export function storeProductUrl(storeApiUrl: string | undefined, id: string): st
 }
 
 /**
- * locked 項目の購入アクション文言。狭いカードでは額面だけ、幅に余裕があるリストでは
- * 「で購入」まで表示する。どちらも挙動の全文は title に残す。
+ * locked 項目の案内文言。素材価格は tier から推定しない。
  */
 export function catalogPurchaseActionText(
-    price: number | undefined,
+    tier: 'free' | 'pro' | undefined,
     viewMode: 'grid' | 'list',
     productUrl: string
 ): { label: string; title: string } {
-    const amount = `¥${(price ?? 0).toLocaleString()}`;
+    const label = tier === 'pro' ? 'Pro' : '素材';
     return {
-        label: viewMode === 'list' ? `${amount} で購入` : amount,
-        title: `${amount} で購入 — AKARI Video Lab を開く（${productUrl}）`
+        label: viewMode === 'list' ? `${label} を見る` : label,
+        title: `${label} の案内 — AKARI Video Lab を開く（${productUrl}）`
     };
 }
 

@@ -4102,7 +4102,10 @@ var AkariEditKernel = (() => {
     const scaleX = clamp3(transform?.scaleX ?? transform?.scale, 1, Number.MIN_VALUE, 1e5);
     const scaleY = clamp3(transform?.scaleY ?? transform?.scale, 1, Number.MIN_VALUE, 1e5);
     const key = itemKey(itemId, source);
-    const svg2 = (defs2, body, visibleStrokeWidth2) => `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}"${visibleStrokeWidth2 > 8 ? ' overflow="visible"' : ""}>${defs2 ? `<defs>${defs2}</defs>` : ""}${body}</svg>`;
+    const svg2 = (defs2, body, visibleStrokeWidth2) => (
+      // Preserve legacy thin-stroke markup while allowing larger caps to extend beyond the hit box.
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}"${visibleStrokeWidth2 > 8 ? ' overflow="visible"' : ""}>${defs2 ? `<defs>${defs2}</defs>` : ""}${body}</svg>`
+    );
     const line = source.shape === "line" || source.shape === "arrow";
     const fill = paint2(
       validPaint(p.fill, line ? "none" : source.shape === "bubble" ? "#ffffff" : "#a6a6a6"),

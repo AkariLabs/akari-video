@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText, findMember, findTopLevelStatement } from './helpers/role-buckets-source.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
@@ -10,10 +11,8 @@ import { canPlaceLibraryAsset } from '../lib/common/library-asset-placement.js';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 
-const sourceText = readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
-const source = ts.createSourceFile('widget.tsx', sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const member = name => widget.members.find(item => item.name?.getText(source) === name).getText(source);
+const sourceText = readAllSourceText();
+const member = name => findMember(name, { in: 'widget' }).text;
 const names = ['cancelPick', 'openMaterialSwap', 'closeMaterialSwap', 'clearMaterialSwap', 'swapLoadGeneration', 'generationTimelineSelections', 'generationPickSelectionsAtStart', 'handleGenerationPrimarySelected', 'pickInto', 'handleGenerationPickKey', 'onBeforeDetach', 'onCloseRequest', 'onAfterHide',
     'generationCatalogCandidate', 'generationPickCardProps', 'renderGenerationPickBadge', 'renderGenerationPickBand'];
 const code = ts.transpileModule(`class Handler extends Base { ${names.map(member).join('\n')} }`, {
@@ -111,14 +110,15 @@ test('library unplaceable reasons become titles and aria-disabled', async () => 
 });
 
 test('all three renderers wire mode props/badges, preserve normal actions and disable native drag', () => {
+    const materialCardText = findMember('renderMaterialCard', { in: 'materials' }).text.replace(/this\.host\./g, 'this.');
     for (const name of ['renderMaterialCard', 'renderCatalogCard', 'renderCatalogListRow']) {
-        const text = member(name);
+        const text = name === 'renderMaterialCard' ? materialCardText : member(name);
         assert.match(text, /generationPickCardProps\(pickCandidate\)/);
         assert.match(text, /renderGenerationPickBadge\(pickCandidate\)/);
         assert.match(text, /!this\.generationPick\.request/);
     }
-    assert.match(member('renderMaterialCard'), /onClick=\{\(\) => \{ if \(!entry\.missing\) void this\.openFile\(entry\.uri\); \}\}/);
-    assert.match(member('renderMaterialCard'), /onContextMenu=\{event => this\.openMaterialContextMenu\(event, entry\)\}/);
+    assert.match(materialCardText, /onClick=\{\(\) => \{ if \(!entry\.missing\) void this\.openFile\(entry\.uri\); \}\}/);
+    assert.match(materialCardText, /onContextMenu=\{event => this\.openMaterialContextMenu\(event, entry\)\}/);
     assert.match(member('generationPick'), /key => this\.resolveCatalogMaterial\(key\)/);
     assert.match(member('init'), /removeEventListener\('keydown', this\.handleGenerationPickKey, true\)/);
     assert.match(member('init'), /this\.generationPick\.cancel\(\)/);
@@ -224,8 +224,8 @@ test('selection listener is registered and removed with the widget; CSS require 
     const init = member('init');
     assert.match(init, /window\.addEventListener\(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this\.handleGenerationPrimarySelected\)/);
     assert.match(init, /window\.removeEventListener\(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this\.handleGenerationPrimarySelected\)/);
-    const cssLoad = source.statements.find(node => ts.isTryStatement(node)
-        && node.getText(source).includes("require('../../src/browser/style/generation-pick.css')"));
+    const { ast: source, statement: cssLoad } = findTopLevelStatement((node, ast) => ts.isTryStatement(node)
+        && node.getText(ast).includes("require('../../src/browser/style/generation-pick.css')"), { in: 'widget' });
     assert.ok(cssLoad);
     let attempts = 0;
     new Function('require', cssLoad.getText(source))(() => { attempts++; throw new Error('node cannot load CSS'); });

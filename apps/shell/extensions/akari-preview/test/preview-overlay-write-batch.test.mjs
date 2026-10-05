@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readHandlerSource } from './helpers/handler-source.mjs';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 const source = readHandlerSource();
 const section = (start, end) => {
   const a = source.indexOf(start), b = source.indexOf(end, a + start.length);
   assert.ok(a >= 0 && b > a); return source.slice(a, b);
 };
 test('batch handler reads, resolves, lints and writes once in that order', () => {
-  const handler = section('    protected async handleOverlayWriteBatch(', '    protected isOverlayWriteBatchRequest(');
+  const handler = sliceBetween('    protected async handleOverlayWriteBatch(', '    protected async handleLayerWrite(');
   for (const call of ['this.readText(', 'resolvePreviewItemWriteBatch(', 'this.previewService.lintEditCandidate(', 'this.fileService.writeFile(']) {
     assert.equal(handler.split(call).length - 1, 1, call);
   }
@@ -20,10 +20,10 @@ test('overlay, batch, layer and cut writes share the host serialization queue', 
   for (const [guard, handler] of [
     ['OverlayWrite', 'handleOverlayWrite'], ['OverlayWriteBatch', 'handleOverlayWriteBatch'],
     ['LayerWrite', 'handleLayerWrite'], ['CutWrite', 'handleCutWrite']
-  ]) assert.match(source, new RegExp(`if \\(this\\.is${guard}Request\\(message\\)\\) \\{\\s*this\\.previewItemWriteTail = this\\.previewItemWriteTail\\.then\\(\\(\\) => this\\.${handler}\\(widget, message\\)\\);`));
+  ]) assert.match(source, new RegExp(`if \\(is${guard}Request\\(message\\)\\) \\{\\s*this\\.previewItemWriteTail = this\\.previewItemWriteTail\\.then\\(\\(\\) => this\\.${handler}\\(widget, message\\)\\);`));
 });
 test('batch guard requires nonempty writes and object patches; bridge matches pending response kind', () => {
-  const guard = section('    protected isOverlayWriteBatchRequest(', '    protected isOverlayWriteRequest(');
+  const guard = sliceBetween('export function isOverlayWriteBatchRequest(', 'export function isOverlayWriteRequest(');
   assert.match(guard, /Array\.isArray\(message\.writes\) && message\.writes\.length > 0/);
   assert.match(guard, /typeof message\.requestId === 'string'/);
   assert.match(guard, /typeof write\.overlayId === 'string'/);

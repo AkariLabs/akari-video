@@ -1,4 +1,6 @@
 import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
+import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { sliceFrom } from '../../akari-project/test/helpers/role-buckets-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -179,7 +181,7 @@ test('強調の対象語はテーマ色を使う選択可能なチップ', () =>
 });
 
 test('アニメーターの説明は全幅で折り返す', () => {
-    const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const widget = readInspectorSource();
     const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
     assert.match(widget, /name: 'animator-explain', className: 'akari-inspector-animator-explain'/u);
     assert.match(css, /\.akari-inspector-animator-explain \{ display: block; \}/u);
@@ -187,9 +189,7 @@ test('アニメーターの説明は全幅で折り返す', () => {
 });
 
 test('ライブラリ widget の activate は検索欄か自分の node に focus する', () => {
-    const widget = readFileSync(new URL('../../akari-project/src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
-    const activation = widget.slice(widget.indexOf('protected override onActivateRequest(msg: Message): void {'),
-        widget.indexOf('protected override onActivateRequest(msg: Message): void {') + 850);
+    const activation = sliceFrom('protected override onActivateRequest(msg: Message): void {', 850);
     assert.match(activation, /super\.onActivateRequest\(msg\)/u);
     assert.match(activation, /this\.searchInput\?\.isConnected/u);
     assert.match(activation, /input\.focus\(\)/u);

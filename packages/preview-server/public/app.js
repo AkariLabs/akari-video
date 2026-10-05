@@ -65,7 +65,12 @@ import {
   splitCaptionLines,
   groupWordsIntoDisplayLines,
 } from '/caption-line-layout.js';
-import { isImageLayerSrc, isImageLayer } from '/layer-source.js';
+import { isImageLayer, layerPlaybackPath, getVideoSource, isStillImageCutSegment } from '/layer-source.js';
+import { outputSizePx, cropOf, layerIntrinsicSize, perspectiveOf, layerRectForVideoRect, CROP_MIN, clampCrop, layerTransformOf, layerPerspectiveNow, perspectivePresetCorners } from '/layer-geometry.js';
+import { collectExcludedCaptionIds, filterCaptionRootByExcludedIds, normalizeWords, findMatchingEmphasis, resolveEmphasisStyle, renderRevealGroupsMarkup, getActiveCaptions } from '/caption-markup.js';
+import { editSaveErrorMessage, resolveMediaUrl, overlaySignature, fmtRange, apiReadError, normalizeVgpuPreviewScale } from '/preview-format.js';
+import { clipLookForCut, sourceEffectsForCut, layerChromaEffects } from '/video-fx-source.js';
+import { engineRenderTime, transitionAudioBoundaries, snapToCut } from '/timeline-read.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -212,7 +217,7 @@ let captionStylesInjected = false;
 // caption-layout/v1（resolved timeline）は既に出力秒なのでそのまま。
 let captionsOutputClock = [];
 function refreshCaptionClock() {
-  const caps = getActiveCaptions();
+  const caps = getActiveCaptions(summary, captionsData);
   if (captionsResolvedTimeline || !caps.length) {
     captionsOutputClock = caps;
     return;
@@ -330,11 +335,11 @@ async function init() {
       // 先頭カットが静止画ソースのときは <img> を初期表示にする（0秒地点で <video> に
       // その src を割り当てても再生できないだけで実害は無いが、表示の出し分けを合わせておく）。
       const seg0 = getActiveSegment(0);
-      if (seg0 && isStillImageCutSegment(seg0)) {
+      if (seg0 && isStillImageCutSegment(timelineData, seg0)) {
         showStillImageForSegment(seg0);
       } else {
         showVideoBase();
-        video.src = getVideoSource(0);
+        video.src = getVideoSource(timelineData, 0);
       }
     }
     updateStageScale();
@@ -376,7 +381,7 @@ async function init() {
         requestAudioRefresh();
       }
       // 終端位置ではなく最後の有効フレームを要求する（第16項。engineRenderTime の注記参照）。
-      outputTime = frameEnginePreview.seek(engineRenderTime(outputTime));
+      outputTime = frameEnginePreview.seek(engineRenderTime(totalDuration, fps, outputTime));
     }
     await window.__akariCaptionFontReady;
     captionFontsReady = true;
@@ -409,33 +414,13 @@ async function init() {
   }
 }
 
-// 不具合メモ 第16項（最終フレームの次の終端位置で追加映像だけ消える）。
-// 総尺（totalDuration）は「最後の有効フレームの **次**」= 終端位置で、そこに有効なフレームは無い。
-// frame-engine の追加映像（layers[]）は `frame >= startFrame && frame < endFrame` の半開区間で
-// 可視判定する（packages/frame-engine/src/timeline/plan.ts の isLayerActiveAt）ため、終了位置が
-// 総尺と一致するレイヤーは終端位置の描画要求でちょうど外れる。一方ベース映像は最後の画を保持する
-// ので「左（ベース）は残って右（追加映像）だけ黒くなる」に見えた（実機: 総尺 158682 フレーム・
-// 30fps・bookend-outro-right が 158401 開始 / 281 フレームで終了位置 158682）。
-// 半開区間の判定は frame-engine の正本なので触らず、**要求側でフレームを揃える**:
-// 描画要求は必ず最後の有効フレームまでに丸める（総尺そのものは要求しない）。
-// 総尺の表示・シークバーの上限は従来どおり totalDuration のまま（尺は 1 フレームも変えない）。
-function lastRenderableFrame() {
-  // フレーム数は frame-engine の可視判定と同じ切り上げ規律（`ceil(sec * fps - 1e-6)`）で数える。
-  return Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1);
-}
-function engineRenderTime(t) {
-  const clamped = Math.max(0, Math.min(Number.isFinite(t) ? t : 0, totalDuration));
-  if (!(fps > 0) || !(totalDuration > 0)) return clamped;
-  return Math.min(clamped, lastRenderableFrame() / fps);
-}
-
 function applyFrameEngineSnapshot() {
   const snapshot = frameEnginePreview?.snapshot();
   if (!snapshot) return;
   totalDuration = snapshot.totalDuration;
   segments = snapshot.segments;
   seek.max = totalDuration;
-  outputTime = engineRenderTime(outputTime);
+  outputTime = engineRenderTime(totalDuration, fps, outputTime);
   frameEngineRequestedTime = outputTime;
   seek.value = outputTime;
   updateTimeLabel();
@@ -510,31 +495,16 @@ async function refreshAudioSummary() {
 
 if (frameEngineEnabled) setInterval(updateAudioStatus, 250);
 
-async function apiReadError(response, label) {
-  try {
-    const body = await response.json();
-    if (body?.error) return body.error;
-  } catch {}
-  return `${label}: HTTP ${response.status}`;
-}
-
 // --- P1-2: ステージ座標系をビデオ枠（出力フレーム矩形）に一致させる ---
 // 正本は shell の updateStageScale（akari-preview-open-handler.ts）。stage / layer-container を
 // 論理サイズ = 出力 px（overlay/layer の px 座標・字幕の px 指定が render-cut と同じ意味になる）
 // にし、transform: scale(frameScale) で preview-stage の出力フレーム矩形へ写像する。
 // preview-stage はペイン内へ output 比で fit し、その外側はペインの台紙色のまま残す。
 let frameScale = 1;
-function outputSizePx() {
-  const os = summary?.output || {};
-  return {
-    width: Number(os.width) > 0 ? Number(os.width) : 1280,
-    height: Number(os.height) > 0 ? Number(os.height) : 720
-  };
-}
 // Web UI は px + clientWidth 実測を正本にする。wrapper（ペイン content box 全面）へ
 // output 比を contain した寸法を preview-stage に与える。
 function applyPreviewStageSize() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const boxW = wrapper.clientWidth;
   const boxH = wrapper.clientHeight;
   if (!(boxW > 0) || !(boxH > 0)) {
@@ -550,7 +520,7 @@ function applyPreviewStageSize() {
 // akari-preview-open-handler.ts の aspectRatio>=1 分岐。基準辺 120px は従来の横長既定
 // 120x67.5 を保つ値 — 16:9 では従来どおり 120x67.5 のまま、回帰なし）。
 function applyMinimapAspectRatio() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const ratio = os.width / os.height;
   const base = 120;
   minimap.style.width = `${ratio >= 1 ? base : base * ratio}px`;
@@ -562,7 +532,7 @@ function computeOutputFrameRect() {
 function updateStageScale() {
   applyPreviewStageSize();
   applyMinimapAspectRatio();
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const rect = computeOutputFrameRect();
   const next = rect.width / os.width;
   frameScale = Number.isFinite(next) && next > 0 ? next : 1;
@@ -606,26 +576,13 @@ function setVideoSourceIfChanged(el, src) {
   if (src && !isSameVideoSource(el, src)) el.src = src;
 }
 
-function getVideoSource(cutIndex) {
-  const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
-  return clip ? clip.src : (timelineData.clips[0]?.src || '');
-}
-
-// docs/contract-2026-08-12-still-image-cut-source-v0.md: cuts[] の静止画ソース区間はメインの
-// <video id="preview-video"> ではなく <img id="preview-image"> で表示する（layers[] の静止画判定
-// isImageLayerSrc/IMAGE_LAYER_SRC_PATTERN と同じ拡張子集合 -- 定義は下の setupLayers 節にある。
-// 関数宣言なので巻き上げにより、このファイル内のどの実行順序からでも呼べる）。
-function isStillImageCutSegment(seg) {
-  return !!seg && !seg.isGap && seg.index >= 0 && isImageLayerSrc(getVideoSource(seg.index));
-}
-
 // 静止画区間へ入る: <video> は止めて隠す（音声グラフ(MediaElementAudioSourceNode)へ古い映像の
 // 音が漏れないように、src はそのまま残して pause するだけ -- 要素は作り直さない）。<img> の
 // src は画像なので currentTime 相当のシークは不要、一度セットしたら区間内は据え置きでよい。
 function showStillImageForSegment(seg) {
   video.pause();
   video.style.display = 'none';
-  const src = getVideoSource(seg.index);
+  const src = getVideoSource(timelineData, seg.index);
   setVideoSourceIfChanged(img, src);
   // '' の代入はインライン宣言を消すだけで、index.html のスタイルシート既定
   // `#preview-image { display: none; }` を打ち消さない（#preview-video 側は CSS に
@@ -686,55 +643,6 @@ function buildSegments() {
 }
 
 // --- B-roll layers ---
-// baked レイヤーの実体（アルファ付き .mov）は ProRes 4444 でブラウザがデコードできない。
-// baked は同じ場所へプレビュー用サイドカー（.preview.webm / VP9 + アルファ）を必ず
-// 併せて持つ規約なので、そちらを再生する。shell の previewProxyUri と同じ命名規約。
-function layerPlaybackPath(layer) {
-  if (layer.kind !== 'baked') return layer.src;
-  return /\.mov$/i.test(layer.src)
-    ? layer.src.replace(/\.mov$/i, '.preview.webm')
-    : `${layer.src}.preview.webm`;
-}
-
-// ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。contract-2026-08-02-preview-parity.md）。
-// crop 未指定は既定 {x:0,y:0,w:1,h:1} = 全面（従来と完全に見た目が同じになる境界値）。
-function cropOf(el) {
-  const cw = Number(el.dataset.layerCropW);
-  const ch = Number(el.dataset.layerCropH);
-  return {
-    x: Number(el.dataset.layerCropX) || 0,
-    y: Number(el.dataset.layerCropY) || 0,
-    w: Number.isFinite(cw) && cw > 0 ? cw : 1,
-    h: Number.isFinite(ch) && ch > 0 ? ch : 1,
-  };
-}
-
-function layerIntrinsicSize(el) {
-  // 配置の正本は媒体メタデータの実寸。person-matte 等の intake 出力寸法はプロジェクトの
-  // output 寸法と一致する保証がないため、frame-engine の成否から寸法を推定しない。
-  //
-  // これは frame-engine の構図の基準（原本の論理寸法 = NativeFrameSource.logicalSize。
-  // 不具合メモ 第10項）と一致している: この要素が読むのは `summary.layers[].src`
-  // （= 原本。setupLayers → layerPlaybackPath → syncLayerLazyLoad）で、再生用コピーの
-  // proxy 差し替え（preview-layer-proxies.mjs）は frame-engine へ渡す edit にだけ効き、
-  // サーバも素材要求を横取りして proxy を返したりしない（server.mjs は常に原本を返す）。
-  // ハンドル位置・crop 窓・perspective 箱をキャンバスと一致させるため、**この要素へ proxy を
-  // 読ませないこと**（読ませるなら、ここも原本の宣言寸法を引くように直す必要がある）。
-  return { width: Number(el.videoWidth) || 0, height: Number(el.videoHeight) || 0 };
-}
-
-// ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
-// §2.4.4）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
-function perspectiveOf(el) {
-  const raw = el.dataset.layerPerspectiveCorners;
-  if (!raw) return null;
-  try {
-    const corners = JSON.parse(raw);
-    return Array.isArray(corners) && corners.length === 4 ? { corners } : null;
-  } catch {
-    return null;
-  }
-}
 
 // レイヤー1件の位置・サイズ・pivot・変形・切り抜きを一括で書く単一の正本（2026-08-06
 // web-layer-placement-parity）。shell の updateStageScale レイヤーループと同じ中心基準へ統一
@@ -750,7 +658,7 @@ function perspectiveOf(el) {
 // 箱はクロップ矩形の描画済み（scale 込み）px サイズ -- scale はもはや別関数ではなく箱サイズへ
 // 焼き込むため、shell と同じ box 単位になった（layer-perspective-visual.js のコメント参照）。
 function applyLayerLayout(el, x, y, scale, rotate) {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const scaleX = Number(el.dataset.layerScaleX) || scale;
   const scaleY = Number(el.dataset.layerScaleY) || scale;
   el.style.left = `${os.width / 2 + x}px`;
@@ -940,43 +848,6 @@ function configureVideoFxRail(rail, key, effects) {
   void rail.configure(effects);
 }
 
-function clipLookForCut(cutIndex) {
-  const cut = summary?.cuts?.[cutIndex];
-  const adjust = cut?.adjust;
-  if (!adjust || adjust.sections?.lut === false || !adjust.lut
-    || typeof adjust.lut.lut !== 'string') return null;
-  const cubeText = summary?.adjustLutCubeTexts?.[String(cut.id)];
-  if (typeof cubeText !== 'string') return null;
-  const intensity = Number.isFinite(adjust.lut.intensity)
-    ? Math.max(0, Math.min(1, adjust.lut.intensity)) : 1;
-  return { cubeText, intensity };
-}
-
-function sourceEffectsForCut(cutIndex, allowClipLut = true) {
-  const config = summary?.videoFx;
-  const sourceId = summary?.cuts?.[cutIndex]?.src;
-  const chromaKey = sourceId && config?.sources?.[sourceId];
-  const clipLook = allowClipLut ? clipLookForCut(cutIndex) : null;
-  const look = clipLook || config?.look;
-  return {
-    ...(look ? { look } : {}),
-    ...(chromaKey ? { chromaKey } : {}),
-  };
-}
-
-function layerChromaEffects(layer) {
-  const raw = layer?.chroma_key;
-  if (!raw) return null;
-  return {
-    chromaKey: {
-      color: raw.color,
-      similarity: raw.similarity,
-      blend: raw.blend,
-      mode: 'layer',
-    },
-  };
-}
-
 function disposeVideoFx() {
   for (const rail of videoFxRails) rail.dispose();
   videoFxRails = [];
@@ -992,7 +863,7 @@ function setupVideoFx() {
   videoFxFailedIndicators.clear();
   const config = summary?.videoFx;
   const sourceEffects = Object.values(config?.sources ?? {});
-  const firstClipLook = (summary?.cuts ?? []).map((_cut, index) => clipLookForCut(index)).find(Boolean) ?? null;
+  const firstClipLook = (summary?.cuts ?? []).map((_cut, index) => clipLookForCut(summary, index)).find(Boolean) ?? null;
   const hasBaseVideoFx = Boolean(firstClipLook || config?.look || sourceEffects.length > 0);
   const representativeEffects = hasBaseVideoFx ? {
     ...(firstClipLook || config?.look ? { look: firstClipLook || config.look } : {}),
@@ -1027,18 +898,18 @@ function setupVideoFx() {
 function renderVideoFx(timelineTime) {
   if (!videoFxRails.length) return;
   const segment = getActiveSegment(timelineTime);
-  const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(segment.index) : {};
+  const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(summary, segment.index) : {};
   const baseKey = `base:${segment?.index ?? 'gap'}`;
   configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
   configureVideoFxRail(stillVideoFxRail, `${baseKey}:still`,
-    segment?.index >= 0 ? sourceEffectsForCut(segment.index, false) : {});
+    segment?.index >= 0 ? sourceEffectsForCut(summary, segment.index, false) : {});
   baseVideoFxRail?.render(timelineTime);
   stillVideoFxRail?.render(timelineTime);
 
   const transitionWindow = (timelineMap.transitionWindows ?? [])
     .find(candidate => timelineTime >= candidate.start && timelineTime < candidate.end);
   const incomingCutIndex = transitionWindow?.incoming?.cutIndex;
-  const transitionEffects = incomingCutIndex >= 0 ? sourceEffectsForCut(incomingCutIndex) : {};
+  const transitionEffects = incomingCutIndex >= 0 ? sourceEffectsForCut(summary, incomingCutIndex) : {};
   configureVideoFxRail(transitionVideoFxRail, `transition:${incomingCutIndex ?? 'none'}`, transitionEffects);
   transitionVideoFxRail?.render(timelineTime);
 
@@ -1342,46 +1213,6 @@ function setLayerSelected(id) {
 // 移動と操作が衝突しないための排他モード切替。8 方向ハンドルで layers[].crop
 // （0..1 正規化・ソースフレーム相対）を編集し、確定（pointerup）時のみ書き戻す。
 let cropModeActive = false;
-const CROP_MIN = 0.02;
-function clampCrop(x, y, w, h) {
-  const cw = Math.min(1, Math.max(CROP_MIN, Number.isFinite(w) ? w : 1));
-  const ch = Math.min(1, Math.max(CROP_MIN, Number.isFinite(h) ? h : 1));
-  const cx = Math.min(1 - cw, Math.max(0, Number.isFinite(x) ? x : 0));
-  const cy = Math.min(1 - ch, Math.max(0, Number.isFinite(y) ? y : 0));
-  return { x: cx, y: cy, w: cw, h: ch };
-}
-function layerTransformOf(el) {
-  return {
-    x: Number(el.dataset.layerX) || 0,
-    y: Number(el.dataset.layerY) || 0,
-    scale: Number(el.dataset.layerScale) || 1,
-    ...(el.dataset.layerScaleX !== undefined ? { scaleX: Number(el.dataset.layerScaleX) } : {}),
-    ...(el.dataset.layerScaleY !== undefined ? { scaleY: Number(el.dataset.layerScaleY) } : {}),
-    rotate: Number(el.dataset.layerRotate) || 0,
-  };
-}
-// ソース px（ネイティブ px。videoWidth/videoHeight）の矩形を、layerContainer ローカル座標
-// （frameScale/zoom 適用前の「出力論理 px」空間 -- video 要素自身と同じ単位。frameScale/zoom は
-// 親コンテナの scale() が別途処理する）へ正写像する。shell の layerScreenRectForVideoRect と
-// 同型の幾何（画面 px への変換〔frameRect/frameScale 乗算〕だけ、Web はこの空間のまま
-// layerContainer の子として置くため省く）。2026-08-06 web-layer-placement-parity: 中心基準統一
-// に伴い el.offsetLeft 依存の旧実装を置き換えた -- 旧実装は「el 自身の静的位置に transform.x を
-// 加算する」慣習だったが、新基準では transform.x は既に el.style.left（= outputWidth/2+x）へ
-// 焼き込まれているため、el.offsetLeft から独立に「ネイティブ px 空間 → transform による配置」を
-// 導出する必要がある（shell と同じ formula: P' = outputSize/2 + T + s·R(θ)·(P-pivot)）。
-function layerRectForVideoRect(transform, videoRect, pivotPx) {
-  const os = outputSizePx();
-  const outputW = videoRect.w * (transform.scaleX ?? transform.scale);
-  const outputH = videoRect.h * (transform.scaleY ?? transform.scale);
-  const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * (transform.scaleX ?? transform.scale);
-  const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * (transform.scaleY ?? transform.scale);
-  const rad = transform.rotate * Math.PI / 180;
-  const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
-  const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
-  const centerX = os.width / 2 + transform.x + rotOffX;
-  const centerY = os.height / 2 + transform.y + rotOffY;
-  return { left: centerX - outputW / 2, top: centerY - outputH / 2, width: outputW, height: outputH, rotOffX, rotOffY };
-}
 // 画面クライアント座標 → ソースフレーム正規化座標（0..1）の逆写像。layerRectForVideoRect の逆
 // （shell の layerVideoPointForPivot と同型）。pivotFrac はソースフレーム正規化座標（クロップ
 // ハンドルは常に全面中心 {0.5,0.5} を使う -- shell と同じ規約。呼び出し元 fullPivot 参照）。
@@ -1391,7 +1222,7 @@ function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
   const viewScale = contRect.width / layerContainer.offsetWidth;
   const px = (clientX - contRect.left) / viewScale;
   const py = (clientY - contRect.top) / viewScale;
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const { width: vw, height: vh } = layerIntrinsicSize(el);
   if (!(vw > 0 && vh > 0)) return null;
   const pivotPx = { x: pivotFrac.x * vw, y: pivotFrac.y * vh };
@@ -1472,8 +1303,8 @@ function updateLayerCropBox() {
   // 近似だったが、それだと錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見える
   // ため、実際の合成 pivot と統一した — shell の updateLayerCropBox と同型の判断）。
   const cropPivot = { x: (crop.x + crop.w / 2) * vw, y: (crop.y + crop.h / 2) * vh };
-  const outer = layerRectForVideoRect(transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
-  const inner = layerRectForVideoRect(transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
+  const outer = layerRectForVideoRect(summary, transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
+  const inner = layerRectForVideoRect(summary, transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
   layerCropBox.style.display = 'block';
   layerCropBox.style.left = `${outer.left}px`;
   layerCropBox.style.top = `${outer.top}px`;
@@ -1718,36 +1549,12 @@ function positionLayerPerspectiveToggle(el) {
   }
 }
 
-function layerPerspectiveNow(el) {
-  const raw = el.dataset.layerPerspectiveCorners;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length === 4 ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function applyLayerPerspectiveNow(el, corners) {
   if (corners) el.dataset.layerPerspectiveCorners = JSON.stringify(corners);
   else delete el.dataset.layerPerspectiveCorners;
   layerPerspectiveToggle.style.borderColor = corners ? '#ffb84d' : '#4da3ff';
   const transform = layerTransformOf(el);
   applyLayerLayout(el, transform.x, transform.y, transform.scale, transform.rotate);
-}
-
-// プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の便宜であり、
-// schema には「プリセット」「角度」という概念自体は存在しない（shell 側と同一の式・
-// contract-2026-08-02-preview-parity.md §2.4.4。意図的なコード重複）。
-function perspectivePresetCorners(preset, angleDeg) {
-  const compression = Math.max(0, Math.min(0.9, Math.sin((Number(angleDeg) || 0) * Math.PI / 180)));
-  const half = compression / 2;
-  if (preset === 'right') return [[0, 0], [1, half], [0, 1], [1, 1 - half]];
-  if (preset === 'left') return [[0, half], [1, 0], [0, 1 - half], [1, 1]];
-  if (preset === 'top') return [[half, 0], [1 - half, 0], [0, 1], [1, 1]];
-  if (preset === 'bottom') return [[0, 0], [1, 0], [half, 1], [1 - half, 1]];
-  return null;
 }
 
 async function commitLayerPerspective(el, corners) {
@@ -1837,7 +1644,7 @@ window.addEventListener('keydown', (e) => {
 
 // zoom 込みの実効倍率（表示 px / 論理出力 px）。frameScale 直参照だと zoom>1 でずれる
 function layerEffectiveScale() {
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const rect = layerContainer.getBoundingClientRect();
   return rect.width > 0 ? rect.width / os.width : 1;
 }
@@ -2189,8 +1996,8 @@ function setupAudioGraph() {
   }
 
   const scrubSources = [...new Set(segments
-    .filter(seg => !seg.isGap && seg.index >= 0 && !isStillImageCutSegment(seg))
-    .map(seg => getVideoSource(seg.index))
+    .filter(seg => !seg.isGap && seg.index >= 0 && !isStillImageCutSegment(timelineData, seg))
+    .map(seg => getVideoSource(timelineData, seg.index))
     .filter(Boolean))];
   void scrubAudio?.prepare(scrubSources);
 
@@ -2271,13 +2078,9 @@ function teardownTimelineAudioGraph() {
   sfxNodes = [];
 }
 
-function transitionAudioBoundaries() {
-  return (timelineMap.transitionWindows ?? []).map(window => ({ at: window.end, duration: window.duration }));
-}
-
 function updateBaseAudioTransition(t) {
   if (!audioCtx || !baseAudioTransitionGain) return;
-  const target = transitionApproximationGain(t, transitionAudioBoundaries());
+  const target = transitionApproximationGain(t, transitionAudioBoundaries(timelineMap));
   const param = baseAudioTransitionGain.gain;
   const now = audioCtx.currentTime;
   param.cancelScheduledValues(now);
@@ -2670,7 +2473,7 @@ function playedCutLocalSeconds(seg) {
   if (!seg || seg.isGap) return 0;
   // 静止画区間は video.currentTime を進めない（画像はシークしないため）ので、代わりに
   // マスタークロック outputTime からカット内経過秒を直接出す。
-  if (isStillImageCutSegment(seg)) return outputTime - seg.outStart;
+  if (isStillImageCutSegment(timelineData, seg)) return outputTime - seg.outStart;
   const speed = seg.speed > 0 ? seg.speed : 1;
   return ((video.currentTime || 0) - seg.inSec) / speed;
 }
@@ -2692,7 +2495,7 @@ function applyCutFramingVisual() {
   const seg = getActiveSegment(outputTime);
   const cut = seg && !seg.isGap ? seg : null;
   const framingVisual = computeCutFramingVisual(cut ? cut.framing : null, playedCutLocalSeconds(seg));
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const motionState = cut && (cut.motion || cut.motionSource || Array.isArray(cut.keyframes))
     ? window.akari.itemMotion.evaluateOverlayMotion({ ...cut, start: cut.outStart,
       duration: cut.durationSec, keyframeUnit: 'seconds' }, outputTime, fps) : null;
@@ -2731,7 +2534,7 @@ function pauseAllPlaybackForFreeze() {
 function resumeAllPlaybackForFreeze() {
   // 静止画区間では <video> を再生してはいけない（隠れているだけで、再生すると古いカットの
   // 音声が MediaElementAudioSourceNode 経由で漏れる）。
-  if (video.paused && !isStillImageCutSegment(getActiveSegment(outputTime))) video.play();
+  if (video.paused && !isStillImageCutSegment(timelineData, getActiveSegment(outputTime))) video.play();
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   for (const lv of layerVideos) if (lv.visible && !lv.isFilter) lv.el.play();
 }
@@ -2748,7 +2551,7 @@ function seekTo(t) {
   if (frameEngineEnabled) {
     // 終端へのシーク（End キー・シークバー右端・波形の末尾クリック・再構築後の位置復元）も
     // 最後の有効フレームへ揃える（第16項。engineRenderTime の注記参照）。
-    frameEngineRequestedTime = engineRenderTime(outputTime);
+    frameEngineRequestedTime = engineRenderTime(totalDuration, fps, outputTime);
     outputTime = frameEnginePreview?.seek(frameEngineRequestedTime) ?? frameEngineRequestedTime;
     updateAudioStatus();
     requestAudioPriority(outputTime);
@@ -2767,14 +2570,14 @@ function seekTo(t) {
     const seg = getActiveSegment(outputTime);
     if (seg && seg.index >= 0) {
       video.playbackRate = seg.speed > 0 ? seg.speed : 1;
-      if (isStillImageCutSegment(seg)) {
+      if (isStillImageCutSegment(timelineData, seg)) {
         // 静止画には currentTime シークの概念が無い。src を合わせて表示を切り替えるだけでよい。
         showStillImageForSegment(seg);
       } else {
         // 音量をゼロへランプしてから source/currentTime を変え、切替後に戻す。ユーザー操作の
         // シークもカット境界と同じ経路を通すことで、不連続なサンプルを直接 destination へ出さない。
         showVideoBase();
-        const src = getVideoSource(seg.index);
+        const src = getVideoSource(timelineData, seg.index);
         requestBaseVideoSeek(src, vt);
         scrubAudio?.onSeek({ outputTime, sourceTime: vt, src, isPlaying });
       }
@@ -2815,7 +2618,7 @@ function play() {
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   // 静止画区間の開始位置から再生を始めるときは <video> を動かさない（隠れたまま古い映像の
   // 音声が漏れるのを防ぐ -- resumeAllPlaybackForFreeze と同じ理由）。
-  const onStillImage = isStillImageCutSegment(getActiveSegment(outputTime));
+  const onStillImage = isStillImageCutSegment(timelineData, getActiveSegment(outputTime));
   const active = getActiveSegment(outputTime);
   if (active && !active.isGap) video.playbackRate = active.speed > 0 ? active.speed : 1;
   if (!onStillImage && baseAudioDeClick?.pending) {
@@ -2880,8 +2683,8 @@ function playbackLoop() {
     // 停止判定は素の壁時計で行う（尺は変えない）。描画要求だけを最後の有効フレームへ丸める
     // -- renderPlayback は `Math.round(sec * fps)` で要求フレームを決めるため、丸めずに渡すと
     // 末尾の半フレーム手前（158681.5）で終端フレームを要求し、追加映像だけが消える（第16項）。
-    if (frameEngineRequestedTime >= totalDuration) { outputTime = engineRenderTime(totalDuration); pause(); return; }
-    const frameEngineRenderTime = engineRenderTime(frameEngineRequestedTime);
+    if (frameEngineRequestedTime >= totalDuration) { outputTime = engineRenderTime(totalDuration, fps, totalDuration); pause(); return; }
+    const frameEngineRenderTime = engineRenderTime(totalDuration, fps, frameEngineRequestedTime);
     outputTime = frameEnginePreview?.renderPlayback(frameEngineRenderTime) ?? frameEngineRenderTime;
     // 音声の最初の窓が揃うまでは絵の時計も開始位置に留める（frame-engine 側のゲート）。
     const held = frameEnginePreview?.heldStartSec() ?? null;
@@ -2923,7 +2726,7 @@ function playbackLoop() {
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
     video.playbackRate = seg.speed > 0 ? seg.speed : 1;
-    if (isStillImageCutSegment(seg)) {
+    if (isStillImageCutSegment(timelineData, seg)) {
       // 静止画には currentTime シークも play() 復帰も無い。表示の出し分けだけでよい。
       showStillImageForSegment(seg);
     } else {
@@ -2933,7 +2736,7 @@ function playbackLoop() {
       // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
       // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
       // 補正が必要な場合は 12ms で下地音声をゼロへ落としてから source/currentTime を切り替える。
-      syncBaseVideoTime(getVideoSource(seg.index), target, SYNC_DEADBAND_SEC);
+      syncBaseVideoTime(getVideoSource(timelineData, seg.index), target, SYNC_DEADBAND_SEC);
       // src の差し替えで paused に戻った場合も、時刻を合わせてから再生を復帰する。
       // 読み込み直後の play() が失敗しても、再生中だけ次フレームで再試行される。
       ensureMediaPlaying(video, isPlaying);
@@ -2991,7 +2794,7 @@ function updateTransitions() {
 
   const p = transitionProgressAt(window, outputTime);
   const incoming = window.incoming;
-  setVideoSourceIfChanged(transitionVideo, getVideoSource(incoming.cutIndex));
+  setVideoSourceIfChanged(transitionVideo, getVideoSource(timelineData, incoming.cutIndex));
   transitionVideo.playbackRate = incoming.speed > 0 ? incoming.speed : 1;
   const target = (incoming.in ?? 0) + (outputTime - incoming.outStart) * transitionVideo.playbackRate;
   syncMediaCurrentTime(transitionVideo, target, isPlaying ? SYNC_DEADBAND_SEC : 0.001);
@@ -3003,10 +2806,10 @@ function updateTransitions() {
     definition?.labelJa || String(window.type),
   );
   const outgoingSegment = getActiveSegment(outputTime);
-  const outgoingElement = isStillImageCutSegment(outgoingSegment) ? img : video;
+  const outgoingElement = isStillImageCutSegment(timelineData, outgoingSegment) ? img : video;
   const outgoingCut = outgoingSegment && !outgoingSegment.isGap
     ? summary?.cuts?.[outgoingSegment.index] ?? null : null;
-  const os = outputSizePx();
+  const os = outputSizePx(summary);
   const outgoingFramingVisual = computeCutFramingVisual(
     outgoingSegment?.framing,
     playedCutLocalSeconds(outgoingSegment),
@@ -3111,28 +2914,6 @@ function updateSeekVisual() {
 let selectedCutIndex = -1;
 let selectedCutAcc = 0;
 
-async function editSaveErrorMessage(res) {
-  try {
-    const body = await res.json();
-    if (Array.isArray(body.findings) && body.findings.length) {
-      // warning が先頭に混ざると真因が埋もれる — error のみ表示（P2-5）。
-      // error が無い異常応答では従来どおり全 findings にフォールバック
-      const errors = body.findings.filter((f) => f.severity === 'error');
-      const shown = errors.length ? errors : body.findings;
-      return shown.map((f) => f.message || f.check).filter(Boolean).join(' / ');
-    }
-    return body.error || `保存に失敗しました (HTTP ${res.status})`;
-  } catch {
-    return `保存に失敗しました (HTTP ${res.status})`;
-  }
-}
-
-function resolveMediaUrl(pathOrSrc) {
-  if (!pathOrSrc) return null;
-  if (/^(https?:|blob:)/.test(pathOrSrc)) return pathOrSrc;
-  return `/${String(pathOrSrc).replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')}`;
-}
-
 async function reloadSummary() {
   const res = await fetch(api.summary);
   if (!res.ok) throw new Error(await apiReadError(res, 'summary'));
@@ -3152,11 +2933,6 @@ function requestSoftReload(changedPaths = [], overlayIds = []) {
     console.warn('[preview] soft reload failed; falling back to full reload', err);
     location.reload();
   });
-}
-
-// 断片の「顔ぶれ」— これが変わらない限り DOM は作り直さない（位置や見た目の変更は貼り直しで足りる）
-function overlaySignature(s) {
-  return JSON.stringify((s?.overlays || []).map(o => [String(o.id), o.html, o.start, o.duration]));
 }
 
 async function applySoftReload(changedPaths = [], overlayIds = []) {
@@ -3512,19 +3288,6 @@ seek.addEventListener('input', () => {
 // （seek-visual は pointer-events:none でクリックを受けられないため range 側で受ける）
 seek.title = 'ドラッグ / クリックで移動・ダブルクリックでカット情報';
 seek.addEventListener('dblclick', () => { showCutInfoAt(Number(seek.value)); });
-// カット境界へジャンプ（P2-2: 旧実装は区間内の t をそのまま返す恒等関数だった）
-function snapToCut(t, dir) {
-  if (!segments.length) return t;
-  const EPS = 0.001;
-  const bounds = [...new Set(segments.flatMap(seg => [seg.outStart, seg.outEnd]))]
-    .sort((left, right) => left - right);
-  if (dir > 0) {
-    const next = bounds.find(b => b > t + EPS);
-    return next !== undefined ? next : t;
-  }
-  const prev = bounds.filter(b => b < t - EPS).pop();
-  return prev !== undefined ? prev : 0;
-}
 
 // 文字入力を受ける input 型だけ素通しする（シェルの isEditable と同じ判定）。
 // INPUT を無差別に除外すると、シークバー（type=range）をクリックした後フォーカスが
@@ -3545,8 +3308,8 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowDown': e.preventDefault(); pause(); seekTo(outputTime + 10); break;
     case 'Home': e.preventDefault(); seekTo(0); break;
     case 'End': e.preventDefault(); seekTo(totalDuration); break;
-    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, -1)); break;
-    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, 1)); break;
+    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(segments, outputTime, -1)); break;
+    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(segments, outputTime, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
     case 'Escape': shortcutHelp.hidden = true; setLayerSelected(null); closeCutInfo(); break;
     case 'Digit0': e.preventDefault(); resetSelectedOverlayTransform(); break;
@@ -3819,10 +3582,6 @@ function ensureItemMotionRuntime() {
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
-// 辺あたり倍率。座標・時刻・ツマミ値は等倍の書き出しと共有する。
-function normalizeVgpuPreviewScale(value) {
-  return value === 1 || value === 0.5 || value === 0.25 ? value : 0.5;
-}
 let previewVgpuScale = 0.5;
 previewVgpuScale = normalizeVgpuPreviewScale(savedSettings.vgpuPreviewScale);
 const vgpuScalePresets = document.querySelectorAll('#zoom-popup .vgpu-scale-preset');
@@ -4176,10 +3935,6 @@ function showHint(text, holdMs = 2600) {
     editHintTimer = setTimeout(() => { editHintTimer = 0; editHint.style.opacity = '0'; }, holdMs);
   }
 }
-function fmtRange(sec) {
-  const m = Math.floor(sec / 60), s2 = (sec % 60).toFixed(1).padStart(4, '0');
-  return `${m}:${s2}`;
-}
 // 何を掴んでいるかを常に出す。断片は画面いっぱいに広がるものが多く、いま見ている場面の
 // 部品を掴んだつもりで「動画全体に敷いてある背景」を掴んでいることがある
 // （bg-live は 0〜123.6 秒 = 全編。実機報告 2026-08-07「次の背景も同じ量だけ動く」の正体）。
@@ -4354,80 +4109,6 @@ function applyCaptionStyle(caption, captionPlate) {
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
 }
 
-function collectExcludedCaptionIds(edit) {
-  const result = new Set();
-  const visit = value => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
-    const source = value.source;
-    if (source?.kind === 'captions' && Array.isArray(source.exclude)) {
-      for (const id of source.exclude) if (typeof id === 'string') result.add(id);
-    }
-    for (const key of ['items', 'children']) {
-      if (Array.isArray(value[key])) value[key].forEach(visit);
-    }
-  };
-  for (const track of edit?.tracks ?? []) {
-    for (const key of ['items', 'children']) {
-      if (Array.isArray(track?.[key])) track[key].forEach(visit);
-    }
-  }
-  return result;
-}
-function filterCaptionRootByExcludedIds(root, excluded) {
-  const filter = captions => captions.filter(caption => !excluded.has(caption?.id));
-  if (Array.isArray(root)) return filter(root);
-  if (root && typeof root === 'object' && Array.isArray(root.captions)) {
-    return { ...root, captions: filter(root.captions) };
-  }
-  return root;
-}
-function getActiveCaptions() {
-  // captions.json が正本（shell と同一）。edit.json 埋め込みはフォールバックのみ
-  const excluded = collectExcludedCaptionIds(summary);
-  if (Array.isArray(captionsData) && captionsData.length > 0) {
-    return filterCaptionRootByExcludedIds(captionsData, excluded);
-  }
-  const fromEdit = summary?.captions;
-  return Array.isArray(fromEdit) ? filterCaptionRootByExcludedIds(fromEdit, excluded) : [];
-}
-function normalizeWords(words) {
-  if (!Array.isArray(words) || !words.length) return [];
-  return words.map(w => ({
-    start: w.start ?? w.t ?? 0,
-    end: w.end ?? (w.t ?? 0) + (w.d ?? 0.3),
-    text: w.text ?? w.word ?? w.w ?? '',
-  }));
-}
-const EMPHASIS_STYLE_MAP = { pain: 'one-char-bang', surprise: 'one-char-bang', anger: 'one-char-bang', joy: 'size-pulse', emphasis: 'size-pulse' };
-function findMatchingEmphasis(word, list) {
-  return list?.find(e =>
-    e.t_end > word.start && e.t_start < word.end &&
-    (word.text === e.word || e.word.includes(word.text))
-  ) || null;
-}
-function resolveEmphasisStyle(emphasis) {
-  return emphasis.style_hint || EMPHASIS_STYLE_MAP[emphasis.emotion] || 'color-accent';
-}
-// 行グループを開始時刻ごとに束ねて順送り表示の markup を作る
-// （captions.mjs renderRevealGroups のポート。preview は速度リマップ無しの source 秒）。
-function renderRevealGroupsMarkup(lines, rangeStart, rangeEnd, renderLine) {
-  const groups = [];
-  for (const line of lines) {
-    const start = line[0]?.start ?? rangeStart;
-    const previous = groups[groups.length - 1];
-    if (previous && previous.start === start) previous.lines.push(line);
-    else groups.push({ start, lines: [line] });
-  }
-  return groups.map((group, index) => {
-    const nextStart = groups[index + 1]?.start ?? rangeEnd;
-    const delay = Math.max(0, group.start - rangeStart);
-    const duration = Math.max(0.01, nextStart - group.start);
-    const lineMarkup = group.lines
-      .map(line => `<p class="akari-caption__line">${renderLine(line)}</p>`)
-      .join('');
-    return `<div class="akari-caption__reveal-group" style="--akari-reveal-delay:${delay.toFixed(3)}s;--akari-reveal-dur:${duration.toFixed(3)}s">${lineMarkup}</div>`;
-  }).join('');
-}
 function injectCaptionStyles() {
   if (captionStylesInjected) return;
   captionStylesInjected = true;

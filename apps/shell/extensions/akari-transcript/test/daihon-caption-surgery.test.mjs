@@ -1,4 +1,5 @@
-import assert from 'node:assert/strict'; import test from 'node:test'; import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict'; import test from 'node:test';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 import {
   fragmentBoundaries,
   freezeAndRemoveCaptionBoundary,
@@ -41,7 +42,7 @@ test('appends properties at sibling indentation and leaves the closing brace on 
   assert.ok(updated.includes('    ],\n    "display_fragments": ["あ","いうえ"],\n    "edited": true\n  }'));
 });
 test('／自身が自動・手置き共通メニューを開き、行クリックと分離される', async () => {
-  const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   assert.match(source, /INTERACTIVE_SELECTOR[^;]+\.akari-daihon-slash/u);
   assert.match(source, /✕ ここの区切りをやめる/u);
   assert.match(source, /freezeAndRemoveCaptionBoundary/u);

@@ -142,7 +142,9 @@ function shapeMarkupV1(source, itemId, outputWidth = 1920, transform) {
     const scaleX = clamp(transform?.scaleX ?? transform?.scale, 1, Number.MIN_VALUE, 100000);
     const scaleY = clamp(transform?.scaleY ?? transform?.scale, 1, Number.MIN_VALUE, 100000);
     const key = itemKey(itemId, source);
-    const svg = (defs, body, visibleStrokeWidth) => `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}"${visibleStrokeWidth > 8 ? ' overflow="visible"' : ''}>${defs ? `<defs>${defs}</defs>` : ''}${body}</svg>`;
+    const svg = (defs, body, visibleStrokeWidth) => 
+    // Preserve legacy thin-stroke markup while allowing larger caps to extend beyond the hit box.
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}"${visibleStrokeWidth > 8 ? ' overflow="visible"' : ''}>${defs ? `<defs>${defs}</defs>` : ''}${body}</svg>`;
     const line = source.shape === 'line' || source.shape === 'arrow';
     const fill = paint(validPaint(p.fill, line ? 'none' : source.shape === 'bubble' ? '#ffffff' : '#a6a6a6'), `sh-${key}-fill`, width, height);
     const stroke = paint(validPaint(p.stroke, line ? '#000000' : source.shape === 'bubble' ? '#000000' : 'none'), `sh-${key}-stroke`, width, height);

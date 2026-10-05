@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'; import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 import { wordContextMenuGroups } from '../lib/browser/daihon/daihon-word-context-menu.js';
 const groups = wordContextMenuGroups({ rangeCount: 2, wordCount: 4, text: '選択', nextWordText: '次',
   splitAvailable: false, mergeAvailable: false,
@@ -19,7 +19,7 @@ test('word context menu has no appearance edits', () => {
     item.action?.kind === 'preset' || item.action?.kind === 'preset-clear' || item.label === '強調を外す'), false);
 });
 test('word click preserves pointer selection and right-click opens the word menu', () => {
-  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  const source = readAllSourceText();
   const click = source.match(/span\.addEventListener\('click', event => \{[\s\S]*?this\.openRowDock\('emphasis'\);\s*\}\);/u)?.[0];
   assert.ok(click);
   assert.doesNotMatch(click, /this\.wordRanges\s*=/u);

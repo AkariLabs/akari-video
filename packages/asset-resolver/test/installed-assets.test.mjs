@@ -17,7 +17,7 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function writeInstalled({ home, id = 'installed-one', title = 'Installed One', category = 'pack', payload = 'local payload' }) {
+function writeInstalled({ home, id = 'installed-one', title = 'Installed One', category = 'pack', payload = 'local payload', tier }) {
   const packRoot = path.join(home, 'assets', 'store', 'fixture-pack', 'fixture-pack-v1');
   const itemPath = category === 'pack' ? `custom/${id}` : `assets/${category}/${id}`;
   const assetRoot = path.join(packRoot, itemPath);
@@ -35,6 +35,7 @@ function writeInstalled({ home, id = 'installed-one', title = 'Installed One', c
         items: [{
           id,
           title,
+          ...(tier ? { tier } : {}),
           path: itemPath,
           version: 1,
           files: [{ path: 'payload.txt', bytes: Buffer.byteLength(payload), sha256: sha256(payload) }]
@@ -44,6 +45,26 @@ function writeInstalled({ home, id = 'installed-one', title = 'Installed One', c
   }, null, 2)}\n`);
   return { packRoot, assetRoot, indexPath };
 }
+
+test('textstyle Pro は CLI 一覧で鍵付き、導入索引では category と tier を保持する', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  const id = 'telop-fixture-style';
+  catalog.items.push({ id, category: 'textstyle', title: '字幕スタイルの見本', tier: 'pro',
+    product_id: 'telop-rich-pack-01', version: 1,
+    preview: 'https://akari.video/lab/media/telop-rich-pack/textstyle/telop-fixture-style.png',
+    license: { spdx: 'LicenseRef-AKARI-Assets-v0' }, tags: ['telop'] });
+  writeFileSync(catalogPath, `${JSON.stringify(catalog)}\n`);
+  const list = runCli(['list', '--category', 'textstyle'], env);
+  assert.equal(list.status, 0, list.stderr);
+  assert.match(list.stdout, /🔒 Pro\s+telop-fixture-style\s+lab\s+\[textstyle\]/);
+  assert.equal((list.stdout.match(/\[textstyle\]/g) ?? []).length, 1);
+
+  writeInstalled({ home, id, category: 'textstyle', tier: 'pro' });
+  const installed = (await loadCatalog({ env })).items.find(item => item.id === id);
+  assert.equal(installed.source, 'installed');
+  assert.equal(installed.category, 'textstyle');
+  assert.equal(installed.tier, 'pro');
+});
 
 function runCli(args, env) {
   return spawnSync(process.execPath, [bin, ...args], {
@@ -61,6 +82,7 @@ test('installed item をカタログへマージし、CLI は [installed] と so
   assert.equal(item.source, 'installed');
   assert.equal(item.category, 'scene3d');
   assert.equal(item.price, 0);
+  assert.equal(item.tier, 'free');
   assert.ok(path.isAbsolute(item.files[0].local_path));
   assert.deepEqual(Object.keys(item.files[0]).sort(), ['bytes', 'local_path', 'name', 'sha256']);
 
@@ -82,6 +104,42 @@ test('同じ id はリモート catalog より installed item を優先する', 
   assert.equal(item.category, 'scene3d');
   assert.equal(item.source, 'installed');
   assert.equal(item.state, 'available');
+});
+
+test('installed replacement retains the catalog tier while allowing its local files', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[0].tier = 'pro';
+  delete catalog.items[0].files;
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  writeInstalled({ home, id: 'mini-still', category: 'still' });
+  const { items } = await composeState({ env });
+  const item = items.find((entry) => entry.id === 'mini-still');
+  assert.equal(item.tier, 'pro');
+  assert.equal(item.state, 'available');
+  assert.ok(item.files.length > 0);
+});
+
+test('installed tier follows index, then asset meta, then catalog', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[0].tier = 'pro';
+  delete catalog.items[0].files;
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  const { assetRoot, indexPath } = writeInstalled({ home, id: 'mini-still', category: 'still' });
+  const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+  const indexed = index.packs['fixture-pack'].items[0];
+  indexed.tier = 'free';
+  writeFileSync(path.join(assetRoot, 'meta.json'), JSON.stringify({ tier: 'pro' }));
+  writeFileSync(indexPath, JSON.stringify(index));
+  assert.equal((await loadCatalog({ env })).items.find(item => item.id === 'mini-still').tier, 'free');
+
+  delete indexed.tier;
+  writeFileSync(indexPath, JSON.stringify(index));
+  assert.equal((await loadCatalog({ env })).items.find(item => item.id === 'mini-still').tier, 'pro');
+
+  writeFileSync(path.join(assetRoot, 'meta.json'), '{}');
+  catalog.items[0].tier = 'free';
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  assert.equal((await loadCatalog({ env })).items.find(item => item.id === 'mini-still').tier, 'free');
 });
 
 test('installed item の fetch はローカル実体をコピーし sha256 一致時だけ登録する', async () => {
@@ -122,7 +180,7 @@ for (const indexState of ['missing', 'empty']) {
     assert.equal(list.stdout,
       `使える素材 2 件（ライブラリ: ${path.join(home, 'assets')}）\n`
       + '  ☁  mini-still\tlab\t[still]\tフィクスチャ素材 mini-still\n'
-      + '  ¥500  mini-paid\tlab\t[still]\tフィクスチャ素材 mini-paid（有料）\n');
+      + '  🔒 Pro  mini-paid\tlab\t[still]\tフィクスチャ素材 mini-paid（有料）\n');
 
     const fetchResult = runCli(['fetch', 'mini-still'], env);
     assert.equal(fetchResult.status, 0, fetchResult.stderr);

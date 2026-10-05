@@ -8,8 +8,9 @@ import ts from 'typescript';
 
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { appendAiStillPanel, stillRouteAvailability } from '../lib/browser/inspector/ai-still-panel.js';
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 
-const widgetSource = await readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const widgetSource = readInspectorSource();
 const widgetAst = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
 const widget = widgetAst.statements.find(row => ts.isClassDeclaration(row) && row.name?.text === 'AkariInspectorWidget');
 const method = name => widget.members.find(row => row.name?.getText(widgetAst) === name).getText(widgetAst);

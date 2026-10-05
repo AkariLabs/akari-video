@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -66,7 +67,7 @@ test('multi 選択を caption として扱う', () => {
 });
 
 test('選択変更の購読から絞り込み解除判定を呼ぶ', () => {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   assert.match(source, /this\.model\.onChanged\(\(\) => \{\s*this\.clearSoloForSelectionChange\(\);/u);
 });
 

@@ -1,15 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { presetApplyPayload } from '../lib/common/preset-showcase.js';
 
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'),
-    ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
 const names = ['runLibraryAction', 'libraryMenuTargetItem', 'applyPresetToSelectedCaption'];
-const compiled = ts.transpileModule(`class Harness { ${names.map(name => widget.members.find(member =>
-    member.name?.getText(source) === name).getText(source)).join('\n')} }`,
+const compiled = ts.transpileModule(`class Harness { ${names.map(name => findMember(name, { in: 'widget' }).text).join('\n')} }`,
 { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Harness = new Function('libraryMenuTargetKey', 'presetApplyPayload', `${compiled}\nreturn Harness;`)(
     target => target.key, presetApplyPayload);

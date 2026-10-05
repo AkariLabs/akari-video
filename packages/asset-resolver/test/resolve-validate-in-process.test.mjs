@@ -37,7 +37,8 @@ test('validator runs in process, preserves globals, and serializes mixed results
         assert.equal(failed.reason.code, 'validation');
         assert.match(failed.reason.message, /^validate-asset /);
         assert.match(failed.reason.message, /NG: /);
-        assert.match(failed.reason.message, /source.url/);
+        // origin/main の source union（c4e49f5ad）では image だけの source は akari-r2 扱いになり、preview の欠落で落ちる
+        assert.match(failed.reason.message, /source\.preview/);
         assert.equal(spawns, 0);
         assert.equal(process.exit, original.exit);
         assert.equal(process.argv, original.argv);

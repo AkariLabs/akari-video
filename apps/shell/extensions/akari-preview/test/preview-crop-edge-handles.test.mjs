@@ -163,6 +163,6 @@ test('cutWrite は crop を additive に運び、検証は layerWrite と同じ�
     );
     assert.match(
         source,
-        /const validationError = this\.validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? this\.validateLayerCropPatch\(request\.patch\.crop\);/u
+        /const validationError = validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? validateLayerCropPatch\(request\.patch\.crop\);/u
     );
 });

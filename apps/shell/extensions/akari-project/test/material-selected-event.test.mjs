@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { memberText } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { materialCardLayout } from '../lib/common/material-card-layout.js';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../lib/common/material-selected-event.js';
 
-const source = readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
-const ast = ts.createSourceFile('widget.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const method = widget.members.find(node => node.name?.getText(ast) === 'renderMaterialCard').getText(ast);
+const method = memberText('renderMaterialCard', { in: 'materials' });
 const code = ts.transpileModule(`class Harness { ${method} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React }
 }).outputText;
@@ -37,14 +34,19 @@ function fixture() {
   events.length = 0;
   const instance = new Harness();
   const opened = [];
-  instance.generationPick = {};
-  instance.generationPickCardProps = () => ({});
-  instance.renderGenerationPickBadge = () => null;
-  instance.placeholderIcon = () => 'icon';
+  instance.host = {
+    generationPick: {},
+    generationPickCardProps: () => ({}),
+    renderGenerationPickBadge: () => null,
+    placeholderIcon: () => 'icon',
+    workflow: { workspaceRoot: { toString: () => 'file:///project' } },
+    update: () => {},
+    openFile: uri => { opened.push(uri.toString()); },
+    openMaterialContextMenu: () => {},
+    assetCatalogItems: [],
+    files: {}, materialPreviewService: {}, workspaceService: {}
+  };
   instance.transcriptStateByPath = {};
-  instance.workflow = { workspaceRoot: { toString: () => 'file:///project' } };
-  instance.update = () => {};
-  instance.openFile = uri => { opened.push(uri.toString()); };
   return { instance, opened };
 }
 function entry(overrides = {}) {

@@ -7,15 +7,16 @@ import {
     AkariPartnerServer,
     BinaryVerificationRequest,
     BinaryVerificationResult,
-    BootstrapResult,
     EnsureCliResult,
     PartnerAgentId,
+    PartnerInstallDisclosure,
+    PartnerBootstrapOutcome,
     PartnerConnectionMarker,
     PartnerLaunchPlan,
     RenderPins
 } from '../common/akari-partner-protocol';
 import { buildPartnerConnectionMarker } from '../common/partner-connection-marker';
-import { bootstrapRunner } from './bootstrap-runner';
+import { bootstrapRunner, partnerInstallDisclosure } from './bootstrap-runner';
 import { spawnBootstrapProcess } from './bootstrap-process';
 import { partnerCliCandidates } from './partner-cli-candidates';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli } from './cli-provisioner';
@@ -45,11 +46,15 @@ export function resolvePartnerProcessLaunch(
 @injectable()
 export class AkariPartnerServerImpl implements AkariPartnerServer {
 
+    async getInstallDisclosure(agent: PartnerAgentId): Promise<PartnerInstallDisclosure> {
+        return partnerInstallDisclosure(agent);
+    }
+
     async getPlatformKey(): Promise<string> {
         return `${process.platform}-${process.arch}`;
     }
 
-    async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult> {
+    async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent = false): Promise<PartnerBootstrapOutcome> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
         const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`;
@@ -57,6 +62,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
         const env = {
             ...process.env,
             ELECTRON_RUN_AS_NODE: '1',
+            ...(installConsent ? { AKARI_PARTNER_INSTALL_CONSENT: '1' } : { AKARI_PARTNER_INSTALL_CONSENT: '0' }),
             // Read by bootstrap-runner.ts's claude-branch plugin wiring step
             // (task/2026-07-25-partner-plugin-autowire). Omitted when no
             // workspace is open so the runner treats wiring as skippable.
@@ -64,7 +70,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
         };
 
         const output = await new Promise<string>((resolve, reject) => {
-            const child = spawnBootstrapProcess(runtimePath, runnerSource, agent, env);
+            const child = this.spawnBootstrapProcess(runtimePath, runnerSource, agent, env);
             let stdout = '';
             let stderr = '';
             const timer = setTimeout(() => {
@@ -92,7 +98,10 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
         if (!resultLine) {
             throw new Error(`${agent} bootstrap did not return an executable path`);
         }
-        const parsed = JSON.parse(resultLine) as { executablePath?: string; reused?: boolean };
+        const parsed = JSON.parse(resultLine) as { executablePath?: string; reused?: boolean; consentRequired?: boolean };
+        if (parsed.consentRequired === true) {
+            return { consentRequired: true, disclosure: await this.getInstallDisclosure(agent) };
+        }
         if (!parsed.executablePath) {
             throw new Error(`${agent} bootstrap returned an invalid result`);
         }
@@ -104,6 +113,10 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
             reused: Boolean(parsed.reused),
             log: lines.filter(line => line !== resultLine)
         };
+    }
+
+    protected spawnBootstrapProcess(runtimePath: string, source: string, agent: PartnerAgentId, env: NodeJS.ProcessEnv): ReturnType<typeof spawnBootstrapProcess> {
+        return spawnBootstrapProcess(runtimePath, source, agent, env);
     }
 
     async prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan> {

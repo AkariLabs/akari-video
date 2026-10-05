@@ -58,7 +58,7 @@ test('フォント読み込みを待ち、離脱・選択変更・閉じる・�
 
 test('ホスト通知と webview の字幕再描画口が接続されている', () => {
     const source = readHandlerSource();
-    assert.match(source, /addEventListener\('akari-caption-panel-preview', onCaptionPanelPreview\)/u);
+    assert.match(source, /listen\(window, 'akari-caption-panel-preview', onCaptionPanelPreview\)/u);
     assert.match(source, /type: 'akari-preview-caption-style-preview'/u);
     assert.match(source, /caption = captionStylePreview\.resolve\(caption, selectedCaptionId\)/u);
     assert.match(source, /captionStylePreview\.captionsUpdated\(\);[\s\S]*?renderCaption\(\)/u);

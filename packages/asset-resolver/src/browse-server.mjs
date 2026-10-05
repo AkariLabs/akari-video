@@ -12,6 +12,7 @@ import { loadCatalog, resolveEffectiveBase } from './catalog.mjs';
 import { resolvePreviewLocation } from './fetch-file.mjs';
 import { AssetResolverError, resolve as resolveAsset } from './resolve.mjs';
 import { composeState } from './state.mjs';
+import { readLocalLibraryItem } from './library.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BROWSE_DIR = path.resolve(here, '..', 'browse');
@@ -61,6 +62,27 @@ function statusForError(error) {
   return 400;
 }
 
+function audioFile(files) {
+  return files?.find((file) => /\.(mp3|wav|m4a|ogg|aac|flac|aif|aiff)$/i.test(file.name ?? ''));
+}
+
+function audioPreview(item) {
+  return typeof item.preview === 'string' && /\.(mp3|wav|m4a|ogg|aac|flac|aif|aiff)(?:[?#]|$)/i.test(item.preview)
+    ? item.preview : null;
+}
+
+function localAudioPath(env, item) {
+  const local = readLocalLibraryItem(env, item.category, item.id);
+  return local?.mediaFile ? path.join(local.libraryDir, local.mediaFile) : null;
+}
+
+function canServeAudio(env, item, base) {
+  return item.category === 'audio' && item.state !== 'locked'
+    && Boolean(localAudioPath(env, item) || audioFile(item.files)?.local_path
+      || audioFile(item.files)?.url || (base && audioFile(item.files)?.key)
+      || (audioPreview(item) && (base || /^https?:\/\//i.test(item.preview))));
+}
+
 export async function startBrowseServer({
   env = process.env,
   fetchImpl = fetch,
@@ -82,20 +104,32 @@ export async function startBrowseServer({
 
       if (pathname === '/api/items' && req.method === 'GET') {
         const state = await composeState({ env, fetchImpl });
-        return sendJson(res, 200, state);
+        return sendJson(res, 200, {
+          ...state,
+          items: state.items.map((item) => {
+            const visibleItem = { ...item, mediaAvailable: canServeAudio(env, item, state.base) };
+            if (item.state !== 'locked') return visibleItem;
+            const { files, ...visible } = item;
+            return { ...visible, mediaAvailable: false };
+          }),
+        });
       }
 
       // 試聴: 音源など実体ファイルへの参照。リモート（url 型 / リモート base）は 302 で
       // 実体 URL へ委ね、ローカル base は静的配信する。/thumb と同じ解決規則（fetch-file 共有）。
       if (pathname.startsWith('/media/') && req.method === 'GET') {
         const id = decodeURIComponent(pathname.slice('/media/'.length));
-        const catalog = await loadCatalog({ env, fetchImpl });
-        const item = catalog.items.find((entry) => entry.id === id);
-        const file = item?.files?.find((f) => /\.(mp3|wav|m4a|ogg)$/i.test(f.name ?? '')) ?? item?.files?.[0];
-        const ref = file?.url ?? file?.key;
+        const state = await composeState({ env, fetchImpl });
+        const item = state.items.find((entry) => entry.id === id && entry.category === 'audio');
+        if (!item || item.state === 'locked') return res.writeHead(404).end();
+        const localPath = localAudioPath(env, item);
+        if (localPath) return await serveStaticFile(res, localPath);
+        const file = audioFile(item.files);
+        if (file?.local_path) return await serveStaticFile(res, file.local_path);
+        const ref = file?.url ?? file?.key ?? audioPreview(item);
         if (!ref) return res.writeHead(404).end();
-        const base = resolveEffectiveBase(env, catalog);
-        const resolved = resolvePreviewLocation(base, ref);
+        if (!state.base && !/^https?:\/\//i.test(ref)) return res.writeHead(404).end();
+        const resolved = resolvePreviewLocation(state.base, ref);
         if (!resolved) return res.writeHead(404).end();
         if (resolved.remote) {
           res.writeHead(302, { location: resolved.location });

@@ -20,6 +20,7 @@
 ## 3. CC0 優先でスターターパックを組む
 
 契約の CC0 ファースト方針に従う。
+この手順では `source.url` を持つ external の catalog エントリだけを候補にする。`source.image` を持つ akari-r2 は `license_at_source`・`acquisition` を持たないため、この取得候補に混ぜない。
 
 - `source.license_at_source` が CC0 相当（帰属表示不要・商用利用可・改変可）のエントリを優先する
 - `source.attribution_required: true` のエントリを含めてもよいが、提案時に必ず明示する

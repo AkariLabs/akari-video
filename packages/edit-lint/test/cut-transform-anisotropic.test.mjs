@@ -3,26 +3,18 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import vm from 'node:vm';
 
 import { lintProject } from '../src/edit-lint.mjs';
 import { createRequire } from 'node:module';
-import { readLintSourceSync } from './helpers/read-lint-source.mjs';
+import { validateCutTransformFields } from '../src/lint/cuts-tracks.mjs';
 
 const require = createRequire(import.meta.url);
 const { projectLegacyEdit, readInternalEdit } = require('../../edit-store/lib/index.js');
 const scratch = resolve(dirname(fileURLToPath(import.meta.url)), '../../../.tmp-lane');
-const lintSource = readLintSourceSync();
-const validatorSource = lintSource.slice(lintSource.indexOf('function validateCutTransformFields('),
-  lintSource.indexOf('function validateStillImageCuts('));
+// edit-lint の分割（src/lint/cuts-tracks.mjs）後は検査関数を直接読む（本物の補助関数で検査する）
 const validateLegacyCuts = cuts => {
   const findings = [];
-  vm.runInNewContext(`${validatorSource}; validateCutTransformFields(cuts, findings)`, {
-    cuts, findings, isRecord: value => value !== null && typeof value === 'object' && !Array.isArray(value),
-    isFiniteNumber: value => typeof value === 'number' && Number.isFinite(value),
-    isPositiveNumber: value => typeof value === 'number' && Number.isFinite(value) && value > 0,
-    addFinding: (list, finding) => list.push(finding),
-  });
+  validateCutTransformFields(cuts, findings);
   return findings;
 };
 

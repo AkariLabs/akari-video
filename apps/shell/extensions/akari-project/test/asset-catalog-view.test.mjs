@@ -24,7 +24,7 @@ import { normalizeEntitledProducts } from '../lib/node/akari-project-service.js'
 // カタログ面「1 ビュー」の純関数群（マージ・resolver 生アイテムの正規化・状態バッジ文言）。
 // backend の getAssetCatalogView() / loadResolverCatalogItems() が使う本体をここで単体テストする。
 
-test('toResolverAssetCatalogViewItem: 必須フィールドの正規化（tags 既定 []・price 既定 0）', () => {
+test('toResolverAssetCatalogViewItem: 必須フィールドの正規化（tags 既定 []・price 未指定）', () => {
     const item = toResolverAssetCatalogViewItem(
         { id: 'br-typing-laptop', category: 'still', title: 'ノートPCをタイピングする手元', state: 'available' },
         undefined
@@ -43,7 +43,8 @@ test('toResolverAssetCatalogViewItem: 必須フィールドの正規化（tags �
         mediaFile: undefined,
         machineTags: undefined,
         licenseSpdx: undefined,
-        price: 0,
+        price: undefined,
+        tier: undefined,
         state: 'available',
         previewUrl: undefined,
         mediaUrl: undefined,
@@ -157,32 +158,32 @@ test('assetStateBadgeText: available は ☁', () => {
     assert.equal(assetStateBadgeText({ state: 'available' }), '☁');
 });
 
-test('assetStateBadgeText: locked は円マーク + 3 桁区切りの価格', () => {
-    assert.equal(assetStateBadgeText({ state: 'locked', price: 1200 }), '¥1,200');
+test('assetStateBadgeText: locked は Pro と表示する', () => {
+    assert.equal(assetStateBadgeText({ state: 'locked', tier: 'pro' }), '🔒 Pro');
 });
 
-test('assetStateBadgeText: locked かつ price 未指定は ¥0', () => {
-    assert.equal(assetStateBadgeText({ state: 'locked' }), '¥0');
+test('assetStateBadgeText: locked かつ価格未指定でも Pro', () => {
+    assert.equal(assetStateBadgeText({ state: 'locked' }), '🔒 Pro');
 });
 
 test('assetStateBadgeText: state 未指定（origin=local）は undefined', () => {
     assert.equal(assetStateBadgeText({}), undefined);
 });
 
-test('assetStateBadgeText: available かつ price > 0（購入済み・未取得）は「✓ 購入済み」', () => {
-    assert.equal(assetStateBadgeText({ state: 'available', price: 2980 }), '✓ 購入済み');
+test('assetStateBadgeText: available Pro はパスで利用可能', () => {
+    assert.equal(assetStateBadgeText({ state: 'available', tier: 'pro', price: 0 }), '✓ Pro');
 });
 
-test('assetStateBadgeText: available かつ price 未指定/0 は無料扱いで ☁ のまま', () => {
-    assert.equal(assetStateBadgeText({ state: 'available', price: 0 }), '☁');
+test('assetStateBadgeText: available free は価格に依存しない', () => {
+    assert.equal(assetStateBadgeText({ state: 'available', tier: 'free', price: 2980 }), '☁');
     assert.equal(assetStateBadgeText({ state: 'available' }), '☁');
 });
 
 test('assetStateBadgeTitle: 4 状態それぞれの長め文言', () => {
     assert.equal(assetStateBadgeTitle({ state: 'cached' }), '取得済み');
     assert.equal(assetStateBadgeTitle({ state: 'available' }), '未取得');
-    assert.equal(assetStateBadgeTitle({ state: 'available', price: 2980 }), '購入済み（未取得）');
-    assert.equal(assetStateBadgeTitle({ state: 'locked', price: 1200 }), '¥1,200 未購入');
+    assert.equal(assetStateBadgeTitle({ state: 'available', tier: 'pro' }), 'Pro（未取得）');
+    assert.equal(assetStateBadgeTitle({ state: 'locked', tier: 'pro' }), 'Pro パスが必要');
     assert.equal(assetStateBadgeTitle({}), undefined);
 });
 
@@ -206,22 +207,22 @@ test('storeProductUrl: 商品ページ URL（asset.html?id=<id>）を組み立�
     );
 });
 
-test('catalogPurchaseActionText: カードは額面のみ、リストは「で購入」まで表示する', () => {
+test('catalogPurchaseActionText: Pro 案内に価格を表示しない', () => {
     const url = 'https://akari.video/lab/asset.html?id=paid-asset';
-    assert.deepEqual(catalogPurchaseActionText(2980, 'grid', url), {
-        label: '¥2,980',
-        title: `¥2,980 で購入 — AKARI Video Lab を開く（${url}）`
+    assert.deepEqual(catalogPurchaseActionText('pro', 'grid', url), {
+        label: 'Pro',
+        title: `Pro の案内 — AKARI Video Lab を開く（${url}）`
     });
-    assert.deepEqual(catalogPurchaseActionText(2980, 'list', url), {
-        label: '¥2,980 で購入',
-        title: `¥2,980 で購入 — AKARI Video Lab を開く（${url}）`
+    assert.deepEqual(catalogPurchaseActionText('pro', 'list', url), {
+        label: 'Pro を見る',
+        title: `Pro の案内 — AKARI Video Lab を開く（${url}）`
     });
 });
 
-test('catalogPurchaseActionText: price 未指定は ¥0 として一貫して表示する', () => {
+test('catalogPurchaseActionText: tier 未指定でも価格を推定しない', () => {
     const url = 'https://example.com/asset';
-    assert.equal(catalogPurchaseActionText(undefined, 'grid', url).label, '¥0');
-    assert.match(catalogPurchaseActionText(undefined, 'list', url).title, /^¥0 で購入 — AKARI Video Lab を開く/);
+    assert.equal(catalogPurchaseActionText(undefined, 'grid', url).label, '素材');
+    assert.match(catalogPurchaseActionText(undefined, 'list', url).title, /^素材 の案内 — AKARI Video Lab を開く/);
 });
 
 test('selectResolverAudioFileRef: audio カテゴリで url 型の音声ファイルを選ぶ', () => {

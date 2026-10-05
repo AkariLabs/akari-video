@@ -6,6 +6,8 @@
 
 [starter-pack.md](starter-pack.md) で明示承認を得た catalog エントリだけを対象にする。承認されていない id を一緒に取得しない。
 
+この取得手順は `source.url` を持つ **external** の catalog エントリ用。`source.image` を持つ **akari-r2** には `acquisition` や `license_at_source` が無いので、この手順に当てはめず AKARI の素材取得経路を使う。`source` の判別は [素材 tier 契約 v1](../../docs/contract-2026-10-04-asset-tier-v1.md) に従う。
+
 ## 1. 取得する（acquisition ごとに分岐）
 
 ### acquisition: direct
@@ -48,15 +50,15 @@ catalog 側の `meta.json` をベースに、次を変更する。
 2. **`provenance.origin` にカタログ由来である旨と取得元を記録する（必須）。** 例:
    `"catalog/<category>/<id> 由来 / 取得元: <source.url> / acquisition: <direct|login|purchase> / license_at_source: <...> / 取得日: YYYY-MM-DD"`
    分からない値を埋めない。取得日は実行日で確定する。
-3. `source` ブロックは残してもよい（schema 上、`remote` が無くても `source` object は valid）。機械可読な取得記録として残す場合は保持し、`source.url` は実際に取得したファイル/ページの URL に合わせて更新する。不要なら削除してよい。必須なのは 1・2 のみ。
-4. `license` / `tags` / `title` / `description` / `when_to_use` / `ai_usage` / `knobs` / `requires` / `author` / `price` は catalog 側の値を土台にする。authoring が必要な素材では、実際に作った `fragment.html` の CSS 変数・依存と食い違っていないか確認してから確定する。license が確定しない場合は `assets/` へ入れない。
+3. external の `source` ブロックは残してもよい（schema 上、`remote` が無くても `source` object は valid）。機械可読な取得記録として残す場合は保持し、`source.url` は実際に取得したファイル/ページの URL に合わせて更新する。不要なら削除してよい。必須なのは 1・2 のみ。
+4. `license` / `tags` / `title` / `description` / `when_to_use` / `ai_usage` / `knobs` / `requires` / `author` / `tier` は catalog 側の値を土台にする。authoring が必要な素材では、実際に作った `fragment.html` の CSS 変数・依存と食い違っていないか確認してから確定する。license が確定しない場合は `assets/` へ入れない。
 
 ### font カテゴリの特例
 
 フォントは再配布ライセンスが同梱を許さないことが多い。
 
 - ライセンスが redistribution / embedding を明示的に許可する場合（OFL 系の多くの Google Fonts 等）だけ、バイナリを `assets/font/<id>/` へ実体として配置し、`remote` を外す。
-- 許可が確認できない場合、バイナリを `assets/` へコピーしない。`remote: true` を維持したまま、`ai_usage` にユーザーの実際のインストール先（OS フォントディレクトリ等）を記録し、`fragment.html` 側は `@font-face` でユーザー環境のフォント名を前提にする設計に留める。
+- 許可が確認できない場合、バイナリを `assets/` へコピーしない。external + `remote: true` の catalog エントリは catalog に残し、`assets/` へ配置済みとは扱わない。ユーザー環境のフォント名を前提にする設計が必要なら、実際のインストール先と利用条件を別途確認する。
 
 ## 3. attribution_required を記録する
 

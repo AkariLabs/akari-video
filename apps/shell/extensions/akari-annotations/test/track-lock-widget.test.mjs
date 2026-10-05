@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { findMember } from './helpers/widget-source.mjs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
@@ -11,10 +11,6 @@ const { linkedCutIdOf, linkedAudioItemIdOf } = require('@akari-video/edit-store'
 const { withCaptionsDisplaySupplement } = require('../lib/common/derive-timeline-tracks.js');
 const { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } = require('../lib/common/timeline-material-insert.js');
 const { hitTestTimelineTrackDrop } = require('../lib/common/timeline-track-drop.js');
-const source = ts.createSourceFile('widget.ts', readFileSync(
-  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
-), ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const names = [
   'linkedCutAudioPair', 'linkedPairForSelection', 'rejectLockedCutAudio',
   'isTrackLocked', 'trackIdOfItem', 'trackIdOfSelection', 'trackIdOfDrag', 'showLockedTrack',
@@ -29,7 +25,7 @@ const names = [
   'visualTrack', 'setGhostRejected',
 ];
 const methodText = name => {
-  const method = widget.members.find(member => member.name?.getText(source) === name);
+  const { ast: source, node: method } = findMember(name, { in: 'widget' });
   assert.ok(method, name);
   return method.getText(source);
 };

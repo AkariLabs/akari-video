@@ -31,6 +31,7 @@ import {
 import { PartnerSessionService, PartnerTerminal } from './partner-session-service';
 import { PartnerChannel, TerminalPartnerChannel } from './partner-channel';
 import { AkariPartnerConnectDialog } from './akari-partner-connect-dialog';
+import { AkariPartnerInstallDialog } from './akari-partner-install-dialog';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -124,6 +125,7 @@ export class AkariPartnerWidget extends ReactWidget {
     protected readonly envVariables!: EnvVariablesServer;
 
     protected flowState: FlowState = 'idle';
+    protected installCancelledNotice = '';
     protected selected?: PartnerCatalogEntry;
     protected status = '';
     protected detail = '';
@@ -431,13 +433,26 @@ export class AkariPartnerWidget extends ReactWidget {
     protected async beginCli(entry: PartnerCliCatalogEntry): Promise<void> {
         this.shell.activateWidget(this.id);
         this.selected = entry;
+        this.installCancelledNotice = '';
         this.setProgress(entry, 'CLI を確認しています…', entry.id);
         try {
             const roots = await this.workspaceService.roots;
             const cwd = roots[0]?.resource.toString();
 
             this.setProgress(entry, 'CLI を確認しています…', '同梱ランタイムで実行中');
-            const bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd);
+            let bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd);
+            if ('consentRequired' in bootstrap) {
+                const accepted = await new AkariPartnerInstallDialog(bootstrap.disclosure, this.windowService).open();
+                if (accepted !== true) {
+                    this.installCancelledNotice = '導入を中止しました。';
+                    this.setEntryFlow(entry, { state: 'idle', status: '', detail: '', warning: '' });
+                    return;
+                }
+                bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd, true);
+                if ('consentRequired' in bootstrap) {
+                    throw new Error('導入には同意が必要です');
+                }
+            }
             this.executablePath = bootstrap.executablePath;
             this.setProgress(entry,
                 bootstrap.reused ? 'インストール済みの CLI を検出しました' : 'CLI をダウンロード・インストールしました',
@@ -1160,6 +1175,8 @@ export class AkariPartnerWidget extends ReactWidget {
                         </div>;
                     })}
                 </div>
+
+                {this.installCancelledNotice && <p role='status'>{this.installCancelledNotice}</p>}
 
                 {this.extensionViewLost() && <div style={styles.resumeHint} data-akari-partner-resume-hint='true'>
                     <p style={{ margin: 0 }}>

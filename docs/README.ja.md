@@ -95,6 +95,7 @@
 | [contract-2026-09-24-style-v0.md](./contract-2026-09-24-style-v0.md) | マイスタイル v0 — 部品の束・ライブラリの置き場・字幕の実効の見た目の保存・値を写す適用 |
 | [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | 字幕の書記素範囲スタイル・重なり・描画・文字編集時の付け替え |
 | [contract-2026-10-02-textstyle-v1-rich.md](./contract-2026-10-02-textstyle-v1-rich.md) | textstyle v1 の多層縁取り・グラデ / 柄フィル・描画経路・overlay 残留条件 |
+| [contract-2026-10-04-asset-tier-v1.md](./contract-2026-10-04-asset-tier-v1.md) | 素材 tier 契約 v1 — free / pro の tier 必須・price 廃止予定・互換規則・pro × CC0 の禁止・鍵はライブラリ側 |
 | [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | 断片の `@font-face` 書体の字形検査（`edit-lint` `overlays.fragment-font-glyphs`）は実装済み。書き出し時の自動部分化とキャッシュの掃除は予定。 |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |

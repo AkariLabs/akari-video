@@ -24,9 +24,10 @@ const items = [
 const keys = (filter, favorites = new Set()) => filterLibraryItems(items, { ...EMPTY_LIBRARY_FILTER, ...filter }, favorites).map(row => row.key);
 
 test('4 節の見出しと選択肢（種類は入れない）', () => {
-    assert.deepEqual(LIBRARY_FILTER_SECTIONS.map(section => section.label), ['出どころ', '料金', 'ライセンス', '状態']);
+    assert.deepEqual(LIBRARY_FILTER_SECTIONS.map(section => section.label), ['出どころ', 'tier', 'ライセンス', '状態']);
     assert.deepEqual(LIBRARY_FILTER_SECTIONS[0].options.map(option => option.label), ['全部', '自分の', '素材サイト', 'Lab']);
-    assert.deepEqual(LIBRARY_FILTER_SECTIONS[1].options.map(option => option.label), ['無料', 'プレミアム', '購入済み']);
+    assert.equal(LIBRARY_FILTER_SECTIONS[1].key, 'tier');
+    assert.deepEqual(LIBRARY_FILTER_SECTIONS[1].options.map(option => option.label), ['無料', 'Pro']);
     assert.deepEqual(LIBRARY_FILTER_SECTIONS[2].options.map(option => option.label), ['商用 OK', '帰属表示あり', '商用不可']);
     assert.deepEqual(LIBRARY_FILTER_SECTIONS[3].options.map(option => option.label), ['取得済み', '未取得', 'お気に入り']);
     assert.equal(LIBRARY_FILTER_SECTIONS.flatMap(section => section.options).some(option => /タグ|画像|動画|AI/.test(option.label)), false);
@@ -38,13 +39,13 @@ test('何も選ばなければ全件。件数の座布団は選んだ条件の�
     assert.equal(libraryFilterCount({ source: 'own', price: ['free'], license: ['commercial', 'attribution'], status: ['favorite'] }), 5);
 });
 
-test('料金の区分: 未購入 = プレミアム / 購入済み / 無料 / 各自入手は料金の絞り込みに出さない', () => {
+test('tier の区分: 無料 / Pro（未契約・契約済み）/ 各自入手は対象外', () => {
     assert.equal(libraryItemPrice(items[4]), 'premium');
     assert.equal(libraryItemPrice(items[5]), 'purchased');
     assert.equal(libraryItemPrice(items[6]), 'free');
     assert.equal(libraryItemPrice(items[7]), 'external');
     assert.equal(libraryItemPrice(items[8]), 'free');
-    assert.deepEqual(keys({ price: ['premium'] }), ['still/lab-premium']);
+    assert.deepEqual(keys({ price: ['premium'] }), ['still/lab-premium', 'still/lab-bought']);
     assert.deepEqual(keys({ price: ['purchased'] }), ['still/lab-bought']);
     assert.deepEqual(keys({ price: ['premium', 'purchased'] }), ['still/lab-premium', 'still/lab-bought']);
     assert.equal(keys({ price: ['free'] }).includes('font/paid-font'), false);
@@ -125,4 +126,14 @@ test('カテゴリの件数はフィルターを通したあとの数', () => {
 test('matchesLibraryFilter はローカル索引の項目でも落ちない', () => {
     assert.equal(matchesLibraryFilter({ origin: 'local', key: 'x/y', id: 'y', category: 'x', title: 'y', tags: [] },
         { ...EMPTY_LIBRARY_FILTER, source: 'site', price: ['free'], status: ['remote'] }, new Set()), true);
+});
+
+test('未取得の textstyle Pro は Lab・Pro・未取得フィルターを通る', () => {
+    const style = item('textstyle/telop-fixture-style', { sourceKind: 'lab', state: 'locked',
+        machineTags: ['tier:pro'], licenseSpdx: 'LicenseRef-AKARI-Assets-v0' });
+    assert.equal(matchesLibraryFilter(style, { ...EMPTY_LIBRARY_FILTER,
+        source: 'lab', price: ['premium'], status: ['remote'] }, new Set()), true);
+    assert.equal(matchesLibraryFilter(style, { ...EMPTY_LIBRARY_FILTER, price: ['free'] }, new Set()), false);
+    const category = LIBRARY_GROUPS.flatMap(group => group.categories).find(row => row.key === 'textstyle');
+    assert.equal(countLibraryCategory(category, 'lab', [style], { lut: [], textanim: [], textstyle: [] }, 0, []), 1);
 });

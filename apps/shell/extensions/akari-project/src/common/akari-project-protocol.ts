@@ -159,6 +159,8 @@ export interface AssetCatalogViewItem {
     mediaUrl?: string;
     /** origin='resolver' のみ。円建て価格（0 = 無料）。 */
     price?: number;
+    /** resolver が確定したアクセス区分。 */
+    tier?: 'free' | 'pro';
     /** origin='resolver' のみ。 */
     state?: AssetCatalogItemState;
     /** origin='resolver' のみ。provenance.prompt（生成プロンプト）。 */
@@ -372,8 +374,9 @@ export interface AkariProjectService {
      * 開発配置フォールバックの解決規約は resolveCatalogRoot と同じ）をマージして返す。
      * id 重複（`${category}/${id}`）時は resolver 側を優先する。resolver 側が
      * 到達不能（未デプロイ・開発配置なし等）でもローカル分は表示を継続する（fail-soft）。
+     * intent 省略時は automatic。利用者が開く・再読み込みする経路だけ user を明示する。
      */
-    getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView>;
+    getAssetCatalogView(preferenceRoot: string | undefined, intent?: 'automatic' | 'user'): Promise<AssetCatalogView>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
     getPresetShowcase(): Promise<PresetShowcase>;
     getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]>;

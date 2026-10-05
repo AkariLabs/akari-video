@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+const source = readSourceFile('widget').text;
 
 test('a later successful lint clears only the stale lint failure banner', () => {
     const start = source.indexOf('protected showDeferredLintResult');

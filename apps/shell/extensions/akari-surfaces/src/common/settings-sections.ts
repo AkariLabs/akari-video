@@ -88,6 +88,10 @@ export const AKARI_EXPORT_ENCODER = 'akari.export.encoder';
 export const AKARI_EXPORT_CODEC = 'akari.export.codec';
 export const AKARI_EXPORT_FPS = 'akari.export.fps';
 export const AKARI_EXPORT_OUTPUT_DIRECTORY = 'akari.export.outputDirectory';
+export const AKARI_EXPORT_GPU_PREFERENCE_CONSENT = 'akari.export.temporaryGpuPreference';
+export function showTemporaryGpuPreferenceSetting(platform: string): boolean {
+    return platform === 'win32';
+}
 export const AKARI_EXPORT_FILENAME_PATTERN = 'akari.export.fileNamePattern';
 // カタログのスキーマは akari-project/akari-project-frontend-module.ts が所有。設定キーは文字列ミラー。
 export const AKARI_CATALOG_ROOT = 'akari.catalog.root';
@@ -104,6 +108,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     account: [], // AKARI Store は PreferenceService ではなく Store の接続フローが所有する。
     start: [],
     export: [AKARI_EXPORT_QUALITY, AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, AKARI_EXPORT_OUTPUT_DIRECTORY,
+        AKARI_EXPORT_GPU_PREFERENCE_CONSENT,
         'akari.export.openFolderAfter', 'akari.export.notifyAfter', AKARI_EXPORT_FILENAME_PATTERN],
     appearance: [WORKBENCH_COLOR_THEME, AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, ...Object.values(STATUS_BAR_KEYS)],
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。

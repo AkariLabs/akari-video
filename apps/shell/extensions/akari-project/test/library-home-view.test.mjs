@@ -115,3 +115,12 @@ test('searchLibraryHome: カタログ・プリセット・トランジション�
     ]);
     assert.deepEqual(searchLibraryHome(' ', SEARCH_SOURCES), []);
 });
+
+test('未取得 textstyle のカタログ項目は字幕スタイルの検索先へ導く', () => {
+    const catalogItems = [{ id: 'telop-fixture-style', category: 'textstyle', title: '金色の字幕', tags: [] }];
+    assert.deepEqual(searchLibraryHome('金色', { ...SEARCH_SOURCES, catalogItems }), [
+        { categoryKey: 'textstyle', label: '金色の字幕', kind: 'catalog' }
+    ]);
+    const category = LIBRARY_GROUPS.flatMap(group => group.categories).find(row => row.key === 'textstyle');
+    assert.equal(category.label, '字幕スタイル');
+});

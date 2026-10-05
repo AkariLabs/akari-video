@@ -18,10 +18,20 @@ function fixture(t) {
 function asset(root, id, meta = {}, category = 'audio') {
   const dir = path.join(root, category, id);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ id, category, title: id, tags: [], license: { spdx: 'test' }, ...meta }));
+  writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ id, category, title: id, tags: [], license: { spdx: 'test' }, tier: 'free', ...meta }));
   writeFileSync(path.join(dir, 'sound.wav'), 'sound');
   return dir;
 }
+
+test('local meta without tier or price displays Free while remaining cached', async t => {
+  const { env } = fixture(t);
+  // N2 supersedes R1 for local-only assets; catalog-derived entries remain fail-closed.
+  asset(env.AKARI_LIBRARY_ROOT, 'legacy-tierless', { tier: undefined });
+  const item = (await composeState({ env })).items.find(row => row.id === 'legacy-tierless');
+  assert.equal(item.tier, 'free');
+  assert.equal(item.state, 'cached');
+  assert.ok(item.machineTags.includes('tier:free'));
+});
 
 test('local items contain actual files, metadata, timestamp, thumbnail, credit and origin fields', async t => {
   const { env } = fixture(t);
@@ -38,7 +48,7 @@ test('local items contain actual files, metadata, timestamp, thumbnail, credit a
   assert.ok(Number.isFinite(Date.parse(item.addedAt)));
   assert.deepEqual(item.files.find(file => file.name === 'sound.wav'), { name: 'sound.wav', bytes: 5 });
   assert.deepEqual(item.tags, ['calm']);
-  assert.deepEqual(item.machineTags, ['origin:site', 'site:music', 'folder:Tracks', 'pack:set', 'license:subscription']);
+  assert.deepEqual(item.machineTags, ['origin:site', 'site:music', 'folder:Tracks', 'pack:set', 'license:subscription', 'tier:free']);
   assert.equal(item.folder, 'Tracks');
   assert.equal(item.site, 'music');
   assert.equal(item.subscription, true);
@@ -91,6 +101,7 @@ for (const [label, item, inCatalog, expected] of [
   ['site tag', { tags: ['origin:site'] }, false, 'site'],
   ['own tag wins url', { tags: ['origin:own'], source: { url: 'https://example.test' } }, false, 'own'],
   ['legacy source url', { source: { url: 'https://example.test' } }, false, 'site'],
+  ['AKARI R2 source', { source: { image: 'library/still/example.png', preview: 'library/still/example.jpg' } }, false, 'lab'],
   ['unmarked local', {}, false, 'own'],
 ]) test(`sourceKind: ${label}`, () => assert.equal(sourceFields(item, inCatalog).sourceKind, expected));
 
@@ -104,7 +115,7 @@ for (const kind of ['bgm', 'jingle', 'sfx']) {
     });
     const item = (await composeState({ env })).items.find(item => item.id === id);
     assert.equal(item.sourceKind, 'lab');
-    assert.deepEqual(item.machineTags, []);
+    assert.deepEqual(item.machineTags, ['tier:free']);
   });
 }
 

@@ -39,7 +39,8 @@ function paidMetaBuffer(id, category) {
     provenance: { origin: 'asset-resolver test fixture', generator: null },
     author: 'test',
     license: { spdx: 'LicenseRef-fixture', scope: 'paid-license-required', attribution_required: false, ai_training_allowed: false },
-    price: category === 'overlay' ? null : 2980,
+    tier: 'pro',
+    ...(category === 'textstyle' ? {} : { price: category === 'overlay' ? null : 2980 }),
     version: 1,
   };
   return Buffer.from(`${JSON.stringify(meta, null, 2)}\n`);
@@ -64,16 +65,17 @@ function buildPaidZip(id, category, { corrupt, layout = 'flat', withoutMeta = fa
 
   const payload = {
     'meta.json': paidMetaBuffer(id, category),
-    'fragment.html': Buffer.from(category === 'overlay'
+    ...(category === 'textstyle' ? { 'preset.json': Buffer.from(`${JSON.stringify({ format: 'akari-textstyle', id, version: '1.0', name: id, category: 'decorative', sample_text: 'あア12', style: {} })}\n`) }
+      : { 'fragment.html': Buffer.from(category === 'overlay'
       ? `<div class="${id}-stub"><span data-mirror="text">fixture</span></div>\n`
       : `<div class="${id}-stub"><canvas></canvas><div data-akari-3d-fallback>fixture</div>`
-        + '<script type="application/json" data-akari-3d-scene>{"model":"model.glb"}</script></div>\n'),
+        + '<script type="application/json" data-akari-3d-scene>{"model":"model.glb"}</script></div>\n') }),
     ...(category === 'scene3d' ? { 'model.glb': Buffer.from('glTF-fixture-not-a-real-binary') } : {}),
     'preview.png': MINI_PNG,
   };
   if (withoutMeta) delete payload['meta.json'];
 
-  const payloadPrefix = layout === 'pack' ? `assets/${category}/${id}/`
+  const payloadPrefix = layout === 'pack' || layout === 'textstyle-pack' ? `assets/${category}/${id}/`
     : layout === 'telop-pack' ? `assets/${id}/` : '';
   const allFiles = {
     'README.md': Buffer.from('# fixture\n'),
@@ -90,6 +92,12 @@ function buildPaidZip(id, category, { corrupt, layout = 'flat', withoutMeta = fa
     allFiles[`assets/${siblingId}/meta.json`] = paidMetaBuffer(siblingId, category);
     allFiles[`assets/${siblingId}/fragment.html`] = Buffer.from('<div data-mirror="text">sibling</div>');
     allFiles[`assets/${siblingId}/preview.png`] = MINI_PNG;
+  }
+  if (layout === 'textstyle-pack') {
+    const overlayId = 'telop-fixture-overlay';
+    allFiles[`assets/overlay/${overlayId}/meta.json`] = paidMetaBuffer(overlayId, 'overlay');
+    allFiles[`assets/overlay/${overlayId}/fragment.html`] = Buffer.from('<div data-mirror="text">overlay sibling</div>\n');
+    allFiles[`assets/overlay/${overlayId}/preview.png`] = MINI_PNG;
   }
   for (const [name, buffer] of Object.entries(allFiles)) {
     const filePath = path.join(rootDir, name);
@@ -115,7 +123,7 @@ function fetchImplFor(id, { entitled, zipPath }) {
     const s = String(url);
     if (s.endsWith('/v1/entitlements')) {
       assert.equal(options.headers?.authorization, 'Bearer akst_test');
-      return { ok: true, json: async () => ({ entitlements: entitled ? [{ product_id: id }] : [] }) };
+      return { ok: true, json: async () => ({ entitlements: entitled ? [{ product_id: 'all-access-pass' }] : [] }) };
     }
     if (s.endsWith(`/v1/download/${id}`)) {
       assert.equal(options.headers?.authorization, 'Bearer akst_test');
@@ -136,10 +144,12 @@ function addPaidCatalogItem(catalog, catalogPath, id, category, price, productId
     title: `フィクスチャ有料素材 ${id}`,
     tags: ['fixture', 'paid'],
     license: { spdx: 'LicenseRef-fixture' },
+    tier: 'pro',
     price,
     ...(productId ? { product_id: productId } : {}),
     version: 1,
-    preview: '',
+    preview: category === 'textstyle'
+      ? `https://akari.video/lab/media/telop-rich-pack/textstyle/${id}.png` : '',
     provenance: {},
     // files[] を意図的に持たせない（有料 item の実カタログ形）
   });
@@ -195,7 +205,7 @@ test('resolvePaidZip: 未購入は locked で拒否され、download エンド�
     (error) => {
       assert.ok(error instanceof AssetResolverError);
       assert.equal(error.code, 'locked');
-      assert.match(error.message, /2,980|2980/);
+      assert.match(error.message, /all-access-pass/);
       return true;
     },
   );
@@ -301,6 +311,51 @@ test('テロップパック: product_id の権利で全素材が available、未
   assert.equal(existsSync(path.join(home, 'assets', 'overlay', second)), false);
 });
 
+test('textstyle Pro 2 件: 未契約は locked、パスで available、束 zip から対象だけを配置', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  const productId = 'telop-rich-pack-01';
+  const first = 'telop-fixture-style-gold';
+  const second = 'telop-fixture-style-blue';
+  const overlayId = 'telop-fixture-overlay';
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, first, 'textstyle', undefined, productId);
+  const withFirst = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withFirst, catalogPath, second, 'textstyle', undefined, productId);
+  const zipPath = buildPaidZip(first, 'textstyle', { layout: 'textstyle-pack', productId });
+  const fetchImpl = (pass) => async (url, options = {}) => {
+    assert.equal(options.headers?.authorization, 'Bearer akst_test');
+    if (String(url).endsWith('/v1/entitlements')) {
+      return { ok: true, status: 200, json: async () => ({ pass: pass ? { tier: 1, seat_no: 1 } : null, entitlements: [] }) };
+    }
+    assert.ok(pass, '未契約では zip を取得しない');
+    assert.ok(String(url).endsWith(`/v1/download/${productId}`));
+    return { ok: true, status: 200, body: Readable.toWeb(createReadStream(zipPath)) };
+  };
+
+  const locked = await composeState({ env, fetchImpl: fetchImpl(false) });
+  assert.deepEqual([first, second].map(id => locked.items.find(item => item.id === id)?.state), ['locked', 'locked']);
+  assert.deepEqual([first, second].map(id => locked.items.find(item => item.id === id)?.tier), ['pro', 'pro']);
+  assert.equal(locked.items.find(item => item.id === first)?.preview,
+    `https://akari.video/lab/media/telop-rich-pack/textstyle/${first}.png`);
+  await assert.rejects(() => resolveAsset(first, { env, fetchImpl: fetchImpl(false) }),
+    error => error instanceof AssetResolverError && error.code === 'locked');
+
+  const entitled = fetchImpl(true);
+  const available = await composeState({ env, fetchImpl: entitled });
+  assert.deepEqual([first, second].map(id => available.items.find(item => item.id === id)?.state), ['available', 'available']);
+  const result = await resolveAsset(first, { env, fetchImpl: entitled });
+  assert.equal(result.dir, path.join(home, 'assets', 'textstyle', first));
+  assert.deepEqual(readdirSync(result.dir).sort(), ['meta.json', 'preset.json', 'preview.png']);
+  assert.equal(JSON.parse(readFileSync(path.join(result.dir, 'preset.json'), 'utf8')).id, first);
+  assert.equal(existsSync(path.join(home, 'assets', 'textstyle', second)), false);
+  assert.equal(existsSync(path.join(home, 'assets', 'overlay', overlayId)), false);
+  const cached = await composeState({ env, fetchImpl: fetchImpl(false) });
+  const installed = cached.items.find(item => item.id === first);
+  assert.equal(installed.category, 'textstyle');
+  assert.equal(installed.tier, 'pro');
+  assert.equal(installed.state, 'cached');
+});
+
 test('Lifetime パスの展開済み entitlements でパック全件が available、1 件だけ resolve できる', async () => {
   const { env, home, catalog, catalogPath } = setupFixtureEnv();
   const productId = 'telop-rich-pack-01';
@@ -388,4 +443,55 @@ test('resolvePaidZip: checksums.txt の `..` パスは zip-slip として拒否�
   );
 
   assert.equal(existsSync(path.join(home, 'assets', 'scene3d', 'mini-paid-slip')), false);
+});
+
+test('店応答の pass は product_id の有無にかかわらず Pro を解錠する', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'pass-product-item', 'overlay', 1980, 'pass-product');
+  const withProduct = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withProduct, catalogPath, 'pass-no-product-item', 'overlay', 1980);
+  const fetchImpl = async (url) => {
+    assert.ok(String(url).endsWith('/v1/entitlements'));
+    return { ok: true, status: 200, json: async () => ({ pass: { tier: 1, seat_no: 1 }, entitlements: [] }) };
+  };
+
+  const state = await composeState({ env, fetchImpl });
+  assert.deepEqual(['pass-product-item', 'pass-no-product-item'].map(
+    id => state.items.find(item => item.id === id)?.state), ['available', 'available']);
+});
+
+test('pass も展開行も無い店応答では Pro は locked', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'empty-product-item', 'overlay', 1980, 'empty-product');
+  const withProduct = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withProduct, catalogPath, 'empty-no-product-item', 'overlay', 1980);
+  const fetchImpl = async (url) => {
+    assert.ok(String(url).endsWith('/v1/entitlements'));
+    return { ok: true, status: 200, json: async () => ({ pass: null, entitlements: [] }) };
+  };
+
+  const state = await composeState({ env, fetchImpl });
+  assert.deepEqual(['empty-product-item', 'empty-no-product-item'].map(
+    id => state.items.find(item => item.id === id)?.state), ['locked', 'locked']);
+});
+
+test('pass が無い場合は一致する product_id の Pro だけ解錠する', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'other-product-item', 'overlay', 1980, 'different-product');
+  const withOther = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withOther, catalogPath, 'matching-product-item', 'overlay', 1980, 'other-product');
+  const fetchImpl = async (url) => {
+    assert.ok(String(url).endsWith('/v1/entitlements'));
+    return { ok: true, status: 200, json: async () => ({
+      pass: null,
+      entitlements: [{ product_id: 'other-product', kind: 'asset-pack', current_version: 1 }],
+    }) };
+  };
+
+  const state = await composeState({ env, fetchImpl });
+  assert.equal(state.items.find(item => item.id === 'other-product-item')?.state, 'locked');
+  assert.equal(state.items.find(item => item.id === 'matching-product-item')?.state, 'available');
 });

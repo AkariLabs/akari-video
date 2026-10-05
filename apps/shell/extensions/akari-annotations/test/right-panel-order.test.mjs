@@ -6,6 +6,7 @@
 // cjs-module-lexer correctly inferring named exports from the tsc-emitted CommonJS output.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
@@ -105,7 +106,7 @@ test('computeRightPanelOrder: empty input', () => {
 
 test('review right-dock tab is unclosable while the temporary timeline remains closable', () => {
     const review = readFileSync(new URL('../src/browser/akari-review-panel-widget.ts', import.meta.url), 'utf8');
-    const timeline = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+    const timeline = readAllSourceText();
     assert.match(review, /this\.title\.closable = false;/);
     assert.doesNotMatch(review, /this\.title\.closable = true;/);
     assert.match(timeline, /this\.title\.closable = true;/);

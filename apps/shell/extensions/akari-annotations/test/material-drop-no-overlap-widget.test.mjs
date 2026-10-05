@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { memberText, findTopLevelFunction } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
@@ -18,14 +18,13 @@ import { pendingAssetFetches } from 'akari-preview/lib/common/pending-asset-fetc
 globalThis.document = { documentElement: { dataset: { akariTimelineHidden: 'false' } } };
 
 // 既存 library-asset-placement と同じく実メソッドを実行し、DOM と I/O だけを差し替える。
-const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const names = ['addMaterialAt', 'addMaterialAtPlayhead', 'addMaterialAtPoint', 'addMaterialAtOutputPoint', 'placeMaterialAtTarget',
     'resolveMaterialDropTarget', 'timelineTrackDropLayouts', 'materialDropTargetWithoutOverlap',
     'materialGhostDurationSeconds', 'materialGhostAllowed', 'updateMaterialGhost', 'hideMaterialGhost', 'handleMaterialDragOver',
     'positionInsertionGhost', 'showTrackInsertIndicatorAt', 'hideTrackInsertIndicator', 'handleMaterialDrop', 'setGhostRejected'];
-const methods = names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source));
-const parser = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'parseMaterialDragPayload').getText(source);
+const methods = names.map(name => memberText(name, { in: 'widget' }));
+const { ast: source, node: parserNode } = findTopLevelFunction('parseMaterialDragPayload', { in: 'widget' });
+const parser = parserNode.getText(source);
 const code = ts.transpileModule(`${parser}\nclass Handler { ${methods.join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const bindings = {
     indexEditV2Items: mutations.indexEditV2Items, stringifyEditV2: mutations.stringifyEditV2,

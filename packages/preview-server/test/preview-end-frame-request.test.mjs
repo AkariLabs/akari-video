@@ -14,7 +14,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { lastRenderableFrame, engineRenderTime } from '../public/timeline-read.js';
 
 const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const plan = readFileSync(
@@ -31,21 +31,11 @@ const BOOKEND_LAYERS = [
   { id: 'bookend-outro-right', t: 158401 / FPS, duration: 281 / FPS },
 ];
 
-function section(start, end) {
-  const from = app.indexOf(start);
-  assert.ok(from >= 0, `見つからない: ${start}`);
-  const to = app.indexOf(end, from);
-  assert.ok(to > from, `見つからない: ${end}`);
-  return app.slice(from, to);
-}
-
-// app.js の実装そのものを動かす（totalDuration / fps はモジュール変数なので context へ入れる）。
+// timeline-read.js の実装そのものを動かす（totalDuration / fps は引数で渡す）
 function clampers(totalDuration = TOTAL_DURATION, fps = FPS) {
-  const context = vm.createContext({ totalDuration, fps });
-  vm.runInContext(section('function lastRenderableFrame()', '\nfunction applyFrameEngineSnapshot('), context);
   return {
-    lastRenderableFrame: vm.runInContext('lastRenderableFrame', context),
-    engineRenderTime: vm.runInContext('engineRenderTime', context),
+    lastRenderableFrame: () => lastRenderableFrame(totalDuration, fps),
+    engineRenderTime: t => engineRenderTime(totalDuration, fps, t),
   };
 }
 
@@ -190,15 +180,16 @@ test('末尾以外・境界値は素通し（尺や途中のフレームを動�
 });
 
 test('配線: engine 面の描画要求はすべて engineRenderTime を通り、尺の公開は素のまま', () => {
+  assert.match(app, /import \{[^}]*\bengineRenderTime\b[^}]*\} from '\/timeline-read\.js';/u);
   // シーク（End キー・シークバー右端・波形末尾・再構築後の復元はすべて seekTo を通る）。
-  assert.match(app, /frameEngineRequestedTime = engineRenderTime\(outputTime\);/u);
+  assert.match(app, /frameEngineRequestedTime = engineRenderTime\(totalDuration, fps, outputTime\);/u);
   // 再生ループ（停止判定は素の壁時計、描画要求だけ丸める）。
-  assert.match(app, /if \(frameEngineRequestedTime >= totalDuration\) \{ outputTime = engineRenderTime\(totalDuration\); pause\(\); return; \}/u);
-  assert.match(app, /const frameEngineRenderTime = engineRenderTime\(frameEngineRequestedTime\);/u);
+  assert.match(app, /if \(frameEngineRequestedTime >= totalDuration\) \{ outputTime = engineRenderTime\(totalDuration, fps, totalDuration\); pause\(\); return; \}/u);
+  assert.match(app, /const frameEngineRenderTime = engineRenderTime\(totalDuration, fps, frameEngineRequestedTime\);/u);
   assert.match(app, /renderPlayback\(frameEngineRenderTime\) \?\? frameEngineRenderTime;/u);
   // 起動時の初回シークと、スナップショット適用後の位置復元。
-  assert.match(app, /frameEnginePreview\.seek\(engineRenderTime\(outputTime\)\)/u);
-  assert.match(app, /outputTime = engineRenderTime\(outputTime\);\n\s+frameEngineRequestedTime = outputTime;/u);
+  assert.match(app, /frameEnginePreview\.seek\(engineRenderTime\(totalDuration, fps, outputTime\)\)/u);
+  assert.match(app, /outputTime = engineRenderTime\(totalDuration, fps, outputTime\);\n\s+frameEngineRequestedTime = outputTime;/u);
   // 生の totalDuration を engine へ渡す経路が残っていない。
   assert.doesNotMatch(app, /seek\(frameEngineRequestedTime\) \?\? frameEngineRequestedTime;[\s\S]*?renderPlayback\(frameEngineRequestedTime\)/u);
   // 尺の公開（シークバー上限・時刻表示）は totalDuration のまま = 尺を縮めていない。

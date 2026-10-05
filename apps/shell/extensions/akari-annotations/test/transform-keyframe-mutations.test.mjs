@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { activateV2ItemTransformKeyframe, removeV2Keyframe,
   writeV2ItemTransformAt } from '../lib/common/edit-v2-mutations.js';
 import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
@@ -63,7 +63,7 @@ test('sequential preview patches resolve against the latest document without los
   const result = JSON.parse(second.candidateText);
   assert.equal(result.tracks[0].items[0].keyframes.find(point => point.t === 30).transform.x, 55);
   assert.equal(result.tracks[1].items[0].keyframes.find(point => point.t === 30).transform.x, 78);
-  const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  const source = readSourceFile('widget').text;
   const start = source.indexOf("id: 'akari.annotations.commitPreviewTransform'");
   const end = source.indexOf('this.toDispose.push(this.contextKeys.onDidChange', start);
   const handler = source.slice(start, end);
@@ -73,7 +73,7 @@ test('sequential preview patches resolve against the latest document without los
 });
 
 test('paused playback updates inspector values without republishing preview selection', () => {
-  const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  const source = readSourceFile('widget').text;
   const start = source.indexOf('    handlePlaybackTick(request: PreviewPlaybackTick): void {');
   const end = source.indexOf('    protected normalizeUri(', start);
   const handler = source.slice(start, end);

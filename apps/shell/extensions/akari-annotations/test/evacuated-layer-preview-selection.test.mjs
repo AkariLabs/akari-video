@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readCompiledSource, readSourceFile } from './helpers/widget-source.mjs';
 
-const compiled = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const compiled = readCompiledSource('widget').text;
 const rest = compiled.slice(compiled.indexOf('    publishPrimaryPreviewSelection('));
 const method = rest.slice(0, rest.indexOf('\n    }') + 6);
 function setup(cutItemIds = ['lower-cut']) {
@@ -48,7 +48,7 @@ test('ordinary cut selection still publishes its stable cut identity', () => {
 });
 
 test('cutItemIds construction only accepts the cuts projection, never evacuated layers', () => {
-    const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+    const source = readSourceFile('widget').text;
     const assignment = source.match(/if \(item\.legacy\.collection === 'cuts'\) \{\s*this\.cutItemIds\[item\.legacy\.index\] = item\.id;\s*\}/);
     assert.ok(assignment);
     const ids = [];

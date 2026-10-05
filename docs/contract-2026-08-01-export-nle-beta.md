@@ -53,17 +53,24 @@
 | transition_out fade-black/white | cross dissolve **近似** + dropped | 同左 | dip to color は手動再設定 |
 | layers（baked/video） | lane 2+ の connected clip | 上位 video track | アルファ付き mov はただのクリップ |
 | layers[].blend | adjust-blend mode（⚠未検証） | **落ちる**（warning） | |
-| audio.narration | lane -1 / role dialogue | audio track | gain は adjust-volume / audiolevels |
-| audio.sfx | lane -2-（track）/ role effects | audio track（sfx track 単位） | in/out 対応 |
-| audio.bgm | 実尺までループ展開 + fade キーフレーム（⚠推定） | 同左 | 実尺不明時は全体尺 1 クリップ + warning |
+| tracks[] または audio.narration | lane -1 / role dialogue | audio track | gain は adjust-volume / audiolevels |
+| tracks[] または audio.sfx | lane -2-（track）/ role effects | audio track（sfx track 単位） | in/out 対応。tracks[] では sfx を含む audio lane 順に 0 から振り直す（空番は詰める） |
+| tracks[] または audio.bgm | 実尺までループ展開 + fade キーフレーム（⚠推定） | 同左 | 実尺不明時は全体尺 1 クリップ + warning |
 | beats / emphasis_words | クリップ上の marker（source 秒のまま） | シーケンスマーカー（timeline へ写像） | 意味層はマーカーへ退化 |
 | captions.json | —（SRT へ） | —（SRT へ） | display_text 優先・プレーンテキスト |
 
 ### 移らない（dropped[] に全件列挙 — 黙って落とさない）
 
+`tracks[]` の audio lane でミュートされた item、speech role、2 本目以降の bgm は理由付きで報告する。
+`tracks[]` に audio item がない文書は従来どおり `audio.*` 宣言から書き出す。
+ducking はトップレベル `audio.bgm.ducking` キーがあればそれを優先し、無ければ書き出す bgm item から読み、
+従来どおり `audio.bgm.ducking` として報告する（migrate 後は bgm item に移る）。
+audio.master は従来どおりトップレベル `audio.master` から読み、報告する。
+bgm item の `at > 0` は書き出し器が 0 秒始まりで配置するため移らず、`tracks[…].items[…].at` として報告する。
+
 audio.bgm.ducking / audio.master（loudnorm・denoise）/ output.look（LUT）/
 sources[].chroma_key・layers[].chroma_key / direction / 字幕スタイル（style・text_style・words）/
-カット範囲外の beats・emphasis_words アンカー
+カット範囲外の beats・emphasis_words アンカー / tracks[] の書き出さない audio item・bgm item の at > 0
 
 ## 5. 既知の近似（ベータの明示的トレードオフ）
 

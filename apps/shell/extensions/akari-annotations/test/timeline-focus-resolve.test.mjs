@@ -1,23 +1,21 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile, findMember, findTopLevelVariable } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 
-const text = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const source = ts.createSourceFile('widget.ts', text, ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
+const text = readSourceFile('widget').text;
+const source = readSourceFile('widget').ast;
 const names = ['resolveFocusSelection', 'focusRangeFor', 'focusTimelineItem', 'pulseFocusedItem', 'applyFocusPulseClass',
   'seekTimelineOutput', 'setTimelineView', 'setTimelineToolMode', 'setTimelineSnapEnabled'];
 const methodText = name => {
-  const method = widget.members.find(member => member.name?.getText(source) === name);
+  const method = findMember(name, { in: 'widget' }).node;
   assert.ok(method, name);
   return method.getText(source);
 };
 const code = ts.transpileModule(`class Handler { ${names.map(methodText).join('\n')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 },
 }).outputText;
-const durationDeclaration = source.statements.flatMap(node => ts.isVariableStatement(node) ? [...node.declarationList.declarations] : [])
-  .find(node => node.name.getText(source) === 'FOCUS_PULSE_DURATION_MS');
+const { declaration: durationDeclaration } = findTopLevelVariable('FOCUS_PULSE_DURATION_MS', { in: 'widget' });
 const duration = Number(durationDeclaration.initializer.getText(source));
 
 function fixture() {

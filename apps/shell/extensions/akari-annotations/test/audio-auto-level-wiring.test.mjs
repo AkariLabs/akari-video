@@ -1,3 +1,5 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -11,12 +13,8 @@ import {
   oneLineReason
 } from '../lib/node/audio-level-resolver.js';
 
-const widgetSource = readFileSync(
-  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
-);
-const inspectorSource = readFileSync(
-  new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8'
-);
+const widgetSource = readAllSourceText();
+const inspectorSource = readInspectorSource();
 const resolverSource = readFileSync(
   new URL('../src/node/audio-level-resolver.ts', import.meta.url), 'utf8'
 );

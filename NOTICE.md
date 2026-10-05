@@ -19,6 +19,8 @@ sha256 checksums before use (`packages/media-bin/scripts/fetch-binaries.mjs`).
 
 FFmpeg is a trademark of Fabrice Bellard, originator of the FFmpeg project.
 Full FFmpeg license information: https://ffmpeg.org/legal.html
+The installed app includes the license at `media-bin/LICENSE.ffmpeg.txt` and
+the matching build and source locations at `media-bin/FFMPEG-SOURCE.txt`; see also `ThirdPartyNotices.txt`.
 
 ## whisper.cpp (whisper-cli)
 
@@ -44,6 +46,9 @@ Supply differs by platform (no official macOS binary distribution exists):
   dependencies (`whisper.dll`, `ggml.dll`, `ggml-base.dll`, and the
   per-CPU-microarchitecture `ggml-cpu-*.dll` backend variants ggml
   dynamically dispatches between) are bundled alongside it.
+
+The installed app includes the license at `media-bin/LICENSE.whisper.cpp.txt`
+and its notice and source location in `ThirdPartyNotices.txt`.
 
 ## Robust Video Matting (RVM)
 

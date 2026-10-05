@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { basename, dirname, resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
-const { readInternalEdit, resolveInternalTrackZ } = require("../../edit-store/lib/index.js");
+const { readInternalEdit, resolveInternalTrackZ, projectLegacyAudioView } = require("../../edit-store/lib/index.js");
 
 export function cutSpeed(cut) {
   const value = cut?.speed;
@@ -63,7 +63,12 @@ export function normalizeEdit(edit, projectRoot) {
   const rawEdit = typeof edit === "string" ? JSON.parse(edit) : edit;
   const fps = internal.output.fps;
   const warnings = [...internal.warnings];
-  const unsupportedItems = declaredAudioItems(rawEdit);
+  const hasTrackAudio = Array.isArray(rawEdit?.tracks) && rawEdit.tracks.some((track) =>
+    track?.lane === "audio" && Array.isArray(track.items) && track.items.length > 0);
+  const audio = isRecord(internal.declaration.audio) ? internal.declaration.audio : {};
+  const trackAudio = hasTrackAudio ? projectTrackAudio(internal, audio) : null;
+  const unsupportedItems = declaredAudioItems(rawEdit, trackAudio?.exportedIds, trackAudio?.bgmId);
+  if (trackAudio?.bgmStart) unsupportedItems.push(trackAudio.bgmStart);
   const sources = internal.sources
     .filter((source) => typeof source.path === "string")
     .map((source) => ({
@@ -141,7 +146,6 @@ export function normalizeEdit(edit, projectRoot) {
 
   const cuts = videoTracks.flatMap((track) => track.clips.filter((clip) => clip.kind === "media"));
   const layers = videoTracks.flatMap((track) => track.clips.filter((clip) => clip.kind === "baked"));
-  const audio = isRecord(internal.declaration.audio) ? internal.declaration.audio : {};
   return {
     projectRoot,
     projectName: basename(projectRoot),
@@ -150,9 +154,9 @@ export function normalizeEdit(edit, projectRoot) {
     videoTracks,
     cuts,
     layers,
-    narration: Array.isArray(audio.narration) ? audio.narration : [],
-    bgm: isRecord(audio.bgm) ? audio.bgm : null,
-    sfx: Array.isArray(audio.sfx) ? audio.sfx : [],
+    narration: trackAudio ? trackAudio.narration : (Array.isArray(audio.narration) ? audio.narration : []),
+    bgm: trackAudio ? trackAudio.bgm : (isRecord(audio.bgm) ? audio.bgm : null),
+    sfx: trackAudio ? trackAudio.sfx : (Array.isArray(audio.sfx) ? audio.sfx : []),
     master: audio.master ?? null,
     beats: internal.beats ?? [],
     emphasisWords: Array.isArray(internal.declaration.emphasisWords) ? internal.declaration.emphasisWords : [],
@@ -162,17 +166,82 @@ export function normalizeEdit(edit, projectRoot) {
   };
 }
 
-// readInternalEdit は edit.audio.* を既存の declared audio track にも射影する。
-// 正規化後の items では由来を区別できないため、入力 tracks[] に実在する item だけを報告する。
-function declaredAudioItems(edit) {
+// view の track は audio lane 全体の番号。NLE の sfx track は sfx lane 内で振り直す。
+function projectTrackAudio(internal, declarationAudio) {
+  const view = projectLegacyAudioView(internal);
+  const lanes = internal.tracks.filter((track) => track.lane === "audio");
+  const eligible = new Set();
+  const sfxLaneNumbers = new Map();
+  for (const [laneNumber, track] of lanes.entries()) {
+    if (track.muted === true) continue;
+    for (const item of track.items) {
+      if (item.declaration?.mute === true || item.source.kind !== "media" ||
+          typeof item.declaration?.path !== "string") continue;
+      if (!["narration", "sfx", "bgm"].includes(item.legacy.collection)) continue;
+      eligible.add(item.id);
+      if (item.legacy.collection === "sfx" && !sfxLaneNumbers.has(laneNumber)) {
+        sfxLaneNumbers.set(laneNumber, sfxLaneNumbers.size);
+      }
+    }
+  }
+  const exportedIds = new Set();
+  const narration = view.narration.filter((item) => eligible.has(item.id)).map((item) => {
+    exportedIds.add(item.id);
+    return copyPresent(item, ["id", "path", "t", "gain_db"]);
+  });
+  const sfx = view.sfx.filter((item) => eligible.has(item.id)).map((item) => {
+    exportedIds.add(item.id);
+    return {
+      ...copyPresent(item, ["id", "path", "t", "in", "out", "gain_db"]),
+      track: sfxLaneNumbers.get(item.track) ?? 0,
+    };
+  });
+  const bgmViews = view.bgms ?? (view.bgm ? [view.bgm] : []);
+  const bgmItems = lanes.filter((track) => track.muted !== true)
+    .flatMap((track) => track.items.map((item) => ({ track, item })))
+    .filter(({ item }) => item.legacy.collection === "bgm" && item.legacy.value !== undefined);
+  const bgmEntry = bgmViews.find((item, index) => eligible.has(view.bgms ? item.id : bgmItems[index]?.item.id));
+  const bgmId = bgmEntry && (view.bgms ? bgmEntry.id : bgmItems[0]?.item.id);
+  if (bgmId) exportedIds.add(bgmId);
+  const selectedBgm = bgmItems.find(({ item }) => item.id === bgmId);
+  const bgm = bgmEntry ? {
+    ...copyPresent(bgmEntry, ["path", "in", "fadeIn", "fadeOut", "gain_db"]),
+    ...(isRecord(declarationAudio.bgm) && Object.hasOwn(declarationAudio.bgm, "ducking")
+      ? { ducking: declarationAudio.bgm.ducking }
+      : copyPresent(bgmEntry, ["ducking"])),
+  } : null;
+  // duration=0 の bgm は view.t を持たないため、選ばれた内部 item の配置も見る。
+  const bgmStartSeconds = typeof bgmEntry?.t === "number" ? bgmEntry.t : selectedBgm?.item.at;
+  const bgmStart = bgmStartSeconds > 0 && selectedBgm ? {
+    field: `tracks[${selectedBgm.track.id}].items[${selectedBgm.item.id}].at`,
+    reason: "書き出し器は bgm を 0 秒始まりで配置するため開始位置は移らない",
+    hint: "書き出し先で BGM を指定の開始位置へ移動する",
+  } : null;
+  return { narration, sfx, bgm, bgmId, bgmStart, exportedIds };
+}
+
+// readInternalEdit は edit.audio.* を内部 track にも射影する。入力 tracks[] の item だけを照合する。
+function declaredAudioItems(edit, exportedIds, bgmId) {
   if (!isRecord(edit) || !Array.isArray(edit.tracks)) return [];
   return edit.tracks.flatMap((track) => {
     if (!isRecord(track) || track.lane !== "audio" || !Array.isArray(track.items)) return [];
-    return track.items.filter(isRecord).map((item, index) => ({
-      field: `tracks[${typeof track.id === "string" ? track.id : "?"}].items[${typeof item.id === "string" ? item.id : index}]`,
-      reason: "音声はまだ tracks[] の正式な書き出し入力ではないため、この宣言は使用しない",
-      hint: "現行契約の edit.audio.narration / sfx / bgm へ音声を宣言する",
-    }));
+    return track.items.filter(isRecord).flatMap((item, index) => {
+      if (exportedIds?.has(item.id)) return [];
+      const muted = track.muted === true || item.mute === true;
+      const speech = item.role === "speech";
+      const extraBgm = item.role === "bgm" && bgmId && item.id !== bgmId;
+      return [{
+        field: `tracks[${typeof track.id === "string" ? track.id : "?"}].items[${typeof item.id === "string" ? item.id : index}]`,
+        reason: muted ? "ミュートされた音声 item は NLE に書き出さない"
+          : speech ? "speech role の音声 item は NLE 書き出しの対象外"
+          : extraBgm ? "書き出し器は bgm を 1 本しか扱わないため、2 本目以降は書き出さない"
+          : "この音声 item は互換音声ビューに載らず、NLE に書き出せない",
+        hint: muted ? "書き出す場合は track と item のミュートを解除する"
+          : speech ? "本編音声として書き出す場合は書き出し先で設定する"
+          : extraBgm ? "書き出し先で 2 本目以降の BGM を手動で配置する"
+          : "audio lane の media source と narration / sfx / bgm role を確認する",
+      }];
+    });
   });
 }
 

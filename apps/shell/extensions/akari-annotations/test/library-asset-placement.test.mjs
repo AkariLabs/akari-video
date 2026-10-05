@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { memberText, findTopLevelFunction } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { libraryAssetGhostPayload, parseLibraryDragPayload } from '../lib/browser/library-drop-model.js';
 
-const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const names = ['handleMaterialDrop', 'readLibraryAssetDropPayload', 'placeLibraryAssetAtTarget', 'isMaterialDragTransfer', 'isLibraryTransitionDragTransfer', 'materialGhostDurationSeconds'];
-const methods = names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source));
-const parser = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'parseMaterialDragPayload').getText(source);
+const methods = names.map(name => memberText(name, { in: 'widget' }));
+const { ast: source, node: parserNode } = findTopLevelFunction('parseMaterialDragPayload', { in: 'widget' });
+const parser = parserNode.getText(source);
 const code = ts.transpileModule(`${parser}\nclass Handler { ${methods.join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Handler = new Function('libraryAssetGhostPayload', 'parseLibraryDragPayload', 'LIBRARY_DRAG_MIME', 'MATERIAL_DRAG_MIME', 'IMAGE_LAYER_DEFAULT_DURATION_SECONDS', 'MATERIAL_INSERT_FALLBACK_DURATION_SECONDS', `${code}\nreturn Handler;`)(libraryAssetGhostPayload, parseLibraryDragPayload, 'application/x-akari-library-item', 'application/x-akari-material', 5, 3);
 const asset = { kind: 'asset', key: 'audio/sample', id: 'sample', category: 'audio', title: '素材' };

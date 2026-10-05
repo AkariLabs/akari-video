@@ -2777,7 +2777,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             else if (this.cutItemIds.includes(selection.id)) target = { kind: 'cut', id: selection.id };
             else overlayId = selection.id;
         }
-        const editUri = this.location?.editUri?.toString() ?? '';
+        const editUri = this.location?.editUri?.normalizePath?.().toString() ?? this.location?.editUri?.toString() ?? '';
         const selected = this.multiSelection.length > 0 ? this.multiSelection
             : selection ? [selection] : [];
         const group = selected.flatMap(item => {
@@ -2806,16 +2806,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionModel.selectedCaptionIds = captionIds;
         }
         this.applyCaptionStateClasses();
+        // 台本（daihon）への通知は、字幕以外が混ざった選択では空にして投影を消す（origin/main 62358ec46）。
+        // プレビューは groupSelectionChanged で字幕を含む混在グループを受け取る（シームレス 5 巡目 multi-select-mixed）。
+        const notifiedCaptionIds = this.multiSelection.length > 0
+            && selectedCaptionIds.length !== this.multiSelection.length ? [] : captionIds;
+        const captionSelectionDetail = { editUri, captionIds: [...notifiedCaptionIds],
+            primaryCaptionId: target?.kind === 'caption' && notifiedCaptionIds.includes(target.id)
+                ? target.id : notifiedCaptionIds[0] ?? null };
         if (group.length > 1 && group.some(item => item.kind !== 'caption')) {
+            window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', { detail: captionSelectionDetail }));
             window.dispatchEvent(new CustomEvent('akari.timeline.groupSelectionChanged', {
                 detail: { editUri, selection: group }
             }));
             return;
         }
         window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected', { detail: { editUri, selection: target } }));
-        window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
-            detail: { editUri, captionIds, primaryCaptionId: target?.kind === 'caption' ? target.id : null }
-        }));
+        window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', { detail: captionSelectionDetail }));
         window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, { detail: { editUri, overlayId } }));
         window.dispatchEvent(new CustomEvent(TIMELINE_LAYER_SELECTED_EVENT, { detail: { editUri, layerId } }));
         if (group.length > 1) window.dispatchEvent(new CustomEvent('akari.timeline.groupSelectionChanged', {
@@ -4888,7 +4894,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
-    selectCaptions(editUri: string, captionIds: readonly string[]): void {
+    selectCaptions(editUri: string, captionIds: readonly string[], primaryCaptionId?: string | null,
+        origin?: 'daihon'): void {
         if (!this.canHandlePlaybackTick(editUri)) return;
         this.previewBagSelection = undefined;
         const requested = new Set(captionIds);
@@ -4906,6 +4913,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.selectionModel.selectedCaptionIds = ids;
         this.applyCaptionStateClasses();
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
+            detail: { editUri: this.location?.editUri?.normalizePath?.().toString() ?? editUri, captionIds: [...ids],
+                primaryCaptionId: primaryCaptionId && ids.includes(primaryCaptionId) ? primaryCaptionId : ids[0] ?? null,
+                ...(origin ? { origin } : {}) }
+        }));
     }
 
     protected previewSelectionAncestorIds(rows: readonly TimelineTreeRow[], id: string): string[] {
@@ -5161,14 +5173,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.selectionModel.selectedCaptionIds = [];
                 this.applyCaptionStateClasses();
             }
+            if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
+                detail: { editUri: this.location?.editUri?.normalizePath?.().toString() ?? editUri,
+                    captionIds: [], primaryCaptionId: null }
+            }));
             return;
         }
         if (this.captions.some(caption => caption.id === captionId)) {
-            if (!this.multiSelection.some(item => this.selectionRenderKeys(item).includes(`caption:${captionId}`)
-                || (item.kind === 'caption' && item.id === captionId))) {
+            const selectedCaptionId = (item: TimelineSelectionItem): string | undefined => {
+                if (item.kind === 'caption') return item.id;
+                if (item.kind !== 'item') return undefined;
+                const raw = this.rawKeyframeItem(item.id);
+                return captionIdForTreeSelection(item,
+                    raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            };
+            const inGroup = this.multiSelection.some(item => selectedCaptionId(item) === captionId);
+            if (!inGroup && (this.selection?.kind !== 'caption' || this.selection.id !== captionId)) {
                 this.applySelection({ kind: 'caption', id: captionId }, false);
                 this.selectionModel.selectedCaptionIds = [captionId];
                 this.applyCaptionStateClasses();
+            }
+            const selectedCaptionIds = inGroup ? this.multiSelection.flatMap(item => selectedCaptionId(item) ?? []) : [captionId];
+            // The regular timeline path already published [] for a mixed group. Avoid clearing the preview caption.
+            if (!inGroup || selectedCaptionIds.length === this.multiSelection.length) {
+                if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
+                    detail: { editUri: this.location?.editUri?.normalizePath?.().toString() ?? editUri,
+                        captionIds: selectedCaptionIds, primaryCaptionId: captionId }
+                }));
             }
             this.revealPreviewSelection();
         }

@@ -37,7 +37,7 @@ test("parseArguments rejects an unknown --gpu-preference value and a missing val
   assert.throws(() => parseArguments(["/project", "--gpu-preference"]), /--gpu-preference requires a value/u);
 });
 
-test("parseArguments leaves gpuPreference undefined when the flag is omitted (env → auto downstream)", () => {
+test("parseArguments leaves gpuPreference undefined when the flag is omitted (saved consent or off downstream)", () => {
   const options = parseArguments(["/project", "--engine", "gpu"]);
   assert.equal(Object.hasOwn(options, "gpuPreference"), true);
   assert.equal(options.gpuPreference, undefined);

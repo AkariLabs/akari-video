@@ -2,8 +2,9 @@ import { injectable } from '@theia/core/shared/inversify';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import URI from '@theia/core/lib/common/uri';
 import { type ChildProcessByStdio, spawn } from 'child_process';
-import { promises as fs } from 'fs';
+import { existsSync, promises as fs } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
+import { pathToFileURL } from 'url';
 import type { Readable } from 'stream';
 import {
     AkariQuickExportService,
@@ -34,7 +35,7 @@ import {
     QuickExportProgressTracker
 } from '../common/quick-export-progress';
 import { copyArtifactCommand, copyArtifactStdin } from '../common/export-share';
-import { packagedCliCandidates } from './packaged-cli-candidates';
+import { packagedCliCandidates, packagedPackageEntryCandidates } from './packaged-cli-candidates';
 import { childNodeEnvironment, electronResourcesPath } from './child-node-process';
 
 const LOG_TAIL_MAX_CHARS = 4000;
@@ -44,6 +45,34 @@ const RENDER_CUT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'render-report
 export const EXPORT_PREVIEW_RELATIVE_DIRECTORY = join('.akari', 'cache', 'export-preview');
 /** render-cut / gpu-export / osr-export が実行ごとの作業ディレクトリを掘る場所。 */
 export const RENDER_TMP_RELATIVE_DIRECTORY = join('.akari', 'render-tmp');
+
+interface GpuPreferenceRecoveryModule {
+    createRegistryAccess(): { read(executable: string): string | null; write(executable: string, value: string): void; remove(executable: string): void };
+    createSidecarAccess(): { read(): Promise<unknown>; remove(): Promise<void> };
+    recoverStaleGpuPreference(options: { sidecar: ReturnType<GpuPreferenceRecoveryModule['createSidecarAccess']>; registry: ReturnType<GpuPreferenceRecoveryModule['createRegistryAccess']> }): Promise<boolean>;
+    writeGpuPreferenceConsent(allowed: boolean, options: { env: NodeJS.ProcessEnv }): Promise<string>;
+}
+
+export async function recoverGpuPreferenceAtStartup({ platform, load }: {
+    platform: string;
+    load: () => Promise<GpuPreferenceRecoveryModule>;
+}): Promise<boolean> {
+    if (platform !== 'win32') return false;
+    try {
+        const module = await load();
+        return await module.recoverStaleGpuPreference({
+            sidecar: module.createSidecarAccess(),
+            registry: module.createRegistryAccess()
+        });
+    } catch (error) {
+        console.warn('[akari-shell-strip] GPU 設定の復元を確認できませんでした:', error);
+        return false;
+    }
+}
+
+export function shouldPromptForGpuConsent(platform = process.platform, env = process.env): boolean {
+    return platform === 'win32' || env.AKARI_TEST_WINDOWS_GPU_CONSENT === '1';
+}
 
 /** プロジェクト内の許可ディレクトリ配下に限定して解決する。外なら undefined。 */
 export function resolveExportPreviewPath(
@@ -94,6 +123,34 @@ export function buildRevealArtifactCommand(
  */
 @injectable()
 export class AkariQuickExportServiceImpl implements AkariQuickExportService, BackendApplicationContribution {
+    async onStart(): Promise<void> {
+        await recoverGpuPreferenceAtStartup({
+            platform: process.platform,
+            load: () => this.loadGpuPreferenceModule()
+        });
+    }
+
+    async shouldPromptGpuPreference(): Promise<boolean> {
+        return shouldPromptForGpuConsent();
+    }
+
+    protected gpuPreferenceConsentEnv(): NodeJS.ProcessEnv {
+        return process.env;
+    }
+
+    async saveGpuPreferenceConsent(allowed: boolean): Promise<void> {
+        const module = await this.loadGpuPreferenceModule();
+        await module.writeGpuPreferenceConsent(allowed, { env: this.gpuPreferenceConsentEnv() });
+    }
+
+    protected async loadGpuPreferenceModule(): Promise<GpuPreferenceRecoveryModule> {
+        const candidates = packagedPackageEntryCandidates('osr-export', 'src/gpu-preference.mjs', __dirname, this.resourcesPath());
+        const candidate = candidates.find(value => existsSync(value));
+        if (!candidate) throw new Error('GPU preference helper could not be found');
+        const importModule = Function('specifier', 'return import(specifier)') as
+            (specifier: string) => Promise<GpuPreferenceRecoveryModule>;
+        return importModule(pathToFileURL(candidate).toString());
+    }
     protected running = false;
     protected status: QuickExportStatus = { phase: 'idle', logTail: '' };
     protected logBuffer = '';
@@ -550,7 +607,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             codec: request.codec,
             fps: request.fps,
             scaleTo: request.scaleTo,
-            outputDirectory: request.outputDirectoryUri ? this.fsPath(request.outputDirectoryUri) : undefined
+            outputDirectory: request.outputDirectoryUri ? this.fsPath(request.outputDirectoryUri) : undefined,
+            gpuPreference: request.gpuPreference
         });
     }
 

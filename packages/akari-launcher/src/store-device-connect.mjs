@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import {
   chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync
 } from 'node:fs';
-import { homedir, hostname } from 'node:os';
+import { homedir } from 'node:os';
 import path from 'node:path';
 
 import { DEFAULT_STORE_BASE_URL, normalizeAkariUrl } from './service-urls.cjs';
@@ -111,7 +111,7 @@ export async function validateAndSaveCredentials(
 export async function startDeviceConnection({
   fetchImpl = fetch,
   baseUrl = DEFAULT_STORE_BASE_URL,
-  label = `AKARI Video (${hostname()})`,
+  label = `AKARI Video (${process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'Mac' : 'Linux'})`,
   openBrowser
 } = {}) {
   const normalizedBaseUrl = normalizeAkariUrl(baseUrl).replace(/\/+$/, '');

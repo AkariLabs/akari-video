@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:akari-video:schema:asset-meta:v0",
-  "title": "AKARI Video Asset Metadata v0",
-  "description": "AKARI Video 素材ライブラリの meta.json 契約 v0。",
+  "$id": "urn:akari-video:schema:asset-meta:v1",
+  "title": "AKARI Video Asset Metadata v1",
+  "description": "AKARI Video 素材ライブラリの meta.json 契約 v1。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,7 +18,7 @@
     "provenance",
     "author",
     "license",
-    "price"
+    "tier"
   ],
   "properties": {
     "id": {
@@ -85,7 +85,13 @@
     "license": {
       "$ref": "#/$defs/license"
     },
+    "tier": {
+      "enum": ["free", "pro"],
+      "description": "素材の取得階層。pro は all-access-pass の権利が必要。"
+    },
     "price": {
+      "deprecated": true,
+      "description": "廃止予定の旧価格。tier があれば無視し、次版で削除する。",
       "oneOf": [
         { "type": "null" },
         { "type": "number", "minimum": 0 }
@@ -112,10 +118,13 @@
     },
     "remote": {
       "type": "boolean",
-      "description": "true の場合、このエントリはカタログ上のみに存在し実体ファイルを持たない。source ブロックが実体の代わりになる（2026-07-14 追記・任意フィールド）。"
+      "description": "true の場合、素材ディレクトリに実体ファイルを持たず、akari-r2 の source が実体を指す。既存 catalog の external + remote は validator が旧形式として互換扱いする。"
     },
     "source": {
-      "$ref": "#/$defs/source"
+      "oneOf": [
+        { "$ref": "#/$defs/externalSource" },
+        { "$ref": "#/$defs/akariR2Source" }
+      ]
     },
     "motion_presets": {
       "$comment": "scene3d のライブ経路（glb 内蔵の名前付きアニメーションクリップ）の機械可読な一覧（任意。2026-08-06 laptop-live-asset タスクで新設）。宣言 JSON の animationClip にそのまま渡せる clip 名を人間可読なラベル・用途メモと対にする。クリップを持たない素材・ベイクレシピ（category=scene3d でも動きが camera_move/motion ツマミ側の素材）では省略する。",
@@ -126,6 +135,13 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "remote": { "const": true } }, "required": ["remote"] },
+      "then": { "required": ["source"] },
+      "$comment": "remote: true の akari-r2 必須と公開 catalog の既存 external エントリの後方互換は bin/validate-asset.mjs が判定する。JSON Schema では経路による例外を表せない。"
+    }
+  ],
   "$defs": {
     "knob": {
       "type": "object",
@@ -228,9 +244,9 @@
         }
       }
     },
-    "source": {
+    "externalSource": {
       "type": "object",
-      "description": "カタログ（remote: true）エントリの取得元情報。2026-07-14 追記・任意フィールド。",
+      "description": "外部取得元（既存 v0）の情報。",
       "additionalProperties": false,
       "required": ["url", "acquisition", "license_at_source", "attribution_required"],
       "properties": {
@@ -256,6 +272,26 @@
           "format": "uri",
           "pattern": "^https?://"
         }
+      }
+    },
+    "akariR2Source": {
+      "type": "object",
+      "description": "AKARI 管理 R2 上の画像とプレビュー。",
+      "additionalProperties": false,
+      "required": ["image", "preview"],
+      "properties": {
+        "image": {
+          "type": "string",
+          "pattern": "^(?:https?://[^\\s]+|[A-Za-z0-9][A-Za-z0-9._/-]*)$"
+        },
+        "preview": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "bytes": { "type": "integer", "minimum": 1 }
       }
     },
     "motionPreset": {

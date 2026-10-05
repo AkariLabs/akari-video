@@ -2,6 +2,15 @@ export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
 export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
 
+export interface PartnerInstallDisclosure {
+    name: string;
+    provider: string;
+    sourceUrl: string;
+    location: string;
+    environment: string;
+    termsUrl: string;
+}
+
 export interface BootstrapResult {
     executablePath: string;
     runtimePath: string;
@@ -10,6 +19,13 @@ export interface BootstrapResult {
     reused: boolean;
     log: string[];
 }
+
+export interface BootstrapConsentRequiredResult {
+    consentRequired: true;
+    disclosure: PartnerInstallDisclosure;
+}
+
+export type PartnerBootstrapOutcome = BootstrapResult | BootstrapConsentRequiredResult;
 
 export interface BinaryVerificationRequest {
     packagePath: string;
@@ -97,7 +113,8 @@ export interface AkariPartnerServer {
      * project. Omit when no workspace is open — the wiring step is skipped
      * (fail-soft; bootstrap still completes).
      */
-    bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult>;
+    bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent?: boolean): Promise<PartnerBootstrapOutcome>;
+    getInstallDisclosure(agent: PartnerAgentId): Promise<PartnerInstallDisclosure>;
     verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult>;
     /**
      * task/2026-08-17-shell-managed-cli: `akari` CLI をアプリ管理でユーザー領域へ

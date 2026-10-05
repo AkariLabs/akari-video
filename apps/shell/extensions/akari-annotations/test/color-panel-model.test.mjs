@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -170,7 +171,7 @@ test('対象: openColorPanel の引数を読み、item の path は入れ子を�
 });
 
 test('インスペクター: 色の行は色パネルを開く丸になり、コマンドが登録されている', async () => {
-    const widget = await readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    const widget = readInspectorSource();
     const contribution = await readFile(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
     const commands = await readFile(new URL('../src/browser/akari-annotations-commands.ts', import.meta.url), 'utf8');
     assert.match(widget, /createColorRowSwatch\(editValue, label,\s*\(\) => this\.openColorPanel\(\{ target: \{ kind: 'field', field: fieldName \} \}\)\)/u);

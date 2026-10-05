@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const member = name => widget.members.find(node => node.name?.getText(source) === name);
+const source = readSourceFile('widget').ast;
+const member = name => findMember(name, { in: 'widget' }).node;
 const controls = member('renderTopControls');
 const elements = [];
 function visit(node) {

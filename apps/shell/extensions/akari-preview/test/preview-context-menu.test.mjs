@@ -80,9 +80,10 @@ test('context menu payload normalizes and clamps preview-stage coordinates', () 
 
 test('compiled host turns the context menu hook into the registered annotation menu', () => {
     const branchStart = compiled.indexOf("if (message?.type === 'akari-preview-context-menu')");
-    const branchEnd = compiled.indexOf("if (message?.type === 'akari-preview-gesture'", branchStart);
+    const branchEnd = compiled.indexOf('const selectionKey = widget.akariPreviewEditUri', branchStart);
     assert.ok(branchStart >= 0 && branchEnd > branchStart);
     const branch = compiled.slice(branchStart, branchEnd);
+    assert.ok(!branch.includes('akari-preview-gesture'));
     assert.ok(branch.includes("console.debug('[akari-preview] context menu', message);"));
     assert.ok(branch.includes("kind === 'output'"));
     assert.ok(branch.includes('this.primaryTimelineSelections.get(editUri)'));

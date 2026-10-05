@@ -101,7 +101,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
             { execute: () => { this.panel?.resetPlacement(); } }
         ));
         this.disposables.push(this.preferences.onPreferenceChanged(event => {
-            if (event.preferenceName === AKARI_COMPANION_ENABLED) void this.applyEnabled();
+            if (event.preferenceName === AKARI_COMPANION_ENABLED) void this.applyEnabled(true);
         }));
         this.disposables.push(this.workspaceService.onWorkspaceChanged(() => {
             void this.regenerateProjectSession();
@@ -157,6 +157,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         this.starting = true;
         this.toolbar.refresh(document);
         try {
+            this.showVibePrivacyNotice();
             if (!await this.service.start() && this.enabled) {
                 void this.messages.warn('AKARI バイブを起動できませんでした');
             }
@@ -168,10 +169,19 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         }
     }
 
-    protected async applyEnabled(): Promise<void> {
+    protected showVibePrivacyNotice(): void {
+        const noticeStorage = typeof window === 'undefined' ? undefined : window.localStorage;
+        if (noticeStorage && noticeStorage.getItem('akari.vibe.privacy-notice-v1') !== 'seen') {
+            noticeStorage.setItem('akari.vibe.privacy-notice-v1', 'seen');
+            void this.messages.info('話した指示と編集中のプロジェクトの構成（字幕の文字は先頭 20 文字まで）を、あなたの OpenRouter キーとともに AKARI のサーバー経由で送ります');
+        }
+    }
+
+    protected async applyEnabled(notifyOnEnable = false): Promise<void> {
         // Theia 1.73.1 の schema 型には利用者限定の文字列 scope が無いので、
         // 実効値ではなく利用者設定だけを直接読むことでワークスペース設定を無視する。
         this.enabled = this.preferences.inspect<boolean>(AKARI_COMPANION_ENABLED)?.globalValue ?? true;
+        if (this.enabled && notifyOnEnable) this.showVibePrivacyNotice();
         if (!this.enabled) this.onConnectionState(false);
         this.toolbar.refresh(document);
         await this.service.setEnabled(this.enabled);

@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
@@ -123,7 +124,7 @@ import ts from 'typescript';
 import { generationFields } from '../lib/browser/inspector/generation-fields.js';
 import { generationDraftFromDone } from '../lib/browser/inspector/generation-provenance.js';
 import { selectGenerationSidecarForSource } from '@akari-video/edit-store';
-const widgetSource = await readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const widgetSource = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
 const widgetClass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const methodNames = ['generationIdentity', 'loadGeneration', 'loadGenerationNeighbors', 'validateGenerationDraft', 'persistGenerationDraft', 'copyAdjacentGenerationDraft'];

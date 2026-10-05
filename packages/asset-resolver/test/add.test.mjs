@@ -134,7 +134,7 @@ test('apply preserves originals, edited ambiguous kind, folder, credit and pack,
   assertNoTemps(f.env.AKARI_LIBRARY_ROOT);
 });
 
-test('import meta has exactly the 13 required fields and passes the unchanged validator with a waveform', async t => {
+test('import meta has required fields without deprecated price and passes validator with a waveform', async t => {
   const f = fixture(t);
   const p = await plan(f, [f.file('sound.wav')]);
   const r = await apply(f, p, { waveform: (_source, dest) => { writeFileSync(dest, png); return { ok: true }; } });
@@ -143,7 +143,8 @@ test('import meta has exactly the 13 required fields and passes the unchanged va
   const schema = JSON.parse(readFileSync(new URL('../../schemas/asset-meta.schema.json', import.meta.url), 'utf8'));
   assert.deepEqual(Object.keys(metaOf(row)).sort(), schema.required.sort());
   assert.deepEqual(metaOf(row).license, { spdx: 'LicenseRef-user-owned', scope: 'private-owned', attribution_required: false, ai_training_allowed: false });
-  assert.equal(metaOf(row).price, 0);
+  assert.equal(Object.hasOwn(metaOf(row), 'price'), false);
+  assert.equal(metaOf(row).tier, 'free');
   const checked = spawnSync(process.execPath, [validator, row.libraryDir], { encoding: 'utf8' });
   assert.equal(checked.status, 0, checked.stderr);
 });

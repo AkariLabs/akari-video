@@ -124,8 +124,9 @@ function listAssetFiles(assetRoot, current = assetRoot) {
 function installedAssetItem(source, asset, manifest) {
   const assetRoot = realpathSync(source);
   let title = asset.id;
+  let meta = null;
   try {
-    const meta = JSON.parse(readFileSync(path.join(assetRoot, 'meta.json'), 'utf8'));
+    meta = JSON.parse(readFileSync(path.join(assetRoot, 'meta.json'), 'utf8'));
     if (typeof meta.title === 'string' && meta.title) title = meta.title;
   } catch {
     // validate-asset が検査済み。配布環境で検査器が無い場合だけ id へフォールバックする。
@@ -133,6 +134,9 @@ function installedAssetItem(source, asset, manifest) {
   return {
     id: asset.id,
     title,
+    tier: Object.hasOwn(asset, 'tier') ? (asset.tier === 'free' ? 'free' : 'pro')
+      : meta && Object.hasOwn(meta, 'tier') ? (meta.tier === 'free' ? 'free' : 'pro')
+      : manifest.tier === 'free' ? 'free' : 'pro',
     path: ['assets', asset.category, asset.id].join('/'),
     version: manifest.version,
     files: listAssetFiles(assetRoot)

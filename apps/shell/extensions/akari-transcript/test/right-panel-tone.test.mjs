@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readAllSourceText } from './helpers/daihon-source.mjs';
 
 const cuts = readFileSync(new URL('../src/browser/daihon/akari-cuts-widget.ts', import.meta.url), 'utf8');
-const daihon = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+const daihon = readAllSourceText();
 const style = daihon.match(/const STYLE = `([\s\S]*?)`;/)[1];
 const rule = selector => {
     const start = style.indexOf(`${selector} {`);

@@ -25,7 +25,7 @@ description: "AKARI Video（現行 Theia スタック）のタスク契約が要
 ```sh
 cd apps/shell
 PYTHON=/usr/bin/python3 npm ci --no-workspaces   # 初回・依存更新時のみ
-npm run build:ext                                 # tsc -b（9 拡張の型検査 + コンパイル）
+npm run build:ext                                 # tsc -b（11 拡張の型検査 + コンパイル）
 npm run lint                                       # eslint "extensions/*/src/**/*.{ts,tsx}"
 ```
 

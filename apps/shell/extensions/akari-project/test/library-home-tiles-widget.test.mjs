@@ -1,16 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { LIBRARY_DETAIL_GROUPS, LIBRARY_PRIMARY_TILES } from '../lib/common/library-home-view.js';
 import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../lib/common/library-tile-art.js';
 import { textTelopItems } from '../lib/common/library-telop-shelf.js';
 
-const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+const source = readSourceFile('widget').ast;
 const methods = ['readLibraryDetailsOpen', 'toggleLibraryDetails', 'placeLibraryText', 'renderLibraryTilePlate', 'renderLibraryPrimaryTile', 'renderLibraryHome', 'handleLibraryTransitionDragEnd', 'showLibraryHome', 'renderTextLookPage', 'handleGenerationPickKey'];
 const code = ts.transpileModule(`class Handler { ${methods.map(name => {
-    const member = widget.members.find(candidate => candidate.name?.getText(source) === name);
+    const member = findMember(name, { in: 'widget' }).node;
     assert.ok(member, `${name} が存在する`);
     return member.getText(source);
 }).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;

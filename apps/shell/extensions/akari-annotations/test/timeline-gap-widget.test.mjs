@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -12,7 +13,7 @@ import { insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js
 import { timelineGapAt } from '../lib/common/timeline-gap.js';
 import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
 import { describeNextDraft } from '@akari-video/edit-store';
-const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const source = readCompiledSource('widget').text;
 const from = source.indexOf('    gapSnapshot('), to = source.indexOf('    async commitEmptyFrame(', from);
 const Widget = new Function('timeline_gap_1', 'edit_v2_mutations_1', 'buffer_1', 'akari_annotations_commands_2', 'frame_geometry_1',
   `return class { ${source.slice(from, to)} }`)({ timelineGapAt }, { insertItem, indexEditV2Items },

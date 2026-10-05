@@ -162,7 +162,7 @@ export function createImportMeta(entry, options = {}) {
     requires: [], provenance: { origin: '利用者がローカルから取り込み', generator: null },
     author: 'user',
     license: { spdx: 'LicenseRef-user-owned', scope: 'private-owned', attribution_required: Boolean(credit), ai_training_allowed: false },
-    price: 0,
+    tier: 'free',
   };
   if (origin === 'site') {
     meta.source = {

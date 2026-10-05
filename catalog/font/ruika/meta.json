@@ -30,6 +30,7 @@
     "attribution_required": false,
     "ai_training_allowed": false
   },
+  "tier": "free",
   "price": null,
   "remote": true,
   "source": {

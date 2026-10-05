@@ -22,6 +22,7 @@ function color(value, fallback) {
     return normalized.length > 0 ? normalized : fallback;
 }
 function svg(width, height, body, strokeWidth = 0) {
+    // Keep the existing SVG bytes for legacy thin strokes; thick strokes may paint outside the hit box.
     const overflow = strokeWidth > DEFAULT_LINE_STROKE_WIDTH ? ' overflow="visible"' : '';
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"${overflow}>${body}</svg>`;
 }

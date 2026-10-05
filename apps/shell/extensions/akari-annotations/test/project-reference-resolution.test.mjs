@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { recordProjectReference } from '../../../../../packages/asset-resolver/src/project-references.mjs';
 import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
+import { findMember } from './helpers/widget-source.mjs';
 
 test('annotations RPC の解決済み音声で実尺と波形を取得できる', async t => {
     if (!requireFfmpeg(t)) return;
@@ -36,13 +37,11 @@ test('annotations RPC の解決済み音声で実尺と波形を取得できる'
 });
 
 test('同期タイムラインの動画・画像・音声は node 解決表を共有し、宣言パスの脱出を拒否', async () => {
-    const { readFileSync } = await import('node:fs');
     const { createRequire } = await import('node:module');
     const require = createRequire(import.meta.url);
     const ts = require('typescript'), URI = require('@theia/core/lib/common/uri').default;
-    const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-    const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-    const method = widget.members.find(member => member.name?.getText(source) === 'resolveEditMediaUri').getText(source);
+    const { ast: source, node: member } = findMember('resolveEditMediaUri', { in: 'widget' });
+    const method = member.getText(source);
     const code = ts.transpileModule(`class Handler { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     const Handler = new Function('URI', `${code}; return Handler;`)(URI), handler = new Handler();
     handler.referenceMediaRoot = 'file:///project';

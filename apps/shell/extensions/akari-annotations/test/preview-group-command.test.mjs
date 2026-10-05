@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { indexEditV2Items, removeTreeV2Item } from '../lib/common/edit-v2-mutations.js';
 
-const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const widget = readAllSourceText();
 const shortcuts = readFileSync(new URL('../src/browser/akari-shortcuts.ts', import.meta.url), 'utf8');
 
 test('preview multi receiver opens ancestors and records item rows without an echo', () => {

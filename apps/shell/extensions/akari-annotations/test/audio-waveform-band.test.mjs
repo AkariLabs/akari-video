@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { audioWaveformBandLayout } from '../lib/common/filmstrip-geometry.js';
 
-const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const source = readAllSourceText();
 
 function method(startNeedle, endNeedle) {
   const start = source.indexOf(startNeedle);

@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-annotations-widget.ts'), 'utf8');
+const source = readAllSourceText();
 
 test('宣言前ガードは edit.json 書き込みより先に return する', () => {
   const start = source.indexOf('protected async applyTransitionOut');

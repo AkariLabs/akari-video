@@ -4,8 +4,10 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 import { computeAdjustCssVisual } from '../../edit-store/lib/index.js';
+import { sourceEffectsForCut } from '../public/video-fx-source.js';
 
 const app = await readFile(path.resolve(import.meta.dirname, '../public/app.js'), 'utf8');
+const fxSource = await readFile(path.resolve(import.meta.dirname, '../public/video-fx-source.js'), 'utf8');
 const transition = await readFile(path.resolve(import.meta.dirname, '../public/transition-visual.js'), 'utf8');
 const projection = await readFile(path.resolve(import.meta.dirname, '../src/preview-edit.mjs'), 'utf8');
 
@@ -28,17 +30,17 @@ test('Web UI wheels-only indicator executes on DOM and is suppressed on frame-en
 test('Web UI receives resolved per-item LUTs through /api/summary and prefers the clip look', () => {
   assert.match(projection, /adjustLutCubeTexts\[id\] = resolveVideoFxLut\(projectRoot, ref\)/u);
   assert.match(projection, /Object\.keys\(adjustLutCubeTexts\)\.length > 0 \? \{ adjustLutCubeTexts \}/u);
-  assert.match(app, /summary\?\.adjustLutCubeTexts\?\.\[String\(cut\.id\)\]/u);
-  assert.match(app, /adjust\.sections\?\.lut === false/u);
-  assert.match(app, /const look = clipLook \|\| config\?\.look/u);
-  assert.match(app, /sourceEffectsForCut\(segment\.index, false\)/u);
+  assert.match(fxSource, /summary\?\.adjustLutCubeTexts\?\.\[String\(cut\.id\)\]/u);
+  assert.match(fxSource, /adjust\.sections\?\.lut === false/u);
+  assert.match(fxSource, /const look = clipLook \|\| config\?\.look/u);
+  assert.match(app, /sourceEffectsForCut\(summary, segment\.index, false\)/u);
 });
 
 test('sourceEffectsForCut returns the resolved clip LUT ahead of global look', () => {
-  const start = app.indexOf('function clipLookForCut(cutIndex) {');
-  const end = app.indexOf('\nfunction layerChromaEffects(layer) {', start);
+  const start = fxSource.indexOf('export function clipLookForCut(summary, cutIndex) {');
+  const end = fxSource.indexOf('\nexport function layerChromaEffects(layer) {', start);
   assert.ok(start >= 0 && end > start);
-  const makeResolver = vm.runInNewContext(`(summary => { ${app.slice(start, end)}; return sourceEffectsForCut; })`);
+  const makeResolver = (summary) => (i, allow) => sourceEffectsForCut(summary, i, allow);
   const globalLook = { cubeText: 'global cube', intensity: 0.4 };
   const summary = {
     cuts: [

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readSourceFile, findMember } from './helpers/widget-source.mjs';
 import ts from 'typescript';
 import URI from '@theia/core/lib/common/uri.js';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer.js';
@@ -14,11 +14,12 @@ import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../lib/common/hover-po
 import { createCaptionHoverPreview } from '../lib/common/caption-hover-preview.js';
 import { mergeCaptionTextStyles } from '../lib/common/caption-store.js';
 
-const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-const klass = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const method = klass.members.filter(node => ['installVisualHover', 'renderVisualThumbnail', 'recordVisualThumbnailFailure', 'scheduleVisualThumbnailRetry',
-  'initializeVisualThumbnailDisk', 'readVisualThumbnailDisk', 'writeVisualThumbnailDisk'].includes(node.name?.getText(source)))
-  .map(node => node.getText(source)).join('\n');
+const source = readSourceFile('widget').ast;
+const klass = readSourceFile('widget').classNode;
+const method = ['installVisualHover', 'renderVisualThumbnail', 'recordVisualThumbnailFailure', 'scheduleVisualThumbnailRetry',
+  'initializeVisualThumbnailDisk', 'readVisualThumbnailDisk', 'writeVisualThumbnailDisk']
+  .map(name => findMember(name, { in: 'widget' })).sort((a, b) => a.node.pos - b.node.pos)
+  .map(item => item.text).join('\n');
 const code = ts.transpileModule(`class Widget { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 class Element {
   isConnected = true; dataset = {}; style = {}; classList = { add() {}, remove() {} }; children = [];

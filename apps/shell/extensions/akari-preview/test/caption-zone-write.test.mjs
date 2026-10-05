@@ -24,7 +24,7 @@ import {
     resetCaptionCueGeometrySource
 } from '../lib/common/caption-zone-write.js';
 import { captionTextStyleVars } from '../../../../../packages/render-cut/src/captions.mjs';
-import { readHandlerSource } from './helpers/handler-source.mjs';
+import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 const handlerSource = readHandlerSource();
 const require = createRequire(import.meta.url);
@@ -472,8 +472,7 @@ test('caption text の 1 語置換は未編集語の words を温存する', () 
 
 test('successful caption write refreshes the webview instead of suppressing its own watcher only', () => {
     const start = handlerSource.indexOf('protected async handleCaptionWrite');
-    const end = handlerSource.indexOf('protected isCaptionWriteRequest', start);
-    const handler = handlerSource.slice(start, end);
+    const handler = sliceBetween('protected async handleCaptionWrite', 'protected async persistCaptionGroupZoneForWidget', { source: handlerSource, from: start });
     assert.match(handler, /persistCaptionZone/);
     assert.match(handler, /this\.queueCaptionsUpdate\(widget\)/);
 });

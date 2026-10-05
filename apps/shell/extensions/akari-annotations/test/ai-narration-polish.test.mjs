@@ -1,7 +1,8 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 
-import { readFileSync } from 'node:fs';
 
 import test from 'node:test';
 
@@ -113,7 +114,7 @@ test('自声の費用承認後は選んだ声の id を profile として 1 回�
 });
 
 test('widget: 同じ item と edit 版の render を重ねても readFile せず、変更後だけ 1 回読む', async () => {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
   const klass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
   const method = klass.members.find(node => node.name?.getText(ast) === 'verifyAiNarrationSource').getText(ast);
@@ -154,7 +155,7 @@ test('widget: 同じ item と edit 版の render を重ねても readFile せず
 });
 
 function narrationWidgetHarness(methodNames, dependencies = {}) {
-  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const source = readInspectorSource();
   const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
   const klass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
   const methods = methodNames.map(name => {
@@ -272,7 +273,7 @@ test('widget: 音声以外の文字起こしはナレーションキャッシュ
   assert.equal(widget.narrationSourcePath, 'assets/generated/frame.wav');
 });
 
-const timelineSource = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const timelineSource = readCompiledSource('widget').text;
 
 function timelineMethod(name) {
   const start = timelineSource.search(new RegExp(`    (async )?${name}\\(`));

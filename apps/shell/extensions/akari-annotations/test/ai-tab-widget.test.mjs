@@ -1,3 +1,4 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -10,7 +11,7 @@ import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspect
 import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 
-const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const source = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widget.members.find(node => node.name?.getText(ast) === name).getText(ast);

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { readAllSourceText } from '../../akari-annotations/test/helpers/widget-source.mjs';
+import { readInspectorSource } from '../../akari-annotations/test/helpers/inspector-source.mjs';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const previewSource = readHandlerSource();
-const annotationsSource = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const inspectorSource = readFileSync(new URL('../../akari-annotations/src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const annotationsSource = readAllSourceText();
+const inspectorSource = readInspectorSource();
 
 function between(source, start, end) {
   const from = source.indexOf(start);
@@ -25,7 +26,7 @@ function sendThroughRelay(request) {
   }).outputText;
   const Widget = new Function('TIMELINE_LIVE_TRANSFORM_EVENT', `${widgetJs}; return Widget;`)(eventName);
   const relayCode = between(previewSource, 'const onLiveTransform = (event: Event): void => {',
-    'window.addEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform);');
+    'this.lifecycleDisposables.push(listen(window, TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform');
   const relayJs = ts.transpileModule(relayCode, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 }
   }).outputText;

@@ -1,3 +1,5 @@
+import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { readSourceFile } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -14,8 +16,8 @@ function extractClass(source, className, names) {
     }).join('\n');
 }
 
-const timelineSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const inspectorSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+const timelineSource = readSourceFile('widget').text;
+const inspectorSource = readInspectorSource();
 const contributionSource = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
 const timelineMembers = extractClass(timelineSource, 'AkariAnnotationsWidget', [
     'inspectorRequestWrite', 'inspectorRequestLivePreview', 'inspectorRequestAdjustBypass',

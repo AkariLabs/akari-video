@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import * as captionStyleEffects from '../lib/browser/inspector/caption-style-effects.js';
 import * as myStyleLook from '../lib/browser/my-style-look.js';
@@ -7,7 +7,7 @@ import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
-const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const source = readCompiledSource('widget').text;
 const start = source.indexOf("                case 'caption-style-my-style':");
 const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);

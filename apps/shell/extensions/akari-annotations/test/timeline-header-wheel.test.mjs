@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readAllSourceText, readSourceFile, findMember } from './helpers/widget-source.mjs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
@@ -29,12 +29,10 @@ for (const [name, input, expected] of [
   test(`header wheel plan: ${name}`, () => assert.deepEqual(planTimelineHeaderWheel(wheel(input)), expected));
 }
 
-const sourceText = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-const source = ts.createSourceFile('widget.ts', sourceText, ts.ScriptTarget.Latest, true);
-const widget = source.statements.find(node => ts.isClassDeclaration(node)
-  && node.name?.text === 'AkariAnnotationsWidget');
+const sourceText = readAllSourceText();
+const source = readSourceFile('widget').ast;
 const methods = ['onTrackHeaderWheel', 'onWheelZoom', 'wheelZoomDuration'].map(name => {
-  const method = widget.members.find(member => member.name?.getText(source) === name);
+  const method = findMember(name, { in: 'widget' }).node;
   assert.ok(method, name);
   return method.getText(source);
 });
