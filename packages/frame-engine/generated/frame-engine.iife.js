@@ -8056,6 +8056,8 @@ ${indent}`);
         "keyframes",
         "fade_in",
         "fade_out",
+        "fade_in_shape",
+        "fade_out_shape",
         "ducking",
         "duck_db",
         "duck_attack",
@@ -8168,7 +8170,7 @@ ${indent}`);
       function validateTrack(value, index, trackIds, itemIds, sourceIds) {
         const path = `edit.json.tracks[${index}]`;
         requireRecord(value, path);
-        requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "items", "content"]), path);
+        requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "target", "sync", "items", "content"]), path);
         requireText(value.id, `${path}.id`);
         if (trackIds.has(value.id))
           throw invalid(`${path}.id`, `track id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
@@ -8181,6 +8183,11 @@ ${indent}`);
         }
         if (hasOwn(value, "muted") && typeof value.muted !== "boolean") {
           throw invalid(`${path}.muted`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+        for (const key of ["target", "sync"]) {
+          if (hasOwn(value, key) && typeof value[key] !== "boolean") {
+            throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
         }
         const hasItems = hasOwn(value, "items");
         const hasContent = hasOwn(value, "content");
@@ -8237,6 +8244,11 @@ ${indent}`);
           requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
         if (hasOwn(value, "fade_out"))
           requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+        for (const field of ["fade_in_shape", "fade_out_shape"]) {
+          if (hasOwn(value, field) && !["linear", "equal_power", "s_curve", "slow"].includes(value[field])) {
+            throw invalid(`${path}.${field}`, "linear/equal_power/s_curve/slow \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+        }
         if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
           throw invalid(`${path}.ducking`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
@@ -13698,12 +13710,108 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.DEFAULT_DUCK_KEYS = exports.DEFAULT_DUCK_RELEASE_SEC = exports.DEFAULT_DUCK_ATTACK_SEC = exports.DEFAULT_DUCK_DB = void 0;
+      exports.audioFadeProgress = audioFadeProgress;
+      exports.audioFadeMultiplier = audioFadeMultiplier;
+      exports.audioFadeGainEvents = audioFadeGainEvents;
+      exports.audioFadeFfmpegCurve = audioFadeFfmpegCurve;
+      exports.projectAudioFadeShapes = projectAudioFadeShapes;
       exports.easingProgress = easingProgress;
       exports.evaluateEnvelopeDb = evaluateEnvelopeDb;
       exports.composeEnvelopesDb = composeEnvelopesDb;
       exports.envelopeToGainEvents = envelopeToGainEvents;
       exports.sampleEnvelopeLinear = sampleEnvelopeLinear;
       exports.computeDuckEnvelope = computeDuckEnvelope;
+      function audioFadeProgress(shape, progress) {
+        const p2 = Math.min(1, Math.max(0, progress));
+        switch (shape ?? "linear") {
+          case "equal_power":
+            return Math.sin(p2 * Math.PI / 2);
+          case "s_curve":
+            return (1 - Math.cos(p2 * Math.PI)) / 2;
+          case "slow":
+            return p2 * p2;
+          default:
+            return p2;
+        }
+      }
+      function audioFadeMultiplier(localSeconds, durationSeconds, fadeInSeconds, fadeOutSeconds, inShape, outShape) {
+        const duration = Math.max(0, durationSeconds);
+        const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+        const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+        let value = 1;
+        if (fadeIn > 0 && localSeconds < fadeIn)
+          value = Math.min(value, audioFadeProgress(inShape, localSeconds / fadeIn));
+        if (fadeOut > 0 && localSeconds > duration - fadeOut) {
+          value = Math.min(value, audioFadeProgress(outShape, (duration - localSeconds) / fadeOut));
+        }
+        return Math.min(1, Math.max(0, value));
+      }
+      function audioFadeGainEvents(durationSeconds, fadeInSeconds, fadeOutSeconds, inShape, outShape) {
+        const duration = Math.max(0, durationSeconds);
+        const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+        const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+        const times = /* @__PURE__ */ new Set([0, duration]);
+        for (let index = 0; index <= 16; index += 1) {
+          if (fadeIn > 0)
+            times.add(fadeIn * index / 16);
+          if (fadeOut > 0)
+            times.add(duration - fadeOut + fadeOut * index / 16);
+        }
+        return [...times].sort((a, b) => a - b).map((offsetSec, index) => ({
+          offsetSec,
+          value: audioFadeMultiplier(offsetSec, duration, fadeIn, fadeOut, inShape, outShape),
+          method: index === 0 ? "set" : "linear"
+        }));
+      }
+      function audioFadeFfmpegCurve(shape) {
+        switch (shape ?? "linear") {
+          case "equal_power":
+            return "qsin";
+          case "s_curve":
+            return "hsin";
+          case "slow":
+            return "qua";
+          default:
+            return "tri";
+        }
+      }
+      function projectAudioFadeShapes(audio, tracks) {
+        if (!Array.isArray(tracks))
+          return audio;
+        const rawItems = tracks.flatMap((track) => track?.lane === "audio" && Array.isArray(track.items) ? track.items : []).filter((item) => item && typeof item === "object");
+        const shapes2 = (item) => {
+          const result = {};
+          for (const edge of ["in", "out"]) {
+            const field = `fade_${edge}_shape`;
+            const value = item?.[field];
+            if (value === "linear" || value === "equal_power" || value === "s_curve" || value === "slow") {
+              result[field] = value;
+            }
+          }
+          return result;
+        };
+        if (!rawItems.some((item) => Object.keys(shapes2(item)).length > 0))
+          return audio;
+        const byId = new Map(rawItems.filter((item) => typeof item.id === "string").map((item) => [item.id, shapes2(item)]));
+        const bgmItems = rawItems.filter((item) => item.role === "bgm");
+        const map = (items, role) => Array.isArray(items) ? items.map((item, index) => {
+          if (!item || typeof item !== "object")
+            return item;
+          const declared = role === "bgm" ? shapes2(bgmItems[index]) : byId.get(item.id);
+          return declared && Object.keys(declared).length > 0 ? { ...item, ...declared } : item;
+        }) : items;
+        const next = { ...audio };
+        if (audio["bgm"] && bgmItems.length > 0) {
+          const declared = shapes2(bgmItems[0]);
+          if (Object.keys(declared).length > 0)
+            next.bgm = { ...audio["bgm"], ...declared };
+        }
+        for (const role of ["bgms", "sfx", "narration", "speech"]) {
+          if (audio[role] !== void 0)
+            next[role] = map(audio[role], role === "bgms" ? "bgm" : role);
+        }
+        return next;
+      }
       exports.DEFAULT_DUCK_DB = -12;
       exports.DEFAULT_DUCK_ATTACK_SEC = 0.3;
       exports.DEFAULT_DUCK_RELEASE_SEC = 0.8;
@@ -14852,7 +14960,7 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-      exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
+      exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "fade_in_shape", "fade_out_shape", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
       exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
       exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
       exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -15042,6 +15150,8 @@ ${indent}`);
           "keyframes",
           "fade_in",
           "fade_out",
+          "fade_in_shape",
+          "fade_out_shape",
           "ducking",
           "duck_db",
           "duck_attack",
@@ -15403,6 +15513,413 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/ripple.js
+  var require_ripple = __commonJS({
+    "packages/edit-store/lib/ripple.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.resolveTrackRippleMode = resolveTrackRippleMode;
+      exports.setTrackRippleMode = setTrackRippleMode;
+      exports.sliceTimelineItem = sliceTimelineItem;
+      exports.removeTimelineItemRange = removeTimelineItemRange;
+      exports.splitAtFrame = splitAtFrame;
+      exports.liftRange = liftRange;
+      exports.extractRange = extractRange;
+      exports.rippleDeleteItems = rippleDeleteItems;
+      exports.findGapAt = findGapAt;
+      exports.closeGapAt = closeGapAt;
+      exports.editPoints = editPoints;
+      exports.rippleTrimToPlayhead = rippleTrimToPlayhead;
+      exports.compactTrackGaps = compactTrackGaps;
+      var envelope_1 = require_envelope();
+      var clone = (value) => JSON.parse(JSON.stringify(value));
+      var itemsTrack = (track) => "items" in track;
+      var endOf = (item) => item.at + item.duration;
+      var unchanged = (edit, reason) => ({ edit: clone(edit), changed: false, reason });
+      var validFrame = (frame) => Number.isInteger(frame) && frame >= 0;
+      var validRange = (range) => validFrame(range.start) && validFrame(range.end) && range.end > range.start;
+      function resolveTrackRippleMode(track) {
+        if (track.target === true)
+          return "cut";
+        if (track.target === false)
+          return track.sync === true ? "shift" : "fixed";
+        if (track.sync === true)
+          return "shift";
+        if (track.sync === false)
+          return "fixed";
+        return track.lane === "audio" && itemsTrack(track) && track.items.length > 0 && track.items.every((item) => "role" in item && item.role === "bgm") ? "fixed" : "cut";
+      }
+      function setTrackRippleMode(edit, trackId, mode) {
+        const result = clone(edit);
+        const track = result.tracks.find((candidate) => candidate.id === trackId);
+        if (!track)
+          throw new Error(`\u30C8\u30E9\u30C3\u30AF\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${trackId}`);
+        if (!["cut", "shift", "fixed"].includes(mode))
+          throw new Error(`\u4E0D\u660E\u306A\u30E2\u30FC\u30C9: ${mode}`);
+        track.target = mode === "cut";
+        track.sync = mode !== "fixed";
+        return result;
+      }
+      function modeOf(track, opts) {
+        if (opts.lockedTrackIds?.includes(track.id))
+          return "fixed";
+        return opts.modeOverride?.[track.id] ?? resolveTrackRippleMode(track);
+      }
+      function idsIn(edit) {
+        const ids = /* @__PURE__ */ new Set();
+        const visit = (item) => {
+          ids.add(item.id);
+          if ("items" in item && item.items)
+            item.items.forEach(visit);
+        };
+        for (const track of edit.tracks)
+          if (itemsTrack(track))
+            track.items.forEach(visit);
+        return ids;
+      }
+      function nextId(ids, base) {
+        let result = base;
+        let serial = 2;
+        while (ids.has(result))
+          result = `${base}-${serial++}`;
+        ids.add(result);
+        return result;
+      }
+      function interpolateKeyframe(left, right, t) {
+        const fraction = (t - left.t) / (right.t - left.t);
+        const value = { ...clone(left), t };
+        if (right.easing !== void 0)
+          value.easing = clone(right.easing);
+        else
+          delete value.easing;
+        const progress = (property, fallback) => {
+          const easing = typeof right.easing === "string" ? right.easing : right.easing?.[property] ?? (fallback ? right.easing?.[fallback] : void 0);
+          return (0, envelope_1.easingProgress)(easing, fraction);
+        };
+        for (const [key, next] of Object.entries(right)) {
+          if (key === "t" || key === "easing")
+            continue;
+          const prev = left[key];
+          if (typeof prev === "number" && typeof next === "number") {
+            value[key] = prev + (next - prev) * progress(key);
+          } else if (prev && next && typeof prev === "object" && typeof next === "object" && !Array.isArray(prev) && !Array.isArray(next)) {
+            const interpolated = { ...prev };
+            for (const [part, end] of Object.entries(next)) {
+              const start = prev[part];
+              if (typeof start === "number" && typeof end === "number") {
+                interpolated[part] = start + (end - start) * progress(`${key}.${part}`, key);
+              }
+            }
+            value[key] = interpolated;
+          }
+        }
+        return value;
+      }
+      function keysInWindow(keys, start, end) {
+        const ordered = [...keys].sort((a, b) => a.t - b.t);
+        const at2 = (t) => {
+          const exact = ordered.find((key) => key.t === t);
+          if (exact)
+            return clone(exact);
+          const left = [...ordered].reverse().find((key) => key.t < t);
+          const right = ordered.find((key) => key.t > t);
+          if (left && right)
+            return interpolateKeyframe(left, right, t);
+          const nearest = left ?? right;
+          return nearest ? { ...clone(nearest), t } : void 0;
+        };
+        const selected = [at2(start), ...ordered.filter((key) => key.t > start && key.t < end).map(clone), at2(end)].filter((key) => key !== void 0);
+        return selected.map((key) => ({ ...key, t: key.t - start }));
+      }
+      function sliceTimelineItem(item, start, end, fps, ids) {
+        if (!validFrame(start) || !validFrame(end) || start < item.at || end > endOf(item) || end <= start) {
+          throw new Error("\u5207\u308A\u51FA\u3057\u7BC4\u56F2\u304C\u4E0D\u6B63\u3067\u3059");
+        }
+        const part = clone(item);
+        const offset = start - item.at;
+        part.at = start;
+        part.duration = end - start;
+        if (offset > 0 && ids)
+          part.id = nextId(ids, `${item.id}-split`);
+        if (item.source.kind === "media" && part.source.kind === "media") {
+          const sourceIn = item.source.in ?? 0;
+          const sourceOut = item.source.out ?? sourceIn + item.duration * (item.source.speed ?? 1) / fps;
+          const sourceSpan = sourceOut - sourceIn;
+          part.source.in = sourceIn + sourceSpan * offset / item.duration;
+          part.source.out = sourceIn + sourceSpan * (offset + part.duration) / item.duration;
+        }
+        if (item.keyframes)
+          part.keyframes = keysInWindow(item.keyframes, offset, offset + part.duration);
+        if ("items" in item && item.items && "items" in part) {
+          part.items = item.items.flatMap((child) => {
+            const childStart = Math.max(child.at, offset);
+            const childEnd = Math.min(child.at + child.duration, offset + part.duration);
+            if (childEnd <= childStart)
+              return [];
+            const piece = sliceTimelineItem(child, childStart, childEnd, fps, ids);
+            piece.at -= offset;
+            return [piece];
+          });
+        }
+        if ("fade_in" in part && offset > 0)
+          delete part.fade_in;
+        if ("fade_out" in part && end < endOf(item))
+          delete part.fade_out;
+        return part;
+      }
+      function splitOne(track, index, frame, fps, ids) {
+        const item = track.items[index];
+        const left = sliceTimelineItem(item, item.at, frame, fps, ids);
+        const right = sliceTimelineItem(item, frame, endOf(item), fps, ids);
+        track.items.splice(index, 1, left, right);
+        return right.id;
+      }
+      function removeTimelineItemRange(item, range, fps, ids) {
+        if (item.at >= range.end || endOf(item) <= range.start)
+          return [item];
+        const kept = [];
+        if (item.at < range.start)
+          kept.push(sliceTimelineItem(item, item.at, range.start, fps, ids));
+        if (endOf(item) > range.end)
+          kept.push(sliceTimelineItem(item, range.end, endOf(item), fps, ids));
+        return kept;
+      }
+      function splitAtFrame(edit, frame, opts = {}) {
+        if (!validFrame(frame))
+          return unchanged(edit, "\u5206\u5272\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059");
+        const result = clone(edit);
+        const selected = /* @__PURE__ */ new Set();
+        for (const track of result.tracks) {
+          if (!itemsTrack(track) || opts.lockedTrackIds?.includes(track.id) || opts.trackIds && !opts.trackIds.includes(track.id))
+            continue;
+          if (!opts.itemIds && modeOf(track, opts) !== "cut")
+            continue;
+          for (const item of track.items) {
+            if (opts.itemIds && !opts.itemIds.includes(item.id))
+              continue;
+            if (item.at < frame && endOf(item) > frame && ["media", "html", "telop", "filter"].includes(item.source.kind))
+              selected.add(item.id);
+          }
+        }
+        for (const track of result.tracks)
+          if (itemsTrack(track) && track.lane === "audio") {
+            for (const item of track.items) {
+              if (item.link && selected.has(item.link))
+                selected.add(item.id);
+              if (item.link && selected.has(item.id))
+                selected.add(item.link);
+            }
+          }
+        if (!selected.size)
+          return unchanged(edit, "\u5206\u5272\u3067\u304D\u308B\u30A2\u30A4\u30C6\u30E0\u304C\u3042\u308A\u307E\u305B\u3093");
+        const minimum = Math.ceil(result.output.fps * 0.15);
+        const targets = [];
+        for (const track of result.tracks)
+          if (itemsTrack(track)) {
+            track.items.forEach((item, index) => {
+              if (selected.has(item.id))
+                targets.push({ track, index, item });
+            });
+          }
+        if (targets.some(({ track, item }) => opts.lockedTrackIds?.includes(track.id) || !(item.at < frame && endOf(item) > frame) || Math.min(frame - item.at, endOf(item) - frame) < minimum)) {
+          return unchanged(edit, "\u30EA\u30F3\u30AF\u76F8\u624B\u304C\u56FA\u5B9A\u4E2D\u304B\u3001\u7247\u5074\u304C\u6700\u5C0F\u5C3A\u672A\u6E80\u3067\u3059");
+        }
+        const ids = idsIn(result);
+        const rightIds = /* @__PURE__ */ new Map();
+        for (const { track, index, item } of targets.sort((a, b) => b.index - a.index)) {
+          rightIds.set(item.id, splitOne(track, index, frame, result.output.fps, ids));
+        }
+        for (const track of result.tracks)
+          if (itemsTrack(track) && track.lane === "audio") {
+            for (const item of track.items)
+              if (item.link && rightIds.has(item.id)) {
+                const right = track.items.find((candidate) => candidate.id === rightIds.get(item.id));
+                if (right)
+                  right.link = rightIds.get(item.link) ?? item.link;
+              }
+          }
+        return { edit: result, changed: true };
+      }
+      function removeInside(track, range, fps, ids) {
+        let changed = false;
+        const result = [];
+        for (const item of track.items) {
+          if (item.at >= range.end || endOf(item) <= range.start) {
+            result.push(item);
+            continue;
+          }
+          changed = true;
+          result.push(...removeTimelineItemRange(item, range, fps, ids));
+        }
+        track.items = result;
+        return changed;
+      }
+      function shiftAfter(track, range, blocked) {
+        let changed = false;
+        let previousEnd = 0;
+        for (const item of [...track.items].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id))) {
+          if (item.at >= range.end && !item.anchor) {
+            const desired = Math.max(0, item.at - (range.end - range.start));
+            const next = Math.max(desired, previousEnd);
+            if (next !== desired)
+              blocked.push(item.id);
+            if (next !== item.at) {
+              item.at = next;
+              changed = true;
+            }
+          }
+          previousEnd = Math.max(previousEnd, endOf(item));
+        }
+        return changed;
+      }
+      function rangeOperation(edit, range, opts, ripple, selectedTrackIds) {
+        if (!validRange(range))
+          return unchanged(edit, "\u7BC4\u56F2\u304C\u4E0D\u6B63\u3067\u3059");
+        const result = clone(edit);
+        const ids = idsIn(result);
+        const blocked = [];
+        let changed = false;
+        for (const track of result.tracks) {
+          if (!itemsTrack(track))
+            continue;
+          const mode = modeOf(track, opts);
+          const cut = selectedTrackIds ? selectedTrackIds.has(track.id) : mode === "cut";
+          if (mode === "fixed" && !selectedTrackIds?.has(track.id))
+            continue;
+          if (cut)
+            changed = removeInside(track, range, result.output.fps, ids) || changed;
+          if (ripple)
+            changed = shiftAfter(track, range, blocked) || changed;
+        }
+        return { edit: result, changed, ...ripple ? { removedFrames: range.end - range.start, blocked } : {} };
+      }
+      function liftRange(edit, range, opts = {}) {
+        return rangeOperation(edit, range, opts, false);
+      }
+      function extractRange(edit, range, opts = {}) {
+        return rangeOperation(edit, range, opts, true);
+      }
+      function rippleDeleteItems(edit, itemIds, opts = {}) {
+        const selected = new Set(itemIds);
+        if (!opts.oneSide) {
+          for (const track of edit.tracks)
+            if (itemsTrack(track) && track.lane === "audio") {
+              for (const item of track.items)
+                if (item.link && selected.has(item.link))
+                  selected.add(item.id);
+              for (const item of track.items)
+                if (selected.has(item.id) && item.link)
+                  selected.add(item.link);
+            }
+        }
+        const locations = edit.tracks.flatMap((track) => itemsTrack(track) ? track.items.filter((item) => selected.has(item.id)).map((item) => ({ trackId: track.id, item })) : []);
+        if (!locations.length)
+          return unchanged(edit, "\u9078\u629E\u30A2\u30A4\u30C6\u30E0\u304C\u3042\u308A\u307E\u305B\u3093");
+        if (locations.some(({ trackId }) => opts.lockedTrackIds?.includes(trackId)))
+          return unchanged(edit, "\u56FA\u5B9A\u4E2D\u306E\u30C8\u30E9\u30C3\u30AF\u3067\u3059");
+        const ranges = /* @__PURE__ */ new Map();
+        for (const { item, trackId } of locations) {
+          const key = `${item.at}:${endOf(item)}`;
+          const entry = ranges.get(key) ?? { range: { start: item.at, end: endOf(item) }, trackIds: /* @__PURE__ */ new Set() };
+          entry.trackIds.add(trackId);
+          ranges.set(key, entry);
+        }
+        const ordered = [...ranges.values()].sort((a, b) => b.range.start - a.range.start || b.range.end - a.range.end);
+        let current = clone(edit);
+        const blocked = /* @__PURE__ */ new Set();
+        let removedFrames = 0;
+        for (const { range, trackIds } of ordered) {
+          const step = rangeOperation(current, range, opts, true, trackIds);
+          current = step.edit;
+          removedFrames += range.end - range.start;
+          step.blocked?.forEach((id) => blocked.add(id));
+        }
+        if (opts.oneSide) {
+          const remaining = idsIn(current);
+          for (const track of current.tracks)
+            if (itemsTrack(track) && track.lane === "audio") {
+              for (const item of track.items)
+                if (item.link && !remaining.has(item.link))
+                  delete item.link;
+            }
+        }
+        return { edit: current, changed: true, removedFrames, blocked: [...blocked] };
+      }
+      function findGapAt(edit, trackId, frame) {
+        if (!validFrame(frame))
+          return void 0;
+        const track = edit.tracks.find((candidate) => candidate.id === trackId);
+        if (!track || !itemsTrack(track))
+          return void 0;
+        const ordered = [...track.items].sort((a, b) => a.at - b.at);
+        for (let index = 0; index < ordered.length; index++) {
+          const start = index === 0 ? 0 : endOf(ordered[index - 1]);
+          const end = ordered[index].at;
+          if (start <= frame && frame < end)
+            return { start, end };
+        }
+        return void 0;
+      }
+      function closeGapAt(edit, trackId, frame, opts = {}) {
+        const gap = findGapAt(edit, trackId, frame);
+        if (!gap)
+          return unchanged(edit, "\u9699\u9593\u304C\u3042\u308A\u307E\u305B\u3093");
+        const track = edit.tracks.find((candidate) => candidate.id === trackId);
+        if (!track || modeOf(track, opts) === "fixed")
+          return unchanged(edit, "\u56FA\u5B9A\u4E2D\u306E\u30C8\u30E9\u30C3\u30AF\u3067\u3059");
+        return rangeOperation(edit, gap, opts, true, /* @__PURE__ */ new Set());
+      }
+      function editPoints(edit, opts = {}) {
+        const points = /* @__PURE__ */ new Set();
+        for (const track of edit.tracks)
+          if (itemsTrack(track) && modeOf(track, opts) === "cut") {
+            for (const item of track.items) {
+              points.add(item.at);
+              points.add(endOf(item));
+            }
+          }
+        return [...points].sort((a, b) => a - b);
+      }
+      function rippleTrimToPlayhead(edit, frame, side, opts = {}) {
+        if (!validFrame(frame))
+          return unchanged(edit, "\u518D\u751F\u30D8\u30C3\u30C9\u304C\u4E0D\u6B63\u3067\u3059");
+        const points = editPoints(edit, opts);
+        const point = side === "prev" ? [...points].reverse().find((value) => value < frame) : points.find((value) => value > frame);
+        if (point === void 0)
+          return unchanged(edit, "\u7DE8\u96C6\u70B9\u304C\u3042\u308A\u307E\u305B\u3093");
+        return extractRange(edit, side === "prev" ? { start: point, end: frame } : { start: frame, end: point }, opts);
+      }
+      function compactTrackGaps(edit, opts = {}) {
+        const result = clone(edit);
+        let changed = false;
+        for (const track of result.tracks)
+          if (itemsTrack(track) && track.lane === "visual" && modeOf(track, opts) === "cut") {
+            let cursor = 0;
+            let selectedReached = opts.fromItemId === void 0;
+            for (const item of track.items) {
+              if (item.source.kind !== "media")
+                continue;
+              if (item.id === opts.fromItemId) {
+                selectedReached = true;
+                cursor = endOf(item);
+                continue;
+              }
+              if (!selectedReached) {
+                cursor = Math.max(cursor, endOf(item));
+                continue;
+              }
+              if ((!item.anchor || opts.includeAnchored) && item.at !== cursor) {
+                item.at = cursor;
+                changed = true;
+              }
+              cursor = endOf(item);
+            }
+          }
+        return { edit: result, changed };
+      }
+    }
+  });
+
   // packages/edit-store/lib/cut-ranges.js
   var require_cut_ranges = __commonJS({
     "packages/edit-store/lib/cut-ranges.js"(exports) {
@@ -15412,6 +15929,7 @@ ${indent}`);
       exports.applyCutRanges = applyCutRanges;
       var edit_store_1 = require_edit_store();
       var edit_v2_1 = require_edit_v2();
+      var ripple_1 = require_ripple();
       var LEGACY_EDGE_SECONDS = 0.15;
       function detectEditVersion(source) {
         const version = JSON.parse(source).version;
@@ -15511,19 +16029,10 @@ ${indent}`);
           if (!matched)
             warnings2.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
         }
-        for (const track of visualTracks(edit)) {
-          if (!affectedTrackIds.has(track.id))
-            continue;
-          let cursor = 0;
-          for (const item of track.items) {
-            if (item.source.kind !== "media")
-              continue;
-            item.at = cursor;
-            cursor += item.duration;
-          }
-        }
-        (0, edit_v2_1.readEditV2)(edit);
-        return { source: `${JSON.stringify(edit, null, 2)}
+        const modeOverride = Object.fromEntries(edit.tracks.map((track) => [track.id, affectedTrackIds.has(track.id) ? "cut" : "fixed"]));
+        const compacted = (0, ripple_1.compactTrackGaps)(edit, { modeOverride, includeAnchored: true }).edit;
+        (0, edit_v2_1.readEditV2)(compacted);
+        return { source: `${JSON.stringify(compacted, null, 2)}
 `, removedFrames, warnings: warnings2 };
       }
       function copyRangeMetadata(target, range) {
@@ -15560,37 +16069,13 @@ ${indent}`);
         const endOffset = clampFrame(Math.round((overlapOut - mediaItem.source.in) / sourceDuration * mediaItem.duration), mediaItem.duration);
         if (endOffset <= startOffset)
           return { items: [item], removedFrames: 0 };
-        const items = [];
-        if (startOffset > 0) {
-          const first = cloneItem(mediaItem);
-          first.duration = startOffset;
-          first.source.out = mediaItem.source.in + sourceDuration * startOffset / mediaItem.duration;
-          items.push(first);
-        }
-        if (endOffset < mediaItem.duration) {
-          const second = cloneItem(mediaItem);
-          second.id = nextItemId(edit, `${mediaItem.id}-split`);
-          second.at = mediaItem.at + endOffset;
-          second.duration = mediaItem.duration - endOffset;
-          second.source.in = mediaItem.source.in + sourceDuration * endOffset / mediaItem.duration;
-          items.push(second);
-        }
-        return { items, removedFrames: endOffset - startOffset };
-      }
-      function cloneItem(item) {
-        return JSON.parse(JSON.stringify(item));
-      }
-      function nextItemId(edit, base) {
         const ids = /* @__PURE__ */ new Set();
-        for (const track of visualTracks(edit))
-          for (const item of track.items)
-            collectIds(item, ids);
-        if (!ids.has(base))
-          return base;
-        let serial = 2;
-        while (ids.has(`${base}-${serial}`))
-          serial++;
-        return `${base}-${serial}`;
+        for (const track of edit.tracks)
+          if ("items" in track)
+            for (const candidate of track.items)
+              collectIds(candidate, ids);
+        const items = (0, ripple_1.removeTimelineItemRange)(mediaItem, { start: mediaItem.at + startOffset, end: mediaItem.at + endOffset }, edit.output.fps, ids);
+        return { items, removedFrames: endOffset - startOffset };
       }
       function collectIds(item, ids) {
         ids.add(item.id);
@@ -16271,6 +16756,7 @@ ${indent}`);
       __exportStar(require_shape_markup(), exports);
       __exportStar(require_shape_preset(), exports);
       __exportStar(require_cut_ranges(), exports);
+      __exportStar(require_ripple(), exports);
       __exportStar(require_adjust_css_approx(), exports);
       var legacy_parse_1 = require_legacy_parse();
       Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {

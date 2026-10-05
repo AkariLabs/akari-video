@@ -122,6 +122,30 @@ test('レイヤー動画の素材表追加・baked telop・audio を音声先頭
   assert.equal(result.doc.tracks[0].items[0].source.out, undefined);
 });
 
+test('legacy bgm / sfx fade shapes migrate with their clip and reject unknown values', () => {
+  const doc = base(1);
+  doc.audio = {
+    bgm: { path: 'music.wav', fadeIn: 0.5, fade_in_shape: 'equal_power', fade_out_shape: 'slow' },
+    sfx: [{ path: 'hit.wav', t: 0.2, fade_in: 0.1, fade_in_shape: 's_curve', fade_out_shape: 'linear' }],
+  };
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true, result.blockers?.join('\n'));
+  const items = result.doc.tracks.flatMap(track => track.lane === 'audio' ? track.items : []);
+  const bgm = items.find(item => item.role === 'bgm');
+  const sfx = items.find(item => item.role !== 'bgm');
+  assert.deepEqual([bgm.fade_in_shape, bgm.fade_out_shape], ['equal_power', 'slow']);
+  assert.deepEqual([sfx.fade_in_shape, sfx.fade_out_shape], ['s_curve', 'linear']);
+  assert.doesNotThrow(() => readEditV2(result.doc));
+  for (const [kind, field] of [['bgm', 'fade_out_shape'], ['sfx', 'fade_in_shape']]) {
+    const invalid = structuredClone(doc);
+    if (kind === 'bgm') invalid.audio.bgm[field] = 'exp';
+    else invalid.audio.sfx[0][field] = 'exp';
+    const rejected = migrateEditToV2(invalid);
+    assert.equal(rejected.ok, false);
+    assert.match(rejected.blockers.join('\n'), new RegExp(field));
+  }
+});
+
 test('v2 media mask survives projection to a path-backed legacy layer and migration back to its source id', () => {
   const original = {
     version: 2,

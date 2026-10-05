@@ -12,7 +12,7 @@ const ITEM_KEYS = new Set([
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
-    'fade_in', 'fade_out', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
+    'fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
     'denoise', 'lowcut_hz', 'script', 'reading', 'caption_ref', 'provenance', 'anchor'
 ]);
 /**
@@ -195,6 +195,11 @@ function validateAudioItem(value, path, ids, sourceIds) {
         requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
     if (hasOwn(value, 'fade_out'))
         requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+    for (const field of ['fade_in_shape', 'fade_out_shape']) {
+        if (hasOwn(value, field) && !['linear', 'equal_power', 's_curve', 'slow'].includes(value[field])) {
+            throw invalid(`${path}.${field}`, 'linear/equal_power/s_curve/slow のいずれかである必要があります');
+        }
+    }
     if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
         throw invalid(`${path}.ducking`, 'boolean である必要があります');
     }

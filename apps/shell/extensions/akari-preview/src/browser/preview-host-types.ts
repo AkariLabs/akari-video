@@ -315,6 +315,8 @@ export interface EditSummaryBgm extends EditSummaryAudioSource {
     duckRelease?: number;
     fadeIn?: number;
     fadeOut?: number;
+    fadeInShape?: 'linear' | 'equal_power' | 's_curve' | 'slow';
+    fadeOutShape?: 'linear' | 'equal_power' | 's_curve' | 'slow';
     // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: file-internal start offset (素材秒).
     in?: number;
 }
@@ -336,6 +338,8 @@ export interface EditSummaryTimedAudio extends EditSummaryAudioSource {
     // file's own TS field-naming convention for every other JSON-sourced audio field.
     fadeIn?: number;
     fadeOut?: number;
+    fadeInShape?: 'linear' | 'equal_power' | 's_curve' | 'slow';
+    fadeOutShape?: 'linear' | 'equal_power' | 's_curve' | 'slow';
     ducking?: boolean;
     duckDb?: number;
     duckAttack?: number;

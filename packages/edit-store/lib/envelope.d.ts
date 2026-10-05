@@ -12,6 +12,16 @@ export interface EnvelopeGainEvent {
     value: number;
     method: 'set' | 'linear' | 'exponential';
 }
+export type AudioFadeShape = 'linear' | 'equal_power' | 's_curve' | 'slow';
+/** The same progress curve is sampled by preview and named by the export filter. */
+export declare function audioFadeProgress(shape: AudioFadeShape | undefined, progress: number): number;
+export declare function audioFadeMultiplier(localSeconds: number, durationSeconds: number, fadeInSeconds: number, fadeOutSeconds: number, inShape?: AudioFadeShape, outShape?: AudioFadeShape): number;
+/** Linear ramp events: 16 segments per active fade, including both endpoints. */
+export declare function audioFadeGainEvents(durationSeconds: number, fadeInSeconds: number, fadeOutSeconds: number, inShape?: AudioFadeShape, outShape?: AudioFadeShape): EnvelopeGainEvent[];
+/** afade's tri/qsin/hsin/qua correspond to p/sin(pπ/2)/(1−cos(pπ))/2/p². */
+export declare function audioFadeFfmpegCurve(shape: AudioFadeShape | undefined): 'tri' | 'qsin' | 'hsin' | 'qua';
+/** Carry v2-only shape declarations across the legacy audio projection without changing shape-less input. */
+export declare function projectAudioFadeShapes<T extends Record<string, any>>(audio: T, tracks: unknown): T;
 export declare const DEFAULT_DUCK_DB = -12;
 export declare const DEFAULT_DUCK_ATTACK_SEC = 0.3;
 export declare const DEFAULT_DUCK_RELEASE_SEC = 0.8;

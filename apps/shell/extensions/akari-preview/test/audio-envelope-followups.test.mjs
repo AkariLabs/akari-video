@@ -21,7 +21,7 @@ test('duck_db attack release は legacy 宣言から preview summary へ運ば�
     assert.match(source, /value\.duck_db \?\? value\.duckDb/u);
     assert.match(source, /value\.duck_attack \?\? value\.duckAttack/u);
     assert.match(source, /value\.duck_release \?\? value\.duckRelease/u);
-    assert.match(source, /\.\.\.duckOptions\(item, label\)/u);
+    assert.match(source, /kind === 'sfx' \? duckOptions\(item, label\) : \{\}/u);
     assert.match(source, /\.\.\.duckOptions\(rawBgm, 'audio\.bgm'\)/u);
 });
 

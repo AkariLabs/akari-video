@@ -4,6 +4,7 @@ import { currentTimelineEditUri } from '../../active-timeline';
 import { InspectorWriteResult, LivePreviewRequest, TimelineAudioSelection, TimelineItemSelectionSnapshot } from '../../timeline-selection-model';
 import { InspectorSectionDef } from '../section-model';
 import type { AudioEnvelopeKeyframePayload } from '../../../common/akari-annotations-protocol';
+import type { AudioFadeShape } from '../../../common/audio-inline-envelope';
 
 export type InspectorSnapshot = TimelineItemSelectionSnapshot;
 /** RPC request payloads retain the selected edit URI while common protocols stay on their own lane. */
@@ -17,6 +18,8 @@ export type AudioInspectorSnapshot = TimelineAudioSelection & {
     duckAttack?: number;
     duckRelease?: number;
     keyframes?: AudioEnvelopeKeyframePayload[];
+    fadeInShape?: AudioFadeShape;
+    fadeOutShape?: AudioFadeShape;
     keyframeFrames?: boolean;
     fps?: number;
     playheadSeconds?: number;

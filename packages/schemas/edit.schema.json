@@ -867,7 +867,9 @@
         "duck_release": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.8 },
         "in": { "$ref": "#/$defs/seconds" },
         "fadeIn": { "$ref": "#/$defs/seconds" },
-        "fadeOut": { "$ref": "#/$defs/seconds" }
+        "fadeOut": { "$ref": "#/$defs/seconds" },
+        "fade_in_shape": { "enum": ["linear", "equal_power", "s_curve", "slow"] },
+        "fade_out_shape": { "enum": ["linear", "equal_power", "s_curve", "slow"] }
       },
       "$comment": "fadeIn/fadeOut は秒・省略時 0（フェードなし）。BGM は timeline 全体尺にループ+トリムされるため、どちらかが timeline 尺/2 を超えて指定された場合は尺/2 にクランプされる（render-cut が実装、edit-lint がクランプ発生時に warning を出す）。in は BGM ファイル内の開始オフセット（素材秒・省略時 0）— ループ・fadeIn/fadeOut の既存意味論には影響しない（不変）。"
     },
@@ -889,6 +891,8 @@
         "lowcut_hz": { "type": "number", "minimum": 0, "maximum": 400, "default": 0 },
         "fade_in": { "$ref": "#/$defs/seconds" },
         "fade_out": { "$ref": "#/$defs/seconds" },
+        "fade_in_shape": { "enum": ["linear", "equal_power", "s_curve", "slow"] },
+        "fade_out_shape": { "enum": ["linear", "equal_power", "s_curve", "slow"] },
         "keyframes": { "$ref": "#/$defs/audioKeyframesLegacy" },
         "ducking": { "type": "boolean" },
         "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
@@ -1928,6 +1932,8 @@
         },
         "fade_in": { "$ref": "#/$defs/seconds" },
         "fade_out": { "$ref": "#/$defs/seconds" },
+        "fade_in_shape": { "enum": ["linear", "equal_power", "s_curve", "slow"] },
+        "fade_out_shape": { "enum": ["linear", "equal_power", "s_curve", "slow"] },
         "ducking": { "type": "boolean" },
         "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
         "duck_attack": { "type": "number", "minimum": 0, "maximum": 2, "default": 0.3 },

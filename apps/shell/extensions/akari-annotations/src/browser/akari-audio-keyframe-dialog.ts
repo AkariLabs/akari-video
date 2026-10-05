@@ -1,6 +1,7 @@
 import { AbstractDialog, DialogError, DialogMode, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AudioEnvelopeKeyframePayload } from '../common/akari-annotations-protocol';
+import { INLINE_AUDIO_SHAPES, type AudioFadeShape } from '../common/audio-inline-envelope';
 import { isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 import {
     AUDIO_KEYFRAME_MAX_DB,
@@ -75,6 +76,8 @@ export interface AkariAudioKeyframeDialogProps extends DialogProps {
     readonly gainDb?: number;
     readonly fadeIn?: number;
     readonly fadeOut?: number;
+    readonly fadeInShape?: AudioFadeShape;
+    readonly fadeOutShape?: AudioFadeShape;
     readonly fullPeaks: readonly number[];
     readonly fetchWaveform: (request: AudioKeyframeWaveformRequest) => Promise<readonly number[] | undefined>;
 }
@@ -82,6 +85,8 @@ export interface AkariAudioKeyframeDialogProps extends DialogProps {
 export interface AkariAudioKeyframeDialogValue {
     readonly keyframes: AudioEnvelopeKeyframePayload[];
     readonly gainDb: number;
+    readonly fadeInShape: AudioFadeShape;
+    readonly fadeOutShape: AudioFadeShape;
 }
 
 /** 波形の上で音量エンベロープだけを編集する、通常 DOM の Theia ダイアログ。 */
@@ -94,6 +99,8 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AkariAudioKeyframeD
     protected readonly timeInput = document.createElement('input');
     protected readonly gainInput = document.createElement('input');
     protected readonly easingInput = document.createElement('select');
+    protected readonly fadeInShapeInput = document.createElement('select');
+    protected readonly fadeOutShapeInput = document.createElement('select');
     protected readonly deleteButton = document.createElement('button');
     protected readonly notice = document.createElement('div');
     protected readonly playbackStatus = document.createElement('div');
@@ -224,6 +231,26 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AkariAudioKeyframeD
             this.deleteButton
         );
         this.contentNode.appendChild(this.editorRow);
+
+        const fadeRow = document.createElement('div');
+        Object.assign(fadeRow.style, { display: 'flex', gap: '10px', marginTop: '8px' });
+        for (const [input, selected] of [
+            [this.fadeInShapeInput, this.props.fadeInShape],
+            [this.fadeOutShapeInput, this.props.fadeOutShape]
+        ] as const) {
+            for (const shape of INLINE_AUDIO_SHAPES) {
+                const option = document.createElement('option');
+                option.value = shape.value;
+                option.textContent = shape.label;
+                input.appendChild(option);
+            }
+            input.value = selected ?? 'linear';
+        }
+        fadeRow.append(
+            this.labeledControl('フェードインの形', this.fadeInShapeInput),
+            this.labeledControl('フェードアウトの形', this.fadeOutShapeInput)
+        );
+        this.contentNode.appendChild(fadeRow);
 
         Object.assign(this.playbackStatus.style, {
             display: 'none', color: 'var(--theia-errorForeground)',
@@ -969,6 +996,10 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AkariAudioKeyframeD
                 gain_db: point.gainDb,
                 easing: point.easing
             }));
-        return { keyframes, gainDb: this.overallGainDb };
+        return {
+            keyframes, gainDb: this.overallGainDb,
+            fadeInShape: this.fadeInShapeInput.value as AudioFadeShape,
+            fadeOutShape: this.fadeOutShapeInput.value as AudioFadeShape
+        };
     }
 }

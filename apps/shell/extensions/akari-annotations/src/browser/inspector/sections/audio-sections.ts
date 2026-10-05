@@ -8,6 +8,8 @@ import { formatTimestamp, formatDurationSeconds, formatDecimal1, formatDecimal2,
 import type {
     AudioEnvelopeKeyframePayload
 } from '../../../common/akari-annotations-protocol';
+import { INLINE_AUDIO_SHAPES } from '../../../common/audio-inline-envelope';
+import type { AudioFadeShapeWriteRequest } from '../audio-fade-shape-write';
 
 export const AUDIO_DUCK_DEFAULTS = { duckDb: -12, duckAttack: 0.3, duckRelease: 0.8 } as const;
 export const AUDIO_KEYFRAME_EASING_OPTIONS = ['linear', 'hold', 'ease-in-out'] as const;
@@ -172,6 +174,29 @@ export function audioKeyframeFields(
     return fields;
 }
 
+function fadeShapeField(
+    snapshot: AudioInspectorSnapshot,
+    edge: 'in' | 'out',
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef {
+    const current = edge === 'in' ? snapshot.fadeInShape : snapshot.fadeOutShape;
+    return {
+        name: `audio-fade-${edge}-shape`, label: edge === 'in' ? 'フェードインの形' : 'フェードアウトの形',
+        inputKind: 'select', options: INLINE_AUDIO_SHAPES.map(shape => shape.value),
+        optionTitles: Object.fromEntries(INLINE_AUDIO_SHAPES.map(shape => [shape.value, shape.label])),
+        getValue: () => current ?? 'linear', getEditValue: () => current ?? 'linear',
+        write: async (_snapshot, nextValue) => {
+            const shape = INLINE_AUDIO_SHAPES.find(candidate => candidate.value === nextValue);
+            if (!shape) return { ok: false, message: 'フェードの形を選んでください。' };
+            const request: AudioFadeShapeWriteRequest = {
+                kind: 'audio-fade-shape', id: snapshot.id, audioKind: snapshot.audioKind,
+                edge, value: shape.value
+            };
+            return requestWrite(request as unknown as InspectorWriteRequest);
+        }
+    };
+}
+
 export function AUDIO_SECTIONS(
     snapshot: AudioInspectorSnapshot,
     requestWrite: (
@@ -236,6 +261,7 @@ export function AUDIO_SECTIONS(
                         return requestWrite({ kind: 'bgm-fade-in', value: parsed });
                     }
                 },
+                fadeShapeField(snapshot, 'in', requestWrite),
                 {
                     name: 'audio-fade-out', label: 'fadeOut', unit: 's',
                     getValue: () => withDefaultNumber(snapshot.fadeOut, 0, formatDurationSeconds),
@@ -251,6 +277,7 @@ export function AUDIO_SECTIONS(
                         return requestWrite({ kind: 'bgm-fade-out', value: parsed });
                     }
                 },
+                fadeShapeField(snapshot, 'out', requestWrite),
                 ...duckingFields(snapshot, requestWrite)
             ]
         });
@@ -274,6 +301,7 @@ export function AUDIO_SECTIONS(
                         return requestWrite({ kind: 'sfx-fade-in', id: snapshot.id, value: parsed });
                     }
                 },
+                fadeShapeField(snapshot, 'in', requestWrite),
                 {
                     name: 'audio-fade-out', label: 'fadeOut', unit: 's',
                     getValue: () => withDefaultNumber(snapshot.fadeOut, 0, formatDurationSeconds),
@@ -289,6 +317,7 @@ export function AUDIO_SECTIONS(
                         return requestWrite({ kind: 'sfx-fade-out', id: snapshot.id, value: parsed });
                     }
                 },
+                fadeShapeField(snapshot, 'out', requestWrite),
                 ...duckingFields(snapshot, requestWrite)
             ]
         });
