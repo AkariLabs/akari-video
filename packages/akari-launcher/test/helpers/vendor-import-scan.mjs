@@ -37,7 +37,8 @@ function allFiles(root) {
 }
 
 function resolves(from, specifier) {
-  const base = path.resolve(path.dirname(from), specifier);
+  // ESM の指定子は ?query / #hash を付けられる（テストが同じモジュールを別インスタンスで読むのに使う）。ファイル解決では外す
+  const base = path.resolve(path.dirname(from), specifier.replace(/[?#].*$/u, ''));
   return [base, `${base}.mjs`, `${base}.js`, `${base}.json`, path.join(base, 'index.mjs'), path.join(base, 'index.js')]
     .some(candidate => existsSync(candidate) && statSync(candidate).isFile());
 }

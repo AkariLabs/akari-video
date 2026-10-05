@@ -10,7 +10,10 @@ const renderRequire = createRequire(new URL('../../../../../packages/render-cut/
 
 test('frame-engine, render-cut CSS, and preview CSS agree on spin angle every 10 ms', async t => {
     const chrome = process.env.CHROME_BIN;
-    assert.ok(chrome && existsSync(chrome), 'CHROME_BIN must point to Edge/Chromium');
+    if (!chrome || !existsSync(chrome)) {
+        t.skip('CHROME_BIN 未設定（Edge / Chromium のある環境でのみ実行）');
+        return;
+    }
     const declaration = {
         in: { id: 'slide-up', duration_sec: 0.4 },
         loop: { id: 'spin-in' },
@@ -25,11 +28,12 @@ test('frame-engine, render-cut CSS, and preview CSS agree on spin angle every 10
     assert.equal(previewCss.keyframesCss, expected.keyframesCss);
 
     const puppeteer = renderRequire('puppeteer-core');
+    // Linux の CI ランナーはサンドボックスが使えず、--no-sandbox なしでは起動直後に落ちる
     const browser = await puppeteer.launch({
         executablePath: chrome,
         headless: true,
         pipe: true,
-        args: ['--single-process', '--no-zygote', '--disable-gpu']
+        args: ['--single-process', '--no-zygote', '--disable-gpu', ...(process.platform === 'linux' ? ['--no-sandbox'] : [])]
     });
     t.after(() => browser.close());
     const page = await browser.newPage();

@@ -32,8 +32,15 @@ const measure = page => page.evaluate(() => {
   return { left: plate.left, top: plate.top, width: plate.width, height: plate.height };
 });
 
-test('horizontal and vertical plates share the requested visible left edge; toggling keeps the center', async () => {
-  const browser = await launchBrowser();
+test('horizontal and vertical plates share the requested visible left edge; toggling keeps the center', async t => {
+  let browser;
+  try {
+    browser = await launchBrowser();
+  } catch (error) {
+    if (error?.message !== 'headless Chrome が見つかりません') throw error;
+    t.skip('headless Chrome 不在（Chrome のある環境でのみ実行）');
+    return;
+  }
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: output.width, height: output.height });
