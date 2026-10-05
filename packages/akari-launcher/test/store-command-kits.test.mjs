@@ -36,6 +36,14 @@ function fixtureZip(ctx, {
   mkdirSync(source, { recursive: true });
   if (manifest) cpSync(withAsset ? FIXTURE_WITH_ASSET : FIXTURE, source, { recursive: true });
   else writeFileSync(path.join(source, 'README.md'), 'legacy');
+  if (manifest && withAsset) {
+    const metaPath = path.join(source, 'assets', 'overlay', 'sample-kit-frame', 'meta.json');
+    const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+    if (!Object.hasOwn(meta, 'tier')) {
+      meta.tier = 'pro';
+      writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+    }
+  }
   if (manifest && !invalid) {
     const manifestPath = path.join(source, 'manifest.json');
     const value = JSON.parse(readFileSync(manifestPath, 'utf8'));

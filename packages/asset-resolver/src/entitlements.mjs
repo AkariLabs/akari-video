@@ -20,37 +20,39 @@ export async function readStoreCredentials(env = process.env) {
 }
 
 /**
- * 購入済み商品 id の Set + 取得結果。取得できない場合も ids は空集合
+ * 購入済み商品 id の Set + パス情報 + 取得結果。取得できない場合も ids は空集合、pass は null
  * （= 無料のみ使える）のままで、既存のフォールバックを変えない。
- * @returns {Promise<{ ids: Set<string>, status: 'ok'|'no_credentials'|'unauthorized'|'error' }>}
+ * @returns {Promise<{ ids: Set<string>, status: 'ok'|'no_credentials'|'unauthorized'|'error', pass: { tier: unknown, seat_no: unknown } | null }>}
  */
 export async function fetchEntitlements({ env = process.env, fetchImpl = fetch, intent = 'user' } = {}) {
   if (intent === 'automatic' && !await automaticChecksEnabled(env)) {
-    return { ids: new Set(), status: 'no_credentials' };
+    return { ids: new Set(), status: 'no_credentials', pass: null };
   }
   const credentials = await readStoreCredentials(env);
-  if (!credentials) return { ids: new Set(), status: 'no_credentials' };
+  if (!credentials) return { ids: new Set(), status: 'no_credentials', pass: null };
 
   const url = resolveEntitlementsUrl(env, credentials);
   try {
     const res = await fetchImpl(url, { headers: { authorization: `Bearer ${credentials.token}` } });
     if (res.status === 401 || res.status === 403) {
-      return { ids: new Set(), status: 'unauthorized' };
+      return { ids: new Set(), status: 'unauthorized', pass: null };
     }
     let data;
     try {
       data = await res.json();
     } catch {
-      return { ids: new Set(), status: 'error' };
+      return { ids: new Set(), status: 'error', pass: null };
     }
     if (data?.error === 'token_revoked') {
-      return { ids: new Set(), status: 'unauthorized' };
+      return { ids: new Set(), status: 'unauthorized', pass: null };
     }
-    if (!res.ok) return { ids: new Set(), status: 'error' };
+    if (!res.ok) return { ids: new Set(), status: 'error', pass: null };
     const list = Array.isArray(data?.entitlements) ? data.entitlements : [];
     const ids = list.map((entry) => (typeof entry === 'string' ? entry : entry?.product_id ?? entry?.id)).filter(Boolean);
-    return { ids: new Set(ids), status: 'ok' };
+    const pass = data?.pass !== null && typeof data?.pass === 'object' && !Array.isArray(data.pass)
+      ? { tier: data.pass.tier, seat_no: data.pass.seat_no } : null;
+    return { ids: new Set(ids), status: 'ok', pass };
   } catch {
-    return { ids: new Set(), status: 'error' };
+    return { ids: new Set(), status: 'error', pass: null };
   }
 }

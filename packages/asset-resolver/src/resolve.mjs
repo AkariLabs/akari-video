@@ -120,10 +120,10 @@ export async function resolve(
   }
 
   if (tier === 'pro' && item.source !== 'installed') {
-    const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
-    if (!isAssetEntitled(item, entitlements)) {
+    const entitlementsResult = await fetchEntitlements({ env, fetchImpl });
+    if (!isAssetEntitled(item, entitlementsResult)) {
       throw new AssetResolverError(
-        `Pro 素材は all-access-pass が必要です: ${item.id}`,
+        `Pro 素材は all-access-pass（Lifetime パス）または購入済み product_id が必要です: ${item.id}`,
         'locked',
       );
     }

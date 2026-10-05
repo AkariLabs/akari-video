@@ -67,8 +67,8 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
   const hasProItems = catalog.items.some((item) => assetTier(item) === 'pro');
   const entitlementsResult = hasProItems && networkAllowed
     ? await fetchEntitlements({ env, fetchImpl, intent })
-    : { ids: new Set(), status: await readStoreCredentials(env) ? 'ok' : 'no_credentials' };
-  // entitlements.mjs は id/status だけを返し編集できないため、商品 kind/version は
+    : { ids: new Set(), status: await readStoreCredentials(env) ? 'ok' : 'no_credentials', pass: null };
+  // entitlements.mjs は商品 kind/version を返さないため、商品詳細は
   // 同じ API への 2 回目の fail-soft 取得で補う。
   const entitledProducts = networkAllowed ? await fetchEntitledProducts({ env, fetchImpl }) : [];
 
@@ -94,7 +94,7 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
       ? 'free' : assetTier(item);
     let state;
     if (installed.has(key)) state = 'cached';
-    else if (tier === 'pro' && item.source !== 'installed' && !isAssetEntitled(item, entitlementsResult.ids)) state = 'locked';
+    else if (tier === 'pro' && item.source !== 'installed' && !isAssetEntitled(item, entitlementsResult)) state = 'locked';
     else state = 'available';
     const sources = sourceFields(item, catalogKeys.has(key) || item.source === 'installed');
     const machineTags = (sources.machineTags ?? item.machineTags ?? []).filter(tag => !tag.startsWith('tier:'));
