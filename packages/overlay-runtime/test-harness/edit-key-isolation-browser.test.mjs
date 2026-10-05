@@ -35,7 +35,8 @@ async function begin(page) {
   const box = await element.boundingBox();
   const cdp = await page.createCDPSession();
   try {
-    const x = box.x + 10, y = box.y + box.height / 2;
+    // Double-click near the end so native editing starts at the caret expected below.
+    const x = box.x + box.width - 8, y = box.y + box.height / 2;
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
     for (const clickCount of [1, 2]) {
       await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount });
