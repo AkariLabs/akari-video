@@ -892,6 +892,9 @@ export class PreviewLibraryDrop {
                 throw new Error('取り寄せできませんでした');
             }
             if (!material.relativePath) throw new Error('取り寄せできませんでした');
+            if (!placedId && material.relativePath === plan.relativePath) {
+                throw new Error('素材をタイムラインに配置できませんでした');
+            }
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
@@ -905,6 +908,7 @@ export class PreviewLibraryDrop {
                     ...(typeof payload.width === 'number' ? { sourceWidth: payload.width } : {}),
                     editUri, outsideCanvas, ...(!outsideCanvas ? { canvasAware: true } : {})
                 });
+                if (!placedId) throw new Error('素材をタイムラインに配置できませんでした');
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);

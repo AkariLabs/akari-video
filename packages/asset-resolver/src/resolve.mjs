@@ -11,19 +11,18 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 // なら resolvePaidZip() が `/api/store/v1/download/<id>` から zip を取得し、展開 →
 // checksums.txt 検証（paid-zip.mjs）→ 同じ validate-asset / 原子的 move の経路に合流する。
 
-import { spawnSync } from 'node:child_process';
-import { constants, existsSync, realpathSync } from 'node:fs';
-import { cp, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { constants } from 'node:fs';
+import { cp, mkdir, mkdtemp, rename, rm, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { format } from 'node:util';
-import { loadCatalogForResolve } from './catalog.mjs';
+import { loadCatalogForResolveAsync, cachedAssetDirAsync } from './resolve-async-library.mjs';
 import { resolveEffectiveBase } from './env.mjs';
 import { AssetResolverError } from './errors.mjs';
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
 import { materialize, resolveFileLocation } from './fetch-file.mjs';
 import { sha256File } from './hash.mjs';
-import { cachedAssetDir, localAssetDir } from './library.mjs';
 import { downloadPaidZip, extractZip, verifyPaidZipContents } from './paid-zip.mjs';
 import { recordProjectReference } from './project-references.mjs';
 import { assetTier, isAssetEntitled } from './tier.mjs';
@@ -81,7 +80,15 @@ async function validateAsset(assetDir) {
     return await run;
   } catch {
     // Module loading failures are outside the validator's ordinary NG result.
-    return spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, assetDir], { encoding: 'utf8' });
+    return new Promise((resolveResult, reject) => {
+      const child = spawn(process.execPath, [VALIDATE_ASSET_SCRIPT, assetDir]);
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', chunk => { stdout += chunk; });
+      child.stderr.on('data', chunk => { stderr += chunk; });
+      child.on('error', reject);
+      child.on('close', status => resolveResult({ status, stdout, stderr }));
+    });
   }
 }
 
@@ -110,7 +117,7 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
   // 素材箱側が「meta.json を含むディレクトリ = 1 カード」でグルーピングする際、
   // 深さではなくディレクトリ形で判定するため、置き場の形をライブラリと合わせておく必要はないが、
   // カテゴリ別に整理された配置の方が人間が見ても分かりやすいのでライブラリ型に統一する。
-  const realSourceDir = realpathSync(sourceDir);
+  const realSourceDir = await realpath(sourceDir);
   const dest = path.join(path.resolve(projectDir), 'assets', category, id);
   await mkdir(path.dirname(dest), { recursive: true });
   await rm(dest, { recursive: true, force: true });
@@ -119,8 +126,12 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
     // このマシンの Node（libuv）は clonefileat 相当が ENOSYS を返し、fs.cp の
     // COPYFILE_FICLONE では節約が効かない（前段 2026-08-09-project-copy-cow-clone で実測確認済み）。
     // BSD cp -c は clonefile(2) を Node を介さず直接使うため、同じ OS/FS 上で実際にクローンできる。
-    const clone = spawnSync('/bin/cp', ['-Rc', realSourceDir, dest], { stdio: 'ignore' });
-    if (!clone.error && clone.status === 0) {
+    const cloned = await new Promise(resolveResult => {
+      const child = spawn('/bin/cp', ['-Rc', realSourceDir, dest], { stdio: 'ignore' });
+      child.on('error', () => resolveResult(false));
+      child.on('close', code => resolveResult(code === 0));
+    });
+    if (cloned) {
       return dest;
     }
     // クロスボリューム等で -c が失敗したケース。部分的に書かれた dest を掃除してから
@@ -136,7 +147,7 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
 
 async function moveIntoLibrary(tempDir, destDir) {
   await mkdir(path.dirname(destDir), { recursive: true });
-  if (existsSync(destDir)) {
+  if (await stat(destDir).then(() => true, error => { if (error.code === 'ENOENT') return false; throw error; })) {
     await rm(destDir, { recursive: true, force: true });
   }
   try {
@@ -161,16 +172,16 @@ export async function resolve(
   { env = process.env, fetchImpl = fetch, project = null, force = false, reference = false, timeouts } = {},
 ) {
   const home = resolveAssetLibraryRoots(env).write;
-  const catalog = await loadCatalogForResolve(ref, { env, fetchImpl, timeouts });
+  const catalog = await loadCatalogForResolveAsync(ref, { env, fetchImpl, timeouts });
   const item = findCatalogItem(catalog, ref);
 
   const tier = assetTier(item);
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;
-  const destDir = localAssetDir(env, item.category, item.id);
+  const destDir = path.join(home, item.category, item.id);
 
   // キャッシュヒット → 即返す（未購入だったとしても、一度取得済みなら手元にある実体をそのまま使う。
   // ゲートは「新規に取得するとき」だけにかける）
-  const cachedDir = cachedAssetDir(env, item.category, item.id);
+  const cachedDir = await cachedAssetDirAsync(env, item.category, item.id);
   if (!force && cachedDir) {
     const result = { id: item.id, category: item.category, dir: cachedDir, cached: true };
     if (project && reference) {

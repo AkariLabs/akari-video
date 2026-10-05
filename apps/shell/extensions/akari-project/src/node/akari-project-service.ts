@@ -817,6 +817,21 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
             return { success: false, error: 'アセット resolver が見つかりません（開発配置を確認してください）' };
         }
         const projectPath = this.fsPath(projectUri);
+        const module = await this.loadLibraryResolverModule(srcDir, 'resolve.mjs', 'resolve');
+        const usageModule = module
+            ? await this.loadLibraryResolverModule(srcDir, 'library-usage.mjs', 'appendLibraryUsage') : null;
+        if (module && usageModule) {
+            try {
+                const result = await module.resolve(ref, { project: projectPath, reference: true, force: options?.force === true });
+                if (result.referenced) {
+                    await usageModule.appendLibraryUsage({ category: result.category, id: result.id, project: projectPath });
+                }
+                return assetResolveOutcome({ success: true, ...result },
+                    join(projectPath, 'assets', result.category ?? '', result.id ?? ref.slice(ref.lastIndexOf('/') + 1)));
+            } catch (error) {
+                return { success: false, error: error instanceof Error ? error.message : String(error) };
+            }
+        }
         const resolveModuleUrl = pathToFileURL(join(srcDir, 'resolve.mjs')).toString();
         const script = `
 import { resolve } from ${JSON.stringify(resolveModuleUrl)};
@@ -851,61 +866,15 @@ try {
                 return { success: false, error: 'アセット resolver が見つかりません（開発配置を確認してください）' };
             }
             const projectPath = this.fsPath(projectUri);
+            const module = await this.loadLibraryResolverModule(srcDir, 'place-library-asset.mjs', 'placeLibraryAsset');
+            if (module) {
+                const outcome = await module.placeLibraryAsset(source, projectPath);
+                return assetResolveOutcome(outcome, join(projectPath, 'assets', source.category, source.id));
+            }
             const script = `
-import { realpath, stat } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
-import { recordProjectReference } from ${JSON.stringify(pathToFileURL(join(srcDir, 'project-references.mjs')).toString())};
-import { appendLibraryUsage } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())};
-import { ASSET_CATEGORIES } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library.mjs')).toString())};
-import { resolveAssetLibraryRoots } from ${JSON.stringify(pathToFileURL(resolve(srcDir, '../../creator-root/src/index.mjs')).toString())};
-const within = (root, target) => {
-    const rel = relative(root, target);
-    return rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel));
-};
+import { placeLibraryAsset } from ${JSON.stringify(pathToFileURL(join(srcDir, 'place-library-asset.mjs')).toString())};
 try {
-    const source = ${JSON.stringify(source)};
-    if (!source || !ASSET_CATEGORIES.includes(source.category)
-        || typeof source.id !== 'string' || !source.id || source.id === '.'
-        || source.id.includes('..') || source.id.includes('/') || source.id.includes(String.fromCharCode(92))
-        || typeof source.libraryDir !== 'string' || !isAbsolute(source.libraryDir)) {
-        throw new Error('素材の種類・名前・置き場が不正です');
-    }
-    const actual = await realpath(source.libraryDir);
-    if (basename(actual) !== source.id || basename(dirname(actual)) !== source.category
-        || !(await stat(actual)).isDirectory()) {
-        throw new Error('素材の置き場と種類・名前が一致しません');
-    }
-    let allowed = false;
-    for (const root of resolveAssetLibraryRoots(process.env).read) {
-        try { if (within(await realpath(root), actual)) allowed = true; }
-        catch (error) { if (error.code !== 'ENOENT') throw error; }
-    }
-    if (!allowed) throw new Error('素材がライブラリの置き場の外にあります');
-    const project = await realpath(${JSON.stringify(projectPath)});
-    if (!(await stat(project)).isDirectory()) throw new Error('プロジェクトがフォルダではありません');
-    const destination = join(project, 'assets', source.category, source.id);
-    // assets/ や category が外を向くリンクなら、コピー先の削除・書き込みを行わない。
-    let parent = dirname(destination);
-    let actualDestination;
-    while (true) {
-        try {
-            const actualParent = await realpath(parent);
-            if (!within(project, actualParent)) throw new Error('配置先がプロジェクトの外にあります');
-            actualDestination = join(actualParent, relative(parent, destination));
-            break;
-        } catch (error) {
-            if (error.code !== 'ENOENT') throw error;
-            parent = dirname(parent);
-        }
-    }
-    if (within(actualDestination, actual) || within(actual, actualDestination)) {
-        throw new Error('素材の大元と重なる配置はできません');
-    }
-    await recordProjectReference(project, { category: source.category, id: source.id });
-    await appendLibraryUsage({ category: source.category, id: source.id, project });
-    // widget の URI.relative が使えるよう、返すパスは要求されたプロジェクト表記に揃える。
-    const projectAssetPath = join(${JSON.stringify(projectPath)}, 'assets', source.category, source.id);
-    process.stdout.write(JSON.stringify({ success: true, projectAssetPath, reference: true, libraryDir: actual }));
+    process.stdout.write(JSON.stringify(await placeLibraryAsset(${JSON.stringify(source)}, ${JSON.stringify(projectPath)})));
 } catch (error) {
     process.stdout.write(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }));
 }
@@ -924,6 +893,11 @@ try {
     async recordLibraryUsage(category: string, id: string, projectUri: string): Promise<void> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const module = await this.loadLibraryResolverModule(srcDir, 'library-usage.mjs', 'appendLibraryUsage');
+        if (module) {
+            await module.appendLibraryUsage({ category, id, project: this.fsPath(projectUri) });
+            return;
+        }
         const result = await this.runResolverScript(`
 import { appendLibraryUsage } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())};
 await appendLibraryUsage(${JSON.stringify({ category, id, project: this.fsPath(projectUri) })});
@@ -934,6 +908,8 @@ await appendLibraryUsage(${JSON.stringify({ category, id, project: this.fsPath(p
     async getLibraryUsage(): Promise<Record<string, { count: number; lastUsedAt: string; projects: string[] }>> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) return {};
+        const module = await this.loadLibraryResolverModule(srcDir, 'library-usage.mjs', 'readLibraryUsage');
+        if (module) return module.readLibraryUsage();
         const result = await this.runResolverScript(`
 import { readLibraryUsage } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())};
 process.stdout.write(JSON.stringify(await readLibraryUsage()));
@@ -973,6 +949,8 @@ process.stdout.write(JSON.stringify(await checkLibrary({ project: ${JSON.stringi
     async projectCredits(projectUri: string): Promise<string[]> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const module = await this.loadLibraryResolverModule(srcDir, 'library-check.mjs', 'projectCredits');
+        if (module) return module.projectCredits(this.fsPath(projectUri));
         const result = await this.runResolverScript(`
 import { projectCredits } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-check.mjs')).toString())};
 process.stdout.write(JSON.stringify(await projectCredits(${JSON.stringify(this.fsPath(projectUri))})));
@@ -984,26 +962,11 @@ process.stdout.write(JSON.stringify(await projectCredits(${JSON.stringify(this.f
     async listProjectAssetReferences(projectUri: string): Promise<ProjectAssetReference[]> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const module = await this.loadLibraryResolverModule(srcDir, 'project-reference-listing.mjs', 'listProjectAssetReferences');
+        if (module) return module.listProjectAssetReferences(this.fsPath(projectUri));
         const script = `
-import { readFile } from 'node:fs/promises';
-import { listProjectReferenceAssets } from ${JSON.stringify(pathToFileURL(join(srcDir, 'shell-reference.mjs')).toString())};
-import { sourceFields } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library.mjs')).toString())};
-import { readCatalogCache } from ${JSON.stringify(pathToFileURL(join(srcDir, 'catalog.mjs')).toString())};
-import { resolveCatalogSource } from ${JSON.stringify(pathToFileURL(join(srcDir, 'env.mjs')).toString())};
-let catalog = await readCatalogCache();
-const source = resolveCatalogSource(process.env);
-if (source.kind === 'file') { try { catalog = JSON.parse(await readFile(source.value, 'utf8')); } catch {} }
-const entries = await listProjectReferenceAssets(${JSON.stringify(this.fsPath(projectUri))});
-for (const entry of entries) {
-    let meta;
-    try { meta = JSON.parse(await readFile(entry.files.find(file => file.name === 'meta.json').path, 'utf8')); } catch {}
-    entry.tags = Array.isArray(meta?.tags) ? meta.tags.filter(tag => typeof tag === 'string') : [];
-    const known = catalog?.items?.find(item => item.id === entry.id && item.category === entry.category);
-    entry.title = typeof meta?.title === 'string' ? meta.title : typeof known?.title === 'string' ? known.title : entry.id;
-    if (!meta && known) entry.tags = Array.isArray(known.tags) ? known.tags.filter(tag => typeof tag === 'string') : [];
-    if (meta || known) entry.sourceKind = sourceFields(meta ?? known, !!known).sourceKind;
-}
-process.stdout.write(JSON.stringify(entries));
+import { listProjectAssetReferences } from ${JSON.stringify(pathToFileURL(join(srcDir, 'project-reference-listing.mjs')).toString())};
+process.stdout.write(JSON.stringify(await listProjectAssetReferences(${JSON.stringify(this.fsPath(projectUri))})));
 `;
         const result = await this.runResolverScript(script);
         if (result.code !== 0) throw new Error(result.stderr || '参照台帳を読み込めませんでした');
@@ -1013,6 +976,11 @@ process.stdout.write(JSON.stringify(entries));
     async removeProjectAssetReference(projectUri: string, reference: { category: string; id: string }): Promise<void> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const module = await this.loadLibraryResolverModule(srcDir, 'project-references.mjs', 'removeProjectReference');
+        if (module) {
+            await module.removeProjectReference(this.fsPath(projectUri), reference);
+            return;
+        }
         const result = await this.runResolverScript(`
 import { removeProjectReference } from ${JSON.stringify(pathToFileURL(join(srcDir, 'project-references.mjs')).toString())};
 await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.stringify(reference)});
@@ -1068,6 +1036,23 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
      * process.execPath が Electron 実行体を指す場合に必要）。spawn 自体が失敗した
      * 場合も例外を投げず code=2 として返す（呼び出し側の fail-soft 処理を単純にする）。
      */
+    protected libraryResolverImports = new Map<string, Promise<Record<string, any> | null>>();
+
+    protected async loadLibraryResolverModule(srcDir: string, file: string, requiredExport: string): Promise<Record<string, any> | null> {
+        const key = `${srcDir}/${file}`;
+        let module = this.libraryResolverImports.get(key);
+        if (!module) {
+            module = Promise.resolve().then(() => {
+                const importEsm = new Function('specifier', 'return import(specifier)') as
+                    (specifier: string) => Promise<Record<string, any>>;
+                return importEsm(pathToFileURL(join(srcDir, file)).toString());
+            }).catch(() => null);
+            this.libraryResolverImports.set(key, module);
+        }
+        const loaded = await module;
+        return loaded && typeof loaded[requiredExport] === 'function' ? loaded : null;
+    }
+
     protected async runResolverScript(script: string, input?: string, timeoutMs?: number): Promise<{ code: number; stdout: string; stderr: string }> {
         return new Promise(resolvePromise => {
             const child = spawn(process.execPath, ['--input-type=module', '-e', script], {

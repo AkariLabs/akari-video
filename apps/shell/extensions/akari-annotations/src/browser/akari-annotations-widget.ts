@@ -6536,6 +6536,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         }
+        const tail = this.editMutationTail ?? Promise.resolve();
+        const operation = tail.then(async () => {
         try {
             const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
             let value = JSON.parse(editBefore) as EditV2Document;
@@ -6660,20 +6662,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         await this.reloadEdit();
                     }
                 });
-                this.hideNotice();
-                this.footer.textContent = `${overlapNote}${autoLevelNotice || `${successNote}${fallbackNote}`}`;
-                const focused = await this.focusTimelineItem?.(itemId, {
-                    ...(options?.zone ? { seekIfOutside: true } : {}), reveal: true, pulse: true
-                });
-                if (options?.zone && !focused) {
-                    const start = this.frameAt(Math.max(0, t)) / this.fps;
-                    const end = start + Math.max(1, this.frameAt(durationSeconds)) / this.fps;
-                    if (this.playheadT < start || this.playheadT >= end) {
-                        await this.requestSeek?.(start, { domain: 'output' });
+                return { itemId, afterPlacement: async () => {
+                    this.hideNotice();
+                    this.footer.textContent = `${overlapNote}${autoLevelNotice || `${successNote}${fallbackNote}`}`;
+                    const focused = await this.focusTimelineItem?.(itemId, {
+                        ...(options?.zone ? { seekIfOutside: true } : {}), reveal: true, pulse: true
+                    });
+                    if (options?.zone && !focused) {
+                        const start = this.frameAt(Math.max(0, t)) / this.fps;
+                        const end = start + Math.max(1, this.frameAt(durationSeconds)) / this.fps;
+                        if (this.playheadT < start || this.playheadT >= end) {
+                            await this.requestSeek?.(start, { domain: 'output' });
+                        }
                     }
-                }
-                this.revealOutputPreview();
-                return itemId;
+                    this.revealOutputPreview();
+                } };
             }
             const sources = Array.isArray(value.sources) ? [...value.sources] as Array<Record<string, unknown>> : [];
             let source = sources.find(candidate => candidate.path === relativePath);
@@ -6766,26 +6769,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                 }
             });
-            const focused = await this.focusTimelineItem?.(String(item.id), {
-                ...(options?.zone ? { seekIfOutside: true } : {}), reveal: true, pulse: true
-            });
-            if (options?.zone && !focused) {
-                const start = (item.at as number) / this.fps;
-                const end = start + (item.duration as number) / this.fps;
-                if (this.playheadT < start || this.playheadT >= end) {
-                    await this.requestSeek?.(start, { domain: 'output' });
+            return { itemId: String(item.id), afterPlacement: async () => {
+                const focused = await this.focusTimelineItem?.(String(item.id), {
+                    ...(options?.zone ? { seekIfOutside: true } : {}), reveal: true, pulse: true
+                });
+                if (options?.zone && !focused) {
+                    const start = (item.at as number) / this.fps;
+                    const end = start + (item.duration as number) / this.fps;
+                    if (this.playheadT < start || this.playheadT >= end) {
+                        await this.requestSeek?.(start, { domain: 'output' });
+                    }
                 }
-            }
-            if (options?.placeOnTop && !focused) this.applySelection({ kind: 'layer', id: String(item.id) });
-            this.hideNotice();
-            this.footer.textContent = `${successNote}${overlapNote}${beyondNote}${fallbackNote}`;
-            this.revealOutputPreview();
-            return String(item.id);
+                if (options?.placeOnTop && !focused) this.applySelection({ kind: 'layer', id: String(item.id) });
+                this.hideNotice();
+                this.footer.textContent = `${successNote}${overlapNote}${beyondNote}${fallbackNote}`;
+                this.revealOutputPreview();
+            } };
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`素材を追加できません: ${detail}`);
             this.messages.error(`素材を追加できません: ${detail}`);
         }
+        });
+        this.editMutationTail = operation.catch(() => undefined);
+        const placed = await operation;
+        if (!placed) return undefined;
+        try {
+            await placed.afterPlacement();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`素材を追加できません: ${detail}`);
+            this.messages.error(`素材を追加できません: ${detail}`);
+            return undefined;
+        }
+        return placed.itemId;
     }
 
     /**
