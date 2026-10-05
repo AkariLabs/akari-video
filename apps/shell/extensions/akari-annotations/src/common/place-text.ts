@@ -11,6 +11,7 @@ export interface PlaceTextOptions {
     textAnchor?: 'mc';
     stylePreset?: string;
     stylePresetLook?: unknown;
+    sizePx?: number;
     canvasAware?: boolean;
     canvasId?: string;
     outsideCanvas?: boolean;
@@ -34,7 +35,8 @@ export function placeTextCaption(options: PlaceTextOptions, playhead: number, du
     return {
         id: nextDaihonCaptionId(existingIds), start, end, text: options.text ?? 'テキストを入力',
         timeDomain: 'output', sourceRef: null, edited: true, speaker: null,
-        textStyle: { position, textAnchor: options.textAnchor ?? 'tc' },
+        textStyle: { position, textAnchor: options.textAnchor ?? 'tc',
+            ...(options.sizePx === undefined ? {} : { sizePx: options.sizePx }) },
         ...(options.stylePreset === undefined ? {} : { stylePreset: options.stylePreset })
     };
 }

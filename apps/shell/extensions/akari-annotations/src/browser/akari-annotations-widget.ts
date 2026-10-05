@@ -4672,7 +4672,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const rowStart = rowCanvas
                 ? Math.max(rowCanvas.at, Math.min(this.frameAt(requestedStart), rowCanvas.at + rowCanvas.duration - 1)) / this.fps
                 : undefined;
-            const placedOptions = placement ? { ...options, ...placement } : options;
+            const placedOptions = { ...options, ...placement,
+                sizePx: options.stylePreset === undefined && options.stylePresetLook === undefined
+                    && !options.myStyle?.parts.some(part => part.kind === 'look') ? 80 : undefined };
             const caption = placeTextCaption(rowStart === undefined ? placedOptions : {
                 ...placedOptions, start: rowStart,
                 ...(options.end === undefined ? {} : { end: rowStart + options.end - requestedStart })

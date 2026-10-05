@@ -5009,6 +5009,9 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 const handleBox = captionSelectBox.querySelector('.akari-caption-handle-box');
+                if (!handleBox && !captionGestureCount && !selectionDragActive) {
+                    applyCaptionSelectionAttrs();
+                }
                 if (handleBox && !captionGestureCount && !selectionDragActive) {
                     const vertical = Boolean(caption.textStyle?.vertical);
                     const verticalHandles = Boolean(handleBox.querySelector('[data-h="n"]'))
@@ -5452,6 +5455,9 @@ export function previewBootstrapScript(): string {
                 const originalTop = captionPlate.style.getPropertyValue('--caption-top');
                 const originalBottom = captionPlate.style.getPropertyValue('--caption-bottom');
                 const originalTranslate = captionPlate.style.getPropertyValue('--caption-translate');
+                const originalCornerVars = ['--caption-width', '--caption-right', '--caption-align-items',
+                    '--caption-line-margin', '--caption-line-max-width'].map(name =>
+                    [name, captionPlate.style.getPropertyValue(name)]);
                 const pointerId = event.pointerId;
                 let moved = false;
                 selectionDragActive = true;
@@ -5482,7 +5488,8 @@ export function previewBootstrapScript(): string {
                     if (originalLeft) captionPlate.style.setProperty('--caption-left', originalLeft);
                     else captionPlate.style.removeProperty('--caption-left');
                     for (const [name, value] of [['--caption-top', originalTop],
-                        ['--caption-bottom', originalBottom], ['--caption-translate', originalTranslate]]) {
+                        ['--caption-bottom', originalBottom], ['--caption-translate', originalTranslate],
+                        ...originalCornerVars]) {
                         if (value) captionPlate.style.setProperty(name, value);
                         else captionPlate.style.removeProperty(name);
                     }
@@ -5575,6 +5582,16 @@ export function previewBootstrapScript(): string {
                         patch = { scale: next.scale, cuePosition: { captionId: cueId,
                             value: frameCaptionPosition(caption, { anchor: 'tl', position: { x: next.left / outputWidth,
                                 y: next.top / outputHeight } }) } };
+                        if (caption.textStyle?.text_anchor === 'tc'
+                            && !Number.isFinite(caption.textStyle?.position?.x) && !caption.textStyle?.vertical
+                            && caption.textStyle?.background?.fit !== 'frame'
+                            && caption.textStyleVars?.['--caption-plate-fit'] !== 'frame') {
+                            captionPlate.style.setProperty('--caption-width', next.width + 'px');
+                            captionPlate.style.setProperty('--caption-right', 'auto');
+                            captionPlate.style.setProperty('--caption-align-items', 'flex-start');
+                            captionPlate.style.setProperty('--caption-line-margin', '0');
+                            captionPlate.style.setProperty('--caption-line-max-width', '100%');
+                        }
                         captionPlate.style.setProperty('--caption-left', next.left / outputWidth * 100 + '%');
                         captionPlate.style.setProperty('--caption-top', next.top / outputHeight * 100 + '%');
                         captionPlate.style.setProperty('--caption-bottom', 'auto');

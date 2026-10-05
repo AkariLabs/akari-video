@@ -43,7 +43,7 @@ export function captionWrapHeightDrag(
 export function captionCornerTransform(
     kind: 'nw' | 'ne' | 'sw' | 'se', layout: { left: number; right: number; top: number; bottom: number },
     baseScale: number, rotation: number, pointer: CaptionHandlePoint, startPointer?: CaptionHandlePoint
-): { scale: number; left: number; top: number; anchor: CaptionHandlePoint } {
+): { scale: number; left: number; top: number; width: number; anchor: CaptionHandlePoint } {
     const cx = (layout.left + layout.right) / 2;
     const cy = (layout.top + layout.bottom) / 2;
     const hx = (layout.right - layout.left) / 2;
@@ -64,7 +64,7 @@ export function captionCornerTransform(
         baseScale * (Number.isFinite(factor) ? factor : 1))) * 1000) / 1000;
     const nextCx = anchor.x - scale * (c * ax - s * ay);
     const nextCy = anchor.y - scale * (s * ax + c * ay);
-    return { scale, left: nextCx - hx, top: nextCy - hy, anchor };
+    return { scale, left: nextCx - hx, top: nextCy - hy, width: layout.right - layout.left, anchor };
 }
 
 export interface CaptionPlateTransformPatch {
