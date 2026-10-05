@@ -15,6 +15,10 @@
 - 公開 catalog の Pro 項目は `files` を持たない。非空の `files` があれば `invalid_catalog_item` として取得を拒否する。locked 項目の一覧・`/api/items` 応答にも `files` を含めない。
 - 利用者取り込み（`akari assets add`）は `tier: "free"` とする。
 
+## § 取得時の素材参照（2026-10-05）
+
+resolver・CLI・shell からの取得参照は `category/id` とする。bare id はカタログ内で一意な場合だけ互換解決する。複数の category に同じ id があれば、候補の `category/id` を含む `ambiguous_id` エラーを返し、先頭の item を選ばない。
+
 ## § `source` の union（2026-10-04）
 
 `source` は **external**（既存 v0）または **akari-r2** の一方だけを取る。external は `url` が必須で、`acquisition`・`license_at_source`・`attribution_required` は従来どおり。akari-r2 は絶対 URL または R2 key の `image` と `preview` が必須で、`width`・`height`・`bytes` は任意の正整数。`url` があれば external、`image` があれば akari-r2 と判別する。両方ある形、どちらもない形は不正。

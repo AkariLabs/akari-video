@@ -31,7 +31,7 @@ test('CLI migrate/list, interrupted reads, late old CLI writes, reference bundle
   assert.equal(JSON.parse(migrate.stdout).state, 'done');
   const list = run(['list']); assert.equal(list.status, 0, list.stderr);
   assert.ok(list.stdout.split('\n')[0].includes(library));
-  assert.match(list.stdout, /✓  mini-still/);
+  assert.match(list.stdout, /✓  still\/mini-still/);
   assert.equal(JSON.parse(run(['migrate']).stdout).moved, 0);
   const project = path.join(f.root, 'project');
   await fs.mkdir(project);

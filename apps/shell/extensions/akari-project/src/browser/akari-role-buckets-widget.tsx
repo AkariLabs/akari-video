@@ -708,7 +708,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 let references = await this.projectService.listProjectAssetReferences(detail.projectUri);
                 let reference = references.find(item => item.category === detail.category && item.id === detail.id);
                 if (!reference) {
-                    const outcome = await this.projectService.resolveAsset(detail.id, detail.projectUri);
+                    const outcome = await this.projectService.resolveAsset(`${detail.category}/${detail.id}`, detail.projectUri);
                     if (outcome.success === false) throw new Error(outcome.error);
                     references = await this.projectService.listProjectAssetReferences(detail.projectUri);
                     reference = references.find(item => item.category === detail.category && item.id === detail.id);
@@ -1471,7 +1471,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const localSource = localLibraryAssetPlacementSource(item);
             const outcome = localSource
                 ? await this.projectService.placeLibraryAsset(localSource, root.toString())
-                : await this.projectService.resolveAsset(item.id, root.toString());
+                : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
             // tsconfig の strict:false（strictNullChecks off）下では `!outcome.success` /
             // if-else の判別共用体絞り込みが効かない（実測で確認済み）。`=== false` の
             // 明示比較だけが確実に絞り込めるため、これを使う。
@@ -1512,7 +1512,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const localSource = localLibraryAssetPlacementSource(item);
             const outcome = localSource
                 ? await this.projectService.placeLibraryAsset(localSource, root.toString())
-                : await this.projectService.resolveAsset(item.id, root.toString());
+                : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
             if (outcome.success === false) throw new Error(outcome.error);
             const directory = URI.fromFilePath(outcome.reference && outcome.libraryDir
                 ? outcome.libraryDir : outcome.projectAssetPath);
@@ -1622,7 +1622,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const localSource = localLibraryAssetPlacementSource(item);
             const outcome = localSource
                 ? await this.projectService.placeLibraryAsset(localSource, root.toString())
-                : await this.projectService.resolveAsset(item.id, root.toString());
+                : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
             if (outcome.success === false) {
                 this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
                 return undefined;

@@ -1,5 +1,5 @@
 // resolve() が投げるエラーの型。code で分岐できるようにする
-// （'locked' | 'not_found' | 'invalid_catalog_item' | 'integrity' | 'validation' | 'download_failed'）。
+// （'locked' | 'not_found' | 'ambiguous_id' | 'invalid_catalog_item' | 'integrity' | 'validation' | 'download_failed'）。
 
 export class AssetResolverError extends Error {
   constructor(message, code) {

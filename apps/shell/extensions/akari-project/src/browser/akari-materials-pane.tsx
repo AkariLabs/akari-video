@@ -684,7 +684,7 @@ export class AkariMaterialsPane {
         const root = this.host.workflow.workspaceRoot;
         if (!root || !entry.reference) return;
         try {
-            const result = await this.host.projectService.resolveAsset(entry.reference.id, root.toString(), { force: true });
+            const result = await this.host.projectService.resolveAsset(`${entry.reference.category}/${entry.reference.id}`, root.toString(), { force: true });
             if (result.success === false) this.host.messages.error(result.error);
             await this.loadMaterials();
         } catch (error) { this.host.messages.error(`素材を取得できませんでした: ${String(error)}`); }

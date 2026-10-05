@@ -56,7 +56,7 @@ test('textstyle Pro は CLI 一覧で鍵付き、導入索引では category と
   writeFileSync(catalogPath, `${JSON.stringify(catalog)}\n`);
   const list = runCli(['list', '--category', 'textstyle'], env);
   assert.equal(list.status, 0, list.stderr);
-  assert.match(list.stdout, /🔒 Pro\s+telop-fixture-style\s+lab\s+\[textstyle\]/);
+  assert.match(list.stdout, /🔒 Pro\s+textstyle\/telop-fixture-style\s+lab\s+\[textstyle\]/);
   assert.equal((list.stdout.match(/\[textstyle\]/g) ?? []).length, 1);
 
   writeInstalled({ home, id, category: 'textstyle', tier: 'pro' });
@@ -88,7 +88,7 @@ test('installed item をカタログへマージし、CLI は [installed] と so
 
   const text = runCli(['list'], env);
   assert.equal(text.status, 0, text.stderr);
-  assert.match(text.stdout, /\[installed\]\s+installed-one/);
+  assert.match(text.stdout, /\[installed\]\s+scene3d\/installed-one/);
   const json = runCli(['list', '--json'], env);
   assert.equal(json.status, 0, json.stderr);
   assert.equal(JSON.parse(json.stdout).find((entry) => entry.id === 'installed-one').source, 'installed');
@@ -179,8 +179,8 @@ for (const indexState of ['missing', 'empty']) {
     assert.equal(list.status, 0, list.stderr);
     assert.equal(list.stdout,
       `使える素材 2 件（ライブラリ: ${path.join(home, 'assets')}）\n`
-      + '  ☁  mini-still\tlab\t[still]\tフィクスチャ素材 mini-still\n'
-      + '  🔒 Pro  mini-paid\tlab\t[still]\tフィクスチャ素材 mini-paid（有料）\n');
+      + '  ☁  still/mini-still\tlab\t[still]\tフィクスチャ素材 mini-still\n'
+      + '  🔒 Pro  still/mini-paid\tlab\t[still]\tフィクスチャ素材 mini-paid（有料）\n');
 
     const fetchResult = runCli(['fetch', 'mini-still'], env);
     assert.equal(fetchResult.status, 0, fetchResult.stderr);

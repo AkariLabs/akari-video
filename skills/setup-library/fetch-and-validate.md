@@ -8,6 +8,10 @@
 
 この取得手順は `source.url` を持つ **external** の catalog エントリ用。`source.image` を持つ **akari-r2** には `acquisition` や `license_at_source` が無いので、この手順に当てはめず AKARI の素材取得経路を使う。`source` の判別は [素材 tier 契約 v1](../../docs/contract-2026-10-04-asset-tier-v1.md) に従う。
 
+## resolver で取得する際の参照（2026-10-05）
+
+`akari-assets fetch` など resolver を使う取得では `category/id` を渡す。bare id はカタログ内で一意なときだけ解決できる。複数の category に同じ id があれば、候補を示す `ambiguous_id` エラーで止まる。
+
 ## 1. 取得する（acquisition ごとに分岐）
 
 ### acquisition: direct
