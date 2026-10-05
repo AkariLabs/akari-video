@@ -15653,10 +15653,18 @@ var require_ripple = __commonJS({
           return [piece];
         });
       }
-      if ("fade_in" in part && offset > 0)
-        delete part.fade_in;
-      if ("fade_out" in part && end < endOf(item))
-        delete part.fade_out;
+      if (offset > 0) {
+        if ("fade_in" in part)
+          delete part.fade_in;
+        if ("fade_in_shape" in part)
+          delete part.fade_in_shape;
+      }
+      if (end < endOf(item)) {
+        if ("fade_out" in part)
+          delete part.fade_out;
+        if ("fade_out_shape" in part)
+          delete part.fade_out_shape;
+      }
       return part;
     }
     function splitOne(track, index, frame, fps, ids) {
