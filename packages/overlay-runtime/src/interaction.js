@@ -1111,12 +1111,64 @@ function marqueeHits(candidates, rect) {
       || /^telop-/.test(container.dataset.overlayId || '');
   }
 
+  // A shape line is laid out in a wide SVG, although only its centreline and
+  // caps are painted. Measure those points in client pixels instead of using
+  // the SVG's rotated, axis-aligned bounding box.
+  function lineFrameGeometry(container) {
+    if (container?.dataset.role !== 'shape-line') return null;
+    const svg = container.querySelector('svg');
+    const body = svg?.querySelector('line:not([data-akari-hit-proxy]), path:not([data-akari-hit-proxy])');
+    const matrix = svg?.getScreenCTM?.();
+    const width = svg?.viewBox?.baseVal?.width || Number(svg?.getAttribute('width'));
+    const y = body?.tagName.toLowerCase() === 'line'
+      ? Number(body.getAttribute('y1')) : (svg?.viewBox?.baseVal?.height || Number(svg?.getAttribute('height'))) / 2;
+    if (!body || !matrix || !(width > 0) || !Number.isFinite(y)) return null;
+    const point = (x, yy, m = matrix) => ({ x: m.a * x + m.c * yy + m.e,
+      y: m.b * x + m.d * yy + m.f });
+    const start = point(0, y), end = point(width, y);
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    if (!(length > 0)) return null;
+    const nx = -(end.y - start.y) / length, ny = (end.x - start.x) / length;
+    const stroke = Number(body.getAttribute('stroke-width')) || 4;
+    const visibleStroke = stroke * Math.hypot(matrix.c, matrix.d);
+    let paintedWidth = visibleStroke;
+    if (body.tagName.toLowerCase() === 'path') {
+      try {
+        const bounds = body.getBBox();
+        paintedWidth = Math.max(paintedWidth, bounds.height * Math.hypot(matrix.c, matrix.d));
+      } catch { /* unpainted path */ }
+    }
+    for (const cap of svg.children) {
+      if (cap === body || cap.tagName.toLowerCase() === 'defs' || cap.hasAttribute('data-akari-hit-proxy')) continue;
+      const capMatrix = cap.getScreenCTM?.();
+      let bounds;
+      try { bounds = cap.getBBox?.(); } catch { /* unpainted cap */ }
+      if (!capMatrix || !bounds || !(bounds.width > 0 || bounds.height > 0)) continue;
+      const projections = [
+        point(bounds.x, bounds.y, capMatrix), point(bounds.x + bounds.width, bounds.y, capMatrix),
+        point(bounds.x, bounds.y + bounds.height, capMatrix),
+        point(bounds.x + bounds.width, bounds.y + bounds.height, capMatrix),
+      ].map(p => (p.x - start.x) * nx + (p.y - start.y) * ny);
+      paintedWidth = Math.max(paintedWidth, 2 * Math.max(...projections.map(Math.abs)),
+        Math.max(stroke * 3.75, 12) * Math.hypot(matrix.c, matrix.d));
+    }
+    const endPadding = 4;
+    const frameWidth = length + 2 * endPadding;
+    const frameHeight = Math.max(paintedWidth, 6) + 6;
+    const centerX = (start.x + end.x) / 2, centerY = (start.y + end.y) / 2;
+    return { left: centerX - frameWidth / 2, top: centerY - frameHeight / 2,
+      width: frameWidth, height: frameHeight, angle: Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI,
+      endPadding, start, end };
+  }
+
   function refreshSelectionFrame() {
     if (collectiveSelection()) { refreshGroupFrame(); return; }
     if (!stage || !isSelectable(selectedOverlay)) return;
 
     const transform = readTransform(selectedOverlay);
-    const rect = transform.rotate ? unrotatedLeafBounds(selectedOverlay) : fragmentBounds(selectedOverlay);
+    const lineRect = lineFrameGeometry(selectedOverlay);
+    const rect = selectedOverlay.dataset.role === 'shape-line' ? lineRect
+      : transform.rotate ? unrotatedLeafBounds(selectedOverlay) : fragmentBounds(selectedOverlay);
     if (!rect) {
       if (selectionFrame) selectionFrame.hidden = true;
       return;
@@ -1169,6 +1221,12 @@ function marqueeHits(candidates, rect) {
     selectionFrame.style.top = `${rect.top}px`;
     selectionFrame.style.width = `${rect.width}px`;
     selectionFrame.style.height = `${rect.height}px`;
+    selectionFrame.style.setProperty('--akari-line-end-inset', `${lineRect?.endPadding ?? 0}px`);
+    if (lineRect) {
+      selectionFrame.style.transformOrigin = 'center';
+      selectionFrame.style.transform = `rotate(${lineRect.angle}deg)`;
+      return;
+    }
     const pivot = leafPivotClient(transform);
     selectionFrame.style.transformOrigin = pivot
       ? `${pivot.x - rect.left}px ${pivot.y - rect.top}px` : 'center';
@@ -1315,6 +1373,7 @@ function marqueeHits(candidates, rect) {
       selectionFrame = replacement;
     }
     selectionFrame.dataset.akariSelectionKind = selectionKind();
+    selectionFrame.classList.remove('is-line');
     selectionFrame.classList.toggle('is-locked', selectionMembers().some(member => !isMovable(member)));
     selectionFrame.classList.toggle('is-busy', Boolean(activeDrag || activeResize || activeRotate));
     selectionFrame.classList.toggle('is-moving', Boolean(activeDrag || activeRotate));
@@ -1777,8 +1836,9 @@ function marqueeHits(candidates, rect) {
         && !lineage(selectionTree(), next.selectId).includes(floorScopeId))) { hideHover(); return; }
       const node = treeNode(next.selectId);
       const leaf = containerById(next.selectId);
+      const lineRect = leaf && lineFrameGeometry(leaf);
       const rect = node && node.kind !== 'leaf' ? unionBounds(visibleMembers(next.selectId))
-        : leaf ? fragmentBounds(leaf) : null;
+        : leaf?.dataset.role === 'shape-line' ? lineRect : leaf ? fragmentBounds(leaf) : null;
       if (!rect) { hideHover(); return; }
       if (!hoverFrame) {
         hoverFrame = document.createElement('div');
@@ -1792,7 +1852,8 @@ function marqueeHits(candidates, rect) {
       hoverFrame.dataset.overlayId = next.selectId;
       hoverFrame.hidden = false;
       Object.assign(hoverFrame.style, { left: `${rect.left}px`, top: `${rect.top}px`,
-        width: `${rect.width}px`, height: `${rect.height}px` });
+        width: `${rect.width}px`, height: `${rect.height}px`,
+        transform: lineRect ? `rotate(${lineRect.angle}deg)` : '' });
     });
   }
 
@@ -2385,11 +2446,12 @@ function marqueeHits(candidates, rect) {
   function beginLineEndpoint(event, handleEl) {
     if (!selectedOverlay || !globalThis.akariHandleGeometry) return;
     const pose = readTransform(selectedOverlay);
+    const geometry = lineFrameGeometry(selectedOverlay);
     const start = rotatedLeafCorners(selectedOverlay, null, pose, 'w');
     const end = rotatedLeafCorners(selectedOverlay, null, pose, 'e');
     const rect = unrotatedLeafBounds(selectedOverlay);
-    const left = start?.dragged ?? (rect && edgePoint(rect, 'w'));
-    const right = end?.dragged ?? (rect && edgePoint(rect, 'e'));
+    const left = geometry?.start ?? start?.dragged ?? (rect && edgePoint(rect, 'w'));
+    const right = geometry?.end ?? end?.dragged ?? (rect && edgePoint(rect, 'e'));
     if (!left || !right) return;
     const a = stageLocalPoint(left.x, left.y), b = stageLocalPoint(right.x, right.y);
     const pointer = stageLocalPoint(event.clientX, event.clientY);
@@ -4437,6 +4499,7 @@ function marqueeHits(candidates, rect) {
     setSelectionFloor,
     selftest,
     fragmentBounds,
+    lineFrameGeometry,
     canvasAlphaAtPoint,
     canvasClientBounds,
     captureCanvasContent,
