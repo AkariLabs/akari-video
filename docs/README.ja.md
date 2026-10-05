@@ -185,6 +185,7 @@
 | ページ | 内容 |
 |---|---|
 | [dev/windows-build.md](./dev/windows-build.md) | Windows ビルドのチェックリスト |
+| [dev/release-beta-channel.md](./dev/release-beta-channel.md) | ベータ版リリースと更新フィード |
 
 コントリビュートの入口はリポジトリルートの [README](../README.ja.md) と
 各パッケージの README を参照してください。

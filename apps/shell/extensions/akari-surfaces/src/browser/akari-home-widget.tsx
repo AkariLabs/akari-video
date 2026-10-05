@@ -34,7 +34,7 @@ import {
     durationChoiceToTarget
 } from '../common/intake-labels';
 import {
-    DEFAULT_UPDATE_FEED_URL,
+    resolveUpdateFeedUrl,
     ShellPlatformKey,
     UpdateCache,
     UpdateStatus,
@@ -50,6 +50,7 @@ import {
     checkForShellUpdatesOnHomeShow,
     INITIAL_SHELL_UPDATER_UI_STATE,
     reconcileVisibleUpdateEvent,
+    resolveUpdateChannel,
     resolveUpdateButtonAction,
     shouldOpenUpdaterBrowserFallback,
     ShellUpdaterUiState
@@ -1701,7 +1702,11 @@ export class AkariHomeWidget extends ReactWidget {
         }
         const appInfo = await this.applicationServer.getApplicationInfo().catch(() => undefined);
         const currentVersion = appInfo?.version ?? '0.0.0';
-        this.updateStatus = evaluateUpdateStatus(currentVersion, this.updateRawCache, this.resolveShellPlatformKey());
+        const settings = await this.updateSettings.getUpdateSettings().catch(() => ({ channel: 'stable' as const, autoCheck: true }));
+        const override = await this.envVariables.getValue('AKARI_UPDATE_FEED_URL').catch(() => undefined);
+        const channel = resolveUpdateChannel(settings.channel);
+        const feedUrl = resolveUpdateFeedUrl(channel, override?.value);
+        this.updateStatus = evaluateUpdateStatus(currentVersion, this.updateRawCache, this.resolveShellPlatformKey(), channel, feedUrl);
         this.syncUpdateToast();
         this.update();
         void this.triggerUpdateBackgroundFetch();
@@ -1728,7 +1733,9 @@ export class AkariHomeWidget extends ReactWidget {
         try {
             await runAutomaticNetworkCheck(() => this.updateSettings.getUpdateSettings(), async () => {
                 const feedUrlVar = await this.envVariables.getValue('AKARI_UPDATE_FEED_URL');
-                const feedUrl = feedUrlVar?.value || DEFAULT_UPDATE_FEED_URL;
+                const settings = await this.updateSettings.getUpdateSettings().catch(() => ({ channel: 'stable' as const, autoCheck: true }));
+                const channel = resolveUpdateChannel(settings.channel);
+                const feedUrl = resolveUpdateFeedUrl(channel, feedUrlVar?.value);
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 5000);
                 let response: Response;
@@ -1746,7 +1753,7 @@ export class AkariHomeWidget extends ReactWidget {
                 }
                 const cacheUri = this.updateCacheUri ?? await this.resolveUpdateCacheUri();
                 const nowIso = new Date().toISOString();
-                const next: UpdateCache = { schema: 1, fetched_at: nowIso, feed, dismissed: this.updateRawCache?.dismissed ?? {} };
+                const next: UpdateCache = { schema: 1, fetched_at: nowIso, feed, feed_url: feedUrl, dismissed: this.updateRawCache?.dismissed ?? {} };
                 try {
                     await this.fileService.createFolder(cacheUri.parent);
                 } catch {
@@ -1757,7 +1764,7 @@ export class AkariHomeWidget extends ReactWidget {
                 // （契約は「次回セッションで効く」を許容するが、ここでは追加コストなく即時反映できる）。
                 this.updateRawCache = next;
                 const appInfo = await this.applicationServer.getApplicationInfo().catch(() => undefined);
-                this.updateStatus = evaluateUpdateStatus(appInfo?.version ?? '0.0.0', next, this.resolveShellPlatformKey());
+                this.updateStatus = evaluateUpdateStatus(appInfo?.version ?? '0.0.0', next, this.resolveShellPlatformKey(), channel, feedUrl);
                 this.syncUpdateToast();
                 this.update();
             });

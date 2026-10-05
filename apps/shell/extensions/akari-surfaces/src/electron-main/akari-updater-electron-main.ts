@@ -279,7 +279,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
             const home = process.env.AKARI_HOME || join(homedir(), '.akari');
             const value = JSON.parse(readFileSync(join(home, 'update-preferences.json'), 'utf8')) as { channel?: string; autoCheck?: boolean };
             return { channel: resolveUpdateChannel(value.channel), autoCheck: value.autoCheck !== false };
-        } catch { return { channel: 'prerelease', autoCheck: true }; }
+        } catch { return { channel: 'stable', autoCheck: true }; }
     }
 
     protected emit(event: ShellUpdaterEvent): void {

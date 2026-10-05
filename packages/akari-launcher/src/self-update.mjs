@@ -4,7 +4,8 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveAkariHome } from './update-check.mjs';
+import { readUpdateChannel, resolveAkariHome } from './update-check.mjs';
+import { compareVersions } from './version.mjs';
 
 /**
  * `akari update` の実適用（update-and-versioning 契約（内部リポ）§11）:
@@ -202,6 +203,15 @@ export async function stageSelfUpdate({
   }
 
   const version = feed.product;
+  if (readUpdateChannel(env) === 'stable' && version?.includes('-')) {
+    log('安定版だけを受け取る設定です。');
+    return { ok: false, reason: 'channel-mismatch' };
+  }
+  const installedVersion = readVersionAt(resolveAppDir(env));
+  if (installedVersion && compareVersions(version, installedVersion) < 0) {
+    log('現在より古い版は適用できません。');
+    return { ok: false, reason: 'older-version' };
+  }
   const stagingRoot = resolveStagingRoot(env);
   const stagingDir = resolveStagingDir(env, version);
   const downloadPath = join(stagingRoot, `.download-${version}.tar.gz`);

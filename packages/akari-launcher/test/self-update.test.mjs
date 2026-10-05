@@ -129,6 +129,21 @@ serverTest('isRunningFromAppDir: launcherRoot が AKARI_HOME/app と一致すれ
   });
 });
 
+test('self-update: 安定版設定では beta を取得せず、beta から同じ本体版の安定版へ進める', async () => {
+  await withScratchHome(async env => {
+    await seedOldApp(env, { version: '1.1.0-beta.3', ref: 'v1.1.0-beta.3' });
+    let fetches = 0;
+    const fetchImpl = async () => { fetches++; throw new Error('fixture offline'); };
+    const makeFeed = product => ({ product, components: { app: { url: 'https://example.invalid/app.tgz', sha256: 'a'.repeat(64) } } });
+    const beta = await stageSelfUpdate({ env, feed: makeFeed('1.2.0-beta.1'), fetchImpl });
+    assert.equal(beta.reason, 'channel-mismatch');
+    assert.equal(fetches, 0);
+    const stable = await stageSelfUpdate({ env, feed: makeFeed('1.1.0'), fetchImpl });
+    assert.equal(stable.reason, 'download-failed');
+    assert.equal(fetches, 1, '1.1.0-beta.3 より 1.1.0 を新しい版として取得対象にする');
+  });
+});
+
 serverTest('applySelfUpdate: 正常系 — DL・sha256 検証・展開・スワップ・node_modules 引き継ぎ・.akari-install-ref 更新まで一気通貫', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0', ref: 'v0.1.0' });

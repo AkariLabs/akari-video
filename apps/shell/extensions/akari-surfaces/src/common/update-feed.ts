@@ -13,6 +13,12 @@
  */
 
 export const DEFAULT_UPDATE_FEED_URL = 'https://github.com/AkariLabs/akari-video/releases/download/updates/latest.json';
+export const PRERELEASE_UPDATE_FEED_URL = 'https://github.com/AkariLabs/akari-video/releases/download/updates/prerelease.json';
+
+/** 明示 URL は完全上書き。ただし評価側の安定版ガードは常に有効。 */
+export function resolveUpdateFeedUrl(channel: 'stable' | 'prerelease', override?: string): string {
+    return override || (channel === 'prerelease' ? PRERELEASE_UPDATE_FEED_URL : DEFAULT_UPDATE_FEED_URL);
+}
 
 export interface UpdateFeedAsset {
     url?: string;
@@ -65,6 +71,7 @@ export interface UpdateCache {
     schema?: number;
     fetched_at?: string | null;
     feed?: UpdateFeed | null;
+    feed_url?: string;
     dismissed?: Record<string, string>;
 }
 
@@ -81,27 +88,30 @@ export interface UpdateStatus {
     downloadUrl?: string;
 }
 
-/** "major.minor.patch" の先頭 3 要素だけを数値比較する（prerelease 考慮不要 — 契約 D4: stable のみ）。 */
+/** semver の先行版を比較する。CLI は外部依存ゼロなので同じ規則を version.mjs に持つ。 */
 export function compareVersions(a: string, b: string): number {
-    const pa = parseVersionTriplet(a);
-    const pb = parseVersionTriplet(b);
-    if (!pa || !pb) {
-        return 0;
-    }
+    const parse = (value: string): { core: number[]; pre: string[] | null } | null => {
+        const match = typeof value === 'string' ? value.trim().match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z.-]+)?$/) : null;
+        if (!match) { return null; }
+        const pre = match[4]?.split('.') ?? null;
+        if (pre?.some(id => /^0\d+$/.test(id))) { return null; }
+        return { core: match.slice(1, 4).map(Number), pre };
+    };
+    const left = parse(a), right = parse(b);
+    if (!left || !right) { return 0; }
     for (let i = 0; i < 3; i++) {
-        if (pa[i] !== pb[i]) {
-            return pa[i] < pb[i] ? -1 : 1;
-        }
+        if (left.core[i] !== right.core[i]) { return Math.sign(left.core[i] - right.core[i]); }
     }
-    return 0;
-}
-
-function parseVersionTriplet(value: string): [number, number, number] | null {
-    const match = typeof value === 'string' ? value.trim().match(/^(\d+)\.(\d+)\.(\d+)/) : null;
-    if (!match) {
-        return null;
+    if (!left.pre || !right.pre) { return left.pre === right.pre ? 0 : left.pre ? -1 : 1; }
+    for (let i = 0; i < Math.min(left.pre.length, right.pre.length); i++) {
+        const x = left.pre[i], y = right.pre[i];
+        if (x === y) { continue; }
+        const xn = /^\d+$/.test(x), yn = /^\d+$/.test(y);
+        if (xn && yn) { return BigInt(x) > BigInt(y) ? 1 : -1; }
+        if (xn !== yn) { return xn ? -1 : 1; }
+        return x < y ? -1 : 1;
     }
-    return [Number(match[1]), Number(match[2]), Number(match[3])];
+    return Math.sign(left.pre.length - right.pre.length);
 }
 
 /** `feed` が最低限の形をしているか（壊れたフィードを弾く）。 */
@@ -128,7 +138,10 @@ export function parseUpdateCache(raw: string): UpdateCache | null {
  * （`components.shell.mac.url` 等）を優先し、無ければ `notes_url` へフォールバックする
  * （task.md 指示どおり）。`platform` が undefined（未対応 OS）のときも `notes_url` へ倒す。
  */
-export function resolveUpdateDownloadUrl(feed: UpdateFeed | null | undefined, platform: ShellPlatformKey | undefined): string | undefined {
+export function resolveUpdateDownloadUrl(feed: UpdateFeed | null | undefined, platform: ShellPlatformKey | undefined,
+    channel: 'stable' | 'prerelease' = 'stable'): string | undefined {
+    // 設定画面の旧呼び出し元も、設定を読めない間はベータのブラウザ URL を出さない。
+    if (channel === 'stable' && feed?.product?.includes('-')) { return undefined; }
     const asset = platform ? feed?.components?.shell?.[platform] : undefined;
     return asset?.url || feed?.notes_url || undefined;
 }
@@ -146,9 +159,11 @@ export function resolveUpdateSizeLabel(feed: UpdateFeed | null | undefined, plat
 }
 
 /** キャッシュ + 現在版から、ホームバナーを出すかどうかを判定する（同期・純粋関数）。 */
-export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache | null, platform?: ShellPlatformKey): UpdateStatus {
+export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache | null, platform?: ShellPlatformKey,
+    channel: 'stable' | 'prerelease' = 'stable', feedUrl?: string): UpdateStatus {
     const feed = cache?.feed;
-    if (!isValidFeedShape(feed)) {
+    if (!isValidFeedShape(feed) || (channel === 'stable' && feed.product?.includes('-'))
+        || (cache?.feed_url && feedUrl && cache.feed_url !== feedUrl)) {
         return { available: false };
     }
     const latest = feed.product as string;
@@ -170,7 +185,7 @@ export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache 
         currentVersion,
         channel: typeof feed.channel === 'string' ? feed.channel : undefined,
         ...details,
-        downloadUrl: resolveUpdateDownloadUrl(feed, platform)
+        downloadUrl: resolveUpdateDownloadUrl(feed, platform, channel)
     };
 }
 
@@ -197,11 +212,12 @@ export function withDismissedVersion(cache: UpdateCache | null, version: string,
 }
 
 /** バックグラウンド fetch が成功したときの新しいキャッシュを組み立てる純粋関数（dismissed は温存）。 */
-export function withFetchedFeed(cache: UpdateCache | null, feed: UpdateFeed, nowIso: string): UpdateCache {
+export function withFetchedFeed(cache: UpdateCache | null, feed: UpdateFeed, nowIso: string, feedUrl?: string): UpdateCache {
     return {
         schema: 1,
         fetched_at: nowIso,
         feed,
+        feed_url: feedUrl,
         dismissed: cache?.dismissed ?? {}
     };
 }

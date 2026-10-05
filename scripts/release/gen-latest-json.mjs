@@ -20,13 +20,13 @@ import { createReadStream } from 'node:fs';
 import { readFile, readdir, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseTag } from './check-release-versions.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = join(here, '..', '..');
 
 const SCHEMA_VERSION = 1;
 const REPO_SLUG = 'AkariLabs/akari-video';
-const TAG_RE = /^v\d+\.\d+\.\d+$/;
 const CHANNELS = new Set(['prerelease', 'stable']);
 
 export const ARTIFACT_FILES = {
@@ -87,11 +87,15 @@ export function parseArgs(argv) {
 // 戻り値: latest.json の中身（オブジェクト）
 export async function generateLatestJson({ artifactsDir, tag, channel, released, repoRoot = defaultRepoRoot }) {
   if (!artifactsDir) throw new Error('--artifacts-dir は必須です');
-  if (typeof tag !== 'string' || !TAG_RE.test(tag)) {
-    throw new Error(`--tag の形式が不正です（vX.Y.Z で指定してください）: ${tag}`);
+  if (!parseTag(tag)) {
+    throw new Error(`--tag の形式が不正です（vX.Y.Z または vX.Y.Z-beta.N）: ${tag}`);
   }
+  channel ??= tag.includes('-beta.') ? 'prerelease' : 'stable';
   if (!CHANNELS.has(channel)) {
     throw new Error(`--channel は prerelease か stable のいずれかで指定してください: ${channel}`);
+  }
+  if (channel !== (tag.includes('-beta.') ? 'prerelease' : 'stable')) {
+    throw new Error(`タグ ${tag} と channel ${channel} が一致しません`);
   }
   if (!released || Number.isNaN(Date.parse(released))) {
     throw new Error(`--released は ISO8601 の日時で指定してください（Date.now() 由来の直書きは禁止）: ${released}`);
@@ -99,11 +103,9 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
 
   const productVersion = tag.slice(1);
 
-  const [shellPkg, cliPkg, pluginPkg] = await Promise.all([
-    readFile(join(repoRoot, 'apps/shell/package.json'), 'utf8').then(JSON.parse),
-    readFile(join(repoRoot, 'packages/akari-launcher/package.json'), 'utf8').then(JSON.parse),
-    readFile(join(repoRoot, 'plugin/.claude-plugin/plugin.json'), 'utf8').then(JSON.parse)
-  ]);
+  // feed_only は別 ref から過去タグを再生成することもある。版はタグを唯一の真実とし、
+  // 通常リリース時の package.json との一致は前段の version-gate が検査する。
+  const cliPkg = JSON.parse(await readFile(join(repoRoot, 'packages/akari-launcher/package.json'), 'utf8'));
 
   const dmgFiles = (await readdir(artifactsDir, { withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith('.dmg'))
@@ -137,7 +139,7 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
     notes_url: `https://github.com/${REPO_SLUG}/releases/tag/${tag}`,
     components: {
       shell: {
-        version: shellPkg.version,
+        version: productVersion,
         mac: { url: releaseAssetUrl(tag, ARTIFACT_FILES.shellMac), sha256: shellMacSha },
         ...(macDmg ? { mac_dmg: macDmg } : {}),
         // 契約 §3 の例示どおり win の正はインストーラ（...exe）。ポータブル zip は
@@ -146,11 +148,11 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
         win_zip: { url: releaseAssetUrl(tag, ARTIFACT_FILES.shellWin), sha256: shellWinSha }
       },
       cli: {
-        version: cliPkg.version,
+        version: productVersion,
         npm: cliPkg.name,
         tarball: { url: releaseAssetUrl(tag, ARTIFACT_FILES.cli), sha256: cliSha }
       },
-      plugin: { version: pluginPkg.version },
+      plugin: { version: productVersion },
       // update-and-versioning 契約（内部リポ）§11 追記: install.sh が展開するものと同内容の
       // フル構成ソース tarball（CLI self-update の実体）。additive 追加のため schema は 1 のまま。
       app: { version: productVersion, url: releaseAssetUrl(tag, ARTIFACT_FILES.app), sha256: appSha }

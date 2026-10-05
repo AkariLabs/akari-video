@@ -50,7 +50,7 @@ test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 
     const latest = await generateLatestJson({
       artifactsDir,
       tag: 'v0.1.0',
-      channel: 'prerelease',
+      channel: 'stable',
       released: '2026-07-27T00:00:00+09:00',
       repoRoot
     });
@@ -58,7 +58,7 @@ test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 
     assert.deepEqual(Object.keys(latest).sort(), ['channel', 'components', 'notes_url', 'product', 'released', 'schema']);
     assert.equal(latest.schema, 1);
     assert.equal(latest.product, '0.1.0');
-    assert.equal(latest.channel, 'prerelease');
+    assert.equal(latest.channel, 'stable');
     assert.equal(latest.released, '2026-07-27T00:00:00+09:00');
     assert.equal(latest.notes_url, 'https://github.com/AkariLabs/akari-video/releases/tag/v0.1.0');
 
@@ -119,6 +119,35 @@ test('generateLatestJson: channel を stable にすると schema はそのまま
   });
 });
 
+test('generateLatestJson: channel 省略時はタグ形から決まる', async () => {
+  await withFixture(async ({ repoRoot, artifactsDir }) => {
+    const feed = await generateLatestJson({ artifactsDir, tag: 'v0.1.0', released: '2026-10-06T00:00:00Z', repoRoot });
+    assert.equal(feed.channel, 'stable');
+  });
+});
+
+test('generateLatestJson: beta タグを prerelease として生成し、異なる channel と接尾辞は拒否', async () => {
+  await withFixture(async ({ repoRoot, artifactsDir }) => {
+    for (const path of ['apps/shell/package.json', 'packages/akari-launcher/package.json', 'plugin/.claude-plugin/plugin.json']) {
+      const full = join(repoRoot, path);
+      const pkg = JSON.parse(await readFile(full, 'utf8'));
+      await writeFile(full, JSON.stringify({ ...pkg, version: '1.1.0-beta.1' }));
+    }
+    const args = { artifactsDir, tag: 'v1.1.0-beta.1', channel: 'prerelease', released: '2026-10-06T00:00:00Z', repoRoot };
+    const feed = await generateLatestJson(args);
+    assert.equal(feed.product, '1.1.0-beta.1');
+    assert.equal(feed.channel, 'prerelease');
+    assert.equal((await generateLatestJson({ ...args, channel: undefined })).channel, 'prerelease');
+    assert.equal(feed.components.shell.version, '1.1.0-beta.1');
+    await writeFile(join(repoRoot, 'apps/shell/package.json'), JSON.stringify({ version: '1.2.0' }));
+    assert.equal((await generateLatestJson(args)).components.shell.version, '1.1.0-beta.1', 'feed_only は現在 checkout の版を混ぜない');
+    await assert.rejects(generateLatestJson({ ...args, channel: 'stable' }), /一致しません/);
+    for (const tag of ['v1.1.0-rc.1', 'v1.1', 'v1.1.0-beta', 'v1.1.0-beta.0']) {
+      await assert.rejects(generateLatestJson({ ...args, tag }), /--tag/);
+    }
+  });
+});
+
 test('generateLatestJson: channel が prerelease/stable 以外なら拒否する', async () => {
   await withFixture(async ({ repoRoot, artifactsDir }) => {
     await assert.rejects(
@@ -140,11 +169,11 @@ test('generateLatestJson: tag が vX.Y.Z 形式でなければ拒否する', asy
 test('generateLatestJson: released は必須引数（Date.now() 直書き禁止の裏取り） — 欠落・不正日時は拒否する', async () => {
   await withFixture(async ({ repoRoot, artifactsDir }) => {
     await assert.rejects(
-      generateLatestJson({ artifactsDir, tag: 'v0.1.0', channel: 'prerelease', released: '', repoRoot }),
+      generateLatestJson({ artifactsDir, tag: 'v0.1.0', channel: 'stable', released: '', repoRoot }),
       /--released/
     );
     await assert.rejects(
-      generateLatestJson({ artifactsDir, tag: 'v0.1.0', channel: 'prerelease', released: 'not-a-date', repoRoot }),
+      generateLatestJson({ artifactsDir, tag: 'v0.1.0', channel: 'stable', released: 'not-a-date', repoRoot }),
       /--released/
     );
   });
@@ -152,7 +181,7 @@ test('generateLatestJson: released は必須引数（Date.now() 直書き禁止�
 
 test('generateLatestJson: 同じ入力なら出力が完全に同一（決定論）', async () => {
   await withFixture(async ({ repoRoot, artifactsDir }) => {
-    const args = { artifactsDir, tag: 'v0.1.0', channel: 'prerelease', released: '2026-07-27T00:00:00+09:00', repoRoot };
+    const args = { artifactsDir, tag: 'v0.1.0', channel: 'stable', released: '2026-07-27T00:00:00+09:00', repoRoot };
     const a = await generateLatestJson(args);
     const b = await generateLatestJson(args);
     assert.deepEqual(a, b);
@@ -193,7 +222,7 @@ test('CLI: --out を指定するとファイルにも書き出す', async () => 
       here,
       '--artifacts-dir', artifactsDir,
       '--tag', 'v0.1.0',
-      '--channel', 'prerelease',
+      '--channel', 'stable',
       '--released', '2026-07-27T00:00:00+09:00',
       '--out', outPath,
       '--repo-root', repoRoot

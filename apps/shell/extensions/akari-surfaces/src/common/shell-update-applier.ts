@@ -174,18 +174,18 @@ export function beginUserInitiatedUpdaterCheck(state: ShellUpdaterUiState): Shel
     return { downloaded: false, checkRequestedByUser: true };
 }
 
-/** 手動操作では通知に表示した版の channel を使う。自動チェックは利用者の設定を守る。 */
+/** 手動操作でも安定版設定からプレリリースへは昇格させない。 */
 export function resolveUpdaterCheckChannel(
     preference: 'stable' | 'prerelease',
     manual: boolean,
     offeredChannel: unknown
 ): 'stable' | 'prerelease' {
-    return manual && (offeredChannel === 'stable' || offeredChannel === 'prerelease') ? offeredChannel : preference;
+    return preference === 'prerelease' && manual && offeredChannel === 'stable' ? 'stable' : preference;
 }
 
-/** generic provider は allowPrerelease を見ないため、安定版だけ別 manifest を読む。 */
-export function resolveUpdaterFeedChannel(channel: 'stable' | 'prerelease'): 'stable' | 'latest' {
-    return channel === 'stable' ? 'stable' : 'latest';
+/** generic provider は channel 名に対応した manifest を読む。 */
+export function resolveUpdaterFeedChannel(channel: 'stable' | 'prerelease'): 'stable' | 'prerelease' {
+    return channel;
 }
 
 /** 手動確認だけ、進行中・適用待ちの更新を再通知してチェックを省く。 */
@@ -289,19 +289,14 @@ function normalizeUpdaterReason(reason: string | null | undefined): string {
 }
 
 /**
- * channel が `'stable'` でなければ prerelease を追従する
- * （契約 §11「channel = prerelease の間は allowPrerelease = true」）。
- * channel が読めない（未フェッチ・壊れたキャッシュ）場合もフェイルセーフ側 = true
- * （現状 2026-08 時点は全リリースが prerelease — 契約 §7）。
+ * 明示的な opt-in だけがベータを受け取る。壊れた値は安定版に倒す。
  */
 export function resolveAllowPrerelease(channel: string | null | undefined): boolean {
-    return channel !== 'stable';
+    return channel === 'prerelease';
 }
 
 /**
- * 保存された「受け取る版」を正規化する。明示的に `'stable'` を選んだときだけ安定版、
- * 未設定・壊れた値はすべてプレリリース追従（2026-09-24 オーナー裁定 — 安定版を既定にすると
- * プレリリースで出た更新を見逃す人が多いため、既定はプレリリース）。
+ * 保存された「受け取る版」を正規化する。未設定・壊れた値は安定版。
  */
 export function resolveUpdateChannel(channel: string | null | undefined): 'stable' | 'prerelease' {
     return resolveAllowPrerelease(channel) ? 'prerelease' : 'stable';
