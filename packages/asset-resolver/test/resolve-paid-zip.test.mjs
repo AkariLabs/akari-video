@@ -391,3 +391,54 @@ test('resolvePaidZip: checksums.txt の `..` パスは zip-slip として拒否�
 
   assert.equal(existsSync(path.join(home, 'assets', 'scene3d', 'mini-paid-slip')), false);
 });
+
+test('店応答の pass は product_id の有無にかかわらず Pro を解錠する', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'pass-product-item', 'overlay', 1980, 'pass-product');
+  const withProduct = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withProduct, catalogPath, 'pass-no-product-item', 'overlay', 1980);
+  const fetchImpl = async (url) => {
+    assert.ok(String(url).endsWith('/v1/entitlements'));
+    return { ok: true, status: 200, json: async () => ({ pass: { tier: 1, seat_no: 1 }, entitlements: [] }) };
+  };
+
+  const state = await composeState({ env, fetchImpl });
+  assert.deepEqual(['pass-product-item', 'pass-no-product-item'].map(
+    id => state.items.find(item => item.id === id)?.state), ['available', 'available']);
+});
+
+test('pass も展開行も無い店応答では Pro は locked', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'empty-product-item', 'overlay', 1980, 'empty-product');
+  const withProduct = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withProduct, catalogPath, 'empty-no-product-item', 'overlay', 1980);
+  const fetchImpl = async (url) => {
+    assert.ok(String(url).endsWith('/v1/entitlements'));
+    return { ok: true, status: 200, json: async () => ({ pass: null, entitlements: [] }) };
+  };
+
+  const state = await composeState({ env, fetchImpl });
+  assert.deepEqual(['empty-product-item', 'empty-no-product-item'].map(
+    id => state.items.find(item => item.id === id)?.state), ['locked', 'locked']);
+});
+
+test('pass が無い場合は一致する product_id の Pro だけ解錠する', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'other-product-item', 'overlay', 1980, 'different-product');
+  const withOther = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withOther, catalogPath, 'matching-product-item', 'overlay', 1980, 'other-product');
+  const fetchImpl = async (url) => {
+    assert.ok(String(url).endsWith('/v1/entitlements'));
+    return { ok: true, status: 200, json: async () => ({
+      pass: null,
+      entitlements: [{ product_id: 'other-product', kind: 'asset-pack', current_version: 1 }],
+    }) };
+  };
+
+  const state = await composeState({ env, fetchImpl });
+  assert.equal(state.items.find(item => item.id === 'other-product-item')?.state, 'locked');
+  assert.equal(state.items.find(item => item.id === 'matching-product-item')?.state, 'available');
+});

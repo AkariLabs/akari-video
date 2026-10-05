@@ -7,11 +7,13 @@ import { resolve, AssetResolverError } from '../src/resolve.mjs';
 import { setupFixtureEnv } from './helpers.mjs';
 import { isAssetEntitled } from '../src/tier.mjs';
 
-test('only all-access-pass entitles Pro catalog items', () => {
+test('pass or matching product_id entitles Pro catalog items', () => {
   const item = { id: 'mini-paid', product_id: 'paid-product' };
-  assert.equal(isAssetEntitled(item, new Set(['mini-paid'])), false);
-  assert.equal(isAssetEntitled(item, new Set(['paid-product'])), false);
-  assert.equal(isAssetEntitled(item, new Set(['all-access-pass'])), true);
+  assert.equal(isAssetEntitled(item, { ids: new Set(['mini-paid']), pass: null }), false);
+  assert.equal(isAssetEntitled(item, { ids: new Set(['paid-product']), pass: null }), true);
+  assert.equal(isAssetEntitled(item, { ids: new Set(), pass: { tier: 1, seat_no: 1 } }), true);
+  assert.equal(isAssetEntitled(item, { ids: new Set(['all-access-pass']), pass: null }), true);
+  assert.equal(isAssetEntitled(item, { ids: new Set(), pass: null }), false);
 });
 
 function saveCatalog(fixture) {

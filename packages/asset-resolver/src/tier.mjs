@@ -7,6 +7,10 @@ export function assetTier(item) {
   return item.price === 0 ? 'free' : 'pro';
 }
 
-export function isAssetEntitled(_item, entitlementIds) {
-  return entitlementIds.has('all-access-pass');
+export function isAssetEntitled(item, entitlements) {
+  const { ids, pass } = entitlements instanceof Set
+    ? { ids: entitlements, pass: null } : entitlements;
+  return pass !== null && pass !== undefined
+    || ids.has('all-access-pass')
+    || (typeof item?.product_id === 'string' && ids.has(item.product_id));
 }
