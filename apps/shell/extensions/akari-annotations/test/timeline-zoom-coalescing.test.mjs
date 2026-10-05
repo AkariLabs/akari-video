@@ -24,7 +24,7 @@ test('ズーム（wheel / スライダー）は applyViewDuration で状態だ�
   assert.ok(apply.includes('this.scheduleStripRender()'));
   assert.ok(!apply.includes('this.renderStrip()'), 'wheel イベントごとの同期 renderStrip は残さない');
   assert.ok(apply.indexOf('this.updateZoomHud()') < apply.indexOf('this.scheduleStripRender()'), 'HUD の倍率表示は即時');
-  assert.match(source, /this\.zoomLabel\.addEventListener\('click', \(\) => this\.applyViewDuration\(this\.totalDuration\(\), 0, 0\)\)/);
+  assert.match(source, /this\.zoomLabel\.addEventListener\('click', \(\) => this\.applyViewDuration\(fitDuration\(this\.contentEndDuration\(\)\), 0, 0\)\)/);
 });
 
 test('renderStrip は先頭で予約済みフレームを取り消し、集計メモを進める', () => {
