@@ -2889,8 +2889,8 @@ export function previewBootstrapScript(): string {
                 const iy0 = Math.max(naturalBox.y, cropBoxPx.y);
                 const ix1 = Math.min(naturalBox.x + naturalBox.w, cropBoxPx.x + cropBoxPx.w);
                 const iy1 = Math.min(naturalBox.y + naturalBox.h, cropBoxPx.y + cropBoxPx.h);
-                const cb = ix1 > ix0 && iy1 > iy0
-                    ? { x: ix0, y: iy0, w: ix1 - ix0, h: iy1 - iy0 } : cropBoxPx;
+                if (!(ix1 > ix0 && iy1 > iy0)) return null;
+                const cb = { x: ix0, y: iy0, w: ix1 - ix0, h: iy1 - iy0 };
                 const pivotPx = { x: (crop.x + crop.w / 2) * width,
                     y: (crop.y + crop.h / 2) * height };
                 const box = layerScreenRectForVideoRect(transform, cb, pivotPx);
@@ -3124,7 +3124,8 @@ export function previewBootstrapScript(): string {
                             motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration, original)?.visible);
                         const bounds = layerOutputBoundsForTransform(entry, { ...visual,
                             x: visual.x + nextX - original.x, y: visual.y + nextY - original.y });
-                        const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
+                        const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap,
+                            { kind: 'layer', id: entry.spec.id });
                         dragSnap = snap;
                         if (snap.x) nextX += snap.x.correction;
                         if (snap.y) nextY += snap.y.correction;
@@ -3364,12 +3365,14 @@ export function previewBootstrapScript(): string {
                             const visual = previewMotionGeometryTransformFn(original,
                                 motionAtForSpec(segment, segment?.outStart,
                                     Number(segment?.outEnd) - Number(segment?.outStart), original)?.visible);
-                            const bounds = outputBoundsForCenteredBox(
-                                outputWidth / 2 + visual.x + nextX - original.x,
-                                outputHeight / 2 + visual.y + nextY - original.y,
-                                outputWidth * visual.scale, outputHeight * visual.scale
-                            );
-                            const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
+                            const bounds = typeof cutOutputBoundsForTransform === 'function'
+                                ? cutOutputBoundsForTransform({ ...visual,
+                                    x: visual.x + nextX - original.x, y: visual.y + nextY - original.y })
+                                : outputBoundsForCenteredBox(outputWidth / 2 + visual.x + nextX - original.x,
+                                    outputHeight / 2 + visual.y + nextY - original.y,
+                                    outputWidth * visual.scale, outputHeight * visual.scale);
+                            const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap,
+                                { kind: 'cut' });
                             dragSnap = snap;
                             if (snap.x) nextX += snap.x.correction;
                             if (snap.y) nextY += snap.y.correction;
@@ -4022,6 +4025,15 @@ export function previewBootstrapScript(): string {
                     rotate: transform.rotate
                 };
             };
+            const cutOutputBoundsForTransform = transform => {
+                const box = cutSelectBoxGeometry();
+                const current = cutVisualTransformNow();
+                const radians = (box.rotate || 0) * Math.PI / 180;
+                const width = Math.abs(box.width * Math.cos(radians)) + Math.abs(box.height * Math.sin(radians));
+                const height = Math.abs(box.width * Math.sin(radians)) + Math.abs(box.height * Math.cos(radians));
+                return outputBoundsForCenteredBox(box.centerX + transform.x - current.x,
+                    box.centerY + transform.y - current.y, width, height);
+            };
             // 裁定 4・6: cut の crop 書き戻しは v2 の item id を持つ cut だけ（legacy schema に
             // cuts[].crop の席が無い）。framing を持つ cut は layer-style が framing を捨てるので
             // 辺バーを出さない（幾何統一済みの文書では両立するため除外しない）。
@@ -4240,8 +4252,8 @@ export function previewBootstrapScript(): string {
                                 const outputWidth = Number(summary.output?.width) || 1280;
                                 const outputHeight = Number(summary.output?.height) || 720;
                                 const snap = window.akari.interaction.computeSnapCorrection(
-                                    outputBoundsForCenteredBox(outputWidth / 2 + x, outputHeight / 2 + y,
-                                        outputWidth * original.scale, outputHeight * original.scale), dragSnap);
+                                    cutOutputBoundsForTransform({ ...cutVisualTransformNow(), x, y }), dragSnap,
+                                    { kind: 'cut' });
                                 dragSnap = snap;
                                 x += snap.x?.correction ?? 0; y += snap.y?.correction ?? 0;
                                 window.akari.interaction.showSnapGuides(snap.x, snap.y);
@@ -4708,6 +4720,33 @@ export function previewBootstrapScript(): string {
                     plate.style.scale = previousScale;
                 }
             };
+            // overlay-runtime の stage 外にある写真と caption も、表示中の選択枠と同じ座標で渡す。
+            window.akari.interaction?.setExtraSnapTargets?.(moving => {
+                const targets = [];
+                for (const entry of layerEntries) {
+                    if (moving?.kind === 'layer' && moving.id === entry.spec.id) continue;
+                    if (!entry.video.isConnected || entry.video.style.display === 'none'
+                        || entry.video.hidden || entry.spec?.proxyMissing || entry.spec?.retiredTelop) continue;
+                    const bounds = layerOutputBoundsForTransform(entry, layerVisualTransformNow(entry));
+                    if (bounds) targets.push(bounds);
+                }
+                if (moving?.kind !== 'cut' && cutInteractionSegment()
+                    && cutSelectionVideo().style.display !== 'none' && !cutSelectionVideo().hidden) {
+                    targets.push(cutOutputBoundsForTransform(cutVisualTransformNow()));
+                }
+                for (const row of captionRows.values()) {
+                    const id = row.caption.sourceCueId || row.caption.id;
+                    if (moving?.kind === 'caption' && (moving.id === id || moving.ids?.includes(id))) continue;
+                    if (!row.plate.isConnected || row.plate.hidden || row.plate.style.display === 'none') continue;
+                    const rect = captionVisualRect(row.plate);
+                    if ([rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite)
+                        && rect.right > rect.left && rect.bottom > rect.top) {
+                        targets.push({ ...rect, centerX: (rect.left + rect.right) / 2,
+                            centerY: (rect.top + rect.bottom) / 2 });
+                    }
+                }
+                return targets;
+            });
             const captionTransformValues = captionPlate => {
                 const style = getComputedStyle(captionPlate);
                 const scale = Number.parseFloat(style.getPropertyValue('--caption-scale'));
@@ -5749,8 +5788,14 @@ export function previewBootstrapScript(): string {
                 try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const outputFrame = captionOutputFrame();
                 let dragSnap = { x: null, y: null };
+                let settleTimer = null;
+                const clearSettleTimer = () => {
+                    if (settleTimer !== null && typeof clearTimeout === 'function') clearTimeout(settleTimer);
+                    settleTimer = null;
+                };
                 const cleanup = () => {
                     selectionDragActive = false;
+                    clearSettleTimer();
                     document.body.classList.remove('akari-caption-moving');
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
@@ -5762,8 +5807,9 @@ export function previewBootstrapScript(): string {
                         captionPlate.releasePointerCapture(pointerId);
                     }
                 };
-                const onMove = moveEvent => {
+                const onMove = (moveEvent, settled = false) => {
                     if (moveEvent.pointerId !== pointerId) return;
+                    clearSettleTimer();
                     const dx = moveEvent.clientX - startClientX;
                     const dy = moveEvent.clientY - startClientY;
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
@@ -5799,7 +5845,8 @@ export function previewBootstrapScript(): string {
                         const snap = window.akari.interaction.computeSnapCorrection({
                             left, right, top, bottom,
                             centerX: (left + right) / 2, centerY: (top + bottom) / 2
-                        }, dragSnap);
+                        }, dragSnap, { kind: 'caption', id: cueId,
+                            ids: multiMove ? [...selectedCaptionIds] : undefined });
                         dragSnap = snap;
                         if (snap.x) outputDx += snap.x.correction;
                         if (snap.y) outputDy += snap.y.correction;
@@ -5822,6 +5869,12 @@ export function previewBootstrapScript(): string {
                         outputDy += startPlateTranslate.y;
                         captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
                         updateCaptionSelectBoxForRect(captionVisualRect());
+                    }
+                    if (!settled && typeof setTimeout === 'function') {
+                        settleTimer = setTimeout(() => {
+                            settleTimer = null;
+                            if (!captionFinished) onMove(moveEvent, true);
+                        }, 96);
                     }
                 };
                 let captionFinished = false;
@@ -5939,10 +5992,13 @@ export function previewBootstrapScript(): string {
                 };
                 const onUp = upEvent => {
                     if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+                    clearSettleTimer();
+                    if (Number.isFinite(upEvent.clientX) && Number.isFinite(upEvent.clientY)) onMove(upEvent, true);
                     void finish(false);
                 };
                 const onCancel = cancelEvent => {
                     if (cancelEvent.pointerId !== undefined && cancelEvent.pointerId !== pointerId) return;
+                    clearSettleTimer();
                     void finish(true);
                 };
                 const onKeyDown = keyEvent => {

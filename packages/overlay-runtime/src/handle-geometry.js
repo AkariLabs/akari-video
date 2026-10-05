@@ -43,6 +43,7 @@ globalThis.akariHandleGeometry = (() => {
   // だけに絞る。辺と中央の交差まで候補にすると、小さい素材ほど近くに候補がひしめいて飛び移る。
   // 添字は coordinates() の並び（0: 左/上, 1: 中央, 2: 右/下）。
   const ITEM_PAIRS = new Set(['0:0', '1:1', '2:2', '0:2', '2:0']);
+  const CENTER_EDGE_PAIRS = new Set(['1:0', '1:2', '0:1', '2:1']);
   // 吸着距離（表示px）。合わせたい画面中央を一番強く、画面の端、他の素材の順に弱くする。
   // tolerance は画面中央の距離（従来の 6px）。端と素材は options で上書きできる。
   const CANVAS_EDGE_TOLERANCE = 4;
@@ -75,7 +76,8 @@ globalThis.akariHandleGeometry = (() => {
       // いったん吸着した先は、その吸着距離を超えて離れるまで保つ。近くの別候補へ毎回
       // 選び直すと、素早いドラッグで候補から候補へ飛び移って見える。
       let held = null;
-      if (previous && Number.isInteger(previous.sourceIndex) && Number.isFinite(previous.target)) {
+      if (previous && Number.isInteger(previous.sourceIndex) && Number.isFinite(previous.target)
+        && (!options.centerPriority?.[axis] || previous.sourceIndex === 1)) {
         const kept = targets.find(target => target.kind === previous.kind
           && Math.abs(target.value - previous.target) <= 1e-6);
         const correction = previous.target - own[previous.sourceIndex];
@@ -87,23 +89,45 @@ globalThis.akariHandleGeometry = (() => {
       if (fast) return finish(held);
       const candidates = [];
       own.forEach((source, sourceIndex) => targets.forEach(target => {
-        if (target.kind === 'item' && !ITEM_PAIRS.has(sourceIndex + ':' + target.targetIndex)) return;
+        if (target.kind === 'item' && !ITEM_PAIRS.has(sourceIndex + ':' + target.targetIndex)
+          && !(options.centerToItemEdges && CENTER_EDGE_PAIRS.has(sourceIndex + ':' + target.targetIndex))) return;
         const correction = target.value - source;
         const distance = Math.abs(correction) * displayScale;
         if (distance > limitFor(target)) return;
-        candidates.push({ correction, target: target.value, sourceIndex, kind: target.kind,
-          bounds: target.bounds, distance });
+        candidates.push({ correction, target: target.value, sourceIndex, targetIndex: target.targetIndex,
+          kind: target.kind, bounds: target.bounds, distance });
       }));
+      // Congruent shapes produce the same correction for left/centre/right (or top/centre/bottom).
+      // If the canvas centre lies 1-2 px from the other shape's centre, an earlier canvas
+      // magnet otherwise wins and leaves the two shapes visibly misaligned.
+      if (options.preferMatchingItem) {
+        const matching = candidates.filter(candidate => candidate.kind === 'item'
+          && candidate.sourceIndex === 1 && candidate.targetIndex === 1
+          && Math.abs((own[2] - own[0])
+            - (coordinates(candidate.bounds, axis)[2] - coordinates(candidate.bounds, axis)[0]))
+            * displayScale <= .5);
+        if (matching.length) {
+          const closest = matching.reduce((best, candidate) =>
+            candidate.distance < best.distance ? candidate : best);
+          return finish(closest);
+        }
+      }
       // 保持中でも、はっきり近い候補や、より近い画面の端・中央へは乗り換える
       // （素材の辺に掴まったまま画面中央へ合わせられない、を防ぐ）。
-      const pool = held ? candidates.filter(candidate => candidate.distance + SWITCH_MARGIN <= held.distance
-        || (candidate.kind === 'canvas' && held.kind !== 'canvas' && candidate.distance < held.distance)) : candidates;
+      // Prefer a line's ink centre when it reaches a guide, but retain stroke-edge snaps elsewhere.
+      const eligible = options.centerPriority?.[axis] && candidates.some(candidate => candidate.sourceIndex === 1)
+        ? candidates.filter(candidate => candidate.sourceIndex === 1) : candidates;
+      const pool = held && !options.nearest ? eligible.filter(candidate => candidate.distance + SWITCH_MARGIN <= held.distance
+        || (candidate.kind === 'canvas' && held.kind !== 'canvas' && candidate.distance < held.distance)) : eligible;
       if (held && pool.length === 0) return finish(held);
       let best = null;
+      const equalDistance = options.nearest ? 1e-6 : .5;
       for (const candidate of pool) {
-        const visiblyEqual = best && Math.abs(candidate.distance - best.distance) <= .5;
-        if (!best || candidate.distance < best.distance - .5 ||
-          (visiblyEqual && candidate.kind === 'canvas' && best.kind !== 'canvas')) best = candidate;
+        const visiblyEqual = best && Math.abs(candidate.distance - best.distance) <= equalDistance;
+        const edge = snap => snap.sourceIndex !== 1 || snap.targetIndex !== 1;
+        if (!best || candidate.distance < best.distance - equalDistance ||
+          (visiblyEqual && candidate.kind === 'canvas' && best.kind !== 'canvas') ||
+          (visiblyEqual && candidate.kind === best.kind && edge(candidate) && !edge(best))) best = candidate;
       }
       return finish(best);
     };

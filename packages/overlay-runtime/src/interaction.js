@@ -180,6 +180,7 @@ function marqueeHits(candidates, rect) {
   let selftestOverlayOverride = null;
   let verticalSnapGuide = null;
   let horizontalSnapGuide = null;
+  let extraSnapTargets = null;
   let nudge = null;
   let nudgeTimer = null;
   let lastClick = null;
@@ -1693,6 +1694,7 @@ function marqueeHits(candidates, rect) {
     if (!activeDrag) return;
 
     const drag = activeDrag;
+    clearDragSettleTimer(drag);
     reportLiveValues(drag.overlayId, undefined, true);
     activeDrag = null;
     if (drag.group) {
@@ -1712,6 +1714,7 @@ function marqueeHits(candidates, rect) {
     if (!activeDrag) return null;
 
     const drag = activeDrag;
+    clearDragSettleTimer(drag);
     activeDrag = null;
     releasePointer(drag);
     hideSnapGuides();
@@ -1977,7 +1980,11 @@ function marqueeHits(candidates, rect) {
     return bounds ? nextSnapMotion(bounds, null) : null;
   }
 
-  function computeSnapCorrection(bounds, previousSnap) {
+  function setExtraSnapTargets(provider) {
+    extraSnapTargets = typeof provider === 'function' ? provider : null;
+  }
+
+  function computeSnapCorrection(bounds, previousSnap, movingItem = null) {
     if (!bounds) return { x: null, y: null };
     if (!globalThis.akariHandleGeometry) {
       const targets = canvasSnapTargets();
@@ -1991,9 +1998,19 @@ function marqueeHits(candidates, rect) {
     const others = stage ? Array.from(stage.children)
       .filter(element => isSelectable(element) && !moving.has(element))
       .map(fragmentVideoBounds).filter(Boolean) : [];
+    if (extraSnapTargets) {
+      const extra = extraSnapTargets(movingItem);
+      if (Array.isArray(extra)) others.push(...extra.filter(item => item
+        && [item.left, item.right, item.top, item.bottom].every(Number.isFinite)));
+    }
     const motion = nextSnapMotion(bounds, previousSnap?.motion);
+    const line = movingItem?.kind === 'line';
+    const centerPriority = line ? { x: true, y: true } : null;
     const snap = globalThis.akariHandleGeometry.snapBounds(bounds, others, outputSize(), currentDisplayScale(), 6,
-      { previous: previousSnap, fast: { x: motion.fastX, y: motion.fastY } });
+      { previous: previousSnap, fast: { x: motion.fastX, y: motion.fastY }, centerPriority,
+        centerToItemEdges: ['line', 'html', 'caption', 'layer', 'cut'].includes(movingItem?.kind),
+        nearest: movingItem?.kind === 'layer' || movingItem?.kind === 'cut',
+        preferMatchingItem: movingItem?.kind === 'shape' });
     return { ...snap, motion };
   }
 
@@ -2016,7 +2033,9 @@ function marqueeHits(candidates, rect) {
       return;
     }
 
-    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY, motion: drag.snapMotion });
+    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY, motion: drag.snapMotion },
+      { kind: drag.container.dataset.role === 'shape-line' ? 'line'
+        : drag.container.dataset.role === 'shape' ? 'shape' : 'html' });
     drag.snapMotion = snap.motion;
     if (lockedAxis === 'x') snap.y = null;
     if (lockedAxis === 'y') snap.x = null;
@@ -3078,7 +3097,20 @@ function marqueeHits(candidates, rect) {
     }
   }
 
-  function onPointerMove(event) {
+  function clearDragSettleTimer(drag) {
+    if (drag?.settleTimer != null && typeof clearTimeout === 'function') clearTimeout(drag.settleTimer);
+    if (drag) drag.settleTimer = null;
+  }
+
+  function scheduleDragSettle(drag, event, settled) {
+    if (settled || typeof setTimeout !== 'function') return;
+    drag.settleTimer = setTimeout(() => {
+      drag.settleTimer = null;
+      if (activeDrag === drag) onPointerMove(event, true);
+    }, 96);
+  }
+
+  function onPointerMove(event, settled = false) {
     if (pendingBlank && event.pointerId === pendingBlank.pointerId) {
       const dx = event.clientX - pendingBlank.x, dy = event.clientY - pendingBlank.y;
       if (!pendingBlank.started && dx * dx + dy * dy > dragStartDistance * dragStartDistance) {
@@ -3112,6 +3144,7 @@ function marqueeHits(candidates, rect) {
 
     const drag = activeDrag;
     if (!drag || event.pointerId !== drag.pointerId) return;
+    clearDragSettleTimer(drag);
 
     const deltaX = event.clientX - drag.startClientX;
     const deltaY = event.clientY - drag.startClientY;
@@ -3147,6 +3180,7 @@ function marqueeHits(candidates, rect) {
           : event.shiftKey ? { x: 0, y: videoDeltaY } : { x: videoDeltaX, y: videoDeltaY });
       moveGroupDrag(drag, locked.x, locked.y, event.metaKey || event.ctrlKey, lockedAxis);
       reportLivePose(drag);
+      scheduleDragSettle(drag, event, settled);
       if (event.cancelable) event.preventDefault();
       return;
     }
@@ -3162,6 +3196,7 @@ function marqueeHits(candidates, rect) {
       lockedAxis
     );
     reportLivePose(drag);
+    scheduleDragSettle(drag, event, settled);
 
     if (event.cancelable) event.preventDefault();
   }
@@ -3188,6 +3223,10 @@ function marqueeHits(candidates, rect) {
       return;
     }
     if (!activeDrag || event.pointerId !== activeDrag.pointerId) return;
+    clearDragSettleTimer(activeDrag);
+    if (activeDrag.moved && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+      onPointerMove(event, true);
+    }
     finishDrag();
   }
 
@@ -4129,6 +4168,7 @@ function marqueeHits(candidates, rect) {
     // overlays[] 自身のドラッグ/拡縮（上の内部関数群）も同じ実装を通る（単一正本）。
     stageLocalPoint,
     computeSnapCorrection,
+    setExtraSnapTargets,
     showSnapGuides,
     hideSnapGuides,
     outputSize,
