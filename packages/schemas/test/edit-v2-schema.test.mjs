@@ -266,6 +266,21 @@ test("shape v1 accepts copied paths, line parts, bubbles, and gradients with clo
   ]) { item.source=invalid; assert.equal(validate(edit),false,JSON.stringify(invalid)); }
 });
 
+test("line cap scales are optional and bounded independently", () => {
+  const edit = fixture('edit-v2-shape-minimal-valid');
+  const item = edit.tracks.find(t => t.lane === 'visual').items[0];
+  item.source = { kind: 'shape', shape: 'line', params: { strokeWidth: 10 } };
+  assert.equal(validate(edit), true, JSON.stringify(validate.errors));
+  item.source.params.startCapScale = .5;
+  item.source.params.endCapScale = 3;
+  assert.equal(validate(edit), true, JSON.stringify(validate.errors));
+  for (const [key, bad] of [['startCapScale', .49], ['endCapScale', 3.01], ['startCapScale', '2']]) {
+    const copy = structuredClone(edit);
+    copy.tracks.find(t => t.lane === 'visual').items[0].source.params[key] = bad;
+    assert.equal(validate(copy), false, `${key}=${bad}`);
+  }
+});
+
 test("v0 shape corner radius remains readable while path radius stops at 100", () => {
   const edit=fixture('edit-v2-shape-minimal-valid');
   const item=edit.tracks[0].items[0];

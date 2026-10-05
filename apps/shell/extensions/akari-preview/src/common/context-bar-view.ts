@@ -147,16 +147,16 @@ export function barItems(state: ContextBarState): BarItem[] {
     if (state.kind === 'photo') {
         if (state.photoToolsAvailable === false) return common(true);
         return [
-            { key: 'edit', label: '編集', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'home' } },
+            { key: 'edit', label: '編集', kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'home' } },
             SEP,
-            { key: 'replace', label: '置き換え', kind: 'action', text: true },
-            { key: 'cutout', label: '背景透過', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'photo-cutout', fieldName: 'photo-cutout-panel' } },
-            { key: 'eraser', label: '消しゴム', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'photo-eraser', fieldName: 'photo-brush-start' } },
-            { key: 'photoColor', label: '写真の色', kind: 'inspector', text: true, inspector: { tabId: 'adjust' } },
-            { key: 'border', label: '枠線', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-frame-width' } },
-            { key: 'photoRadius', label: '角の丸み', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-frame-radius' } },
-            { key: 'crop', label: '切り抜き', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-crop-open' } },
-            { key: 'flip', label: '反転', kind: 'window', text: true },
+            { key: 'replace', label: '置き換え', kind: 'action' },
+            { key: 'cutout', label: '背景透過', kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'photo-cutout', fieldName: 'photo-cutout-panel' } },
+            { key: 'eraser', label: '消しゴム', kind: 'inspector', inspector: { tabId: 'edit', sectionId: 'photo-eraser', fieldName: 'photo-brush-start' } },
+            { key: 'photoColor', label: '写真の色', kind: 'inspector', inspector: { tabId: 'adjust' } },
+            { key: 'border', label: '枠線', kind: 'window' },
+            { key: 'photoRadius', label: '角の丸み', kind: 'window' },
+            { key: 'crop', label: '切り抜き', kind: 'inspector', inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-crop-open' } },
+            { key: 'flip', label: '反転', kind: 'window' },
             ...common(true)
         ];
     }
@@ -182,21 +182,24 @@ export const CAP_OPTIONS = [
 /** 窓に出す今の値（0〜100 の目盛り）。 */
 export function windowValues(state: ContextBarState): {
     opacity: number; weight: number; weightMin: number; radius: number; dash: string; round: boolean;
-    startCap: string; endCap: string; flipH: boolean; flipV: boolean;
+    startCap: string; endCap: string; startCapScale: number; endCapScale: number; flipH: boolean; flipV: boolean;
 } {
     const p = params(state);
     const item = state.item ?? {};
     const opacity = typeof item.opacity === 'number' ? item.opacity : 1;
     const line = state.kind === 'line';
+    const photo = state.kind === 'photo';
     return {
         opacity: Math.round(opacity * 100),
-        weight: Math.round(Number(p.strokeWidth ?? (line ? 8 : 0)) || 0),
+        weight: Math.round(Number(photo ? item.frame?.stroke?.width : p.strokeWidth ?? (line ? 8 : 0)) || 0),
         weightMin: line ? 1 : 0,
-        radius: Math.round(Number(p.cornerRadius) || 0),
+        radius: Math.round(Number(photo ? item.frame?.cornerRadius : p.cornerRadius) || 0),
         dash: typeof p.dash === 'string' ? p.dash : 'solid',
         round: p.lineCap === 'round',
         startCap: typeof p.startCap === 'string' ? p.startCap : 'none',
         endCap: typeof p.endCap === 'string' ? p.endCap : (state.item?.source?.shape === 'arrow' ? 'triangle' : 'none'),
+        startCapScale: typeof p.startCapScale === 'number' ? p.startCapScale : 1,
+        endCapScale: typeof p.endCapScale === 'number' ? p.endCapScale : 1,
         flipH: item.flip?.h === true,
         flipV: item.flip?.v === true
     };

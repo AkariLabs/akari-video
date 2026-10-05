@@ -139,6 +139,8 @@ export interface ShapeParamsV0 {
     dash?: 'solid' | 'dash' | 'dot';
     startCap?: ShapeCapV1;
     endCap?: ShapeCapV1;
+    startCapScale?: number;
+    endCapScale?: number;
     startCapFilled?: boolean;
     endCapFilled?: boolean;
     lineCap?: 'butt' | 'round';

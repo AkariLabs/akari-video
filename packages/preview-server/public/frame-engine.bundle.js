@@ -7806,6 +7806,8 @@ var require_shape_source_validation = __commonJS({
       "dash",
       "startCap",
       "endCap",
+      "startCapScale",
+      "endCapScale",
       "startCapFilled",
       "endCapFilled",
       "lineCap",
@@ -7884,6 +7886,8 @@ var require_shape_source_validation = __commonJS({
         "dash",
         "startCap",
         "endCap",
+        "startCapScale",
+        "endCapScale",
         "startCapFilled",
         "endCapFilled",
         "lineCap",
@@ -7929,7 +7933,7 @@ var require_shape_source_validation = __commonJS({
           fail(`${path}.params.path.d`, "\u7D76\u5BFE\u5EA7\u6A19\u306E M/L/C/Z \u304C\u5FC5\u8981\u3067\u3059");
         }
       }
-      if (["startCap", "endCap", "startCapFilled", "endCapFilled", "lineCap"].some((k2) => k2 in p2) && !["line", "arrow"].includes(value.shape))
+      if (["startCap", "endCap", "startCapScale", "endCapScale", "startCapFilled", "endCapFilled", "lineCap"].some((k2) => k2 in p2) && !["line", "arrow"].includes(value.shape))
         fail(`${path}.params`, "\u7AEF\u306E\u5024\u306F line/arrow \u3060\u3051\u304C\u6301\u3066\u307E\u3059");
       if ("dash" in p2 && !["solid", "dash", "dot"].includes(p2.dash)) {
         fail(`${path}.params.dash`, "\u7DDA\u7A2E\u304C\u4E0D\u6B63\u3067\u3059");
@@ -7938,6 +7942,10 @@ var require_shape_source_validation = __commonJS({
         if (key in p2 && !capKinds.has(p2[key])) {
           fail(`${path}.params.${key}`, "\u7AEF\u306E\u7A2E\u985E\u304C\u4E0D\u6B63\u3067\u3059");
         }
+      }
+      for (const key of ["startCapScale", "endCapScale"]) {
+        if (key in p2 && !number(p2[key], 0.5, 3))
+          fail(`${path}.params.${key}`, "\u500D\u7387\u306F 0.5\u301C3.0 \u3067\u3059");
       }
       for (const key of ["startCapFilled", "endCapFilled"]) {
         if (key in p2 && typeof p2[key] !== "boolean")
@@ -11537,6 +11545,19 @@ var require_shape_markup_v1 = __commonJS({
         def: `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(width * (0.5 - dx))}" y1="${num(height * (0.5 - dy))}" x2="${num(width * (0.5 + dx))}" y2="${num(height * (0.5 + dy))}">${stops}</linearGradient>`
       };
     }
+    function chevronGeometry(size, sw) {
+      let halfWidth = Math.max(1e-3, (size - sw * 0.7) / 2);
+      let run = Math.max(1e-3, size - sw);
+      for (let i2 = 0; i2 < 16; i2++) {
+        const diagonal2 = Math.hypot(run, halfWidth);
+        const miter = sw * diagonal2 / (2 * halfWidth);
+        const root = sw * halfWidth / (2 * diagonal2);
+        run = Math.max(1e-3, size - miter - root);
+        halfWidth = Math.max(1e-3, (size - sw * run / Math.hypot(run, halfWidth)) / 2);
+      }
+      const diagonal = Math.hypot(run, halfWidth);
+      return { halfWidth, miter: sw * diagonal / (2 * halfWidth), root: sw * halfWidth / (2 * diagonal) };
+    }
     function cap(kind, filled, x3, y2, direction, size, color, sw, minimumOutline) {
       if (kind === "none")
         return "";
@@ -11544,12 +11565,22 @@ var require_shape_markup_v1 = __commonJS({
       const center = x3 - direction * h;
       const ow = Math.max(minimumOutline, sw * 0.7);
       const outline = `fill="${filled ? color : "none"}" stroke="${color}" stroke-width="${num(ow)}"`;
-      const tip = x3 - direction * (filled ? 0 : ow / 2);
       if (kind === "triangle") {
+        let tipInset = 0;
+        if (!filled) {
+          tipInset = ow * Math.sqrt(1.25);
+          for (let i2 = 0; i2 < 12; i2++) {
+            tipInset = ow * Math.hypot(size - tipInset, h) / (2 * h);
+          }
+        }
+        const tip = x3 - direction * tipInset;
         return `<polygon points="${num(tip)},${num(y2)} ${num(x3 - direction * size)},${num(y2 - h)} ${num(x3 - direction * size)},${num(y2 + h)}" ${filled ? `fill="${color}"` : outline}/>`;
       }
       if (kind === "chevron") {
-        return `<polyline points="${num(x3 - direction * size * 0.75)},${num(y2 - h)} ${num(x3 - direction * sw / 2)},${num(y2)} ${num(x3 - direction * size * 0.75)},${num(y2 + h)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linejoin="round"/>`;
+        const { halfWidth, miter, root } = chevronGeometry(size, sw);
+        const vertex = x3 - direction * miter;
+        const back = x3 - direction * (size - root);
+        return `<polyline points="${num(back)},${num(y2 - halfWidth)} ${num(vertex)},${num(y2)} ${num(back)},${num(y2 + halfWidth)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linejoin="miter" stroke-miterlimit="10"/>`;
       }
       if (kind === "bar") {
         return `<line x1="${num(x3 - direction * sw / 2)}" y1="${num(y2 - h)}" x2="${num(x3 - direction * sw / 2)}" y2="${num(y2 + h)}" stroke="${color}" stroke-width="${num(sw)}"/>`;
@@ -11560,17 +11591,24 @@ var require_shape_markup_v1 = __commonJS({
       if (kind === "circle") {
         return `<circle cx="${num(center)}" cy="${num(y2)}" r="${num(h - ow / 2)}" ${outline}/>`;
       }
-      return `<polygon points="${num(center - h + ow / 2)},${num(y2)} ${num(center)},${num(y2 - h + ow / 2)} ${num(center + h - ow / 2)},${num(y2)} ${num(center)},${num(y2 + h - ow / 2)}" ${outline}/>`;
+      const diamondMiter = ow / Math.SQRT2;
+      return `<polygon points="${num(center - h + diamondMiter)},${num(y2)} ${num(center)},${num(y2 - h + diamondMiter)} ${num(center + h - diamondMiter)},${num(y2)} ${num(center)},${num(y2 + h - diamondMiter)}" ${outline}/>`;
     }
-    function capInset(kind, size) {
-      return kind === "triangle" ? size * 0.6 : ["square", "circle", "diamond"].includes(kind) ? size * 0.5 : 0;
+    function capInset(kind, size, strokeWidth) {
+      if (kind === "none")
+        return 0;
+      if (kind === "bar")
+        return strokeWidth / 2;
+      if (kind === "chevron")
+        return chevronGeometry(size, strokeWidth).miter;
+      return size;
     }
     function strokeMetrics(visibleWidth, scaleX, scaleY) {
       const correction = Math.sqrt(scaleX * scaleY);
       return {
         width: visibleWidth / correction,
         gap: Math.max(visibleWidth * 2, 3) / correction,
-        capSize: Math.max(visibleWidth * 3.2, 8) / correction,
+        capSize: Math.max(visibleWidth * 2.5, 8) / correction,
         minimumOutline: 1 / correction
       };
     }
@@ -11593,18 +11631,22 @@ var require_shape_markup_v1 = __commonJS({
       const rounded = p2.lineCap === "round" && dash !== "dot";
       const dashAttr = dashAttribute(dash, metrics, rounded);
       const stretched = scaleX !== scaleY;
-      const capSize = stretched ? Math.max(visibleStrokeWidth * 3.2, 8) : size;
-      const inset = (kind) => capInset(kind, capSize) / (stretched ? scaleX : 1);
-      const x1 = inset(start) + (rounded && start === "none" ? sw / 2 : 0);
-      const x22 = Math.max(x1, width - inset(end) - (rounded && end === "none" ? sw / 2 : 0));
-      const endPart = (kind, filled, x3, direction) => {
+      const capSize = stretched ? Math.max(visibleStrokeWidth * 2.5, 8) : size;
+      const startSize = capSize * clamp5(p2.startCapScale, 1, 0.5, 3);
+      const endSize = capSize * clamp5(p2.endCapScale, 1, 0.5, 3);
+      const capStroke = stretched ? visibleStrokeWidth : sw;
+      const inset = (kind, capLength) => capInset(kind, capLength, capStroke) / (stretched ? scaleX : 1);
+      const extension = rounded ? sw / 2 : 0;
+      const x1 = inset(start, startSize) + extension;
+      const x22 = Math.max(x1, width - inset(end, endSize) - extension);
+      const endPart = (kind, filled, x3, direction, capLength) => {
         if (!stretched || kind === "none") {
-          return cap(kind, filled, x3, y2, direction, size, color, sw, metrics.minimumOutline);
+          return cap(kind, filled, x3, y2, direction, capLength, color, sw, metrics.minimumOutline);
         }
-        const part = cap(kind, filled, 0, 0, direction, capSize, color, visibleStrokeWidth, 1);
+        const part = cap(kind, filled, 0, 0, direction, capLength, color, visibleStrokeWidth, 1);
         return `<g data-line-cap="${direction < 0 ? "start" : "end"}" transform="translate(${num(x3)} ${num(y2)}) scale(${1 / scaleX} ${1 / scaleY})">${part}</g>`;
       };
-      return `<line x1="${num(x1)}" y1="${num(y2)}" x2="${num(x22)}" y2="${num(y2)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + endPart(start, p2.startCapFilled ?? true, 0, -1) + endPart(end, p2.endCapFilled ?? true, width, 1);
+      return `<line x1="${num(x1)}" y1="${num(y2)}" x2="${num(x22)}" y2="${num(y2)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + endPart(start, p2.startCapFilled ?? true, 0, -1, startSize) + endPart(end, p2.endCapFilled ?? true, width, 1, endSize);
     }
     function primitivePath(shape, width, height) {
       if (shape === "ellipse") {
@@ -11710,7 +11752,7 @@ var require_shape_markup = __commonJS({
     }
     function shapeMarkup(source, itemId, outputWidth, transform) {
       const params = source.params ?? {};
-      if (source.shape === "path" || source.shape === "bubble" || params.preset !== void 0 || params.dash !== void 0 || params.startCap !== void 0 || params.endCap !== void 0 || params.startCapFilled !== void 0 || params.endCapFilled !== void 0 || params.lineCap !== void 0 || typeof params.fill === "object" || typeof params.stroke === "object") {
+      if (source.shape === "path" || source.shape === "bubble" || params.preset !== void 0 || params.dash !== void 0 || params.startCap !== void 0 || params.endCap !== void 0 || params.startCapScale !== void 0 || params.endCapScale !== void 0 || params.startCapFilled !== void 0 || params.endCapFilled !== void 0 || params.lineCap !== void 0 || typeof params.fill === "object" || typeof params.stroke === "object") {
         return (0, shape_markup_v1_1.shapeMarkupV1)(source, itemId, outputWidth, transform);
       }
       const width = positiveNumber(params.width, DEFAULT_WIDTH);

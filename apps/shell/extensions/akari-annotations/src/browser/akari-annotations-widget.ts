@@ -1339,6 +1339,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
+    /** Keep the last scrub position visible while older preview seeks finish. */
+    protected playheadScrubHold?: { time: number; until: number };
     protected captionAltAll = false;
     protected playingCaptionId: string | undefined;
     protected thumbnailCache = new Map<string, string | MediaCacheFailure>();
@@ -1980,6 +1982,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.strip.addEventListener('pointerup', event => this.onSelectPlayheadLinePointerUp(event), true);
         this.strip.addEventListener('pointercancel', event => this.onSelectPlayheadLinePointerUp(event), true);
         this.stripScroll.addEventListener('pointermove', event => {
+            if (this.activePlayheadScrubCleanup) return;
             const rect = this.strip.getBoundingClientRect();
             const inside = this.toolMode === 'select' && event.buttons === 0
                 && event.clientY >= rect.top && event.clientY <= rect.bottom
@@ -4504,9 +4507,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected resolveCaptionAtPlayhead(): string | undefined {
+    protected resolveCaptionAtPlayhead(time = this.playheadT): string | undefined {
         for (const [id, layout] of this.captionLayouts) {
-            if (layout.start <= this.playheadT && this.playheadT < layout.end) return id;
+            if (layout.start <= time && time < layout.end) return id;
         }
         return undefined;
     }
@@ -18179,17 +18182,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected beginPlayheadScrub(event: PointerEvent, initialMove = false): void {
         this.activePlayheadScrubCleanup?.();
+        this.playheadScrubHold = undefined;
         this.playheadHandle.dataset.grabbing = 'true';
+        if (this.hoverSeek) this.hoverSeek.style.display = 'none';
         this.stripScroll?.classList.add('akari-annotations-line-grab-hover');
         this.playheadHandle.setPointerCapture(event.pointerId);
+        let pendingSeekFrame: number | undefined;
+        let latestSeekTime = this.playheadT;
         const onMove = (moveEvent: PointerEvent): void => {
             if (moveEvent.pointerId !== event.pointerId) return;
             const outputT = this.timeAtClientX(moveEvent.clientX);
             this.playheadT = outputT;
             this.playhead.style.left = `${this.percent(outputT)}%`;
-            void this.requestSeek(outputT, { domain: 'output' });
+            latestSeekTime = outputT;
+            if (typeof requestAnimationFrame !== 'function') {
+                void this.requestSeek(outputT, { domain: 'output' });
+            } else if (pendingSeekFrame === undefined) {
+                pendingSeekFrame = requestAnimationFrame(() => {
+                    pendingSeekFrame = undefined;
+                    void this.requestSeek(latestSeekTime, { domain: 'output' });
+                });
+            }
         };
         const cleanup = (): void => {
+            if (pendingSeekFrame !== undefined) {
+                cancelAnimationFrame(pendingSeekFrame);
+                pendingSeekFrame = undefined;
+            }
+            this.playheadScrubHold = { time: this.playheadT, until: Date.now() + 1500 };
+            void this.requestSeek(this.playheadT, { domain: 'output' });
             try {
                 if (this.playheadHandle.hasPointerCapture(event.pointerId)) {
                     this.playheadHandle.releasePointerCapture(event.pointerId);
@@ -18832,6 +18853,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected scheduleSeekHoverRefresh(): void {
+        if (this.activePlayheadScrubCleanup) return;
         if (!this.seekHoverPoint || this.seekHoverRefresh !== undefined) return;
         this.seekHoverRefresh = requestAnimationFrame(() => {
             this.seekHoverRefresh = undefined;
@@ -18853,6 +18875,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateHoverSeek(event: Pick<PointerEvent, 'target' | 'buttons' | 'clientX'>): void {
+        if (this.activePlayheadScrubCleanup) {
+            this.hoverSeek.style.display = 'none';
+            return;
+        }
         const rect = this.strip.getBoundingClientRect();
         if (event.buttons !== 0 || this.dragState || this.visualPointerDown
             || !this.isSeekSurfaceTarget(event.target) || rect.width <= 0
@@ -18961,7 +18987,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.visualPlaying = request.playing;
         this.visualThumbnails.setPaused(this.visualPlaying || this.visualPointerDown);
-        this.playheadT = Math.max(0, request.time!);
+        const tickTime = Math.max(0, request.time!);
+        const scrubHold = this.playheadScrubHold;
+        if (request.playing || scrubHold && (Date.now() >= scrubHold.until
+            || Math.abs(tickTime - scrubHold.time) <= 1 / (this.fps || 30))) {
+            this.playheadScrubHold = undefined;
+        }
+        const keepScrubPosition = !request.playing
+            && (!!this.activePlayheadScrubCleanup || !!this.playheadScrubHold);
+        if (!keepScrubPosition) this.playheadT = tickTime;
         if (this.selectionModel.snapshot && !request.playing
             && ['cut', 'layer', 'overlay', 'item', 'world'].includes(this.selectionModel.snapshot.kind)) {
             const current = this.selectionModel.snapshot;
@@ -18970,7 +19004,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const inspectorSnapshot = this.selectionModel.snapshot;
         if (inspectorSnapshot?.kind === 'audio') {
-            (inspectorSnapshot as AudioSelectionSnapshot).playheadSeconds = this.playheadT;
+            (inspectorSnapshot as AudioSelectionSnapshot).playheadSeconds = tickTime;
         }
         const visibleDuration = this.visibleDuration();
         const followEdge = this.viewStart + visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
@@ -18990,8 +19024,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         }
-        this.playhead.style.left = `${this.percent(this.playheadT)}%`;
-        const playing = this.resolveCaptionAtPlayhead();
+        if (!keepScrubPosition) this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        const playing = this.resolveCaptionAtPlayhead(tickTime);
         if (playing !== this.playingCaptionId) {
             this.playingCaptionId = playing;
             this.applyCaptionStateClasses();

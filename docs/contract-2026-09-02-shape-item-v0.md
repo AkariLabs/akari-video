@@ -23,6 +23,7 @@
 ```
 
 - `shape`: `rect | rounded-rect | ellipse | line | arrow | speech-bubble`
+- `line` / `arrow` の `params.startCapScale` と `params.endCapScale` は任意の数値（0.5〜3.0、未指定時 1.0）。始点・終点の飾りを個別に拡大縮小する。既存データへの追記は不要。
 - `params`（全部 optional・additionalProperties false で開始 — 広げる方向は互換）:
   `width`（>0・既定 600）/ `height`（>0・既定 340。line / arrow は既定 80）/
   `fill`（既定 `#f97316`）/ `stroke`（既定なし = 描かない）/ `strokeWidth`（≥0・既定 0。line / arrow は 8）/

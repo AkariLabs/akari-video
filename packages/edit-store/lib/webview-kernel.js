@@ -2584,6 +2584,8 @@ var AkariEditKernel = (() => {
     "dash",
     "startCap",
     "endCap",
+    "startCapScale",
+    "endCapScale",
     "startCapFilled",
     "endCapFilled",
     "lineCap",
@@ -2656,6 +2658,8 @@ var AkariEditKernel = (() => {
       "dash",
       "startCap",
       "endCap",
+      "startCapScale",
+      "endCapScale",
       "startCapFilled",
       "endCapFilled",
       "lineCap",
@@ -2697,7 +2701,7 @@ var AkariEditKernel = (() => {
         fail(`${path}.params.path.d`, "\u7D76\u5BFE\u5EA7\u6A19\u306E M/L/C/Z \u304C\u5FC5\u8981\u3067\u3059");
       }
     }
-    if (["startCap", "endCap", "startCapFilled", "endCapFilled", "lineCap"].some((k) => k in p) && !["line", "arrow"].includes(value.shape)) fail(`${path}.params`, "\u7AEF\u306E\u5024\u306F line/arrow \u3060\u3051\u304C\u6301\u3066\u307E\u3059");
+    if (["startCap", "endCap", "startCapScale", "endCapScale", "startCapFilled", "endCapFilled", "lineCap"].some((k) => k in p) && !["line", "arrow"].includes(value.shape)) fail(`${path}.params`, "\u7AEF\u306E\u5024\u306F line/arrow \u3060\u3051\u304C\u6301\u3066\u307E\u3059");
     if ("dash" in p && !["solid", "dash", "dot"].includes(p.dash)) {
       fail(`${path}.params.dash`, "\u7DDA\u7A2E\u304C\u4E0D\u6B63\u3067\u3059");
     }
@@ -2705,6 +2709,9 @@ var AkariEditKernel = (() => {
       if (key in p && !capKinds.has(p[key])) {
         fail(`${path}.params.${key}`, "\u7AEF\u306E\u7A2E\u985E\u304C\u4E0D\u6B63\u3067\u3059");
       }
+    }
+    for (const key of ["startCapScale", "endCapScale"]) {
+      if (key in p && !number(p[key], 0.5, 3)) fail(`${path}.params.${key}`, "\u500D\u7387\u306F 0.5\u301C3.0 \u3067\u3059");
     }
     for (const key of ["startCapFilled", "endCapFilled"]) {
       if (key in p && typeof p[key] !== "boolean") fail(`${path}.params.${key}`, "boolean \u304C\u5FC5\u8981\u3067\u3059");
@@ -4008,18 +4015,41 @@ var AkariEditKernel = (() => {
       def: `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(width * (0.5 - dx))}" y1="${num(height * (0.5 - dy))}" x2="${num(width * (0.5 + dx))}" y2="${num(height * (0.5 + dy))}">${stops}</linearGradient>`
     };
   }
+  function chevronGeometry(size, sw) {
+    let halfWidth = Math.max(1e-3, (size - sw * 0.7) / 2);
+    let run = Math.max(1e-3, size - sw);
+    for (let i = 0; i < 16; i++) {
+      const diagonal2 = Math.hypot(run, halfWidth);
+      const miter = sw * diagonal2 / (2 * halfWidth);
+      const root = sw * halfWidth / (2 * diagonal2);
+      run = Math.max(1e-3, size - miter - root);
+      halfWidth = Math.max(1e-3, (size - sw * run / Math.hypot(run, halfWidth)) / 2);
+    }
+    const diagonal = Math.hypot(run, halfWidth);
+    return { halfWidth, miter: sw * diagonal / (2 * halfWidth), root: sw * halfWidth / (2 * diagonal) };
+  }
   function cap(kind, filled, x, y, direction, size, color2, sw, minimumOutline) {
     if (kind === "none") return "";
     const h = size / 2;
     const center = x - direction * h;
     const ow = Math.max(minimumOutline, sw * 0.7);
     const outline = `fill="${filled ? color2 : "none"}" stroke="${color2}" stroke-width="${num(ow)}"`;
-    const tip = x - direction * (filled ? 0 : ow / 2);
     if (kind === "triangle") {
+      let tipInset = 0;
+      if (!filled) {
+        tipInset = ow * Math.sqrt(1.25);
+        for (let i = 0; i < 12; i++) {
+          tipInset = ow * Math.hypot(size - tipInset, h) / (2 * h);
+        }
+      }
+      const tip = x - direction * tipInset;
       return `<polygon points="${num(tip)},${num(y)} ${num(x - direction * size)},${num(y - h)} ${num(x - direction * size)},${num(y + h)}" ${filled ? `fill="${color2}"` : outline}/>`;
     }
     if (kind === "chevron") {
-      return `<polyline points="${num(x - direction * size * 0.75)},${num(y - h)} ${num(x - direction * sw / 2)},${num(y)} ${num(x - direction * size * 0.75)},${num(y + h)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linejoin="round"/>`;
+      const { halfWidth, miter, root } = chevronGeometry(size, sw);
+      const vertex = x - direction * miter;
+      const back = x - direction * (size - root);
+      return `<polyline points="${num(back)},${num(y - halfWidth)} ${num(vertex)},${num(y)} ${num(back)},${num(y + halfWidth)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linejoin="miter" stroke-miterlimit="10"/>`;
     }
     if (kind === "bar") {
       return `<line x1="${num(x - direction * sw / 2)}" y1="${num(y - h)}" x2="${num(x - direction * sw / 2)}" y2="${num(y + h)}" stroke="${color2}" stroke-width="${num(sw)}"/>`;
@@ -4030,17 +4060,21 @@ var AkariEditKernel = (() => {
     if (kind === "circle") {
       return `<circle cx="${num(center)}" cy="${num(y)}" r="${num(h - ow / 2)}" ${outline}/>`;
     }
-    return `<polygon points="${num(center - h + ow / 2)},${num(y)} ${num(center)},${num(y - h + ow / 2)} ${num(center + h - ow / 2)},${num(y)} ${num(center)},${num(y + h - ow / 2)}" ${outline}/>`;
+    const diamondMiter = ow / Math.SQRT2;
+    return `<polygon points="${num(center - h + diamondMiter)},${num(y)} ${num(center)},${num(y - h + diamondMiter)} ${num(center + h - diamondMiter)},${num(y)} ${num(center)},${num(y + h - diamondMiter)}" ${outline}/>`;
   }
-  function capInset(kind, size) {
-    return kind === "triangle" ? size * 0.6 : ["square", "circle", "diamond"].includes(kind) ? size * 0.5 : 0;
+  function capInset(kind, size, strokeWidth) {
+    if (kind === "none") return 0;
+    if (kind === "bar") return strokeWidth / 2;
+    if (kind === "chevron") return chevronGeometry(size, strokeWidth).miter;
+    return size;
   }
   function strokeMetrics(visibleWidth, scaleX, scaleY) {
     const correction = Math.sqrt(scaleX * scaleY);
     return {
       width: visibleWidth / correction,
       gap: Math.max(visibleWidth * 2, 3) / correction,
-      capSize: Math.max(visibleWidth * 3.2, 8) / correction,
+      capSize: Math.max(visibleWidth * 2.5, 8) / correction,
       minimumOutline: 1 / correction
     };
   }
@@ -4062,13 +4096,17 @@ var AkariEditKernel = (() => {
     const rounded = p.lineCap === "round" && dash !== "dot";
     const dashAttr = dashAttribute(dash, metrics, rounded);
     const stretched = scaleX !== scaleY;
-    const capSize = stretched ? Math.max(visibleStrokeWidth * 3.2, 8) : size;
-    const inset = (kind) => capInset(kind, capSize) / (stretched ? scaleX : 1);
-    const x1 = inset(start) + (rounded && start === "none" ? sw / 2 : 0);
-    const x2 = Math.max(x1, width - inset(end) - (rounded && end === "none" ? sw / 2 : 0));
-    const endPart = (kind, filled, x, direction) => {
+    const capSize = stretched ? Math.max(visibleStrokeWidth * 2.5, 8) : size;
+    const startSize = capSize * clamp3(p.startCapScale, 1, 0.5, 3);
+    const endSize = capSize * clamp3(p.endCapScale, 1, 0.5, 3);
+    const capStroke = stretched ? visibleStrokeWidth : sw;
+    const inset = (kind, capLength) => capInset(kind, capLength, capStroke) / (stretched ? scaleX : 1);
+    const extension = rounded ? sw / 2 : 0;
+    const x1 = inset(start, startSize) + extension;
+    const x2 = Math.max(x1, width - inset(end, endSize) - extension);
+    const endPart = (kind, filled, x, direction, capLength) => {
       if (!stretched || kind === "none") {
-        return cap(kind, filled, x, y, direction, size, color2, sw, metrics.minimumOutline);
+        return cap(kind, filled, x, y, direction, capLength, color2, sw, metrics.minimumOutline);
       }
       const part = cap(
         kind,
@@ -4076,14 +4114,14 @@ var AkariEditKernel = (() => {
         0,
         0,
         direction,
-        capSize,
+        capLength,
         color2,
         visibleStrokeWidth,
         1
       );
       return `<g data-line-cap="${direction < 0 ? "start" : "end"}" transform="translate(${num(x)} ${num(y)}) scale(${1 / scaleX} ${1 / scaleY})">${part}</g>`;
     };
-    return `<line x1="${num(x1)}" y1="${num(y)}" x2="${num(x2)}" y2="${num(y)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + endPart(start, p.startCapFilled ?? true, 0, -1) + endPart(end, p.endCapFilled ?? true, width, 1);
+    return `<line x1="${num(x1)}" y1="${num(y)}" x2="${num(x2)}" y2="${num(y)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + endPart(start, p.startCapFilled ?? true, 0, -1, startSize) + endPart(end, p.endCapFilled ?? true, width, 1, endSize);
   }
   function primitivePath(shape, width, height) {
     if (shape === "ellipse") {
@@ -4198,7 +4236,7 @@ var AkariEditKernel = (() => {
   }
   function shapeMarkup(source, itemId, outputWidth, transform) {
     const params = source.params ?? {};
-    if (source.shape === "path" || source.shape === "bubble" || params.preset !== void 0 || params.dash !== void 0 || params.startCap !== void 0 || params.endCap !== void 0 || params.startCapFilled !== void 0 || params.endCapFilled !== void 0 || params.lineCap !== void 0 || typeof params.fill === "object" || typeof params.stroke === "object") {
+    if (source.shape === "path" || source.shape === "bubble" || params.preset !== void 0 || params.dash !== void 0 || params.startCap !== void 0 || params.endCap !== void 0 || params.startCapScale !== void 0 || params.endCapScale !== void 0 || params.startCapFilled !== void 0 || params.endCapFilled !== void 0 || params.lineCap !== void 0 || typeof params.fill === "object" || typeof params.stroke === "object") {
       return shapeMarkupV1(source, itemId, outputWidth, transform);
     }
     const width = positiveNumber(params.width, DEFAULT_WIDTH);

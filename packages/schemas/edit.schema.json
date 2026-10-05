@@ -1537,6 +1537,8 @@
             "dash": { "enum": ["solid", "dash", "dot"] },
             "startCap": { "enum": ["none", "triangle", "chevron", "bar", "square", "circle", "diamond"] },
             "endCap": { "enum": ["none", "triangle", "chevron", "bar", "square", "circle", "diamond"] },
+            "startCapScale": { "type": "number", "minimum": 0.5, "maximum": 3.0 },
+            "endCapScale": { "type": "number", "minimum": 0.5, "maximum": 3.0 },
             "startCapFilled": { "type": "boolean" },
             "endCapFilled": { "type": "boolean" },
             "lineCap": { "enum": ["butt", "round"] },
@@ -1559,7 +1561,8 @@
           { "properties": { "shape": { "enum": ["path", "bubble"] } }, "required": ["shape"] },
           { "properties": { "params": { "anyOf": [
             { "required": ["preset"] }, { "required": ["dash"] }, { "required": ["startCap"] }, { "required": ["endCap"] },
-            { "required": ["startCapFilled"] }, { "required": ["endCapFilled"] }, { "required": ["lineCap"] },
+            { "required": ["startCapFilled"] }, { "required": ["endCapFilled"] },
+            { "required": ["startCapScale"] }, { "required": ["endCapScale"] }, { "required": ["lineCap"] },
             { "required": ["style"] }, { "required": ["count"] }, { "required": ["depth"] }, { "required": ["jitter"] },
             { "required": ["seed"] }, { "required": ["tail"] }, { "required": ["tailAngle"] },
             { "required": ["tailLength"] }, { "required": ["tailWidth"] }, { "required": ["tailCurve"] },

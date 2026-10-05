@@ -75,6 +75,14 @@ const ICON: Record<string, string> = {
     'align-bottom': svg(`<path d="M3 17h14" ${stroke}/><rect x="5" y="4" width="3.5" height="10" rx="1" ${stroke}/><rect x="11.5" y="8" width="3.5" height="6" rx="1" ${stroke}/>`),
     fit: svg(`<path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" ${stroke}/><rect x="6.5" y="6.5" width="7" height="7" rx="1" ${stroke}/>`)
 };
+ICON.edit = svg(`<rect x="3" y="3" width="14" height="14" rx="2" ${stroke}/><path d="m6 13 6.8-6.8 1.8 1.8L7.8 14.8 5.5 15.5z" ${stroke}/>`);
+ICON.replace = svg(`<rect x="3" y="5" width="10" height="10" rx="1.5" ${stroke}/><path d="M12 3h4v4m0-4-4 4M8 17h8v-8" ${stroke}/>`);
+ICON.cutout = svg(`<rect x="3" y="3" width="14" height="14" rx="2" ${stroke}/><path d="M3 13 8 8l3 3 3-3 3 3M6 3v14" ${stroke} stroke-dasharray="2 2"/>`);
+ICON.eraser = svg(`<path d="m4 12 7-8a2 2 0 0 1 3 0l3 3a2 2 0 0 1 0 3l-6 7H8zM8 17h9" ${stroke}/>`);
+ICON.photoColor = svg(`<rect x="3" y="3" width="14" height="14" rx="2" ${stroke}/><circle cx="8" cy="8" r="1.5" ${stroke}/><path d="m4 15 4-4 3 2 2-2 3 4" ${stroke}/>`);
+ICON.border = ICON.weight;
+ICON.photoRadius = ICON.radius;
+ICON.crop = svg(`<path d="M6 2v12a2 2 0 0 0 2 2h10M2 6h12a2 2 0 0 1 2 2v10" ${stroke}/>`);
 ICON.captionCushion = svg(`<rect x="2" y="5" width="16" height="10" rx="2" ${stroke}/><path d="M5 10h10" ${stroke}/>`);
 ICON.captionBold = svg('<text x="3" y="16" font-size="16" font-weight="900" fill="currentColor">B</text>');
 ICON.captionSize = svg('<text x="2" y="15" font-size="14" font-weight="700" fill="currentColor">A</text>');
@@ -431,7 +439,7 @@ export class PreviewContextBar implements Disposable {
         const open = this.openWindow === item.key;
         const attrs = `data-akari-bar-item="${item.key}" data-akari-bar-index="${index}" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.title ?? item.label)}"`
             + (item.kind === 'window' ? ` aria-expanded="${open}"` : '') + (item.disabled ? ' disabled aria-disabled="true"' : '');
-        const icon = ICON[item.key === 'photoRadius' ? 'radius' : item.key] ?? '';
+        const icon = ICON[item.key] ?? '';
         const dot = item.kind === 'color' ? `<span class="akari-ctx-dot${item.paint === 'none' ? ' is-none' : ''}"${item.paint === 'none' ? '' : ` style="background:${escapeHtml(item.paint ?? '')}"`}></span>` : '';
         const content = item.kind === 'color' ? dot : `${item.text ? '' : icon}${item.text || !icon ? `<span>${escapeHtml(item.label)}</span>` : ''}`;
         return `<button type="button" class="akari-ctx-item${item.kind === 'color' ? ' is-color' : ''}${open ? ' is-open' : ''}" ${attrs}>${overflow ? `${item.kind === 'color' ? dot : icon}<span>${escapeHtml(item.label)}</span>` : content}</button>`;
@@ -586,6 +594,10 @@ export class PreviewContextBar implements Disposable {
             case 'opacity': return slider('opacity', '不透明度', 0, 100, values.opacity, '%');
             case 'weight': return slider('weight', state.kind === 'line' ? '太さ' : '枠線の太さ', values.weightMin, 60, values.weight, 'px');
             case 'radius': return slider('radius', '角の丸み', 0, 100, values.radius);
+            case 'border': return slider('photoWeight', '枠線の太さ', 0, 100, values.weight, 'px')
+                + `<label class="akari-ctx-row"><span class="akari-ctx-label">枠線の色</span>`
+                + `<input type="color" data-photo-frame-color value="${escapeHtml(state.item?.frame?.stroke?.color ?? '#ffffff')}" aria-label="枠線の色"></label>`;
+            case 'photoRadius': return slider('photoRadius', '角の丸み', 0, 100, values.radius, '%');
             case 'dash':
                 return `<div class="akari-ctx-choices">${DASH_OPTIONS.map(option => choice('dash', option.value, option.label, values.dash === option.value)).join('')}</div>`
                     + `<div class="akari-ctx-choices">${choice('round', values.round ? 'off' : 'on', '端を丸く', values.round)}</div>`;
@@ -594,7 +606,12 @@ export class PreviewContextBar implements Disposable {
                     `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span><select data-field="${name}" aria-label="${label}">`
                     + CAP_OPTIONS.map(option => `<option value="${option.value}"${values[name] === option.value ? ' selected' : ''}>${option.label}</option>`).join('')
                     + '</select></label>';
-                return select('startCap', '始点') + select('endCap', '終点')
+                const capScale = (name: 'startCapScale' | 'endCapScale', label: string): string =>
+                    `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}倍率</span>`
+                    + `<input type="range" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}倍率">`
+                    + `<input type="number" class="akari-ctx-num" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}倍率の数値"></label>`;
+                return select('startCap', '始点') + capScale('startCapScale', '始点')
+                    + select('endCap', '終点') + capScale('endCapScale', '終点')
                     + '<button type="button" class="akari-ctx-wide" data-action="swapEnds">始点と終点を入れ替える</button>';
             }
             case 'flip':
@@ -882,6 +899,10 @@ export class PreviewContextBar implements Disposable {
 
     protected onPopInput(event: Event): void {
         const input = event.target as HTMLInputElement;
+        if (input.dataset.photoFrameColor !== undefined && /^#[0-9a-f]{6}$/iu.test(input.value)) {
+            this.sendPhotoFrameLive({ stroke: { ...this.state?.item?.frame?.stroke, color: input.value } });
+            return;
+        }
         const captionField = input.dataset.captionField;
         if (captionField && input.type === 'range') {
             this.pop.querySelectorAll<HTMLInputElement>(`input[data-caption-field="${captionField}"]`).forEach(twin => {
@@ -894,14 +915,21 @@ export class PreviewContextBar implements Disposable {
         if (!field || input.type !== 'range') return;
         const twin = this.pop.querySelector<HTMLInputElement>(`input[type="number"][data-field="${field}"]`);
         if (twin) twin.value = input.value;
-        if (field === 'weight') {
+        if (field === 'photoWeight' || field === 'photoRadius') {
+            const value = Number(input.value);
+            if (Number.isFinite(value)) this.sendPhotoFrameLive(field === 'photoWeight'
+                ? { stroke: { color: this.state?.item?.frame?.stroke?.color ?? '#ffffff', width: value } }
+                : { cornerRadius: value });
+            return;
+        }
+        if (field === 'weight' || field === 'startCapScale' || field === 'endCapScale') {
             const state = this.state;
             const source = state?.item?.source as ShapeSourceV2 | undefined;
-            const width = Number(input.value);
+            const value = Number(input.value);
             if ((state?.kind === 'shape' || state?.kind === 'line') && state.selectedId
-                && source?.kind === 'shape' && Number.isFinite(width)) {
-                const params = { ...source.params, strokeWidth: width };
-                if (width > 0 && state.kind === 'shape' && (!params.stroke || params.stroke === 'none')) {
+                && source?.kind === 'shape' && Number.isFinite(value)) {
+                const params = { ...source.params, [field === 'weight' ? 'strokeWidth' : field]: value };
+                if (field === 'weight' && value > 0 && state.kind === 'shape' && (!params.stroke || params.stroke === 'none')) {
                     params.stroke = '#000000';
                 }
                 this.host.sendMessage({ type: 'akari-preview-live-transform',
@@ -910,6 +938,15 @@ export class PreviewContextBar implements Disposable {
                         state.output.width, state.item?.transform) });
             }
         }
+    }
+
+    protected sendPhotoFrameLive(patch: Record<string, any>): void {
+        const state = this.state;
+        if (state?.kind !== 'photo' || !state.selectedId) return;
+        const frame = state.item?.frame ?? {};
+        this.host.sendMessage({ type: 'akari-preview-live-transform',
+            target: { kind: 'item', id: state.selectedId }, field: 'photoFrame', value: 0,
+            photoFrame: { ...frame, ...patch } });
     }
 
     protected onPopChange(event: Event): void {
@@ -930,8 +967,22 @@ export class PreviewContextBar implements Disposable {
         const field = input.dataset.field;
         const geo = (input as HTMLElement).dataset.geo;
         const value = Number(input.value);
+        if ((input as HTMLInputElement).dataset.photoFrameColor !== undefined) {
+            if (state.kind === 'photo' && /^#[0-9a-f]{6}$/iu.test(input.value)) {
+                void this.run({ action: 'write', path: 'frame.stroke.color', value: input.value });
+            }
+            return;
+        }
         if (field === 'startCap' || field === 'endCap') {
             void this.run({ action: 'write', path: `source.params.${field}`, value: input.value });
+            return;
+        }
+        if (field === 'startCapScale' || field === 'endCapScale') {
+            if (Number.isFinite(value)) {
+                const clamped = Math.max(.5, Math.min(3, value));
+                this.pop.querySelectorAll<HTMLInputElement>(`input[data-field="${field}"]`).forEach(twin => { twin.value = String(clamped); });
+                void this.run({ action: 'write', path: `source.params.${field}`, value: clamped });
+            }
             return;
         }
         if (field && Number.isFinite(value)) {
@@ -940,6 +991,8 @@ export class PreviewContextBar implements Disposable {
             const clamped = Math.max(Number.isFinite(min) ? min : value, Math.min(Number.isFinite(max) ? max : value, value));
             this.pop.querySelectorAll<HTMLInputElement>(`input[data-field="${field}"]`).forEach(twin => { twin.value = String(clamped); });
             if (field === 'opacity') void this.run({ action: 'write', path: 'opacity', value: clamped / 100 });
+            else if (field === 'photoWeight' && state.kind === 'photo') void this.run({ action: 'write', path: 'frame.stroke.width', value: clamped });
+            else if (field === 'photoRadius' && state.kind === 'photo') void this.run({ action: 'write', path: 'frame.cornerRadius', value: clamped });
             else if (field === 'radius') void this.run({ action: 'radius', value: clamped });
             else if (field === 'weight') void this.writeWeight(clamped);
             return;
