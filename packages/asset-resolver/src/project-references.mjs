@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { lstatSync, realpathSync } from 'node:fs';
-import fsPromises, { mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import fsPromises, { lstat, realpath, mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
 
@@ -215,6 +215,29 @@ export function resolveLibraryFallback({ declaredPath, references, akariAssetsDi
     const actualTarget = realpathSync(lexicalTarget);
     if (!isWithin(actualRoot, actualTarget) || !lstatSync(actualTarget).isFile()) return null;
     return actualTarget;
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveLibraryFallbackAsync({ declaredPath, references, akariAssetsDir, rootRealpaths }) {
+  const parsed = parseDeclaredAssetPath(declaredPath);
+  if (!parsed || typeof akariAssetsDir !== 'string' || akariAssetsDir.length === 0) return null;
+  if (!normalizeReferences(references).some(
+    entry => entry.category === parsed.category && entry.id === parsed.id,
+  )) return null;
+  const lexicalRoot = path.resolve(akariAssetsDir);
+  const lexicalTarget = path.resolve(lexicalRoot, parsed.category, parsed.id, ...parsed.rest);
+  if (!isWithin(lexicalRoot, lexicalTarget)) return null;
+  try {
+    let actualRoot = rootRealpaths?.get(lexicalRoot);
+    if (!actualRoot) {
+      actualRoot = realpath(lexicalRoot);
+      rootRealpaths?.set(lexicalRoot, actualRoot);
+    }
+    const [root, target] = await Promise.all([actualRoot, realpath(lexicalTarget)]);
+    if (!isWithin(root, target) || !(await lstat(target)).isFile()) return null;
+    return target;
   } catch {
     return null;
   }
