@@ -286,7 +286,8 @@ export interface StyleClip {
 export const STYLE_PATHS: Record<ContextBarKind, readonly string[]> = {
     shape: ['source.params.fill', 'source.params.stroke', 'source.params.strokeWidth', 'source.params.cornerRadius', 'opacity'],
     line: ['source.params.stroke', 'source.params.strokeWidth', 'source.params.dash', 'source.params.lineCap',
-        'source.params.startCap', 'source.params.endCap', 'source.params.startCapFilled', 'source.params.endCapFilled', 'opacity'],
+        'source.params.startCap', 'source.params.endCap', 'source.params.startCapScale', 'source.params.endCapScale',
+        'source.params.startCapFilled', 'source.params.endCapFilled', 'opacity'],
     text: ['motion', 'animator', 'opacity'],
     caption: [],
     photo: ['flip', 'opacity'],
@@ -388,7 +389,8 @@ export function swapLineEnds(doc: EditV2Document, id: string): EditV2Document {
     const value = clone(doc) as JsonRecord;
     const params = findItemPlace(value, id)?.item.source?.params;
     if (!isRecord(params)) throw new Error('ラインを選んでください。');
-    const pairs: Array<[string, string]> = [['startCap', 'endCap'], ['startCapFilled', 'endCapFilled']];
+    const pairs: Array<[string, string]> = [['startCap', 'endCap'], ['startCapFilled', 'endCapFilled'],
+        ['startCapScale', 'endCapScale']];
     for (const [a, b] of pairs) {
         const first = params[a];
         const second = params[b];

@@ -182,7 +182,7 @@ export const CAP_OPTIONS = [
 /** 窓に出す今の値（0〜100 の目盛り）。 */
 export function windowValues(state: ContextBarState): {
     opacity: number; weight: number; weightMin: number; radius: number; dash: string; round: boolean;
-    startCap: string; endCap: string; flipH: boolean; flipV: boolean;
+    startCap: string; endCap: string; startCapScale: number; endCapScale: number; flipH: boolean; flipV: boolean;
 } {
     const p = params(state);
     const item = state.item ?? {};
@@ -197,6 +197,8 @@ export function windowValues(state: ContextBarState): {
         round: p.lineCap === 'round',
         startCap: typeof p.startCap === 'string' ? p.startCap : 'none',
         endCap: typeof p.endCap === 'string' ? p.endCap : (state.item?.source?.shape === 'arrow' ? 'triangle' : 'none'),
+        startCapScale: typeof p.startCapScale === 'number' ? p.startCapScale : 1,
+        endCapScale: typeof p.endCapScale === 'number' ? p.endCapScale : 1,
         flipH: item.flip?.h === true,
         flipV: item.flip?.v === true
     };

@@ -38,7 +38,8 @@ export function shapeMarkup(source: ShapeSourceV2, itemId?: string, outputWidth?
     const params = source.params ?? {};
     if (source.shape === 'path' || source.shape === 'bubble'
         || params.preset !== undefined || params.dash !== undefined || params.startCap !== undefined
-        || params.endCap !== undefined || params.startCapFilled !== undefined || params.endCapFilled !== undefined
+        || params.endCap !== undefined || params.startCapScale !== undefined || params.endCapScale !== undefined
+        || params.startCapFilled !== undefined || params.endCapFilled !== undefined
         || params.lineCap !== undefined || typeof params.fill === 'object' || typeof params.stroke === 'object') {
         return shapeMarkupV1(source, itemId, outputWidth, transform);
     }
