@@ -18719,7 +18719,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const end = this.timeAtClientX(Math.max(startX, upEvent.clientX));
                 this.canvasRange = end > start ? canvasRangeFrames(start, end, this.fps) : undefined;
             }
-            if (this.canvasRange) this.selectionMarquee.style.display = 'block';
             this.selectedGap = undefined;
             this.gapBand?.remove();
             this.suppressNextStripClick = true;
@@ -18761,6 +18760,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             } finally {
                 this.preserveMarqueeRange = false;
+                this.selectionMarquee.style.display = 'none';
             }
         };
         this.strip.addEventListener('pointermove', onMove);

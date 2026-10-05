@@ -69,13 +69,14 @@ test('selection methods keep their three-argument and no-argument signatures', (
   assert.match(source, /protected pushSelectionSnapshot\(\): void \{/u);
 });
 
-test('selection snapshot preserves the range only during marquee commit', () => {
+test('selection snapshot preserves the hidden range only during marquee commit', () => {
   const state = marqueeState();
   state.selectionModel = { inspectorOwner: {} };
   state.pushSelectionSnapshot = method('pushSelectionSnapshot');
+  state.selectionMarquee.style.display = 'none';
   state.preserveMarqueeRange = true;
   state.pushSelectionSnapshot();
-  assert.equal(state.selectionMarquee.style.display, 'block');
+  assert.equal(state.selectionMarquee.style.display, 'none');
   assert.deepEqual(state.canvasRange, { at: 20, duration: 30 });
   state.preserveMarqueeRange = false;
   state.pushSelectionSnapshot();
@@ -83,7 +84,7 @@ test('selection snapshot preserves the range only during marquee commit', () => 
   assert.equal(state.canvasRange, undefined);
 });
 
-test('a committed marquee retains its canvas range until another selection is made', () => {
+test('a committed marquee hides while retaining its canvas range until another selection', () => {
   const state = marqueeState();
   state.strip = emitter();
   state.toolMode = 'select';
@@ -101,7 +102,7 @@ test('a committed marquee retains its canvas range until another selection is ma
   state.onStripPointerDown(pointer(100, 100));
   state.strip.fire('pointermove', pointer(140, 130));
   state.strip.fire('pointerup', pointer(140, 130));
-  assert.equal(state.selectionMarquee.style.display, 'block');
+  assert.equal(state.selectionMarquee.style.display, 'none');
   assert.deepEqual(state.canvasRange, { at: 10, duration: 4 });
   assert.equal(state.preserveMarqueeRange, false);
   state.applySelection({ kind: 'item', id: 'another' });
