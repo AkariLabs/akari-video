@@ -24,7 +24,14 @@ export function inlineFadeSeconds(
 ): number {
     if (!(widthPx > 0) || !(durationSec > 0) || !(fps > 0)) return 0;
     const fromEdge = edge === 'in' ? xPx : widthPx - xPx;
-    return Math.round(Math.min(durationSec / 2, Math.max(0, fromEdge / widthPx * durationSec)) * fps) / fps;
+    const maxFrames = Math.floor(durationSec * fps / 2 + 1e-9);
+    const frame = Math.min(maxFrames, Math.max(0, Math.round(fromEdge / widthPx * durationSec * fps)));
+    return Number((frame / fps).toFixed(6));
+}
+
+export function inlineRoundedDb(value: number, fine = false): number {
+    const scale = fine ? 100 : 10;
+    return Math.min(12, Math.max(-60, Math.round(value * scale) / scale));
 }
 
 export function inlineGainY(gainDb: number, heightPx: number): number {
@@ -44,11 +51,10 @@ export function inlineGainFromDrag(startDb: number, deltaYPx: number, heightPx: 
     const zero = top + (bottom - top) * 0.44;
     const minusSix = zero + Math.min(12, (bottom - zero) * 0.45);
     const y = Math.min(bottom, Math.max(top, inlineGainY(startDb, heightPx) + deltaYPx * (fine ? 0.1 : 1)));
-    const step = fine ? 0.01 : 0.1;
     const value = y <= zero ? (zero - y) / (zero - top) * 12
         : y <= minusSix ? -(y - zero) / (minusSix - zero) * 6
             : -6 - (y - minusSix) / (bottom - minusSix) * 54;
-    return Math.min(12, Math.max(-60, Math.round(value / step) * step));
+    return inlineRoundedDb(value, fine);
 }
 
 export function inlineTimeFrame(xPx: number, widthPx: number, durationSec: number, fps: number): number {
@@ -76,14 +82,15 @@ export function inlineAddPoint(
 ): InlineAudioPoint[] {
     const at = Math.max(0, Math.min(durationFrames, Math.round(frame)));
     if (points.some(point => point.t === at)) return [...points];
-    const added = [...points, { t: at, gain_db: Math.min(12, Math.max(-60, gainDb)), easing: 'linear' }];
+    const added = [...points, { t: at, gain_db: inlineRoundedDb(gainDb), easing: 'linear' }];
     // The existing audio envelope contract requires at least two points.
     if (points.length === 0) added.push({ t: at === 0 ? durationFrames : 0, gain_db: 0, easing: 'linear' });
     return added.sort((a, b) => a.t - b.t);
 }
 
 export function inlineMovePoint(
-    points: readonly InlineAudioPoint[], index: number, frame: number, gainDb: number, durationFrames: number
+    points: readonly InlineAudioPoint[], index: number, frame: number, gainDb: number, durationFrames: number,
+    fine = false
 ): InlineAudioPoint[] {
     if (index < 0 || index >= points.length) return [...points];
     const lower = index > 0 ? points[index - 1].t + 1 : 0;
@@ -92,7 +99,7 @@ export function inlineMovePoint(
     return points.map((point, position) => position === index ? {
         ...point,
         t: Math.min(upper, Math.max(lower, Math.round(frame))),
-        gain_db: Math.min(12, Math.max(-60, gainDb))
+        gain_db: inlineRoundedDb(gainDb, fine)
     } : point);
 }
 

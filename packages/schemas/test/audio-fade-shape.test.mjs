@@ -18,10 +18,14 @@ test('audio fade shape vocabulary is optional and closed for v2 and legacy', () 
   }
   const doc = fixture();
   const audio = doc.tracks.find(track => track.lane === 'audio').items[0];
+  const original = JSON.stringify(doc);
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));
-  audio.fade_in_shape = 'slow';
-  audio.fade_out_shape = 'equal_power';
-  assert.equal(validate(doc), true, JSON.stringify(validate.errors));
-  audio.fade_in_shape = 'unknown';
+  assert.equal(JSON.stringify(doc), original);
+  for (const shape of ['linear', 'equal_power', 's_curve', 'slow']) {
+    audio.fade_in_shape = shape;
+    audio.fade_out_shape = shape;
+    assert.equal(validate(doc), true, `${shape}: ${JSON.stringify(validate.errors)}`);
+  }
+  audio.fade_in_shape = 'exp';
   assert.equal(validate(doc), false);
 });

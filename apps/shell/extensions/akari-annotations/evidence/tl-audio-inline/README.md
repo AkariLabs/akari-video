@@ -36,3 +36,20 @@ BEFORE は基点のビルド（本タスクの変更前）、AFTER は本タス�
 v2 の読み込み（edit-store の `readEditV2`）が音声アイテムの `fade_in_shape` / `fade_out_shape` を未定義キーとして拒否するため、
 形の保存は書き込み前の検証で止めている（書くと edit.json が開けなくなるため）。読み込み側が受け付けた時点で、
 タイムラインのメニュー・専用画面・インスペクタの形の選択はそのまま保存されるようになる。形の数式・書き出しの `curve=`・プレビューの折れ線近似は実装済み（単体テストで固定）。
+
+## r1（統合ブランチ取り込み後・形の保存の解禁後）
+
+上の「保留」は解消した（v2 の読み込み・legacy の移行・edit-lint・capability 表が `fade_in_shape` / `fade_out_shape` を受け付けるようになった）。追加した再現スクリプト:
+
+- `scripts/vzoom.mjs <project> <out.json>`: 既定 28px の音声行のまま縦ズームバーの下ハンドルで全体倍率を上げ下げし、行の実際の表示高さで出し分けが変わること（64px 以上で線と点が出て触れる・未満で丸だけ）と、倍率込みの行での音量線ドラッグ → `gain_db`・Cmd+Z 1 手を見る
+- `scripts/inspector-shape.mjs <project> <out.json>`: BGM を選んでインスペクタの「音声」タブの形のセレクトで `fade_in_shape` / `fade_out_shape` を書き、Cmd+Z 1 手で byte 一致を見る（最後は形を付けたまま残す）
+- `scripts/reopen-check.mjs <project> <out.json>`: 形つきの edit.json で起動し直したあと、丸のドラッグで出る曲線の形の属性とメニューの ✓ が保存済みの形と一致することを見る
+
+| 項目 | 観測 |
+|---|---|
+| 丸のクリック → 等パワー | `fade_in_shape: "equal_power"` が書かれ、曲線の形の属性が `linear` → `equal_power`。Cmd+Z 1 手で byte 一致 |
+| 専用画面で形を変えて適用 | `fade_in_shape: "slow"` / `fade_out_shape: "equal_power"` が書かれる。適用はキーフレームの書き込み（既存）と形の書き込みの 2 つの履歴になり、Cmd+Z 2 手で byte 一致 |
+| インスペクタのセレクト | 形が書かれる。Cmd+Z 1 手で byte 一致 |
+| 開き直し | 読み込みエラーなし・edit.json byte 不変。曲線の形の属性とメニューの ✓ が保存済みの形 |
+| 縦ズーム（28px × 倍率） | 65px で線 1・点（ナレーション 2）が出て線のドラッグで `gain_db` 9.6、Cmd+Z 1 手で byte 一致。56px に戻すと丸だけ |
+| ナレーション / BGM の本体の横ドラッグ | `at` は変わらない（効果音は変わる）。統合ブランチ単体のビルドでも同じ = 本タスクの変更由来ではない |

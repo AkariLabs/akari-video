@@ -232,8 +232,9 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
         const startY = event.clientY;
         let proposed = options.gainDb;
         dragOn(event, next => {
-            proposed = inlineGainFromDrag(options.gainDb, next.clientY - startY, height, next.metaKey || next.ctrlKey);
-            readout(root, `${proposed >= 0 ? '+' : ''}${proposed.toFixed(1)} dB`, x, inlineGainY(proposed, height) - 18);
+            const fine = next.metaKey || next.ctrlKey;
+            proposed = inlineGainFromDrag(options.gainDb, next.clientY - startY, height, fine);
+            readout(root, `${proposed >= 0 ? '+' : ''}${proposed.toFixed(fine ? 2 : 1)} dB`, x, inlineGainY(proposed, height) - 18);
         }, dragged => {
             root.querySelector('[data-akari-audio-inline-readout]')?.remove();
             if (dragged && proposed !== options.gainDb) commit('音量を変更', { gain_db: proposed });
@@ -258,25 +259,28 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
         });
         marker.addEventListener('pointerdown', event => {
             if (event.button !== 0) return;
-            marker.focus();
             const startY = event.clientY;
             let proposed = point;
-            readout(root, `${(point.t / fps).toFixed(2)} 秒  ${point.gain_db.toFixed(1)} dB`,
+            let fine = false;
+            const startDigits = event.metaKey || event.ctrlKey
+                || Math.abs(point.gain_db * 10 - Math.round(point.gain_db * 10)) > 1e-7 ? 2 : 1;
+            readout(root, `${(point.t / fps).toFixed(2)} 秒  ${point.gain_db.toFixed(startDigits)} dB`,
                 x, y - 22);
             dragOn(event, next => {
                 const frame = inlineTimeFrame(rectX(next.clientX), width, duration, fps);
-                const deltaDb = inlineGainFromDrag(point.gain_db, next.clientY - startY, height,
-                    next.metaKey || next.ctrlKey);
-                proposed = inlineMovePoint(options.points, index, frame, deltaDb, durationFrames)[index];
+                fine = next.metaKey || next.ctrlKey;
+                const deltaDb = inlineGainFromDrag(point.gain_db, next.clientY - startY, height, fine);
+                proposed = inlineMovePoint(options.points, index, frame, deltaDb, durationFrames, fine)[index];
                 marker.style.left = `${proposed.t / durationFrames * width - 7}px`;
                 marker.style.top = `${inlineGainY(options.gainDb + proposed.gain_db, height) - 7}px`;
-                readout(root, `${(proposed.t / fps).toFixed(2)} 秒  ${proposed.gain_db.toFixed(1)} dB`,
+                readout(root, `${(proposed.t / fps).toFixed(2)} 秒  ${proposed.gain_db.toFixed(fine ? 2 : 1)} dB`,
                     proposed.t / durationFrames * width, inlineGainY(options.gainDb + proposed.gain_db, height) - 22);
             }, dragged => {
                 root.querySelector('[data-akari-audio-inline-readout]')?.remove();
                 if (dragged) commit('音量キーフレームを変更', {
-                    keyframes: inlineMovePoint(options.points, index, proposed.t, proposed.gain_db, durationFrames)
+                    keyframes: inlineMovePoint(options.points, index, proposed.t, proposed.gain_db, durationFrames, fine)
                 });
+                if (!dragged) marker.focus();
                 options.selectPoint(dragged ? proposed.t : point.t);
             });
         });

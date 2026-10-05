@@ -1,3 +1,4 @@
+import type { AudioFadeShape } from './envelope';
 export type LaneV2 = 'visual' | 'audio';
 export interface OutputV2 {
     width: number;
@@ -429,6 +430,8 @@ export interface AudioMediaItemV2 {
     keyframes?: KeyframeV2[];
     fade_in?: number;
     fade_out?: number;
+    fade_in_shape?: AudioFadeShape;
+    fade_out_shape?: AudioFadeShape;
     ducking?: boolean;
     duck_db?: number;
     duck_attack?: number;

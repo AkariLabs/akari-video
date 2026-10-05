@@ -2891,6 +2891,8 @@ var AkariEditKernel = (() => {
     "keyframes",
     "fade_in",
     "fade_out",
+    "fade_in_shape",
+    "fade_out_shape",
     "ducking",
     "duck_db",
     "duck_attack",
@@ -3058,6 +3060,11 @@ var AkariEditKernel = (() => {
     if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`, true);
     if (hasOwn(value, "fade_in")) requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
     if (hasOwn(value, "fade_out")) requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+    for (const field of ["fade_in_shape", "fade_out_shape"]) {
+      if (hasOwn(value, field) && !["linear", "equal_power", "s_curve", "slow"].includes(value[field])) {
+        throw invalid(`${path}.${field}`, "linear/equal_power/s_curve/slow \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+    }
     if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
       throw invalid(`${path}.ducking`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }

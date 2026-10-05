@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { buildAudioMixCommand } from '../src/plan.mjs';
+import { renderFixture } from './helpers/cut-audio-supply.mjs';
+import { unsplitFixture } from '../../edit-store/test/helpers/cut-audio-supply.mjs';
 
 function graph(shape) {
   const root = mkdtempSync(join(tmpdir(), 'audio-fade-shape-'));
@@ -33,4 +35,17 @@ test('omitted and explicit linear shape keep legacy filter bytes', () => {
   assert.equal(graph(undefined), graph('linear'));
   assert.match(graph(undefined), /afade=t=in:st=0:d=1,afade=t=out:st=3:d=1/);
   assert.doesNotMatch(graph(undefined), /curve=/);
+});
+
+test('v2 audio shape survives reader and projection into the export filter', () => {
+  const doc = unsplitFixture();
+  Object.assign(doc.tracks[1].items[0], {
+    fade_in: 0.4, fade_out: 0.4,
+    fade_in_shape: 'slow', fade_out_shape: 'equal_power'
+  });
+  renderFixture(doc, 'osr', ({ plan }) => {
+    const filters = plan.commands.audio_mix.args.join(' ');
+    assert.match(filters, /afade=t=in:st=0:d=0\.4:curve=qua/);
+    assert.match(filters, /afade=t=out:st=0\.6:d=0\.4:curve=qsin/);
+  });
 });

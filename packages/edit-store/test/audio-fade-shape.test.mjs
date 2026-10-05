@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { readEditV2 } from '../lib/edit-v2.js';
+import { serializeEdit } from '../lib/canonical.js';
 import { audioFadeProgress, audioFadeMultiplier, audioFadeGainEvents, audioFadeFfmpegCurve,
   projectAudioFadeShapes } from '../lib/envelope.js';
 
@@ -44,4 +47,37 @@ test('v2 shape overlay reaches projected audio without changing shape-less bytes
   assert.equal(next.bgm.fade_in_shape, 'slow');
   assert.equal(next.sfx[0].fade_out_shape, 'equal_power');
   assert.equal(audio.bgm.fade_in_shape, undefined);
+});
+
+const fixture = () => JSON.parse(readFileSync(new URL(
+  '../../schemas/examples/edit-v2-cut-audio-split-valid/edit.json', import.meta.url
+), 'utf8'));
+
+test('all four v2 shapes survive reader and canonical round-trip; omitted shape keeps bytes', () => {
+  const base = fixture();
+  const original = serializeEdit(base);
+  assert.doesNotThrow(() => readEditV2(base));
+  assert.equal(serializeEdit(base), original);
+  for (const shape of ['linear', 'equal_power', 's_curve', 'slow']) {
+    const doc = fixture();
+    const item = doc.tracks.find(track => track.lane === 'audio').items[0];
+    item.fade_in_shape = shape;
+    item.fade_out_shape = shape;
+    const before = serializeEdit(doc);
+    const read = readEditV2(before);
+    const parsed = JSON.parse(before);
+    const after = readEditV2(serializeEdit(parsed));
+    const readItem = value => value.tracks.find(track => track.lane === 'audio').items[0];
+    assert.equal(readItem(read).fade_in_shape, shape);
+    assert.equal(readItem(after).fade_out_shape, shape);
+    assert.equal(serializeEdit(parsed), before);
+  }
+});
+
+test('v2 reader rejects unknown fade shapes at the exact field', () => {
+  for (const field of ['fade_in_shape', 'fade_out_shape']) {
+    const doc = fixture();
+    doc.tracks.find(track => track.lane === 'audio').items[0][field] = 'exp';
+    assert.throws(() => readEditV2(doc), new RegExp(`${field}.*linear/equal_power/s_curve/slow`));
+  }
 });
