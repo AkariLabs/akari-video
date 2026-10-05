@@ -48,8 +48,14 @@ export function countLibraryCategory(
     }
     if (category.key === 'textstyle' || category.key === 'textanim' || category.key === 'lut') {
         const kind = category.key;
-        if (presetFilter) return presets[kind].filter(item => presetFilter(`${kind}/${item.id}`)).length;
-        return includesLibraryLab(source) ? presets[kind].length : 0;
+        const presetCount = presetFilter
+            ? presets[kind].filter(item => presetFilter(`${kind}/${item.id}`)).length
+            : includesLibraryLab(source) ? presets[kind].length : 0;
+        if (kind !== 'textstyle') return presetCount;
+        // 取得後の textstyle はプリセット棚に現れるため、未取得の resolver カードだけ足す。
+        const remoteCount = filterLibrarySources(items, source)
+            .filter(item => item.category === 'textstyle' && item.state !== 'cached').length;
+        return presetCount + remoteCount;
     }
     const filtered = filterLibrarySources(items, source);
     if (category.key === 'pack') { return groupCatalogItemsByPack(filtered, packs).groups.length; }

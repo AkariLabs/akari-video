@@ -45,7 +45,7 @@ export const LIBRARY_GROUPS = [
     {
         label: '文字・飾り',
         categories: [
-            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: '選んだ文字に当てる・新しい文字として置く', status: 'live', chipKey: 'preset:textstyle' },
+            { key: 'textstyle', label: '字幕スタイル', icon: '字', hint: '選んだ文字に当てる・新しい文字として置く', status: 'live', chipKey: 'preset:textstyle' },
             { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選んだ文字に当てる・ホバーで見本を再生', status: 'live', chipKey: 'preset:textanim' },
             { key: 'font', label: 'フォント', icon: 'Aa', hint: '選んだ文字に書体を当てる', status: 'live', chipKey: 'font' },
             { key: 'shapes', label: '図形', icon: '◇', hint: '押すと中央に置く・ドラッグで落とした位置に置く', status: 'live' },
@@ -209,6 +209,7 @@ const CATALOG_CATEGORY_TO_LIBRARY: Readonly<Record<string, LibraryCategoryKey>> 
     still: 'image',
     overlay: 'overlay',
     scene3d: 'scene3d',
+    textstyle: 'textstyle',
     font: 'font'
 };
 

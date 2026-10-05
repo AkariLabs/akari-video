@@ -127,3 +127,13 @@ test('matchesLibraryFilter はローカル索引の項目でも落ちない', ()
     assert.equal(matchesLibraryFilter({ origin: 'local', key: 'x/y', id: 'y', category: 'x', title: 'y', tags: [] },
         { ...EMPTY_LIBRARY_FILTER, source: 'site', price: ['free'], status: ['remote'] }, new Set()), true);
 });
+
+test('未取得の textstyle Pro は Lab・Pro・未取得フィルターを通る', () => {
+    const style = item('textstyle/telop-fixture-style', { sourceKind: 'lab', state: 'locked',
+        machineTags: ['tier:pro'], licenseSpdx: 'LicenseRef-AKARI-Assets-v0' });
+    assert.equal(matchesLibraryFilter(style, { ...EMPTY_LIBRARY_FILTER,
+        source: 'lab', price: ['premium'], status: ['remote'] }, new Set()), true);
+    assert.equal(matchesLibraryFilter(style, { ...EMPTY_LIBRARY_FILTER, price: ['free'] }, new Set()), false);
+    const category = LIBRARY_GROUPS.flatMap(group => group.categories).find(row => row.key === 'textstyle');
+    assert.equal(countLibraryCategory(category, 'lab', [style], { lut: [], textanim: [], textstyle: [] }, 0, []), 1);
+});

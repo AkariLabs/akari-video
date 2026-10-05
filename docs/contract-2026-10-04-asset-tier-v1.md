@@ -21,3 +21,20 @@
 
 `remote: true` の素材は実体がディレクトリに無いため akari-r2 の `source` を必須とする。`remote` が無い、または false の素材では `source` は任意。既存の公開 `catalog/` は external + `remote: true` の旧形式のため、validator は `catalog/` 配下に限って互換性を維持する。新規メタは akari-r2 に従う。
 JSON Schema は `remote: true` なら `source` 必須までを表し、akari-r2 必須と既存 `catalog/` の external 互換は validator が経路を見て判定する。
+
+## § textstyle（字幕スタイル）の Pro item（2026-10-05）
+
+公開カタログの textstyle Pro item は `id`、`category: "textstyle"`、`tier: "pro"`、
+`product_id: "telop-rich-pack-01"`、`version`、`preview`、`license`、`tags`、`title` を持つ。
+`files` は持たせない。
+
+束 zip は `<product_id>-v<version>/` の直下に `README.md`、`LICENSE.md`、
+`checksums.txt` を置き、各素材を次の形で収める。
+
+`assets/textstyle/<id>/{meta.json,preset.json,preview.png}`
+
+`resolve` は対象の 1 件だけを `<ライブラリ>/textstyle/<id>/` へ配置し、
+`validate-asset` で `preset.json` の `format: "akari-textstyle"` と `id` の一致を検証する。
+`preview` URL は `https://akari.video/lab/media/telop-rich-pack/textstyle/<id>.png` の形とする。
+配置後は既存の textstyle ライブラリ読み込みが `preset.json` を読み、
+「テキスト > スタイル」へ並べる。未取得 textstyle の棚カード表示は別票で扱う。

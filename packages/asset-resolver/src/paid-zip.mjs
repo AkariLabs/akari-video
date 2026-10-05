@@ -135,7 +135,7 @@ export async function verifyPaidZipContents(extractedRoot, id) {
 
   const payloadFiles = expected.map((entry) => entry.relPath).filter((relPath) => !NON_PAYLOAD_FILES.has(relPath));
   if (payloadFiles.length === 0) {
-    throw new AssetResolverError(`zip に素材本体（fragment.html / meta.json / *.glb 等）がありません: ${id}`, 'integrity');
+    throw new AssetResolverError(`zip に素材本体（fragment.html / preset.json / meta.json / *.glb 等）がありません: ${id}`, 'integrity');
   }
   return { packageDir, payloadFiles };
 }

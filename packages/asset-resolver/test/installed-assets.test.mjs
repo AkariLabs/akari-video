@@ -17,7 +17,7 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function writeInstalled({ home, id = 'installed-one', title = 'Installed One', category = 'pack', payload = 'local payload' }) {
+function writeInstalled({ home, id = 'installed-one', title = 'Installed One', category = 'pack', payload = 'local payload', tier }) {
   const packRoot = path.join(home, 'assets', 'store', 'fixture-pack', 'fixture-pack-v1');
   const itemPath = category === 'pack' ? `custom/${id}` : `assets/${category}/${id}`;
   const assetRoot = path.join(packRoot, itemPath);
@@ -35,6 +35,7 @@ function writeInstalled({ home, id = 'installed-one', title = 'Installed One', c
         items: [{
           id,
           title,
+          ...(tier ? { tier } : {}),
           path: itemPath,
           version: 1,
           files: [{ path: 'payload.txt', bytes: Buffer.byteLength(payload), sha256: sha256(payload) }]
@@ -44,6 +45,26 @@ function writeInstalled({ home, id = 'installed-one', title = 'Installed One', c
   }, null, 2)}\n`);
   return { packRoot, assetRoot, indexPath };
 }
+
+test('textstyle Pro は CLI 一覧で鍵付き、導入索引では category と tier を保持する', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  const id = 'telop-fixture-style';
+  catalog.items.push({ id, category: 'textstyle', title: '字幕スタイルの見本', tier: 'pro',
+    product_id: 'telop-rich-pack-01', version: 1,
+    preview: 'https://akari.video/lab/media/telop-rich-pack/textstyle/telop-fixture-style.png',
+    license: { spdx: 'LicenseRef-AKARI-Assets-v0' }, tags: ['telop'] });
+  writeFileSync(catalogPath, `${JSON.stringify(catalog)}\n`);
+  const list = runCli(['list', '--category', 'textstyle'], env);
+  assert.equal(list.status, 0, list.stderr);
+  assert.match(list.stdout, /🔒 Pro\s+telop-fixture-style\s+lab\s+\[textstyle\]/);
+  assert.equal((list.stdout.match(/\[textstyle\]/g) ?? []).length, 1);
+
+  writeInstalled({ home, id, category: 'textstyle', tier: 'pro' });
+  const installed = (await loadCatalog({ env })).items.find(item => item.id === id);
+  assert.equal(installed.source, 'installed');
+  assert.equal(installed.category, 'textstyle');
+  assert.equal(installed.tier, 'pro');
+});
 
 function runCli(args, env) {
   return spawnSync(process.execPath, [bin, ...args], {
