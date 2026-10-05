@@ -556,6 +556,103 @@
       }
       element.style.setProperty("pointer-events", value, "important");
     }
+    const HIT_PROXY_SELECTOR = '[data-akari-hit-proxy="1"]';
+    const SHAPE_LINE_HIT_WIDTH_PX = 13;
+    const shapeLineHitContainers = /* @__PURE__ */ new Set();
+    const hitProxyScreenScales = /* @__PURE__ */ new WeakMap();
+    function isHitProxy(element) {
+      return element?.getAttribute?.("data-akari-hit-proxy") === "1";
+    }
+    function removeHitProxies(root) {
+      if (isHitProxy(root) && typeof root.remove === "function") root.remove();
+      for (const proxy of root.querySelectorAll?.(HIT_PROXY_SELECTOR) ?? []) {
+        if (isHitProxy(proxy) && typeof proxy.remove === "function") proxy.remove();
+      }
+    }
+    function syncLineHitProxy(element) {
+      const previous = element.nextElementSibling;
+      if (isHitProxy(previous)) previous.remove();
+      const proxy = element.cloneNode(false);
+      proxy.removeAttribute("id");
+      proxy.removeAttribute("stroke-dasharray");
+      for (const attribute of [...proxy.attributes]) {
+        if (attribute.name.startsWith("marker-") || attribute.name.startsWith("data-line-")) {
+          proxy.removeAttribute(attribute.name);
+        }
+      }
+      proxy.setAttribute("data-akari-hit-proxy", "1");
+      proxy.setAttribute("aria-hidden", "true");
+      proxy.setAttribute("fill", "none");
+      proxy.setAttribute("stroke", "transparent");
+      proxy.removeAttribute("vector-effect");
+      proxy.setAttribute("stroke-linecap", "round");
+      proxy.setAttribute("stroke-linejoin", "round");
+      for (const [name, value] of [
+        ["fill", "none"],
+        ["stroke", "transparent"],
+        ["stroke-linecap", "round"],
+        ["stroke-linejoin", "round"],
+        ["stroke-dasharray", "none"],
+        ["marker-start", "none"],
+        ["marker-mid", "none"],
+        ["marker-end", "none"]
+      ]) proxy.style.setProperty(name, value, "important");
+      proxy.style.setProperty("vector-effect", "none", "important");
+      proxy.style.setProperty("pointer-events", "stroke", "important");
+      element.after(proxy);
+    }
+    function lineHitScreenScale(source) {
+      const isLine = source.tagName.toLowerCase() === "line";
+      let normalX = 0, normalY = 1;
+      if (isLine) {
+        const dx = Number(source.getAttribute("x2")) - Number(source.getAttribute("x1"));
+        const dy = Number(source.getAttribute("y2")) - Number(source.getAttribute("y1"));
+        const length = Math.hypot(dx, dy);
+        if (!(length > 0)) return 0;
+        normalX = -dy / length;
+        normalY = dx / length;
+      }
+      const matrix = source.getScreenCTM?.();
+      if (matrix) {
+        if (isLine) return Math.hypot(
+          matrix.a * normalX + matrix.c * normalY,
+          matrix.b * normalX + matrix.d * normalY
+        );
+        return Math.min(Math.hypot(matrix.a, matrix.b), Math.hypot(matrix.c, matrix.d));
+      }
+      const svg = source.ownerSVGElement;
+      const rect = svg?.getBoundingClientRect();
+      const width = svg?.viewBox?.baseVal?.width || Number(svg?.getAttribute("width"));
+      const height = svg?.viewBox?.baseVal?.height || Number(svg?.getAttribute("height"));
+      const scaleX = rect?.width / width, scaleY = rect?.height / height;
+      if (isLine) return Math.hypot(scaleX * normalX, scaleY * normalY);
+      return Math.min(scaleX, scaleY);
+    }
+    function updateShapeLineHitProxyWidths() {
+      if (shapeLineHitContainers.size === 0) return;
+      for (const container of shapeLineHitContainers) {
+        if (!container.isConnected) {
+          shapeLineHitContainers.delete(container);
+          continue;
+        }
+        const proxies = container.querySelectorAll(HIT_PROXY_SELECTOR);
+        if (proxies.length === 0) {
+          shapeLineHitContainers.delete(container);
+          continue;
+        }
+        for (const proxy of proxies) {
+          const source = proxy.previousElementSibling;
+          if (!source || isHitProxy(source)) continue;
+          const scale = lineHitScreenScale(source);
+          if (!(scale > 0) || !Number.isFinite(scale) || hitProxyScreenScales.get(proxy) === scale) continue;
+          const originalWidth = Number.parseFloat(getComputedStyle(source).strokeWidth) || 0;
+          const width = Math.max(SHAPE_LINE_HIT_WIDTH_PX / scale, originalWidth);
+          proxy.setAttribute("stroke-width", String(width));
+          proxy.style.setProperty("stroke-width", String(width), "important");
+          hitProxyScreenScales.set(proxy, scale);
+        }
+      }
+    }
     function fragmentRootCoversContainer(element, container) {
       const rootRect = element.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
@@ -566,8 +663,11 @@
     }
     function applyOverlayHitPolicy(container) {
       if (!container || hitPolicyAppliedContainers.has(container)) return;
+      shapeLineHitContainers.delete(container);
+      if (container.dataset.role === "shape-line") removeHitProxies(container);
       setHitPointerEvents(container, "none");
       function visit(element, inheritedDirective, ancestorPainted, isFragmentRoot) {
+        if (isHitProxy(element)) return;
         const declared = element.getAttribute("data-akari-hit");
         const directive = ["pass", "catch"].includes(declared) ? declared : inheritedDirective;
         const style = getComputedStyle(element);
@@ -587,19 +687,25 @@
           alphaHitCanvases.add(element);
         }
         setHitPointerEvents(element, pointerEvents);
-        for (const child of element.children) {
+        if (container.dataset.role === "shape-line" && isVisible && !directive && ["line", "path"].includes(element.tagName.toLowerCase()) && !element.closest("defs, marker, clipPath, mask, pattern, symbol") && (style.stroke !== "none" && !transparentColor(style.stroke) && Number.parseFloat(style.strokeWidth) > 0 || element.tagName.toLowerCase() === "path" && style.fill !== "none" && !transparentColor(style.fill))) {
+          syncLineHitProxy(element);
+          shapeLineHitContainers.add(container);
+        }
+        for (const child of [...element.children]) {
           visit(child, directive, participatesInPaint, false);
         }
       }
       for (const root of container.children) visit(root, null, true, true);
       hitPolicyAppliedContainers.add(container);
+      updateShapeLineHitProxyWidths();
     }
     function invalidateOverlayHitPolicy(container) {
       if (container) hitPolicyAppliedContainers.delete(container);
     }
     function restoreHitPolicyStyles(cloneRoot, liveRoot) {
+      removeHitProxies(cloneRoot);
       const clones = [cloneRoot, ...cloneRoot.querySelectorAll("*")];
-      const liveElements = [liveRoot, ...liveRoot.querySelectorAll("*")];
+      const liveElements = [liveRoot, ...Array.from(liveRoot.querySelectorAll("*")).filter((element) => !isHitProxy(element))];
       for (let index = 0; index < liveElements.length; index += 1) {
         const original = hitPolicyOriginalPointerEvents.get(liveElements[index]);
         const clone = clones[index];
@@ -1669,7 +1775,7 @@
         const a = left && stageLocalPoint(left.dragged.x, left.dragged.y);
         const b = right && stageLocalPoint(right.dragged.x, right.dragged.y);
         if (a && b) {
-          const stroke = Number(container.querySelector("line")?.getAttribute("stroke-width")) || 1;
+          const stroke = Number(container.querySelector("line:not([data-akari-hit-proxy])")?.getAttribute("stroke-width")) || 1;
           const radius = stroke * Math.abs(transform.scaleY ?? transform.scale) / 2;
           const bounds2 = {
             left: Math.min(a.x, b.x) - radius,
@@ -1978,14 +2084,14 @@
     function lineEndpointArtwork(container, pose) {
       const svg = container.querySelector("svg");
       if (!svg) return null;
-      const body = Array.from(svg.children).find((child) => child.tagName.toLowerCase() === "line");
+      const body = Array.from(svg.children).find((child) => child.tagName.toLowerCase() === "line" && child.getAttribute("data-akari-hit-proxy") !== "1");
       if (!body) return null;
       const width = Number(svg.getAttribute("width"));
       const height = Number(svg.getAttribute("height"));
       if (!(width > 0) || !(height > 0)) return null;
       const scaleX = pose.scaleX ?? pose.scale;
       const scaleY = pose.scaleY ?? pose.scale;
-      const parts = Array.from(svg.children).filter((child) => child !== body && child.tagName.toLowerCase() !== "defs");
+      const parts = Array.from(svg.children).filter((child) => child !== body && child.getAttribute("data-akari-hit-proxy") !== "1" && child.tagName.toLowerCase() !== "defs");
       const groups = parts.map((part, index) => {
         const existing = part.getAttribute("data-line-cap");
         let end = existing === "end";
@@ -1998,8 +2104,10 @@
         }
         const group = existing ? part : document.createElementNS("http://www.w3.org/2000/svg", "g");
         if (!existing) {
+          const proxy = part.nextElementSibling?.getAttribute("data-akari-hit-proxy") === "1" ? part.nextElementSibling : null;
           part.parentNode.insertBefore(group, part);
           group.appendChild(part);
+          if (proxy) group.appendChild(proxy);
         }
         return {
           group,
@@ -2025,6 +2133,11 @@
       const x2 = artwork.width - (artwork.width - Number(artwork.x2)) * artwork.scaleX / scaleX;
       artwork.body.setAttribute("x1", String(x1));
       artwork.body.setAttribute("x2", String(Math.max(x1, x2)));
+      const proxy = artwork.body.nextElementSibling;
+      if (proxy?.getAttribute("data-akari-hit-proxy") === "1") {
+        proxy.setAttribute("x1", artwork.body.getAttribute("x1"));
+        proxy.setAttribute("x2", artwork.body.getAttribute("x2"));
+      }
       for (const part of artwork.groups) {
         const sx = part.transient ? artwork.scaleX / scaleX : 1 / scaleX;
         const sy = part.transient ? artwork.scaleY / scaleY : 1 / scaleY;
@@ -2035,6 +2148,11 @@
       if (!artwork) return;
       artwork.body.setAttribute("x1", artwork.x1);
       artwork.body.setAttribute("x2", artwork.x2);
+      const proxy = artwork.body.nextElementSibling;
+      if (proxy?.getAttribute("data-akari-hit-proxy") === "1") {
+        proxy.setAttribute("x1", artwork.x1);
+        proxy.setAttribute("x2", artwork.x2);
+      }
       for (const part of artwork.groups) {
         if (part.transient) part.group.replaceWith(...part.group.childNodes);
         else if (part.originalTransform === null) part.group.removeAttribute("transform");
@@ -3873,6 +3991,9 @@
     for (const type of ["pointerdown", "pointerup", "click", "dblclick"]) {
       window.addEventListener(type, passTransparentCanvasEvent, true);
     }
+    listenerRoot.addEventListener("pointermove", updateShapeLineHitProxyWidths, true);
+    listenerRoot.addEventListener("pointerdown", updateShapeLineHitProxyWidths, true);
+    window.addEventListener("resize", updateShapeLineHitProxyWidths);
     listenerRoot.addEventListener("click", onClick, true);
     listenerRoot.addEventListener("pointerdown", onPointerDown, true);
     listenerRoot.addEventListener("dblclick", onDoubleClick, true);
@@ -3890,6 +4011,11 @@
       true
     );
     if (stage) {
+      if (typeof ResizeObserver !== "undefined") {
+        const hitProxyResizeObserver = new ResizeObserver(updateShapeLineHitProxyWidths);
+        hitProxyResizeObserver.observe(stage);
+        if (stage.parentElement) hitProxyResizeObserver.observe(stage.parentElement);
+      }
       new MutationObserver(() => {
         if (selectedOverlay && !isSelectable(selectedOverlay)) {
           handleSelectedOverlayUnavailable(selectedOverlay);
