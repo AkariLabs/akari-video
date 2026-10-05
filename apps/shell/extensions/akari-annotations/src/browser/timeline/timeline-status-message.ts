@@ -9,31 +9,66 @@ export function isTimelineWarning(text: string): boolean {
 export class TimelineStatusMessage {
     private timer: ReturnType<typeof setTimeout> | undefined;
     private sequence = 0;
+    private readonly chip: HTMLDivElement | undefined;
+    private current: { text: string; warning: boolean; onclick?: (event: MouseEvent) => void } | undefined;
 
-    constructor(private readonly bar: Pick<StatusBar, 'setElement' | 'removeElement'>) {}
+    constructor(private readonly bar: Pick<StatusBar, 'setElement' | 'removeElement'>,
+        private readonly panel?: { host: HTMLElement; isMaximized(): boolean }) {
+        if (panel) {
+            this.chip = panel.host.ownerDocument.createElement('div');
+            this.chip.className = 'akari-timeline-message-chip';
+            this.chip.dataset.testid = 'akari-timeline-message-chip';
+            this.chip.hidden = true;
+            panel.host.appendChild(this.chip);
+        }
+    }
 
     show(text: string, warning = isTimelineWarning(text), onclick?: (event: MouseEvent) => void): void {
         this.sequence++;
         if (this.timer !== undefined) clearTimeout(this.timer);
-        if (!text) { void this.bar.removeElement(TIMELINE_MESSAGE_ID); return; }
-        void this.bar.setElement(TIMELINE_MESSAGE_ID, {
-            text, alignment: 1 as StatusBarAlignment, priority: -1000,
-            name: 'タイムライン',
-            ...(warning ? { className: 'akari-timeline-message-warning',
-                color: 'var(--theia-editorWarning-foreground)' } : {}),
-            ...(onclick ? { onclick } : {})
-        });
+        this.timer = undefined;
+        this.current = text ? { text, warning, onclick } : undefined;
+        this.refreshRoute();
+        if (!text) return;
         const sequence = this.sequence;
         this.timer = setTimeout(() => {
-            if (sequence === this.sequence) void this.bar.removeElement(TIMELINE_MESSAGE_ID);
+            if (sequence === this.sequence) {
+                this.current = undefined;
+                this.refreshRoute();
+            }
             this.timer = undefined;
         }, warning ? 8000 : 4000);
+    }
+
+    refreshRoute(): void {
+        const inPanel = this.panel?.isMaximized() ?? false;
+        if (this.chip) {
+            this.chip.hidden = !inPanel || !this.current;
+            this.chip.textContent = this.chip.hidden ? '' : this.current!.text;
+            this.chip.classList.toggle('akari-timeline-message-warning', !!this.current?.warning);
+            this.chip.onclick = inPanel && this.current?.onclick ? this.current.onclick : null;
+            this.chip.style.pointerEvents = this.chip.onclick ? 'auto' : 'none';
+        }
+        if (inPanel || !this.current) {
+            void this.bar.removeElement(TIMELINE_MESSAGE_ID);
+        } else {
+            const { text, warning, onclick } = this.current;
+            void this.bar.setElement(TIMELINE_MESSAGE_ID, {
+                text, alignment: 1 as StatusBarAlignment, priority: -1000,
+                name: 'タイムライン',
+                ...(warning ? { className: 'akari-timeline-message-warning',
+                    color: 'var(--theia-editorWarning-foreground)' } : {}),
+                ...(onclick ? { onclick } : {})
+            });
+        }
     }
 
     dispose(): void {
         this.sequence++;
         if (this.timer !== undefined) clearTimeout(this.timer);
         this.timer = undefined;
+        this.current = undefined;
+        this.chip?.remove();
         void this.bar.removeElement(TIMELINE_MESSAGE_ID);
     }
 }

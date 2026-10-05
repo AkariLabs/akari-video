@@ -138,6 +138,30 @@ test('audio source speed, gain envelope and fades survive a split within 1e-6', 
   }
 });
 
+test('splitting audio removes the fade shape from the side without that fade', () => {
+  const edit = fixture();
+  track(edit, 'bgm').items[0] = { ...track(edit, 'bgm').items[0],
+    fade_in: 0.5, fade_in_shape: 's_curve', fade_out: 0.5, fade_out_shape: 'slow' };
+  const result = splitAtFrame(edit, 300, { itemIds: ['music'] });
+  const [left, right] = track(result.edit, 'bgm').items;
+  assert.deepEqual([left.fade_in, left.fade_in_shape, left.fade_out, left.fade_out_shape],
+    [0.5, 's_curve', undefined, undefined]);
+  assert.deepEqual([right.fade_in, right.fade_in_shape, right.fade_out, right.fade_out_shape],
+    [undefined, undefined, 0.5, 'slow']);
+  assert.doesNotThrow(() => readEditV2(result.edit));
+});
+
+test('removing the tail also removes its fade-out shape', () => {
+  const edit = fixture();
+  track(edit, 'sfx').items[0].fade_out = 0.5;
+  track(edit, 'sfx').items[0].fade_out_shape = 's_curve';
+  const result = liftRange(edit, { start: 300, end: 420 });
+  const left = track(result.edit, 'sfx').items[0];
+  assert.equal(left.fade_out, undefined);
+  assert.equal(left.fade_out_shape, undefined);
+  assert.doesNotThrow(() => readEditV2(result.edit));
+});
+
 test('nonlinear gain boundary follows the incoming key easing', () => {
   const edit = fixture();
   track(edit, 'sfx').items = [{ ...audio('effect', 0, 300),
