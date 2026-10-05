@@ -63,10 +63,11 @@ function dispatch(key, { focus = 'timeline', eventTarget = focus, modal = null, 
     };
     const window = { getSelection: () => ({ toString: () => selectionText }) };
     const widget = {
-        node: timeline, isAttached: true, selection: { kind: 'cut', index: 0 }, multiSelection: [],
+        node: timeline, isAttached: true, selection: { kind: 'cut', index: 0 }, multiSelection: [], timelineRange: {},
         selectionModel: {}, focusScope: { rootId: null }, dragState: null,
         flushStripRender: () => { counts.flushed++; }, isEditableTarget: target => target?.kind === 'input',
-        togglePreviewPlayback: () => { counts.play++; }, performDeleteSelected: () => { counts.delete++; },
+        togglePreviewPlayback: () => { counts.play++; }, performTimelineDelete: () => { counts.delete++; },
+        setTimelineRange: () => {},
         copySelectedItem: () => { counts.copy++; }, applySelection: () => { counts.clear++; },
         cutSelectedItems: () => { counts.cut++; }, pasteClipboard: () => { counts.paste++; },
         commands: { executeCommand: () => { counts.text++; } }, location: undefined

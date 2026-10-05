@@ -51,6 +51,15 @@ export const AKARI_SHORTCUTS: readonly AkariShortcut[] = [
     { command: command('akari.daihon.selectAllRows', '行をすべて選ぶ', '台本'), keys: ['ctrlcmd+a'], when: 'akariDaihonRowsFocus && !akariEditableFocus && !akariImeComposing', key: 'a', modifier: true },
     { command: command('akari.daihon.clearRowSelection', '行の選択を外す', '台本'), keys: ['escape'], when: 'akariDaihonRowsFocus && !akariEditableFocus && !akariImeComposing', key: 'Escape' },
     { command: command('akari.inspector.clearSolo', 'インスペクターのソロを外す', '編集パネル'), keys: ['escape'], when: 'akariInspectorFocus && akariInspectorSolo && !akariEditableFocus && !akariImeComposing', key: 'Escape' },
+    { command: command('akari.timeline.setIn', '範囲の入口を打つ'), keys: ['i'], when: timeline, key: 'i' },
+    { command: command('akari.timeline.setOut', '範囲の出口を打つ'), keys: ['o'], when: timeline, key: 'o' },
+    { command: command('akari.timeline.selectClipRange', 'クリップの長さを範囲にする'), keys: ['x'], when: timeline, key: 'x' },
+    { command: command('akari.timeline.clearRange', '範囲を解除'), keys: ['alt+x'], when: timeline, key: 'x', alt: true },
+    { command: command('akari.timeline.rippleDelete', '詰めて消す'), keys: ['shift+delete', 'shift+backspace'], when: timeline, key: 'Delete', shift: true },
+    { command: command('akari.timeline.toggleAutoRipple', '自動で詰める'), keys: [], when: timeline, key: '' },
+    { command: command('akari.timeline.rippleTrimPrevious', '前の切れ目まで詰める'), keys: ['q'], when: timeline, key: 'q' },
+    { command: command('akari.timeline.rippleTrimNext', '次の切れ目まで詰める'), keys: ['w'], when: timeline, key: 'w' },
+    { command: command('akari.timeline.splitAtPlayhead', '再生ヘッドで分割'), keys: ['ctrlcmd+b'], when: timeline, key: 'b', modifier: true },
     ...(['up', 'down'] as const).flatMap((direction): AkariShortcut[] => [
         { command: command(`akari.inspector.step${direction}`, `数値を 1 ずつ増減（${direction === 'up' ? '増' : '減'}）`, '編集パネル'), keys: [direction], when: 'akariNumberFieldFocus && !akariImeComposing', key: `Arrow${direction[0].toUpperCase()}${direction.slice(1)}` },
         { command: command(`akari.inspector.step10${direction}`, `数値を 10 ずつ増減（${direction === 'up' ? '増' : '減'}）`, '編集パネル'), keys: [`shift+${direction}`], when: 'akariNumberFieldFocus && !akariImeComposing', key: `Arrow${direction[0].toUpperCase()}${direction.slice(1)}`, shift: true }

@@ -78,6 +78,7 @@ export function buildTimelineClipMenuItems(
     if (audio.copyable !== false) items.push({ id: 'duplicate', label: '複製' });
     if (tree.canSplit ?? SPLIT_CAPABLE_KINDS.has(kind)) {
         items.push({ id: 'split', label: '分割' });
+        items.push({ id: 'split-at-playhead', label: '再生ヘッドで分割 (⌘B)' });
     }
     if (tree.canDetach) items.push({ id: 'detach', label: 'キャンバスから出す' });
     if (tree.canGroup) items.push({ id: 'group', label: 'キャンバスにする' });
@@ -94,6 +95,8 @@ export function buildTimelineClipMenuItems(
     if (kind === 'audio' && audio.narrationRedo) items.push({ id: 'narrate-redo', label: '作り直す…' });
     if (kind === 'caption') items.push({ id: 'narrate', label: '音声を作る…' });
     items.push({ id: 'annotate', label: '注釈…' });
+    items.push({ id: 'ripple-delete', label: '詰めて消す (⇧Delete)', danger: true });
+    items.push({ id: 'lift-delete', label: '隙間を残して消す (Delete)', danger: true });
     items.push({ id: 'delete', label: '削除', danger: true });
     return items;
 }

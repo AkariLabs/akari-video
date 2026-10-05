@@ -198,13 +198,15 @@ export function splitAtFrame(edit: EditV2, frame: number, opts: RippleOptions & 
     return { edit: result, changed: true };
 }
 
-function removeInside(track: MutableTrack, range: FrameRange, fps: number, ids: Set<string>): boolean {
+function removeInside(track: MutableTrack, range: FrameRange, fps: number, ids: Set<string>, origins: Map<string, string>): boolean {
     let changed = false;
     const result: TimelineItem[] = [];
     for (const item of track.items) {
         if (item.at >= range.end || endOf(item) <= range.start) { result.push(item); continue; }
         changed = true;
-        result.push(...removeTimelineItemRange(item, range, fps, ids));
+        const pieces = removeTimelineItemRange(item, range, fps, ids);
+        for (const piece of pieces) if (piece.id !== item.id) origins.set(piece.id, item.id);
+        result.push(...pieces);
     }
     track.items = result as never;
     return changed;
@@ -230,6 +232,7 @@ function rangeOperation(edit: EditV2, range: FrameRange, opts: RippleOptions, ri
     if (!validRange(range)) return unchanged(edit, '範囲が不正です');
     const result = clone(edit);
     const ids = idsIn(result);
+    const origins = new Map<string, string>();
     const blocked: string[] = [];
     let changed = false;
     for (const track of result.tracks) {
@@ -237,8 +240,22 @@ function rangeOperation(edit: EditV2, range: FrameRange, opts: RippleOptions, ri
         const mode = modeOf(track, opts);
         const cut = selectedTrackIds ? selectedTrackIds.has(track.id) : mode === 'cut';
         if (mode === 'fixed' && !selectedTrackIds?.has(track.id)) continue;
-        if (cut) changed = removeInside(track, range, result.output.fps, ids) || changed;
+        if (cut) changed = removeInside(track, range, result.output.fps, ids, origins) || changed;
         if (ripple) changed = shiftAfter(track, range, blocked) || changed;
+    }
+    if (origins.size) {
+        const visual = result.tracks.filter(track => itemsTrack(track) && track.lane === 'visual')
+            .flatMap(track => track.items);
+        for (const track of result.tracks) if (itemsTrack(track) && track.lane === 'audio') {
+            for (const item of track.items) {
+                if (!item.link) continue;
+                const candidates = visual.filter(candidate => candidate.id === item.link || origins.get(candidate.id) === item.link);
+                const overlap = (candidate: TimelineItem): number =>
+                    Math.max(0, Math.min(endOf(item), endOf(candidate)) - Math.max(item.at, candidate.at));
+                const best = candidates.sort((a, b) => overlap(b) - overlap(a))[0];
+                if (best && overlap(best) > 0) item.link = best.id;
+            }
+        }
     }
     return { edit: result, changed, ...(ripple ? { removedFrames: range.end - range.start, blocked } : {}) };
 }

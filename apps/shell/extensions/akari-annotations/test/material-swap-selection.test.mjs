@@ -7,12 +7,13 @@ const store=require('@akari-video/edit-store');
 const replacement=require('../lib/common/material-replacement.js');
 const source=readCompiledSource('widget').text;
 function method(name){const start=source.search(new RegExp('    (async )?'+name+'\\('));assert.notEqual(start,-1,name);const rest=source.slice(start);return rest.slice(0,rest.indexOf('\n    }')+6);}
-const deps={timeline_selection_model_1:{captionIdForTreeSelection:()=>undefined},material_replacement_1:replacement,edit_store_2:store,edit_store_4:store,
+const deps={timeline_selection_model_1:{captionIdForTreeSelection:()=>undefined},material_replacement_1:replacement,edit_store_2:store,edit_store_3:store,edit_store_4:store,
  edit_v2_mutations_1:require('../lib/common/edit-v2-mutations.js'),
  edit_load_failure_1:require('../lib/common/edit-load-failure.js'),
  timeline_collapsed_state_1:{TimelineCollapsedState:class{}},audio_master_1:{readAudioMasterSnapshot:()=>({})},
  caption_track_layout_1:{renderAroundCaptionDisplayReload:async(load,render)=>{await load();render();}},
  derive_timeline_tracks_1:{sortDefaultTimelineTracks:tracks=>tracks}};
+for (const [, alias] of source.matchAll(/\b(edit_store(?:_\d+)?)\./g)) deps[alias] = store;
 const Widget=new Function(...Object.keys(deps),`return class {${['reloadEdit','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','pushSelectionSnapshot','applySelection','handleLayerSelection','handleCutSelection'].map(method).join('\n')}}`)(...Object.values(deps));
 const fixture=()=>({version:2,output:{width:1280,height:720,fps:30},sources:[{id:'main',path:'main.mp4'},{id:'br',path:'assets/broll/br-city-walk-long/clip.mp4'}],tracks:[
  {id:'v1',lane:'visual',items:[{id:'main',at:0,duration:900,source:{kind:'media',src:'main',in:0,out:30}}]},

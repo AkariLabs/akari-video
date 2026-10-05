@@ -19,6 +19,11 @@ import { writePreviewCaptionWrap, duplicatePreviewCaption, type PreviewCaptionWr
 import { AkariReadAloudDialog, type ReadAloudPlacement } from './read-aloud/akari-read-aloud-dialog';
 import { selectReadAloudRows, staleNarrations } from '../common/read-aloud-model';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
+import { completeTimelineRange, setTimelineRangeEdge, timelineRangeFromClip, timelineRangeFromDrag,
+    type TimelineRangeState } from '../common/timeline-range';
+import { timelineDeletePlan } from '../common/timeline-delete-plan';
+import { runTimelineCutKernel } from '../common/timeline-cut-kernel';
+import { renderTimelineRangeOverlay } from './timeline/timeline-range-overlay';
 import { calculateFrameDraw, frameDrawDestination, isPlayheadLineGrab, nextFrameTrackNumber, type FrameDrawDestination, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
 import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
@@ -63,6 +68,7 @@ import { shouldShowTimelineGhost } from '../common/timeline-visibility';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { AKARI_SHORTCUTS } from './akari-shortcuts';
+import { resolveTrackRippleMode, type RippleResult } from '@akari-video/edit-store';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
@@ -247,7 +253,6 @@ import {
     renameTrack as renameV2Track,
     setTrackFlag as setV2TrackFlag,
     reorderTracks as reorderV2Tracks,
-    splitItem as splitV2Item,
     pinAutomaticBgmDuration,
     stringifyEditV2,
     moveTreeV2Item,
@@ -1016,6 +1021,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected visualPlaying = false;
     protected visualPointerDown = false;
     protected selectedGap?: TimelineGap;
+    protected timelineRange: TimelineRangeState = {};
+    protected autoRipple = false;
+    protected readonly rangeRulerOverlay = document.createElement('div');
+    protected readonly rangeStripOverlay = document.createElement('div');
+    protected readonly rangeDurationLabel = document.createElement('span');
+    protected readonly autoRippleButton = document.createElement('button');
     protected gapRoot?: string;
     protected gapBand?: HTMLDivElement;
     protected gapCommitting = false;
@@ -1063,10 +1074,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (id === 'akari.timeline.clearSelection') {
             return !!(this.cancelFrameDraw || this.dragState || this.trimmerItemId !== undefined
                 || this.trimmerAudioId !== undefined || this.focusScope.rootId !== null
-                || this.selection || this.multiSelection.length > 0 || this.selectedGap);
+                || this.selection || this.multiSelection.length > 0 || this.selectedGap
+                || this.timelineRange.inFrame !== undefined || this.timelineRange.outFrame !== undefined);
         }
-        if (id === 'akari.timeline.delete' || id === 'akari.timeline.deleteOneSide') {
-            return !!(this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0);
+        if (id === 'akari.timeline.delete' || id === 'akari.timeline.deleteOneSide' || id === 'akari.timeline.rippleDelete') {
+            return !!(this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0
+                || this.selectedGap || completeTimelineRange(this.timelineRange));
         }
         if (id === 'akari.timeline.selectParent' || id === 'akari.timeline.selectChild') {
             if (this.selection?.kind !== 'item') return false;
@@ -1763,6 +1776,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.readAloudButton.addEventListener('click', () => void this.openReadAloud({ captionIds: this.selectionModel.selectedCaptionIds }));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
+        this.configureIconButton(this.autoRippleButton, 'codicon-arrow-left', '自動で詰める', '自動で詰める');
+        this.autoRippleButton.dataset.akariAutoRipple = '';
+        this.autoRippleButton.addEventListener('click', () => this.setAutoRippleEnabled(!this.autoRipple));
         this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
         this.undoButton.disabled = true;
         this.undoButton.addEventListener('click', () => void this.performUndo());
@@ -1774,7 +1790,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toolbar.append(
             this.selectToolButton, this.razorToolButton, this.frameToolButton, this.readAloudButton,
             this.createToolbarSeparator(),
-            this.snapToggleButton,
+            this.snapToggleButton, this.autoRippleButton,
             this.createToolbarSeparator(),
             this.undoButton, this.redoButton, this.compactButton
         );
@@ -1833,6 +1849,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
         });
         this.toolbar.append(this.zoomHud);
+        this.rangeDurationLabel.dataset.akariTimelineRangeDuration = '';
+        Object.assign(this.rangeDurationLabel.style, { fontSize: '10px', color: 'var(--theia-descriptionForeground)',
+            marginLeft: '8px', whiteSpace: 'nowrap' });
+        this.toolbar.insertBefore(this.rangeDurationLabel, this.zoomHud);
 
         Object.assign(this.timelineViewport.style, {
             display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
@@ -1877,6 +1897,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             position: 'absolute', top: '0', left: '0', right: '0', bottom: '0'
         });
         this.rulerBar.appendChild(this.rulerContent);
+        Object.assign(this.rangeRulerOverlay.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '5' });
+        Object.assign(this.rangeStripOverlay.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '5' });
+        this.rulerBar.appendChild(this.rangeRulerOverlay);
+        this.strip.appendChild(this.rangeStripOverlay);
         this.beyondEnd.className = 'akari-annotations-strip-beyond-end';
         this.endLine.className = 'akari-annotations-strip-end-line';
         this.strip.append(this.beyondEnd, this.endLine, this.stripContent);
@@ -2040,10 +2064,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.openTimelineClipContextMenu(event, itemElement);
                 return;
             }
+            if (this.selectGapAt(event.clientX, event.clientY) && this.selectedGap) {
+                event.preventDefault();
+                openTimelineContextMenu({ x: event.clientX, y: event.clientY,
+                    items: [{ id: 'generate-gap', label: 'あいだを生成' },
+                        { id: 'close-gap', label: 'この隙間を詰める (Delete)' }],
+                    onSelect: id => {
+                        if (id === 'generate-gap') {
+                            this.pushSelectionSnapshot();
+                            void this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+                        } else if (id === 'close-gap') void this.performTimelineDelete(false);
+                    } });
+                return;
+            }
             if (this.editDocument?.version === 2) this.openEmptyTimelineCanvasMenu(event);
             else this.openAnnotationPopup(event);
         });
         this.rulerBar.addEventListener('click', event => this.onStripClick(event));
+        this.rulerBar.addEventListener('pointerdown', event => this.beginRulerRangeDrag(event));
         this.rulerBar.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.rulerBar.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
         this.trackHeaderColumn.addEventListener('contextmenu', event => this.openTrackContextMenu(event));
@@ -2198,13 +2236,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (event.key === 'Escape' && this.isAttached
-                && (this.selection || this.multiSelection.length > 0 || this.selectedGap || hadMarqueeRange)
+                && (this.selection || this.multiSelection.length > 0 || this.selectedGap || hadMarqueeRange
+                    || this.timelineRange.inFrame !== undefined || this.timelineRange.outFrame !== undefined)
                 && !this.isEditableTarget(event.target) && !this.isEditableTarget(document.activeElement)
                 && !(document.activeElement instanceof HTMLElement
                     && document.activeElement.closest('.akari-inspector-widget'))) {
                 event.preventDefault();
                 event.stopPropagation();
                 this.applySelection(undefined);
+                this.setTimelineRange({});
                 return;
             }
             if (!this.isAttached || this.isEditableTarget(event.target) || this.isEditableTarget(document.activeElement)) {
@@ -2214,6 +2254,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.preventDefault();
                 event.stopPropagation();
                 void this.removeSelectedKeyframes();
+                return;
+            }
+            if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+                && event.key.toLowerCase() === 'b') {
+                event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.();
+                void this.performSplitAtPlayhead();
+                return;
+            }
+            if (!event.metaKey && !event.ctrlKey && !event.shiftKey
+                && (!event.altKey || event.key.toLowerCase() === 'x')
+                && ['i', 'o', 'x', 'q', 'w'].includes(event.key.toLowerCase())) {
+                event.preventDefault(); event.stopPropagation();
+                const key = event.key.toLowerCase();
+                if (key === 'i' || key === 'o') this.setTimelineRange(setTimelineRangeEdge(this.timelineRange,
+                    key === 'i' ? 'in' : 'out', this.frameAt(this.playheadT)));
+                else if (key === 'x') {
+                    if (event.altKey) this.setTimelineRange({});
+                    else this.selectClipTimelineRange();
+                } else if (!event.altKey) void this.performRippleTrim(key === 'q' ? 'prev' : 'next');
                 return;
             }
             const lowerKey = event.key.toLowerCase();
@@ -2400,13 +2459,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             if ((event.key === 'Delete' || event.key === 'Backspace')
-                && (this.selection || this.multiSelection.length > 0)) {
-                event.preventDefault();
-                if (this.multiSelection.length > 0) {
-                    void this.performDeleteMultiSelected(event.altKey);
-                } else {
-                    void this.performDeleteSelected(event.altKey);
-                }
+                && (this.selection || this.multiSelection.length > 0 || this.selectedGap
+                    || completeTimelineRange(this.timelineRange))) {
+                event.preventDefault(); event.stopPropagation();
+                void this.performTimelineDelete(event.shiftKey, event.altKey);
             }
         };
         // 注釈が増減したらピンを描き直す。パネルの時刻リンクからのジャンプもここで受ける。
@@ -5930,24 +5986,90 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async performRazorSplitAt(selection: TimelineSelectionItem, clientX: number): Promise<void> {
         const itemId = this.splittableItemId(selection);
-        const item = itemId ? this.rawV2Item(itemId) : undefined;
-        if (!itemId || !item || !this.location?.editUri) return;
+        if (!itemId || !this.location?.editUri) return;
         const atFrames = this.frameAt(this.timeAtClientX(clientX));
-        const minimum = Math.ceil(MINIMUM_ITEM_DURATION * this.fps);
-        if (atFrames - item.at < minimum || item.at + item.duration - atFrames < minimum) {
-            this.footer.textContent = 'クリップの端に近すぎるため分割できません（両側 0.15 秒以上必要です）';
-            return;
-        }
+        await this.commitTimelineRipple('クリップの分割', doc => runTimelineCutKernel(doc,
+            { kind: 'split', frame: atFrames, itemIds: [itemId], lockedTrackIds: this.timelineLockedTrackIds() }));
+    }
+
+    protected timelineLockedTrackIds(): string[] {
+        return [...new Set([...this.localLockedTrackIds,
+            ...this.timelineTracks.filter(track => track.locked).map(track => track.id)])];
+    }
+
+    protected async commitTimelineRipple(label: string,
+        operation: (doc: EditV2) => RippleResult, after?: (result: RippleResult) => void
+    ): Promise<void> {
+        if (!this.location?.editUri) return;
+        let outcome: RippleResult | undefined;
         try {
-            await this.commitEditMutation('クリップの分割', doc => splitV2Item(doc, { itemId, atFrames }), { optimistic: true });
-            this.hideNotice();
-            this.footer.textContent = 'クリップを分割しました。';
+            await this.commitEditMutation(label, doc => {
+                outcome = operation(doc as unknown as EditV2);
+                if (!outcome.changed) throw new Error(outcome.reason ?? '変更できませんでした。');
+                return outcome.edit as unknown as EditV2Document;
+            });
+            if (!outcome) return;
+            if (outcome.blocked?.length) this.footer.textContent = `${outcome.blocked.length} 件は前のクリップにぶつかって寄せきれませんでした`;
+            after?.(outcome);
             this.revealOutputPreview();
         } catch (error) {
-            const detail = this.errorMessage(error);
-            this.showNotice(`クリップを分割できません: ${detail}`);
-            this.messages.error(`クリップを分割できません: ${detail}`);
+            this.showNotice(`${label}を実行できません: ${this.errorMessage(error)}`);
         }
+    }
+
+    protected async performSplitAtPlayhead(): Promise<void> {
+        const itemId = this.selection ? this.splittableItemId(this.selection) : undefined;
+        await this.commitTimelineRipple('再生ヘッドで分割', doc => runTimelineCutKernel(doc, {
+            kind: 'split', frame: this.frameAt(this.playheadT),
+            ...(this.selection ? { itemIds: itemId ? [itemId] : [] } : {}),
+            lockedTrackIds: this.timelineLockedTrackIds() }));
+    }
+
+    protected async performRippleTrim(side: 'prev' | 'next'): Promise<void> {
+        const frame = this.frameAt(this.playheadT);
+        await this.commitTimelineRipple(side === 'prev' ? '前の切れ目まで詰める' : '次の切れ目まで詰める',
+            doc => runTimelineCutKernel(doc, { kind: 'trim', frame, side, lockedTrackIds: this.timelineLockedTrackIds() }),
+            result => { if (side === 'prev') this.seekTimelineFrame(frame - (result.removedFrames ?? 0)); });
+    }
+
+    protected seekTimelineFrame(frame: number): void {
+        this.playheadT = Math.max(0, frame) / this.fps;
+        this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        void this.requestSeek(this.playheadT, { domain: 'output' });
+    }
+
+    protected async performTimelineDelete(shift: boolean, oneSide = false, forceLift = false): Promise<void> {
+        const range = completeTimelineRange(this.timelineRange);
+        const plan = timelineDeletePlan({ keyframe: !!this.selectionModel.keyframeSelection, gap: !!this.selectedGap,
+            range: !!range, selection: !!this.selection || this.multiSelection.length > 0,
+            shift, autoRipple: forceLift ? false : this.autoRipple, oneSide });
+        if (plan.target === 'keyframe') { await this.removeSelectedKeyframes(); return; }
+        if (plan.target === 'gap' && this.selectedGap) {
+            const gap = this.selectedGap;
+            await this.commitTimelineRipple('この隙間を詰める', doc => runTimelineCutKernel(doc,
+                { kind: 'gap', trackId: gap.trackId, frame: gap.startFrames,
+                    lockedTrackIds: this.timelineLockedTrackIds() }), () => this.applySelection(undefined));
+            return;
+        }
+        if (plan.target === 'range' && range) {
+            await this.commitTimelineRipple(plan.ripple ? '詰めて消す' : '隙間を残して消す',
+                doc => runTimelineCutKernel(doc, { kind: 'range', range, ripple: plan.ripple,
+                    lockedTrackIds: this.timelineLockedTrackIds() }),
+                () => { this.setTimelineRange({}); if (plan.ripple) this.seekTimelineFrame(range.start); });
+            return;
+        }
+        if (plan.target !== 'selection') return;
+        if (!plan.ripple) {
+            if (this.multiSelection.length > 0) await this.performDeleteMultiSelected(oneSide);
+            else await this.performDeleteSelected(oneSide);
+            return;
+        }
+        const selections = this.multiSelection.length ? this.multiSelection : this.selection ? [this.selection] : [];
+        const ids = selections.flatMap(selection => selection.kind === 'cut' ? [this.cutItemId(selection.index)]
+            : 'id' in selection && this.rawV2Item(selection.id) ? [selection.id] : []);
+        await this.commitTimelineRipple('詰めて消す', doc => runTimelineCutKernel(doc,
+            { kind: 'items', itemIds: ids, lockedTrackIds: this.timelineLockedTrackIds(), oneSide }),
+            () => this.applySelection(undefined));
     }
 
     /** 選択中のクリップを削除する（Delete/Backspace）。 */
@@ -7805,30 +7927,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.location?.editUri) return;
         try {
             const selectedId = this.selection?.kind === "cut" ? this.cutItemId(this.selection.index) : undefined;
-            await this.commitEditMutation("クリップ間の空白詰め", doc => {
-                const cutIds = new Set(this.cutItemIds);
-                let next = doc;
-                for (const track of doc.tracks as Array<Record<string, any>>) {
-                    if (!Array.isArray(track.items)) continue;
-                    let cursor = 0;
-                    let selectedReached = selectedId === undefined;
-                    for (const item of track.items as Array<Record<string, any>>) {
-                        if (!cutIds.has(item.id)) continue;
-                        if (item.id === selectedId) {
-                            selectedReached = true;
-                            cursor = item.at + item.duration;
-                            continue;
-                        }
-                        if (!selectedReached) {
-                            cursor = Math.max(cursor, item.at + item.duration);
-                            continue;
-                        }
-                        next = updateV2Item(next, { itemId: item.id, patch: { at: cursor } });
-                        cursor += item.duration;
-                    }
-                }
-                return next;
-            });
+            await this.commitEditMutation("クリップ間の空白詰め", doc => runTimelineCutKernel(doc as unknown as EditV2,
+                { kind: 'compact', ...(selectedId ? { fromItemId: selectedId } : {}),
+                    lockedTrackIds: this.timelineLockedTrackIds() }).edit as unknown as EditV2Document);
             this.hideNotice();
             this.footer.textContent = "クリップ間の空白を詰めました。";
         } catch (error) {
@@ -7889,6 +7990,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.location, editUri: uri,
             captionsUri: uri.parent.resolve('captions.json'), reviewUri: uri.parent.resolve('review.json')
         };
+        this.setTimelineRange({});
+        this.autoRipple = await this.storage.getData<boolean>(`akari.timeline.autoRipple:${uri.toString()}`, false) === true;
+        this.autoRippleButton.setAttribute('aria-pressed', String(this.autoRipple));
         this.refreshReviewSessionRanges();
         await this.updateTimelineTabCaption();
         await this.reloadEdit();
@@ -7938,6 +8042,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configured = true;
         this.adoptTimelineIdentity(location.editUri?.toString());
         this.location = location;
+        this.autoRipple = await this.storage.getData<boolean>(`akari.timeline.autoRipple:${location.editUri?.toString() ?? ''}`, false) === true;
+        this.autoRippleButton.setAttribute('aria-pressed', String(this.autoRipple));
         this.refreshLocationEditUri = refreshLocationEditUri;
         this.refreshReviewSessionRanges();
         await this.updateTimelineTabCaption();
@@ -11815,6 +11921,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyTrackLockAppearance();
         this.updateChipHitAreas();
         this.finishKeyedRender('ruler');
+        this.renderTimelineRangeState();
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         this.rulerBar.style.marginRight = '0px';
         this.timelineOverlay.style.right = '14px';
@@ -13895,6 +14002,71 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected frameAt(seconds: number): number {
         return Math.max(0, Math.round(seconds * this.fps));
     }
+
+    protected setTimelineRange(state: TimelineRangeState): void {
+        this.timelineRange = state;
+        this.renderTimelineRangeState();
+    }
+
+    protected renderTimelineRangeState(): void {
+        const percent = (seconds: number): number => this.percent(seconds);
+        const format = (seconds: number): string => this.formatRulerTimestamp(seconds);
+        renderTimelineRangeOverlay(this.rangeRulerOverlay, this.timelineRange, this.fps, percent, format);
+        renderTimelineRangeOverlay(this.rangeStripOverlay, this.timelineRange, this.fps, percent, format, false);
+        const range = completeTimelineRange(this.timelineRange);
+        this.rangeDurationLabel.textContent = range
+            ? `範囲 ${Number(((range.end - range.start) / this.fps).toFixed(2))} 秒` : '';
+    }
+
+    protected selectClipTimelineRange(): void {
+        const selected = this.selection && (this.selection.kind === 'cut'
+            ? this.rawV2Item(this.cutItemId(this.selection.index)) : 'id' in this.selection
+                ? this.rawV2Item(this.selection.id) : undefined);
+        const frame = this.frameAt(this.playheadT);
+        const edit = this.editDocument as unknown as EditV2 | undefined;
+        const candidates = edit?.tracks.flatMap(track => 'items' in track && track.lane === 'visual'
+            && resolveTrackRippleMode(track) === 'cut'
+            ? track.items.filter(item => item.at <= frame && frame < item.at + item.duration
+                && ['media', 'html', 'telop', 'filter'].includes(item.source.kind))
+            : []);
+        const candidate = selected ?? (candidates && candidates[candidates.length - 1]);
+        if (candidate) this.setTimelineRange(timelineRangeFromClip(candidate.at, candidate.duration));
+    }
+
+    protected beginRulerRangeDrag(event: PointerEvent): void {
+        this.suppressNextStripClick = false;
+        if (event.button !== 0 || !(event.target instanceof Element)
+            || this.playhead.contains(event.target)
+            || event.target.closest('.akari-annotations-pin, .akari-beat-marker')) return;
+        const startX = event.clientX;
+        const startFrame = this.frameAt(this.snapTimeInOutputSpaceWithResult(this.timeAtClientX(startX), false).time);
+        let dragged = false;
+        const move = (pointer: PointerEvent): void => {
+            if (Math.abs(pointer.clientX - startX) < 4 && !dragged) return;
+            dragged = true;
+            const raw = this.timeAtClientX(pointer.clientX);
+            const snapped = this.snapTimeInOutputSpaceWithResult(raw, false).time;
+            this.setTimelineRange(timelineRangeFromDrag(startFrame, this.frameAt(snapped)));
+        };
+        const finish = (pointer: PointerEvent): void => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', finish);
+            window.removeEventListener('pointercancel', finish);
+            if (dragged) { pointer.preventDefault(); this.suppressNextStripClick = true; }
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', finish);
+        window.addEventListener('pointercancel', finish);
+    }
+
+    public setAutoRippleEnabled(value: boolean): void {
+        this.autoRipple = value;
+        this.autoRippleButton.setAttribute('aria-pressed', String(value));
+        const key = `akari.timeline.autoRipple:${this.location?.editUri?.toString() ?? ''}`;
+        void this.storage.setData(key, value);
+    }
+
+    public getAutoRippleEnabled(): boolean { return this.autoRipple; }
 
     /** v2 全文を 1 回だけ parse/mutate/stringify し、undo/redo も全文で積む。 */
     protected commitEditMutation(
@@ -18570,7 +18742,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const band = document.createElement('div');
         band.className = 'akari-annotations-gap-band';
         Object.assign(band.style, { position: 'absolute', pointerEvents: 'none', boxSizing: 'border-box',
-            border: '1px dashed #b89aff', background: 'rgba(159, 111, 255, 0.16)', zIndex: '2',
+            border: '1px dashed var(--theia-focusBorder)',
+            background: 'color-mix(in srgb, var(--theia-focusBorder) 16%, transparent)', zIndex: '2',
             left: `${this.percent(snapshot.startSeconds)}%`,
             width: `${(snapshot.endSeconds - snapshot.startSeconds) / this.visibleDuration() * 100}%`,
             top: `${layout.top}px`, height: `${layout.height}px` });
@@ -18591,9 +18764,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applySelection(undefined);
         this.selectedGap = gap;
         this.gapRoot = this.location?.editUri.toString();
-        this.pushSelectionSnapshot();
         this.renderGapBand();
-        void this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
         return true;
     }
 
@@ -19272,7 +19443,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 { id: 'create-canvas-here', label: 'ここにキャンバスを作る' },
                 { id: 'annotate', label: '注釈…' }]
                 : [{ id: 'create-canvas-here', label: 'ここにキャンバスを作る' },
-                    { id: 'annotate', label: '注釈…' }],
+                    { id: 'annotate', label: '注釈…' },
+                    ...(completeTimelineRange(this.timelineRange) ? [
+                        { id: 'ripple-delete', label: '詰めて消す (⇧Delete)' },
+                        { id: 'lift-delete', label: '隙間を残して消す (Delete)' },
+                        { id: 'split-at-playhead', label: '再生ヘッドで分割 (⌘B)' }] : [])],
             onSelect: id => {
                 if (id === 'create-canvas-range' && range) {
                     void this.createCanvasAt(range.at / this.fps, range.duration / this.fps);
@@ -19280,6 +19455,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.selectionMarquee.style.display = 'none';
                 } else if (id === 'create-canvas-here') void this.createCanvasAt();
                 else if (id === 'annotate') this.openAnnotationPopup(event);
+                else if (id === 'ripple-delete') void this.performTimelineDelete(true);
+                else if (id === 'lift-delete') void this.performTimelineDelete(false, false, true);
+                else if (id === 'split-at-playhead') void this.performSplitAtPlayhead();
             } });
     }
 
@@ -19571,6 +19749,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             void this.performRazorSplitAt(item, clientX);
             return;
         }
+        if (id === 'split-at-playhead') { void this.performSplitAtPlayhead(); return; }
+        if (id === 'ripple-delete') { void this.performTimelineDelete(true); return; }
+        if (id === 'lift-delete') { void this.performTimelineDelete(false, false, true); return; }
         if (id === 'detach' && item.kind !== 'audio' && item.kind !== 'caption') {
             const itemId = item.kind === 'cut' ? this.cutItemId(item.index) : item.id;
             const currentRow = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
