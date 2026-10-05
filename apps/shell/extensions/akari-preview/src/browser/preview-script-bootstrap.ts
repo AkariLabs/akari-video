@@ -3265,6 +3265,41 @@ export function previewBootstrapScript(): string {
                     }) || null;
             };
             libraryMediaHitAt = findVisualMediaHitAt;
+            const shouldRegrabSelectedLayerFrame = ({ x, y, bounds, selectedZ, hitZ, hitIsSelected, hasHit, domZ }) => {
+                if (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom) return false;
+                if (domZ !== null && (!hasHit || hitZ <= domZ)) return false;
+                // Alpha holes may reveal a lower cut or layer without putting it above the selection.
+                return !hasHit || hitIsSelected || hitZ < selectedZ;
+            };
+            const selectedLayerFrameRegrabAt = (event, mediaHit) => {
+                if (event.button !== 0 || event.altKey || event.shiftKey || event.ctrlKey || event.metaKey
+                    || penModeActive || rectModeActive || cropModeActive || perspectivePanelOpen
+                    || selectionDragActive || activeCaptionEdit || photoSelect || photoBrush
+                    || window.akari.interaction?.activeEdit || !selectedLayerId
+                    || !layerSelectBox.classList.contains('is-active')
+                    || layerSelectBox.classList.contains('akari-selected-invisible')
+                    || !previewPane.contains(event.target)) return null;
+                const target = event.target;
+                if (!(target instanceof Element) || target.closest('button, [role="button"], input, textarea, select, a[href], '
+                    + '[contenteditable="true"], [data-akari-interaction], #pen-layer, #layer-select-box, '
+                    + '#layer-crop-box, #layer-crop-toggle, #layer-perspective-toggle, #layer-perspective-panel, '
+                    + '#cut-select-box, #caption-select-box')) return null;
+                const entry = findLayerEntry(selectedLayerId);
+                if (!entry) return null;
+                const bounds = layerSelectBox.getBoundingClientRect();
+                const hit = mediaHit;
+                const domItem = target.closest('[data-overlay-id], #caption-plate');
+                const captionRow = domItem && target.closest('.caption-row-plate');
+                const domZ = !domItem ? null : captionRow
+                    ? Number(captionRow.style.zIndex || captionLayer.style.zIndex)
+                    : Number(domItem.style.zIndex);
+                return shouldRegrabSelectedLayerFrame({
+                    x: event.clientX, y: event.clientY, bounds,
+                    selectedZ: Number(entry.video.style.zIndex),
+                    hitZ: hit ? Number(hit.style.zIndex) : null,
+                    hitIsSelected: hit === entry.video, hasHit: Boolean(hit), domZ
+                }) ? entry : null;
+            };
             // The interaction layer asks once at pointerdown. The media and pan handlers
             // reuse this answer so all three paths agree for the same pointer.
             const marqueeStartDecisions = new WeakMap();
@@ -3281,7 +3316,10 @@ export function previewBootstrapScript(): string {
                         + '#layer-crop-toggle, #layer-perspective-toggle, #layer-perspective-panel, '
                         + '#cut-select-box, #caption-select-box');
                 const mediaHit = blocked ? null : findVisualMediaHitAt(event);
-                const allow = !blocked && (zoom > 1.05 ? event.shiftKey : !mediaHit || event.shiftKey);
+                const frameRegrab = typeof selectedLayerFrameRegrabAt === 'function'
+                    && selectedLayerFrameRegrabAt(event, mediaHit);
+                const allow = !blocked && !frameRegrab
+                    && (zoom > 1.05 ? event.shiftKey : !mediaHit || event.shiftKey);
                 marqueeStartDecisions.set(event, allow);
                 return allow;
             };
@@ -3321,12 +3359,21 @@ export function previewBootstrapScript(): string {
                 }
                 const targetIsVisualMedia = target === video || target === stillImage
                     || Boolean(target?.dataset?.akariLayerId);
-                const targetIsEngineStage = coveredDomHit || frameEngineMediaIdle && (target === previewStage || target?.id === 'frame-engine-canvas');
+                const targetIsEngineStage = coveredDomHit
+                    || (typeof previewStage !== 'undefined' && typeof selectedLayerId !== 'undefined'
+                        && target === previewStage && !!selectedLayerId)
+                    || frameEngineMediaIdle && (target === previewStage || target?.id === 'frame-engine-canvas');
                 // オーバーレイ / 字幕の実体をクリックした場合は各ランタイムの操作を優先する。
                 if (event.button !== 0 || cropModeActive
                     || (!targetIsVisualMedia && target !== layersStage && target !== stage
                         && !targetIsEngineStage)) return;
                 const hit = coveredDomHit || findVisualMediaHitAt(event);
+                const regrabEntry = typeof selectedLayerFrameRegrabAt === 'function'
+                    ? selectedLayerFrameRegrabAt(event, hit) : null;
+                if (regrabEntry) {
+                    beginLayerMoveDrag(regrabEntry, event);
+                    return;
+                }
                 if (!hit) return;
                 if (activeCaptionEdit) void commitCaptionEdit();
                 if (selectedCaptionId) deselectCaption();
