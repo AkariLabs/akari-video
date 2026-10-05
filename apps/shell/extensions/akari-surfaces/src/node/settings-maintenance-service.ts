@@ -164,7 +164,7 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
         try {
             const value = JSON.parse(await fs.readFile(path.join(home(), 'update-preferences.json'), 'utf8')) as { channel?: string; autoCheck?: boolean };
             return { channel: resolveUpdateChannel(value.channel), autoCheck: value.autoCheck !== false };
-        } catch { return { channel: 'prerelease', autoCheck: true }; }
+        } catch { return { channel: 'stable', autoCheck: true }; }
     }
     async setUpdateSettings(change: { channel?: 'stable' | 'prerelease'; autoCheck?: boolean }): Promise<void> {
         const location = path.join(home(), 'update-preferences.json');

@@ -27,6 +27,7 @@ import {
   readOwnVersion,
   recordDismissalSync,
   resolveCachePath,
+  resolveFeedUrl,
   runBackgroundFetch
 } from '../src/update-check.mjs';
 import { resolveAppDir, resolveAppPreviousDir, resolveStagingDir } from '../src/self-update.mjs';
@@ -156,6 +157,30 @@ serverTest('compareVersions: major.minor.patch を数値比較する', () => {
   assert.equal(compareVersions('0.1.0', '0.2.0'), -1);
   assert.equal(compareVersions('1.0.0', '0.9.9'), 1);
   assert.equal(compareVersions('0.10.0', '0.9.0'), 1, '桁数の異なる文字列比較にならないこと');
+});
+
+test('compareVersions: beta を含む semver 順', () => {
+  const versions = ['1.0.2', '1.1.0-beta.1', '1.1.0-beta.2', '1.1.0', '1.1.1', '1.2.0-beta.1'];
+  for (let i = 1; i < versions.length; i++) assert.equal(compareVersions(versions[i - 1], versions[i]), -1);
+});
+
+test('受け取る版の URL とキャッシュの切替', async () => {
+  await withScratchHome(async env => {
+    assert.match(resolveFeedUrl(env), /updates\/latest\.json$/);
+    await writeFile(join(env.AKARI_HOME, 'update-preferences.json'), JSON.stringify({ channel: 'prerelease' }));
+    assert.match(resolveFeedUrl(env), /updates\/prerelease\.json$/);
+    await writeCacheFixture(env, { feed: { ...VALID_FEED, product: '1.2.0-beta.1' }, feed_url: resolveFeedUrl(env) });
+    assert.equal(checkForUpdateSync({ currentVersion: '1.0.2', env }).latestVersion, '1.2.0-beta.1');
+    await writeFile(join(env.AKARI_HOME, 'update-preferences.json'), JSON.stringify({ channel: 'broken' }));
+    assert.equal(checkForUpdateSync({ currentVersion: '1.0.2', env }).available, false);
+    assert.match(resolveFeedUrl(env), /updates\/latest\.json$/);
+    const stable = { ...VALID_FEED, product: '1.1.0', channel: 'stable' };
+    await writeCacheFixture(env, { feed: stable, feed_url: resolveFeedUrl(env) });
+    assert.equal(checkForUpdateSync({ currentVersion: '1.0.2', env }).latestVersion, '1.1.0');
+    await writeFile(join(env.AKARI_HOME, 'update-preferences.json'), JSON.stringify({ channel: 'prerelease' }));
+    await writeCacheFixture(env, { feed: stable, feed_url: resolveFeedUrl(env) });
+    assert.equal(checkForUpdateSync({ currentVersion: '1.1.0-beta.3', env }).latestVersion, '1.1.0');
+  });
 });
 
 // --- 6 ケース: 新版あり/なし/dismissed済み/キャッシュ無し/壊れたキャッシュ/壊れたフィード ---

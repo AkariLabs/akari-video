@@ -3,14 +3,14 @@ name: Release
 # リリース列車 v0（版整合ゲート・latest.json フィード・リリースワークフローの契約は
 # 非公開の内部リポジトリ akari-video-internal 側で管理している）。
 #
-# タグ vX.Y.Z の push、または workflow_dispatch（tag 選択 + dry_run / stable / feed_only 入力）で
+# タグ vX.Y.Z / vX.Y.Z-beta.N の push、または workflow_dispatch（tag 選択 + dry_run / stable / feed_only 入力）で
 # 発火する。実際にタグを push する・このワークフローを走らせる・GitHub Release を公開する・
 # npm publish を実行する操作そのものは、このワークフローを追加した実装作業の範囲外
 # （検収後に司令塔が行う）。ここに書くのは「発火されたら何が起きるか」のロジックのみ。
 #
 # 流れ: 版整合ゲート →（mac シェルビルド → DMG 公証 + staple → 署名検証ゲート）∥ win シェルビルド ∥ CLI tarball ∥
 #       app tarball（CLI self-update 用フル構成ソース、並列）
-#       → latest.json 生成 → draft + prerelease Release 作成・asset 添付
+#       → latest.json 生成 → タグ形に応じた draft Release 作成・asset 添付
 #       （updates フィードはここでは触らない — 2026-08-29 改訂・下記 feed_only）
 #
 # dry_run: true のときは版整合ゲート〜ビルドまでは通常どおり走らせ、Release 作成と
@@ -39,7 +39,7 @@ on:
         type: boolean
         default: false
       stable:
-        description: 'true なら channel を stable にし、prerelease フラグを外して Release を作成する（既定はプレリリース）'
+        description: '互換入力。beta タグで true はエラー。channel はタグ形で決まる'
         type: boolean
         default: false
       feed_only:
@@ -81,7 +81,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
+      channel: ${{ steps.channel.outputs.channel }}
+      prerelease_flag: ${{ steps.channel.outputs.prerelease_flag }}
+      npm_tag: ${{ steps.channel.outputs.npm_tag }}
+      numeric_version: ${{ steps.channel.outputs.numeric_version }}
     steps:
+      - uses: actions/checkout@v4
       - id: resolve
         run: |
           if [ -n "${{ inputs.tag }}" ]; then
@@ -89,6 +94,20 @@ jobs:
           else
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
+      # dry_run/feed_only を含む全経路で、タグ形と互換 stable 入力を同じ関数で検査。
+      - id: channel
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          STABLE_INPUT: ${{ inputs.stable }}
+        run: |
+          # shellcheck disable=SC2016
+          node --input-type=module -e '
+            import { assertReleaseFlags } from "./scripts/release/feed-plan.mjs";
+            import { appendFileSync } from "node:fs";
+            const channel = assertReleaseFlags(process.env.TAG, { stableInput: process.env.STABLE_INPUT === "true" });
+            const numericVersion = process.env.TAG.slice(1).split("-beta.")[0];
+            appendFileSync(process.env.GITHUB_OUTPUT, `channel=${channel}\nprerelease_flag=${channel === "prerelease" ? "--prerelease" : ""}\nnpm_tag=${channel === "prerelease" ? "beta" : "latest"}\nnumeric_version=${numericVersion}\n`);
+          '
 
   # 出荷するコミットの CI（必須チェック）が緑かを確かめる（2026-10-02 オーナー裁定）。
   # いまは警告モード: 赤でも release は止めず、::warning:: と実行サマリに出すだけ。
@@ -468,7 +487,11 @@ jobs:
           # zip の blockmap）をローカルに生成するが、実際の GitHub への publish 試行は
           # しない（この CI ステップに GH_TOKEN は渡していない — publish は既存どおり
           # 後段の release ジョブの `gh release create` が担う。二重の公開経路を作らない）。
-          npx electron-builder --mac zip dmg --publish never
+          # beta 版でも latest*.yml を入力アセットとして作る。配信名は feed-plan が決める。
+          # mac の plist は数値版を要求する。beta の順序は updater の semver manifest が担う。
+          npx electron-builder --mac zip dmg --publish never --config.detectUpdateChannel=false \
+            --config.mac.bundleShortVersion="${{ needs.resolve-tag.outputs.numeric_version }}" \
+            --config.mac.bundleVersion="${{ needs.resolve-tag.outputs.numeric_version }}"
 
       - name: mac DMG の公証 + staple
         working-directory: apps/shell
@@ -725,7 +748,7 @@ jobs:
         env:
           npm_config_enable_lto: 'false'
           npm_config_enable_thin_lto: 'false'
-        run: npx electron-builder --win nsis --pd electron-builder-out/win-unpacked --publish never
+        run: npx electron-builder --win nsis --pd electron-builder-out/win-unpacked --publish never --config.detectUpdateChannel=false
 
       # nsis.artifactName（apps/shell/package.json = "shell-win-setup.${ext}"）により
       # electron-builder は既にこの固定名で installer を出力している（U3 以前は
@@ -854,25 +877,12 @@ jobs:
           name: shell-win-update-meta
           path: release-artifacts
 
-      # D4 裁定（契約 §5）: 既定はプレリリース。stable 化は workflow_dispatch の
-      # stable: true 入力（または Release 編集）でオーナーが行う
-      - name: channel を決定する
-        id: channel
-        run: |
-          if [ "${{ inputs.stable }}" = "true" ]; then
-            echo "channel=stable" >> "$GITHUB_OUTPUT"
-            echo "prerelease_flag=" >> "$GITHUB_OUTPUT"
-          else
-            echo "channel=prerelease" >> "$GITHUB_OUTPUT"
-            echo "prerelease_flag=--prerelease" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: latest.json 生成
         run: |
           node scripts/release/gen-latest-json.mjs \
             --artifacts-dir release-artifacts \
             --tag "${{ needs.resolve-tag.outputs.tag }}" \
-            --channel "${{ steps.channel.outputs.channel }}" \
+            --channel "${{ needs.resolve-tag.outputs.channel }}" \
             --released "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
             --out release-artifacts/latest.json
 
@@ -884,9 +894,8 @@ jobs:
           path: release-artifacts/
           retention-days: 14
 
-      # draft + prerelease が既定（契約 §7-1「初回は未署名で出してよい」。npm publish の
-      # 認証は Trusted Publishing に移行済み — 下の publish ステップのコメント参照）。
-      # stable: true 入力時のみ --prerelease を外す
+      # draft は共通。--prerelease は beta タグだけ（npm publish の認証は
+      # Trusted Publishing — 下の publish ステップのコメント参照）。
       #
       # electron-updater メタデータ（U3）: latest-mac.yml / latest.yml は必須アセット
       # （前段のジョブで欠如していれば既に fail している）。blockmap は
@@ -916,7 +925,7 @@ jobs:
             fi
           done
           gh release create "${{ needs.resolve-tag.outputs.tag }}" \
-            --draft ${{ steps.channel.outputs.prerelease_flag }} \
+            --draft ${{ needs.resolve-tag.outputs.prerelease_flag }} \
             --title "AKARI Video ${{ needs.resolve-tag.outputs.tag }}" \
             --generate-notes \
             "${assets[@]}"
@@ -961,7 +970,7 @@ jobs:
       - name: npm publish (packages/akari-launcher, Trusted Publishing)
         if: ${{ !inputs.dry_run }}
         working-directory: packages/akari-launcher
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --tag "${{ needs.resolve-tag.outputs.npm_tag }}"
 
   feed-only:
     name: feed-only (workflow_dispatch feed_only 単独実行)
@@ -997,6 +1006,7 @@ jobs:
             rel_id=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id)
             gh api "repos/${{ github.repository }}/releases/$rel_id/assets?per_page=100" --jq '.[] | "\(.id) \(.name)"' |
               while read -r asset_id name; do
+                # shellcheck disable=SC2221,SC2222
                 case "$name" in
                   "${{ env.ARTIFACT_MAC }}"|"${{ env.ARTIFACT_MAC_UPDATE_YML }}"|"${{ env.ARTIFACT_WIN_UPDATE_YML }}"|*.dmg|"${{ env.ARTIFACT_WIN }}"|"${{ env.ARTIFACT_WIN_SETUP }}"|"${{ env.ARTIFACT_CLI }}"|"${{ env.ARTIFACT_APP }}")
                     gh api -H "Accept: application/octet-stream" "repos/${{ github.repository }}/releases/assets/$asset_id" > "release-artifacts/$name"
@@ -1014,11 +1024,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           is_prerelease=$(gh release view "${{ needs.resolve-tag.outputs.tag }}" --json isPrerelease -q .isPrerelease)
-          if [ "$is_prerelease" = "true" ]; then
-            echo "channel=prerelease" >> "$GITHUB_OUTPUT"
-          else
-            echo "channel=stable" >> "$GITHUB_OUTPUT"
-          fi
+          # shellcheck disable=SC2016
+          IS_PRERELEASE="$is_prerelease" TAG="${{ needs.resolve-tag.outputs.tag }}" node --input-type=module -e '
+            import { assertReleaseFlags } from "./scripts/release/feed-plan.mjs";
+            import { appendFileSync } from "node:fs";
+            const channel = assertReleaseFlags(process.env.TAG, { isPrerelease: process.env.IS_PRERELEASE === "true" });
+            appendFileSync(process.env.GITHUB_OUTPUT, `channel=${channel}\n`);
+          '
 
       - name: latest.json 再生成
         run: |
@@ -1029,16 +1041,28 @@ jobs:
             --released "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
             --out release-artifacts/latest.json
 
-      - name: アプリ内更新メタデータを固定フィード用へ変換
+      - name: 既存のプレリリース系列の版を取得
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ needs.resolve-tag.outputs.tag }}"
-          for manifest in "${{ env.ARTIFACT_WIN_UPDATE_YML }}" "${{ env.ARTIFACT_MAC_UPDATE_YML }}"; do
-            node scripts/release/rewrite-app-update-feed.mjs "$TAG" "release-artifacts/$manifest" "release-artifacts/$manifest"
-          done
-          if [ "${{ steps.channel.outputs.channel }}" = stable ]; then
-            cp "release-artifacts/${{ env.ARTIFACT_WIN_UPDATE_YML }}" release-artifacts/stable.yml
-            cp "release-artifacts/${{ env.ARTIFACT_MAC_UPDATE_YML }}" release-artifacts/stable-mac.yml
-          fi
+          mkdir -p feed-upload
+          status=$(curl -sS -o feed-upload/updates-release.json -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/updates")
+          case "$status" in
+            200)
+              if jq -e '.assets[] | select(.name == "prerelease.json")' feed-upload/updates-release.json >/dev/null; then
+                gh release download updates --pattern prerelease.json --dir feed-upload
+              fi ;;
+            404) ;; # updates Release がまだ無い初回
+            *) echo "updates Release の確認に失敗しました: HTTP $status" >&2; exit 1 ;;
+          esac
+
+      - name: 更新フィードの書換対象を生成
+        run: |
+          existing=""
+          if [ -f feed-upload/prerelease.json ]; then existing=feed-upload/prerelease.json; fi
+          node scripts/release/prepare-feed-upload.mjs "${{ needs.resolve-tag.outputs.tag }}" release-artifacts feed-upload "$existing" > feed-upload/files.txt
 
       - name: updates フィードへ差し替え
         env:
@@ -1050,9 +1074,7 @@ jobs:
               --title "updates (machine feed)" \
               --notes "機械用フィードです。akari / シェルの更新確認が参照する latest.json とアプリ内更新メタデータを置く固定タグ Release です。人間向けの changelog はここに書きません。"
           fi
-          manifests=("release-artifacts/${{ env.ARTIFACT_WIN_UPDATE_YML }}" "release-artifacts/${{ env.ARTIFACT_MAC_UPDATE_YML }}")
-          if [ "${{ steps.channel.outputs.channel }}" = stable ]; then
-            manifests+=(release-artifacts/stable.yml release-artifacts/stable-mac.yml)
+          mapfile -t manifests < feed-upload/files.txt
+          if [ "${#manifests[@]}" -gt 0 ]; then
+            gh release upload updates "${manifests[@]}" --clobber
           fi
-          gh release upload updates "${manifests[@]}" --clobber
-          gh release upload updates release-artifacts/latest.json --clobber

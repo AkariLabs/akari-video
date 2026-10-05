@@ -38,11 +38,19 @@ async function withFixtureRepo(versions, callback) {
 test('parseTag: vX.Y.Z を受理し X.Y.Z を返す。それ以外は null', () => {
   assert.equal(parseTag('v0.1.0'), '0.1.0');
   assert.equal(parseTag('v1.2.3'), '1.2.3');
+  assert.equal(parseTag('v1.1.0-beta.1'), '1.1.0-beta.1');
+  for (const bad of ['v1.1.0-rc.1', 'v1.1', 'v1.1.0-beta', 'v1.1.0-beta.0']) assert.equal(parseTag(bad), null);
   assert.equal(parseTag('0.1.0'), null);
   assert.equal(parseTag('v0.1'), null);
   assert.equal(parseTag('vX.Y.Z'), null);
   assert.equal(parseTag(''), null);
   assert.equal(parseTag(undefined), null);
+});
+
+test('checkReleaseVersions: beta 版の shell/cli/plugin が一致すれば PASS', async () => {
+  await withFixtureRepo({ shell: '1.1.0-beta.1', cli: '1.1.0-beta.1', plugin: '1.1.0-beta.1' }, async repoRoot => {
+    assert.equal((await checkReleaseVersions('v1.1.0-beta.1', { repoRoot })).ok, true);
+  });
 });
 
 test('checkReleaseVersions: 一致ケース — shell/cli/plugin が全てタグと同じ version で PASS', async () => {

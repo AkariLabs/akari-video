@@ -870,8 +870,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             );
             const main = groupCard(undefined, hero,
                 updateRow,
-                settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
-                    value: updateSettings?.channel ?? this.preferences.get('akari.update.channel', 'prerelease'), onChange: value => {
+                settingRow('受け取る版', '既定は安定版だけ。新しい機能を早く試したい場合はベータ版も受け取れます', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版だけ' }, { value: 'prerelease', label: 'プレリリースも' }],
+                    value: updateSettings?.channel ?? this.preferences.get('akari.update.channel', 'stable'), onChange: value => {
                         this.savePreference('akari.update.channel', value);
                         void this.maintenance.setUpdateSettings({ channel: value });
                     } })),
@@ -2195,7 +2195,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             'akari.export.openFolderAfter': { type: 'boolean', default: false },
             'akari.export.notifyAfter': { type: 'boolean', default: true },
             [AKARI_EXPORT_FILENAME_PATTERN]: { type: 'string', enum: ['project-date-time', 'project-name'], default: 'project-date-time' },
-            'akari.update.channel': { type: 'string', enum: ['stable', 'prerelease'], default: 'prerelease' },
+            'akari.update.channel': { type: 'string', enum: ['stable', 'prerelease'], default: 'stable' },
             'akari.update.autoCheck': { type: 'boolean', default: true }
         } });
         const applyZoom = (): void => applyAkariZoom(clampZoom(Number(this.preferences.get(AKARI_APPEARANCE_ZOOM, 100))));

@@ -190,6 +190,7 @@ managed in private internal records.
 | Page | Contents |
 |---|---|
 | [dev/windows-build.md](./dev/windows-build.md) | Windows build checklist (Japanese) |
+| [dev/release-beta-channel.md](./dev/release-beta-channel.md) | Beta releases and update feeds (Japanese) |
 
 For contribution entry points, see the repository root [README](../README.md) and the
 README of each package.

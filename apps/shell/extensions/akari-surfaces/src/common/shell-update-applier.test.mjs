@@ -193,15 +193,15 @@ test('手動確認は DL 中・DL 済みを版つきで再通知し、それ以�
     assert.equal(resolveManualUpdaterCheckEvent(false, '0.1.87', '0.1.86'), undefined);
 });
 
-test('安定版設定でも、通知でプレリリースを明示ダウンロードしたときはその channel を確認する', () => {
+test('安定版設定の手動確認もプレリリースに切り替わらない', () => {
     assert.equal(resolveUpdaterCheckChannel('stable', false, 'prerelease'), 'stable');
-    assert.equal(resolveUpdaterCheckChannel('stable', true, 'prerelease'), 'prerelease');
+    assert.equal(resolveUpdaterCheckChannel('stable', true, 'prerelease'), 'stable');
     assert.equal(resolveUpdaterCheckChannel('prerelease', true, 'stable'), 'stable');
     assert.equal(resolveUpdaterCheckChannel('stable', true, 'invalid'), 'stable');
 });
 
-test('generic feed は prerelease を latest、stable を専用 manifest に振り分ける', () => {
-    assert.equal(resolveUpdaterFeedChannel('prerelease'), 'latest');
+test('generic feed は stable と prerelease の専用 manifest に振り分ける', () => {
+    assert.equal(resolveUpdaterFeedChannel('prerelease'), 'prerelease');
     assert.equal(resolveUpdaterFeedChannel('stable'), 'stable');
 });
 
@@ -278,23 +278,23 @@ test('applyShellUpdaterEvent: DL 済み状態から再度 update-available / err
     assert.deepEqual(applyShellUpdaterEvent(downloaded, { kind: 'update-available', version: '0.2.0' }), downloaded);
 });
 
-test('resolveAllowPrerelease: stable 以外（prerelease・undefined・null・壊れた値）はすべて true', () => {
+test('resolveAllowPrerelease: 明示的な prerelease だけ true', () => {
     assert.equal(resolveAllowPrerelease('prerelease'), true);
-    assert.equal(resolveAllowPrerelease(undefined), true);
-    assert.equal(resolveAllowPrerelease(null), true);
-    assert.equal(resolveAllowPrerelease(''), true);
+    assert.equal(resolveAllowPrerelease(undefined), false);
+    assert.equal(resolveAllowPrerelease(null), false);
+    assert.equal(resolveAllowPrerelease(''), false);
 });
 
 test('resolveAllowPrerelease: stable のときだけ false', () => {
     assert.equal(resolveAllowPrerelease('stable'), false);
 });
 
-test('resolveUpdateChannel: 明示的な stable だけ安定版・未設定や壊れた値はプレリリース（既定）', () => {
+test('resolveUpdateChannel: 未設定や壊れた値は安定版（既定）', () => {
     assert.equal(resolveUpdateChannel('stable'), 'stable');
     assert.equal(resolveUpdateChannel('prerelease'), 'prerelease');
-    assert.equal(resolveUpdateChannel(undefined), 'prerelease');
-    assert.equal(resolveUpdateChannel(null), 'prerelease');
-    assert.equal(resolveUpdateChannel('beta'), 'prerelease');
+    assert.equal(resolveUpdateChannel(undefined), 'stable');
+    assert.equal(resolveUpdateChannel(null), 'stable');
+    assert.equal(resolveUpdateChannel('beta'), 'stable');
 });
 
 test('formatDownloadedBannerText: downloaded: true + version ありなら文言が入る', () => {
