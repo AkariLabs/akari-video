@@ -153,6 +153,12 @@ export class AkariShortcutKeybindings {
             }));
             return;
         }
+        if (id === 'akari.timeline.shuttleReverse' || id === 'akari.timeline.shuttleStop'
+            || id === 'akari.timeline.shuttleForward' || id === 'akari.timeline.previousEditPoint'
+            || id === 'akari.timeline.nextEditPoint') {
+            widget?.runTimelineTransportShortcut(id);
+            return;
+        }
         const source = this.latestKeydown;
         const event = {
             key: shortcut.key, code: shortcut.key === ' ' ? 'Space' : source?.code,

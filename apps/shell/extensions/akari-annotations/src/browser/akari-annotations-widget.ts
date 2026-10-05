@@ -1,5 +1,8 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
+import { adjacentEditPoint, timelineEditPoints, type EditPointTrack } from '../common/timeline-edit-points';
+import { TimelineShuttleController } from './timeline/timeline-shuttle-controller';
+import type { ShuttleRate } from '../common/timeline-shuttle';
 import { itemFrameAtPlayhead, nextNudgeValue, type NudgeValue } from '../common/nudge-value';
 import { captionLibraryApplyFeedback, planLibraryApply, shouldShowTextPlaceBand, timelineApplyTarget,
     type ApplyPayload, type ApplyTarget } from './library-apply-plan';
@@ -1054,6 +1057,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.shortcutHandler?.(event);
     }
 
+    runTimelineTransportShortcut(id: string): void {
+        if (id === 'akari.timeline.shuttleReverse' || id === 'akari.timeline.shuttleForward') {
+            this.shuttle.direction(id.endsWith('Forward') ? 1 : -1, this.visualPlaying);
+        } else if (id === 'akari.timeline.shuttleStop') {
+            this.shuttle.stop('stop', this.visualPlaying);
+        } else if (id === 'akari.timeline.previousEditPoint' || id === 'akari.timeline.nextEditPoint') {
+            this.shuttle.stop('stop', this.visualPlaying);
+            const tracks = (this.editDocument?.tracks ?? []) as Array<EditPointTrack & { id: string }>;
+            const points = timelineEditPoints(tracks.map(track => ({
+                ...track, locked: this.isTrackLocked(track.id)
+            })), this.contentEndDuration(), this.fps);
+            const next = adjacentEditPoint(points, this.playheadT, id.endsWith('nextEditPoint') ? 1 : -1, this.fps);
+            if (next !== undefined) this.seekTimelineTransport(next);
+        }
+    }
+
     getTimelineSnapEnabled(): boolean {
         return this.snapEnabled;
     }
@@ -1144,6 +1163,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected seekHoverPoint: { x: number; y: number } | undefined;
     protected seekHoverRefresh: number | undefined;
     protected readonly playhead = document.createElement('div');
+    protected readonly shuttleDisplay = document.createElement('span');
     protected readonly playheadHandle = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
     protected readonly dragFeedback = document.createElement('div');
@@ -1354,6 +1374,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
+    protected readonly shuttle = new TimelineShuttleController({
+        time: () => this.playheadT,
+        duration: () => this.contentEndDuration(),
+        seek: time => this.seekTimelineTransport(time),
+        play: () => this.startShuttleNormalPlayback(),
+        pause: () => {
+            if (this.location?.editUri) void this.commands.executeCommand('akari.preview.pause', {
+                editUri: this.location.editUri.toString()
+            }).catch(() => undefined);
+        },
+        display: rate => this.updateShuttleDisplay(rate)
+    });
     /** Keep the last scrub position visible while older preview seeks finish. */
     protected playheadScrubHold?: { time: number; until: number };
     protected captionAltAll = false;
@@ -1596,7 +1628,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 void this.reloadWorldMap().then(() => this.renderStrip());
             }
         }));
-        const pause = (): void => {
+        const pause = (event: Event): void => {
+            if (this.shuttle.rate !== 0) this.shuttle.stop(event.type === 'dragstart' ? 'drag' : 'pointer');
             this.lastManualScrollAt = Date.now();
             this.visualPointerDown = true;
             this.visualThumbnails.setPaused(true);
@@ -1622,6 +1655,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         window.addEventListener(SELECTION_ALT_ALL_EVENT, onSelectionAltAll);
         this.toDispose.push(Disposable.create(() => {
             document.removeEventListener('pointerdown', pause, true);
+            this.shuttle.stop('dispose');
             document.removeEventListener('pointerup', resume, true);
             document.removeEventListener('pointercancel', resume, true);
             document.removeEventListener('dragstart', pause, true);
@@ -1879,6 +1913,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerBar.appendChild(this.rulerContent);
         this.beyondEnd.className = 'akari-annotations-strip-beyond-end';
         this.endLine.className = 'akari-annotations-strip-end-line';
+        this.shuttleDisplay.dataset.testid = 'akari-timeline-shuttle-rate';
+        this.shuttleDisplay.dataset.shuttleRate = '0';
+        Object.assign(this.shuttleDisplay.style, {
+            position: 'absolute', right: '4px', top: '1px', zIndex: '2', display: 'none',
+            fontSize: '10px', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+            color: 'var(--theia-editor-foreground)', background: 'var(--theia-editor-background)',
+            pointerEvents: 'none'
+        });
+        this.rulerBar.appendChild(this.shuttleDisplay);
         this.strip.append(this.beyondEnd, this.endLine, this.stripContent);
         Object.assign(this.timelineOverlay.style, {
             position: 'absolute', inset: '0', overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: '9'
@@ -1895,6 +1938,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             background: `linear-gradient(to bottom, transparent 16px, ${PLAYHEAD_COLOR} 16px)`,
             left: '0%', transform: 'translateX(-50%)', pointerEvents: 'none'
         });
+        this.playhead.dataset.playheadTime = String(this.playheadT);
         Object.assign(this.playheadHandle.style, {
             position: 'absolute', top: '0', left: '50%', width: '14px', height: '16px',
             transform: 'translateX(-50%)', cursor: 'ew-resize', pointerEvents: 'auto'
@@ -2356,7 +2400,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (key === ' ' || event.code === 'Space') {
                     if (focusOnControl) return;
                     event.preventDefault();
-                    this.togglePreviewPlayback();
+                    if (this.shuttle?.rate) this.shuttle.stop('space');
+                    else this.togglePreviewPlayback();
                     return;
                 }
                 if (key === 'a' || key === 'v') {
@@ -13903,6 +13948,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
             captions?: { before: string; after: string }; imageAiBinding?: ImageAiBinding }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
+        if (this.shuttle?.rate) this.shuttle.stop('edit');
         if (!options?.trial && this.materialSwap) {
             return this.finishMaterialSwap(false).then(() => this.commitEditMutation(label, mutate, options));
         }
@@ -19071,7 +19117,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
             }
         }
+        const wasPlaying = this.visualPlaying;
         this.visualPlaying = request.playing;
+        if (wasPlaying && !request.playing && this.shuttle?.rate === 1) this.shuttle.stop('edge');
         this.visualThumbnails.setPaused(this.visualPlaying || this.visualPointerDown);
         const tickTime = Math.max(0, request.time!);
         const scrubHold = this.playheadScrubHold;
@@ -19080,8 +19128,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.playheadScrubHold = undefined;
         }
         const keepScrubPosition = !request.playing
-            && (!!this.activePlayheadScrubCleanup || !!this.playheadScrubHold);
+            && (!!this.activePlayheadScrubCleanup || !!this.playheadScrubHold
+                || (this.shuttle?.rate ?? 0) < 0 || (this.shuttle?.rate ?? 0) > 1);
         if (!keepScrubPosition) this.playheadT = tickTime;
+        if (this.playhead?.dataset) this.playhead.dataset.playheadTime = String(this.playheadT);
+        if (this.shuttle?.rate) this.updateShuttleDisplay(this.shuttle.rate);
         if (this.selectionModel.snapshot && !request.playing
             && ['cut', 'layer', 'overlay', 'item', 'world'].includes(this.selectionModel.snapshot.kind)) {
             const current = this.selectionModel.snapshot;
@@ -19141,6 +19192,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
         void this.commands.executeCommand(TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID, {
             editUri: this.location.editUri.toString()
         }).catch(() => undefined);
+    }
+
+    protected startShuttleNormalPlayback(): void {
+        if (!this.location?.editUri) {
+            this.shuttle.stop();
+            return;
+        }
+        void this.commands.executeCommand<'revealed' | 'opened' | 'unavailable'>(
+            ENSURE_PREVIEW_VISIBLE_COMMAND_ID, { editUri: this.location.editUri.toString() }
+        ).then(result => {
+            if (this.shuttle.rate !== 1) return;
+            if (result === 'unavailable') this.shuttle.stop();
+            else this.togglePreviewPlayback();
+        }).catch(() => this.shuttle.stop());
+    }
+
+    protected updateShuttleDisplay(rate: ShuttleRate): void {
+        this.shuttleDisplay.dataset.shuttleRate = String(rate);
+        this.shuttleDisplay.style.display = rate === 0 ? 'none' : 'inline';
+        this.shuttleDisplay.textContent = `${this.formatTimestamp(this.playheadT)}  ${rate < 0 ? '◀' : '▶'} ${Math.abs(rate)}x`;
+    }
+
+    protected seekTimelineTransport(time: number): void {
+        this.playheadT = time;
+        this.playheadScrubHold = { time, until: Date.now() + 1500 };
+        this.playhead.dataset.playheadTime = String(time);
+        this.playhead.style.left = `${this.percent(time)}%`;
+        this.selectedSourceT = this.outputToSource(time);
+        this.updateShuttleDisplay(this.shuttle.rate);
+        void this.requestSeek(time, { domain: 'output' });
     }
 
     // domain 'source' (既定): time は素材(source)秒 — アノテーションの sourceT 等、cuts 経由で
