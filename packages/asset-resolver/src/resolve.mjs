@@ -13,7 +13,7 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
-import { cp, mkdir, mkdtemp, rename, rm, realpath, stat } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rename, rm, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { format } from 'node:util';
@@ -163,6 +163,19 @@ async function moveIntoLibrary(tempDir, destDir) {
   }
 }
 
+async function backfillLegacyMetaTier(metaPath, item) {
+  let meta;
+  try {
+    meta = JSON.parse(await readFile(metaPath, 'utf8'));
+  } catch {
+    return;
+  }
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta) || Object.hasOwn(meta, 'tier')) return;
+  // R2 に公開済みの旧 meta.json（tier 導入前・price のみ）を、sha256 検証済みのうえでカタログの tier で補う互換経路。R2 の meta.json を tier 付きで上げ直したら外せる。
+  meta.tier = assetTier(item);
+  await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+}
+
 /**
  * @param {string} ref カタログの category/id。bare id は一意な場合のみ互換解決する
  * @param {{ env?: object, fetchImpl?: Function, project?: string|null, force?: boolean, reference?: boolean }} options
@@ -255,6 +268,7 @@ export async function resolve(
 
     // still / scene3d 等、meta.json を実体に持つ素材は validate-asset で契約検証してから登録する
     if (hasMeta) {
+      await backfillLegacyMetaTier(path.join(tempAssetDir, 'meta.json'), item);
       const result = await validateAsset(tempAssetDir);
       if (result.status !== 0) {
         const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
@@ -337,6 +351,8 @@ async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, 
         mode: constants.COPYFILE_FICLONE,
       });
     }
+
+    await backfillLegacyMetaTier(path.join(tempAssetDir, 'meta.json'), item);
 
     {
       const result = await validateAsset(tempAssetDir);
