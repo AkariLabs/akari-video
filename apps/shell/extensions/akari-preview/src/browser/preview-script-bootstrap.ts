@@ -1805,6 +1805,7 @@ export function previewBootstrapScript(): string {
             // 直接ドラッグハンドルは次段のため、クロップのようなハンドル/モードの仕組みは持たない。
             let perspectivePanelOpen = false;
             let activePerspectivePreset = null;
+            let perspectiveSliderOriginal = null;
             const layerPerspectiveToggle = document.getElementById('layer-perspective-toggle');
             const layerPerspectivePanel = document.getElementById('layer-perspective-panel');
             const layerPerspectivePresetButtons = Array.from(layerPerspectivePanel.querySelectorAll('[data-akari-perspective-preset]'));
@@ -2512,6 +2513,16 @@ export function previewBootstrapScript(): string {
                 else delete entry.video.dataset.akariPerspectiveCorners;
                 layerPerspectiveToggle.classList.toggle('is-declared', !!corners);
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                const previewCorners = corners || [[0, 0], [1, 0], [0, 1], [1, 1]];
+                for (const [index, corner] of ['tl', 'tr', 'bl', 'br'].entries()) {
+                    for (const [axisIndex, axis] of ['x', 'y'].entries()) {
+                        window.akari.frameEngineClock?.applyLivePreview?.({
+                            target: { kind: 'layer', id: entry.spec.id },
+                            field: 'perspective.' + corner + '.' + axis,
+                            value: previewCorners[index][axisIndex]
+                        });
+                    }
+                }
             };
             // プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の
             // 便宜であり、schema には「プリセット」「角度」という概念自体は存在しない
@@ -2526,8 +2537,7 @@ export function previewBootstrapScript(): string {
                 if (preset === 'bottom') return [[0, 0], [1, 0], [half, 1], [1 - half, 1]];
                 return null;
             };
-            const commitLayerPerspective = async (entry, corners) => {
-                const original = layerPerspectiveNow(entry);
+            const commitLayerPerspective = async (entry, corners, original = layerPerspectiveNow(entry)) => {
                 applyLayerPerspectiveNow(entry, corners);
                 try {
                     await window.akari.engine.layerWrite(entry.spec.id, { perspective: corners ? { corners } : null });
@@ -2566,6 +2576,7 @@ export function previewBootstrapScript(): string {
                     const entry = findLayerEntry(selectedLayerId);
                     if (!entry) return;
                     const preset = button.getAttribute('data-akari-perspective-preset');
+                    perspectiveSliderOriginal = null;
                     activePerspectivePreset = preset;
                     for (const other of layerPerspectivePresetButtons) other.classList.toggle('is-active', other === button);
                     const corners = perspectivePresetCorners(preset, layerPerspectiveAngleInput.value);
@@ -2577,6 +2588,9 @@ export function previewBootstrapScript(): string {
                 if (!activePerspectivePreset || !selectedLayerId) return;
                 const entry = findLayerEntry(selectedLayerId);
                 if (!entry) return;
+                if (!perspectiveSliderOriginal || perspectiveSliderOriginal.id !== entry.spec.id) {
+                    perspectiveSliderOriginal = { id: entry.spec.id, corners: layerPerspectiveNow(entry) };
+                }
                 // ライブプレビューのみ（書き戻しはしない） -- ドラッグ中に毎回 lint/書き込みを
                 // 往復させないため、既存の crop ハンドルと同じ「確定時のみ書き戻す」規律に倣う。
                 applyLayerPerspectiveNow(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
@@ -2585,7 +2599,10 @@ export function previewBootstrapScript(): string {
                 if (!activePerspectivePreset || !selectedLayerId) return;
                 const entry = findLayerEntry(selectedLayerId);
                 if (!entry) return;
-                void commitLayerPerspective(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
+                const original = perspectiveSliderOriginal?.id === entry.spec.id
+                    ? perspectiveSliderOriginal.corners : layerPerspectiveNow(entry);
+                perspectiveSliderOriginal = null;
+                void commitLayerPerspective(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value), original);
             });
             layerPerspectiveClearButton.addEventListener('pointerdown', event => {
                 event.preventDefault();
@@ -2597,6 +2614,7 @@ export function previewBootstrapScript(): string {
                 if (!selectedLayerId) return;
                 const entry = findLayerEntry(selectedLayerId);
                 if (!entry) return;
+                perspectiveSliderOriginal = null;
                 activePerspectivePreset = null;
                 for (const button of layerPerspectivePresetButtons) button.classList.remove('is-active');
                 void commitLayerPerspective(entry, null);

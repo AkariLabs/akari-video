@@ -6421,7 +6421,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.markRecentWrite(editUri);
             await this.persistPreviewTransform(editUri, candidateText,
-                request.patch.transform || request.patch.crop || request.patch.xyKeyframes ? write : undefined);
+                request.patch.transform || request.patch.crop || request.patch.xyKeyframes
+                    || request.patch.perspective !== undefined ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
