@@ -10298,7 +10298,9 @@ export function previewBootstrapScript(): string {
                     const bottom = Math.max(...rects.map(rect => rect.bottom));
                     return { left, top, width: right - left, height: bottom - top };
                 }
-                if (item.kind === 'overlay') return window.akari.interaction?.fragmentBounds?.(element) || null;
+                if (item.kind === 'overlay') return element.dataset?.role === 'shape-line'
+                    ? window.akari.interaction?.lineFrameGeometry?.(element) || null
+                    : window.akari.interaction?.fragmentBounds?.(element) || null;
                 return element.getBoundingClientRect();
             };
             const nativeMixedFrameVisible = frame => {
@@ -10337,6 +10339,7 @@ export function previewBootstrapScript(): string {
                     frame.style.top = (rect.top - pane.top) / scaleY + 'px';
                     frame.style.width = rect.width / scaleX + 'px';
                     frame.style.height = rect.height / scaleY + 'px';
+                    if (Number.isFinite(rect.angle)) frame.style.transform = 'rotate(' + rect.angle + 'deg)';
                     mixedSelectionFrames.appendChild(frame);
                 }
                 requestAnimationFrame(drawMixedSelectionFrames);

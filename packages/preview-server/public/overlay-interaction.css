@@ -124,6 +124,28 @@
 .akari-interaction-selection-frame.is-telop .is-edge {
   display: none;
 }
+.akari-interaction-selection-frame.is-line .akari-interaction-handle:not(.is-line-start):not(.is-line-end):not(.akari-interaction-action) {
+  display: none;
+}
+.akari-interaction-selection-frame:not(.is-line) .is-line-start,
+.akari-interaction-selection-frame:not(.is-line) .is-line-end {
+  display: none;
+}
+.akari-interaction-selection-frame.is-line .is-line-start,
+.akari-interaction-selection-frame.is-line .is-line-end {
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  cursor: crosshair;
+}
+.akari-interaction-selection-frame.is-line .is-line-start {
+  left: calc(var(--akari-line-end-inset, 0px) - 1px);
+  transform: translate(-50%, -50%);
+}
+.akari-interaction-selection-frame.is-line .is-line-end {
+  right: calc(var(--akari-line-end-inset, 0px) - 1px);
+  transform: translate(50%, -50%);
+}
 .akari-interaction-rotate-stem {
   position: absolute;
   left: 50%;
