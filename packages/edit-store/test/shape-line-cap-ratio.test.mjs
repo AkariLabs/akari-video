@@ -89,14 +89,14 @@ test('doubling stroke width doubles every cap and its visible outline', () => {
   }
 });
 
-test('uniform scale keeps the 2.5w SVG byte for byte', () => {
-  const normal = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40"><line x1="0" y1="20" x2="190" y2="20" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="butt" stroke-dasharray="12 8"/><polygon points="200,20 190,15 190,25" fill="#000000"/></svg>';
-  const doubled = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40"><line x1="0" y1="20" x2="195" y2="20" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="butt" stroke-dasharray="6 4"/><polygon points="200,20 195,17.5 195,22.5" fill="#000000"/></svg>';
+test('uniform scale keeps the 3.75w SVG byte for byte', () => {
+  const normal = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40"><line x1="0" y1="20" x2="185" y2="20" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="butt" stroke-dasharray="12 8"/><polygon points="200,20 185,12.5 185,27.5" fill="#000000"/></svg>';
+  const doubled = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40"><line x1="0" y1="20" x2="192.5" y2="20" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="butt" stroke-dasharray="6 4"/><polygon points="200,20 192.5,16.25 192.5,23.75" fill="#000000"/></svg>';
   assert.equal(shapeMarkup(source('triangle', true, 4, 'dash'), 'line'), normal);
   assert.equal(shapeMarkup(source('triangle', true, 4, 'dash'), 'line', 1920, { scale: 2 }), doubled);
 });
 
-test('dotted and dashed bodies stop at the 2.5w cap root', () => {
+test('dotted and dashed bodies stop at the 3.75w cap root', () => {
   for (const dash of ['dot', 'dash']) for (const scaleX of [1, 2, 4]) {
     const markup = render('triangle', false, 4, scaleX, 0.5, dash);
     const body = markup.match(/<line\b[^>]*\/>/)?.[0];
@@ -104,7 +104,7 @@ test('dotted and dashed bodies stop at the 2.5w cap root', () => {
     assert.match(body, /stroke-dasharray=/);
     assert.match(markup, /<g data-line-cap="end"[^>]*><polygon[^>]*\/><\/g>/);
     const end = Number(attr(body, 'x2')) * scaleX;
-    const root = 200 * scaleX - 4 * 2.5;
+    const root = 200 * scaleX - 4 * 3.75;
     assert.ok(end <= root + 0.005, `body extends beyond the cap root: ${end} > ${root}`);
   }
 });
