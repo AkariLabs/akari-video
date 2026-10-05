@@ -9201,6 +9201,8 @@ ${indent}`);
           return { x: pose.x, y: pose.y };
         if (group === "rotation")
           return { rotate: pose.rotate };
+        if (item.source.kind === "group")
+          return { scale: pose.scale };
         return { scale: pose.scale, scaleX: pose.scaleX, scaleY: pose.scaleY };
       }
       function withStaticGroup(item, group, value) {
@@ -9268,6 +9270,10 @@ ${indent}`);
           return { x: patch.x ?? current.x, y: patch.y ?? current.y };
         if (group === "rotation")
           return { rotate: patch.rotate ?? current.rotate };
+        if (item.source.kind === "group") {
+          const scale = patch.scaleX !== void 0 || patch.scaleY !== void 0 ? Math.sqrt((patch.scaleX ?? patch.scale ?? current.scale) * (patch.scaleY ?? patch.scale ?? current.scale)) : patch.scale ?? current.scale;
+          return { scale };
+        }
         const adjusted = normalizedAxisPatch(current, patch);
         const scaleX = adjusted.scaleX ?? current.scaleX, scaleY = adjusted.scaleY ?? current.scaleY;
         return { scale: Math.sqrt(scaleX * scaleY), scaleX, scaleY };
@@ -9846,8 +9852,16 @@ ${indent}`);
                 ...item,
                 keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration)
               }, "position").keyframes;
-            if (command.patch.transform)
-              writeTransform(command.patch.transform);
+            if (command.patch.transform) {
+              const transform = command.patch.transform;
+              if (transform.scaleX !== void 0 || transform.scaleY !== void 0) {
+                const currentScale = item.transform?.scale ?? 1;
+                const scale = Math.sqrt((transform.scaleX ?? transform.scale ?? currentScale) * (transform.scaleY ?? transform.scale ?? currentScale));
+                const { scaleX: _scaleX, scaleY: _scaleY, ...uniform2 } = transform;
+                writeTransform({ ...uniform2, scale });
+              } else
+                writeTransform(transform);
+            }
             if (!command.patch.transform && !command.patch.xyKeyframes)
               return {};
             return { candidateText: stringifyEdit(edit) };

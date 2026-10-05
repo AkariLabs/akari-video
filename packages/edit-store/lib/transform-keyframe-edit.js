@@ -205,6 +205,8 @@ function valuesAt(item, frame, group) {
         return { x: pose.x, y: pose.y };
     if (group === 'rotation')
         return { rotate: pose.rotate };
+    if (item.source.kind === 'group')
+        return { scale: pose.scale };
     return { scale: pose.scale, scaleX: pose.scaleX, scaleY: pose.scaleY };
 }
 function withStaticGroup(item, group, value) {
@@ -275,6 +277,13 @@ function patchedGroupValue(item, frame, group, patch) {
         return { x: patch.x ?? current.x, y: patch.y ?? current.y };
     if (group === 'rotation')
         return { rotate: patch.rotate ?? current.rotate };
+    if (item.source.kind === 'group') {
+        const scale = patch.scaleX !== undefined || patch.scaleY !== undefined
+            ? Math.sqrt((patch.scaleX ?? patch.scale ?? current.scale)
+                * (patch.scaleY ?? patch.scale ?? current.scale))
+            : patch.scale ?? current.scale;
+        return { scale };
+    }
     const adjusted = normalizedAxisPatch(current, patch);
     const scaleX = adjusted.scaleX ?? current.scaleX, scaleY = adjusted.scaleY ?? current.scaleY;
     return { scale: Math.sqrt(scaleX * scaleY), scaleX, scaleY };

@@ -1813,6 +1813,12 @@ export function previewBootstrapScript(): string {
             const layerPerspectiveClearButton = layerPerspectivePanel.querySelector('[data-akari-perspective-clear]');
             const layerSelectBox = document.getElementById('layer-select-box');
             const layerHandleElements = Array.from(layerSelectBox.querySelectorAll('[data-akari-handle]'));
+            // The object-tree selection frame is created by overlay-runtime. A canvas group
+            // has uniform scale only; its axis-only edge handles cannot represent that model.
+            const groupEdgeStyle = document.createElement('style');
+            groupEdgeStyle.textContent = '.akari-interaction-selection-frame[data-akari-selection-kind="group"]'
+                + ' .akari-interaction-handle.is-edge { display: none !important; }';
+            document.head.appendChild(groupEdgeStyle);
             let floatingMenuRect = null;
             let hostMenuRect = null;
             let floatingBarRect = null;
