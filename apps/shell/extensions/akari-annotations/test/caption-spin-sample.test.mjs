@@ -11,10 +11,12 @@ const expression = source.match(/const direction = ([\s\S]*?);\s*sample\.style\.
 test('sample goes forward once per cycle for entry rotations in emphasis slot', () => {
     assert.ok(expression, 'sample direction expression');
     const direction = new Function('item', 'oneShotLoopIds', `return ${expression};`);
-    const oneShotLoopIds = new Set(PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS);
-    for (const animation of oneShotLoopIds) {
+    const expectedOneShotIds = ['spin-in', 'rotate-in', 'roll-in', 'spiral-in'];
+    const oneShotLoopIds = new Set(expectedOneShotIds);
+    for (const animation of expectedOneShotIds) {
         assert.equal(direction({ slot: 'loop', animation }, oneShotLoopIds), 'normal', animation);
     }
+    assert.deepEqual([...(PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS ?? [])].sort(), [...expectedOneShotIds].sort());
     for (const animation of ['float', 'heartbeat', 'wobble']) {
         assert.equal(direction({ slot: 'loop', animation }, oneShotLoopIds), 'alternate', animation);
     }
