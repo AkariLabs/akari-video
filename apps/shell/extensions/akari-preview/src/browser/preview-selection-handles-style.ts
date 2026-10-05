@@ -36,6 +36,9 @@ export const previewSelectionHandlesStyle = `
 .akari-interaction-angle, .akari-interaction-hint { position: fixed; z-index: 2147483647; pointer-events: none; padding: 3px 6px; border-radius: 4px; background: var(--theia-editor-background, #252526); color: var(--theia-editor-foreground, #eee); box-shadow: 0 2px 6px rgba(0,0,0,.3); font-size: 11px; white-space: nowrap; }
 #layer-select-box, #cut-select-box { z-index: 2147483647; border: 1px solid var(--akari-accent); box-shadow: none; }
 #layer-select-box.is-active, #cut-select-box.is-active { pointer-events: none; }
+/* The frame is only a visual outline; the controls remain hit targets. */
+#layer-select-box.is-active:not(.akari-photo-pointer-mode) { pointer-events: none !important; }
+#layer-select-box.is-active :is(.akari-layer-handle, .akari-crop-edge) { pointer-events: auto; }
 #layer-select-box.akari-selected-invisible { border-style: dashed; pointer-events: none !important; }
 #layer-select-box.akari-selected-invisible .akari-layer-handle,
 #layer-select-box.akari-selected-invisible .akari-crop-edge { display: none !important; }
