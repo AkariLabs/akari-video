@@ -26,7 +26,8 @@ function createSnapCorrection() {
     return vm.runInContext('computeSnapCorrection', context);
 }
 
-function dragHarness(kind, spec, original) {
+function dragHarness(kind, spec, original, opaqueBox = null,
+    crop = { x: 0, y: 0, w: 1, h: 1 }) {
     const computeSnapCorrection = createSnapCorrection();
     let bounds;
     let snap;
@@ -38,6 +39,8 @@ function dragHarness(kind, spec, original) {
         previewMotionLiveItemFn: previewMotionLiveItem,
         window: { akari: {
             itemMotion: { evaluateItemMotion: item => item.transform },
+            computeOutputFrameRect: () => ({ x: 20, y: 30 }),
+            stageScale: () => 2,
             interaction: {
                 computeSnapCorrection(value, previous) {
                     bounds = value;
@@ -53,7 +56,7 @@ function dragHarness(kind, spec, original) {
             transform = callback({ shiftKey: false, metaKey: false, ctrlKey: false }, original);
         },
         layerDragTarget: () => ({}), cutDragTarget: () => ({}),
-        layerCropNow: () => ({ w: 1, h: 1 }),
+        layerCropNow: () => crop,
         cutInteractionSegment: () => spec,
         cutPreviewVisiblePosition: null,
         dragSnap: { x: null, y: null },
@@ -66,12 +69,15 @@ function dragHarness(kind, spec, original) {
         'const cutResizeCornersFn =');
     const layerBounds = declaration('const layerOutputBoundsForTransform = (entry, transform) => {',
         '// 裁定 0: 移動 / 角点 / 回転の確定書き戻し');
-    vm.runInContext(`${motion}\n${centered}\n${layerBounds}`, context);
+    const screenRect = declaration('const layerScreenRectForVideoRect = (transform, videoRect, pivotPx) => {',
+        'const layerAlphaAtPoint =');
+    vm.runInContext(`${motion}\n${centered}\n${screenRect}\n${layerBounds}`, context);
     if (kind === 'layer') {
         const drag = declaration('const beginLayerMoveDrag = (entry, startEvent) => {',
             '// 選択済みレイヤーは描画画素ではなく選択枠を操作面にする。');
         vm.runInContext(`${drag}\nthis.runDrag = beginLayerMoveDrag;`, context);
-        const entry = { spec, video: { videoWidth: 200, videoHeight: 100 }, previewVisiblePosition: null };
+        const entry = { spec, video: { videoWidth: 200, videoHeight: 100 },
+            opaqueBox, previewVisiblePosition: null };
         setPreviewPosition = position => { entry.previewVisiblePosition = position; };
         context.drag = () => context.runDrag(entry, {});
     } else {
@@ -140,6 +146,149 @@ for (const kind of ['layer', 'cut']) {
         assert.equal(result.transform.y, live.y + 41);
     });
 }
+
+test('layer snap uses the same opaque crop intersection as the selection frame', () => {
+    const spec = { t: 0, duration: 2,
+        transform: { x: 0, y: 0, scale: 0.5, rotate: 0 } };
+    const live = { x: -404, y: 25, scale: 1, rotate: 0 };
+    const drag = dragHarness('layer', spec, live, { x: 6, y: 0, w: 188, h: 100 });
+    const result = drag.move(0, 17);
+    assert.equal(result.bounds.left, 2);
+    assert.equal(result.bounds.right, 190);
+    assert.equal(result.bounds.centerX, 96);
+    assert.equal(result.snap.x?.target, 0);
+    assert.equal(result.snap.x?.correction, -2);
+    assert.equal(result.transform.x, -406);
+});
+
+test('layer snap keeps the cropped selection frame pivot when rotated', () => {
+    const spec = { t: 0, duration: 2,
+        transform: { x: 0, y: 0, scale: 0.5, rotate: 0 } };
+    const live = { x: 0, y: 0, scale: 1, rotate: 90 };
+    const opaqueBox = { x: 80, y: 10, w: 110, h: 60 };
+    const crop = { x: 0.25, y: 0.2, w: 0.5, h: 0.6 };
+    const result = dragHarness('layer', spec, live, opaqueBox, crop).move(0, 0);
+    assert.equal(result.bounds.left, 470);
+    assert.equal(result.bounds.right, 540);
+    assert.equal(result.bounds.top, 240);
+    assert.equal(result.bounds.bottom, 290);
+    assert.equal(result.bounds.centerX, 505);
+    assert.equal(result.bounds.centerY, 265);
+});
+
+function mediaTransformDragHarness(handleKind = null) {
+    const listeners = new Map();
+    const timers = new Map();
+    const computed = [];
+    const applied = [];
+    let time = 0;
+    let nextTimerId = 1;
+    const captureTarget = {
+        getAttribute: name => name === 'data-akari-handle' ? handleKind : null,
+        setPointerCapture() {}, hasPointerCapture: () => false
+    };
+    const context = {
+        selectionDragActive: false, isPlaying: false, CLICK_THRESHOLD_PX: 3,
+        beginSelectionGesture: () => ({}), endSelectionGesture() {},
+        document: { body: {
+            classList: { add() {}, remove() {} }, appendChild() {}, style: {}
+        }, createElement: () => ({ setAttribute() {}, style: {}, remove() {} }) },
+        window: {
+            akari: { lockedIds: new Set(), interaction: { hideSnapGuides() {} },
+                reportGesture() {}, showWriteError() {} },
+            addEventListener: (type, callback) => listeners.set(type, callback),
+            removeEventListener: (type, callback) => {
+                if (listeners.get(type) === callback) listeners.delete(type);
+            }
+        },
+        setTimeout: (callback, delay) => {
+            const id = nextTimerId++;
+            timers.set(id, { callback, at: time + delay });
+            return id;
+        },
+        clearTimeout: id => timers.delete(id)
+    };
+    vm.createContext(context);
+    const drag = declaration('const beginMediaTransformDrag = (target, startEvent, computeTransform) => {',
+        'const pointerTranslationFrom =');
+    vm.runInContext(`${drag}\nthis.beginDrag = beginMediaTransformDrag;`, context);
+    const target = {
+        kind: 'layer', entry: { spec: { id: 'photo' } },
+        transformNow: () => ({ x: 0, y: 0, scale: 1, rotate: 0 }),
+        motionAt: () => null,
+        applyTransform: transform => applied.push(transform),
+        flushTransform() {}, canWrite: () => true, write: async () => {}
+    };
+    context.beginDrag(target, {
+        pointerId: 7, clientX: 0, clientY: 0, currentTarget: captureTarget,
+        preventDefault() {}, stopPropagation() {}
+    }, (event, original) => {
+        computed.push(event);
+        return { ...original, x: event.clientX, y: event.clientY };
+    });
+    return {
+        computed, applied, timers,
+        dispatch(type, event) { assert.ok(listeners.has(type), type); listeners.get(type)(event); },
+        advance(ms) {
+            time += ms;
+            for (;;) {
+                const due = [...timers.entries()].find(([, timer]) => timer.at <= time);
+                if (!due) break;
+                timers.delete(due[0]);
+                due[1].callback();
+            }
+        }
+    };
+}
+
+test('a paused move rechecks the same pointer event after 96 ms', () => {
+    const drag = mediaTransformDragHarness();
+    const move = { pointerId: 7, clientX: 170, clientY: 20,
+        shiftKey: true, ctrlKey: true, metaKey: false };
+    drag.dispatch('pointermove', move);
+    assert.equal(drag.computed.length, 1);
+    assert.equal(drag.applied.length, 1);
+    assert.equal(drag.timers.size, 1);
+    drag.advance(95);
+    assert.equal(drag.computed.length, 1);
+    drag.advance(1);
+    assert.equal(drag.computed.length, 2);
+    assert.equal(drag.applied.length, 2);
+    assert.strictEqual(drag.computed[1], move);
+    assert.equal(drag.computed[1].shiftKey, true);
+    assert.equal(drag.computed[1].ctrlKey, true);
+    assert.equal(drag.timers.size, 0);
+});
+
+test('a new move resets the pause timer and every drag end clears it', () => {
+    for (const end of ['pointerup', 'pointercancel', 'Escape']) {
+        const drag = mediaTransformDragHarness();
+        const first = { pointerId: 7, clientX: 170, clientY: 20 };
+        const second = { pointerId: 7, clientX: 190, clientY: 20 };
+        drag.dispatch('pointermove', first);
+        drag.advance(70);
+        drag.dispatch('pointermove', second);
+        drag.advance(30);
+        assert.equal(drag.computed.length, 2, `${end}: old timer was cancelled`);
+        if (end === 'Escape') drag.dispatch('keydown', { key: 'Escape' });
+        else drag.dispatch(end, second);
+        const afterEnd = drag.computed.length;
+        assert.equal(drag.timers.size, 0, end);
+        drag.advance(200);
+        assert.equal(drag.computed.length, afterEnd, end);
+        assert.equal(drag.timers.size, 0, end);
+    }
+});
+
+test('resize does not schedule a move pause timer', () => {
+    const drag = mediaTransformDragHarness('nw');
+    drag.dispatch('pointermove', { pointerId: 7, clientX: 170, clientY: 20 });
+    assert.equal(drag.computed.length, 1);
+    assert.equal(drag.applied.length, 1);
+    assert.equal(drag.timers.size, 0);
+    drag.advance(200);
+    assert.equal(drag.computed.length, 1);
+});
 
 test('only canvas snap guides extend beyond the preview in both directions', () => {
     const selector = '.akari-interaction-snap-guide:not(.is-item)';
