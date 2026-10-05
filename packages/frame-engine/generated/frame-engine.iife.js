@@ -31313,6 +31313,7 @@ caused by: ${cause.stack}`;
   var DECODER_FLUSH_TIMEOUT_MS = 1e3;
   var DECODER_DEQUEUE_TIMEOUT_MS = 2e3;
   var PREFETCH_BATCH = 8;
+  var MAX_DECODER_INPUT_LAG_SAMPLES = 16;
   var HARDWARE_AHEAD_FRAMES = 3;
   var MAX_CALLER_DECODER_FRAMES = 3;
   var MAX_CALLER_DECODER_FRAMES_4K = 9;
@@ -32149,7 +32150,7 @@ caused by: ${cause.stack}`;
         this.futureFrames.delete(timestamp);
       }
       const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
-      const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0 && targetUs > this.lastTargetUs && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);
+      const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0 && targetUs > this.lastTargetUs && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex <= this.nextDecodeIndex);
       if (!forward) {
         if (this.currentSyncIndex >= 0) await this.resetDecoder();
         this.currentSyncIndex = syncIndex;
@@ -32178,11 +32179,17 @@ caused by: ${cause.stack}`;
       this.activeCandidate?.close();
       this.activeCandidate = null;
       const waiter = this.beginOutputWait(targetUs, targetSample.timestampUs);
+      const lagCeiling = Math.min(
+        table.samples.length - 1,
+        Math.max(decodeCeiling, minimumDecodeEnd + MAX_DECODER_INPUT_LAG_SAMPLES)
+      );
+      const effectiveCeiling = () => waiter.laterFrames === 0 ? lagCeiling : decodeCeiling;
       let queueLimit = Math.max(
         1,
         this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1
       );
       let outputGraceExpired = false;
+      let outputGraceAtEndOfStream = false;
       try {
         const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
         const inReorderTail = targetSample.presentationIndex >= table.samples.length - (table.maxReorderFrames + 1);
@@ -32191,7 +32198,7 @@ caused by: ${cause.stack}`;
             let postTargetBudget = postTargetLimit;
             let initialRound = true;
             while (!waiter.isSettled()) {
-              const roundCeiling = initialRound ? table.samples.length - 1 : decodeCeiling;
+              const roundCeiling = initialRound ? table.samples.length - 1 : effectiveCeiling();
               let supplyEnd = this.nextDecodeIndex - 1;
               for (let index = this.nextDecodeIndex; index <= roundCeiling; index += 1) {
                 const sample = table.samples[index];
@@ -32225,17 +32232,18 @@ caused by: ${cause.stack}`;
                 const waitResult = await this.waitForTargetOrProgress(
                   decoder,
                   waiter,
-                  this.nextDecodeIndex <= decodeCeiling,
+                  this.nextDecodeIndex <= effectiveCeiling(),
                   inReorderTail && allSamplesSubmitted || prefetchTailAtEos
                 );
                 if (waitResult === "needs-supply") break;
                 if (waitResult === "grace-expired") {
                   outputGraceExpired = true;
+                  outputGraceAtEndOfStream = allSamplesSubmitted;
                   break;
                 }
               }
               initialRound = false;
-              if (waiter.isSettled() || outputGraceExpired || this.nextDecodeIndex > decodeCeiling) break;
+              if (waiter.isSettled() || outputGraceExpired || this.nextDecodeIndex > effectiveCeiling()) break;
               postTargetBudget += postTargetLimit;
             }
           })(), this.options.decodeTimeoutMs ?? 1e4, `Range decode ${this.id} at ${targetUs}us`);
@@ -32246,6 +32254,13 @@ caused by: ${cause.stack}`;
               `Range flush ${this.id} at ${targetUs}us`
             );
             this.flushedSinceSeek = true;
+            if (!outputGraceAtEndOfStream) {
+              for (const [timestamp, frame] of this.futureFrames) {
+                if (sampleAtPresentationTime(table, timestamp).decodeIndex <= decodeCeiling) continue;
+                frame.close();
+                this.futureFrames.delete(timestamp);
+              }
+            }
           }
         } catch (error) {
           throw error instanceof DecoderExecutionError ? error : new DecoderExecutionError(`decoder did not produce target ${targetUs}us`, error);
