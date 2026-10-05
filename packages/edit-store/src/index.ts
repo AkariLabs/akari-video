@@ -40,6 +40,7 @@ export * from './item-anchor';
 export * from './shape-markup';
 export * from './shape-preset';
 export * from './cut-ranges';
+export * from './ripple';
 export * from './adjust-css-approx';
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
