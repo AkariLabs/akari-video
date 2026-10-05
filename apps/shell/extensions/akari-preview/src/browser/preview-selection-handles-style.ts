@@ -1,4 +1,16 @@
 export const previewSelectionHandlesStyle = `
+/* Preview text belongs to draggable media until a text editor is active. */
+#preview-stage, #preview-stage * { user-select: none !important; -webkit-user-select: none !important; }
+#preview-stage [data-akari-interaction-editing="true"],
+#preview-stage [data-akari-interaction-editing="true"] *,
+#preview-stage [contenteditable]:not([contenteditable="false"]),
+#preview-stage [contenteditable]:not([contenteditable="false"]) *,
+#preview-stage :is(input, textarea, select) { user-select: text !important; -webkit-user-select: text !important; }
+#preview-stage [data-akari-interaction-editing="true"],
+#preview-stage [data-akari-interaction-editing="true"] * { caret-color: #4dbeff !important; }
+#preview-stage [data-akari-interaction-editing="true"]::selection,
+#preview-stage [data-akari-interaction-editing="true"] *::selection { background: #267db5; color: #fff; }
+html [data-akari-interaction-editing="true"] { outline: none !important; }
 /* Selection controls use the preview theme and stay above all media. */
 .akari-interaction-selection-frame[data-akari-interaction] { border: 1px solid var(--akari-accent); z-index: 2147483647; }
 .akari-interaction-handle[data-akari-interaction] { width: 11px; height: 11px; border: 1px solid var(--akari-accent); background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,.35); }

@@ -154,6 +154,8 @@
     let rotationBadge = null;
     let handleHint = null;
     let activeEdit = null;
+    let editCaret = null;
+    let editCaretAnimation = null;
     let selftestOverlayOverride = null;
     let verticalSnapGuide = null;
     let horizontalSnapGuide = null;
@@ -3000,9 +3002,13 @@
     function textElementAt(container, event) {
       const root = fragmentRoot(container);
       if (!root) return null;
+      const editingTarget = (candidate2) => {
+        const splitHost = window.akari.textSplit?.closestHost?.(candidate2);
+        return splitHost && root.contains(splitHost) && !isMirrorTextLayer(splitHost) ? splitHost : candidate2;
+      };
       let candidate = event.target instanceof Element ? event.target : null;
       while (candidate && candidate !== container) {
-        if (root.contains(candidate) && canEditText(candidate)) return candidate;
+        if (root.contains(candidate) && canEditText(candidate)) return editingTarget(candidate);
         if (candidate === root) break;
         candidate = candidate.parentElement;
       }
@@ -3012,7 +3018,7 @@
         if (!canEditText(element)) continue;
         const rect = element.getBoundingClientRect();
         if (event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom) {
-          return element;
+          return editingTarget(element);
         }
       }
       return null;
@@ -3077,6 +3083,7 @@
       if (!activeEdit) return;
       const edit = activeEdit;
       activeEdit = null;
+      stopEditCaret();
       for (const snapshot of edit.originalContents) {
         snapshot.element.innerHTML = snapshot.html;
         restoreAttribute(
@@ -3109,6 +3116,7 @@
       if (!activeEdit) return Promise.resolve(void 0);
       const edit = activeEdit;
       activeEdit = null;
+      stopEditCaret();
       const restoreOriginalContents = () => {
         for (const snapshot of edit.originalContents) {
           snapshot.element.innerHTML = snapshot.html;
@@ -3219,6 +3227,73 @@
       );
       return restoreOnWriteFailure(record.promise);
     }
+    function updateEditCaret() {
+      if (!editCaret || !activeEdit) return;
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount !== 1 || !selection.isCollapsed) {
+        editCaret.style.display = "none";
+        return;
+      }
+      const range = selection.getRangeAt(0);
+      if (!activeEdit.element.contains(range.startContainer)) {
+        editCaret.style.display = "none";
+        return;
+      }
+      let rect = range.getClientRects()[0];
+      if (!rect || !rect.width && !rect.height) rect = range.getBoundingClientRect();
+      if (!rect || !rect.width && !rect.height) {
+        const parent = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
+        const parentRect = parent?.getBoundingClientRect?.();
+        if (!parentRect?.height) {
+          editCaret.style.display = "none";
+          return;
+        }
+        rect = {
+          left: range.startOffset ? parentRect.right : parentRect.left,
+          top: parentRect.top,
+          height: parentRect.height
+        };
+      }
+      if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || !rect.height) {
+        editCaret.style.display = "none";
+        return;
+      }
+      editCaret.style.left = `${rect.left}px`;
+      editCaret.style.top = `${rect.top}px`;
+      editCaret.style.height = `${rect.height}px`;
+      editCaret.style.display = "block";
+      editCaretAnimation?.cancel();
+      editCaretAnimation = editCaret.animate?.([
+        { opacity: 1 },
+        { opacity: 1, offset: 0.5 },
+        { opacity: 0, offset: 0.5001 },
+        { opacity: 0 }
+      ], { duration: 1060, iterations: Infinity }) ?? null;
+    }
+    function stopEditCaret() {
+      if (typeof document.removeEventListener !== "function") return;
+      document.removeEventListener("selectionchange", updateEditCaret);
+      document.removeEventListener("compositionupdate", updateEditCaret, true);
+      window.removeEventListener("resize", updateEditCaret);
+      window.removeEventListener("scroll", updateEditCaret, true);
+      editCaretAnimation?.cancel();
+      editCaretAnimation = null;
+      editCaret?.remove();
+      editCaret = null;
+    }
+    function startEditCaret() {
+      stopEditCaret();
+      editCaret = document.createElement("div");
+      editCaret.className = "akari-interaction-edit-caret";
+      editCaret.setAttribute("data-akari-interaction", "edit-caret");
+      editCaret.style.cssText = "position:fixed;width:2px;background:#4dbeff;box-shadow:0 0 0 1px rgba(0,0,0,.55);pointer-events:none;z-index:2147483647;display:none;";
+      document.body.appendChild(editCaret);
+      document.addEventListener("selectionchange", updateEditCaret);
+      document.addEventListener("compositionupdate", updateEditCaret, true);
+      window.addEventListener("resize", updateEditCaret);
+      window.addEventListener("scroll", updateEditCaret, true);
+      updateEditCaret();
+    }
     function placeCaretAtEnd(element) {
       const selection = window.getSelection();
       if (!selection) return;
@@ -3228,7 +3303,60 @@
       selection.removeAllRanges();
       selection.addRange(range);
     }
-    function beginEdit(container, element) {
+    function placeCaretAtPoint(element, x, y) {
+      const selection = window.getSelection();
+      if (!selection || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+      const positions = [];
+      try {
+        const position = document.caretPositionFromPoint?.(x, y);
+        if (position) positions.push([position.offsetNode, position.offset]);
+      } catch {
+      }
+      try {
+        const range2 = document.caretRangeFromPoint?.(x, y);
+        if (range2) positions.push([range2.startContainer, range2.startOffset]);
+      } catch {
+      }
+      for (const [node, offset] of positions) {
+        if (!node || !element.contains(node)) continue;
+        try {
+          const range2 = document.createRange();
+          range2.setStart(node, offset);
+          range2.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range2);
+          return true;
+        } catch {
+        }
+      }
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      let nearest = null;
+      let textNode;
+      while (textNode = walker.nextNode()) {
+        const value = textNode.textContent ?? "";
+        const rtl = getComputedStyle(textNode.parentElement).direction === "rtl";
+        for (let index = 0; index < value.length; index++) {
+          range.setStart(textNode, index);
+          range.setEnd(textNode, index + 1);
+          for (const rect of range.getClientRects()) {
+            if (!rect.width && !rect.height) continue;
+            const above = Math.max(rect.top - y, 0, y - rect.bottom);
+            for (const [boundary, edge] of [[index, rtl ? rect.right : rect.left], [index + 1, rtl ? rect.left : rect.right]]) {
+              const distance = Math.hypot(edge - x, above);
+              if (!nearest || distance < nearest.distance) nearest = { node: textNode, offset: boundary, distance };
+            }
+          }
+        }
+      }
+      if (!nearest) return false;
+      range.setStart(nearest.node, nearest.offset);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+    function beginEdit(container, element, point) {
       flushNudge();
       hideHover();
       if (activeEdit?.element === element) {
@@ -3288,7 +3416,8 @@
       element.setAttribute("spellcheck", "false");
       element.setAttribute("data-akari-interaction-editing", "true");
       element.focus({ preventScroll: true });
-      placeCaretAtEnd(element);
+      if (!point || !placeCaretAtPoint(element, point.x, point.y)) placeCaretAtEnd(element);
+      startEditCaret();
     }
     function onClick(event) {
       if (!interactionEnabled || activeEdit) return;
@@ -3344,7 +3473,7 @@
       const element = textElementAt(container, event);
       if (!element) return;
       selectOverlay(container);
-      beginEdit(container, element);
+      beginEdit(container, element, { x: event.clientX, y: event.clientY });
       if (event.cancelable) event.preventDefault();
     }
     function onBlur(event) {
@@ -3360,6 +3489,7 @@
         activeEdit.element,
         activeEdit.slotName
       );
+      updateEditCaret();
     }
     function onKeyDown(event) {
       if (!canBeginPointerInteraction(pointerOwner)) return;
@@ -3469,6 +3599,7 @@
     }
     function isolateEditKey(event) {
       if (event.isComposing || !activeEdit || event.target !== activeEdit.element) return;
+      if (event.type === "keyup") updateEditCaret();
       event.stopPropagation();
       event.stopImmediatePropagation();
     }

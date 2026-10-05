@@ -177,6 +177,8 @@ function marqueeHits(candidates, rect) {
   let rotationBadge = null;
   let handleHint = null;
   let activeEdit = null;
+  let editCaret = null;
+  let editCaretAnimation = null;
   let selftestOverlayOverride = null;
   let verticalSnapGuide = null;
   let horizontalSnapGuide = null;
@@ -3241,10 +3243,15 @@ function marqueeHits(candidates, rect) {
   function textElementAt(container, event) {
     const root = fragmentRoot(container);
     if (!root) return null;
+    const editingTarget = candidate => {
+      const splitHost = window.akari.textSplit?.closestHost?.(candidate);
+      return splitHost && root.contains(splitHost) && !isMirrorTextLayer(splitHost)
+        ? splitHost : candidate;
+    };
 
     let candidate = event.target instanceof Element ? event.target : null;
     while (candidate && candidate !== container) {
-      if (root.contains(candidate) && canEditText(candidate)) return candidate;
+      if (root.contains(candidate) && canEditText(candidate)) return editingTarget(candidate);
       if (candidate === root) break;
       candidate = candidate.parentElement;
     }
@@ -3262,7 +3269,7 @@ function marqueeHits(candidates, rect) {
         event.clientY >= rect.top &&
         event.clientY <= rect.bottom
       ) {
-        return element;
+        return editingTarget(element);
       }
     }
 
@@ -3347,6 +3354,7 @@ function marqueeHits(candidates, rect) {
     const edit = activeEdit;
     // Clear before blur: cancellation must never enter the commit/write path.
     activeEdit = null;
+    stopEditCaret();
     for (const snapshot of edit.originalContents) {
       snapshot.element.innerHTML = snapshot.html;
       restoreAttribute(snapshot.element, "data-akari-split-units",
@@ -3369,6 +3377,7 @@ function marqueeHits(candidates, rect) {
 
     const edit = activeEdit;
     activeEdit = null;
+    stopEditCaret();
 
     const restoreOriginalContents = () => {
       for (const snapshot of edit.originalContents) {
@@ -3489,6 +3498,75 @@ function marqueeHits(candidates, rect) {
     return restoreOnWriteFailure(record.promise);
   }
 
+  function updateEditCaret() {
+    if (!editCaret || !activeEdit) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount !== 1 || !selection.isCollapsed) {
+      editCaret.style.display = 'none';
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!activeEdit.element.contains(range.startContainer)) {
+      editCaret.style.display = 'none';
+      return;
+    }
+
+    let rect = range.getClientRects()[0];
+    if (!rect || (!rect.width && !rect.height)) rect = range.getBoundingClientRect();
+    if (!rect || (!rect.width && !rect.height)) {
+      const parent = range.startContainer.nodeType === Node.TEXT_NODE
+        ? range.startContainer.parentElement : range.startContainer;
+      const parentRect = parent?.getBoundingClientRect?.();
+      if (!parentRect?.height) {
+        editCaret.style.display = 'none';
+        return;
+      }
+      rect = { left: range.startOffset ? parentRect.right : parentRect.left,
+        top: parentRect.top, height: parentRect.height };
+    }
+    if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || !rect.height) {
+      editCaret.style.display = 'none';
+      return;
+    }
+
+    editCaret.style.left = `${rect.left}px`;
+    editCaret.style.top = `${rect.top}px`;
+    editCaret.style.height = `${rect.height}px`;
+    editCaret.style.display = 'block';
+    editCaretAnimation?.cancel();
+    editCaretAnimation = editCaret.animate?.([
+      { opacity: 1 }, { opacity: 1, offset: .5 },
+      { opacity: 0, offset: .5001 }, { opacity: 0 },
+    ], { duration: 1060, iterations: Infinity }) ?? null;
+  }
+
+  function stopEditCaret() {
+    if (typeof document.removeEventListener !== 'function') return;
+    document.removeEventListener('selectionchange', updateEditCaret);
+    document.removeEventListener('compositionupdate', updateEditCaret, true);
+    window.removeEventListener('resize', updateEditCaret);
+    window.removeEventListener('scroll', updateEditCaret, true);
+    editCaretAnimation?.cancel();
+    editCaretAnimation = null;
+    editCaret?.remove();
+    editCaret = null;
+  }
+
+  function startEditCaret() {
+    stopEditCaret();
+    // Keep this UI node outside the fragment so serialization cannot save it.
+    editCaret = document.createElement('div');
+    editCaret.className = 'akari-interaction-edit-caret';
+    editCaret.setAttribute('data-akari-interaction', 'edit-caret');
+    editCaret.style.cssText = 'position:fixed;width:2px;background:#4dbeff;box-shadow:0 0 0 1px rgba(0,0,0,.55);pointer-events:none;z-index:2147483647;display:none;';
+    document.body.appendChild(editCaret);
+    document.addEventListener('selectionchange', updateEditCaret);
+    document.addEventListener('compositionupdate', updateEditCaret, true);
+    window.addEventListener('resize', updateEditCaret);
+    window.addEventListener('scroll', updateEditCaret, true);
+    updateEditCaret();
+  }
+
   function placeCaretAtEnd(element) {
     const selection = window.getSelection();
     if (!selection) return;
@@ -3500,7 +3578,67 @@ function marqueeHits(candidates, rect) {
     selection.addRange(range);
   }
 
-  function beginEdit(container, element) {
+  function placeCaretAtPoint(element, x, y) {
+    const selection = window.getSelection();
+    if (!selection || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+
+    const positions = [];
+    try {
+      const position = document.caretPositionFromPoint?.(x, y);
+      if (position) positions.push([position.offsetNode, position.offset]);
+    } catch {
+      // Continue with the other browser API.
+    }
+    try {
+      const range = document.caretRangeFromPoint?.(x, y);
+      if (range) positions.push([range.startContainer, range.startOffset]);
+    } catch {
+      // Geometry remains available when caret hit testing is unsupported.
+    }
+    for (const [node, offset] of positions) {
+      if (!node || !element.contains(node)) continue;
+      try {
+        const range = document.createRange();
+        range.setStart(node, offset);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return true;
+      } catch {
+        // A stale point can describe a node that was removed by split collapse.
+      }
+    }
+
+    // Use the edited text's own glyph boxes when hit testing chooses another layer.
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    let nearest = null;
+    let textNode;
+    while ((textNode = walker.nextNode())) {
+      const value = textNode.textContent ?? '';
+      const rtl = getComputedStyle(textNode.parentElement).direction === 'rtl';
+      for (let index = 0; index < value.length; index++) {
+        range.setStart(textNode, index);
+        range.setEnd(textNode, index + 1);
+        for (const rect of range.getClientRects()) {
+          if (!rect.width && !rect.height) continue;
+          const above = Math.max(rect.top - y, 0, y - rect.bottom);
+          for (const [boundary, edge] of [[index, rtl ? rect.right : rect.left], [index + 1, rtl ? rect.left : rect.right]]) {
+            const distance = Math.hypot(edge - x, above);
+            if (!nearest || distance < nearest.distance) nearest = { node: textNode, offset: boundary, distance };
+          }
+        }
+      }
+    }
+    if (!nearest) return false;
+    range.setStart(nearest.node, nearest.offset);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  }
+
+  function beginEdit(container, element, point) {
     flushNudge();
     hideHover();
     if (activeEdit?.element === element) {
@@ -3572,7 +3710,8 @@ function marqueeHits(candidates, rect) {
     element.setAttribute("spellcheck", "false");
     element.setAttribute("data-akari-interaction-editing", "true");
     element.focus({ preventScroll: true });
-    placeCaretAtEnd(element);
+    if (!point || !placeCaretAtPoint(element, point.x, point.y)) placeCaretAtEnd(element);
+    startEditCaret();
   }
 
   function onClick(event) {
@@ -3626,7 +3765,7 @@ function marqueeHits(candidates, rect) {
     if (!element) return;
 
     selectOverlay(container);
-    beginEdit(container, element);
+    beginEdit(container, element, { x: event.clientX, y: event.clientY });
     if (event.cancelable) event.preventDefault();
   }
 
@@ -3647,6 +3786,7 @@ function marqueeHits(candidates, rect) {
       activeEdit.element,
       activeEdit.slotName
     );
+    updateEditCaret();
   }
 
   function onKeyDown(event) {
@@ -3733,6 +3873,7 @@ function marqueeHits(candidates, rect) {
 
   function isolateEditKey(event) {
     if (event.isComposing || !activeEdit || event.target !== activeEdit.element) return;
+    if (event.type === 'keyup') updateEditCaret();
     // Keep native contenteditable input, deletion, caret motion and shortcuts.
     // Theia forwards keys from window bubble, including keyup used to commit
     // timeline nudges. Only propagation must stop; never preventDefault here.
