@@ -5,6 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { isRunningFromAppDir, resolveStagingDir, stageSelfUpdate, swapStagedApp } from './self-update.mjs';
+import { compareVersions } from './version.mjs';
+export { compareVersions } from './version.mjs';
 
 /**
  * CLI（と、同じ契約に従うシェル）の更新検知・通知の共通ロジック
@@ -35,6 +37,7 @@ import { isRunningFromAppDir, resolveStagingDir, stageSelfUpdate, swapStagedApp 
  */
 
 export const DEFAULT_UPDATE_FEED_URL = 'https://github.com/AkariLabs/akari-video/releases/download/updates/latest.json';
+export const PRERELEASE_UPDATE_FEED_URL = 'https://github.com/AkariLabs/akari-video/releases/download/updates/prerelease.json';
 
 const CACHE_SCHEMA = 1;
 const FETCH_TIMEOUT_MS = 5000;
@@ -42,8 +45,18 @@ const FETCH_TIMEOUT_MS = 5000;
 const THIS_FILE = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = dirname(dirname(THIS_FILE));
 
-export function resolveFeedUrl(env = process.env) {
-  return env.AKARI_UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL;
+export function resolveUpdateChannel(value) {
+  return value === 'prerelease' ? 'prerelease' : 'stable';
+}
+
+export function readUpdateChannel(env = process.env) {
+  try { return resolveUpdateChannel(JSON.parse(readFileSync(join(resolveAkariHome(env), 'update-preferences.json'), 'utf8')).channel); }
+  catch { return 'stable'; }
+}
+
+// 明示 URL はテスト・運用の完全上書き。チャンネルは評価側でも独立に検査する。
+export function resolveFeedUrl(env = process.env, channel = readUpdateChannel(env)) {
+  return env.AKARI_UPDATE_FEED_URL || (channel === 'prerelease' ? PRERELEASE_UPDATE_FEED_URL : DEFAULT_UPDATE_FEED_URL);
 }
 
 /** `~/.akari`（既定）または `AKARI_HOME`（テスト用にルートを差し替え可能）。 */
@@ -112,26 +125,6 @@ export function resolveInstalledVersionInfo({ env = process.env, cliVersion = re
   };
 }
 
-/** "major.minor.patch" の先頭 3 要素だけを数値比較する（prerelease 考慮不要 — 契約 D4: stable のみ）。 */
-export function compareVersions(a, b) {
-  const pa = parseVersionTriplet(a);
-  const pb = parseVersionTriplet(b);
-  if (!pa || !pb) {
-    return 0;
-  }
-  for (let i = 0; i < 3; i++) {
-    if (pa[i] !== pb[i]) {
-      return pa[i] < pb[i] ? -1 : 1;
-    }
-  }
-  return 0;
-}
-
-function parseVersionTriplet(value) {
-  const match = typeof value === 'string' ? value.trim().match(/^(\d+)\.(\d+)\.(\d+)/) : null;
-  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
-}
-
 /** `cache.feed` が最低限の形をしているか（壊れたフィードを弾く）。 */
 export function isValidFeedShape(feed) {
   return !!feed && typeof feed === 'object' && typeof feed.schema === 'number' && typeof feed.product === 'string';
@@ -141,7 +134,13 @@ export function isValidFeedShape(feed) {
 export function readCacheSync(cachePath) {
   try {
     const parsed = JSON.parse(readFileSync(cachePath, 'utf8'));
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    // cli.mjs もこの関数でキャッシュを読む。設定切替直後の手動 update を含めて遮断。
+    let channel = 'stable';
+    try { channel = resolveUpdateChannel(JSON.parse(readFileSync(join(dirname(cachePath), 'update-preferences.json'), 'utf8')).channel); }
+    catch { /* 未設定は stable */ }
+    return channel === 'stable' && parsed.feed?.product?.includes('-')
+      ? { ...parsed, feed: null, staged: undefined } : parsed;
   } catch {
     return null;
   }
@@ -155,7 +154,7 @@ function writeCacheSync(cachePath, cache) {
 /**
  * キャッシュと現在版から、新版通知を出すべきかを判定する（同期・純粋関数・I/O なし）。
  */
-export function evaluateUpdateStatus({ currentVersion, cache, cliVersion = currentVersion, appVersion = null, source = 'cli-fallback', installRefStatus, installRefPath, installRefNeedsRepair, managedApp, mismatch = false }) {
+export function evaluateUpdateStatus({ currentVersion, cache, channel = 'stable', feedUrl, cliVersion = currentVersion, appVersion = null, source = 'cli-fallback', installRefStatus, installRefPath, installRefNeedsRepair, managedApp, mismatch = false }) {
   const versionDetails = {
     currentVersion,
     cliVersion,
@@ -168,7 +167,8 @@ export function evaluateUpdateStatus({ currentVersion, cache, cliVersion = curre
     mismatch
   };
   const feed = cache?.feed;
-  if (!isValidFeedShape(feed)) {
+  if (!isValidFeedShape(feed) || (channel === 'stable' && /-/.test(feed.product))
+      || (cache?.feed_url && feedUrl && cache.feed_url !== feedUrl)) {
     return { available: false, ...versionDetails };
   }
   const latest = feed.product;
@@ -200,7 +200,8 @@ export function checkForUpdateSync({ currentVersion, versionInfo, env = process.
     ?? (currentVersion === undefined
       ? resolveInstalledVersionInfo({ env })
       : { cliVersion: currentVersion, appVersion: null, currentVersion, source: 'cli-fallback', mismatch: false });
-  return evaluateUpdateStatus({ ...versions, currentVersion: currentVersion ?? versions.currentVersion, cache });
+  return evaluateUpdateStatus({ ...versions, currentVersion: currentVersion ?? versions.currentVersion, cache,
+    channel: readUpdateChannel(env), feedUrl: resolveFeedUrl(env) });
 }
 
 /** 「この版の通知を今後出さない」を記録する（同期・ローカル I/O のみ）。 */
@@ -234,7 +235,8 @@ export async function maybeStageInBackground({ env = process.env, feed, fetchImp
   if (!appComponent?.url || !appComponent?.sha256) {
     return null;
   }
-  if (compareVersions(feed.product, resolveInstalledVersionInfo({ env }).currentVersion) <= 0) {
+  if ((readUpdateChannel(env) === 'stable' && feed.product.includes('-'))
+      || compareVersions(feed.product, resolveInstalledVersionInfo({ env }).currentVersion) <= 0) {
     return null;
   }
   // npm 側 CLI と本体が分離していても、install-ref があれば管理対象の本体を更新できる。
@@ -262,7 +264,7 @@ export async function refreshUpdateFeed({ env = process.env, fetchImpl = globalT
       return;
     }
     const feed = await response.json();
-    if (!isValidFeedShape(feed)) {
+    if (!isValidFeedShape(feed) || (readUpdateChannel(env) === 'stable' && feed.product.includes('-'))) {
       return null;
     }
     const existing = readCacheSync(cachePath);
@@ -270,6 +272,7 @@ export async function refreshUpdateFeed({ env = process.env, fetchImpl = globalT
       schema: CACHE_SCHEMA,
       fetched_at: new Date().toISOString(),
       feed,
+      feed_url: feedUrl,
       dismissed: existing?.dismissed ?? {}
     };
     writeCacheSync(cachePath, next);
@@ -347,7 +350,9 @@ export function maybeApplyPendingUpdateOnLaunch({ env = process.env, log = () =>
   const cache = readCacheSync(cachePath);
   const staged = cache?.staged;
   const feed = cache?.feed;
-  if (!staged?.version || !isValidFeedShape(feed) || staged.version !== feed.product) {
+  if (!staged?.version || !isValidFeedShape(feed) || staged.version !== feed.product
+      || (readUpdateChannel(env) === 'stable' && feed.product.includes('-'))
+      || (cache.feed_url && cache.feed_url !== resolveFeedUrl(env))) {
     return { applied: false, reason: 'no-matching-staged-update' };
   }
 

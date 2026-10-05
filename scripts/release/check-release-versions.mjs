@@ -3,7 +3,7 @@
 // 契約（非公開の内部リポジトリ akari-video-internal 側で管理）:
 // 「タグ ↔ 各 package.json 版 ↔ latest.json の一致」を CI で機械検証し、ズレたらリリース
 // 作成を失敗させる。ここではタグ ↔ 各 package.json / plugin.json の一致のみを扱う
-// （latest.json との一致は gen-latest-json.mjs が各ファイルから直接値を読むため自動的に保証される）。
+// （latest.json との一致は gen-latest-json.mjs がタグ版を全成分へ使うため保証される）。
 //
 // 使い方:
 //   node scripts/release/check-release-versions.mjs v0.1.0
@@ -21,7 +21,7 @@ export const COMPONENTS = [
   { label: 'plugin (plugin/.claude-plugin/plugin.json)', relPath: 'plugin/.claude-plugin/plugin.json' }
 ];
 
-const TAG_RE = /^v(\d+\.\d+\.\d+)$/;
+export const TAG_RE = /^v(\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?)$/;
 
 // "v0.1.0" -> "0.1.0"。vX.Y.Z 形式でなければ null。
 export function parseTag(tag) {
@@ -37,7 +37,7 @@ export async function checkReleaseVersions(tag, { repoRoot = defaultRepoRoot, co
       ok: false,
       tagVersion: null,
       mismatches: [],
-      messages: [`タグ名の形式が不正です（vX.Y.Z の形式で指定してください）: "${tag}"`]
+      messages: [`タグ名の形式が不正です（vX.Y.Z または vX.Y.Z-beta.N、N≥1）: "${tag}"`]
     };
   }
 

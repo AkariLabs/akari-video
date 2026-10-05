@@ -2997,7 +2997,7 @@ var AkariEditKernel = (() => {
   function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     const path = `edit.json.tracks[${index}]`;
     requireRecord2(value, path);
-    requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "items", "content"]), path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "target", "sync", "items", "content"]), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
     trackIds.add(value.id);
@@ -3009,6 +3009,11 @@ var AkariEditKernel = (() => {
     }
     if (hasOwn(value, "muted") && typeof value.muted !== "boolean") {
       throw invalid(`${path}.muted`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    for (const key of ["target", "sync"]) {
+      if (hasOwn(value, key) && typeof value[key] !== "boolean") {
+        throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
     }
     const hasItems = hasOwn(value, "items");
     const hasContent = hasOwn(value, "content");

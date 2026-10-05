@@ -1996,6 +1996,8 @@
             "lane": { "enum": ["visual", "audio"] },
             "name": { "type": "string" },
             "muted": { "type": "boolean" },
+            "target": { "type": "boolean" },
+            "sync": { "type": "boolean" },
             "items": { "type": "array" }
           }
         },
@@ -2008,6 +2010,8 @@
             "lane": { "enum": ["visual", "audio"] },
             "name": { "type": "string" },
             "muted": { "type": "boolean" },
+            "target": { "type": "boolean" },
+            "sync": { "type": "boolean" },
             "content": { "$ref": "#/$defs/captionTrackContentV2" }
           }
         }

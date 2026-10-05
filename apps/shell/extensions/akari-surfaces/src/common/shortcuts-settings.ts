@@ -23,7 +23,9 @@ export const AKARI_SHORTCUT_ORDER = [
     'akari.timeline.nudgeleft', 'akari.timeline.nudgeright', 'akari.timeline.nudgeup', 'akari.timeline.nudgedown',
     'akari.timeline.nudge10left', 'akari.timeline.nudge10right', 'akari.timeline.nudge10up', 'akari.timeline.nudge10down',
     'akari.timeline.selectParent', 'akari.timeline.selectChild', 'akari.timeline.clearSelection',
-    'akari.timeline.togglePlayback', 'akari.timeline.previousFrame', 'akari.timeline.nextFrame',
+    'akari.timeline.togglePlayback', 'akari.timeline.shuttleReverse', 'akari.timeline.shuttleStop',
+    'akari.timeline.shuttleForward', 'akari.timeline.previousEditPoint', 'akari.timeline.nextEditPoint',
+    'akari.timeline.previousFrame', 'akari.timeline.nextFrame',
     'akari.timeline.previousSecond', 'akari.timeline.nextSecond',
     'akari.daihon.selectAllRows', 'akari.daihon.clearRowSelection',
     'akari.home.newWindow', 'akari.settings.open', 'akari.inspector.clearSolo',
@@ -44,7 +46,7 @@ export function compareShortcutRows(a: ShortcutRow, b: ShortcutRow): number {
 export function shortcutGroup(id: string): ShortcutGroup {
     if (!id.startsWith('akari.')) { return 'other'; }
     if (id === 'akari.caption.placeText') { return 'editing'; }
-    if (/^akari\.timeline\.(togglePlayback|previousFrame|nextFrame|previousSecond|nextSecond|play|pause|seek|step|jump|goTo)/i.test(id)) { return 'playback'; }
+    if (/^akari\.timeline\.(togglePlayback|shuttleReverse|shuttleStop|shuttleForward|previousEditPoint|nextEditPoint|previousFrame|nextFrame|previousSecond|nextSecond|play|pause|seek|step|jump|goTo)/i.test(id)) { return 'playback'; }
     if (id.startsWith('akari.timeline.')) { return 'editing'; }
     if (id.startsWith('akari.preview.')) { return 'preview'; }
     if (/^akari\.(daihon|transcript|caption|subtitle|captions)\./.test(id)) { return 'script'; }
