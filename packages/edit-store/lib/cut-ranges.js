@@ -2,13 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectEditVersion = detectEditVersion;
 exports.applyCutRanges = applyCutRanges;
-/**
- * v2 の分割・削除は akari-annotations の edit-v2-mutations.ts にある
- * splitItem :597-626 / removeItem :567-572 を出所とし、同じ按分規則を使う。
- * edit-store から Theia 拡張へ逆依存できないため、この最小部分だけを複製している。
- */
+/** Source-time selection stays local; retained pieces share the ripple kernel's slicing rule. */
 const edit_store_1 = require("./edit-store");
 const edit_v2_1 = require("./edit-v2");
+const ripple_1 = require("./ripple");
 const LEGACY_EDGE_SECONDS = 0.15;
 function detectEditVersion(source) {
     const version = JSON.parse(source).version;
@@ -115,21 +112,10 @@ function applyV2(source, ranges, opts) {
         if (!matched)
             warnings.push(`カット対象が見つかりません: ${range.in}–${range.out}`);
     }
-    // performCompactCuts と同じく、対象となった visual track の media items だけを
-    // 配列順に整数フレームのカーソルへ詰める。他 visual track / audio lane は不変。
-    for (const track of visualTracks(edit)) {
-        if (!affectedTrackIds.has(track.id))
-            continue;
-        let cursor = 0;
-        for (const item of track.items) {
-            if (item.source.kind !== 'media')
-                continue;
-            item.at = cursor;
-            cursor += item.duration;
-        }
-    }
-    (0, edit_v2_1.readEditV2)(edit);
-    return { source: `${JSON.stringify(edit, null, 2)}\n`, removedFrames, warnings };
+    const modeOverride = Object.fromEntries(edit.tracks.map(track => [track.id, affectedTrackIds.has(track.id) ? 'cut' : 'fixed']));
+    const compacted = (0, ripple_1.compactTrackGaps)(edit, { modeOverride, includeAnchored: true }).edit;
+    (0, edit_v2_1.readEditV2)(compacted);
+    return { source: `${JSON.stringify(compacted, null, 2)}\n`, removedFrames, warnings };
 }
 function copyRangeMetadata(target, range) {
     if (range.reason !== undefined)
@@ -164,37 +150,13 @@ function splitAndRemove(item, overlapIn, overlapOut, edit) {
     const endOffset = clampFrame(Math.round((overlapOut - mediaItem.source.in) / sourceDuration * mediaItem.duration), mediaItem.duration);
     if (endOffset <= startOffset)
         return { items: [item], removedFrames: 0 };
-    const items = [];
-    if (startOffset > 0) {
-        const first = cloneItem(mediaItem);
-        first.duration = startOffset;
-        first.source.out = mediaItem.source.in + sourceDuration * startOffset / mediaItem.duration;
-        items.push(first);
-    }
-    if (endOffset < mediaItem.duration) {
-        const second = cloneItem(mediaItem);
-        second.id = nextItemId(edit, `${mediaItem.id}-split`);
-        second.at = mediaItem.at + endOffset;
-        second.duration = mediaItem.duration - endOffset;
-        second.source.in = mediaItem.source.in + sourceDuration * endOffset / mediaItem.duration;
-        items.push(second);
-    }
-    return { items, removedFrames: endOffset - startOffset };
-}
-function cloneItem(item) {
-    return JSON.parse(JSON.stringify(item));
-}
-function nextItemId(edit, base) {
     const ids = new Set();
-    for (const track of visualTracks(edit))
-        for (const item of track.items)
-            collectIds(item, ids);
-    if (!ids.has(base))
-        return base;
-    let serial = 2;
-    while (ids.has(`${base}-${serial}`))
-        serial++;
-    return `${base}-${serial}`;
+    for (const track of edit.tracks)
+        if ('items' in track)
+            for (const candidate of track.items)
+                collectIds(candidate, ids);
+    const items = (0, ripple_1.removeTimelineItemRange)(mediaItem, { start: mediaItem.at + startOffset, end: mediaItem.at + endOffset }, edit.output.fps, ids);
+    return { items, removedFrames: endOffset - startOffset };
 }
 function collectIds(item, ids) {
     ids.add(item.id);

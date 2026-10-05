@@ -100,6 +100,7 @@ All contracts follow the
 | [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | Caption grapheme range styles, overlap precedence, rendering, and text edit rebasing (Japanese) |
 | [contract-2026-10-02-textstyle-v1-rich.md](./contract-2026-10-02-textstyle-v1-rich.md) | Rich textstyle v1 vocabulary, layered strokes, gradient and pattern fills, rendering paths, and overlay boundary (Japanese) |
 | [contract-2026-10-04-asset-tier-v1.md](./contract-2026-10-04-asset-tier-v1.md) | Asset tier contract v1: free / pro tier field, price deprecation, compatibility rule, pro-vs-CC0 validation, and library-side locking (Japanese) |
+| [contract-2026-10-06-timeline-ripple-v0.md](./contract-2026-10-06-timeline-ripple-v0.md) | Timeline cut, shift, split, and gap closure kernel for edit.json v2 (Japanese) |
 | [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | Fragment `@font-face` glyph lint (`edit-lint` `overlays.fragment-font-glyphs`) implemented; export-time automatic subsetting and cache cleanup planned (Japanese) |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | Still-image cut source v0 — allow still images (extension-based detection) as cuts[] sources, extending speed/freeze coverage |
