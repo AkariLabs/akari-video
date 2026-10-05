@@ -148,7 +148,8 @@ test('old positions cannot end startup; window pause keeps the trial, controls a
  const operation=f.w.tryMaterialSwap(candidate('one'));await waiting;
  const token=f.w.materialSwapPlayback.token;
  Object.assign(f.w,{canHandlePlaybackTick:uri=>uri==='edit',visualThumbnails:{setPaused(){}},selectionModel:{},
-  visibleDuration:()=>10,viewStart:0,playhead:{style:{}},percent:t=>t,resolveCaptionAtPlayhead:()=>undefined});
+  visibleDuration:()=>10,viewStart:0,playhead:{style:{}},percent:t=>t,resolveCaptionAtPlayhead:()=>undefined,
+  playheadFollow:{follow(){}}});
  const pauses=()=>f.commands.filter(([id])=>id==='akari.preview.pause');
  const ends=()=>f.commands.filter(([id])=>id==='akari.preview.endSwapTrial').length;
  const before=pauses().length,beforeEnds=ends();

@@ -2,6 +2,7 @@ import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
 import { adjacentEditPoint, timelineEditPoints, type EditPointTrack } from '../common/timeline-edit-points';
 import { TimelineShuttleController } from './timeline/timeline-shuttle-controller';
+import { TimelinePlayheadFollow } from './timeline/timeline-playhead-follow';
 import type { ShuttleRate } from '../common/timeline-shuttle';
 import { itemFrameAtPlayhead, nextNudgeValue, type NudgeValue } from '../common/nudge-value';
 import { captionLibraryApplyFeedback, planLibraryApply, shouldShowTextPlaceBand, timelineApplyTarget,
@@ -64,6 +65,7 @@ import { CommandRegistry, CommandService, Disposable, MessageService } from '@th
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
+import { MAXIMIZED_CLASS } from '@theia/core/lib/browser/shell/application-shell';
 import { StatusBar } from '@theia/core/lib/browser/status-bar/status-bar';
 import { TimelineZoomBar, ZoomBarPart } from './timeline/timeline-zoom-bar';
 import { TimelineEdgeAutoScroll } from './timeline/timeline-edge-auto-scroll';
@@ -520,7 +522,6 @@ const REVIEW_SESSION_FOCUS_RETRY_DELAY_MS = 150;
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
-const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
 const MINIMUM_SFX_TRIM_DURATION = 0.1;
 /** 素材追加コマンドで実尺（getAudioDuration）が取れない video のフォールバック尺（司令塔裁定4）。 */
@@ -1399,10 +1400,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
+    protected readonly playheadFollow = new TimelinePlayheadFollow({
+        viewStart: () => this.viewStart,
+        visibleDuration: () => this.visibleDuration(),
+        canFollow: () => !this.dragState && !this.visualPointerDown
+            && this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000,
+        setViewStart: start => this.setViewStart(start)
+    });
     protected readonly shuttle = new TimelineShuttleController({
         time: () => this.playheadT,
         duration: () => this.contentEndDuration(),
         seek: time => this.seekTimelineTransport(time),
+        follow: time => this.playheadFollow.follow(time),
         play: () => this.startShuttleNormalPlayback(),
         pause: () => {
             if (this.location?.editUri) void this.commands.executeCommand('akari.preview.pause', {
@@ -2232,7 +2241,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.trackHeaderColumn.append(this.trackHeaderRulerSpacer, this.trackHeadersViewport);
         this.timelineBody.append(this.rulerBar, this.stripScroll, this.timelineOverlay, this.vZoomBar.node);
         this.timelineViewport.append(this.trackHeaderColumn, this.timelineBody);
-        this.timelineStatusMessage = new TimelineStatusMessage(this.statusBar);
+        this.timelineStatusMessage = new TimelineStatusMessage(this.statusBar, {
+            host: this.timelineBody, isMaximized: () => this.shell.bottomPanel.hasClass(MAXIMIZED_CLASS)
+        });
+        this.toDispose.push(this.shell.onDidToggleMaximized(() => this.timelineStatusMessage.refreshRoute()));
         const uninstallFooterSink = installTimelineFooterSink(this.footer, this.timelineStatusMessage);
         this.toDispose.push(Disposable.create(uninstallFooterSink));
         this.toDispose.push(Disposable.create(() => this.timelineStatusMessage.dispose()));
@@ -19493,24 +19505,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (inspectorSnapshot?.kind === 'audio') {
             (inspectorSnapshot as AudioSelectionSnapshot).playheadSeconds = tickTime;
         }
-        const visibleDuration = this.visibleDuration();
-        const followEdge = this.viewStart + visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
-        if (request.playing && !this.dragState && !this.visualPointerDown
-            && this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000) {
-            if (this.playheadT > followEdge) {
-                const nextViewStart = this.playheadT - visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
-                if (nextViewStart > this.viewStart + 1e-6) {
-                    this.setViewStart(nextViewStart);
-                }
-            } else if (this.playheadT < this.viewStart) {
-                const nextViewStart = Math.max(
-                    0, this.playheadT - visibleDuration * (1 - PLAYHEAD_FOLLOW_THRESHOLD)
-                );
-                if (nextViewStart < this.viewStart - 1e-6) {
-                    this.setViewStart(nextViewStart);
-                }
-            }
-        }
+        if (request.playing) this.playheadFollow.follow(this.playheadT);
         if (!keepScrubPosition) this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         const playing = this.resolveCaptionAtPlayhead(tickTime);
         if (playing !== this.playingCaptionId) {

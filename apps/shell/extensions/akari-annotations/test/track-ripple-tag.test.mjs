@@ -18,7 +18,7 @@ const fixture = () => ({ version: 2, output: { width: 320, height: 180, fps: 30 
 
 test('mode, lock, row kind and height determine one visible control', () => {
   for (const [mode, label, icon] of [
-    ['cut', '切る', 'codicon-trash'], ['shift', 'ずらす', 'codicon-arrow-left'], ['fixed', '固定', 'codicon-pin'],
+    ['cut', '切る', 'codicon-fold'], ['shift', 'ずらす', 'codicon-arrow-left'], ['fixed', '固定', 'codicon-pin'],
   ]) {
     for (const height of [40, 60, 240, 720]) {
       const normal = rippleTagPresentation(mode, false, 'track', height);

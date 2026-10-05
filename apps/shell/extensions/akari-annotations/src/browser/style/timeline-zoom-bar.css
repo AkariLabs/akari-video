@@ -99,3 +99,25 @@
     pointer-events: none;
 }
 .akari-timeline-message-warning { color: var(--theia-editorWarning-foreground); }
+.akari-timeline-message-chip {
+    position: absolute;
+    right: 20px;
+    bottom: 8px;
+    z-index: 11;
+    max-width: calc(100% - 28px);
+    padding: 3px 7px;
+    border: 1px solid var(--theia-widget-border);
+    border-radius: 4px;
+    background: var(--theia-editorWidget-background);
+    color: var(--theia-foreground);
+    font-size: 11px;
+    line-height: 15px;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.akari-timeline-message-chip[hidden] { display: none; }
+.akari-timeline-message-chip.akari-timeline-message-warning {
+    color: var(--theia-editorWarning-foreground);
+}

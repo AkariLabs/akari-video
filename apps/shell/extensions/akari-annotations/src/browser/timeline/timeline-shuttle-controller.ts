@@ -5,6 +5,7 @@ export interface TimelineShuttlePorts {
     time(): number;
     duration(): number;
     seek(time: number): void;
+    follow(time: number): void;
     play(): void;
     pause(): void;
     display(rate: ShuttleRate): void;
@@ -48,7 +49,10 @@ export class TimelineShuttleController {
         const elapsed = this.lastStamp === undefined ? 0 : (stamp - this.lastStamp) / 1000;
         this.lastStamp = stamp;
         const next = advanceShuttle(this.ports.time(), this.rate, elapsed, this.ports.duration());
-        if (next.time !== this.ports.time()) this.ports.seek(next.time);
+        if (next.time !== this.ports.time()) {
+            this.ports.seek(next.time);
+            this.ports.follow(next.time);
+        }
         if (next.rate === 0) this.stop('edge');
         else this.frame = requestAnimationFrame(this.tick);
     };

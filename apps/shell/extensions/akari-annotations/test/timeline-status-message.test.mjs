@@ -69,3 +69,44 @@ test('ordinary messages last four seconds and warnings last eight', () => {
         globalThis.clearTimeout = originalClear;
     }
 });
+
+test('maximized panel moves an active message between chip and status without restarting its timer', () => {
+    const originalSet = globalThis.setTimeout;
+    const originalClear = globalThis.clearTimeout;
+    let expire;
+    let duration;
+    globalThis.setTimeout = (callback, delay) => { expire = callback; duration = delay; return 1; };
+    globalThis.clearTimeout = () => {};
+    const chip = {
+        dataset: {}, style: {}, hidden: true, textContent: '', onclick: null,
+        classList: { toggle() {} }, remove() {}
+    };
+    const host = { ownerDocument: { createElement: () => chip }, appendChild() {} };
+    const events = [];
+    let maximized = false;
+    const status = new TimelineStatusMessage({
+        setElement: async (_id, entry) => { events.push(['status', entry.text]); },
+        removeElement: async () => { events.push(['clear']); }
+    }, { host, isMaximized: () => maximized });
+    try {
+        status.show('プレビューをシークしました。');
+        assert.deepEqual(events, [['status', 'プレビューをシークしました。']]);
+        maximized = true;
+        status.refreshRoute();
+        assert.equal(chip.hidden, false);
+        assert.equal(chip.textContent, 'プレビューをシークしました。');
+        assert.deepEqual(events.at(-1), ['clear']);
+        maximized = false;
+        status.refreshRoute();
+        assert.equal(chip.hidden, true);
+        assert.deepEqual(events.at(-1), ['status', 'プレビューをシークしました。']);
+        assert.equal(duration, 4000);
+        expire();
+        assert.deepEqual(events.at(-1), ['clear']);
+        assert.equal(chip.hidden, true);
+    } finally {
+        status.dispose();
+        globalThis.setTimeout = originalSet;
+        globalThis.clearTimeout = originalClear;
+    }
+});

@@ -8,7 +8,7 @@ export type RippleTagPresentation = {
 };
 
 const LABELS: Record<RippleMode, { label: string; icon: string; detail: string }> = {
-    cut: { label: '切る', icon: 'codicon-trash', detail: '範囲の中身を消して後ろを詰める' },
+    cut: { label: '切る', icon: 'codicon-fold', detail: '範囲の中身を消して後ろを詰める' },
     shift: { label: 'ずらす', icon: 'codicon-arrow-left', detail: '中身を残して後ろを一緒に寄せる' },
     fixed: { label: '固定', icon: 'codicon-pin', detail: '中身も位置も変えない' }
 };

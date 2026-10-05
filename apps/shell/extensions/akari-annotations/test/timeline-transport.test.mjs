@@ -19,6 +19,7 @@ const { AKARI_SHORTCUTS } = load('../src/browser/akari-shortcuts.ts');
 const { AKARI_SHORTCUT_ORDER, shortcutGroup } = load('../../akari-surfaces/src/common/shortcuts-settings.ts');
 const require = createRequire(import.meta.url);
 const { TimelineShuttleController } = require('../lib/browser/timeline/timeline-shuttle-controller.js');
+const { TimelinePlayheadFollow } = require('../lib/browser/timeline/timeline-playhead-follow.js');
 
 test('J/K/L rates step through stop, normal playback, and capped shuttle speeds', () => {
     assert.deepEqual([1, 2, 4, 8, 8], Array.from({ length: 5 }, (_, index) => index)
@@ -67,6 +68,46 @@ test('controller clears normal playback on click without pausing, while Space pa
         controller.stop('drag');
         assert.equal(cancelled, 1);
         assert.equal(controller.rate, 0);
+    } finally {
+        globalThis.requestAnimationFrame = originalFrame;
+        globalThis.cancelAnimationFrame = originalCancel;
+    }
+});
+
+test('shuttle and normal playback share page following in both directions', () => {
+    const originalFrame = globalThis.requestAnimationFrame;
+    const originalCancel = globalThis.cancelAnimationFrame;
+    let frame;
+    globalThis.requestAnimationFrame = callback => { frame = callback; return 1; };
+    globalThis.cancelAnimationFrame = () => {};
+    let time = 2;
+    let start = 0;
+    const follow = new TimelinePlayheadFollow({
+        viewStart: () => start, visibleDuration: () => 4, canFollow: () => true,
+        setViewStart: value => { start = value; }
+    });
+    const shuttle = new TimelineShuttleController({
+        time: () => time, duration: () => 20, seek: value => { time = value; },
+        follow: value => follow.follow(value),
+        play: () => {}, pause: () => {}, display: () => {}
+    });
+    try {
+        shuttle.direction(1, false);
+        shuttle.direction(1, true);
+        frame(0);
+        frame(1000);
+        assert.equal(time, 4);
+        assert.ok(start > 0);
+        shuttle.stop();
+        time = 5;
+        start = 4;
+        shuttle.direction(-1, false);
+        frame(2000);
+        frame(3000);
+        assert.equal(time, 4);
+        frame(4000);
+        assert.equal(time, 3);
+        assert.ok(start < 4);
     } finally {
         globalThis.requestAnimationFrame = originalFrame;
         globalThis.cancelAnimationFrame = originalCancel;
