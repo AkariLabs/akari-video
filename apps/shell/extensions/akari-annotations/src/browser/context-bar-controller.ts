@@ -30,7 +30,7 @@ export const CONTEXT_BAR_USER_INPUT_EVENT = 'akari.contextBar.userInput';
 const OUTPUT_PREVIEW_MARK = '[data-akari-output-preview]';
 const READ_ONLY_ACTIONS = new Set(['layers', 'canPaste', 'selectLayer', 'annotate']);
 /** バーから書ける item の値（インスペクターの item-field と同じ書き込み口）。 */
-const WRITABLE_PATH = /^(opacity|flip\.(h|v)|transform\.(x|y|rotate)|source\.params\.(fill|stroke|strokeWidth|dash|lineCap|startCap|endCap|startCapScale|endCapScale))$/u;
+const WRITABLE_PATH = /^(opacity|flip\.(h|v)|transform\.(x|y|rotate)|source\.params\.(fill|stroke|strokeWidth|dash|lineCap|startCap|endCap|startCapScale|endCapScale)|frame\.(cornerRadius|stroke\.(width|color)))$/u;
 
 export interface ContextBarSource {
     editUri: string;

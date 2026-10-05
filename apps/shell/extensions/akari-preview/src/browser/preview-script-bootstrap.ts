@@ -1195,7 +1195,7 @@ export function previewBootstrapScript(): string {
                 }
             };
             const cutHasLayerStyleVisual = segment => Boolean(segment && segment.kind === 'src'
-                && (segment.crop || segment.perspective
+                && (segment.crop || segment.frame || segment.perspective
                     || (Array.isArray(segment.keyframes) && segment.keyframes.length >= 2)));
             const writeCutLayerStyleBase = (media, segment) => {
                 const active = cutHasLayerStyleVisual(segment);
@@ -1213,7 +1213,7 @@ export function previewBootstrapScript(): string {
                     return false;
                 }
                 const transform = segment.transform || {};
-                media.dataset.akariCutCropDeclared = String(Boolean(segment.crop || segment.perspective
+                media.dataset.akariCutCropDeclared = String(Boolean(segment.crop || segment.frame || segment.perspective
                     || segment.keyframes?.some(point => point?.crop || point?.perspective)
                     || segment.motion?.in?.preset === 'wipe' || segment.motion?.out?.preset === 'wipe'));
                 media.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
@@ -11077,6 +11077,25 @@ export function previewBootstrapScript(): string {
                                 && overlay.html === pendingShapeLive.html)) clearLiveOverride();
                         pendingShapeLive = { key: targetKey, id: message.target.id, html: message.shapeHtml };
                         liveDom.updateShape(targetKey, message.shapeHtml);
+                        return;
+                    }
+                    if (message.field === 'photoFrame' && message.photoFrame
+                        && typeof message.photoFrame === 'object') {
+                        const cut = message.target.kind === 'cut'
+                            || message.target.kind === 'item' && video.dataset.akariCutId === message.target.id;
+                        const media = cut ? (stillImage.style.display !== 'none' ? stillImage : video)
+                            : Array.from(layersStage.querySelectorAll('img[data-akari-layer-id]'))
+                                .find(element => element.dataset.akariLayerId === message.target.id);
+                        if (media && media.tagName === 'IMG') {
+                            media.dataset.akariPhotoFrame = JSON.stringify(message.photoFrame);
+                            void window.akari.frameEngineClock?.applyLivePreview?.(message);
+                            if (cut) {
+                                media.dataset.akariCutLayerStyleActive = 'true';
+                                media.dataset.akariCutCropDeclared = 'true';
+                                window.akari.applyCutLayerStyleLayout?.(media);
+                            }
+                            else window.akari.updateLayerLayout?.();
+                        }
                         return;
                     }
                     for (const [field, value] of values) liveDom.update(targetKey, field, value);
