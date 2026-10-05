@@ -23305,6 +23305,7 @@ ${indent}`);
     ADJUST_LUT_SIZE: () => ADJUST_LUT_SIZE,
     BufferedRawFrameSink: () => BufferedRawFrameSink,
     ByteRangeCache: () => ByteRangeCache,
+    CAPTION_ONE_SHOT_LOOP_IDS: () => CAPTION_ONE_SHOT_LOOP_IDS,
     CAPTION_SPRITE_MOTIONS: () => CAPTION_SPRITE_MOTIONS,
     CachedStillImageSource: () => CachedStillImageSource,
     ClipSession: () => ClipSession,
@@ -37809,6 +37810,8 @@ caused by: ${cause.stack}`;
   };
   var ampScaleAtStart = /* @__PURE__ */ new Set(["soft-fade", "cinematic-fade", "zoom-in-out", "stomp"]);
   var ampScaleAtOvershoot = /* @__PURE__ */ new Set(["zoom-pop", "stretch-in"]);
+  var CAPTION_ONE_SHOT_LOOP_IDS = ["spin-in", "rotate-in", "roll-in", "spiral-in"];
+  var oneShotLoopIds = new Set(CAPTION_ONE_SHOT_LOOP_IDS);
   function isCaptionMotionSupported(declaration) {
     if (!declaration) return { supported: true, unsupported: [] };
     const ids = ["in", "loop", "out"].flatMap((kind) => {
@@ -37842,7 +37845,18 @@ caused by: ${cause.stack}`;
     }
     if (declaration.loop) {
       const period = positiveDuration(declaration.loop.durationSec ?? declaration.loop.duration_sec, 1.6);
-      applySlot(state, declaration.loop, local % period / period, em, amp, plateWidthPx, plateHeightPx, "linear");
+      const oneShot = oneShotLoopIds.has(declaration.loop.id);
+      const progress = oneShot ? Math.min(1, local / period) : local % period / period;
+      applySlot(
+        state,
+        declaration.loop,
+        progress,
+        em,
+        amp,
+        plateWidthPx,
+        plateHeightPx,
+        oneShot ? declaration.loop.ease ?? "ease-out" : "linear"
+      );
     }
     if (declaration.out) {
       const duration = slotDuration(declaration.out, cueDuration, 0.6);

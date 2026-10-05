@@ -1,5 +1,8 @@
 // Mirror of packages/render-cut/src/captions.mjs CAPTION_ANIMATION_RECIPES.
 // The sandboxed webview cannot import render-cut; test/caption-text-animation.test.mjs guards drift.
+// Mirror of frame-engine/src/timeline/caption-motion.ts CAPTION_ONE_SHOT_LOOP_IDS and
+// render-cut/src/captions.mjs. The webview receives this list through preview-script-bootstrap.
+export const PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS = ['spin-in', 'rotate-in', 'roll-in', 'spiral-in'] as const;
 export const PREVIEW_CAPTION_ANIMATION_RECIPES: Record<string, string> = {
     "fade-in-out": "from { opacity: 0; } to { opacity: 1; }",
     "soft-fade": "from { opacity: 0; transform: scale(calc(1 + 0.04 * var(--akari-anim-amp, 1))); } to { opacity: 1; transform: scale(1); }",

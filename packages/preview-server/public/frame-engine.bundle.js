@@ -35658,6 +35658,8 @@ var CAPTION_SPRITE_MOTIONS = {
   "marquee-left": fromTo({ xPercent: 1 }, { xPercent: -1 }),
   "crawl-up": fromTo({ yPercent: 1 }, { yPercent: -1 })
 };
+var CAPTION_ONE_SHOT_LOOP_IDS = ["spin-in", "rotate-in", "roll-in", "spiral-in"];
+var oneShotLoopIds = new Set(CAPTION_ONE_SHOT_LOOP_IDS);
 
 // ../frame-engine/src/timeline/item-motion.ts
 var import_item_motion2 = __toESM(require_item_motion(), 1);

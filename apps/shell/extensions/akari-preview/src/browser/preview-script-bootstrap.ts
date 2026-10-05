@@ -59,7 +59,7 @@ import {
     RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE,
     RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
 } from '../common/caption-visual-contract';
-import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../common/caption-text-animation-recipes';
+import { PREVIEW_CAPTION_ANIMATION_RECIPES, PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS } from '../common/caption-text-animation-recipes';
 import { computeCutFramingVisual } from '../common/cut-framing-visual';
 import { computeAdjustCssVisual } from '../common/adjust-css-visual';
 import { checkCutFreezeCrossing } from '../common/cut-freeze-visual';
@@ -7171,6 +7171,7 @@ export function previewBootstrapScript(): string {
             // Mirrors render-cut/src/captions.mjs buildCaptionAnimation. The recipe table is
             // injected by the host because the sandboxed webview cannot import render-cut.
             const captionAnimationRecipes = ${JSON.stringify(PREVIEW_CAPTION_ANIMATION_RECIPES)};
+            const oneShotCaptionLoopIds = new Set(${JSON.stringify(PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS)});
             const buildPreviewCaptionAnimation = (animation, overlayDuration, onWarning) => {
                 if (!animation || typeof animation !== 'object') return null;
                 const parts = [];
@@ -7187,8 +7188,11 @@ export function previewBootstrapScript(): string {
                     if (slot.amp !== undefined) ampValues.push(slot.amp);
                     if (kind === 'loop') {
                         const period = slot.duration_sec ?? 1.6;
-                        parts.push('akari-anim-' + slot.id + ' ' + formatCaptionSeconds(period)
-                            + 's linear 0s infinite both paused');
+                        parts.push(oneShotCaptionLoopIds.has(slot.id)
+                            ? 'akari-anim-' + slot.id + ' ' + formatCaptionSeconds(period)
+                                + 's ' + (slot.ease ?? 'ease-out') + ' 0s 1 normal both paused'
+                            : 'akari-anim-' + slot.id + ' ' + formatCaptionSeconds(period)
+                                + 's linear 0s infinite both paused');
                         return;
                     }
                     const duration = Math.min(slot.duration_sec ?? 0.6, Math.max(0.05, overlayDuration));
