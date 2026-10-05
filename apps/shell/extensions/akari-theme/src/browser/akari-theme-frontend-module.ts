@@ -1,5 +1,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
+import { CommandContribution } from '@theia/core/lib/common';
 import { ColorContribution } from '@theia/core/lib/browser/color-application-contribution';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { AkariWebviewWidget } from './akari-webview-widget';
@@ -29,4 +30,5 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     // セレクタで書いてあり、重なる箇所は本ファイル側を 2 ID にして勝たせてある）。
     bind(AkariShellInnerChromeContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariShellInnerChromeContribution);
+    bind(CommandContribution).toService(AkariShellInnerChromeContribution);
 });

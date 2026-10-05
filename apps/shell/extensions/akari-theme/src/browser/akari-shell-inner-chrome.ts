@@ -1,5 +1,8 @@
-import { injectable } from '@theia/core/shared/inversify';
+import { inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
+import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
+import { CommonCommands } from '@theia/core/lib/browser/common-commands';
+import { CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 
 /**
  * カードの **内側** の見え方（akari-shell-card-layout.ts が作った外殻の中身）。
@@ -48,6 +51,20 @@ const TAB_BAND = {
 };
 
 export const SHELL_INNER_CHROME_CSS = `
+/* The editor chrome is a control surface. Keep selection inside actual text surfaces.
+   The output preview document lives in its own iframe and is unaffected. */
+body {
+    user-select: none;
+    -webkit-user-select: none;
+}
+body :is(input, textarea, [contenteditable]:not([contenteditable="false"]),
+    .xterm, .monaco-editor, [role="textbox"],
+    .akari-daihon-row-edit input, .markdown-body, .theia-markdown,
+    #akari-partner-onboarding div[style*="white-space: pre-wrap"]) {
+    user-select: text;
+    -webkit-user-select: text;
+}
+
 /* ══ 1. 二重線の除去 ═══════════════════════════════════════════
    カード外周のすぐ内側 / 仕切りの上に重なる Theia 由来の border を落とす。
    仕切りそのものは akari-shell-card-layout.ts の inset box-shadow が 1 本だけ引く。 */
@@ -254,8 +271,40 @@ export const SHELL_INNER_CHROME_CSS = `
 }
 `;
 
+export const SELECTABLE_TEXT_FOCUS_SELECTOR = 'input, textarea, [contenteditable]:not([contenteditable="false"]), .xterm, .monaco-editor, [role="textbox"], .markdown-body, .theia-markdown, #akari-partner-onboarding div[style*="white-space: pre-wrap"]';
+
+export function isSelectableTextFocus(focus: Element | null): boolean {
+    return !!focus?.closest(SELECTABLE_TEXT_FOCUS_SELECTOR);
+}
+
+/** Browser fallback when no Theia select-all keybinding has handled the event. */
+export function shouldSuppressShellSelectAll(event: KeyboardEvent, focus: Element | null): boolean {
+    return !event.defaultPrevented && !event.isComposing
+        && event.key.toLowerCase() === 'a' && (event.ctrlKey || event.metaKey)
+        && !event.shiftKey && !event.altKey
+        && !isSelectableTextFocus(focus);
+}
+
 @injectable()
-export class AkariShellInnerChromeContribution implements FrontendApplicationContribution {
+export class AkariShellInnerChromeContribution implements FrontendApplicationContribution, CommandContribution {
+
+    @inject(FrontendApplicationStateService)
+    protected readonly stateService!: FrontendApplicationStateService;
+
+    protected stopped = false;
+
+    protected readonly onSelectAllKeyDown = (event: KeyboardEvent): void => {
+        if (shouldSuppressShellSelectAll(event, document.activeElement)) event.preventDefault();
+    };
+
+    registerCommands(commands: CommandRegistry): void {
+        // CommandRegistry prepends later handlers. This wins over Theia's document.execCommand('selectAll')
+        // only for non-text focus; Monaco, terminals and editable fields keep their own handlers.
+        commands.registerHandler(CommonCommands.SELECT_ALL.id, {
+            isEnabled: () => !isSelectableTextFocus(document.activeElement),
+            execute: () => undefined
+        });
+    }
 
     onStart(): void {
         if (document.getElementById('akari-shell-inner-chrome')) {
@@ -265,5 +314,15 @@ export class AkariShellInnerChromeContribution implements FrontendApplicationCon
         style.id = 'akari-shell-inner-chrome';
         style.textContent = SHELL_INNER_CHROME_CSS;
         document.head.appendChild(style);
+        // Theia registers its capture keybindings after contributions start and before ready.
+        // Add this guard only after that, so commands such as daihon selectAllRows win.
+        void this.stateService.reachedState('ready').then(() => {
+            if (!this.stopped) document.addEventListener('keydown', this.onSelectAllKeyDown, true);
+        });
+    }
+
+    onStop(): void {
+        this.stopped = true;
+        document.removeEventListener('keydown', this.onSelectAllKeyDown, true);
     }
 }
