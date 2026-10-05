@@ -120,10 +120,15 @@ import { createTimelineEditContent, estimateAspectFromOrientation, timelineDispl
 import { relativeTimelineMaterialPath, timelineEmptyStateMessage } from '../common/timeline-empty-state';
 import { planTimelineHeaderWheel } from '../common/timeline-header-wheel';
 import { trackHeaderControls } from '../common/track-header-controls';
+import { applyTrackRipplePreset, isFollowingCaptionTrack, rippleTagPresentation } from '../common/track-ripple-tag';
+import { appendTrackRippleContextActions, createTrackRippleControl, createTrackRippleMenuButton,
+    modeMutation, observeTrackRippleDisplay, openTrackRipplePresetMenu,
+    placeTrackRippleHeaderLines } from './timeline/track-ripple-tag';
+import type { TrackV2 } from '@akari-video/edit-store';
 import { isTrackLocked, lockedTrackMessage } from '../common/track-lock-guard';
 import {
     canSplitCutAudio, splitCutAudio, unlinkCutAudio, linkedAudioItemIdOf, linkedCutIdOf,
-    moveLinkedCutAudio, removeCutAudioLinked, type EditV2
+    moveLinkedCutAudio, removeCutAudioLinked, resolveTrackRippleMode, type EditV2
 } from '@akari-video/edit-store';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
@@ -489,6 +494,7 @@ import {
 
 // スキーマは akari-surfaces が所有。拡張間の依存を増やさず文字列をミラーする。
 const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
+const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 // akari-preview 側の同名イベントと payload を文字列だけミラーし、拡張間依存を増やさない。
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
@@ -1846,6 +1852,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             border: '1px solid var(--theia-widget-border)', borderRight: '0', borderBottom: '0',
             borderRadius: '4px 0 0 0', background: RULER_BAND_BACKGROUND, boxSizing: 'border-box'
         });
+        this.trackHeaderRulerSpacer.appendChild(createTrackRippleMenuButton(anchor => {
+            this.closeAnnotationPopup();
+            const clipIds = this.clipboardSelections().map(selection => this.trackIdOfSelection(selection))
+                .filter((id): id is string => Boolean(id));
+            const headerId = this.trackHeaderColumn.dataset.akariRippleSelectedTrackId;
+            const eligible = new Set((this.editDocument?.tracks as TrackV2[] | undefined)
+                ?.filter(track => !isFollowingCaptionTrack(track)).map(track => track.id));
+            const selected = [...new Set((clipIds.length ? clipIds : headerId ? [headerId] : [])
+                .filter(id => eligible.has(id)))];
+            const fallback = [...this.displayTimelineTracks].find(track => track.kind !== 'audio' && track.kind !== 'captions');
+            const ids = selected.length ? selected : fallback ? [fallback.id] : [];
+            const popup = openTrackRipplePresetMenu(anchor, selected.length
+                ? '選んだトラックだけ切る（他は固定）' : '本編だけ切る（他は固定）', preset => {
+                this.closeAnnotationPopup();
+                void this.commitEditMutation('トラックの詰め方をまとめて変更', doc =>
+                    applyTrackRipplePreset(doc as unknown as EditV2, preset, ids) as unknown as EditV2Document
+                ).catch(error => this.showNotice(`トラックの詰め方を変更できません: ${this.errorMessage(error)}`));
+            });
+            document.body.appendChild(popup);
+            this.contextPopup = popup;
+            setTimeout(() => document.addEventListener('pointerdown', event => {
+                if (!popup.contains(event.target as Node) && event.target !== anchor) this.closeAnnotationPopup();
+            }, { capture: true, once: true }), 0);
+        }));
+        this.toDispose.push(observeTrackRippleDisplay(this.preferences, () => this.renderStrip()));
         Object.assign(this.trackHeadersViewport.style, {
             minHeight: '0', overflow: 'hidden', border: '1px solid var(--theia-widget-border)',
             borderRight: '0', borderRadius: '0 0 0 4px',
@@ -13050,12 +13081,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const locked = this.isTrackLocked(track.id);
             const treeRows = this.treeRowsByTrack.get(track.id) ?? [];
+            const rippleTrack = (this.editDocument?.tracks as TrackV2[] | undefined)?.find(raw => raw.id === track.id);
             const { element: header, created } = this.keyedNode(
                 'header', `header:${layout.id ?? track.id}`, JSON.stringify([track, name, visible, audible, locked, treeRows,
                     treeRows.map(row => {
                         const raw = this.rawV2Item(row.id);
                         return [raw?.name, raw?.source?.canvas?.intent];
                     }),
+                    rippleTrack?.target, rippleTrack?.sync, layout.height,
+                    this.preferences?.get<string>(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, 'tag'),
                     this.timelineRowStride(track.id), this.pasteTargetTracks.has(track.id),
                     treeRows.map(row => this.keyframeRowsByItem.get(row.id)),
                     ...(track.kind === 'captions' ? [this.captionFragmentBreaksVisible()] : [])]),
@@ -13067,6 +13101,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             header.style.top = `${layout.top}px`;
             header.style.height = `${layout.height}px`;
+            header.classList.toggle('akari-track-ripple-selected',
+                this.trackHeaderColumn.dataset.akariRippleSelectedTrackId === track.id);
             if (created && treeRows.length > 0) {
                 this.decorateTreeTrackHeader(header, treeRows);
             }
@@ -13075,14 +13111,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected decorateTreeTrackHeader(header: HTMLDivElement, rows: readonly TimelineTreeRow[]): void {
-        const trackLine = document.createElement('div');
-        trackLine.className = 'akari-track-header-trackline';
-        for (const child of Array.from(header.childNodes)) {
-            if (child instanceof HTMLElement
-                && child.classList.contains('akari-track-header-resize-handle')) continue;
-            trackLine.appendChild(child);
+        let trackLine = header.querySelector<HTMLDivElement>(':scope > .akari-track-header-trackline');
+        if (!trackLine) {
+            trackLine = document.createElement('div');
+            trackLine.className = 'akari-track-header-trackline';
+            for (const child of Array.from(header.childNodes)) {
+                if (child instanceof HTMLElement
+                    && child.classList.contains('akari-track-header-resize-handle')) continue;
+                trackLine.appendChild(child);
+            }
+            header.insertBefore(trackLine, header.firstChild);
         }
-        header.insertBefore(trackLine, header.firstChild);
         header.dataset.akariTreeTrack = 'true';
         rows.forEach(treeRow => {
             const stride = this.timelineRowStride(treeRow.trackId);
@@ -13393,16 +13432,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
             row.append(this.trackHeaderButton(`${name}をロック`, 'lock', locked, this.lockSvg(), toggleLock));
         }
         if (timelineTrack) {
+            const raw = (this.editDocument?.tracks as TrackV2[] | undefined)?.find(candidate => candidate.id === timelineTrack.id);
+            if (raw || timelineTrack.kind === 'captions') {
+                const shownTrack = raw ?? { id: timelineTrack.id, lane: 'visual', items: [] } as TrackV2;
+                const presentation = rippleTagPresentation(resolveTrackRippleMode(shownTrack), locked,
+                    timelineTrack.kind === 'captions' ? 'caption' : 'track', height);
+                row.append(createTrackRippleControl(shownTrack, presentation,
+                    this.preferences?.get<string>(AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, 'tag') === 'switches' ? 'switches' : 'tag',
+                    mutate => {
+                        void this.commitEditMutation('トラックの詰め方を変更', doc =>
+                            mutate(doc as unknown as EditV2) as unknown as EditV2Document
+                        ).catch(error => this.showNotice(`トラックの詰め方を変更できません: ${this.errorMessage(error)}`));
+                    }
+                ));
+            }
+        }
+        if (timelineTrack) {
             nameElement.addEventListener('dblclick', event => {
                 event.preventDefault();
                 event.stopPropagation();
                 this.beginTrackRename(nameElement, timelineTrack);
             });
-            row.addEventListener('pointerdown', event => this.onTrackHeaderPointerDown(event, timelineTrack));
+            row.addEventListener('pointerdown', event => {
+                if (!(event.target instanceof Element && event.target.closest('button, input'))) {
+                    this.trackHeaderColumn.dataset.akariRippleSelectedTrackId = timelineTrack.id;
+                    for (const header of Array.from(this.trackHeaders.querySelectorAll<HTMLElement>('.akari-track-header-row'))) {
+                        header.classList.toggle('akari-track-ripple-selected', header === row);
+                    }
+                }
+                this.onTrackHeaderPointerDown(event, timelineTrack);
+            });
             if (timelineTrack.kind === 'cuts' || timelineTrack.kind === 'audio' || this.visualTrack(timelineTrack)) {
                 row.appendChild(this.trackHeightResizeHandle(timelineTrack));
             }
         }
+        placeTrackRippleHeaderLines(row);
         return row;
     }
 
@@ -13614,6 +13678,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }));
         if (targetId) {
+            const raw = (this.editDocument?.tracks as TrackV2[] | undefined)?.find(track => track.id === targetId);
+            if (raw) appendTrackRippleContextActions(popup, raw, this.isTrackLocked(targetId), mode => {
+                this.closeAnnotationPopup();
+                void this.commitEditMutation('トラックの詰め方を変更', doc =>
+                    modeMutation(targetId, mode)(doc as unknown as EditV2) as unknown as EditV2Document
+                ).catch(error => this.showNotice(`トラックの詰め方を変更できません: ${this.errorMessage(error)}`));
+            });
             popup.appendChild(menuButton('トラックを削除', () => {
                 this.closeAnnotationPopup();
                 void this.deleteTimelineTrack(targetId);
