@@ -22,19 +22,19 @@ test('playhead line hit target is confined to the ruler row', () => {
 
 test('material, overlay, shape and text drop placement reveal and pulse the placed item', () => {
   const material = section('async addMaterialAt(', 'protected async placeMaterialAtTarget(');
-  assert.equal((material.match(/await this\.focusTimelineItem\?\.\(itemId, \{ reveal: true, pulse: true \}\)/gu) ?? []).length, 1);
-  assert.equal((material.match(/await this\.focusTimelineItem\?\.\(String\(item\.id\), \{ reveal: true, pulse: true \}\)/gu) ?? []).length, 1);
+  assert.match(material, /focusTimelineItem\?\.\(itemId, \{\s*\.\.\.\(options\?\.zone \? \{ seekIfOutside: true \} : \{\}\), reveal: true, pulse: true/u);
+  assert.match(material, /focusTimelineItem\?\.\(String\(item\.id\), \{\s*\.\.\.\(options\?\.zone \? \{ seekIfOutside: true \} : \{\}\), reveal: true, pulse: true/u);
   const overlay = section('async addOverlayAtOutputPoint(', 'async addMaterialAt(');
-  assert.match(overlay, /await this\.focusTimelineItem\(placedId, \{ seek: false, reveal: true, pulse: true \}\)/u);
+  assert.match(overlay, /focusTimelineItem\(placedId, \{\s*\.\.\.\(!options\.center \? \{ seekIfOutside: true \} : \{\}\), reveal: true, pulse: true/u);
   const shape = section('async addShapeAt(', 'protected async placeLibraryAssetAtTarget(');
-  assert.match(shape, /await this\.focusTimelineItem\(placed\.id, \{ seek: !timelineTarget, reveal: true, pulse: true \}\)/u);
+  assert.match(shape, /focusTimelineItem\(placed\.id, \{\s*seek: !timelineTarget, \.\.\.\(timelineTarget \? \{ seekIfOutside: true \} : \{\}\), reveal: true, pulse: true/u);
   const drop = section('protected async placeMaterialAtTarget(', 'protected readMaterialDropPayload(');
   assert.match(drop, /await this\.addMaterialAt\(/u);
   const textPlace = section('async placeText(', 'async applyLibraryItem(');
-  assert.match(textPlace, /await this\.focusTimelineItem\?\.\(caption\.id, \{ reveal: true, pulse: true \}\)/u);
+  assert.match(textPlace, /focusTimelineItem\?\.\(caption\.id, \{\s*\.\.\.\(options\.timelineDrop \? \{ seekIfOutside: true \} : \{\}\), reveal: true, pulse: true/u);
 });
 
-test('addShapeAt focuses the placed shape with reveal and pulse without seeking on timeline drop', async () => {
+test('addShapeAt focuses the placed shape and seeks only when outside its timeline interval', async () => {
   const calls = [];
   let doc = { version: 2, output: { width: 1920, height: 1080, fps: 30 },
     tracks: [{ id: 'v1', lane: 'visual', items: [] }] };
@@ -58,10 +58,10 @@ test('addShapeAt focuses the placed shape with reveal and pulse without seeking 
     timelineTarget: { zone: 'layers', targetTrackId: 'v1', rejected: false } });
   assert.equal(placed, 'shape-1');
   assert.equal(doc.tracks[0].items[0].id, placed);
-  assert.deepEqual(calls, [{ id: placed, options: { seek: false, reveal: true, pulse: true } }]);
+  assert.deepEqual(calls, [{ id: placed, options: { seek: false, seekIfOutside: true, reveal: true, pulse: true } }]);
 });
 
-test('timeline material drop focuses the actual video and audio ids with reveal and pulse', async () => {
+test('timeline material drop focuses video and audio and seeks only when outside their intervals', async () => {
   const addMaterialAt = timelineMethod('addMaterialAt', {
     indexEditV2Items: mutations.indexEditV2Items, stringifyEditV2: mutations.stringifyEditV2,
     insertAudioSfxPreferV2: mutations.insertAudioSfxPreferV2,
@@ -83,7 +83,7 @@ test('timeline material drop focuses the actual video and audio ids with reveal 
       writeTimelineSnapshots: async source => { doc = JSON.parse(source); }, reloadEdit: async () => {},
       pushHistory() {}, annotationsService: { measureAudioForLevel: async () => ({ ok: false, reason: 'test' }) },
       resolveEditMediaUri: () => uri, hideNotice() {}, footer: {}, revealOutputPreview() {},
-      focusTimelineItem: async (id, options) => { calls.push({ id, options }); },
+      focusTimelineItem: async (id, options) => { calls.push({ id, options }); return true; },
       beyondCutsEndNote: () => '', notice: { hasMessage: () => false, node: { textContent: '' } },
       materialDropTime: x => x / 10, messages: { warn: assert.fail, error: assert.fail },
       errorMessage: error => error.message, showNotice: assert.fail };
@@ -92,11 +92,11 @@ test('timeline material drop focuses the actual video and audio ids with reveal 
         top: 0, height: 32, rejected: false }, 30, 'strip');
     const placed = doc.tracks.flatMap(track => track.items).find(item => item.id !== undefined);
     assert.equal(placed?.id, calls[0]?.id, kind);
-    assert.deepEqual(calls, [{ id: placed.id, options: { reveal: true, pulse: true } }], kind);
+    assert.deepEqual(calls, [{ id: placed.id, options: { seekIfOutside: true, reveal: true, pulse: true } }], kind);
   }
 });
 
-test('addOverlayAtOutputPoint focuses the created id with reveal and pulse', async () => {
+test('addOverlayAtOutputPoint focuses the created id and seeks only when outside its interval', async () => {
   const method = timelineMethod('addOverlayAtOutputPoint', { parseOverlayPlaceRequest,
     resolveThenWriteOverlay, nextOverlayItemId, buildOverlayItem, insertOverlayItem,
     overlayDefaultVars, isUsableOverlayBox });
@@ -114,7 +114,7 @@ test('addOverlayAtOutputPoint focuses the created id with reveal and pulse', asy
   const id = await method.call(state, { key: 'overlay/lower-third-clean', t: 3 });
   assert.equal(doc.tracks.flatMap(track => track.items)[0].id, id);
   assert.equal(doc.tracks.flatMap(track => track.items)[0].at, 90);
-  assert.deepEqual(calls, [{ id, options: { seek: false, reveal: true, pulse: true } }]);
+  assert.deepEqual(calls, [{ id, options: { seekIfOutside: true, reveal: true, pulse: true } }]);
 });
 
 test('caption ids resolve for focus and the playhead hit element is only ruler high', () => {

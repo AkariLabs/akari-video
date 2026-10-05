@@ -129,7 +129,7 @@ test('図形はポインタの映像行を使い、重なると直上の新し�
     }
 });
 
-test('図形の確定配置は仮枠の行へ入り、再生位置を保つ', async () => {
+test('図形の確定配置は仮枠の行へ入り、再生位置が区間内なら保つ', async () => {
     const handler = fixture([track('v1', 'visual'), track('v2', 'visual', [item('existing')])]);
     let focused;
     handler.commands = { executeCommand: async () => ({ preset: { id: 'rectangle' } }) };
@@ -139,7 +139,7 @@ test('図形の確定配置は仮枠の行へ入り、再生位置を保つ', as
     const target = handler.materialDropTargetWithoutOverlap(handler.resolveMaterialDropTarget('image', row.top + 16), 3, 5);
     await handler.addShapeAt({ preset: 'rectangle', t: 3, timelineTarget: target });
     assert.equal(handler.editDocument.tracks[2].items[0].at, 90);
-    assert.deepEqual(focused, { seek: false, reveal: true, pulse: true });
+    assert.deepEqual(focused, { seek: false, seekIfOutside: true, reveal: true, pulse: true });
     assert.equal(handler.playheadT, 3);
 });
 

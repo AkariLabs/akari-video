@@ -2576,13 +2576,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     async focusTimelineItem(itemId: string, options: {
-        seek?: boolean; reveal?: boolean; pulse?: boolean;
+        seek?: boolean; seekIfOutside?: boolean; reveal?: boolean; pulse?: boolean;
     } = {}): Promise<boolean> {
         const selection = this.resolveFocusSelection(itemId);
         if (!selection) return false;
         this.applySelection(selection);
         const range = this.focusRangeFor(selection);
-        if (options.seek && range) {
+        if (range && (options.seek || (options.seekIfOutside
+            && (this.playheadT < range[0] || this.playheadT >= range[1])))) {
             await this.requestSeek(range[0], { domain: 'output' });
         }
         if (options.reveal) {
@@ -2598,7 +2599,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (options.pulse) {
             this.pulseFocusedItem(selection);
         }
-        return true;
+        return !options.seekIfOutside || !!range;
     }
 
     async seekTimelineOutput(seconds: number): Promise<void> {
@@ -4639,7 +4640,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         name.focus();
     }
 
-    async placeText(options: PlaceTextOptions & { myStyle?: { uid?: string; revision?: number;
+    async placeText(options: PlaceTextOptions & { timelineDrop?: boolean; myStyle?: { uid?: string; revision?: number;
         parts: Array<{ kind: string; text_style?: unknown; animation?: unknown }> } } = {}): Promise<string | undefined> {
         const location = this.location;
         if (!location?.editUri || this.placingText) return undefined;
@@ -4732,11 +4733,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (attachedParts.length || canvas) await this.reloadEdit();
             await this.reloadCaptions();
             this.selectCaptions(location.editUri.toString(), [caption.id]);
-            this.playheadT = caption.start;
-            this.playhead.style.left = `${this.percent(caption.start)}%`;
-            await this.requestSeek(caption.start, { domain: 'output' });
+            if (!options.timelineDrop) {
+                this.playheadT = caption.start;
+                this.playhead.style.left = `${this.percent(caption.start)}%`;
+                await this.requestSeek(caption.start, { domain: 'output' });
+            }
             this.publishPrimaryPreviewSelection({ kind: 'caption', id: caption.id });
-            await this.focusTimelineItem?.(caption.id, { reveal: true, pulse: true });
+            const focused = await this.focusTimelineItem?.(caption.id, {
+                ...(options.timelineDrop ? { seekIfOutside: true } : {}), reveal: true, pulse: true
+            });
+            if (options.timelineDrop && !focused && (this.playheadT < caption.start || this.playheadT >= caption.end)) {
+                await this.requestSeek(caption.start, { domain: 'output' });
+            }
             const notice = options.myStyle && myStyleApplyNotice(options.myStyle.parts);
             if ((look || motion || attachedParts.length) && options.myStyle) await this.recordMyStyleUsage(options.myStyle,
                 [caption.id], appliedMyStyleKinds(options.myStyle.parts, ['look', 'motion', 'sfx', 'fx', 'decor']));
@@ -6373,7 +6381,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                 });
             if (!placed || !placedId) return undefined;
-            await this.focusTimelineItem(placedId, { seek: false, reveal: true, pulse: true });
+            const focused = await this.focusTimelineItem(placedId, {
+                ...(!options.center ? { seekIfOutside: true } : {}), reveal: true, pulse: true
+            });
+            if (!options.center && !focused) {
+                const start = this.frameAt(t) / this.fps;
+                const end = start + this.frameAt(5) / this.fps;
+                if (this.playheadT < start || this.playheadT >= end) {
+                    await this.requestSeek?.(start, { domain: 'output' });
+                }
+            }
             this.footer.textContent = 'オーバーレイを置きました。';
             return placedId;
         } catch (error) {
@@ -6602,7 +6619,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 this.hideNotice();
                 this.footer.textContent = `${overlapNote}${autoLevelNotice || `${successNote}${fallbackNote}`}`;
-                await this.focusTimelineItem?.(itemId, { reveal: true, pulse: true });
+                const focused = await this.focusTimelineItem?.(itemId, {
+                    ...(options?.zone ? { seekIfOutside: true } : {}), reveal: true, pulse: true
+                });
+                if (options?.zone && !focused) {
+                    const start = this.frameAt(Math.max(0, t)) / this.fps;
+                    const end = start + Math.max(1, this.frameAt(durationSeconds)) / this.fps;
+                    if (this.playheadT < start || this.playheadT >= end) {
+                        await this.requestSeek?.(start, { domain: 'output' });
+                    }
+                }
                 this.revealOutputPreview();
                 return itemId;
             }
@@ -6697,7 +6723,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                 }
             });
-            const focused = await this.focusTimelineItem?.(String(item.id), { reveal: true, pulse: true });
+            const focused = await this.focusTimelineItem?.(String(item.id), {
+                ...(options?.zone ? { seekIfOutside: true } : {}), reveal: true, pulse: true
+            });
+            if (options?.zone && !focused) {
+                const start = (item.at as number) / this.fps;
+                const end = start + (item.duration as number) / this.fps;
+                if (this.playheadT < start || this.playheadT >= end) {
+                    await this.requestSeek?.(start, { domain: 'output' });
+                }
+            }
             if (options?.placeOnTop && !focused) this.applySelection({ kind: 'layer', id: String(item.id) });
             this.hideNotice();
             this.footer.textContent = `${successNote}${overlapNote}${beyondNote}${fallbackNote}`;
@@ -7027,8 +7062,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : textPayload.kind === 'mystyle' ? { ...textPlaceOptions(start), myStyle: textPayload.style }
                     : textPlaceOptions(start);
             void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID,
-                event.altKey ? { ...options, outsideCanvas: true }
-                    : canvasId ? { ...options, canvasId } : options, this.location.editUri.toString());
+                event.altKey ? { ...options, outsideCanvas: true, timelineDrop: true }
+                    : canvasId ? { ...options, canvasId, timelineDrop: true }
+                        : { ...options, timelineDrop: true }, this.location.editUri.toString());
             return;
         }
         const libraryAsset = this.readLibraryAssetDropPayload(event.dataTransfer);
@@ -7216,7 +7252,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const placed = placement.placed;
             if (!placed) return undefined;
             window.dispatchEvent(new CustomEvent(SHAPE_PLACED_EVENT, { detail: { preset: options.preset, id: placed.id } }));
-            await this.focusTimelineItem(placed.id, { seek: !timelineTarget, reveal: true, pulse: true });
+            const focused = await this.focusTimelineItem(placed.id, {
+                seek: !timelineTarget, ...(timelineTarget ? { seekIfOutside: true } : {}), reveal: true, pulse: true
+            });
+            if (timelineTarget && !focused) {
+                const start = this.frameAt(t) / this.fps;
+                const end = start + this.frameAt(SHAPE_PLACE_DEFAULT_DURATION_SECONDS) / this.fps;
+                if (this.playheadT < start || this.playheadT >= end) {
+                    await this.requestSeek?.(start, { domain: 'output' });
+                }
+            }
             this.hideNotice();
             this.footer.textContent = placed.createdTrack ? '図形を置きました（新しいトラックに置きました）。' : '図形を置きました。';
             this.revealOutputPreview();
