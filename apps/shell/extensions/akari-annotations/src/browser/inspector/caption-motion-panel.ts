@@ -1,5 +1,5 @@
 import type { InspectorWriteRequest, InspectorWriteResult, TimelineCaptionSelection } from '../timeline-selection-model';
-import { PREVIEW_CAPTION_ANIMATION_RECIPES } from 'akari-preview/lib/common/caption-text-animation-recipes';
+import { PREVIEW_CAPTION_ANIMATION_RECIPES, PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS } from 'akari-preview/lib/common/caption-text-animation-recipes';
 import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionCards,
     captionTextAnimationCards, captionTextAnimationWrite } from './caption-motion-cards';
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
@@ -16,6 +16,7 @@ export interface CaptionMotionServices {
 }
 
 const slots: readonly InspectorMotionSlot[] = ['in', 'loop', 'out'];
+const oneShotLoopIds = new Set<string>(PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS);
 const labels = { in: '登場', loop: '強調', out: '退場' } as const;
 const presetToAnimation: Record<string, string> = {
     fade: 'fade-in-out', 'slide-up': 'slide-up', 'slide-down': 'slide-down',
@@ -169,7 +170,8 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 sample.style.setProperty('--akari-motion-karaoke-color', karaokeColor);
                 sample.style.animation = 'akari-motion-karaoke 1.4s steps(3,end) infinite';
             } else {
-                const direction = item.slot === 'out' ? 'reverse' : item.slot === 'loop' ? 'alternate' : 'normal';
+                const direction = item.slot === 'out' ? 'reverse'
+                    : item.slot === 'loop' && !oneShotLoopIds.has(item.animation) ? 'alternate' : 'normal';
                 sample.style.animation = `akari-motion-sample-${item.animation} 1.4s ease-in-out infinite ${direction}`;
             }
             sample.style.animationPlayState = observer ? 'paused' : 'running';

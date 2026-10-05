@@ -169,6 +169,11 @@ const easeCurves: Record<string, readonly [number, number, number, number] | nul
 const ampScaleAtStart = new Set(['soft-fade', 'cinematic-fade', 'zoom-in-out', 'stomp']);
 const ampScaleAtOvershoot = new Set(['zoom-pop', 'stretch-in']);
 
+// Entry recipes remain finite even when an inspector places them in the loop slot.
+// Mirrors: render-cut/src/captions.mjs and akari-preview/common/caption-text-animation-recipes.ts.
+export const CAPTION_ONE_SHOT_LOOP_IDS = ['spin-in', 'rotate-in', 'roll-in', 'spiral-in'] as const;
+const oneShotLoopIds = new Set<string>(CAPTION_ONE_SHOT_LOOP_IDS);
+
 export function isCaptionMotionSupported(declaration: CaptionMotionDeclaration | null): { supported: boolean; unsupported: string[] } {
   if (!declaration) return { supported: true, unsupported: [] };
   const ids = ['in', 'loop', 'out'].flatMap((kind) => {
@@ -212,7 +217,10 @@ export function captionMotionAt(
   }
   if (declaration.loop) {
     const period = positiveDuration(declaration.loop.durationSec ?? declaration.loop.duration_sec, 1.6);
-    applySlot(state, declaration.loop, (local % period) / period, em, amp, plateWidthPx, plateHeightPx, 'linear');
+    const oneShot = oneShotLoopIds.has(declaration.loop.id);
+    const progress = oneShot ? Math.min(1, local / period) : (local % period) / period;
+    applySlot(state, declaration.loop, progress, em, amp, plateWidthPx, plateHeightPx,
+      oneShot ? (declaration.loop.ease ?? 'ease-out') : 'linear');
   }
   if (declaration.out) {
     const duration = slotDuration(declaration.out, cueDuration, 0.6);

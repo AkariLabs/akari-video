@@ -642,6 +642,10 @@ const LOOP_ANIMATION_IDS = new Set([
   "wobble", "float", "breath", "neon-flicker", "hologram", "retro-flicker",
   "news-ticker", "marquee-left", "crawl-up",
 ]);
+// Mirrors frame-engine/src/timeline/caption-motion.ts CAPTION_ONE_SHOT_LOOP_IDS and
+// akari-preview/src/common/caption-text-animation-recipes.ts. Parity is tested across layers.
+export const CAPTION_ONE_SHOT_LOOP_IDS = ["spin-in", "rotate-in", "roll-in", "spiral-in"];
+const ONE_SHOT_LOOP_IDS = new Set(CAPTION_ONE_SHOT_LOOP_IDS);
 
 // textStyle.animation → プレートに載せる animation プロパティ + 使用キーフレーム CSS。
 // overlayDuration はこのオーバーレイ自身の表示秒（out の開始遅延に使う）。
@@ -662,7 +666,9 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
     if (slot.amp !== undefined) ampValues.push(slot.amp);
     if (kind === "loop") {
       const period = slot.duration_sec ?? DEFAULT_LOOP_PERIOD_SEC;
-      parts.push(`akari-anim-${slot.id} ${formatSeconds(period)}s linear 0s infinite both paused`);
+      parts.push(ONE_SHOT_LOOP_IDS.has(slot.id)
+        ? `akari-anim-${slot.id} ${formatSeconds(period)}s ${slot.ease ?? "ease-out"} 0s 1 normal both paused`
+        : `akari-anim-${slot.id} ${formatSeconds(period)}s linear 0s infinite both paused`);
       return;
     }
     const duration = Math.min(
