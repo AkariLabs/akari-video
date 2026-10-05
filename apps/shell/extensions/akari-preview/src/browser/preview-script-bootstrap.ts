@@ -2952,14 +2952,14 @@ export function previewBootstrapScript(): string {
                 let finished = false;
                 let settleTimer = null;
                 const clearSettleTimer = () => {
-                    if (settleTimer !== null) clearTimeout(settleTimer);
+                    if (settleTimer !== null && typeof clearTimeout === 'function') clearTimeout(settleTimer);
                     settleTimer = null;
                 };
                 try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const cleanup = () => {
-                    clearSettleTimer();
                     selectionDragActive = false;
                     document.body.classList.remove('akari-selection-gesture-active');
+                    clearSettleTimer();
                     document.body.classList.remove('akari-media-transforming');
                     document.body.classList.remove('akari-media-moving');
                     gestureLabel.remove();
@@ -3006,7 +3006,7 @@ export function previewBootstrapScript(): string {
                             + '") 16 16, crosshair';
                     }
                     target.applyTransform(latestTransform, previewPatch, visiblePosition);
-                    if (positionOnly && !settled) {
+                    if (positionOnly && !settled && typeof setTimeout === 'function') {
                         // 停止後は pointermove が来ないため、同じ座標を再評価して速度だけ減衰させる。
                         settleTimer = setTimeout(() => {
                             settleTimer = null;

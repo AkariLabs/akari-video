@@ -176,7 +176,7 @@ test('layer snap keeps the cropped selection frame pivot when rotated', () => {
     assert.equal(result.bounds.centerY, 265);
 });
 
-function mediaTransformDragHarness(handleKind = null) {
+function mediaTransformDragHarness(handleKind = null, timersAvailable = true) {
     const listeners = new Map();
     const timers = new Map();
     const computed = [];
@@ -208,6 +208,10 @@ function mediaTransformDragHarness(handleKind = null) {
         },
         clearTimeout: id => timers.delete(id)
     };
+    if (!timersAvailable) {
+        delete context.setTimeout;
+        delete context.clearTimeout;
+    }
     vm.createContext(context);
     const drag = declaration('const beginMediaTransformDrag = (target, startEvent, computeTransform) => {',
         'const pointerTranslationFrom =');
@@ -288,6 +292,17 @@ test('resize does not schedule a move pause timer', () => {
     assert.equal(drag.timers.size, 0);
     drag.advance(200);
     assert.equal(drag.computed.length, 1);
+});
+
+test('move and cancellation work when timer APIs are unavailable', () => {
+    const drag = mediaTransformDragHarness(null, false);
+    const move = { pointerId: 7, clientX: 170, clientY: 20 };
+    drag.dispatch('pointermove', move);
+    assert.equal(drag.computed.length, 1);
+    assert.equal(drag.applied.length, 1);
+    assert.equal(drag.timers.size, 0);
+    drag.dispatch('pointercancel', move);
+    assert.equal(drag.timers.size, 0);
 });
 
 test('only canvas snap guides extend beyond the preview in both directions', () => {
