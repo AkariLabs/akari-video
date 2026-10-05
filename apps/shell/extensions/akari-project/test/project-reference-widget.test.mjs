@@ -121,5 +121,5 @@ test('Lab の欠落媒体はメタデータだけ残っていても強制再取�
     const f = fixture();
     f.handler.host.projectService.resolveAsset = async (...args) => { f.calls.push(args); return { success: true }; };
     await f.handler.retryMaterialReference({ reference });
-    assert.deepEqual(f.calls, [['sound', 'file:///project', { force: true }], 'reload']);
+    assert.deepEqual(f.calls, [['audio/sound', 'file:///project', { force: true }], 'reload']);
 });

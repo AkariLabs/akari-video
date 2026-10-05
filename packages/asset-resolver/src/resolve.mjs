@@ -1,5 +1,5 @@
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
-// resolve(id): 「使った素材だけをオンデマンドで取得する」の核。
+// resolve(ref): 「使った素材だけをオンデマンドで取得する」の核。
 //
 // キャッシュヒット → 即パスを返す。未取得 → 全ファイルを一時ディレクトリへ実体化 →
 // sha256 検証 → validate-asset で契約検証（無料経路は meta.json を持つ素材のみ・有料経路は必須）→
@@ -34,6 +34,24 @@ const repoRoot = path.resolve(here, '..', '..', '..');
 const VALIDATE_ASSET_SCRIPT = path.join(repoRoot, 'packages', 'schemas', 'bin', 'validate-asset.mjs');
 
 export { AssetResolverError };
+
+/** category/id を優先し、bare id はカタログ内で一意な場合だけ解決する。 */
+export function findCatalogItem(catalog, ref) {
+  if (typeof ref === 'string' && ref.includes('/')) {
+    const item = catalog.items.find((entry) => `${entry.category}/${entry.id}` === ref);
+    if (item) return item;
+  } else {
+    const matches = catalog.items.filter((entry) => entry.id === ref);
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1) {
+      const candidates = matches.map((entry) => `${entry.category}/${entry.id}`);
+      const error = new AssetResolverError(`素材 id が曖昧です: ${ref}（候補: ${candidates.join(', ')}）`, 'ambiguous_id');
+      error.candidates = candidates;
+      throw error;
+    }
+  }
+  throw new AssetResolverError(`未知の素材参照です: ${ref}`, 'not_found');
+}
 
 export async function copyIntoProject(sourceDir, projectDir, category, id) {
   // ライブラリ（<ライブラリの置き場>/<category>/<id>/）と同型に揃える（2026-08-04 決定）。
@@ -83,19 +101,16 @@ async function moveIntoLibrary(tempDir, destDir) {
 }
 
 /**
- * @param {string} id カタログの素材 id
+ * @param {string} ref カタログの category/id。bare id は一意な場合のみ互換解決する
  * @param {{ env?: object, fetchImpl?: Function, project?: string|null, force?: boolean, reference?: boolean }} options
  */
 export async function resolve(
-  id,
+  ref,
   { env = process.env, fetchImpl = fetch, project = null, force = false, reference = false } = {},
 ) {
   const home = resolveAssetLibraryRoots(env).write;
   const catalog = await loadCatalog({ env, fetchImpl });
-  const item = catalog.items.find((entry) => entry.id === id);
-  if (!item) {
-    throw new AssetResolverError(`未知の素材 id です: ${id}`, 'not_found');
-  }
+  const item = findCatalogItem(catalog, ref);
 
   const tier = assetTier(item);
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;

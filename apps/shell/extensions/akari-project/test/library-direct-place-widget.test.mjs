@@ -38,7 +38,7 @@ function fixture() {
 test('取得後は試聴ファイルをプロジェクト相対パスで返し、cached を更新する', async () => {
     const { handler, calls } = fixture();
     assert.deepEqual(await handler.resolveCatalogMaterial(item.key), { relativePath: 'assets/audio/sample/b.mp3', kind: 'audio' });
-    assert.deepEqual(calls, [['sample', 'file:///project']]);
+    assert.deepEqual(calls, [['audio/sample', 'file:///project']]);
     assert.equal(handler.assetCatalogItems[0].state, 'cached');
     assert.equal(handler.resolvingAssetKeys.size, 0);
 });

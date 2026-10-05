@@ -33,7 +33,7 @@ export interface AssetCatalogDirectoryEntry {
 export interface AssetCatalogImportDependencies {
     getWorkspaceRoot(): string | undefined;
     getCatalogItems(): Promise<readonly AssetCatalogImportItem[]>;
-    resolveAsset(id: string, projectRoot: string): Promise<{ success: true } | { success: false; error: string }>;
+    resolveAsset(ref: string, projectRoot: string): Promise<{ success: true } | { success: false; error: string }>;
     fileExists(projectRoot: string, relativePath: string): Promise<boolean>;
     readDirectory(projectRoot: string, relativePath: string): Promise<readonly AssetCatalogDirectoryEntry[]>;
 }
@@ -102,7 +102,7 @@ async function importAsset(
             return failure('locked', 'この素材は購入後に利用できます。');
         }
 
-        const outcome = await dependencies.resolveAsset(item.id, projectRoot);
+        const outcome = await dependencies.resolveAsset(`${item.category}/${item.id}`, projectRoot);
         if (outcome.success === false) {
             return failure('failed', '素材を取り込めませんでした。');
         }

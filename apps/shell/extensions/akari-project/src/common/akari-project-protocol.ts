@@ -391,8 +391,9 @@ export interface AkariProjectService {
      * resolver 直行（エージェント非経由）で素材を解決し、指定プロジェクトの assets/ 配下へ
      * 配置する。無料 or 購入済み（entitlements 保有）のみ成功する。未購入は
      * success=false + 購入案内メッセージで返る（resolver 自体の fail-closed をそのまま透過）。
+     * ref は category/id を指定する。bare id はカタログ内で一意な場合だけ互換解決する。
      */
-    resolveAsset(id: string, projectUri: string, options?: { force?: boolean }): Promise<AssetResolveOutcome>;
+    resolveAsset(ref: string, projectUri: string, options?: { force?: boolean }): Promise<AssetResolveOutcome>;
     /** カタログ外の置き場素材を検証し、既存の CoW コピーで assets/ へ配置する。 */
     placeLibraryAsset(source: LibraryAssetPlacementSource, projectUri: string): Promise<AssetResolveOutcome>;
     recordLibraryUsage(category: string, id: string, projectUri: string): Promise<void>;

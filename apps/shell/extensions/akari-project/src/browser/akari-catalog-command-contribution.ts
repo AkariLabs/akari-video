@@ -84,7 +84,7 @@ export class AkariCatalogCommandContribution implements CommandContribution {
             const preferenceRoot = this.preferences.get<string>('akari.catalog.root', '');
             return (await this.projectService.getAssetCatalogView(preferenceRoot, 'user')).items;
         },
-        resolveAsset: (id, projectRoot) => this.projectService.resolveAsset(id, projectRoot),
+        resolveAsset: (ref, projectRoot) => this.projectService.resolveAsset(ref, projectRoot),
         fileExists: (projectRoot, relativePath) => this.files.exists(new URI(projectRoot).resolve(relativePath)),
         readDirectory: async (projectRoot, relativePath) => {
             const stat = await this.files.resolve(new URI(projectRoot).resolve(relativePath));

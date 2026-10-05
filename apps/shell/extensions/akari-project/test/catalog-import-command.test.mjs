@@ -52,6 +52,20 @@ test('not-found: カタログに無い id を拒否する', async () => {
     assert.equal(resolveCalls, 0);
 });
 
+test('取得時に category/id を resolver へ渡す', async () => {
+    let receivedRef;
+    const importAsset = createAssetCatalogImporter(createDependencies({
+        resolveAsset: async ref => {
+            receivedRef = ref;
+            return { success: true };
+        }
+    }));
+
+    const result = await importAsset({ assetId: 'sample-asset' });
+    assert.equal(result.ok, true);
+    assert.equal(receivedRef, 'still/sample-asset');
+});
+
 test('alreadyPresent: meta.json があれば resolver を呼ばず直下ファイルを返す', async t => {
     const root = await mkdtemp(path.join(tmpdir(), 'akari-catalog-import-'));
     t.after(() => rm(root, { recursive: true, force: true }));
