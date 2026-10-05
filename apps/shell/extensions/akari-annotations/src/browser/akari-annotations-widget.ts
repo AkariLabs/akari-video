@@ -3965,7 +3965,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (request.path.startsWith('transform.')) {
                     const field = request.path.slice('transform.'.length);
                     const transform: Record<string, unknown> = { ...(raw.transform ?? {}) };
-                    if (field === 'scale' && typeof request.value === 'number') {
+                    if (raw.source?.kind === 'group' && (field === 'scale' || field === 'scaleX' || field === 'scaleY')) {
+                        if (request.value === null) delete transform.scale;
+                        else transform.scale = request.value;
+                        delete transform.scaleX;
+                        delete transform.scaleY;
+                    } else if (field === 'scale' && typeof request.value === 'number') {
                         const base = typeof transform.scale === 'number' ? transform.scale : 1;
                         const x = typeof transform.scaleX === 'number' ? transform.scaleX : base;
                         const y = typeof transform.scaleY === 'number' ? transform.scaleY : base;
@@ -4364,7 +4369,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 label = '音声クリップの設定を変更';
             }
             const keyframeField = request.kind === 'item-field' && request.path.startsWith('transform.')
-                ? request.path.slice('transform.'.length) as TransformField
+                ? (this.rawKeyframeItem(request.id)?.source?.kind === 'group'
+                    && (request.path === 'transform.scaleX' || request.path === 'transform.scaleY')
+                    ? 'scale' : request.path.slice('transform.'.length)) as TransformField
                 : ({ 'cut-transform-x': 'x', 'cut-transform-y': 'y', 'cut-scale': 'scale', 'cut-rotate': 'rotate',
                     'layer-transform-x': 'x', 'layer-transform-y': 'y', 'layer-scale': 'scale',
                     'layer-rotate': 'rotate' } as Record<string, TransformField>)[request.kind];

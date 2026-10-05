@@ -211,8 +211,19 @@ function resolveV2Write(parsed, command) {
             if (command.patch.xyKeyframes)
                 item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({ ...item,
                     keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
-            if (command.patch.transform)
-                writeTransform(command.patch.transform);
+            if (command.patch.transform) {
+                const transform = command.patch.transform;
+                if (transform.scaleX !== undefined || transform.scaleY !== undefined) {
+                    // A group has one size factor. Convert an axis gesture at the write boundary.
+                    const currentScale = item.transform?.scale ?? 1;
+                    const scale = Math.sqrt((transform.scaleX ?? transform.scale ?? currentScale)
+                        * (transform.scaleY ?? transform.scale ?? currentScale));
+                    const { scaleX: _scaleX, scaleY: _scaleY, ...uniform } = transform;
+                    writeTransform({ ...uniform, scale });
+                }
+                else
+                    writeTransform(transform);
+            }
             if (!command.patch.transform && !command.patch.xyKeyframes)
                 return {};
             return { candidateText: stringifyEdit(edit) };
