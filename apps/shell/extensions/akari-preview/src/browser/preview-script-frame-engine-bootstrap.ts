@@ -1230,7 +1230,10 @@ export function frameEngineBootstrapScript(): string {
                         : entries.findIndex(entry => String(entry && entry.id) === String(target.id));
                     if (!Number.isInteger(index) || index < 0 || index >= entries.length) return current;
                     const entry = { ...entries[index] };
-                    if (message.field.startsWith('crop.')) {
+                    if (message.field === 'photoFrame' && message.photoFrame
+                        && typeof message.photoFrame === 'object') {
+                        entry.frame = { ...message.photoFrame };
+                    } else if (message.field.startsWith('crop.')) {
                         const axis = message.field.slice('crop.'.length);
                         if (!['x', 'y', 'w', 'h'].includes(axis)) return current;
                         entry.crop = { x: 0, y: 0, w: 1, h: 1, ...(entry.crop || {}), [axis]: message.value };

@@ -35,9 +35,9 @@ test('上のバー: 種類で項目が変わる（図形 / ライン / 写真 / 
     assert.ok(['cutout', 'eraser', 'photoColor', 'crop', 'flip', 'opacity', 'anim', 'arrange', 'style'].every(key => photo.includes(key)));
     assert.deepEqual(photoItems.find(entry => entry.key === 'edit').inspector, { tabId: 'edit', sectionId: 'home' });
     assert.deepEqual(photoItems.find(entry => entry.key === 'photoColor').inspector, { tabId: 'adjust' });
+    assert.equal(photoItems.find(entry => entry.key === 'border').kind, 'window');
+    assert.equal(photoItems.find(entry => entry.key === 'photoRadius').kind, 'window');
     for (const [key, tabId, sectionId, fieldName] of [
-        ['border', 'video', 'appearance', 'photo-frame-width'],
-        ['photoRadius', 'video', 'appearance', 'photo-frame-radius'],
         ['crop', 'video', 'appearance', 'photo-crop-open'],
         ['cutout', 'edit', 'photo-cutout', 'photo-cutout-panel'],
         ['eraser', 'edit', 'photo-eraser', 'photo-brush-start']
