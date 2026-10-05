@@ -594,7 +594,12 @@ export class PreviewContextBar implements Disposable {
                     `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span><select data-field="${name}" aria-label="${label}">`
                     + CAP_OPTIONS.map(option => `<option value="${option.value}"${values[name] === option.value ? ' selected' : ''}>${option.label}</option>`).join('')
                     + '</select></label>';
-                return select('startCap', '始点') + select('endCap', '終点')
+                const capScale = (name: 'startCapScale' | 'endCapScale', label: string): string =>
+                    `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}倍率</span>`
+                    + `<input type="range" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}倍率">`
+                    + `<input type="number" class="akari-ctx-num" data-field="${name}" min="0.5" max="3" step="0.1" value="${values[name]}" aria-label="${label}倍率の数値"></label>`;
+                return select('startCap', '始点') + capScale('startCapScale', '始点')
+                    + select('endCap', '終点') + capScale('endCapScale', '終点')
                     + '<button type="button" class="akari-ctx-wide" data-action="swapEnds">始点と終点を入れ替える</button>';
             }
             case 'flip':
@@ -894,14 +899,14 @@ export class PreviewContextBar implements Disposable {
         if (!field || input.type !== 'range') return;
         const twin = this.pop.querySelector<HTMLInputElement>(`input[type="number"][data-field="${field}"]`);
         if (twin) twin.value = input.value;
-        if (field === 'weight') {
+        if (field === 'weight' || field === 'startCapScale' || field === 'endCapScale') {
             const state = this.state;
             const source = state?.item?.source as ShapeSourceV2 | undefined;
-            const width = Number(input.value);
+            const value = Number(input.value);
             if ((state?.kind === 'shape' || state?.kind === 'line') && state.selectedId
-                && source?.kind === 'shape' && Number.isFinite(width)) {
-                const params = { ...source.params, strokeWidth: width };
-                if (width > 0 && state.kind === 'shape' && (!params.stroke || params.stroke === 'none')) {
+                && source?.kind === 'shape' && Number.isFinite(value)) {
+                const params = { ...source.params, [field === 'weight' ? 'strokeWidth' : field]: value };
+                if (field === 'weight' && value > 0 && state.kind === 'shape' && (!params.stroke || params.stroke === 'none')) {
                     params.stroke = '#000000';
                 }
                 this.host.sendMessage({ type: 'akari-preview-live-transform',
@@ -932,6 +937,14 @@ export class PreviewContextBar implements Disposable {
         const value = Number(input.value);
         if (field === 'startCap' || field === 'endCap') {
             void this.run({ action: 'write', path: `source.params.${field}`, value: input.value });
+            return;
+        }
+        if (field === 'startCapScale' || field === 'endCapScale') {
+            if (Number.isFinite(value)) {
+                const clamped = Math.max(.5, Math.min(3, value));
+                this.pop.querySelectorAll<HTMLInputElement>(`input[data-field="${field}"]`).forEach(twin => { twin.value = String(clamped); });
+                void this.run({ action: 'write', path: `source.params.${field}`, value: clamped });
+            }
             return;
         }
         if (field && Number.isFinite(value)) {

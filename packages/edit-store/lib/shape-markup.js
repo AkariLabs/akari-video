@@ -22,6 +22,7 @@ function color(value, fallback) {
     return normalized.length > 0 ? normalized : fallback;
 }
 function svg(width, height, body, strokeWidth = 0) {
+    // Keep the existing SVG bytes for legacy thin strokes; thick strokes may paint outside the hit box.
     const overflow = strokeWidth > DEFAULT_LINE_STROKE_WIDTH ? ' overflow="visible"' : '';
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"${overflow}>${body}</svg>`;
 }
@@ -33,7 +34,8 @@ function shapeMarkup(source, itemId, outputWidth, transform) {
     const params = source.params ?? {};
     if (source.shape === 'path' || source.shape === 'bubble'
         || params.preset !== undefined || params.dash !== undefined || params.startCap !== undefined
-        || params.endCap !== undefined || params.startCapFilled !== undefined || params.endCapFilled !== undefined
+        || params.endCap !== undefined || params.startCapScale !== undefined || params.endCapScale !== undefined
+        || params.startCapFilled !== undefined || params.endCapFilled !== undefined
         || params.lineCap !== undefined || typeof params.fill === 'object' || typeof params.stroke === 'object') {
         return (0, shape_markup_v1_1.shapeMarkupV1)(source, itemId, outputWidth, transform);
     }

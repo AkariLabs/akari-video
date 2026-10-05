@@ -54,6 +54,19 @@ function paint(value, id, width, height) {
         def: `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(width * (.5 - dx))}" y1="${num(height * (.5 - dy))}" x2="${num(width * (.5 + dx))}" y2="${num(height * (.5 + dy))}">${stops}</linearGradient>`,
     };
 }
+function chevronGeometry(size, sw) {
+    let halfWidth = Math.max(0.001, (size - sw * .7) / 2);
+    let run = Math.max(0.001, size - sw);
+    for (let i = 0; i < 16; i++) {
+        const diagonal = Math.hypot(run, halfWidth);
+        const miter = sw * diagonal / (2 * halfWidth);
+        const root = sw * halfWidth / (2 * diagonal);
+        run = Math.max(0.001, size - miter - root);
+        halfWidth = Math.max(0.001, (size - sw * run / Math.hypot(run, halfWidth)) / 2);
+    }
+    const diagonal = Math.hypot(run, halfWidth);
+    return { halfWidth, miter: sw * diagonal / (2 * halfWidth), root: sw * halfWidth / (2 * diagonal) };
+}
 function cap(kind, filled, x, y, direction, size, color, sw, minimumOutline) {
     if (kind === 'none')
         return '';
@@ -61,12 +74,24 @@ function cap(kind, filled, x, y, direction, size, color, sw, minimumOutline) {
     const center = x - direction * h;
     const ow = Math.max(minimumOutline, sw * .7);
     const outline = `fill="${filled ? color : 'none'}" stroke="${color}" stroke-width="${num(ow)}"`;
-    const tip = x - direction * (filled ? 0 : ow / 2);
     if (kind === 'triangle') {
+        let tipInset = 0;
+        if (!filled) {
+            tipInset = ow * Math.sqrt(1.25);
+            for (let i = 0; i < 12; i++) {
+                tipInset = ow * Math.hypot(size - tipInset, h) / (2 * h);
+            }
+        }
+        const tip = x - direction * tipInset;
         return `<polygon points="${num(tip)},${num(y)} ${num(x - direction * size)},${num(y - h)} ${num(x - direction * size)},${num(y + h)}" ${filled ? `fill="${color}"` : outline}/>`;
     }
     if (kind === 'chevron') {
-        return `<polyline points="${num(x - direction * size * .75)},${num(y - h)} ${num(x - direction * sw / 2)},${num(y)} ${num(x - direction * size * .75)},${num(y + h)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linejoin="round"/>`;
+        // Account for the miter at the tip and the stroke at the two roots.
+        // The visible envelope, rather than the polyline centerline, meets the endpoint.
+        const { halfWidth, miter, root } = chevronGeometry(size, sw);
+        const vertex = x - direction * miter;
+        const back = x - direction * (size - root);
+        return `<polyline points="${num(back)},${num(y - halfWidth)} ${num(vertex)},${num(y)} ${num(back)},${num(y + halfWidth)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linejoin="miter" stroke-miterlimit="10"/>`;
     }
     if (kind === 'bar') {
         return `<line x1="${num(x - direction * sw / 2)}" y1="${num(y - h)}" x2="${num(x - direction * sw / 2)}" y2="${num(y + h)}" stroke="${color}" stroke-width="${num(sw)}"/>`;
@@ -77,17 +102,24 @@ function cap(kind, filled, x, y, direction, size, color, sw, minimumOutline) {
     if (kind === 'circle') {
         return `<circle cx="${num(center)}" cy="${num(y)}" r="${num(h - ow / 2)}" ${outline}/>`;
     }
-    return `<polygon points="${num(center - h + ow / 2)},${num(y)} ${num(center)},${num(y - h + ow / 2)} ${num(center + h - ow / 2)},${num(y)} ${num(center)},${num(y + h - ow / 2)}" ${outline}/>`;
+    const diamondMiter = ow / Math.SQRT2;
+    return `<polygon points="${num(center - h + diamondMiter)},${num(y)} ${num(center)},${num(y - h + diamondMiter)} ${num(center + h - diamondMiter)},${num(y)} ${num(center)},${num(y + h - diamondMiter)}" ${outline}/>`;
 }
-function capInset(kind, size) {
-    return kind === 'triangle' ? size * .6 : ['square', 'circle', 'diamond'].includes(kind) ? size * .5 : 0;
+function capInset(kind, size, strokeWidth) {
+    if (kind === 'none')
+        return 0;
+    if (kind === 'bar')
+        return strokeWidth / 2;
+    if (kind === 'chevron')
+        return chevronGeometry(size, strokeWidth).miter;
+    return size;
 }
 function strokeMetrics(visibleWidth, scaleX, scaleY) {
     const correction = Math.sqrt(scaleX * scaleY);
     return {
         width: visibleWidth / correction,
         gap: Math.max(visibleWidth * 2, 3) / correction,
-        capSize: Math.max(visibleWidth * 3.2, 8) / correction,
+        capSize: Math.max(visibleWidth * 2.5, 8) / correction,
         minimumOutline: 1 / correction,
     };
 }
@@ -110,20 +142,24 @@ function lineBody(p, width, height, metrics, color, visibleStrokeWidth, scaleX, 
     const rounded = p.lineCap === 'round' && dash !== 'dot';
     const dashAttr = dashAttribute(dash, metrics, rounded);
     const stretched = scaleX !== scaleY;
-    const capSize = stretched ? Math.max(visibleStrokeWidth * 3.2, 8) : size;
-    const inset = (kind) => capInset(kind, capSize) / (stretched ? scaleX : 1);
-    const x1 = inset(start) + (rounded && start === 'none' ? sw / 2 : 0);
-    const x2 = Math.max(x1, width - inset(end) - (rounded && end === 'none' ? sw / 2 : 0));
-    const endPart = (kind, filled, x, direction) => {
+    const capSize = stretched ? Math.max(visibleStrokeWidth * 2.5, 8) : size;
+    const startSize = capSize * clamp(p.startCapScale, 1, .5, 3);
+    const endSize = capSize * clamp(p.endCapScale, 1, .5, 3);
+    const capStroke = stretched ? visibleStrokeWidth : sw;
+    const inset = (kind, capLength) => capInset(kind, capLength, capStroke) / (stretched ? scaleX : 1);
+    const extension = rounded ? sw / 2 : 0;
+    const x1 = inset(start, startSize) + extension;
+    const x2 = Math.max(x1, width - inset(end, endSize) - extension);
+    const endPart = (kind, filled, x, direction, capLength) => {
         if (!stretched || kind === 'none') {
-            return cap(kind, filled, x, y, direction, size, color, sw, metrics.minimumOutline);
+            return cap(kind, filled, x, y, direction, capLength, color, sw, metrics.minimumOutline);
         }
-        const part = cap(kind, filled, 0, 0, direction, capSize, color, visibleStrokeWidth, 1);
+        const part = cap(kind, filled, 0, 0, direction, capLength, color, visibleStrokeWidth, 1);
         return `<g data-line-cap="${direction < 0 ? 'start' : 'end'}" transform="translate(${num(x)} ${num(y)}) scale(${1 / scaleX} ${1 / scaleY})">${part}</g>`;
     };
     return `<line x1="${num(x1)}" y1="${num(y)}" x2="${num(x2)}" y2="${num(y)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? 'round' : 'butt'}"${dashAttr}/>` +
-        endPart(start, p.startCapFilled ?? true, 0, -1) +
-        endPart(end, p.endCapFilled ?? true, width, 1);
+        endPart(start, p.startCapFilled ?? true, 0, -1, startSize) +
+        endPart(end, p.endCapFilled ?? true, width, 1, endSize);
 }
 function primitivePath(shape, width, height) {
     if (shape === 'ellipse') {
@@ -142,7 +178,9 @@ function shapeMarkupV1(source, itemId, outputWidth = 1920, transform) {
     const scaleX = clamp(transform?.scaleX ?? transform?.scale, 1, Number.MIN_VALUE, 100000);
     const scaleY = clamp(transform?.scaleY ?? transform?.scale, 1, Number.MIN_VALUE, 100000);
     const key = itemKey(itemId, source);
-    const svg = (defs, body, visibleStrokeWidth) => `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}"${visibleStrokeWidth > 8 ? ' overflow="visible"' : ''}>${defs ? `<defs>${defs}</defs>` : ''}${body}</svg>`;
+    const svg = (defs, body, visibleStrokeWidth) => 
+    // Preserve legacy thin-stroke markup while allowing larger caps to extend beyond the hit box.
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}"${visibleStrokeWidth > 8 ? ' overflow="visible"' : ''}>${defs ? `<defs>${defs}</defs>` : ''}${body}</svg>`;
     const line = source.shape === 'line' || source.shape === 'arrow';
     const fill = paint(validPaint(p.fill, line ? 'none' : source.shape === 'bubble' ? '#ffffff' : '#a6a6a6'), `sh-${key}-fill`, width, height);
     const stroke = paint(validPaint(p.stroke, line ? '#000000' : source.shape === 'bubble' ? '#000000' : 'none'), `sh-${key}-stroke`, width, height);

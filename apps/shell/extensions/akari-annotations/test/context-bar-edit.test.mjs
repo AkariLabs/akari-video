@@ -159,11 +159,16 @@ test('ロック・線の始点と終点の入れ替え', () => {
     assert.equal(isItemLocked(locked, 'shape-a'), true);
     assert.equal(isItemLocked(setItemLocked(locked, 'shape-a', false), 'shape-a'), false);
     assert.equal(isItemLocked(locked, 'kid-1'), false);
-    const swapped = findItemPlace(swapLineEnds(doc(), 'line'), 'line').item.source.params;
+    const withScales = doc();
+    findItemPlace(withScales, 'line').item.source.params.startCapScale = .5;
+    findItemPlace(withScales, 'line').item.source.params.endCapScale = 2;
+    const swapped = findItemPlace(swapLineEnds(withScales, 'line'), 'line').item.source.params;
     assert.equal(swapped.startCap, 'triangle');
     assert.equal(swapped.endCap, 'none');
     assert.equal(swapped.startCapFilled, false);
     assert.equal(swapped.endCapFilled, true);
+    assert.equal(swapped.startCapScale, 2);
+    assert.equal(swapped.endCapScale, .5);
     assert.throws(() => swapLineEnds(doc(), 'photo-1'), /ライン/);
 });
 

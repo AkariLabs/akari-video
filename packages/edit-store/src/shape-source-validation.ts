@@ -17,6 +17,8 @@ const paramsKeys = new Set([
     'dash',
     'startCap',
     'endCap',
+    'startCapScale',
+    'endCapScale',
     'startCapFilled',
     'endCapFilled',
     'lineCap',
@@ -92,6 +94,8 @@ export function validateShapeSource(value: RecordValue, path: string): void {
             'dash',
             'startCap',
             'endCap',
+            'startCapScale',
+            'endCapScale',
             'startCapFilled',
             'endCapFilled',
             'lineCap',
@@ -139,7 +143,7 @@ export function validateShapeSource(value: RecordValue, path: string): void {
         }
     }
     if (
-        ['startCap', 'endCap', 'startCapFilled', 'endCapFilled', 'lineCap'].some((k) => k in p) &&
+        ['startCap', 'endCap', 'startCapScale', 'endCapScale', 'startCapFilled', 'endCapFilled', 'lineCap'].some((k) => k in p) &&
         !['line', 'arrow'].includes(value.shape as string)
     ) fail(`${path}.params`, '端の値は line/arrow だけが持てます');
     if ('dash' in p && !['solid', 'dash', 'dot'].includes(p.dash as string)) {
@@ -149,6 +153,9 @@ export function validateShapeSource(value: RecordValue, path: string): void {
         if (key in p && !capKinds.has(p[key] as string)) {
             fail(`${path}.params.${key}`, '端の種類が不正です');
         }
+    }
+    for (const key of ['startCapScale', 'endCapScale']) {
+        if (key in p && !number(p[key], 0.5, 3)) fail(`${path}.params.${key}`, '倍率は 0.5〜3.0 です');
     }
     for (const key of ['startCapFilled', 'endCapFilled']) {
         if (key in p && typeof p[key] !== 'boolean') fail(`${path}.params.${key}`, 'boolean が必要です');

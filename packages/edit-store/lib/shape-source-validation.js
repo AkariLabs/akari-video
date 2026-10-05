@@ -18,6 +18,8 @@ const paramsKeys = new Set([
     'dash',
     'startCap',
     'endCap',
+    'startCapScale',
+    'endCapScale',
     'startCapFilled',
     'endCapFilled',
     'lineCap',
@@ -97,6 +99,8 @@ function validateShapeSource(value, path) {
             'dash',
             'startCap',
             'endCap',
+            'startCapScale',
+            'endCapScale',
             'startCapFilled',
             'endCapFilled',
             'lineCap',
@@ -146,7 +150,7 @@ function validateShapeSource(value, path) {
             fail(`${path}.params.path.d`, '絶対座標の M/L/C/Z が必要です');
         }
     }
-    if (['startCap', 'endCap', 'startCapFilled', 'endCapFilled', 'lineCap'].some((k) => k in p) &&
+    if (['startCap', 'endCap', 'startCapScale', 'endCapScale', 'startCapFilled', 'endCapFilled', 'lineCap'].some((k) => k in p) &&
         !['line', 'arrow'].includes(value.shape))
         fail(`${path}.params`, '端の値は line/arrow だけが持てます');
     if ('dash' in p && !['solid', 'dash', 'dot'].includes(p.dash)) {
@@ -156,6 +160,10 @@ function validateShapeSource(value, path) {
         if (key in p && !capKinds.has(p[key])) {
             fail(`${path}.params.${key}`, '端の種類が不正です');
         }
+    }
+    for (const key of ['startCapScale', 'endCapScale']) {
+        if (key in p && !number(p[key], 0.5, 3))
+            fail(`${path}.params.${key}`, '倍率は 0.5〜3.0 です');
     }
     for (const key of ['startCapFilled', 'endCapFilled']) {
         if (key in p && typeof p[key] !== 'boolean')
