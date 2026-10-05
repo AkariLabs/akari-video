@@ -55,7 +55,8 @@ export function sourceFields(item, inCatalog = false) {
   const value = prefix => allTags.find(tag => tag.startsWith(prefix))?.slice(prefix.length) ?? null;
   return {
     sourceKind: inCatalog ? 'lab' : allTags.includes('origin:site') ? 'site'
-      : allTags.includes('origin:own') ? 'own' : isFirstPartySource(item.source?.url) ? 'lab'
+      : allTags.includes('origin:own') ? 'own' : item.source?.image ? 'lab'
+      : isFirstPartySource(item.source?.url) ? 'lab'
       : item.source?.url ? 'site' : 'own',
     tags: allTags.filter(tag => !machine(tag)), machineTags: allTags.filter(machine),
     folder: value('folder:'), site: value('site:'), subscription: allTags.includes('license:subscription'),

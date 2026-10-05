@@ -101,6 +101,7 @@ for (const [label, item, inCatalog, expected] of [
   ['site tag', { tags: ['origin:site'] }, false, 'site'],
   ['own tag wins url', { tags: ['origin:own'], source: { url: 'https://example.test' } }, false, 'own'],
   ['legacy source url', { source: { url: 'https://example.test' } }, false, 'site'],
+  ['AKARI R2 source', { source: { image: 'library/still/example.png', preview: 'library/still/example.jpg' } }, false, 'lab'],
   ['unmarked local', {}, false, 'own'],
 ]) test(`sourceKind: ${label}`, () => assert.equal(sourceFields(item, inCatalog).sourceKind, expected));
 
