@@ -71,7 +71,7 @@ import { shouldShowTimelineGhost } from '../common/timeline-visibility';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { AKARI_SHORTCUTS } from './akari-shortcuts';
-import { resolveTrackRippleMode, type RippleResult } from '@akari-video/edit-store';
+import { type RippleResult } from '@akari-video/edit-store';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
