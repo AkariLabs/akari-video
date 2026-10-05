@@ -3958,15 +3958,7 @@ function cap(kind, filled, x, y, direction, size, color2, sw, minimumOutline) {
   const ow = Math.max(minimumOutline, sw * 0.7);
   const outline = `fill="${filled ? color2 : "none"}" stroke="${color2}" stroke-width="${num(ow)}"`;
   if (kind === "triangle") {
-    let tipInset = 0;
-    if (!filled) {
-      tipInset = ow * Math.sqrt(1.25);
-      for (let i = 0; i < 12; i++) {
-        tipInset = ow * Math.hypot(size - tipInset, h) / (2 * h);
-      }
-    }
-    const tip = x - direction * tipInset;
-    return `<polygon points="${num(tip)},${num(y)} ${num(x - direction * size)},${num(y - h)} ${num(x - direction * size)},${num(y + h)}" ${filled ? `fill="${color2}"` : outline}/>`;
+    return `<polygon points="${num(x)},${num(y)} ${num(x - direction * size)},${num(y - h)} ${num(x - direction * size)},${num(y + h)}" fill="${color2}"/>`;
   }
   if (kind === "chevron") {
     const { halfWidth, miter, root } = chevronGeometry(size, sw);
@@ -3990,6 +3982,11 @@ function capInset(kind, size, strokeWidth) {
   if (kind === "none") return 0;
   if (kind === "bar") return strokeWidth / 2;
   if (kind === "chevron") return chevronGeometry(size, strokeWidth).miter;
+  if (kind === "diamond") return size - Math.min(strokeWidth / 2, size / 2);
+  if (kind === "circle") {
+    const radius = size / 2;
+    return radius + Math.sqrt(Math.max(0, radius * radius - (strokeWidth / 2) ** 2));
+  }
   return size;
 }
 function strokeMetrics(visibleWidth, scaleX, scaleY) {
@@ -3997,7 +3994,7 @@ function strokeMetrics(visibleWidth, scaleX, scaleY) {
   return {
     width: visibleWidth / correction,
     gap: Math.max(visibleWidth * 2, 3) / correction,
-    capSize: Math.max(visibleWidth * 2.5, 8) / correction,
+    capSize: Math.max(visibleWidth * 3.75, 12) / correction,
     minimumOutline: 1 / correction
   };
 }
@@ -4019,10 +4016,14 @@ function lineBody(p, width, height, metrics, color2, visibleStrokeWidth, scaleX,
   const rounded = p.lineCap === "round" && dash !== "dot";
   const dashAttr = dashAttribute(dash, metrics, rounded);
   const stretched = scaleX !== scaleY;
-  const capSize = stretched ? Math.max(visibleStrokeWidth * 2.5, 8) : size;
-  const startSize = capSize * clamp3(p.startCapScale, 1, 0.5, 3);
-  const endSize = capSize * clamp3(p.endCapScale, 1, 0.5, 3);
+  const capSize = stretched ? Math.max(visibleStrokeWidth * 3.75, 12) : size;
   const capStroke = stretched ? visibleStrokeWidth : sw;
+  const effectiveSize = (kind, scale) => {
+    const scaled = capSize * clamp3(scale, 1, 0.5, 3);
+    return kind === "chevron" ? Math.max(scaled, capStroke * 4) : scaled;
+  };
+  const startSize = effectiveSize(start, p.startCapScale);
+  const endSize = effectiveSize(end, p.endCapScale);
   const inset = (kind, capLength) => capInset(kind, capLength, capStroke) / (stretched ? scaleX : 1);
   const extension = rounded ? sw / 2 : 0;
   const x1 = inset(start, startSize) + extension;

@@ -128,8 +128,8 @@ test('dot marks are square with the declared gap; end parts point inward', () =>
   }, 'dots');
   assert.match(result, /stroke-dasharray="4 8"/);
   assert.match(result, /stroke-linecap="butt"/);
-  assert.match(result, /points="0,20 10,15 10,25"/);
-  assert.match(result, /points="200,20 190,15 190,25"/);
+  assert.match(result, /points="0,20 15,12\.5 15,27\.5"/);
+  assert.match(result, /points="200,20 185,12\.5 185,27\.5"/);
   const half = shapeMarkup(
     { kind: 'shape', shape: 'line', params: { width: 200, height: 40, dash: 'dot', strokeWidth: 4 } },
     'dots',
@@ -148,11 +148,11 @@ test('line strokes, dashes, and end parts compensate item scale without vector-e
   const normal = shapeMarkup(source, 'line');
   assert.match(normal, /stroke-width="4"/);
   assert.match(normal, /stroke-dasharray="12 8"/);
-  assert.match(normal, /points="200,20 190,15 190,25"/);
+  assert.match(normal, /points="200,20 185,12\.5 185,27\.5"/);
   const doubled = shapeMarkup(source, 'line', 1920, { scale: 2 });
   assert.match(doubled, /stroke-width="2"/);
   assert.match(doubled, /stroke-dasharray="6 4"/);
-  assert.match(doubled, /points="200,20 195,17\.5 195,22\.5"/);
+  assert.match(doubled, /points="200,20 192\.5,16\.25 192\.5,23\.75"/);
   const stretched = shapeMarkup(source, 'line', 1920, { scaleX: 2, scaleY: 1 });
   assert.match(stretched, /stroke-width="2\.828"/);
   assert.match(stretched, /stroke-dasharray="8\.485 5\.657"/);

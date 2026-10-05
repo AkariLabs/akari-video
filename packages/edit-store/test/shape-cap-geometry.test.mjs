@@ -13,13 +13,13 @@ const tag = (markup, name) => markup.match(new RegExp(`<${name}\\b[^>]*\\/>`))?.
 const attr = (markup, name) => markup.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
 const points = markup => attr(markup, 'points').split(' ').map(p => p.split(',').map(Number));
 
-test('triangle envelope is 2.5 stroke widths with an 8 px minimum, filled and rooted', () => {
+test('triangle envelope is 3.75 stroke widths with a 12 px minimum, filled and rooted', () => {
   for (const width of [2, 4, 10, 20]) for (const endpoint of ['start', 'end']) {
     const svg = shapeMarkup(line('triangle', width, endpoint));
     const cap = tag(svg, 'polygon');
     const body = tag(svg, 'line');
     const p = points(cap);
-    const size = Math.max(8, width * 2.5);
+    const size = Math.max(12, width * 3.75);
     const xs = p.map(v => v[0]), ys = p.map(v => v[1]);
     const tip = endpoint === 'start' ? 0 : 400;
     assert.equal(p[0][0], tip);
@@ -31,14 +31,14 @@ test('triangle envelope is 2.5 stroke widths with an 8 px minimum, filled and ro
   }
 });
 
-test('chevron spans 2.5w and its solid or dashed body reaches the inner vertex without a notch', () => {
+test('chevron spans at least 4w and its solid or dashed body reaches the inner vertex without a notch', () => {
   for (const width of [2, 4, 10, 20]) for (const endpoint of ['start', 'end'])
     for (const dash of ['solid', 'dash']) {
       const svg = shapeMarkup(line('chevron', width, endpoint, { dash }));
       const cap = tag(svg, 'polyline');
       const body = tag(svg, 'line');
       const p = points(cap);
-      const size = Math.max(8, width * 2.5);
+      const size = Math.max(12, width * 3.75, width * 4);
       assert.equal(attr(cap, 'stroke-linejoin'), 'miter');
       assert.equal(attr(cap, 'fill'), 'none');
       const run = Math.abs(p[1][0] - p[0][0]);
@@ -57,15 +57,13 @@ test('chevron spans 2.5w and its solid or dashed body reaches the inner vertex w
     }
 });
 
-test('unfilled triangle retains its outline and puts the stroked tip on the endpoint', () => {
+test('filled false triangle is still filled and puts its tip on the endpoint', () => {
   for (const endpoint of ['start', 'end']) {
     const svg = shapeMarkup(line('triangle', 20, endpoint, { [`${endpoint}CapFilled`]: false }));
     const cap = tag(svg, 'polygon');
-    const p = points(cap), stroke = Number(attr(cap, 'stroke-width'));
-    const run = Math.abs(p[1][0] - p[0][0]), halfWidth = Math.abs(p[1][1] - p[0][1]);
-    const miter = stroke * Math.hypot(run, halfWidth) / (2 * halfWidth);
-    const tip = p[0][0] + (endpoint === 'start' ? -miter : miter);
-    assert.equal(attr(cap, 'fill'), 'none');
+    const p = points(cap);
+    const tip = p[0][0];
+    assert.equal(attr(cap, 'fill'), '#123abc');
     assert.ok(Math.abs(tip - (endpoint === 'start' ? 0 : 400)) <= .5);
   }
 });
@@ -101,12 +99,12 @@ test('independent cap scales are proportional, default to one, and reject invali
     const p = points(tag(shapeMarkup(line('triangle', 10, 'end', extra)), 'polygon'));
     return Math.max(...p.map(v => v[0])) - Math.min(...p.map(v => v[0]));
   };
-  assert.equal(widthOf({}), 25);
-  assert.equal(widthOf({ endCapScale: 1 }), 25);
-  assert.equal(widthOf({ endCapScale: .5 }), 12.5);
-  assert.equal(widthOf({ endCapScale: 2 }), 50);
-  assert.equal(widthOf({ endCapScale: 4 }), 25);
-  assert.equal(widthOf({ endCapScale: -1 }), 25);
+  assert.equal(widthOf({}), 37.5);
+  assert.equal(widthOf({ endCapScale: 1 }), 37.5);
+  assert.equal(widthOf({ endCapScale: .5 }), 18.75);
+  assert.equal(widthOf({ endCapScale: 2 }), 75);
+  assert.equal(widthOf({ endCapScale: 4 }), 37.5);
+  assert.equal(widthOf({ endCapScale: -1 }), 37.5);
   assert.doesNotThrow(() => validateShapeSource(line('triangle', 10, 'end', { startCapScale: .5, endCapScale: 3 }), 'source'));
   assert.throws(() => validateShapeSource(line('triangle', 10, 'end', { endCapScale: 4 }), 'source'));
 });
