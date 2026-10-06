@@ -70,6 +70,7 @@ if (captionsArgument === "--help" || captionsArgument === "-h") {
 const captionsPath = path.resolve(captionsArgument);
 const schemaPath = fileURLToPath(new URL("../captions.schema.json", import.meta.url));
 const errors = [];
+const warnings = [];
 
 if (!isRegularFile(captionsPath)) {
   fail(`captions.json が見つかりません: ${captionsPath}`);
@@ -237,6 +238,10 @@ function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
     }
     if (hasOwn(caption, "style") && !CAPTION_STYLES.has(caption.style)) {
       fail(`${label}.style は plain/karaoke/pop/reveal/reveal-word のいずれかである必要があります`);
+    }
+    if ((caption.style === "karaoke" || caption.style === "pop")
+      && (!Array.isArray(caption.words) || caption.words.length === 0)) {
+      warnings.push(`[${caption.style}-without-words] 字幕 ${caption.id ?? label}: 語の時刻がない字幕は${caption.style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`);
     }
     if (hasOwn(caption, "display_text") && typeof caption.display_text !== "string") {
       fail(`${label}.display_text は文字列である必要があります`);
@@ -805,6 +810,7 @@ function fail(message) {
 }
 
 function finish() {
+  for (const warning of warnings) console.warn(`警告: ${warning}`);
   if (errors.length > 0) {
     console.error(`NG: ${captionsPath}`);
     for (const error of errors) console.error(`- ${error}`);

@@ -56,6 +56,23 @@ test('default karaoke settings merge with a cue override before export', () => {
   assert.match(overlay.html, /--akari-tok-delay:1s;--akari-tok-dur:0s">🇯🇵<\/span>/u);
 });
 
+test('karaoke and pop without word times warn and render normally', () => {
+  for (const style of ['karaoke', 'pop']) {
+    const warnings = [];
+    const caption = { id: 'c-0001', start: 0, end: 3, text: '字幕', style };
+    const overlays = generateCaptionOverlays([caption], [], { onWarning: message => warnings.push(message) });
+    assert.equal(overlays.length, 1, style);
+    assert.match(overlays[0].html, /字幕/u);
+    assert.deepEqual(warnings, [
+      `[${style}-without-words] 字幕 c-0001: 語の時刻がない字幕は${style === 'karaoke' ? 'カラオケ' : 'ポップ'}で表示できません。通常の表示で書き出します`
+    ]);
+    warnings.length = 0;
+    generateCaptionOverlays([{ ...caption, words: [{ text: '字幕', start: 0, end: 3 }] }], [],
+      { onWarning: message => warnings.push(message) });
+    assert.deepEqual(warnings, [], style);
+  }
+});
+
 test('shell preview and Web UI divide graphemes at the same delays as render-cut', () => {
   const shell = readHandlerSource();
   const shellFunction = shell.slice(shell.indexOf('const renderCaptionToken = ('),
