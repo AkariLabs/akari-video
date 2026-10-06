@@ -32,21 +32,28 @@ export function validateProAssetDescriptor(data, item, descriptorUrl) {
   if (!Array.isArray(data.files) || data.files.length === 0) invalid('files');
   const origin = new URL(descriptorUrl).origin;
   const names = new Set();
+  const files = [];
   for (const file of data.files) {
     if (!file || typeof file !== 'object' || Array.isArray(file)) invalid('file');
+    if (Object.keys(file).length !== 4
+      || Object.keys(file).some(key => !['name', 'sha256', 'bytes', 'url'].includes(key))) invalid('file のキー');
     const name = file.name;
-    if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0')
-      || name.split('/').some(part => !part || part === '.' || part === '..')) invalid('name');
-    if (names.has(name)) invalid('name が重複しています');
-    names.add(name);
+    if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\')
+      || name.split('/').some(part => !part || part === '.' || part === '..'
+        || /[:\x00-\x1f\x7f<>"|?*]/.test(part) || /[. ]$/.test(part)
+        || /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(part))) invalid('name');
+    const foldedName = name.toLowerCase();
+    if (names.has(foldedName)) invalid('name が重複しています');
+    names.add(foldedName);
     if (typeof file.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(file.sha256)) invalid('sha256');
     if (!Number.isInteger(file.bytes) || file.bytes < 0) invalid('bytes');
     let url;
     try { url = new URL(file.url); } catch { invalid('url'); }
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin) invalid('url のオリジン');
+    files.push({ name, sha256: file.sha256, bytes: file.bytes, url: file.url });
   }
-  if (!names.has('meta.json')) invalid('meta.json');
-  return data;
+  if (!files.some(file => file.name === 'meta.json')) invalid('meta.json');
+  return { ...data, files };
 }
 
 /** 404 asset_not_found だけを null として返し、zip 予備経路へ渡す。 */

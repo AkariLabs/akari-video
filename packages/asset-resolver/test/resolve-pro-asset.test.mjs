@@ -53,6 +53,19 @@ function assertClean(home, category, id) {
     ? readdirSync(path.join(home, 'assets')).filter(name => name.startsWith('.tmp-resolve-')) : [], []);
 }
 
+function assertNoLibraryContent(home, content) {
+  const root = path.join(home, 'assets');
+  if (!existsSync(root)) return;
+  const visit = dir => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) visit(file);
+      else if (entry.isFile()) assert.equal(readFileSync(file).includes(content), false, file);
+    }
+  };
+  visit(root);
+}
+
 async function fixture(t, handle, { id = 'pro-item', category = 'overlay', productId } = {}) {
   const requests = [];
   const server = createServer((req, res) => {
@@ -251,14 +264,87 @@ test('sha256 と bytes の不一致は配置しない', async t => {
   }
 });
 
+test('記述子の local_path と key は拒否し、手元のファイルをライブラリに写さない', async t => {
+  for (const field of ['local_path', 'key']) {
+    const secret = Buffer.from('SECRET-TOKEN');
+    const publicFile = Buffer.from('PUBLIC-FIXTURE');
+    const item = await fixture(t, (req, res, ctx) => route(req, res, ctx, {
+      descriptorResponse: (_req, response, context) => {
+        const data = descriptor(context.origin, context.id, context.category, payload(context.id));
+        const expected = field === 'local_path' ? readFileSync(path.join(item.root, 'secret.txt')) : publicFile;
+        data.files.push({
+          name: 'leak.txt', sha256: hash(expected), bytes: expected.length,
+          url: `${context.origin}/api/store/v1/assets/${context.category}/${context.id}/v1/leak.txt`,
+          [field]: field === 'local_path' ? path.join(item.root, 'secret.txt') : 'leak.txt',
+        });
+        data.files.sort((a, b) => Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)));
+        json(response, 200, data);
+        return true;
+      },
+      fileResponse: (_req, response) => {
+        if (!_req.url.endsWith('/leak.txt')) return false;
+        response.end(publicFile);
+        return true;
+      },
+    }), { id: `extra-${field.replace('_', '-')}` });
+    writeFileSync(path.join(item.root, 'secret.txt'), secret);
+    let failure;
+    try { await resolveAsset(item.id, { env: item.env }); } catch (error) { failure = error; }
+    assertNoLibraryContent(item.home, secret);
+    assertClean(item.home, item.category, item.id);
+    assert.ok(failure instanceof Error);
+    assert.equal(failure.code, 'integrity');
+    assert.equal(item.requests.filter(r => /\/assets\/[^/]+\/[^/]+\/v\d+\//.test(r.url)).length, 0);
+  }
+});
+
+test('Pro ファイルは宣言 bytes を超えた時点で受信を止める', async t => {
+  let bytesWritten = 0;
+  const item = await fixture(t, (req, res, ctx) => route(req, res, ctx, {
+    descriptorResponse: (_req, response, context) => {
+      const data = descriptor(context.origin, context.id, context.category, payload(context.id));
+      data.files.find(file => file.name === 'preview.png').bytes = 128;
+      json(response, 200, data);
+      return true;
+    },
+    fileResponse: (_req, response) => {
+      if (!_req.url.endsWith('/preview.png')) return false;
+      response.writeHead(200, { 'content-type': 'application/octet-stream' });
+      const chunk = Buffer.alloc(64 * 1024, 0x61);
+      let closed = false;
+      response.on('close', () => { closed = true; });
+      const pump = () => {
+        if (closed) return;
+        if (bytesWritten >= 32 * 1024 * 1024) return response.end();
+        bytesWritten += chunk.length;
+        if (response.write(chunk)) setImmediate(pump);
+        else response.once('drain', pump);
+      };
+      pump();
+      return true;
+    },
+  }));
+  await assert.rejects(() => resolveAsset(item.id, { env: item.env }), error =>
+    error.code === 'integrity' && /bytes.*超え/.test(error.message));
+  assert.ok(bytesWritten < 16 * 1024 * 1024, `受信停止が遅すぎます: ${bytesWritten} bytes`);
+  assertClean(item.home, item.category, item.id);
+});
+
 test('不正な name と別オリジンの URL は要求前に拒否する', async t => {
-  for (const [index, bad] of ['../escape', '/absolute', 'bad\\name', 'other-origin'].entries()) {
+  for (const [index, bad] of ['../escape', '/absolute', 'bad\\name', 'other-origin',
+    'a:b.png', 'trail.', 'trail ', 'CON', 'con.txt', 'Com1.json', 'lpt9', 'ctl\u0001.png', 'q?.png',
+    'duplicate-case', 'only-mixed-meta'].entries()) {
     const item = await fixture(t, (req, res, ctx) => route(req, res, ctx, {
       descriptorResponse: (_req, response, context) => {
         const data = descriptor(context.origin, `bad-${index}`, 'overlay', payload(`bad-${index}`));
         const target = data.files.find(file => file.name === 'preview.png');
         if (bad === 'other-origin') target.url = 'https://example.invalid/file';
-        else target.name = bad;
+        else if (bad === 'duplicate-case') {
+          const meta = data.files.find(file => file.name === 'meta.json');
+          data.files.push({ ...meta, name: 'Meta.json' });
+        } else if (bad === 'only-mixed-meta') {
+          data.files.find(file => file.name === 'meta.json').name = 'Meta.json';
+        } else target.name = bad;
         json(response, 200, data);
         return true;
       },
@@ -305,12 +391,18 @@ test('資格なしなら記述子を要求しない', async t => {
 
 test('404 file_not_found と 500 は zip へ落ちず店の誤りを示す', async t => {
   for (const status of [404, 500]) {
+    const storeCode = status === 404 ? 'file_not_found' : 'bad_descriptor';
+    const message = status === 404 ? '店側で見つかりません' : '記述子が不正です';
     const item = await fixture(t, (req, res, ctx) => route(req, res, ctx, {
-      descriptorResponse: (_req, response) => { json(response, status, { error: 'file_not_found', message: '店側で見つかりません' }); return true; },
+      descriptorResponse: (_req, response) => {
+        json(response, status, { error: storeCode, message });
+        return true;
+      },
     }), { id: `error-${status}` });
     await assert.rejects(() => resolveAsset(item.id, { env: item.env }), error =>
       error.code === 'download_failed' && error.message.includes(`HTTP ${status}`)
-      && error.message.includes('file_not_found') && error.message.includes('店側で見つかりません'));
+      && error.storeCode === storeCode && error.message.includes(storeCode)
+      && error.message.includes(message));
     assert.equal(item.requests.some(r => r.url.includes('/v1/download/')), false);
   }
 });

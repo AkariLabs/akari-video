@@ -6,11 +6,12 @@
 // （開発時は store リポのローカル出力を指す運用）。
 
 import { createWriteStream } from 'node:fs';
-import { copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { isRemoteLocation } from './env.mjs';
+import { AssetResolverError } from './errors.mjs';
 
 export const DEFAULT_FETCH_TIMEOUTS = { responseMs: 15_000, idleMs: 30_000 };
 
@@ -98,7 +99,7 @@ export function resolvePreviewLocation(base, preview) {
 }
 
 /** 解決済みロケーションを destPath へ実体化する（リモートは fetch、ローカルはファイルコピー） */
-export async function materialize({ location, remote }, destPath, { fetchImpl = fetch, timeouts, request } = {}) {
+export async function materialize({ location, remote }, destPath, { fetchImpl = fetch, timeouts, request, maxBytes } = {}) {
   await mkdir(path.dirname(destPath), { recursive: true });
   if (remote) {
     const { response: res, controller } = await fetchTimed(location, { fetchImpl, request, timeouts, label: '素材ファイル' });
@@ -120,7 +121,28 @@ export async function materialize({ location, remote }, destPath, { fetchImpl = 
       error.storeCode = storeCode;
       throw error;
     }
-    await pipeline(Readable.from(timedBody(res.body, controller, { timeouts, label: '素材ファイル' })), createWriteStream(destPath));
+    if (maxBytes === undefined) {
+      await pipeline(Readable.from(timedBody(res.body, controller, { timeouts, label: '素材ファイル' })), createWriteStream(destPath));
+      return;
+    }
+    async function* limitedBody() {
+      let received = 0;
+      for await (const chunk of timedBody(res.body, controller, { timeouts, label: '素材ファイル' })) {
+        received += chunk.byteLength;
+        if (received > maxBytes) {
+          controller.abort();
+          throw new AssetResolverError(`bytes が宣言値を超えました: ${received} > ${maxBytes}`, 'integrity');
+        }
+        yield chunk;
+      }
+    }
+    try {
+      await pipeline(Readable.from(limitedBody()), createWriteStream(destPath));
+    } catch (error) {
+      controller.abort();
+      await rm(destPath, { force: true });
+      throw error;
+    }
     return;
   }
   await copyFile(location, destPath);

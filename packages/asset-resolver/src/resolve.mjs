@@ -181,7 +181,7 @@ async function backfillLegacyMetaTier(metaPath, item) {
   await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
 }
 
-async function fetchFilesInto(files, tempAssetDir, item, { base, fetchImpl, timeouts, request, checkBytes = false }) {
+async function fetchFilesInto(files, tempAssetDir, item, { base, fetchImpl, timeouts, request, checkBytes = false, proUrlsOnly = false }) {
   for (const file of files) {
     if (typeof file.name !== 'string' || !file.name) {
       throw new AssetResolverError(`files[] エントリに name がありません: ${item.id}`, 'invalid_catalog_item');
@@ -191,8 +191,8 @@ async function fetchFilesInto(files, tempAssetDir, item, { base, fetchImpl, time
     const batch = files.slice(start, start + 4);
     const results = await Promise.allSettled(batch.map(async file => {
       const destPath = path.join(tempAssetDir, file.name);
-      const resolved = resolveFileLocation(base, file);
-      await materialize(resolved, destPath, { fetchImpl, timeouts, request });
+      const resolved = proUrlsOnly ? { location: file.url, remote: true } : resolveFileLocation(base, file);
+      await materialize(resolved, destPath, { fetchImpl, timeouts, request, ...(proUrlsOnly ? { maxBytes: file.bytes } : {}) });
       if (file.sha256) {
         const actual = await sha256File(destPath);
         if (actual !== file.sha256) {
@@ -230,7 +230,7 @@ async function resolveProAsset(item, credentials, options) {
       await mkdir(tempAssetDir, { recursive: true });
       try {
         await fetchFilesInto(descriptor.files, tempAssetDir, item, {
-          base: null, fetchImpl, timeouts, checkBytes: true,
+          base: null, fetchImpl, timeouts, checkBytes: true, proUrlsOnly: true,
           request: { headers: { authorization: `Bearer ${credentials.token}` }, redirect: 'error' },
         });
       } catch (error) {
