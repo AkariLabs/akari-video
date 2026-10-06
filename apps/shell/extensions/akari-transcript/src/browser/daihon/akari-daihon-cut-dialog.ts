@@ -59,6 +59,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             this.state.step = 1;
         }
         this.node.dataset.akariDaihonCutDialog = 'true';
+        this.node.tabIndex = -1;
         Object.assign(this.contentNode.parentElement!.style, { width: 'min(950px, calc(100vw - 40px))',
             height: 'min(690px, calc(100vh - 40px))', minWidth: '0', borderRadius: '12px', background: '#20242b' });
         Object.assign(this.contentNode.style, { padding: '0', display: 'flex', flexDirection: 'column', flex: '1',
@@ -88,6 +89,8 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         if (this.state.step === 0) this.renderSearch();
         else if (this.state.step === 1) this.renderReview();
         else this.renderDone();
+        if (this.state.step === 1 && this.node.isConnected && !this.node.contains(document.activeElement))
+            this.node.focus({ preventScroll: true });
     }
 
     protected renderSearch(): void {
@@ -154,14 +157,15 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             const line = element('div'); line.style.cssText = `padding:9px;margin:3px 0;border:1px solid ${candidate.id === current?.id ? '#8daaff' : '#414852'};border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center`;
             line.onclick = () => { this.state.currentId = candidate.id; this.render(); };
             const dot = element('span', '●'); dot.style.color = COLORS[candidate.kind];
-            const copy = element('div'); copy.style.flex = '1';
-            const marked = element('s', candidate.text); marked.style.textDecorationColor = COLORS[candidate.kind];
+            const cutting = willCut(this.state, candidate);
+            const copy = element('div'); copy.style.flex = '1'; copy.style.opacity = cutting ? '1' : '.55';
+            const marked = element(cutting ? 's' : 'span', candidate.text); marked.style.textDecorationColor = COLORS[candidate.kind];
             const words = element('div'); words.append(marked);
             copy.append(element('small', `${formatTime(candidate.start)} · ${LABELS[candidate.kind]}`), words);
             const choices = element('div'); choices.style.cssText = 'display:flex;gap:3px';
             for (const cut of [true, false]) {
                 const choice = button(cut ? '切る' : '残す', () => { this.state = setCutDecision(this.state, candidate.id, cut); this.render(); });
-                choice.style.opacity = willCut(this.state, candidate) === cut ? '1' : '.5';
+                choice.style.opacity = cutting === cut ? '1' : '.5';
                 choices.append(choice);
             }
             line.append(dot, copy, choices); list.append(line);
@@ -171,7 +175,8 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             detail.append(element('strong', `${LABELS[current.kind]} · ${formatTime(current.start)} · ${(current.end - current.start).toFixed(2)} 秒`));
             const context = element('p'); context.style.lineHeight = '1.8';
             const parts = this.context(current); context.append(element('span', parts[0] ?? ''));
-            const marked = element('s', parts[1] ?? current.text); marked.style.textDecorationColor = COLORS[current.kind]; context.append(marked, element('span', parts[2] ?? ''));
+            const marked = element(willCut(this.state, current) ? 's' : 'span', parts[1] ?? current.text);
+            marked.style.textDecorationColor = COLORS[current.kind]; context.append(marked, element('span', parts[2] ?? ''));
             detail.append(context, button('▶ 切らずに聞く', () => this.preview(current, false)),
                 button('▶ 切って聞く', () => this.preview(current, true)),
                 element('p', 'J / K で前後、Space で聞く、X で切る / 残す'));

@@ -11,6 +11,7 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { AkariDaihonCutDialog } from './akari-daihon-cut-dialog';
 import { collectDaihonCutCandidates, handEditedLines, type DaihonCutCandidate, type DaihonCutSource } from '../../common/daihon-cut-candidates';
+import { cutCandidateContext } from '../../common/daihon-cut-context';
 import { nextCaptionNotices } from '../../common/caption-notice-state';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import {
@@ -1565,7 +1566,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
-    protected renderRows(next: DaihonRow[]): void {
+    protected renderRows(next: DaihonRow[], refreshCutMarks = false): void {
         this.closeCutRangeEditor();
         this.rowsNode.querySelectorAll('.akari-daihon-cutcell').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
@@ -1574,6 +1575,10 @@ export class AkariDaihonWidget extends BaseWidget {
         this.speakerColors = speakerColorMap(next);
         if (this.speakerFilter !== null && !this.speakerColors.has(this.speakerFilter)) this.speakerFilter = null;
         const plan = planDaihonUpdate(this.rows, next);
+        if (refreshCutMarks) for (const row of next) {
+            if (!plan.create.some(candidate => candidate.id === row.id) && !plan.update.some(candidate => candidate.id === row.id))
+                plan.update.push(row);
+        }
         const previousById = new Map(this.rows.map(row => [row.id, row]));
         for (const row of next) {
             const previous = previousById.get(row.id);
@@ -3857,11 +3862,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (!this.configured) await this.configure();
         await this.reloadTail;
         const candidates = this.collectCutCandidates(this.rows);
-        const dialog = new AkariDaihonCutDialog(candidates, candidate => {
-            const row = this.rows.find(item => item.id === candidate.rowId);
-            const index = this.rows.findIndex(item => item.id === candidate.rowId);
-            return [this.rows[index - 1]?.text ?? '', row?.text ?? candidate.text, this.rows[index + 1]?.text ?? ''];
-        }, (candidate, cut) => {
+        const dialog = new AkariDaihonCutDialog(candidates, candidate => cutCandidateContext(this.rows, candidate), (candidate, cut) => {
             const selection = { from: candidate.start, to: candidate.end };
             const window = { start: Math.max(0, candidate.start - 1), end: candidate.end + 1 };
             void this.playCutRange(selection, window, cut ? 'tightened' : 'intact', candidate.sourceId);
@@ -4062,7 +4063,7 @@ export class AkariDaihonWidget extends BaseWidget {
         breaksGroup.append(breaksLabel, breaksToggle);
         const cutMarks = this.popButton(this.showCutMarks ? 'カット候補の印を表示 ✓' : 'カット候補の印を表示', () => {
             this.showCutMarks = !this.showCutMarks;
-            this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments));
+            this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments), true);
             void this.preferences.set(DAIHON_SHOW_CUT_MARKS_PREFERENCE, this.showCutMarks, PreferenceScope.User)
                 .then(() => this.openDisplayPop(anchor))
                 .catch(error => this.notify(this.errorMessage(error)));
