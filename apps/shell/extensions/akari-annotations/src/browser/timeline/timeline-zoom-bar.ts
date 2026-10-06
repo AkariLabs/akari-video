@@ -55,6 +55,7 @@ export class TimelineZoomBar {
         event.preventDefault();
         event.stopPropagation();
         const target = event.currentTarget as HTMLElement;
+        target.classList.add('akari-timeline-zoom-bar__handle--dragging');
         target.setPointerCapture(event.pointerId);
         const rect = this.node.getBoundingClientRect();
         const size = this.axis === 'h' ? rect.width : rect.height;
@@ -67,6 +68,7 @@ export class TimelineZoomBar {
         const onEnd = (end: PointerEvent): void => {
             if (end.pointerId !== event.pointerId) return;
             if (target.hasPointerCapture(end.pointerId)) target.releasePointerCapture(end.pointerId);
+            target.classList.remove('akari-timeline-zoom-bar__handle--dragging');
             target.removeEventListener('pointermove', onMove);
             target.removeEventListener('pointerup', onEnd);
             target.removeEventListener('pointercancel', onEnd);

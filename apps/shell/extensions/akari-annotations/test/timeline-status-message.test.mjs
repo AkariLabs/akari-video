@@ -11,11 +11,11 @@ test('one status entry reports ordinary and warning messages, then clears', () =
     });
     status.show('プレビューをシークしました。');
     assert.equal(calls[0].id, TIMELINE_MESSAGE_ID);
-    assert.equal(calls[0].entry.alignment, 1);
+    assert.equal(calls[0].entry.alignment, 0);
     assert.equal(calls[0].entry.priority, -1000);
-    assert.equal(calls[0].entry.className, undefined);
+    assert.equal(calls[0].entry.className, 'akari-timeline-status-message');
     status.show('保存できません');
-    assert.equal(calls[1].entry.className, 'akari-timeline-message-warning');
+    assert.equal(calls[1].entry.className, 'akari-timeline-status-message akari-timeline-message-warning');
     status.show('');
     assert.deepEqual(calls[2], { removed: TIMELINE_MESSAGE_ID });
     status.dispose();

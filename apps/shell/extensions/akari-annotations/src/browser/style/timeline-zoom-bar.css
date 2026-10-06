@@ -8,7 +8,7 @@
     cursor: pointer;
 }
 .akari-timeline-zoom-bar--h { height: 14px; margin: 0 6px; }
-.akari-timeline-zoom-bar--v { width: 14px; position: absolute; top: 0; bottom: 0; right: 0; z-index: 10; }
+.akari-timeline-zoom-bar--v { width: 14px; position: absolute; top: 0; bottom: 16px; right: 0; z-index: 10; }
 .akari-timeline-zoom-bar__content {
     position: absolute;
     z-index: 1;
@@ -47,7 +47,7 @@
     top: 1px;
     bottom: 1px;
     min-width: 8px;
-    background: var(--theia-scrollbarSlider-hoverBackground);
+    background: var(--theia-scrollbarSlider-background);
     border-radius: 7px;
     cursor: grab;
 }
@@ -66,11 +66,32 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 1px solid var(--theia-widget-border);
-    background: var(--theia-editor-background);
+    border: 1.5px solid var(--theia-editorWidget-background);
+    background: var(--theia-foreground);
     box-sizing: border-box;
     transform: translate(-50%, -50%);
     cursor: ew-resize;
+}
+.akari-timeline-zoom-bar__handle::before {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+}
+body.theia-light .akari-timeline-zoom-bar__handle,
+body.theia-hcLight .akari-timeline-zoom-bar__handle {
+    background: var(--theia-editor-background);
+    border-color: var(--theia-foreground);
+}
+.akari-timeline-zoom-bar__handle:hover,
+.akari-timeline-zoom-bar__handle--dragging {
+    border-color: var(--theia-focusBorder);
+}
+body.theia-light .akari-timeline-zoom-bar__handle:hover,
+body.theia-light .akari-timeline-zoom-bar__handle--dragging,
+body.theia-hcLight .akari-timeline-zoom-bar__handle:hover,
+body.theia-hcLight .akari-timeline-zoom-bar__handle--dragging {
+    border-color: var(--theia-focusBorder);
 }
 .akari-timeline-zoom-bar__handle--start { left: 0; }
 .akari-timeline-zoom-bar__handle--end { left: 100%; }
@@ -121,3 +142,54 @@
 .akari-timeline-message-chip.akari-timeline-message-warning {
     color: var(--theia-editorWarning-foreground);
 }
+#theia-statusBar .area.left > #status-bar-akari-timeline-issue { margin-left: auto; }
+#theia-statusBar .area.left:not(:has(#status-bar-akari-timeline-issue)) > #status-bar-akari-timeline-message { margin-left: auto; }
+#theia-statusBar .area.left > #status-bar-akari-timeline-issue {
+    min-width: 0;
+    width: max-content;
+    flex: none;
+    color: var(--theia-editorWarning-foreground);
+}
+#theia-statusBar .area.left > #status-bar-akari-timeline-message {
+    min-width: 0;
+    max-width: min(290px, 30vw);
+    overflow: hidden;
+    flex: 0 1 auto;
+}
+#theia-statusBar .area.left > #status-bar-akari-timeline-message > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.akari-timeline-issue-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+.akari-timeline-issue-popup {
+    position: fixed;
+    z-index: 10000;
+    width: min(520px, calc(100vw - 16px));
+    max-height: min(360px, 65vh);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid var(--theia-widget-border);
+    border-radius: 5px;
+    background: var(--theia-editorWidget-background);
+    color: var(--theia-foreground);
+    font-size: 12px;
+}
+.akari-timeline-issue-heading { font-weight: 600; margin-bottom: 8px; }
+.akari-timeline-issue-list { display: grid; gap: 5px; }
+.akari-timeline-issue-row { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.akari-timeline-issue-actions { display: flex; gap: 8px; margin-top: 10px; }
+.akari-timeline-issue-actions button {
+    background: var(--theia-button-background);
+    color: var(--theia-button-foreground);
+    border: 1px solid var(--theia-widget-border);
+    border-radius: 3px;
+    padding: 3px 7px;
+    cursor: pointer;
+}
+.akari-timeline-issue-fallback { display: block; width: 100%; height: 70px; margin-top: 8px; }
