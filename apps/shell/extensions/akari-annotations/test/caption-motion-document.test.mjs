@@ -5,7 +5,8 @@ import test from 'node:test';
 import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES, readCaptionMotionCue,
     readOwnerMotion, upsertCaptionEmphasis, upsertCaptionKaraoke } from '../lib/browser/inspector/caption-motion-document.js';
 import { captionMotionComboWrites } from '../lib/browser/inspector/caption-motion-cards.js';
-import { createMotionWriteRequest } from '../lib/browser/inspector/motion-fields.js';
+import { withCaptionMultiTargets } from '../lib/browser/inspector/caption-multi-targets.js';
+import { replaceMyStylePartsInSource } from '../lib/browser/my-style-look.js';
 import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
@@ -52,24 +53,47 @@ test('words[] の無い字幕と output 時刻の字幕では強調を書かな�
         cue.id, 0, 'positive'), /source/u);
 });
 
-test('袋の組は item-field motion の一回書き込み、袋なしは字幕 animation に書く', () => {
-    const edit = JSON.stringify({ output: { fps: 30 }, tracks: [{ id: 't1', items: [{ id: 'bag-1',
-        duration: 3, motion: { loop: { preset: 'blink', period: 60 } }, source: { kind: 'captions' } }] }] });
+test('袋の尺は fps に関係なく v2 のフレーム値で読み、組は字幕 animation に書く', () => {
+    const edit = JSON.stringify({ output: { fps: 24 }, tracks: [{ id: 't1', items: [{ id: 'bag-1',
+        duration: 72, motion: { loop: { preset: 'blink', period: 60 } }, source: { kind: 'captions' } }] }] });
     const owner = readOwnerMotion(edit, 'bag-1', 2);
-    assert.equal(owner.durationFrames, 90);
-    const requests = captionMotionComboWrites(cue.id, owner, 'smart', owner.durationFrames);
+    assert.equal(owner.durationFrames, 72);
+    const requests = captionMotionComboWrites(cue.id, 'smart');
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].kind, 'item-field');
-    assert.equal(requests[0].id, 'bag-1');
-    assert.equal(requests[0].path, 'motion');
-    assert.deepEqual(requests[0].value.in, { preset: 'slide-up', duration: 12 });
-    assert.deepEqual(requests[0].value.loop, { preset: 'float', period: 90 });
-    assert.deepEqual(requests[0].value.out, { preset: 'slide-up', duration: 8 });
-    const noBag = captionMotionComboWrites(cue.id, undefined, 'smart', 60);
-    assert.equal(noBag.length, 1);
-    assert.equal(noBag[0].kind, 'caption-style-my-style');
-    const single = createMotionWriteRequest(owner, 'in', 'preset', 'fade');
-    assert.deepEqual(single.value.loop, { preset: 'blink', period: 60 });
+    assert.equal(requests[0].kind, 'caption-style-my-style');
+    assert.equal(requests[0].id, cue.id);
+    assert.deepEqual(requests[0].value.parts[0].animation, {
+        in: { id: 'slide-up', duration_sec: .4 },
+        out: { id: 'slide-up', duration_sec: .27 },
+        loop: { id: 'float', duration_sec: 3 }
+    });
+    assert.deepEqual(owner.motion, { loop: { preset: 'blink', period: 60 } });
+});
+
+test('袋の複数行へ組を一度で書き、袋の motion を残したまま一手で戻す', async () => {
+    const edit = { tracks: [{ items: [{ id: 'bag-1', source: { kind: 'captions' },
+        motion: { in: { preset: 'fade', duration: 12 } } }] }] };
+    const before = JSON.stringify({ captions: [
+        { id: 'c-1', text_style: { color: '#ffffff' } },
+        { id: 'c-2', text_style: { animation: { out: { id: 'pop' } } } }
+    ] });
+    const request = withCaptionMultiTargets(captionMotionComboWrites('c-1', 'smart')[0],
+        [{ kind: 'caption', id: 'c-1' }, { kind: 'caption', id: 'c-2' }]);
+    assert.deepEqual(request.targets.map(target => target.id), ['c-1', 'c-2']);
+    let source = replaceMyStylePartsInSource(before, request.targets.map(target => target.id),
+        request.value.parts, { motionDelta: request.value.multi_motion_delta });
+    const rows = JSON.parse(source).captions;
+    assert.deepEqual(rows.map(row => row.text_style.animation.in.id), ['slide-up', 'slide-up']);
+    assert.deepEqual(rows.map(row => row.text_style.animation.loop.id), ['float', 'float']);
+    assert.deepEqual(edit.tracks[0].items[0].motion, { in: { preset: 'fade', duration: 12 } });
+    const history = new AkariEditHistoryService();
+    history.push({ label: '字幕の動きを変更', undo: async () => { source = before; },
+        redo: async () => { source = replaceMyStylePartsInSource(before,
+            request.targets.map(target => target.id), request.value.parts,
+            { motionDelta: request.value.multi_motion_delta }); } });
+    await history.undo();
+    assert.equal(source, before);
+    assert.equal(history.canUndo, false);
 });
 
 test('編集パネルは語の表示と強調の保存先、カラオケ未終了色を接続する', () => {
@@ -91,6 +115,9 @@ test('編集パネルは語の表示と強調の保存先、カラオケ未終�
     assert.match(panel, /play\('karaoke', 'word-style'\)/u);
     assert.doesNotMatch(panel, /固定の黄色/u);
     assert.match(panel, /語の時刻（words\[\]）がない字幕/u);
+    assert.match(panel, /語の時刻がない字幕では、カラオケ・ポップ・1 語ずつは動きません/u);
+    const timelineWidget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+    assert.match(timelineWidget, /request\.path === 'motion'[\s\S]*?raw\.source\?\.kind === 'captions'[\s\S]*?字幕の動きは各行の設定から変更/u);
 });
 
 test('inspector のカラオケは 1 操作 1 履歴で undo/redo でき、外部変更を拒否する', async () => {
@@ -109,7 +136,7 @@ test('inspector のカラオケは 1 操作 1 履歴で undo/redo でき、外�
     const root = { toString: () => 'project', resolve: name => ({ toString: () => `project/${name}` }) };
     let captionSource = JSON.stringify([cue]);
     const editSource = JSON.stringify({ output: { fps: 30 }, tracks: [{ items: [{ id: 'bag-1',
-        duration: 2, source: { kind: 'captions' } }] }] });
+        duration: 60, source: { kind: 'captions' } }] }] });
     const calls = [];
     const renders = [];
     const pushed = [];

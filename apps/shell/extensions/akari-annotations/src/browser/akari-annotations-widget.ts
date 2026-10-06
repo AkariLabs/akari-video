@@ -4416,6 +4416,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     } }));
                     return { ok: true };
                 } else if (request.path === 'motion') {
+                    if (raw.source?.kind === 'caption' || raw.source?.kind === 'captions') {
+                        throw new Error('字幕の動きは各行の設定から変更してください。');
+                    }
                     const value = request.value;
                     validateInspectorMotion(value, raw.duration);
                     patch = { motion: value };

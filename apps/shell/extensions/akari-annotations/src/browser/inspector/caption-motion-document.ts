@@ -128,10 +128,11 @@ export function readOwnerMotion(editSource: string, ownerId: string, fallbackSec
     const tracks = Array.isArray(document.tracks) ? document.tracks : [];
     const item = tracks.map(track => object(track) ? find(track.items) : undefined).find(Boolean);
     if (!item) throw new Error('字幕の袋が見つかりません。');
+    const duration = Number(item.duration);
     const output = object(document.output) ? document.output : {};
     const fps = Number(output.fps ?? 30);
-    const duration = Number(item.duration ?? fallbackSeconds);
     return { id: ownerId,
         ...(object(item.motion) ? { motion: item.motion } : {}),
-        durationFrames: Math.max(1, Math.round(duration * (Number.isFinite(fps) && fps > 0 ? fps : 30))) };
+        durationFrames: Math.max(1, Math.round(Number.isFinite(duration) ? duration
+            : fallbackSeconds * (Number.isFinite(fps) && fps > 0 ? fps : 30))) };
 }

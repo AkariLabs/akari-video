@@ -1,9 +1,8 @@
 import type { CaptionAnimation, CaptionTextStylePatch } from '../../common/caption-store';
 import type { InspectorWriteRequest } from '../timeline-selection-model';
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
-import { MOTION_DURATION_DEFAULTS, MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS,
-    MOTION_PRESET_LABELS, normalizeInspectorMotion, validateInspectorMotion,
-    type InspectorMotion, type InspectorMotionSlot } from './motion-fields';
+import { MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS,
+    MOTION_PRESET_LABELS, type InspectorMotionSlot } from './motion-fields';
 
 export const CAPTION_MOTION_COMBOS = [
     { id: 'simple', label: 'シンプル', in: 'fade', out: 'fade' },
@@ -14,9 +13,17 @@ export const CAPTION_MOTION_COMBOS = [
     { id: 'typewriter', label: 'タイプライター', in: 'typewriter', out: 'fade' }
 ] as const;
 
-const textAnimationId = (id: string): string => ({
-    fade: 'fade-in-out', wipe: 'wipe-right', pulse: 'heartbeat', twirl: 'spin-in', scale: 'zoom-in-out'
-} as Record<string, string>)[id] ?? id;
+export const presetToAnimation: Record<string, string> = {
+    fade: 'fade-in-out', 'slide-up': 'slide-up', 'slide-down': 'slide-down',
+    'slide-left': 'slide-left', 'slide-right': 'slide-right', scale: 'zoom-in-out',
+    wipe: 'wipe-right', pop: 'pop', zoom: 'zoom-in-out', twirl: 'spin-in',
+    pulse: 'heartbeat', float: 'float', spin: 'spin-in', blink: 'flash', jiggle: 'jitter'
+};
+
+function captionAnimationRequest(id: string, animation: Record<string, unknown>): InspectorWriteRequest {
+    return { kind: 'caption-style-my-style', id,
+        value: { parts: [{ kind: 'motion', animation }] } };
+}
 
 export function captionTextAnimationWrite(id: string, current: CaptionAnimation | undefined,
     slot: InspectorMotionSlot, animationId: string, durationSec?: number): InspectorWriteRequest {
@@ -25,8 +32,7 @@ export function captionTextAnimationWrite(id: string, current: CaptionAnimation 
             ...(value.ease ? { ease: value.ease } : {}), ...(value.amp ? { amp: value.amp } : {}) } : value]));
     animation[slot] = { id: animationId,
         ...(durationSec ? { duration_sec: durationSec } : {}) };
-    return { kind: 'caption-style-my-style', id,
-        value: { parts: [{ kind: 'motion', animation }] } };
+    return captionAnimationRequest(id, animation);
 }
 
 export function captionTextAnimationClear(id: string, slot: InspectorMotionSlot | 'all'): InspectorWriteRequest {
@@ -53,35 +59,22 @@ export function captionMotionOriginalAnimation(source: string, id: string): Capt
     return Object.keys(animation).length ? animation : null;
 }
 
-export function captionMotionComboClear(captionId: string, ownerId?: string): InspectorWriteRequest {
-    return ownerId
-        ? { kind: 'item-field', id: ownerId, path: 'motion', value: null }
-        : captionTextAnimationClear(captionId, 'all');
+export function captionMotionComboClear(captionId: string): InspectorWriteRequest {
+    return captionTextAnimationClear(captionId, 'all');
 }
 
-export function captionMotionComboWrites(captionId: string, owner: { id: string; motion?: Record<string, unknown> } | undefined,
-    comboId: typeof CAPTION_MOTION_COMBOS[number]['id'], durationFrames: number): InspectorWriteRequest[] {
+export function captionMotionComboWrites(captionId: string,
+    comboId: typeof CAPTION_MOTION_COMBOS[number]['id']): InspectorWriteRequest[] {
     const combo = CAPTION_MOTION_COMBOS.find(item => item.id === comboId)!;
-    if (combo.id === 'typewriter') return [{ kind: 'caption-style-my-style', id: captionId,
-        value: { parts: [{ kind: 'motion', animation: {
+    if (combo.id === 'typewriter') return [captionAnimationRequest(captionId, {
             in: { id: 'typewriter', duration_sec: 1.4 }, out: { id: 'fade-in-out', duration_sec: .27 }
-        } }] } }];
-    if (!owner) {
-        const animation: Record<string, { id: string; duration_sec: number }> = {
-            in: { id: textAnimationId(combo.in), duration_sec: .4 },
-            out: { id: textAnimationId(combo.out), duration_sec: .27 }
-        };
-        if ('loop' in combo && combo.loop) animation.loop = { id: textAnimationId(combo.loop), duration_sec: 3 };
-        return [{ kind: 'caption-style-my-style', id: captionId, value: { parts: [{ kind: 'motion', animation }] } }];
-    }
-    const original = normalizeInspectorMotion(owner.motion);
-    const next: InspectorMotion = { ...original,
-        in: { preset: combo.in as NonNullable<InspectorMotion['in']>['preset'], duration: Math.max(1, Math.min(durationFrames - 1, MOTION_DURATION_DEFAULTS.in)) },
-        out: { preset: combo.out as NonNullable<InspectorMotion['out']>['preset'], duration: Math.max(1, Math.min(durationFrames - 1, MOTION_DURATION_DEFAULTS.out)) } };
-    if ('loop' in combo && combo.loop) next.loop = { preset: combo.loop as NonNullable<InspectorMotion['loop']>['preset'], period: MOTION_DURATION_DEFAULTS.loop };
-    else delete next.loop;
-    validateInspectorMotion(next, durationFrames);
-    return [{ kind: 'item-field', id: owner.id, path: 'motion', value: next }];
+        })];
+    const animation: Record<string, { id: string; duration_sec: number }> = {
+        in: { id: presetToAnimation[combo.in], duration_sec: .4 },
+        out: { id: presetToAnimation[combo.out], duration_sec: .27 }
+    };
+    if ('loop' in combo && combo.loop) animation.loop = { id: presetToAnimation[combo.loop], duration_sec: 3 };
+    return [captionAnimationRequest(captionId, animation)];
 }
 
 export function captionMotionCards(slot: InspectorMotionSlot): readonly { id: string; label: string }[] {

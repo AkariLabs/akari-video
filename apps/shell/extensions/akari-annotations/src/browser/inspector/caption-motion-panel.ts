@@ -1,9 +1,9 @@
 import type { InspectorWriteRequest, InspectorWriteResult, TimelineCaptionSelection } from '../timeline-selection-model';
 import { PREVIEW_CAPTION_ANIMATION_RECIPES, PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS } from 'akari-preview/lib/common/caption-text-animation-recipes';
-import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionComboClear, captionMotionCards,
+import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionComboClear, captionMotionCards, presetToAnimation,
     captionTextAnimationCards, captionTextAnimationWrite, captionTextAnimationClear } from './caption-motion-cards';
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
-import { createMotionWriteRequest, type InspectorMotionSlot } from './motion-fields';
+import type { InspectorMotionSlot } from './motion-fields';
 import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES,
     type CaptionMotionCue, type CaptionKaraokeSettings } from './caption-motion-document';
 
@@ -18,12 +18,6 @@ export interface CaptionMotionServices {
 const slots: readonly InspectorMotionSlot[] = ['in', 'loop', 'out'];
 const oneShotLoopIds = new Set<string>(PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS);
 const labels = { in: '登場', loop: '強調', out: '退場' } as const;
-const presetToAnimation: Record<string, string> = {
-    fade: 'fade-in-out', 'slide-up': 'slide-up', 'slide-down': 'slide-down',
-    'slide-left': 'slide-left', 'slide-right': 'slide-right', scale: 'zoom-in-out',
-    wipe: 'wipe-right', pop: 'pop', zoom: 'zoom-in-out', twirl: 'spin-in',
-    pulse: 'heartbeat', float: 'float', spin: 'spin-in', blink: 'flash', jiggle: 'jitter'
-};
 const views = new Map<string, { slot: InspectorMotionSlot; all: boolean }>();
 let observer: IntersectionObserver | undefined;
 
@@ -84,7 +78,6 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     const animation = snapshot.textStyle?.animation;
     let karaokeColor = '#ffd94a';
     const active = animation?.[state.slot]?.id;
-    let ownerMotion: Awaited<ReturnType<NonNullable<CaptionMotionServices['readOwner']>>> | undefined;
     if (typeof IntersectionObserver !== 'undefined') {
         observer = new IntersectionObserver(entries => {
             for (const entry of entries) {
@@ -111,23 +104,6 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 notice.textContent = result.message ?? '動きを書き込めませんでした。';
             }
         });
-    };
-    const commitOwner = (make: (owner: NonNullable<typeof ownerMotion>) => InspectorWriteRequest,
-        id?: string | ((owner: NonNullable<typeof ownerMotion>) => string), slot?: InspectorMotionSlot): void => {
-        if (!services?.readOwner) return;
-        void services.readOwner().then(owner => {
-            ownerMotion = owner;
-            const request = make(owner);
-            return write(request).then(result => {
-                if (result.ok) {
-                    if (request.kind === 'item-field' && request.path === 'motion'
-                        && request.value && typeof request.value === 'object' && !Array.isArray(request.value)) {
-                        ownerMotion = { ...owner, motion: request.value as Record<string, unknown> };
-                    }
-                    if (id) play(typeof id === 'string' ? id : id(owner), undefined, undefined, slot);
-                } else notice.textContent = result.message ?? '動きを書き込めませんでした。';
-            });
-        }).catch(error => { notice.textContent = error instanceof Error ? error.message : String(error); });
     };
     let sampleIndex = 0;
     const grid = (items: readonly { id: string; label: string; animation: string;
@@ -177,6 +153,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                     : item.slot === 'loop' && !oneShotLoopIds.has(item.animation) ? 'alternate' : 'normal';
                 sample.style.animation = `akari-motion-sample-${item.animation} 1.4s ease-in-out infinite ${direction}`;
             }
+            if (item.disabled) sample.style.animation = 'none';
             sample.style.animationPlayState = observer ? 'paused' : 'running';
             sample.style.animationDelay = `${(-(sampleIndex++ % 8) * .17).toFixed(2)}s`;
             const caption = document.createElement('span');
@@ -216,21 +193,14 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         onClick: selected => {
             if (selected) {
                 clearPressed();
-                if (snapshot.animatorOwner && services?.readOwner && combo.id !== 'typewriter') {
-                    commitOwner(owner => captionMotionComboClear(snapshot.id, owner.id));
-                } else commit(captionMotionComboClear(snapshot.id));
+                commit(captionMotionComboClear(snapshot.id));
                 return;
             }
             const id = combo.id === 'typewriter' ? 'typewriter' : presetToAnimation[combo.in];
-            if (snapshot.animatorOwner && services?.readOwner && combo.id !== 'typewriter') {
-                commitOwner(owner => captionMotionComboWrites(snapshot.id, owner, combo.id, owner.durationFrames)[0], id);
-            } else {
-                const [request] = captionMotionComboWrites(snapshot.id, undefined, combo.id, 30);
-                commit(request, id);
-            }
+            const [request] = captionMotionComboWrites(snapshot.id, combo.id);
+            commit(request, id);
         }
     })));
-    const comboGrid = root.lastElementChild as HTMLElement;
     heading('動き');
     const switcher = document.createElement('div');
     switcher.className = 'akari-caption-motion-switch';
@@ -248,9 +218,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     clear.addEventListener('click', () => {
         const slot = state.slot;
         clearPressed(slot, animation?.[slot]?.id);
-        if (snapshot.animatorOwner && services?.readOwner) {
-            commitOwner(owner => createMotionWriteRequest(owner, slot, 'preset', null));
-        } else commit(captionTextAnimationClear(snapshot.id, slot));
+        commit(captionTextAnimationClear(snapshot.id, slot));
     });
     switcher.appendChild(clear);
     root.appendChild(switcher);
@@ -260,36 +228,13 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         onClick: selected => {
             if (selected) {
                 clearPressed(state.slot, presetToAnimation[card.id]);
-                if (snapshot.animatorOwner && services?.readOwner) {
-                    commitOwner(owner => createMotionWriteRequest(owner, state.slot, 'preset', null));
-                } else commit(captionTextAnimationClear(snapshot.id, state.slot));
+                commit(captionTextAnimationClear(snapshot.id, state.slot));
                 return;
             }
-            if (snapshot.animatorOwner && services?.readOwner) {
-                commitOwner(owner => createMotionWriteRequest(owner, state.slot, 'preset', card.id),
-                    presetToAnimation[card.id], state.slot);
-            } else commit(captionTextAnimationWrite(snapshot.id, animation, state.slot,
+            commit(captionTextAnimationWrite(snapshot.id, animation, state.slot,
                 presetToAnimation[card.id]), presetToAnimation[card.id], state.slot);
         }
     })));
-    const motionGrid = root.lastElementChild as HTMLElement;
-    if (snapshot.animatorOwner && services?.readOwner) {
-        void services.readOwner().then(owner => {
-            ownerMotion = owner;
-            const seat = owner.motion?.[state.slot] as { preset?: string } | undefined;
-            motionGrid.querySelectorAll<HTMLButtonElement>('[data-motion-id]').forEach(card =>
-                card.setAttribute('aria-pressed', String(card.dataset.motionId === seat?.preset)));
-            const inSeat = owner.motion?.in as { preset?: string } | undefined;
-            const outSeat = owner.motion?.out as { preset?: string } | undefined;
-            const loopSeat = owner.motion?.loop as { preset?: string } | undefined;
-            comboGrid.querySelectorAll<HTMLButtonElement>('[data-motion-id]').forEach(card => {
-                const combo = CAPTION_MOTION_COMBOS.find(item => item.id === card.dataset.motionId);
-                if (!combo || combo.id === 'typewriter') return;
-                card.setAttribute('aria-pressed', String(inSeat?.preset === combo.in && outSeat?.preset === combo.out
-                    && loopSeat?.preset === ('loop' in combo ? combo.loop : undefined)));
-            });
-        }).catch(error => { notice.textContent = error instanceof Error ? error.message : String(error); });
-    }
     heading('テキストアニメ');
     grid(captionTextAnimationCards(state.all).map(card => ({
         id: card.id, kind: 'textanim' as const, label: card.label, animation: card.id, slot: card.slot,
@@ -320,10 +265,17 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
             wordSection.querySelectorAll<HTMLElement>('[data-motion-id]').forEach(card => observer?.unobserve(card));
             wordSection.replaceChildren();
             heading('語ごとの表示', wordSection);
+            if (!cue.words.length) {
+                const reason = document.createElement('div');
+                reason.className = 'akari-caption-motion-note';
+                reason.textContent = '語の時刻がない字幕では、カラオケ・ポップ・1 語ずつは動きません';
+                wordSection.appendChild(reason);
+            }
             grid(CAPTION_WORD_STYLES.map(item => ({ ...item,
                 kind: 'word-style' as const,
                 animation: item.id === 'karaoke' ? 'karaoke' : item.id === 'pop' ? 'pop' : 'fade-up',
                 selected: wordStyle === item.id,
+                disabled: !cue.words.length && (item.id === 'karaoke' || item.id === 'pop' || item.id === 'reveal-word'),
                 onClick: () => { const newlySelected = item.id === 'karaoke' && wordStyle !== 'karaoke';
                     void (newlySelected
                     ? services.setKaraoke({ done_color: '#fb923c', fill: 'char' }, true)
@@ -346,7 +298,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 repaintWords();
             }); });
             wordSection.appendChild(clear);
-            if (wordStyle === 'karaoke') {
+            if (wordStyle === 'karaoke' && cue.words.length) {
                 heading('カラオケの設定', wordSection);
                 const save = (patch: CaptionKaraokeSettings): void => {
                     void services.setKaraoke(patch).then(result => {
@@ -472,15 +424,6 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     speed.type = 'range'; speed.min = '0.3'; speed.max = '2'; speed.step = '0.05'; speed.value = '1';
     speed.setAttribute('aria-label', '速さ');
     speed.addEventListener('change', () => {
-        if (snapshot.animatorOwner && services?.readOwner) {
-            commitOwner(owner => createMotionWriteRequest(owner, state.slot, 'duration',
-                Math.max(1, Math.round((state.slot === 'loop' ? 90 : state.slot === 'out' ? 8 : 12)
-                    / Number(speed.value)))), owner => {
-                const seat = owner.motion?.[state.slot] as { preset?: string } | undefined;
-                return presetToAnimation[seat?.preset ?? 'fade'] ?? 'fade-in-out';
-            }, state.slot);
-            return;
-        }
         const seat = animation?.[state.slot];
         if (!seat) return;
         const base = state.slot === 'loop' ? 3 : state.slot === 'out' ? .27 : .4;
@@ -495,15 +438,6 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     durationInput.value = String(animation?.[state.slot]?.durationSec
         ?? (state.slot === 'loop' ? 3 : state.slot === 'out' ? .27 : .4));
     durationInput.addEventListener('change', () => {
-        if (snapshot.animatorOwner && services?.readOwner) {
-            const frames = Math.max(1, Math.round(Number(durationInput.value) * 30));
-            if (Number.isFinite(frames)) commitOwner(owner => createMotionWriteRequest(owner, state.slot,
-                'duration', frames), owner => {
-                const seat = owner.motion?.[state.slot] as { preset?: string } | undefined;
-                return presetToAnimation[seat?.preset ?? 'fade'] ?? 'fade-in-out';
-            }, state.slot);
-            return;
-        }
         const seat = animation?.[state.slot];
         const seconds = Number(durationInput.value);
         if (!seat || !Number.isFinite(seconds) || seconds <= 0) return;
