@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { isDeclaredResource, relativeRequires, scanAssetFinderCalls, walkImports } from '../check-packaged-imports.mjs';
+import { assembleResources, isDeclaredResource, relativeRequires, removeAssembledResources, scanAssetFinderCalls, scanRepoFileCalls, walkImports } from '../check-packaged-imports.mjs';
 import { packagedRoots, resolvePackagedSpecifier } from '../../../apps/shell/test/helpers/packaged-imports.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -58,6 +58,45 @@ test('backend finder の文字列だけ検査し、テンプレートと変数�
     { from: 'generated/schema', to: 'packages/schemas', filter: ['ai-models.json'] },
   ] });
   assert.deepEqual(generated.missing, [], 'checkout にない生成物は宣言で足りる');
+});
+
+function repoFileFixture(t, filter) {
+  const dir = fixture(t);
+  const repoRoot = path.join(dir, 'repo');
+  const shellDir = path.join(repoRoot, 'apps/shell');
+  const nodeDir = path.join(shellDir, 'extensions/example/src/node');
+  const schemas = path.join(repoRoot, 'packages/schemas');
+  const resourcesRoot = path.join(dir, 'assembled/Resources');
+  mkdirSync(nodeDir, { recursive: true });
+  mkdirSync(schemas, { recursive: true });
+  mkdirSync(resourcesRoot, { recursive: true });
+  writeFileSync(path.join(schemas, 'xxx.json'), '{}');
+  writeFileSync(path.join(schemas, 'included.json'), '{}');
+  writeFileSync(path.join(nodeDir, 'service.ts'), [
+    "this.resolveRepoFile('packages/schemas/xxx.json');",
+    'this.resolveRepoFile(dynamicPath);',
+    'protected async resolveRepoFile(relativeTarget: string): Promise<string> { return relativeTarget; }',
+  ].join('\n'));
+  const shellPackage = { build: { extraResources: [
+    { from: '../../packages/schemas', to: 'packages/schemas', filter },
+  ] } };
+  const assembled = assembleResources(shellPackage, { shellDir, resourcesRoot });
+  t.after(() => removeAssembledResources(resourcesRoot, assembled.linkedDirectories));
+  return { repoRoot, resourcesRoot };
+}
+
+test('backend resolveRepoFile の参照先が filter に無いと同梱検査が失敗する', (t) => {
+  const result = scanRepoFileCalls(repoFileFixture(t, ['included.json']));
+  assert.equal(result.found, 1);
+  assert.deepEqual(result.missing.map(row => row.specifier), ['packages/schemas/xxx.json']);
+  assert.equal(result.dynamic.length, 1);
+});
+
+test('backend resolveRepoFile の参照先を filter に足すと同梱検査が通る', (t) => {
+  const result = scanRepoFileCalls(repoFileFixture(t, ['included.json', 'xxx.json']));
+  assert.equal(result.found, 1);
+  assert.deepEqual(result.missing, []);
+  assert.equal(result.dynamic.length, 1);
 });
 
 test('checkout にない生成物は to と filter の宣言で判定する', () => {

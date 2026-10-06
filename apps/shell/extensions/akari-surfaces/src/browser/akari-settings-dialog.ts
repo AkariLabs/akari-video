@@ -253,7 +253,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const block = this.contentNode.parentElement;
         if (block) {
             Object.assign(block.style, {
-                width: 'min(1040px, calc(100vw - 48px))', maxWidth: '1040px', minWidth: '0',
+                width: 'min(1440px, calc(100vw - 48px))', maxWidth: '1440px', minWidth: '0',
                 height: 'min(760px, calc(100vh - 48px))', maxHeight: 'calc(100vh - 48px)',
                 borderRadius: '12px', overflow: 'hidden', border: AKARI_BORDER.edge, background: AKARI_SURFACE.raised
             });
@@ -315,11 +315,6 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     showSection(section: SettingsSectionId): void {
         if (section !== 'about') { this.stopAboutUpdaterEvents(); }
-        const block = this.contentNode.parentElement;
-        if (block) {
-            block.style.width = `min(${section === 'ai-models' ? 1440 : 1040}px, calc(100vw - 48px))`;
-            block.style.maxWidth = section === 'ai-models' ? '1440px' : '1040px';
-        }
         const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${section}"]`);
         if (navTarget?.hidden && this.searchInput.value) { this.searchInput.value = ''; this.filterSections(); }
         for (const [id, node] of this.sections) {

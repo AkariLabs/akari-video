@@ -18,7 +18,7 @@
 //      bare は packages/node_modules（= resources/cli-node-modules）から解決。node: と electron は対象外
 //   4. リポジトリのソースツリーにある package 解決関数の文字列リテラル引数を走査し、模擬 Resources
 //      の packages/<pkg>/<rel> に実体があるか検査する。非リテラル引数は参考情報に留める
-//   5. backend の findGenerationAsset / findAsset の文字列リテラルを検査し、非リテラルは参考にする
+//   5. backend の findGenerationAsset / findAsset / resolveRepoFile の文字列リテラルを検査し、非リテラルは参考にする
 //   6. 動的 import("x") は参考情報（hyperframes のように意図的に同梱しない依存があるため fail にしない）
 //   7. launcher が宣言するサブコマンド実行体を、模擬 Resources または npm vendor の同梱規則と照合する
 //
@@ -385,6 +385,7 @@ function resolverCalls(source) {
 }
 
 const ASSET_FINDER_NAMES = new Set(['findGenerationAsset', 'findAsset']);
+const REPO_FILE_NAMES = new Set(['resolveRepoFile']);
 
 // 名前で呼び出しを探し、第 1 引数だけを見る。ファイル内の別の正規表現やテンプレートで
 // 後続の呼び出しが隠れないようにする。上の package resolver 走査と検出結果はそのまま保つ。
@@ -392,7 +393,9 @@ function syntaxCalls(source, names) {
   const calls = [];
   const pattern = names.has('require')
     ? /(?<![\w$.])require\s*\(/gu
-    : /(?<![\w$])(?:findGenerationAsset|findAsset)\s*\(/gu;
+    : names.has('resolveRepoFile')
+      ? /(?<![\w$])resolveRepoFile\s*\(/gu
+      : /(?<![\w$])(?:findGenerationAsset|findAsset)\s*\(/gu;
   for (const match of source.matchAll(pattern)) {
     const start = match.index;
     const lineStart = source.lastIndexOf('\n', start - 1) + 1;
@@ -423,14 +426,14 @@ function sourceFilesForAssetFinders(repoRoot) {
     && file.replaceAll('\\', '/').includes('/src/node/')).sort();
 }
 
-export function scanAssetFinderCalls({ repoRoot = REPO_ROOT, resourcesRoot, generatedResources = [] }) {
+function scanBackendResourceCalls({ repoRoot, resourcesRoot, generatedResources }, names) {
   const missing = [];
   const dynamic = [];
   let found = 0;
   const files = sourceFilesForAssetFinders(repoRoot);
   for (const file of files) {
     const from = relative(repoRoot, file).split('\\').join('/');
-    for (const call of syntaxCalls(readFileSync(file, 'utf8'), ASSET_FINDER_NAMES)) {
+    for (const call of syntaxCalls(readFileSync(file, 'utf8'), names)) {
       if (!call.literal || call.literal.includes('..') || call.literal.startsWith('/')) {
         dynamic.push({ ...call, from });
         continue;
@@ -442,6 +445,14 @@ export function scanAssetFinderCalls({ repoRoot = REPO_ROOT, resourcesRoot, gene
     }
   }
   return { scanned: files.length, found, missing, dynamic };
+}
+
+export function scanAssetFinderCalls({ repoRoot = REPO_ROOT, resourcesRoot, generatedResources = [] }) {
+  return scanBackendResourceCalls({ repoRoot, resourcesRoot, generatedResources }, ASSET_FINDER_NAMES);
+}
+
+export function scanRepoFileCalls({ repoRoot = REPO_ROOT, resourcesRoot, generatedResources = [] }) {
+  return scanBackendResourceCalls({ repoRoot, resourcesRoot, generatedResources }, REPO_FILE_NAMES);
 }
 
 // 実ソースツリーの package 解決呼び出しを、組み上げ済みの模擬 Resources と照合する。
@@ -555,6 +566,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
     // その宣言は資産欠落の免除対象から外す。
     && typeof entry !== 'string' && ((entry.to ?? '.') !== '.' || !!entry.filter?.length));
   const assetFinders = scanAssetFinderCalls({ resourcesRoot, generatedResources });
+  const repoFiles = scanRepoFileCalls({ resourcesRoot, generatedResources });
   const launcherSubcommands = scanLauncherSubcommands({ resourcesRoot });
   console.log(`check-packaged-imports: entries ${entries.length} / walked ${walked} files / Resources = ${resourcesRoot}`);
   if (skipped.length > 0) console.log(`  skipped (from が存在しない・生成物など): ${skipped.join(', ')}`);
@@ -575,9 +587,21 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
       console.log(`    (${item.resolver}) ${item.expression}  <- ${item.from}:${item.line}`);
     }
   }
+  if (repoFiles.dynamic.length > 0) {
+    console.log(`  resolveRepoFile の非リテラル引数（参考・fail にしない）: ${repoFiles.dynamic.length}`);
+    for (const item of repoFiles.dynamic) {
+      console.log(`    (${item.resolver}) ${item.expression}  <- ${item.from}:${item.line}`);
+    }
+  }
   if (assetFinders.missing.length > 0) {
     console.error(`check-packaged-imports: ASSET FINDER MISSING ${assetFinders.missing.length}`);
     for (const item of assetFinders.missing) {
+      console.error(`    ${item.specifier}  <- ${item.from}:${item.line}`);
+    }
+  }
+  if (repoFiles.missing.length > 0) {
+    console.error(`check-packaged-imports: RESOLVE REPO FILE MISSING ${repoFiles.missing.length}`);
+    for (const item of repoFiles.missing) {
       console.error(`    ${item.specifier}  <- ${item.from}:${item.line}`);
     }
   }
@@ -611,7 +635,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
     console.error(`check-packaged-imports: MISSING ${missing.length}（パッケージ版で ERR_MODULE_NOT_FOUND になる）`);
     for (const item of missing) console.error(`    ${item.specifier}  <- imported from ${item.from}`);
   }
-  if (missing.length > 0 || packageResolvers.missing.length > 0 || assetFinders.missing.length > 0
+  if (missing.length > 0 || packageResolvers.missing.length > 0 || assetFinders.missing.length > 0 || repoFiles.missing.length > 0
     || launcherSubcommands.missing.length > 0 || launcherSubcommands.staleKnownUnpackaged.length > 0) {
     if (!keep) removeAssembledResources(resourcesRoot, linkedDirectories);
     process.exit(1);

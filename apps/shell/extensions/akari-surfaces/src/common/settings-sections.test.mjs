@@ -204,11 +204,12 @@ test('ページの保存と復元は保存不可でも動き、コマンドか�
     assert.match(dialog, /new AkariSettingsDialog\([^;]*this\.requestedSection\)/);
 });
 
-test('AI モデルの節だけダイアログを広げ、比較表はレーダーの下に置く', () => {
+test('全節で同じダイアログ幅を使い、比較表はレーダーの下に置く', () => {
     const dialog = source('../browser/akari-settings-dialog.ts');
+    const build = dialog.slice(dialog.indexOf('protected buildDom(): void {'), dialog.indexOf('showSection(section: SettingsSectionId): void {'));
     const section = dialog.slice(dialog.indexOf('showSection(section: SettingsSectionId): void {'));
-    assert.match(section, /block\.style\.width = `min\(\$\{section === 'ai-models' \? 1440 : 1040\}px, calc\(100vw - 48px\)\)`/);
-    assert.match(section, /block\.style\.maxWidth = section === 'ai-models' \? '1440px' : '1040px'/);
+    assert.match(build, /width: 'min\(1440px, calc\(100vw - 48px\)\)', maxWidth: '1440px'/);
+    assert.doesNotMatch(section, /block\.style\.(?:width|maxWidth)/);
     const models = source('../browser/ai-models/ai-models-view.ts');
     assert.match(models, /\.akari-ai-compare\{[^}]*display:flex;flex-direction:column/);
     assert.doesNotMatch(models, /\.akari-ai-compare\{[^}]*grid-template-columns/);

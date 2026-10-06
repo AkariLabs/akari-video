@@ -63,6 +63,7 @@ const STYLE = `
 .akari-ai-button{border:1px solid var(--theia-panel-border, #5c6470);border-radius:6px;background:transparent;color:inherit;padding:5px 8px;cursor:pointer;text-align:left}
 .akari-ai-button:hover,.akari-ai-button[aria-pressed=true]{background:var(--theia-list-hoverBackground, #343a47);border-color:var(--theia-focusBorder, #d6a958)}
 .akari-ai-button:disabled{opacity:.45;cursor:default}.akari-ai-kind{display:flex;justify-content:space-between;width:100%}.akari-ai-note{font-size:11px;opacity:.7;line-height:1.5;margin:0}
+.akari-ai-load-error{font-size:14px;line-height:1.6;color:var(--theia-errorForeground,#f48771);margin:8px 0 12px;overflow-wrap:anywhere}
 .akari-ai-main{min-width:0;padding:14px;display:flex;flex-direction:column;gap:10px}.akari-ai-search{display:flex;gap:8px;flex-wrap:wrap}
 .akari-ai-search input{flex:1;min-width:180px;border:1px solid var(--theia-panel-border,#5c6470);border-radius:6px;background:var(--theia-input-background,#252a34);color:inherit;padding:6px 9px}
 .akari-ai-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
@@ -85,6 +86,7 @@ const STYLE = `
 `;
 
 export class AiModelsView {
+    private readonly initialChildren: Element[];
     private catalog?: AiModelCatalog;
     private preferences?: AiModelPreferences;
     private kind: AiModelKind = 'image';
@@ -99,8 +101,10 @@ export class AiModelsView {
     private compare: string[] = [];
     private menu = '';
     private error = '';
+    private loadError = '';
 
     constructor(private readonly host: HTMLElement, private readonly service: AkariAiModelsService, private readonly projectRoot?: string) {
+        this.initialChildren = Array.from(host.children);
         const style = node('style');
         style.textContent = STYLE;
         host.append(style);
@@ -112,13 +116,17 @@ export class AiModelsView {
     }
 
     private async load(): Promise<void> {
+        this.loadError = '';
+        this.error = '';
         try {
             [this.catalog, this.preferences] = await Promise.all([
                 this.service.getAiModelCatalog(),
                 this.service.getAiModelPreferences({ projectRootUri: this.projectRoot })
             ]);
         } catch (error) {
-            this.error = error instanceof Error ? error.message : 'モデルを読み込めませんでした。';
+            this.catalog = undefined;
+            this.preferences = undefined;
+            this.loadError = (error instanceof Error ? error.message : String(error)) || '原因は不明です。';
         }
         this.render();
     }
@@ -136,7 +144,16 @@ export class AiModelsView {
 
     private render(): void {
         const style = this.host.querySelector('style');
-        this.host.replaceChildren(...(style ? [style] : []));
+        this.host.replaceChildren(...this.initialChildren, ...(style ? [style] : []));
+        if (this.loadError) {
+            const message = node('p', 'akari-ai-load-error', `AI モデルを読み込めませんでした。${this.loadError}`);
+            message.setAttribute('role', 'alert');
+            const retry = node('button', 'theia-button secondary', 'もう一度読み込む');
+            retry.type = 'button';
+            retry.addEventListener('click', () => void this.load());
+            this.host.append(message, retry);
+            return;
+        }
         if (this.error) {
             const message = node('p', 'akari-ai-note', this.error);
             message.setAttribute('role', 'alert');
