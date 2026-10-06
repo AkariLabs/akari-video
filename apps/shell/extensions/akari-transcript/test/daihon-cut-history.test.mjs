@@ -101,7 +101,7 @@ test('長い行のカット通知は本文の先頭 12 文字と省略記号を�
 });
 
 test('カット済み区間の復元は RPC と履歴が各 1 件で、undo が復元前の edit.json に戻す', async () => {
-  const cut = applyCutRanges(before, [{ in: 2, out: 3, kind: 'filler', captionId: 'main' }]).source;
+  const cut = applyCutRanges(before, [{ in: 2, out: 3, kind: 'filler', captionId: 'main', label: 'えー' }]).source;
   const run = harness(cut);
   await run.widget.restoreCutSpan({ restoreRange: { in: 2, out: 3, kind: 'filler', captionId: 'main' } });
   assert.equal(run.applyCalls, 0);
@@ -114,7 +114,7 @@ test('カット済み区間の復元は RPC と履歴が各 1 件で、undo が�
 });
 
 test('範囲修正の再カットが失敗しても、復元済みの変更を履歴 1 件から undo できる', async () => {
-  const cut = applyCutRanges(before, [{ in: 2, out: 3, kind: 'filler', captionId: 'main' }]).source;
+  const cut = applyCutRanges(before, [{ in: 2, out: 3, kind: 'filler', captionId: 'main', label: 'えー' }]).source;
   const run = harness(cut);
   run.widget.annotationsService.applyCutRanges = async () => { throw new Error('再カット失敗'); };
   await run.widget.applyCutRangeEditor(row, { kind: 'silence', gap: { start: 5, end: 6 } },
