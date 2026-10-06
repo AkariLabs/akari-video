@@ -20,8 +20,17 @@ assert.deepEqual(playback.keys, ['space']);
 const file = ts.createSourceFile('keybindings.ts', keybindingsSource, ts.ScriptTarget.Latest, true);
 const declaration = file.statements.find(node => ts.isClassDeclaration(node)
   && node.name?.text === 'AkariShortcutKeybindings');
+const controlPolicy = file.statements.find(node => ts.isFunctionDeclaration(node)
+  && node.name?.text === 'isFocusOnControl');
+assert.ok(controlPolicy, 'shared control focus policy exists');
+const controlPolicyJs = ts.transpileModule(controlPolicy.getText(file).replace(/^export\s+/u, ''), {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 }
+}).outputText;
 const start = declaration?.members.find(node => ts.isMethodDeclaration(node) && node.name.getText(file) === 'start');
 assert.ok(start, 'shortcut context refresh method exists');
+assert.match(start.getText(file), /setContext\('akariFocusOnControl', isFocusOnControl\(/u);
+const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+assert.match(widgetSource, /if \(isFocusOnControl\(focusedElement, this\.node, isWebviewKeydown\)\) return;/u);
 const harnessSource = ts.transpileModule(`class Harness { ${start.getText(file)} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText;
@@ -44,6 +53,7 @@ class Element {
     return null;
   }
 }
+const isFocusOnControl = new Function('HTMLElement', `${controlPolicyJs}; return isFocusOnControl;`)(Element);
 
 function probe(focused, { composing = false, modal = false, captionEditing = false } = {}) {
   const contexts = {};
@@ -65,10 +75,10 @@ function probe(focused, { composing = false, modal = false, captionEditing = fal
   };
   const Harness = new Function('window', 'document', 'HTMLElement', 'Disposable',
     'isEditableEventTarget', 'isImeCompositionKeydown', 'captionEditFocusWithinMarkedWidget',
-    'getComputedStyle', `${harnessSource}; return Harness;`)(
+    'getComputedStyle', 'isFocusOnControl', `${harnessSource}; return Harness;`)(
     window, document, Element, { create: dispose => ({ dispose }) },
     isEditableEventTarget, isImeCompositionKeydown,
-    element => captionEditing && element === focused, () => ({ visibility: 'visible' })
+    element => captionEditing && element === focused, () => ({ visibility: 'visible' }), isFocusOnControl
   );
   const owner = new Harness();
   const widget = { node: { contains: () => false }, canRunRegisteredShortcut: () => false };
