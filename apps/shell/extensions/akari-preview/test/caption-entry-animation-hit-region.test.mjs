@@ -123,7 +123,6 @@ const findMatchingEmphasis=()=>null;
 const applyCaptionStyleVars=()=>undefined;
 const applyRichCaptionLayers=()=>undefined;
 const applyCaptionRowSelectionAttrs=()=>undefined;
-const applyRichCaptionLayers=()=>undefined;
 const renderPlainCaptionFragment=()=>'';
 const renderStyledCaptionFragment=()=>'<div class="akari-caption"><div class="fixture-caption__anchor"><span>字幕</span></div></div>';
 const updateCaptionSelectBox=()=>undefined;
