@@ -357,6 +357,26 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
       failed = true;
     }
   }
+  for (const relative of [path.join('catalog', 'font'), path.join('assets', 'font')]) {
+    const exists = await stat(path.join(resourcesDir, relative)).then(s => s.isDirectory(), () => false);
+    if (exists) {
+      console.log(`✅ ${relative}`);
+    } else {
+      console.error(`❌ MISSING: ${relative}（リソース直下）`);
+      failed = true;
+    }
+  }
+  const fontCatalogDir = path.join(resourcesDir, 'catalog', 'font');
+  const fontEntries = await readdir(fontCatalogDir, { withFileTypes: true }).catch(() => []);
+  const fontItems = await Promise.all(fontEntries.filter(entry => entry.isDirectory()).map(async entry =>
+    stat(path.join(fontCatalogDir, entry.name, 'meta.json')).then(s => s.isFile(), () => false)));
+  const fontCount = fontItems.filter(Boolean).length;
+  if (fontCount > 0) {
+    console.log(`✅ catalog/font ${fontCount} 件`);
+  } else {
+    console.error('❌ catalog/font の項目が 0 件（リソース直下）');
+    failed = true;
+  }
   for (const noticeFile of ['ThirdPartyNotices.txt', 'LICENSE.electron.txt', 'LICENSES.chromium.html']) {
     const exists = await stat(path.join(resourcesDir, noticeFile)).then(s => s.isFile(), () => false);
     if (exists) {
