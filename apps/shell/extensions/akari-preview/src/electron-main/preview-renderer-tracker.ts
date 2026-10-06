@@ -1,6 +1,15 @@
 /** Electron に依存しない、webview iframe と OS renderer PID の対応表。 */
 import { previewDiagnosticsKindFromWidgetId } from '../common/preview-init-diagnostics';
 
+export const PREVIEW_RENDERER_POLL_MS = 1000;
+
+export interface GonePreviewFrame {
+    contentsId: number;
+    pid: number;
+    widgetId: string;
+    observedAt: number;
+}
+
 export function previewWidgetIdFromUrl(url: string): string | undefined {
     try {
         const parsed = new URL(url);
@@ -18,6 +27,7 @@ interface TrackedFrame {
     routingId: number;
     pid: number;
     widgetId: string;
+    observedAt: number;
     seenAlive: boolean;
     missingPolls: number;
 }
@@ -25,12 +35,11 @@ interface TrackedFrame {
 export class PreviewRendererTracker {
     private readonly frames = new Map<string, TrackedFrame>();
 
-    pollIfTracked(
-        readLivePids: () => ReadonlySet<number>,
-        validFrame: (contentsId: number, routingId: number, pid: number) => boolean
-    ): Array<{ contentsId: number; pid: number; widgetId: string }> {
+    constructor(private readonly now: () => number = () => Date.now()) {}
+
+    pollIfTracked(readLivePids: () => ReadonlySet<number>): GonePreviewFrame[] {
         if (this.frames.size === 0) return [];
-        return this.poll(readLivePids(), validFrame);
+        return this.poll(readLivePids());
     }
 
     observe(contentsId: number, routingId: number, pid: number, url: string): void {
@@ -48,7 +57,9 @@ export class PreviewRendererTracker {
         }
         this.frames.set(key, {
             contentsId, routingId, pid, widgetId,
-            seenAlive: previous?.pid === pid ? previous.seenAlive : false,
+            observedAt: previous?.pid === pid && previous.widgetId === widgetId
+                ? previous.observedAt : this.now(),
+            seenAlive: previous?.pid === pid && previous.widgetId === widgetId ? previous.seenAlive : false,
             missingPolls: 0
         });
     }
@@ -59,21 +70,17 @@ export class PreviewRendererTracker {
         }
     }
 
-    poll(livePids: ReadonlySet<number>, validFrame: (contentsId: number, routingId: number, pid: number) => boolean):
-        Array<{ contentsId: number; pid: number; widgetId: string }> {
-        const gone: Array<{ contentsId: number; pid: number; widgetId: string }> = [];
+    poll(livePids: ReadonlySet<number>): GonePreviewFrame[] {
+        const gone: GonePreviewFrame[] = [];
         for (const [key, frame] of this.frames) {
             if (livePids.has(frame.pid)) {
-                // 停止した OOPIF の WebFrameMain getter は Electron 39 で同期的に固まる。
-                // getter を使う妥当性確認は PID が生きている間だけ行う。
-                if (!validFrame(frame.contentsId, frame.routingId, frame.pid)) {
-                    this.frames.delete(key);
-                    continue;
-                }
                 frame.seenAlive = true;
                 frame.missingPolls = 0;
             } else if (frame.seenAlive && ++frame.missingPolls >= 2) {
-                gone.push({ contentsId: frame.contentsId, pid: frame.pid, widgetId: frame.widgetId });
+                gone.push({
+                    contentsId: frame.contentsId, pid: frame.pid,
+                    widgetId: frame.widgetId, observedAt: frame.observedAt
+                });
                 this.frames.delete(key);
             }
         }

@@ -84,7 +84,8 @@ import {
     PreviewDiagnosticsCenter,
     PreviewDiagnosticsLog,
     createDomPreviewDiagnosticsOverlay,
-    isPreviewDiagnosticsReport
+    isPreviewDiagnosticsReport,
+    shouldDeliverPreviewRendererGone
 } from './preview-diagnostics';
 import {
     AssetStreamRequest,
@@ -629,10 +630,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const unsubscribeRendererGone = window.electronAkariPreview?.onPreviewRendererGone?.(notice => {
             if (!notice || typeof notice.webviewId !== 'string' || typeof notice.reason !== 'string') return;
             const widget = this.previewDiagnosticsWidgets.get(notice.webviewId);
-            widget?.akariPreviewDiagnostics?.rendererGone({
+            const session = widget?.akariPreviewDiagnostics;
+            if (!shouldDeliverPreviewRendererGone(widget, notice) || !session) return;
+            session.rendererGone({
                 reason: notice.reason,
                 exitCode: typeof notice.exitCode === 'number' ? notice.exitCode : null,
-                at: typeof notice.at === 'string' ? notice.at : new Date().toISOString()
+                at: notice.at
             });
         });
         if (unsubscribeRendererGone) {

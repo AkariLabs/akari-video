@@ -149,8 +149,9 @@ export function buildPreviewDiagnosticsOverlayModel(
 ): PreviewDiagnosticsOverlayModel {
     const blocked = summary.failedStage ?? summary.stalledStage;
     const title = summary.rendererGone
-        ? 'プレビューの表示処理が停止しました（理由: '
-            + describePreviewRendererGoneReason(summary.rendererGone.reason) + '）'
+        ? 'プレビューの表示処理が停止しました'
+            + (summary.rendererGone.reason === 'unknown' ? ''
+                : '（理由: ' + describePreviewRendererGoneReason(summary.rendererGone.reason) + '）')
         : unresponsive
             ? 'プレビューが応答していません'
                 + (summary.complete ? '' : ' — 止まった段: ' + (blocked ? blocked.label : '不明'))
@@ -173,6 +174,9 @@ export function buildPreviewDiagnosticsOverlayModel(
     if (context.webviewId) footerLines.push('Webview ID: ' + context.webviewId);
     if (logPath) footerLines.push('診断ログ: ' + logPath);
     if (summary.rendererGone) {
+        if (summary.rendererGone.reason === 'unknown') {
+            footerLines.push('停止の理由は取得できませんでした');
+        }
         footerLines.push('停止: reason=' + summary.rendererGone.reason
             + ' exitCode=' + (summary.rendererGone.exitCode ?? '不明')
             + ' 時刻=' + summary.rendererGone.at);
@@ -216,6 +220,18 @@ export interface PreviewDiagnosticsSubject {
     isActive?: () => boolean;
 }
 
+export function shouldDeliverPreviewRendererGone(
+    widget: {
+        isDisposed: boolean;
+        isAttached: boolean;
+        akariPreviewDiagnostics?: PreviewDiagnosticsSession;
+    } | undefined,
+    notice: { at: string; observedAt: number }
+): boolean {
+    return !!widget && !widget.isDisposed && widget.isAttached
+        && !!widget.akariPreviewDiagnostics?.acceptsRendererGoneNotice(notice.at, notice.observedAt);
+}
+
 /** webview から届く報告の形（`akari-preview-diagnostics` メッセージ）。 */
 export interface PreviewDiagnosticsReport {
     type: 'akari-preview-diagnostics';
@@ -241,6 +257,7 @@ export function isPreviewDiagnosticsReport(message: unknown): message is Preview
 export class PreviewDiagnosticsSession {
     readonly trace: PreviewInitTrace = createPreviewInitTrace(PREVIEW_INIT_STAGES);
     readonly role: string;
+    readonly createdAt: number;
     protected watchdog: unknown;
     protected heartbeatWatchdog: unknown;
     protected watchdogFired = false;
@@ -259,6 +276,7 @@ export class PreviewDiagnosticsSession {
         protected readonly log: PreviewDiagnosticsLog,
         readonly subject: PreviewDiagnosticsSubject
     ) {
+        this.createdAt = this.io.now();
         this.role = describePreviewWebviewRole(subject.id).label;
         this.log.append({
             at: this.io.nowIso(),
@@ -461,6 +479,13 @@ export class PreviewDiagnosticsSession {
         });
         this.subject.overlay?.show(buildPreviewDiagnosticsOverlayModel(summary, this.context(), this.log.location()));
         this.overlayVisible = !!this.subject.overlay;
+    }
+
+    acceptsRendererGoneNotice(at: string, observedAt: number): boolean {
+        const noticeAt = Date.parse(at);
+        return !this.disposed && !this.trace.rendererGone
+            && Number.isFinite(noticeAt) && noticeAt >= this.createdAt
+            && Number.isFinite(observedAt) && observedAt >= this.createdAt;
     }
 
     protected entryFor(

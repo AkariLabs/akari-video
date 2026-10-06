@@ -9,6 +9,8 @@ export interface PreviewRendererGoneNotice {
     webviewId: string;
     reason: string;
     exitCode: number | null;
+    /** 検知対象 frame を最初に観測した時刻（Unix ミリ秒）。 */
+    observedAt: number;
     at: string;
 }
 

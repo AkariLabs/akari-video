@@ -293,8 +293,10 @@ export function formatPreviewInitReport(
     const blocked = summary.failedStage || summary.stalledStage;
     if (summary.rendererGone) {
         const gone = summary.rendererGone;
-        lines.push('結果: プレビューの表示処理が停止しました（理由: '
-            + describePreviewRendererGoneReason(gone.reason) + '）');
+        lines.push('結果: プレビューの表示処理が停止しました'
+            + (gone.reason === 'unknown' ? ''
+                : '（理由: ' + describePreviewRendererGoneReason(gone.reason) + '）'));
+        if (gone.reason === 'unknown') lines.push('停止の理由は取得できませんでした');
         lines.push('停止: reason=' + gone.reason
             + ' exitCode=' + (gone.exitCode === null ? '不明' : String(gone.exitCode))
             + ' 時刻=' + gone.at);

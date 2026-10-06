@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createPreviewPage, injectedScript } from './helpers/preview-diagnostics-page.mjs';
 
@@ -9,7 +10,7 @@ const host = require('../lib/browser/preview-diagnostics.js');
 const core = require('../lib/common/preview-init-diagnostics.js');
 
 test('URL と PID の対応はプレビューだけを保持し、正常な遷移と停止を分ける', () => {
-    const table = new tracker.PreviewRendererTracker();
+    const table = new tracker.PreviewRendererTracker(() => 100);
     assert.equal(tracker.previewWidgetIdFromUrl('https://a.webview.localhost/?id=akari-output-preview-abc'), 'akari-output-preview-abc');
     assert.equal(tracker.previewWidgetIdFromUrl('https://a.webview.localhost/?id=akari-preview-abc'), 'akari-preview-abc');
     for (const id of ['akari-material-preview', 'akari-image-abc', 'akari-audio-abc',
@@ -21,36 +22,60 @@ test('URL と PID の対応はプレビューだけを保持し、正常な遷�
     assert.equal(core.previewDiagnosticsKindFromWidgetId('akari-preview-abc'), 'raw');
     assert.equal(tracker.previewWidgetIdFromUrl('https://a.webview.localhost/?id=other'), undefined);
     assert.equal(tracker.previewWidgetIdFromUrl('https://example.com/?id=akari-preview-fake'), undefined);
-    const valid = () => true;
     table.observe(1, 2, 200, 'https://a.webview.localhost/?id=akari-output-preview-abc');
-    assert.deepEqual(table.poll(new Set([200]), valid), []);
-    const unsafeAfterExit = () => { throw new Error('停止後の WebFrameMain getter を読んだ'); };
-    assert.deepEqual(table.poll(new Set(), unsafeAfterExit), []);
-    assert.deepEqual(table.poll(new Set(), unsafeAfterExit), [{ contentsId: 1, pid: 200, widgetId: 'akari-output-preview-abc' }]);
-    assert.deepEqual(table.poll(new Set(), valid), []);
+    assert.deepEqual(table.poll(new Set([200])), []);
+    assert.deepEqual(table.poll(new Set()), []);
+    assert.deepEqual(table.poll(new Set()), [
+        { contentsId: 1, pid: 200, widgetId: 'akari-output-preview-abc', observedAt: 100 }
+    ]);
+    assert.deepEqual(table.poll(new Set()), []);
     table.observe(1, 2, 201, 'https://a.webview.localhost/?id=akari-output-preview-abc');
-    table.poll(new Set([201]), valid);
+    table.poll(new Set([201]));
     table.observe(1, 2, 202, 'https://a.webview.localhost/?id=akari-output-preview-abc');
-    assert.deepEqual(table.poll(new Set(), valid), []);
-    table.poll(new Set([202]), valid);
-    assert.deepEqual(table.poll(new Set(), () => false), []);
+    assert.deepEqual(table.poll(new Set()), []);
+    table.poll(new Set([202]));
+    table.observe(1, 2, 0, 'about:blank');
+    assert.deepEqual(table.poll(new Set()), []);
 });
 
 test('追跡 frame が 0 件ならメトリクスを読まず、追跡中だけ読む', () => {
     const table = new tracker.PreviewRendererTracker();
     let metricReads = 0;
     const readLivePids = () => { metricReads += 1; return new Set([200]); };
-    assert.deepEqual(table.pollIfTracked(readLivePids, () => true), []);
+    assert.deepEqual(table.pollIfTracked(readLivePids), []);
     assert.equal(metricReads, 0);
     table.observe(1, 2, 200, 'https://a.webview.localhost/?id=akari-preview-abc');
-    assert.deepEqual(table.pollIfTracked(readLivePids, () => true), []);
+    assert.deepEqual(table.pollIfTracked(readLivePids), []);
     assert.equal(metricReads, 1);
     table.forgetContents(1);
-    assert.deepEqual(table.pollIfTracked(readLivePids, () => true), []);
+    assert.deepEqual(table.pollIfTracked(readLivePids), []);
     assert.equal(metricReads, 1);
 });
 
-function harness({ isActive = () => true } = {}) {
+test('同じ widget id の新 frame は古い PID を捨て、通知時に観測時刻を保持する', () => {
+    let now = 100;
+    const table = new tracker.PreviewRendererTracker(() => now);
+    const url = 'https://a.webview.localhost/?id=akari-preview-abc';
+    table.observe(1, 2, 200, url);
+    table.poll(new Set([200]));
+    now = 300;
+    table.observe(1, 3, 201, url);
+    assert.deepEqual(table.poll(new Set([201])), []);
+    assert.deepEqual(table.poll(new Set()), []);
+    assert.deepEqual(table.poll(new Set()), [
+        { contentsId: 1, pid: 201, widgetId: 'akari-preview-abc', observedAt: 300 }
+    ]);
+});
+
+test('main の監視は対象 frame だけを取得し、停止済み frame の getter を巡回しない', () => {
+    const source = readFileSync(new URL('../src/electron-main/electron-api-main.ts', import.meta.url), 'utf8');
+    assert.equal(tracker.PREVIEW_RENDERER_POLL_MS, 1000);
+    assert.match(source, /webFrameMain\.fromId\(frameProcessId, frameRoutingId\)/u);
+    assert.doesNotMatch(source, /\.mainFrame|\.frames|\.detached/u);
+    assert.match(source, /pollIfTracked\(/u);
+});
+
+function harness({ isActive = () => true, nowMs = Date.parse('2026-10-06T12:00:00.000Z') } = {}) {
     const shown = [];
     const hidden = [];
     const writes = [];
@@ -62,8 +87,8 @@ function harness({ isActive = () => true } = {}) {
         warn: () => {}
     });
     const center = new host.PreviewDiagnosticsCenter({
-        now: () => 100,
-        nowIso: () => '2026-10-06T12:00:00.000Z',
+        now: () => nowMs,
+        nowIso: () => new Date(nowMs).toISOString(),
         setTimeout: (callback, ms) => { timers.push({ callback, ms }); return timers.length; },
         clearTimeout: () => {},
         warn: () => {}
@@ -150,6 +175,28 @@ test('非表示タブで止まった心拍は無応答の時間に数えない',
     assert.match(h.shown.at(-1).title, /応答していません/u);
 });
 
+test('閉じた webview と旧世代の停止通知は現在の診断へ渡さない', () => {
+    const born = Date.parse('2026-10-06T12:03:00.000Z');
+    const h = harness({ nowMs: born });
+    const widget = { isDisposed: false, isAttached: true, akariPreviewDiagnostics: h.session };
+    const current = { at: '2026-10-06T12:04:00.000Z', observedAt: born + 1000 };
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, current), true);
+    assert.equal(host.shouldDeliverPreviewRendererGone({ ...widget, isDisposed: true }, current), false);
+    assert.equal(host.shouldDeliverPreviewRendererGone({ ...widget, isAttached: false }, current), false);
+    assert.equal(host.shouldDeliverPreviewRendererGone(undefined, current), false);
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, {
+        at: '2026-10-06T12:02:00.000Z', observedAt: born + 1000
+    }), false);
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, {
+        at: current.at, observedAt: born - 1000
+    }), false);
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, { at: 'invalid', observedAt: born + 1000 }), false);
+    assert.equal(h.shown.length, 0);
+    assert.equal(h.session.trace.rendererGone, undefined);
+    h.session.dispose();
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, current), false);
+});
+
 test('停止理由の日本語化と不明な exitCode の記録', async () => {
     const core = require('../lib/common/preview-init-diagnostics.js');
     for (const [reason, label] of Object.entries({
@@ -159,7 +206,12 @@ test('停止理由の日本語化と不明な exitCode の記録', async () => {
     assert.equal(core.describePreviewRendererGoneReason('other'), 'other');
     const h = harness();
     h.session.rendererGone({ reason: 'unknown', exitCode: null, at: '2026-10-06T12:00:00.000Z' });
-    assert.match(h.session.copyReport(), /reason=unknown exitCode=不明/u);
+    assert.equal(h.shown.at(-1).title, 'プレビューの表示処理が停止しました');
+    assert.match(h.shown.at(-1).footerLines.join('\n'), /停止の理由は取得できませんでした/u);
+    const report = h.session.copyReport();
+    assert.match(report, /結果: プレビューの表示処理が停止しました\n停止の理由は取得できませんでした/u);
+    assert.doesNotMatch(report, /理由: 不明/u);
+    assert.match(report, /reason=unknown exitCode=不明/u);
     await h.log.settled();
     const line = h.writes.at(-1).trim().split('\n').map(JSON.parse).find(entry => entry.event === 'renderer-gone');
     assert.equal(line.rendererGone.exitCode, null);
