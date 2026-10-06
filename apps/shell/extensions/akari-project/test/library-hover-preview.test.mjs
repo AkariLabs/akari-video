@@ -47,6 +47,10 @@ test('見本の選び方・寸法・遅延', () => {
     assert.equal(libraryHoverPreview('asset', 'file:///preview.png')?.src, 'file:///preview.png');
     assert.deepEqual(libraryHoverPreview('transition', 'file:///poster.webp', 'file:///strip.webp'),
         { src: 'file:///strip.webp', kind: 'transition', width: 192, height: 108 });
+    assert.deepEqual(libraryHoverPreview('overlay', 'file:///preview.png', 'file:///strip.webp'),
+        { src: 'file:///strip.webp', kind: 'transition', width: 192, height: 108 });
+    assert.deepEqual(libraryHoverPreview('overlay', undefined, 'file:///strip.webp'),
+        { src: 'file:///strip.webp', kind: 'transition', width: 192, height: 108 });
     assert.equal(libraryHoverPreview('audio', 'file:///preview.png'), undefined);
 });
 
@@ -75,6 +79,13 @@ test('カードは縮小画像を遅延デコードし、Enter でプレビュ�
     assert.equal(image.props.decoding, 'async');
     assert.equal(image.props.width, 480);
     assert.equal(image.props.height, 270);
+    const withStrip = context.LibraryAssetCard({ ...props, item: { ...item,
+        previewStripUrl: 'file:///strip.webp' } });
+    assert.equal(withStrip.props['data-akari-hover-preview-src'], 'file:///strip.webp');
+    assert.equal(withStrip.props['data-akari-hover-preview-strip'], 'file:///strip.webp');
+    assert.equal(withStrip.props['data-akari-hover-preview-kind'], 'transition');
+    assert.equal(context.Thumbnail(nodes(withStrip, node => node.type === context.Thumbnail)[0].props).props.src,
+        item.thumbUrl);
 });
 
 test('テロップ棚の初回描画は 24 件以下', () => {

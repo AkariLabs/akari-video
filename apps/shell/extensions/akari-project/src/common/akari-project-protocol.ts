@@ -151,6 +151,10 @@ export interface AssetCatalogViewItem {
     /** resolver の置き場素材の CREDIT.txt 1 行目（クレジットをコピー）。 */
     creditText?: string;
     previewUrl?: string;
+    /** カタログが配る縮小画像。あればカードの previewUrl より優先する。 */
+    thumbUrl?: string;
+    /** カタログが配る 5 コマの見本。あれば小窓で再生する。 */
+    previewStripUrl?: string;
     /**
      * origin='resolver' の実体 URL（http(s) URL または file: URI）。
      * 置き場では libraryDir + mediaFile、リモート音源では files[] から組み立てる。

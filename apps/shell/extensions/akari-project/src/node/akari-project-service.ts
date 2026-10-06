@@ -368,6 +368,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         ]);
         const merged = mergeAssetCatalogViews(local.items, resolverResult.items);
         const items = await Promise.all(merged.map(async item => {
+            if (item.thumbUrl) return item;
             const thumbUrl = await this.resolveLibraryPreviewThumbnail(item);
             return thumbUrl ? { ...item, thumbUrl } : item;
         }));
@@ -854,8 +855,8 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
             return { items: [], status: 'failed', entitlementsStatus: 'error', entitledProducts: [], error: message };
         }
         const items = parsed.items.map(item => {
-            const { previewUrl, mediaUrl } = resolveResolverCatalogUrls(item, parsed.base);
-            return toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl);
+            const { previewUrl, mediaUrl, thumbUrl, previewStripUrl } = resolveResolverCatalogUrls(item, parsed.base);
+            return toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl, thumbUrl, previewStripUrl);
         });
         const entitlementsStatus = parsed.entitlementsStatus;
         const validEntitlementsStatuses: AssetEntitlementsStatus[] = ['ok', 'no_credentials', 'unauthorized', 'error'];

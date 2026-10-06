@@ -15,6 +15,8 @@ export function libraryHoverPreview(category: string, previewUrl?: string, strip
     if (category === 'transition') {
         return stripUrl ? { src: stripUrl, kind: 'transition', width: 192, height: 108 } : undefined;
     }
-    if (!['asset', 'overlay', 'still', 'scene3d'].includes(category) || !previewUrl) return undefined;
+    if (!['asset', 'overlay', 'still', 'scene3d'].includes(category)) return undefined;
+    if (stripUrl) return { src: stripUrl, kind: 'transition', width: 192, height: 108 };
+    if (!previewUrl) return undefined;
     return { src: previewUrl, kind: 'asset', width: 320, height: 180 };
 }
