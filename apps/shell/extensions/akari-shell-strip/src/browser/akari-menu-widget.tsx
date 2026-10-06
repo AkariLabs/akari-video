@@ -14,7 +14,9 @@ import { quickExportStageLabel } from '../common/quick-export-ui';
 import { AkariPreviewServerService, PreviewServerStatus } from '../common/preview-server-protocol';
 import { buildPreviewOpenUrl, PreviewOpenVariant } from '../common/preview-server-cli';
 import { AkariExportSessionService } from './akari-export-session-service';
-import { AkariExportDialog } from './export-dialog/akari-export-dialog';
+import { AkariExportAvailabilityService } from './akari-export-availability-service';
+import { OPEN_EXPORT_DIALOG } from './akari-export-toolbar-contribution';
+import { EDIT_JSON_MISSING_TOOLTIP } from '../common/export-toolbar-state';
 import { AkariProjectCleanService, ProjectCleanInspection } from '../common/project-clean-protocol';
 import { formatBytes } from './export-dialog/export-view-shared';
 import { akariMenuRows } from '../common/menu-rows';
@@ -43,7 +45,6 @@ export interface SkillEntry {
 // 既存コードにも同じ「文字列 id だけ知っている」パターンがある）。
 const HOME_WIDGET_ID = 'akari-home-widget';
 
-const EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてから書き出してください。';
 /** ブラウザプレビュー（preview-server）の状態ポーリング間隔（裁定 1-f: 1,000 ms）。 */
 const PREVIEW_SERVER_POLL_INTERVAL_MS = 1000;
 const PREVIEW_EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてからプレビューしてください。';
@@ -85,8 +86,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly projectClean!: AkariProjectCleanService;
     @inject(AkariExportSessionService)
     protected readonly exportSession!: AkariExportSessionService;
-    @inject(AkariExportDialog)
-    protected readonly exportDialog!: AkariExportDialog;
+    @inject(AkariExportAvailabilityService)
+    protected readonly exportAvailability!: AkariExportAvailabilityService;
     @inject(AkariScopeService)
     protected readonly scopeService!: AkariScopeService;
 
@@ -123,6 +124,7 @@ export class AkariMenuWidget extends ReactWidget {
             const root = this.workspace.tryGetRoots()[0]?.resource;
             if (root) void this.refreshEditJsonExists(currentTimelineEditUri(root));
         }));
+        this.toDispose.push(this.exportAvailability.onDidChange(() => this.update()));
         this.toDispose.push(this.scopeService.onDidChangeWorldMap(() => this.update()));
         // widget dispose ではポーリングだけ止める（サーバーは止めない —
         // メニューを閉じても生かす。裁定 1-f）。
@@ -366,11 +368,7 @@ export class AkariMenuWidget extends ReactWidget {
     }
 
     protected async openExportDialog(): Promise<void> {
-        if (!this.editJsonExists) {
-            return;
-        }
-        await this.exportSession.prepareCurrentProject();
-        void this.exportDialog.open(false);
+        await this.commands.executeCommand(OPEN_EXPORT_DIALOG.id);
     }
 
     // --- 不要なデータの整理（akari clean の GUI 口） --------------------------
@@ -727,19 +725,19 @@ export class AkariMenuWidget extends ReactWidget {
                     className='theia-button secondary'
                     data-akari-onboarding-target='export-button'
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
-                    disabled={!this.editJsonExists}
-                    title={!this.editJsonExists ? EDIT_JSON_MISSING_TOOLTIP : undefined}
+                    disabled={!this.exportAvailability.snapshot.exists}
+                    title={!this.exportAvailability.snapshot.exists ? EDIT_JSON_MISSING_TOOLTIP : undefined}
                     onClick={() => void this.openExportDialog()}
                 >
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
                     <span>書き出し…</span>
                 </button>
-                {this.selectedEditName !== 'edit.json' && (
+                {this.exportAvailability.snapshot.selectedEditName !== 'edit.json' && (
                     <p style={{ opacity: 0.75, fontSize: '0.85em', margin: '6px 0 0' }}>
-                        書き出し対象: {this.selectedEditName}。別タイムラインは現在書き出せません。edit.json のタブに戻すと書き出せます。
+                        書き出し対象: {this.exportAvailability.snapshot.selectedEditName}。別タイムラインは現在書き出せません。edit.json のタブに戻すと書き出せます。
                     </p>
                 )}
-                {!this.editJsonExists && (
+                {!this.exportAvailability.snapshot.exists && (
                     <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>
                 )}
                 {visible && (

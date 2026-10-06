@@ -1,6 +1,5 @@
 import type { PlaceTextOptions } from '../common/place-text';
 import { QuickInputService } from '@theia/core/lib/browser';
-import * as React from '@theia/core/shared/react';
 import type { MaterialSwapTarget } from '../common/material-replacement';
 import type { OnWillStopAction } from '@theia/core/lib/browser/frontend-application-contribution';
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
@@ -12,7 +11,6 @@ import {
     Command,
     CommandContribution,
     CommandRegistry,
-    Emitter,
     MenuContribution,
     MenuModelRegistry,
     MessageService
@@ -21,7 +19,6 @@ import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { KeybindingContribution, KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
-import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariPreviewOpenHandler } from 'akari-preview/lib/browser/akari-preview-open-handler';
 import { sameProjectFile } from 'akari-preview/lib/common/preview-drop-geometry';
@@ -86,7 +83,7 @@ import { computeRightPanelOrder, defaultRightRailGroup, RightRailGroup } from '.
 import { installRightPanelTabStyle } from './right-panel-tab-style';
 import { ReviewModel } from './review-model';
 import { coalesceReviewOpens, shouldOpenReviewPanelFor } from '../common/review-watch';
-import { isOutputPreviewWidgetId, storedTimelineHidden, shouldRevealTimeline, TIMELINE_HIDDEN_STORAGE_KEY } from '../common/timeline-visibility';
+import { storedTimelineHidden, shouldRevealTimeline, TIMELINE_HIDDEN_STORAGE_KEY } from '../common/timeline-visibility';
 
 export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_CANVAS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_REVIEW_PANEL };
 
@@ -159,7 +156,7 @@ interface AkariInspectorOpenOptions {
 }
 
 @injectable()
-export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution, KeybindingContribution, TabBarToolbarContribution {
+export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution, KeybindingContribution {
 
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
@@ -253,7 +250,6 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     /** セッション内でユーザーがタイムラインを明示的に閉じたら true。以降の自動アタッチを抑止する（アプリ再起動でリセット）。 */
     protected timelineDismissedThisSession = false;
     protected timelineHidden = false;
-    protected readonly timelineVisibilityChanged = new Emitter<void>();
 
     /**
      * レポート面のブロック選択導線（doc-annotation-ui タスク）で使う、開いている akari-surface
@@ -390,7 +386,6 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     onStop(): void {
         this.toDispose.dispose();
-        this.timelineVisibilityChanged.dispose();
         if (this.reconcileHandle) {
             clearInterval(this.reconcileHandle);
             this.reconcileHandle = undefined;
@@ -399,35 +394,6 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     protected syncTimelineVisibility(): void {
         document.documentElement.dataset.akariTimelineHidden = String(this.timelineHidden);
-        this.timelineVisibilityChanged.fire();
-    }
-
-    registerToolbarItems(toolbar: TabBarToolbarRegistry): void {
-        toolbar.registerItem({
-            id: 'akari.timeline.toggleVisibility.toolbar',
-            command: 'akari.timeline.toggleVisibility',
-            group: 'navigation',
-            priority: 101,
-            isVisible: widget => isOutputPreviewWidgetId(widget?.id),
-            onDidChange: this.timelineVisibilityChanged.event,
-            render: () => {
-                const label = this.timelineHidden ? 'タイムラインを出す（⌘⇧L）' : 'タイムラインを隠す（⌘⇧L）';
-                return React.createElement('button', {
-                    type: 'button', className: 'theia-button secondary',
-                    title: label, 'aria-label': label, 'aria-pressed': this.timelineHidden,
-                    style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        height: '24px', width: '28px', margin: '0 2px', padding: '0 6px' },
-                    onClick: (event: React.MouseEvent) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void this.commands.executeCommand('akari.timeline.toggleVisibility');
-                    }
-                }, React.createElement('span', {
-                    className: this.timelineHidden ? 'codicon codicon-layout-panel-off' : 'codicon codicon-layout-panel',
-                    'aria-hidden': true
-                }));
-            }
-        });
     }
 
     protected async setTimelineHidden(hidden: boolean): Promise<void> {
@@ -1033,6 +999,14 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     async open(editUri?: string): Promise<AkariAnnotationsWidget | undefined> {
         if (editUri) return this.openOrCreateTimeline(editUri);
+        if (this.timelineHidden) {
+            await this.setTimelineHidden(false);
+            const widget = await this.attach();
+            if (widget) {
+                await this.shell.activateWidget(widget.id);
+                return widget;
+            }
+        }
         this.openTimelinePromise ??= this.openOrCreateTimeline();
         try {
             return await this.openTimelinePromise;

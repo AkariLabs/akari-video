@@ -24,7 +24,7 @@ test('非 AKARI webview では素通しする', () => {
 });
 
 test('AKARI 自前項目と他メニュー項目の順序・参照を保つ', () => {
-    const own = { id: 'akari.project.showChanges.toolbar' };
+    const own = { id: 'akari.export.openDialog.toolbar' };
     const other = { id: 'other-as-tabbar-toolbar-item', effectiveMenuPath: ['plugin_view/title', 'other'] };
     const items = Object.freeze([own, ...pluginItems, other]);
     const result = filterPluginEditorTitleItems(items, output);

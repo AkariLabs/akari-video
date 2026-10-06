@@ -1,6 +1,5 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { TEXTSTYLE_SHOWCASE_COMMAND_ID } from 'akari-preview/lib/common/textstyle-sample';
-import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import {
     Command,
@@ -23,10 +22,6 @@ import {
     open
 } from '@theia/core/lib/browser';
 import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
-import {
-    TabBarToolbarContribution,
-    TabBarToolbarRegistry
-} from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { DiffUris } from '@theia/core/lib/browser/diff-uris';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -87,7 +82,7 @@ const AUDIO_EXTENSIONS = /\.(wav|mp3|m4a|aac|flac|ogg)$/i;
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp)$/i;
 
 @injectable()
-export class AkariProjectContribution implements CommandContribution, MenuContribution, FrontendApplicationContribution, TabBarToolbarContribution {
+export class AkariProjectContribution implements CommandContribution, MenuContribution, FrontendApplicationContribution {
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
     @inject(StorageService)
@@ -184,37 +179,6 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             commandId: AKARI_REVEAL_PROJECT_ROOT.id,
             label: AKARI_REVEAL_PROJECT_ROOT.label,
             order: 'z11'
-        });
-    }
-
-    registerToolbarItems(toolbar: TabBarToolbarRegistry): void {
-        toolbar.registerItem({
-            id: 'akari.project.showChanges.toolbar',
-            command: SHOW_AKARI_CHANGES.id,
-            group: 'navigation',
-            priority: 100,
-            isVisible: widget => !!widget && this.shell.getAreaFor(widget) === 'main',
-            render: () => React.createElement('button', {
-                type: 'button',
-                className: 'theia-button secondary',
-                title: SHOW_AKARI_CHANGES.label,
-                'aria-label': SHOW_AKARI_CHANGES.label,
-                style: {
-                    alignItems: 'center',
-                    display: 'inline-flex',
-                    gap: '4px',
-                    height: '24px',
-                    margin: '0 4px',
-                    padding: '0 8px'
-                },
-                onClick: event => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void this.commands.executeCommand(SHOW_AKARI_CHANGES.id);
-                }
-            },
-            React.createElement('span', { className: 'codicon codicon-diff', 'aria-hidden': true }),
-            React.createElement('span', undefined, SHOW_AKARI_CHANGES.label))
         });
     }
 

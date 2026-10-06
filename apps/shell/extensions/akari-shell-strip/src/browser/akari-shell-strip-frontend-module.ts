@@ -1,6 +1,6 @@
 import { CommandContribution } from '@theia/core/lib/common';
 import { ContainerModule } from '@theia/core/shared/inversify';
-import { TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
+import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { AkariTabBarToolbarRegistry } from './akari-tab-bar-toolbar-registry';
 import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
@@ -21,6 +21,8 @@ import { AkariRightPanelCuration } from './akari-right-panel-curation';
 import { AkariBottomPanelCuration } from './akari-bottom-panel-curation';
 import { AkariExportPreferenceContribution } from './akari-export-preferences';
 import { AkariExportSessionService } from './akari-export-session-service';
+import { AkariExportAvailabilityService } from './akari-export-availability-service';
+import { AkariExportToolbarContribution } from './akari-export-toolbar-contribution';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { AkariExportBackgroundChip } from './export-dialog/export-background-chip';
 import { AkariExportThumbnailStripStore } from './export-dialog/export-thumbnail-strip';
@@ -48,6 +50,10 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(PreferenceContribution).toService(AkariExportPreferenceContribution);
     bind(AkariExportSessionService).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariExportSessionService);
+    bind(AkariExportAvailabilityService).toSelf().inSingletonScope();
+    bind(AkariExportToolbarContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariExportToolbarContribution);
+    bind(TabBarToolbarContribution).toService(AkariExportToolbarContribution);
     bind(AkariExportThumbnailService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH)
     ).inSingletonScope();
