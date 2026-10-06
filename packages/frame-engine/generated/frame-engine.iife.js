@@ -16347,7 +16347,10 @@ ${indent}`);
                   const audio = audioTrack.items[audioIndex];
                   if (audio.link !== item.id || audio.source.src !== item.source.src)
                     continue;
-                  const audioPieces = splitAndRemove(audio, overlapIn, overlapOut, edit, preserveSourceEdges).items;
+                  const audioOverlapIn = Math.max(audio.source.in ?? overlapIn, range.in);
+                  const audioOverlapOut = Math.min(audio.source.out ?? overlapOut, range.out);
+                  const audioPieces = splitAndRemove(audio, audioOverlapIn, audioOverlapOut, edit, preserveSourceEdges).items;
+                  const hasRightVisual = replacement.items.some((candidate) => media(candidate) && candidate.source.in >= overlapOut - audioFrameTolerance(candidate));
                   for (const piece of audioPieces) {
                     const visual = replacement.items.filter(media).reduce((best, candidate) => {
                       const score = candidate.source.in <= overlapIn ? Math.abs((piece.source.out ?? NaN) - candidate.source.out) : Math.abs((piece.source.in ?? NaN) - candidate.source.in);
@@ -16361,6 +16364,9 @@ ${indent}`);
                     if ((piece.source.out ?? Infinity) <= overlapIn + audioFrameTolerance(piece) && !replacement.items.some((candidate) => media(candidate) && candidate.source.out <= overlapIn + audioFrameTolerance(candidate))) {
                       audioBeforeCutWithNoVisual.add(piece.id);
                     }
+                  }
+                  if (audioPieces.length === 2 && !hasRightVisual) {
+                    audioPieces[1].at = audioPieces[0].at + audioPieces[0].duration;
                   }
                   audioTrack.items.splice(audioIndex, 1, ...audioPieces);
                 }

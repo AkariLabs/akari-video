@@ -132,7 +132,11 @@ function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserve
                         const audio = audioTrack.items[audioIndex];
                         if (audio.link !== item.id || audio.source.src !== item.source.src)
                             continue;
-                        const audioPieces = splitAndRemove(audio, overlapIn, overlapOut, edit, preserveSourceEdges).items;
+                        const audioOverlapIn = Math.max(audio.source.in ?? overlapIn, range.in);
+                        const audioOverlapOut = Math.min(audio.source.out ?? overlapOut, range.out);
+                        const audioPieces = splitAndRemove(audio, audioOverlapIn, audioOverlapOut, edit, preserveSourceEdges).items;
+                        const hasRightVisual = replacement.items.some(candidate => media(candidate)
+                            && candidate.source.in >= overlapOut - audioFrameTolerance(candidate));
                         for (const piece of audioPieces) {
                             // A one-sided trim changes the source seconds per frame on only one lane.
                             // Compare the surviving source edges instead of requiring exact seconds.
@@ -154,6 +158,9 @@ function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserve
                                     && candidate.source.out <= overlapIn + audioFrameTolerance(candidate))) {
                                 audioBeforeCutWithNoVisual.add(piece.id);
                             }
+                        }
+                        if (audioPieces.length === 2 && !hasRightVisual) {
+                            audioPieces[1].at = audioPieces[0].at + audioPieces[0].duration;
                         }
                         audioTrack.items.splice(audioIndex, 1, ...audioPieces);
                     }

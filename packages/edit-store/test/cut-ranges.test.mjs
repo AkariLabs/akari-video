@@ -1044,6 +1044,53 @@ test('L カットのトリム端をまたぐ語でも新しい映像の空きを
   assertLinkedAudioVisibleSync(after);
 });
 
+test('J カットの前ノリにまたがる語は音声の全区間を切り、重なりも映像の穴も作らない', () => {
+  for (const span of [[7.2, 7.9], [7.4, 7.6]]) {
+    const doc = JSON.parse(v2([media('c0', 0, 225, 0, 7.5), media('c1', 195, 285, 6.5, 16)]));
+    const split = splitCutAudio(doc, { cutId: 'c1', hasAudio: true }).document;
+    const second = split.tracks.find(track => track.lane === 'visual').items[1];
+    second.at = 225; second.duration = 255; second.source.in = 7.5;
+    const original = text(split);
+    const cut = range(span, 'filler', { captionId: 'main', label: '語' });
+    const edited = applyCutRanges(original, [cut]).source;
+    const after = JSON.parse(edited);
+    const visual = after.tracks.find(track => track.lane === 'visual').items;
+    const audio = after.tracks.find(track => track.lane === 'audio').items;
+    assert.equal(audio.length, 2);
+    assert.equal(visual[1].at, visual[0].at + visual[0].duration);
+    assert.equal(audio[1].at, audio[0].at + audio[0].duration);
+    assert.equal(audio[0].at, 195);
+    assert.equal(audio[0].source.out, span[0]);
+    assert.equal(audio[1].source.in, span[1]);
+    assert.equal(audio[1].link, visual[1].id);
+    assert.equal(audio[1].at, visual[1].at);
+    const restored = restoreCutRange(edited, cut);
+    assert.ok(restored.source === original || (!restored.restored && restored.reason));
+  }
+});
+
+test('L カットの後ノリにまたがる語は音声の全区間を切り右片を左片に詰める', () => {
+  const doc = JSON.parse(v2([media('c1', 0, 300, 0, 10), media('c2', 300, 150, 0, 5, 'other')]));
+  const split = splitCutAudio(doc, { cutId: 'c1', hasAudio: true }).document;
+  const visual = split.tracks.find(track => track.lane === 'visual').items;
+  visual[0].duration = 270; visual[0].source.out = 9;
+  visual[1].at = 270;
+  const original = text(split);
+  const cut = range([8.7, 9.4], 'filler', { captionId: 'main', label: '語' });
+  const edited = applyCutRanges(original, [cut]).source;
+  const after = JSON.parse(edited);
+  const video = after.tracks.find(track => track.lane === 'visual').items;
+  const audio = after.tracks.find(track => track.lane === 'audio').items;
+  assert.equal(video[1].at, video[0].at + video[0].duration);
+  assert.equal(audio[1].at, audio[0].at + audio[0].duration);
+  assert.equal(audio[0].source.out, 8.7);
+  assert.equal(audio[1].source.in, 9.4);
+  assert.equal(audio[1].link, video[0].id);
+  assert.equal(audio[0].at, video[0].at);
+  const restored = restoreCutRange(edited, cut);
+  assert.ok(restored.source === original || (!restored.restored && restored.reason));
+});
+
 test('映像と音声の分割フレームが 1 つ違っても映像の切れ目から復元できる', () => {
   const doc = { version: 2, output: { width: 320, height: 180, fps: 60 },
     sources: [{ id: 'main', path: 'main.mp4' }], tracks: [{ id: 'v', lane: 'visual', items: [
