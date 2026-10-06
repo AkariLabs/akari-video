@@ -68,6 +68,7 @@ const { AkariDaihonContribution, OPEN_AKARI_CUTS } = load('../lib/browser/daihon
     '@theia/core/lib/common/preferences': {}, '@theia/core/lib/common/uri': { default: URI },
     '@theia/core/lib/common/preferences/preference-schema': {},
     '@theia/filesystem/lib/browser/file-service': {}, 'akari-project/lib/common/akari-project-protocol': {},
+    'akari-annotations/lib/common/akari-annotations-protocol': {},
     'akari-annotations/lib/browser/akari-edit-history-service': { AkariEditHistoryService: class {} },
     '@theia/core/shared/inversify': inversify,
     '../akari-transcript-commands': { OPEN_AKARI_DAIHON: { id: 'akari.daihon.open' } },

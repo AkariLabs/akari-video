@@ -43,7 +43,7 @@ test('静止画クリップの AI タブは作るに静止画・動画にする�
   });
 });
 
-test('画像の素材パスは動画扱いせず、文字起こしの対象にもならない', () => {
+test('画像の素材パスは動画扱いせず、ポップアップで対象外の理由を見せる', () => {
   const comparisonCatalog = aiActionCatalog([{ id: 'fal:video', kind: 'video' }]);
   const videoTiles = describeAiTiles(comparisonCatalog, 'video').flatMap(group => group.tiles);
   const imageTiles = describeAiTiles(comparisonCatalog, aiTargetKindFor({ hasIdentity: false, image: true }))
@@ -59,7 +59,7 @@ test('画像の素材パスは動画扱いせず、文字起こしの対象に�
   for (const extension of ['PNG', 'jpg', 'webp', 'avif']) {
     const path = `assets/thumb.${extension}`;
     assert.equal(resolveAiTranscribeTarget({ kind: 'cut', src: 'image', outputStart: 0, outputEnd: 2 },
-      { sources: [{ id: 'image', path }] }), undefined);
+      { sources: [{ id: 'image', path }] })?.relativePath, path);
   }
 });
 
@@ -121,6 +121,18 @@ test('タイルには済みの札が付き、タイトルと別の要素にな�
   assert.match(titleRow.children[1].className, /akari-inspector-cloud/u);
 }));
 
+test('配置した画像は文字起こしの理由をポップアップで確認でき、空の枠は開かない', () => withDom(async () => {
+  const opened = [];
+  for (const [target, enabled] of [['still', true], ['empty-frame', false]]) {
+    const parent = new Node('div');
+    appendAiTiles(parent, describeAiTiles(catalog, target), id => opened.push(id), false, undefined, enabled);
+    const tile = find(parent, node => node.attributes.get('data-akari-inspector-ai-tile') === 'transcribe');
+    assert.equal(tile.attributes.get('aria-disabled'), String(!enabled));
+    tile.click();
+  }
+  assert.deepEqual(opened, ['transcribe']);
+}));
+
 test('専用パネル: 対象解決・まだの openDialog 引数・running・済みの台本時刻', () => withDom(async () => {
   const snapshot = { kind: 'audio', id: 'a-1', audioKind: 'sfx', outputStart: 12.5, duration: 8 };
   const target = resolveAiTranscribeTarget(snapshot, { audio: { sfx: [{ id: 'a-1', path: 'assets/interview.wav' }] } });
@@ -133,9 +145,9 @@ test('専用パネル: 対象解決・まだの openDialog 引数・running・�
       availability: { state: 'available', label: '使える' }, default: true }] };
   const parent = new Node('div');
   appendAiTranscribePanel(parent, { ...base, summary: { state: 'none', segments: [], total: 0 }, running: false });
-  find(parent, byText('文字起こしする')).click();
+  find(parent, byText('字幕を作る…')).click();
   await tick();
-  assert.deepEqual(calls[0], ['akari.transcribe.openDialog', { projectRoot: 'file:///project', relativePath: 'assets/interview.wav', backend: 'auto', autoStart: true }]);
+  assert.deepEqual(calls[0], ['akari.transcribe.openDialog', { projectRoot: 'file:///project', relativePath: 'assets/interview.wav' }]);
   assert.equal(result, 'running');
   const running = new Node('div');
   appendAiTranscribePanel(running, { ...base, summary: { state: 'none', segments: [], total: 0 }, running: true });

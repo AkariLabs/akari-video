@@ -7,6 +7,7 @@ import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalo
 import { appendAiTiles, appendAiBack, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { tabsForKind, initialTabFor, assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
+import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
 
 const source = readInspectorSource();
 const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
@@ -31,7 +32,7 @@ ${method('renderContent').replace('renderContent', 'render')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
 const deps = { appendAiTiles, appendAiBack, describeAiTiles, aiActionCatalog, aiTabAvailabilityFor, aiTabViewFor, cutoutAvailabilityFor, photoToolAvailabilityFor,
-  aiTargetKindFor, tabsForKind, initialTabFor, assignSectionToTab, isInspectorStillImage, CAPTION_ZONE_HOVER_EVENT: '',
+  aiTargetKindFor, tabsForKind, initialTabFor, assignSectionToTab, isInspectorStillImage, CAPTION_IMAGE_EXTENSIONS, CAPTION_ZONE_HOVER_EVENT: '',
   photoMaskSectionsForAvailability: sections => sections,
   createSelectionHeader: () => new FakeNode('header'), layerAudioControls: new WeakMap(),
   CUT_SECTIONS: (_snapshot, _write, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],

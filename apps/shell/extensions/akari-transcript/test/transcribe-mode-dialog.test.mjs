@@ -4,331 +4,314 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const URI = require('@theia/core/lib/common/uri').default;
-const { PreferenceScope } = require('@theia/core/lib/common/preferences/preference-scope');
-const view = require('../lib/common/transcribe-steps.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => {
-    let resolve, reject;
-    const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
-    return { promise, resolve, reject };
+    let resolve;
+    const promise = new Promise(yes => { resolve = yes; });
+    return { promise, resolve };
 };
 
 class Element {
-    constructor(tag) { this.tagName = tag; }
-    style = {}; dataset = {}; attributes = {}; children = []; listeners = {}; disabled = false;
-    get textContent() { return this.children.map(child => typeof child === 'string' ? child : child.textContent).join(''); }
-    set textContent(text) { this.children = [text]; }
-    append(...children) {
-        for (const child of children) {
-            if (typeof child !== 'string') {
-                if (child.parentElement) child.parentElement.children = child.parentElement.children.filter(item => item !== child);
-                child.parentElement = this;
-            }
-            this.children.push(child);
+    constructor(tag) { this.tagName = tag; this.style = {}; this.dataset = {}; this.children = []; this.disabled = false; }
+    append(...items) { this.children.push(...items); }
+    replaceChildren(...items) { this.children = [...items]; }
+    setAttribute(name, value) { (this.attributes ??= {})[name] = value; }
+    get textContent() { return this.content ?? this.children.map(child => typeof child === 'string' ? child : child.textContent).join(''); }
+    set textContent(value) { this.content = value; this.children = []; }
+    querySelector(selector) {
+        const match = node => selector === '[data-primary]' ? node.dataset?.primary !== undefined
+            : selector === '[data-akari-caption-example]' ? node.dataset?.akariCaptionExample !== undefined
+                : selector === '[data-akari-transcribe-progress]' ? node.dataset?.akariTranscribeProgress !== undefined : false;
+        for (const child of this.children) {
+            if (typeof child === 'string') continue;
+            if (match(child)) return child;
+            const nested = child.querySelector(selector);
+            if (nested) return nested;
         }
+        return null;
     }
-    replaceChildren(...children) {
-        for (const child of this.children) if (typeof child !== 'string') child.parentElement = undefined;
-        this.children = []; this.append(...children);
-    }
-    setAttribute(name, value) { this.attributes[name] = value; }
-    addEventListener(name, handler) { (this.listeners[name] ??= []).push(handler); }
-    click() { if (!this.disabled) for (const listener of this.listeners.click ?? []) listener(); }
-    querySelectorAll(selector) {
-        const matches = node => {
-            if (selector === '[data-akari-transcribe-progress]') return node.dataset.akariTranscribeProgress !== undefined;
-            if (selector === '[data-akari-captions-preview]') return node.dataset.akariCaptionsPreview !== undefined;
-            if (selector === '[data-akari-captions-applied]') return node.dataset.akariCaptionsApplied !== undefined;
-            if (selector === 'section[data-backend]') return node.tagName === 'section' && node.dataset.backend !== undefined;
-            if (selector === 'input[type=checkbox]') return node.tagName === 'input' && node.type === 'checkbox';
-            return node.tagName === selector;
-        };
-        return this.children.filter(child => typeof child !== 'string')
-            .flatMap(child => [...(matches(child) ? [child] : []), ...child.querySelectorAll(selector)]);
-    }
-    querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+    click() { if (!this.disabled) this.onclick?.(); }
 }
 class AbstractDialog {
-    constructor(props) {
-        this.props = props;
-        this.titleNode.textContent = props.title;
-        this.node.append(this.titleNode, this.contentNode, this.controlPanel);
+    constructor() {
+        this.node = new Element('dialog');
+        this.contentNode = new Element('div'); this.contentNode.parentElement = new Element('div');
+        this.controlPanel = new Element('div'); this.isDisposed = false;
     }
-    titleNode = new Element('div');
-    node = new Element('dialog'); contentNode = new Element('div'); controlPanel = new Element('div');
-    toDispose = []; accepted = 0; closed = 0; isDisposed = false;
-    async accept() { this.accepted++; this.close(); }
-    close() { this.closed++; this.dispose(); }
-    dispose() { this.isDisposed = true; for (const item of this.toDispose) item.dispose(); }
+    close() { this.isDisposed = true; }
 }
-// Match cuts-tab-attach.test.mjs: execute compiled lib JS with explicit dependency substitutions.
-function load(path, modules, clock) {
-    const exports = {};
-    new Function('require', 'exports', 'document', 'window', 'Date', 'setInterval', 'clearInterval',
-        readFileSync(new URL(path, import.meta.url), 'utf8'))(id => {
-        assert.ok(id in modules, `unexpected dependency: ${id}`);
-        return modules[id];
-    }, exports, {
-        createElement: tag => new Element(tag),
-        createElementNS: (namespaceURI, tag) => Object.assign(new Element(tag), { namespaceURI })
-    }, {}, class extends Date { static now() { return clock.now; } },
-    callback => { clock.intervals.add(callback); return callback; }, id => clock.intervals.delete(id));
-    return exports;
+class URI {
+    constructor(value) { this.value = value; this.path = { ext: value.endsWith('.json') ? '.json' : '' }; }
+    toString() { return this.value; }
+    resolve(path) { return new URI(`${this.value}/${path}`); }
+    normalizePath() { return this; }
 }
-async function harness({ mode, done = false, pending, failSave = false, autoStart = false,
-    savedCompareSet = ['whisper-cpp', 'cloud:scribe'], previewResult = { added: 12, changed: 3, protected: 2, removed: 0, total: 17 },
-    appliedResult = { added: 12, changed: 3, protected: 2, removed: 0, total: 17 }, captionsBefore = '{"captions":[]}', eventPayload } = {}) {
-    const clock = { now: 0, intervals: new Set() }, writes = [], fileWrites = [], requests = [], cancels = [], buildRequests = [], history = [], deleted = [];
-    const confirm = { count: 0 };
-    let captionsSource = captionsBefore;
-    const compareSet = savedCompareSet;
-    const preferences = {
-        get(key, fallback) {
-            return ({ 'akari.transcribe.mode': mode, 'akari.transcribe.backend': 'whisper-cpp',
-                'akari.transcribe.compareSet': compareSet })[key] ?? fallback;
-        },
-        async set(...args) { if (failSave) throw new Error('read only'); writes.push(args); }
-    };
-    const captionsButton = require('../lib/common/captions-button.js');
-    captionsButton.setDaihonHistoryService({ push(entry) { history.push(entry); } });
-    const { AkariTranscribeDialog } = load('../lib/browser/daihon/akari-transcribe-dialog.js', {
-        '@theia/core/lib/browser': {},
-        '@theia/core/lib/browser/dialogs': { AbstractDialog, ConfirmDialog: class { constructor() { confirm.count++; } async open() { return true; } } },
-        '@theia/core/lib/common/buffer': { BinaryBuffer: { fromString: value => value } },
-        '@theia/core/lib/common/preferences': { PreferenceScope },
-        '@theia/core/lib/common/uri': { default: URI },
-        'akari-annotations/lib/browser/active-timeline': require('../../akari-annotations/lib/browser/active-timeline.js'),
-        '../../common/transcribe-steps': view,
-        '../akari-transcript-commands': {},
-        '../../common/captions-button': captionsButton
-    }, clock);
-    const dialog = new AkariTranscribeDialog(new URI('file:///fixture'), 'clip.mp4', preferences, {
-        async readTranscribeArtifacts() { return { transcripts: [], diff: null, cuts: null }; },
-        async transcribeMaterial(request) { requests.push(request); await pending?.promise; },
-        async cancelTranscribe(request) { cancels.push(request); },
-        async buildCaptions(request) {
-            buildRequests.push(request);
-            if (request.dryRun) {
-                const previews = Array.isArray(previewResult) ? previewResult : [previewResult];
-                const dryRuns = buildRequests.filter(item => item.dryRun).length;
-                return previews[Math.min(dryRuns - 1, previews.length - 1)];
-            }
-            captionsSource = '{"captions":[{"id":"after"}]}';
-            return appliedResult;
-        }
-    }, {
-        async watch() { return { dispose() {} }; },
-        onDidFilesChange() { return { dispose() {} }; },
-        async resolve() { return { children: [] }; },
+
+const common = require('../lib/common/transcribe-steps.js');
+const sourceRules = require('../lib/common/caption-source-eligibility.js');
+const captionsButton = require('../lib/common/captions-button.js');
+const captionShape = require('../lib/common/caption-shape.js');
+const displayKnobs = require('../lib/common/daihon-display-knobs.js');
+const daihonGear = require('../lib/common/daihon-gear.js');
+const modules = {
+    '@theia/core/lib/browser/dialogs': { AbstractDialog },
+    '@theia/core/lib/common': {},
+    '@theia/core/lib/common/buffer': { BinaryBuffer: { fromString: value => value } },
+    '@theia/core/lib/common/preferences': {},
+    '@theia/core/lib/common/uri': { default: URI },
+    '@theia/filesystem/lib/browser/file-service': {},
+    'akari-annotations/lib/browser/active-timeline': {
+        currentTimelineEditUri: root => root.resolve('edit.json'),
+        currentTimelineCaptionsUri: root => root.resolve('captions.json')
+    },
+    'akari-annotations/lib/common/akari-annotations-protocol': {},
+    '@akari-video/edit-store': { CAPTION_DISPLAY_MODE: 'single_line_sequential',
+        CAPTION_DISPLAY_ALGORITHM: 'a4-ja-two-fragment-v1', CAPTION_UNIT_METRIC: 'ascii-half-other-one-v1' },
+    'akari-project/lib/common/akari-project-protocol': {},
+    '../../common/caption-source-eligibility': sourceRules,
+    '../../common/captions-button': captionsButton,
+    '../../common/caption-shape': captionShape,
+    '../../common/daihon-display-knobs': displayKnobs,
+    '../../common/daihon-gear': daihonGear,
+    '../../common/transcribe-steps': common
+};
+const exported = {};
+new Function('require', 'exports', 'document', readFileSync(new URL('../lib/browser/daihon/akari-caption-popup.js', import.meta.url), 'utf8'))(
+    id => { assert.ok(id in modules, `unexpected dependency: ${id}`); return modules[id]; }, exported,
+    { createElement: tag => new Element(tag) });
+
+async function harness({ initialPath, previous = false, pending = deferred(), editSources, transcriptState,
+    artifact, tools = [], providers = [], addRegistersSource = false, analysisByPath = {}, policyError } = {}) {
+    const root = new URI('file:///fixture');
+    const requests = [], builds = [], writes = [], notices = [], cancels = [], commands = [], policies = [], fieldWrites = [];
+    const edit = { sources: editSources ?? [{ id: 'camera', path: 'assets/camera.mp4' },
+        { id: 'mic', path: 'assets/mic.wav' }, { id: 'image', path: 'assets/title.png' }] };
+    let captions = JSON.stringify({ captions: previous ? [{ id: 'old', src: 'mic', start: 0, end: 1,
+        words: [{ start: 0.1, end: 0.8, text: '声' }] }] : [],
+        display_policy: { max_line_units: 18, lines: 3, wrap: 'multi' } });
+    const files = {
         async readFile(uri) {
             const path = uri.toString();
-            if (path.endsWith('/event.json') && eventPayload) return { value: JSON.stringify(eventPayload) };
-            if (path.endsWith('/edit.json')) return { value: JSON.stringify({ version: 2, sources: [{ id: 's1', path: 'clip.mp4' }] }) };
-            if (path.endsWith('/captions.json')) {
-                if (captionsSource === undefined) throw new Error('ENOENT');
-                return { value: captionsSource };
-            }
-            return { value: JSON.stringify({ probe: { duration_s: 180 } }) };
+            if (path.endsWith('/edit.json')) return { value: { toString: () => JSON.stringify(edit) } };
+            if (path.endsWith('/captions.json')) return { value: { toString: () => captions } };
+            const analysis = Object.entries(analysisByPath).find(([relativePath]) => path.endsWith(`/${relativePath}.analysis/analysis.json`));
+            if (analysis) return { value: { toString: () => JSON.stringify(analysis[1]) } };
+            throw new Error('missing');
         },
-        async writeFile(uri, value) { captionsSource = value.toString(); fileWrites.push([uri.toString(), captionsSource]); },
-        async delete(uri) { captionsSource = undefined; deleted.push(uri.toString()); }
-    }, {
-        async executeCommand(_id, service) {
-            return service.endsWith('new-project') ? { tools: [{ id: 'whisper', available: true }, { id: 'speech-analyzer', available: false, needs: ['CLT'] }] }
-                : { providers: ['elevenlabs', 'groq'].map(id => ({ id, configured: false, doctor: { status: 'unconfigured' } })) };
+        async writeFile(uri, value) { writes.push([uri.toString(), value]); captions = value; },
+        async resolve() { return { children: [] }; }, async delete() {}
+    };
+    const service = {
+        async transcriptStates() { return transcriptState ?? (previous ? { 'assets/mic.wav': 'done' } : {}); },
+        async transcribeMaterial(request) { requests.push(request); await pending.promise; },
+        async cancelTranscribe(request) { cancels.push(request); },
+        async readTranscribeArtifacts() { return artifact ?? { transcripts: [], diff: null, cuts: null }; },
+        async buildCaptions(request) { builds.push(request); return request.dryRun
+            ? { added: 2, changed: 1, protected: 1, removed: 0, total: 3 } : { added: 2 }; }
+    };
+    const messages = { async info(...args) { notices.push(args); } };
+    const annotationsService = {
+        async setCaptionDisplayPolicy(request) {
+            policies.push(request);
+            if (policyError) throw new Error(policyError);
+            captions = JSON.stringify({ ...JSON.parse(captions), display_policy: request.displayPolicy });
+        },
+        async setCaptionFields(request) {
+            fieldWrites.push(request);
+            const root = JSON.parse(captions);
+            root.captions.find(row => row.id === request.captionId).display_timing = request.displayTiming;
+            captions = JSON.stringify(root);
         }
-    }, async () => {}, done, autoStart);
+    };
+    const dialog = new exported.AkariTranscribeDialog(root, initialPath, {}, service, annotationsService, files,
+        { executeCommand: async (id, request) => {
+            commands.push([id, request]);
+            if (id === 'akari.settings.readStatus') return request.includes('connections') ? { providers } : { tools };
+            if (id === 'akari.timeline.addMaterialAtPlayhead' && addRegistersSource) {
+                edit.sources.push({ id: 'added', path: request.relativePath });
+            }
+        } }, async () => {}, messages,
+        async () => true);
     await dialog.ready; await tick();
-    return { dialog, writes, fileWrites, requests, cancels, compareSet, clock, buildRequests, history, confirm, deleted,
-        captions: () => captionsSource };
+    return { dialog, requests, builds, writes, notices, cancels, commands, policies, fieldWrites, pending,
+        get captions() { return JSON.parse(captions); } };
 }
-const buttons = dialog => dialog.foot.querySelectorAll('button').filter(node => !node.dataset.akariTranscribeModeSwitch).map(node => node.textContent);
-const switchLink = dialog => dialog.node.querySelectorAll('button').find(node => node.dataset.akariTranscribeModeSwitch === 'true');
-const badges = dialog => dialog.node.querySelectorAll('section[data-backend]')
-    .flatMap(card => card.children.filter(node => node.dataset?.akariEngineAvailability));
-function simpleDOM(dialog) {
-    assert.equal(dialog.titleNode.textContent, '文字起こし');
-    assert.equal(dialog.node.dataset.akariTranscribeMode, 'simple');
+
+test('popup opens on materials with a selected source and clamps existing three lines to two', async () => {
+    const { dialog } = await harness({ initialPath: 'assets/mic.wav' });
     assert.equal(dialog.node.dataset.step, '1');
-    assert.equal(dialog.node.querySelectorAll('nav').length, 0);
-    assert.equal(dialog.node.querySelectorAll('input[type=checkbox]').length, 0);
-    assert.equal(dialog.node.querySelectorAll('svg').length, 0);
-    assert.equal(dialog.node.querySelectorAll('section[data-backend]').length, 4);
-    assert.equal(badges(dialog).length, 4);
-    for (const badge of badges(dialog)) {
-        assert.equal(badge.tagName, 'span');
-        assert.equal(badge.attributes.role, 'status');
-        assert.deepEqual(badge.listeners, {}, 'simple availability badges have no actions');
-    }
-    assert.deepEqual(dialog.node.querySelectorAll('button').map(node => node.textContent),
-        [...buttons(dialog), 'アドバンス（比較・差分）に切り替える']);
-    assert.doesNotMatch(dialog.node.textContent, /翻訳|差分を読み込み|数値は予測|比べる組|fal.ai/);
-}
-
-for (const done of [false, true]) {
-    test(`simple DOM and round-trip mode switch, already transcribed = ${done}`, async () => {
-        const { dialog, writes, compareSet } = await harness({ done });
-        simpleDOM(dialog);
-        assert.deepEqual(badges(dialog).map(badge => badge.dataset.akariEngineAvailability),
-            ['needs', 'available', 'unconfigured', 'unconfigured']);
-        assert.deepEqual(buttons(dialog), done ? ['台本へ', '起こし直す'] : ['起こす']);
-        for (const card of dialog.node.querySelectorAll('section[data-backend]')) {
-            assert.equal(card.querySelectorAll('input').length, 1);
-            assert.equal(card.querySelectorAll('strong').length, 1);
-            assert.equal(card.children.length, 3, 'name with radio, availability, one facts line');
-            assert.equal(card.children[2].textContent, viewCards(card.dataset.backend));
-        }
-        switchLink(dialog).click(); await tick();
-        assert.deepEqual(writes, [['akari.transcribe.mode', 'advanced', PreferenceScope.User]]);
-        assert.equal(dialog.node.dataset.akariTranscribeMode, 'advanced');
-        assert.equal(dialog.titleNode.textContent, '文字起こしして字幕を作る');
-        for (const badge of badges(dialog)) {
-            const interactive = ['needs', 'unconfigured'].includes(badge.dataset.akariEngineAvailability);
-            assert.equal(badge.tagName, interactive ? 'button' : 'span');
-            assert.equal(badge.attributes.role, interactive ? 'button' : 'status');
-            if (interactive) assert.equal(badge.listeners.click.length, 1);
-        }
-        assert.equal(dialog.node.querySelectorAll('nav').length, 1);
-        assert.equal(dialog.node.querySelectorAll('input[type=checkbox]').length, 4);
-        assert.equal(dialog.node.querySelectorAll('svg').length, 4);
-        assert.deepEqual(buttons(dialog), done ? ['このまま字幕へ', '起こし直す', '比べる'] : ['起こす ▸']);
-        assert.equal(dialog.closed, 0);
-        assert.deepEqual(dialog.selection.compareSet, compareSet);
-        switchLink(dialog).click(); await tick();
-        simpleDOM(dialog);
-        assert.deepEqual(writes.at(-1), ['akari.transcribe.mode', 'simple', PreferenceScope.User]);
-        assert.equal(dialog.closed, 0);
-        dialog.dispose();
-    });
-}
-function viewCards(id) {
-    return { 'speech-analyzer': '句読点あり / フィラーを残す', 'whisper-cpp': '句読点あり / フィラーは落ちやすい',
-        'cloud:scribe': '句読点・フィラーを残す', 'cloud:groq': '句読点なし / フィラーは落ちる' }[id];
-}
-test('invalid saved mode uses simple DOM; failed switch keeps the dialog and selected mode', async () => {
-    const { dialog } = await harness({ mode: 'invalid', failSave: true });
-    simpleDOM(dialog);
-    switchLink(dialog).click(); await tick();
-    simpleDOM(dialog);
-    assert.equal(dialog.closed, 0);
-    assert.match(dialog.notice.textContent, /設定を保存できませんでした/);
-    dialog.dispose();
+    assert.equal(dialog.node.dataset.akariTranscribeMode, 'popup');
+    assert.deepEqual([...dialog.selected], ['mic']);
+    assert.equal(dialog.lines, 2);
+    dialog.foot.querySelector('[data-primary]').click();
+    assert.equal(dialog.node.dataset.step, '2');
+    assert.equal(dialog.backend, 'auto');
 });
-test('simple start ignores saved comparison, shows timed progress on the same screen and automatically reuses', async () => {
+
+test('step one uses radios and never selects two materials', async () => {
+    const { dialog } = await harness({ initialPath: 'assets/mic.wav' });
+    assert.match(dialog.body.textContent, /タイムラインに置いた素材のうち、声が入っていそうなものだけ並べています/);
+    const card = dialog.body.children.find(node => node.dataset?.sourceId === 'camera');
+    assert.equal(card.children[0].type, 'radio');
+    card.children[0].checked = true;
+    card.children[0].onchange();
+    assert.deepEqual([...dialog.selected], ['camera']);
+    assert.match(dialog.foot.textContent, /1 本を選択 · 計 0:00/);
+});
+
+test('an export opened outside the source list appears in step one with a reason', async () => {
+    const { dialog, requests } = await harness({ initialPath: 'exports/final.mp4' });
+    assert.equal(dialog.node.dataset.step, '1');
+    assert.deepEqual([...dialog.selected], []);
+    assert.match(dialog.foot.textContent, /0 本を選択 · 計 0:00/);
+    assert.equal(dialog.foot.querySelector('[data-primary]').disabled, true);
+    assert.equal(dialog.sources.find(source => source.path === 'exports/final.mp4')?.reason,
+        '書き出した完成品です（元の素材から起こします）');
+    assert.equal(requests.length, 0);
+});
+
+test('a home material outside edit sources is selected without starting work', async () => {
+    const { dialog, requests } = await harness({ initialPath: 'assets/new.wav' });
+    assert.equal(dialog.node.dataset.step, '1');
+    assert.deepEqual([...dialog.selected], ['__requested_material__']);
+    assert.equal(dialog.sources.find(source => source.path === 'assets/new.wav')?.status, 'voice');
+    assert.equal(dialog.sources.find(source => source.path === 'assets/new.wav')?.reason, 'タイムラインにまだ置いていない素材');
+    assert.equal(requests.length, 0);
+});
+
+test('every material entrance starts on the named material while the daihon header uses its caption source', async () => {
+    for (const entrance of ['AI タブ', '素材の AI ビュー', '素材パネル', 'ホーム']) {
+        const { dialog, requests } = await harness({ initialPath: 'assets/mic.wav' });
+        assert.equal(dialog.node.dataset.step, '1', entrance);
+        assert.deepEqual([...dialog.selected], ['mic'], entrance);
+        assert.equal(requests.length, 0, entrance);
+    }
+    const { dialog, requests } = await harness({ previous: true });
+    assert.equal(dialog.node.dataset.step, '1');
+    assert.deepEqual([...dialog.selected], ['mic']);
+    assert.equal(requests.length, 0);
+});
+
+test('step navigation unlocks only completed steps and locks selection while running', async () => {
     const pending = deferred();
-    const { dialog, requests, compareSet, clock } = await harness({ pending });
-    dialog.defaultButton.click(); await tick();
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].backend, 'whisper-cpp');
-    assert.deepEqual(requests[0].compareSet, []);
-    assert.deepEqual(dialog.selection.compareSet, compareSet);
-    assert.equal(dialog.closed, 0);
-    simpleDOM(dialog);
-    assert.equal(dialog.node.querySelector('[data-akari-transcribe-progress]').textContent, '起こしています… 0:00 / 3:00');
-    clock.now = 83000;
-    for (const interval of clock.intervals) interval();
-    assert.equal(dialog.node.querySelector('[data-akari-transcribe-progress]').textContent, '起こしています… 1:23 / 3:00');
-    assert.equal(dialog.defaultButton.disabled, true);
-    dialog.defaultButton.click(); await tick();
-    assert.equal(requests.length, 1);
-    pending.resolve(); await tick();
-    assert.equal(dialog.accepted, 1);
-    assert.deepEqual(dialog.value, { transcribeFirst: false });
-    assert.equal(clock.intervals.size, 0);
-});
-test('simple reuse applies in place while redo preserves the existing exit path', async () => {
-    for (const redo of [false, true]) {
-        const { dialog, requests, buildRequests } = await harness({ done: true });
-        dialog.foot.querySelectorAll('button').find(button => button.textContent === (redo ? '起こし直す' : '台本へ')).click();
-        await tick();
-        assert.equal(dialog.accepted, redo ? 1 : 0);
-        assert.equal(requests.length, 0, 'redo delegates through the existing result to buildCaptions');
-        assert.deepEqual(dialog.value, redo ? { backend: 'whisper-cpp', compareSet: [], approved: false, autoCuts: true, transcribeFirst: true } : undefined);
-        assert.equal(buildRequests.filter(request => !request.dryRun).length, redo ? 0 : 1);
-    }
+    const { dialog } = await harness({ initialPath: 'assets/mic.wav', pending });
+    assert.equal(dialog.steps.children[1].disabled, true);
+    dialog.foot.querySelector('[data-primary]').click();
+    assert.equal(dialog.steps.children[0].disabled, false);
+    assert.equal(dialog.steps.children[2].disabled, true);
+    dialog.foot.querySelector('[data-primary]').click(); await tick();
+    assert.equal(dialog.steps.children[0].disabled, true);
+    assert.equal(dialog.steps.children[1].disabled, true);
+    pending.resolve(); await tick(); await tick();
+    assert.equal(dialog.steps.children[0].disabled, false);
+    dialog.steps.children[0].click();
+    assert.equal(dialog.node.dataset.step, '1');
 });
 
-test('opening shows apply preview with and without protected rows', async () => {
-    const { dialog, buildRequests } = await harness({ done: true });
-    assert.equal(buildRequests.filter(request => request.dryRun).length, 1);
-    assert.equal(dialog.node.querySelector('[data-akari-captions-preview]').textContent,
-        '新規 12 · 変更 3 · 手直し済み 2 行は保護 · 消える 0');
-    dialog.dispose();
-    const zero = await harness({ done: true, previewResult: { added: 12, changed: 3, protected: 0, removed: 0, total: 15 } });
-    assert.equal(zero.dialog.node.querySelector('[data-akari-captions-preview]').textContent, '新規 12 · 変更 3 · 消える 0');
-    zero.dialog.dispose();
+test('cloud cost stays inline and transcription receives approved without a confirmation dialog', async () => {
+    const pending = deferred();
+    const { dialog, requests } = await harness({ initialPath: 'assets/mic.wav', pending,
+        providers: [{ id: 'elevenlabs', configured: true, doctor: { status: 'ok', detail: '' } }],
+        analysisByPath: { 'assets/mic.wav': { probe: { duration_s: 120 } } } });
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.backend = 'cloud:scribe'; dialog.render();
+    assert.match(dialog.body.textContent, /音声を ElevenLabs Scribe に送ります/);
+    assert.match(dialog.body.textContent, /1 本 · 約 2 分で、約 \$0\.01/);
+    dialog.foot.querySelector('[data-primary]').click(); await tick();
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].approved, true);
+    pending.resolve(); await tick(); await tick();
 });
 
-test('apply runs once without confirmation, stays open, and registers undo history', async () => {
-    const before = '{"captions":[{"id":"before"}]}';
-    const { dialog, buildRequests, confirm, history, fileWrites } = await harness({ done: true, captionsBefore: before });
-    dialog.foot.querySelectorAll('button').find(button => button.textContent === '台本へ').click();
+test('closing during transcription keeps the service running and still sends completion notification', async () => {
+    const pending = deferred();
+    const { dialog, requests, cancels, notices } = await harness({ initialPath: 'assets/mic.wav', pending });
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.foot.querySelector('[data-primary]').click(); await tick();
+    assert.equal(requests.length, 1);
+    dialog.close();
+    assert.equal(cancels.length, 0);
+    pending.resolve(); await tick(); await tick();
+    assert.deepEqual(notices, [['字幕ができました', '台本を開く']]);
+});
+
+test('unlisted material is placed before caption application and the assigned source id is used', async () => {
+    const pending = deferred();
+    const { dialog, commands, builds } = await harness({ initialPath: 'assets/new.wav', pending, addRegistersSource: true,
+        artifact: { transcripts: [{ backend: 'speech-analyzer', segments: [{ text: '声' }] }], diff: null, cuts: null } });
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.foot.querySelector('[data-primary]').click(); await tick();
+    pending.resolve(); await tick(); await tick();
+    assert.equal(dialog.node.dataset.step, '4');
+    assert.match(dialog.foot.textContent, /タイムラインに置いて台本に反映/);
+    assert.equal(builds.length, 0);
+    await dialog.apply();
+    assert.ok(commands.some(([id, request]) => id === 'akari.timeline.addMaterialAtPlayhead'
+        && request.relativePath === 'assets/new.wav' && request.kind === 'audio'));
+    assert.equal(builds[0].source, 'added');
+});
+
+test('an audio placement without a source id stops before caption application with a reason', async () => {
+    const pending = deferred();
+    const { dialog, builds } = await harness({ initialPath: 'assets/new.wav', pending });
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.foot.querySelector('[data-primary]').click(); await tick();
+    pending.resolve(); await tick(); await tick();
+    await dialog.apply();
+    assert.match(dialog.notice.textContent, /台本の素材一覧に登録されませんでした/);
+    assert.equal(builds.length, 0);
+});
+
+test('transcription stays in the popup, can be cancelled, and never starts on open', async () => {
+    const pending = deferred();
+    const { dialog, requests, cancels } = await harness({ initialPath: 'assets/mic.wav', pending });
+    assert.equal(requests.length, 0);
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.foot.querySelector('[data-primary]').click();
     await tick();
-    assert.equal(buildRequests.filter(request => !request.dryRun).length, 1);
-    assert.equal(confirm.count, 0);
-    assert.equal(dialog.node.querySelector('[data-akari-captions-applied]').textContent, '台本に反映した（新規 12 · 変更 3）');
-    assert.equal(dialog.value, undefined);
-    assert.equal(dialog.closed, 0);
-    assert.equal(history.length, 1);
-    assert.equal(history[0].label, '台本へ反映（新規 12 · 変更 3）');
-    await history[0].undo();
-    assert.deepEqual(fileWrites.at(-1), ['file:///fixture/captions.json', before]);
-    dialog.dispose();
+    assert.equal(dialog.node.dataset.step, '3');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].autoCuts, false);
+    await dialog.cancel();
+    assert.deepEqual(cancels, [{ projectRoot: 'file:///fixture', relativePath: 'assets/mic.wav' }]);
+    pending.resolve(); await tick();
+    assert.equal(dialog.wasCancelled, true);
 });
 
-test('a completed engine event refreshes the dry-run summary', async () => {
-    const eventPayload = { id: '2026-09-12T00-00-00-000Z', type: 'material-transcript', relativePath: 'clip.mp4',
-        backend: 'whisper-cpp', stage: 'completed', status: 'completed' };
-    const first = { added: 12, changed: 3, protected: 2, removed: 0, total: 17 };
-    const second = { added: 4, changed: 1, protected: 0, removed: 2, total: 5 };
-    const { dialog, buildRequests } = await harness({ done: true, previewResult: [first, second], eventPayload });
-    await dialog.consumeEvent(new URI('file:///fixture/event.json'));
-    assert.equal(buildRequests.filter(request => request.dryRun).length, 2);
-    assert.equal(dialog.node.querySelector('[data-akari-captions-preview]').textContent, '新規 4 · 変更 1 · 消える 2');
-    dialog.dispose();
+test('reuse reaches finish and saves the caption shape through the gear service', async () => {
+    const state = await harness({ initialPath: 'assets/mic.wav', previous: true });
+    const { dialog, requests, builds, writes, notices, policies, fieldWrites } = state;
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.foot.querySelector('[data-primary]').click();
+    await tick(); await tick();
+    assert.equal(requests.length, 0);
+    assert.equal(dialog.node.dataset.step, '4');
+    for (const label of ['新しい行', '変わる行', '手で直した行（守る）', '消える行']) {
+        assert.match(dialog.body.textContent, new RegExp(label.replace(/[()]/gu, '\\$&')));
+    }
+    assert.equal(builds.filter(request => request.dryRun).length, 1);
+    assert.doesNotMatch(dialog.body.textContent, /カラオケ表示/);
+    dialog.chars = 5; dialog.timing = 'speech-tight';
+    await dialog.apply();
+    assert.equal(writes.length, 0);
+    assert.equal(policies.length, 1);
+    assert.equal(policies[0].displayPolicy.max_line_units, 5);
+    assert.equal(policies[0].displayPolicy.lines, 2);
+    assert.deepEqual(fieldWrites.map(request => [request.captionId, request.displayTiming]), [['old', 'speech-tight']]);
+    assert.deepEqual(captionShape.readCaptionShape(state.captions), { chars: 5, lines: 2, timing: 'speech-tight' });
+    assert.equal(dialog.applied, true);
+    assert.equal(notices.length, 1);
 });
-test('failed simple transcription stays on its screen with retry and releases the timer', async () => {
-    const pending = deferred();
-    const { dialog, clock } = await harness({ pending });
-    dialog.defaultButton.click(); await tick();
-    pending.reject(new Error('engine failed')); await tick();
-    simpleDOM(dialog);
-    assert.match(dialog.notice.textContent, /engine failed/);
-    assert.deepEqual(buttons(dialog), ['起こす']);
-    assert.equal(dialog.defaultButton.disabled, false);
-    assert.equal(dialog.closed, 0);
-    assert.equal(clock.intervals.size, 0);
-    dialog.dispose();
-});
-test('saved advanced mode keeps the comparison execution path and does not auto-close', async () => {
-    const pending = deferred();
-    const { dialog, requests, compareSet } = await harness({ mode: 'advanced', pending });
-    assert.equal(dialog.titleNode.textContent, '文字起こしして字幕を作る');
-    dialog.defaultButton.click(); await tick();
-    assert.deepEqual(requests[0].compareSet, compareSet);
-    assert.equal(dialog.node.dataset.step, '2');
-    assert.equal(dialog.node.querySelectorAll('nav').length, 1);
-    pending.resolve(); await tick();
-    assert.equal(dialog.accepted, 0);
-    assert.equal(dialog.closed, 0);
-    dialog.dispose();
-});
-test('context-menu autoStart opens on step 2, exposes cancel, and does not auto-accept one engine', async () => {
-    const pending = deferred();
-    const { dialog, requests, cancels } = await harness({ mode: 'advanced', pending, autoStart: true, savedCompareSet: [] });
-    assert.equal(dialog.node.dataset.step, '2');
-    assert.equal(requests.length, 1);
-    assert.deepEqual(requests[0].compareSet, []);
-    const cancel = dialog.foot.querySelectorAll('button').find(button => button.textContent === '中止');
-    assert.equal(cancel.disabled, false);
-    cancel.click(); await tick();
-    assert.deepEqual(cancels, [{ projectRoot: 'file:///fixture', relativePath: 'clip.mp4' }]);
-    pending.reject(new Error('文字起こしを中止しました')); await tick();
-    assert.equal(dialog.notice.textContent, '文字起こしを中止しました');
-    assert.doesNotMatch(dialog.notice.textContent, /^Error:/);
-    assert.equal(dialog.wasCancelled, true);
-    assert.equal(dialog.accepted, 0);
-    assert.equal(dialog.closed, 0);
-    dialog.dispose();
+
+test('display policy service failure stays on finish and shows the reason there', async () => {
+    const { dialog, policies, fieldWrites } = await harness({ initialPath: 'assets/mic.wav', previous: true,
+        policyError: '手で置いた区切りが文字数を超えています' });
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.foot.querySelector('[data-primary]').click();
+    await tick(); await tick();
+    await dialog.apply();
+    assert.equal(policies.length, 1);
+    assert.equal(fieldWrites.length, 0);
+    assert.equal(dialog.applied, false);
+    assert.match(dialog.body.textContent, /手で置いた区切りが文字数を超えています/);
 });

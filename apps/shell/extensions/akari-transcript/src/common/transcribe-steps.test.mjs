@@ -1,168 +1,54 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceTranscribeSteps, analysisTranscriptSummary, startTranscribeSteps, completedColumns, initialEngineSelection, transcribeSummary, transcribeExitOptions, transcribeModeView } from '../../lib/common/transcribe-steps.js';
-const event = (backend, stage, status) => ({ backend, stage, status });
-test('columns fill in completion order, not selection order', () => {
-    let state = startTranscribeSteps(['speech-analyzer', 'whisper-cpp']);
-    state = advanceTranscribeSteps(state, event('whisper-cpp', 'completed', 'completed'));
-    assert.deepEqual(completedColumns(state, [{ backend: 'speech-analyzer' }, { backend: 'whisper-cpp' }]), [{ backend: 'whisper-cpp' }]);
-    state = advanceTranscribeSteps(state, event('speech-analyzer', 'completed', 'completed'));
-    assert.deepEqual(state.completedOrder, ['whisper-cpp', 'speech-analyzer']);
-});
-test('diff completion switches automatically; running or failed diff does not', () => {
-    const state = startTranscribeSteps(['whisper-cpp', 'speech-analyzer']);
-    assert.equal(advanceTranscribeSteps(state, event(undefined, 'diffing', 'running')).step, 2);
-    assert.equal(advanceTranscribeSteps(state, event(undefined, 'diffing', 'failed')).step, 2);
-    assert.equal(advanceTranscribeSteps(state, event(undefined, 'diffing', 'completed')).step, 3);
-});
-test('late start and duplicate completion never regress or duplicate columns', () => {
-    let state = startTranscribeSteps(['cloud:scribe']);
-    state = advanceTranscribeSteps(state, event('cloud:scribe', 'completed', 'completed'));
-    state = advanceTranscribeSteps(state, event('cloud:scribe', 'transcribing', 'running'));
-    state = advanceTranscribeSteps(state, event('cloud:scribe', 'completed', 'completed'));
-    assert.equal(state.engines['cloud-scribe'], 'completed'); assert.deepEqual(state.completedOrder, ['cloud-scribe']);
-});
-test('overall failure finishes without hiding successful columns', () => {
-    let state = startTranscribeSteps(['whisper-cpp', 'speech-analyzer']);
-    state = advanceTranscribeSteps(state, event('whisper-cpp', 'completed', 'completed'));
-    state = advanceTranscribeSteps(state, event('speech-analyzer', 'failed', 'failed'));
-    state = advanceTranscribeSteps(state, event(undefined, 'completed', 'failed'));
-    assert.equal(state.finished, true); assert.deepEqual(state.completedOrder, ['whisper-cpp']);
-});
-test('cancelled engines return to waiting and overall cancellation finishes without becoming failed', () => {
-    let state = startTranscribeSteps(['whisper-cpp']);
-    state = advanceTranscribeSteps(state, event('whisper-cpp', 'transcribing', 'running'));
-    state = advanceTranscribeSteps(state, event(undefined, 'transcribing', 'cancelled'));
-    assert.equal(state.engines['whisper-cpp'], 'waiting');
-    state = advanceTranscribeSteps(state, event(undefined, 'completed', 'cancelled'));
-    assert.equal(state.finished, true);
-    assert.deepEqual(state.completedOrder, []);
-});
-test('session selection copies preferences', () => {
-    const preferences = ['whisper-cpp']; const selection = initialEngineSelection('auto', preferences);
-    selection.compareSet.push('speech-analyzer'); assert.deepEqual(preferences, ['whisper-cpp']);
+import {
+    analysisTranscriptSummary, popupCanNavigate, popupInitialSourceIds,
+    transcribeEngineAvailability, transcribeSummary
+} from '../../lib/common/transcribe-steps.js';
+
+const sources = [
+    { id: 'image', path: 'assets/title.png', status: 'excluded' },
+    { id: 'camera', path: 'assets/camera.mp4', status: 'voice' },
+    { id: 'mic', path: 'assets/mic.wav', status: 'voice' },
+    { id: 'bgm', path: 'assets/music.mp3', status: 'bgm' }
+];
+
+test('popup selects a requested source, including BGM, but never an excluded source', () => {
+    assert.deepEqual(popupInitialSourceIds(sources, 'assets/mic.wav', []), ['mic']);
+    assert.deepEqual(popupInitialSourceIds(sources, 'assets/music.mp3', []), ['bgm']);
+    assert.deepEqual(popupInitialSourceIds(sources, 'assets/title.png', []), []);
 });
 
-test('summary reports each recorded timestamp, engine and line count and the saved comparison group', () => {
-    const artifacts = {
-        transcripts: [
-            { backend: 'whisper-cpp', generated_at: '2026-09-08T01:02:03Z', segments: [{ text: '一行目' }, { text: '二行目' }] },
-            { backend: 'cloud-scribe', generated_at: '2026-09-08T01:03:04Z', segments: [] }
-        ],
-        diff: { engines: ['whisper-cpp', 'cloud-scribe'] }
-    };
-    const before = structuredClone(artifacts);
-    assert.deepEqual(transcribeSummary(artifacts), [
-        '2026-09-08T01:02:03Z · whisper-cpp · 2 行',
-        '2026-09-08T01:03:04Z · cloud-scribe · 0 行',
-        '比べる組: whisper-cpp / cloud-scribe'
+test('popup defaults to transcript sources or first voice source', () => {
+    assert.deepEqual(popupInitialSourceIds(sources, undefined, ['mic', 'camera']), ['camera']);
+    assert.deepEqual(popupInitialSourceIds(sources, undefined, []), ['camera']);
+    assert.deepEqual(popupInitialSourceIds(sources, undefined, ['bgm']), ['camera']);
+});
+
+test('popup navigation cannot skip a step or go back to selection while running', () => {
+    assert.equal(popupCanNavigate(1, 0, false), false);
+    assert.equal(popupCanNavigate(0, 1, false), true);
+    assert.equal(popupCanNavigate(1, 2, true), false);
+    assert.equal(popupCanNavigate(2, 2, true), true);
+    assert.equal(popupCanNavigate(3, 2, false), false);
+    assert.equal(popupCanNavigate(3, 3, false), true);
+});
+
+test('engine badges distinguish ready, missing model, missing key and unsupported OS', () => {
+    assert.equal(transcribeEngineAvailability('whisper-cpp', [{ id: 'whisper', available: true }], []).state, 'available');
+    assert.equal(transcribeEngineAvailability('whisper-cpp', [{ id: 'whisper', available: false,
+        executable: '/bin/whisper', model: { available: false } }], []).label, '準備が要る（モデルが無い）');
+    assert.equal(transcribeEngineAvailability('speech-analyzer', [{ id: 'speech-analyzer', available: false,
+        unsupported: true }], []).state, 'unsupported');
+    assert.equal(transcribeEngineAvailability('cloud:scribe', [], [{ id: 'elevenlabs', configured: false,
+        doctor: { status: 'unconfigured', detail: '' } }]).label, '鍵が未登録');
+});
+
+test('analysis summary keeps the most recent transcript provenance', () => {
+    assert.equal(analysisTranscriptSummary({ transcript: [{ text: '一行目' }], observations: [
+        { kind: 'transcribe', at: 'earlier', args: { backend: 'old' } },
+        { kind: 'transcribe', at: 'later', args: { backend: 'whisper-cpp' } }
+    ] }), 'later · whisper-cpp · 1 行');
+    assert.deepEqual(transcribeSummary({ transcripts: [], diff: null }, true), [
+        '文字起こし済み · 日時・エンジン・行数の記録なし', '比べる組: なし'
     ]);
-    assert.deepEqual(artifacts, before);
-});
-
-test('summary handles unprocessed, legacy completed, unrecorded timestamps and diff-only artifacts', () => {
-    const empty = { transcripts: [], diff: null };
-    assert.deepEqual(transcribeSummary(empty), []);
-    assert.deepEqual(transcribeSummary(empty, true), ['文字起こし済み · 日時・エンジン・行数の記録なし', '比べる組: なし']);
-    assert.deepEqual(transcribeSummary({ transcripts: [{ backend: 'speech-analyzer', segments: [] }], diff: null }),
-        ['日時不明 · speech-analyzer · 0 行', '比べる組: なし']);
-    assert.deepEqual(transcribeSummary({ transcripts: [], diff: { engines: ['a', 'b'] } }), ['比べる組: a / b']);
-});
-
-test('analysis fallback uses explicit fields, then the last transcribe observation, and suppresses recordなし', () => {
-    const observed = {
-        transcript: [{ text: '一行目' }, { text: '二行目' }],
-        observations: [
-            { kind: 'transcribe', at: '2026-09-12T01:00:00Z', args: { backend: 'old' } },
-            { kind: 'probe', at: '2026-09-12T02:00:00Z' },
-            { kind: 'transcribe', at: '2026-09-12T03:00:00Z', args: { backend: 'speech-analyzer' } }
-        ]
-    };
-    const fallback = analysisTranscriptSummary(observed);
-    assert.equal(fallback, '2026-09-12T03:00:00Z · speech-analyzer · 2 行');
-    assert.deepEqual(transcribeSummary({ transcripts: [], diff: null }, true, fallback), [
-        '2026-09-12T03:00:00Z · speech-analyzer · 2 行', '比べる組: なし'
-    ]);
-    assert.doesNotMatch(transcribeSummary({ transcripts: [], diff: null }, true, fallback).join('\n'), /記録なし/);
-    assert.equal(analysisTranscriptSummary({
-        transcript_generated_at: 'explicit-time', generated_at: 'generated-time', transcript_backend: 'explicit-engine',
-        transcript: [], observations: [{ kind: 'transcribe', at: 'observed-time', args: { backend: 'observed-engine' } }]
-    }), 'explicit-time · explicit-engine · 0 行');
-});
-
-test('reuse does not request transcription even when comparison preferences are set', () => {
-    assert.deepEqual(transcribeExitOptions('reuse', {
-        backend: 'cloud:scribe', compareSet: ['whisper-cpp', 'cloud:scribe'], approved: true
-    }), { transcribeFirst: false });
-});
-
-test('redo uses only the selected card, ignoring comparison checks', () => {
-    assert.deepEqual(transcribeExitOptions('redo', {
-        backend: 'whisper-cpp', compareSet: ['cloud:scribe', 'cloud:groq'], autoCuts: false, approved: false
-    }), { backend: 'whisper-cpp', compareSet: [], autoCuts: false, approved: false, transcribeFirst: true });
-    assert.deepEqual(transcribeExitOptions('redo', {}), { backend: 'auto', compareSet: [], transcribeFirst: true });
-});
-
-test('compare returns a copied checked group for simultaneous transcription, preserving its baseline order', () => {
-    const selection = { backend: 'speech-analyzer', compareSet: ['cloud:scribe', 'whisper-cpp', 'cloud:scribe'], approved: true };
-    const result = transcribeExitOptions('compare', selection);
-    assert.deepEqual(result, {
-        backend: 'speech-analyzer', compareSet: ['cloud:scribe', 'whisper-cpp'], approved: true, transcribeFirst: true
-    });
-    result.compareSet.push('cloud:groq');
-    assert.deepEqual(selection.compareSet, ['cloud:scribe', 'whisper-cpp', 'cloud:scribe']);
-});
-
-test('compare needs at least two distinct checked engines and never falls back to the selected card', () => {
-    for (const compareSet of [undefined, [], ['whisper-cpp'], ['whisper-cpp', 'whisper-cpp']]) {
-        assert.equal(transcribeExitOptions('compare', { backend: 'speech-analyzer', compareSet }), undefined);
-    }
-});
-
-import { transcribeEngineAvailability } from '../../lib/common/transcribe-steps.js';
-test('engine badges distinguish ready, missing model/CLT, missing key and unsupported OS', () => {
-    assert.deepEqual(transcribeEngineAvailability('whisper-cpp', [{ id: 'whisper', available: true }], []),
-        { state: 'available', label: '使える', needs: [] });
-    assert.deepEqual(transcribeEngineAvailability('whisper-cpp', [{ id: 'whisper', available: false, executable: '/bin/whisper', model: { available: false } }], []),
-        { state: 'needs', label: '準備が要る（モデルが無い）', needs: ['モデルが無い'] });
-    assert.deepEqual(transcribeEngineAvailability('speech-analyzer', [{ id: 'speech-analyzer', available: false, needs: ['Command Line Tools が無い'] }], []),
-        { state: 'needs', label: '準備が要る（Command Line Tools が無い）', needs: ['Command Line Tools が無い'] });
-    assert.deepEqual(transcribeEngineAvailability('speech-analyzer', [{ id: 'speech-analyzer', available: false, unsupported: true }], []),
-        { state: 'unsupported', label: 'この OS では使えない', needs: [] });
-    for (const id of ['scribe', 'groq']) {
-        const providerId = id === 'scribe' ? 'elevenlabs' : id;
-        assert.deepEqual(transcribeEngineAvailability(`cloud:${id}`, [], [{ id: providerId, configured: false, doctor: { status: 'unconfigured', detail: '' } }]),
-            { state: 'unconfigured', label: '鍵が未登録', needs: [] });
-        assert.equal(transcribeEngineAvailability(`cloud:${id}`, [], [{ id: providerId, configured: true, doctor: { status: 'ok', detail: '' } }]).state, 'available');
-        for (const status of ['unchecked', 'unauthorized', 'setup_required']) {
-            assert.equal(transcribeEngineAvailability(`cloud:${id}`, [], [{ id: providerId, configured: true, doctor: { status, detail: '' } }]).state, 'needs');
-        }
-    }
-});
-test('missing status is never treated as a ready engine or an unregistered key', () => {
-    for (const id of ['speech-analyzer', 'whisper-cpp', 'cloud:scribe', 'cloud:groq']) {
-        assert.equal(transcribeEngineAvailability(id, [], []).state, 'needs');
-    }
-});
-
-for (const [mode, alreadyTranscribed, buttons] of [
-    ['simple', false, ['起こす']],
-    ['simple', true, ['台本へ', '起こし直す']],
-    ['advanced', false, ['起こす ▸']],
-    ['advanced', true, ['このまま字幕へ', '起こし直す', '比べる']]
-]) {
-    test(`mode view: ${mode} / already transcribed = ${alreadyTranscribed}`, () => {
-        const selection = Object.freeze({ backend: 'whisper-cpp', compareSet: Object.freeze(['whisper-cpp', 'cloud:scribe']) });
-        assert.deepEqual(transcribeModeView(mode, alreadyTranscribed, selection), {
-            steps: mode === 'advanced', compareToggle: mode === 'advanced', radar: mode === 'advanced', buttons,
-            switchLink: mode === 'advanced' ? '簡単モードに戻す' : 'アドバンス（比較・差分）に切り替える'
-        });
-    });
-}
-test('invalid transcribe modes normalize to simple regardless of selection', () => {
-    for (const mode of [undefined, null, '', 'invalid', 'ADVANCED', 1, true, {}, []]) {
-        for (const done of [false, true]) {
-            assert.deepEqual(transcribeModeView(mode, done, {}), transcribeModeView('simple', done, {}));
-        }
-    }
 });

@@ -39,7 +39,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     about: 'バージョンとアップデート。',
     connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
     'ai-models': 'モデルを探して、お気に入りといつものモデルを選び、できることを比べます。',
-    transcribe: '文字起こしのモードとエンジンを選びます。',
+    transcribe: '文字起こしのエンジンを選びます。',
     narration: '読み上げ（音声を作る）のエンジンの導入・起動と、既定のエンジン・声を設定します。',
     quality: 'プレビューの描き方を選びます。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
@@ -67,7 +67,6 @@ export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails
 export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
 export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnEnd';
-export const AKARI_TRANSCRIBE_MODE = 'akari.transcribe.mode';
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';
 export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
@@ -115,7 +114,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。
     'ai-models': [],
     partner: [AKARI_PARTNER_REOPEN],
-    transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
+    transcribe: [AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],
     quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
@@ -188,11 +187,6 @@ export const EXPORT_FPS_CHOICES = [
     { value: '', label: '編集データ' },
     { value: '24', label: '24' }, { value: '30', label: '30' }, { value: '60', label: '60' }
 ] as const;
-export const TRANSCRIBE_MODE_CHOICES = [
-    { value: 'simple', label: '簡単', description: 'おまかせで 1 回。ふだんはこれ', icon: 'spark' },
-    { value: 'advanced', label: 'アドバンス', description: 'エンジンの比較・カット候補の自動作成', icon: 'sliders' }
-] as const;
-
 export function normalizeExportCodec(value: unknown): typeof EXPORT_CODEC_CHOICES[number]['value'] {
     return EXPORT_CODEC_CHOICES.find(choice => choice.value === value)?.value ?? 'h264';
 }

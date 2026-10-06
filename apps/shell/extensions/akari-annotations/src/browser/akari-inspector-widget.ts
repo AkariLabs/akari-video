@@ -64,7 +64,7 @@ const generationModelShelf = require('../../../../../../packages/schemas/ai-mode
     models: Array<{ id: string; name?: string; family?: string; maker?: string }>;
 };
 import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
-import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
+import { appendAiTranscribePanel, resolveAiTranscribeTarget, CAPTION_IMAGE_EXTENSIONS, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { appendImageAiPanel, type ImageAiPanelState } from './inspector/image-ai-panel';
 import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
@@ -411,13 +411,6 @@ export class AkariInspectorWidget extends BaseWidget {
     protected transcribePolling = false;
     protected transcribeTimer?: ReturnType<typeof setInterval>;
     protected transcribeLoading?: Promise<void>;
-    protected transcribeEngines?: AiTranscribeEngine[];
-    protected transcribeEngineError?: string;
-    protected transcribeSelectedBackend?: string;
-    protected transcribeRedo = false;
-    protected transcribeEngineLoading = false;
-    protected transcribeMediaDuration?: number;
-    protected transcribeDurationLookupKey?: string;
     protected materialSelection?: AkariMaterialSelection;
     protected materialTab: 'generation' | 'info' = 'generation';
     protected readonly materialCreated = new Map<string, string>();
@@ -969,13 +962,6 @@ export class AkariInspectorWidget extends BaseWidget {
         this.transcribeSummary = { state: 'none', segments: [], total: 0 };
         this.transcribeRunning = false;
         this.transcribePolling = false;
-        this.transcribeEngines = undefined;
-        this.transcribeEngineError = undefined;
-        this.transcribeSelectedBackend = undefined;
-        this.transcribeRedo = false;
-        this.transcribeEngineLoading = false;
-        this.transcribeMediaDuration = undefined;
-        this.transcribeDurationLookupKey = undefined;
         if (selection.mediaKind === 'image' && !this.generationDrafts?.has(`material:${selection.relativePath}`)) {
             this.materialGenerationStatus?.set(`material:${selection.relativePath}`, { state: 'loading' });
         }
@@ -1478,13 +1464,6 @@ export class AkariInspectorWidget extends BaseWidget {
             this.transcribeSummary = { state: 'none', segments: [], total: 0 };
             this.transcribeRunning = false;
             this.transcribePolling = false;
-            this.transcribeEngines = undefined;
-            this.transcribeEngineError = undefined;
-            this.transcribeSelectedBackend = undefined;
-            this.transcribeRedo = false;
-            this.transcribeEngineLoading = false;
-            this.transcribeMediaDuration = undefined;
-            this.transcribeDurationLookupKey = undefined;
             this.audioPlanned = false;
             this.narrationSourcePath = undefined;
             this.narrationVerified = undefined;
@@ -1498,8 +1477,11 @@ export class AkariInspectorWidget extends BaseWidget {
             void this.verifyAiNarrationSource?.(rowSnapshot, transcribeKey);
         }
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
+        const photoPath = rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut'
+            ? rowSnapshot.sourcePath ?? rowSnapshot.src ?? '' : '';
+        const photoExtension = photoPath.split(/[?#]/u, 1)[0].match(/\.([^.\\/]+)$/u)?.[1].toLowerCase() ?? '';
         const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
-            && (rowSnapshot.photo === true || isInspectorStillImage(rowSnapshot.sourcePath ?? rowSnapshot.src));
+            && (rowSnapshot.photo === true || CAPTION_IMAGE_EXTENSIONS.has(photoExtension));
         if (photoSelection && this.layerAudioService?.photoMaskAvailability) this.loadPhotoMaskAvailability();
         sections = photoMaskSectionsForAvailability(sections, this.photoMaskAvailable);
         const photoTools = photoToolAvailabilityFor({ photo: photoSelection,
@@ -1659,7 +1641,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         void this.loadAiNarrationCandidates(clipKey, rowSnapshot.id);
                     }
                     this.render();
-                }, this.transcribeSummary.state === 'done', imageItemId ? '' : undefined);
+                }, this.transcribeSummary.state === 'done', imageItemId ? '' : undefined, photoSelection);
                 if (imageItemId && this.imageAiPanels && showEditCorrection) {
                     const root = this.workspaceService.tryGetRoots()[0]?.resource;
                     if (root) {
@@ -1751,22 +1733,12 @@ export class AkariInspectorWidget extends BaseWidget {
             });
             if (this.aiView === 'transcribe') {
                 const root = this.workspaceService.tryGetRoots()[0]?.resource;
-                void this.loadTranscribeEngines?.(root?.toString() ?? '', transcribeKey);
-                if (this.transcribeTarget) void this.loadTranscribeMediaDuration?.(root?.toString() ?? '', this.transcribeTarget.relativePath, transcribeKey);
                 appendAiTranscribePanel(this.body, {
                     projectRoot: root?.toString() ?? '', target: this.transcribeTarget,
                     summary: this.transcribeSummary, running: this.transcribeRunning,
-                    engines: this.transcribeEngines, engineError: this.transcribeEngineError,
-                    mediaDuration: this.transcribeMediaDuration,
-                    selectedBackend: this.transcribeSelectedBackend, redo: this.transcribeRedo,
-                    onSelectBackend: backend => { this.transcribeSelectedBackend = backend; this.render(); },
-                    onRedo: () => { this.transcribeRedo = true; this.render(); },
-                    confirm: message => new ConfirmDialog({ title: '音声の送信', msg: message,
-                        ok: '送って起こす', cancel: 'キャンセル' }).open(),
                     commands: this.commandRegistry,
                     onDialogResult: result => {
                         if (this.transcribeKey !== transcribeKey || this.aiView !== 'transcribe') return;
-                        if (result === 'opened' || result === 'running') this.transcribeRedo = false;
                         this.transcribeRunning = result === 'running';
                         this.transcribePolling = result === 'opened' || result === 'running';
                         this.render();
@@ -2507,68 +2479,19 @@ export class AkariInspectorWidget extends BaseWidget {
     protected renderMaterialTranscribeEngines(materialSelection: AkariMaterialSelection): void {
         if (this.materialTab !== 'generation' || this.aiView !== 'transcribe'
             || (materialSelection.mediaKind !== 'audio' && materialSelection.mediaKind !== 'video')) return;
-        void this.loadTranscribeEngines(materialSelection.projectRoot, this.transcribeKey);
-        void this.loadTranscribeMediaDuration(materialSelection.projectRoot, materialSelection.relativePath, this.transcribeKey);
         const oldPanel = this.body.querySelector('.akari-inspector-ai-transcribe-panel');
         oldPanel?.remove();
         appendAiTranscribePanel(this.body, {
             projectRoot: materialSelection.projectRoot,
             target: { relativePath: materialSelection.relativePath, name: materialSelection.name, duration: 0, atSeconds: 0 },
             summary: this.transcribeSummary, running: this.transcribeRunning, commands: this.commandRegistry,
-            engines: this.transcribeEngines, engineError: this.transcribeEngineError,
-            mediaDuration: this.transcribeMediaDuration,
-            selectedBackend: this.transcribeSelectedBackend, redo: this.transcribeRedo,
-            onSelectBackend: backend => { this.transcribeSelectedBackend = backend; this.render(); },
-            onRedo: () => { this.transcribeRedo = true; this.render(); },
-            confirm: message => new ConfirmDialog({ title: '音声の送信', msg: message,
-                ok: '送って起こす', cancel: 'キャンセル' }).open(),
             onDialogResult: result => {
                 if (this.materialSelection !== materialSelection) return;
-                if (result === 'opened' || result === 'running') this.transcribeRedo = false;
                 this.transcribeRunning = result === 'running';
                 this.transcribePolling = result === 'opened' || result === 'running';
                 this.render();
             }
         });
-    }
-
-    protected async loadTranscribeMediaDuration(projectRoot: string, relativePath: string, key?: string): Promise<void> {
-        const lookupKey = JSON.stringify([projectRoot, relativePath]);
-        if (!projectRoot || this.transcribeDurationLookupKey === lookupKey) return;
-        this.transcribeDurationLookupKey = lookupKey;
-        try {
-            const root = new URI(projectRoot);
-            const sidecar = root.resolve(`.akari/sidecars/${relativePath}.analysis/analysis.json`);
-            const analysis = JSON.parse((await this.fileService.readFile(sidecar)).value.toString());
-            const duration = analysis?.probe?.duration_s ?? analysis?.probe?.duration ?? analysis?.duration_s;
-            if (this.transcribeKey !== key || this.isDisposed) return;
-            if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
-                this.transcribeMediaDuration = duration;
-                this.render();
-            }
-        } catch { /* The clip duration remains the estimate fallback. */ }
-    }
-
-    protected async loadTranscribeEngines(projectRoot: string, key?: string): Promise<void> {
-        if (!projectRoot || this.transcribeEngineLoading || this.transcribeEngines !== undefined) return;
-        this.transcribeEngineLoading = true;
-        try {
-            const engines = await this.commandRegistry.executeCommand<AiTranscribeEngine[]>('akari.transcribe.engines', { projectRoot });
-            if (this.transcribeKey !== key || this.isDisposed) return;
-            this.transcribeEngines = engines;
-            this.transcribeEngineError = undefined;
-            const selectable = engines.filter(engine => engine.availability.state !== 'unavailable');
-            this.transcribeSelectedBackend = (selectable.find(engine => engine.default) ?? selectable[0])?.id;
-        } catch (error) {
-            if (this.transcribeKey !== key || this.isDisposed) return;
-            this.transcribeEngines = [];
-            this.transcribeEngineError = `エンジンを確認できませんでした: ${String(error)}`;
-        } finally {
-            if (this.transcribeKey === key) {
-                this.transcribeEngineLoading = false;
-                if (!this.isDisposed) this.render();
-            }
-        }
     }
 
     protected loadAiTranscribeTarget(snapshot: InspectorSnapshot, key: string): Promise<void> {

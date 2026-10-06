@@ -425,33 +425,18 @@ test('カタログのフォルダは手入力と選択でユーザー設定に�
     assert.deepEqual(writes.at(-1), ['akari.catalog.root', '/catalog/選んだ素材', PreferenceScope.User]);
 });
 
-test('文字起こし: モードのカードで比較・カットのフォームを置き換え、設定値を保つ', async () => {
-    const { PreferenceScope } = require('@theia/core/lib/common/preferences/preference-scope');
-    const { dialog, values, writes } = makeDialog({ 'akari.transcribe.compareSet': ['whisper-cpp', 'cloud:scribe'], 'akari.transcribe.autoCuts': false });
-    dialog.preferences.set = async (key, value, scope) => { values[key] = value; writes.push([key, value, scope]); dialog.renderTranscribe(); };
+test('文字起こし: 旧モードカードを出さず、比較・カットの設定値を保つ', () => {
+    const { dialog, values, writes } = makeDialog({ 'akari.transcribe.mode': 'advanced',
+        'akari.transcribe.compareSet': ['whisper-cpp', 'cloud:scribe'], 'akari.transcribe.autoCuts': false });
     const chips = () => all(dialog.transcribe).filter(node => node.getAttribute('role') === 'checkbox');
     const switches = () => all(dialog.transcribe).filter(node => node.getAttribute('role') === 'switch');
-    const selectMode = async mode => {
-        find(dialog.transcribe, node => node.attributes['data-akari-choice-cards'] === '文字起こしのモード')
-            .children.find(card => card.getAttribute('data-value') === mode).click();
-        await dialog.preferenceWrites;
-    };
     dialog.renderTranscribe();
-    const modes = find(dialog.transcribe, node => node.attributes['data-akari-choice-cards'] === '文字起こしのモード');
-    assert.deepEqual(modes.children.map(card => [card.getAttribute('data-value'), card.getAttribute('aria-checked')]), [['simple', 'true'], ['advanced', 'false']]);
-    assert.equal(chips().length, 0);
-    assert.equal(all(dialog.transcribe).filter(node => node._text.includes('アドバンスで使います')).length, 1);
-    await selectMode('advanced');
+    assert.equal(find(dialog.transcribe, node => node.attributes['data-akari-choice-cards'] === '文字起こしのモード'), undefined);
     assert.equal(chips().length, 4);
     assert.equal(chips().filter(node => node.getAttribute('aria-checked') === 'true').length, 2);
     assert.deepEqual(switches().map(node => node.getAttribute('aria-checked')), ['true', 'false']);
-    assert.equal(all(dialog.transcribe).filter(node => node._text.includes('アドバンスで使います')).length, 0);
-    await selectMode('simple');
-    assert.equal(chips().length, 0);
-    assert.deepEqual(writes, [
-        ['akari.transcribe.mode', 'advanced', PreferenceScope.User],
-        ['akari.transcribe.mode', 'simple', PreferenceScope.User]
-    ]);
+    assert.deepEqual(writes, []);
+    assert.equal(values['akari.transcribe.mode'], 'advanced');
     assert.deepEqual(values['akari.transcribe.compareSet'], ['whisper-cpp', 'cloud:scribe']);
     assert.equal(values['akari.transcribe.autoCuts'], false);
 });

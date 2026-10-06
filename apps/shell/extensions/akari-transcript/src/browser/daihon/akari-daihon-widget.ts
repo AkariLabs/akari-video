@@ -12,7 +12,6 @@ import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe
 import { isCaptionVideo, selectCaptionSources } from '../../common/caption-source-eligibility';
 import { cutsJumpButtonLabel, handEditedLines } from '../../common/cuts-view';
 import { nextCaptionNotices } from '../../common/caption-notice-state';
-import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import {
     captionsButtonLabel,
     captionsRetimeHistoryLabel,
@@ -129,13 +128,12 @@ import {
     type PlacedUnrecognized
 } from '../../common/daihon-unrecognized';
 import {
-    daihonDisplayLabel,
     daihonDisplayPolicyForWrite,
     readDaihonDisplayKnobs,
     readDaihonShowBreaks,
-    validateDaihonCustomLines,
     type DaihonDisplayKnobs
 } from '../../common/daihon-display-knobs';
+import { readCaptionShape } from '../../common/caption-shape';
 import { activeDaihonFragment } from '../../common/daihon-fragment-highlight';
 import {
     parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
@@ -1158,8 +1156,8 @@ export class AkariDaihonWidget extends BaseWidget {
         const states = this.editUri ? await this.projectService.transcriptStates({
             projectRoot: this.editUri.parent.toString(), relativePaths: sources.map(source => source.path)
         }) : {};
-        this.captionsButton.textContent = this.buildingCaptions ? '字幕を作成中…' : captionsButtonLabel(Object.values(states));
-        this.captionsButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
+        this.captionsButton.textContent = '字幕を作る…';
+        this.captionsButton.disabled = this.buildingCaptions || !this.editUri || Object.values(states).includes('running');
         this.retimeButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
         this.captionsButton.title = sources.length ? '' : '声の入った素材がタイムラインにありません';
         this.retimeButton.title = sources.length ? '無音に重なった語の時刻を実際の発話へ合わせ直す'
@@ -1170,33 +1168,17 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.buildingCaptions || !this.editUri) return;
         this.buildingCaptions = true;
         this.captionsButton.disabled = true;
-        const projectRoot = this.editUri.parent.toString();
         try {
-            const sources = await this.captionSources();
-            const source = sources.length === 1 ? sources[0] : sources.length > 1 ? await this.quickPick.show(
-                this.captionSourceChoices(sources), { placeholder: '字幕を作る素材を選ぶ' }
-            ) : undefined;
-            if (!source) return;
-            const states = await this.projectService.transcriptStates({ projectRoot, relativePaths: [source.path] });
-            if (states[source.path] === 'running') { this.notify('素材の処理が終わってから実行してください'); return; }
-            this.captionsButton.textContent = '字幕を作成中…';
             let stopListening: (() => void) | undefined;
-            const dialog = new AkariTranscribeDialog(this.editUri.parent, source.path, this.preferences,
-                this.projectService, this.fileService, this.commands, async (start, end) => {
+            const dialog = new AkariTranscribeDialog(this.editUri.parent, undefined, this.preferences,
+                this.projectService, this.annotationsService, this.fileService, this.commands, async (start, end, sourcePath) => {
                     stopListening?.();
                     stopListening = await listenTranscribeRange(this.commands, this.applicationShell, this.opener,
-                        this.editUri!.parent.resolve(source.path).normalizePath().toString(), start, end);
+                        this.editUri!.parent.resolve(sourcePath).normalizePath().toString(), start, end);
                     if (dialog.isDisposed) stopListening();
-                }, states[source.path] === 'done');
-            const options = await dialog.open().finally(() => stopListening?.());
-            if (!options) return;
-            const request = { projectRoot, editUri: this.editUri.toString(), source: source.id, ...options };
-            const result = await this.projectService.buildCaptions(request);
-            if (result.needsForce) {
-                const confirmed = await new ConfirmDialog({ title: '字幕を作る', msg: '手直し済みの字幕があります。上書きしますか', ok: '上書きする', cancel: 'キャンセル' }).open();
-                if (!confirmed) return;
-                await this.projectService.buildCaptions({ ...request, force: true });
-            }
+                }, this.messages, uri => this.annotationsService.probeSourceHasAudio({ path: uri })
+                    .then(result => result.hasAudio, () => undefined));
+            await dialog.open().finally(() => stopListening?.());
             await this.reload();
         } catch (error) {
             this.notify(`字幕を作れません: ${this.errorMessage(error)}`);
@@ -1241,7 +1223,8 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.rootUri) await this.locateProject(this.rootUri);
         this.closeCutRangeEditor();
         this.cutsButton.textContent = cutsJumpButtonLabel(null);
-        this.editSources = await this.captionSources().catch(() => []);
+        const editForSources = this.editUri ? JSON.parse(await this.readText(this.editUri).catch(() => '{}')) : {};
+        this.editSources = selectCaptionSources(editForSources, {}, this.editUri?.parent.toString());
         this.silencesBySourceId = new Map();
         void this.loadSilences();
         await this.refreshCaptionsButton(this.editSources).catch(error => {
@@ -1263,6 +1246,8 @@ export class AkariDaihonWidget extends BaseWidget {
             const parsed = parseCaptions(captionsSource);
             this.captionsRoot = JSON.parse(captionsSource) as unknown;
             this.displayKnobs = readDaihonDisplayKnobs(this.captionsRoot);
+            const shape = readCaptionShape(this.captionsRoot);
+            this.displayKnobs = { ...this.displayKnobs, maxLineUnits: shape.chars, lines: shape.lines };
             this.updateDisplayButton();
             const extras = this.captionExtras(captionsSource);
             this.captionExtraById = extras;
@@ -3937,7 +3922,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected updateDisplayButton(): void {
-        this.displayButton.textContent = `⚙ 表示 ${daihonDisplayLabel(this.displayKnobs)}`;
+        this.displayButton.textContent = `⚙ 表示 ${this.displayKnobs.maxLineUnits}字 · ${this.displayKnobs.lines}行`;
         this.displayButton.title = '字幕本文の区切り・行数・折り方を変更';
     }
 
@@ -3958,7 +3943,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     displayPolicy: daihonDisplayPolicyForWrite(this.captionsRoot, next)
                 });
             });
-            this.notify(`表示を ${daihonDisplayLabel(next)}・${next.wrap === 'multi' ? '断片を同時' : '断片を折る'} に変更しました`);
+            this.notify(`表示を ${next.maxLineUnits}字 · ${next.lines}行・${next.wrap === 'multi' ? '断片を同時' : '断片を折る'} に変更しました`);
         } catch (error) {
             await this.reload();
             this.notify(this.errorMessage(error));
@@ -4015,9 +4000,7 @@ export class AkariDaihonWidget extends BaseWidget {
         timingLabel.textContent = '表示タイミング';
         const timingSegments = document.createElement('div');
         timingSegments.className = 'akari-daihon-segments';
-        const rowsWithWords = this.rows.filter(row => Array.isArray(row.words) && row.words.length > 0);
-        const allSpeechTight = rowsWithWords.length > 0 && rowsWithWords.every(row =>
-            this.captionExtraById.get(row.id)?.displayTiming === 'speech-tight');
+        const allSpeechTight = readCaptionShape(this.captionsRoot).timing === 'speech-tight';
         const full = this.popButton('余韻あり', () => {
             void this.applyDisplayTiming(this.rows, 'full', true).then(() => this.openDisplayPop(anchor));
         });
@@ -4040,7 +4023,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const rangeRow = document.createElement('div');
         rangeRow.className = 'akari-daihon-displayrange';
         const range = document.createElement('input');
-        range.type = 'range'; range.min = '10'; range.max = '28'; range.step = '1';
+        range.type = 'range'; range.min = '5'; range.max = '28'; range.step = '1';
         range.value = String(this.displayKnobs.maxLineUnits);
         const rangeValue = document.createElement('span');
         rangeValue.className = 'akari-daihon-displayvalue';
@@ -4077,34 +4060,11 @@ export class AkariDaihonWidget extends BaseWidget {
             void this.saveDisplayKnobs(next);
             this.openDisplayPop(anchor);
         };
-        for (const lines of [1, 2, 3]) {
+        for (const lines of [1, 2]) {
             const button = this.popButton(String(lines), () => selectLines(lines));
             button.classList.toggle('selected', this.displayKnobs.lines === lines);
             lineSegments.appendChild(button);
         }
-        const more = this.popButton('…', () => {
-            custom.hidden = false;
-            custom.focus();
-            custom.select();
-        });
-        more.classList.toggle('selected', this.displayKnobs.lines >= 4);
-        const custom = document.createElement('input');
-        custom.className = 'akari-daihon-customlines';
-        custom.type = 'number'; custom.min = '4'; custom.max = '6'; custom.step = '1';
-        custom.value = String(this.displayKnobs.lines >= 4 ? this.displayKnobs.lines : 4);
-        custom.hidden = this.displayKnobs.lines < 4;
-        custom.addEventListener('click', event => event.stopPropagation());
-        custom.addEventListener('change', event => {
-            event.stopPropagation();
-            const lines = validateDaihonCustomLines(custom.value);
-            if (lines === null) {
-                this.notify('カスタム行数は 4〜6 で指定してください');
-                custom.value = String(this.displayKnobs.lines >= 4 ? this.displayKnobs.lines : 4);
-                return;
-            }
-            selectLines(lines);
-        });
-        lineSegments.append(more, custom);
         linesGroup.append(linesLabel, lineSegments);
 
         const wrapGroup = document.createElement('div');
