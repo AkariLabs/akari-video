@@ -131,6 +131,12 @@ function marqueeHits(candidates, rect) {
     "SVG",
     "VIDEO",
   ]);
+  const SVG_PAINT_ELEMENTS = new Set([
+    "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "use", "text", "image",
+  ]);
+  const SVG_DEFINITION_ELEMENTS = new Set([
+    "defs", "symbol", "pattern", "clippath", "mask", "marker",
+  ]);
 
   // 舞台は出力動画ピクセルの論理サイズを scale() でペイン内の動画矩形へ貼り付ける。
   // 通常の座標変換は stageLocalPoint() を使い、この倍率は異常系の退避と selftest に使う。
@@ -365,17 +371,18 @@ function marqueeHits(candidates, rect) {
     const root = fragmentRoot(container);
     if (!root) return null;
 
-    const rootRect = root.getBoundingClientRect();
+    const rootRect = visibleFragmentRect(root.getBoundingClientRect(), root, container);
     const containerRect = container.getBoundingClientRect();
     if (
-      !["NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE"].includes(root.tagName) &&
+      rootRect && !["NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE"].includes(root.tagName.toUpperCase()) &&
       [rootRect.left, rootRect.top, rootRect.right, rootRect.bottom].every(
         Number.isFinite
       ) &&
       rootRect.width > 0 &&
       rootRect.height > 0 &&
       !looksLikeFullContainerWrapper(rootRect, containerRect) &&
-      root.tagName !== "CANVAS"
+      !(root.tagName.toLowerCase() === 'svg' && root.querySelector('g[clip-path], g[mask]')) &&
+      root.tagName.toUpperCase() !== "CANVAS"
     ) {
       return {
         left: rootRect.left,
@@ -393,16 +400,23 @@ function marqueeHits(candidates, rect) {
     let bottom = -Infinity;
     const candidates = [];
     for (const element of [root, ...root.querySelectorAll("*")]) {
-      if (NON_RENDERED_HIT_ELEMENTS.has(element.tagName)
+      if (NON_RENDERED_HIT_ELEMENTS.has(element.tagName.toUpperCase())
+        || SVG_DEFINITION_ELEMENTS.has(element.tagName.toLowerCase())
+        || [...SVG_DEFINITION_ELEMENTS].some(tag => element.closest(tag))
         || element.closest("[data-akari-interaction]")
         || !isPaintedElement(element, container)) continue;
-      const rect = element.tagName === "CANVAS"
+      // An SVG viewport clips its children, but is not itself painted when it only
+      // contains geometry. Let the clipped geometry determine the visible box.
+      if (element.tagName.toLowerCase() === 'svg'
+        && element.querySelector([...SVG_PAINT_ELEMENTS].join(','))
+        && transparentColor(getComputedStyle(element).backgroundColor)) continue;
+      const rawRect = element.tagName.toUpperCase() === "CANVAS"
         ? (canvasHasDecoration(element) ? element.getBoundingClientRect()
           : window.akari.threeRuntime?.contentBounds?.(element)
             ?? measureCanvasBounds(element) ?? element.getBoundingClientRect())
         : element.getBoundingClientRect();
-      if (![rect.left, rect.top, rect.right, rect.bottom].every(Number.isFinite)
-        || rect.width <= 0 || rect.height <= 0) continue;
+      const rect = visibleFragmentRect(rawRect, element, container);
+      if (!rect) continue;
       candidates.push({ element, rect });
     }
     for (const { element, rect } of candidates) {
@@ -422,7 +436,7 @@ function marqueeHits(candidates, rect) {
       // 可視子孫が一つも無い（ルート自身が唯一のコンテンツ、かつ全画面ラッパー疑い）
       // 場合、選択そのものを失わせるより「全画面でも」ルート自身の矩形を使う方が実用的。
       if (
-        !["NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE"].includes(root.tagName) &&
+        rootRect && !["NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE"].includes(root.tagName.toUpperCase()) &&
         [rootRect.left, rootRect.top, rootRect.right, rootRect.bottom].every(
           Number.isFinite
         ) &&
@@ -439,6 +453,64 @@ function marqueeHits(candidates, rect) {
         };
       }
       return null;
+    }
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+
+  function svgReferenceRect(element, value) {
+    const id = String(value ?? '').match(/url\(["']?(?:[^#)]*#)([^)"']+)["']?\)/)?.[1];
+    const svg = element.namespaceURI === 'http://www.w3.org/2000/svg'
+      ? (element.closest('svg') ?? element.ownerSVGElement) : null;
+    const reference = id && svg && [...svg.querySelectorAll('[id]')]
+      .find(node => node.id === id);
+    if (!reference || !element.getScreenCTM) return null;
+    try {
+      const shapes = [...reference.querySelectorAll('path, rect, circle, ellipse, line, polyline, polygon, use, text, image')];
+      const boxes = shapes.filter(shape => typeof shape.getBBox === 'function')
+        .map(shape => shape.getBBox()).filter(box => box.width > 0 && box.height > 0);
+      if (!boxes.length) return null;
+      const box = { x: Math.min(...boxes.map(item => item.x)),
+        y: Math.min(...boxes.map(item => item.y)),
+        width: Math.max(...boxes.map(item => item.x + item.width)) - Math.min(...boxes.map(item => item.x)),
+        height: Math.max(...boxes.map(item => item.y + item.height)) - Math.min(...boxes.map(item => item.y)) };
+      const matrix = element.getScreenCTM();
+      if (!matrix || !(box.width > 0) || !(box.height > 0)) return null;
+      const points = [
+        [box.x, box.y], [box.x + box.width, box.y],
+        [box.x, box.y + box.height], [box.x + box.width, box.y + box.height],
+      ].map(([x, y]) => ({ x: matrix.a * x + matrix.c * y + matrix.e,
+        y: matrix.b * x + matrix.d * y + matrix.f }));
+      return { left: Math.min(...points.map(point => point.x)),
+        top: Math.min(...points.map(point => point.y)),
+        right: Math.max(...points.map(point => point.x)),
+        bottom: Math.max(...points.map(point => point.y)) };
+    } catch { return null; }
+  }
+
+  function visibleFragmentRect(rect, element, container) {
+    if (!rect || ![rect.left, rect.top, rect.right, rect.bottom].every(Number.isFinite)
+      || !(rect.width > 0) || !(rect.height > 0)) return null;
+    let { left, top, right, bottom } = rect;
+    for (let node = element; node && node !== container; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      const svgViewport = node.tagName.toLowerCase() === 'svg';
+      const containPaint = /\b(?:paint|content|strict)\b/.test(style.contain ?? '');
+      const overflowX = style.overflowX || style.overflow;
+      const overflowY = style.overflowY || style.overflow;
+      const clipX = containPaint || svgViewport || overflowX !== 'visible';
+      const clipY = containPaint || svgViewport || overflowY !== 'visible';
+      if (clipX || clipY) {
+        const clip = node.getBoundingClientRect();
+        if (clipX) { left = Math.max(left, clip.left); right = Math.min(right, clip.right); }
+        if (clipY) { top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom); }
+      }
+      for (const value of [style.clipPath, style.maskImage, node.getAttribute('clip-path'), node.getAttribute('mask')]) {
+        const clip = svgReferenceRect(node, value);
+        if (!clip) continue;
+        left = Math.max(left, clip.left); top = Math.max(top, clip.top);
+        right = Math.min(right, clip.right); bottom = Math.min(bottom, clip.bottom);
+      }
+      if (right <= left || bottom <= top) return null;
     }
     return { left, top, right, bottom, width: right - left, height: bottom - top };
   }
@@ -637,8 +709,9 @@ function marqueeHits(candidates, rect) {
   }
 
   function drawsOwnContent(element, style) {
-    if (NON_RENDERED_HIT_ELEMENTS.has(element.tagName)) return false;
-    if (REPLACED_HIT_ELEMENTS.has(element.tagName)) return true;
+    const tag = element.tagName.toUpperCase();
+    if (NON_RENDERED_HIT_ELEMENTS.has(tag)) return false;
+    if (REPLACED_HIT_ELEMENTS.has(tag)) return true;
     if (hasDirectText(element)) return true;
     if (!transparentColor(style.backgroundColor)) return true;
     if (style.backgroundImage && style.backgroundImage !== "none") return true;
@@ -793,6 +866,8 @@ function marqueeHits(candidates, rect) {
 
     function visit(element, inheritedDirective, ancestorPainted, isFragmentRoot) {
       if (isHitProxy(element)) return;
+      const tag = element.tagName.toLowerCase();
+      if (SVG_DEFINITION_ELEMENTS.has(tag)) return;
       const declared = element.getAttribute("data-akari-hit");
       const directive = ["pass", "catch"].includes(declared)
         ? declared
@@ -814,10 +889,10 @@ function marqueeHits(candidates, rect) {
       ) {
         pointerEvents = "auto";
       }
-      if ((container.dataset.role === 'shape-line' || container.dataset.role === 'shape')
-        && isVisible && !directive) {
-        pointerEvents = ['line', 'path', 'polyline', 'polygon', 'circle', 'rect']
-          .includes(element.tagName.toLowerCase()) ? 'visiblePainted' : 'none';
+      if (tag === 'svg') {
+        pointerEvents = 'none';
+      } else if (element.namespaceURI === 'http://www.w3.org/2000/svg' && isVisible && !directive) {
+        pointerEvents = SVG_PAINT_ELEMENTS.has(tag) ? 'visiblePainted' : 'none';
       }
       // 明示 catch/pass は優先。自動判定の canvas は window 捕捉でアルファを検査する。
       alphaHitCanvases.delete(element);
