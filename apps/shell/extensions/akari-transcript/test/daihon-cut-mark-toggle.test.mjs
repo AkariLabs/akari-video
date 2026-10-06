@@ -34,7 +34,7 @@ test('cut mark OFF/ON recreates unchanged row DOM and restores the existing cut 
   Object.assign(harness, { rows: [row], showCutMarks: true, speakerFilter: null, wordRanges: [], selection: {},
     closeCutRangeEditor() {}, rowGapsForRows: () => [],
     createRow() { created++; return { root: makeRoot(this.showCutMarks), words: [] }; },
-    renderWordSelection() {}, setSelection() {}, updateQcSummary() {}, applyQcFilter() {},
+    renderWordSelection() {}, setSelection() {}, updateSourceBand() {}, updateQcSummary() {}, applyQcFilter() {},
     renderCutCells() { cutCellVisible = true; }, renderPlacedText() {}
   });
   harness.renderRows([row]);

@@ -1,12 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readAllSourceText } from './helpers/daihon-source.mjs';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
-const source = readAllSourceText();
-test('台本ヘッダの読み上げボタンは選択 ID と editUri を共通コマンドへ渡す', () => {
-    assert.match(source, /readAloudButton\.className = 'akari-daihon-retime akari-daihon-read-aloud'/);
-    assert.match(source, /readAloudButton\.textContent = '🔊 読み上げ'/);
-    assert.match(source, /selection\.selected\.length \? \[\.\.\.this\.selection\.selected\] : this\.sourceCaptions\.map\(caption => caption\.id\)/);
-    assert.match(source, /executeCommand\('akari\.caption\.readAloud',[\s\S]*?\{ captionIds \}[\s\S]*?this\.editUri\?\.toString\(\)/);
-    assert.match(source, /this\.placeTextButton\.after\(this\.readAloudButton\)/);
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
+const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+const start = source.indexOf('    protected readSelectedRowsAloud(): void {');
+assert.ok(start >= 0);
+const end = source.indexOf('\n    protected ', start + 1);
+const compiled = ts.transpileModule(`class ReadHarness { ${source.slice(start, end)} }`, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 }
+}).outputText;
+const ReadHarness = new Function(`${compiled}; return ReadHarness;`)();
+
+test('読み上げは選択が空なら呼ばず、2 行を選べばその ID だけを渡す', () => {
+  const calls = [];
+  const widget = Object.assign(new ReadHarness(), {
+    selection: { selected: [] }, editUri: { toString: () => 'file:///edit.json' },
+    commands: { executeCommand(...args) { calls.push(args); } }
+  });
+  widget.readSelectedRowsAloud();
+  assert.deepEqual(calls, []);
+  widget.selection.selected = ['r2', 'r4'];
+  widget.readSelectedRowsAloud();
+  assert.deepEqual(calls, [['akari.caption.readAloud', { captionIds: ['r2', 'r4'] }, 'file:///edit.json']]);
 });

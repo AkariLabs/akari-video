@@ -12,7 +12,7 @@ const contributionSource = readFileSync(new URL('../src/browser/daihon/akari-dai
 const openStart = source.indexOf('    async openCutDialog(');
 const historyStart = source.indexOf('    protected async withHistory(');
 assert.ok(openStart >= 0 && historyStart >= 0);
-const openMethod = source.slice(openStart, source.indexOf('    protected openTplPicker(', openStart));
+const openMethod = source.slice(openStart, source.indexOf('    protected async applyPreset(', openStart));
 const historyMethod = source.slice(historyStart, source.indexOf('    protected async applyWordPreset(', historyStart));
 const compiled = ts.transpileModule(`class CutHarness { ${openMethod} ${historyMethod} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
@@ -59,6 +59,7 @@ function harness(neverClose = false) {
     configured: true, reloadTail: Promise.resolve(), rows: [{ id: 'a', text: 'あの話' }, { id: 'b', text: '次の話' }],
     collectCutCandidates: () => candidates, rootUri: { toString: () => 'root' },
     editUri: { toString: () => 'edit' }, captionsUri: { toString: () => 'captions' },
+    editSources: [], segments: [],
     silenceMin: .45, silenceKeep: .15,
     readText: async uri => uri.toString() === 'edit' ? edit : 'captions-before',
     preferences: { async set() {} }, updateCutsButton() {}, refreshRowGapChips() {},

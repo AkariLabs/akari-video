@@ -27,7 +27,7 @@ test('commands forward optional requests after activating their widgets', () => 
 
 test('cut range opening is guarded by a valid range and otherwise explains the prerequisite', () => {
   const branch = method.slice(method.indexOf("case 'cutRange':"), method.indexOf('if (target.speaker'));
-  assert.match(branch, /if \(validWordRange\) this.openCutRangeEditorForSelection\(\);\s*else \{\s*this.notify\(/u);
+  assert.match(branch, /if \(validWordRange\) this.openCutRangeEditorForSelection\(\);\s*else \{\s*this.notifyError\(/u);
   assert.match(branch, /success = false/u);
   assert.equal([...branch.matchAll(/this\.openCutRangeEditor\w*\(/gu)].length, 1);
 });
@@ -44,7 +44,7 @@ const FocusHarness = new Function('resolveDaihonFocusRowId', 'isValidDaihonWordR
 
 function fixture() {
   const widget = new FocusHarness();
-  const events = [];
+  const events = [], errors = [];
   const root = { hidden: false, scrollIntoView() { assert.equal(this.hidden, false); events.push('scroll'); },
     querySelector: () => ({}) };
   Object.assign(widget, {
@@ -53,13 +53,14 @@ function fixture() {
     elements: new Map([['a', { root, words: [{}, {}] }]]),
     speakerFilter: null, qcFilter: false, wordRanges: [],
     notify(message) { events.push(message); },
+    notifyError(message) { events.push(message); errors.push(message); },
     applyQcFilter() { root.hidden = this.qcFilter || (this.speakerFilter !== null && this.speakerFilter !== 'A'); },
     setSelection(next) { this.selection = next; events.push('selection'); },
     renderWordSelection() { events.push('renderWordSelection'); },
     async configure() { events.push('configure'); this.configured = true; }
   });
   for (const name of calls.filter(name => name.startsWith('open'))) widget[name] = () => events.push(name);
-  return { widget, root, events };
+  return { widget, root, events, errors };
 }
 
 test('conflicting speaker does not filter a resolved row and the row remains visible', async () => {
@@ -111,9 +112,10 @@ test('cut range requires the current request to supply valid words, ignoring sta
 
 test('missing rows return false but independent panels still open', async () => {
   for (const [open, action] of [['display', 'openDisplayPop'], ['history', 'openHistoryPop'], ['silenceBatch', 'openCutDialog']]) {
-    const { widget, events } = fixture();
+    const { widget, events, errors } = fixture();
     assert.equal(await widget.focusTarget({ captionId: 'missing', open }), false);
     assert.ok(events.includes(action));
+    assert.equal(errors.length, 1, '行が見つからない失敗は残るエラー通知へ送る');
     assert.equal(widget.selection, undefined);
   }
   const { widget } = fixture();

@@ -177,7 +177,6 @@ test('範囲変更/全体/削除は各 1 手で undo・redo。timeDomain を書�
 test('範囲カードは行に挿入せずパネル下端に重なる', () => {
   const source = readAllSourceText();
   assert.match(source, /this\.rowsRegion\.append\(this\.rowsNode, this\.placedEditor\)/);
-  assert.match(source, /this\.node\.append\(header, this\.rowsRegion, this\.footer\)/);
   assert.match(source, /\.akari-daihon-rows-region \{ position:relative; flex:1; min-height:0; overflow:hidden/);
   assert.match(source, /\.akari-daihon-dock \{[^}]*position:absolute;[^}]*bottom:0;[^}]*height:var\(--dockh, 50%\)/);
   assert.match(source, /\.akari-daihon-rows\.docked \{ padding-bottom:calc\(var\(--dockh, 50%\) \+ 8px\)/);
@@ -278,8 +277,10 @@ function fakeNode(tag = 'div') {
       add(name) { classes.add(name); }, remove(name) { classes.delete(name); },
       contains(name) { return classes.has(name); }
     }, hidden: false,
-    append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } },
-    appendChild(child) { child.parent = this; this.children.push(child); },
+    append(...children) { for (const child of children) { child.parent?.children.splice(child.parent.children.indexOf(child), 1); child.parent = this; this.children.push(child); } },
+    appendChild(child) { this.append(child); },
+    insertBefore(child, before) { child.parent?.children.splice(child.parent.children.indexOf(child), 1); child.parent = this;
+      this.children.splice(this.children.indexOf(before), 0, child); },
     prepend(child) { child.parent = this; this.children.unshift(child); },
     replaceChildren(...children) { this.children = children; },
     querySelectorAll() { return []; }, remove() {}, setAttribute(name, value) { this.attributes[name] = value; },
@@ -289,6 +290,122 @@ function fakeNode(tag = 'div') {
   return node;
 }
 const descendants = node => [node, ...node.children.flatMap(descendants)];
+
+test('ヘッダーには指定の 5 ボタンだけを順に置く', () => {
+  const oldDocument = globalThis.document, oldWindow = globalThis.window;
+  const head = fakeNode(), listeners = {};
+  let menu;
+  globalThis.document = { createElement: tag => fakeNode(tag), getElementById: () => null,
+    head, querySelector: selector => selector === '.akari-daihon-row-menu' && !menu?.removed ? menu : null,
+    querySelectorAll: selector => selector === '.akari-daihon-pop' && menu && !menu.removed ? [menu] : [],
+    addEventListener(type, listener) { (listeners[type] ??= []).push(listener); }, removeEventListener() {} };
+  globalThis.window = { addEventListener() {}, removeEventListener() {} };
+  const parts = Object.fromEntries(['captionsButton', 'cutsButton', 'displayButton', 'qcButton', 'moreButton',
+    'sourceBand', 'actionBar', 'rowsNode', 'rowsRegion', 'footer', 'placedEditor', 'dockGrip',
+    'dockTitle', 'dockSelectionHint', 'dockTabsNode', 'dockBody', 'attachmentModeNode'].map(name => [name, fakeNode()]));
+  const instance = widget({ ...parts, node: fakeNode(), title: {}, toDispose: { push() {} },
+    updateDisplayButton() { this.displayButton.textContent = '表示 ▾'; },
+    updateAttachmentModeButtons() {}, updateSourceBand() {}, restoreDockHeight() {} });
+  try {
+    instance.init();
+    const header = instance.node.children[0];
+    assert.equal(header.children.length, 5);
+    assert.deepEqual(header.children.map(child => child.textContent),
+      ['字幕を作る…', '✂ カットを整える', '表示 ▾', 'QC ✓', '⋯']);
+    assert.equal(instance.moreButton.className, 'akari-daihon-more');
+    assert.equal(instance.displayButton.className, 'akari-daihon-display');
+    menu = { removed: false, remove() { this.removed = true; } };
+    let prevented = false;
+    listeners.keydown[0]({ key: 'Escape', preventDefault() { prevented = true; } });
+    assert.equal(menu.removed, true);
+    assert.equal(prevented, true);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+  }
+});
+
+test('選択バーとドックのボタンにフォーカスがあっても Esc で解除し、編集中とポップは先に保護する', () => {
+  const oldDocument = globalThis.document, oldWindow = globalThis.window;
+  const listeners = {}, head = fakeNode(), body = fakeNode('body');
+  let pop;
+  globalThis.document = { createElement: tag => fakeNode(tag), getElementById: () => null, head, body,
+    activeElement: null,
+    querySelector: selector => selector === '.akari-daihon-pop' && pop && !pop.removed ? pop : null,
+    querySelectorAll: selector => selector === '.akari-daihon-pop' && pop && !pop.removed ? [pop] : [],
+    addEventListener(type, listener) { (listeners[type] ??= []).push(listener); }, removeEventListener() {} };
+  globalThis.window = { addEventListener() {}, removeEventListener() {} };
+  const parts = Object.fromEntries(['captionsButton', 'cutsButton', 'displayButton', 'qcButton', 'moreButton',
+    'sourceBand', 'actionBar', 'rowsNode', 'rowsRegion', 'footer', 'placedEditor', 'dockGrip',
+    'dockTitle', 'dockSelectionHint', 'dockTabsNode', 'dockBody', 'attachmentModeNode'].map(name => [name, fakeNode()]));
+  const panel = fakeNode(); panel.contains = target => descendants(panel).includes(target);
+  const instance = widget({ ...parts, node: panel, title: {}, toDispose: { push() {} },
+    selection: { selected: ['r1'], anchorId: 'r1' }, wordRanges: [],
+    updateDisplayButton() { this.displayButton.textContent = '表示 ▾'; },
+    updateAttachmentModeButtons() {}, updateSourceBand() {}, restoreDockHeight() {},
+    setSelection(next) { this.selection = next; } });
+  const actionButton = fakeNode('button'); parts.actionBar.append(actionButton);
+  const escape = () => { const event = { key: 'Escape', prevented: false, stopped: false,
+    preventDefault() { this.prevented = true; }, stopImmediatePropagation() { this.stopped = true; } };
+    listeners.keydown[0](event); return event; };
+  try {
+    instance.init();
+    instance.candidateBar = { title: '候補', actions: [] };
+    globalThis.document.activeElement = actionButton;
+    assert.equal(escape().prevented, true);
+    assert.equal(instance.candidateBar, undefined);
+    assert.deepEqual(instance.selection.selected, []);
+
+    instance.selection = { selected: ['r1'], anchorId: 'r1' };
+    instance.wordRanges = [{ row: 'r1', a: 0, b: 0 }];
+    pop = { removed: false, remove() { this.removed = true; } };
+    assert.equal(escape().stopped, true);
+    assert.equal(pop.removed, true);
+    assert.equal(instance.wordRanges.length, 1, 'ポップを閉じる Esc は選択を残す');
+
+    const input = fakeNode('input'); input.matches = selector => selector.includes('input');
+    panel.append(input); globalThis.document.activeElement = input;
+    assert.equal(escape().prevented, false);
+    assert.equal(instance.wordRanges.length, 1);
+    const editable = fakeNode('span'); editable.closest = selector => selector.includes('contenteditable') ? editable : null;
+    panel.append(editable); globalThis.document.activeElement = editable;
+    assert.equal(escape().prevented, false);
+
+    instance.placedEditor.classList.add('open'); instance.dockKind = 'row';
+    instance.placedEditor.insertBefore(instance.actionBar, instance.dockGrip);
+    instance.actionBar.append(actionButton);
+    globalThis.document.activeElement = actionButton;
+    assert.equal(escape().prevented, true);
+    assert.equal(instance.dockKind, undefined);
+    assert.deepEqual(instance.wordRanges, []);
+    assert.deepEqual(instance.selection.selected, []);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+  }
+});
+
+test('トーストの下端は可変高さの選択バー・フッター・ドックより上に置く', () => {
+  const values = [];
+  const node = fakeNode(); node.getBoundingClientRect = () => ({ bottom: 600 });
+  node.style.setProperty = (name, value) => values.push([name, Number.parseFloat(value)]);
+  const actionBar = fakeNode(); actionBar.getBoundingClientRect = () => ({ top: 506 });
+  const footer = fakeNode(); footer.getBoundingClientRect = () => ({ top: 574 });
+  const rowsRegion = fakeNode(); rowsRegion.getBoundingClientRect = () => ({ bottom: 574 });
+  const placedEditor = fakeNode(); placedEditor.offsetHeight = 220;
+  const instance = widget({ node, actionBar, footer, rowsRegion, placedEditor });
+  const assertAbove = top => {
+    instance.updateToastPlacement();
+    assert.equal(values.at(-1)[0], '--akari-daihon-toast-bottom');
+    assert.ok(600 - values.at(-1)[1] <= top - 8);
+  };
+  actionBar.classList.add('visible'); assertAbove(506);
+  actionBar.classList.remove('visible'); assertAbove(574);
+  placedEditor.classList.add('open'); assertAbove(354);
+  const source = readAllSourceText();
+  assert.match(source, /\.akari-daihon-toast-stack \{[^\n]*bottom:var\(--akari-daihon-toast-bottom/u);
+  assert.match(source, /\.akari-daihon-toast-stack \{[^\n]*display:flex; flex-direction:column-reverse; gap:6px/u);
+});
 
 test('札の選択は同じドックの文字タブを表示する', () => {
   const oldDocument = globalThis.document;
@@ -357,6 +474,8 @@ test('行の右クリックはドックを開かず、分割は境界選択モ�
     assert.equal(menus.length, 1);
     const split = menus[0].children.find(button => button.dataset.rowAction === 'split');
     assert.ok(split);
+    instance.openRowMenu({ clientX: 40, clientY: 50 }, row, true);
+    assert.deepEqual(menus[1].children.map(button => button.dataset.rowAction), ['split', 'speech-tight', 'delete']);
     split.listeners.click({ stopPropagation() {} });
     assert.equal(instance.splitModeRowId, 'r1');
     assert.deepEqual(replaced, [row]);
@@ -386,14 +505,19 @@ test('rowShortcut の clear は選択を外して開いたドックを閉じる'
   const editor = fakeNode(); editor.classList.add('open');
   const calls = [];
   const instance = widget({ dockKind: 'row', placedEditor: editor,
+    wordRanges: [{ row: 'r1', a: 0, b: 0 }], candidateBar: { title: '候補', actions: [] },
+    renderWordSelection() { calls.push(['words', 'cleared']); },
+    renderActionBar() { calls.push(['bar', 'rendered']); },
     setSelection(next) { calls.push(['selection', next.selected]); },
     closeDock() { calls.push(['dock', 'close']); } });
   instance.handleRowShortcut('clear');
-  assert.deepEqual(calls, [['selection', []], ['dock', 'close']]);
+  assert.deepEqual(calls, [['words', 'cleared'], ['selection', []], ['bar', 'rendered'], ['dock', 'close']]);
+  assert.deepEqual(instance.wordRanges, []);
+  assert.equal(instance.candidateBar, undefined);
   calls.length = 0;
   editor.classList.toggle('open', false);
   instance.handleRowShortcut('clear');
-  assert.deepEqual(calls, [['selection', []]], '閉じたドックには作用しない');
+  assert.deepEqual(calls, [['words', 'cleared'], ['selection', []], ['bar', 'rendered']], '閉じたドックには作用しない');
   const source = readAllSourceText();
   assert.match(source, /const rowShortcut = \(event: Event\): void => \{[\s\S]*?this\.handleRowShortcut\(action\)/);
 });
@@ -477,7 +601,6 @@ test('行内のテンプレと強調のピッカーに入口が残らない', ()
   const source = readAllSourceText();
   assert.equal([...source.matchAll(/this\.openTplPicker\(/g)].length, 0);
   assert.equal([...source.matchAll(/this\.openWordPresetPicker\(/g)].length, 0);
-  assert.match(source, /protected openWordBar\(\): void \{[\s\S]*?this\.openRowDock\('emphasis'\)/);
 });
 
 test('棒の当たりは左右 5px 広く、選択時だけ先頭と末尾につまみを出す', () => {
@@ -688,36 +811,51 @@ test('添付表示モードはユーザー設定へ保存する', async () => {
   assert.equal(saved[0][1], 'text');
 });
 
-test('行の選択は帯を作らず、ドックのヘッダーと解除を更新する', () => {
+test('行の選択は操作バーを出し、見た目を押した後のドックを更新する', () => {
   const oldDocument = globalThis.document, oldWindow = globalThis.window, oldEvent = globalThis.CustomEvent;
   globalThis.document = { createElement: tag => fakeNode(tag) };
   globalThis.window = { dispatchEvent() {} };
   globalThis.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
-  const node = fakeNode(), editor = fakeNode(), rowsNode = fakeNode();
+  const node = fakeNode(), editor = fakeNode(), rowsNode = fakeNode(), actionBar = fakeNode(), footer = fakeNode(), grip = fakeNode();
+  node.append(actionBar, footer); editor.append(grip);
   const title = fakeNode(), hint = fakeNode();
-  const instance = widget({ node, placedEditor: editor, rowsNode, dockTitle: title, dockSelectionHint: hint,
+  const instance = widget({ node, placedEditor: editor, rowsNode, actionBar, footer, dockGrip: grip,
+    wordRanges: [], dockTitle: title, dockSelectionHint: hint,
     dockTabsNode: fakeNode(), dockBody: fakeNode(), selection: { selected: [], anchorId: null },
     elements: new Map(), dockKind: undefined, renderDockTemplates() {}, renderDockTime() {}, renderPlacedText() {},
     editUri: { normalizePath() { return this; }, toString: () => 'file:///project/edit.json' },
     commands: { executeCommand: async () => {} } });
   try {
     instance.setSelection({ selected: ['r1'], anchorId: 'r1' }, false);
+    assert.equal(actionBar.classList.contains('visible'), true);
+    assert.equal(footer.hidden, true);
+    assert.deepEqual(actionBar.children.map(child => child.textContent),
+      ['1 行を選択中', '🔊 読み上げ', '🎨 見た目', 'T 文字を置く', '✂ カット', '結合', '⋯', '✕']);
+    assert.equal(actionBar.children[5].disabled, false);
     instance.openRowDock('template');
+    assert.equal(editor.children[0], actionBar);
+    assert.equal(editor.children[1], grip);
     assert.equal(title.textContent, '発話1');
     assert.equal(hint.hidden, false);
-    assert.equal(descendants(node).filter(child => child.className === 'akari-daihon-selbar').length, 0);
     instance.dockTab = 'time';
     instance.setSelection({ selected: ['r1', 'r2', 'r3'], anchorId: 'r1' }, false);
     assert.equal(title.textContent, '3 行を選択中');
     assert.equal(instance.dockTab, 'time');
-    assert.equal(descendants(node).filter(child => child.className === 'akari-daihon-selbar').length, 0);
+    assert.equal(actionBar.children[0].textContent, '3 行を選択中');
     instance.dismissDock();
+    assert.equal(node.children.at(-2), actionBar);
+    assert.equal(node.children.at(-1), footer);
     assert.deepEqual(instance.selection.selected, []);
     assert.equal(instance.dockKind, undefined);
     instance.handleRowShortcut('selectAll');
-    assert.equal(instance.dockKind, 'row');
-    assert.equal(instance.dockTab, 'template');
-    instance.dismissDock();
+    assert.equal(instance.dockKind, undefined);
+    assert.equal(actionBar.children[0].textContent, '8 行を選択中');
+    instance.setSelection({ selected: [], anchorId: null }, false);
+    assert.equal(actionBar.classList.contains('visible'), false);
+    assert.equal(footer.hidden, false);
+    instance.setSelection({ selected: ['r7'], anchorId: 'r7' }, false);
+    assert.equal(actionBar.children[5].disabled, true);
+    assert.match(actionBar.children[5].title, /次の行/);
     instance.setSelection({ selected: ['r1'], anchorId: 'r1' }, false);
     assert.equal(instance.dockKind, undefined, '外部同期の選択ではドックを開かない');
   } finally {
@@ -725,11 +863,249 @@ test('行の選択は帯を作らず、ドックのヘッダーと解除を更�
     if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
     if (oldEvent === undefined) delete globalThis.CustomEvent; else globalThis.CustomEvent = oldEvent;
   }
-  const source = readAllSourceText();
-  assert.doesNotMatch(source, /akari-daihon-selbar|selectionBar\s*=|selectionCount\s*=/);
-  assert.match(source, /this\.dockSelectionHint\.textContent = 'Shift=範囲 \/ ⌘=追加'/);
-  assert.match(source, /dockClose\.addEventListener\('click', \(\) => this\.dismissDock\(\)\)/);
-  assert.match(source, /if \(this\.selection\.selected\.length && !this\.dockKind\) this\.openRowDock\('template'\)/);
+});
+
+test('語と候補を選ぶと下部バーの操作が切り替わる', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const actionBar = fakeNode();
+  const instance = widget({ actionBar, selection: { selected: ['r1'], anchorId: 'r1' },
+    wordRanges: [{ row: 'r1', a: 0, b: 0 }],
+    selectionRows: () => [{ id: 'r1', words: [{ text: '語', start: 0, end: 1 }] }] });
+  try {
+    instance.renderActionBar();
+    assert.deepEqual(actionBar.children.map(child => child.textContent),
+      ['「語」', '✎ 直す', '✦ 強調', '✂ 映像ごとカット', '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕']);
+    instance.candidateBar = { title: 'フィラー「えー」', actions: [{ label: '字幕からだけ消す（音声はそのまま）', run() {} }] };
+    instance.renderActionBar();
+    assert.deepEqual(actionBar.children.map(child => child.textContent), ['フィラー「えー」', '字幕からだけ消す（音声はそのまま）', '✕']);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('候補バーの ▶ 聞くは残し、書き込む操作の後だけ消す', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const actionBar = fakeNode(), calls = [];
+  const row = buildDaihonRows([{ id: 'r1', start: 0, end: 2, text: 'えー', style: null,
+    words: [{ start: 0.2, end: 0.8, text: 'えー' }] }], null)[0];
+  const target = { id: 'filler:r1:0', kind: 'filler', rowId: 'r1', start: 0.2, end: 0.8,
+    text: 'えー', sourceId: null };
+  const instance = widget({ actionBar, footer: fakeNode(), closePop() {},
+    rows: [row], cutCandidates: [target], rowsNode: fakeNode(),
+    selection: { selected: ['r1'], anchorId: 'r1' }, wordRanges: [],
+    seek: time => calls.push(['listen', time]),
+    removeFillerCaption: () => calls.push(['remove']), cutFiller: () => calls.push(['cut']) });
+  try {
+    instance.openFillerPop(fakeNode(), row, 0);
+    actionBar.children.find(child => child.textContent === '▶ 聞く').listeners.click({ stopPropagation() {} });
+    assert.equal(calls[0][0], 'listen');
+    assert.equal(instance.candidateBar.target.id, target.id);
+    assert.equal(actionBar.children[0].textContent, 'フィラー「えー」');
+    actionBar.children.find(child => child.textContent === '字幕からだけ消す（音声はそのまま）')
+      .listeners.click({ stopPropagation() {} });
+    assert.deepEqual(calls.at(-1), ['remove']);
+    assert.equal(instance.candidateBar, undefined);
+    assert.equal(actionBar.children[0].textContent, '1 行を選択中');
+    instance.openFillerPop(fakeNode(), row, 0);
+    actionBar.children.find(child => child.textContent === '✂ 映像ごとカット').listeners.click({ stopPropagation() {} });
+    assert.deepEqual(calls.at(-1), ['cut']);
+    assert.equal(instance.candidateBar, undefined);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('reload は候補が残ればバーを保ち、候補が消えればバーを閉じる', async () => {
+  const editUri = { toString: () => 'file:///project/edit.json',
+    parent: { toString: () => 'file:///project', resolve: name => ({ toString: () => `file:///project/${name}` }) } };
+  const edit = JSON.stringify({ version: 1, sources: [{ id: 'main', path: 'main.mp4' }] });
+  let caption = { id: 'r1', src: 'main', start: 0, end: 2, text: 'えー',
+    speaker: null, sourceRef: null, edited: false,
+    words: [{ start: 0.2, end: 0.8, text: 'えー' }] };
+  const renders = [], errors = [];
+  const instance = widget({ rootUri: undefined, editUri, wordDrag: undefined,
+    selection: { selected: ['r1'], anchorId: 'r1' }, wordRanges: [],
+    elements: new Map(), captionOverflowUnitsById: new Map(), wordUnitsByRowId: new Map(),
+    handEditedCaptionIds: new Set(),
+    captionsButton: fakeNode(), cutSources: [], cutSpans: [],
+    async readText(target) { return target === editUri ? edit : JSON.stringify({ captions: [caption] }); },
+    closeCutRangeEditor() {}, updateCutsButton() {}, loadSilences: async () => {},
+    async refreshCaptionsButton() {}, updateDisplayButton() {},
+    captionExtras: () => new Map(), resolveWordPresets: () => new Map(),
+    daihonCaptionsForDisplay() { return this.sourceCaptions.map(item => ({ ...item, style: null })); },
+    timelineSegments: () => [{ kind: 'src', src: 'main', in: 0, out: 2, outStart: 0, outEnd: 2 }],
+    sourceIdForRow: () => 'main',
+    projectService: { async readTranscribeArtifacts() { return {}; } },
+    notifyError(message) { errors.push(message); },
+    renderRows(next) { this.rows = next; this.candidateBar = undefined; },
+    renderActionBar() { renders.push(this.candidateBar?.target.id ?? null); },
+    refreshDockLook() {} });
+  await AkariDaihonWidget.prototype.reload.call(instance);
+  const target = instance.cutCandidates.find(candidate => candidate.kind === 'filler');
+  assert.ok(target, '最初の読込でフィラー候補を作る');
+  assert.deepEqual(errors, []);
+  const bar = { title: 'フィラー「えー」', target, actions: [] };
+  instance.candidateBar = bar;
+  await AkariDaihonWidget.prototype.reload.call(instance);
+  assert.equal(instance.candidateBar, bar, '無関係な再読込ではバーを保つ');
+  assert.equal(renders.at(-1), target.id);
+  caption = { ...caption, text: '発話', words: [{ start: 0.2, end: 0.8, text: '発話' }] };
+  await AkariDaihonWidget.prototype.reload.call(instance);
+  assert.equal(instance.candidateBar, undefined);
+  assert.equal(renders.at(-1), null);
+  assert.deepEqual(errors, []);
+});
+
+test('QC の絞り込み件数を素材帯に表示する', () => {
+  const lines = fakeNode('span'), sourceBand = fakeNode(), qcButton = fakeNode('button');
+  sourceBand.querySelector = selector => selector === '.akari-daihon-source-lines' ? lines : null;
+  const instance = widget({ rows: widget().rows.filter(row => row.id.startsWith('r')),
+    qcFilter: true, speakerFilter: null, sourceBand, qcButton,
+    captionOverflowUnitsById: new Map([['r1', 4]]),
+    elements: new Map(widget().rows.filter(row => row.id.startsWith('r'))
+      .map(row => [row.id, { root: fakeNode() }])) });
+  instance.applyQcFilter();
+  assert.equal(lines.textContent, '1 / 8 行');
+  instance.qcFilter = false;
+  instance.applyQcFilter();
+  assert.equal(lines.textContent, '8 行');
+});
+
+test('表示のカラオケ切替を保存すると同じ word_style をウィジェットが読む', async () => {
+  const { getCaptionDisplayWordStyle } = require('@akari-video/edit-store');
+  const { writeDaihonDisplayKnobs } = require('../lib/common/daihon-display-knobs.js');
+  const policies = [], renders = [];
+  const root = writeDaihonDisplayKnobs({ captions: [{ id: 'r1', text: '字幕' }] },
+    { maxLineUnits: 18, lines: 1, wrap: 'multi' });
+  const instance = widget({ captionsRoot: root, displayKnobs: { maxLineUnits: 18, lines: 1, wrap: 'multi' },
+    async withHistory(_label, operation) { await operation(); },
+    annotationsService: { async setCaptionDisplayPolicy(request) { policies.push(request.displayPolicy); } },
+    daihonCaptionsForDisplay() { return []; }, renderRows(...args) { renders.push(args); } });
+  await instance.saveDisplayWordStyle('karaoke');
+  assert.equal(policies[0].word_style, 'karaoke');
+  assert.equal(getCaptionDisplayWordStyle(instance.displayRootForWrite()), 'karaoke');
+  assert.equal(renders.length, 1);
+  await instance.saveDisplayWordStyle('none');
+  assert.equal(policies[1].word_style, 'none');
+});
+
+test('表示 ▾ は保存済みのカラオケ値を ON/OFF の選択印に反映する', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag),
+    createTextNode: text => Object.assign(fakeNode('text'), { textContent: text }) };
+  const { writeDaihonDisplayKnobs } = require('../lib/common/daihon-display-knobs.js');
+  const { setCaptionDisplayWordStyle } = require('@akari-video/edit-store');
+  const base = writeDaihonDisplayKnobs({ captions: [] }, { maxLineUnits: 18, lines: 1, wrap: 'multi' });
+  const pop = fakeNode();
+  const instance = widget({ captionsRoot: setCaptionDisplayWordStyle(base, 'karaoke'),
+    displayKnobs: { maxLineUnits: 18, lines: 1, wrap: 'multi' },
+    attachmentModeNode: fakeNode(), wordUnit: 'word', showBreaks: true,
+    captionOverflowUnitsById: new Map(), speakerFilter: null,
+    openPop() { pop.replaceChildren(); return pop; } });
+  const choices = () => pop.children.find(group => group.children[0]?.textContent === 'カラオケ表示').children[1].children;
+  try {
+    instance.openDisplayPop(fakeNode());
+    assert.deepEqual(choices().map(button => button.classList.contains('selected')), [true, false]);
+    instance.captionsRoot = setCaptionDisplayWordStyle(base, 'none');
+    instance.openDisplayPop(fakeNode());
+    assert.deepEqual(choices().map(button => button.classList.contains('selected')), [false, true]);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('全体カラオケ中の行 ⚙ は通常表示を無効にし、全体 OFF 後に行を切り替える', () => {
+  const oldDocument = globalThis.document, oldOption = globalThis.Option;
+  globalThis.document = { createElement: tag => {
+    const node = fakeNode(tag);
+    node.add = option => node.children.push(option);
+    return node;
+  } };
+  globalThis.Option = class { constructor(label, value) { this.textContent = label; this.value = value; } };
+  const { writeDaihonDisplayKnobs } = require('../lib/common/daihon-display-knobs.js');
+  const { setCaptionDisplayWordStyle } = require('@akari-video/edit-store');
+  const base = writeDaihonDisplayKnobs({ captions: [{ id: 'r1', text: '字幕' }] },
+    { maxLineUnits: 18, lines: 1, wrap: 'multi' });
+  const fields = [], pop = fakeNode();
+  const instance = widget({ captionsRoot: setCaptionDisplayWordStyle(base, 'karaoke'),
+    displayKnobs: { maxLineUnits: 18, lines: 1, wrap: 'multi' },
+    captionExtraById: new Map(), openPop: () => pop, gearField: (_label, control) => control,
+    popButton: label => Object.assign(fakeNode('button'), { textContent: label }),
+    saveCaptionFields: (_id, value) => fields.push(value) });
+  try {
+    instance.openGearPop(fakeNode(), instance.rows.find(row => row.id === 'r1'));
+    const style = pop.children.find(child => child.tag === 'select');
+    const plain = style.children.find(option => option.value === 'plain');
+    assert.equal(plain.disabled, true);
+    assert.equal(plain.title, '全体のカラオケ表示を切ると選べます');
+    style.value = 'plain'; style.listeners.change();
+    assert.deepEqual(fields, []);
+    instance.captionsRoot = setCaptionDisplayWordStyle(base, 'none');
+    pop.replaceChildren();
+    instance.openGearPop(fakeNode(), instance.rows.find(row => row.id === 'r1'));
+    const offStyle = pop.children.find(child => child.tag === 'select');
+    assert.equal(offStyle.children.find(option => option.value === 'plain').disabled, undefined);
+    offStyle.value = 'karaoke'; offStyle.listeners.change();
+    assert.deepEqual(fields, [{ style: 'karaoke' }]);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldOption === undefined) delete globalThis.Option; else globalThis.Option = oldOption;
+  }
+});
+
+test('選択バーの ⋯ から開いた行メニューは見た目を押す前に閉じる', () => {
+  const oldDocument = globalThis.document, oldWindow = globalThis.window, oldMouseEvent = globalThis.MouseEvent;
+  let menu;
+  globalThis.document = { createElement: tag => fakeNode(tag),
+    querySelectorAll: selector => selector === '.akari-daihon-pop' && menu && !menu.removed ? [menu] : [],
+    body: { appendChild(node) { menu = node; node.remove = () => { node.removed = true; }; } } };
+  globalThis.window = { innerWidth: 800, innerHeight: 600 };
+  globalThis.MouseEvent = class { constructor(_type, options) { Object.assign(this, options); } };
+  const actionBar = fakeNode();
+  actionBar.getBoundingClientRect = () => ({ left: 40, top: 200 });
+  let menuClosedAtDockOpen = false;
+  const instance = widget({ actionBar, footer: fakeNode(), selection: { selected: ['r1'], anchorId: 'r1' },
+    wordRanges: [], closePop: AkariDaihonWidget.prototype.closePop,
+    openRowDock() { menuClosedAtDockOpen = menu?.removed === true; } });
+  try {
+    instance.renderActionBar();
+    actionBar.children.find(child => child.textContent === '⋯').listeners.click({ stopPropagation() {} });
+    assert.match(menu.className, /akari-daihon-row-menu/);
+    assert.equal(menu.removed, undefined);
+    actionBar.children.find(child => child.textContent === '🎨 見た目').listeners.click({ stopPropagation() {} });
+    assert.equal(menu.removed, true);
+    assert.equal(menuClosedAtDockOpen, true);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+    if (oldMouseEvent === undefined) delete globalThis.MouseEvent; else globalThis.MouseEvent = oldMouseEvent;
+  }
+});
+
+test('右ドックの表示とその他のポップは実幅で窓内に収める', () => {
+  const oldWindow = globalThis.window;
+  globalThis.window = { innerWidth: 1920, innerHeight: 900 };
+  const instance = widget();
+  const anchor = { getBoundingClientRect: () => ({ left: 1800, top: 20, bottom: 45 }) };
+  try {
+    for (const actualWidth of [306, 226]) {
+      const pop = { style: {}, offsetWidth: actualWidth, offsetHeight: 200,
+        getBoundingClientRect: () => ({ width: actualWidth }) };
+      instance.positionPop(pop, anchor, actualWidth - 6);
+      assert.equal(Number.parseFloat(pop.style.left) + actualWidth, 1912);
+      assert.equal(pop.style.boxSizing, 'border-box');
+    }
+  } finally { if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow; }
+});
+
+test('シーク成功は静かに処理し、失敗だけを知らせる', async () => {
+  const notices = [];
+  const instance = widget({ editUri: { normalizePath() { return this; }, toString: () => 'file:///edit.json' },
+    notify: message => notices.push(message), commands: { async executeCommand() { return 'seeked'; } } });
+  await instance.seek(.9);
+  assert.deepEqual(notices, []);
+  instance.commands.executeCommand = async () => 'unavailable';
+  await instance.seek(.9);
+  assert.deepEqual(notices, ['プレビューを開けませんでした。']);
+  instance.commands.executeCommand = async () => { throw new Error('接続失敗'); };
+  await instance.seek(.9);
+  assert.match(notices.at(-1), /接続失敗/);
 });
 
 test('複数行の右クリックは選択を保ち、結合・発話・カットの書き込み経路へ届く', async () => {
@@ -760,11 +1136,13 @@ test('複数行の右クリックは選択を保ち、結合・発話・カッ�
     assert.deepEqual(menu.children.map(button => button.dataset.rowAction),
       ['cut', 'merge-selected', 'speech-tight']);
     const action = (name, current = menu) => current.children.find(button => button.dataset.rowAction === name);
-    assert.equal(action('cut').textContent, '選択行をカット');
+    assert.equal(action('cut').textContent, '選択した行をカット');
     assert.equal(action('merge-selected').textContent, '選択行を結合');
     assert.equal(action('merge-selected').disabled, false);
     assert.equal(action('speech-tight').textContent, '発話にぴったり');
     assert.equal(action('speech-tight').title, '選択行の字幕を語の発話区間だけ表示する');
+    instance.openRowMenu({ clientX: 40, clientY: 50 }, rows[1], true);
+    assert.deepEqual(menus.at(-1).children.map(button => button.dataset.rowAction), ['speech-tight']);
     action('speech-tight').listeners.click({ stopPropagation() {} });
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(calls.fields.map(request => [request.captionId, request.displayTiming]),
