@@ -82,7 +82,7 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
     localItems.delete(key);
     // Preserve remote download descriptors/preview keys for existing consumers.
     // Local-only assets use the actual directory listing assembled above.
-    return local ? { ...item, ...local, tier: item.tier ?? assetTier(item), files: item.files ?? local.files, preview: item.preview ?? local.preview,
+    return local ? { ...item, ...local, tier: item.tier ?? assetTier(item), files: item.files ?? local.files, preview: local.libraryDir && local.preview ? local.preview : item.preview ?? local.preview,
       ...(item.source === 'installed' ? { source: item.source } : {}) } : item;
   });
   const localOnlyKeys = new Set(localItems.keys());

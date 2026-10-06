@@ -29,7 +29,11 @@ test('preview RPC は共通 node resolver で参照を URL 化し、実体を優
     const outsider = join(directory, 'not-referenced.png');
     await writeFile(outsider, 'extra');
     await rm(join(project, '.akari/asset-references.json'));
-    await assert.rejects(service.resolveAssetStreamTarget({ assetUri: pathToFileURL(library).href }), /outside/);
+    assert.equal((await service.resolveAssetStreamTarget({ assetUri: pathToFileURL(library).href })).path, library);
+    assert.equal((await service.resolveAssetStreamTarget({ assetUri: pathToFileURL(outsider).href })).path, outsider);
+    const outsideLibrary = join(root, 'outside.png');
+    await writeFile(outsideLibrary, 'outside');
+    await assert.rejects(service.resolveAssetStreamTarget({ assetUri: pathToFileURL(outsideLibrary).href }), /outside/);
     await recordProjectReference(project, { category: 'still', id: 'image' });
     const local = join(project, request.declaredPath); await mkdir(join(local, '..'), { recursive: true }); await writeFile(local, 'copy');
     assert.equal(await service.resolveProjectAssetUri(request), pathToFileURL(local).href);

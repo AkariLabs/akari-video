@@ -883,10 +883,13 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     async rewriteFragmentAssets(request: FragmentAssetPreviewRequest): Promise<FragmentAssetPreviewResult> {
         const projectRoot = await realpath(this.filePath(request.projectRootUri));
         const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
-        if (!roots.some(root => this.contains(root, projectRoot))) throw new Error('Project is outside the workspace');
+        const libraryRoots = await this.resolveLibraryReadRoots();
+        const inLibrary = libraryRoots.some(root => this.contains(root, projectRoot));
+        if (!inLibrary && !roots.some(root => this.contains(root, projectRoot))) throw new Error('Project is outside the workspace');
         return rewritePreviewFragmentAssets(request.html, {
             projectRoot, htmlPath: request.htmlPath, overlayId: request.overlayId
         }, assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }), async declaredPath => {
+            if (inLibrary) return undefined;
             const uri = await this.resolveProjectAssetUri({ projectRootUri: request.projectRootUri, declaredPath,
                 workspaceRoots: request.workspaceRoots });
             return uri ? fileURLToPath(uri) : undefined;
@@ -1869,15 +1872,51 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const targetPath = await realpath(this.filePath(uri));
         const roots = await this.resolveWorkspaceRoots(requestRoots);
         if (!roots.some(root => this.contains(root, targetPath))) {
-            if (!await this.isReferencedMediaPath(targetPath, roots)) throw new Error(`${kind} files outside the workspace cannot be streamed`);
-            // The stream's realpath recheck may authorize this file only, not its siblings.
-            roots.push(targetPath);
+            const libraryRoot = kind === 'Asset'
+                ? (await this.resolveLibraryReadRoots()).find(root => this.contains(root, targetPath)) : undefined;
+            if (libraryRoot) {
+                // Authorize this file only for the HTTP realpath recheck.
+                roots.push(targetPath);
+            } else {
+                if (!await this.isReferencedMediaPath(targetPath, roots)) throw new Error(`${kind} files outside the workspace cannot be streamed`);
+                // The stream's realpath recheck may authorize this file only, not its siblings.
+                roots.push(targetPath);
+            }
         }
         const targetStat = await stat(targetPath);
         if (!targetStat.isFile()) {
             throw new Error('The stream target is not a file');
         }
         return { path: targetPath, mimeType, extension, workspaceRoots: roots };
+    }
+
+    /** Read-only library locations are separate from requested workspace roots. */
+    protected async resolveLibraryReadRoots(): Promise<string[]> {
+        const candidates: string[] = [];
+        if (typeof process.resourcesPath === 'string') {
+            candidates.push(resolve(process.resourcesPath, 'packages/creator-root/src/index.mjs'));
+        }
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            candidates.push(resolve(ancestor, 'packages/creator-root/src/index.mjs'));
+            const parent = dirname(ancestor);
+            if (parent === ancestor) break;
+            ancestor = parent;
+        }
+        const candidate = candidates.find(value => this.isFile(value));
+        if (!candidate) return [];
+        const importModule = Function('specifier', 'return import(specifier)') as
+            (specifier: string) => Promise<{ resolveAssetLibraryRoots(env: NodeJS.ProcessEnv): { read: string[] } }>;
+        const { resolveAssetLibraryRoots } = await importModule(pathToFileURL(candidate).href);
+        const roots = await Promise.all(resolveAssetLibraryRoots(process.env).read.map(async root => {
+            try {
+                const canonical = await realpath(root);
+                return (await stat(canonical)).isDirectory() ? canonical : undefined;
+            } catch {
+                return undefined;
+            }
+        }));
+        return [...new Set(roots.filter((root): root is string => root !== undefined))];
     }
 
     protected async resolveWorkspaceRoots(requestRoots?: string[]): Promise<string[]> {

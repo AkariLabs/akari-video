@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { toResolverAssetCatalogViewItem, groupCatalogItemsByPack } from '../lib/common/asset-catalog-view.js';
 import { filterLibraryCatalogItems, libraryItemSource, countLibraryCategory, recentLibraryEntries } from '../lib/common/library-source-view.js';
 import { LIBRARY_GROUPS } from '../lib/common/library-home-view.js';
@@ -76,8 +79,11 @@ test('帯は own/site と使用済み Lab。空・未使用 Lab・未取得・�
     assert.deepEqual(recentLibraryEntries([usedLab], 'lab').map(entry => entry.itemKey), [usedLab.key]);
 });
 
-test('置き場の主メディアとサムネは file URI。空白・日本語・# をエンコード', () => {
-    const item = raw('one', { libraryDir: '/tmp/素材 置き場/audio/one', preview: 'preview.png' });
+test('置き場の主メディアとサムネは file URI。空白・日本語・# をエンコード', t => {
+    const libraryDir = mkdtempSync(join(tmpdir(), '素材 置き場-'));
+    t.after(() => rmSync(libraryDir, { recursive: true, force: true }));
+    writeFileSync(join(libraryDir, 'preview.png'), 'image');
+    const item = raw('one', { libraryDir, preview: 'preview.png' });
     const urls = resolveResolverCatalogUrls(item, 'https://example.test/catalog/');
     assert.equal(urls.mediaUrl, pathToFileURL(`${item.libraryDir}/${item.mediaFile}`).href);
     assert.equal(urls.previewUrl, pathToFileURL(`${item.libraryDir}/preview.png`).href);
