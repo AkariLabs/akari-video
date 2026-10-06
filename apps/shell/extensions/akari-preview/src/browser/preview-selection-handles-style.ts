@@ -25,14 +25,13 @@ html [data-akari-interaction-editing="true"] { outline: none !important; }
 .akari-interaction-selection-frame.is-busy .akari-interaction-action { display: none; }
 .akari-interaction-selection-frame.is-moving .akari-interaction-handle:not(.akari-interaction-action) { display: none; }
 .akari-interaction-selection-frame.is-text .akari-interaction-handle.is-n, .akari-interaction-selection-frame.is-text .akari-interaction-handle.is-s { display: none; }
-.akari-interaction-selection-frame.is-line[data-akari-interaction] { border-color: transparent; }
 .akari-interaction-selection-frame:not(.is-line) .akari-interaction-handle.is-line-start,
 .akari-interaction-selection-frame:not(.is-line) .akari-interaction-handle.is-line-end { display: none; }
 .akari-interaction-selection-frame.is-line .akari-interaction-handle:not(.is-line-start):not(.is-line-end):not(.akari-interaction-action) { display: none; }
 .akari-interaction-selection-frame.is-line .akari-interaction-handle.is-line-start,
 .akari-interaction-selection-frame.is-line .akari-interaction-handle.is-line-end { top: 50%; width: 12px; height: 12px; cursor: crosshair; }
-.akari-interaction-selection-frame.is-line .akari-interaction-handle.is-line-start { left: 0; transform: translate(-50%, -50%); }
-.akari-interaction-selection-frame.is-line .akari-interaction-handle.is-line-end { right: 0; transform: translate(50%, -50%); }
+.akari-interaction-selection-frame.is-line .akari-interaction-handle.is-line-start { left: calc(var(--akari-line-end-inset, 0px) - 1px); transform: translate(-50%, -50%); }
+.akari-interaction-selection-frame.is-line .akari-interaction-handle.is-line-end { right: calc(var(--akari-line-end-inset, 0px) - 1px); transform: translate(50%, -50%); }
 #overlay-stage [data-role="shape-line"] svg { pointer-events: none !important; }
 #overlay-stage [data-role="shape-line"] svg :is(line, path, polygon, polyline, circle, rect) { pointer-events: visiblePainted !important; }
 .akari-interaction-snap-guide.is-item[data-akari-interaction] { background: none; }

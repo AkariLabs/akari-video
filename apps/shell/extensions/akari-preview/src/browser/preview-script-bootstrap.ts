@@ -1809,6 +1809,7 @@ export function previewBootstrapScript(): string {
             // 直接ドラッグハンドルは次段のため、クロップのようなハンドル/モードの仕組みは持たない。
             let perspectivePanelOpen = false;
             let activePerspectivePreset = null;
+            let perspectiveSliderOriginal = null;
             const layerPerspectiveToggle = document.getElementById('layer-perspective-toggle');
             const layerPerspectivePanel = document.getElementById('layer-perspective-panel');
             const layerPerspectivePresetButtons = Array.from(layerPerspectivePanel.querySelectorAll('[data-akari-perspective-preset]'));
@@ -1933,6 +1934,10 @@ export function previewBootstrapScript(): string {
             // 中間フレームで一瞬だけ錨補正前の crop が画面に出てしまう（updateLayerLayout が
             // 前者の呼び出し時点でまだ古い transform を使って描く）ため、必ずこちらを使う。
             const applyLayerCropAndTransformNow = (entry, crop, transform) => {
+                // 移動ドラッグの可視位置と engine 用 patch は crop の錨補正前の値。
+                // 以後は同時に書く dataset の transform を唯一のライブ位置にする。
+                entry.previewVisiblePosition = null;
+                entry.previewPositionPatch = null;
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
                 entry.video.dataset.akariCropX = String(c.x);
                 entry.video.dataset.akariCropY = String(c.y);
@@ -1942,6 +1947,8 @@ export function previewBootstrapScript(): string {
                 entry.video.dataset.akariTransformX = String(transform.x);
                 entry.video.dataset.akariTransformY = String(transform.y);
                 entry.video.dataset.akariTransformScale = String(transform.scale);
+                entry.video.dataset.akariTransformScaleX = String(transform.scaleX ?? transform.scale);
+                entry.video.dataset.akariTransformScaleY = String(transform.scaleY ?? transform.scale);
                 entry.video.dataset.akariTransformRotate = String(transform.rotate);
                 layerCropVisualThrottle.call();
             };
@@ -2516,6 +2523,16 @@ export function previewBootstrapScript(): string {
                 else delete entry.video.dataset.akariPerspectiveCorners;
                 layerPerspectiveToggle.classList.toggle('is-declared', !!corners);
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                const previewCorners = corners || [[0, 0], [1, 0], [0, 1], [1, 1]];
+                for (const [index, corner] of ['tl', 'tr', 'bl', 'br'].entries()) {
+                    for (const [axisIndex, axis] of ['x', 'y'].entries()) {
+                        window.akari.frameEngineClock?.applyLivePreview?.({
+                            target: { kind: 'layer', id: entry.spec.id },
+                            field: 'perspective.' + corner + '.' + axis,
+                            value: previewCorners[index][axisIndex]
+                        });
+                    }
+                }
             };
             // プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の
             // 便宜であり、schema には「プリセット」「角度」という概念自体は存在しない
@@ -2530,8 +2547,7 @@ export function previewBootstrapScript(): string {
                 if (preset === 'bottom') return [[0, 0], [1, 0], [half, 1], [1 - half, 1]];
                 return null;
             };
-            const commitLayerPerspective = async (entry, corners) => {
-                const original = layerPerspectiveNow(entry);
+            const commitLayerPerspective = async (entry, corners, original = layerPerspectiveNow(entry)) => {
                 applyLayerPerspectiveNow(entry, corners);
                 try {
                     await window.akari.engine.layerWrite(entry.spec.id, { perspective: corners ? { corners } : null });
@@ -2570,6 +2586,7 @@ export function previewBootstrapScript(): string {
                     const entry = findLayerEntry(selectedLayerId);
                     if (!entry) return;
                     const preset = button.getAttribute('data-akari-perspective-preset');
+                    perspectiveSliderOriginal = null;
                     activePerspectivePreset = preset;
                     for (const other of layerPerspectivePresetButtons) other.classList.toggle('is-active', other === button);
                     const corners = perspectivePresetCorners(preset, layerPerspectiveAngleInput.value);
@@ -2581,6 +2598,9 @@ export function previewBootstrapScript(): string {
                 if (!activePerspectivePreset || !selectedLayerId) return;
                 const entry = findLayerEntry(selectedLayerId);
                 if (!entry) return;
+                if (!perspectiveSliderOriginal || perspectiveSliderOriginal.id !== entry.spec.id) {
+                    perspectiveSliderOriginal = { id: entry.spec.id, corners: layerPerspectiveNow(entry) };
+                }
                 // ライブプレビューのみ（書き戻しはしない） -- ドラッグ中に毎回 lint/書き込みを
                 // 往復させないため、既存の crop ハンドルと同じ「確定時のみ書き戻す」規律に倣う。
                 applyLayerPerspectiveNow(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
@@ -2589,7 +2609,10 @@ export function previewBootstrapScript(): string {
                 if (!activePerspectivePreset || !selectedLayerId) return;
                 const entry = findLayerEntry(selectedLayerId);
                 if (!entry) return;
-                void commitLayerPerspective(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
+                const original = perspectiveSliderOriginal?.id === entry.spec.id
+                    ? perspectiveSliderOriginal.corners : layerPerspectiveNow(entry);
+                perspectiveSliderOriginal = null;
+                void commitLayerPerspective(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value), original);
             });
             layerPerspectiveClearButton.addEventListener('pointerdown', event => {
                 event.preventDefault();
@@ -2601,6 +2624,7 @@ export function previewBootstrapScript(): string {
                 if (!selectedLayerId) return;
                 const entry = findLayerEntry(selectedLayerId);
                 if (!entry) return;
+                perspectiveSliderOriginal = null;
                 activePerspectivePreset = null;
                 for (const button of layerPerspectivePresetButtons) button.classList.remove('is-active');
                 void commitLayerPerspective(entry, null);
@@ -4112,7 +4136,8 @@ export function previewBootstrapScript(): string {
                 return editable;
             };
             const applyCutCropAndTransformNow = (crop, transform) => {
-                cutPreviewPositionPatch = transform;
+                cutPreviewPositionPatch = null;
+                cutPreviewVisiblePosition = null;
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
                 // cutHasLayerStyleVisual は segment を見るので、ドラッグ中のモデルにも同じ crop を
                 // 置いて描画レール（applyCutFramingVisual / applyCutLayerStyleLayout）を揃える。
@@ -4147,6 +4172,8 @@ export function previewBootstrapScript(): string {
             };
             const restoreCutVisual = snapshot => {
                 if (!snapshot) return;
+                cutPreviewPositionPatch = null;
+                cutPreviewVisiblePosition = null;
                 const segment = snapshot.segment;
                 if (segment && segment.kind === 'src') {
                     if (snapshot.crop) segment.crop = { ...snapshot.crop };
@@ -10380,7 +10407,9 @@ export function previewBootstrapScript(): string {
                     const bottom = Math.max(...rects.map(rect => rect.bottom));
                     return { left, top, width: right - left, height: bottom - top };
                 }
-                if (item.kind === 'overlay') return window.akari.interaction?.fragmentBounds?.(element) || null;
+                if (item.kind === 'overlay') return element.dataset?.role === 'shape-line'
+                    ? window.akari.interaction?.lineFrameGeometry?.(element) || null
+                    : window.akari.interaction?.fragmentBounds?.(element) || null;
                 return element.getBoundingClientRect();
             };
             const nativeMixedFrameVisible = frame => {
@@ -10419,6 +10448,7 @@ export function previewBootstrapScript(): string {
                     frame.style.top = (rect.top - pane.top) / scaleY + 'px';
                     frame.style.width = rect.width / scaleX + 'px';
                     frame.style.height = rect.height / scaleY + 'px';
+                    if (Number.isFinite(rect.angle)) frame.style.transform = 'rotate(' + rect.angle + 'deg)';
                     mixedSelectionFrames.appendChild(frame);
                 }
                 requestAnimationFrame(drawMixedSelectionFrames);

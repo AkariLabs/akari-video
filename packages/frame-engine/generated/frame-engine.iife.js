@@ -11784,6 +11784,7 @@ ${indent}`);
         const lineLike = source.shape === "line" || source.shape === "arrow";
         const stroke = params.stroke === void 0 ? void 0 : color(params.stroke, lineLike ? fill : "none");
         const strokeWidth = nonNegativeNumber(params.strokeWidth, lineLike ? DEFAULT_LINE_STROKE_WIDTH : 0);
+        const lineStrokeWidth = strokeWidth * (outputWidth ?? 1920) / 1920;
         const attributes = filledShapeAttributes(fill, stroke, strokeWidth);
         switch (source.shape) {
           case "rect":
@@ -11796,13 +11797,13 @@ ${indent}`);
             return svg(width, height, `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${width / 2}" ry="${height / 2}" ${attributes}/>`, strokeWidth);
           case "line": {
             const lineColor = stroke ?? fill;
-            return svg(width, height, `<line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`, strokeWidth);
+            return svg(width, height, `<line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" fill="none" stroke="${lineColor}" stroke-width="${lineStrokeWidth}" stroke-linecap="round"/>`, lineStrokeWidth);
           }
           case "arrow": {
             const lineColor = stroke ?? fill;
             const centerY = height / 2;
             const headStart = width - Math.min(width, centerY);
-            return svg(width, height, `<path d="M 0 ${centerY} H ${headStart} M ${headStart} 0 L ${width} ${centerY} L ${headStart} ${height}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`, strokeWidth);
+            return svg(width, height, `<path d="M 0 ${centerY} H ${headStart} M ${headStart} 0 L ${width} ${centerY} L ${headStart} ${height}" fill="none" stroke="${lineColor}" stroke-width="${lineStrokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`, lineStrokeWidth);
           }
           case "speech-bubble": {
             const bodyBottom = height * 0.75;

@@ -19,7 +19,7 @@ const shapeDefaults = { fill: '#a6a6a6', stroke: 'none', strokeWidth: 0 };
 const lineDefaults = {
   fill: 'none',
   stroke: '#000000',
-  strokeWidth: 4,
+  strokeWidth: 10,
   dash: 'solid',
   startCap: 'none',
   endCap: 'none',

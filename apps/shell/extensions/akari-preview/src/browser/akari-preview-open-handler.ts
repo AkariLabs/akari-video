@@ -11,6 +11,7 @@ import { PreviewFrameCapturePending } from '../common/preview-frame-controller';
 import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
 import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
 import { requestReadyPreviewSeek } from '../common/preview-ready-seek';
+import { PreviewPlaceholderInput, previewPlaceholderHtml } from '../common/preview-placeholder';
 import { isMaterialPreviewWidgetId } from '../common/material-preview-slot';
 import { isProjectVideoCandidatePath } from '../common/video-candidate-preview';
 import { MaterialPreviewSlot } from './material-preview-slot';
@@ -444,6 +445,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly pendingFrameCaptures = new PreviewFrameCapturePending<PreviewWidgetMarker>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
+    protected readonly placeholderPreviewStates = new WeakMap<WebviewWidget, {
+        input: PreviewPlaceholderInput;
+        layer: HTMLElement;
+        listener?: Disposable;
+        timeout?: ReturnType<typeof setTimeout>;
+    }>();
+    protected readonly placeholderPreviewWidgets = new Map<string, WebviewWidget>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
     protected readonly lastRawEditVersionByUri = new Map<string, 0 | 1 | 2>();
     protected readonly captionDisplayFallbackState: { lastCode?: string } = {};
@@ -1746,10 +1754,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.shell.revealWidget(existing.id);
                 return 'revealed';
             }
+            await this.openPlaceholderPreview?.(uri);
             const widget = await this.getOrOpenPreview(uri, { area: 'main' }, 'output');
             this.shell.revealWidget(widget.id);
             return 'opened';
         } catch (error) {
+            this.discardFailedPlaceholder?.(new URI(editUri).normalizePath());
             this.reportOpenFailure(new URI(editUri), error);
             return 'unavailable';
         }
@@ -1888,7 +1898,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const bar = document.createElement('div');
         bar.dataset.akariMaterialTrial = 'true';
         // Theia の mousedown 用透明面は z-index:999。実マウスの mouseup/click も帯へ届ける。
-        bar.style.cssText = 'position:absolute;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px;background:var(--theia-editorWidget-background);color:var(--theia-foreground);border-bottom:1px solid var(--theia-focusBorder)';
+        bar.style.cssText = 'position:absolute;top:0;left:0;right:0;z-index:1001;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px;background:var(--theia-editorWidget-background);color:var(--theia-foreground);border-bottom:1px solid var(--theia-focusBorder)';
         const text = document.createElement('span');
         text.textContent = `お試し中: ${request.originalTitle ?? ''} → ${request.title}`;
         text.style.flex = '1';
@@ -2280,6 +2290,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return 'seeked';
         }
         if (existing?.akariPreviewConfigured && existing.akariPreviewSeekable && !existing.isDisposed) {
+            if (existing.isAttached) this.shell.revealWidget(existing.id);
             // お試しの保存通知で進行中の素材更新が終わってから新しい出力をシークする。
             await existing.akariPreviewRefresh;
             if (existing.isDisposed) return 'mismatched-asset';
@@ -2291,14 +2302,123 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return 'seeked';
         }
         try {
+            this.pendingOutputInitialSeek?.set(key, request.time);
+            if (!existing?.akariPreviewConfigured || existing.isDisposed) {
+                await this.openPlaceholderPreview?.(editUri, request.time);
+            }
             const widget = await this.getOrOpenPreview(editUri, { area: 'main' }, 'output', request.time);
             this.shell.revealWidget(widget.id);
             this.attachTimelinePassively();
             return 'seeked';
         } catch (error) {
+            if (this.pendingOutputInitialSeek?.get(key) === request.time) this.pendingOutputInitialSeek.delete(key);
+            this.discardFailedPlaceholder?.(editUri);
             this.reportOpenFailure(editUri, error);
             return 'mismatched-asset';
         }
+    }
+
+    protected async openPlaceholderPreview(uri: URI, timeSeconds?: number): Promise<WebviewWidget> {
+        const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, {
+            id: `akari-output-preview-${this.hash(uri.toString())}`, viewId: uri.toString()
+        });
+        if (widget.isDisposed) throw new Error('Preview widget was disposed while opening.');
+        widget.title.label = '出力プレビュー';
+        widget.title.caption = uri.toString();
+        widget.title.iconClass = 'codicon codicon-preview';
+        if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
+        this.shell.revealWidget(widget.id);
+        const marker = widget as PreviewWidgetMarker;
+        if (!this.placeholderPreviewStates.has(widget)
+            && (marker.akariPreviewConfigured || marker.akariPreviewSeekable === false)) return widget;
+        const existingState = this.placeholderPreviewStates.get(widget);
+        if (existingState) {
+            existingState.input.timeSeconds = timeSeconds;
+            existingState.layer.innerHTML = previewPlaceholderHtml(existingState.input);
+            return widget;
+        }
+        const layer = document.createElement('div');
+        layer.setAttribute('data-akari-preview-placeholder', '');
+        layer.style.cssText = 'position:absolute;inset:0;z-index:1000;pointer-events:none;container-type:size;background:#141414';
+        const state = { input: { timeSeconds } as PreviewPlaceholderInput, layer,
+            listener: undefined as Disposable | undefined, timeout: undefined as ReturnType<typeof setTimeout> | undefined };
+        layer.innerHTML = previewPlaceholderHtml(state.input);
+        widget.node.appendChild(layer);
+        this.placeholderPreviewStates.set(widget, state);
+        this.placeholderPreviewWidgets.set(uri.toString(), widget);
+        state.listener = widget.onMessage(message => {
+            // The playback tick follows the stage render. Ignore the old page and pre-position ticks.
+            if (message?.type !== 'akari-preview-playback-tick' || message.positionReady !== true
+                || message.pageId !== marker.akariPreviewPlaybackPageId) return;
+            window.requestAnimationFrame(() => {
+                if (message.pageId === marker.akariPreviewPlaybackPageId) this.removePlaceholderPreview(widget);
+            });
+        });
+        widget.disposed.connect(() => this.removePlaceholderPreview(widget));
+        if (marker.akariPreviewPlaybackPageId) this.armPlaceholderPreviewTimeout(widget);
+        const update = (details: Partial<PreviewPlaceholderInput>): void => {
+            if (widget.isDisposed || this.placeholderPreviewStates.get(widget) !== state) return;
+            Object.assign(state.input, details);
+            layer.innerHTML = previewPlaceholderHtml(state.input);
+        };
+        void this.loadPlaceholderPreviewGeometry(uri).then(update).catch(() => undefined);
+        void this.loadPlaceholderPreviewImage(uri.parent).then(imageUrl => {
+            if (imageUrl) update({ imageUrl });
+        }).catch(() => undefined);
+        return widget;
+    }
+
+    protected armPlaceholderPreviewTimeout(widget: WebviewWidget): void {
+        const state = this.placeholderPreviewStates.get(widget);
+        if (!state) return;
+        if (state.timeout) clearTimeout(state.timeout);
+        state.timeout = setTimeout(() => this.removePlaceholderPreview(widget), 10_000);
+    }
+
+    protected removePlaceholderPreview(widget: WebviewWidget): void {
+        const state = this.placeholderPreviewStates.get(widget);
+        if (!state) return;
+        state.listener?.dispose();
+        if (state.timeout) clearTimeout(state.timeout);
+        state.layer.remove();
+        this.placeholderPreviewStates.delete(widget);
+        for (const [key, candidate] of this.placeholderPreviewWidgets) {
+            if (candidate === widget) this.placeholderPreviewWidgets.delete(key);
+        }
+    }
+
+    protected async loadPlaceholderPreviewGeometry(uri: URI): Promise<Pick<PreviewPlaceholderInput, 'width' | 'height'>> {
+        const output = JSON.parse((await this.fileService.readFile(uri)).value.toString())?.output;
+        return { width: output?.width, height: output?.height };
+    }
+
+    protected async loadPlaceholderPreviewImage(projectRoot: URI): Promise<string | undefined> {
+        const cache = projectRoot.resolve('.akari/cache/project-card');
+        try {
+            const folders = (await this.fileService.resolve(cache, { resolveMetadata: true })).children ?? [];
+            const candidates = folders.filter(folder => folder.isDirectory)
+                .sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0) || b.resource.path.base.localeCompare(a.resource.path.base));
+            for (const folder of candidates) {
+                const poster = folder.resource.resolve('frame-1.jpg');
+                try {
+                    const stat = await this.fileService.resolve(poster, { resolveMetadata: true });
+                    if (!stat.isFile || stat.size === undefined || stat.size > 512 * 1024) continue;
+                    const bytes = (await this.fileService.readFile(poster)).value.buffer;
+                    if (bytes.length > 512 * 1024) continue;
+                    let binary = '';
+                    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+                        binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+                    }
+                    return `data:image/jpeg;base64,${btoa(binary)}`;
+                } catch { /* Try the next cached card. */ }
+            }
+        } catch { /* An uncached project keeps the black stage. */ }
+        return undefined;
+    }
+
+    protected discardFailedPlaceholder(uri: URI): void {
+        const widget = this.placeholderPreviewWidgets.get(uri.toString());
+        if (widget && this.placeholderPreviewStates.has(widget)) this.discardPreviewWidget(widget, uri, 'output');
     }
 
     protected async getOrOpenPreview(
@@ -2319,13 +2439,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.shell.addWidget(existing, widgetOptions);
             }
             if (kind === 'output' && Number.isFinite(initialSeekTime)) {
-                existing.sendMessage({ type: 'akari-preview-seek', time: initialSeekTime });
+                const latestSeekTime = this.pendingOutputInitialSeek?.get(seekKey) ?? initialSeekTime!;
+                this.pendingOutputInitialSeek?.delete(seekKey);
+                existing.sendMessage({ type: 'akari-preview-seek', time: latestSeekTime });
             }
             return existing;
         }
 
-        if (kind === 'output' && Number.isFinite(initialSeekTime)) {
-            this.pendingOutputInitialSeek.set(seekKey, initialSeekTime!);
+        if (kind === 'output' && Number.isFinite(initialSeekTime) && !this.pendingOutputInitialSeek?.has(seekKey)) {
+            this.pendingOutputInitialSeek?.set(seekKey, initialSeekTime!);
         }
         const baseId = kind === 'output'
             ? `akari-output-preview-${this.hash(uri.toString())}`
@@ -2381,7 +2503,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         }
         if (kind === 'output') {
-            this.pendingOutputInitialSeek.delete(seekKey);
+            this.pendingOutputInitialSeek?.delete(seekKey);
         }
         throw lastError instanceof Error ? lastError : new Error(String(lastError));
     }
@@ -2408,6 +2530,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (previews.get(seekKey) === marker) {
             previews.delete(seekKey);
         }
+        this.removePlaceholderPreview?.(widget);
         if (!widget.isDisposed) {
             widget.dispose();
         }
@@ -2467,6 +2590,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         marker.akariPreviewConfiguration = this.doConfigurePreview(marker, identityUri, kind, initialSeekTime);
         try {
             await marker.akariPreviewConfiguration;
+            if (kind === 'output') {
+                const latestSeekTime = this.pendingOutputInitialSeek?.get(identityUri.normalizePath().toString());
+                this.pendingOutputInitialSeek?.delete(identityUri.normalizePath().toString());
+                if (!marker.isDisposed && Number.isFinite(latestSeekTime) && latestSeekTime !== initialSeekTime) {
+                    marker.sendMessage({ type: 'akari-preview-seek', time: latestSeekTime });
+                }
+            }
         } finally {
             marker.akariPreviewConfiguration = undefined;
         }
@@ -2519,9 +2649,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             })).catch(() => undefined)
             : Promise.resolve(undefined);
         await this.refreshPreview(widget, identityUri, kind, initialSeekTime);
-        if (kind === 'output') {
-            this.pendingOutputInitialSeek.delete(seekKey);
-        }
 
         if (widget.isDisposed) {
             return;
@@ -4310,6 +4437,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             },
             widget.akariPreviewPlaybackPageId
         ));
+        this.armPlaceholderPreviewTimeout?.(widget);
         // ここから先はページ側の段（スクリプト読込 → エンジン初期化 → メディア供給 → 初回描画）。
         // 初回描画の報告が来なければ監視が鳴り、widget 上の診断バンドとログに出る。
         diagnostics?.markStage('page-html-set', 'ok');
@@ -4592,6 +4720,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
         widget.setContentOptions({ allowScripts: false, allowForms: false });
         if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus;
+        this.removePlaceholderPreview?.(widget);
         this.previewGestureGuards?.delete(widget);
         widget.setHTML(this.prepareMessageHtml(message));
     }
@@ -6456,7 +6585,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.markRecentWrite(editUri);
             await this.persistPreviewTransform(editUri, candidateText,
-                request.patch.transform || request.patch.crop || request.patch.xyKeyframes ? write : undefined);
+                request.patch.transform || request.patch.crop || request.patch.xyKeyframes
+                    || request.patch.perspective !== undefined ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
