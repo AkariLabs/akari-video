@@ -8,6 +8,7 @@ import { ExportSetupView } from './export-setup-view';
 import { ExportRunningView } from './export-running-view';
 import { ExportDoneView } from './export-done-view';
 import { ExportLintFailedView } from './export-lint-failed-view';
+import { ExportEngineReasonView } from './export-engine-reason-view';
 
 export class AkariExportDialog extends ReactDialog<void> {
     protected readonly visibilityEmitter = new Emitter<boolean>();
@@ -49,6 +50,8 @@ export class AkariExportDialog extends ReactDialog<void> {
                 ? 'done'
                 : status.phase === 'lint-failed' && !snapshot.setupRequested
                     ? 'lint-failed'
+                    : status.phase === 'failed' && !snapshot.setupRequested
+                        ? 'failed'
                     : 'setup';
         const subtitle = view === 'running'
             ? `${snapshot.outputName} · 閉じても続きます`
@@ -56,6 +59,8 @@ export class AkariExportDialog extends ReactDialog<void> {
                 ? status.artifactPath ?? snapshot.outputName
                 : view === 'lint-failed'
                     ? `lint で ${status.lintIssueCount ?? 0} 件`
+                    : view === 'failed'
+                        ? '書き出しを停止しました'
                     : `${snapshot.projectLabel || 'このプロジェクト'} · edit.json の出力設定`;
         return (
             <div className='popup' role='dialog' aria-modal='true' aria-labelledby='akari-export-dialog-title'>
@@ -67,6 +72,11 @@ export class AkariExportDialog extends ReactDialog<void> {
                 {view === 'running' && <ExportRunningView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'done' && <ExportDoneView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'lint-failed' && <ExportLintFailedView session={this.session} snapshot={snapshot} close={() => this.close()} />}
+                {view === 'failed' && <>
+                    <div className='pb'><div className='right'><h2>書き出しを停止しました</h2><p>設定と入力を確認して、もう一度お試しください。</p></div></div>
+                    <ExportEngineReasonView status={status} openLint={status.reportPath ? () => { this.close(); void this.session.openArtifact(status.reportPath); } : undefined} />
+                    <div className='pf'><span className='sp' /><button type='button' className='btn' onClick={() => this.session.resetToSetup()}>設定に戻る</button></div>
+                </>}
                 {view === 'setup' && <ExportSetupView session={this.session} snapshot={snapshot} />}
             </div>
         );

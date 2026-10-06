@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate as waitForImmediate } from 'node:timers/promises';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -157,6 +157,36 @@ test('start: lint-failed に error / warning 件数とレポートを載せる',
         ],
         reportPath: '.akari/reports/edit-lint-report.html'
     });
+});
+
+test('render-cut の lint 拒否時は保存済み lint findings を失敗 status に載せる', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-export-refused-'));
+    class RefusedService extends AkariQuickExportServiceImpl {
+        async findRenderCutCli() { return 'render-cut'; }
+        async spawnNodeScript(_script, _args, onChunk) {
+            onChunk('REFUSED code=lint-not-pass detail={"message":"lint is not PASS"}\n');
+            return { exitCode: 1, stdout: '', stderr: 'render-cut refused: lint is not PASS' };
+        }
+        async statOrUndefined() { return undefined; }
+    }
+    try {
+        await mkdir(join(root, '.akari'));
+        await writeFile(join(root, '.akari', 'lint.json'), JSON.stringify({
+            verdict: 'fail', findings: [
+                { severity: 'error', check: 'sources.reference', message: 'sources[0] is missing' },
+                { severity: 'warning', message: 'warning' }
+            ]
+        }));
+        const service = new RefusedService();
+        await service.runRenderCutPhase(root, { outputName: 'final.mp4' });
+        const status = await service.getStatus();
+        assert.equal(status.phase, 'failed');
+        assert.equal(status.lintErrorCount, 1);
+        assert.equal(status.lintWarningCount, 1);
+        assert.equal(status.lintFindings[0].message, 'sources[0] is missing');
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });
 
 test('start: render-cut の stage / frame 出力を status の詳細進捗へ載せる', async () => {
