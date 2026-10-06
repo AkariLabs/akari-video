@@ -99,3 +99,41 @@ test('完了トーストは件数だけ、rejected・プレースホルダ警告
     assert.deepEqual(info, ['1 件を取り込みました']);
     assert.deepEqual(warn, ['/broken.wav: 読み取れません']);
 });
+
+const jsxAttributes = node => new Map(node.attributes.properties.filter(ts.isJsxAttribute).map(attribute =>
+    [attribute.name.text, attribute.initializer && ts.isStringLiteral(attribute.initializer) ? attribute.initializer.text : attribute.initializer?.getText(sheetSource)]));
+const descendants = (node, predicate) => {
+    const matches = [];
+    const visit = current => { if (predicate(current)) matches.push(current); ts.forEachChild(current, visit); };
+    visit(node);
+    return matches;
+};
+test('追加メニューは 5 行の名前と説明を持つ', () => {
+    const source = sheetSource.getFullText();
+    const menu = source.slice(source.indexOf("role='menu' aria-label='ライブラリに追加'"), source.indexOf("{checkOpen &&"));
+    assert.equal((menu.match(/role='menuitem'/g) ?? []).length, 5);
+    for (const label of ['ローカルから取り込む', '素材サイトでさがす', 'URL を貼って入れる', '素材の置き場を変える…', 'ライブラリを点検',
+        'この Mac のファイルやフォルダ', 'このパソコンのファイルやフォルダ', 'Lab と、無料で使える配布サイト', '配布ページの URL から取り込む']) {
+        assert.ok(menu.includes(label), label);
+    }
+    assert.match(menu, /akari-import-soon'>今後/);
+});
+test('各シートの主ボタンは 1 つ以下で、タブは選択状態を持つ', () => {
+    for (const marker of ['data-akari-local-import-sheet', 'data-akari-site-sheet', 'data-akari-library-check-sheet']) {
+        const sheet = descendants(sheetSource, node => ts.isJsxElement(node) && jsxAttributes(node.openingElement).has(marker))[0];
+        assert.ok(sheet, marker);
+        const buttons = descendants(sheet, node => ts.isJsxOpeningElement(node) && node.tagName.getText(sheetSource) === 'button');
+        assert.ok(buttons.length > 0, marker);
+        const primary = buttons.filter(node => {
+            const classes = jsxAttributes(node).get('className')?.split(/\s+/) ?? [];
+            assert.ok(classes.includes('theia-button'), node.getText(sheetSource));
+            return !classes.some(value => ['secondary', 'quiet', 'danger'].includes(value));
+        });
+        assert.ok(primary.length <= 1, `${marker}: ${primary.length} 主ボタン`);
+    }
+    const tablist = descendants(sheetSource, node => ts.isJsxElement(node) && jsxAttributes(node.openingElement).get('role') === 'tablist')[0];
+    assert.ok(tablist);
+    assert.ok(jsxAttributes(tablist.openingElement).get('className')?.split(/\s+/).includes('akari-seg'));
+    const tab = descendants(tablist, node => ts.isJsxOpeningElement(node) && jsxAttributes(node).get('role') === 'tab')[0];
+    assert.ok(tab && jsxAttributes(tab).has('aria-selected'));
+});

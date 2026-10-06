@@ -117,9 +117,9 @@ export class AssetSiteWidget extends ReactWidget {
                     <strong>AKARI のおすすめ</strong>
                     {listing.recommendations.length ? listing.recommendations.map(item =>
                         <div key={item.id} style={{ marginTop: 10 }}><div>{item.title}</div>
-                            <button style={{ display: 'block', width: '100%', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
+                            <button className='theia-button secondary' style={{ display: 'block', width: '100%', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
                                 onClick={() => void this.recommend(item)}>ページを開いて光らせる</button>
-                            <button style={{ display: 'block', width: '100%', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
+                            <button className='theia-button quiet' style={{ display: 'block', width: '100%', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
                                 onClick={() => void this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID,
                                 composeSiteAgentPrompt(listing.site, `おすすめ「${item.title}」を探して`))}>エージェントに頼む</button></div>)
                         : <p>このサイトのおすすめは未登録です</p>}
@@ -128,8 +128,8 @@ export class AssetSiteWidget extends ReactWidget {
             {this.pending && <footer data-akari-site-received style={{ padding: 8, borderTop: '1px solid var(--theia-panel-border)',
                 display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>
                 <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{this.pending.name} を受け取りました —</span>
-                <button disabled={this.busy} onClick={() => void this.importPending()}>ライブラリに入れる</button>
-                <button disabled={this.busy} onClick={() => { if (this.pending) void window.electronAkariProject.assetSite.discard(this.pending.paths);
+                <button className='theia-button' disabled={this.busy} onClick={() => void this.importPending()}>ライブラリに入れる</button>
+                <button className='theia-button danger' disabled={this.busy} onClick={() => { if (this.pending) void window.electronAkariProject.assetSite.discard(this.pending.paths);
                     this.pending = undefined; this.update(); }}>捨てる</button>
             </footer>}
         </div>;
