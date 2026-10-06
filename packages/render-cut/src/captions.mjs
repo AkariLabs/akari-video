@@ -32,6 +32,23 @@ const {
   usesExtendedPerLineBackground,
 } = require("../../edit-store/lib/index.js");
 
+/** A CSS text stroke paints half its width outside the glyph. Round shadows keep that radius. */
+export function roundedCaptionStrokeShadows(stroke, originalShadow) {
+  const match = /^\s*([\d.]+)px\s+(.+?)\s*$/u.exec(stroke ?? '');
+  if (!match) return null;
+  const width = Number(match[1]);
+  if (!Number.isFinite(width) || width <= 0 || width > 1000) return null;
+  const radius = width / 2;
+  const color = match[2];
+  const circle = Array.from({ length: 32 }, (_, index) => {
+    const angle = index * Math.PI / 16;
+    const x = Number((Math.cos(angle) * radius).toFixed(3));
+    const y = Number((Math.sin(angle) * radius).toFixed(3));
+    return `${x}px ${y}px 0 ${color}`;
+  }).join(',');
+  return originalShadow && originalShadow !== 'none' ? `${circle},${originalShadow}` : circle;
+}
+
 
 /** Apply only after runs have been projected, so aria-hidden copies cannot change indices. */
 export function applyCaptionRichLayers(html, style, output) {
@@ -262,6 +279,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       ?? options.maxCharacters
       ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
     const textStyleVars = captionTextStyleVars(textStyle, output);
+    const roundedStroke = caption.time_domain === 'output'
+      ? roundedCaptionStrokeShadows(textStyleVars['--caption-stroke'], textStyleVars['--caption-text-shadow']) : null;
     const allWords = clipWordsToRange(projectedCaption.words, window.start, window.end);
     // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
     // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
@@ -343,6 +362,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               textStyleActive: textStyle !== null,
               fontFaceCss,
               contextStyle: textStyle,
+              roundedStroke: Boolean(roundedStroke),
               displayText,
               vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
@@ -360,6 +380,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               textStyleActive: textStyle !== null,
               fontFaceCss,
               contextStyle: textStyle,
+              roundedStroke: Boolean(roundedStroke),
               vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
               backgroundFit: textStyle?.background?.fit,
@@ -380,7 +401,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         start: range.start,
         duration: range.duration,
         transform: captionTransform(),
-        vars: { ...textStyleVars, ...(sizeToInk || textStyle?.wrap_width_pct
+        vars: { ...textStyleVars, ...(roundedStroke ? { '--caption-rounded-stroke': roundedStroke } : {}), ...(sizeToInk || textStyle?.wrap_width_pct
           ? captionPlateMarginVars(textStyle, Boolean(textStyle?.wrap_width_pct)) : {}), ...captionTransformVars(textStyle) },
         generatedFrom: caption.id,
       });
@@ -388,6 +409,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   }
 
   return overlays;
+}
+
+function resolvedCaptionRoundedStrokeVars(cue) {
+  const stroke = cue?.cut_index === -1
+    ? roundedCaptionStrokeShadows(cue.style_vars?.['--caption-stroke'], cue.style_vars?.['--caption-text-shadow']) : null;
+  return stroke ? { '--caption-rounded-stroke': stroke } : {};
 }
 
 /**
@@ -404,7 +431,7 @@ export function generateResolvedCaptionOverlays(displayResult, fontFaces = capti
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
-    vars: { ...(cue.style_vars ?? {}), ...(cue.style_vars?.['--caption-wrap-width']
+    vars: { ...(cue.style_vars ?? {}), ...resolvedCaptionRoundedStrokeVars(cue), ...(cue.style_vars?.['--caption-wrap-width']
       || cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
       ? captionPlateMarginVars(cue.text_style, Boolean(cue.style_vars?.['--caption-wrap-width'])) : {}), ...captionTransformVars(cue.text_style) },
     generatedFrom: cue.source_cue_id,
@@ -491,7 +518,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
       text-align:center;
       animation:none;
       transform:none;
-    }
+    }${resolvedCaptionRoundedStrokeVars(cue)['--caption-rounded-stroke'] ? '\n    .akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : ''}
     .akari-caption--single-line .akari-caption__plate {
       position:absolute;
       top:var(--caption-top,auto);
@@ -996,7 +1023,7 @@ export function renderCaptionFragment(text, options = {}) {
       text-shadow: var(--caption-text-shadow, 0 2px 8px rgba(0,0,0,.35));
 ${typographyCss}
       text-align: center;
-    }
+    }${options.roundedStroke ? '\n    .akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : ''}
     .akari-caption__plate {
       position: absolute;
 ${platePlacementCss}
@@ -1215,7 +1242,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       text-shadow: var(--caption-text-shadow, 0 2px 8px rgba(0,0,0,.35));
 ${typographyCss}
       text-align: center;
-    }
+    }${options.roundedStroke ? '\n    .akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : ''}
     .akari-caption__plate {
       position: absolute;
 ${platePlacementCss}

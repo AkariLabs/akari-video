@@ -1,0 +1,307 @@
+{
+  "metrics": {
+    "plate": {
+      "x": 75.3359375,
+      "y": 40.00390625,
+      "width": 277.328125,
+      "height": 155.9970703125
+    },
+    "line": {
+      "x": 179.333984375,
+      "y": 164.28530883789062,
+      "width": 69.33203125,
+      "height": 19.689208984375
+    },
+    "ink": {
+      "x": 179.333984375,
+      "y": 164.06863403320312,
+      "width": 69.33203125,
+      "height": 20.041290283203125
+    },
+    "box": {
+      "x": 179.45130920410156,
+      "y": 164.2750244140625,
+      "width": 69.41024780273438,
+      "height": 19.6865234375
+    },
+    "plateStyle": "--caption-plate-margin: 0; --caption-font-size: 64px; --caption-font-family: \"Noto Sans JP\"; --caption-font-weight: 700; --caption-wrap-width: 25%; --plate-pad-y: 0px; --plate-pad-x: 0px; --caption-top: 79.67%; --caption-bottom: auto; --caption-left: 37.5%; --caption-right: -29.5%; --caption-width: max-content; --caption-align-items: flex-start; --caption-line-margin: 0; --caption-line-max-width: 100%;",
+    "background": {
+      "color": "rgba(0, 0, 0, 0)",
+      "padX": "0px",
+      "padY": "0px",
+      "plateBg": "",
+      "blockBg": "",
+      "lineCount": 1
+    },
+    "stroke": {
+      "width": "8.96px",
+      "color": "rgba(0, 0, 0, 0.9)",
+      "shadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px"
+    },
+    "handles": [
+      {
+        "kind": "nw",
+        "rect": {
+          "x": 175.45309448242188,
+          "y": 160.27496337890625,
+          "width": 11,
+          "height": 10.999984741210938
+        }
+      },
+      {
+        "kind": "ne",
+        "rect": {
+          "x": 241.85977172851562,
+          "y": 160.27496337890625,
+          "width": 11.000015258789062,
+          "height": 10.999984741210938
+        }
+      },
+      {
+        "kind": "sw",
+        "rect": {
+          "x": 175.45309448242188,
+          "y": 176.9616241455078,
+          "width": 11,
+          "height": 10.999984741210938
+        }
+      },
+      {
+        "kind": "se",
+        "rect": {
+          "x": 241.85977172851562,
+          "y": 176.9616241455078,
+          "width": 11.000015258789062,
+          "height": 10.999984741210938
+        }
+      },
+      {
+        "kind": "e",
+        "rect": {
+          "x": 259.8576354980469,
+          "y": 164.1182861328125,
+          "width": 11.000030517578125,
+          "height": 20
+        }
+      },
+      {
+        "kind": "w",
+        "rect": {
+          "x": 157.45523071289062,
+          "y": 164.1182861328125,
+          "width": 11,
+          "height": 20
+        }
+      },
+      {
+        "kind": "rot",
+        "rect": {
+          "x": 274.2110290527344,
+          "y": 163.27444458007812,
+          "width": 24.999969482421875,
+          "height": 25
+        }
+      },
+      {
+        "kind": "move",
+        "rect": {
+          "x": 302.24420166015625,
+          "y": 163.27444458007812,
+          "width": 25,
+          "height": 25
+        }
+      }
+    ]
+  },
+  "inspector": [
+    {
+      "text": "位置",
+      "rect": {
+        "x": 511,
+        "y": 2164.34375,
+        "width": 529,
+        "height": 24.5
+      },
+      "html": "<button type=\"button\" class=\"akari-inspector-section-toggle\" aria-expanded=\"true\">位置<span class=\"akari-inspector-icon\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" focusable=\"fa"
+    }
+  ],
+  "controls": {
+    "zones": [
+      {
+        "zone": "top-left",
+        "rect": {
+          "x": 581,
+          "y": 2201.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "top",
+        "rect": {
+          "x": 605,
+          "y": 2201.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "top-right",
+        "rect": {
+          "x": 629,
+          "y": 2201.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "left",
+        "rect": {
+          "x": 581,
+          "y": 2225.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "center",
+        "rect": {
+          "x": 605,
+          "y": 2225.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "right",
+        "rect": {
+          "x": 629,
+          "y": 2225.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom-left",
+        "rect": {
+          "x": 581,
+          "y": 2249.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom",
+        "rect": {
+          "x": 605,
+          "y": 2249.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom-right",
+        "rect": {
+          "x": 629,
+          "y": 2249.84375,
+          "width": 22,
+          "height": 22
+        },
+        "pressed": "false"
+      }
+    ],
+    "position": [
+      {
+        "field": "caption-position-x",
+        "range": "37.5",
+        "number": "37.5"
+      },
+      {
+        "field": "caption-position-y",
+        "range": "79.7",
+        "number": "79.67"
+      }
+    ],
+    "size": "64",
+    "backgroundEnabled": false
+  },
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0005",
+        "start": 3,
+        "end": 6,
+        "text": "こんにちは",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "time_domain": "output",
+        "text_style": {
+          "font_family": "Noto Sans JP",
+          "weight": 700,
+          "size_px": 64,
+          "wrap_width_pct": 25,
+          "background": {
+            "padding_px": 0
+          },
+          "text_anchor": "tl",
+          "position": {
+            "x": 0.375,
+            "y": 0.7967
+          }
+        }
+      }
+    ]
+  }
+}

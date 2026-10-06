@@ -1,0 +1,187 @@
+{
+  "metrics": {
+    "plate": {
+      "x": 75.3359375,
+      "y": 40.00390625,
+      "width": 277.328125,
+      "height": 155.9970703125
+    },
+    "line": {
+      "x": 116.9351577758789,
+      "y": 163.17489624023438,
+      "width": 194.12969970703125,
+      "height": 21.906631469726562
+    },
+    "box": {
+      "x": 116.97895812988281,
+      "y": 163.15789794921875,
+      "width": 194.35496520996094,
+      "height": 21.9051513671875
+    },
+    "plateStyle": "--caption-plate-margin: auto; --caption-font-size: 64px; --caption-stroke: 16px #000000; --caption-font-family: \"Noto Sans JP\"; --caption-font-weight: 700; --caption-wrap-width: 70%;",
+    "stroke": {
+      "width": "16px",
+      "color": "rgb(0, 0, 0)",
+      "shadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px"
+    },
+    "handles": [
+      {
+        "kind": "nw",
+        "rect": {
+          "x": 112.9807357788086,
+          "y": 159.15782165527344,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "ne",
+        "rect": {
+          "x": 304.3321533203125,
+          "y": 159.15782165527344,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "sw",
+        "rect": {
+          "x": 112.9807357788086,
+          "y": 178.06312561035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "se",
+        "rect": {
+          "x": 304.3321533203125,
+          "y": 178.06312561035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "e",
+        "rect": {
+          "x": 322.3299865722656,
+          "y": 164.1104736328125,
+          "width": 11,
+          "height": 20
+        }
+      },
+      {
+        "kind": "w",
+        "rect": {
+          "x": 94.98287963867188,
+          "y": 164.1104736328125,
+          "width": 11,
+          "height": 20
+        }
+      },
+      {
+        "kind": "rot",
+        "rect": {
+          "x": 316.78485107421875,
+          "y": 163.1572723388672,
+          "width": 24.999969482421875,
+          "height": 25
+        }
+      },
+      {
+        "kind": "move",
+        "rect": {
+          "x": 344.8179931640625,
+          "y": 163.1572723388672,
+          "width": 25,
+          "height": 25
+        }
+      }
+    ]
+  },
+  "inspector": [
+    {
+      "text": "位置",
+      "rect": {
+        "x": 511,
+        "y": 330.84375,
+        "width": 529,
+        "height": 24.5
+      },
+      "html": "<button type=\"button\" class=\"akari-inspector-section-toggle\" aria-expanded=\"true\">位置<span class=\"akari-inspector-icon\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" focusable=\"fa"
+    }
+  ],
+  "captions": {
+    "default_text_style": {
+      "zone": "center"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0005",
+        "start": 3,
+        "end": 6,
+        "text": "こんにちは",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "time_domain": "output",
+        "text_style": {
+          "font_family": "Noto Sans JP",
+          "weight": 700,
+          "size_px": 64,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 8
+          },
+          "wrap_width_pct": 70,
+          "zone": "bottom"
+        }
+      }
+    ]
+  },
+  "zoneCellMeasured": {
+    "width": 150.3359375,
+    "height": 34
+  },
+  "positionControlsMeasured": []
+}

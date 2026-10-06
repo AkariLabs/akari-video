@@ -1,0 +1,93 @@
+{
+  "label": "tl-placed-text-polish-after-osr",
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 2.5,
+      "time_domain": null,
+      "text": "今日は朝のルーティンを紹介します"
+    },
+    {
+      "id": "c-0002",
+      "start": 3,
+      "end": 5.5,
+      "time_domain": null,
+      "text": "まずはコーヒーを淹れるところから"
+    },
+    {
+      "id": "c-0003",
+      "start": 6,
+      "end": 8.5,
+      "time_domain": null,
+      "text": "豆は挽きたてが一番おいしい"
+    },
+    {
+      "id": "c-0004",
+      "start": 9,
+      "end": 11.5,
+      "time_domain": null,
+      "text": "お湯は少し冷ましてから注ぎます"
+    },
+    {
+      "id": "c-0005",
+      "start": 3,
+      "end": 6,
+      "time_domain": "output",
+      "text": "こんにちは"
+    }
+  ],
+  "lint": {
+    "exit": 0,
+    "verdict": "pass",
+    "errors": [],
+    "warnings": [
+      "geometry.fit-compat"
+    ]
+  },
+  "policy": {
+    "lint": {
+      "exit": 0,
+      "verdict": "pass",
+      "errors": [],
+      "warnings": [
+        "geometry.fit-compat"
+      ]
+    },
+    "renderCut": {
+      "mode": "render",
+      "exit": 0,
+      "seconds": 14.8,
+      "overlappingDisplayCues": false,
+      "tail": [
+        "PROGRESS preview=300 path=<machine-path>",
+        "PROGRESS frame=330 total=360",
+        "PROGRESS preview=330 path=<machine-path>",
+        "PROGRESS frame=360 total=360",
+        "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+        "PASS: exports/out.mp4"
+      ]
+    },
+    "frame": "after-osr-frame.png"
+  },
+  "strokePixels": {
+    "white": {
+      "left": 727,
+      "right": 1009,
+      "top": 328,
+      "bottom": 378
+    },
+    "outline": {
+      "left": 719,
+      "right": 1017,
+      "top": 320,
+      "bottom": 385
+    },
+    "outwardPx": {
+      "left": 8,
+      "right": 8,
+      "top": 8,
+      "bottom": 7
+    }
+  }
+}

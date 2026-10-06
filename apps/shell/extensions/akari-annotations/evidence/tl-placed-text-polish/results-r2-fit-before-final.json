@@ -1,0 +1,177 @@
+{
+  "metrics": {
+    "plate": {
+      "x": 370.55859375,
+      "y": 40.00390625,
+      "width": 264.8828125,
+      "height": 148.99658203125
+    },
+    "line": {
+      "x": 410.291015625,
+      "y": 157.6475067138672,
+      "width": 185.41796875,
+      "height": 20.923538208007812
+    },
+    "ink": {
+      "x": 469.8896484375,
+      "y": 158.49951171875,
+      "width": 66.220703125,
+      "height": 19.141921997070312
+    },
+    "box": {
+      "x": 410.263671875,
+      "y": 157.63446044921875,
+      "width": 185.33209228515625,
+      "height": 20.9207763671875
+    },
+    "plateStyle": "--caption-font-size: 64px; --caption-font-family: \"Noto Sans JP\"; --caption-font-weight: 700; --caption-wrap-width: 70%; --caption-plate-margin: auto;",
+    "stroke": {
+      "width": "8.96px",
+      "color": "rgba(0, 0, 0, 0.9)",
+      "shadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px"
+    },
+    "handles": [
+      {
+        "kind": "nw",
+        "rect": {
+          "x": 406.2630310058594,
+          "y": 153.63436889648438,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "ne",
+        "rect": {
+          "x": 588.596435546875,
+          "y": 153.63436889648438,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "sw",
+        "rect": {
+          "x": 406.2630310058594,
+          "y": 171.55531311035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "se",
+        "rect": {
+          "x": 588.596435546875,
+          "y": 171.55531311035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "e",
+        "rect": {
+          "x": 606.5962524414062,
+          "y": 158.0948486328125,
+          "width": 11,
+          "height": 19.999984741210938
+        }
+      },
+      {
+        "kind": "w",
+        "rect": {
+          "x": 388.26318359375,
+          "y": 158.0948486328125,
+          "width": 11,
+          "height": 19.999984741210938
+        }
+      },
+      {
+        "kind": "rot",
+        "rect": {
+          "x": 620.8759155273438,
+          "y": 157.13381958007812,
+          "width": 25.00006103515625,
+          "height": 25
+        }
+      },
+      {
+        "kind": "move",
+        "rect": {
+          "x": 648.863525390625,
+          "y": 157.13381958007812,
+          "width": 25,
+          "height": 25
+        }
+      }
+    ]
+  },
+  "inspector": [],
+  "controls": {
+    "zones": [],
+    "position": []
+  },
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0005",
+        "start": 3,
+        "end": 6,
+        "text": "こんにちは",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "time_domain": "output",
+        "text_style": {
+          "font_family": "Noto Sans JP",
+          "weight": 700,
+          "size_px": 64,
+          "wrap_width_pct": 70,
+          "zone": "bottom"
+        }
+      }
+    ]
+  }
+}

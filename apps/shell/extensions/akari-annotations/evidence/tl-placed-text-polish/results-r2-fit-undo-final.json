@@ -1,0 +1,177 @@
+{
+  "metrics": {
+    "plate": {
+      "x": 370.55859375,
+      "y": 40.00390625,
+      "width": 264.8828125,
+      "height": 148.99658203125
+    },
+    "line": {
+      "x": 410.291015625,
+      "y": 157.6475067138672,
+      "width": 185.41796875,
+      "height": 20.923538208007812
+    },
+    "ink": {
+      "x": 469.8896484375,
+      "y": 158.49951171875,
+      "width": 66.220703125,
+      "height": 19.141921997070312
+    },
+    "box": {
+      "x": 59.7265625,
+      "y": 117.640625,
+      "width": 185.4140625,
+      "height": 20.921875
+    },
+    "plateStyle": "--caption-font-size: 64px; --caption-font-family: \"Noto Sans JP\"; --caption-font-weight: 700; --caption-wrap-width: 70%; --caption-plate-margin: auto;",
+    "stroke": {
+      "width": "8.96px",
+      "color": "rgba(0, 0, 0, 0.9)",
+      "shadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px"
+    },
+    "handles": [
+      {
+        "kind": "nw",
+        "rect": {
+          "x": 55.72412872314453,
+          "y": 113.64033508300781,
+          "width": 11.004867553710938,
+          "height": 11.000579833984375
+        }
+      },
+      {
+        "kind": "ne",
+        "rect": {
+          "x": 238.13819885253906,
+          "y": 113.64033508300781,
+          "width": 11.004867553710938,
+          "height": 11.000579833984375
+        }
+      },
+      {
+        "kind": "sw",
+        "rect": {
+          "x": 55.72412872314453,
+          "y": 131.5622100830078,
+          "width": 11.004867553710938,
+          "height": 11.000579833984375
+        }
+      },
+      {
+        "kind": "se",
+        "rect": {
+          "x": 238.13819885253906,
+          "y": 131.5622100830078,
+          "width": 11.004867553710938,
+          "height": 11.000579833984375
+        }
+      },
+      {
+        "kind": "e",
+        "rect": {
+          "x": 256.14599609375,
+          "y": 118.10103607177734,
+          "width": 11.0048828125,
+          "height": 20.00104522705078
+        }
+      },
+      {
+        "kind": "w",
+        "rect": {
+          "x": 37.71631622314453,
+          "y": 118.10103607177734,
+          "width": 11.004867553710938,
+          "height": 20.00104522705078
+        }
+      },
+      {
+        "kind": "rot",
+        "rect": {
+          "x": 127.22103118896484,
+          "y": 152.6009063720703,
+          "width": 25.01105499267578,
+          "height": 25.001312255859375
+        }
+      },
+      {
+        "kind": "move",
+        "rect": {
+          "x": 155.22103881835938,
+          "y": 152.6009063720703,
+          "width": 25.01104736328125,
+          "height": 25.001312255859375
+        }
+      }
+    ]
+  },
+  "inspector": [],
+  "controls": {
+    "zones": [],
+    "position": []
+  },
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0005",
+        "start": 3,
+        "end": 6,
+        "text": "こんにちは",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "time_domain": "output",
+        "text_style": {
+          "font_family": "Noto Sans JP",
+          "weight": 700,
+          "size_px": 64,
+          "wrap_width_pct": 70,
+          "zone": "bottom"
+        }
+      }
+    ]
+  }
+}

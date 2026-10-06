@@ -1,0 +1,90 @@
+{
+  "condition": {
+    "text": "こんにちは",
+    "fontSizePx": 160,
+    "strokeWidthPx": 12,
+    "frame": {
+      "width": 1280,
+      "height": 720
+    },
+    "second": 4
+  },
+  "crop": {
+    "width": 900,
+    "height": 330,
+    "x": 199,
+    "y": 204
+  },
+  "before": {
+    "whiteBounds": {
+      "left": 264,
+      "top": 300,
+      "right": 1034,
+      "bottom": 437
+    },
+    "blackBounds": {
+      "left": 253,
+      "top": 287,
+      "right": 1048,
+      "bottom": 451
+    },
+    "horizontal": {
+      "y": 396,
+      "whiteLeft": 264,
+      "blackLeft": 253,
+      "whiteRight": 1018,
+      "blackRight": 1037,
+      "outwardLeftPx": 11,
+      "outwardRightPx": 19
+    },
+    "vertical": {
+      "x": 285,
+      "whiteTop": 313,
+      "blackTop": 302,
+      "whiteBottom": 430,
+      "blackBottom": 442,
+      "outwardTopPx": 11,
+      "outwardBottomPx": 12
+    }
+  },
+  "after": {
+    "whiteBounds": {
+      "left": 264,
+      "top": 300,
+      "right": 1034,
+      "bottom": 437
+    },
+    "blackBounds": {
+      "left": 252,
+      "top": 288,
+      "right": 1045,
+      "bottom": 449
+    },
+    "horizontal": {
+      "y": 396,
+      "whiteLeft": 264,
+      "blackLeft": 252,
+      "whiteRight": 1018,
+      "blackRight": 1038,
+      "outwardLeftPx": 12,
+      "outwardRightPx": 20
+    },
+    "vertical": {
+      "x": 285,
+      "whiteTop": 313,
+      "blackTop": 301,
+      "whiteBottom": 430,
+      "blackBottom": 443,
+      "outwardTopPx": 12,
+      "outwardBottomPx": 13
+    }
+  },
+  "differences": {
+    "left": 1,
+    "right": 1,
+    "top": 1,
+    "bottom": 1
+  },
+  "changedPixels": 79703,
+  "withinOnePixel": true
+}
