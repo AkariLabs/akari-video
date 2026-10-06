@@ -13,7 +13,7 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 // `--theia-button-background` 等の CSS 変数に反映されない（他の大半のトークン
 // は反映される中、この一群だけ既定の青のまま = Theia/monaco 側のどこかで
 // 早期に解決 or キャッシュされていると推測、根本原因は未特定）。
-// var() 経由に頼らず、LP トークンの直値でこの CSS だけ確実に上書きする
+// 独立した --akari-* 変数でこの CSS だけ確実に上書きする
 // （akari-color-contribution.ts 側の button.* 登録は他の消費経路
 // （webview の --vscode-button-* ミラー等）向けに残す）。
 //
@@ -37,26 +37,126 @@ const CSS = `
 iframe.webview { color-scheme: light; }
 
 .theia-button {
-    background-color: var(--akari-accent, #f97316) !important;
-    color: var(--akari-bg, #0a0a0a) !important;
+    box-sizing: border-box;
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
 }
 
-/* Theia 既定の border-radius は 2px。カード言語（spec §3 のボタン段 = 6px）から
-   外れており、明示指定を忘れた箇所にだけ 2px が漏れる — 実測ではメニューの
-   一覧行がそれだった。個別に足して回るのではなく、既定そのものを段へ寄せる。
-   個別に 8px 等を指定している箇所（一覧行など）はそちらが優先される。 */
 .theia-button {
-    border-radius: 6px;
+    background-color: var(--akari-accent) !important;
+    color: var(--akari-bg) !important;
+    font-weight: 650;
 }
-.theia-button:hover:not([disabled]) {
-    background-color: var(--akari-accent-light, #fb923c) !important;
+.theia-button:hover:not(:disabled) {
+    background-color: var(--akari-accent-light) !important;
 }
+
 .theia-button.secondary {
-    background-color: var(--akari-card, #141414) !important;
-    color: var(--akari-ink, #e5e5e5) !important;
+    background-color: var(--akari-button-secondary) !important;
+    border-color: var(--akari-button-secondary-line) !important;
+    color: var(--akari-ink) !important;
 }
-.theia-button.secondary:hover:not([disabled]) {
-    background-color: var(--akari-elevated, #1a1a1a) !important;
+.theia-button.secondary { font-weight: 500; }
+.theia-button.secondary:hover:not(:disabled) {
+    background-color: var(--akari-button-secondary-hover) !important;
+    border-color: var(--akari-button-secondary-hover-line) !important;
+}
+
+.theia-button.quiet {
+    background-color: transparent !important;
+    color: var(--akari-button-quiet-ink) !important;
+    font-weight: 500;
+}
+.theia-button.quiet:hover:not(:disabled) {
+    background-color: var(--akari-elevated) !important;
+    color: var(--akari-ink) !important;
+}
+
+.theia-button.danger {
+    background-color: transparent !important;
+    color: var(--akari-button-danger) !important;
+    font-weight: 500;
+}
+.theia-button.danger:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--akari-button-danger) 12%, transparent) !important;
+}
+
+.theia-button.small {
+    height: 24px;
+    padding: 0 9px;
+}
+.theia-button:focus-visible {
+    outline: 2px solid;
+    outline-color: var(--akari-accent) !important;
+    outline-offset: 2px;
+}
+.theia-button:disabled {
+    opacity: .42;
+    cursor: default;
+}
+
+/* class / style のない素の button だけを低詳細度で救済する。
+   作者が付けたクラス・inline style と各パネルの規則を上書きしない。 */
+:where(.lm-Widget[id^="akari-"], .akari-library-import, .akari-import-sheet, [data-akari-settings-dialog], .akari-export-dialog-host) :where(button:not([class]):not([style])) {
+    box-sizing: border-box;
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid var(--akari-button-secondary-line);
+    border-radius: 6px;
+    background-color: var(--akari-button-secondary);
+    color: var(--akari-ink);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+}
+:where(.lm-Widget[id^="akari-"], .akari-library-import, .akari-import-sheet, [data-akari-settings-dialog], .akari-export-dialog-host) :where(button:not([class]):not([style]):hover:not(:disabled)) {
+    background-color: var(--akari-button-secondary-hover);
+    border-color: var(--akari-button-secondary-hover-line);
+}
+:where(.lm-Widget[id^="akari-"], .akari-library-import, .akari-import-sheet, [data-akari-settings-dialog], .akari-export-dialog-host) :where(button:not([class]):not([style]):focus-visible) {
+    outline: 2px solid var(--akari-accent);
+    outline-offset: 2px;
+}
+:where(.lm-Widget[id^="akari-"], .akari-library-import, .akari-import-sheet, [data-akari-settings-dialog], .akari-export-dialog-host) :where(button:not([class]):not([style]):disabled) {
+    opacity: .42;
+    cursor: default;
+}
+
+:where(.lm-Widget[id^="akari-"], .akari-library-import, .akari-import-sheet, [data-akari-settings-dialog], .akari-export-dialog-host) :where(hr) {
+    border: 0;
+    border-top: 1px solid var(--akari-line-inner);
+}
+
+.akari-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    background-color: var(--akari-card);
+}
+.akari-seg > :is(button, [role="tab"]) {
+    margin: 0;
+    min-width: 0;
+    border: 0;
+    border-radius: 6px;
+    background-color: transparent !important;
+    color: var(--akari-muted) !important;
+    font-weight: 500;
+}
+.akari-seg > :is(button, [role="tab"]):is([aria-pressed="true"], [role="tab"][aria-selected="true"]) {
+    background-color: var(--akari-selected) !important;
+    color: var(--akari-selected-ink) !important;
+    font-weight: 600;
+}
+.akari-seg > :is(button, [role="tab"]):hover:not(:disabled):not([aria-pressed="true"]):not([aria-selected="true"]) {
+    background-color: var(--akari-elevated) !important;
+    color: var(--akari-ink) !important;
 }
 
 /* 進捗バー（theia-progress-bar）も同じ理由で progressBar.background が

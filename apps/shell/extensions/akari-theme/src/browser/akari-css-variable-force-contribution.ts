@@ -196,6 +196,14 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
         root.setProperty('--akari-elevated', palette.elevated);
         root.setProperty('--akari-bg', palette.bg);
         root.setProperty('--akari-ink', palette.ink);
+        root.setProperty('--akari-button-secondary', palette.buttonSecondary);
+        root.setProperty('--akari-button-secondary-line', palette.buttonSecondaryLine);
+        root.setProperty('--akari-button-secondary-hover', palette.buttonSecondaryHover);
+        root.setProperty('--akari-button-secondary-hover-line', palette.buttonSecondaryHoverLine);
+        root.setProperty('--akari-button-quiet-ink', palette.buttonQuietInk);
+        root.setProperty('--akari-button-danger', palette.placedTextRed);
+        root.setProperty('--akari-selected', palette.selected);
+        root.setProperty('--akari-selected-ink', palette.selectedInk);
         // akari-shell-card-layout.ts が参照するカードレイアウト用の 2 値。
         // ground = カードの隙間から覗く面。line = カードのヘアライン輪郭
         // （オーナー確定値 alpha 0.13。ダークは白・ライトは黒を薄く重ねる）。
