@@ -56,6 +56,7 @@ export const CAPTION_PANEL_CSS = `
 .akari-caption-panel-switch[data-akari-caption-panel-switch="style"]::before { transform:translateX(100%); }
 .akari-caption-panel-switch button { position:relative;border:0;background:transparent;padding:7px 4px;font-size:12px; }
 .akari-caption-panel-switch button[aria-selected="true"] { color:var(--akari-accent);font-weight:700; }
+.akari-caption-panel-switch button:disabled { color:var(--akari-muted);cursor:default; }
 .akari-caption-search { display:flex;gap:6px; }
 .akari-caption-search input { min-width:0;flex:1;padding:7px 8px;background:var(--akari-card);color:var(--akari-ink);border:1px solid var(--akari-line);border-radius:5px; }
 .akari-caption-search button,.akari-caption-add,.akari-caption-save { border:1px solid var(--akari-line);border-radius:5px;background:var(--akari-elevated);padding:6px 8px; }
@@ -165,7 +166,7 @@ function sampleCard(document: Document, id: string, name: string, raw: Record<st
 export function createCaptionPanel(document: Document, panel: CaptionPanel, state: CaptionPanelViewState,
     myStyles: readonly CaptionPanelMyStyle[], fontFaces: ReadonlyMap<string, string>, actions: CaptionPanelActions,
     presets: readonly CaptionPanelPreset[] = CAPTION_PANEL_STYLES,
-    currentSize = CAPTION_DEFAULT_SIZE_PX): HTMLElement {
+    currentSize = CAPTION_DEFAULT_SIZE_PX, allowStyle = true): HTMLElement {
     const root = document.createElement('div');
     root.className = 'akari-caption-panel';
     root.setAttribute('data-akari-caption-panel', panel);
@@ -179,6 +180,11 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
     for (const target of ['font', 'style'] as const) {
         const control = button(document, target === 'font' ? 'フォント' : 'スタイル', () => actions.switchTo(target));
         control.setAttribute('aria-selected', String(target === panel));
+        if (target === 'style' && !allowStyle) {
+            control.disabled = true;
+            control.setAttribute('aria-disabled', 'true');
+            control.title = '複数選択では使えません';
+        }
         switcher.append(control);
     }
     root.append(switcher);

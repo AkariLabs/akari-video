@@ -11,7 +11,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../../../../../../');
 const shell = path.join(repo, 'apps/shell');
 const mode = process.argv[2] || 'before';
-const review = mode === 'after-review';
+const fontReview = mode === 'after-r1';
+const review = mode === 'after-review' || fontReview;
 const workspace = path.join(os.tmpdir(), `akari-tl-inspector-multiselect-text-${mode}`);
 const project = path.join(workspace, 'project');
 const isoDir = path.join(workspace, 'profile');
@@ -48,6 +49,14 @@ try {
     session = await launch({ shellDir: shell,
         electron: path.join(shell, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'),
         project: projectReal, port: 9478, isoDir });
+    const capture = async name => {
+        if (fontReview) {
+            await session.cdp.send('Input.dispatchMouseEvent',
+                { type: 'mouseMoved', x: 22, y: 430, button: 'none' });
+            await sleep(800);
+        }
+        return screenshot(session.cdp, path.join(output, name));
+    };
     session.cdp.on('Runtime.exceptionThrown', p => errors.push(p.exceptionDetails?.text ?? 'exception'));
     if (!await evalOn(session.cdp, `document.querySelectorAll('.akari-annotations-strip-caption').length>0`)) {
         await evalOn(session.cdp, `(()=>{const d=window.theia.container._bindingDictionary;const C=[...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.executeCommand==='function');void window.theia.container.get(C).executeCommand('akari.annotations.open');return true})()`);
@@ -69,8 +78,18 @@ try {
         await sleep(400);
         return true;
     };
+    const sendMetaZ = async () => {
+        const key = { key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, modifiers: 4 };
+        await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
+        await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+    };
+    const activeElement = () => evalOn(session.cdp, `(()=>{const e=document.activeElement;return{tag:e?.tagName??null,className:typeof e?.className==='string'?e.className:'',type:e?.type??null,inFontPanel:!!e?.closest?.('[data-akari-caption-panel="font"]')}})()`);
+    const waitForHistory = () => waitEval(session.cdp, `(()=>{const e=[...document.querySelectorAll('button')].find(e=>e.title.includes('元に戻す (⌘Z)'));return !!e&&!e.disabled})()`,
+        { label: 'undo history ready', timeoutMs: 10000 });
     const singleFonts = [];
-    if (review) for (const [id, fontId] of [['c-0001', 'noto-serif-jp'], ['c-0002', 'klee-one']]) {
+    let singleKeyUndoInPanel = null;
+    if (review) for (const [id, fontId] of [['c-0001', 'noto-serif-jp'],
+        ['c-0002', fontReview ? 'biz-udgothic' : 'klee-one']]) {
         await click(id);
         await evalOn(session.cdp, command('akari.inspector.open'));
         await sleep(400);
@@ -78,15 +97,31 @@ try {
         if (button) await realClick(session.cdp, button.x, button.y);
         await sleep(300);
         const opened = await evalOn(session.cdp, `Boolean(document.querySelector('[data-akari-caption-panel="font"]'))`);
-        await screenshot(session.cdp, path.join(output, `font-${id}-panel.png`));
+        await capture(`font-${id}-panel.png`);
         let chosen = false;
+        const beforeFont = JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8'));
         if (opened) {
             await waitEval(session.cdp, `Boolean(document.querySelector('[data-akari-font-row="${fontId}"]'))`,
                 { label: `${fontId} font row`, timeoutMs: 30000 });
             chosen = await evalOn(session.cdp, `(()=>{const e=document.querySelector('[data-akari-font-row="${fontId}"] button:nth-of-type(2)');e?.click();return !!e})()`);
             await sleep(750);
         }
-        await screenshot(session.cdp, path.join(output, `font-${id}-applied.png`));
+        if (fontReview && id === 'c-0001' && chosen) {
+            await waitForHistory();
+            await evalOn(session.cdp, `document.querySelector('[data-akari-caption-panel="font"] [data-akari-font-search]')?.focus()`);
+            const focused = await activeElement();
+            await sendMetaZ();
+            await sleep(1000);
+            const afterKey = JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8'));
+            singleKeyUndoInPanel = { activeElement: focused,
+                restored: afterKey.captions[0].text_style?.font_family === beforeFont.captions[0].text_style?.font_family,
+                fontFamilies: afterKey.captions.map(cue => cue.text_style?.font_family ?? null) };
+            if (singleKeyUndoInPanel.restored) {
+                await evalOn(session.cdp, `document.querySelector('[data-akari-font-row="noto-serif-jp"] button:nth-of-type(2)')?.click()`);
+                await sleep(650);
+            }
+        }
+        await capture(`font-${id}-applied.png`);
         singleFonts.push({ id, fontId, opened, chosen,
             captions: JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8')),
             errorNotice: await evalOn(session.cdp, `document.body.innerText.includes('フォントパネルを開けませんでした')`) });
@@ -97,15 +132,81 @@ try {
     await evalOn(session.cdp, command('akari.inspector.open'));
     await sleep(500);
     const selection = await evalOn(session.cdp, `({tabs:[...document.querySelectorAll('.akari-inspector-tab')].map(x=>x.textContent?.trim()),fields:[...document.querySelectorAll('[data-akari-field]')].map(x=>x.getAttribute('data-akari-field')),selected:[...document.querySelectorAll('[data-akari-item-kind="caption"].is-selected')].map(x=>x.dataset.akariItemId)})`);
-    await screenshot(session.cdp, path.join(output, 'selected.png'));
+    await capture('selected.png');
+    if (fontReview) await evalOn(session.cdp, `(()=>{const seen=new WeakSet(),entries=[];const scan=()=>{for(const e of document.querySelectorAll('.theia-notification-list-item,.theia-notification-message,.akari-inspector-widget [role="alert"],.akari-inspector-widget [style*="--theia-errorForeground"]')){const item=e.closest('.theia-notification-list-item')||e,text=item.textContent?.trim()||'',markup=item.outerHTML.slice(0,500);if(text&&!seen.has(item)&&/error|warning|warn|失敗|できません|エラー|警告/iu.test(text+' '+markup)){seen.add(item);entries.push(text)}}};const observer=new MutationObserver(scan);observer.observe(document.body,{childList:true,subtree:true,characterData:true});window.__fontNoticeMeter={entries,scan,observer};scan();return true})()`);
     const fontButton = await evalOn(session.cdp, `(()=>{const e=document.querySelector('[data-akari-ui="action:inspector-caption-font-family"]');if(!e)return null;const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+    const primaryFontLabel = await evalOn(session.cdp, `document.querySelector('[data-akari-ui="action:inspector-caption-font-family"]')?.textContent?.trim() ?? null`);
     let font = { button: Boolean(fontButton) };
     if (fontButton) {
         await realClick(session.cdp, fontButton.x, fontButton.y);
         await sleep(700);
         font = await evalOn(session.cdp, `({panel:!!document.querySelector('.akari-caption-panel'),notice:[...document.querySelectorAll('[role="alert"],.theia-notification-list-item')].map(e=>e.textContent?.trim()).filter(Boolean).slice(-4)})`);
-        await screenshot(session.cdp, path.join(output, 'font.png'));
+        await capture('font.png');
     }
+    if (fontReview) {
+        await capture('font-multi-panel.png');
+        const opened = await evalOn(session.cdp, `Boolean(document.querySelector('[data-akari-caption-panel="font"]'))`);
+        const styleTab = await evalOn(session.cdp, `(()=>{const e=[...document.querySelectorAll('.akari-caption-panel-switch button')].find(e=>e.textContent?.trim()==='スタイル');return e?{disabled:e.disabled,ariaDisabled:e.getAttribute('aria-disabled'),title:e.title}:null})()`);
+        let chosen = false;
+        let fontHover = null;
+        if (opened) {
+            await waitEval(session.cdp, `Boolean(document.querySelector('[data-akari-font-row="klee-one"]'))`,
+                { label: 'Klee One font row', timeoutMs: 30000 });
+            const previewTab = await evalOn(session.cdp, `(()=>{const e=[...document.querySelectorAll('.lm-TabBar-tabLabel')].find(e=>e.textContent?.includes('出力プレビュー'));if(!e)return null;const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+            if (previewTab) await realClick(session.cdp, previewTab.x, previewTab.y);
+            const fontPreview = await view(9478);
+            const fontState = `([...document.querySelectorAll('.caption-row-plate')].map(p=>({id:p.id,font:getComputedStyle(p.querySelector('.akari-caption__line')||p).fontFamily})))`;
+            const before = await fontPreview.eval(fontState);
+            await evalOn(session.cdp, `(()=>{const e=document.querySelector('[data-akari-font-row="klee-one"] button:nth-of-type(2)');e?.dispatchEvent(new PointerEvent('pointerenter'));return !!e})()`);
+            await sleep(500);
+            const during = await fontPreview.eval(fontState);
+            await evalOn(session.cdp, `(()=>{const e=document.querySelector('[data-akari-font-row="klee-one"] button:nth-of-type(2)');e?.dispatchEvent(new PointerEvent('pointerleave'));return !!e})()`);
+            await sleep(160);
+            fontHover = { before, during, after: await fontPreview.eval(fontState) };
+            fontPreview.cdp.close();
+            chosen = await evalOn(session.cdp, `(()=>{const e=document.querySelector('[data-akari-font-row="klee-one"] button:nth-of-type(2)');e?.click();return !!e})()`);
+            await sleep(850);
+        }
+        const appliedCaptions = JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8'));
+        await capture('font-multi-applied.png');
+        await waitForHistory();
+        await evalOn(session.cdp, `document.querySelector('[data-akari-caption-panel="font"] [data-akari-font-search]')?.focus()`);
+        const multiFocused = await activeElement();
+        await sendMetaZ();
+        await sleep(1000);
+        const afterPanelKey = JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8'));
+        const baselineFamilies = singleFonts.at(-1).captions.captions.map(cue => cue.text_style?.font_family ?? null);
+        const multiKeyUndoInPanel = { activeElement: multiFocused,
+            restored: afterPanelKey.captions.every((cue, index) =>
+                (cue.text_style?.font_family ?? null) === baselineFamilies[index]),
+            fontFamilies: afterPanelKey.captions.map(cue => cue.text_style?.font_family ?? null) };
+        if (multiKeyUndoInPanel.restored) {
+            await evalOn(session.cdp, `document.querySelector('[data-akari-font-row="klee-one"] button:nth-of-type(2)')?.click()`);
+            await sleep(650);
+        }
+        await evalOn(session.cdp, command('akari.captionPanel.close'));
+        const selectedBefore = await evalOn(session.cdp, `([...document.querySelectorAll('[data-akari-item-kind="caption"].akari-annotations-caption-selected')].map(e=>e.getAttribute('data-akari-item-id')))`);
+        await evalOn(session.cdp, `document.querySelector('[data-akari-ui="action:inspector-caption-font-family"]')?.focus()`);
+        const outsideFocused = await activeElement();
+        await sendMetaZ();
+        await sleep(650);
+        const undoneCaptions = JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8'));
+        const selectedAfter = await evalOn(session.cdp, `([...document.querySelectorAll('[data-akari-item-kind="caption"].akari-annotations-caption-selected')].map(e=>e.getAttribute('data-akari-item-id')))`);
+        await capture('font-multi-undo.png');
+        const errorNotice = await evalOn(session.cdp, `document.body.innerText.includes('フォントパネルを開けませんでした')`);
+        const notificationDetails = await evalOn(session.cdp, `(()=>{const meter=window.__fontNoticeMeter;meter?.scan();meter?.observer.disconnect();return meter?.entries||[]})()`);
+        const keyUndo = { sent: { key: 'z', code: 'KeyZ', metaKey: true, modifiers: 4,
+            types: ['keyDown', 'keyUp'] }, activeElement: outsideFocused, selectedBefore, selectedAfter,
+            restored: undoneCaptions.captions.every((cue, index) =>
+                (cue.text_style?.font_family ?? null) === baselineFamilies[index]),
+            fontFamilies: undoneCaptions.captions.map(cue => cue.text_style?.font_family ?? null) };
+        await writeFile(path.join(output, 'results.json'), `${JSON.stringify({ chips, selection, singleFonts,
+            singleKeyUndoInPanel, multiKeyUndoInPanel, keyUndo,
+            primaryFontLabel, multiFont: { opened, styleTab, chosen, appliedCaptions,
+                undoneCaptions,
+                errorNotice, errorNotifications: notificationDetails.length,
+                notificationDetails, fontHover }, errors }, null, 2)}\n`);
+    } else {
     const previewTab = await evalOn(session.cdp, `(()=>{const e=[...document.querySelectorAll('.lm-TabBar-tabLabel')].find(e=>e.textContent?.includes('出力プレビュー'));if(!e)return null;const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
     if (previewTab) await realClick(session.cdp, previewTab.x, previewTab.y);
     const preview = await view(9478);
@@ -122,13 +223,13 @@ try {
         await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: effectPoint.x, y: effectPoint.y, button: 'none' });
         await sleep(180);
         hover = await preview.eval(plateState);
-        await screenshot(session.cdp, path.join(output, 'hover.png'));
+        await capture('hover.png');
         await preview.eval(`(window.__captionFrameSamples=[],window.__captionFrameSampler=(n=>{let last=performance.now();const tick=()=>{const now=performance.now();window.__captionFrameSamples.push({dt:now-last,plates:${plateState},model:${modelState}});last=now;if(window.__captionFrameSamples.length<n)requestAnimationFrame(tick)};requestAnimationFrame(tick)}),window.__captionFrameSampler(30),true)`);
         await realClick(session.cdp, effectPoint.x, effectPoint.y);
         await sleep(1000);
         applied = { captions: JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8')),
             frames: await preview.eval('window.__captionFrameSamples'), plates: await preview.eval(plateState) };
-        await screenshot(session.cdp, path.join(output, 'outline.png'));
+        await capture('outline.png');
         const gradientPoint = await cardPoint('fill-sunset');
         if (gradientPoint) {
             await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: gradientPoint.x, y: gradientPoint.y, button: 'none' });
@@ -138,7 +239,7 @@ try {
             await sleep(1000);
             gradient = { captions: JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8')),
                 frames: await preview.eval('window.__captionFrameSamples'), plates: await preview.eval(plateState) };
-            await screenshot(session.cdp, path.join(output, 'gradient.png'));
+            await capture('gradient.png');
         }
     }
     const playbackAfter = gradient ? await samplePlayback() : null;
@@ -165,7 +266,7 @@ try {
             await sleep(800);
             shadow = { captions: JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8')),
                 plates: await preview.eval(plateState) };
-            await screenshot(session.cdp, path.join(output, 'shadow.png'));
+            await capture('shadow.png');
             const clicked = await historyButton('元に戻す (⌘Z)');
             await sleep(500);
             undoShadow = { clicked, captions: JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8')) };
@@ -182,7 +283,7 @@ try {
     }
     const motion = { cards: motionCards, fade: fade?.id ?? null,
         captions: JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8')) };
-    await screenshot(session.cdp, path.join(output, 'motion.png'));
+    await capture('motion.png');
     const undoMotionClicked = fade ? await historyButton('元に戻す (⌘Z)') : false;
     await sleep(500);
     const undoMotion = { clicked: undoMotionClicked,
@@ -198,6 +299,7 @@ try {
         playbackBefore, playbackAfter,
         undoEffect, redoEffect, motion, undoMotion, info, errors,
         captions: JSON.parse(await readFile(path.join(project, 'captions.json'), 'utf8')) }, null, 2)}\n`);
+    }
 } finally {
     session?.cdp.close();
     if (session?.pid) {

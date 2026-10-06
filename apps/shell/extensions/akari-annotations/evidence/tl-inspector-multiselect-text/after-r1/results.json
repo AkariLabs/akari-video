@@ -1,0 +1,346 @@
+{
+  "chips": [
+    {
+      "id": "c-0001",
+      "text": "話した言葉",
+      "rect": {
+        "x": 553.890625,
+        "y": 722.890625,
+        "width": 85.234375,
+        "height": 22
+      }
+    },
+    {
+      "id": "c-0002",
+      "text": "置いた文字",
+      "rect": {
+        "x": 553.890625,
+        "y": 696.890625,
+        "width": 85.234375,
+        "height": 22
+      }
+    }
+  ],
+  "selection": {
+    "tabs": [
+      "テキスト",
+      "動き",
+      "情報"
+    ],
+    "fields": [
+      "caption-multi-count",
+      "caption-font-family",
+      "caption-color",
+      "caption-size",
+      "caption-wrap-width",
+      "caption-font-weight",
+      "caption-line-height",
+      "caption-letter-spacing",
+      "caption-stroke-color",
+      "caption-stroke-width",
+      "caption-style-bg-enabled",
+      "caption-background-mode",
+      "caption-background-color",
+      "caption-background-opacity",
+      "caption-background-padding",
+      "caption-background-radius",
+      "caption-style-effect",
+      "caption-zone"
+    ],
+    "selected": []
+  },
+  "singleFonts": [
+    {
+      "id": "c-0001",
+      "fontId": "noto-serif-jp",
+      "opened": true,
+      "chosen": true,
+      "captions": {
+        "default_text_style": {
+          "zone": "bottom"
+        },
+        "captions": [
+          {
+            "id": "c-0001",
+            "start": 3,
+            "end": 6,
+            "text": "話した言葉",
+            "speaker": null,
+            "sourceRef": null,
+            "edited": false,
+            "src": "a",
+            "time_domain": "source",
+            "text_style": {
+              "animation": {
+                "out": {
+                  "id": "fade-in-out"
+                }
+              },
+              "font_family": "Noto Serif JP"
+            }
+          },
+          {
+            "id": "c-0002",
+            "start": 3,
+            "end": 6,
+            "text": "置いた文字",
+            "speaker": null,
+            "sourceRef": null,
+            "edited": true,
+            "time_domain": "output",
+            "text_style": {
+              "animation": {
+                "out": {
+                  "id": "slide-left"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "errorNotice": false
+    },
+    {
+      "id": "c-0002",
+      "fontId": "biz-udgothic",
+      "opened": true,
+      "chosen": true,
+      "captions": {
+        "default_text_style": {
+          "zone": "bottom"
+        },
+        "captions": [
+          {
+            "id": "c-0001",
+            "start": 3,
+            "end": 6,
+            "text": "話した言葉",
+            "speaker": null,
+            "sourceRef": null,
+            "edited": false,
+            "src": "a",
+            "time_domain": "source",
+            "text_style": {
+              "animation": {
+                "out": {
+                  "id": "fade-in-out"
+                }
+              },
+              "font_family": "Noto Serif JP"
+            }
+          },
+          {
+            "id": "c-0002",
+            "start": 3,
+            "end": 6,
+            "text": "置いた文字",
+            "speaker": null,
+            "sourceRef": null,
+            "edited": true,
+            "time_domain": "output",
+            "text_style": {
+              "animation": {
+                "out": {
+                  "id": "slide-left"
+                }
+              },
+              "font_family": "BIZ UDGothic"
+            }
+          }
+        ]
+      },
+      "errorNotice": false
+    }
+  ],
+  "singleKeyUndoInPanel": {
+    "activeElement": {
+      "tag": "INPUT",
+      "className": "",
+      "type": "search",
+      "inFontPanel": true
+    },
+    "restored": false,
+    "fontFamilies": [
+      "Noto Serif JP",
+      null
+    ]
+  },
+  "multiKeyUndoInPanel": {
+    "activeElement": {
+      "tag": "INPUT",
+      "className": "",
+      "type": "search",
+      "inFontPanel": true
+    },
+    "restored": false,
+    "fontFamilies": [
+      "Klee One",
+      "Klee One"
+    ]
+  },
+  "keyUndo": {
+    "sent": {
+      "key": "z",
+      "code": "KeyZ",
+      "metaKey": true,
+      "modifiers": 4,
+      "types": [
+        "keyDown",
+        "keyUp"
+      ]
+    },
+    "activeElement": {
+      "tag": "BUTTON",
+      "className": "akari-inspector-row-input",
+      "type": "button",
+      "inFontPanel": false
+    },
+    "selectedBefore": [
+      "c-0001",
+      "c-0002"
+    ],
+    "selectedAfter": [
+      "c-0001",
+      "c-0002"
+    ],
+    "restored": true,
+    "fontFamilies": [
+      "Noto Serif JP",
+      "BIZ UDGothic"
+    ]
+  },
+  "primaryFontLabel": "Noto Serif JP  ›",
+  "multiFont": {
+    "opened": true,
+    "styleTab": {
+      "disabled": true,
+      "ariaDisabled": "true",
+      "title": "複数選択では使えません"
+    },
+    "chosen": true,
+    "appliedCaptions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "animation": {
+              "out": {
+                "id": "fade-in-out"
+              }
+            },
+            "font_family": "Klee One"
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "animation": {
+              "out": {
+                "id": "slide-left"
+              }
+            },
+            "font_family": "Klee One"
+          }
+        }
+      ]
+    },
+    "undoneCaptions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "animation": {
+              "out": {
+                "id": "fade-in-out"
+              }
+            },
+            "font_family": "Noto Serif JP"
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "animation": {
+              "out": {
+                "id": "slide-left"
+              }
+            },
+            "font_family": "BIZ UDGothic"
+          }
+        }
+      ]
+    },
+    "errorNotice": false,
+    "errorNotifications": 0,
+    "notificationDetails": [],
+    "fontHover": {
+      "before": [
+        {
+          "id": "caption-plate-c-0001-output-1",
+          "font": "\"Noto Serif JP\""
+        },
+        {
+          "id": "caption-plate-c-0002",
+          "font": "\"BIZ UDGothic\""
+        }
+      ],
+      "during": [
+        {
+          "id": "caption-plate-c-0001-output-1",
+          "font": "\"Klee One\""
+        },
+        {
+          "id": "caption-plate-c-0002",
+          "font": "\"Klee One\""
+        }
+      ],
+      "after": [
+        {
+          "id": "caption-plate-c-0001-output-1",
+          "font": "\"Noto Serif JP\""
+        },
+        {
+          "id": "caption-plate-c-0002",
+          "font": "\"BIZ UDGothic\""
+        }
+      ]
+    }
+  },
+  "errors": []
+}

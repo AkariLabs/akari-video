@@ -198,6 +198,22 @@ test('複数選択の登場だけを 1 履歴で書き、各自の退場を保�
   assert.equal(result.writes[1].captionsSource, source);
 });
 
+test('複数フォントを 1 書き込み・1 履歴で保存し、Undo で両方戻す', async () => {
+  const captions = [caption('spoken'), caption('placed')];
+  const source = JSON.stringify({ captions: [
+    { id: 'spoken', start: 0, end: 1, text: '字幕' },
+    { id: 'placed', start: 0, end: 1, text: '文字', time_domain: 'output' }
+  ] });
+  const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
+  const result = await invoke('caption-style-effect', { fontFamily: 'Klee One', fontWeight: 700, weight: 700 },
+    captions, targets, source);
+  assert.equal(result.writes.length, 1);
+  assert.deepEqual(JSON.parse(result.writes[0].captionsSource).captions.map(row => row.text_style.font_family),
+    ['Klee One', 'Klee One']);
+  await result.history[0].undo();
+  assert.equal(result.writes[1].captionsSource.includes('Klee One'), false);
+});
+
 test('効果音部品は captions と edit を 1 書き込み・undo 1 回で復元する', async () => {
   const captions = [caption('c-0001')];
   const source = JSON.stringify([{ id: 'c-0001', start: 2, end: 3, text: '字幕', speaker: null,

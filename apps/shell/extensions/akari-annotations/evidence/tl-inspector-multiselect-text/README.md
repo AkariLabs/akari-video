@@ -27,3 +27,11 @@ BEFORE の動きカードなしは旧セクション構成の読解で確認し�
 単独選択では字幕のフォントパネルを開いて `Noto Serif JP`、文字のフォントパネルを開いて `Klee One` を選べた。各操作は選んだ 1 件の `font_family` だけを更新し、エラー通知は 0。画像は `after-review/font-c-0001-panel.png`、`font-c-0001-applied.png`、`font-c-0002-panel.png`、`font-c-0002-applied.png`、`shadow.png`、`motion.png`。
 
 再計測した縁ホバーは両方 12px、縁確定は 30/30 フレームで両方 12px、塗りは 30/30 フレームで両方に表示。再生中 fps は塗り前 60.24、塗り後 59.88（差 0.6%）。最大フレーム間隔は塗り確定中 30.4ms。
+
+## r1: 複数選択のフォント
+
+`after-r1/results.json` と同ディレクトリの画像で、字幕 `c-0001` と文字 `c-0002` の Shift 選択を確認した。単独の回帰確認ではそれぞれ `Noto Serif JP` と `BIZ UDGothic` を 1 件ずつ保存でき、通知は 0。複数選択の「フォント」を押すとパネルが開き、表示は先頭の `Noto Serif JP`。`Klee One` を選ぶと両件の `text_style.font_family` が `Klee One` になった。
+
+フォント検索欄 `INPUT[type=search]` にフォーカスしたまま CDP で ⌘Z（`metaKey=true`、`modifiers=4`）を 1 回送ると、単独選択・複数選択とも保存値は戻らなかった。これは既存の入力欄の挙動として記録した。複数選択を保ったままパネルを閉じ、インスペクタのフォントボタン `BUTTON` にフォーカスして同じ ⌘Z を 1 回送ると、両件が `Noto Serif JP` / `BIZ UDGothic` に戻った。操作中のエラー／警告通知 `errorNotifications=0`、JavaScript 例外 0。
+
+フォント行のホバー中、プレビューの計算済み `font-family` は `Noto Serif JP` / `BIZ UDGothic` から両方 `Klee One` へ変化し、外すとそれぞれ元に戻った。スクリーンショットは `after-r1/font-multi-panel.png`、`font-multi-applied.png`、`font-multi-undo.png` と各単独選択の `font-c-0001-*.png` / `font-c-0002-*.png`。複数選択の「スタイル」切替は disabled・`aria-disabled=true` とし、理由を title で表示した。単独選択の切替は従来どおり。
