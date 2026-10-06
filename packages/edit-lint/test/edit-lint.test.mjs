@@ -942,6 +942,9 @@ test('display policy karaoke default and row style pass edit-lint while pop rema
     await writeFile(captionsPath, `${JSON.stringify(root)}\n`, 'utf8');
     const accepted = run(project);
     assert.equal(accepted.status, 0, accepted.stderr || accepted.stdout);
+    await writeFile(captionsPath, `${JSON.stringify({ ...root, captions: [{ ...base, style: 'plain' }] })}\n`, 'utf8');
+    const plain = run(project);
+    assert.equal(plain.status, 0, plain.stderr || plain.stdout);
     await writeFile(captionsPath, `${JSON.stringify({ ...root, captions: [{ ...base, style: 'pop' }] })}\n`, 'utf8');
     const rejected = run(project);
     assert.equal(rejected.status, 1);

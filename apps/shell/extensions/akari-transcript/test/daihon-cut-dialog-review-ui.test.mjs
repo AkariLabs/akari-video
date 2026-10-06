@@ -56,6 +56,8 @@ function setup() {
   dialog.node.append(dialog.steps, dialog.body, dialog.foot);
   dialog.state = initialDaihonCutReview(); dialog.state.step = 1; dialog.state.kinds.redo = true;
   dialog.state.currentId = 'f'; dialog.candidates = candidates;
+  dialog.sourceNames = []; dialog.videoDuration = 2;
+  dialog.outputTime = (_candidate, seconds) => seconds;
   dialog.context = candidate => ['', candidate.text, 'の続き'];
   dialog.preview = (...args) => dialog.previewCalls.push(args);
   dialog.previewCalls = []; dialog.busy = false; dialog.renderDone = () => {};

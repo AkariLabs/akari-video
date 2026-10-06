@@ -43,7 +43,8 @@ projection digest, and its immutable render receipt references the file and summ
 Captions with `time_domain: "output"` (placed text) are exempt from overlap and order checks; any number may share the same time (2026-09-22 decision). Source-domain captions retain their per-source checks.
 
 2026-10-06 amendment: `display_policy.word_style` is the global word display default (`none` when
-omitted, or `karaoke`). An explicit `captions[].style: "karaoke"` takes priority over that default.
+omitted, or `karaoke`). An explicit `captions[].style: "karaoke"` or `"plain"` takes priority over
+that default; `plain` restores ordinary display for one row under a global karaoke policy.
 Under `display_policy`, `pop`, `reveal`, and `reveal-word` remain `STYLE_CONFLICT` errors, while any
 unknown style is `INVALID_CAPTION`. Karaoke uses measured `words[]` projected into each resolved
 fragment. Missing words or synthetic timing fall back to ordinary text. Without `display_policy`,

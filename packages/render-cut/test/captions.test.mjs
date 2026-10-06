@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { mkdir, mkdtemp, rm, rmdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
@@ -12,9 +15,110 @@ import {
   renderStyledCaptionFragment,
   sourceRangeToTimeline,
 } from "../src/captions.mjs";
+import { resolveCaptionPlan } from "../src/caption-resolve.mjs";
+import { readRenderEdit } from "../src/internal-render.mjs";
+import { loadCaptions } from "../src/render-cut.mjs";
 
 const require = createRequire(import.meta.url);
-const { TEXTSTYLE_CATALOG } = require('../../edit-store/lib/index.js');
+const { TEXTSTYLE_CATALOG, buildCaptionTimelineSegments, normalizeCaptionClock,
+  splitCutAudio, applyCutRanges } = require('../../edit-store/lib/index.js');
+const { buildDaihonRows } = require('../../../apps/shell/extensions/akari-transcript/lib/common/daihon-row-model.js');
+const { deriveDaihonCutSpans } = require('../../../apps/shell/extensions/akari-transcript/lib/common/daihon-cut-spans.js');
+
+test('split audio followed by a filler cut keeps the word struck and export overlays separate', () => {
+  const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4' }], tracks: [{ id: 'video', lane: 'visual', items: [
+      { id: 'clip', at: 0, duration: 300, source: { kind: 'media', src: 'main', in: 0, out: 10 } }
+    ] }] };
+  const split = splitCutAudio(doc, { cutId: 'clip', hasAudio: true }).document;
+  const source = applyCutRanges(JSON.stringify(split), [
+    { in: 3, out: 3.5, kind: 'filler', captionId: 'main', label: 'えー' }
+  ]).source;
+  const render = readRenderEdit(source, '/unused/render-tmp', { projectRoot: '/unused' });
+  const caption = { id: 'row', src: 'main', start: 2, end: 5, text: '今日はえー本題',
+    words: [{ text: '今日は', start: 2, end: 3 },
+      { text: 'えー', start: 3, end: 3.5 }, { text: '本題', start: 3.5, end: 5 }] };
+  const segments = buildCaptionTimelineSegments(render.edit.cuts, render.internal, { fps: 30 });
+  assert.equal(segments.filter(segment => segment.kind === 'src' && segment.cutIndex === null).length, 0);
+  const rows = buildDaihonRows([caption], segments, 30);
+  const spans = deriveDaihonCutSpans(rows, [], segments, 30);
+  assert.deepEqual(spans.filter(span => span.kind === 'word').map(span => span.index), [1]);
+  const clock = normalizeCaptionClock([{ ...caption, clockDomain: 'source', clockSourceId: 'main' }], segments);
+  assert.deepEqual(clock.map(cue => cue.text), ['今日は本題', '今日は本題']);
+  const overlays = generateCaptionOverlays([caption], render.edit.cuts,
+    { edit: render.edit, output: render.edit.output });
+  assert.equal(overlays.length, 2);
+  assert.ok(overlays.every(overlay => overlay.html.includes('今日は本題') && !overlay.html.includes('えー')));
+  assert.ok(overlays[0].start + overlays[0].duration <= overlays[1].start);
+});
+
+test('real v2 voice items give identical preview and export times with and without display policy', async () => {
+  const tempRoot = fileURLToPath(new URL('../../../.tmp-lane/', import.meta.url));
+  await mkdir(tempRoot, { recursive: true });
+  const project = await mkdtemp(join(tempRoot, 'voice-captions-'));
+  try {
+    const edit = { version: 2, output: { width: 1920, height: 1080, fps: 30 },
+      sources: [{ id: 'take', path: 'take.mp4' }, { id: 'mic', path: 'mic.wav' }],
+      tracks: [{ id: 'video', lane: 'visual', items: [{ id: 'take-1', at: 0, duration: 150,
+        source: { kind: 'media', src: 'take', in: 0, out: 5 } }] },
+      { id: 'voice', lane: 'audio', items: [{ id: 'mic-1', role: 'speech', at: 60, duration: 90,
+        source: { kind: 'media', src: 'mic', in: 0, out: 3 } }] }] };
+    const rows = [[0.2, 0.8], [1.4, 2], [2.7, 3]].map(([start, end], index) =>
+      ({ id: `mic-${index}`, src: 'mic', start, end, time_domain: 'source',
+        text: '声', words: [{ text: '声', start, end }] }));
+    const render = readRenderEdit(JSON.stringify(edit), join(project, '.akari', 'render-tmp'),
+      { projectRoot: project });
+    const segments = buildCaptionTimelineSegments(render.edit.cuts, render.internal, { fps: 30 });
+    const preview = normalizeCaptionClock(rows.map(row => ({ ...row,
+      clockDomain: 'source', clockSourceId: row.src })), segments)
+      .map(row => [row.start, row.end]);
+    assert.deepEqual(preview.map(([start]) => +start.toFixed(6)), [2.2, 3.4, 4.7]);
+    for (const policy of [false, true]) {
+      const captionsRoot = policy ? { display_policy: {
+        mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+        unit_metric: 'ascii-half-other-one-v1', max_line_units: 20,
+        minimum_fragment_duration_seconds: 0.1, locale: 'ja'
+      }, captions: rows } : { captions: rows };
+      await writeFile(join(project, 'captions.json'), `${JSON.stringify(captionsRoot)}\n`, 'utf8');
+      const plan = await loadCaptions(project, render.edit);
+      assert.deepEqual(plan.overlays.map(overlay => [overlay.start, overlay.start + overlay.duration]
+        .map(value => +value.toFixed(6))), preview.map(range => range.map(value => +value.toFixed(6))),
+      `display_policy=${policy}`);
+    }
+  } finally {
+    await rm(project, { recursive: true, force: true });
+    await rmdir(tempRoot).catch(error => { if (error.code !== 'ENOTEMPTY') throw error; });
+  }
+});
+
+test('removed filler is absent from exported caption text and returns with the source range', () => {
+  const cue = { id: 'c-filler', src: 'main', start: 0, end: 2, text: 'えー、本題',
+    words: [{ text: 'えー、', start: 0, end: 0.5 }, { text: '本題', start: 0.5, end: 2 }] };
+  const removed = generateCaptionOverlays([cue], [{ src: 'main', in: 0.5, out: 2 }]);
+  assert.equal(removed.length, 1);
+  assert.doesNotMatch(removed[0].html, /えー、/u);
+  assert.match(removed[0].html, /本題/u);
+  const restored = generateCaptionOverlays([cue], [{ src: 'main', in: 0, out: 2 }]);
+  assert.match(restored[0].html, /えー、/u);
+});
+
+test('the shared export plan places an audio-source cue at the voice item time', () => {
+  const captionsRoot = { display_policy: {
+    mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+    unit_metric: 'ascii-half-other-one-v1', max_line_units: 20,
+    minimum_fragment_duration_seconds: 0.1, locale: 'ja'
+  }, captions: [{ id: 'mic-row', src: 'mic', start: 0, end: 1,
+    time_domain: 'source', text: '声', words: [{ text: '声', start: 0, end: 1 }] }] };
+  const edit = { version: 1, output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'take', path: 'take.mp4' }, { id: 'mic', path: 'mic.wav' }],
+    cuts: [{ src: 'take', in: 0, out: 5, at: 0 }],
+    tracks: [{ lane: 'audio', items: [{ role: 'speech', at: 60, duration: 90,
+      source: { kind: 'media', src: 'mic', in: 0, out: 3 } }] }] };
+  const plan = resolveCaptionPlan({ captionsRoot, edit });
+  assert.deepEqual(plan.layout.display_cues.map(cue => [cue.start, cue.end, cue.text]),
+    [[2, 3, '声']]);
+  assert.deepEqual(plan.overlays.map(overlay => [overlay.start, overlay.duration]), [[2, 1]]);
+});
 
 test('speech-tight は overlay を words の発話窓だけにし、省略時は従来窓を保つ', () => {
   const base = {

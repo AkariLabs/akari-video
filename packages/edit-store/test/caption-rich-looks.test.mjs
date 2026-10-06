@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../lib/caption-store.js';
@@ -23,7 +24,7 @@ function runValidator(style) {
   try {
     const file = join(dir, 'captions.json');
     writeFileSync(file, JSON.stringify({ captions: [cue(style)] }));
-    return spawnSync(process.execPath, [new URL('../../schemas/bin/validate-captions.mjs', import.meta.url).pathname, file],
+    return spawnSync(process.execPath, [fileURLToPath(new URL('../../schemas/bin/validate-captions.mjs', import.meta.url)), file],
       { encoding: 'utf8' });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }

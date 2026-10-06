@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,9 @@ import test from "node:test";
 import { buildOsrPage } from "../../osr-export/src/page-builder.mjs";
 import { resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
 import { buildGpuPage, loadAndBuildGpuPage } from "../src/page-builder.mjs";
+
+const { buildCaptionTimelineSegments, normalizeCaptionClock } = createRequire(import.meta.url)(
+  '../../edit-store/lib/index.js');
 
 // captions.json の display_policy（1 行ずつ順送り）は edit-store の resolveCaptionDisplay が唯一の解決器。
 // 書き出しが display_policy を通さず generateCaptionOverlays で字幕を焼き直すと、
@@ -43,6 +47,87 @@ const buildArgs = captions => ({
 });
 const gpuPage = captions => buildGpuPage({ ...buildArgs(captions), slotParamsRuntime: "", itemKeyframesRuntime: "" });
 const captionLines = html => (String(html).match(/<p class="akari-caption__line">/gu) ?? []).length;
+
+test('preview, render, GPU, and OSR agree on removed and restored filler text in both policies', () => {
+  const cue = { id: 'filler', src: 'main', start: 0, end: 2, time_domain: 'source',
+    text: 'えー、本題', words: [{ text: 'えー、', start: 0, end: 0.5 },
+      { text: '本題', start: 0.5, end: 2 }] };
+  const visibleText = html => [...String(html).matchAll(/<p class="akari-caption__line"[^>]*>([\s\S]*?)<\/p>/gu)]
+    .map(([, body]) => body.replace(/<[^>]*>/gu, '')).join('');
+  for (const policy of [false, true]) {
+    const captions = policy ? { display_policy: { ...displayPolicy, max_line_units: 20 }, captions: [cue] }
+      : { captions: [cue] };
+    for (const restored of [false, true]) {
+      const cuts = [{ id: 'cut', src: 'main', in: restored ? 0 : 0.5, out: 2, at: 0 }];
+      const candidateEdit = { ...edit, cuts };
+      const preview = normalizeCaptionClock([{ ...cue, clockDomain: 'source', clockSourceId: 'main' }],
+        buildCaptionTimelineSegments(cuts)).map(row => row.text);
+      const render = resolveCaptionPlan({ captionsRoot: captions, edit: candidateEdit });
+      const args = { ...buildArgs(captions), edit: candidateEdit };
+      const gpu = buildGpuPage({ ...args, slotParamsRuntime: '', itemKeyframesRuntime: '' });
+      const osr = buildOsrPage(args);
+      const texts = [preview.join(''), render.overlays.map(overlay => visibleText(overlay.html)).join(''),
+        gpu.spriteManifest.captions.map(sprite => visibleText(sprite.html)).join(''),
+        visibleText(osr.overlaySheetHtml)];
+      assert.deepEqual(texts, Array(4).fill(restored ? 'えー、本題' : '本題'),
+        `display_policy=${policy}, restored=${restored}`);
+    }
+  }
+});
+
+test('all four paths keep the full surviving sentence on both sides of a middle word cut', () => {
+  const cue = { id: 'middle', src: 'main', start: 0, end: 3, time_domain: 'source',
+    text: '今日は、えー、本題', words: [
+      { text: '今日は、', start: 0, end: 1 },
+      { text: 'えー、', start: 1, end: 2 },
+      { text: '本題', start: 2, end: 3 }
+    ] };
+  const cuts = [{ id: 'before', src: 'main', in: 0, out: 1, at: 0 },
+    { id: 'after', src: 'main', in: 2, out: 3, at: 1 }];
+  const visible = html => [...String(html).matchAll(/<p class="akari-caption__line"[^>]*>([\s\S]*?)<\/p>/gu)]
+    .map(([, body]) => body.replace(/<[^>]*>/gu, '')).join('');
+  for (const policy of [false, true]) {
+    const captions = policy ? { display_policy: { ...displayPolicy, max_line_units: 20 }, captions: [cue] }
+      : { captions: [cue] };
+    const candidateEdit = { ...edit, cuts };
+    const preview = normalizeCaptionClock([{ ...cue, clockDomain: 'source', clockSourceId: 'main' }],
+      buildCaptionTimelineSegments(cuts)).map(row => row.text);
+    const render = resolveCaptionPlan({ captionsRoot: captions, edit: candidateEdit });
+    const args = { ...buildArgs(captions), edit: candidateEdit };
+    const gpu = buildGpuPage({ ...args, slotParamsRuntime: '', itemKeyframesRuntime: '' });
+    const osr = buildOsrPage(args);
+    const texts = [preview,
+      render.overlays.map(overlay => visible(overlay.html)),
+      gpu.spriteManifest.captions.map(sprite => visible(sprite.html)),
+      [...osr.overlaySheetHtml.matchAll(/<p class="akari-caption__line"[^>]*>([\s\S]*?)<\/p>/gu)]
+        .map(([, body]) => body.replace(/<[^>]*>/gu, ''))];
+    for (const path of texts) assert.deepEqual(path, ['今日は、本題', '今日は、本題'],
+      `display_policy=${policy}`);
+  }
+});
+
+test('global karaoke allows a plain row in the preview plan and every export path', () => {
+  const captions = { display_policy: { ...displayPolicy, max_line_units: 20, word_style: 'karaoke' },
+    captions: [
+      { id: 'plain', src: 'main', start: 0, end: 1, text: '通常', style: 'plain',
+        words: [{ text: '通常', start: 0, end: 1 }] },
+      { id: 'sing', src: 'main', start: 1, end: 2, text: '歌う',
+        words: [{ text: '歌う', start: 1, end: 2 }] },
+    ] };
+  const candidateEdit = { ...edit, cuts: [{ id: 'cut', src: 'main', in: 0, out: 2, at: 0 }] };
+  const preview = resolveCaptionPlan({ captionsRoot: captions, edit: candidateEdit });
+  assert.deepEqual(preview.layout.display_cues.map(cue => [cue.source_cue_id, cue.style]),
+    [['plain', undefined], ['sing', 'karaoke']]);
+  const args = { ...buildArgs(captions), edit: candidateEdit };
+  const gpu = buildGpuPage({ ...args, slotParamsRuntime: '', itemKeyframesRuntime: '' });
+  const osr = buildOsrPage(args);
+  for (const html of [preview.overlays.map(overlay => overlay.html).join(''),
+    gpu.spriteManifest.captions.map(sprite => sprite.html).join(''), osr.overlaySheetHtml]) {
+    assert.doesNotMatch(html, /akari-caption__tok--karaoke[^>]*>通常/u);
+    assert.match(html, /akari-caption__tok--karaoke[^>]*>歌う/u);
+    assert.equal((html.match(/akari-caption__tok--karaoke"/gu) ?? []).length, 1);
+  }
+});
 
 test('rich caption metadata reaches GPU fallback and v0 manifest stays unchanged', async () => {
   const richStyle = { size_px: 86, reference_height_px: 1080,

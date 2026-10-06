@@ -135,6 +135,7 @@ export function resolveCaptionPlan({
   // cuts が無い edit でも落ちないよう ?? [] は残す（render-cut では常に配列なので no-op、
   // gpu-export / osr-export の従来挙動と一致する）。
   const overlays = generateCaptionOverlays(captions, edit.cuts ?? [], {
+    edit,
     emphasisWords: legacyEmphasisWords,
     defaultTextStyle: legacyDefaultTextStyle,
     output: styleOutput,

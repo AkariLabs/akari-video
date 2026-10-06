@@ -162,8 +162,8 @@ export declare function validateCaptionDisplayPolicy(value: unknown): CaptionDis
 /** Read and write the global word display default without changing the caption shape. */
 export declare function getCaptionDisplayWordStyle(root: unknown): 'none' | 'karaoke';
 export declare function setCaptionDisplayWordStyle(root: unknown, style: 'none' | 'karaoke'): UnknownRecord;
-/** An explicit row karaoke style wins over the global default; null restores inheritance. */
-export declare function setCaptionDisplayRowStyle(root: unknown, id: string, style: 'karaoke' | null): UnknownRecord;
+/** An explicit row style overrides the global default; null restores inheritance. */
+export declare function setCaptionDisplayRowStyle(root: unknown, id: string, style: 'karaoke' | 'plain' | null): UnknownRecord;
 export declare function resolveCaptionDisplay(captionsRoot: unknown, edit: UnknownRecord, options?: {
     output?: {
         width: number;

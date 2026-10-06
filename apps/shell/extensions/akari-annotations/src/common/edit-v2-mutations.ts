@@ -945,8 +945,14 @@ export function splitItem(
 
     const first = cloneValue(found.item);
     const second = cloneValue(found.item);
+    // A timeline split is not another daihon cut. The new half must not inherit
+    // a cut mark that describes the original item's surviving edge.
+    delete second.reason;
+    delete second.label;
     first.duration = offset;
-    second.id = nextItemId(tracks, `${options.itemId}-split`);
+    // Keep timeline splits in a separate id family from daihon cut splits.
+    // A deleted item's appearance cannot be reconstructed across this boundary.
+    second.id = nextItemId(tracks, `${options.itemId}-timeline-split`);
     second.at = options.atFrames;
     second.duration = duration - offset;
     if (isRecord(first.source) && isRecord(second.source)

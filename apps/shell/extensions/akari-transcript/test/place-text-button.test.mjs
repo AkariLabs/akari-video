@@ -12,19 +12,19 @@ const { ast: source, node: method } = findMember('placeTextFromSelection', { in:
 const code = ts.transpileModule(`class Widget { ${method.getText(source)} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Widget = new Function('PLACE_TEXT_COMMAND_ID', `${code}; return Widget;`)(PLACE_TEXT_COMMAND_ID);
 function fixture(selected = []) {
-    const calls = [], events = [], notices = [];
+    const calls = [], events = [], notices = [], errors = [];
     const widget = Object.assign(new Widget(), {
         editUri: { toString: () => 'file:///project/edit.json' }, selection: { selected },
         rows: [
             { id: 'a', outStart: 1, outEnd: 3 }, { id: 'cut', outStart: null, outEnd: null },
             { id: 'b', outStart: 5, outEnd: 8 }
         ],
-        placeTextButton: { disabled: false },
         commands: { async executeCommand(...args) { calls.push(args); return 'c-0010'; } },
         async reload() { events.push('reload'); }, selectPlacedText: id => events.push(id),
-        notify: message => notices.push(message), errorMessage: error => error.message
+        notify: message => notices.push(message), notifyError: message => { notices.push(message); errors.push(message); },
+        errorMessage: error => error.message
     });
-    return { widget, calls, events, notices };
+    return { widget, calls, events, notices, errors };
 }
 
 test('two selected rows pass their output span, independent of click order and cut rows', async () => {
@@ -32,7 +32,7 @@ test('two selected rows pass their output span, independent of click order and c
     await f.widget.placeTextFromSelection();
     assert.deepEqual(f.calls, [[PLACE_TEXT_COMMAND_ID, { start: 1, end: 8 }, 'file:///project/edit.json']]);
     assert.deepEqual(f.events, ['reload', 'c-0010']);
-    assert.equal(f.widget.placeTextButton.disabled, false);
+    assert.equal(f.widget.placingText, false);
 });
 
 test('no selection leaves timing to the shared playhead command; a single row uses its interval', async () => {
@@ -44,7 +44,7 @@ test('no selection leaves timing to the shared playhead command; a single row us
     assert.deepEqual(f.calls[1][1], { start: 5, end: 8 });
 });
 
-test('rejected placement keeps selection intact and re-enables the button', async () => {
+test('rejected placement keeps selection intact and clears busy state', async () => {
     const f = fixture(['a']);
     f.widget.commands.executeCommand = async () => undefined;
     await f.widget.placeTextFromSelection();
@@ -53,13 +53,12 @@ test('rejected placement keeps selection intact and re-enables the button', asyn
     f.widget.commands.executeCommand = async () => { throw Error('失敗'); };
     await f.widget.placeTextFromSelection();
     assert.deepEqual(f.notices, ['失敗']);
-    assert.equal(f.widget.placeTextButton.disabled, false);
+    assert.deepEqual(f.errors, ['失敗'], '操作失敗は自動消去しない通知へ送る');
+    assert.equal(f.widget.placingText, false);
 });
 
 test('only the transcript entry remains; the placement command and timeline tools are retained', () => {
-    assert.match(text, /placeTextButton\.className = 'akari-daihon-retime akari-daihon-place-text'/);
-    assert.match(text, /placeTextButton\.textContent = 'T この行から文字を置く'/);
-    assert.match(text, /placeTextButton\.addEventListener\('click', \(\) => void this\.placeTextFromSelection\(\)\)/);
+    assert.match(text, /add\('T 文字を置く', \(\) => void this\.placeTextFromSelection\(\)\)/);
     const timeline = readAnnotationsSourceText();
     assert.doesNotMatch(timeline, /placeTextButton|akari-timeline-place-text|T 文字を置く/);
     assert.match(timeline, /this\.selectToolButton, this\.razorToolButton, this\.frameToolButton,/);

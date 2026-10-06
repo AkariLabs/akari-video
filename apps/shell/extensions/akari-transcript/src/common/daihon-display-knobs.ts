@@ -76,6 +76,8 @@ export function daihonDisplayPolicyForWrite(
         locale,
         lines: Number.isInteger(values.lines) ? Math.min(2, Math.max(1, values.lines)) : DEFAULT_KNOBS.lines,
         wrap: values.wrap === 'fold' ? 'fold' : 'multi',
+        ...(current?.word_style === 'karaoke' || current?.word_style === 'none'
+            ? { word_style: current.word_style } : {}),
         ...(breakHints ? { break_hints: breakHints } : {})
     };
 }

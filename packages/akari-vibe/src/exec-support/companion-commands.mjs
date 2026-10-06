@@ -13,7 +13,7 @@ export const ALLOWED_COMMAND_IDS = Object.freeze([
 const rows = [
     ['command_akari_canvas_open', 'command:akari.canvas.open', 'キャンバスを開く'],
     ['command_akari_catalog_open', 'command:akari.catalog.open', 'カタログを開く', 'akari.catalog.open', { tab: 'project' }],
-    ['command_akari_cuts_open', 'command:akari.cuts.open', 'カット候補を開く', 'akari.cuts.open', {}],
+    ['command_akari_cuts_open', 'command:akari.cuts.open', 'カットを整える', 'akari.cuts.open', {}],
     ['command_akari_home_openFirstRunSetup', 'command:akari.home.openFirstRunSetup', '初回セットアップを開く'],
     ['command_akari_home_openIntakeForm', 'command:akari.home.openIntakeForm', '進め方フォームを開く'],
     ['command_akari_home_openProjectLauncher', 'command:akari.home.openProjectLauncher', 'プロジェクト・ランチャーを開く'],

@@ -1010,6 +1010,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         return {
             item: {
                 id: item.id, atFrames, durationFrames, at, duration, children: [], source,
+                ...(item.link !== undefined ? { link: item.link } : {}),
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
@@ -1095,6 +1096,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
     return {
         item: {
             id: item.id, atFrames, durationFrames, at, duration, children: [], source,
+            ...(item.link !== undefined ? { link: item.link } : {}),
             declaration: {
                 id: item.id, t: at, duration, path: resolvedPath, track: ref,
                 in: inSeconds,

@@ -36,12 +36,17 @@ test('台本の面・文字・枠は共通テーマの色を使う', () => {
     assert.match(rule('.akari-daihon-word.past'), /color:var\(--akari-ink, var\(--theia-foreground\)\)/);
 });
 
-test('台本の内側見出しだけを隠し、ヘッダーの寸法と他の操作・タブ名を維持する', () => {
-    assert.match(rule('.akari-daihon-title'), /visibility:hidden/);
+test('台本のヘッダーは折り返さない', () => {
     assert.doesNotMatch(rule('.akari-daihon-head'), /display:none|height:0/);
-    assert.match(rule('.akari-daihon-head'), /gap:7px; padding:8px 11px/);
-    assert.match(daihon, /header\.append\(title, this\.count, spacer, this\.captionsButton, this\.placeTextButton, this\.retimeButton, this\.historyButton, this\.displayButton, this\.tplButton, this\.qcButton, this\.cutsButton\)/);
-    assert.match(daihon, /this\.title\.label = '台本'/);
+    assert.match(rule('.akari-daihon-head'), /flex-wrap:nowrap/);
+});
+
+test('400px の選択バーは横スクロールを使わず折り返せる', () => {
+    const actionBar = rule('.akari-daihon-actionbar');
+    assert.match(actionBar, /flex-wrap:wrap/);
+    assert.match(actionBar, /min-width:0/);
+    assert.match(actionBar, /box-sizing:border-box/);
+    assert.doesNotMatch(actionBar, /overflow-x/);
 });
 
 test('ダーク・ライトの主要テキストは共通パレットの各面で WCAG AA を満たす', t => {
@@ -73,7 +78,7 @@ const stateTextRules = [
     ['.akari-daihon-cutcell', '#a05f4f', 4.5],
     ['.akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled)', '#ffb39e', 4.5],
     ['.akari-daihon-cutrange button.primary', '#ffb39e', 4.5],
-    ['.akari-daihon-cut:hover', '#ff8f73', 4.5],
+    ['.akari-daihon-cut:hover:not(:disabled)', '#ff8f73', 4.5],
     ['.akari-daihon-pop button.danger', '#ff9d84', 4.5],
     ['.akari-daihon-word-unk', '#b08a5a', 4.5],
     ['.akari-daihon-tc:hover', '#53d1bc', 4.5],

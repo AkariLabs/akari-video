@@ -74,6 +74,8 @@ export interface InternalItemLegacy {
     value?: EditCut | EditOverlay | EditLayer | EditAudioSfx | EditAudioNarration | EditAudioBgm;
 }
 export interface InternalItem {
+    /** Linked visual media item, retained for caption ownership without changing audio supply. */
+    link?: string;
     /** 宣言の id。焼く前後・版をまたいでも同じ 1 個のクリップは同じ id を保つ。 */
     id: string;
     /** 出力タイムライン上の絶対位置（整数フレーム、正本）。 */

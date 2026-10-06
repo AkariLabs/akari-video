@@ -246,8 +246,12 @@ function restoreOneTrack(edit, trackIndex, range) {
         }
         target.splice(leftIndex, 1, merged);
         target.splice(rightIndex, 1);
-        if (!target.some((item, index) => index !== leftIndex && media(item)
-            && splitRootId(item.id) === splitRootId(merged.id))) {
+        const family = target.filter((item) => media(item)
+            && splitRootId(item.id) === splitRootId(merged.id))
+            .sort((a, b) => a.source.in - b.source.in);
+        const noRemainingCut = family.every((item, index) => index === 0
+            || item.source.in - family[index - 1].source.out <= SOURCE_TOLERANCE);
+        if (noRemainingCut) {
             delete mergedMeta.reason;
             delete mergedMeta.label;
         }

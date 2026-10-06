@@ -1,6 +1,8 @@
 import { resolveCaptionStylePreset } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 import { sliceCaptionRuns, type CaptionRun } from './caption-runs';
+import { buildCaptionTimelineSegments } from './caption-timeline';
+import type { EditCut } from './edit-store';
 
 /**
  * Caption display policy v1.  This is the single pure implementation used by
@@ -333,13 +335,13 @@ export function setCaptionDisplayWordStyle(root: unknown, style: 'none' | 'karao
     return { ...root, display_policy: { ...policy, word_style: style } };
 }
 
-/** An explicit row karaoke style wins over the global default; null restores inheritance. */
-export function setCaptionDisplayRowStyle(root: unknown, id: string, style: 'karaoke' | null): UnknownRecord {
+/** An explicit row style overrides the global default; null restores inheritance. */
+export function setCaptionDisplayRowStyle(root: unknown, id: string, style: 'karaoke' | 'plain' | null): UnknownRecord {
     if (!isRecord(root) || root.display_policy === undefined || !Array.isArray(root.captions)) {
         fail('INVALID_CAPTIONS', 'captions with display_policy are required');
     }
     validateCaptionDisplayPolicy(root.display_policy);
-    if (!strictText(id) || (style !== null && style !== 'karaoke')) fail('INVALID_CAPTION', 'invalid caption style request');
+    if (!strictText(id) || (style !== null && style !== 'karaoke' && style !== 'plain')) fail('INVALID_CAPTION', 'invalid caption style request');
     if (!root.captions.some((caption: unknown) => isRecord(caption) && caption.id === id)) {
         fail('INVALID_CAPTION', `caption ${id} was not found`);
     }
@@ -398,7 +400,16 @@ export function resolveCaptionDisplay(
     const defaultStyle = Object.prototype.hasOwnProperty.call(captionsRoot, 'default_text_style')
         ? validateCaptionTextStyle(captionsRoot.default_text_style, 'default_text_style')
         : undefined;
-    const cuts = Array.isArray(edit?.cuts) ? edit.cuts as UnknownRecord[] : [];
+    const visualCuts = Array.isArray(edit?.cuts) ? edit.cuts as UnknownRecord[] : [];
+    const captionSegments = Array.isArray(edit?.tracks)
+        ? buildCaptionTimelineSegments(visualCuts as EditCut[], {
+            tracks: edit.tracks, output: edit.output
+        }, { fps: edit.output?.fps }) : [];
+    const audioCuts = captionSegments.flatMap(segment => segment.kind === 'src'
+        && segment.cutIndex === null && segment.src && segment.in !== undefined && segment.out !== undefined
+        ? [{ src: segment.src, in: segment.in, out: segment.out,
+            at: segment.outStart, speed: segment.speed }] : []);
+    const cuts = [...visualCuts, ...audioCuts];
     const styleOutput = options.output ?? edit?.output;
     validateProjectionCuts(cuts, edit);
     const projectedCaptions = captions.map(caption => projectCaptionWords(caption, cuts));
@@ -605,6 +616,7 @@ function captionDisplayGraphemes(text: string): string[] {
     const Segmenter = (Intl as unknown as { Segmenter: new (
         locale: string | undefined, options: { granularity: 'grapheme' }
     ) => { segment(input: string): Iterable<{ segment: string }> } }).Segmenter;
+    if (typeof Segmenter !== 'function') return Array.from(text);
     return [...new Segmenter(undefined, { granularity: 'grapheme' }).segment(text)]
         .map(part => part.segment);
 }
@@ -612,7 +624,7 @@ function captionDisplayGraphemes(text: string): string[] {
 function alignKaraokeUntimed(entries: ProjectedWordEntry[], displayText: string): ProjectedWordEntry[] | null {
     const graphemes = captionDisplayGraphemes(displayText);
     const normalized = (text: string) => text.normalize('NFKC').replace(/\s/gu, '');
-    const allowedGap = /^[\p{P}\p{S}\s]+$/u;
+    const allowedGap = /^(?:[\p{P}\p{S}\p{Cf}\p{Mn}]|\s)+$/u;
     const aligned: ProjectedWordEntry[] = [];
     let cursor = 0;
     const addUntimed = (text: string) => {
@@ -708,7 +720,9 @@ function resolveProjectedWordStyles(
                 const earlier = caption.words.slice(0, wordIndex).reverse()
                     .find((candidate: UnknownRecord) => projected.words!.includes(candidate));
                 const anchor = later ?? earlier ?? projected.words![0];
-                return [{ word: { text: value.text, start: anchor.start, end: anchor.end }, synthetic: true }];
+                return [{ word: { text: value.text, start: anchor.start, end: anchor.end },
+                    synthetic: !karaoke || hasSyntheticTiming,
+                    ...(karaoke && !hasSyntheticTiming ? { untimed: true } : {}) }];
             });
             if (visible(rescued).join('') === normalized(projected.displayText)) entries = rescued;
         }
@@ -735,6 +749,7 @@ function resolveProjectedWordStyles(
             }
             return projected.displayText.slice(start, displayCursor);
         });
+        if (needsUntimed) displayCursor = projected.displayText.length;
         alignedTexts[alignedTexts.length - 1] += projected.displayText.slice(displayCursor);
         let offset = 0;
         const words = entries.map(({ word, synthetic, untimed }, wordIndex) => {
@@ -848,9 +863,14 @@ function buildCueWordDisplay(
             if (end <= start) continue;
             const timeScale = occurrence.time_scale ?? 1;
             const timeOffset = occurrence.time_offset ?? 0;
+            const graphemeCount = captionDisplayGraphemes(word.text).length;
+            const fractionStart = captionDisplayGraphemes(word.text.slice(0, start - word.offset)).length / graphemeCount;
+            const fractionEnd = captionDisplayGraphemes(word.text.slice(0, end - word.offset)).length / graphemeCount;
+            const wordStart = word.start + (word.end - word.start) * fractionStart;
+            const wordEndTime = word.start + (word.end - word.start) * fractionEnd;
             styledWords.push({
-                start: roundOutputSecond(timeOffset + word.start * timeScale),
-                end: roundOutputSecond(timeOffset + word.end * timeScale),
+                start: roundOutputSecond(timeOffset + wordStart * timeScale),
+                end: roundOutputSecond(timeOffset + wordEndTime * timeScale),
                 text: word.text.slice(start - word.offset, end - word.offset),
                 line: line.line,
                 ...(word.untimed ? { untimed: true as const } : {}),
@@ -1553,7 +1573,7 @@ function validateSourceCaption(
     const sourceText = caption.display_text ?? caption.text;
     if (!strictText(sourceText)) fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
     if (caption.style !== undefined) {
-        if (caption.style === 'karaoke') return;
+        if (caption.style === 'karaoke' || caption.style === 'plain') return;
         if (CAPTION_WORD_STYLES.has(caption.style)) {
             fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);
         }

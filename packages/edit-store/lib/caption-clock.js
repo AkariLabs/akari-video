@@ -15,9 +15,44 @@
  * - 戻り値は全件 clockDomain='output'。描画層は domain 判定を一切行わない。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildCaptionTimelineSegments = void 0;
 exports.normalizeCaptionClock = normalizeCaptionClock;
 exports.captionClockDomainOf = captionClockDomainOf;
+const caption_display_1 = require("./caption-display");
+var caption_timeline_1 = require("./caption-timeline");
+Object.defineProperty(exports, "buildCaptionTimelineSegments", { enumerable: true, get: function () { return caption_timeline_1.buildCaptionTimelineSegments; } });
 const EPSILON = 0.000001;
+function rebaseDisplayedRuns(oldText, newText, runs) {
+    const graphemes = (text) => {
+        const Segmenter = Reflect.get(Intl, 'Segmenter');
+        return typeof Segmenter === 'function'
+            ? Array.from(new Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment)
+            : Array.from(text);
+    };
+    const before = graphemes(oldText);
+    const after = graphemes(newText);
+    let prefix = 0;
+    while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix])
+        prefix++;
+    let suffix = 0;
+    while (suffix < before.length - prefix && suffix < after.length - prefix
+        && before[before.length - suffix - 1] === after[after.length - suffix - 1])
+        suffix++;
+    const oldEnd = before.length - suffix;
+    const newEnd = after.length - suffix;
+    const delta = newEnd - oldEnd;
+    return runs.flatMap(run => {
+        if (run.to <= prefix)
+            return [run];
+        if (run.from >= oldEnd)
+            return [{ ...run, from: run.from + delta, to: run.to + delta }];
+        if (run.from >= prefix && run.to <= oldEnd && newEnd === prefix)
+            return [];
+        const from = run.from < prefix ? run.from : prefix;
+        const to = run.to > oldEnd ? run.to + delta : newEnd;
+        return from < to ? [{ ...run, from, to }] : [];
+    });
+}
 function normalizeCaptionClock(captions, segments) {
     const output = [];
     for (const caption of captions) {
@@ -31,12 +66,22 @@ function normalizeCaptionClock(captions, segments) {
             output.push({ ...caption, clockDomain: 'output' });
             continue;
         }
+        const cue = caption;
+        const sourceSegments = segments.filter(segment => segment.kind === 'src'
+            && segment.in !== undefined && segment.out !== undefined
+            && (caption.clockSourceId === undefined || segment.src === caption.clockSourceId));
+        const projected = typeof cue.text === 'string' && cue.words?.length
+            ? (0, caption_display_1.projectCaptionWords)({ text: cue.text, display_text: cue.displayText ?? cue.text,
+                words: cue.words, src: cue.clockSourceId }, sourceSegments.map(segment => ({
+                src: segment.src, in: segment.in, out: segment.out
+            }))) : null;
+        if (projected && !projected.renderable)
+            continue;
+        const projectedRuns = projected?.changed && cue.runs
+            ? rebaseDisplayedRuns(cue.displayText ?? cue.text ?? '', projected.displayText, cue.runs)
+            : cue.runs;
         let occurrence = 0;
-        for (const segment of segments) {
-            if (segment.kind !== 'src' || segment.in === undefined || segment.out === undefined)
-                continue;
-            if (caption.clockSourceId !== undefined && segment.src !== caption.clockSourceId)
-                continue;
+        for (const segment of sourceSegments) {
             const sourceStart = Math.max(caption.start, segment.in);
             const sourceEnd = Math.min(caption.end, segment.out);
             if (!(sourceEnd - sourceStart > EPSILON))
@@ -45,7 +90,7 @@ function normalizeCaptionClock(captions, segments) {
             const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
             occurrence += 1;
             const sourceCueId = caption.sourceCueId ?? caption.id;
-            const words = caption.words?.flatMap(word => {
+            const words = (projected?.words ?? caption.words)?.flatMap(word => {
                 const wordStart = Math.max(word.start, sourceStart);
                 const wordEnd = Math.min(word.end, sourceEnd);
                 return wordEnd - wordStart > EPSILON
@@ -54,6 +99,12 @@ function normalizeCaptionClock(captions, segments) {
             });
             output.push({
                 ...caption,
+                ...(projected?.changed ? {
+                    text: projected.displayText,
+                    originalSourceText: cue.text,
+                    ...(cue.displayText !== undefined ? { displayText: projected.displayText } : {}),
+                    ...(cue.runs ? { runs: projectedRuns } : {})
+                } : {}),
                 ...(caption.id ? { id: `${caption.id}-output-${occurrence}` } : {}),
                 ...(sourceCueId ? { sourceCueId } : {}),
                 start: projectTime(sourceStart),

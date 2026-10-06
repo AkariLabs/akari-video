@@ -4,6 +4,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
+import { applyCutRanges, buildTimelineMap, projectLegacyEdit, readInternalEdit,
+  restoreCutRange } from '@akari-video/edit-store';
+import { buildDaihonRows } from '../../akari-transcript/lib/common/daihon-row-model.js';
+import { deriveDaihonCutSpans } from '../../akari-transcript/lib/common/daihon-cut-spans.js';
 import {
   findAudioItemIdByRole,
   indexEditV2Items,
@@ -258,11 +262,57 @@ test('splitItem は整数フレーム位置で分け、media の source 区間�
   const result = valid(splitItem(fixture, { itemId: 'clip-1', atFrames: 120 }));
   const [left, right] = result.tracks.find(track => track.id === 'v-main').items;
   assert.equal(left.duration, 120);
-  assert.equal(right.id, 'clip-1-split');
+  assert.equal(right.id, 'clip-1-timeline-split');
   assert.equal(right.at, 120);
   assert.equal(right.duration, 180);
   assert.equal(left.source.out, 16);
   assert.equal(right.source.in, 16);
+});
+
+test('タイムライン分割は切り跡を複製せず、消えた拡大 item を推測で戻さない', () => {
+  const text = value => `${JSON.stringify(value, null, 2)}\n`;
+  const base = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4' }], tracks: [{ id: 'v', lane: 'visual', items: [
+      { id: 'clip', at: 0, duration: 600, source: { kind: 'media', src: 'main', in: 0, out: 20 } },
+    ] }] };
+  const marked = structuredClone(base);
+  marked.tracks[0].items[0].reason = 'word';
+  marked.tracks[0].items[0].label = 'えー';
+  const splitMarked = splitItem(marked, { itemId: 'clip', atFrames: 240 }).tracks[0].items;
+  assert.equal(splitMarked[0].label, 'えー');
+  assert.equal(splitMarked[1].reason, undefined);
+  assert.equal(splitMarked[1].label, undefined);
+  const captions = [{ id: 'row', src: 'main', start: 8.04, end: 10.96, text: 'ズーム',
+    words: [{ text: 'ズーム', start: 8.04, end: 10.96 }], unrecognized: [] }];
+  for (const [priorFiller, padded] of [[false, false], [true, false], [true, true]]) {
+    let source = text(base);
+    if (priorFiller) source = applyCutRanges(source, [
+      { in: 3, out: 3.4, kind: 'filler', captionId: 'main', label: 'えー' },
+    ]).source;
+    let doc = JSON.parse(source);
+    const splitAt = second => {
+      const item = doc.tracks[0].items.find(candidate =>
+        candidate.source.in < second && second < candidate.source.out);
+      doc = splitItem(doc, { itemId: item.id,
+        atFrames: item.at + Math.round((second - item.source.in) * 30) });
+    };
+    splitAt(8);
+    splitAt(11);
+    const middle = doc.tracks[0].items.find(item => Math.abs(item.source.in - 8) < 0.02);
+    middle.transform = { scale: 1.5 };
+    assert.equal(middle.label, undefined);
+    const before = text(doc);
+    const cut = padded ? { in: 7.96, out: 11.04 } : { in: 8, out: 11 };
+    const after = applyCutRanges(before, [{ ...cut, kind: 'row', captionId: 'main', label: '行' }]).source;
+    const legacy = projectLegacyEdit(readInternalEdit(after, { hasCaptions: true }));
+    const segments = buildTimelineMap(legacy.cuts, { fps: 30 }).segments;
+    const span = deriveDaihonCutSpans(buildDaihonRows(captions, segments, 30), [], segments, 30)
+      .find(item => item.rowId === 'row');
+    assert.ok(span?.restoreRange);
+    const restored = restoreCutRange(after, span.restoreRange);
+    assert.ok(restored.restored ? restored.source === before : Boolean(restored.reason),
+      `priorFiller=${priorFiller}, padded=${padded}`);
+  }
 });
 
 test('reorderTracks は tracks[] の順だけを動かし lane 越えを拒否する', () => {

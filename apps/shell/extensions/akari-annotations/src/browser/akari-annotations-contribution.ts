@@ -1134,7 +1134,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             return;
         }
         if (kind === 'audio' && payload?.voiceTrack === true) {
-            await widget.addMaterialAtPlayhead(relativePath, kind, { createAudioTrack: true });
+            await widget.addMaterialAtPlayhead(relativePath, kind, { createAudioTrack: true, voiceTrack: true });
         } else {
             await widget.addMaterialAtPlayhead(relativePath, kind);
         }

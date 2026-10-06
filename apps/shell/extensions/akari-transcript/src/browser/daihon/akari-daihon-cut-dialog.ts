@@ -22,7 +22,11 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): 
 function button(text: string, action: () => void, primary = false): HTMLButtonElement {
     const node = element('button', text);
     node.type = 'button';
-    node.style.cssText = `padding:7px 12px;border-radius:6px;border:1px solid #4a5361;background:${primary ? '#547fe5' : '#2b313b'};color:#f2f4fa;cursor:pointer`;
+    node.style.cssText = `padding:7px 12px;border-radius:6px;border:1px solid var(--akari-line, var(--theia-widget-border));background:${primary ? 'var(--akari-accent, var(--theia-focusBorder))' : 'var(--akari-elevated, var(--theia-editorWidget-background))'};color:${primary ? '#fff' : 'var(--theia-foreground)'};cursor:pointer`;
+    if (primary) {
+        node.addEventListener('mouseenter', () => { node.style.background = 'var(--akari-accent-light, var(--theia-focusBorder))'; });
+        node.addEventListener('mouseleave', () => { node.style.background = 'var(--akari-accent, var(--theia-focusBorder))'; });
+    }
     node.onclick = action;
     return node;
 }
@@ -49,7 +53,9 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         protected readonly apply: (selected: DaihonCutCandidate[]) => Promise<boolean>,
         protected readonly undo: () => Promise<void>,
         protected readonly updateSilence: (min: number, keep: number) => Promise<DaihonCutCandidate[]>,
-        protected minGapSec: number, protected keepSec: number, candidateId?: string) {
+        protected minGapSec: number, protected keepSec: number, candidateId?: string,
+        protected readonly sourceNames: string[] = [], protected readonly videoDuration = 0,
+        protected readonly outputTime: (candidate: DaihonCutCandidate, seconds: number) => number = (_candidate, seconds) => seconds) {
         super({ title: 'カットを整える' });
         this.candidates = candidates;
         const focused = candidates.find(candidate => candidate.id === candidateId || candidate.id.endsWith(`:${candidateId}`));
@@ -61,13 +67,13 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         this.node.dataset.akariDaihonCutDialog = 'true';
         this.node.tabIndex = -1;
         Object.assign(this.contentNode.parentElement!.style, { width: 'min(950px, calc(100vw - 40px))',
-            height: 'min(690px, calc(100vh - 40px))', minWidth: '0', borderRadius: '12px', background: '#20242b' });
+            height: 'min(690px, calc(100vh - 40px))', minWidth: '0', borderRadius: '12px', background: 'var(--theia-editor-background)' });
         Object.assign(this.contentNode.style, { padding: '0', display: 'flex', flexDirection: 'column', flex: '1',
-            minHeight: '0', maxHeight: 'none', color: '#e9ecf2' });
-        this.steps.style.cssText = 'display:flex;gap:12px;padding:14px 20px;border-bottom:1px solid #414852';
+            minHeight: '0', maxHeight: 'none', color: 'var(--theia-foreground)' });
+        this.steps.style.cssText = 'display:flex;gap:12px;padding:14px 20px;border-bottom:1px solid var(--akari-line, var(--theia-widget-border))';
         this.body.style.cssText = 'flex:1;min-height:0;overflow:auto;padding:20px';
-        this.foot.style.cssText = 'display:flex;gap:8px;align-items:center;padding:14px 20px;border-top:1px solid #414852';
-        this.notice.style.cssText = 'margin:0 20px;color:#f2a073';
+        this.foot.style.cssText = 'display:flex;gap:8px;align-items:center;padding:14px 20px;border-top:1px solid var(--akari-line, var(--theia-widget-border))';
+        this.notice.style.cssText = 'margin:0 20px;color:var(--theia-errorForeground)';
         this.notice.setAttribute('role', 'status');
         this.controlPanel.style.display = 'none';
         this.contentNode.append(this.steps, this.body, this.notice, this.foot);
@@ -86,6 +92,12 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             this.steps.append(step);
         });
         this.body.replaceChildren(); this.foot.replaceChildren();
+        if (this.sourceNames.length) {
+            const chip = element('span', this.sourceNames.length === 1 ? this.sourceNames[0] : `${this.sourceNames.length} 素材`);
+            chip.title = this.sourceNames.join('\n');
+            chip.style.cssText = 'align-self:center;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:999px;padding:3px 9px;font-size:11px;color:var(--theia-descriptionForeground)';
+            this.steps.append(chip);
+        }
         if (this.state.step === 0) this.renderSearch();
         else if (this.state.step === 1) this.renderReview();
         else this.renderDone();
@@ -97,7 +109,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         this.body.append(element('h3', '何を探しますか'), element('p', '台本に並ぶすべての行を対象にします。見つけたものは次の画面で 1 件ずつ見直せます。'));
         for (const kind of DAIHON_CUT_KINDS) {
             const line = element('div');
-            line.style.cssText = 'padding:12px;margin:8px 0;border:1px solid #414852;border-radius:8px;display:flex;align-items:center;gap:12px';
+            line.style.cssText = 'padding:12px;margin:8px 0;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:8px;display:flex;align-items:center;gap:12px';
             const check = element('input'); check.type = 'checkbox'; check.checked = this.state.kinds[kind];
             check.setAttribute('aria-label', LABELS[kind]);
             check.onchange = () => { this.state.kinds[kind] = check.checked; this.render(); };
@@ -111,7 +123,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
                 const settings = element('div'); settings.style.cssText = 'display:flex;align-items:center;gap:6px;margin:0 0 16px 36px';
                 const min = element('input'); min.type = 'number'; min.step = '0.05'; min.min = '0'; min.value = String(this.minGapSec);
                 const keep = element('input'); keep.type = 'number'; keep.step = '0.05'; keep.min = '0'; keep.value = String(this.keepSec);
-                for (const input of [min, keep]) input.style.cssText = 'width:66px;background:#292e36;color:#fff;border:1px solid #586270;padding:5px';
+                for (const input of [min, keep]) input.style.cssText = 'width:66px;background:var(--theia-input-background);color:var(--theia-input-foreground);border:1px solid var(--theia-input-border);padding:5px';
                 const change = async () => {
                     const nextMin = Number(min.value), nextKeep = Number(keep.value);
                     if (!(nextMin > 0 && nextKeep >= 0 && nextKeep < nextMin)) { this.notice.textContent = '無音の秒数を確認してください。'; return; }
@@ -141,26 +153,27 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             bulk.append(button(`${LABELS[kind]}を全部切る`, () => { this.state = setKindDecision(this.state, this.candidates, kind, true); this.render(); }));
         bulk.append(button('全部残す', () => { this.state = setKindDecision(this.state, this.candidates, 'all', false); this.render(); }));
         this.body.append(bulk);
-        const strip = element('div'); strip.style.cssText = 'height:18px;background:#303640;border-radius:5px;position:relative;margin-bottom:16px';
-        const first = Math.min(...candidates.map(candidate => candidate.start));
-        const last = Math.max(...candidates.map(candidate => candidate.end));
-        const total = Math.max(last - first, .001);
+        const strip = element('div'); strip.style.cssText = 'height:18px;background:var(--akari-elevated, var(--theia-editorWidget-background));border-radius:5px;position:relative;margin-bottom:16px';
+        const total = Math.max(this.videoDuration, .001);
         for (const candidate of candidates) {
-            const band = element('i'); band.style.cssText = `position:absolute;top:3px;height:12px;border-radius:3px;background:${COLORS[candidate.kind]};left:${(candidate.start - first) / total * 100}%;width:${Math.max(1, (candidate.end - candidate.start) / total * 100)}%;opacity:${willCut(this.state, candidate) ? 1 : .25}`;
+            const start = this.outputTime(candidate, candidate.start);
+            const end = this.outputTime(candidate, candidate.end);
+            const band = element('i'); band.style.cssText = `position:absolute;top:3px;height:12px;border-radius:3px;background:${COLORS[candidate.kind]};left:${Math.max(0, start) / total * 100}%;width:${Math.max(1, (end - start) / total * 100)}%;opacity:${willCut(this.state, candidate) ? 1 : .25}`;
             strip.append(band);
         }
-        if (current) { const marker = element('i'); marker.style.cssText = `position:absolute;top:0;height:18px;width:2px;background:white;left:${(current.start - first) / total * 100}%`; strip.append(marker); }
+        if (current) { const marker = element('i'); marker.style.cssText = `position:absolute;top:0;height:18px;width:2px;background:var(--theia-foreground);left:${Math.max(0, this.outputTime(current, current.start)) / total * 100}%`; strip.append(marker); }
         this.body.append(strip);
         const columns = element('div'); columns.style.cssText = 'display:grid;grid-template-columns:minmax(260px,1fr) minmax(240px,1fr);gap:14px;min-height:270px';
         const list = element('div'); list.style.cssText = 'max-height:330px;overflow:auto';
         for (const candidate of candidates) {
-            const line = element('div'); line.style.cssText = `padding:9px;margin:3px 0;border:1px solid ${candidate.id === current?.id ? '#8daaff' : '#414852'};border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center`;
+            const line = element('div'); line.style.cssText = `padding:9px;margin:3px 0;border:1px solid ${candidate.id === current?.id ? 'var(--akari-accent, var(--theia-focusBorder))' : 'var(--akari-line, var(--theia-widget-border))'};border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center`;
             line.onclick = () => { this.state.currentId = candidate.id; this.render(); };
             const dot = element('span', '●'); dot.style.color = COLORS[candidate.kind];
             const cutting = willCut(this.state, candidate);
             const copy = element('div'); copy.style.flex = '1'; copy.style.opacity = cutting ? '1' : '.55';
-            const marked = element(cutting ? 's' : 'span', candidate.text); marked.style.textDecorationColor = COLORS[candidate.kind];
-            const words = element('div'); words.append(marked);
+            const words = element('div');
+            const parts = this.context(candidate);
+            words.append(element('span', parts[0] ?? ''), element(cutting ? 's' : 'span', parts[1] ?? candidate.text), element('span', parts[2] ?? ''));
             copy.append(element('small', `${formatTime(candidate.start)} · ${LABELS[candidate.kind]}`), words);
             const choices = element('div'); choices.style.cssText = 'display:flex;gap:3px';
             for (const cut of [true, false]) {
@@ -170,7 +183,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             }
             line.append(dot, copy, choices); list.append(line);
         }
-        const detail = element('div'); detail.style.cssText = 'padding:14px;background:#292f38;border-radius:8px';
+        const detail = element('div'); detail.style.cssText = 'padding:14px;background:var(--akari-card, var(--theia-editorWidget-background));border-radius:8px';
         if (current) {
             detail.append(element('strong', `${LABELS[current.kind]} · ${formatTime(current.start)} · ${(current.end - current.start).toFixed(2)} 秒`));
             const context = element('p'); context.style.lineHeight = '1.8';
@@ -206,10 +219,20 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
     protected renderDone(): void {
         const selected = this.state.applied;
         const seconds = selected.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0);
-        this.body.append(element('h3', `${selected.length} 箇所を切りました`), element('p', `${seconds.toFixed(1)} 秒短くなりました。`));
+        this.body.append(element('h3', `${selected.length} 箇所を切りました`));
+        const metrics = element('div'); metrics.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0';
+        for (const [value, label] of [[String(selected.length), '切った箇所'], [`${seconds.toFixed(1)} 秒`, '短くなった秒'],
+            [`${Math.max(0, this.videoDuration - seconds).toFixed(1)} 秒`, '区間の長さ']] as const) {
+            const tile = element('div'); tile.style.cssText = 'padding:12px;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:8px;background:var(--akari-card, var(--theia-editorWidget-background))';
+            const number = element('strong', value); number.style.cssText = 'display:block;font-size:22px;color:var(--akari-accent, var(--theia-focusBorder))';
+            tile.append(number, element('small', label)); metrics.append(tile);
+        }
+        this.body.append(metrics, element('p', '⌘Z 1 回でまとめて戻ります。'));
         const list = element('div'); list.style.cssText = 'max-height:320px;overflow:auto';
         for (const candidate of selected) {
-            const row = element('p'); row.append(element('strong', `${formatTime(candidate.start)} · `), element('s', candidate.text));
+            const parts = this.context(candidate);
+            const row = element('p'); row.append(element('strong', `${formatTime(candidate.start)} · `),
+                element('span', parts[0] ?? ''), element('s', parts[1] ?? candidate.text), element('span', parts[2] ?? ''));
             list.append(row);
         }
         this.body.append(list);

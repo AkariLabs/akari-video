@@ -6,8 +6,8 @@ import { readAllSourceText } from './helpers/daihon-source.mjs';
 const source = readAllSourceText();
 const l1 = await readFile(new URL('../evidence/daihon-history/scripts/l1-daihon-history.mjs', import.meta.url), 'utf8');
 
-test('台本ヘッダに履歴ボタンと幅 360 の履歴ポップオーバーがある', () => {
-  assert.match(source, /historyButton\.textContent = '🕘 履歴'/u);
+test('その他メニューから幅 360 の履歴ポップオーバーを開く', () => {
+  assert.match(source, /this\.popButton\('🕘 編集履歴'/u);
   assert.match(source, /openPop\(anchor, 360\)/u);
   assert.match(source, /'↩ ここまで戻す'/u);
 });

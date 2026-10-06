@@ -13,6 +13,7 @@
  * - segments が空なら全件 output 扱いで素通し。
  * - 戻り値は全件 clockDomain='output'。描画層は domain 判定を一切行わない。
  */
+export { buildCaptionTimelineSegments } from './caption-timeline';
 export type CaptionClockDomain = 'source' | 'output' | 'legacy';
 export interface CaptionClockWord {
     start: number;
@@ -27,6 +28,8 @@ export interface CaptionClockInput {
     clockSourceId?: string;
     sourceCueId?: string;
     words?: readonly CaptionClockWord[];
+    /** Original captions.json body, retained when the displayed words were cut. */
+    originalSourceText?: string;
 }
 /** timeline-map の TimelineSegment の部分集合（字幕射影に要る欄だけ）。 */
 export interface CaptionClockSegment {

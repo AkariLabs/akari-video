@@ -21,6 +21,9 @@ const resolverSource = readFileSync(
 const serviceSource = readFileSync(
   new URL('../src/node/akari-annotations-service.ts', import.meta.url), 'utf8'
 );
+const contributionSource = readFileSync(
+  new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8'
+);
 
 const relativeModule = ['packages', 'media-bin', 'src', 'audio-measure.mjs'];
 
@@ -161,6 +164,15 @@ test('挿入フックは gain_db 既指定なら RPC を呼ばない guard を�
   assert.match(block, /!Object\.prototype\.hasOwnProperty\.call\(insertedItem, 'gain_db'\)/u);
   assert.ok(block.indexOf("hasOwnProperty.call(insertedItem, 'gain_db')")
     < block.indexOf('measureAudioForLevel({'));
+});
+
+test('voiceTrack の audio は speech item と声の計測基準を使い、通常 audio は sfx を使う', () => {
+  assert.match(contributionSource,
+    /payload\?\.voiceTrack === true[\s\S]*?addMaterialAtPlayhead\(relativePath, kind, \{ createAudioTrack: true, voiceTrack: true \}\)/u);
+  assert.match(widgetSource,
+    /options\?\.voiceTrack \? \{ role: 'speech' \} : \{\}/u);
+  assert.match(widgetSource, /role: options\?\.voiceTrack \? 'narration' : 'sfx'/u);
+  assert.match(widgetSource, /collection: options\?\.voiceTrack \? 'narration' : 'sfx'/u);
 });
 
 test('挿入成功は v2 updateItem と legacy gain/fade 手術を同じ snapshot に含める', () => {

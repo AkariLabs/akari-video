@@ -2925,6 +2925,364 @@ var require_textstyle_catalog_merge = __commonJS({
   }
 });
 
+// ../edit-store/lib/cut-adjacency.js
+var require_cut_adjacency = __commonJS({
+  "../edit-store/lib/cut-adjacency.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
+    exports.effectiveCutFps = effectiveCutFps;
+    exports.cutOverlapFrames = cutOverlapFrames;
+    exports.planTransitionHandleWindow = planTransitionHandleWindow;
+    exports.isStillImageSourcePath = isStillImageSourcePath2;
+    exports.areCutsAdjacent = areCutsAdjacent;
+    exports.DEFAULT_CUT_ADJACENCY_FPS = 30;
+    function effectiveCutFps(fps) {
+      return Number.isFinite(fps) && fps > 0 ? fps : exports.DEFAULT_CUT_ADJACENCY_FPS;
+    }
+    function cutOverlapFrames(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
+      const resolvedFps = effectiveCutFps(fps);
+      return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
+    }
+    var nonNegativeRoom = (value) => value === Number.POSITIVE_INFINITY ? value : Number.isFinite(value) && value > 0 ? value : 0;
+    function planTransitionHandleWindow(input) {
+      const declaredSeconds = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0 ? input.declaredSeconds : 0;
+      const effectiveSeconds = Math.max(0, Math.min(declaredSeconds, 2 * nonNegativeRoom(input.outgoingTailRoomSeconds), 2 * nonNegativeRoom(input.incomingHeadRoomSeconds), 2 * nonNegativeRoom(input.outgoingDurationSeconds), 2 * nonNegativeRoom(input.incomingDurationSeconds)));
+      return {
+        effectiveSeconds,
+        halfSeconds: effectiveSeconds / 2,
+        outcome: effectiveSeconds <= 0 ? "none" : effectiveSeconds < declaredSeconds ? "clamped" : "full"
+      };
+    }
+    exports.STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+    function isStillImageSourcePath2(path) {
+      return typeof path === "string" && exports.STILL_IMAGE_SOURCE_PATTERN.test(path);
+    }
+    function areCutsAdjacent(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
+      const resolvedFps = effectiveCutFps(fps);
+      const overlapFrames = cutOverlapFrames(earlier, later, resolvedFps);
+      const declaredDuration = earlier.transitionOut?.duration;
+      const declaredOverlapFrames = typeof declaredDuration === "number" && Number.isFinite(declaredDuration) && declaredDuration > 0 ? Math.round(declaredDuration * resolvedFps) : 0;
+      return overlapFrames === 0 || overlapFrames > 0 && overlapFrames <= declaredOverlapFrames;
+    }
+  }
+});
+
+// ../edit-store/lib/timeline-map.js
+var require_timeline_map = __commonJS({
+  "../edit-store/lib/timeline-map.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
+    exports.transitionProgressAt = transitionProgressAt2;
+    exports.buildTimelineMap = buildTimelineMap2;
+    exports.outputToSource = outputToSource2;
+    exports.sourceToOutput = sourceToOutput;
+    var edit_store_1 = require_edit_store();
+    var cut_adjacency_1 = require_cut_adjacency();
+    function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
+      const normalizedCuts2 = cuts.map((cut) => ({
+        ...cut,
+        transitionOut: cut.transitionOut ?? cut.transition_out
+      }));
+      const hasExplicitSources = normalizedCuts2.some((cut) => typeof cut.src === "string" && cut.src.length > 0);
+      if (hasExplicitSources && !options.sourceId)
+        return { intervals: [], droppedShortIntervals: 0 };
+      const map = buildTimelineMap2(normalizedCuts2, { fps: options.fps });
+      const projected = [];
+      for (const segment of map.segments) {
+        if (segment.kind !== "src" || typeof segment.in !== "number" || typeof segment.out !== "number")
+          continue;
+        if (hasExplicitSources && segment.src !== options.sourceId)
+          continue;
+        if (segment.cutIndex !== null && normalizedCuts2[segment.cutIndex]?.audio === false)
+          continue;
+        const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+        for (const entry of transcript) {
+          if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start)
+            continue;
+          const sourceStart = Math.max(segment.in, entry.start);
+          const sourceEnd = Math.min(segment.out, entry.end);
+          if (!(sourceEnd > sourceStart))
+            continue;
+          projected.push({
+            startSec: segment.outStart + (sourceStart - segment.in) / speed,
+            endSec: segment.outStart + (sourceEnd - segment.in) / speed
+          });
+        }
+      }
+      projected.sort((left, right) => left.startSec - right.startSec || left.endSec - right.endSec);
+      const merged = [];
+      for (const interval of projected) {
+        const last = merged[merged.length - 1];
+        if (last && interval.startSec - last.endSec < 0.35)
+          last.endSec = Math.max(last.endSec, interval.endSec);
+        else
+          merged.push({ ...interval });
+      }
+      const intervals = merged.filter((interval) => interval.endSec - interval.startSec >= 0.15);
+      return { intervals, droppedShortIntervals: merged.length - intervals.length };
+    }
+    function transitionProgressAt2(window2, outputT) {
+      if (!(window2.duration > 0))
+        return 0;
+      return Math.max(0, Math.min(1, (outputT - window2.start) / window2.duration));
+    }
+    function buildTimelineMap2(cuts, options) {
+      const usable = [];
+      cuts.forEach((cut, index) => {
+        if (typeof cut?.in === "number" && Number.isFinite(cut.in) && typeof cut?.out === "number" && Number.isFinite(cut.out) && cut.in < cut.out) {
+          usable.push({ cut, index });
+        }
+      });
+      const usableCuts = usable.map((entry) => entry.cut);
+      const trackSegments = (0, edit_store_1.computeCutTrackSegments)(usableCuts);
+      const trackZ = options?.trackZ ?? ((track) => -track);
+      const resolved = trackSegments.map((segment) => ({
+        start: segment.at,
+        end: segment.end,
+        baseStart: segment.at,
+        baseEnd: segment.end,
+        track: segment.track,
+        cut: usableCuts[segment.index],
+        cutIndex: usable[segment.index].index
+      }));
+      const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
+      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+        const outgoing = resolved[outgoingIndex];
+        const transition = outgoing.cut.transitionOut;
+        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
+          continue;
+        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
+        if (!incoming || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.end }, { tlStart: incoming.start }, fps) !== 0)
+          continue;
+        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
+        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
+        const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
+        const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
+          declaredSeconds: transition.duration,
+          outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
+          incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
+          outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
+          incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+        });
+        if (plan.effectiveSeconds <= 0)
+          continue;
+        const cutPoint = outgoing.end;
+        outgoing.end = cutPoint + plan.halfSeconds;
+        outgoing.cut = {
+          ...outgoing.cut,
+          transitionOut: { ...transition, duration: plan.effectiveSeconds }
+        };
+        incoming.start = cutPoint - plan.halfSeconds;
+        incoming.cut = {
+          ...incoming.cut,
+          in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
+        };
+      }
+      const segmentSlice = (entry, start, end, transitionOut = null) => {
+        const cut = entry.cut;
+        const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
+        return {
+          kind: "src",
+          outStart: start,
+          outEnd: end,
+          cutIndex: entry.cutIndex,
+          ...cut.src !== void 0 ? { src: cut.src } : {},
+          in: cut.in + (start - entry.start) * speed,
+          out: cut.in + (end - entry.start) * speed,
+          speed,
+          track: entry.track,
+          transitionOut
+        };
+      };
+      const transitionWindows = [];
+      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+        const outgoing = resolved[outgoingIndex];
+        const transition = outgoing.cut.transitionOut;
+        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
+          continue;
+        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
+        if (!incoming)
+          continue;
+        const start = incoming.start;
+        const actualOverlap = outgoing.end - start;
+        if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6)
+          continue;
+        const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
+        if (!(end - start > 1e-6))
+          continue;
+        transitionWindows.push({
+          start,
+          end,
+          duration: end - start,
+          type: transition.type,
+          outgoing: segmentSlice(outgoing, start, end, transition),
+          incoming: segmentSlice(incoming, start, end)
+        });
+      }
+      const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
+      const boundarySet = /* @__PURE__ */ new Set([0, outputDuration]);
+      for (const segment of resolved) {
+        boundarySet.add(segment.start);
+        boundarySet.add(segment.end);
+      }
+      const boundaries = [...boundarySet].sort((left, right) => left - right);
+      const runs = [];
+      for (let index = 0; index < boundaries.length - 1; index++) {
+        const start = boundaries[index];
+        const end = boundaries[index + 1];
+        if (end - start <= 1e-6) {
+          continue;
+        }
+        const midpoint = (start + end) / 2;
+        let winner = null;
+        for (const segment of resolved) {
+          if (segment.start <= midpoint && segment.end > midpoint && (!winner || trackZ(segment.track) > trackZ(winner.track))) {
+            winner = segment;
+          }
+        }
+        const last = runs[runs.length - 1];
+        const sameWinner = last && (last.winner === null && winner === null || last.winner !== null && winner !== null && last.winner.cutIndex === winner.cutIndex);
+        if (sameWinner && Math.abs(last.end - start) <= 1e-6) {
+          last.end = end;
+        } else {
+          runs.push({ start, end, winner });
+        }
+      }
+      const segments = runs.map((run) => {
+        if (!run.winner) {
+          return { kind: "gap", outStart: run.start, outEnd: run.end, cutIndex: null };
+        }
+        return segmentSlice(run.winner, run.start, run.end, run.winner.cut.transitionOut ?? null);
+      });
+      const transitionPlates = transitionWindows.flatMap((window2) => window2.type === "fade-black" || window2.type === "fade-white" ? [{
+        start: window2.start,
+        end: window2.end,
+        mid: (window2.start + window2.end) / 2,
+        color: window2.type === "fade-white" ? "#fff" : "#000",
+        type: window2.type
+      }] : []);
+      return {
+        segments,
+        totalDuration: outputDuration,
+        transitionPlates,
+        transitionWindows,
+        usesGapsOrTracks: true
+      };
+    }
+    function outputToSource2(segments, outputT) {
+      if (segments.length === 0) {
+        return { segment: null, sourceT: null };
+      }
+      for (let index = 0; index < segments.length; index++) {
+        const segment = segments[index];
+        if (outputT <= segment.outEnd || index === segments.length - 1) {
+          if (segment.kind !== "src") {
+            return { segment, sourceT: null };
+          }
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          const clamped = Math.max(segment.outStart, Math.min(outputT, segment.outEnd));
+          return { segment, sourceT: (segment.in ?? 0) + (clamped - segment.outStart) * speed };
+        }
+      }
+      return { segment: null, sourceT: null };
+    }
+    function sourceToOutput(segments, sourceT) {
+      const sources = segments.filter((segment) => segment.kind === "src" && typeof segment.in === "number" && typeof segment.out === "number");
+      if (sources.length === 0 || !Number.isFinite(sourceT)) {
+        return null;
+      }
+      for (const segment of sources) {
+        const start = segment.in;
+        const end = segment.out;
+        if (start <= sourceT && sourceT < end) {
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          return segment.outStart + (sourceT - start) / speed;
+        }
+      }
+      const next = sources.find((segment) => segment.in > sourceT);
+      return next?.outStart ?? sources[sources.length - 1].outEnd;
+    }
+  }
+});
+
+// ../edit-store/lib/caption-timeline.js
+var require_caption_timeline = __commonJS({
+  "../edit-store/lib/caption-timeline.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.buildCaptionTimelineSegments = buildCaptionTimelineSegments;
+    var timeline_map_1 = require_timeline_map();
+    function buildCaptionTimelineSegments(cuts, edit, options = {}) {
+      const visual = (0, timeline_map_1.buildTimelineMap)(cuts, options).segments;
+      if (!edit)
+        return visual;
+      const audio = [];
+      const fps = options.fps ?? edit.output?.fps ?? 30;
+      const visualSources = /* @__PURE__ */ new Set();
+      const visitVisual = (item) => {
+        const src = item.source?.sourceId ?? item.source?.src;
+        if (item.source?.kind === "media" && src)
+          visualSources.add(src);
+        for (const child of item.items ?? item.children ?? [])
+          visitVisual(child);
+      };
+      for (const track of edit.tracks) {
+        if (track.lane === "visual")
+          for (const item of track.items ?? [])
+            visitVisual(item);
+      }
+      for (const track of edit.tracks) {
+        if (track.lane !== "audio" || track.muted)
+          continue;
+        for (const entry of track.items ?? []) {
+          const item = entry;
+          if (item.source?.kind !== "media")
+            continue;
+          if (item.link || item.declaration?.link || item.mute || item.declaration?.mute)
+            continue;
+          const role = item.legacy?.collection ?? item.role ?? item.declaration?.role;
+          if (role !== "speech" && role !== "narration")
+            continue;
+          const src = item.source.sourceId ?? item.source.src;
+          if (!src || visualSources.has(src))
+            continue;
+          const at2 = typeof item.atFrames === "number" ? item.at ?? 0 : (item.at ?? 0) / fps;
+          const duration = typeof item.durationFrames === "number" ? item.duration ?? 0 : (item.duration ?? 0) / fps;
+          const sourceIn = item.source.in ?? 0;
+          const sourceOut = item.source.out ?? sourceIn;
+          const speed = (sourceOut - sourceIn) / duration;
+          if (!(duration > 0) || !(speed > 0))
+            continue;
+          let uncovered = [{ in: sourceIn, out: sourceOut }];
+          for (const cut of cuts) {
+            if (cut.src !== src)
+              continue;
+            uncovered = uncovered.flatMap((part) => cut.out <= part.in || cut.in >= part.out ? [part] : [
+              ...cut.in > part.in ? [{ in: part.in, out: Math.min(cut.in, part.out) }] : [],
+              ...cut.out < part.out ? [{ in: Math.max(cut.out, part.in), out: part.out }] : []
+            ]);
+          }
+          for (const part of uncovered) {
+            audio.push({
+              kind: "src",
+              outStart: at2 + (part.in - sourceIn) / speed,
+              outEnd: at2 + (part.out - sourceIn) / speed,
+              cutIndex: null,
+              src,
+              in: part.in,
+              out: part.out,
+              speed
+            });
+          }
+        }
+      }
+      return [...visual, ...audio];
+    }
+  }
+});
+
 // ../edit-store/lib/caption-display.js
 var require_caption_display = __commonJS({
   "../edit-store/lib/caption-display.js"(exports) {
@@ -2968,6 +3326,7 @@ var require_caption_display = __commonJS({
     var caption_style_preset_1 = require_caption_style_preset();
     var textstyle_catalog_1 = require_textstyle_catalog();
     var caption_runs_1 = require_caption_runs();
+    var caption_timeline_1 = require_caption_timeline();
     exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
     exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
     exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
@@ -3196,7 +3555,7 @@ var require_caption_display = __commonJS({
         fail("INVALID_CAPTIONS", "captions with display_policy are required");
       }
       validateCaptionDisplayPolicy(root.display_policy);
-      if (!strictText(id) || style !== null && style !== "karaoke")
+      if (!strictText(id) || style !== null && style !== "karaoke" && style !== "plain")
         fail("INVALID_CAPTION", "invalid caption style request");
       if (!root.captions.some((caption) => isRecord2(caption) && caption.id === id)) {
         fail("INVALID_CAPTION", `caption ${id} was not found`);
@@ -3243,7 +3602,19 @@ var require_caption_display = __commonJS({
         fail("INVALID_CAPTIONS", "captions.json object root must contain captions[]");
       const captions = captionsRoot.captions;
       const defaultStyle = Object.prototype.hasOwnProperty.call(captionsRoot, "default_text_style") ? validateCaptionTextStyle(captionsRoot.default_text_style, "default_text_style") : void 0;
-      const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+      const visualCuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+      const captionSegments = Array.isArray(edit?.tracks) ? (0, caption_timeline_1.buildCaptionTimelineSegments)(visualCuts, {
+        tracks: edit.tracks,
+        output: edit.output
+      }, { fps: edit.output?.fps }) : [];
+      const audioCuts = captionSegments.flatMap((segment) => segment.kind === "src" && segment.cutIndex === null && segment.src && segment.in !== void 0 && segment.out !== void 0 ? [{
+        src: segment.src,
+        in: segment.in,
+        out: segment.out,
+        at: segment.outStart,
+        speed: segment.speed
+      }] : []);
+      const cuts = [...visualCuts, ...audioCuts];
       const styleOutput = options.output ?? edit?.output;
       validateProjectionCuts(cuts, edit);
       const projectedCaptions = captions.map((caption) => projectCaptionWords(caption, cuts));
@@ -3412,12 +3783,14 @@ var require_caption_display = __commonJS({
     }
     function captionDisplayGraphemes(text) {
       const Segmenter = Intl.Segmenter;
+      if (typeof Segmenter !== "function")
+        return Array.from(text);
       return [...new Segmenter(void 0, { granularity: "grapheme" }).segment(text)].map((part) => part.segment);
     }
     function alignKaraokeUntimed(entries, displayText) {
       const graphemes = captionDisplayGraphemes(displayText);
       const normalized = (text) => text.normalize("NFKC").replace(/\s/gu, "");
-      const allowedGap = /^[\p{P}\p{S}\s]+$/u;
+      const allowedGap = /^(?:[\p{P}\p{S}\p{Cf}\p{Mn}]|\s)+$/u;
       const aligned = [];
       let cursor = 0;
       const addUntimed = (text) => {
@@ -3507,7 +3880,11 @@ var require_caption_display = __commonJS({
             const later = caption.words.slice(wordIndex + 1).find((candidate) => projected.words.includes(candidate));
             const earlier = caption.words.slice(0, wordIndex).reverse().find((candidate) => projected.words.includes(candidate));
             const anchor = later ?? earlier ?? projected.words[0];
-            return [{ word: { text: value.text, start: anchor.start, end: anchor.end }, synthetic: true }];
+            return [{
+              word: { text: value.text, start: anchor.start, end: anchor.end },
+              synthetic: !karaoke || hasSyntheticTiming,
+              ...karaoke && !hasSyntheticTiming ? { untimed: true } : {}
+            }];
           });
           if (visible(rescued).join("") === normalized(projected.displayText))
             entries = rescued;
@@ -3534,6 +3911,8 @@ var require_caption_display = __commonJS({
           }
           return projected.displayText.slice(start, displayCursor);
         });
+        if (needsUntimed)
+          displayCursor = projected.displayText.length;
         alignedTexts[alignedTexts.length - 1] += projected.displayText.slice(displayCursor);
         let offset = 0;
         const words = entries.map(({ word, synthetic, untimed }, wordIndex) => {
@@ -3639,9 +4018,14 @@ var require_caption_display = __commonJS({
             continue;
           const timeScale = occurrence.time_scale ?? 1;
           const timeOffset = occurrence.time_offset ?? 0;
+          const graphemeCount = captionDisplayGraphemes(word.text).length;
+          const fractionStart = captionDisplayGraphemes(word.text.slice(0, start - word.offset)).length / graphemeCount;
+          const fractionEnd = captionDisplayGraphemes(word.text.slice(0, end - word.offset)).length / graphemeCount;
+          const wordStart = word.start + (word.end - word.start) * fractionStart;
+          const wordEndTime = word.start + (word.end - word.start) * fractionEnd;
           styledWords.push({
-            start: roundOutputSecond(timeOffset + word.start * timeScale),
-            end: roundOutputSecond(timeOffset + word.end * timeScale),
+            start: roundOutputSecond(timeOffset + wordStart * timeScale),
+            end: roundOutputSecond(timeOffset + wordEndTime * timeScale),
             text: word.text.slice(start - word.offset, end - word.offset),
             line: line.line,
             ...word.untimed ? { untimed: true } : {},
@@ -4319,7 +4703,7 @@ var require_caption_display = __commonJS({
       if (!strictText(sourceText))
         fail("INVALID_TEXT", `captions[${index}] display text must be non-empty, NFC, and trimmed`);
       if (caption.style !== void 0) {
-        if (caption.style === "karaoke")
+        if (caption.style === "karaoke" || caption.style === "plain")
           return;
         if (CAPTION_WORD_STYLES.has(caption.style)) {
           fail("STYLE_CONFLICT", `captions[${index}].style cannot be combined with display_policy`);
@@ -5520,7 +5904,7 @@ var require_caption_store = __commonJS({
       if (updates.speaker !== void 0 && updates.speaker !== null && typeof updates.speaker !== "string") {
         throw new Error("\u5B57\u5E55\u306E\u8A71\u8005\u306F\u6587\u5B57\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
-      if (updates.style !== void 0 && updates.style !== null && !["karaoke", "pop", "reveal", "reveal-word"].includes(updates.style)) {
+      if (updates.style !== void 0 && updates.style !== null && !["plain", "karaoke", "pop", "reveal", "reveal-word"].includes(updates.style)) {
         throw new Error("\u5B57\u5E55\u306E\u30B9\u30BF\u30A4\u30EB\uFF08\u6F14\u51FA\uFF09\u304C\u4E0D\u6B63\u3067\u3059\u3002");
       }
       if (updates.displayTiming !== void 0 && updates.displayTiming !== null && updates.displayTiming !== "full" && updates.displayTiming !== "speech-tight") {
@@ -7289,9 +7673,43 @@ var require_caption_clock = __commonJS({
   "../edit-store/lib/caption-clock.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.buildCaptionTimelineSegments = void 0;
     exports.normalizeCaptionClock = normalizeCaptionClock;
     exports.captionClockDomainOf = captionClockDomainOf;
+    var caption_display_1 = require_caption_display();
+    var caption_timeline_1 = require_caption_timeline();
+    Object.defineProperty(exports, "buildCaptionTimelineSegments", { enumerable: true, get: function() {
+      return caption_timeline_1.buildCaptionTimelineSegments;
+    } });
     var EPSILON = 1e-6;
+    function rebaseDisplayedRuns(oldText, newText, runs) {
+      const graphemes = (text) => {
+        const Segmenter = Reflect.get(Intl, "Segmenter");
+        return typeof Segmenter === "function" ? Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(text), (part) => part.segment) : Array.from(text);
+      };
+      const before = graphemes(oldText);
+      const after = graphemes(newText);
+      let prefix = 0;
+      while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix])
+        prefix++;
+      let suffix = 0;
+      while (suffix < before.length - prefix && suffix < after.length - prefix && before[before.length - suffix - 1] === after[after.length - suffix - 1])
+        suffix++;
+      const oldEnd = before.length - suffix;
+      const newEnd = after.length - suffix;
+      const delta = newEnd - oldEnd;
+      return runs.flatMap((run) => {
+        if (run.to <= prefix)
+          return [run];
+        if (run.from >= oldEnd)
+          return [{ ...run, from: run.from + delta, to: run.to + delta }];
+        if (run.from >= prefix && run.to <= oldEnd && newEnd === prefix)
+          return [];
+        const from = run.from < prefix ? run.from : prefix;
+        const to = run.to > oldEnd ? run.to + delta : newEnd;
+        return from < to ? [{ ...run, from, to }] : [];
+      });
+    }
     function normalizeCaptionClock(captions, segments) {
       const output = [];
       for (const caption of captions) {
@@ -7301,12 +7719,23 @@ var require_caption_clock = __commonJS({
           output.push({ ...caption, clockDomain: "output" });
           continue;
         }
+        const cue = caption;
+        const sourceSegments = segments.filter((segment) => segment.kind === "src" && segment.in !== void 0 && segment.out !== void 0 && (caption.clockSourceId === void 0 || segment.src === caption.clockSourceId));
+        const projected = typeof cue.text === "string" && cue.words?.length ? (0, caption_display_1.projectCaptionWords)({
+          text: cue.text,
+          display_text: cue.displayText ?? cue.text,
+          words: cue.words,
+          src: cue.clockSourceId
+        }, sourceSegments.map((segment) => ({
+          src: segment.src,
+          in: segment.in,
+          out: segment.out
+        }))) : null;
+        if (projected && !projected.renderable)
+          continue;
+        const projectedRuns = projected?.changed && cue.runs ? rebaseDisplayedRuns(cue.displayText ?? cue.text ?? "", projected.displayText, cue.runs) : cue.runs;
         let occurrence = 0;
-        for (const segment of segments) {
-          if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0)
-            continue;
-          if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId)
-            continue;
+        for (const segment of sourceSegments) {
           const sourceStart = Math.max(caption.start, segment.in);
           const sourceEnd = Math.min(caption.end, segment.out);
           if (!(sourceEnd - sourceStart > EPSILON))
@@ -7315,13 +7744,19 @@ var require_caption_clock = __commonJS({
           const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
           occurrence += 1;
           const sourceCueId = caption.sourceCueId ?? caption.id;
-          const words = caption.words?.flatMap((word) => {
+          const words = (projected?.words ?? caption.words)?.flatMap((word) => {
             const wordStart = Math.max(word.start, sourceStart);
             const wordEnd = Math.min(word.end, sourceEnd);
             return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
           });
           output.push({
             ...caption,
+            ...projected?.changed ? {
+              text: projected.displayText,
+              originalSourceText: cue.text,
+              ...cue.displayText !== void 0 ? { displayText: projected.displayText } : {},
+              ...cue.runs ? { runs: projectedRuns } : {}
+            } : {},
             ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
             ...sourceCueId ? { sourceCueId } : {},
             start: projectTime(sourceStart),
@@ -7339,288 +7774,6 @@ var require_caption_clock = __commonJS({
         clockDomain,
         ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
       };
-    }
-  }
-});
-
-// ../edit-store/lib/cut-adjacency.js
-var require_cut_adjacency = __commonJS({
-  "../edit-store/lib/cut-adjacency.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
-    exports.effectiveCutFps = effectiveCutFps;
-    exports.cutOverlapFrames = cutOverlapFrames;
-    exports.planTransitionHandleWindow = planTransitionHandleWindow;
-    exports.isStillImageSourcePath = isStillImageSourcePath2;
-    exports.areCutsAdjacent = areCutsAdjacent;
-    exports.DEFAULT_CUT_ADJACENCY_FPS = 30;
-    function effectiveCutFps(fps) {
-      return Number.isFinite(fps) && fps > 0 ? fps : exports.DEFAULT_CUT_ADJACENCY_FPS;
-    }
-    function cutOverlapFrames(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
-      const resolvedFps = effectiveCutFps(fps);
-      return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
-    }
-    var nonNegativeRoom = (value) => value === Number.POSITIVE_INFINITY ? value : Number.isFinite(value) && value > 0 ? value : 0;
-    function planTransitionHandleWindow(input) {
-      const declaredSeconds = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0 ? input.declaredSeconds : 0;
-      const effectiveSeconds = Math.max(0, Math.min(declaredSeconds, 2 * nonNegativeRoom(input.outgoingTailRoomSeconds), 2 * nonNegativeRoom(input.incomingHeadRoomSeconds), 2 * nonNegativeRoom(input.outgoingDurationSeconds), 2 * nonNegativeRoom(input.incomingDurationSeconds)));
-      return {
-        effectiveSeconds,
-        halfSeconds: effectiveSeconds / 2,
-        outcome: effectiveSeconds <= 0 ? "none" : effectiveSeconds < declaredSeconds ? "clamped" : "full"
-      };
-    }
-    exports.STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
-    function isStillImageSourcePath2(path) {
-      return typeof path === "string" && exports.STILL_IMAGE_SOURCE_PATTERN.test(path);
-    }
-    function areCutsAdjacent(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
-      const resolvedFps = effectiveCutFps(fps);
-      const overlapFrames = cutOverlapFrames(earlier, later, resolvedFps);
-      const declaredDuration = earlier.transitionOut?.duration;
-      const declaredOverlapFrames = typeof declaredDuration === "number" && Number.isFinite(declaredDuration) && declaredDuration > 0 ? Math.round(declaredDuration * resolvedFps) : 0;
-      return overlapFrames === 0 || overlapFrames > 0 && overlapFrames <= declaredOverlapFrames;
-    }
-  }
-});
-
-// ../edit-store/lib/timeline-map.js
-var require_timeline_map = __commonJS({
-  "../edit-store/lib/timeline-map.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
-    exports.transitionProgressAt = transitionProgressAt2;
-    exports.buildTimelineMap = buildTimelineMap2;
-    exports.outputToSource = outputToSource2;
-    exports.sourceToOutput = sourceToOutput;
-    var edit_store_1 = require_edit_store();
-    var cut_adjacency_1 = require_cut_adjacency();
-    function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
-      const normalizedCuts2 = cuts.map((cut) => ({
-        ...cut,
-        transitionOut: cut.transitionOut ?? cut.transition_out
-      }));
-      const hasExplicitSources = normalizedCuts2.some((cut) => typeof cut.src === "string" && cut.src.length > 0);
-      if (hasExplicitSources && !options.sourceId)
-        return { intervals: [], droppedShortIntervals: 0 };
-      const map = buildTimelineMap2(normalizedCuts2, { fps: options.fps });
-      const projected = [];
-      for (const segment of map.segments) {
-        if (segment.kind !== "src" || typeof segment.in !== "number" || typeof segment.out !== "number")
-          continue;
-        if (hasExplicitSources && segment.src !== options.sourceId)
-          continue;
-        if (segment.cutIndex !== null && normalizedCuts2[segment.cutIndex]?.audio === false)
-          continue;
-        const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
-        for (const entry of transcript) {
-          if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start)
-            continue;
-          const sourceStart = Math.max(segment.in, entry.start);
-          const sourceEnd = Math.min(segment.out, entry.end);
-          if (!(sourceEnd > sourceStart))
-            continue;
-          projected.push({
-            startSec: segment.outStart + (sourceStart - segment.in) / speed,
-            endSec: segment.outStart + (sourceEnd - segment.in) / speed
-          });
-        }
-      }
-      projected.sort((left, right) => left.startSec - right.startSec || left.endSec - right.endSec);
-      const merged = [];
-      for (const interval of projected) {
-        const last = merged[merged.length - 1];
-        if (last && interval.startSec - last.endSec < 0.35)
-          last.endSec = Math.max(last.endSec, interval.endSec);
-        else
-          merged.push({ ...interval });
-      }
-      const intervals = merged.filter((interval) => interval.endSec - interval.startSec >= 0.15);
-      return { intervals, droppedShortIntervals: merged.length - intervals.length };
-    }
-    function transitionProgressAt2(window2, outputT) {
-      if (!(window2.duration > 0))
-        return 0;
-      return Math.max(0, Math.min(1, (outputT - window2.start) / window2.duration));
-    }
-    function buildTimelineMap2(cuts, options) {
-      const usable = [];
-      cuts.forEach((cut, index) => {
-        if (typeof cut?.in === "number" && Number.isFinite(cut.in) && typeof cut?.out === "number" && Number.isFinite(cut.out) && cut.in < cut.out) {
-          usable.push({ cut, index });
-        }
-      });
-      const usableCuts = usable.map((entry) => entry.cut);
-      const trackSegments = (0, edit_store_1.computeCutTrackSegments)(usableCuts);
-      const trackZ = options?.trackZ ?? ((track) => -track);
-      const resolved = trackSegments.map((segment) => ({
-        start: segment.at,
-        end: segment.end,
-        baseStart: segment.at,
-        baseEnd: segment.end,
-        track: segment.track,
-        cut: usableCuts[segment.index],
-        cutIndex: usable[segment.index].index
-      }));
-      const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
-      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-        const outgoing = resolved[outgoingIndex];
-        const transition = outgoing.cut.transitionOut;
-        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
-          continue;
-        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
-        if (!incoming || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.end }, { tlStart: incoming.start }, fps) !== 0)
-          continue;
-        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
-        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
-        const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
-        const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
-          declaredSeconds: transition.duration,
-          outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
-          incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
-          outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
-          incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
-        });
-        if (plan.effectiveSeconds <= 0)
-          continue;
-        const cutPoint = outgoing.end;
-        outgoing.end = cutPoint + plan.halfSeconds;
-        outgoing.cut = {
-          ...outgoing.cut,
-          transitionOut: { ...transition, duration: plan.effectiveSeconds }
-        };
-        incoming.start = cutPoint - plan.halfSeconds;
-        incoming.cut = {
-          ...incoming.cut,
-          in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
-        };
-      }
-      const segmentSlice = (entry, start, end, transitionOut = null) => {
-        const cut = entry.cut;
-        const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
-        return {
-          kind: "src",
-          outStart: start,
-          outEnd: end,
-          cutIndex: entry.cutIndex,
-          ...cut.src !== void 0 ? { src: cut.src } : {},
-          in: cut.in + (start - entry.start) * speed,
-          out: cut.in + (end - entry.start) * speed,
-          speed,
-          track: entry.track,
-          transitionOut
-        };
-      };
-      const transitionWindows = [];
-      for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-        const outgoing = resolved[outgoingIndex];
-        const transition = outgoing.cut.transitionOut;
-        if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
-          continue;
-        const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
-        if (!incoming)
-          continue;
-        const start = incoming.start;
-        const actualOverlap = outgoing.end - start;
-        if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6)
-          continue;
-        const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
-        if (!(end - start > 1e-6))
-          continue;
-        transitionWindows.push({
-          start,
-          end,
-          duration: end - start,
-          type: transition.type,
-          outgoing: segmentSlice(outgoing, start, end, transition),
-          incoming: segmentSlice(incoming, start, end)
-        });
-      }
-      const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
-      const boundarySet = /* @__PURE__ */ new Set([0, outputDuration]);
-      for (const segment of resolved) {
-        boundarySet.add(segment.start);
-        boundarySet.add(segment.end);
-      }
-      const boundaries = [...boundarySet].sort((left, right) => left - right);
-      const runs = [];
-      for (let index = 0; index < boundaries.length - 1; index++) {
-        const start = boundaries[index];
-        const end = boundaries[index + 1];
-        if (end - start <= 1e-6) {
-          continue;
-        }
-        const midpoint = (start + end) / 2;
-        let winner = null;
-        for (const segment of resolved) {
-          if (segment.start <= midpoint && segment.end > midpoint && (!winner || trackZ(segment.track) > trackZ(winner.track))) {
-            winner = segment;
-          }
-        }
-        const last = runs[runs.length - 1];
-        const sameWinner = last && (last.winner === null && winner === null || last.winner !== null && winner !== null && last.winner.cutIndex === winner.cutIndex);
-        if (sameWinner && Math.abs(last.end - start) <= 1e-6) {
-          last.end = end;
-        } else {
-          runs.push({ start, end, winner });
-        }
-      }
-      const segments = runs.map((run) => {
-        if (!run.winner) {
-          return { kind: "gap", outStart: run.start, outEnd: run.end, cutIndex: null };
-        }
-        return segmentSlice(run.winner, run.start, run.end, run.winner.cut.transitionOut ?? null);
-      });
-      const transitionPlates = transitionWindows.flatMap((window2) => window2.type === "fade-black" || window2.type === "fade-white" ? [{
-        start: window2.start,
-        end: window2.end,
-        mid: (window2.start + window2.end) / 2,
-        color: window2.type === "fade-white" ? "#fff" : "#000",
-        type: window2.type
-      }] : []);
-      return {
-        segments,
-        totalDuration: outputDuration,
-        transitionPlates,
-        transitionWindows,
-        usesGapsOrTracks: true
-      };
-    }
-    function outputToSource2(segments, outputT) {
-      if (segments.length === 0) {
-        return { segment: null, sourceT: null };
-      }
-      for (let index = 0; index < segments.length; index++) {
-        const segment = segments[index];
-        if (outputT <= segment.outEnd || index === segments.length - 1) {
-          if (segment.kind !== "src") {
-            return { segment, sourceT: null };
-          }
-          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
-          const clamped = Math.max(segment.outStart, Math.min(outputT, segment.outEnd));
-          return { segment, sourceT: (segment.in ?? 0) + (clamped - segment.outStart) * speed };
-        }
-      }
-      return { segment: null, sourceT: null };
-    }
-    function sourceToOutput(segments, sourceT) {
-      const sources = segments.filter((segment) => segment.kind === "src" && typeof segment.in === "number" && typeof segment.out === "number");
-      if (sources.length === 0 || !Number.isFinite(sourceT)) {
-        return null;
-      }
-      for (const segment of sources) {
-        const start = segment.in;
-        const end = segment.out;
-        if (start <= sourceT && sourceT < end) {
-          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
-          return segment.outStart + (sourceT - start) / speed;
-        }
-      }
-      const next = sources.find((segment) => segment.in > sourceT);
-      return next?.outStart ?? sources[sources.length - 1].outEnd;
     }
   }
 });
@@ -12899,6 +13052,7 @@ var require_internal_model = __commonJS({
             duration,
             children: [],
             source,
+            ...item.link !== void 0 ? { link: item.link } : {},
             declaration: {
               id: item.id,
               t: at2,
@@ -12998,6 +13152,7 @@ var require_internal_model = __commonJS({
           duration,
           children: [],
           source,
+          ...item.link !== void 0 ? { link: item.link } : {},
           declaration: {
             id: item.id,
             t: at2,
@@ -16302,7 +16457,9 @@ var require_cut_ranges = __commonJS({
         }
         target.splice(leftIndex, 1, merged);
         target.splice(rightIndex, 1);
-        if (!target.some((item, index) => index !== leftIndex && media(item) && splitRootId(item.id) === splitRootId(merged.id))) {
+        const family = target.filter((item) => media(item) && splitRootId(item.id) === splitRootId(merged.id)).sort((a, b) => a.source.in - b.source.in);
+        const noRemainingCut = family.every((item, index) => index === 0 || item.source.in - family[index - 1].source.out <= SOURCE_TOLERANCE);
+        if (noRemainingCut) {
           delete mergedMeta.reason;
           delete mergedMeta.label;
         }
