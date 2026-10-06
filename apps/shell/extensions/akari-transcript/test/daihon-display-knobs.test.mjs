@@ -38,6 +38,12 @@ test('既存 policy の非 UI 値と object ルートの兄弟キーを保つ', 
   assert.deepEqual(written.display_policy.break_hints, { protected_terms: ['AKARI'] });
 });
 
+test('表示ポップの文字数を保存しても全体のカラオケ設定を保つ', () => {
+  const root = { display_policy: { word_style: 'karaoke' } };
+  const written = writeDaihonDisplayKnobs(root, { maxLineUnits: 14, lines: 2, wrap: 'multi' });
+  assert.equal(written.display_policy.word_style, 'karaoke');
+});
+
 test('スライダー値を 5〜28 にクランプしラベルを作る', () => {
   assert.equal(clampDaihonMaxLineUnits(4), 5);
   assert.equal(clampDaihonMaxLineUnits(40), 28);

@@ -4,6 +4,7 @@ import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { getCaptionDisplayWordStyle, setCaptionDisplayWordStyle, type CaptionDisplayPolicy } from '@akari-video/edit-store';
 import { currentTimelineCaptionsUri, currentTimelineEditUri } from 'akari-annotations/lib/browser/active-timeline';
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts } from 'akari-project/lib/common/akari-project-protocol';
@@ -115,6 +116,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected chars = 18;
     protected lines: 1 | 2 = 1;
     protected timing: 'full' | 'speech-tight' = 'full';
+    protected karaoke = false;
     protected force = false;
     protected showMore = false;
     protected showDetails = false;
@@ -213,6 +215,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             captionSources = Array.isArray(rows) ? rows.map((row: { src?: string }) => row.src).filter((id: string) => !!id) : [];
             const shape = readCaptionShape(raw);
             this.chars = shape.chars; this.lines = shape.lines; this.timing = shape.timing;
+            try { this.karaoke = getCaptionDisplayWordStyle(raw) === 'karaoke'; }
+            catch { this.karaoke = false; /* Legacy display policies may be incomplete. */ }
         } catch { /* Captions may not exist yet. */ }
         this.selected = new Set(popupInitialSourceIds(this.sources, this.initialPath, captionSources));
         this.showMore = this.sources.some(source => source.status === 'excluded'
@@ -496,6 +500,14 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             timing.append(choice);
         }
         this.body.append(timing);
+        const karaoke = group('カラオケ表示');
+        const karaokeLabel = el('label');
+        karaokeLabel.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer';
+        const karaokeToggle = el('input'); karaokeToggle.type = 'checkbox'; karaokeToggle.checked = this.karaoke;
+        karaokeToggle.onchange = () => { this.karaoke = karaokeToggle.checked; this.updateExample(); };
+        karaokeLabel.append(karaokeToggle, el('span', '読み上げに合わせて文字の色が変わる'));
+        karaoke.append(karaokeLabel, el('small', '行ごとの ⚙ でも切り替えられます。'));
+        this.body.append(karaoke);
         const example = el('p'); example.dataset.akariCaptionExample = 'true';
         example.style.cssText = 'max-width:420px;padding:14px;background:#141920;border-radius:8px;line-height:1.6';
         this.body.append(example); this.updateExample();
@@ -521,7 +533,11 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         for (let i = 0; i < shown.length; i += this.chars) {
             const line = el('div');
             const part = shown.slice(i, i + this.chars);
-            line.textContent = part;
+            if (this.karaoke) {
+                const colored = el('span', part.slice(0, Math.ceil(part.length / 2)));
+                colored.style.color = '#f0832b';
+                line.append(colored, el('span', part.slice(Math.ceil(part.length / 2))));
+            } else line.textContent = part;
             example.append(line);
         }
     }
@@ -761,8 +777,10 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const projectRootUri = this.root.toString();
             const policy = daihonDisplayPolicyForWrite(raw, { maxLineUnits: this.chars, lines: this.lines,
                 wrap: readDaihonDisplayKnobs(raw).wrap });
+            const displayPolicy = setCaptionDisplayWordStyle({ display_policy: policy },
+                this.karaoke ? 'karaoke' : 'none').display_policy as CaptionDisplayPolicy;
             await this.annotationsService.setCaptionDisplayPolicy({
-                captionsUri: captionsUriString, projectRootUri, displayPolicy: policy
+                captionsUri: captionsUriString, projectRootUri, displayPolicy
             });
             const rows = Array.isArray(raw) ? raw : raw.captions;
             const timed = (Array.isArray(rows) ? rows : []).filter(row => typeof row?.id === 'string'

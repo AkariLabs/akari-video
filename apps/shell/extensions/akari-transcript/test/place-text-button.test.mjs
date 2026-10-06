@@ -12,7 +12,7 @@ const { ast: source, node: method } = findMember('placeTextFromSelection', { in:
 const code = ts.transpileModule(`class Widget { ${method.getText(source)} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Widget = new Function('PLACE_TEXT_COMMAND_ID', `${code}; return Widget;`)(PLACE_TEXT_COMMAND_ID);
 function fixture(selected = []) {
-    const calls = [], events = [], notices = [];
+    const calls = [], events = [], notices = [], errors = [];
     const widget = Object.assign(new Widget(), {
         editUri: { toString: () => 'file:///project/edit.json' }, selection: { selected },
         rows: [
@@ -21,9 +21,10 @@ function fixture(selected = []) {
         ],
         commands: { async executeCommand(...args) { calls.push(args); return 'c-0010'; } },
         async reload() { events.push('reload'); }, selectPlacedText: id => events.push(id),
-        notify: message => notices.push(message), errorMessage: error => error.message
+        notify: message => notices.push(message), notifyError: message => { notices.push(message); errors.push(message); },
+        errorMessage: error => error.message
     });
-    return { widget, calls, events, notices };
+    return { widget, calls, events, notices, errors };
 }
 
 test('two selected rows pass their output span, independent of click order and cut rows', async () => {
@@ -52,6 +53,7 @@ test('rejected placement keeps selection intact and clears busy state', async ()
     f.widget.commands.executeCommand = async () => { throw Error('失敗'); };
     await f.widget.placeTextFromSelection();
     assert.deepEqual(f.notices, ['失敗']);
+    assert.deepEqual(f.errors, ['失敗'], '操作失敗は自動消去しない通知へ送る');
     assert.equal(f.widget.placingText, false);
 });
 

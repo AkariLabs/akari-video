@@ -1,4 +1,5 @@
-// Word effects such as karaoke cannot coexist with display_policy, so this bulk shape excludes them.
+// The bulk caption shape keeps the global karaoke word style in display_policy.
+import { setCaptionDisplayWordStyle } from '@akari-video/edit-store';
 import { daihonDisplayPolicyForWrite, readDaihonDisplayKnobs } from './daihon-display-knobs';
 
 export interface CaptionShape {
@@ -28,10 +29,14 @@ export function readCaptionShape(root: unknown): CaptionShape {
 export function applyCaptionShape(root: unknown, shape: CaptionShape): Root {
     const base: Root = Array.isArray(root) ? { captions: root } : { ...((root && typeof root === 'object') ? root as Root : {}) };
     delete base.display_timing_default;
+    const currentWordStyle = (base.display_policy as { word_style?: unknown } | undefined)?.word_style;
     const current = readDaihonDisplayKnobs(base);
     base.display_policy = daihonDisplayPolicyForWrite(base, {
         maxLineUnits: shape.chars, lines: shape.lines, wrap: current.wrap
     });
+    if (currentWordStyle === 'none' || currentWordStyle === 'karaoke') {
+        base.display_policy = setCaptionDisplayWordStyle(base, currentWordStyle).display_policy;
+    }
     base.captions = rows(base).map(row => {
         const next = { ...row };
         if (Array.isArray(next.words) && next.words.length > 0) next.display_timing = shape.timing;

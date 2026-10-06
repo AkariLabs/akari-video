@@ -32,9 +32,12 @@ import { Message } from '@theia/core/shared/@lumino/messaging';
 import {
     buildTimelineMap,
     CAPTION_SAMPLE_TEXT,
+    getCaptionDisplayWordStyle,
     measureCaptionUnits,
     projectLegacyEdit,
     readInternalEdit,
+    setCaptionDisplayRowStyle,
+    setCaptionDisplayWordStyle,
     splitCaptionFragments,
     TEXTSTYLE_CATALOG,
     type CaptionDisplayPolicy,
@@ -224,6 +227,12 @@ interface CutEntry {
     target?: CutRangeEditorTarget;
 }
 
+interface DaihonCandidateBar {
+    title: string;
+    target: DaihonCutCandidate;
+    actions: Array<{ label: string; run: () => void; keepOpen?: boolean }>;
+}
+
 const PLACED_TEXT_COLORS = [
     'var(--theia-akariTheme-placedTextBlue, #38bdf8)',
     'var(--theia-akariTheme-placedTextOrange, #fb923c)',
@@ -239,18 +248,18 @@ const STYLE_ID = 'akari-daihon-widget-style';
 const STYLE = `
 .akari-daihon-widget { background:var(--theia-editor-background); color:var(--akari-ink, var(--theia-foreground)); display:flex; flex-direction:column; height:100%; overflow:hidden; position:relative; }
 .akari-daihon-head { display:flex; align-items:center; gap:3px; padding:7px 6px; border-bottom:1px solid var(--akari-line-inner); flex-wrap:nowrap; min-width:0; }
-.akari-daihon-head > button { min-width:0; flex:0 0 auto; font-size:10px; padding:5px 4px; white-space:nowrap; }
-.akari-daihon-head .akari-daihon-captions { flex:1 1 auto; min-height:0 !important; padding:5px 4px !important; font-size:10px; }
+.akari-daihon-head > button { min-width:0; flex:0 0 auto; font-size:12px; padding:5px 4px; white-space:nowrap; }
+.akari-daihon-head .akari-daihon-captions { flex:1 1 auto; min-height:0 !important; padding:5px 4px !important; font-size:12px; }
 .akari-daihon-head .akari-daihon-cuts { flex:1 1 auto; }
 .akari-daihon-source { display:flex; align-items:center; gap:6px; min-height:29px; padding:3px 9px; box-sizing:border-box; border-bottom:1px solid var(--akari-line-inner); color:var(--akari-muted); font-size:10px; white-space:nowrap; overflow:hidden; }
 .akari-daihon-source-name { min-width:0; overflow:hidden; text-overflow:ellipsis; color:var(--akari-ink, var(--theia-foreground)); }
 .akari-daihon-source .grow { flex:1; }
 .akari-daihon-source label { display:flex; align-items:center; gap:2px; flex:none; cursor:pointer; }
 .akari-daihon-source input { margin:0; accent-color:var(--akari-accent); }
-.akari-daihon-actionbar { display:none; align-items:center; flex-wrap:wrap; gap:2px; padding:4px; min-width:0; width:100%; box-sizing:border-box; border-top:1px solid var(--akari-line); background:var(--akari-card); font-size:9px; flex:none; }
+.akari-daihon-actionbar { display:none; align-items:center; flex-wrap:wrap; gap:4px; padding:7px 8px; min-width:0; width:100%; box-sizing:border-box; border-top:1px solid var(--akari-line); background:var(--akari-card); font-size:12px; flex:none; }
 .akari-daihon-actionbar.visible { display:flex; }
 .akari-daihon-actionbar strong { color:var(--akari-accent); flex:none; white-space:nowrap; }
-.akari-daihon-actionbar button { flex:none; border:1px solid var(--akari-line); border-radius:4px; background:var(--akari-elevated); color:var(--akari-ink, var(--theia-foreground)); padding:3px 2px; font:inherit; white-space:nowrap; cursor:pointer; }
+.akari-daihon-actionbar button { flex:none; border:1px solid var(--akari-line); border-radius:4px; background:var(--akari-elevated); color:var(--akari-ink, var(--theia-foreground)); padding:3px 7px; font:inherit; white-space:nowrap; cursor:pointer; }
 .akari-daihon-actionbar button:hover { border-color:var(--akari-accent); }
 .akari-daihon-actionbar button:disabled { opacity:.45; cursor:default; }
 .akari-daihon-actionbar .close { margin-left:auto; }
@@ -278,7 +287,8 @@ const STYLE = `
 .akari-daihon-row.iscut .akari-daihon-row-text { text-decoration:line-through; text-decoration-color:rgba(255,143,115,.7); text-decoration-thickness:2px; }
 .akari-daihon-word.iscut, .akari-daihon-gapchip.iscut { color:var(--akari-bad, var(--theia-errorForeground)) !important; text-decoration:line-through !important; text-decoration-color:var(--akari-bad, var(--theia-errorForeground)); text-decoration-thickness:2px; cursor:pointer; }
 .akari-daihon-word-unk.iscut { opacity:.45; text-decoration:line-through; cursor:pointer; }
-.akari-daihon-toast { position:absolute; bottom:36px; left:12px; right:12px; z-index:40; padding:8px 10px; background:var(--akari-card); border:1px solid var(--akari-line-inner); border-radius:6px; box-shadow:0 6px 20px #0008; font-size:12px; }
+.akari-daihon-toast-stack { position:absolute; bottom:var(--akari-daihon-toast-bottom, 36px); left:12px; right:12px; z-index:41; display:flex; flex-direction:column-reverse; gap:6px; max-height:calc(100% - var(--akari-daihon-toast-bottom, 36px) - 12px); overflow-y:auto; }
+.akari-daihon-toast { flex:none; padding:8px 10px; background:var(--akari-card); border:1px solid var(--akari-line-inner); border-radius:6px; box-shadow:0 6px 20px #0008; font-size:12px; }
 .akari-daihon-toast.error { border-color:var(--theia-errorForeground); }
 .akari-daihon-toast button { margin-left:8px; border:0; background:none; color:var(--theia-akariTheme-accentLight); cursor:pointer; }
 .akari-daihon-row.saving { opacity:.65; pointer-events:none; }
@@ -441,7 +451,7 @@ const STYLE = `
 .akari-daihon-widget .akari-daihon-placed-tag { display:inline-block; font-family:inherit; font-size:10.5px; line-height:1.6; border:0; border-radius:4px; padding:1px 7px; margin:3px 6px 0 0; color:var(--placed-color); background:color-mix(in srgb, var(--placed-color) 24%, transparent); cursor:pointer; overflow-wrap:anywhere; text-align:left; }
 .akari-daihon-widget .akari-daihon-placed-bar.selected { border:0; box-shadow:none; filter:brightness(1.3); opacity:1; }
 .akari-daihon-widget .akari-daihon-placed-tag.selected { border:0; box-shadow:0 0 0 1px var(--theia-editor-foreground, #fff); opacity:1; }
-.akari-daihon-attachment-mode { display:inline-flex; align-items:center; gap:2px; font-size:10px; white-space:nowrap; }
+.akari-daihon-attachment-mode { display:inline-flex; align-items:center; gap:2px; font-size:12px; white-space:nowrap; }
 .akari-daihon-attachment-mode button { font:inherit; border:0; border-radius:4px; padding:2px 5px; color:var(--akari-muted); background:transparent; cursor:pointer; }
 .akari-daihon-attachment-mode button.active { color:var(--akari-ink, var(--theia-foreground)); background:var(--akari-card); }
 .akari-daihon-attachment-tag { display:inline-flex !important; align-items:center; gap:5px; cursor:grab !important; }
@@ -627,7 +637,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected cutToastCleanup: (() => void) | undefined;
     protected toastTimer: ReturnType<typeof setTimeout> | undefined;
     protected pendingUndoAt = 0;
-    protected candidateBar: { title: string; actions: Array<{ label: string; run: () => void }> } | undefined;
+    protected candidateBar: DaihonCandidateBar | undefined;
     protected cutRangeEditor: { root: HTMLDivElement; window: DaihonCutRangeWindow; playhead: HTMLSpanElement } | undefined;
     protected cutRangePlayback: { spans: Array<{ from: number; to: number }>; index: number; stopAt: number } | undefined;
     protected previewPlaying = false;
@@ -679,7 +689,7 @@ export class AkariDaihonWidget extends BaseWidget {
             try {
                 await this.openCutDialog();
             } catch (error) {
-                this.notify(`カットを整える画面を開けません: ${this.errorMessage(error)}`);
+                this.notifyError(`カットを整える画面を開けません: ${this.errorMessage(error)}`);
             }
         });
         this.moreButton.type = 'button';
@@ -761,11 +771,13 @@ export class AkariDaihonWidget extends BaseWidget {
         if (typeof ResizeObserver !== 'undefined') {
             const observer = new ResizeObserver(() => {
                 this.restoreDockHeight();
+                this.updateToastPlacement();
                 this.scheduleSelectionReveal();
             });
             observer.observe(this.node);
             observer.observe(this.rowsRegion);
             observer.observe(this.placedEditor);
+            observer.observe(this.actionBar);
             this.toDispose.push({ dispose: () => observer.disconnect() });
         }
         this.dockGrip.addEventListener('pointerdown', event => this.startDockResize(event));
@@ -774,12 +786,22 @@ export class AkariDaihonWidget extends BaseWidget {
             if (target === this.rowsNode || target === this.node) this.closeDock();
         });
         const dockEscape = (event: KeyboardEvent): void => {
-            if (event.key === 'Escape' && document.querySelector('.akari-daihon-row-menu')) {
+            if (event.key !== 'Escape') return;
+            if (document.querySelector('.akari-daihon-row-menu') || document.querySelector('.akari-daihon-pop')) {
                 this.closePop();
                 event.preventDefault();
+                event.stopImmediatePropagation?.();
                 return;
             }
             const active = document.activeElement;
+            if (active && this.node.contains(active)) {
+                if (active.matches?.('input, textarea, select')
+                    || active.closest?.('[contenteditable]:not([contenteditable="false"])')) return;
+                this.handleRowShortcut('clear');
+                event.preventDefault();
+                event.stopImmediatePropagation?.();
+                return;
+            }
             if (shouldCloseDockOnEscape(event.key, !!this.dockKind && this.placedEditor.classList.contains('open'),
                 !!active && this.node.contains(active), active === document.body)) this.dismissDock();
         };
@@ -974,7 +996,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const row = this.rows.find(candidate => candidate.id === rowId);
         let success = true;
         if (hasRowTarget && !row) {
-            this.notify(target.captionId !== undefined
+            this.notifyError(target.captionId !== undefined
                 ? '台本に指定の行が見つかりませんでした。' : '台本にその時刻を含む行が見つかりませんでした。');
             success = false;
         }
@@ -1002,7 +1024,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         }
         if (target.wordRange !== undefined && !validWordRange) {
-            this.notify('台本に指定の語の範囲が見つかりませんでした。');
+            this.notifyError('台本に指定の語の範囲が見つかりませんでした。');
             success = false;
         }
         switch (target.open) {
@@ -1020,7 +1042,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 const gear = row && this.elements.get(row.id)?.root.querySelector<HTMLButtonElement>('.akari-daihon-gear');
                 if (gear && row) this.openGearPop(gear, row);
                 else {
-                    this.notify('字幕設定を開く行が見つかりませんでした。');
+                    this.notifyError('字幕設定を開く行が見つかりませんでした。');
                     success = false;
                 }
                 break;
@@ -1028,7 +1050,7 @@ export class AkariDaihonWidget extends BaseWidget {
             case 'cutRange': {
                 if (validWordRange) this.openCutRangeEditorForSelection();
                 else {
-                    this.notify('カット範囲エディタは語の範囲を選ぶと開けます。');
+                    this.notifyError('カット範囲エディタは語の範囲を選ぶと開けます。');
                     success = false;
                 }
                 break;
@@ -1046,7 +1068,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     showError(error: unknown): void {
-        this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
+        this.notifyError(`台本を読み取れません: ${this.errorMessage(error)}`);
     }
 
     async configure(): Promise<void> {
@@ -1105,7 +1127,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected queueReload(): void {
         this.reloadTail = this.reloadTail.then(() => this.reload()).catch(error => {
-            this.notify(`台本を更新できません: ${this.errorMessage(error)}`);
+            this.notifyError(`台本を更新できません: ${this.errorMessage(error)}`);
         });
     }
 
@@ -1179,10 +1201,10 @@ export class AkariDaihonWidget extends BaseWidget {
             await dialog.open().finally(() => stopListening?.());
             await this.reload();
         } catch (error) {
-            this.notify(`字幕を作れません: ${this.errorMessage(error)}`);
+            this.notifyError(`字幕を作れません: ${this.errorMessage(error)}`);
         } finally {
             this.buildingCaptions = false;
-            await this.refreshCaptionsButton().catch(error => this.notify(this.errorMessage(error)));
+            await this.refreshCaptionsButton().catch(error => this.notifyError(this.errorMessage(error)));
         }
     }
 
@@ -1212,7 +1234,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
             await this.reload();
         } catch (error) {
-            this.notify(`発話に合わせ直せません: ${this.errorMessage(error)}`);
+            this.notifyError(`発話に合わせ直せません: ${this.errorMessage(error)}`);
         }
     }
 
@@ -1225,10 +1247,10 @@ export class AkariDaihonWidget extends BaseWidget {
         const editForSources = this.editUri ? JSON.parse(await this.readText(this.editUri).catch(() => '{}')) : {};
         this.editSources = selectCaptionSources(editForSources, {}, this.editUri?.parent.toString());
         this.silencesBySourceId = new Map();
-        void this.loadSilences();
+        const silenceLoad = this.loadSilences();
         await this.refreshCaptionsButton(this.editSources).catch(error => {
             this.captionsButton.disabled = true;
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         });
         if (!this.editUri || !this.captionsUri) {
             this.segments = [];
@@ -1264,24 +1286,37 @@ export class AkariDaihonWidget extends BaseWidget {
             this.cutSources = [];
             for (const source of this.editSources) {
                 const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
-                    .catch(error => { this.notify(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
+                    .catch(error => { this.notifyError(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
                 this.cutSources.push({ sourceId: source.id, cuts: artifacts?.cuts ?? null });
                 for (const line of handEditedLines(artifacts?.cuts ?? null)) {
                     const caption = captions[line - 1]; if (caption) this.handEditedCaptionIds.add(caption.id);
                 }
             }
+            if (this.candidateBar?.target.kind === 'silence') await silenceLoad;
             this.cutCandidates = this.collectCutCandidates(next);
             this.updateCutsButton();
             const cutSourceChanged = this.cutEditSource !== editSource;
             this.cutEditSource = editSource;
             this.cutSpans = deriveDaihonCutSpans(next, this.rowGapsForRows(next), this.segments,
                 this.editFps, row => this.sourceIdForRow(row));
+            const activeCandidateBar = this.candidateBar;
             this.renderRows(next, cutSourceChanged);
+            if (activeCandidateBar && (!this.candidateBar || this.candidateBar === activeCandidateBar)) {
+                this.candidateBar = this.cutCandidates.some(candidate =>
+                    candidate.id === activeCandidateBar.target.id
+                    && candidate.kind === activeCandidateBar.target.kind
+                    && candidate.rowId === activeCandidateBar.target.rowId
+                    && candidate.sourceId === activeCandidateBar.target.sourceId
+                    && candidate.start === activeCandidateBar.target.start
+                    && candidate.end === activeCandidateBar.target.end)
+                    ? activeCandidateBar : undefined;
+                this.renderActionBar();
+            }
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             this.refreshDockLook();
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
         } catch (error) {
-            this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
+            this.notifyError(`台本を読み取れません: ${this.errorMessage(error)}`);
         }
     }
 
@@ -1553,6 +1588,7 @@ export class AkariDaihonWidget extends BaseWidget {
         transcribed.textContent = sources.length > 1 ? `起こし済み ${completed}/${sources.length}`
             : this.sourceCaptions.length ? '起こし済み' : '未起こし';
         const lines = document.createElement('span');
+        lines.className = 'akari-daihon-source-lines';
         lines.textContent = `${this.rows.length} 行`;
         const grow = document.createElement('span'); grow.className = 'grow';
         const label = document.createElement('label');
@@ -1561,7 +1597,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.showCutMarks = check.checked;
             this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments), true);
             void this.preferences.set(DAIHON_SHOW_CUT_MARKS_PREFERENCE, this.showCutMarks, PreferenceScope.User)
-                .catch(error => this.notify(this.errorMessage(error)));
+                .catch(error => this.notifyError(this.errorMessage(error)));
         });
         label.append(check, document.createTextNode('カット候補の印'));
         this.sourceBand.append(name, transcribed, lines, grow, label);
@@ -1600,7 +1636,13 @@ export class AkariDaihonWidget extends BaseWidget {
         const title = document.createElement('strong');
         if (this.candidateBar) {
             title.textContent = this.candidateBar.title; bar.append(title);
-            for (const action of this.candidateBar.actions) add(action.label, action.run);
+            for (const action of this.candidateBar.actions) add(action.label, () => {
+                action.run();
+                if (!action.keepOpen) {
+                    this.candidateBar = undefined;
+                    this.renderActionBar();
+                }
+            });
         } else if (this.wordRanges.length) {
             const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
             title.textContent = `「${summary.text.slice(0, 10)}」`; bar.append(title);
@@ -1610,7 +1652,7 @@ export class AkariDaihonWidget extends BaseWidget {
             });
             add('✦ 強調', () => this.openRowDock('emphasis'));
             add('✂ 映像ごとカット', () => this.openCutRangeEditorForSelection());
-            add('字幕から消す', () => void this.removeSelectedCaptionWords());
+            add('字幕からだけ消す（音声はそのまま）', () => void this.removeSelectedCaptionWords());
             add('⏸ 間を入れる', () => {
                 const range = this.wordRanges[0]; const row = this.rows.find(item => item.id === range?.row);
                 if (row && range) void this.insertPause(row, range.a);
@@ -1632,28 +1674,47 @@ export class AkariDaihonWidget extends BaseWidget {
             mergeButton.disabled = !merge?.ok;
             mergeButton.title = merge?.ok ? (selected.length === 1 ? '次の行と結合' : '選択行を結合')
                 : merge && 'reason' in merge ? merge.reason : '次の行がないため結合できません。';
-            add('⋯', () => {
+            const more = add('⋯', () => {
                 const row = this.rows.find(item => item.id === this.selection.selected[0]);
                 if (!row) return;
                 const rect = bar.getBoundingClientRect();
                 this.openRowMenu(new MouseEvent('click', { clientX: rect.left + 20, clientY: rect.top }), row, true);
             });
+            more.title = 'その他の操作'; more.setAttribute('aria-label', 'その他の操作');
         }
-        if (bar.children.length) add('✕', () => {
+        if (bar.children.length) {
+            const close = add('✕', () => {
             this.candidateBar = undefined;
             this.wordRanges = []; this.renderWordSelection();
             this.setSelection(clearSelection()); this.renderActionBar();
-        });
+            });
+            close.title = '選択を解除'; close.setAttribute('aria-label', '選択を解除');
+        }
         const visible = bar.children.length > 0;
         bar.classList.toggle('visible', visible);
         if (this.footer) this.footer.hidden = visible;
+        this.updateToastPlacement();
     }
 
-    protected showCandidateBar(title: string, actions: Array<{ label: string; run: () => void }>): void {
+    protected updateToastPlacement(): void {
+        if (!this.node?.getBoundingClientRect || !this.rowsRegion?.getBoundingClientRect) return;
+        const panelBottom = this.node.getBoundingClientRect().bottom;
+        if (!panelBottom) return;
+        const dockOpen = this.placedEditor?.classList.contains('open');
+        const boundary = dockOpen && typeof this.placedEditor.offsetHeight === 'number'
+            ? this.rowsRegion.getBoundingClientRect().bottom - this.placedEditor.offsetHeight
+            : this.actionBar?.classList.contains('visible') && this.actionBar.getBoundingClientRect
+                ? this.actionBar.getBoundingClientRect().top : this.footer?.getBoundingClientRect?.().top;
+        if (boundary === undefined) return;
+        this.node.style.setProperty('--akari-daihon-toast-bottom', `${Math.max(0, panelBottom - boundary + 8)}px`);
+    }
+
+    protected showCandidateBar(title: string, target: DaihonCutCandidate,
+        actions: DaihonCandidateBar['actions']): void {
         this.closePop();
         this.wordRanges = [];
         this.rowsNode.querySelectorAll('.akari-daihon-word.wordsel').forEach(node => node.classList.remove('wordsel'));
-        this.candidateBar = { title, actions };
+        this.candidateBar = { title, target, actions };
         this.renderActionBar();
     }
 
@@ -1676,10 +1737,14 @@ export class AkariDaihonWidget extends BaseWidget {
         chip.addEventListener('click', event => {
             event.stopPropagation();
             if (cutSpan) this.openCutSpanPop(chip, row, cutSpan);
-            else this.showCandidateBar(`無音 ${gap.span.toFixed(2)} 秒`, [
-                { label: '▶ 聞く', run: () => void this.seek(sourceToOutput(this.segments, gap.start)) },
-                { label: '✂ 範囲を決めてカット', run: () => this.openCutRangeEditor(row, { kind: 'silence', gap }) }
-            ]);
+            else {
+                const target = this.cutCandidates.find(candidate => candidate.id === `silence:${gap.prevId}:${gap.nextId}`);
+                if (!target) return;
+                this.showCandidateBar(`無音 ${gap.span.toFixed(2)} 秒`, target, [
+                    { label: '▶ 聞く', keepOpen: true, run: () => void this.seek(sourceToOutput(this.segments, gap.start)) },
+                    { label: '✂ 範囲を決めてカット', run: () => this.openCutRangeEditor(row, { kind: 'silence', gap }) }
+                ]);
+            }
         });
         return chip;
     }
@@ -1779,7 +1844,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.attachmentMode = mode;
         this.updateAttachmentModeButtons();
         void this.preferences.set(DAIHON_ATTACHMENT_MODE_PREFERENCE, mode, PreferenceScope.User)
-            .catch(error => this.notify(this.errorMessage(error)));
+            .catch(error => this.notifyError(this.errorMessage(error)));
         this.renderPlacedText();
     }
 
@@ -1822,7 +1887,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.selectPlacedText(id);
             }
         } catch (error) {
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         } finally {
             this.placingText = false;
         }
@@ -2078,7 +2143,7 @@ export class AkariDaihonWidget extends BaseWidget {
         try {
             await this.commands.executeCommand(FOCUS_TIMELINE_ITEM_COMMAND_ID,
                 { itemId: id, seek: false, reveal: true });
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected async openAttachment(range: AttachmentRange): Promise<void> {
@@ -2091,7 +2156,7 @@ export class AkariDaihonWidget extends BaseWidget {
             if (range.kind === 'image' && 'id' in opened && typeof opened.id === 'string') {
                 await this.applicationShell.activateWidget(opened.id);
             }
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
         finally { this.attachmentOpening = undefined; }
     }
 
@@ -2189,7 +2254,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     projectRootUri: this.rootUri!.toString(), editSource });
             });
             await this.reload();
-        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
+        } catch (error) { await this.reload(); this.notifyError(this.errorMessage(error)); }
         finally { this.placedBusy = false; this.renderPlacedText(); }
     }
 
@@ -2214,6 +2279,7 @@ export class AkariDaihonWidget extends BaseWidget {
             ?? clampDockHeight(panelHeight * .5, panelHeight, rowsHeight);
         this.node.style.setProperty('--dockmax', `${Math.min(panelHeight * .8, rowsHeight)}px`);
         this.node.style.setProperty('--dockh', `${height}px`);
+        this.updateToastPlacement();
     }
 
     protected startDockResize(event: PointerEvent): void {
@@ -2243,6 +2309,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.placedEditor.classList.remove('open');
         this.rowsNode.classList.remove('docked');
         if (this.actionBar && this.footer) this.node.insertBefore(this.actionBar, this.footer);
+        this.updateToastPlacement();
         delete this.placedEditor.dataset.captionId;
         this.renderPlacedText();
     }
@@ -2300,6 +2367,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.actionBar && this.dockGrip) this.placedEditor.insertBefore(this.actionBar, this.dockGrip);
         this.placedEditor.hidden = false;
         this.rowsNode.classList.add('docked');
+        this.updateToastPlacement();
         this.scheduleSelectionReveal();
     }
 
@@ -2438,7 +2506,7 @@ export class AkariDaihonWidget extends BaseWidget {
             });
             await this.reload();
             this.notify('字幕の見た目を変更しました');
-        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
+        } catch (error) { await this.reload(); this.notifyError(this.errorMessage(error)); }
     }
 
     protected renderDockAnimation(ids: string[]): void {
@@ -2462,7 +2530,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     textStyle: { animation: animationId === null ? null : { in: { id: animationId }, out: { id: animationId } } }
                 });
             });
-        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
+        } catch (error) { await this.reload(); this.notifyError(this.errorMessage(error)); }
     }
 
     protected renderDockEmphasis(): void {
@@ -2498,14 +2566,14 @@ export class AkariDaihonWidget extends BaseWidget {
         if (!this.captionsUri || !this.rootUri || !Number.isFinite(value) || value < 0) return;
         const start = key === 'start' ? value : row.start;
         const end = key === 'end' ? value : row.end;
-        if (end <= start) { this.notify('終了は開始より後にしてください'); return; }
+        if (end <= start) { this.notifyError('終了は開始より後にしてください'); return; }
         try {
             await this.withHistory('字幕の時刻を変更', () => this.annotationsService.setCaptionTiming({
                 captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                 captionId: row.id, start, end, edited: true
             }).then(() => undefined));
             await this.reload();
-        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
+        } catch (error) { await this.reload(); this.notifyError(this.errorMessage(error)); }
     }
 
     protected openPlacedMenu(captionId: string): void {
@@ -2600,7 +2668,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }).then(() => undefined));
             this.closeDock();
             await this.reload();
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected startPlacedEdit(captionId: string): void {
@@ -2633,7 +2701,7 @@ export class AkariDaihonWidget extends BaseWidget {
         state.committing = true;
         const value = state.input.value;
         if (state.cancelled || value === state.original || !value.trim()) {
-            if (!state.cancelled && !value.trim()) this.notify('字幕のテキストは空にできません。');
+            if (!state.cancelled && !value.trim()) this.notifyError('字幕のテキストは空にできません。');
             this.placedEditing = undefined;
             this.renderPlacedText();
             return;
@@ -2652,7 +2720,7 @@ export class AkariDaihonWidget extends BaseWidget {
         } catch (error) {
             this.placedEditing = undefined;
             this.renderPlacedText();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -2766,7 +2834,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notify(`置いた文字: ${label}`);
         } catch (error) {
             await this.reload();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         } finally {
             this.placedBusy = false;
             this.renderPlacedText();
@@ -2791,7 +2859,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notify(`置いた文字: ${label}`);
         } catch (error) {
             await this.reload();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         } finally {
             this.placedBusy = false;
             this.renderPlacedText();
@@ -3068,7 +3136,7 @@ export class AkariDaihonWidget extends BaseWidget {
             zone.title = 'ここには隙間がほぼ無い — 分割（⧉）でどうぞ';
             zone.addEventListener('click', event => {
                 event.stopPropagation();
-                this.notify('ここには隙間がほぼ無い — 分割（⧉）でどうぞ');
+                this.notifyError('ここには隙間がほぼ無い — 分割（⧉）でどうぞ');
             });
             return zone;
         }
@@ -3126,7 +3194,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.notify('字幕を挿入しました。');
             } catch (error) {
                 draft.replaceWith(this.createGapZone(previous, following));
-                this.notify(this.errorMessage(error));
+                this.notifyError(this.errorMessage(error));
             }
         };
         input.addEventListener('keydown', event => {
@@ -3154,14 +3222,14 @@ export class AkariDaihonWidget extends BaseWidget {
             await this.reload();
             this.notify('2 行に分割しました。単語境界の時刻で切るので間（ま）も保たれます。');
         } catch (error) {
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
     protected async mergeSelectedRows(): Promise<void> {
         if (!this.captionsUri || !this.rootUri) return;
         const result = canMergeRows(this.rows, this.selection.selected);
-        if (!result.ok) { this.notify('reason' in result ? result.reason : '選択した行を結合できません。'); return; }
+        if (!result.ok) { this.notifyError('reason' in result ? result.reason : '選択した行を結合できません。'); return; }
         try {
             await this.withHistory('字幕を結合', async () => {
                 await this.annotationsService.mergeCaptions({ captionsUri: this.captionsUri!.toString(),
@@ -3171,7 +3239,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.setSelection(clearSelection());
             await this.reload();
             this.notify(`${count} 行を結合しました。`);
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected async mergeSelectedRowWithNext(): Promise<void> {
@@ -3181,7 +3249,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const next = this.rows[rowIndex + 1];
         if (!row || !next) return;
         const result = canMergeRows(this.rows, [row.id, next.id]);
-        if (!result.ok) { this.notify('reason' in result ? result.reason : '次の行と結合できません。'); return; }
+        if (!result.ok) { this.notifyError('reason' in result ? result.reason : '次の行と結合できません。'); return; }
         try {
             await this.withHistory('字幕を結合', async () => {
                 await this.annotationsService.mergeCaptions({
@@ -3192,23 +3260,26 @@ export class AkariDaihonWidget extends BaseWidget {
             this.setSelection(clearSelection());
             await this.reload();
             this.notify('2 行を結合しました。');
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected openFillerPop(anchor: HTMLElement, row: DaihonRow, wordIndex: number): void {
         const word = row.words?.[wordIndex];
         if (!word) return;
-        this.showCandidateBar(`フィラー「${normalizeFillerWord(word.text)}」`, [
-            { label: '▶ 聞く', run: () => void this.seek(row.timeDomain === 'output'
+        const target = this.cutCandidates.find(candidate => candidate.id === `filler:${row.id}:${wordIndex}`);
+        if (!target) return;
+        this.showCandidateBar(`フィラー「${normalizeFillerWord(word.text)}」`, target, [
+            { label: '▶ 聞く', keepOpen: true, run: () => void this.seek(row.timeDomain === 'output'
                 ? word.start : sourceToOutput(this.segments, word.start)) },
-            { label: '字幕から消す', run: () => void this.removeFillerCaption(row, wordIndex) },
+            { label: '字幕からだけ消す（音声はそのまま）', run: () => void this.removeFillerCaption(row, wordIndex) },
             { label: '✂ 映像ごとカット', run: () => void this.cutFiller(row, wordIndex) }
         ]);
     }
 
     protected openRedoPop(anchor: HTMLElement, row: DaihonRow, candidate: DaihonCutCandidate): void {
-        this.showCandidateBar(`言い直し ${this.formatTime(candidate.start)}–${this.formatTime(candidate.end)}`, [
-            { label: '▶ 聞く', run: () => void this.seek(sourceToOutputForSource(this.segments, candidate.sourceId, candidate.start)) },
+        this.showCandidateBar(`言い直し ${this.formatTime(candidate.start)}–${this.formatTime(candidate.end)}`, candidate, [
+            { label: '▶ 聞く', keepOpen: true,
+                run: () => void this.seek(sourceToOutputForSource(this.segments, candidate.sourceId, candidate.start)) },
             { label: '✂ 映像ごとカット', run: () => {
                 void this.applyCutEntries([{
                     rowId: row.id, range: { in: candidate.start, out: candidate.end, kind: 'row',
@@ -3236,12 +3307,25 @@ export class AkariDaihonWidget extends BaseWidget {
         title.textContent = `${row.id} の字幕設定`;
 
         const style = document.createElement('select');
+        const globalKaraoke = getCaptionDisplayWordStyle(this.displayRootForWrite()) === 'karaoke';
         for (const [value, label] of [['karaoke', 'カラオケ（読み上げ追従）'], ['plain', '通常表示（カラオケなし）']]) {
-            style.add(new Option(label, value));
+            const option = new Option(label, value);
+            if (value === 'plain' && globalKaraoke) {
+                option.disabled = true;
+                option.title = '全体のカラオケ表示を切ると選べます';
+            }
+            style.add(option);
         }
-        style.value = readGearStyle(row.style);
-        style.addEventListener('change', () => void this.saveCaptionFields(row.id,
-            { style: style.value === 'karaoke' ? 'karaoke' : null }, 'カラオケ表示を変更'));
+        style.value = globalKaraoke ? 'karaoke' : readGearStyle(row.style);
+        if (globalKaraoke) style.title = '全体のカラオケ表示を切ると通常表示を選べます';
+        style.addEventListener('change', () => {
+            if (globalKaraoke && style.value === 'plain') return;
+            const updated = setCaptionDisplayRowStyle(this.displayRootForWrite(), row.id,
+                style.value === 'karaoke' ? 'karaoke' : null);
+            const changed = (updated.captions as Array<{ id: string; style?: string }>).find(item => item.id === row.id);
+            void this.saveCaptionFields(row.id, { style: changed?.style === 'karaoke' ? 'karaoke' : null },
+                'カラオケ表示を変更');
+        });
 
         const timing = document.createElement('select');
         timing.add(new Option('行の時間いっぱい（余韻あり）', 'full'));
@@ -3290,7 +3374,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notify(label);
         } catch (error) {
             await this.reload();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -3310,7 +3394,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notify(animationId === null ? '字幕アニメを外しました' : '字幕アニメを変更しました');
         } catch (error) {
             await this.reload();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -3321,7 +3405,7 @@ export class AkariDaihonWidget extends BaseWidget {
         try {
             await this.commands.executeCommand(INSPECTOR_OPEN_COMMAND_ID);
         } catch (error) {
-            this.notify(`インスペクターを開けません: ${this.errorMessage(error)}`);
+            this.notifyError(`インスペクターを開けません: ${this.errorMessage(error)}`);
         }
         window.dispatchEvent(new CustomEvent(PREVIEW_CAPTION_SELECTED_EVENT, { detail: { editUri, captionId } }));
     }
@@ -3366,7 +3450,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } catch (error) {
             await this.reload();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -3383,12 +3467,17 @@ export class AkariDaihonWidget extends BaseWidget {
         chip.addEventListener('click', event => {
             event.stopPropagation();
             if (cutSpan) this.openCutSpanPop(chip, row, cutSpan);
-            else this.showCandidateBar('?? 聞き取れなかった音', [
-                { label: '▶ 聞く', run: () => void this.seek(row.timeDomain === 'output'
-                    ? span.start : sourceToOutput(this.segments, span.start)) },
-                { label: '✎ 直す', run: () => this.openUnkPop(chip, row, span) },
-                { label: '✂ 映像ごとカット', run: () => void this.cutUnrecognized(row, span) }
-            ]);
+            else {
+                const target = this.cutCandidates.find(candidate => candidate.kind === 'unrecognized'
+                    && candidate.rowId === row.id && candidate.start === span.start && candidate.end === span.end);
+                if (!target) return;
+                this.showCandidateBar('?? 聞き取れなかった音', target, [
+                    { label: '▶ 聞く', keepOpen: true, run: () => void this.seek(row.timeDomain === 'output'
+                        ? span.start : sourceToOutput(this.segments, span.start)) },
+                    { label: '✎ 直す', run: () => this.openUnkPop(chip, row, span) },
+                    { label: '✂ 映像ごとカット', run: () => void this.cutUnrecognized(row, span) }
+                ]);
+            }
         });
         return chip;
     }
@@ -3440,7 +3529,7 @@ export class AkariDaihonWidget extends BaseWidget {
             });
             this.notify('?? を文字に置き換えた');
         } catch (error) {
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -3494,7 +3583,7 @@ export class AkariDaihonWidget extends BaseWidget {
             });
             this.notify('字幕からフィラー語を消しました（音声はそのままです）。');
         } catch (error) {
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -3548,7 +3637,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 });
                 removedFrames = result.removedFrames;
             }, true);
-            if (removedFrames === 0) { this.notify('カットできる区間が見つかりませんでした。'); return; }
+            if (removedFrames === 0) { this.notifyError('カットできる区間が見つかりませんでした。'); return; }
             await this.reload();
             this.refreshCutTimeline();
             const only = entries[0];
@@ -3560,7 +3649,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.showCutToast(entries.length === 1 ? `「${cutLabel}」をカットしました` : `${entries.length} 件をカットしました`,
                 () => void this.historyService.undo());
         } catch (error) {
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -3623,7 +3712,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.refreshCutTimeline();
             this.showCutToast('カットを戻しました', () => void this.historyService.undo());
         } catch (error) {
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -3641,25 +3730,37 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected showToast(message: string, error = false, undo?: () => void): HTMLDivElement {
-        this.cutToastCleanup?.();
-        this.node.querySelector('.akari-daihon-toast')?.remove();
-        if (this.toastTimer) clearTimeout(this.toastTimer);
+        if (!error) {
+            this.cutToastCleanup?.();
+            this.node.querySelector('.akari-daihon-toast:not(.error)')?.remove();
+            if (this.toastTimer) clearTimeout(this.toastTimer);
+        }
         const toast = document.createElement('div');
         toast.className = `akari-daihon-toast${error ? ' error' : ''}`;
         toast.setAttribute('role', error ? 'alert' : 'status');
         toast.append(document.createTextNode(message));
+        let stack = this.node.querySelector<HTMLDivElement>('.akari-daihon-toast-stack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.className = 'akari-daihon-toast-stack';
+            this.node.append(stack);
+        }
+        const removeToast = (): void => {
+            toast.remove();
+            if (stack.childElementCount === 0) stack.remove();
+        };
         if (undo) {
             const button = document.createElement('button'); button.type = 'button';
             button.textContent = '取り消す';
-            button.addEventListener('click', () => { toast.remove(); this.cutToastCleanup?.(); undo(); });
+            button.addEventListener('click', () => { removeToast(); this.cutToastCleanup?.(); undo(); });
             toast.append(button);
         }
         if (error) {
             const close = document.createElement('button'); close.type = 'button'; close.textContent = '✕';
             close.setAttribute('aria-label', '通知を閉じる');
-            close.addEventListener('click', () => toast.remove()); toast.append(close);
-        } else this.toastTimer = setTimeout(() => { toast.remove(); this.cutToastCleanup?.(); }, 4500);
-        this.node.append(toast);
+            close.addEventListener('click', removeToast); toast.append(close);
+        } else this.toastTimer = setTimeout(() => { removeToast(); this.cutToastCleanup?.(); }, 4500);
+        stack.append(toast);
         return toast;
     }
 
@@ -3969,7 +4070,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const visible = await this.commands.executeCommand<string>(ENSURE_PREVIEW_VISIBLE_COMMAND_ID, { editUri });
         if (visible === 'unavailable') {
             this.cutRangePlayback = undefined;
-            this.notify('プレビューを開けませんでした。');
+            this.notifyError('プレビューを開けませんでした。');
             return;
         }
         await this.commands.executeCommand<string>(SEEK_OUTPUT_PREVIEW_COMMAND_ID, { editUri, time: spans[0].from });
@@ -4017,7 +4118,7 @@ export class AkariDaihonWidget extends BaseWidget {
             await this.reload();
             this.refreshCutTimeline();
             this.closeCutRangeEditor();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -4095,13 +4196,39 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.notify(`「${name}」を${selected ? '選択' : '全'} ${changed} 行に適用`);
             }
         } catch (error) {
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
     protected updateDisplayButton(): void {
         this.displayButton.textContent = '表示 ▾';
         this.displayButton.title = '添付と字幕の表示を変更';
+    }
+
+    protected displayRootForWrite(): Record<string, unknown> {
+        const root = Array.isArray(this.captionsRoot) ? { captions: this.captionsRoot }
+            : this.captionsRoot && typeof this.captionsRoot === 'object'
+                ? this.captionsRoot as Record<string, unknown> : {};
+        return { ...root, display_policy: daihonDisplayPolicyForWrite(root, this.displayKnobs) };
+    }
+
+    protected async saveDisplayWordStyle(style: 'none' | 'karaoke'): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        try {
+            const updated = setCaptionDisplayWordStyle(this.displayRootForWrite(), style);
+            await this.withHistory('カラオケ表示を変更', async () => {
+                await this.annotationsService.setCaptionDisplayPolicy({
+                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    displayPolicy: updated.display_policy as CaptionDisplayPolicy
+                });
+            });
+            this.captionsRoot = updated;
+            this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments), true);
+            this.notify(style === 'karaoke' ? 'カラオケ表示をオンにしました' : 'カラオケ表示をオフにしました');
+        } catch (error) {
+            await this.reload();
+            this.notifyError(this.errorMessage(error));
+        }
     }
 
     protected previewDisplayKnobs(next: DaihonDisplayKnobs): void {
@@ -4124,7 +4251,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notify(`表示を ${next.maxLineUnits}字 · ${next.lines}行・${next.wrap === 'multi' ? '断片を同時' : '断片を折る'} に変更しました`);
         } catch (error) {
             await this.reload();
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -4152,7 +4279,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.renderRows(buildDaihonRows(captions, this.segments));
             void this.preferences.set(DAIHON_WORD_UNIT_PREFERENCE, wordUnit, PreferenceScope.User)
                 .then(() => this.openDisplayPop(anchor))
-                .catch(error => this.notify(this.errorMessage(error)));
+                .catch(error => this.notifyError(this.errorMessage(error)));
         };
         const word = this.popButton('単語（既定）', () => selectWordUnit('word'));
         const token = this.popButton('認識トークン', () => selectWordUnit('token'));
@@ -4171,7 +4298,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments));
             void this.preferences.set(DAIHON_SHOW_BREAKS_PREFERENCE, this.showBreaks, PreferenceScope.User)
                 .then(() => this.openDisplayPop(anchor))
-                .catch(error => this.notify(this.errorMessage(error)));
+                .catch(error => this.notifyError(this.errorMessage(error)));
         });
         breaksToggle.classList.toggle('selected', this.showBreaks);
         breaksGroup.append(breaksLabel, breaksToggle);
@@ -4197,6 +4324,26 @@ export class AkariDaihonWidget extends BaseWidget {
         timingNote.className = 'akari-daihon-displaynote';
         timingNote.textContent = '行ごとの ⚙ の設定が優先されます。';
         timingGroup.append(timingLabel, timingSegments, timingNote);
+
+        const karaokeGroup = document.createElement('div');
+        karaokeGroup.className = 'akari-daihon-displaygroup';
+        const karaokeLabel = document.createElement('div');
+        karaokeLabel.className = 'akari-daihon-displaylabel';
+        karaokeLabel.textContent = 'カラオケ表示';
+        const karaokeSegments = document.createElement('div');
+        karaokeSegments.className = 'akari-daihon-segments';
+        const karaokeOn = getCaptionDisplayWordStyle(this.displayRootForWrite()) === 'karaoke';
+        for (const [style, label] of [['karaoke', 'ON'], ['none', 'OFF']] as const) {
+            const choice = this.popButton(label, () => {
+                void this.saveDisplayWordStyle(style).then(() => this.openDisplayPop(anchor));
+            });
+            choice.classList.toggle('selected', karaokeOn === (style === 'karaoke'));
+            karaokeSegments.append(choice);
+        }
+        const karaokeNote = document.createElement('div');
+        karaokeNote.className = 'akari-daihon-displaynote';
+        karaokeNote.textContent = '読み上げに合わせて文字の色が変わる。';
+        karaokeGroup.append(karaokeLabel, karaokeSegments, karaokeNote);
 
         const unitsGroup = document.createElement('div');
         unitsGroup.className = 'akari-daihon-displaygroup';
@@ -4276,7 +4423,8 @@ export class AkariDaihonWidget extends BaseWidget {
         note.className = 'akari-daihon-displaynote';
         note.append(document.createTextNode('ベースは字幕本文です。'), document.createElement('br'),
             document.createTextNode('手で置いた／は動きません。'));
-        pop.append(attachmentGroup, wordUnitGroup, breaksGroup, timingGroup, unitsGroup, linesGroup, wrapGroup, overflowCount, note);
+        pop.append(attachmentGroup, wordUnitGroup, breaksGroup, timingGroup, karaokeGroup,
+            unitsGroup, linesGroup, wrapGroup, overflowCount, note);
         const speakers = [...new Set(this.rows.map(row => row.speaker).filter((value): value is string => !!value))];
         if (speakers.length) {
             const group = document.createElement('div'); group.className = 'akari-daihon-displaygroup';
@@ -4389,7 +4537,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notify(`「${entry.label}」まで戻しました。取り消し履歴はリセットされました。`);
             if (anchor.isConnected) await this.openHistoryPop(anchor);
         } catch (error) {
-            this.notify(`履歴を戻せません: ${this.errorMessage(error)}`);
+            this.notifyError(`履歴を戻せません: ${this.errorMessage(error)}`);
             if (anchor.isConnected) await this.openHistoryPop(anchor);
         }
     }
@@ -4559,7 +4707,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const preset = TEXTSTYLE_CATALOG[presetId];
             this.notify(`「${spans.map(span => span.word).join('・')}」に ${preset?.name ?? presetId}（${spans.length} 範囲）`);
             this.openWordBar();
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected async clearWordPreset(): Promise<void> {
@@ -4674,13 +4822,13 @@ export class AkariDaihonWidget extends BaseWidget {
         if (!this.editUri || !this.rootUri || !row.words?.[wordIndex]) return;
         const source = await this.readText(this.editUri);
         const doc = JSON.parse(source) as any;
-        if (doc.version !== 2) { this.notify('この編集ファイルには間を入れられません。'); return; }
+        if (doc.version !== 2) { this.notifyError('この編集ファイルには間を入れられません。'); return; }
         const sourceT = row.words[wordIndex].start;
         const track = doc.tracks?.find((candidate: any) => candidate.lane === 'visual'
             && candidate.items?.some((item: any) => item.source?.kind === 'media' && item.source.in <= sourceT && sourceT < item.source.out));
         const item = track?.items?.find((candidate: any) => candidate.source?.kind === 'media'
             && candidate.source.in <= sourceT && sourceT < candidate.source.out);
-        if (!item) { this.notify('この編集ファイルには間を入れられません。'); return; }
+        if (!item) { this.notifyError('この編集ファイルには間を入れられません。'); return; }
         await this.withHistory('0.5 秒の間を追加', async () => {
             const fps = doc.output?.fps ?? 30; const speed = item.speed ?? 1;
             const playback = (item.source.out - item.source.in) / speed;
@@ -4726,13 +4874,13 @@ export class AkariDaihonWidget extends BaseWidget {
                 case 'pause': await this.insertPause(row, index); break;
                 case 'break': await this.toggleWordBreak(row, Math.max(1, index)); break;
                 case 'mark': await this.markWords(action.color); break;
-                case 'split': index === 0 ? this.notify('行の先頭では分割できません。') : await this.splitRow(row, index); break;
+                case 'split': index === 0 ? this.notifyError('行の先頭では分割できません。') : await this.splitRow(row, index); break;
                 case 'merge-prev': {
                     const rowIndex = this.rows.findIndex(candidate => candidate.id === row.id);
                     const previous = this.rows[rowIndex - 1];
                     if (!previous || !this.captionsUri || !this.rootUri) break;
                     const result = canMergeRows(this.rows, [previous.id, row.id]);
-                    if (!result.ok) { this.notify('reason' in result ? result.reason : '前の行と結合できません。'); break; }
+                    if (!result.ok) { this.notifyError('reason' in result ? result.reason : '前の行と結合できません。'); break; }
                     await this.withHistory('字幕を結合', async () => this.annotationsService.mergeCaptions({
                         captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionIds: result.orderedIds
                     }).then(() => undefined));
@@ -4745,7 +4893,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     const next = this.rows[rowIndex + 1];
                     if (!next || !this.captionsUri || !this.rootUri) break;
                     const result = canMergeRows(this.rows, [row.id, next.id]);
-                    if (!result.ok) { this.notify('reason' in result ? result.reason : '次の行と結合できません。'); break; }
+                    if (!result.ok) { this.notifyError('reason' in result ? result.reason : '次の行と結合できません。'); break; }
                     await this.withHistory('字幕を結合', async () => this.annotationsService.mergeCaptions({
                         captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                         captionIds: [row.id, next.id]
@@ -4756,11 +4904,11 @@ export class AkariDaihonWidget extends BaseWidget {
                 }
                 case 'insert-word': this.openWordInsertInput(row, index); break;
             }
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected runWordOperation(operation: () => Promise<void>): void {
-        void operation().catch(error => this.notify(this.errorMessage(error)));
+        void operation().catch(error => this.notifyError(this.errorMessage(error)));
     }
 
     protected async markWords(color: string): Promise<void> {
@@ -4773,7 +4921,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 sourceRange: [first.t_start, last.t_end], timelineT: null, target: null, targetKind: 'range',
                 intent: 'mark', text: `マーク（${color}）「${spans.map(span => span.word).join('・')}」` });
             this.notify('注釈タブにマークを追加しました');
-        } catch (error) { this.notify(this.errorMessage(error)); }
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected openWordGapMenu(anchor: HTMLElement, row: DaihonRow, index: number): void {
@@ -4805,7 +4953,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected openWordInsertInput(row: DaihonRow, afterWordIndex: number, existingPop?: HTMLElement): void {
         const pop = existingPop ?? document.querySelector<HTMLElement>('.akari-daihon-pop');
         if (!pop || !this.wordInsertAvailable(row, afterWordIndex)) {
-            this.notify('語を挿し込める 0.1 秒以上の隙間がありません。');
+            this.notifyError('語を挿し込める 0.1 秒以上の隙間がありません。');
             return;
         }
         const input = document.createElement('input');
@@ -4818,7 +4966,7 @@ export class AkariDaihonWidget extends BaseWidget {
             if (cancelled || input.disabled) return;
             const inserted = input.value.normalize('NFC').trim();
             const result = insertWordIntoText(row, afterWordIndex, inserted);
-            if ('error' in result) { this.notify(result.error); return; }
+            if ('error' in result) { this.notifyError(result.error); return; }
             if (!this.captionsUri || !this.rootUri) return;
             input.disabled = true;
             try {
@@ -4831,7 +4979,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.renderWordSelection();
                 await this.reload();
                 this.notify(`「${inserted}」を挿し込みました。`);
-            } catch (error) { input.disabled = false; this.notify(this.errorMessage(error)); }
+            } catch (error) { input.disabled = false; this.notifyError(this.errorMessage(error)); }
         };
         input.addEventListener('keydown', event => {
             if (event.key === 'Enter') { event.preventDefault(); void commit(); }
@@ -4893,7 +5041,11 @@ export class AkariDaihonWidget extends BaseWidget {
             this.renderActionBar();
         }
         else if (action === 'clear') {
+            this.wordRanges = [];
+            this.candidateBar = undefined;
+            this.renderWordSelection();
             this.setSelection(clearSelection());
+            this.renderActionBar();
             if (this.dockKind && this.placedEditor.classList.contains('open')) this.closeDock();
         }
     }
@@ -4970,6 +5122,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.sourceBand.title = this.speakerFilter !== null
             ? `話者 ${speakerLabel(this.speakerFilter, this.speakerDictionary)} ${visible} 行`
             : this.qcFilter ? `${visible} / ${this.rows.length} 行` : `${this.rows.length} 行`;
+        const lines = this.sourceBand.querySelector<HTMLElement>('.akari-daihon-source-lines');
+        if (lines) lines.textContent = this.qcFilter || this.speakerFilter !== null
+            ? `${visible} / ${this.rows.length} 行` : `${this.rows.length} 行`;
     }
 
     protected word(text: string, index: number, rowId: string, preset?: string): HTMLSpanElement {
@@ -5132,20 +5287,20 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async seek(time: number | null): Promise<void> {
         if (time === null || !this.editUri) {
-            this.notify('この字幕は出力に現れないためシークできません。');
+            this.notifyError('この字幕は出力に現れないためシークできません。');
             return;
         }
         try {
             const editUri = this.editUri.normalizePath().toString();
             const visible = await this.commands.executeCommand<string>(ENSURE_PREVIEW_VISIBLE_COMMAND_ID, { editUri });
             if (visible === 'unavailable') {
-                this.notify('プレビューを開けませんでした。');
+                this.notifyError('プレビューを開けませんでした。');
                 return;
             }
             const result = await this.commands.executeCommand<string>(SEEK_OUTPUT_PREVIEW_COMMAND_ID, { editUri, time });
-            if (result !== 'seeked') this.notify(`${this.formatTime(time)} へシークできませんでした。`);
+            if (result !== 'seeked') this.notifyError(`${this.formatTime(time)} へシークできませんでした。`);
         } catch (error) {
-            this.notify(`プレビューをシークできません: ${this.errorMessage(error)}`);
+            this.notifyError(`プレビューをシークできません: ${this.errorMessage(error)}`);
         }
     }
 
@@ -5193,7 +5348,7 @@ export class AkariDaihonWidget extends BaseWidget {
             return;
         }
         if (!value.trim()) {
-            this.notify('字幕のテキストは空にできません。');
+            this.notifyError('字幕のテキストは空にできません。');
             this.editing = undefined;
             this.replaceRenderedRow(row);
             return;
@@ -5215,7 +5370,7 @@ export class AkariDaihonWidget extends BaseWidget {
         } catch (error) {
             this.editing = undefined;
             this.replaceRenderedRow(row);
-            this.notify(this.errorMessage(error));
+            this.notifyError(this.errorMessage(error));
         }
     }
 
@@ -5250,9 +5405,12 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.appendChild(empty);
     }
 
-    protected notify(message: string): void {
+    protected notifyError(message: string): void {
+        this.notify(message, true);
+    }
+
+    protected notify(message: string, error = false): void {
         if (!message) return;
-        const error = /できません|入れられません|失敗|エラー|読み取れません|見つかりません|不正|無効|\b(?:error|failed|invalid|cannot|eacces)\b/iu.test(message);
         if (error) this.pendingUndoAt = 0;
         const undoable = !error && !/ありません|必要/u.test(message)
             && this.pendingUndoAt > 0 && Date.now() - this.pendingUndoAt < 3000

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
+const editStore = require('@akari-video/edit-store');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const openedDialogs = [];
 const deferred = () => {
@@ -69,8 +70,7 @@ const modules = {
         currentTimelineCaptionsUri: root => root.resolve(root.editName === 'edit.json' ? 'captions.json' : 'captions.short.json')
     },
     'akari-annotations/lib/common/akari-annotations-protocol': {},
-    '@akari-video/edit-store': { CAPTION_DISPLAY_MODE: 'single_line_sequential',
-        CAPTION_DISPLAY_ALGORITHM: 'a4-ja-two-fragment-v1', CAPTION_UNIT_METRIC: 'ascii-half-other-one-v1' },
+    '@akari-video/edit-store': editStore,
     'akari-project/lib/common/akari-project-protocol': {},
     '../../common/caption-source-eligibility': sourceRules,
     '../../common/captions-button': captionsButton,
@@ -356,7 +356,7 @@ test('reuse reaches finish and saves the caption shape through the gear service'
         assert.match(dialog.body.textContent, new RegExp(label.replace(/[()]/gu, '\\$&')));
     }
     assert.equal(builds.filter(request => request.dryRun).length, 1);
-    assert.doesNotMatch(dialog.body.textContent, /カラオケ表示/);
+    assert.match(dialog.body.textContent, /カラオケ表示/);
     dialog.chars = 5; dialog.timing = 'speech-tight';
     await dialog.apply();
     assert.equal(writes.length, 0);
@@ -367,6 +367,22 @@ test('reuse reaches finish and saves the caption shape through the gear service'
     assert.deepEqual(captionShape.readCaptionShape(state.captions), { chars: 5, lines: 2, timing: 'speech-tight' });
     assert.equal(dialog.applied, true);
     assert.equal(notices.length, 0);
+});
+
+test('仕上げのカラオケ切替は見本の色と保存する word_style を変える', async () => {
+    const { dialog, policies } = await harness({ initialPath: 'assets/mic.wav', previous: true });
+    dialog.foot.querySelector('[data-primary]').click();
+    dialog.foot.querySelector('[data-primary]').click();
+    await tick(); await tick();
+    const descendants = node => [node, ...node.children.filter(child => child instanceof Element).flatMap(descendants)];
+    const toggle = descendants(dialog.body).find(node => node.tagName === 'input' && node.type === 'checkbox');
+    assert.ok(toggle);
+    const example = dialog.body.querySelector('[data-akari-caption-example]');
+    assert.equal(descendants(example).some(node => node.style.color === '#f0832b'), false);
+    toggle.checked = true; toggle.onchange();
+    assert.equal(descendants(example).some(node => node.style.color === '#f0832b'), true);
+    await dialog.apply();
+    assert.equal(policies[0].displayPolicy.word_style, 'karaoke');
 });
 
 test('display policy service failure stays on finish and shows the reason there', async () => {

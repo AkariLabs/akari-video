@@ -16,7 +16,7 @@ export function wordContextMenuGroups(input: {
         { title: `${subject}「${input.text}」`, items: [
             { label: '▶ ここから再生', action: { kind: 'play' } }, { label: '✎ 直す', action: { kind: 'edit' } },
             { label: '✂ 映像ごとカット', action: { kind: 'cut-video' }, danger: true },
-            { label: '字幕からだけ消す', action: { kind: 'caption-only' } },
+            { label: '字幕からだけ消す（音声はそのまま）', action: { kind: 'caption-only' } },
             { label: '⏸ 間を入れる', accel: '⌘;', action: { kind: 'pause' } }
         ] },
         { title: '挿入', note: `「${input.nextWordText}」の前に`, items: [
