@@ -514,6 +514,18 @@ export interface ApplyCutRangesResult extends WriteBackResult {
     beforeSource: string;
 }
 
+export interface RestoreCutRangeRequest {
+    editUri: string;
+    projectRootUri: string;
+    range: Pick<CutRangeInput, 'in' | 'out' | 'captionId' | 'reason' | 'label'>;
+    label: string;
+}
+
+export interface RestoreCutRangeResponse {
+    restored: boolean;
+    reason?: string;
+}
+
 export interface CaptionWritePayload {
     id: string;
     start: number;
@@ -996,6 +1008,7 @@ export interface AkariAnnotationsService {
     deleteCut(request: DeleteCutRequest): Promise<DeleteCutResult>;
     insertCut(request: InsertCutRequest): Promise<WriteBackResult>;
     applyCutRanges(request: ApplyCutRangesRequest): Promise<ApplyCutRangesResult>;
+    restoreCutRange(request: RestoreCutRangeRequest): Promise<RestoreCutRangeResponse>;
     insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult>;
     removeOverlay(request: RemoveOverlayRequest): Promise<WriteBackResult>;
     moveLayer(request: MoveLayerRequest): Promise<WriteBackResult>;

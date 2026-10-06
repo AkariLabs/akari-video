@@ -8219,6 +8219,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const refreshOnboardingTimeline = (): void => { void this.reloadEdit().then(() => this.reloadCaptions()); };
         window.addEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline) });
+        const refreshDaihonCut = (): void => { void this.reloadEdit(); };
+        window.addEventListener('akari.daihon.refreshTimeline', refreshDaihonCut);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.refreshTimeline', refreshDaihonCut) });
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
             this.recentWrites.set(uri, Date.now());
             if (uri === this.location?.editUri?.toString() && this.newerVersionAtLoad) {

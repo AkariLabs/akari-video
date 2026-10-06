@@ -29,6 +29,12 @@ export interface ApplyCutRangesResult {
     warnings: string[];
 }
 
+export interface RestoreCutRangeResult {
+    source: string;
+    restored: boolean;
+    reason?: string;
+}
+
 const LEGACY_EDGE_SECONDS = 0.15;
 
 export function detectEditVersion(source: string): 0 | 1 | 2 {
@@ -124,8 +130,9 @@ function applyV2(
     let removedFrames = 0;
 
     for (const range of ranges) {
-        const matchingSourceExists = visualTracks(edit).some(track => track.items.some(item =>
-            item.source.kind === 'media' && item.source.src === range.captionId));
+        const matchingSourceExists = edit.sources.some(candidate => candidate.id === range.captionId)
+            || visualTracks(edit).some(track => track.items.some(item =>
+                item.source.kind === 'media' && item.source.src === range.captionId));
         let matched = false;
         for (const track of visualTracks(edit)) {
             for (let index = track.items.length - 1; index >= 0; index--) {
@@ -153,6 +160,187 @@ function applyV2(
     const compacted = compactTrackGaps(edit, { modeOverride, includeAnchored: true }).edit;
     readEditV2(compacted);
     return { source: `${JSON.stringify(compacted, null, 2)}\n`, removedFrames, warnings };
+}
+
+const RESTORE_UNAVAILABLE = 'この箇所のあとに編集があるため戻せません。⌘Z の履歴から戻せます。';
+const RESTORE_LEGACY = '古い形式の編集データのため戻せません。⌘Z の履歴から戻せます。';
+const RESTORE_APPEARANCE = '動きや見た目の設定があるため 1 か所だけは戻せません。⌘Z の履歴から戻せます。';
+const RESTORE_PROVENANCE = '切った部分の元の設定が編集データに残っていないため 1 か所だけは戻せません。⌘Z の履歴から戻せます。';
+const SOURCE_TOLERANCE = 1e-5;
+
+function near(left: number, right: number): boolean {
+    return Math.abs(left - right) <= SOURCE_TOLERANCE;
+}
+
+function splitRootId(id: string): string {
+    return id.replace(/(?:-split(?:-\d+)*)+$/, '');
+}
+
+function media(item: ItemV2): item is MediaItemV2 {
+    return item.source.kind === 'media';
+}
+
+function sameSplitProperties(left: MediaItemV2, right: MediaItemV2): boolean {
+    const comparable = (item: MediaItemV2): string => {
+        const copy = structuredClone(item) as unknown as Record<string, unknown>;
+        for (const key of ['id', 'at', 'duration', 'reason', 'label', 'anchor']) delete copy[key];
+        const source = copy.source as Record<string, unknown>;
+        delete source.in;
+        delete source.out;
+        return JSON.stringify(copy);
+    };
+    return comparable(left) === comparable(right);
+}
+
+function sameAppearance(left: MediaItemV2, right: MediaItemV2): boolean {
+    const appearance = (item: MediaItemV2): string => {
+        const copy = structuredClone(item) as unknown as Record<string, unknown>;
+        for (const key of ['id', 'name', 'locked', 'at', 'duration', 'reason', 'label', 'anchor']) delete copy[key];
+        const source = copy.source as Record<string, unknown>;
+        delete source.in;
+        delete source.out;
+        return JSON.stringify(copy);
+    };
+    return appearance(left) === appearance(right);
+}
+
+function hasTimedAppearance(item: MediaItemV2): boolean {
+    return !!(item.keyframes?.length || item.animator?.length || item.motion
+        || item.items?.length);
+}
+
+function sameCutResult(left: VisualItemsTrackV2, right: VisualItemsTrackV2): boolean {
+    const comparable = (track: VisualItemsTrackV2): unknown[] => track.items.map(item => {
+        const copy = structuredClone(item) as unknown as Record<string, unknown>;
+        for (const key of ['id', 'reason', 'label', 'anchor']) delete copy[key];
+        return copy;
+    });
+    const sameValue = (a: unknown, b: unknown): boolean => {
+        if (typeof a === 'number' && typeof b === 'number') return near(a, b);
+        if (a === b) return true;
+        if (Array.isArray(a) && Array.isArray(b)) {
+            return a.length === b.length && a.every((value, index) => sameValue(value, b[index]));
+        }
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+            const keys = Object.keys(a);
+            return keys.length === Object.keys(b).length
+                && keys.every(key => Object.prototype.hasOwnProperty.call(b, key)
+                    && sameValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+        }
+        return false;
+    };
+    return sameValue(comparable(left), comparable(right));
+}
+
+function restoreOneTrack(
+    edit: EditV2, trackIndex: number, range: Pick<CutRange, 'in' | 'out' | 'captionId' | 'reason' | 'label'>
+): { track?: VisualItemsTrackV2; reason?: string } {
+    const original = edit.tracks[trackIndex] as VisualItemsTrackV2;
+    const items = original.items;
+    const sourceMatches = (item: ItemV2): item is MediaItemV2 => media(item)
+        && (range.captionId === undefined || item.source.src === range.captionId);
+    const leftIndices = items.flatMap((item, index) => sourceMatches(item) && near(item.source.out, range.in) ? [index] : []);
+    const rightIndices = items.flatMap((item, index) => sourceMatches(item) && near(item.source.in, range.out) ? [index] : []);
+    if (leftIndices.length > 1 || rightIndices.length > 1) return {};
+    const leftIndex = leftIndices[0];
+    const rightIndex = rightIndices[0];
+    if (leftIndex === undefined && rightIndex === undefined) return {};
+    const left = leftIndex === undefined ? undefined : items[leftIndex] as MediaItemV2;
+    const right = rightIndex === undefined ? undefined : items[rightIndex] as MediaItemV2;
+    if (!left || !right || leftIndex === undefined || rightIndex === undefined
+        || left.id === right.id || splitRootId(left.id) !== splitRootId(right.id)
+        || left.source.src !== right.source.src
+        || left.source.out > range.in + SOURCE_TOLERANCE
+        || right.source.in < range.out - SOURCE_TOLERANCE) return { reason: RESTORE_PROVENANCE };
+    const leftMeta = left as MediaItemV2 & { reason?: string; label?: string };
+    const rightMeta = right as MediaItemV2 & { reason?: string; label?: string };
+    if (leftMeta.reason === undefined && leftMeta.label === undefined
+        && rightMeta.reason === undefined && rightMeta.label === undefined) {
+        return { reason: RESTORE_PROVENANCE };
+    }
+    if (rightIndex <= leftIndex || right.at !== left.at + left.duration) return {};
+    if (hasTimedAppearance(left) || hasTimedAppearance(right)) {
+        return { reason: RESTORE_APPEARANCE };
+    }
+    if (!sameSplitProperties(left, right)) {
+        return { reason: sameAppearance(left, right) ? RESTORE_UNAVAILABLE : RESTORE_APPEARANCE };
+    }
+    const template = left;
+    const sourceSpan = template.source.out - template.source.in;
+    if (!(sourceSpan > 0)) return {};
+    const estimated = Math.round((range.out - range.in) * template.duration / sourceSpan);
+    const candidates = [estimated, estimated - 1, estimated + 1, estimated - 2, estimated + 2]
+        .filter((frames, index, all) => frames > 0 && all.indexOf(frames) === index);
+    for (const frames of candidates) {
+        const candidate = structuredClone(edit);
+        const track = candidate.tracks[trackIndex] as VisualItemsTrackV2;
+        const target = track.items;
+        const boundary = left.at + left.duration;
+        const merged = structuredClone(left);
+        merged.duration = left.duration + frames + right.duration;
+        merged.source.out = right.source.out;
+        const mergedMeta = merged as MediaItemV2 & { reason?: string; label?: string };
+        if (leftMeta.reason !== undefined || rightMeta.reason !== undefined) {
+            mergedMeta.reason = leftMeta.reason ?? rightMeta.reason;
+        }
+        if (leftMeta.label !== undefined || rightMeta.label !== undefined) {
+            mergedMeta.label = leftMeta.label ?? rightMeta.label;
+        }
+        target.splice(leftIndex, 1, merged);
+        target.splice(rightIndex, 1);
+        if (!target.some((item, index) => index !== leftIndex && media(item)
+            && splitRootId(item.id) === splitRootId(merged.id))) {
+            delete mergedMeta.reason;
+            delete mergedMeta.label;
+        }
+        for (let index = 0; index < target.length; index++) {
+            if (index === leftIndex) continue;
+            const item = target[index];
+            if (media(item) && item.at >= boundary) item.at += frames;
+        }
+        const trial = applyV2(`${JSON.stringify(candidate, null, 2)}\n`,
+            [{ ...range, kind: 'row' }], {});
+        const replay = (JSON.parse(trial.source) as EditV2).tracks[trackIndex] as VisualItemsTrackV2;
+        if (sameCutResult(replay, original)) return { track };
+    }
+    return {};
+}
+
+/** Inverts one source-time cut from the surviving media items, without a stored snapshot. */
+export function restoreCutRange(
+    source: string, range: Pick<CutRange, 'in' | 'out' | 'captionId' | 'reason' | 'label'>
+): RestoreCutRangeResult {
+    if (detectEditVersion(source) !== 2) {
+        return { source, restored: false, reason: RESTORE_LEGACY };
+    }
+    if (!(range.out > range.in)) {
+        return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+    }
+    const edit = JSON.parse(source) as EditV2;
+    readEditV2(edit);
+    const restored = structuredClone(edit);
+    let changed = false;
+    for (let index = 0; index < edit.tracks.length; index++) {
+        const track = edit.tracks[index];
+        if (track.lane !== 'visual' || !('items' in track)) continue;
+        const hasEdge = track.items.some(item => media(item) && (!range.captionId || item.source.src === range.captionId)
+            && (near(item.source.out, range.in) || near(item.source.in, range.out)));
+        if (!hasEdge) continue;
+        const next = restoreOneTrack(edit, index, range);
+        if (!next.track) return { source, restored: false, reason: next.reason ?? RESTORE_UNAVAILABLE };
+        restored.tracks[index] = next.track;
+        changed = true;
+    }
+    if (!changed) return { source, restored: false, reason: RESTORE_PROVENANCE };
+    readEditV2(restored);
+    return { source: `${JSON.stringify(restored, null, 2)}\n`, restored: true };
+}
+
+export function canRestoreCutRange(
+    source: string, range: Pick<CutRange, 'in' | 'out' | 'captionId' | 'reason' | 'label'>
+): string | undefined {
+    const result = restoreCutRange(source, range);
+    return result.restored ? undefined : result.reason;
 }
 
 function copyRangeMetadata(target: { reason?: 'silence' | 'word'; label?: string }, range: CutRange): void {

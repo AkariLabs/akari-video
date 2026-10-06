@@ -7,6 +7,7 @@ import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } fr
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import {
     applyCutRanges as applyCutRangesToSource,
+    restoreCutRange as restoreCutRangeInSource,
     detectEditVersion,
     type CutRange
 } from '@akari-video/edit-store/lib/cut-ranges';
@@ -42,6 +43,8 @@ import {
     AkariAnnotationsService,
     ApplyCutRangesRequest,
     ApplyCutRangesResult,
+    RestoreCutRangeRequest,
+    RestoreCutRangeResponse,
     Annotation,
     CreateAnnotationRequest,
     CreateAnnotationResult,
@@ -2685,6 +2688,29 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const committed = committedByStandardPath
             || await this.commitIfOwnRoot(projectRoot, request.label, [editPath]);
         return { committed, removedFrames: applied.removedFrames, beforeSource };
+    }
+
+    async restoreCutRange(request: RestoreCutRangeRequest): Promise<RestoreCutRangeResponse> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const result = restoreCutRangeInSource(source, request.range);
+        if (!result.restored) return { restored: false, reason: result.reason };
+        let updated = result.source;
+        if (detectEditVersion(updated) === 2) {
+            try {
+                const captionsRaw = JSON.parse(await fs.readFile(timelineCaptionsPath(editPath), 'utf8')) as unknown;
+                const refreshed = refreshItemAnchors(JSON.parse(updated) as EditableEditV2, toAnchorCaptions(captionsRaw));
+                updated = `${JSON.stringify(refreshed.edit, null, 2)}\n`;
+            } catch (error) {
+                const code = error && typeof error === 'object' ? (error as NodeJS.ErrnoException).code : undefined;
+                if (code !== 'ENOENT') throw error;
+            }
+        }
+        await this.writeProjectFileGuarded(editPath, updated);
+        const root = this.fsPath(request.projectRootUri);
+        await this.commitWrite(root, request.label) || await this.commitIfOwnRoot(root, request.label, [editPath]);
+        return { restored: true };
     }
 
     async insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult> {
