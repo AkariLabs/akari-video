@@ -3,17 +3,7 @@ import { EXPORT_SHARE_TARGETS } from '../../common/export-share';
 import { resolveOutputResolution } from '../../common/export-settings';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
 import { ExportFrame, formatBytes, formatClock, formatDuration, ratioLabel, VideoFacts } from './export-view-shared';
-
-function engineLabel(snapshot: ExportSessionSnapshot): string {
-    const renderEngine = snapshot.renderProgress?.engine;
-    const engine = snapshot.status.progressEngine ?? renderEngine?.name;
-    if (engine === 'gpu') return 'GPU';
-    if (engine === 'osr') {
-        const reason = renderEngine?.fallbackReason ?? renderEngine?.ineligible?.[0];
-        return reason ? `OSR（${reason}）` : 'OSR';
-    }
-    return engine?.toUpperCase() ?? '—';
-}
+import { ExportEngineReasonView } from './export-engine-reason-view';
 
 export function ExportDoneView(props: {
     session: AkariExportSessionService;
@@ -70,7 +60,7 @@ export function ExportDoneView(props: {
                 </div>
                 <div className='rwrap'>
                     <div className='right'>
-                        <div className='sec'><span>できました</span><span className='r'>{engineLabel(snapshot)} · {formatClock(status.progressElapsedMs)}</span></div>
+                        <div className='sec'><span>できました</span><span className='r'>{formatClock(status.progressElapsedMs)}</span></div>
                         <div className='result'>
                             <div className='fnm'>{status.artifactPath ?? snapshot.outputName}<span className='pill good'>✓ 確認済み</span></div>
                             <div className='facts'>
@@ -79,7 +69,6 @@ export function ExportDoneView(props: {
                                 <div><small>画角</small><b>{ratioLabel(snapshot.video)} · {outputResolution.width}×{outputResolution.height}</b></div>
                                 <div><small>fps</small><b>{snapshot.settings.fps ?? snapshot.video.fps ?? '—'}</b></div>
                                 <div><small>映像 / 音声</small><b>{labels.video} / {labels.audio}</b></div>
-                                <div><small>エンジン</small><b>{engineLabel(snapshot)}</b></div>
                             </div>
                             <div className='checks'><span>成果物の存在と容量を確認</span><span>編集の画角・fps と一致</span><span>{labels.video} / {labels.audio} · {labels.color}</span></div>
                         </div>
@@ -109,6 +98,7 @@ export function ExportDoneView(props: {
                     </div>
                 </div>
             </div>
+            <ExportEngineReasonView status={status} onCopy={text => session.copyLicenseCredits(text)} />
             <div className='pf'>
                 <button type='button' className='btn ghost' onClick={() => session.resetToSetup()}>もう一度書き出す</button>
                 <span className='sp' /><button type='button' className='btn' onClick={props.close}>閉じる</button>

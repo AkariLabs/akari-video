@@ -104,7 +104,7 @@ export async function runGpuWithRuntimeFallback({ engineRequested, runGpu, runOs
     if (engineRequested !== "auto" || reason === null) throw error;
     return {
       engine: "osr",
-      result: await runOsr(),
+      result: await runOsr(reason),
       fallback: { from: "gpu", reason },
       gpuFailureRunPath: error?.gpuFailureRunPath ?? null,
     };
@@ -116,6 +116,7 @@ export async function runCli(argv, io = console, deps = {}) {
   try {
     options = parseArguments(argv);
   } catch (error) {
+    if (error instanceof RefusalError && argv.includes("--progress")) io.log(formatRefusedLine(error));
     io.error(error.message);
     io.error(USAGE);
     return 2;
@@ -144,12 +145,22 @@ export async function runCli(argv, io = console, deps = {}) {
     return logVerificationResult(state, io);
   } catch (error) {
     if (error instanceof RefusalError) {
+      if (options.progress) io.log(formatRefusedLine(error));
       io.error(`render-cut refused: ${error.message}`);
       return error.exitCode;
     }
     io.error(`render-cut execution error: ${messageOf(error)}`);
     return 2;
   }
+}
+
+export function formatEngineLine(engine, reasons = []) {
+  return engine === "gpu" ? "ENGINE gpu" : `ENGINE osr reasons=${JSON.stringify(reasons)}`;
+}
+
+export function formatRefusedLine(error) {
+  const code = error.message.includes(".akari/lint.json is missing or not PASS") ? "lint-not-pass" : "render-refused";
+  return `REFUSED code=${code} detail=${JSON.stringify({ message: error.message })}`;
 }
 
 export function formatWarningLines(warnings, limit = 5) {
@@ -450,6 +461,7 @@ export async function renderProject(input, options = {}, io = console) {
     return ms;
   };
   let reusableGpuVerification = null;
+  let engineFallbackReason = null;
 
   try {
     let osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
@@ -462,8 +474,18 @@ export async function renderProject(input, options = {}, io = console) {
       gpuLauncher = null;
       state.provenance.engine = "osr";
       state.provenance.engine_fallback = { from: "gpu", reason: "GPU Electron launcher unavailable" };
+      engineFallbackReason = "GPU Electron launcher unavailable";
     }
     assertOsrLauncherAvailable(osrLauncher);
+
+    if (progressEnabled) {
+      const reasons = engineFallbackReason
+        ? [{ kind: "engine", id: "gpu", reason: engineFallbackReason }]
+        : resolvedEngine === "osr" && gpuEligibility?.eligible === false
+          ? gpuEligibility.entries.filter(entry => entry.forced === true || ["degraded", "unsupported"].includes(entry.classification))
+          : [];
+      io.log(formatEngineLine(resolvedEngine, reasons));
+    }
 
     reporter.stageStart("prepare");
     reporter.stageEnd("prepare");
@@ -507,9 +529,10 @@ export async function renderProject(input, options = {}, io = console) {
             collectLuma: options.verifyBlank,
             progress: progressEnabled,
           }),
-          runOsr: async () => {
+          runOsr: async fallbackReason => {
             osrLauncher = await resolveOsrLauncher();
             assertOsrLauncherAvailable(osrLauncher);
+            if (progressEnabled) io.log(formatEngineLine("osr", [{ kind: "engine", id: "gpu", reason: fallbackReason }]));
             reporter.stageStart("render", { engine: "osr" });
             return exportWithOsr({
               ...commonV2Options,

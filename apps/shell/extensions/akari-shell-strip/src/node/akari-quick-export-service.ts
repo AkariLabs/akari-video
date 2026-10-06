@@ -37,6 +37,7 @@ import {
 import { copyArtifactCommand, copyArtifactStdin } from '../common/export-share';
 import { packagedCliCandidates, packagedPackageEntryCandidates } from './packaged-cli-candidates';
 import { childNodeEnvironment, electronResourcesPath } from './child-node-process';
+import { ExportEventLineParser } from '../common/export-engine-reason';
 
 const LOG_TAIL_MAX_CHARS = 4000;
 type ScriptChild = ChildProcessByStdio<null, Readable, Readable>;
@@ -157,6 +158,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
     /** render-cut フェーズ開始時刻（--progress の経過/残り時間見積もりに使う）。 */
     protected renderStartedAt: number | undefined;
     protected progressTracker: QuickExportProgressTracker = createQuickExportProgressTracker();
+    protected exportEventParser = new ExportEventLineParser();
     protected renderStageStartedAt: number | undefined;
     protected activeChild: ScriptChild | undefined;
     protected cancelRequested = false;
@@ -177,6 +179,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
         this.currentProjectRoot = this.fsPath(request.projectRootUri);
         this.logBuffer = '';
         this.progressTracker = createQuickExportProgressTracker();
+        this.exportEventParser = new ExportEventLineParser();
         this.renderStageStartedAt = undefined;
         // この回のゴミだけを後で消せるように、開始前の render-tmp を控えておく。
         this.renderTmpEntriesAtStart = await this.readRenderTmpEntries(this.currentProjectRoot);
@@ -682,10 +685,29 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             });
             return;
         }
+        const lintRefused = this.status.exportRefusal?.code === 'lint-not-pass';
+        const lintSummary = lintRefused ? await this.readStoredLintSummary(projectRoot) : undefined;
         this.updateStatus({
             phase: 'failed',
-            failureSummary: describeRenderFailure(result.exitCode, result.stderr, outputRelativePath, outputStat)
+            failureSummary: describeRenderFailure(result.exitCode, result.stderr, outputRelativePath, outputStat),
+            ...(lintSummary ? {
+                lintIssueCount: lintSummary.issueCount,
+                lintErrorCount: lintSummary.errorCount,
+                lintWarningCount: lintSummary.warningCount,
+                lintFindings: lintSummary.findings
+            } : {}),
+            reportPath: lintRefused
+                ? await this.existingReportPath(projectRoot, EDIT_LINT_REPORT_RELATIVE_PATH)
+                : undefined
         });
+    }
+
+    protected async readStoredLintSummary(projectRoot: string): Promise<ReturnType<AkariQuickExportServiceImpl['parseLintFindingSummary']>> {
+        try {
+            return this.parseLintFindingSummary(await this.fsImpl.readFile(join(projectRoot, '.akari', 'lint.json'), 'utf8'));
+        } catch {
+            return undefined;
+        }
     }
 
     protected parseLintFindingSummary(stdout: string): {
@@ -751,6 +773,10 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
      */
     protected appendRenderLog(chunk: string): void {
         this.appendLog(chunk);
+        for (const event of this.exportEventParser.push(chunk)) {
+            if ('engine' in event) this.updateStatus({ exportEngine: event, progressEngine: event.engine });
+            else this.updateStatus({ exportRefusal: event });
+        }
         const previousSnapshot = this.progressTracker.snapshot();
         this.progressTracker.push(chunk);
         const snapshot = this.progressTracker.snapshot();
@@ -780,7 +806,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             progressVerifyCheck: snapshot.verifyCheck,
             progressFrame: snapshot.frame,
             progressTotalFrames: snapshot.totalFrames,
-            progressEngine: snapshot.engine,
+            progressEngine: this.status.exportEngine?.engine ?? snapshot.engine,
             progressPreviewFrame: snapshot.previewFrame,
             progressPreviewPath: snapshot.previewPath
         });
