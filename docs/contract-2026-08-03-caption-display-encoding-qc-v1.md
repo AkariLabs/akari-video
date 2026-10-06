@@ -48,6 +48,8 @@ Under `display_policy`, `pop`, `reveal`, and `reveal-word` remain `STYLE_CONFLIC
 unknown style is `INVALID_CAPTION`. Karaoke uses measured `words[]` projected into each resolved
 fragment. Missing words or synthetic timing fall back to ordinary text. Without `display_policy`,
 caption style handling remains on the unchanged legacy path.
+If measured words omit only punctuation, symbols, or whitespace, those characters remain visible as
+untimed unlit tokens while the measured words keep karaoke timing; other text mismatches fall back to ordinary text.
 
 `reference-pixel` geometry is scaled only after exact aspect agreement. `webkit-outline` produces
 real `-webkit-text-stroke` plus `paint-order:stroke fill` and disables shadow. Single-line consumers

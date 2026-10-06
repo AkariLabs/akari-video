@@ -7223,6 +7223,8 @@ export function previewBootstrapScript(): string {
             };
             const renderCaptionToken = (word, rangeStart, style, renderChars = null, karaoke = null, karaokeIndex = 0, ignoreEmphasis = false, measuredTimeline = false) => {
                 const renderText = renderChars || escapeCaptionHtml;
+                if (word.untimed) return '<span class="akari-caption__tok akari-caption__tok--unlit">'
+                    + renderText(word.text) + '</span>';
                 if (style === 'reveal-word') {
                     const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
                     return '<span class="akari-caption__tok akari-caption__tok--reveal-word"'
@@ -7586,10 +7588,12 @@ export function previewBootstrapScript(): string {
                             const lineBreak = !caption.textStyle?.vertical && word.line !== currentLine
                                 ? '</p><p class="akari-caption__line">' : '';
                             currentLine = word.line;
+                            if (word.untimed) return lineBreak + renderCaptionToken(word, caption.start, 'karaoke', renderChars);
                             const style = caption.wordStyles?.find(entry => entry.from <= index && index < entry.to);
                             if (!style && caption.style === 'karaoke') {
                                 const before = caption.resolvedWords.slice(0, index).map(item => item.text).join('');
-                                const karaokeIndex = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(before)].length;
+                                const karaokeIndex = (caption.karaokeOffset || 0)
+                                    + [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(before)].length;
                                 return lineBreak + renderCaptionToken(word, caption.start, 'karaoke', renderChars,
                                     caption.textStyle?.karaoke, karaokeIndex, true, true);
                             }

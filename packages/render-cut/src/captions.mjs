@@ -583,9 +583,11 @@ function renderResolvedCaptionWords(words, wordStyles, vertical = false, cue = n
       ? '</p><p class="akari-caption__line">'
       : '';
     currentLine = word.line;
+    if (word.untimed) return lineBreak + renderCaptionToken(word, cue?.start ?? 0, KARAOKE_STYLE);
     const style = wordStyles.find(entry => entry.from <= index && index < entry.to);
     if (!style && cue?.style === 'karaoke') return lineBreak + renderCaptionToken(word, cue.start, KARAOKE_STYLE,
-      [], 1, null, cue.text_style?.karaoke, captionGraphemes(words.slice(0, index).map(item => item.text).join('')).length, true);
+      [], 1, null, cue.text_style?.karaoke,
+      (cue.karaoke_offset ?? 0) + captionGraphemes(words.slice(0, index).map(item => item.text).join('')).length, true);
     if (!style) return `${lineBreak}<span class="akari-caption__tok">${escapeHtml(word.text)}</span>`;
     return `${lineBreak}<span class="akari-caption__tok akari-caption__tok--preset" data-emphasis-preset="${escapeHtml(style.preset_id)}" style="${captionStyleVarsAttribute(style.style_vars)}">${escapeHtml(word.text)}</span>`;
   }).join('');

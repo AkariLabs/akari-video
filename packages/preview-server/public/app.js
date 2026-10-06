@@ -4180,6 +4180,7 @@ function injectCaptionStyles() {
   document.head.appendChild(style);
 }
 function renderStyledToken(word, captionStart, style, karaoke = null, karaokeIndex = 0, measuredTimeline = false) {
+  if (word.untimed) return `<span class="akari-caption__tok akari-caption__tok--unlit">${esc(word.text)}</span>`;
   const delay = word.start - captionStart;
   const dur = Math.max(0.01, word.end - word.start);
   const karaokeDelay = seconds => measuredTimeline ? seconds : Math.max(0, seconds);
@@ -4232,6 +4233,7 @@ function renderResolvedWordTokens(active) {
   const words = Array.isArray(active.words) ? active.words : [];
   const styles = Array.isArray(active.word_styles) ? active.word_styles : [];
   return words.map((word, index) => {
+    if (word.untimed) return `<span class="akari-caption__tok akari-caption__tok--unlit">${esc(word.text)}</span>`;
     const style = styles.find(entry => entry.from <= index && index < entry.to);
     if (!style) return `<span class="akari-caption__tok">${esc(word.text)}</span>`;
     const vars = Object.entries(style.style_vars ?? {})
@@ -4244,7 +4246,7 @@ function renderResolvedKaraokeLines(active, karaoke) {
   const lines = new Map();
   const words = Array.isArray(active.words) ? active.words : [];
   const styles = Array.isArray(active.word_styles) ? active.word_styles : [];
-  let graphemeOffset = 0;
+  let graphemeOffset = active.karaoke_offset ?? 0;
   words.forEach((word, index) => {
     const line = Number.isInteger(word.line) ? word.line : 0;
     const preset = styles.find(entry => entry.from <= index && index < entry.to);

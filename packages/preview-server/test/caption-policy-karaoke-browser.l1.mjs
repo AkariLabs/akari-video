@@ -39,9 +39,10 @@ test('resolved two-line karaoke changes one measured word across a frame boundar
         text: words.map(word => word.text).join(''), display_fragments: ['あいうえおか', 'きくけこさし'], words,
         text_style: { karaoke: { fill: 'word', done_color: '#fb923c' } } }] };
       await writeFile(join(project, 'captions.json'), JSON.stringify(captionsRoot));
-      const renderPlan = resolveCaptionPlan({ captionsRoot, edit: { version: 1,
+      const renderEdit = { version: 1,
         sources: [{ id: 'main', path: 'base.mp4' }], cuts: [{ src: 'main', in: 0, out: 2 }],
-        output: { width: 640, height: 360, fps: 30 } } });
+        output: { width: 640, height: 360, fps: 30 } };
+      const renderPlan = resolveCaptionPlan({ captionsRoot, edit: renderEdit });
       const port = await new Promise((resolvePort, reject) => {
         const server = createServer();
         server.once('error', reject);
@@ -103,6 +104,53 @@ test('resolved two-line karaoke changes one measured word across a frame boundar
       }, time);
       assert.deepEqual(before.colors, await renderColors(0.5 - 1 / 30));
       assert.deepEqual(after.colors, await renderColors(0.5 + 1 / 30));
+
+      captionsRoot.display_policy.max_line_units = 6;
+      captionsRoot.display_policy.lines = 1;
+      captionsRoot.captions[0].text_style.karaoke.start_index = 3;
+      await writeFile(join(project, 'captions.json'), JSON.stringify(captionsRoot));
+      const splitPlan = resolveCaptionPlan({ captionsRoot, edit: renderEdit });
+      assert.deepEqual(splitPlan.layout.display_cues.map(cue => cue.karaoke_offset), [0, 6]);
+      assert.match(splitPlan.overlays[0].html, /akari-caption__tok--karaoke-done">あいう<\/span>/u);
+      assert.doesNotMatch(splitPlan.overlays[1].html, /akari-caption__tok--karaoke-done">/u);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => 'editMode' in (window.akari ?? {}));
+      await page.evaluate(() => {
+        const seek = document.getElementById('seek');
+        seek.value = '0.2';
+        seek.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.waitForFunction(() => document.querySelector('.akari-caption__tok--karaoke-done'));
+      const tokenMarkupAt = async time => page.evaluate(time => {
+        const seek = document.getElementById('seek');
+        seek.value = String(time);
+        seek.dispatchEvent(new Event('input', { bubbles: true }));
+        return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() =>
+          resolve([...document.querySelectorAll('.akari-caption__tok--karaoke-done,.akari-caption__tok--unlit')]
+            .map(token => [token.className, token.textContent])))));
+      }, time);
+      assert.deepEqual((await tokenMarkupAt(0.2)).map(([, text]) => text), ['あいう']);
+      assert.deepEqual(await tokenMarkupAt(1.2), []);
+
+      captionsRoot.display_policy.max_line_units = 20;
+      captionsRoot.captions[0] = { id: 'c-1', src: 'main', start: 0, end: 2,
+        text: '今日は、大事な話。', words: [
+          { text: '今日は', start: 0, end: 0.6 },
+          { text: '大事な', start: 0.6, end: 1.2 },
+          { text: '話', start: 1.2, end: 2 },
+        ], text_style: { karaoke: { fill: 'word', done_color: '#fb923c' } } };
+      await writeFile(join(project, 'captions.json'), JSON.stringify(captionsRoot));
+      const punctuationPlan = resolveCaptionPlan({ captionsRoot, edit: renderEdit });
+      assert.equal((punctuationPlan.overlays[0].html.match(/akari-caption__tok--unlit/gu) ?? []).length, 2);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => 'editMode' in (window.akari ?? {}));
+      await page.evaluate(() => {
+        const seek = document.getElementById('seek');
+        seek.value = '0.2';
+        seek.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.waitForFunction(() => document.querySelectorAll('.akari-caption__tok--unlit').length === 2);
+      assert.deepEqual((await tokenMarkupAt(0.2)).map(([, text]) => text), ['、', '。']);
     } finally {
       await browser?.close();
       if (child && child.exitCode === null) {

@@ -84,6 +84,41 @@ test('a word that began before its fragment keeps elapsed karaoke progress', () 
   assert.match(plan.overlays[1].html, /--akari-tok-delay: -0\.2s/u);
 });
 
+test('start_index is counted from the source caption across resolved fragments', () => {
+  const words = ['あいう', 'えおか', 'きくけ', 'こさし'].map((text, index) => ({
+    text, start: index * 0.5, end: (index + 1) * 0.5,
+  }));
+  const root = { display_policy: { ...POLICY, max_line_units: 6, word_style: 'karaoke' },
+    captions: [{ id: 'c-start', start: 0, end: 2, text: words.map(word => word.text).join(''),
+      display_fragments: ['あいうえおか', 'きくけこさし'], words,
+      text_style: { karaoke: { fill: 'word', start_index: 3 } } }] };
+  const plan = resolveCaptionPlan({ captionsRoot: root, edit: projectedEdit() });
+  assert.deepEqual(plan.layout.display_cues.map(cue => cue.karaoke_offset), [0, 6]);
+  assert.match(plan.overlays[0].html, /akari-caption__tok--karaoke-done">あいう<\/span>/u);
+  assert.doesNotMatch(plan.overlays[1].html, /class="akari-caption__tok akari-caption__tok--karaoke-done"/u);
+  const legacy = resolveCaptionPlan({ captionsRoot: { captions: [{
+    id: 'legacy', start: 0, end: 1, text: 'あいうえおか', style: 'karaoke',
+    words: words.slice(0, 2), text_style: root.captions[0].text_style,
+  }] }, edit: projectedEdit() });
+  const tokens = html => html.match(/<span class="akari-caption__tok[^>]*>[^<]+<\/span>/gu);
+  assert.deepEqual(tokens(plan.overlays[0].html), tokens(legacy.overlays[0].html));
+});
+
+test('punctuation missing from measured words renders as unlit karaoke tokens', () => {
+  const root = { display_policy: { ...POLICY, max_line_units: 20, word_style: 'karaoke' },
+    captions: [{ id: 'c-punctuation', start: 0, end: 3, text: '今日は、大事な話。', words: [
+      { text: '今日は', start: 0, end: 1 }, { text: '大事な', start: 1, end: 2 },
+      { text: '話', start: 2, end: 3 },
+    ] }] };
+  const plan = resolveCaptionPlan({ captionsRoot: root, edit: projectedEdit() });
+  const [cue] = plan.layout.display_cues;
+  assert.equal(cue.style, 'karaoke');
+  assert.deepEqual(cue.words.filter(word => word.untimed).map(word => word.text), ['、', '。']);
+  assert.equal((plan.overlays[0].html.match(/akari-caption__tok--unlit/gu) ?? []).length, 2);
+  assert.match(plan.overlays[0].html, /akari-caption__tok--unlit">、<\/span>/u);
+  assert.match(plan.overlays[0].html, /akari-caption__tok--unlit">。<\/span>/u);
+});
+
 test("射影前の v2 を渡すと、0 件を返さずに落ちる", () => {
   // これが preview-server が踏んだ形: tracks はあるが cuts が無い。
   // 旧実装は cuts = [] として扱い、occurrence 0 → display_cues 0 を「正常」として返していた。

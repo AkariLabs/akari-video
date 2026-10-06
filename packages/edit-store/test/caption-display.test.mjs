@@ -928,6 +928,67 @@ test('karaoke OFF keeps strict word matching for half-width words and full-width
   assert.equal(cue.word_styles, undefined);
 });
 
+test('an unstyled emphasis fragment keeps its original cue shape', () => {
+  const root = { display_policy: { ...policy, max_line_units: 6, lines: 1 },
+    emphasis_words: [{ id: 'e-1', t_start: 1, t_end: 2,
+      word: '大事な', emotion: 'neutral', style_preset: 'emphasis-red' }],
+    captions: [caption('c-1', 0, 3, '言うと大事な話', {
+      display_fragments: ['言うと', '大事な話'],
+      words: [{ text: '言うと', start: 0, end: 1 },
+        { text: '大事な', start: 1, end: 2 }, { text: '話', start: 2, end: 3 }],
+    })] };
+  const cues = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 3 }] }).display_cues;
+  assert.equal(cues.length, 2);
+  assert.equal(cues[0].words, undefined);
+  assert.equal(cues[0].word_styles, undefined);
+  assert.equal(cues[1].word_styles[0].preset_id, 'emphasis-red');
+});
+
+test('karaoke offset counts source graphemes across display fragments', () => {
+  const words = ['あいう', 'えおか', 'きくけ', 'こさし'].map((text, index) => ({
+    text, start: index * 0.5, end: (index + 1) * 0.5,
+  }));
+  const root = { display_policy: { ...policy, max_line_units: 6, lines: 1, word_style: 'karaoke' },
+    captions: [caption('c-1', 0, 2, words.map(word => word.text).join(''), {
+      display_fragments: ['あいうえおか', 'きくけこさし'], words,
+      text_style: { karaoke: { fill: 'word', start_index: 3 } },
+    })] };
+  const cues = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+  assert.deepEqual(cues.map(cue => cue.karaoke_offset), [0, 6]);
+  assert.ok(cues.every(cue => cue.style === 'karaoke'));
+  const emoji = { display_policy: { ...policy, max_line_units: 20, lines: 1, word_style: 'karaoke' },
+    captions: [caption('c-emoji', 0, 3, '👩‍💻あいうえ', {
+      display_fragments: ['👩‍💻あい', 'うえ'], words: [
+        { text: '👩‍💻', start: 0, end: 1 }, { text: 'あい', start: 1, end: 2 },
+        { text: 'うえ', start: 2, end: 3 },
+      ],
+    })] };
+  assert.deepEqual(resolveCaptionDisplay(emoji, { cuts: [] }).display_cues
+    .map(cue => cue.karaoke_offset), [0, 3]);
+});
+
+test('karaoke keeps measured words when only punctuation is missing from words', () => {
+  const root = { display_policy: { ...policy, max_line_units: 20, word_style: 'karaoke' },
+    captions: [caption('c-1', 0, 3, '今日は、大事な話。', { words: [
+      { text: '今日は', start: 0, end: 1 },
+      { text: '大事な', start: 1, end: 2 },
+      { text: '話', start: 2, end: 3 },
+    ] })] };
+  const [cue] = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+  assert.equal(cue.style, 'karaoke');
+  assert.deepEqual(cue.words.map(word => [word.text, Boolean(word.untimed)]), [
+    ['今日は', false], ['、', true], ['大事な', false], ['話', false], ['。', true],
+  ]);
+  const symbol = { ...root, captions: [{ ...root.captions[0], text: '今日は★ 大事な話。' }] };
+  const [symbolCue] = resolveCaptionDisplay(symbol, { cuts: [] }).display_cues;
+  assert.equal(symbolCue.style, 'karaoke');
+  assert.deepEqual(symbolCue.words.filter(word => word.untimed).map(word => word.text), ['★ ', '。']);
+  const invalid = { ...root, captions: [{ ...root.captions[0], text: '今日はX大事な話。' }] };
+  const [fallback] = resolveCaptionDisplay(invalid, { cuts: [] }).display_cues;
+  assert.equal(fallback.style, undefined);
+  assert.equal(fallback.words, undefined);
+});
+
 test('karaoke fallback preserves legacy rescued-word emphasis and synthetic-word emphasis', () => {
   const emphasis_words = [{ id: 'e-1', t_start: 1, t_end: 1.5,
     word: '大事', emotion: 'neutral', style_preset: 'emphasis-red' }];

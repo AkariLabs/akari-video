@@ -98,6 +98,26 @@ test('karaoke token timings are identical in GPU, OSR, and the shared preview/re
   assert.deepEqual(shared.layout.display_cues[0].display_lines, captions.captions[0].display_fragments);
 });
 
+test('GPU and OSR keep unmeasured punctuation unlit beside measured karaoke words', () => {
+  const captions = { display_policy: { ...displayPolicy, max_line_units: 20, word_style: 'karaoke' },
+    captions: [{ id: 'c-punctuation', src: 'main', start: 0, end: 3,
+      text: '今日は、大事な話。', words: [
+        { text: '今日は', start: 0, end: 1 },
+        { text: '大事な', start: 1, end: 2 },
+        { text: '話', start: 2, end: 3 },
+      ] }] };
+  const gpu = gpuPage(captions);
+  const osr = buildOsrPage(buildArgs(captions));
+  const render = resolveCaptionPlan({ captionsRoot: captions, edit });
+  const tokens = html => [...String(html).matchAll(/<span class="akari-caption__tok akari-caption__tok--(karaoke|unlit)"[^>]*>([^<]+)<\/span>/gu)]
+    .map(([, kind, text]) => [kind, text]);
+  const expected = [['karaoke', '今日は'], ['unlit', '、'], ['karaoke', '大事な'],
+    ['karaoke', '話'], ['unlit', '。']];
+  assert.deepEqual(tokens(render.overlays[0].html), expected);
+  assert.deepEqual(tokens(gpu.spriteManifest.captions[0].html), expected);
+  assert.deepEqual(tokens(osr.overlaySheetHtml), expected);
+});
+
 test("display_policy 下の字幕スプライトは静的に焼き切る（語タイルを名乗らない）", () => {
   const sprite = gpuPage(policyRoot([punctuated])).spriteManifest.captions[0];
   // 解決済みの断片は HTML に強調・語スタイルまで畳み込まれている。元 cue で判定すると

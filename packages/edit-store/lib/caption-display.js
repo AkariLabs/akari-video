@@ -386,11 +386,11 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
             if (group.charEnd - group.charStart !== text.length) {
                 fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
             }
-            const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text);
             const sourceCaption = captions[occurrence.caption_input_index];
-            const karaoke = (sourceCaption.style ?? policy.word_style) === 'karaoke'
-                && karaokeEligibleByCaption.has(occurrence.caption_input_index)
-                && Boolean(wordDisplay?.words.length);
+            const karaokeEligible = (sourceCaption.style ?? policy.word_style) === 'karaoke'
+                && karaokeEligibleByCaption.has(occurrence.caption_input_index);
+            const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text, karaokeEligible);
+            const karaoke = karaokeEligible && Boolean(wordDisplay?.words.some(word => !word.untimed));
             const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
             const sourceRuns = captions[occurrence.caption_input_index].runs;
             const cueRuns = Array.isArray(sourceRuns)
@@ -417,7 +417,10 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
                 ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
                 ...(wordDisplay ? { words: wordDisplay.words } : {}),
                 ...(wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {}),
-                ...(karaoke ? { style: 'karaoke' } : {})
+                ...(karaoke ? {
+                    style: 'karaoke',
+                    karaoke_offset: captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
+                } : {})
             });
         });
     }
@@ -448,6 +451,68 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         display_cues: displayCues,
         word_book_fallbacks: wordBookFallbacks
     };
+}
+function captionDisplayGraphemes(text) {
+    const Segmenter = Intl.Segmenter;
+    return [...new Segmenter(undefined, { granularity: 'grapheme' }).segment(text)]
+        .map(part => part.segment);
+}
+function alignKaraokeUntimed(entries, displayText) {
+    const graphemes = captionDisplayGraphemes(displayText);
+    const normalized = (text) => text.normalize('NFKC').replace(/\s/gu, '');
+    const allowedGap = /^[\p{P}\p{S}\s]+$/u;
+    const aligned = [];
+    let cursor = 0;
+    const addUntimed = (text) => {
+        const previous = aligned[aligned.length - 1];
+        if (previous?.untimed)
+            previous.word.text = String(previous.word.text) + text;
+        else
+            aligned.push({ word: { text, start: 0, end: 0 }, synthetic: false, untimed: true });
+    };
+    for (const entry of entries) {
+        const sourceText = String(entry.word.text);
+        const target = normalized(sourceText);
+        if (!target)
+            return null;
+        let found = false;
+        while (cursor < graphemes.length) {
+            let candidate = '';
+            let end = cursor;
+            while (end < graphemes.length) {
+                const part = graphemes[end];
+                if (/^\s+$/u.test(part) && !sourceText.includes(part))
+                    break;
+                const next = normalized(candidate + part);
+                if (!target.startsWith(next))
+                    break;
+                candidate += part;
+                end++;
+                if (next === target)
+                    break;
+            }
+            if (normalized(candidate) === target) {
+                aligned.push({ ...entry, word: { ...entry.word, text: candidate } });
+                cursor = end;
+                found = true;
+                break;
+            }
+            const gap = graphemes[cursor];
+            if (!allowedGap.test(gap))
+                return null;
+            addUntimed(gap);
+            cursor++;
+        }
+        if (!found)
+            return null;
+    }
+    while (cursor < graphemes.length) {
+        const gap = graphemes[cursor++];
+        if (!allowedGap.test(gap))
+            return null;
+        addUntimed(gap);
+    }
+    return aligned;
 }
 function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, output, locale, defaultKaraoke = false, karaokeEligibleByCaption = new Set()) {
     const emphasisWords = (Array.isArray(emphasisValue) ? emphasisValue : []).filter(value => isRecord(value)
@@ -501,6 +566,15 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
             if (visible(rescued).join('') === normalized(projected.displayText))
                 entries = rescued;
         }
+        const exactText = entries.map(entry => String(entry.word.text)).join('');
+        const needsUntimed = karaoke && (visible(entries).join('') !== normalized(projected.displayText)
+            || exactText.normalize('NFKC') !== projected.displayText.normalize('NFKC'));
+        if (needsUntimed) {
+            const aligned = alignKaraokeUntimed(entries, projected.displayText);
+            if (!aligned)
+                return;
+            entries = aligned;
+        }
         const visibleWords = visible(entries);
         if (visibleWords.join('') !== normalized(projected.displayText))
             return;
@@ -508,7 +582,7 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
         // The resulting texts and offsets reconstruct the cue exactly, including
         // leading spaces such as " Code", without changing source word timings.
         let displayCursor = 0;
-        const alignedTexts = visibleWords.map(visible => {
+        const alignedTexts = needsUntimed ? entries.map(entry => String(entry.word.text)) : visibleWords.map(visible => {
             const start = displayCursor;
             let matched = '';
             while (displayCursor < projected.displayText.length && normalized(matched).length < visible.length) {
@@ -520,11 +594,11 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
         });
         alignedTexts[alignedTexts.length - 1] += projected.displayText.slice(displayCursor);
         let offset = 0;
-        const words = entries.map(({ word, synthetic }, wordIndex) => {
+        const words = entries.map(({ word, synthetic, untimed }, wordIndex) => {
             const text = alignedTexts[wordIndex];
             let emphasis;
             let styleVars = null;
-            for (const candidate of synthetic || caption.time_domain === 'output' ? [] : emphasisWords) {
+            for (const candidate of synthetic || untimed || caption.time_domain === 'output' ? [] : emphasisWords) {
                 const sourceMatches = !(strictText(candidate.src) && strictText(caption.src))
                     || candidate.src === caption.src;
                 if (!sourceMatches
@@ -542,6 +616,7 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
                 end: word.end,
                 text,
                 offset,
+                ...(untimed ? { untimed: true } : {}),
                 ...(emphasis && styleVars ? { preset_id: emphasis.style_preset, style_vars: styleVars } : {})
             };
             offset += text.length;
@@ -549,7 +624,7 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
         });
         expandProjectedWordStyles(words, projected.displayText, locale);
         entries.forEach((entry, wordIndex) => {
-            if (entry.synthetic) {
+            if (entry.synthetic || entry.untimed) {
                 delete words[wordIndex].preset_id;
                 delete words[wordIndex].style_vars;
             }
@@ -606,7 +681,7 @@ function resolveCueStyleVars(lineVars, wordStyles) {
         return lineVars;
     return { ...(lineVars ?? {}), '--caption-word-line-height': `${formatCssNumber(maxTokenSize)}px` };
 }
-function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines, cueText) {
+function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines, cueText, karaoke) {
     if (!sourceWords)
         return undefined;
     const lineRanges = [];
@@ -632,6 +707,7 @@ function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines,
                 end: roundOutputSecond(timeOffset + word.end * timeScale),
                 text: word.text.slice(start - word.offset, end - word.offset),
                 line: line.line,
+                ...(word.untimed ? { untimed: true } : {}),
                 ...(word.preset_id ? { preset_id: word.preset_id, style_vars: word.style_vars } : {})
             });
         }
@@ -639,6 +715,8 @@ function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines,
     if (styledWords.map(word => word.text).join('') !== cueText) {
         fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} words do not reconstruct display cue text`);
     }
+    if (!karaoke && !styledWords.some(word => word.preset_id))
+        return undefined;
     const wordStyles = [];
     styledWords.forEach((word, index) => {
         if (!word.preset_id || !word.style_vars)
@@ -655,7 +733,9 @@ function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines,
             });
     });
     return {
-        words: styledWords.map(({ start, end, text, line }) => ({ start, end, text, line })),
+        words: styledWords.map(({ start, end, text, line, untimed }) => ({
+            start, end, text, line, ...(untimed ? { untimed } : {})
+        })),
         wordStyles
     };
 }

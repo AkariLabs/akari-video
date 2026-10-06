@@ -67,6 +67,7 @@ export interface CaptionDisplayCue {
     layout?: ResolvedCaptionLayout;
     words?: CaptionDisplayWord[];
     style?: 'karaoke';
+    karaoke_offset?: number;
     word_styles?: CaptionDisplayWordStyle[];
     runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
@@ -80,6 +81,7 @@ export interface CaptionDisplayWord {
     end: number;
     text: string;
     line: number;
+    untimed?: true;
 }
 export interface CaptionDisplayWordStyle {
     from: number;
