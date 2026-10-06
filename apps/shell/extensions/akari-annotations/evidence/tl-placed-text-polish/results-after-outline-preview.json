@@ -1,0 +1,108 @@
+{
+  "metrics": {
+    "plate": {
+      "x": 364.3359375,
+      "y": 40.00390625,
+      "width": 450,
+      "height": 253.125
+    },
+    "line": {
+      "x": 386.8359375,
+      "y": 122.12945556640625,
+      "width": 405,
+      "height": 88.87115478515625
+    },
+    "ink": {
+      "x": 448.7109375,
+      "y": 125.74945068359375,
+      "width": 281.25,
+      "height": 81.38671875
+    },
+    "box": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    },
+    "plateStyle": "--caption-plate-margin: auto; --caption-font-size: 160px; --caption-stroke: 24px #000000; --caption-font-family: \"Noto Sans JP\"; --caption-font-weight: 700; --caption-wrap-width: 90%; --caption-top: 0; --caption-bottom: 0; --caption-left: 4%; --caption-right: 4%; --caption-justify-content: center; --caption-align-items: center; --caption-line-margin: 0; --caption-line-max-width: 100%; --caption-text-align: center; --caption-rounded-stroke: 12px 0px 0 #000000,11.769px 2.341px 0 #000000,11.087px 4.592px 0 #000000,9.978px 6.667px 0 #000000,8.485px 8.485px 0 #000000,6.667px 9.978px 0 #000000,4.592px 11.087px 0 #000000,2.341px 11.769px 0 #000000,0px 12px 0 #000000,-2.341px 11.769px 0 #000000,-4.592px 11.087px 0 #000000,-6.667px 9.978px 0 #000000,-8.485px 8.485px 0 #000000,-9.978px 6.667px 0 #000000,-11.087px 4.592px 0 #000000,-11.769px 2.341px 0 #000000,-12px 0px 0 #000000,-11.769px -2.341px 0 #000000,-11.087px -4.592px 0 #000000,-9.978px -6.667px 0 #000000,-8.485px -8.485px 0 #000000,-6.667px -9.978px 0 #000000,-4.592px -11.087px 0 #000000,-2.341px -11.769px 0 #000000,0px -12px 0 #000000,2.341px -11.769px 0 #000000,4.592px -11.087px 0 #000000,6.667px -9.978px 0 #000000,8.485px -8.485px 0 #000000,9.978px -6.667px 0 #000000,11.087px -4.592px 0 #000000,11.769px -2.341px 0 #000000;",
+    "stroke": {
+      "width": "0px",
+      "color": "rgba(0, 0, 0, 0)",
+      "shadow": "rgb(0, 0, 0) 12px 0px 0px, rgb(0, 0, 0) 11.769px 2.341px 0px, rgb(0, 0, 0) 11.087px 4.592px 0px, rgb(0, 0, 0) 9.978px 6.667px 0px, rgb(0, 0, 0) 8.485px 8.485px 0px, rgb(0, 0, 0) 6.667px 9.978px 0px, rgb(0, 0, 0) 4.592px 11.087px 0px, rgb(0, 0, 0) 2.341px 11.769px 0px, rgb(0, 0, 0) 0px 12px 0px, rgb(0, 0, 0) -2.341px 11.769px 0px, rgb(0, 0, 0) -4.592px 11.087px 0px, rgb(0, 0, 0) -6.667px 9.978px 0px, rgb(0, 0, 0) -8.485px 8.485px 0px, rgb(0, 0, 0) -9.978px 6.667px 0px, rgb(0, 0, 0) -11.087px 4.592px 0px, rgb(0, 0, 0) -11.769px 2.341px 0px, rgb(0, 0, 0) -12px 0px 0px, rgb(0, 0, 0) -11.769px -2.341px 0px, rgb(0, 0, 0) -11.087px -4.592px 0px, rgb(0, 0, 0) -9.978px -6.667px 0px, rgb(0, 0, 0) -8.485px -8.485px 0px, rgb(0, 0, 0) -6.667px -9.978px 0px, rgb(0, 0, 0) -4.592px -11.087px 0px, rgb(0, 0, 0) -2.341px -11.769px 0px, rgb(0, 0, 0) 0px -12px 0px, rgb(0, 0, 0) 2.341px -11.769px 0px, rgb(0, 0, 0) 4.592px -11.087px 0px, rgb(0, 0, 0) 6.667px -9.978px 0px, rgb(0, 0, 0) 8.485px -8.485px 0px, rgb(0, 0, 0) 9.978px -6.667px 0px, rgb(0, 0, 0) 11.087px -4.592px 0px, rgb(0, 0, 0) 11.769px -2.341px 0px"
+    },
+    "handles": []
+  },
+  "inspector": [],
+  "controls": {
+    "zones": [],
+    "position": []
+  },
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0005",
+        "start": 3,
+        "end": 6,
+        "text": "こんにちは",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "time_domain": "output",
+        "text_style": {
+          "font_family": "Noto Sans JP",
+          "weight": 700,
+          "size_px": 160,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 12
+          },
+          "wrap_width_pct": 90,
+          "zone": "center"
+        }
+      }
+    ]
+  }
+}

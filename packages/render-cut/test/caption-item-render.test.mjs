@@ -158,7 +158,7 @@ test("detached caption HTML and vars are byte-identical to the shared caption ge
   const rendered = project(edit);
   const detached = rendered.edit.overlays.find(overlay => overlay.id === "c2-out");
   const row = captions.captions.find(caption => caption.id === "c2");
-  const direct = generateCaptionOverlays([row], rendered.edit.cuts, {
+  const direct = generateCaptionOverlays([{ ...row, time_domain: "output", src: undefined }], rendered.edit.cuts, {
     output: { width: 640, height: 360 },
     sourceCount: 1,
     defaultTextStyle: captions.default_text_style,
@@ -167,6 +167,9 @@ test("detached caption HTML and vars are byte-identical to the shared caption ge
 
   assert.equal(detached.html, direct.html);
   assert.equal(JSON.stringify(detached.vars), JSON.stringify(direct.vars));
+  assert.match(detached.html, /-webkit-text-stroke:0 transparent;text-shadow:var\(--caption-rounded-stroke\);/u);
+  assert.match(detached.vars["--caption-rounded-stroke"], /^2px 0px 0 #000000/u);
+  assert.equal(detached.vars["--caption-rounded-stroke"], direct.vars["--caption-rounded-stroke"]);
 });
 
 test("missing and hidden caption items are skipped without throwing", async () => {

@@ -1,6 +1,7 @@
 import { CommandRegistry, Disposable, DisposableCollection } from '@theia/core/lib/common';
 import { isOSX } from '@theia/core/lib/common/os';
 import { shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
+import { CAPTION_FONT_SIZE_MAX, clampCaptionFontSize } from '../common/caption-size-limit';
 import {
     alignDelta, AlignMode, BarItem, barItems, CAP_OPTIONS, ContextBarState, ContextLayerList, DASH_OPTIONS,
     elementMenuPosition, formatRange, geometryValues, parseContextBarState, shortcutLabel, windowValues
@@ -481,7 +482,7 @@ export class PreviewContextBar implements Disposable {
         const size = Math.round(Number(style.sizePx) || 48);
         this.bar.innerHTML = CAPTION_BAR_ORDER.map(key => key === 'captionSize'
             ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button>`
-                + `<input type="number" data-akari-caption-size min="1" max="160" value="${size}" aria-label="サイズ">`
+                + `<input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${size}" aria-label="サイズ">`
                 + `<button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
             : this.captionButton(key)).join('')
             + `<button type="button" class="akari-ctx-item akari-ctx-overflow" data-akari-bar-item="overflow" aria-label="もっと見る" aria-expanded="${this.moreOpen}" aria-pressed="${captionOverflowPressed(this.captionOverflow, style, this.captionPanel)}">…</button>`;
@@ -542,7 +543,7 @@ export class PreviewContextBar implements Disposable {
             + `${ICON[icon]}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
         if (state.kind === 'caption') {
             this.more.innerHTML = this.captionOverflow.map(key => key === 'captionSize'
-                ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button><input type="number" data-akari-caption-size min="1" max="160" value="${Math.round(Number((state.item?.textStyle as Record<string, any>)?.sizePx) || 48)}" aria-label="サイズ"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
+                ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button><input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${Math.round(Number((state.item?.textStyle as Record<string, any>)?.sizePx) || 48)}" aria-label="サイズ"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
                 : this.captionButton(key, true)).join('');
             return;
         }
@@ -811,7 +812,7 @@ export class PreviewContextBar implements Disposable {
         } else if (key === 'captionSizeInc' || key === 'captionSizeDec') {
             this.openWindow = null;
             const base = Number(this.captionPending?.get('sizePx') ?? style.sizePx) || 48;
-            const size = Math.max(1, Math.min(160, base + (key === 'captionSizeInc' ? 2 : -2)));
+            const size = clampCaptionFontSize(base + (key === 'captionSizeInc' ? 2 : -2));
             this.writeCaptionValue('sizePx', size);
         } else if (key === 'captionBold') {
             this.openWindow = null;
@@ -852,8 +853,8 @@ export class PreviewContextBar implements Disposable {
         const input = event.target as HTMLInputElement;
         if (!input.matches('[data-akari-caption-size]')) return;
         if (input.value.trim() === '') return;
-        const value = Math.max(1, Math.min(160, Number(input.value)));
-        if (Number.isFinite(value)) this.writeCaptionValue('sizePx', value);
+        const parsed = Number(input.value);
+        if (Number.isFinite(parsed)) this.writeCaptionValue('sizePx', clampCaptionFontSize(parsed));
     }
 
     protected onMenuClick(event: MouseEvent): void {

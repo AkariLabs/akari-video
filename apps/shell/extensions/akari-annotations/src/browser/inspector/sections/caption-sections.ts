@@ -20,6 +20,34 @@ export function CAPTION_SECTIONS(
         motionServices?: CaptionMotionServices;
     } = {}
 ): InspectorSection[] {
+    const ensureCompactCaptionZoneStyle = (): void => {
+        if (typeof document === 'undefined' || document.getElementById('akari-caption-zone-compact-style')) return;
+        const style = document.createElement('style');
+        style.id = 'akari-caption-zone-compact-style';
+        style.textContent = `.akari-inspector-widget [data-akari-field="caption-zone"] .akari-caption-zone-grid {
+            grid-template-columns: repeat(3, 22px); width: max-content; gap: 2px;
+        }
+        .akari-inspector-widget [data-akari-field="caption-zone"] .akari-caption-zone-cell {
+            width: 22px; min-width: 22px; height: 22px; font-size: 11px;
+        }
+        .akari-inspector-widget [data-akari-field="caption-zone"] .akari-caption-zone-cell svg {
+            width: 13px; height: 13px;
+        }`;
+        document.head.appendChild(style);
+    };
+    const captionPositionPercent = (style: CaptionTextStyle | undefined, axis: 'x' | 'y'): number => {
+        const explicit = style?.position?.[axis];
+        if (typeof explicit === 'number' && Number.isFinite(explicit)) return Math.round(explicit * 10000) / 100;
+        const zone = style?.zone ?? 'bottom';
+        if (axis === 'x') {
+            const width = style?.wrapWidthPct ?? 92;
+            return zone.endsWith('left') || zone === 'left' ? 4
+                : zone.endsWith('right') || zone === 'right' ? Math.max(0, 96 - width)
+                    : Math.max(0, (100 - width) / 2);
+        }
+        return zone.startsWith('top') ? 7 : zone === 'center' || zone === 'left' || zone === 'right' ? 50 : 93;
+    };
+    ensureCompactCaptionZoneStyle();
     const raw = snapshot.textStyle;
     const effective = snapshot.effectiveTextStyle;
     const currentEffect = captionEffectFromStyle(effective);
@@ -67,7 +95,7 @@ export function CAPTION_SECTIONS(
         getEditValue: () => options.mixedFields?.has(fieldKey) ? '—' : String(effectiveValue ?? fallback),
         inputKind: 'slider-number',
         scrubStep: step,
-        sliderMax: fieldKey === 'size' ? 160 : fieldKey === 'stroke-width' ? 20
+        sliderMax: fieldKey === 'size' ? 320 : fieldKey === 'stroke-width' ? 20
             : fieldKey === 'line-height' ? 2.2 : fieldKey === 'letter-spacing' ? 0.4
                 : fieldKey === 'background-padding' ? 40
                     : fieldKey === 'background-opacity' ? 1
@@ -336,13 +364,28 @@ export function CAPTION_SECTIONS(
                             CAPTION_STYLE_DEFAULTS.zone
                         ),
                     getEditValue: () => options.mixedFields?.has('zone')
-                        ? '—' : effective?.zone ?? '',
+                        ? '—' : raw?.position ? '' : effective?.zone ?? '',
                     inputKind: 'zone-grid',
                     options: CAPTION_ZONES,
                     write: async () => ({ ok: true }),
                     zoneHover: options.zoneHover,
-                    zonePreset: options.zonePreset
-                }
+                    zonePreset: zone => options.zonePreset?.(`cue:${snapshot.id}:zone:${zone}`)
+                },
+                ...(['x', 'y'] as const).map(axis => ({
+                    name: `caption-position-${axis}`, label: axis === 'x' ? 'X（左端）' : 'Y',
+                    inputKind: 'slider-number' as const, min: 0, sliderMax: 100,
+                    scrubStep: 0.1, unit: '%' as const,
+                    getValue: () => `${captionPositionPercent(effective, axis)}%`,
+                    getEditValue: () => String(captionPositionPercent(effective, axis)),
+                    write: async (_snapshot: TimelineCaptionSelection, value: string) => {
+                        const percent = Number(value);
+                        if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+                            return { ok: false, message: '位置は 0〜100% で入力してください。' };
+                        }
+                        options.zonePreset?.(`cue:${snapshot.id}:${axis}:${percent}`);
+                        return { ok: true };
+                    }
+                }))
             ]
         },
         {

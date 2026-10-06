@@ -303,6 +303,7 @@ export function isCaptionWriteRequest(message: any): message is CaptionWriteRequ
         && (plateTransform.scale === undefined || hasPlateScale)
         && (plateTransform.rotate === undefined || hasPlateRotate)
         && (plateTransform.wrapWidthPct === undefined || hasWrapWidth)
+        && (plateTransform.backgroundPaddingPx === undefined || plateTransform.backgroundPaddingPx === 0)
         && hasValidPlateCuePosition;
     const duplicate = message?.patch?.duplicate;
     const hasDuplicate = duplicate && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(duplicate.anchor)

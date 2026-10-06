@@ -52,6 +52,10 @@ import {
     captionEditingNavigationKey
 } from '../common/caption-edit-geometry';
 import { captionWrapPosition } from '../common/caption-wrap-position';
+import { captionAxisPlacement, captionZonePlacement } from '../common/caption-position-preset';
+import { roundedCaptionStrokeShadows } from '../common/caption-rounded-stroke';
+import { captionWrapFitPosition, captionWrapFitWidth } from '../common/caption-wrap-fit';
+import { clearCaptionSideActions } from '../common/caption-action-clearance';
 import {
     RESOLVED_CAPTION_STYLE_VARIABLE_NAMES,
     RESOLVED_SINGLE_LINE_CAPTION_CSS,
@@ -4718,6 +4722,12 @@ export function previewBootstrapScript(): string {
                 width: Number(summary.output && summary.output.width) || 1280,
                 height: Number(summary.output && summary.output.height) || 720
             });
+            const captionAxisPlacementFn = (${captionAxisPlacement.toString()});
+            const captionZonePlacementFn = (${captionZonePlacement.toString()});
+            const roundedCaptionStrokeShadowsFn = (${roundedCaptionStrokeShadows.toString()});
+            const captionWrapFitWidthFn = (${captionWrapFitWidth.toString()});
+            const captionWrapFitPositionFn = (${captionWrapFitPosition.toString()});
+            const clearCaptionSideActionsFn = (${clearCaptionSideActions.toString()});
             const captionOutputPoint = (clientX, clientY) => {
                 const point = window.akari.interaction?.stageLocalPoint?.(clientX, clientY);
                 if (point) return point;
@@ -4919,8 +4929,9 @@ export function previewBootstrapScript(): string {
                 captionSelectBox.classList.add('is-active');
                 const selectionRect = captionSelectBox.getBoundingClientRect();
                 const stageScale = previewStage.getBoundingClientRect().width / previewStage.offsetWidth || 1;
-                const actions = previewLayerActionsFn(previewPane.getBoundingClientRect(),
-                    selectionRect, null, stageScale);
+                const actions = clearCaptionSideActionsFn(previewLayerActionsFn(
+                    previewPane.getBoundingClientRect(), selectionRect, null, stageScale),
+                    previewPane.getBoundingClientRect());
                 for (const handle of captionSelectBox.querySelectorAll('.akari-caption-handle[data-h="rot"], .akari-caption-handle[data-h="move"]')) {
                     if (!actions) continue;
                     const rect = handle.dataset.h === 'rot' ? actions.rotate : actions.move;
@@ -6084,6 +6095,67 @@ export function previewBootstrapScript(): string {
             captionSelectBox.addEventListener('pointerdown', event => {
                 if (event.target.closest?.('.akari-caption-handle')) onCaptionPointerDown(event);
             }, true);
+            captionSelectBox.addEventListener('dblclick', event => {
+                const handle = event.target.closest?.('.akari-caption-handle[data-h="e"], .akari-caption-handle[data-h="w"]');
+                if (!handle) return;
+                const caption = selectedCaption();
+                const plate = selectedCaptionPlate();
+                if (!caption || caption.timeDomain !== 'output' || !plate) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const lines = [...plate.querySelectorAll('.akari-caption__line')];
+                if (!lines.length) return;
+                const outputWidth = Number(summary.output?.width) || 1280;
+                const outputHeight = Number(summary.output?.height) || 720;
+                const scale = parseFloat(getComputedStyle(plate).getPropertyValue('--caption-scale')) || 1;
+                const inkRect = line => {
+                    const range = document.createRange();
+                    range.selectNodeContents(line);
+                    return range.getBoundingClientRect();
+                };
+                const beforeRect = inkRect(lines[0]);
+                const beforeInk = captionOutputPoint(beforeRect.left, beforeRect.top);
+                const longest = Math.max(...lines.map(line => {
+                    const rect = inkRect(line);
+                    return (captionOutputPoint(rect.right, rect.top).x
+                        - captionOutputPoint(rect.left, rect.top).x) / scale;
+                }));
+                const lineStyle = getComputedStyle(lines[0]);
+                const noBackground = !caption.textStyle?.background;
+                const padding = noBackground ? 0 : (parseFloat(lineStyle.paddingLeft) || 0)
+                    + (parseFloat(lineStyle.paddingRight) || 0);
+                const fit = captionWrapFitWidthFn(longest, padding, outputWidth);
+                const originalStyle = plate.getAttribute('style');
+                const layout = captionLayoutRect(plate);
+                if (noBackground) {
+                    plate.style.setProperty('--plate-pad-x', '0px');
+                    plate.style.setProperty('--plate-pad-y', '0px');
+                }
+                plate.style.setProperty('--caption-wrap-width', fit.widthPct + '%');
+                plate.style.setProperty('--caption-plate-margin', '0');
+                plate.style.setProperty('--caption-left', layout.left / outputWidth * 100 + '%');
+                plate.style.setProperty('--caption-top', layout.top / outputHeight * 100 + '%');
+                plate.style.setProperty('--caption-bottom', 'auto');
+                plate.style.setProperty('--caption-translate', 'none');
+                const afterRect = inkRect(lines[0]);
+                const afterInk = captionOutputPoint(afterRect.left, afterRect.top);
+                const fitted = captionWrapFitPositionFn(captionLayoutRect(plate), beforeInk, afterInk);
+                const position = captionWrapPositionFn(fitted.left, fitted.top, outputWidth, outputHeight);
+                plate.style.setProperty('--caption-left', position.position.x * 100 + '%');
+                plate.style.setProperty('--caption-top', position.position.y * 100 + '%');
+                updateCaptionSelectBox();
+                const cueId = caption.sourceCueId || caption.id;
+                void window.akari.engine.captionWrite(cueId, { plateTransform: {
+                    captionIds: [cueId], wrapWidthPct: fit.widthPct,
+                    ...(noBackground ? { backgroundPaddingPx: 0 } : {}),
+                    cuePosition: { captionId: cueId, value: position }
+                } }).catch(error => {
+                    if (originalStyle === null) plate.removeAttribute('style');
+                    else plate.setAttribute('style', originalStyle);
+                    updateCaptionSelectBox();
+                    window.akari.showWriteError(error);
+                });
+            });
             new ResizeObserver(() => updateCaptionSelectBox()).observe(wrapper);
 
             const applyTrackVisibility = track => {
@@ -7424,6 +7496,8 @@ export function previewBootstrapScript(): string {
                     + 'paint-order:var(--caption-paint-order,stroke fill);'
                     + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
                     + 'font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
+                    + (caption.timeDomain === 'output' && caption.textStyleVars?.['--caption-stroke']
+                        ? '.akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : '')
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
@@ -7536,6 +7610,8 @@ export function previewBootstrapScript(): string {
                     : '';
                 return '<div class="akari-caption' + captionContextClasses(caption) + '"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
+                    + (caption.timeDomain === 'output' && caption.textStyleVars?.['--caption-stroke']
+                        ? '.akari-caption__line,.akari-caption__block{-webkit-text-stroke:0 transparent;text-shadow:var(--caption-rounded-stroke);}' : '')
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption__line{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:var(--caption-fill-clip,border-box);-webkit-text-fill-color:var(--caption-fill-color,currentColor);-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
@@ -7563,6 +7639,12 @@ export function previewBootstrapScript(): string {
                 const vars = caption.textStyleVars || {};
                 for (const [name, value] of Object.entries(vars)) {
                     captionPlate.style.setProperty(name, String(value));
+                }
+                captionPlate.style.removeProperty('--caption-rounded-stroke');
+                if (caption.timeDomain === 'output') {
+                    const shadows = roundedCaptionStrokeShadowsFn(String(vars['--caption-stroke'] || ''),
+                        String(vars['--caption-text-shadow'] || 'none'));
+                    if (shadows) captionPlate.style.setProperty('--caption-rounded-stroke', shadows);
                 }
                 if (!Object.prototype.hasOwnProperty.call(vars, '--caption-font-size')) {
                     // 明示 size_px が無いときの既定は render-cut と同じ（縦長 = 幅 6% / 横長 = 38px）
@@ -10740,6 +10822,32 @@ export function previewBootstrapScript(): string {
                 }
                 if (message && message.type === 'akari-preview-caption-zone-hover') {
                     updateCaptionZoneHighlight(typeof message.zone === 'string' ? message.zone : null);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-caption-position-preset') {
+                    const action = message.action;
+                    const caption = captions.find(candidate =>
+                        (candidate.sourceCueId || candidate.id) === action?.captionId);
+                    const row = [...captionRows.values()].find(candidate =>
+                        (candidate.caption.sourceCueId || candidate.caption.id) === action?.captionId);
+                    if (!caption || !row || !row.plate?.isConnected) return;
+                    const frame = captionOutputFrame();
+                    const rect = captionVisualRect(row.plate);
+                    const zone = caption.textStyle?.zone || 'bottom';
+                    const anchor = caption.textStyle?.text_anchor
+                        || (String(zone).startsWith('top') ? 'tc'
+                            : zone === 'center' || zone === 'left' || zone === 'right' ? 'mc' : 'bc');
+                    const anchorY = anchor[0] === 'b' ? rect.bottom
+                        : anchor[0] === 'm' ? (rect.top + rect.bottom) / 2 : rect.top;
+                    const value = action.kind === 'zone'
+                        ? captionZonePlacementFn(action.zone,
+                            { width: rect.right - rect.left, height: rect.bottom - rect.top }, frame)
+                        : captionAxisPlacementFn(action.axis, action.percent,
+                            { x: rect.left / frame.width, y: anchorY / frame.height }, anchor);
+                    const patch = caption.timeDomain === 'output' ? { cuePosition: value }
+                        : { groupPosition: value };
+                    void window.akari.engine.captionWrite(action.captionId, patch).catch(error =>
+                        window.akari.showWriteError(error));
                     return;
                 }
                 if (message && message.type === 'akari-preview-onboarding-clear-selection') {

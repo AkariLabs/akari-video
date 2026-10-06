@@ -71,6 +71,8 @@ export interface CaptionPlateTransformPatch {
     scale?: number;
     rotate?: number;
     wrapWidthPct?: number;
+    /** Fit-only: transparent text has no need for cushion padding. */
+    backgroundPaddingPx?: 0;
 }
 
 export interface CaptionPlateCuePosition {
@@ -199,6 +201,11 @@ function applyTransform(
             else style.rotate = patch.rotate;
         }
         if (patch.wrapWidthPct !== undefined) style.wrap_width_pct = patch.wrapWidthPct;
+        if (patch.backgroundPaddingPx === 0) {
+            const background = style.background && typeof style.background === 'object'
+                && !Array.isArray(style.background) ? style.background as Record<string, unknown> : {};
+            style.background = { ...background, padding_px: 0 };
+        }
         if (Object.keys(style).length === 0) delete caption.text_style;
         else caption.text_style = style;
     }
