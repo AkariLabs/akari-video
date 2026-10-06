@@ -21,6 +21,7 @@ import { LIBRARY_GROUPS, LibraryGroupDefinition, LibraryCategoryKey, LibraryCate
 import { myStylePartLabel, type MyStyle } from '../common/my-style';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
+import { LIBRARY_HOVER_DESCRIPTION_ID, libraryHoverPreview } from '../common/library-hover-preview';
 
 export const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
@@ -421,6 +422,11 @@ export class AkariLibraryPane {
                                         tabIndex={0}
                                         draggable
                                         data-akari-library-transition={transition.id}
+                                        data-akari-hover-preview-src={libraryHoverPreview('transition', undefined, this.host.transitionPreviewUrls[transition.id]?.strip)?.src}
+                                        data-akari-hover-preview-kind='transition'
+                                        data-akari-hover-preview-strip={this.host.transitionPreviewUrls[transition.id]?.strip}
+                                        data-akari-hover-preview-label={transition.labelJa}
+                                        aria-describedby={this.host.transitionPreviewUrls[transition.id]?.strip ? LIBRARY_HOVER_DESCRIPTION_ID : undefined}
                                         data-akari-library-category='transition'
                                         data-akari-library-card='grid'
                                         data-akari-favorite={this.host.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
@@ -428,6 +434,12 @@ export class AkariLibraryPane {
                                         onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
                                         onDragEnd={() => this.host.handleLibraryTransitionDragEnd()}
                                         onContextMenu={event => this.host.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
+                                        onKeyDown={event => {
+                                            if (event.key === 'Enter' && event.target === event.currentTarget) {
+                                                event.preventDefault();
+                                                this.host.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, event.currentTarget);
+                                            }
+                                        }}
                                         style={{
                                             position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
                                             padding: '9px 5px 7px', cursor: 'grab', borderRadius: `${AKARI_RADIUS.panel}px`,

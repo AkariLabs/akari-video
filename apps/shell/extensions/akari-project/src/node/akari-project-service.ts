@@ -47,7 +47,7 @@ import {
     StoreDevicePollRequest,
     StoreDeviceStartOutcome
 } from '../common/akari-project-protocol';
-import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
+import { deriveThumbnailCacheKey, thumbnailCacheFileName, pngPreviewWidth } from './thumbnail-cache';
 import { waveformCardFilter } from '../common/waveform-card-filter';
 import {
     deriveEditTimelineSamples,
@@ -182,6 +182,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly processedEvents = new Set<string>();
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
     protected readonly thumbnailGenerationInFlight = new Map<string, Promise<MaterialThumbnailOutcome>>();
+    protected readonly libraryThumbnailInFlight = new Map<string, Promise<string | undefined>>();
     protected readonly projectCardGenerationInFlight = new Map<string, Promise<ProjectCardThumbnailsOutcome>>();
     protected ffmpegPathPromise?: Promise<string | undefined>;
     protected ffprobePathPromise?: Promise<string | undefined>;
@@ -363,8 +364,13 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             this.loadLocalCatalogViewItems(preferenceRoot),
             this.loadLibraryPacks()
         ]);
+        const merged = mergeAssetCatalogViews(local.items, resolverResult.items);
+        const items = await Promise.all(merged.map(async item => {
+            const thumbUrl = await this.resolveLibraryPreviewThumbnail(item);
+            return thumbUrl ? { ...item, thumbUrl } : item;
+        }));
         return {
-            items: mergeAssetCatalogViews(local.items, resolverResult.items),
+            items,
             packs: [...local.packs, ...libraryPacks.filter(pack => !local.packs.some(builtin => builtin.id === pack.id))],
             resolver: {
                 status: resolverResult.status,
@@ -374,6 +380,64 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             entitlementsStatus: resolverResult.entitlementsStatus,
             entitledProducts: resolverResult.entitledProducts
         };
+    }
+
+    /** Rebuildable application cache; an unreadable poster simply keeps its original URL. */
+    protected async resolveLibraryPreviewThumbnail(item: AssetCatalogViewItem): Promise<string | undefined> {
+        let source: string;
+        let localOriginal = false;
+        if (item.libraryDir && await this.isFile(join(item.libraryDir, 'preview.png'))) {
+            source = join(item.libraryDir, 'preview.png');
+            localOriginal = true;
+        } else if (item.previewUrl?.startsWith('file:')) {
+            try { source = fileURLToPath(item.previewUrl); } catch { return undefined; }
+        } else return undefined;
+        const fallbackUrl = localOriginal ? pathToFileURL(source).toString() : undefined;
+        try {
+            const stat = await fs.stat(source);
+            if (!stat.isFile()) return undefined;
+            const key = deriveThumbnailCacheKey(`library-preview-v1:${source}`, stat.size, stat.mtimeMs);
+            const cacheDir = join(dirname(libraryFavoritesPath()), 'cache', 'library-thumbnails');
+            const cachePath = join(cacheDir, thumbnailCacheFileName(key, '.webp'));
+            if (await fs.stat(cachePath).then(file => file.size > 0, () => false)) return pathToFileURL(cachePath).toString();
+            let width = extname(source).toLowerCase() === '.png' ? await pngPreviewWidth(source) : undefined;
+            if (width === undefined) {
+                const ffprobe = await this.resolveFfprobePath();
+                if (!ffprobe) return undefined;
+                const result = await execFileAsync(ffprobe, ['-v', 'error', '-select_streams', 'v:0',
+                    '-show_entries', 'stream=width', '-of', 'default=noprint_wrappers=1:nokey=1', source]);
+                width = Number(result.stdout.trim());
+            }
+            if (!Number.isFinite(width)) return fallbackUrl;
+            if (width <= 640) return fallbackUrl;
+            const pending = this.libraryThumbnailInFlight.get(cachePath);
+            if (pending) return pending;
+            const generation = (async () => {
+                const ffmpeg = await this.resolveFfmpegPath();
+                await fs.mkdir(cacheDir, { recursive: true });
+                try {
+                    if (!ffmpeg) throw new Error('ffmpeg unavailable');
+                    await execFileAsync(ffmpeg, ['-y', '-loglevel', 'error', '-i', source,
+                        '-vf', 'scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2',
+                        '-frames:v', '1', '-c:v', 'libwebp', cachePath]);
+                } catch {
+                    // Some system ffmpeg builds omit libwebp; cwebp is an optional local fallback.
+                    await fs.rm(cachePath, { force: true }).catch(() => undefined);
+                    try { await execFileAsync('cwebp', ['-quiet', '-resize', '480', '270', source, '-o', cachePath]); }
+                    catch { await fs.rm(cachePath, { force: true }).catch(() => undefined); return fallbackUrl; }
+                }
+                try {
+                    if (!(await fs.stat(cachePath)).size) return fallbackUrl;
+                    return pathToFileURL(cachePath).toString();
+                } catch {
+                    return fallbackUrl;
+                }
+            })().finally(() => this.libraryThumbnailInFlight.delete(cachePath));
+            this.libraryThumbnailInFlight.set(cachePath, generation);
+            return generation;
+        } catch {
+            return localOriginal ? pathToFileURL(source).toString() : undefined;
+        }
     }
 
     async getPresetShowcase(): Promise<PresetShowcase> {

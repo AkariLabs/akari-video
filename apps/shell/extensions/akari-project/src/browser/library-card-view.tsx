@@ -18,6 +18,7 @@ import {
     isLibraryFilterOptionOn, LibraryFilterSectionKey, LibraryFilterState, LIBRARY_FILTER_SECTIONS, libraryFilterCount
 } from '../common/library-filter';
 import { LibraryLicenseMark, LibraryLicenseSheet } from '../common/library-license';
+import { LIBRARY_HOVER_DESCRIPTION_ID, libraryHoverPreview } from '../common/library-hover-preview';
 
 const ACCENT = 'var(--akari-accent)';
 const ACCENT_LIGHT = 'var(--akari-accent-light, var(--akari-accent))';
@@ -176,12 +177,16 @@ export interface LibraryAssetCardProps {
     onThumbnailError(): void;
     /** カード本体のクリック = 素材プレビュー。⋯ や試聴ボタンの上では呼ばない。 */
     onPreview?(): void;
+    onKeyboardPreview?(): void;
 }
 
 function Thumbnail(props: LibraryAssetCardProps & { compact?: boolean }): React.ReactElement {
     const { item } = props;
-    return props.item.previewUrl && !props.thumbnailBroken
-        ? <img src={item.previewUrl} alt='' draggable={false} onError={() => props.onThumbnailError()}
+    const src = (item as AssetCatalogViewItem & { thumbUrl?: string }).thumbUrl ?? item.previewUrl;
+    return src && !props.thumbnailBroken
+        ? <img src={src} alt='' draggable={false} loading='lazy' decoding='async'
+            width={props.compact ? 52 : 480} height={props.compact ? 30 : 270}
+            onError={() => props.onThumbnailError()}
             style={props.thumbnailFit === 'contain'
                 ? { width: '100%', height: '100%', objectFit: 'contain', display: 'block', padding: '6px', boxSizing: 'border-box' }
                 : { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -194,6 +199,7 @@ function FavoriteStar(): React.ReactElement {
 
 export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactElement {
     const { item } = props;
+    const hover = props.interactive ? libraryHoverPreview(item.category, item.previewUrl) : undefined;
     const common = {
         title: item.title,
         ...props.pickProps,
@@ -201,6 +207,15 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
         onDragStart: props.onDragStart,
         onDragEnd: () => props.onDragEnd(),
         onContextMenu: props.onContextMenu,
+        tabIndex: props.interactive ? 0 : undefined,
+        role: props.interactive ? 'button' : undefined,
+        'aria-describedby': hover ? LIBRARY_HOVER_DESCRIPTION_ID : undefined,
+        onKeyDown: (props.onKeyboardPreview ?? props.onPreview) ? (event: React.KeyboardEvent<HTMLElement>) => {
+            if (event.key === 'Enter' && event.target === event.currentTarget) {
+                event.preventDefault();
+                (props.onKeyboardPreview ?? props.onPreview)?.();
+            }
+        } : undefined,
         // ⋯・試聴・★ の上では発火させない（素材タブのカードと同じ作法）
         onClick: props.onPreview
             ? (event: React.MouseEvent<HTMLElement>) => {
@@ -210,6 +225,9 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
             : undefined,
         'data-akari-library-card': props.layout,
         'data-akari-catalog-item': item.key,
+        'data-akari-hover-preview-src': hover?.src,
+        'data-akari-hover-preview-kind': hover?.kind,
+        'data-akari-hover-preview-label': hover ? item.title : undefined,
         'data-akari-catalog-item-state': item.state ?? 'local',
         'data-akari-premium': props.premium ? 'true' : undefined,
         'data-akari-favorite': props.favorite ? 'true' : undefined,
