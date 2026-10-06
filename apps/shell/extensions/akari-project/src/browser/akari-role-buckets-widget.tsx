@@ -90,6 +90,7 @@ import { LIBRARY_TEXTSTYLE_SAMPLE_CSS, libraryTextStyleSample,
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample } from './library-shelf-visuals-view';
 import { LibraryTextFontRow } from './library-text-look-view';
 import { LibraryTextTelopPage } from './library-text-telop-page';
+import { LibraryHoverPreview } from './library-hover-preview';
 import { catalogItemsWithoutShelvedTelops, textTelopItems } from '../common/library-telop-shelf';
 import { libraryTextstyleApplyPayload } from '../common/library-textstyle-apply';
 import { LibraryShapeShelf } from './library-shape-shelf-view';
@@ -597,6 +598,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogCategory = 'all';
     protected catalogViewMode: CatalogViewMode = 'grid';
     protected readonly catalogBrokenThumbnails = new Set<string>();
+    protected catalogThumbnailErrorTimer?: ReturnType<typeof setTimeout>;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
@@ -862,6 +864,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected override onAfterHide(msg: Message): void {
         this.generationPick.cancel();
         super.onAfterHide(msg);
+        this.node?.dispatchEvent?.(new Event('akari-library-hide'));
         this.stopCatalogAudio();
     }
 
@@ -1414,8 +1417,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected handleCatalogThumbnailError(item: AssetCatalogViewItem): void {
+        if (this.catalogBrokenThumbnails.has(item.key)) return;
         this.catalogBrokenThumbnails.add(item.key);
-        this.update();
+        if (!this.catalogThumbnailErrorTimer) {
+            this.catalogThumbnailErrorTimer = setTimeout(() => {
+                this.catalogThumbnailErrorTimer = undefined;
+                this.update();
+            }, 60);
+        }
     }
 
     /**
@@ -1923,6 +1932,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     imported={result => this.finishLibraryImport(result)} stopAudio={() => this.stopCatalogAudio()} />}
                 {this.lintPane.renderLintBadge()}
                 {this.renderLibraryOverlays()}
+                <LibraryHoverPreview root={this.node} enabled={libraryOnly && this.isVisible}
+                    blocked={!!this.generationPick.request || !!this.libraryInfo || !!this.materialSwap}
+                    pageKey={`${this.topView}:${this.libraryCategory ?? ''}:${this.libraryTextLookOpen}:${this.libraryTextTab}`} />
             </div>
         );
     }
@@ -2510,6 +2522,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             telops={telopItems.map(item => <LibraryAssetCard key={item.key}
                 {...this.libraryAssetCardProps(item, 'grid', {}, undefined, true)}
                 thumbnailFit='contain'
+                onKeyboardPreview={() => { void this.previewCatalogItem(item); }}
                 onPreview={() => { if (!this.showPremiumPrompt(item.key)) void this.addCatalogAssetAtPlayhead(item); }} />)}
             fonts={fontItems.map(item => this.generationPick.request ? this.renderCatalogItem(item)
                 : <LibraryTextFontRow key={item.key} item={item} faceFamily={this.libraryStyleFontFaces.get(item.id)}

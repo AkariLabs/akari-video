@@ -2,17 +2,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import vm from 'node:vm';
 
 const source = readFileSync(new URL('../src/browser/library-text-telop-page.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('library-text-telop-page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const code = ts.transpileModule(ast.statements.filter(node => !ts.isImportDeclaration(node))
     .map(node => node.getText(ast)).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2021,
         jsx: ts.JsxEmit.React, module: ts.ModuleKind.None } }).outputText;
-const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }) };
-const { LibraryTextTelopPage } = new Function('exports', 'React', 'AKARI_BORDER', 'AKARI_INK', 'AKARI_RADIUS',
-    'AKARI_SURFACE', `${code}\nreturn { LibraryTextTelopPage };`)(
-    {}, React, { hairline: 'line', ghost: 'ghost', edge: 'edge' }, 'ink', { panel: 6 },
-    { card: 'card', raised: 'raised', elevated: 'elevated' });
+const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }),
+    Children: { toArray: children => children }, isValidElement: item => !!item?.props,
+    useState: initial => [initial, () => {}], useRef: () => ({ current: null }), useEffect: () => {} };
+const context = vm.createContext({ exports: {}, React, AKARI_BORDER: { hairline: 'line', ghost: 'ghost', edge: 'edge' },
+    AKARI_INK: 'ink', AKARI_RADIUS: { panel: 6 }, AKARI_SURFACE: { card: 'card', raised: 'raised', elevated: 'elevated' } });
+vm.runInContext(`${code}\nthis.LibraryTextTelopPage = LibraryTextTelopPage`, context);
+const { LibraryTextTelopPage } = context;
 
 function nodes(tree, predicate) {
     if (!tree || typeof tree !== 'object') return [];

@@ -2,10 +2,25 @@ import * as React from '@theia/core/shared/react';
 import { AKARI_BORDER, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 const GRID = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '7px', padding: '8px 10px 12px' } as const;
+export const TELOP_PAGE_SIZE = 24;
 
 export function LibraryTextTelopPage(props: { onBack(): void; onPlace(): void; tab: 'style' | 'font' | 'telop';
     onTabChange(tab: 'style' | 'font' | 'telop'): void; styles: React.ReactNode; myStyles: React.ReactNode;
     motions: React.ReactNode; fonts: React.ReactNode; telops: React.ReactNode }): React.ReactElement {
+    const [telopPage, setTelopPage] = React.useState({ key: '', limit: TELOP_PAGE_SIZE });
+    const sentinel = React.useRef<HTMLDivElement>(null);
+    const telops = React.Children.toArray(props.telops);
+    const telopKeys = telops.map(item => React.isValidElement(item) ? item.key : '').join('|');
+    const telopLimit = telopPage.key === telopKeys ? telopPage.limit : TELOP_PAGE_SIZE;
+    React.useEffect(() => {
+        if (props.tab !== 'telop' || telopLimit >= telops.length || !sentinel.current) return;
+        const observer = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting)) setTelopPage(page => ({ key: telopKeys,
+                limit: Math.min((page.key === telopKeys ? page.limit : TELOP_PAGE_SIZE) + TELOP_PAGE_SIZE, telops.length) }));
+        }, { rootMargin: '200px' });
+        observer.observe(sentinel.current);
+        return () => observer.disconnect();
+    }, [props.tab, telopLimit, telopKeys, telops.length]);
     return <div data-akari-library-text-look-page data-akari-library-text-tab={props.tab} style={{ minHeight: '100%' }}>
         <div style={{ position: 'sticky', top: 0, zIndex: 6, padding: '8px 10px 9px', background: AKARI_SURFACE.card,
             borderBottom: AKARI_BORDER.hairline, boxShadow: '0 8px 14px -12px var(--theia-widget-shadow)' }}>
@@ -49,7 +64,9 @@ export function LibraryTextTelopPage(props: { onBack(): void; onPlace(): void; t
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '8px 10px 12px' }}>{props.fonts}</div>
         </div> : <div role='tabpanel' data-akari-text-look-section='telop'>
             <ShelfHeading label='テロップ' hint='置く / ドラッグ' />
-            <div style={GRID}>{props.telops}</div>
+            <div style={GRID}>{telops.slice(0, telopLimit)}</div>
+            {telopLimit < telops.length && <div ref={sentinel} data-akari-telop-more
+                style={{ height: '1px' }} />}
         </div>}
     </div>;
 }
