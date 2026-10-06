@@ -10,7 +10,8 @@ import { INSPECTOR_WIDGET_CSS } from './style/inspector-widget-style';
 import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
 import { captionRevealDestination } from '../common/caption-reveal-destination';
 import { captionRevealScrollTop } from '../common/caption-reveal-scroll';
-import { captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
+import { captionPanelChangedDetail, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
+import { captionPanelSelection, captionPanelFontRequest } from './inspector/caption-panel-selection';
 import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
     type CaptionPanelPreviewAction, type CaptionPanelPreviewState } from '../common/caption-panel-preview-state';
 import { CAPTION_FONT_FAMILY, CAPTION_FONT_LOAD_DESCRIPTOR, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
@@ -207,12 +208,11 @@ export class AkariInspectorWidget extends BaseWidget {
 
     public toggleCaptionPanel(panel: CaptionPanel): boolean {
         const snapshot = this.model.snapshot;
-        const hasText = snapshot?.kind === 'caption'
-            || snapshot?.kind === 'item' && snapshot.itemKind === 'caption'
-                && !!(this.model.selectedCaptionIds[0] ?? captionIdForTreeSelection(snapshot));
-        if (!hasText) return false;
-        if (snapshot.kind === 'caption') {
-            const currentFamily = snapshot.effectiveTextStyle?.fontFamily ?? snapshot.textStyle?.fontFamily;
+        const selection = captionPanelSelection(snapshot, this.model.selectedCaptionIds, panel);
+        if (!selection) return false;
+        if (selection.primaryCaption) {
+            const currentFamily = selection.primaryCaption.effectiveTextStyle?.fontFamily
+                ?? selection.primaryCaption.textStyle?.fontFamily;
             const current = CAPTION_PANEL_FONTS.find(font => this.captionPanelFontFaces.get(font.id) === currentFamily
                 || font.id === 'noto-sans-jp' && currentFamily === CAPTION_FONT_FAMILY);
             if (current && !this.captionPanelState.recentFonts.includes(current.id)) {
@@ -616,9 +616,8 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             if (this.captionPanel) {
                 const selection = this.model.snapshot;
-                const retained = retainCaptionPanel(this.captionPanel, selection?.kind === 'caption'
-                    || selection?.kind === 'item' && selection.itemKind === 'caption'
-                        && !!(this.model.selectedCaptionIds[0] ?? captionIdForTreeSelection(selection)));
+                const retained = retainCaptionPanel(this.captionPanel,
+                    !!captionPanelSelection(selection, this.model.selectedCaptionIds, this.captionPanel));
                 if (retained !== this.captionPanel) {
                     this.runCaptionPanelPreview({ type: 'leave' });
                     this.captionPanel = retained; this.notifyCaptionPanel();
@@ -1209,20 +1208,21 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path),
             () => window.dispatchEvent(new CustomEvent('akari.mystyle.open-save'))));
-        const panelCaptionId = snapshot.kind === 'caption' ? snapshot.id
-            : snapshot.kind === 'item' && snapshot.itemKind === 'caption'
-                ? this.model.selectedCaptionIds[0] ?? captionIdForTreeSelection(snapshot) : undefined;
-        if (this.captionPanel && panelCaptionId) {
+        const panelSelection = this.captionPanel
+            ? captionPanelSelection(snapshot, this.model.selectedCaptionIds, this.captionPanel) : undefined;
+        const panelCaptionId = panelSelection?.primaryId;
+        if (this.captionPanel && panelSelection && panelCaptionId) {
             this.body.append(createCaptionPanel(document, this.captionPanel, this.captionPanelState,
                 this.captionPanelMyStyles, this.captionPanelFontFaces, {
                     close: () => this.closeCaptionPanel(),
                     switchTo: panel => {
                         if (this.captionPanel === panel) return;
+                        if (!captionPanelSelection(this.model.snapshot, this.model.selectedCaptionIds, panel)) return;
                         this.runCaptionPanelPreview({ type: 'leave' });
                         this.captionPanel = panel; this.notifyCaptionPanel(); this.render();
                     },
                     font: (family, weight, id) => {
-                        const request = captionPanelFontWrite(panelCaptionId, family, weight);
+                        const request = captionPanelFontRequest(panelSelection, family, weight);
                         void this.commitWrite(request).then(result => {
                                 if (result.ok && id) this.captionPanelState.recentFonts = [id,
                                     ...this.captionPanelState.recentFonts.filter(other => other !== id)].slice(0, 8);
@@ -1255,9 +1255,10 @@ export class AkariInspectorWidget extends BaseWidget {
                         if (this.runCaptionPanelPreview({ type: 'escape' }).close) this.closeCaptionPanel();
                     }
                 }, snapshot.kind === 'item' && this.captionPanelItemSize === undefined
-                    ? [] : this.captionPanelStyles, snapshot.kind === 'caption'
-                    ? snapshot.effectiveTextStyle?.sizePx ?? snapshot.textStyle?.sizePx ?? CAPTION_DEFAULT_SIZE_PX
-                    : this.captionPanelItemSize ?? CAPTION_DEFAULT_SIZE_PX));
+                    ? [] : this.captionPanelStyles, panelSelection.primaryCaption
+                    ? panelSelection.primaryCaption.effectiveTextStyle?.sizePx
+                        ?? panelSelection.primaryCaption.textStyle?.sizePx ?? CAPTION_DEFAULT_SIZE_PX
+                    : this.captionPanelItemSize ?? CAPTION_DEFAULT_SIZE_PX, !panelSelection.multi));
             return;
         }
         if (snapshot.kind === 'gap') {

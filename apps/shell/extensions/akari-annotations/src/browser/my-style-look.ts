@@ -4,6 +4,7 @@ import { CAPTION_DEFAULT_SIZE_PX } from 'akari-preview/lib/common/textstyle-samp
 export { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
 
 import { mergeCaptionTextStyles, type CaptionAnimation, type CaptionTextStyle, type CaptionTextStylePatch } from '../common/caption-store';
+import { applyCaptionMotionDelta, type CaptionMotionDelta } from './inspector/caption-multi-targets';
 
 const KEYS: Readonly<Record<string, string>> = {
     sizePx: 'size_px', referenceHeightPx: 'reference_height_px', fontFamily: 'font_family',
@@ -177,7 +178,8 @@ export function captionEffectiveSize(row: Record<string, unknown>, defaultStyle:
 /** One source write replaces every look field and removes style_preset on all selected cues. */
 export function replaceMyStylePartsInSource(source: string, ids: readonly string[],
     parts: readonly { kind: string; text_style?: unknown; animation?: unknown }[],
-    options: { keepSize?: boolean; catalog?: Record<string, { style: Record<string, unknown> }> } = {}): string {
+    options: { keepSize?: boolean; catalog?: Record<string, { style: Record<string, unknown> }>;
+        motionDelta?: CaptionMotionDelta } = {}): string {
     const lookPart = parts.find(part => part.kind === 'look');
     const motionPart = parts.find(part => part.kind === 'motion');
     const look = sanitizeMyStyleLook(lookPart?.text_style);
@@ -208,7 +210,13 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
             assertMyStyleLayoutCompatible(defaultStyle, next);
             delete row.style_preset;
         }
-        if (motionPart) next.animation = motionPart.animation;
+        if (motionPart) {
+            if (options.motionDelta) {
+                const animation = applyCaptionMotionDelta(before.animation, options.motionDelta);
+                if (Object.keys(animation).length) next.animation = animation;
+                else delete next.animation;
+            } else next.animation = motionPart.animation;
+        }
         if (Object.keys(next).length) row.text_style = next;
         else delete row.text_style;
     }
