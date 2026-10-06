@@ -3618,6 +3618,7 @@ var AkariEditKernel = (() => {
     "audio",
     "anchor"
   ]);
+  var MEDIA_ITEM_KEYS = /* @__PURE__ */ new Set([...ITEM_KEYS, "captions"]);
   var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
     "id",
     "name",
@@ -3868,7 +3869,8 @@ var AkariEditKernel = (() => {
   }
   function validateItem(value, path, ids, sourceIds) {
     requireRecord2(value, path);
-    requireExactKeys(value, ITEM_KEYS, path);
+    const isMedia = value.source !== null && typeof value.source === "object" && !Array.isArray(value.source) && value.source.kind === "media";
+    requireExactKeys(value, isMedia ? MEDIA_ITEM_KEYS : ITEM_KEYS, path);
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
     ids.add(value.id);
@@ -3889,6 +3891,9 @@ var AkariEditKernel = (() => {
     if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
     if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, "captions") && value.captions !== "on" && value.captions !== "off") {
+      throw invalid(`${path}.captions`, "on \u307E\u305F\u306F off \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
     if (value.source.kind === "group") {
       const transforms = [value.transform, ...Array.isArray(value.keyframes) ? value.keyframes.map((point2) => point2.transform) : []];
       for (const transform of transforms) {
@@ -5239,42 +5244,8 @@ var AkariEditKernel = (() => {
     const resolved = options?.captions === void 0 ? record2 : resolveItemAnchors(record2, options.captions).edit;
     return readV2Internal(withoutItemAnchors(resolved));
   }
-  function extractV2MediaCaptionSwitches(raw) {
-    const captionsByItemId = /* @__PURE__ */ new Map();
-    const visit = (value) => {
-      if (!isRecord3(value)) return value;
-      const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
-      const isMedia = isRecord3(value.source) && value.source.kind === "media";
-      const validSwitch = value.captions === "on" || value.captions === "off";
-      if (isMedia && validSwitch && typeof value.id === "string") {
-        captionsByItemId.set(value.id, value.captions);
-        const { captions: _captions, ...withoutCaptions } = value;
-        return {
-          ...withoutCaptions,
-          ...Array.isArray(value.items) ? { items: children } : {}
-        };
-      }
-      return Array.isArray(value.items) ? { ...value, items: children } : value;
-    };
-    const tracks = Array.isArray(raw.tracks) ? raw.tracks.map((track) => isRecord3(track) && Array.isArray(track.items) ? { ...track, items: track.items.map(visit) } : track) : raw.tracks;
-    return {
-      input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
-      captionsByItemId
-    };
-  }
   function readV2Internal(raw) {
-    const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
-    const edit = readEditV2(input);
-    const restoreCaptionSwitches = (items) => {
-      for (const item of items) {
-        const captions = captionsByItemId.get(item.id);
-        if (captions !== void 0) item.captions = captions;
-        if ("items" in item && Array.isArray(item.items)) restoreCaptionSwitches(item.items);
-      }
-    };
-    for (const track of edit.tracks) {
-      if ("items" in track && track.lane === "visual") restoreCaptionSwitches(track.items);
-    }
+    const edit = readEditV2(raw);
     const fps = edit.output.fps;
     const sources = edit.sources.map((entry) => ({
       id: entry.id,

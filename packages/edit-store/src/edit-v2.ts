@@ -268,6 +268,8 @@ export interface ItemV2Base {
 
 export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
+    /** この映像の間の字幕表示。省略時は通常の字幕表示に従う。 */
+    captions?: 'on' | 'off';
     /** 省略時は埋め込み音声を供給。false は明示分離後の停止。 */
     audio?: false;
     /** sources[].id of a gray mask video or a still-image PNG mask. */
@@ -444,6 +446,7 @@ const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
     'motion', 'animator', 'keyframes', 'items', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'source', 'audio', 'anchor'
 ]);
+const MEDIA_ITEM_KEYS = new Set([...ITEM_KEYS, 'captions']);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
     'fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
@@ -706,7 +709,9 @@ function validateItem(
     sourceIds: Set<string>
 ): asserts value is ItemV2 {
     requireRecord(value, path);
-    requireExactKeys(value, ITEM_KEYS, path);
+    const isMedia = value.source !== null && typeof value.source === 'object'
+        && !Array.isArray(value.source) && (value.source as UnknownRecord).kind === 'media';
+    requireExactKeys(value, isMedia ? MEDIA_ITEM_KEYS : ITEM_KEYS, path);
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
     ids.add(value.id);
@@ -727,6 +732,9 @@ function validateItem(
     if (hasOwn(value, 'animator')) validateAnimators(value.animator, `${path}.animator`);
     if (hasOwn(value, 'keyframes')) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, 'captions') && value.captions !== 'on' && value.captions !== 'off') {
+        throw invalid(`${path}.captions`, 'on または off である必要があります');
+    }
     if (value.source.kind === 'group') {
         const transforms = [value.transform, ...(Array.isArray(value.keyframes) ? value.keyframes.map(point => point.transform) : [])];
         for (const transform of transforms) {
