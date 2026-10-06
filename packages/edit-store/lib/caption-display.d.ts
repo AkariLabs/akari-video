@@ -45,6 +45,7 @@ export interface CaptionDisplayPolicy {
     locale: string;
     lines?: number;
     wrap?: 'multi' | 'fold';
+    word_style?: 'none' | 'karaoke';
     break_hints?: CaptionBreakHints;
 }
 export interface CaptionDisplayCue {
@@ -65,6 +66,7 @@ export interface CaptionDisplayCue {
     style_vars?: Record<string, string>;
     layout?: ResolvedCaptionLayout;
     words?: CaptionDisplayWord[];
+    style?: 'karaoke';
     word_styles?: CaptionDisplayWordStyle[];
     runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
@@ -155,6 +157,11 @@ export interface CaptionWordSpan {
 export declare function captionBreakBoundaryBlocked(text: string, boundary: number, wordSpans: readonly CaptionWordSpan[]): boolean;
 export declare function joinCaptionLines(lines: string[], locale: string): string;
 export declare function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPolicy;
+/** Read and write the global word display default without changing the caption shape. */
+export declare function getCaptionDisplayWordStyle(root: unknown): 'none' | 'karaoke';
+export declare function setCaptionDisplayWordStyle(root: unknown, style: 'none' | 'karaoke'): UnknownRecord;
+/** An explicit row karaoke style wins over the global default; null restores inheritance. */
+export declare function setCaptionDisplayRowStyle(root: unknown, id: string, style: 'karaoke' | null): UnknownRecord;
 export declare function resolveCaptionDisplay(captionsRoot: unknown, edit: UnknownRecord, options?: {
     output?: {
         width: number;

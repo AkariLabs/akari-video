@@ -2272,7 +2272,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
         const beforeSource = await fs.readFile(captionsPath, 'utf8');
-        const policy = validateCaptionDisplayPolicy(request.displayPolicy);
+        const existingRoot = JSON.parse(beforeSource) as unknown;
+        const existingPolicy = existingRoot && !Array.isArray(existingRoot) && typeof existingRoot === 'object'
+            ? (existingRoot as { display_policy?: { word_style?: unknown } }).display_policy : undefined;
+        const inheritedWordStyle = existingPolicy?.word_style;
+        const policy = validateCaptionDisplayPolicy(request.displayPolicy?.word_style === undefined
+            && (inheritedWordStyle === 'none' || inheritedWordStyle === 'karaoke')
+            ? { ...request.displayPolicy, word_style: inheritedWordStyle }
+            : request.displayPolicy);
         const updated = this.replaceCaptionDisplayPolicy(beforeSource, policy);
         if (updated === beforeSource) return { committed: false, changed: 0, beforeSource };
         await this.writeProjectFileGuarded(captionsPath, updated);

@@ -656,7 +656,7 @@ function validateDisplayPolicy(value) {
     fail("display_policy は object である必要があります");
     return;
   }
-  const allowed = new Set(["mode", "algorithm", "unit_metric", "max_line_units", "minimum_fragment_duration_seconds", "locale", "lines", "wrap", "break_hints"]);
+  const allowed = new Set(["mode", "algorithm", "unit_metric", "max_line_units", "minimum_fragment_duration_seconds", "locale", "lines", "wrap", "break_hints", "word_style"]);
   for (const key of Object.keys(value)) if (!allowed.has(key)) fail(`display_policy に未知のキーがあります: ${key}`);
   if (value.mode !== "single_line_sequential") fail("display_policy.mode は single_line_sequential である必要があります");
   if (value.algorithm !== "a4-ja-two-fragment-v1") fail("display_policy.algorithm は a4-ja-two-fragment-v1 である必要があります");
@@ -669,6 +669,9 @@ function validateDisplayPolicy(value) {
   }
   if (value.wrap !== undefined && value.wrap !== "multi" && value.wrap !== "fold") {
     fail("display_policy.wrap は multi または fold である必要があります");
+  }
+  if (value.word_style !== undefined && value.word_style !== "none" && value.word_style !== "karaoke") {
+    fail("display_policy.word_style は none または karaoke である必要があります");
   }
   if (value.break_hints !== undefined) {
     if (!isPlainObject(value.break_hints)) return fail("display_policy.break_hints は object である必要があります");
@@ -689,7 +692,7 @@ function validateDisplayPolicyCaptions(captions, policy) {
     if (!isPlainObject(caption)) return;
     const text = caption.display_text ?? caption.text;
     if (!strictText(text)) fail(`captions[${index}] の display_text ?? text は NFC かつ前後空白なしである必要があります`);
-    if (["karaoke", "pop", "reveal", "reveal-word"].includes(caption.style)) fail(`captions[${index}].style は display_policy と併用できません`);
+    if (["pop", "reveal", "reveal-word"].includes(caption.style)) fail(`captions[${index}].style は display_policy と併用できません`);
     if (caption.display_fragments !== undefined) {
       const fragments = caption.display_fragments;
       if (!Array.isArray(fragments) || fragments.length < 1 || fragments.length > 6 || fragments.some(item => !strictText(item))) {

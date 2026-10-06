@@ -118,6 +118,7 @@ export interface CaptionDisplayPolicy {
     locale: string;
     lines?: number;
     wrap?: 'multi' | 'fold';
+    word_style?: 'none' | 'karaoke';
     break_hints?: CaptionBreakHints;
 }
 
@@ -139,6 +140,7 @@ export interface CaptionDisplayCue {
     style_vars?: Record<string, string>;
     layout?: ResolvedCaptionLayout;
     words?: CaptionDisplayWord[];
+    style?: 'karaoke';
     word_styles?: CaptionDisplayWordStyle[];
     runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
@@ -280,7 +282,7 @@ export function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPoli
     if (!isRecord(value)) fail('INVALID_POLICY', 'display_policy must be an object');
     const allowed = new Set([
         'mode', 'algorithm', 'unit_metric', 'max_line_units',
-        'minimum_fragment_duration_seconds', 'locale', 'lines', 'wrap', 'break_hints'
+        'minimum_fragment_duration_seconds', 'locale', 'lines', 'wrap', 'break_hints', 'word_style'
     ]);
     rejectUnknown(value, allowed, 'display_policy');
     if (value.mode !== CAPTION_DISPLAY_MODE) fail('INVALID_POLICY', `display_policy.mode must be ${CAPTION_DISPLAY_MODE}`);
@@ -297,6 +299,9 @@ export function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPoli
     if (value.wrap !== undefined && value.wrap !== 'multi' && value.wrap !== 'fold') {
         fail('INVALID_POLICY', 'display_policy.wrap must be multi or fold');
     }
+    if (value.word_style !== undefined && value.word_style !== 'none' && value.word_style !== 'karaoke') {
+        fail('INVALID_POLICY', 'display_policy.word_style must be none or karaoke');
+    }
     const breakHints = value.break_hints === undefined ? undefined : validateBreakHints(value.break_hints);
     return {
         mode: value.mode,
@@ -307,8 +312,37 @@ export function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPoli
         locale: value.locale,
         ...(value.lines !== undefined ? { lines: value.lines } : {}),
         ...(value.wrap !== undefined ? { wrap: value.wrap } : {}),
+        ...(value.word_style !== undefined ? { word_style: value.word_style } : {}),
         ...(breakHints ? { break_hints: breakHints } : {})
     };
+}
+
+/** Read and write the global word display default without changing the caption shape. */
+export function getCaptionDisplayWordStyle(root: unknown): 'none' | 'karaoke' {
+    if (!isRecord(root) || root.display_policy === undefined) return 'none';
+    return validateCaptionDisplayPolicy(root.display_policy).word_style ?? 'none';
+}
+
+export function setCaptionDisplayWordStyle(root: unknown, style: 'none' | 'karaoke'): UnknownRecord {
+    if (!isRecord(root) || root.display_policy === undefined) fail('INVALID_POLICY', 'display_policy is required');
+    if (style !== 'none' && style !== 'karaoke') fail('INVALID_POLICY', 'word style must be none or karaoke');
+    const policy = validateCaptionDisplayPolicy(root.display_policy);
+    return { ...root, display_policy: { ...policy, word_style: style } };
+}
+
+/** An explicit row karaoke style wins over the global default; null restores inheritance. */
+export function setCaptionDisplayRowStyle(root: unknown, id: string, style: 'karaoke' | null): UnknownRecord {
+    if (!isRecord(root) || root.display_policy === undefined || !Array.isArray(root.captions)) {
+        fail('INVALID_CAPTIONS', 'captions with display_policy are required');
+    }
+    validateCaptionDisplayPolicy(root.display_policy);
+    if (!strictText(id) || (style !== null && style !== 'karaoke')) fail('INVALID_CAPTION', 'invalid caption style request');
+    if (!root.captions.some((caption: unknown) => isRecord(caption) && caption.id === id)) {
+        fail('INVALID_CAPTION', `caption ${id} was not found`);
+    }
+    return { ...root, captions: root.captions.map((caption: unknown) => isRecord(caption) && caption.id === id
+        ? (style === null ? Object.fromEntries(Object.entries(caption).filter(([key]) => key !== 'style')) : { ...caption, style })
+        : caption) };
 }
 
 function validateBreakHints(value: unknown): CaptionBreakHints {
@@ -374,12 +408,15 @@ export function resolveCaptionDisplay(
         if (captionIds.has(caption.id)) fail('DUPLICATE_CAPTION_ID', `captions[].id is duplicated: ${caption.id}`);
         captionIds.add(caption.id);
     });
+    const karaokeEligibleByCaption = new Set<number>();
     const wordStylesByCaption = resolveProjectedWordStyles(
         captions,
         projectedCaptions,
         captionsRoot.emphasis_words,
         styleOutput,
-        policy.locale
+        policy.locale,
+        policy.word_style === 'karaoke',
+        karaokeEligibleByCaption
     );
     validateEmphasisConflicts(captions, edit?.emphasis_words);
     const sourceCount = validateSourceReferences(captions, cuts, edit);
@@ -488,6 +525,10 @@ export function resolveCaptionDisplay(
                 group.lines,
                 text
             );
+            const sourceCaption = captions[occurrence.caption_input_index];
+            const karaoke = (sourceCaption.style ?? policy.word_style) === 'karaoke'
+                && karaokeEligibleByCaption.has(occurrence.caption_input_index)
+                && Boolean(wordDisplay?.words.length);
             const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
             const sourceRuns = captions[occurrence.caption_input_index].runs;
             const cueRuns = Array.isArray(sourceRuns)
@@ -513,7 +554,9 @@ export function resolveCaptionDisplay(
                 ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
                 ...(cueStyleVars ? { style_vars: cueStyleVars } : {}),
                 ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
-                ...(wordDisplay ? { words: wordDisplay.words, word_styles: wordDisplay.wordStyles } : {})
+                ...(wordDisplay ? { words: wordDisplay.words } : {}),
+                ...(wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {}),
+                ...(karaoke ? { style: 'karaoke' as const } : {})
             });
         });
     }
@@ -549,14 +592,15 @@ function resolveProjectedWordStyles(
     projectedCaptions: ProjectedCaptionWords[],
     emphasisValue: unknown,
     output: { width: number; height: number } | undefined,
-    locale: string
+    locale: string,
+    defaultKaraoke = false,
+    karaokeEligibleByCaption = new Set<number>()
 ): Map<number, ProjectedWordStyle[]> {
-    if (!Array.isArray(emphasisValue)) return new Map();
-    const emphasisWords = emphasisValue.filter(value => isRecord(value)
+    const emphasisWords = (Array.isArray(emphasisValue) ? emphasisValue : []).filter(value => isRecord(value)
         && typeof value.style_preset === 'string' && value.style_preset.length > 0
         && finiteNonNegative(value.t_start) && finitePositive(value.t_end) && value.t_end > value.t_start
         && (value.src === undefined || strictText(value.src)));
-    if (emphasisWords.length === 0) return new Map();
+    if (emphasisWords.length === 0 && !defaultKaraoke && !captions.some(caption => caption?.style === 'karaoke')) return new Map();
 
     const presetCache = new Map<string, Record<string, string> | null>();
     const resolvePreset = (presetId: string): Record<string, string> | null => {
@@ -571,12 +615,16 @@ function resolveProjectedWordStyles(
 
     const result = new Map<number, ProjectedWordStyle[]>();
     captions.forEach((caption, index) => {
-        if (caption.time_domain === 'output') return;
+        const karaoke = caption.style === 'karaoke' || defaultKaraoke && caption.style === undefined;
+        if (caption.time_domain === 'output' && !karaoke) return;
+        if (!karaoke && emphasisWords.length === 0) return;
         const projected = projectedCaptions[index];
         if (!Array.isArray(projected.words) || projected.words.length === 0) return;
+        const hasSyntheticTiming = projected.words.some(word => word.timingKind === 'synthetic');
         let entries = projected.words.map(word => ({ word, synthetic: false }));
-        const visible = (items: typeof entries) => items.map(item => String(item.word.text).replace(/\s/gu, ''));
-        if (visible(entries).join('') !== projected.displayText.replace(/\s/gu, '')
+        const normalized = (text: string) => (karaoke ? text.normalize('NFKC') : text).replace(/\s/gu, '');
+        const visible = (items: typeof entries) => items.map(item => normalized(String(item.word.text)));
+        if (visible(entries).join('') !== normalized(projected.displayText)
             && !projected.changed && Array.isArray(caption.words)) {
             // A legacy zero-duration word was filtered from projected.words. Borrow an
             // adjacent word's timing for its text, but never give it an emphasis preset.
@@ -591,10 +639,10 @@ function resolveProjectedWordStyles(
                 const anchor = later ?? earlier ?? projected.words![0];
                 return [{ word: { text: value.text, start: anchor.start, end: anchor.end }, synthetic: true }];
             });
-            if (visible(rescued).join('') === projected.displayText.replace(/\s/gu, '')) entries = rescued;
+            if (visible(rescued).join('') === normalized(projected.displayText)) entries = rescued;
         }
         const visibleWords = visible(entries);
-        if (visibleWords.join('') !== projected.displayText.replace(/\s/gu, '')) return;
+        if (visibleWords.join('') !== normalized(projected.displayText)) return;
         // Assign whitespace from the display string to the following timed word.
         // The resulting texts and offsets reconstruct the cue exactly, including
         // leading spaces such as " Code", without changing source word timings.
@@ -602,7 +650,7 @@ function resolveProjectedWordStyles(
         const alignedTexts = visibleWords.map(visible => {
             const start = displayCursor;
             let matched = '';
-            while (displayCursor < projected.displayText.length && matched.length < visible.length) {
+            while (displayCursor < projected.displayText.length && normalized(matched).length < visible.length) {
                 const char = projected.displayText[displayCursor++];
                 if (!/\s/u.test(char)) matched += char;
             }
@@ -614,7 +662,7 @@ function resolveProjectedWordStyles(
             const text = alignedTexts[wordIndex];
             let emphasis: UnknownRecord | undefined;
             let styleVars: Record<string, string> | null = null;
-            for (const candidate of synthetic ? [] : emphasisWords) {
+            for (const candidate of synthetic || caption.time_domain === 'output' ? [] : emphasisWords) {
                 const sourceMatches = !(strictText(candidate.src) && strictText(caption.src))
                     || candidate.src === caption.src;
                 if (!sourceMatches
@@ -642,7 +690,9 @@ function resolveProjectedWordStyles(
                 delete words[wordIndex].style_vars;
             }
         });
-        if (words.some(word => word.preset_id)) result.set(index, words);
+        const karaokeEligible = karaoke && !hasSyntheticTiming && !entries.some(entry => entry.synthetic);
+        if (karaokeEligible) karaokeEligibleByCaption.add(index);
+        if (karaokeEligible || words.some(word => word.preset_id)) result.set(index, words);
     });
     return result;
 }
@@ -729,7 +779,6 @@ function buildCueWordDisplay(
     if (styledWords.map(word => word.text).join('') !== cueText) {
         fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} words do not reconstruct display cue text`);
     }
-    if (!styledWords.some(word => word.preset_id)) return undefined;
     const wordStyles: CaptionDisplayWordStyle[] = [];
     styledWords.forEach((word, index) => {
         if (!word.preset_id || !word.style_vars) return;
@@ -1419,6 +1468,7 @@ function validateSourceCaption(
     const sourceText = caption.display_text ?? caption.text;
     if (!strictText(sourceText)) fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
     if (caption.style !== undefined) {
+        if (caption.style === 'karaoke') return;
         if (CAPTION_WORD_STYLES.has(caption.style)) {
             fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);
         }
