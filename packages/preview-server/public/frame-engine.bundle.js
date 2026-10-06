@@ -6737,7 +6737,7 @@ var require_caption_store = __commonJS({
         throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u8A2D\u5B9A\u304C\u4E0D\u6B63\u3067\u3059\u3002");
       }
       if (updates.animation && typeof updates.animation === "object") {
-        for (const slot of [updates.animation.in, updates.animation.out]) {
+        for (const slot of [updates.animation.in, updates.animation.loop, updates.animation.out]) {
           if (slot === void 0 || slot === null)
             continue;
           if (!slot || typeof slot !== "object" || typeof slot.id !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(slot.id)) {
@@ -6902,13 +6902,14 @@ var require_caption_store = __commonJS({
       if (!located) {
         const created = {
           ...updates.in ? { in: animationSlotToJson(updates.in) } : {},
+          ...updates.loop ? { loop: animationSlotToJson(updates.loop) } : {},
           ...updates.out ? { out: animationSlotToJson(updates.out) } : {}
         };
         return Object.keys(created).length > 0 ? appendJsonProperty(source, "animation", created) : source;
       }
       const object = locateTopLevelObjectProperty(source, "animation", label);
       let next = object.text;
-      for (const [slotName, slot] of [["in", updates.in], ["out", updates.out]]) {
+      for (const [slotName, slot] of [["in", updates.in], ["loop", updates.loop], ["out", updates.out]]) {
         if (slot === void 0)
           continue;
         if (slot === null) {
