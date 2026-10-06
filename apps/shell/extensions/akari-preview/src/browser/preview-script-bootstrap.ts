@@ -580,35 +580,47 @@ export function previewBootstrapScript(): string {
             const captionPositionOverrides = new Map();
             const latestCaptionMove = new Map();
             const rememberCaptionPosition = (id, value) => {
-                const pending = { value, saved: false };
+                const pending = { value, saved: false, savedAt: 0 };
                 captionPositionOverrides.set(id, pending);
                 return pending;
             };
             const captionPositionMatches = (actual, expected) => !!actual
                 && Math.abs(Number(actual.x ?? 0) - Number(expected.x ?? 0)) < 0.000001
                 && Math.abs(Number(actual.y ?? 0) - Number(expected.y ?? 0)) < 0.000001;
-            const captionUpdateIsStale = incoming => {
-                for (const [id, pending] of captionPositionOverrides) {
-                    const cue = incoming.find(item => (item.sourceCueId || item.id) === id);
-                    if (!cue || !captionPositionMatches(cue.textStyle?.position, pending.value.position)) {
-                        return true;
+            const protectCaptionUpdate = incoming => {
+                const present = new Set(incoming.map(cue => cue.sourceCueId || cue.id));
+                for (const id of captionPositionOverrides.keys()) {
+                    if (!present.has(id)) captionPositionOverrides.delete(id);
+                }
+                return incoming.map(cue => {
+                    const id = cue.sourceCueId || cue.id;
+                    const pending = captionPositionOverrides.get(id);
+                    if (!pending) return cue;
+                    const position = cue.textStyle?.position;
+                    const expected = pending.value.position;
+                    if (pending.saved && captionPositionMatches(position, expected)) {
+                        captionPositionOverrides.delete(id);
+                        return cue;
                     }
-                }
-                return false;
+                    if (pending.saved && Date.now() - pending.savedAt > 3000) {
+                        captionPositionOverrides.delete(id);
+                        return cue;
+                    }
+                    const textStyle = { ...cue.textStyle, text_anchor: pending.value.anchor,
+                        position: expected };
+                    // The plate reads CSS variables, so protect those as well as the model position.
+                    const resolved = window.AkariEditKernel?.resolveCaptionLineStyleVars?.(textStyle, summary.output) ?? {};
+                    const textStyleVars = { ...cue.textStyleVars };
+                    for (const key of ['--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
+                        '--caption-width', '--caption-translate', '--caption-justify-content',
+                        '--caption-align-items', '--caption-line-margin', '--caption-line-max-width',
+                        '--caption-text-align']) {
+                        if (key in resolved) textStyleVars[key] = resolved[key];
+                        else delete textStyleVars[key];
+                    }
+                    return { ...cue, textStyle, textStyleVars };
+                });
             };
-            const protectCaptionUpdate = incoming => incoming.map(cue => {
-                const id = cue.sourceCueId || cue.id;
-                const pending = captionPositionOverrides.get(id);
-                if (!pending) return cue;
-                const position = cue.textStyle?.position;
-                const expected = pending.value.position;
-                if (pending.saved && captionPositionMatches(position, expected)) {
-                    captionPositionOverrides.delete(id);
-                    return cue;
-                }
-                return { ...cue, textStyle: { ...cue.textStyle, text_anchor: pending.value.anchor,
-                    position: expected } };
-            });
             const latestSelectionGesture = new WeakMap();
             const beginSelectionGesture = target => {
                 const gesture = { target, key: target.entry || target.media || target };
@@ -5411,7 +5423,8 @@ export function previewBootstrapScript(): string {
                         for (const caption of captions) {
                             if ((caption.sourceCueId || caption.id) === edit.captionId) {
                                 caption.text = nextText;
-                                delete caption.words;
+                                // captions-update supplies the persisted words. Keep them if it
+                                // already arrived while the write response was pending.
                             }
                         }
                     }
@@ -6091,7 +6104,13 @@ export function previewBootstrapScript(): string {
                         window.akari.showWriteError(error);
                     }
                     for (const [id, pending] of writtenPositions) {
-                        if (captionPositionOverrides.get(id) === pending) pending.saved = true;
+                        if (captionPositionOverrides.get(id) === pending) {
+                            pending.saved = true;
+                            pending.savedAt = Date.now();
+                            window.setTimeout?.(() => {
+                                if (captionPositionOverrides.get(id) === pending) captionPositionOverrides.delete(id);
+                            }, 3000);
+                        }
                     }
                     if (typeof captionGestureCount !== 'undefined') captionGestureCount -= 1;
                     window.akari.reportGesture?.('end');
@@ -10994,15 +11013,16 @@ export function previewBootstrapScript(): string {
                     queueCaptionMotionReplay(message);
                     return;
                 }
+                if (message && message.type === 'akari-preview-clear-caption-positions') {
+                    captionPositionOverrides.clear();
+                    return;
+                }
                 if (message && message.type === 'akari-preview-captions-update') {
                     if (captionGestureCount) {
                         pendingCaptionUpdate = Array.isArray(message.captions) ? message.captions : [];
                         return;
                     }
                     const nextCaptions = Array.isArray(message.captions) ? message.captions : [];
-                    // textStyleVars, not textStyle, drives the plate's actual CSS. A stale
-                    // message cannot be repaired by changing textStyle alone.
-                    if (captionUpdateIsStale(nextCaptions)) return;
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated(nextCaptions);
                     captions = protectCaptionUpdate(nextCaptions);
