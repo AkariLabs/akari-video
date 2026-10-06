@@ -24,7 +24,8 @@ test('webview injects the self-contained run HTML renderer at both layout sites'
   const source = readHandlerSource();
   assert.match(source, /applyCaptionRunsToHtml\.toString\(\)/);
   assert.match(source, /measuringPlate\.innerHTML = candidate\.runs\?\.length/);
-  assert.match(source, /captionPlate\.innerHTML = caption\.runs\?\.length/);
+  assert.match(source, /captionHtml = caption\.runs\?\.length/);
+  assert.match(source, /captionPlate\.innerHTML = captionHtml/);
 });
 
 test('webview DOM marks only run graphemes and preserves plain captions', () => {

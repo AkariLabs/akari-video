@@ -124,6 +124,7 @@ const applyCaptionStyleVars=()=>undefined;
 const applyCaptionRowSelectionAttrs=()=>undefined;
 const renderPlainCaptionFragment=()=>'';
 const renderStyledCaptionFragment=()=>'<div class="akari-caption"><div class="fixture-caption__anchor"><span>字幕</span></div></div>';
+const applyRichCaptionLayers=()=>undefined;
 const updateCaptionSelectBox=()=>undefined;
 const captionEntryAnimationsSettledFn=(${captionEntryAnimationsSettled.toString()});
 window.AkariEditKernel={findActiveCaptions(items,time){return items.filter(item=>item.start<=time&&time<item.end)}};

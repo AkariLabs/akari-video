@@ -60,6 +60,8 @@ import {
     RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
 } from '../common/caption-visual-contract';
 import { PREVIEW_CAPTION_ANIMATION_RECIPES, PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS } from '../common/caption-text-animation-recipes';
+import { decorateTypewriterHtml, isTypewriterOnlyAnimation } from '../../../../../../packages/render-cut/src/caption-typewriter.mjs';
+import { captionPlaybackStallMs } from '../common/caption-playback-watchdog';
 import { computeCutFramingVisual } from '../common/cut-framing-visual';
 import { computeAdjustCssVisual } from '../common/adjust-css-visual';
 import { checkCutFreezeCrossing } from '../common/cut-freeze-visual';
@@ -7171,14 +7173,19 @@ export function previewBootstrapScript(): string {
             // Mirrors render-cut/src/captions.mjs buildCaptionAnimation. The recipe table is
             // injected by the host because the sandboxed webview cannot import render-cut.
             const captionAnimationRecipes = ${JSON.stringify(PREVIEW_CAPTION_ANIMATION_RECIPES)};
+            const decorateCaptionTypewriterHtml = ${decorateTypewriterHtml.toString()};
+            const isTypewriterOnlyAnimationFn = ${isTypewriterOnlyAnimation.toString()};
+            const captionPlaybackStallMsFn = ${captionPlaybackStallMs.toString()};
             const oneShotCaptionLoopIds = new Set(${JSON.stringify(PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS)});
             const buildPreviewCaptionAnimation = (animation, overlayDuration, onWarning) => {
                 if (!animation || typeof animation !== 'object') return null;
+                if (isTypewriterOnlyAnimationFn(animation)) return { animationCss: 'none', keyframesCss: '', ampCss: '' };
                 const parts = [];
                 const keyframes = new Map();
                 const ampValues = [];
                 const resolveSlot = (slot, kind) => {
                     if (!slot) return;
+                    if (slot.id === 'typewriter') return; // the grapheme spans carry this motion
                     const recipe = captionAnimationRecipes[slot.id];
                     if (!recipe) {
                         onWarning?.('unknown textanim id "' + slot.id + '" (' + kind + ' slot); slot ignored');
@@ -7210,7 +7217,8 @@ export function previewBootstrapScript(): string {
                 resolveSlot(animation.in, 'in');
                 resolveSlot(animation.loop, 'loop');
                 resolveSlot(animation.out, 'out');
-                if (parts.length === 0) return null;
+                if (parts.length === 0) return [animation.in, animation.loop, animation.out].some(slot => slot?.id === 'typewriter')
+                    ? { animationCss: 'none', keyframesCss: '', ampCss: '' } : null;
                 const keyframesCss = [...keyframes.entries()]
                     .map(([id, recipe]) => '    @keyframes akari-anim-' + id + ' { ' + recipe + ' }')
                     .join('\\n');
@@ -7687,7 +7695,7 @@ export function previewBootstrapScript(): string {
                         captionPlate.style.opacity = caption?.groupOpacity === undefined
                             ? '' : String(caption.groupOpacity);
                     }
-                    const captionAnimation = caption && !caption.resolvedTimeline && caption.textStyle?.animation
+                    const captionAnimation = caption && caption.textStyle?.animation
                         ? buildPreviewCaptionAnimation(caption.textStyle.animation, caption.end - caption.start,
                             message => console.warn('[akari-preview] captions.json item '
                                 + (caption.sourceCueId || caption.id || '(unknown)') + ' ' + message))
@@ -7715,11 +7723,22 @@ export function previewBootstrapScript(): string {
                             && ((caption.style === 'karaoke' || caption.style === 'pop')
                                 || caption.style === 'reveal-word'
                                 || hasEmphasis || wantsCaptionReveal);
-                        const captionHtml = usesWords
+                        let captionHtml = usesWords
                             ? renderStyledCaptionFragment(caption, captionAnimation)
                             : renderPlainCaptionFragment(caption, captionAnimation);
-                        captionPlate.innerHTML = caption.runs?.length
+                        if (caption.resolvedTimeline && captionAnimation) {
+                            captionHtml = captionHtml.replace('</style>', captionTextAnimationKeyframesCss(captionAnimation) + '</style>')
+                                .replace('<div class="akari-caption__plate">', '<div class="akari-caption__plate"'
+                                    + captionTextAnimationPlateAttrs(captionAnimation) + '>');
+                        }
+                        captionHtml = caption.runs?.length
                             ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
+                        if (caption.textStyle?.animation?.in?.id === 'typewriter'
+                            || caption.textStyle?.animation?.out?.id === 'typewriter') {
+                            captionHtml = decorateCaptionTypewriterHtml(captionHtml,
+                                caption.textStyle.animation, caption.end - caption.start);
+                        }
+                        captionPlate.innerHTML = captionHtml;
                         applyRichCaptionLayers(captionPlate, caption);
                     } else {
                         captionPlate.innerHTML = '';
@@ -9063,13 +9082,13 @@ export function previewBootstrapScript(): string {
                         animationWatchdogTimer = 0;
                         return;
                     }
-                    if (performance.now() - lastTickAtMs > 400) {
+                    if (performance.now() - lastTickAtMs > captionPlaybackStallMsFn(document.visibilityState)) {
                         cancelAnimationFrame(animationFrame);
                         lastTickAtMs = performance.now();
                         runTickGuarded();
                         animationFrame = requestAnimationFrame(animate);
                     }
-                }, 200);
+                }, 100);
             };
             const stopAnimation = () => {
                 cancelAnimationFrame(animationFrame);
