@@ -10,9 +10,9 @@ const { clampRowCutRange, normalizeCutRanges } = require('../lib/common/daihon-c
 const { normalizeFillerWord } = require('../lib/common/daihon-filler.js');
 const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
 const methods = ['cutUnrecognized', 'cutFiller', 'cutRows', 'applyCutEntries',
-  'restoreCutSpan', 'applyCutRangeEditor', 'withHistory'];
+  'restoreCutSpan', 'showCutToast', 'applyCutRangeEditor', 'withHistory'];
 const methodSource = methods.map(name => {
-  const start = source.indexOf(`    protected async ${name}(`);
+  const start = source.indexOf(`    protected ${name === 'showCutToast' ? '' : 'async '}${name}(`);
   assert.ok(start >= 0, `${name} exists`);
   const end = source.indexOf('\n    protected ', start + 1);
   assert.ok(end > start, `${name} has a following method`);
@@ -111,4 +111,47 @@ test('カット済み区間の復元は RPC と履歴が各 1 件で、undo が�
   assert.deepEqual(run.notifications, []);
   await run.history[0].undo();
   assert.equal(run.edit, cut);
+});
+
+test('範囲修正の再カットが失敗しても、復元済みの変更を履歴 1 件から undo できる', async () => {
+  const cut = applyCutRanges(before, [{ in: 2, out: 3, kind: 'filler', captionId: 'main' }]).source;
+  const run = harness(cut);
+  run.widget.annotationsService.applyCutRanges = async () => { throw new Error('再カット失敗'); };
+  await run.widget.applyCutRangeEditor(row, { kind: 'silence', gap: { start: 5, end: 6 } },
+    { from: 5, to: 6 }, { range: { in: 2, out: 3, captionId: 'main' } });
+  assert.equal(run.restoreCalls, 1);
+  assert.equal(run.history.length, 1);
+  assert.equal(run.edit, before);
+  assert.ok(run.notifications.some(message => message.includes('再カット失敗')));
+  await run.history[0].undo();
+  assert.equal(run.edit, cut);
+});
+
+test('トーストの取り消すは履歴に別の操作が積まれると消える', () => {
+  const run = harness();
+  const previousDocument = globalThis.document;
+  const elements = [];
+  const element = tag => ({ tag, className: '', children: [], removed: false,
+    append(...children) { this.children.push(...children); },
+    remove() { this.removed = true; },
+    addEventListener(_event, listener) { this.click = listener; } });
+  globalThis.document = { createElement: element, createTextNode: text => ({ text }) };
+  let changed;
+  run.widget.historyService = { onDidChange: callback => {
+    changed = callback;
+    return { dispose() {} };
+  } };
+  run.widget.node = { append: node => elements.push(node), querySelector: () => undefined };
+  delete run.widget.showCutToast;
+  try {
+    run.widget.showCutToast('カットしました', () => {});
+    const button = elements[0].children[1];
+    assert.equal(button.textContent, '取り消す');
+    changed();
+    assert.equal(button.removed, true);
+  } finally {
+    if (run.widget.cutToastTimer) clearTimeout(run.widget.cutToastTimer);
+    run.widget.cutToastCleanup?.();
+    globalThis.document = previousDocument;
+  }
 });

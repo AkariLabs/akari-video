@@ -41,7 +41,7 @@ import {
     type TimelineSegment
 } from '@akari-video/edit-store';
 import { canRestoreCutRange } from '@akari-video/edit-store';
-import { deriveDaihonCutSpans, type DaihonCutSpan } from '../../common/daihon-cut-spans';
+import { deriveDaihonCutSpans, restoreImpact, sameCutSpanIdentity, type DaihonCutSpan } from '../../common/daihon-cut-spans';
 import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { parseCaptions, type Caption } from '../caption-store';
@@ -606,6 +606,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected cutSpans: DaihonCutSpan[] = [];
     protected cutEditSource = '';
     protected cutToastTimer: ReturnType<typeof setTimeout> | undefined;
+    protected cutToastCleanup: (() => void) | undefined;
     protected cutRangeEditor: { root: HTMLDivElement; window: DaihonCutRangeWindow; playhead: HTMLSpanElement } | undefined;
     protected cutRangePlayback: { spans: Array<{ from: number; to: number }>; index: number; stopAt: number } | undefined;
     protected previewPlaying = false;
@@ -1265,7 +1266,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const captions = this.daihonCaptionsForDisplay();
             this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
             this.segments = this.timelineSegments(editSource, captions.length > 0);
-            const next = buildDaihonRows(captions, this.segments);
+            const next = buildDaihonRows(captions, this.segments, this.editFps);
             this.attachments = attachmentRanges(edit as Parameters<typeof attachmentRanges>[0], next,
                 this.sourceCaptions.filter(caption => caption.timeDomain === 'output').length);
             this.handEditedCaptionIds.clear();
@@ -1282,7 +1283,8 @@ export class AkariDaihonWidget extends BaseWidget {
             this.updateCutsButton();
             const cutSourceChanged = this.cutEditSource !== editSource;
             this.cutEditSource = editSource;
-            this.cutSpans = deriveDaihonCutSpans(next, this.rowGapsForRows(next), this.segments);
+            this.cutSpans = deriveDaihonCutSpans(next, this.rowGapsForRows(next), this.segments,
+                this.editFps, row => this.sourceIdForRow(row));
             this.renderRows(next, cutSourceChanged);
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             this.refreshDockLook();
@@ -3457,7 +3459,9 @@ export class AkariDaihonWidget extends BaseWidget {
             && (index === undefined || span.index === index));
     }
 
-    protected openCutSpanPop(anchor: HTMLElement, row: DaihonRow, span: DaihonCutSpan): void {
+    protected openCutSpanPop(anchor: HTMLElement, row: DaihonRow, selected: DaihonCutSpan): void {
+        const span = this.cutSpans.find(candidate => sameCutSpanIdentity(candidate, selected));
+        if (!span) return;
         const pop = this.openPop(anchor);
         const title = document.createElement('div');
         title.className = 'akari-daihon-pttl';
@@ -3473,6 +3477,13 @@ export class AkariDaihonWidget extends BaseWidget {
         restore.disabled = !!reason;
         if (reason) restore.title = reason;
         pop.append(title, hear, restore);
+        const impact = restoreImpact(this.cutSpans, span, this.editFps);
+        if (!reason && impact.wider && span.restoreRange) {
+            const notice = document.createElement('div');
+            notice.textContent = `${impact.otherCount > 0 ? `前後の ${impact.otherCount} か所も` : '周囲の区間も'}一緒に戻ります`
+                + `（${this.formatTime(span.restoreRange.in)}〜${this.formatTime(span.restoreRange.out)}）`;
+            pop.append(notice);
+        }
         if (span.restoreRange && !reason) {
             const gap = span.kind === 'silence' ? this.rowGaps.find(candidate => candidate.prevId === row.id) : undefined;
             const target: CutRangeEditorTarget = gap ? { kind: 'silence', gap }
@@ -3513,16 +3524,19 @@ export class AkariDaihonWidget extends BaseWidget {
     protected showCutToast(message: string, undo: () => void): void {
         this.node.querySelector('.akari-daihon-toast')?.remove();
         if (this.cutToastTimer) clearTimeout(this.cutToastTimer);
+        this.cutToastCleanup?.();
         const toast = document.createElement('div');
         toast.className = 'akari-daihon-toast';
         toast.append(document.createTextNode(message));
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = '取り消す';
-        button.addEventListener('click', () => { toast.remove(); undo(); });
+        button.addEventListener('click', () => { toast.remove(); this.cutToastCleanup?.(); undo(); });
         toast.append(button);
         this.node.append(toast);
-        this.cutToastTimer = setTimeout(() => toast.remove(), 4000);
+        const changed = this.historyService?.onDidChange(() => button.remove());
+        this.cutToastCleanup = () => { changed?.dispose(); this.cutToastCleanup = undefined; };
+        this.cutToastTimer = setTimeout(() => { toast.remove(); this.cutToastCleanup?.(); }, 4000);
     }
 
     protected openCutRangeEditor(row: DaihonRow, target: CutRangeEditorTarget, existing?: CutRangeEdit): void {
@@ -3858,21 +3872,29 @@ export class AkariDaihonWidget extends BaseWidget {
             this.closeCutRangeEditor();
             return;
         }
-        await this.withHistory('カットの範囲を直す', async () => {
-            const restored = await this.annotationsService.restoreCutRange({
-                editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
-                range: existing.range, label: 'カットの範囲を直す'
-            });
-            if (!restored.restored) throw new Error(restored.reason);
-            await this.annotationsService.applyCutRanges({
-                editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges: [range],
-                label: 'カットの範囲を直す'
-            });
-        }, true);
-        await this.reload();
-        this.refreshCutTimeline();
-        this.showCutToast('カットの範囲を直しました', () => void this.historyService.undo());
-        this.closeCutRangeEditor();
+        try {
+            await this.withHistory('カットの範囲を直す', async () => {
+                const restored = await this.annotationsService.restoreCutRange({
+                    editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    range: existing.range, label: 'カットの範囲を直す'
+                });
+                if (!restored.restored) throw new Error(restored.reason);
+                const applied = await this.annotationsService.applyCutRanges({
+                    editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges: [range],
+                    label: 'カットの範囲を直す'
+                });
+                if (applied.removedFrames === 0) throw new Error('新しい範囲をカットできませんでした。');
+            }, true, true);
+            await this.reload();
+            this.refreshCutTimeline();
+            this.showCutToast('カットの範囲を直しました', () => void this.historyService.undo());
+            this.closeCutRangeEditor();
+        } catch (error) {
+            await this.reload();
+            this.refreshCutTimeline();
+            this.closeCutRangeEditor();
+            this.notify(this.errorMessage(error));
+        }
     }
 
     protected closeCutRangeEditor(): void {
@@ -4429,19 +4451,28 @@ export class AkariDaihonWidget extends BaseWidget {
         if (first && row) await this.seek(row.timeDomain === 'output' ? first.start : sourceToOutput(this.segments, first.start));
     }
 
-    protected async withHistory(label: string, operation: () => Promise<void>, refreshTimeline = false): Promise<void> {
+    protected async withHistory(label: string, operation: () => Promise<void>, refreshTimeline = false,
+        recordOnFailure = false): Promise<void> {
         if (!this.editUri || !this.captionsUri || !this.rootUri) return;
         const [editBefore, captionsBefore] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
-        await operation();
+        let failed = false;
+        let failure: unknown;
+        try { await operation(); } catch (error) {
+            if (!recordOnFailure) throw error;
+            failed = true;
+            failure = error;
+        }
         const [editAfter, captionsAfter] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
-        if (editBefore === editAfter && captionsBefore === captionsAfter) return;
-        const write = async (editSource: string, captionsSource: string): Promise<void> => {
-            await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
-                captionsUri: this.captionsUri!.toString(), editSource, captionsSource });
-            await this.reload();
-            if (refreshTimeline) this.refreshCutTimeline();
-        };
-        daihonHistoryService()?.push({ label, undo: () => write(editBefore, captionsBefore), redo: () => write(editAfter, captionsAfter) });
+        if (editBefore !== editAfter || captionsBefore !== captionsAfter) {
+            const write = async (editSource: string, captionsSource: string): Promise<void> => {
+                await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    captionsUri: this.captionsUri!.toString(), editSource, captionsSource });
+                await this.reload();
+                if (refreshTimeline) this.refreshCutTimeline();
+            };
+            daihonHistoryService()?.push({ label, undo: () => write(editBefore, captionsBefore), redo: () => write(editAfter, captionsAfter) });
+        }
+        if (failed) throw failure;
     }
 
     protected async applyWordPreset(presetId: string): Promise<void> {

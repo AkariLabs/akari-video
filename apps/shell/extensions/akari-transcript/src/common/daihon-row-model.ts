@@ -74,17 +74,18 @@ function fragmentBreaks(caption: DaihonCaptionLike, words: readonly DaihonCaptio
 }
 
 function overlapsKeptSource(
-    segments: readonly TimelineSegment[], start: number, end: number
+    segments: readonly TimelineSegment[], start: number, end: number, tolerance: number
 ): boolean {
-    return segments.some(segment => segment.kind === 'src'
-        && typeof segment.in === 'number'
-        && typeof segment.out === 'number'
-        && segment.in! < end && start < segment.out!);
+    const keptSeconds = segments.reduce((sum, segment) => segment.kind === 'src'
+        && typeof segment.in === 'number' && typeof segment.out === 'number'
+        ? sum + Math.max(0, Math.min(end, segment.out) - Math.max(start, segment.in)) : sum, 0);
+    return keptSeconds > tolerance || keptSeconds >= end - start - 1e-6;
 }
 
 export function buildDaihonRows(
-    captions: readonly DaihonCaptionLike[], segments: readonly TimelineSegment[] | null
+    captions: readonly DaihonCaptionLike[], segments: readonly TimelineSegment[] | null, fps = 30
 ): DaihonRow[] {
+    const cutTolerance = 1 / fps + 1e-6;
     return captions.filter(caption => (caption.timeDomain ?? caption.time_domain) !== 'output').map(caption => {
         const words = caption.words?.length ? caption.words.map(word => ({ ...word })) : null;
         const unrecognized = caption.unrecognized?.map(span => ({ ...span })) ?? [];
@@ -95,7 +96,7 @@ export function buildDaihonRows(
         if (!segments) {
             outStart = caption.start;
             outEnd = caption.end;
-        } else if (!overlapsKeptSource(segmentsForSource(segments, src), caption.start, caption.end)) {
+        } else if (!overlapsKeptSource(segmentsForSource(segments, src), caption.start, caption.end, cutTolerance)) {
             outStart = null;
             outEnd = null;
         } else {
