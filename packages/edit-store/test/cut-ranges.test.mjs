@@ -8,7 +8,9 @@ import {
   buildTimelineMap,
   detectEditVersion,
   projectLegacyEdit,
+  projectLegacyAudioView,
   readInternalEdit,
+  splitCutAudio,
 } from '../lib/index.js';
 
 const text = value => `${JSON.stringify(value, null, 2)}\n`;
@@ -531,4 +533,86 @@ test('同じ範囲を再度切っても既存 edit.json は変わらない', () 
   assert.equal(again.removedFrames, 0);
   assert.equal(again.source, once);
   assert.equal(restoreCutRange(again.source, cut).restored, true);
+});
+
+test('分離音声は映像と同じ素材区間を切り、3 か所の中央だけ戻せる', () => {
+  const split = splitCutAudio(JSON.parse(v2()), { cutId: 'main-1', hasAudio: true }).document;
+  split.tracks.push({ id: 'music', lane: 'audio', items: [
+    { id: 'bgm', role: 'bgm', at: 0, duration: 300, source: { kind: 'media', src: 'other', in: 0, out: 10 } },
+    { id: 'loose', role: 'speech', at: 30, duration: 90, source: { kind: 'media', src: 'main', in: 1, out: 4 } },
+  ] });
+  const original = text(split);
+  const cuts = [range([1, 2], 'filler', { captionId: 'main', label: 'フィラー' }),
+    range([4, 5], 'filler', { captionId: 'main', label: 'フィラー' }),
+    range([7, 8], 'filler', { captionId: 'main', label: 'フィラー' })];
+  const edited = JSON.parse(applyCutRanges(original, cuts).source);
+  const visual = edited.tracks.find(track => track.lane === 'visual').items;
+  const audio = edited.tracks.find(track => track.lane === 'audio' && track.id !== 'music').items;
+  assert.deepEqual(visual.map(item => [item.at, item.duration, item.source.in, item.source.out]),
+    [[0, 30, 0, 1], [30, 60, 2, 4], [90, 60, 5, 7], [150, 60, 8, 10]]);
+  assert.deepEqual(audio.map(item => [item.at, item.duration, item.source.in, item.source.out]),
+    visual.map(item => [item.at, item.duration, item.source.in, item.source.out]));
+  assert.deepEqual(audio.map(item => item.link), visual.map(item => item.id));
+  assert.deepEqual(edited.tracks.find(track => track.id === 'music'), split.tracks.find(track => track.id === 'music'));
+  assert.equal(canRestoreCutRange(text(edited), cuts[1]), undefined);
+  const restored = restoreCutRange(text(edited), cuts[1]);
+  assert.equal(restored.restored, true, restored.reason);
+  const middle = JSON.parse(restored.source);
+  const middleVisual = middle.tracks.find(track => track.lane === 'visual').items;
+  const middleAudio = middle.tracks.find(track => track.lane === 'audio' && track.id !== 'music').items;
+  assert.deepEqual(middleVisual.map(item => [item.at, item.duration]),
+    [[0, 30], [30, 150], [180, 60]]);
+  assert.deepEqual(middleAudio.map(item => [item.at, item.duration]),
+    middleVisual.map(item => [item.at, item.duration]));
+  assert.deepEqual(middleAudio.map(item => item.link), middleVisual.map(item => item.id));
+  assert.deepEqual(JSON.parse(original).tracks.find(track => track.lane === 'audio').items[0].source,
+    { kind: 'media', src: 'main', in: 0, out: 10 });
+  assert.deepEqual(JSON.parse(original).tracks.find(track => track.lane === 'visual').items.map(item => [item.at, item.duration]), [[0, 300]]);
+  let whole = restored.source;
+  for (const cut of [cuts[2], cuts[0]]) {
+    const result = restoreCutRange(whole, cut);
+    assert.equal(result.restored, true, result.reason);
+    whole = result.source;
+  }
+  assert.equal(whole, original);
+});
+
+test('分離音声だけを後から編集すると 1 か所だけは戻せない', () => {
+  const split = splitCutAudio(JSON.parse(v2()), { cutId: 'main-1', hasAudio: true }).document;
+  const cut = range([2, 4], 'filler', { captionId: 'main', label: 'フィラー' });
+  const edited = JSON.parse(applyCutRanges(text(split), [cut]).source);
+  edited.tracks.find(track => track.lane === 'audio').items[1].gain_db = -5;
+  const source = text(edited);
+  assert.match(canRestoreCutRange(source, cut), /あとに編集/);
+  const result = restoreCutRange(source, cut);
+  assert.equal(result.restored, false);
+  assert.equal(result.source, source);
+});
+
+test('分離音声を削除した後は映像だけを戻さない', () => {
+  const split = splitCutAudio(JSON.parse(v2()), { cutId: 'main-1', hasAudio: true }).document;
+  const cut = range([2, 4], 'filler', { captionId: 'main', label: 'フィラー' });
+  const edited = JSON.parse(applyCutRanges(text(split), [cut]).source);
+  edited.tracks.find(track => track.lane === 'audio').items = [];
+  const source = text(edited);
+  assert.match(canRestoreCutRange(source, cut), /あとに編集/);
+  assert.equal(restoreCutRange(source, cut).source, source);
+});
+
+test('書き出しの speech 射影もフィラーを除き映像 cut と素材区間・開始位置が一致する', () => {
+  const split = splitCutAudio(JSON.parse(v2()), { cutId: 'main-1', hasAudio: true }).document;
+  const edited = applyCutRanges(text(split), [range([3, 3.5], 'filler',
+    { captionId: 'main', label: 'えー' })]).source;
+  const internal = readInternalEdit(edited);
+  const speech = projectLegacyAudioView(internal).speech;
+  const cuts = projectLegacyEdit(internal).cuts;
+  const intervals = rows => rows.map(row => [row.in, row.out, row.t ?? row.at]);
+  assert.deepEqual(intervals(speech), [[0, 3, 0], [3.5, 10, 3]]);
+  assert.deepEqual(intervals(cuts), intervals(speech));
+  assert.equal(speech.length, 2);
+  assert.equal(cuts.length, 2);
+  assert.ok(speech.every(row => row.out <= 3 || row.in >= 3.5));
+  const driftFrames = Math.max(...speech.map((row, index) =>
+    Math.abs((row.t - cuts[index].at) * 30)));
+  assert.equal(driftFrames, 0);
 });

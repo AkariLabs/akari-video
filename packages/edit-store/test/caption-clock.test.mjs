@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildCaptionTimelineSegments, captionClockDomainOf, normalizeCaptionClock } from '../lib/caption-clock.js';
 import { readInternalEdit } from '../lib/internal-model.js';
+import { projectLegacyEdit, removeCutAudioLinked, splitAtFrame, splitCutAudio } from '../lib/index.js';
 
 test('caption timeline maps visual, voice, both, and duplicate sources once', () => {
     const edit = {
@@ -28,7 +29,7 @@ test('caption timeline maps visual, voice, both, and duplicate sources once', ()
     assert.deepEqual(normalizeCaptionClock([cue('take')], duplicate).map(row => row.start), [0]);
     const partial = buildCaptionTimelineSegments([{ src: 'take', in: 0, out: 1, at: 0 }], readInternalEdit(edit));
     assert.deepEqual(normalizeCaptionClock([{ ...cue('take'), start: 1, end: 2 }], partial)
-        .map(row => row.start), []);
+        .map(row => row.start), [3]);
     edit.tracks[1].items[0].source.src = 'mic';
     edit.tracks[1].items[0].role = 'sfx';
     const effects = buildCaptionTimelineSegments(cuts, readInternalEdit(edit));
@@ -43,13 +44,14 @@ test('linked, muted, and visually represented audio never creates caption source
             { id: 'video', lane: 'visual', items: [] },
             { id: 'audio', lane: 'audio', items: [item] }
         ] };
-    const ranges = value => buildCaptionTimelineSegments([], value, { fps: 30 });
+    const ranges = (value, cuts = []) => buildCaptionTimelineSegments(cuts, value, { fps: 30 });
     assert.equal(ranges(doc).length, 1);
     assert.deepEqual(ranges(doc), ranges(readInternalEdit(doc)));
     doc.tracks[0].items = [{ id: 'visual', at: 0, duration: 30,
         source: { kind: 'media', src: 'main', in: 0, out: 1 } }];
-    assert.deepEqual(ranges(doc), []);
-    assert.deepEqual(ranges(readInternalEdit(doc)), []);
+    const visualCut = [{ src: 'main', in: 0, out: 1, at: 0 }];
+    assert.equal(ranges(doc, visualCut).length, 1);
+    assert.deepEqual(ranges(readInternalEdit(doc), visualCut), ranges(doc, visualCut));
     doc.tracks[0].items = [];
     for (const field of ['link', 'mute']) {
         item[field] = field === 'link' ? 'visual' : true;
@@ -64,6 +66,70 @@ test('linked, muted, and visually represented audio never creates caption source
     delete item.source.out;
     assert.deepEqual(ranges(doc), ranges(readInternalEdit(doc)));
     assert.deepEqual(ranges(doc), []);
+});
+
+test('同じ素材の声は映像未使用区間だけ字幕へ足し、link 付きは足さない', () => {
+    const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'main', path: 'main.mp4' }], tracks: [
+            { id: 'video', lane: 'visual', items: [{ id: 'clip', at: 0, duration: 30,
+                source: { kind: 'media', src: 'main', in: 0, out: 1 } }] },
+            { id: 'audio', lane: 'audio', items: [{ id: 'voice', role: 'speech', at: 30, duration: 60,
+                source: { kind: 'media', src: 'main', in: 0, out: 2 } }] }
+        ] };
+    const cuts = [{ src: 'main', in: 0, out: 1, at: 0 }];
+    const unlinked = buildCaptionTimelineSegments(cuts, doc);
+    assert.deepEqual(unlinked.map(segment => [segment.in, segment.out]), [[0, 1], [1, 2]]);
+    assert.deepEqual(buildCaptionTimelineSegments(cuts, readInternalEdit(doc))
+        .map(segment => [segment.in, segment.out]), [[0, 1], [1, 2]]);
+    doc.tracks[1].items[0].link = 'clip';
+    assert.deepEqual(buildCaptionTimelineSegments(cuts, doc).map(segment => [segment.in, segment.out]), [[0, 1]]);
+    doc.tracks[0].items = [];
+    assert.deepEqual(buildCaptionTimelineSegments([], doc), []);
+});
+
+test('分離音声の C / C\' と同素材の独立音声 D は字幕の重複と欠落を分ける', () => {
+    const base = () => ({ version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'take', path: 'take.mp4' }, { id: 'broll', path: 'broll.mp4' }],
+        tracks: [{ id: 'v', lane: 'visual', items: [{ id: 'clip', at: 0, duration: 300,
+            source: { kind: 'media', src: 'take', in: 0, out: 10 } }] }] });
+    const broll = (at, duration, out) => ({ id: 'br', at, duration,
+        source: { kind: 'media', src: 'broll', in: 0, out } });
+    const visual = doc => doc.tracks.find(track => track.lane === 'visual');
+    const cues = [
+        { id: 'before', src: 'take', start: 1, end: 2, text: 'まえ', clockDomain: 'source', clockSourceId: 'take' },
+        { id: 'after', src: 'take', start: 6, end: 7, text: 'あと', clockDomain: 'source', clockSourceId: 'take' },
+    ];
+    const captionTimes = doc => {
+        const internal = readInternalEdit(doc);
+        const cuts = projectLegacyEdit(internal).cuts;
+        const segments = buildCaptionTimelineSegments(cuts, internal, { fps: 30 });
+        return normalizeCaptionClock(cues, segments).map(row => [row.start, row.end, row.text]);
+    };
+
+    // C: 分離して分割し、右の映像だけを外すと右の声は link 解除される。
+    let c = splitCutAudio(base(), { cutId: 'clip', hasAudio: true }).document;
+    c = splitAtFrame(c, 150, { itemIds: ['clip'] }).edit;
+    const right = visual(c).items.find(item => item.id !== 'clip');
+    c = removeCutAudioLinked(c, { target: 'cut-only', cutId: right.id });
+    visual(c).items.push(broll(150, 150, 5));
+    assert.deepEqual(c.tracks.find(track => track.lane === 'audio').items.map(item => item.link), ['clip', undefined]);
+    assert.deepEqual(captionTimes(c), [[1, 2, 'まえ'], [6, 7, 'あと']]);
+
+    // C': link 付きの声は映像の後ろが残っていても字幕区間を増やさない。
+    const cPrime = splitCutAudio(base(), { cutId: 'clip', hasAudio: true }).document;
+    visual(cPrime).items[0].duration = 150;
+    visual(cPrime).items[0].source.out = 5;
+    visual(cPrime).items.push(broll(150, 150, 5));
+    assert.deepEqual(captionTimes(cPrime), [[1, 2, 'まえ']]);
+
+    // D: 同素材でも link の無い声は映像で覆われない区間だけを補う。
+    const d = base();
+    visual(d).items[0].duration = 90;
+    visual(d).items[0].source.out = 3;
+    visual(d).items.push(broll(90, 210, 7));
+    d.tracks.push({ id: 'a', lane: 'audio', items: [{ id: 'voice', role: 'speech', at: 0, duration: 300,
+        source: { kind: 'media', src: 'take', in: 0, out: 10 } }] });
+    assert.deepEqual(captionTimes(d), [[1, 2, 'まえ'], [6, 7, 'あと']]);
 });
 
 test('a middle word cut gives every occurrence the same full display text and rebased runs', () => {
