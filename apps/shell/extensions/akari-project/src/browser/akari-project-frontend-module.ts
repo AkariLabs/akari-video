@@ -8,7 +8,6 @@ import {
     WidgetFactory
 } from '@theia/core/lib/browser';
 import { FileNavigatorFilter } from '@theia/navigator/lib/browser/navigator-filter';
-import { TabBarToolbarContribution } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { AkariProjectService, AKARI_PROJECT_SERVICE_PATH } from '../common/akari-project-protocol';
 import { AkariProjectContribution } from './akari-project-contribution';
 import { AkariProjectModeService } from './akari-project-mode-service';
@@ -55,7 +54,6 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(CommandContribution).toService(AkariProjectContribution);
     bind(MenuContribution).toService(AkariProjectContribution);
     bind(FrontendApplicationContribution).toService(AkariProjectContribution);
-    bind(TabBarToolbarContribution).toService(AkariProjectContribution);
 
     // F12（task 2026-08-05-welcome-screen）: コマンドパレット「カタログを開く」。
     // developer mode で消える「＋ カタログから素材をさがす」入口の逃げ道。

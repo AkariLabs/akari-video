@@ -100,5 +100,8 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
 test('renderExportSection exactly matches the variant target UI', () => {
     const current = method('renderExportSection').getText(ast);
     assert.match(current, /data-akari-onboarding-target='export-button'/);
-    assert.equal(current.replace("                    data-akari-onboarding-target='export-button'\n", ''), baselineExportSection);
+    const expected = baselineExportSection
+        .replaceAll('this.editJsonExists', 'this.exportAvailability.snapshot.exists')
+        .replaceAll('this.selectedEditName', 'this.exportAvailability.snapshot.selectedEditName');
+    assert.equal(current.replace("                    data-akari-onboarding-target='export-button'\n", ''), expected);
 });

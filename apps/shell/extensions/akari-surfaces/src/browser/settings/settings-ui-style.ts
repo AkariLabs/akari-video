@@ -37,6 +37,7 @@ ${S} button.akari-set-nav-item[aria-current="true"] .akari-set-icon { color: var
 ${S} button.akari-set-nav-item:focus-visible { outline: 1px solid var(--akari-accent-light); outline-offset: -1px; }
 
 ${S} .akari-set-page { flex: 1; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 24px 28px 32px; color: var(--akari-ink); }
+${S} .akari-set-page:not([data-akari-settings-section="ai-models"]) { width: 100%; max-width: 770px; }
 ${S} .akari-set-page h2 { font-size: 17px; margin: 0 0 4px; color: var(--akari-ink); }
 ${S} .akari-set-lead { color: var(--akari-muted); margin: 0 0 20px; font-size: 13px; line-height: 1.55; }
 ${S} .akari-set-notice { color: var(--theia-errorForeground); flex-shrink: 0; margin: 12px 28px 0; font-size: 12px; }

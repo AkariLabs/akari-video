@@ -349,6 +349,8 @@
           "word-book.schema.json",
           "gen-models.json",
           "ai-models.json",
+          "ai-makers.json",
+          "ai-model-sets.json",
           "gen-models.schema.json",
           "generation-meta.schema.json",
           "connections.schema.json",

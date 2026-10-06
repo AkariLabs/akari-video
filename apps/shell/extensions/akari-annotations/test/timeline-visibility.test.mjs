@@ -27,33 +27,29 @@ test('出力プレビューは webview 接頭辞を含む実 ID で判定する'
     assert.equal(isOutputPreviewWidgetId(undefined), false);
 });
 
-test('タブバーの項目は出力プレビューだけに出て、状態で説明とアイコンが変わる', () => {
-    const code = ts.transpileModule(`class Controller { ${contributionMethod('registerToolbarItems')} }`, {
+test('帯の表示切替だけを外し、コマンドとキーバインドは残す', () => {
+    const source = contributionSource.getText();
+    assert.doesNotMatch(source, /registerToolbarItems|toggleVisibility\.toolbar/);
+    assert.match(source, /commands\.registerCommand\(\{ id: 'akari\.timeline\.toggleVisibility'/);
+    assert.match(source, /registerKeybindings\(this\.keybindings\)/);
+});
+
+test('メニューからタイムラインを開くと、隠れている下パネルを戻す', async () => {
+    const code = ts.transpileModule(`class Controller { ${contributionMethod('open')} }`, {
         compilerOptions: { target: ts.ScriptTarget.ES2021 }
     }).outputText;
-    const React = { createElement: (type, props, ...children) => ({ type, props, children }) };
-    const Controller = new Function('isOutputPreviewWidgetId', 'React', `${code}\nreturn Controller;`)(isOutputPreviewWidgetId, React);
-    let item;
+    const Controller = new Function(`${code}\nreturn Controller;`)();
     const calls = [];
+    const widget = { id: 'timeline' };
     const controller = Object.assign(new Controller(), {
-        timelineHidden: false,
-        timelineVisibilityChanged: { event: () => {} },
-        commands: { executeCommand: id => calls.push(id) }
+        timelineHidden: true,
+        setTimelineHidden: async hidden => { calls.push(['hidden', hidden]); controller.timelineHidden = hidden; },
+        attach: async () => { calls.push(['attach']); return widget; },
+        openOrCreateTimeline: async () => { throw new Error('既存タイムラインから新規作成へ進んだ'); },
+        shell: { activateWidget: async id => calls.push(['activate', id]) }
     });
-    controller.registerToolbarItems({ registerItem: value => { item = value; } });
-    assert.equal(item.isVisible({ id: 'plugin-webview:akari-output-preview-1ue46pv' }), true);
-    assert.equal(item.isVisible({ id: 'plugin-webview:akari-preview-other' }), false);
-    let button = item.render();
-    assert.match(button.props.title, /タイムラインを隠す/);
-    assert.equal(button.props['aria-pressed'], false);
-    assert.match(button.children[0].props.className, /codicon-layout-panel$/);
-    button.props.onClick({ preventDefault() {}, stopPropagation() {} });
-    assert.deepEqual(calls, ['akari.timeline.toggleVisibility']);
-    controller.timelineHidden = true;
-    button = item.render();
-    assert.match(button.props.title, /タイムラインを出す/);
-    assert.equal(button.props['aria-pressed'], true);
-    assert.match(button.children[0].props.className, /codicon-layout-panel-off$/);
+    await controller.open();
+    assert.deepEqual(calls, [['hidden', false], ['attach'], ['activate', 'timeline']]);
 });
 
 test('自動表示とタイムラインのゴーストは隠す間は止める', () => {
