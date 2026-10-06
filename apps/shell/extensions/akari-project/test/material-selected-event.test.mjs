@@ -15,6 +15,7 @@ const dependencies = {
   React, materialCardLayout, AKARI_MATERIAL_SELECTED_EVENT,
   AKARI_RADIUS: { panel: 8, chip: 4 },
   AKARI_SURFACE: { raised: 'raised', card: 'card' },
+  AKARI_PROJECT_SURFACE: { item: 'project-item', elevated: 'project-elevated' },
   AKARI_BORDER: { accent: 'accent-border', ghost: 'ghost-border' },
   MATERIAL_CARD_FLAG_STYLE: { background: 'flag' }, MATERIAL_CARD_SUBFLAG_STYLE: { background: 'subflag' },
   AKARI_FAINT: 'faint', MaterialCardHoverPreview: () => null,
@@ -60,6 +61,12 @@ test('カードクリックは detail を通知し、中央で開き、選択枠
   const row = entry();
   const card = instance.renderMaterialCard(row);
   assert.equal(card.props.style.border, 'ghost-border');
+  assert.equal(card.props.style.background, 'project-item');
+  const hovered = { currentTarget: { style: {} } };
+  card.props.onMouseEnter(hovered);
+  assert.equal(hovered.currentTarget.style.background, 'project-elevated');
+  card.props.onMouseLeave(hovered);
+  assert.equal(hovered.currentTarget.style.background, 'project-item');
   card.props.onClickCapture({ target: {} });
   card.props.onClick();
   assert.equal(events.length, 1);
@@ -68,6 +75,9 @@ test('カードクリックは detail を通知し、中央で開き、選択枠
     kind: 'audio', name: row.name });
   assert.deepEqual(opened, ['file:///project/assets/interview.wav']);
   assert.equal(instance.renderMaterialCard(row).props.style.border, 'accent-border');
+  assert.equal(instance.renderMaterialCard(row).props.style.background, 'project-elevated');
+  card.props.onMouseLeave(hovered);
+  assert.equal(hovered.currentTarget.style.background, 'project-elevated');
   assert.equal(instance.renderMaterialCard(entry({ relativePath: 'assets/other.mp4' })).props.style.border, 'ghost-border');
 });
 

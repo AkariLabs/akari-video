@@ -26,7 +26,7 @@ import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { resolveLibraryAssetMedia } from '../common/library-asset-placement';
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
-import { AKARI_BORDER, AKARI_FAINT, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
+import { AKARI_BORDER, AKARI_FAINT, AKARI_INK, AKARI_PROJECT_LINE, AKARI_PROJECT_SURFACE, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 import { MaterialContextMenuItem } from '../common/material-context-menu-items';
 import { LibraryImportResult } from '../common/library-import';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
@@ -629,7 +629,7 @@ export class AkariMaterialsPane {
                     flex: '0 0 auto', width: '26px', height: '26px', padding: 0, margin: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     borderRadius: '999px', border: AKARI_BORDER.ghost,
-                    background: AKARI_SURFACE.raised, color: AKARI_INK, cursor: 'pointer'
+                    background: AKARI_PROJECT_SURFACE.item, color: AKARI_INK, cursor: 'pointer'
                 }}
             >
                 <span className='codicon codicon-ellipsis' aria-hidden='true' />
@@ -822,7 +822,7 @@ export class AkariMaterialsPane {
 
     protected renderUnorganizedSection(entries: readonly MaterialCardEntry[]): React.ReactNode {
         return (
-            <div style={{ borderTop: AKARI_BORDER.hairline, marginTop: '8px' }}>
+            <div style={{ borderTop: `1px solid ${AKARI_PROJECT_LINE}`, marginTop: '8px' }}>
                 <div style={{ padding: '10px 10px 0', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '0.85em', fontWeight: 600 }}>未整理</span>
                     <span style={{ opacity: 0.7, fontSize: '0.78em' }}>
@@ -931,6 +931,11 @@ export class AkariMaterialsPane {
                     }));
                 }}
                 onClick={() => { if (!entry.missing) void this.host.openFile(entry.uri); }}
+                onMouseEnter={event => { event.currentTarget.style.background = AKARI_PROJECT_SURFACE.elevated; }}
+                onMouseLeave={event => {
+                    event.currentTarget.style.background = this.selectedMaterialPath === entry.relativePath
+                        ? AKARI_PROJECT_SURFACE.elevated : AKARI_PROJECT_SURFACE.item;
+                }}
                 onContextMenu={event => this.host.openMaterialContextMenu(event, entry)}
                 title={entry.name}
                 {...this.host.generationPickCardProps(pickCandidate)}
@@ -942,7 +947,8 @@ export class AkariMaterialsPane {
                     cursor: 'pointer',
                     borderRadius: `${AKARI_RADIUS.panel}px`,
                     overflow: 'hidden',
-                    background: AKARI_SURFACE.raised,
+                    background: this.selectedMaterialPath === entry.relativePath
+                        ? AKARI_PROJECT_SURFACE.elevated : AKARI_PROJECT_SURFACE.item,
                     border: this.selectedMaterialPath === entry.relativePath ? AKARI_BORDER.accent : AKARI_BORDER.ghost
                 }}
             >
@@ -957,7 +963,7 @@ export class AkariMaterialsPane {
                     style={{
                         position: 'relative',
                         aspectRatio: layout.aspectRatio,
-                        background: AKARI_SURFACE.card,
+                        background: 'inherit',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'

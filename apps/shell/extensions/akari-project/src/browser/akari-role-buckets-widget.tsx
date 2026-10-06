@@ -32,6 +32,8 @@ import {
     AKARI_BORDER,
     AKARI_INK,
     AKARI_LINE,
+    AKARI_PROJECT_LINE,
+    AKARI_PROJECT_SURFACE,
     AKARI_RADIUS,
     AKARI_SURFACE
 } from '../common/akari-surface-tokens';
@@ -1941,7 +1943,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const libraryOnly = this.topView === 'catalog';
         return (
             <div
-                style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}
+                style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}
                 data-akari-left-panel-layout={libraryOnly ? 'library-only' : 'split'}
             >
                 <div style={{
@@ -1949,7 +1951,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     minHeight: 0,
                     display: 'flex',
                     flexDirection: 'column',
-                    borderBottom: libraryOnly ? undefined : AKARI_BORDER.hairline
+                    background: libraryOnly ? undefined : AKARI_PROJECT_SURFACE.base,
+                    borderBottom: libraryOnly ? undefined : `1px solid ${AKARI_PROJECT_LINE}`
                 }}>
                     {this.renderMaterialsPane()}
                 </div>
@@ -2074,7 +2077,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div
                 data-akari-catalog-controls={this.topView === 'catalog' ? 'true' : undefined}
-                style={{ flex: '0 0 auto', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: '7px', borderBottom: AKARI_BORDER.hairline }}
+                style={{ flex: '0 0 auto', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: '7px',
+                    background: this.topView === 'materials' ? AKARI_PROJECT_SURFACE.base : undefined,
+                    borderBottom: this.topView === 'materials' ? `1px solid ${AKARI_PROJECT_LINE}` : AKARI_BORDER.hairline }}
             >
                 <div
                     role='tablist'
@@ -2089,7 +2094,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     }}
                     style={{
                         display: 'flex', position: 'relative', gap: 0, padding: '2px',
-                        background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost, borderRadius: '999px'
+                        background: this.topView === 'materials' ? AKARI_PROJECT_SURFACE.item : AKARI_SURFACE.raised,
+                        border: AKARI_BORDER.ghost, borderRadius: '999px'
                     }}
                 >
                     <div
@@ -2102,7 +2108,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             // 「オレンジの枠がいらない、ベースの色を変えるぐらいでいい」）。
                             // 線を足さずに面だけを一段持ち上げるので、カード内に外周より強い線を
                             // 置かない原則（akari-surface-tokens §2）とも噛み合う。
-                            background: AKARI_SURFACE.elevated, border: AKARI_BORDER.ghost,
+                            background: this.topView === 'materials' ? AKARI_PROJECT_SURFACE.elevated : AKARI_SURFACE.elevated,
+                            border: AKARI_BORDER.ghost,
                             borderRadius: '999px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
                             pointerEvents: 'none',
                             transform: this.topView === 'materials' ? 'translateX(0)' : 'translateX(100%)',
@@ -2199,7 +2206,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             width: '100%',
                             boxSizing: 'border-box',
                             padding: '5px 8px',
-                            background: AKARI_SURFACE.raised,
+                            background: this.topView === 'materials' ? AKARI_PROJECT_SURFACE.item : AKARI_SURFACE.raised,
                             color: AKARI_INK,
                             border: AKARI_BORDER.hairline,
                             borderRadius: `${AKARI_RADIUS.panel}px`

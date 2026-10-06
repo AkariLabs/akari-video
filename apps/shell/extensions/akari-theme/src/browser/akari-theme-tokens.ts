@@ -26,6 +26,8 @@
 // lineOverlay は「カードの中」ではなく **カードの上に浮くもの**（コンテキスト
 // メニュー・hover ウィジェット・クイックオープン）の輪郭。カード外周と同じ
 // 強さ（= 外周の実効値）を与え、地の上に浮いていることを見せる。
+// panelProjectLine は左パネルのプロジェクト側の節境だけに使う。
+// ダークの #2c2c2c は外周の実効 #262626 より意図的に強くする。
 export const DARK = {
     placedTextBlue: '#38bdf8',
     placedTextViolet: '#a78bfa',
@@ -46,6 +48,10 @@ export const DARK = {
     bg: '#0a0a0a',
     card: '#141414',
     elevated: '#1a1a1a',
+    panelProject: '#161616',
+    panelProjectItem: '#202020',
+    panelProjectElevated: '#2a2a2a',
+    panelProjectLine: '#2c2c2c',
     ink: '#e5e5e5',
     muted: '#a3a3a3',
     faint: '#737373',
@@ -81,6 +87,10 @@ export const LIGHT: AkariPalette = {
     bg: '#ffffff',
     card: '#f5f5f5',
     elevated: '#e5e5e5',
+    panelProject: '#f1f1f1',
+    panelProjectItem: '#e4e4e4',
+    panelProjectElevated: '#d8d8d8',
+    panelProjectLine: '#d2d2d2',
     ink: '#171717',
     muted: '#525252',
     faint: '#737373',

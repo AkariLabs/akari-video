@@ -26,14 +26,14 @@ test('つながったトラックに、transform だけで移動するつまみ�
     assert.equal(style(track, 'position'), "'relative'");
     assert.equal(style(track, 'gap'), '0');
     assert.equal(style(track, 'padding'), "'2px'");
-    assert.equal(style(track, 'background'), 'AKARI_SURFACE.raised');
+    assert.equal(style(track, 'background'), "this.topView === 'materials' ? AKARI_PROJECT_SURFACE.item : AKARI_SURFACE.raised");
     assert.equal(style(track, 'border'), 'AKARI_BORDER.ghost');
     assert.equal(thumb.length, 1);
     assert.equal(value(thumb[0], 'aria-hidden'), "'true'");
     assert.equal(style(thumb[0], 'position'), "'absolute'");
     assert.equal(style(thumb[0], 'width'), "'calc((100% - 4px) / 2)'");
     assert.equal(style(thumb[0], 'boxSizing'), "'border-box'");
-    assert.equal(style(thumb[0], 'background'), 'AKARI_SURFACE.elevated');
+    assert.equal(style(thumb[0], 'background'), "this.topView === 'materials' ? AKARI_PROJECT_SURFACE.elevated : AKARI_SURFACE.elevated");
     // つまみはアクセントの枠ではなく面で示す（2026-09-26 オーナー指示）。
     assert.equal(style(thumb[0], 'border'), 'AKARI_BORDER.ghost');
     assert.equal(style(thumb[0], 'transform'), "this.topView === 'materials' ? 'translateX(0)' : 'translateX(100%)'");

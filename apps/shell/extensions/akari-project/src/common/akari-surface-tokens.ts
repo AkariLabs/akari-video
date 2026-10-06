@@ -14,6 +14,8 @@
  *   --akari-bg       = カード面（#0a0a0a / #ffffff）
  *   --akari-card     = 持ち上げ面（#141414 / #f5f5f5）… ここでは raised と呼ぶ
  *   --akari-elevated = ホバー・選択（#1a1a1a / #e5e5e5）
+ * 左パネルのプロジェクト側だけが使う面を別の役割で持つ。
+ * 下の「できたもの」とライブラリには適用しない。
  */
 
 /** 面の階層（spec §1）。`ground` はカードの中には出さない。 */
@@ -25,6 +27,14 @@ export const AKARI_SURFACE = {
     /** ホバー・選択。 */
     elevated: 'var(--akari-elevated)'
 } as const;
+
+export const AKARI_PROJECT_SURFACE = {
+    base: 'var(--akari-panel-project)',
+    item: 'var(--akari-panel-project-item)',
+    elevated: 'var(--akari-panel-project-elevated)'
+} as const;
+
+export const AKARI_PROJECT_LINE = 'var(--akari-panel-project-line)';
 
 /**
  * 線の階層（spec §2）。カード外周 `--akari-line`（alpha .13）が最強で、
