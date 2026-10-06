@@ -24,7 +24,7 @@ test('engine list keeps auto first and includes availability and rates', () => {
 });
 
 test('all command entrances open the same popup without starting transcription', async () => {
-    const registrations = new Map(), rpc = [], dialogs = [];
+    const registrations = new Map(), dialogs = [];
     class URI {
         constructor(value) { this.value = value; }
         toString() { return this.value; }
@@ -45,8 +45,7 @@ test('all command entrances open the same popup without starting transcription',
         '@theia/core/shared/inversify': { inject: () => () => {}, injectable: () => value => value },
         '../akari-transcript-commands': { OPEN_AKARI_DAIHON: { id: 'akari.daihon.open' } },
         './akari-cuts-widget': {}, './akari-daihon-widget': {},
-        './akari-transcribe-dialog': { AkariTranscribeDialog: Dialog, listenTranscribeRange() {},
-            TRANSCRIBE_ENGINE_CARDS: cards, transcribeEngineList: steps.transcribeEngineList },
+        './akari-transcribe-dialog': { AkariTranscribeDialog: Dialog, listenTranscribeRange() {} },
         'akari-annotations/lib/browser/akari-edit-history-service': {},
         '../../common/captions-button': { setDaihonHistoryService() {} }
     };
@@ -57,12 +56,9 @@ test('all command entrances open the same popup without starting transcription',
     contribution.history = {}; contribution.messages = {};
     contribution.preferences = { get: () => 'whisper-cpp' };
     contribution.projectService = { transcriptStates: async () => ({}) };
-    const commands = { registerCommand(command, handler) { registrations.set(command.id, handler.execute); },
-        async executeCommand(id, service) { rpc.push([id, service]);
-            return service.endsWith('new-project') ? { tools: [] } : { providers: [] }; } };
+    const commands = { registerCommand(command, handler) { registrations.set(command.id, handler.execute); } };
     contribution.registerCommands(commands);
-    await registrations.get('akari.transcribe.engines')({ projectRoot: 'file:///project' });
-    assert.equal(rpc.length, 2);
+    assert.equal(registrations.has('akari.transcribe.engines'), false);
     await registrations.get('akari.transcribe.openDialog')({ projectRoot: 'file:///project', relativePath: 'clip.mp4' });
     assert.equal(dialogs.length, 1);
     assert.equal(dialogs[0][1], 'clip.mp4');

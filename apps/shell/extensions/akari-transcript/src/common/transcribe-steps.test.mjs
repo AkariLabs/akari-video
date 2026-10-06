@@ -19,7 +19,7 @@ test('popup selects a requested source, including BGM, but never an excluded sou
 });
 
 test('popup defaults to transcript sources or first voice source', () => {
-    assert.deepEqual(popupInitialSourceIds(sources, undefined, ['mic', 'camera']), ['camera']);
+    assert.deepEqual(popupInitialSourceIds(sources, undefined, ['mic', 'camera']), ['camera', 'mic']);
     assert.deepEqual(popupInitialSourceIds(sources, undefined, []), ['camera']);
     assert.deepEqual(popupInitialSourceIds(sources, undefined, ['bgm']), ['camera']);
 });

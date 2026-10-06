@@ -8,8 +8,9 @@ export function popupInitialSourceIds(sources: readonly { id: string; path: stri
             && source.status !== 'excluded');
         return selected ? [selected.id] : [];
     }
-    const existing = sources.find(source => source.status === 'voice' && captionSourceIds.includes(source.id));
-    const first = existing ?? sources.find(source => source.status === 'voice');
+    const existing = sources.filter(source => source.status === 'voice' && captionSourceIds.includes(source.id));
+    if (existing.length) return existing.map(source => source.id);
+    const first = sources.find(source => source.status === 'voice');
     return first ? [first.id] : [];
 }
 
@@ -32,14 +33,14 @@ export function analysisTranscriptSummary(analysis: unknown): string | undefined
     const transcript = Array.isArray(value.transcript) ? value.transcript : undefined;
     const hasTranscript = !!transcript;
     if (!timestamp && !backend && !hasTranscript) return undefined;
-    return `${timestamp ?? '日時不明'} · ${backend ?? 'エンジン不明'} · ${transcript?.length ?? 0} 行`;
+    return [timestamp, backend, ...(transcript ? [`${transcript.length} 行`] : [])].filter(Boolean).join(' · ');
 }
 
 /** Keep artifact timestamps verbatim so the summary is independent of locale/timezone. */
 export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>,
     alreadyTranscribed = false, fallback?: string): string[] {
     const lines = artifacts.transcripts.map(transcript =>
-        `${transcript.generated_at || '日時不明'} · ${transcript.backend || 'エンジン不明'} · ${transcript.segments.length} 行`);
+        [transcript.generated_at, transcript.backend, `${transcript.segments.length} 行`].filter(Boolean).join(' · '));
     if (!lines.length && alreadyTranscribed) lines.push(fallback ?? '文字起こし済み · 日時・エンジン・行数の記録なし');
     if (lines.length || artifacts.diff) lines.push(`比べる組: ${artifacts.diff?.engines.length ? artifacts.diff.engines.join(' / ') : 'なし'}`);
     return lines;

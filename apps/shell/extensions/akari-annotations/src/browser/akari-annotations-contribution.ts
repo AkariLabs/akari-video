@@ -1128,7 +1128,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * （司令塔裁定4・5）。
      */
     protected async addMaterialAtPlayhead(request: unknown): Promise<void> {
-        const payload = request as { relativePath?: unknown; kind?: unknown } | undefined;
+        const payload = request as { relativePath?: unknown; kind?: unknown; voiceTrack?: boolean } | undefined;
         const relativePath = typeof payload?.relativePath === 'string' ? payload.relativePath : '';
         const kind = typeof payload?.kind === 'string' ? payload.kind : '';
         const widget = await this.openCurrentTimeline();
@@ -1136,7 +1136,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
             return;
         }
-        await widget.addMaterialAtPlayhead(relativePath, kind);
+        if (kind === 'audio' && payload?.voiceTrack === true) {
+            await widget.addMaterialAtPlayhead(relativePath, kind, { createAudioTrack: true });
+        } else {
+            await widget.addMaterialAtPlayhead(relativePath, kind);
+        }
     }
 
     /**
