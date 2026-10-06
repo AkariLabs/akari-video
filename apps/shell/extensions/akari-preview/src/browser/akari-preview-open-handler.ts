@@ -76,14 +76,16 @@ import type { PreviewItemWriteCommand } from '@akari-video/edit-store';
 import {
     describePreviewWebviewRole,
     guardedKeyHandler,
-    isSuspiciousKeyEventShape
+    isSuspiciousKeyEventShape,
+    previewDiagnosticsKindFromWidgetId
 } from '../common/preview-init-diagnostics';
 import {
     PREVIEW_DIAGNOSTICS_LOG_RELATIVE_PATH,
     PreviewDiagnosticsCenter,
     PreviewDiagnosticsLog,
     createDomPreviewDiagnosticsOverlay,
-    isPreviewDiagnosticsReport
+    isPreviewDiagnosticsReport,
+    shouldDeliverPreviewRendererGone
 } from './preview-diagnostics';
 import {
     AssetStreamRequest,
@@ -557,6 +559,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
      * 呼び出しは必ず `this.previewDiagnostics?.` で行う。
      */
     protected previewDiagnostics: PreviewDiagnosticsCenter | undefined;
+    protected readonly previewDiagnosticsWidgets = new Map<string, PreviewWidgetMarker>();
+
+    protected async reopenStoppedPreview(widget: PreviewWidgetMarker): Promise<void> {
+        if (widget.isDisposed) return;
+        const { id, viewId } = widget.identifier;
+        const kind = previewDiagnosticsKindFromWidgetId(id);
+        if (!kind || !viewId) return;
+        const uri = new URI(viewId).normalizePath();
+        const seekTime = widget.akariPreviewLastKnownTime;
+        this.discardPreviewWidget(widget, uri, kind);
+        try {
+            const reopened = await this.getOrOpenPreview(uri, { area: 'main' }, kind, seekTime);
+            await this.shell.activateWidget(reopened.id);
+        } catch (error) {
+            this.reportOpenFailure(uri, error);
+        }
+    }
 
     /** 診断ログの保存先（`~/.akari/logs/akari-preview-diagnostics.log`）を組み立てる。 */
     protected createPreviewDiagnosticsLog(): PreviewDiagnosticsLog {
@@ -608,6 +627,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     onStart(): void {
         this.previewDiagnostics = this.createPreviewDiagnosticsCenter();
+        const unsubscribeRendererGone = window.electronAkariPreview?.onPreviewRendererGone?.(notice => {
+            if (!notice || typeof notice.webviewId !== 'string' || typeof notice.reason !== 'string') return;
+            const widget = this.previewDiagnosticsWidgets.get(notice.webviewId);
+            const session = widget?.akariPreviewDiagnostics;
+            if (!shouldDeliverPreviewRendererGone(widget, notice) || !session) return;
+            session.rendererGone({
+                reason: notice.reason,
+                exitCode: typeof notice.exitCode === 'number' ? notice.exitCode : null,
+                at: notice.at
+            });
+        });
+        if (unsubscribeRendererGone) {
+            this.lifecycleDisposables.push({ dispose: unsubscribeRendererGone });
+        }
         this.installKeyEventDiagnostics(this.previewDiagnostics);
         this.lifecycleDisposables.push(this.commandRegistry.registerCommand(ANNOTATE_PREVIEW_AT_POINT_COMMAND, {
             execute: async () => {
@@ -670,8 +703,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (isMaterialPreviewWidgetId(id)) {
                 this.materialSlot.register(event.widget);
             }
-            const kind = id.startsWith('akari-output-preview-') ? 'output'
-                : id.startsWith('akari-preview-') ? 'raw' : undefined;
+            const kind = previewDiagnosticsKindFromWidgetId(id);
             // 第12項: Console に出た Webview ID の所有者が特定できなかったため、生成された
             // 全 webview の id と用途（akari-preview 以外を含む）を診断ログへ残す。
             this.previewDiagnostics?.note(
@@ -686,13 +718,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         id,
                         kind,
                         editUri: viewId,
+                        isActive: () => event.widget.isVisible && document.visibilityState !== 'hidden',
                         overlay: createDomPreviewDiagnosticsOverlay(event.widget.node, {
-                            onCopy: () => marker.akariPreviewDiagnostics?.copyReport()
+                            onCopy: () => marker.akariPreviewDiagnostics?.copyReport(),
+                            onReopen: () => { void this.reopenStoppedPreview(marker); }
                         })
                     });
                     marker.akariPreviewDiagnostics = session;
+                    this.previewDiagnosticsWidgets.set(id, marker);
                     session.markStage('webview-created', 'ok');
-                    event.widget.disposed.connect(() => session.dispose());
+                    event.widget.disposed.connect(() => {
+                        session.dispose();
+                        if (this.previewDiagnosticsWidgets.get(id) === marker) this.previewDiagnosticsWidgets.delete(id);
+                    });
                 }
             }
             if (kind && viewId) {
@@ -905,10 +943,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         this.lifecycleDisposables.push(listen(window, 'akari.timeline.groupSelectionChanged', onTimelineGroupSelectionChanged));
         const onCaptionPanelPreview = (event: Event): void => {
-            const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown; committed?: boolean }>).detail;
+            const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown;
+                committed?: boolean; failed?: boolean }>).detail;
             if (typeof detail?.captionId !== 'string') return;
-            for (const preview of this.openOutputPreviews.values()) {
-                preview.sendMessage({ type: 'akari-preview-caption-style-preview', ...detail });
+            for (const [key, preview] of this.openOutputPreviews) {
+                const selection = this.timelineCaptionSelections.get(key)?.captionIds ?? [];
+                const captionIds = selection.includes(detail.captionId) ? selection : [detail.captionId];
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', ...detail, captionIds });
             }
         };
         this.lifecycleDisposables.push(listen(window, 'akari-caption-panel-preview', onCaptionPanelPreview));
@@ -924,7 +965,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const onCaptionPanelChanged = (event: Event): void => {
             if ((event as CustomEvent<{ panel?: string | null }>).detail?.panel !== null) return;
             for (const preview of this.openOutputPreviews.values()) {
-                preview.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: '', textStyle: null });
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: '', textStyle: null,
+                    force: true });
             }
         };
         this.lifecycleDisposables.push(listen(window, 'akari-caption-panel-changed', onCaptionPanelChanged));

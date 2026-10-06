@@ -15,6 +15,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileStat, FileOperationResult, toFileOperationResult } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WorkspaceCommands } from '@theia/workspace/lib/browser/workspace-commands';
+import { captionSourcePathRule } from 'akari-project/lib/common/caption-source-path-rule';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
     IntakeAutonomy,
@@ -2184,20 +2185,21 @@ export class AkariHomeWidget extends ReactWidget {
             canSelectFiles: true, canSelectFolders: false, canSelectMany: true
         });
         if (!picked) { return; }
-        const selected = (Array.isArray(picked) ? picked : [picked]).filter(uri =>
-            [...IMPORTABLE_EXTENSIONS, ...(kind === 'transcribe' ? AUDIO_EXTENSIONS : [])].includes(this.extensionOf(uri.path.base)));
+        const root = this.currentProjectUri;
+        const selected = (Array.isArray(picked) ? picked : [picked]).filter(uri => kind === 'transcribe'
+            ? captionSourcePathRule(uri.path.toString(), root?.path.toString()).status === 'voice'
+            : IMPORTABLE_EXTENSIONS.includes(this.extensionOf(uri.path.base)));
         if (!selected.length) {
-            this.messages.warn(kind === 'transcribe' ? '動画・音声・写真のファイルを選んでください。' : '動画または写真のファイルを選んでください。');
+            this.messages.warn(kind === 'transcribe' ? '声の入った動画または音声を選んでください。' : '動画または写真のファイルを選んでください。');
             return;
         }
         const imported = await this.importDroppedSources(selected, kind === 'transcribe');
         if (kind !== 'transcribe') { return; }
-        const first = imported.find(uri => [...VIDEO_EXTENSIONS, ...AUDIO_EXTENSIONS].includes(this.extensionOf(uri.path.base)));
+        const first = imported.find(uri => captionSourcePathRule(uri.path.toString(), root?.path.toString()).status === 'voice');
         if (!first) {
             this.messages.info('文字起こしには動画または音声が必要です。');
             return;
         }
-        const root = this.currentProjectUri;
         const relativePath = root?.relative(first)?.toString();
         if (!root || !relativePath) { return; }
         try {

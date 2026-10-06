@@ -24,7 +24,7 @@ export function evaluateHostTemplate(text, fragment) {
         const modulePath = imported.module === '@akari-video/edit-store'
             ? fileURLToPath(new URL('../../../../../../packages/edit-store/lib/index.js', import.meta.url))
             : imported.module.startsWith('.')
-                ? fileURLToPath(new URL(`${imported.module}.js`, new URL('../../lib/browser/', import.meta.url)))
+                ? fileURLToPath(new URL(imported.module.endsWith('.mjs') ? imported.module : `${imported.module}.js`, new URL('../../lib/browser/', import.meta.url)))
                 : imported.module;
         const module = require(modulePath);
         assert.ok(Object.hasOwn(module, imported.exported), `missing host export: ${name}`);

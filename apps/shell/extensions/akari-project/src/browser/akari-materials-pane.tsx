@@ -16,6 +16,7 @@ import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { isEditDataFileName } from '../common/edit-data-file';
 import { nextCandidateAssetName } from '../common/asset-naming';
 import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
+import { captionSourcePathRule } from '../common/caption-source-path-rule';
 import { countReferences } from '../common/project-reference-check';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
@@ -1149,6 +1150,11 @@ export class AkariMaterialsPane {
     public async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
         const root = this.host.workflow.workspaceRoot;
         if (!root || entry.assetGroup || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
+        const eligibility = captionSourcePathRule(entry.relativePath, root.toString());
+        if (eligibility.status !== 'voice') {
+            void this.host.messages.info(eligibility.reason ?? '文字起こしできる素材ではありません');
+            return;
+        }
         if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
         try {
             const result = await this.host.commandService.executeCommand<string>('akari.transcribe.openDialog', {

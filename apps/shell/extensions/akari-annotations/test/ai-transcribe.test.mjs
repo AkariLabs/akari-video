@@ -43,6 +43,26 @@ test('静止画クリップの AI タブは作るに静止画・動画にする�
   });
 });
 
+test('画像の素材パスは動画扱いせず、文字起こしの対象にもならない', () => {
+  const comparisonCatalog = aiActionCatalog([{ id: 'fal:video', kind: 'video' }]);
+  const videoTiles = describeAiTiles(comparisonCatalog, 'video').flatMap(group => group.tiles);
+  const imageTiles = describeAiTiles(comparisonCatalog, aiTargetKindFor({ hasIdentity: false, image: true }))
+    .flatMap(group => group.tiles);
+  assert.equal(aiTargetKindFor({ hasIdentity: false, image: true }), 'image');
+  assert.equal(aiTargetKindFor({ hasIdentity: true, image: true }), 'still');
+  assert.deepEqual(imageTiles.filter(tile => tile.id !== 'transcribe'),
+    videoTiles.filter(tile => tile.id !== 'transcribe'));
+  assert.deepEqual(imageTiles.find(tile => tile.id === 'transcribe'), {
+    id: 'transcribe', label: '文字起こし', image: 'transcribe', enabled: false,
+    reason: '声の入った音声か動画で使えます'
+  });
+  for (const extension of ['PNG', 'jpg', 'webp', 'avif']) {
+    const path = `assets/thumb.${extension}`;
+    assert.equal(resolveAiTranscribeTarget({ kind: 'cut', src: 'image', outputStart: 0, outputEnd: 2 },
+      { sources: [{ id: 'image', path }] }), undefined);
+  }
+});
+
 test('音声のタブはホーム・音声・情報、既定はホーム', () => {
   const tabs = tabsForKind('audio');
   assert.deepEqual(tabs.map(tab => [tab.id, tab.label]), [['edit', 'ホーム'], ['audio', '音声'], ['info', '情報']]);

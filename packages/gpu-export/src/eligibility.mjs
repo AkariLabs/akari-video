@@ -420,7 +420,10 @@ export function evaluateGpuEligibility({
     const animation = textStyle?.animation ?? null;
     const motionSupport = isCaptionMotionSupported(animation);
     if (!motionSupport.supported) {
-      entries.push(entry("caption", id, "unsupported", `caption-motion-${motionSupport.unsupported[0]}-unsupported`, motionSupport.unsupported));
+      const reason = motionSupport.unsupported[0] === 'typewriter'
+        ? '文字送りは OSR で書き出します'
+        : `caption-motion-${motionSupport.unsupported[0]}-unsupported`;
+      entries.push(entry("caption", id, "unsupported", reason, motionSupport.unsupported));
       continue;
     }
     const wordSupport = classifyCaptionWordMode({

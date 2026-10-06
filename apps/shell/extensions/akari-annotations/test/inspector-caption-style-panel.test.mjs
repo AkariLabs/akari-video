@@ -8,6 +8,7 @@ import { filterInspectorSoloSections } from '../lib/browser/inspector/solo-model
 import { captionRunRows } from '../lib/browser/inspector/caption-run-rows.js';
 import { parseCaptions } from '@akari-video/edit-store';
 import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
+import { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } from '../lib/browser/inspector/caption-multi-targets.js';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
     captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch,
@@ -48,12 +49,13 @@ const { captionSections, multiCaptionSections } = new Function(
     'captionEffectStrength', 'captionEffectStrengthPatch', 'captionRunRows',
     'captionEffectCard', 'captionEffectAdjustmentKeys', 'captionEffectAdjustmentValue',
     'captionEffectAdjustmentPatch', 'createCaptionMotionPanel',
+    'captionMultiTargets', 'commonCaptionAnimation', 'withCaptionMultiTargets',
     `${code}\nreturn { captionSections: CAPTION_SECTIONS, multiCaptionSections: MULTI_CAPTION_SECTIONS };`
 )(composeInspectorSections, ['top', 'middle', 'bottom'], CAPTION_BACKGROUND_ON_OPACITY,
     captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch, captionEffectColorPatch,
     captionEffectStrength, captionEffectStrengthPatch, captionRunRows,
     captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue,
-    captionEffectAdjustmentPatch, () => {});
+    captionEffectAdjustmentPatch, () => {}, captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets);
 
 const caption = (id, extra = {}) => ({
     kind: 'caption', id, text: '字幕', sourceStart: 0, sourceEnd: 2, ...extra
@@ -90,6 +92,28 @@ test('袋がない字幕にも動きのカードを開ける', () => {
         .find(section => section.id === 'motion:caption');
     assert.equal(assignSectionToTab('caption', section.id), 'motion');
     assert.equal(typeof section.body, 'function');
+});
+
+test('字幕と置いた文字の複数選択は効果と動きの書き込み先を全件にする', async () => {
+    const snapshots = [caption('spoken', { timeDomain: 'source' }),
+        caption('placed', { timeDomain: 'output' })];
+    const writes = [];
+    const sections = multiCaptionSections(snapshots, async request => {
+        writes.push(request);
+        return { ok: true };
+    }, {});
+    assert.ok(sections.some(section => section.id === 'motion:caption'));
+    assert.ok(sections.some(section => section.id === 'info'));
+    assert.equal(field(sections, 'caption-multi-info-kinds').getValue(), '字幕 1 件 / 文字 1 件');
+    await field(sections, 'caption-style-effect').write(snapshots[0], 'outline');
+    assert.deepEqual(writes[0].targets, [
+        { kind: 'caption', id: 'spoken' }, { kind: 'caption', id: 'placed' }
+    ]);
+    const motion = withCaptionMultiTargets({ kind: 'caption-style-my-style', id: 'spoken',
+        value: { parts: [{ kind: 'motion', animation: { in: { id: 'fade-in-out' } } }] } },
+        captionMultiTargets(snapshots));
+    assert.deepEqual(motion.targets, writes[0].targets);
+    assert.deepEqual(captionMultiTargets([snapshots[0], snapshots[1], snapshots[0]]), writes[0].targets);
 });
 
 test('字幕の全種類と複数選択に同じ五枚のスタイルカードを出す', () => {

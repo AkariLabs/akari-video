@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { withCaptionPreviewFailure } from '../lib/browser/inspector/caption-preview-write.js';
 
 function extractClass(source, className, names) {
     const ast = ts.createSourceFile(`${className}.ts`, source, ts.ScriptTarget.Latest, true);
@@ -29,8 +30,10 @@ const timelineMembers = extractClass(timelineSource, 'AkariAnnotationsWidget', [
 const timelineCode = ts.transpileModule(`class Timeline { ${timelineMembers} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-const Timeline = new Function('readAudioMasterSnapshot', 'remapCaptionSelection', `${timelineCode}\nreturn Timeline;`)(
-    () => ({ enabled: false }), (_before, after, ids) => ids.filter(id => after.some(caption => caption.id === id))
+const Timeline = new Function('readAudioMasterSnapshot', 'remapCaptionSelection',
+    'withCaptionPreviewFailure', `${timelineCode}\nreturn Timeline;`)(
+    () => ({ enabled: false }), (_before, after, ids) => ids.filter(id => after.some(caption => caption.id === id)),
+    withCaptionPreviewFailure
 );
 
 function fixture(name, model) {

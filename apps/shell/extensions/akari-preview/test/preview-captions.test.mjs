@@ -137,6 +137,18 @@ test('scale/rotate become caption transform variables and resolved display lines
     assert.equal(resolved.textStyleVars['--caption-rotate'], '-8deg');
 });
 
+test('animation-only resolved captions retain the unstylized look at the end of typewriter', () => {
+    const [animated] = parseResolvedPreviewCaptions({ schema: 'caption-layout/v1', captions: [{
+        id: 'c-1-occ-0001-part-1', source_cue_id: 'c-1', start: 0, end: 3, text: '文字送り',
+        text_style: { animation: { in: { id: 'typewriter' } } },
+        style_vars: { '--caption-paint-order': 'stroke fill', '--caption-text-shadow': 'none', '--caption-top': '30%' }
+    }] });
+    assert.equal(animated.textStyleVars['--caption-paint-order'], undefined);
+    assert.equal(animated.textStyleVars['--caption-text-shadow'], undefined);
+    assert.equal(animated.textStyleVars['--caption-top'], '30%');
+    assert.equal(animated.textStyle.animation.in.id, 'typewriter');
+});
+
 test('text_anchor + position は共有カーネル単一定義の位置変数になる（プレビューだけ既定下段へ落ちる出力不一致の再発防止）', () => {
     // 2026-08-26 akari-reel 実機: text_style { text_anchor: 'tc', position: { y: 0.386458 } } の
     // 字幕が書き出しでは上中段・プレビューでは既定の bottom 7% に出て縦位置が不一致だった。

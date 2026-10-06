@@ -8,6 +8,7 @@ import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-
 import type { LibraryTextstylePreset } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
 import { interpretCaptionsResult } from '../common/captions-result';
+import { captionSourcePathRule } from '../common/caption-source-path-rule';
 import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
@@ -1328,6 +1329,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
     }
 
     async transcribeMaterial(request: TranscribeMaterialRequest): Promise<void> {
+        this.assertTranscribablePath(request.relativePath, request.projectRoot);
         const target = await this.materialTarget(request.projectRoot, request.relativePath);
         if (this.transcriptions.has(target.path)) throw new Error('この素材は文字起こしを実行中です');
         const selected = [...new Set(request.compareSet ?? [])];
@@ -1496,6 +1498,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const source = request.source === undefined && sources.length === 1 ? sources[0]
             : sources.find(item => item.id === request.source);
         if (!source) throw new Error(`素材を選んでください: ${sources.map(item => item.id).join(', ')}`);
+        this.assertTranscribablePath(source.path, root);
         if (basename(editPath) !== 'edit.json') throw new Error('字幕生成 CLI は別タイムラインの指定に未対応です。');
         await this.materialTarget(root, source.path);
         if (request.transcribeFirst) await this.transcribeMaterial({ projectRoot: root, relativePath: source.path,
@@ -1505,6 +1508,11 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             ...(request.retime ? ['--retime'] : []),
             ...(request.dryRun ? ['--dry-run', '--json'] : [])], root);
         return interpretCaptionsResult(result.code, result.stdout, result.stderr);
+    }
+
+    protected assertTranscribablePath(path: string, projectRoot: string): void {
+        const eligibility = captionSourcePathRule(path, projectRoot);
+        if (eligibility.status === 'excluded') throw new Error(eligibility.reason);
     }
 
     protected async timelineEditFile(root: string, editUri?: string): Promise<string> {

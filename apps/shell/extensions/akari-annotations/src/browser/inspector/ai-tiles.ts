@@ -22,10 +22,10 @@ export function aiGenerationKindFor(meta?: {
 /** The generation identity is the authority for whether a visual target can be generated. */
 export function aiTargetKindFor(options: {
     hasIdentity: boolean; generationDone?: boolean; generationState?: string;
-    audio?: boolean; audioPlanned?: boolean;
+    audio?: boolean; audioPlanned?: boolean; image?: boolean;
 }): AiTargetKind {
     if (options.audio) return options.audioPlanned ? 'empty-audio-frame' : 'audio';
-    if (!options.hasIdentity) return 'video';
+    if (!options.hasIdentity) return options.image ? 'image' : 'video';
     if (options.generationDone) return 'generated-video';
     return options.generationState === 'planned' ? 'empty-frame' : 'still';
 }

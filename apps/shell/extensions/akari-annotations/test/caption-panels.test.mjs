@@ -46,6 +46,18 @@ test('同じコマンドで閉じ、別のコマンドで切り替え、文字�
     assert.equal(retainCaptionPanel('font', false), null);
 });
 
+test('複数選択のフォントパネルでは使えないスタイル切替を無効表示にする', () => {
+    const multi = createCaptionPanel(document, 'font', state(), [], faces, actions, undefined, 38, false);
+    const switcher = descendants(multi).find(node => node.attributes['data-akari-caption-panel-switch'] === 'font');
+    const styleButton = switcher.children.find(node => node.textContent === 'スタイル');
+    assert.equal(styleButton.disabled, true);
+    assert.equal(styleButton.attributes['aria-disabled'], 'true');
+    assert.match(styleButton.title, /複数選択では使えません/u);
+    const single = createCaptionPanel(document, 'font', state(), [], faces, actions);
+    const singleSwitch = descendants(single).find(node => node.attributes['data-akari-caption-panel-switch'] === 'font');
+    assert.equal(singleSwitch.children.find(node => node.textContent === 'スタイル').disabled, undefined);
+});
+
 test('通知 detail は開く・切り替える・閉じるの状態をそのまま表す', () => {
     let panel = nextCaptionPanel(null, 'font', true);
     assert.deepEqual(captionPanelChangedDetail(panel), { panel: 'font' });

@@ -21,6 +21,38 @@ export interface AiTranscribeEngine {
 
 type Snapshot = NonNullable<TimelineSelectionModel['snapshot']>;
 
+const transcribeImages = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'svg', 'avif']);
+const transcribeVideos = new Set(['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'ts', 'mts']);
+const transcribeAudio = new Set(['wav', 'mp3', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'aif', 'aiff', 'wma']);
+
+function normalizedTranscribePath(path: string): string {
+    let normalized = path.replace(/\\/gu, '/');
+    if (/^file:\/\//iu.test(normalized)) {
+        try { normalized = decodeURIComponent(new URL(normalized).pathname); } catch { /* Keep the original path. */ }
+    }
+    normalized = normalized.replace(/^\/([a-z]:\/)/iu, '$1');
+    while (normalized.startsWith('./')) normalized = normalized.slice(2);
+    return normalized.toLowerCase();
+}
+
+/** Path-only copy for the inspector, which cannot depend on project or transcript. */
+export function aiTranscribePathRule(path: string, projectRoot?: string): { status: 'voice' | 'excluded'; reason?: string } {
+    const normalized = normalizedTranscribePath(path);
+    const extension = normalized.match(/\.([a-z0-9]+)$/u)?.[1] ?? '';
+    const absolute = normalized.startsWith('/') || /^[a-z]:\//u.test(normalized);
+    const root = projectRoot ? normalizedTranscribePath(projectRoot).replace(/\/+$/u, '') : undefined;
+    const relative = absolute ? root && normalized.startsWith(`${root}/`) ? normalized.slice(root.length + 1) : undefined
+        : normalized;
+    if (relative?.startsWith('exports/')) {
+        return { status: 'excluded', reason: '書き出した完成品です（元の素材から起こします）' };
+    }
+    if (transcribeImages.has(extension)) return { status: 'excluded', reason: '画像には音声がありません' };
+    if (!transcribeVideos.has(extension) && !transcribeAudio.has(extension)) {
+        return { status: 'excluded', reason: '音声・動画のファイルではありません' };
+    }
+    return { status: 'voice' };
+}
+
 /** Resolve source IDs against edit.json without asking the timeline widget to change its snapshot. */
 export function resolveAiTranscribeTarget(snapshot: Snapshot, edit: unknown): AiTranscribeTarget | undefined {
     if (snapshot.kind === 'multi' || snapshot.kind === 'gap' || snapshot.kind === 'world'
@@ -55,6 +87,7 @@ export function resolveAiTranscribeTarget(snapshot: Snapshot, edit: unknown): Ai
     if (!path || path.startsWith('/') || /^[a-z][a-z\d+.-]*:/iu.test(path)
         || path.replace(/\\/gu, '/').split('/').some(part => !part || part === '..' || part === '.')
         || !Number.isFinite(duration) || !Number.isFinite(atSeconds)) return undefined;
+    if (aiTranscribePathRule(path).status !== 'voice') return undefined;
     return { relativePath: path, name: path.split('/').pop() || path, duration, atSeconds };
 }
 

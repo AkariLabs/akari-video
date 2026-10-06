@@ -76,6 +76,7 @@ import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
+import { captionPanelSelection } from './inspector/caption-panel-selection';
 import { editUriForVisibleTimeline, setActiveTimelineEditUri } from './active-timeline';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
@@ -524,8 +525,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             execute: async (argument?: { panel?: 'font' | 'style' }): Promise<boolean> => {
                 if (argument?.panel !== 'font' && argument?.panel !== 'style') return false;
                 const selection = this.selectionModel.snapshot;
-                if (selection?.kind !== 'caption' && !(selection?.kind === 'item'
-                    && selection.itemKind === 'caption')) return false;
+                if (!captionPanelSelection(selection, this.selectionModel.selectedCaptionIds, argument.panel)) return false;
                 const widget = await this.openInspectorPanel();
                 return widget?.toggleCaptionPanel(argument.panel) ?? false;
             }
