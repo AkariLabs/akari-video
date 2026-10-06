@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from 'node:fs';
 import test from "node:test";
 
 import { CAPTION_SPRITE_MOTIONS, captionMotionAt, cubicBezierAt, isCaptionMotionSupported } from "../dist/timeline/caption-motion.js";
+
+const cssRecipes = JSON.parse(readFileSync(new URL('../../render-cut/src/caption-animation-recipes.json', import.meta.url)));
 
 test("default caption fade reaches the settled state", () => {
   const start = captionMotionAt(null, 0, 1, 100);
@@ -123,10 +126,70 @@ test("loop motion is periodic", () => {
   assert.ok(Math.abs(first.translateY - (-0.11 * 40)) < 1e-12);
 });
 
-test("unsupported and unknown motions are reported", () => {
+test("implemented motions remain supported and unknown motions are reported", () => {
   assert.deepEqual(isCaptionMotionSupported({ in: { id: "wipe-left" }, out: { id: "future" } }), {
-    supported: false, unsupported: ["wipe-left", "future"],
+    supported: false, unsupported: ["future"],
   });
+});
+
+test("plate clip, swing pivot and glitch keyframes follow the CSS recipe", () => {
+  assert.deepEqual(captionMotionAt({ in: { id: 'wipe-right', ease: 'linear', duration_sec: 1 } }, 0.5, 2, 20).clip,
+    { x: 0, y: 0, width: 0.5, height: 1 });
+  const push = captionMotionAt({ in: { id: 'push-left', ease: 'linear', duration_sec: 1 } }, 0.5, 2, 20);
+  assert.equal(push.translateX, 20);
+  assert.deepEqual(push.clip, { x: 0.5, y: 0, width: 0.5, height: 1 });
+  const swing = captionMotionAt({ in: { id: 'swing', ease: 'linear', duration_sec: 1 } }, 0.6, 2, 20);
+  assert.equal(swing.rotateDeg, -6);
+  assert.deepEqual([swing.originX, swing.originY], [0.5, 0]);
+  const glitch = captionMotionAt({ in: { id: 'glitch', ease: 'linear', duration_sec: 1 } }, 0.3, 2, 20);
+  assert.ok(Math.abs(glitch.translateX - 2.4) < 1e-10);
+  assert.ok(Math.abs(glitch.clip.y - 0.3) < 1e-10);
+  assert.ok(Math.abs(glitch.clip.height - 0.5) < 1e-10);
+  assert.equal(glitch.slices.length, 1);
+  assert.equal(glitch.slices[0].colorShiftPx, 0);
+  assert.ok(Math.abs(glitch.slices[0].offsetX - 2.4) < 1e-10);
+});
+
+test("all push directions and both wipes clip the same edge as CSS", () => {
+  const expected = {
+    'push-left': [0.5, 0, 0.5, 1],
+    'push-right': [0, 0, 0.5, 1],
+    'push-up': [0, 0.5, 1, 0.5],
+    'push-down': [0, 0, 1, 0.5],
+    'wipe-left': [0.5, 0, 0.5, 1],
+    'wipe-right': [0, 0, 0.5, 1],
+  };
+  for (const [id, coordinates] of Object.entries(expected)) {
+    const state = captionMotionAt({ in: { id, ease: 'linear', duration_sec: 1 } }, 0.5, 2, 20);
+    assert.deepEqual(Object.values(state.clip), coordinates, id);
+  }
+});
+
+test('typewriter returns the same entrance and exit progress at half duration', () => {
+  assert.equal(captionMotionAt({ in: { id: 'typewriter', duration_sec: .6 } }, .3, 1, 20).typewriter, .5);
+  assert.ok(Math.abs(captionMotionAt({ out: { id: 'typewriter', duration_sec: .6 } }, .7, 1, 20).typewriter - .5) < 1e-12);
+});
+
+test('push vertical travel and glitch keyframes match the CSS recipe data', () => {
+  for (const id of ['push-up', 'push-down']) {
+    const css = cssRecipes[id];
+    const em = Number(css.match(/translateY\(calc\(([-\d.]+)em/u)[1]);
+    const initial = captionMotionAt({ in: { id, ease: 'linear', duration_sec: 1 } }, 0, 2, 20);
+    assert.equal(initial.translateY, em * 20, id);
+    assert.equal(captionMotionAt({ in: { id, ease: 'linear', duration_sec: 1 } }, 1, 2, 20).translateY, 0, id);
+  }
+  for (const percent of [0, 30, 60, 100]) {
+    const declaration = cssRecipes.glitch.split(`${percent}% { `)[1].split('}')[0];
+    const xEm = Number(declaration.match(/translate\(calc\(([-\d.]+)em/u)?.[1] ?? 0);
+    const cssInset = declaration.match(/clip-path: inset\(([^)]*)\)/u)[1]
+      .split(/\s+/u).map(value => Number.parseFloat(value) / (value.endsWith('%') ? 100 : 1));
+    const [top, right, bottom, left] = cssInset.length === 1 ? Array(4).fill(cssInset[0]) : cssInset;
+    const state = captionMotionAt({ in: { id: 'glitch', ease: 'linear', duration_sec: 1 } }, percent / 100, 2, 20);
+    assert.ok(Math.abs(state.translateX - xEm * 20) < 1e-10, `${percent}% x`);
+    for (const [key, expected] of Object.entries({ x: left, y: top, width: 1 - left - right, height: 1 - top - bottom })) {
+      assert.ok(Math.abs(state.clip[key] - expected) < 1e-10, `${percent}% ${key}`);
+    }
+  }
 });
 
 test("amp scales distance", () => {

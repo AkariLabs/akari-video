@@ -19,6 +19,15 @@ export interface CaptionMotionState {
   scaleX: number;
   scaleY: number;
   rotateDeg: number;
+  /** Visible part of the untransformed plate, normalized to its box. */
+  clip?: { x: number; y: number; width: number; height: number };
+  /** CSS transform origin, normalized to the plate box. */
+  originX?: number;
+  originY?: number;
+  /** Number of graphemes revealed by a typewriter slot, as a fraction. */
+  typewriter?: number;
+  /** The resolved glitch recipe currently contains one deterministic clipped band. */
+  slices?: readonly { x: number; y: number; width: number; height: number; offsetX: number; colorShiftPx: number }[];
 }
 
 interface MotionPoint {
@@ -31,6 +40,7 @@ interface MotionPoint {
   scaleX?: number;
   scaleY?: number;
   rotateDeg?: number;
+  clipInset?: readonly [number, number, number, number];
 }
 
 export interface CaptionSpriteMotion {
@@ -61,6 +71,10 @@ export const CAPTION_SPRITE_MOTIONS: Record<string, CaptionSpriteMotion> = {
   'slide-right': fromTo({ opacity: 0, xEm: -1.2 }),
   'slide-up': fromTo({ opacity: 0, yEm: 1.2 }),
   'slide-down': fromTo({ opacity: 0, yEm: -1.2 }),
+  'push-left': motion({ at: 0, xEm: 2, clipInset: [0, 0, 0, 1] }, { at: 1, xEm: 0, clipInset: [0, 0, 0, 0] }),
+  'push-right': motion({ at: 0, xEm: -2, clipInset: [0, 1, 0, 0] }, { at: 1, xEm: 0, clipInset: [0, 0, 0, 0] }),
+  'push-up': motion({ at: 0, yEm: 1.4, clipInset: [1, 0, 0, 0] }, { at: 1, yEm: 0, clipInset: [0, 0, 0, 0] }),
+  'push-down': motion({ at: 0, yEm: -1.4, clipInset: [0, 0, 1, 0] }, { at: 1, yEm: 0, clipInset: [0, 0, 0, 0] }),
   'rise-soft': fromTo({ opacity: 0, yEm: 0.35, scaleX: 0.98, scaleY: 0.98 }),
   'drop-in': motion(
     { at: 0, opacity: 0, yEm: -1.6 },
@@ -113,6 +127,7 @@ export const CAPTION_SPRITE_MOTIONS: Record<string, CaptionSpriteMotion> = {
   'spin-in': fromTo({ opacity: 0, rotateDeg: -180, scaleX: 0.5, scaleY: 0.5 }),
   'roll-in': fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
   'spiral-in': fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
+  swing: motion({ at: 0, opacity: 0, rotateDeg: 14 }, { at: 0.6, opacity: 1, rotateDeg: -6 }, { at: 1, opacity: 1, rotateDeg: 0 }),
   shake: motion(
     { at: 0, xEm: 0 }, { at: 0.2, xEm: -0.16 }, { at: 0.4, xEm: 0.14 },
     { at: 0.6, xEm: -0.1 }, { at: 0.8, xEm: 0.06 }, { at: 1, xEm: 0 }
@@ -121,6 +136,15 @@ export const CAPTION_SPRITE_MOTIONS: Record<string, CaptionSpriteMotion> = {
     { at: 0, xEm: 0, yEm: 0 }, { at: 0.25, xEm: 0.05, yEm: -0.04 },
     { at: 0.5, xEm: -0.05, yEm: 0.04 }, { at: 0.75, xEm: 0.03, yEm: 0.05 }, { at: 1, xEm: 0, yEm: 0 }
   ),
+  glitch: motion(
+    { at: 0, opacity: 0, xEm: -0.2, clipInset: [0, 0, 0.6, 0] },
+    { at: 0.3, opacity: 1, xEm: 0.12, clipInset: [0.3, 0, 0.2, 0] },
+    { at: 0.6, xEm: -0.06, clipInset: [0.1, 0, 0.45, 0] },
+    { at: 1, opacity: 1, xEm: 0, clipInset: [0, 0, 0, 0] }
+  ),
+  typewriter: motion({ at: 0, opacity: 1 }, { at: 1, opacity: 1 }),
+  'wipe-left': motion({ at: 0, clipInset: [0, 0, 0, 1] }, { at: 1, clipInset: [0, 0, 0, 0] }),
+  'wipe-right': motion({ at: 0, clipInset: [0, 1, 0, 0] }, { at: 1, clipInset: [0, 0, 0, 0] }),
   flash: motion(
     { at: 0, opacity: 0 }, { at: 0.3, opacity: 1 }, { at: 0.45, opacity: 0.2 },
     { at: 0.6, opacity: 1 }, { at: 0.75, opacity: 0.5 }, { at: 1, opacity: 1 }
@@ -154,10 +178,7 @@ export const CAPTION_SPRITE_MOTIONS: Record<string, CaptionSpriteMotion> = {
   'crawl-up': fromTo({ yPercent: 1 }, { yPercent: -1 })
 };
 
-const unsupported = new Set([
-  'push-left', 'push-right', 'push-up', 'push-down', 'typewriter', 'wipe-left', 'wipe-right',
-  'glitch', 'swing'
-]);
+const unsupported = new Set<string>();
 
 const easeCurves: Record<string, readonly [number, number, number, number] | null> = {
   linear: null,
@@ -227,6 +248,9 @@ export function captionMotionAt(
     const delay = Math.max(0, cueDuration - duration);
     if (local >= delay) applySlot(state, declaration.out, 1 - Math.min(1, (local - delay) / duration), em, amp, plateWidthPx, plateHeightPx);
   }
+  if ([declaration.in, declaration.loop, declaration.out].some((slot) => slot?.id === 'glitch') && state.clip) {
+    state.slices = [{ ...state.clip, offsetX: state.translateX, colorShiftPx: 0 }];
+  }
   return state;
 }
 
@@ -252,6 +276,15 @@ function applySlot(state: CaptionMotionState, slot: CaptionMotionSlot, progress:
     opacity.fraction
   );
   const transform = propertyInterval(points, hasTransform, directed, ease);
+  const clip = propertyInterval(points, (point) => point.clipInset !== undefined, directed, ease);
+  if (clip) {
+    const a = clip.left.clipInset ?? [0, 0, 0, 0];
+    const b = clip.right.clipInset ?? [0, 0, 0, 0];
+    const inset = a.map((value, index) => lerp(value, b[index]!, clip.fraction));
+    state.clip = { x: inset[3]!, y: inset[0]!, width: 1 - inset[3]! - inset[1]!, height: 1 - inset[0]! - inset[2]! };
+  }
+  if (slot.id === 'swing') { state.originX = 0.5; state.originY = 0; }
+  if (slot.id === 'typewriter') state.typewriter = directed;
   if (!transform) return;
   const a = hasTransform(transform.left)
     ? pointState(transform.left, slot.id, emPx, amp, plateWidthPx, plateHeightPx) : underlying;
