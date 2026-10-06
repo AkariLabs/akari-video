@@ -4179,9 +4179,10 @@ function injectCaptionStyles() {
 `;
   document.head.appendChild(style);
 }
-function renderStyledToken(word, captionStart, style, karaoke = null, karaokeIndex = 0) {
+function renderStyledToken(word, captionStart, style, karaoke = null, karaokeIndex = 0, measuredTimeline = false) {
   const delay = word.start - captionStart;
   const dur = Math.max(0.01, word.end - word.start);
+  const karaokeDelay = seconds => measuredTimeline ? seconds : Math.max(0, seconds);
   if (style === 'karaoke' && karaoke) {
     const chars = [...new Intl.Segmenter(undefined, { granularity:'grapheme' }).segment(word.text)].map(part => part.segment);
     const before = Math.max(0, Math.min(chars.length, (karaoke.start_index ?? 0) - karaokeIndex));
@@ -4189,10 +4190,10 @@ function renderStyledToken(word, captionStart, style, karaoke = null, karaokeInd
     const rest = chars.slice(before);
     if (!rest.length) return done;
     if (karaoke.fill === 'char') return done + rest.map((char, index) =>
-      `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${Math.max(0, delay + dur * (before + index) / chars.length).toFixed(3)}s;--akari-tok-dur:0s">${esc(char)}</span>`).join('');
-    if (karaoke.fill === 'word') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${Math.max(0, delay).toFixed(3)}s;--akari-tok-dur:0s">${esc(rest.join(''))}</span>`;
-    if (karaoke.fill === 'smooth') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke-smooth" data-karaoke-text="${esc(rest.join('')).replaceAll('"', '&quot;')}" style="--akari-tok-delay:${Math.max(0, delay + dur * before / chars.length).toFixed(3)}s;--akari-tok-dur:${(dur * rest.length / chars.length).toFixed(3)}s">${esc(rest.join(''))}</span>`;
-    if (before) return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${Math.max(0, delay).toFixed(3)}s;--akari-tok-dur:${dur.toFixed(3)}s">${esc(rest.join(''))}</span>`;
+      `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${karaokeDelay(delay + dur * (before + index) / chars.length).toFixed(3)}s;--akari-tok-dur:0s">${esc(char)}</span>`).join('');
+    if (karaoke.fill === 'word') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${karaokeDelay(delay).toFixed(3)}s;--akari-tok-dur:0s">${esc(rest.join(''))}</span>`;
+    if (karaoke.fill === 'smooth') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke-smooth" data-karaoke-text="${esc(rest.join('')).replaceAll('"', '&quot;')}" style="--akari-tok-delay:${karaokeDelay(delay + dur * before / chars.length).toFixed(3)}s;--akari-tok-dur:${(dur * rest.length / chars.length).toFixed(3)}s">${esc(rest.join(''))}</span>`;
+    if (before) return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${karaokeDelay(delay).toFixed(3)}s;--akari-tok-dur:${dur.toFixed(3)}s">${esc(rest.join(''))}</span>`;
   }
   if (style === 'reveal-word') {
     return `<span class="akari-caption__tok akari-caption__tok--reveal-word" style="--akari-tok-delay:${delay}s">${esc(word.text)}</span>`;
@@ -4238,6 +4239,22 @@ function renderResolvedWordTokens(active) {
       .map(([name, value]) => `${name}:${value};`).join('');
     return `<span class="akari-caption__tok akari-caption__tok--preset" data-emphasis-preset="${esc(style.preset_id)}" style="${esc(vars)}">${esc(word.text)}</span>`;
   }).join('');
+}
+function renderResolvedKaraokeLines(active, karaoke) {
+  const lines = new Map();
+  const words = Array.isArray(active.words) ? active.words : [];
+  const styles = Array.isArray(active.word_styles) ? active.word_styles : [];
+  let graphemeOffset = 0;
+  words.forEach((word, index) => {
+    const line = Number.isInteger(word.line) ? word.line : 0;
+    const preset = styles.find(entry => entry.from <= index && index < entry.to);
+    const token = preset
+      ? renderResolvedWordTokens({ words: [word], word_styles: [{ ...preset, from: 0, to: 1 }] })
+      : renderStyledToken(word, active.start, 'karaoke', karaoke, graphemeOffset, true);
+    lines.set(line, (lines.get(line) ?? '') + token);
+    graphemeOffset += [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word.text)].length;
+  });
+  return [...lines.values()].map(line => `<span class="akari-caption__resolved-line">${line}</span>`).join('');
 }
 const captionRows = new Map();
 function updateCaption() {
@@ -4309,6 +4326,12 @@ function renderCaptionRow(active, captionPlate) {
   captionPlate.classList.toggle('akari-caption--frame-fit', frameFit);
   const wrapPlate = inner => blockMode ? `<div class="akari-caption__block">${inner}</div>` : inner;
   injectCaptionStyles();
+  if (captionsResolvedTimeline && active.style === 'karaoke' && active.words?.length) {
+    captionPlate.innerHTML = renderResolvedKaraokeLines(active, karaoke);
+    applyRichCaptionLayers(captionPlate, richStyle);
+    captionPlate.dataset.captionStart = String(active.start);
+    return;
+  }
   if (captionsResolvedTimeline && active.word_styles?.length && active.words?.length) {
     captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${renderResolvedWordTokens(active)}</span>`;
     applyRichCaptionLayers(captionPlate, richStyle);

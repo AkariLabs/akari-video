@@ -54,6 +54,36 @@ test("射影済み edit なら display_policy が解決され、読点で行が�
   }
 });
 
+test('karaoke words keep measured output times across a two-line display cue', () => {
+  const words = ['あいう', 'えおか', 'きくけ', 'こさし'].map((text, index) => ({
+    text, start: index * 0.5, end: (index + 1) * 0.5,
+  }));
+  const root = { display_policy: { ...POLICY, max_line_units: 12, lines: 2, word_style: 'karaoke' },
+    captions: [{ id: 'c-karaoke', start: 0, end: 2, text: words.map(word => word.text).join(''),
+      display_fragments: ['あいうえおか', 'きくけこさし'], words }] };
+  const plan = resolveCaptionPlan({ captionsRoot: root, edit: projectedEdit() });
+  assert.equal(plan.layout.display_cues.length, 1);
+  assert.deepEqual(plan.layout.display_cues[0].display_lines, root.captions[0].display_fragments);
+  assert.equal(plan.layout.display_cues[0].style, 'karaoke');
+  assert.deepEqual(plan.layout.display_cues[0].words.map(word => word.start), [0, 0.5, 1, 1.5]);
+  assert.equal((plan.overlays[0].html.match(/class="akari-caption__tok akari-caption__tok--karaoke"/g) ?? []).length, 4);
+  assert.match(plan.overlays[0].html, /--akari-tok-delay: 0\.5s/u);
+  assert.match(plan.overlays[0].html, /--akari-tok-delay: 1\.5s/u);
+  assert.match(plan.overlays[0].html, /akari-caption-karaoke-lit/u);
+});
+
+test('a word that began before its fragment keeps elapsed karaoke progress', () => {
+  const root = { display_policy: { ...POLICY, max_line_units: 12, lines: 1, word_style: 'karaoke' },
+    captions: [{ id: 'c-offset', start: 0, end: 2, text: 'あいうえおか',
+      display_fragments: ['あいう', 'えおか'], words: [
+        { text: 'あいう', start: 0, end: 1.2 },
+        { text: 'えおか', start: 0.8, end: 1.6 },
+      ] }] };
+  const plan = resolveCaptionPlan({ captionsRoot: root, edit: projectedEdit() });
+  assert.equal(plan.layout.display_cues[1].start, 1);
+  assert.match(plan.overlays[1].html, /--akari-tok-delay: -0\.2s/u);
+});
+
 test("射影前の v2 を渡すと、0 件を返さずに落ちる", () => {
   // これが preview-server が踏んだ形: tracks はあるが cuts が無い。
   // 旧実装は cuts = [] として扱い、occurrence 0 → display_cues 0 を「正常」として返していた。

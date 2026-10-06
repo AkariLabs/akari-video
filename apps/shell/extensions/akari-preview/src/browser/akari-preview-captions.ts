@@ -214,11 +214,12 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
             words?: { start: number; end: number; text: string; line: number }[];
             word_styles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
         };
-        const hasWordDisplay = Array.isArray(wordDisplay.words) && Array.isArray(wordDisplay.word_styles);
+        const hasWordDisplay = Array.isArray(wordDisplay.words);
         return {
             id: cue.id,
             sourceCueId: cue.source_cue_id,
             resolvedTimeline: true,
+            ...((cue as { style?: string }).style === 'karaoke' ? { style: 'karaoke' as const } : {}),
             start: cue.start,
             end: cue.end,
             text: cue.text,
@@ -227,7 +228,7 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
             ...(Array.isArray(displayLines) ? { displayLines: [...displayLines] } : {}),
             ...(hasWordDisplay ? {
                 resolvedWords: wordDisplay.words!.map(word => ({ ...word })),
-                wordStyles: wordDisplay.word_styles!.map(style => ({ ...style, style_vars: { ...style.style_vars } }))
+                wordStyles: (wordDisplay.word_styles ?? []).map(style => ({ ...style, style_vars: { ...style.style_vars } }))
             } : {}),
             ...(textStyle ? { textStyle } : {}),
             ...(styleVars || textStyle ? {

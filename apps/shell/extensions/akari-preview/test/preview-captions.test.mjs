@@ -137,6 +137,18 @@ test('scale/rotate become caption transform variables and resolved display lines
     assert.equal(resolved.textStyleVars['--caption-rotate'], '-8deg');
 });
 
+test('resolved karaoke keeps its fragment words and style for the webview renderer', () => {
+    const [resolved] = parseResolvedPreviewCaptions({ schema: 'caption-layout/v1', captions: [{
+        id: 'c-1-occ-0001-part-1', source_cue_id: 'c-1', start: 0, end: 2,
+        text: 'あいうえ', display_lines: ['あい', 'うえ'], style: 'karaoke',
+        words: [{ text: 'あい', start: 0, end: 1, line: 0 }, { text: 'うえ', start: 1, end: 2, line: 1 }]
+    }] });
+    assert.equal(resolved.style, 'karaoke');
+    assert.deepEqual(resolved.displayLines, ['あい', 'うえ']);
+    assert.deepEqual(resolved.resolvedWords.map(word => word.start), [0, 1]);
+    assert.deepEqual(resolved.wordStyles, []);
+});
+
 test('animation-only resolved captions retain the unstylized look at the end of typewriter', () => {
     const [animated] = parseResolvedPreviewCaptions({ schema: 'caption-layout/v1', captions: [{
         id: 'c-1-occ-0001-part-1', source_cue_id: 'c-1', start: 0, end: 3, text: '文字送り',
