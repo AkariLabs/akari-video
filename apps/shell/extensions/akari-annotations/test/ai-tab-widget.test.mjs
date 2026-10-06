@@ -10,6 +10,7 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
+import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
 
 const source = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
@@ -27,7 +28,7 @@ const dependencies = {
   aiActionCatalog, describeAiTiles,
   aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor,
   appendImageAiPanel,
-  appendAiStillNotice, stillMismatchNotice, isInspectorStillImage,
+  appendAiStillNotice, stillMismatchNotice, isInspectorStillImage, CAPTION_IMAGE_EXTENSIONS,
   openPhotoEditPanel: options => { openedPhotoPanel = options; },
   ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }],
   ADJUST_PREVIEW_SECTIONS: [],
@@ -130,8 +131,7 @@ test('widget: 静止画の別案一覧から動画タイル → 専用パネル 
   instance.render();
   assert.deepEqual(instance.body.children.flatMap(node => node.className === 'akari-inspector-ai-list'
     ? node.children.map(group => group.children[0].textContent) : []), ['作る', '直す']);
-  assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'true');
-  assert.equal(find(instance.body, byClass('akari-inspector-ai-reason')).textContent, '声の入った音声か動画で使えます');
+  assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'false');
   aiTile(instance.body).click();
   assert.equal(find(instance.body, byClass('akari-inspector-ai-back')).textContent, '← ホーム');
   assert.ok(panel(instance.body));
@@ -200,13 +200,13 @@ test('widget: 動画モデル 0 本のふつうの動画は動画タイルなし
   assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'false');
 }));
 
-test('widget: 動画モデル 0 本の identity は一覧を出し、文字起こしはグレー', () => withDom(() => {
+test('widget: 動画モデル 0 本の画像は一覧を出し、文字起こしから理由を見られる', () => withDom(() => {
   const instance = fixture({ routes: false });
   instance.render();
   assert.equal(aiTab(instance.body).disabled, false);
   assert.equal(panel(instance.body), undefined);
   assert.equal(aiTile(instance.body), undefined);
-  assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'true');
+  assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'false');
 }));
 
 test('widget: catalog 読込失敗は同じ workspace で 1 回だけ通知する', () => withDom(async () => {

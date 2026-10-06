@@ -3,9 +3,9 @@ export interface CaptionSourcePathRuleResult {
     reason?: string;
 }
 
-const images = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'svg', 'avif']);
-const videos = new Set(['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'ts', 'mts']);
-const audio = new Set(['wav', 'mp3', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'aif', 'aiff', 'wma']);
+export const CAPTION_IMAGE_EXTENSIONS: ReadonlySet<string> = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'svg', 'avif']);
+export const CAPTION_VIDEO_EXTENSIONS: ReadonlySet<string> = new Set(['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'ts', 'mts']);
+export const CAPTION_AUDIO_EXTENSIONS: ReadonlySet<string> = new Set(['wav', 'mp3', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'aif', 'aiff', 'wma']);
 
 function normalize(path: string): string {
     let normalized = path.replace(/\\/gu, '/');
@@ -32,8 +32,8 @@ export function captionSourcePathRule(path: string, projectRoot?: string): Capti
     if (relativeToProject(path, projectRoot)?.startsWith('exports/')) {
         return { status: 'excluded', reason: '書き出した完成品です（元の素材から起こします）' };
     }
-    if (images.has(extension)) return { status: 'excluded', reason: '画像には音声がありません' };
-    if (!videos.has(extension) && !audio.has(extension)) {
+    if (CAPTION_IMAGE_EXTENSIONS.has(extension)) return { status: 'excluded', reason: '画像には音声がありません' };
+    if (!CAPTION_VIDEO_EXTENSIONS.has(extension) && !CAPTION_AUDIO_EXTENSIONS.has(extension)) {
         return { status: 'excluded', reason: '音声・動画のファイルではありません' };
     }
     return { status: 'voice' };

@@ -58,3 +58,25 @@ test("force replaces edited rows and reports no protection", () => {
   assert.equal(result.summary.changed, 1);
   assert.equal(result.captions[0], next[0]);
 });
+
+test("one source replaces only its own rows and keeps every other source byte-equivalent", () => {
+  const other = { id: "c-0042", src: "s2", start: 2, end: 3, text: "残す", edited: false,
+    sourceRef: { segment: 0 }, words: [{ start: 2, end: 3, text: "残す" }] };
+  const before = JSON.stringify(other);
+  const existing = [
+    { id: "c-0001", src: "s1", start: 0, end: 1, text: "古い", edited: false, sourceRef: { segment: 0 } },
+    other,
+    { id: "c-0002", src: "s1", start: 4, end: 5, text: "消す", edited: false, sourceRef: { segment: 1 } }
+  ];
+  const next = [{ id: "c-0042", src: "s1", start: 0, end: 1, text: "新しい", sourceRef: { segment: 0 } }];
+  const result = mergeCaptionsForApply(existing, next, { src: "s1" });
+  assert.equal(result.captions.find(row => row.src === "s2"), other);
+  assert.equal(JSON.stringify(result.captions.find(row => row.src === "s2")), before);
+  assert.equal(result.captions.find(row => row.src === "s1").id !== other.id, true);
+  assert.equal(result.summary.removed, 1);
+  assert.equal(result.summary.changed, 1);
+  assert.equal(result.summary.ids.removed.includes(other.id), false);
+  const empty = mergeCaptionsForApply(existing, [], { src: "s1" });
+  assert.deepEqual(empty.captions, [other]);
+  assert.equal(empty.summary.removed, 2);
+});

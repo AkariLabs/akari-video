@@ -241,11 +241,12 @@ test('形式・fps・OS ごとのエンコーダは有効値を保持し、不�
 });
 
 
-test('文字起こしのモードは先頭に掲載し、既定は simple', () => {
-    assert.equal(SECTION_PREFERENCE_KEYS.transcribe[0], 'akari.transcribe.mode');
-    assert.match(SETTINGS_SECTION_DESCRIPTIONS.transcribe, /モード.*エンジン/);
-    assert.match(source('../browser/akari-preferences.ts'),
-        /\[AKARI_TRANSCRIBE_MODE\]:\s*\{\s*type: 'string', enum: \['simple', 'advanced'\], default: 'simple'/);
+test('旧モード設定は未登録でも、エンジンと比較の設定は残る', () => {
+    assert.equal(SECTION_PREFERENCE_KEYS.transcribe.includes('akari.transcribe.mode'), false);
+    assert.equal(SECTION_PREFERENCE_KEYS.transcribe[0], 'akari.transcribe.backend');
+    assert.match(SETTINGS_SECTION_DESCRIPTIONS.transcribe, /エンジン/);
+    assert.doesNotMatch(source('../browser/akari-preferences.ts'), /AKARI_TRANSCRIBE_MODE/);
+    assert.match(source('../browser/akari-preferences.ts'), /Old mode values in user settings are ignored/);
 });
 
 // 文字起こしのモード切替（カード）で比較・カットのフォームを置き換える DOM 検査は settings-dialog-refresh.test.mjs へ移した。

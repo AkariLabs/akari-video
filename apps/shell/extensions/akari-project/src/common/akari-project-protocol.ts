@@ -316,7 +316,7 @@ export interface TranscribeCuts {
 }
 export interface TranscribeArtifacts { transcripts: EngineTranscript[]; diff: TranscribeDiff | null; cuts: TranscribeCuts | null }
 export interface TranscriptStatesRequest { projectRoot: string; relativePaths: string[] }
-export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean; dryRun?: boolean; retime?: boolean }
+export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; editUri?: string; source?: string; force?: boolean; transcribeFirst?: boolean; dryRun?: boolean; retime?: boolean }
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {

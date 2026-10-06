@@ -123,6 +123,28 @@ test("normal apply preserves the complete JSON representation of an edited row",
   assert.equal(JSON.stringify(written.captions.find(item => item.id === "manual")), JSON.stringify(row));
 });
 
+test("applying one of two sources leaves the other source's rows unchanged", async (t) => {
+  const f = await fixture(t);
+  f.edit.sources.push({ id: "s2", path: "source/b.mp4" });
+  await writeFile(path.join(f.root, "edit.json"), JSON.stringify(f.edit));
+  await writeFile(path.join(f.root, "source/b.mp4"), "dummy");
+  const secondAnalysis = analysisPathForTarget({ projectRoot: f.root, projectRelative: "source/b.mp4" });
+  await mkdir(path.dirname(secondAnalysis), { recursive: true });
+  await writeFile(secondAnalysis, JSON.stringify({ transcript: [{ start: 1, end: 3, text: "別の声",
+    words: [{ start: 1, end: 3, text: "別の声" }] }] }));
+  assert.equal((await f.run("--source", "s1")).code, 0);
+  assert.equal((await f.run("--source", "s2")).code, 0);
+  const other = JSON.stringify(JSON.parse(await readFile(f.captionsPath, "utf8")).captions.filter(row => row.src === "s2"));
+  await writeFile(f.analysisPath, JSON.stringify({ transcript: [{ start: 0, end: 2, text: "更新",
+    words: [{ start: 0, end: 2, text: "更新" }] }] }));
+  const dry = await f.run("--source", "s1", "--dry-run", "--json");
+  assert.equal(dry.code, 0, dry.stderr.join("\n"));
+  assert.equal(JSON.parse(dry.stdout[0]).removed, 2);
+  assert.equal((await f.run("--source", "s1")).code, 0);
+  const after = JSON.parse(await readFile(f.captionsPath, "utf8"));
+  assert.equal(JSON.stringify(after.captions.filter(row => row.src === "s2")), other);
+});
+
 test("multiple sources require selection; IDs take precedence over paths", async (t) => {
   const f = await fixture(t);
   f.edit.sources.push({ id: "source/a.mp4", path: "source/b.mp4" });
