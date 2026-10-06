@@ -198,6 +198,20 @@ const caption = {
   edited: false,
 };
 
+test("karaoke / pop の語時刻なしを警告し、語時刻ありなら警告しない", () => {
+  for (const style of ["karaoke", "pop"]) {
+    for (const words of [undefined, [], [{ text: caption.text, start: 0, end: 2 }]]) {
+      const result = runValue([{ ...caption, style, ...(words === undefined ? {} : { words }) }]);
+      assert.equal(result.status, 0, result.stderr);
+      if (words?.length) assert.doesNotMatch(result.stderr, /without-words/u);
+      else {
+        assert.match(result.stderr, new RegExp(`${style}-without-words`, "u"));
+        assert.match(result.stderr, /語の時刻がない字幕/u);
+      }
+    }
+  }
+});
+
 test("caption word は吸着前の raw_start/raw_end を任意で受理する", () => {
   const valid = runValue([{ ...caption, words: [{ start: 1, end: 1.2, raw_start: 0.2, raw_end: 0.8, text: "語" }] }]);
   assert.equal(valid.status, 0, valid.stderr);

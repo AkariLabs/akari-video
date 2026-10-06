@@ -17,6 +17,7 @@ import { createRequire } from "node:module";
 import { migrateFixtureTree } from "./helpers/v2-fixture.mjs";
 import { prepareCutAudioFixtures } from "./helpers/cut-audio-fixtures.mjs";
 import { readLintSource } from "./helpers/read-lint-source.mjs";
+import { validateCaptions } from "../src/lint/captions.mjs";
 
 // 幾何の統一 G1: 未移行の v2（output.geometry 未指定）には geometry.fit-compat の warning が
 // 必ず 1 件付く。各検査の「所見ゼロ」判定はこの移行案内を除いて数える
@@ -985,6 +986,26 @@ test("captions-words-valid fixture (words[] + style: karaoke, id c-0001) passes 
       JSON.stringify(result.findings, null, 2),
     );
   });
+});
+
+test("karaoke / pop の語時刻なしは警告し、語時刻ありは警告しない", async () => {
+  const base = { ...styleParity.caption, start: 5, end: 7 };
+  for (const style of ["karaoke", "pop"]) {
+    const check = `captions.${style}-without-words`;
+    for (const words of [undefined, [], [{ text: base.text, start: 5, end: 7 }]]) {
+      const caption = { ...base, style, ...(words === undefined ? {} : { words }) };
+      const findings = [];
+      validateCaptions([caption], { cuts: [] }, null, findings, {
+        projectRoot: packageRoot, captionsPath: join(packageRoot, "captions.json"),
+      }, 10);
+      const warnings = findings.filter(finding => finding.check === check);
+      assert.equal(warnings.length, words?.length ? 0 : 1, style);
+      if (warnings.length) {
+        assert.equal(warnings[0].severity, "warning");
+        assert.match(warnings[0].message, /語の時刻がない字幕/u);
+      }
+    }
+  }
 });
 
 test("captions-style-invalid fixture rejects an unsupported style value", async () => {

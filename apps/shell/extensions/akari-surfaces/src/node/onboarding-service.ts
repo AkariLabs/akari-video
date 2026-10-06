@@ -4,6 +4,7 @@ import { basename, dirname, join, relative, resolve, sep } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
+import { rederiveCaptionWords } from '@akari-video/edit-store';
 import { runEditLint, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { AkariNewProjectService } from '../common/akari-new-project-protocol';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
@@ -348,6 +349,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         }
         const adjusted = segments.map(segment => ({ ...segment }));
         let karaokeTokens: TranscriptToken[] | undefined;
+        let transcriptTokens: TranscriptToken[] | undefined;
         try {
             const transcript = JSON.parse(await fs.readFile(join(dirname(sourcePath), 'transcript.json'), 'utf8')) as {
                 tokens?: { items?: TranscriptToken[] }
@@ -355,6 +357,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             const tokens = transcript.tokens?.items;
             if (Array.isArray(tokens) && tokens.every(token => typeof token.t === 'string' &&
                 Number.isFinite(token.start) && Number.isFinite(token.end))) {
+                transcriptTokens = tokens;
                 const index = adjusted.findIndex((segment, position) => adjusted[position + 1] &&
                     segment.text + adjusted[position + 1].text === 'BGMも、字幕のカラオケ表示もいけます。');
                 if (index >= 0) {
@@ -375,8 +378,24 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             }
         } catch { /* An absent or incompatible transcript leaves the model captions intact. */ }
         const captions = createOnboardingCaptions(adjusted, count, false) as { captions: Array<{
-            text: string; display_text: string; runs: object[]; [key: string]: unknown
+            text: string; display_text: string; runs: object[]; start: number; end: number; [key: string]: unknown
         }> };
+        if (transcriptTokens) {
+            for (const caption of captions.captions) {
+                const sourceWords = transcriptTokens.filter(token => token.start >= caption.start && token.end <= caption.end)
+                    .map(token => ({ text: token.t, start: token.start, end: token.end }));
+                if (!sourceWords.length) continue;
+                const aligned = rederiveCaptionWords({
+                    oldText: sourceWords.map(word => word.text).join(''), newText: caption.text,
+                    words: sourceWords, start: caption.start, end: caption.end
+                });
+                const withoutSpaces = (text: string): string => text.replace(/\s/gu, '');
+                if (!aligned.degraded && aligned.derivedCount === 0 && aligned.words.length > 0
+                    && withoutSpaces(aligned.words.map(word => word.text).join('')) === withoutSpaces(caption.text)
+                    && aligned.words.every(word => word.start >= caption.start && word.end <= caption.end
+                        && word.end > word.start)) caption.words = aligned.words;
+            }
+        }
         if (stage >= 2) {
             const keywords = ['アカリビデオ', 'AIと対話', '効果音', 'エフェクト', 'パッと', '図解', 'スマホ', 'モックアップ', 'BGM'];
             const GraphemeSegmenter = (Intl as typeof Intl & { Segmenter: new (locale: string,
@@ -397,7 +416,6 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         if (stage >= 7 && karaokeTokens) {
             const caption = captions.captions.find(item => item.text === '字幕のカラオケ表示もいけます。');
             if (caption) Object.assign(caption, { style: 'karaoke', runs: [],
-                words: karaokeTokens.map(token => ({ text: token.t, start: token.start, end: token.end })),
                 text_style: { karaoke: { fill: 'smooth', done_color: '#FB923C' }, size_px: 62 } });
         }
         const desired: Record<string, string> = {
