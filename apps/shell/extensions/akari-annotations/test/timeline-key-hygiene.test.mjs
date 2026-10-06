@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import ts from 'typescript';
 import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
@@ -16,6 +17,14 @@ function visit(node) {
 }
 visit(source);
 assert.ok(handler);
+const keybindingsSource = readFileSync(new URL('../src/browser/akari-shortcut-keybindings.ts', import.meta.url), 'utf8');
+const keybindingsFile = ts.createSourceFile('keybindings.ts', keybindingsSource, ts.ScriptTarget.Latest, true);
+const controlPolicy = keybindingsFile.statements.find(node => ts.isFunctionDeclaration(node)
+    && node.name?.text === 'isFocusOnControl');
+assert.ok(controlPolicy, 'shared control focus policy exists');
+const controlPolicyJs = ts.transpileModule(controlPolicy.getText(keybindingsFile).replace(/^export\s+/u, ''), {
+    compilerOptions: { target: ts.ScriptTarget.ES2021 }
+}).outputText;
 const js = ts.transpileModule(handler.getText(source), {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText.trim().replace(/;$/, '');
@@ -31,6 +40,7 @@ class Element {
         }
         return null;
     }
+    matches(selector) { return selector === '.akari-daihon-rows' && this.classes?.has('akari-daihon-rows'); }
     contains(other) {
         for (let current = other; current; current = current.parent) if (current === this) return true;
         return false;
@@ -47,10 +57,14 @@ function dispatch(key, { focus = 'timeline', eventTarget = focus, modal = null, 
         timeline, timelineChild: new Element(timeline), timelineButton: new Element(timeline, 'button'),
         timelineRoleButton: new Element(timeline, 'role-button'),
         timelineTabStop: new Element(timeline, 'tabindex'), timelineInput: new Element(timeline, 'input'),
+        daihonRows: new Element(null, 'tabindex'),
         outside: new Element(), body, iframe: new Element(null, 'tabindex', 'IFRAME'),
         libraryCard: new Element(null, 'tabindex'), outsideRoleButton: new Element(null, 'role-button'),
         dialogButton: new Element(null, 'button')
     };
+    elements.daihonRows.classes = new Set(['akari-daihon-rows']);
+    elements.daihonInput = new Element(elements.daihonRows, 'input', 'INPUT');
+    elements.daihonButton = new Element(elements.daihonRows, 'button', 'BUTTON');
     const document = {
         body, activeElement: elements[focus],
         querySelectorAll: selector => {
@@ -73,10 +87,12 @@ function dispatch(key, { focus = 'timeline', eventTarget = focus, modal = null, 
         commands: { executeCommand: () => { counts.text++; } }, location: undefined
     };
     const factory = new Function('isImeCompositionKeydown', 'document', 'window', 'HTMLElement',
-        'PLACE_TEXT_COMMAND_ID', 'getComputedStyle', 'captionEditFocusWithinMarkedWidget', `return function () { return (${js}); };`);
+        'PLACE_TEXT_COMMAND_ID', 'getComputedStyle', 'captionEditFocusWithinMarkedWidget',
+        'isFocusOnControl', `return function () { return (${js}); };`);
+    const isFocusOnControl = new Function('HTMLElement', `${controlPolicyJs}; return isFocusOnControl;`)(Element);
     const onKeyDown = factory(event => event.isComposing || event.keyCode === 229,
         document, window, Element, 'place-text', element => ({ visibility: element.visibility }),
-        captionEditFocusWithinMarkedWidget).call(widget);
+        captionEditFocusWithinMarkedWidget, isFocusOnControl).call(widget);
     onKeyDown({ key, code, isComposing, keyCode, metaKey, ctrlKey: false, altKey: false, shiftKey: false,
         target: elements[eventTarget], preventDefault: () => { counts.prevented++; },
         stopPropagation: () => { counts.stopped++; } });
@@ -91,7 +107,7 @@ test('IME 中はタイムラインのキーを扱わない', () => {
 test('Space は操作部品と表示中モーダルでは扱わず、通常要素と webview は扱う', () => {
     assert.equal(dispatch(' ', { focus: 'timeline' }).play, 1);
     for (const focus of ['timelineButton', 'timelineRoleButton', 'timelineTabStop',
-        'libraryCard', 'outsideRoleButton']) {
+        'libraryCard', 'outsideRoleButton', 'daihonButton']) {
         assert.equal(dispatch(' ', { focus }).play, 0, focus);
     }
     for (const focus of ['outside', 'body', 'iframe']) {
@@ -99,6 +115,18 @@ test('Space は操作部品と表示中モーダルでは扱わず、通常要�
     }
     assert.equal(dispatch(' ', { focus: 'outside', eventTarget: 'iframe' }).play, 1);
     assert.equal(dispatch(' ', { focus: 'dialogButton', modal: 'theia' }).play, 0);
+});
+
+test('台本の行リストにフォーカスした Space は再生を 1 回切り替える', () => {
+    const counts = dispatch(' ', { focus: 'daihonRows' });
+    assert.equal(counts.play, 1);
+    assert.equal(counts.prevented, 1);
+});
+
+test('台本の行の入力欄では Space を入力し、再生しない', () => {
+    const counts = dispatch(' ', { focus: 'daihonInput' });
+    assert.equal(counts.play, 0);
+    assert.equal(counts.prevented, 0);
 });
 
 test('Delete は表示中モーダルだけで抑止する', () => {

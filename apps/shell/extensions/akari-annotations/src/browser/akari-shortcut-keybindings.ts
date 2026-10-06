@@ -19,6 +19,13 @@ export interface AkariShortcutDependencies {
     trackedTimelines: () => Iterable<AkariAnnotationsWidget>;
 }
 
+export function isFocusOnControl(focused: HTMLElement | null, timelineNode?: HTMLElement,
+    isWebviewKeydown = false): boolean {
+    const control = focused?.closest('button, [role="button"], [tabindex]');
+    return !isWebviewKeydown && !!control && control !== timelineNode
+        && !(control === focused && focused.matches('.akari-daihon-rows'));
+}
+
 export class AkariShortcutKeybindings {
     protected latestKeydown?: KeyboardEvent;
 
@@ -48,8 +55,6 @@ export class AkariShortcutKeybindings {
                 || (event.target instanceof HTMLElement && event.target.tagName === 'IFRAME');
             const owns = webview || !!(widget && focused && widget.node.contains(focused));
             const outside = !!focused && focused !== document.body && !owns;
-            const control = focused?.closest('button, [role="button"], [tabindex]');
-            const daihonRowsControl = control === focused && focused?.matches('.akari-daihon-rows');
             const editable = (target: EventTarget | null): boolean => target instanceof HTMLElement
                 && (!!target.closest('.akari-inspector-widget') || isEditableEventTarget(target));
             const captionEditing = captionEditFocusWithinMarkedWidget(focused,
@@ -60,8 +65,7 @@ export class AkariShortcutKeybindings {
             this.deps.contextKeys.setContext('akariTimelineVisible', !!widget);
             this.deps.contextKeys.setContext('akariTimelineFocus', owns);
             this.deps.contextKeys.setContext('akariFocusOutsideTimeline', outside);
-            this.deps.contextKeys.setContext('akariFocusOnControl', !webview && !!control
-                && control !== widget?.node && !daihonRowsControl);
+            this.deps.contextKeys.setContext('akariFocusOnControl', isFocusOnControl(focused, widget?.node, webview));
             this.deps.contextKeys.setContext('akariModalOpen', modalOpen);
             this.deps.contextKeys.setContext('akariEditableFocus', captionEditing || editable(event.target) || editable(focused));
             this.deps.contextKeys.setContext('akariHistoryEditableFocus',
