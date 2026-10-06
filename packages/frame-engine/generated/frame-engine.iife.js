@@ -16244,7 +16244,27 @@ ${indent}`);
         const normalized = normalizeRanges(ranges);
         if (normalized.length === 0)
           return { source, removedFrames: 0, warnings: [] };
+        if (version === 2 && ranges.length > 1 && hasLinkedAudioOverhang(source) && ranges.every((range, index) => ranges.slice(index + 1).every((other) => range.captionId !== other.captionId || range.out <= other.in || other.out <= range.in))) {
+          let current = source;
+          let removedFrames = 0;
+          const warnings2 = [];
+          for (const range of ranges) {
+            const result = applyV2(current, [range], opts);
+            current = result.source;
+            removedFrames += result.removedFrames;
+            warnings2.push(...result.warnings);
+          }
+          return { source: current, removedFrames, warnings: warnings2 };
+        }
         return version === 2 ? applyV2(source, normalized, opts) : applyLegacy(source, normalized, opts);
+      }
+      function hasLinkedAudioOverhang(source) {
+        const edit = JSON.parse(source);
+        const visuals = new Map(visualTracks(edit).flatMap((track) => track.items.map((item) => [item.id, item])));
+        return audioTracks(edit).some((track) => track.items.some((audio) => {
+          const visual = audio.link && visuals.get(audio.link);
+          return visual && (audio.at < visual.at || audio.at + audio.duration > visual.at + visual.duration);
+        }));
       }
       function applyLegacy(initialSource, ranges, opts) {
         let source = initialSource;
@@ -16320,7 +16340,8 @@ ${indent}`);
           if (preserveLeadingGapTrackIds.includes(track.id) || audioTracks(edit).some((audioTrack) => audioTrack.items.some((audio) => audio.link === first.id && audio.at < first.at)))
             leadingLinkedAudio.set(track.id, first.at);
         }
-        const audioBeforeCutWithNoVisual = /* @__PURE__ */ new Set();
+        const audioBeforeCutWithNoVisual = /* @__PURE__ */ new Map();
+        const removedVisualFrames = /* @__PURE__ */ new Map();
         let removedFrames = 0;
         for (const range of ranges) {
           const matchingSourceExists = edit.sources.some((candidate) => candidate.id === range.captionId) || visualTracks(edit).some((track) => track.items.some((item) => item.source.kind === "media" && item.source.src === range.captionId));
@@ -16339,6 +16360,19 @@ ${indent}`);
               matched = true;
               affectedTrackIds.add(track.id);
               const replacement = splitAndRemove(item, overlapIn, overlapOut, edit, preserveSourceEdges);
+              if (replacement.removedFrames > 0) {
+                let byTrack = removedVisualFrames.get(range);
+                if (!byTrack)
+                  removedVisualFrames.set(range, byTrack = /* @__PURE__ */ new Map());
+                let removals = byTrack.get(track.id);
+                if (!removals)
+                  byTrack.set(track.id, removals = []);
+                const startFrame = Math.round((overlapIn - item.source.in) / (item.source.out - item.source.in) * item.duration);
+                removals.push({
+                  at: item.at + Math.max(0, Math.min(item.duration, startFrame)),
+                  frames: replacement.removedFrames
+                });
+              }
               for (const replacementItem of replacement.items) {
                 copyRangeMetadata(replacementItem, range);
               }
@@ -16362,7 +16396,7 @@ ${indent}`);
                     if (visual)
                       piece.link = visual.id;
                     if ((piece.source.out ?? Infinity) <= overlapIn + audioFrameTolerance(piece) && !replacement.items.some((candidate) => media(candidate) && candidate.source.out <= overlapIn + audioFrameTolerance(candidate))) {
-                      audioBeforeCutWithNoVisual.add(piece.id);
+                      audioBeforeCutWithNoVisual.set(piece.id, { range, trackId: track.id });
                     }
                   }
                   if (audioPieces.length === 2 && !hasRightVisual) {
@@ -16408,8 +16442,16 @@ ${indent}`);
           for (const item of track.items) {
             if (!item.link || !previousVisual.has(item.link))
               continue;
-            if (audioBeforeCutWithNoVisual.has(item.id))
+            const beforeCut = audioBeforeCutWithNoVisual.get(item.id);
+            if (beforeCut) {
+              const visual2 = compactedVisual.get(item.link);
+              const before = previousVisual.get(item.link);
+              if (visual2) {
+                const ownRemoved = removedVisualFrames.get(beforeCut.range)?.get(beforeCut.trackId)?.filter((removal) => removal.at <= before).reduce((total, removal) => total + removal.frames, 0) ?? 0;
+                item.at = Math.max(0, item.at + visual2.at - before + ownRemoved);
+              }
               continue;
+            }
             const visual = compactedVisual.get(item.link);
             if (visual)
               item.at = Math.max(0, item.at + visual.at - previousVisual.get(item.link));

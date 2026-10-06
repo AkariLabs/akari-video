@@ -48,6 +48,41 @@ function assertLinkedAudioVisibleSync(doc) {
   }
 }
 
+function assertNoAudioOverlap(doc) {
+  for (const track of doc.tracks.filter(candidate => candidate.lane === 'audio')) {
+    const items = [...track.items].sort((left, right) => left.at - right.at);
+    for (let index = 1; index < items.length; index++) {
+      assert.ok(items[index].at >= items[index - 1].at + items[index - 1].duration,
+        `${items[index - 1].id} / ${items[index].id}`);
+    }
+  }
+}
+
+function separatedAdjacentPair({ tailAudio = false, otherSource = false } = {}) {
+  const doc = JSON.parse(v2([
+    media('c0', 0, 180, 0, 6),
+    media('c1', 180, 180, otherSource ? 0 : 6, otherSource ? 6 : 12,
+      otherSource ? 'other' : 'main'),
+  ]));
+  const first = splitCutAudio(doc, { cutId: 'c0', hasAudio: true }).document;
+  const split = splitCutAudio(first, { cutId: 'c1', hasAudio: true }).document;
+  const audio = split.tracks.find(track => track.lane === 'audio').items;
+  if (tailAudio) {
+    audio[0].duration = 210;
+    audio[0].source.out = 7;
+    audio[1].at = 210;
+    audio[1].duration = 150;
+    audio[1].source.in += 1;
+  } else {
+    audio[0].duration = 150;
+    audio[0].source.out = 5;
+    audio[1].at = 150;
+    audio[1].duration = 210;
+    audio[1].source.in = 5;
+  }
+  return text(split);
+}
+
 test('detectEditVersion は v0 を返す', () => assert.equal(detectEditVersion(legacy(0)), 0));
 test('detectEditVersion は v1 を返す', () => assert.equal(detectEditVersion(legacy(1)), 1));
 test('detectEditVersion は v2 を返す', () => assert.equal(detectEditVersion(v2()), 2));
@@ -1140,4 +1175,139 @@ test('音声の右片を at・duration・source.in とも 1 フレーム手直�
   right.duration -= 1;
   right.source.in += 1 / 30;
   assert.match(canRestoreCutRange(text(edited), cut), /あとに編集/);
+});
+
+test('一括カットでも J カットの前ノリ片は左側のほかのカットによるリップルに追従する', () => {
+  const doc = JSON.parse(v2([
+    media('c0', 0, 900, 0, 30), media('c1', 900, 300, 30, 40),
+  ]));
+  const first = splitCutAudio(doc, { cutId: 'c0', hasAudio: true }).document;
+  const split = splitCutAudio(first, { cutId: 'c1', hasAudio: true }).document;
+  const audio = split.tracks.find(track => track.lane === 'audio').items;
+  audio[0].duration = 870; audio[0].source.out = 29;
+  audio[1].at = 870; audio[1].duration = 330; audio[1].source.in = 29;
+  const original = text(split);
+  for (const count of [1, 5, 10]) {
+    const cuts = [range([29.8, 30.4], 'filler', { captionId: 'main' })];
+    for (let index = 0; index < count; index++) {
+      cuts.push(range([2 + index * 2.5, 2.4 + index * 2.5], 'filler', { captionId: 'main' }));
+    }
+    const after = JSON.parse(applyCutRanges(original, cuts).source);
+    const visuals = after.tracks.find(track => track.lane === 'visual').items;
+    const pieces = after.tracks.find(track => track.lane === 'audio').items;
+    const pre = pieces.find(item => item.source.in === 29);
+    const post = pieces.find(item => Math.abs(item.source.in - 30.4) < 0.01);
+    const leftVisual = visuals.find(item => item.source.in <= 29 && item.source.out > 29);
+    assert.equal(pre.at, leftVisual.at + Math.round((29 - leftVisual.source.in) * 30), `count ${count}`);
+    assert.equal(pre.at + pre.duration, post.at, `count ${count}`);
+    assertNoAudioOverlap(after);
+    assertLinkedAudioVisibleSync(after);
+  }
+});
+
+test('空きの詰めによるリップルでも前ノリ片が移動し、右片と重ならない', () => {
+  const doc = JSON.parse(v2([
+    media('c0', 0, 90, 0, 3, 'other'),
+    media('c1', 120, 180, 0, 6),
+    media('c2', 300, 180, 6, 12),
+  ]));
+  let split = doc;
+  for (const cutId of ['c0', 'c1', 'c2']) {
+    split = splitCutAudio(split, { cutId, hasAudio: true }).document;
+  }
+  const audio = split.tracks.find(track => track.lane === 'audio').items;
+  const c1 = audio.find(item => item.link === 'c1');
+  const c2 = audio.find(item => item.link === 'c2');
+  c1.duration = 150; c1.source.out = 5;
+  c2.at = 270; c2.duration = 210; c2.source.in = 5;
+  const cut = range([5.8, 6.4], 'filler', { captionId: 'main' });
+  const after = JSON.parse(applyCutRanges(text(split), [cut]).source);
+  const pieces = after.tracks.find(track => track.lane === 'audio').items;
+  const pre = pieces.find(item => item.source.src === 'main' && item.source.in === 5);
+  const post = pieces.find(item => item.source.src === 'main' && item.source.in === 6.4);
+  assert.equal(pre.at, 240);
+  assert.equal(pre.at + pre.duration, post.at);
+  assertNoAudioOverlap(after);
+  assertLinkedAudioVisibleSync(after);
+});
+
+test('J カットの複数区間は一括と逐次で同じ結果になる', () => {
+  const original = separatedAdjacentPair();
+  const cuts = [range([1, 1.5], 'filler', { captionId: 'main' }),
+    range([5.8, 6.4], 'filler', { captionId: 'main' })];
+  const batch = applyCutRanges(original, cuts).source;
+  const sequential = cuts.reduce((source, cut) => applyCutRanges(source, [cut]).source, original);
+  assert.equal(batch, sequential);
+  assertNoAudioOverlap(JSON.parse(batch));
+  assertLinkedAudioVisibleSync(JSON.parse(batch));
+});
+
+test('L カットの複数区間は一括と逐次で音声の位置と素材区間が一致する', () => {
+  for (const otherSource of [false, true]) {
+    const original = separatedAdjacentPair({ tailAudio: true, otherSource });
+    const cuts = [range([1, 1.5], 'filler', { captionId: 'main' }),
+      range([5.8, 6.4], 'filler', { captionId: 'main' })];
+    const batch = JSON.parse(applyCutRanges(original, cuts).source);
+    const sequential = JSON.parse(cuts.reduce((source, cut) => applyCutRanges(source, [cut]).source, original));
+    assert.deepEqual(batch, sequential);
+    const signature = doc => doc.tracks.map(track => track.items.map(item => [
+      item.at, item.duration, item.source.src, item.source.in, item.source.out,
+    ]));
+    assert.deepEqual(signature(batch), signature(sequential));
+    assertNoAudioOverlap(batch);
+    assertLinkedAudioVisibleSync(batch);
+  }
+});
+
+test('固定シードで前ノリと複数カットを一括適用しても音声は同期する', () => {
+  const original = separatedAdjacentPair();
+  let seed = 20261009;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
+  for (let trial = 0; trial < 24; trial++) {
+    const cuts = [range([5.8, 6.4], 'filler', { captionId: 'main' })];
+    for (let index = 0; index < 4; index++) {
+      if (random() < 0.5) continue;
+      const start = index + 0.1 + Math.floor(random() * 4) / 10;
+      cuts.push(range([start, start + 0.2], 'filler', { captionId: 'main' }));
+    }
+    const edited = applyCutRanges(original, cuts).source;
+    const sequential = cuts.reduce((source, cut) => applyCutRanges(source, [cut]).source, original);
+    assert.equal(edited, sequential, `trial ${trial}`);
+    const after = JSON.parse(edited);
+    assertNoAudioOverlap(after);
+    assertLinkedAudioVisibleSync(after);
+  }
+});
+
+test('映像の尻を別の区間で削っても前ノリ片の一括位置は両順序の逐次と一致する', () => {
+  const doc = { version: 2, output: { width: 320, height: 180, fps: 60 },
+    sources: [{ id: 'main', path: 'main.mp4' }], tracks: [{ id: 'v', lane: 'visual', items: [
+      media('c0', 0, 448, 1.455, 8.922), media('c1', 448, 251, 10.501, 14.684),
+    ] }] };
+  const first = splitCutAudio(doc, { cutId: 'c0', hasAudio: true }).document;
+  const split = splitCutAudio(first, { cutId: 'c1', hasAudio: true }).document;
+  const audio = split.tracks.find(track => track.lane === 'audio').items;
+  audio[0].duration = 424; audio[0].source.out = 8.522;
+  audio[1].at = 424; audio[1].duration = 275; audio[1].source.in = 10.101;
+  const original = text(split);
+  const cuts = [range([8.391, 9.036], 'filler', { captionId: 'main' }),
+    range([10.332, 10.784], 'filler', { captionId: 'main' })];
+  const applyOneByOne = ordered => JSON.parse(ordered.reduce((source, cut) =>
+    applyCutRanges(source, [cut]).source, original));
+  const batch = JSON.parse(applyCutRanges(original, cuts).source);
+  const forward = applyOneByOne(cuts);
+  const reverse = applyOneByOne([...cuts].reverse());
+  const audioSignature = result => result.tracks.find(track => track.lane === 'audio').items
+    .map(item => [item.at, item.duration, item.source.in, item.source.out]);
+  assert.deepEqual(audioSignature(batch), audioSignature(forward));
+  assert.deepEqual(audioSignature(batch), audioSignature(reverse));
+  assert.equal(audioSignature(batch)[1][0], 392);
+  const overlap = result => {
+    const pieces = result.tracks.find(track => track.lane === 'audio').items
+      .toSorted((left, right) => left.at - right.at);
+    return Math.max(...pieces.slice(1).map((item, index) =>
+      Math.max(0, pieces[index].at + pieces[index].duration - item.at)));
+  };
+  assert.equal(overlap(batch), overlap(forward));
+  assert.equal(overlap(batch), 24);
 });
