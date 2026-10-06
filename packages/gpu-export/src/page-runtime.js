@@ -609,7 +609,8 @@
     .akari-caption__reveal-group{animation:none!important;opacity:1!important}`;
   // Text animation is sampled by captionMotionAt. Bake only the plate's unanimated
   // appearance; otherwise paused animations can leave a transform in the texture.
-  const CAPTION_MOTION_FREEZE_CSS = `.akari-caption__plate{animation:none!important}`;
+  const CAPTION_MOTION_FREEZE_CSS = `.akari-caption__plate{animation:none!important}`
+    + `.akari-caption__type-char{animation:none!important;opacity:1!important}`;
 
   function captionHtmlWithUnitMarkers(html, animators) {
     if (!html.includes("akari-caption__reveal-group") && !animators?.length) return html;
@@ -811,6 +812,9 @@
     });
     const lines = [...unitElement.querySelectorAll(".akari-caption__line")]
       .map((line) => relativeRect(line.getBoundingClientRect(), origin));
+    const typeChars = [...unitElement.querySelectorAll(".akari-caption__type-char")]
+      .filter((char) => !char.parentElement?.closest?.('.akari-caption__type-char'))
+      .map((char) => [...char.getClientRects()].map((rect) => relativeRect(rect, origin)));
     const plateElement = root.querySelector(".akari-caption__plate");
     const plate = plateElement ? relativeRect(plateElement.getBoundingClientRect(), origin) : null;
     const plateStyle = plateElement ? getComputedStyle(plateElement) : null;
@@ -821,7 +825,7 @@
     const revealDelay = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-delay", 0) : 0;
     const revealDuration = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-dur", 0.2) : 0;
     const wordCount = unitElement.querySelectorAll(".akari-caption__tok").length;
-    return { tokens, lines, plate, ...(plateElement ? { plateEmPx, plateLayoutWidthPx } : {}), emPx, wordCount,
+    return { tokens, lines, typeChars, plate, ...(plateElement ? { plateEmPx, plateLayoutWidthPx } : {}), emPx, wordCount,
       reveal: groups.length > 0, revealDelay, revealDuration };
   }
 
@@ -1463,6 +1467,8 @@
         mode = hasColor && hasGeometry ? "sprite"
           : hasColor ? "color" : hasGeometry || animators.length > 0 ? "geometry" : "sprite";
         if (FE.captionRichInkExtentEm(value.richTextStyle, probeMeasurement.emPx) > 0.35) mode = "sprite";
+        const typewriter = value.motion?.in?.id === 'typewriter' || value.motion?.out?.id === 'typewriter';
+        if (typewriter && mode === 'sprite') mode = 'typewriter';
         if (mode === "color") {
           const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-color,#fff)!important}`;
           const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke,.akari-caption__tok--karaoke-smooth{color:var(--caption-highlight-color,#ffd94a)!important}`;
@@ -1486,10 +1492,11 @@
           unitMeasurement = baseMeasurement;
           bandCss = [`${settleCss}${baseCss}${richBaseCss}`, `${settleCss}${highlightCss}${richHighlightCss}`];
           secondaryId = `${id}::b`;
-        } else if (mode === "geometry") {
-          const plateCss = `${captionUnitCss(revealIndex)}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
+        } else if (mode === "geometry" || mode === 'typewriter') {
+          const plateCss = `${captionUnitCss(revealIndex)}.akari-caption__tok,.akari-caption__emphasis-char,.akari-caption__type-char{visibility:hidden!important}`;
           const textCss = `${captionUnitCss(revealIndex)}.akari-caption__line,.akari-caption__block{background:transparent!important}`
-            + `.akari-caption__line::before{background:transparent!important}`;
+            + `.akari-caption__line::before{background:transparent!important}`
+            + (mode === 'typewriter' ? '.akari-caption__plate{background:transparent!important}' : '');
           const [plateMeasurement, textMeasurement] = await measureCaptionVariantsStable(
             value,
             config,
@@ -1524,6 +1531,9 @@
         : FE.captionWordTextureRect(unitMeasurement, config);
       tiles = mode === "sprite"
         ? null
+        : mode === 'typewriter'
+          ? [{ timing: null, static: { x: textureRect.x, y: textureRect.y,
+            width: textureRect.width, height: textureRect.height } }]
         : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect, inkExtentEm,
           ...(mode === "color" || animators.length ? { includeTokens: true } : {}) });
       if (rasterHtml === null) rasterHtml = captionRichPhaseHtml(value, config, html,
@@ -1551,6 +1561,8 @@
         plateWidthPx: unitMeasurement.plate?.width,
         plateLayoutWidthPx: unitMeasurement.plateLayoutWidthPx,
         plateHeightPx: unitMeasurement.plate?.height,
+        plateRect: unitMeasurement.plate,
+        typeChars: unitMeasurement.typeChars,
         wordCount: unitMeasurement.wordCount,
         style: [...new Set([
           ...(unitMeasurement.reveal ? ["reveal"] : []),
@@ -1688,6 +1700,28 @@
 
   function karaokeWordMixAt(timing, localSeconds, interpolatedMix) {
     return timing.durationSec === 0 ? Number(karaokeDelayReached(timing, localSeconds)) : interpolatedMix;
+  }
+
+  function intersectCaptionRect(a, b) {
+    const x = Math.max(a.x, b.x);
+    const y = Math.max(a.y, b.y);
+    const right = Math.min(a.x + a.width, b.x + b.width);
+    const bottom = Math.min(a.y + a.height, b.y + b.height);
+    return right > x && bottom > y ? { x, y, width: right - x, height: bottom - y } : null;
+  }
+
+  function captionMotionTiles(unit, state, localSeconds) {
+    const inSlot = unit.motion?.in?.id === 'typewriter' ? unit.motion.in : null;
+    const outSlot = unit.motion?.out?.id === 'typewriter' ? unit.motion.out : null;
+    const rects = unit.typeChars ?? [];
+    const { enterDuration, exitDuration } = window.__akariTypewriterDurations(unit.motion, unit.cueDuration);
+    const characters = inSlot || outSlot
+      ? rects.map((characterRects, index) => ({ rects: characterRects,
+        ...window.__akariTypewriterStepTiming(rects.length, index, enterDuration, exitDuration, unit.cueDuration) }))
+      : [];
+    return FE.captionMotionTiles({ plateRect: unit.plateRect, textureRect: unit.textureRect,
+      clip: state.clip, slices: state.slices, characters, typewriterIn: Boolean(inSlot),
+      typewriterOut: Boolean(outSlot), localSeconds });
   }
 
   function buildCaptionBatches(units, maxUnits = CAPTION_BATCH_MAX_UNITS, maxHeight = CAPTION_BATCH_MAX_HEIGHT_PX) {
@@ -3341,9 +3375,17 @@
             if (unit.motion && !revealState) state = { ...state, rotateDeg: -state.rotateDeg };
             if (unit.animator) state = captionAnimatorItemStateAt(unit, state, seconds, config);
             if (state.opacity <= 0) continue;
+            if (state.originX !== undefined && unit.plateRect) {
+              // Align the top pivot with the CSS raster after sprite pixel sampling.
+              state = { ...state, originX: unit.plateRect.x + state.originX * unit.plateRect.width,
+                originY: unit.plateRect.y + state.originY * unit.plateRect.height + 1 };
+            }
+            const motionTiles = captionMotionTiles(unit, state, localSeconds);
+            if (motionTiles?.length === 0) continue;
             if (unit.tiles === null) {
               draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
-                originX: unit.originX, originY: unit.originY, ...state });
+                originX: unit.originX, originY: unit.originY, ...state,
+                ...(motionTiles ? { tiles: motionTiles } : {}) });
               continue;
             }
             let tiles = unit.tiles.map((tile) => {
@@ -3369,7 +3411,12 @@
             if (unit.animator) tiles = captionAnimatorTilesAt(unit, tiles, seconds, config);
             tiles = tiles.flatMap((tile, index) => unit.tiles[index].timing?.role === "karaoke-smooth"
               ? karaokeSmoothTilesAt(unit.tiles[index], localSeconds, tile, config) : [tile]);
-            if (unit.mode === "geometry") {
+            if (motionTiles) tiles = tiles.flatMap((tile) => motionTiles.flatMap((clip) => {
+              const rect = intersectCaptionRect(tile, clip);
+              return rect ? [{ ...tile, ...rect,
+                opacity: (tile.opacity ?? 1) * (clip.opacity ?? 1) }] : [];
+            }));
+            if (unit.mode === "geometry" || unit.mode === 'typewriter') {
               draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
                 originX: unit.originX, originY: unit.originY, ...state });
               draws.push({ z: unit.z, index: unit.index, id: unit.secondaryId, textureRect: unit.textureRect,

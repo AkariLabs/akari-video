@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 
 import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
+import { typewriterDurations, typewriterStepTiming } from "../../render-cut/src/caption-typewriter.mjs";
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
 
 const require = createRequire(import.meta.url);
@@ -40,7 +41,7 @@ test('GPU accepts bundled stack faces and rejects unavailable caption fonts with
   assert.equal(missing.entries[0].reason, 'caption-font-unavailable:Nonexistent Font');
 });
 
-test('rich caption looks force OSR for cue and inherited styles', () => {
+test('rich caption looks use the shared caption raster for cue and inherited styles', () => {
   for (const [key, value] of [
     ['stroke_inner', { color: '#ffffff', width_px: 3 }],
     ['fill_gradient', { colors: ['#fb923c', '#8b5cf6'], angle_deg: 90 }],
@@ -51,9 +52,8 @@ test('rich caption looks force OSR for cue and inherited styles', () => {
         ...(inherited ? {} : { text_style: { [key]: value } }) };
       const result = evaluateGpuEligibility({ edit: { overlays: [], output: {} },
         captions: [cue], ...(inherited ? { defaultTextStyle: { [key]: value } } : {}) });
-      assert.equal(result.eligible, false, `${key} inherited=${inherited}`);
-      assert.equal(result.entries[0].classification, 'unsupported');
-      assert.equal(result.entries[0].reason, `caption-rich-look-${key}-unsupported`);
+      assert.equal(result.eligible, true, `${key} inherited=${inherited}`);
+      assert.equal(result.entries[0].classification, 'same');
     }
   }
 });
@@ -200,14 +200,14 @@ test("v2 word styles are native while plain words remain a caption sprite", () =
   ]);
 });
 
-test("unknown word style and unsupported caption motion fail closed", () => {
+test("unknown word style and unknown caption motion fail closed", () => {
   const result = evaluate([], [
     { id: "style", start: 0, end: 1, text: "x", style: "future" },
-    { id: "motion", start: 0, end: 1, text: "x", text_style: { animation: { in: { id: "wipe-left" } } } },
+    { id: "motion", start: 0, end: 1, text: "x", text_style: { animation: { in: { id: "future" } } } },
   ]);
   assert.equal(result.eligible, false);
   assert.deepEqual(result.entries.map((entry) => entry.reason), [
-    "caption-style-unsupported:future", "caption-motion-wipe-left-unsupported",
+    "caption-style-unsupported:future", "caption-motion-future-unsupported",
   ]);
 });
 
@@ -264,14 +264,40 @@ test("per-cue animation merges slots over the default style", () => {
   const result = evaluate([], [{ id: "caption", text_style: { animation: { in: { id: "fade-up" } } } }], {
     defaultTextStyle: { animation: { loop: { id: "wipe-right" } } },
   });
-  assert.equal(result.eligible, false);
-  assert.equal(result.entries[0].reason, "caption-motion-wipe-right-unsupported");
+  assert.equal(result.eligible, true);
+  assert.equal(result.entries[0].classification, "same");
 });
 
-test('文字送りの auto 降格理由は日本語で示す', () => {
+test('文字送りは GPU で受け付ける', () => {
   const result = evaluate([], [{ id: 'caption', text_style: { animation: { in: { id: 'typewriter' } } } }]);
+  assert.equal(result.eligible, true);
+});
+
+test('gradient with typewriter stays ineligible while the reference draws no ink', () => {
+  const result = evaluate([], [{ id: 'caption', text_style: {
+    animation: { in: { id: 'typewriter' } },
+    fill_gradient: { colors: ['#fb923c', '#8b5cf6'], angle_deg: 90 },
+  } }]);
   assert.equal(result.eligible, false);
-  assert.equal(result.entries[0].reason, '文字送りは OSR で書き出します');
+  assert.equal(result.entries[0].reason, 'caption-typewriter-gradient-osr-empty');
+});
+
+test('typewriter delays divide entrance and exit equally by grapheme', () => {
+  const second = typewriterStepTiming(4, 1, .6, .4, 2);
+  const fourth = typewriterStepTiming(4, 3, .6, .4, 2);
+  assert.ok(Math.abs(second.inDelay - .3) < 1e-12);
+  assert.ok(Math.abs(second.outDelay - 1.7) < 1e-12);
+  assert.ok(Math.abs(fourth.inDelay - .6) < 1e-12);
+  assert.ok(Math.abs(fourth.outDelay - 1.9) < 1e-12);
+});
+
+test('typewriter duration clamping is shared with the reference HTML', () => {
+  assert.deepEqual(typewriterDurations({ in: { id: 'typewriter' }, out: { id: 'typewriter' } }, .3),
+    { enterDuration: .3, exitDuration: .3 });
+  assert.deepEqual(typewriterDurations({ in: { id: 'typewriter', duration_sec: .2 },
+    out: { id: 'typewriter', duration_sec: .9 } }, .4),
+  { enterDuration: .2, exitDuration: .4 });
+  assert.deepEqual(typewriterDurations({}, 0), { enterDuration: .05, exitDuration: .05 });
 });
 
 test("flat translate3d/translateZ and same-document url(#) references stay eligible (#33, #34)", () => {

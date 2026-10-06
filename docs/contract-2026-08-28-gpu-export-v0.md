@@ -53,8 +53,10 @@ frame-engine へ cuts を渡す残り 2 面（preview-server の Web UI プレ�
 
 - 同一 unit に karaoke の色補間と、pop / one-char-bang / one-char-jumble / size-pulse の幾何変形が混在するもの。
 - 語矩形タイルで再現できない縦書きの語単位字幕。
-- 未知の motion、および clip-path を使う push/typewriter/wipe/glitch。
-- `transform-origin: top center` を必要とする swing。
+- 未知の motion。
+- ~~clip-path を使う push/typewriter/wipe/glitch。~~（GPU の板クリップと書記素タイルで対応済み）
+- ~~`transform-origin: top center` を必要とする swing。~~（板の上辺中央支点で対応済み）
+- `typewriter` と `fill_gradient` を同時指定し、明示的な `fill` がない字幕（後述）。
 
 ### 2.1 語単位字幕（v2）
 
@@ -519,7 +521,9 @@ cut 段は `cut-audio.mp4`、尺延長が必要な場合は続けて `cut-audio-
 
 ### 字幕の文字送り（2026-10-06 追記）
 
-`text_style.animation` の `typewriter` は書記素ごとの span を時刻に合わせて表示する。GPU 字幕スプライトはこの文字単位の表示に対応しないため、適格判定で除外する。`--engine auto` は OSR を選び、理由には「文字送りは OSR で書き出します」と表示する。明示的な GPU 指定は従来どおり適格判定で拒否する。
+`text_style.animation` の `typewriter` は書記素ごとの span を時刻に合わせて表示する。GPU は同じ HTML の各書記素を採寸し、共通の等分遅延に従ってテクスチャの文字領域を描く。文字以外の板は別のラスタ帯で維持する。push 4 方向と wipe 2 方向は板の正規化クリップ矩形、swing は板の上辺中央を支点にした回転で合成する。glitch は共通 CSS レシピの 0/30/60/100% の移動と単一クリップ矩形を再現する。このレシピには複数スライスや色ずれはない。`stroke_inner`、`fill_gradient`、`extrude` は、共通の字幕 HTML/CSS を板へラスタライズする既存経路で描く。
+
+`typewriter` と `fill_gradient` を組み合わせ、明示的な `fill` がない字幕は引き続き非対応とする。基準側の書き出しが文字を表示しないのに GPU 側は表示するため、見た目の一致を確認できない。適格判定は `caption-typewriter-gradient-osr-empty` を返す。基準側の描画を修正する契約ができるまで GPU 対象には含めない。
 
 ### 12.1 事実（2026-08-30・capture-v2-engine レーンの実測と司令塔のコード確認）
 

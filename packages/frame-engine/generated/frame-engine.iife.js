@@ -23924,6 +23924,7 @@ ${indent}`);
     captionAnimatorStateAt: () => captionAnimatorStateAt,
     captionMeasurementsEqual: () => captionMeasurementsEqual,
     captionMotionAt: () => captionMotionAt,
+    captionMotionTiles: () => captionMotionTiles,
     captionRevealGroupStateAt: () => captionRevealGroupStateAt,
     captionRichInkExtentEm: () => captionRichInkExtentEm,
     captionWordStateAt: () => captionWordStateAt,
@@ -38251,6 +38252,10 @@ caused by: ${cause.stack}`;
     "slide-right": fromTo({ opacity: 0, xEm: -1.2 }),
     "slide-up": fromTo({ opacity: 0, yEm: 1.2 }),
     "slide-down": fromTo({ opacity: 0, yEm: -1.2 }),
+    "push-left": motion({ at: 0, xEm: 2, clipInset: [0, 0, 0, 1] }, { at: 1, xEm: 0, clipInset: [0, 0, 0, 0] }),
+    "push-right": motion({ at: 0, xEm: -2, clipInset: [0, 1, 0, 0] }, { at: 1, xEm: 0, clipInset: [0, 0, 0, 0] }),
+    "push-up": motion({ at: 0, yEm: 1.4, clipInset: [1, 0, 0, 0] }, { at: 1, yEm: 0, clipInset: [0, 0, 0, 0] }),
+    "push-down": motion({ at: 0, yEm: -1.4, clipInset: [0, 0, 1, 0] }, { at: 1, yEm: 0, clipInset: [0, 0, 0, 0] }),
     "rise-soft": fromTo({ opacity: 0, yEm: 0.35, scaleX: 0.98, scaleY: 0.98 }),
     "drop-in": motion(
       { at: 0, opacity: 0, yEm: -1.6 },
@@ -38303,6 +38308,7 @@ caused by: ${cause.stack}`;
     "spin-in": fromTo({ opacity: 0, rotateDeg: -180, scaleX: 0.5, scaleY: 0.5 }),
     "roll-in": fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
     "spiral-in": fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
+    swing: motion({ at: 0, opacity: 0, rotateDeg: 14 }, { at: 0.6, opacity: 1, rotateDeg: -6 }, { at: 1, opacity: 1, rotateDeg: 0 }),
     shake: motion(
       { at: 0, xEm: 0 },
       { at: 0.2, xEm: -0.16 },
@@ -38318,6 +38324,15 @@ caused by: ${cause.stack}`;
       { at: 0.75, xEm: 0.03, yEm: 0.05 },
       { at: 1, xEm: 0, yEm: 0 }
     ),
+    glitch: motion(
+      { at: 0, opacity: 0, xEm: -0.2, clipInset: [0, 0, 0.6, 0] },
+      { at: 0.3, opacity: 1, xEm: 0.12, clipInset: [0.3, 0, 0.2, 0] },
+      { at: 0.6, xEm: -0.06, clipInset: [0.1, 0, 0.45, 0] },
+      { at: 1, opacity: 1, xEm: 0, clipInset: [0, 0, 0, 0] }
+    ),
+    typewriter: motion({ at: 0, opacity: 1 }, { at: 1, opacity: 1 }),
+    "wipe-left": motion({ at: 0, clipInset: [0, 0, 0, 1] }, { at: 1, clipInset: [0, 0, 0, 0] }),
+    "wipe-right": motion({ at: 0, clipInset: [0, 1, 0, 0] }, { at: 1, clipInset: [0, 0, 0, 0] }),
     flash: motion(
       { at: 0, opacity: 0 },
       { at: 0.3, opacity: 1 },
@@ -38368,17 +38383,7 @@ caused by: ${cause.stack}`;
     "marquee-left": fromTo({ xPercent: 1 }, { xPercent: -1 }),
     "crawl-up": fromTo({ yPercent: 1 }, { yPercent: -1 })
   };
-  var unsupported = /* @__PURE__ */ new Set([
-    "push-left",
-    "push-right",
-    "push-up",
-    "push-down",
-    "typewriter",
-    "wipe-left",
-    "wipe-right",
-    "glitch",
-    "swing"
-  ]);
+  var unsupported = /* @__PURE__ */ new Set();
   var easeCurves = {
     linear: null,
     ease: [0.25, 0.1, 0.25, 1],
@@ -38441,6 +38446,9 @@ caused by: ${cause.stack}`;
       const delay = Math.max(0, cueDuration - duration);
       if (local >= delay) applySlot(state, declaration.out, 1 - Math.min(1, (local - delay) / duration), em, amp, plateWidthPx, plateHeightPx);
     }
+    if ([declaration.in, declaration.loop, declaration.out].some((slot) => slot?.id === "glitch") && state.clip) {
+      state.slices = [{ ...state.clip, offsetX: state.translateX, colorShiftPx: 0 }];
+    }
     return state;
   }
   function slotDuration(slot, cueDuration, fallback) {
@@ -38462,6 +38470,18 @@ caused by: ${cause.stack}`;
       opacity.fraction
     );
     const transform = propertyInterval(points, hasTransform, directed, ease2);
+    const clip = propertyInterval(points, (point) => point.clipInset !== void 0, directed, ease2);
+    if (clip) {
+      const a2 = clip.left.clipInset ?? [0, 0, 0, 0];
+      const b2 = clip.right.clipInset ?? [0, 0, 0, 0];
+      const inset = a2.map((value, index) => lerp2(value, b2[index], clip.fraction));
+      state.clip = { x: inset[3], y: inset[0], width: 1 - inset[3] - inset[1], height: 1 - inset[0] - inset[2] };
+    }
+    if (slot.id === "swing") {
+      state.originX = 0.5;
+      state.originY = 0;
+    }
+    if (slot.id === "typewriter") state.typewriter = directed;
     if (!transform) return;
     const a = hasTransform(transform.left) ? pointState(transform.left, slot.id, emPx, amp, plateWidthPx, plateHeightPx) : underlying;
     const b = hasTransform(transform.right) ? pointState(transform.right, slot.id, emPx, amp, plateWidthPx, plateHeightPx) : underlying;
@@ -38529,6 +38549,52 @@ caused by: ${cause.stack}`;
   }
   function finiteNumber(value, fallback) {
     return Number.isFinite(value) ? value : fallback;
+  }
+
+  // packages/frame-engine/src/timeline/caption-motion-tiles.ts
+  function intersect(a, b) {
+    const x3 = Math.max(a.x, b.x);
+    const y2 = Math.max(a.y, b.y);
+    const right = Math.min(a.x + a.width, b.x + b.width);
+    const bottom = Math.min(a.y + a.height, b.y + b.height);
+    return right > x3 && bottom > y2 ? { x: x3, y: y2, width: right - x3, height: bottom - y2 } : null;
+  }
+  function pixelTile(rect, opacity) {
+    const x3 = Math.floor(rect.x);
+    const y2 = Math.floor(rect.y);
+    return {
+      x: x3,
+      y: y2,
+      width: Math.max(1, Math.ceil(rect.x + rect.width) - x3),
+      height: Math.max(1, Math.ceil(rect.y + rect.height) - y2),
+      ...opacity === void 0 ? {} : { opacity }
+    };
+  }
+  function captionMotionTiles(input) {
+    const { plateRect: plate, textureRect: texture, localSeconds } = input;
+    if (!plate) return null;
+    const clip = input.slices?.length === 1 ? input.slices[0] : input.clip;
+    const plateClip = clip ? {
+      x: plate.x + clip.x * plate.width,
+      y: plate.y + clip.y * plate.height,
+      width: clip.width * plate.width,
+      height: clip.height * plate.height
+    } : plate;
+    const visible = intersect(plateClip, texture);
+    if (!visible) return [];
+    if (!input.typewriterIn && !input.typewriterOut) return clip ? [pixelTile(visible)] : null;
+    const characters = input.characters ?? [];
+    const progress = (seconds) => Math.max(0, Math.min(1, seconds / 0.01));
+    const tiles = [];
+    for (const character of characters) {
+      const opacity = (input.typewriterIn ? progress(localSeconds - character.inDelay) : 1) * (input.typewriterOut ? 1 - progress(localSeconds - character.outDelay) : 1);
+      if (opacity <= 0) continue;
+      for (const rect of character.rects) {
+        const clipped = intersect(visible, rect);
+        if (clipped) tiles.push(pixelTile(clipped, opacity));
+      }
+    }
+    return tiles;
   }
 
   // packages/frame-engine/src/timeline/caption-animator.ts

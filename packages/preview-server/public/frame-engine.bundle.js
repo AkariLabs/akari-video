@@ -36119,6 +36119,10 @@ var CAPTION_SPRITE_MOTIONS = {
   "slide-right": fromTo({ opacity: 0, xEm: -1.2 }),
   "slide-up": fromTo({ opacity: 0, yEm: 1.2 }),
   "slide-down": fromTo({ opacity: 0, yEm: -1.2 }),
+  "push-left": motion({ at: 0, xEm: 2, clipInset: [0, 0, 0, 1] }, { at: 1, xEm: 0, clipInset: [0, 0, 0, 0] }),
+  "push-right": motion({ at: 0, xEm: -2, clipInset: [0, 1, 0, 0] }, { at: 1, xEm: 0, clipInset: [0, 0, 0, 0] }),
+  "push-up": motion({ at: 0, yEm: 1.4, clipInset: [1, 0, 0, 0] }, { at: 1, yEm: 0, clipInset: [0, 0, 0, 0] }),
+  "push-down": motion({ at: 0, yEm: -1.4, clipInset: [0, 0, 1, 0] }, { at: 1, yEm: 0, clipInset: [0, 0, 0, 0] }),
   "rise-soft": fromTo({ opacity: 0, yEm: 0.35, scaleX: 0.98, scaleY: 0.98 }),
   "drop-in": motion(
     { at: 0, opacity: 0, yEm: -1.6 },
@@ -36171,6 +36175,7 @@ var CAPTION_SPRITE_MOTIONS = {
   "spin-in": fromTo({ opacity: 0, rotateDeg: -180, scaleX: 0.5, scaleY: 0.5 }),
   "roll-in": fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
   "spiral-in": fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
+  swing: motion({ at: 0, opacity: 0, rotateDeg: 14 }, { at: 0.6, opacity: 1, rotateDeg: -6 }, { at: 1, opacity: 1, rotateDeg: 0 }),
   shake: motion(
     { at: 0, xEm: 0 },
     { at: 0.2, xEm: -0.16 },
@@ -36186,6 +36191,15 @@ var CAPTION_SPRITE_MOTIONS = {
     { at: 0.75, xEm: 0.03, yEm: 0.05 },
     { at: 1, xEm: 0, yEm: 0 }
   ),
+  glitch: motion(
+    { at: 0, opacity: 0, xEm: -0.2, clipInset: [0, 0, 0.6, 0] },
+    { at: 0.3, opacity: 1, xEm: 0.12, clipInset: [0.3, 0, 0.2, 0] },
+    { at: 0.6, xEm: -0.06, clipInset: [0.1, 0, 0.45, 0] },
+    { at: 1, opacity: 1, xEm: 0, clipInset: [0, 0, 0, 0] }
+  ),
+  typewriter: motion({ at: 0, opacity: 1 }, { at: 1, opacity: 1 }),
+  "wipe-left": motion({ at: 0, clipInset: [0, 0, 0, 1] }, { at: 1, clipInset: [0, 0, 0, 0] }),
+  "wipe-right": motion({ at: 0, clipInset: [0, 1, 0, 0] }, { at: 1, clipInset: [0, 0, 0, 0] }),
   flash: motion(
     { at: 0, opacity: 0 },
     { at: 0.3, opacity: 1 },
