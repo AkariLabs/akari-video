@@ -616,3 +616,152 @@ test('書き出しの speech 射影もフィラーを除き映像 cut と素材�
     Math.abs((row.t - cuts[index].at) * 30)));
   assert.equal(driftFrames, 0);
 });
+
+function assertLinkedAudioAtVisual(items) {
+  const visual = new Map(items.tracks.filter(track => track.lane === 'visual')
+    .flatMap(track => track.items.map(item => [item.id, item])));
+  for (const track of items.tracks.filter(track => track.lane === 'audio')) {
+    for (const audio of track.items.filter(item => item.link)) {
+      const video = visual.get(audio.link);
+      assert.ok(video, `${audio.id} の link 先が見つからない`);
+      assert.equal(audio.at, video.at);
+      assert.equal(audio.duration, video.duration);
+    }
+  }
+}
+
+test('前の未分離 clip を戻すと後ろの分離音声も同じ位置へ戻る', () => {
+  const doc = JSON.parse(v2([media('front', 0, 300, 0, 10), media('tail', 300, 300, 0, 10, 'other')]));
+  const original = text(splitCutAudio(doc, { cutId: 'tail', hasAudio: true }).document);
+  const cut = range([3, 3.5], 'filler', { captionId: 'main', label: 'えー' });
+  const edited = applyCutRanges(original, [cut]).source;
+  assertLinkedAudioAtVisual(JSON.parse(edited));
+  const restored = restoreCutRange(edited, cut);
+  assert.equal(restored.restored, true, restored.reason);
+  assertLinkedAudioAtVisual(JSON.parse(restored.source));
+  assert.equal(restored.source, original);
+});
+
+test('後ろだけ分離した clip の前を乱択で切って戻しても各段で音声はそろう', () => {
+  const doc = JSON.parse(v2([media('front', 0, 600, 0, 20), media('tail', 600, 150, 0, 5, 'other')]));
+  const original = text(splitCutAudio(doc, { cutId: 'tail', hasAudio: true }).document);
+  let seed = 20261007;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 0x100000000; };
+  const shuffled = values => {
+    const copy = [...values];
+    for (let index = copy.length - 1; index > 0; index--) {
+      const other = Math.floor(random() * (index + 1));
+      [copy[index], copy[other]] = [copy[other], copy[index]];
+    }
+    return copy;
+  };
+  for (let trial = 0; trial < 40; trial++) {
+    const cuts = shuffled([2, 5, 8, 11, 14, 17]).slice(0, 4)
+      .map((start, index) => range([start, start + 0.5], 'filler',
+        { captionId: 'main', label: `フィラー${index}` }));
+    let source = original;
+    for (const cut of shuffled(cuts)) {
+      source = applyCutRanges(source, [cut]).source;
+      assertLinkedAudioAtVisual(JSON.parse(source));
+    }
+    for (const cut of shuffled(cuts)) {
+      assert.equal(canRestoreCutRange(source, cut), undefined, `trial ${trial}`);
+      const restored = restoreCutRange(source, cut);
+      assert.equal(restored.restored, true, `trial ${trial}: ${restored.reason}`);
+      source = restored.source;
+      assertLinkedAudioAtVisual(JSON.parse(source));
+    }
+    assert.equal(source, original, `trial ${trial}`);
+  }
+});
+
+test('分離後の冒頭 0.3–0.8 秒を切っても canRestore は例外なしで戻せる', () => {
+  const original = text(splitCutAudio(JSON.parse(v2()), { cutId: 'main-1', hasAudio: true }).document);
+  const cut = range([0.3, 0.8], 'filler', { captionId: 'main', label: 'えー' });
+  const edited = applyCutRanges(original, [cut]).source;
+  assert.equal(canRestoreCutRange(edited, cut), undefined);
+  const restored = restoreCutRange(edited, cut);
+  assert.equal(restored.restored, true, restored.reason);
+  assert.equal(restored.source, original);
+});
+
+test('片側だけ後ろを短くした音声・映像と音声の頭トリムは境界で link を付け替え戻せる', () => {
+  for (const side of ['audio-tail', 'visual-tail', 'audio-head']) {
+    const doc = splitCutAudio(JSON.parse(v2()), { cutId: 'main-1', hasAudio: true }).document;
+    const visual = doc.tracks.find(track => track.lane === 'visual').items[0];
+    const audio = doc.tracks.find(track => track.lane === 'audio').items[0];
+    if (side === 'audio-tail') { audio.duration = 240; audio.source.out = 8; }
+    if (side === 'visual-tail') { visual.duration = 240; visual.source.out = 8; }
+    if (side === 'audio-head') { audio.at = 30; audio.duration = 270; audio.source.in = 1; }
+    const original = text(doc);
+    const cut = range([3, 3.5], 'filler', { captionId: 'main', label: 'えー' });
+    const edited = applyCutRanges(original, [cut]).source;
+    const after = JSON.parse(edited);
+    const videoPieces = after.tracks.find(track => track.lane === 'visual').items;
+    const audioPieces = after.tracks.find(track => track.lane === 'audio').items;
+    assert.deepEqual(audioPieces.map(item => item.link), videoPieces.map(item => item.id), side);
+    for (const item of audioPieces) {
+      const video = videoPieces.find(candidate => candidate.id === item.link);
+      const expectedAt = video.at + Math.round((item.source.in - video.source.in) * 30);
+      assert.equal(item.at, expectedAt, side);
+    }
+    assert.equal(canRestoreCutRange(edited, cut), undefined, side);
+    const restored = restoreCutRange(edited, cut);
+    assert.equal(restored.restored, true, `${side}: ${restored.reason}`);
+    assert.equal(restored.source, original, side);
+  }
+});
+
+test('映像の頭だけを 1 秒トリムした先頭の J カットは音声位置を負にしない', () => {
+  const doc = splitCutAudio(JSON.parse(v2()), { cutId: 'main-1', hasAudio: true }).document;
+  const visual = doc.tracks.find(track => track.lane === 'visual').items[0];
+  visual.at = 30;
+  visual.duration = 270;
+  visual.source.in = 1;
+  const original = text(doc);
+  const cut = range([3, 3.5], 'filler', { captionId: 'main', label: 'えー' });
+  const edited = applyCutRanges(original, [cut]).source;
+  assert.ok(JSON.parse(edited).tracks.find(track => track.lane === 'audio')
+    .items.every(item => item.at >= 0));
+  assert.equal(canRestoreCutRange(edited, cut), undefined);
+  assert.equal(restoreCutRange(edited, cut).source, original);
+});
+
+test('分離音声に gain キーフレームがあると見た目の理由で 1 か所復元を止める', () => {
+  const doc = JSON.parse(v2());
+  doc.tracks[0].items[0].keyframes = [{ t: 0, gain_db: 0 }, { t: 300, gain_db: -6 }];
+  const split = splitCutAudio(doc, { cutId: 'main-1', hasAudio: true }).document;
+  const cut = range([3, 3.5], 'filler', { captionId: 'main', label: 'えー' });
+  const edited = applyCutRanges(text(split), [cut]).source;
+  assert.match(canRestoreCutRange(edited, cut), /動きや見た目の設定/);
+});
+
+test('60 fps の小数秒カットを順不同で戻しても素材の末尾時刻はバイト一致する', () => {
+  const doc = { version: 2, output: { width: 320, height: 180, fps: 60 },
+    sources: [{ id: 'main', path: 'main.mp4' }, { id: 'other', path: 'other.mp4' }],
+    tracks: [{ id: 'v', lane: 'visual', items: [
+      media('clip', 0, 1200, 0, 20), media('tail', 1200, 300, 0, 5, 'other')
+    ] }] };
+  const original = text(splitCutAudio(doc, { cutId: 'clip', hasAudio: true }).document);
+  const spans = [[4.019, 4.997], [5.981, 7.206], [9.117, 9.955],
+    [10.886, 11.873], [17.862, 18.759]];
+  const cuts = spans.map(([start, end], index) => range([start, end], 'filler',
+    { captionId: 'main', label: `語${index}` }));
+  let source = original;
+  for (const index of [4, 1, 3, 0, 2]) source = applyCutRanges(source, [cuts[index]]).source;
+  for (const index of [2, 0, 4, 1, 3]) {
+    const pieces = JSON.parse(source).tracks.find(track => track.lane === 'visual').items
+      .filter(item => item.source.src === 'main');
+    const pairs = pieces.slice(0, -1).map((left, offset) => ({ left, right: pieces[offset + 1] }));
+    const { left, right } = pairs.reduce((best, pair) =>
+      Math.abs(pair.left.source.out - cuts[index].in) + Math.abs(pair.right.source.in - cuts[index].out)
+        < Math.abs(best.left.source.out - cuts[index].in) + Math.abs(best.right.source.in - cuts[index].out)
+        ? pair : best);
+    const restoreRange = { ...cuts[index], in: left.source.out, out: right.source.in };
+    assert.equal(canRestoreCutRange(source, restoreRange), undefined);
+    const result = restoreCutRange(source, restoreRange);
+    assert.equal(result.restored, true, result.reason);
+    source = result.source;
+  }
+  assert.equal(source, original);
+});

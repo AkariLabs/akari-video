@@ -3743,9 +3743,14 @@ export class AkariDaihonWidget extends BaseWidget {
             void this.playCutRange({ from: span.in, to: span.out },
                 { start: Math.max(0, span.in - 1), end: span.out + 1 }, 'intact', span.sourceId ?? undefined);
         });
-        const reason = span.restoreRange
-            ? canRestoreCutRange(this.cutEditSource, span.restoreRange)
-            : 'このカットには復元情報がありません。⌘Z の履歴から戻せます。';
+        let reason: string | undefined;
+        try {
+            reason = span.restoreRange
+                ? canRestoreCutRange(this.cutEditSource, span.restoreRange)
+                : 'このカットには復元情報がありません。⌘Z の履歴から戻せます。';
+        } catch {
+            reason = 'この箇所は今の編集データから戻せません。⌘Z の履歴から戻せます。';
+        }
         const restore = this.popButton('↩ 戻す', () => void this.restoreCutSpan(span), 'primary');
         restore.disabled = !!reason;
         if (reason) restore.title = reason;
