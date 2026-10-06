@@ -3,12 +3,28 @@ import { captionRunRows } from '../caption-run-rows';
 import { InspectorWriteRequest, InspectorWriteResult, TimelineCaptionSelection, TimelineSelectionTarget } from '../../timeline-selection-model';
 import { CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch, captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch, captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch } from '../caption-style-effects';
 import { createCaptionMotionPanel, type CaptionMotionServices } from '../caption-motion-panel';
-import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../../../common/caption-store';
+import { CAPTION_ZONES, type CaptionAnimation, type CaptionBackgroundMode, type CaptionTextStyle } from '../../../common/caption-store';
 import { composeInspectorSections } from '../section-model';
 import { type InspectorFieldDef, type InspectorSection } from './types';
 import { formatTimestamp, formatDurationSeconds, orDash, CAPTION_STYLE_DEFAULTS, CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM, captionStyleDisplayValue, isCaptionHexColor, effectiveCaptionBackgroundOpacity, type CaptionStyleFieldKey } from './shared-helpers';
 import { ANIMATOR_SECTION } from './animator-section';
 import { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } from '../caption-multi-targets';
+
+function captionMotionWriteForTargets(request: InspectorWriteRequest,
+    targets: readonly TimelineSelectionTarget[], common?: CaptionAnimation): InspectorWriteRequest {
+    const prepared = withCaptionMultiTargets(request, targets, common);
+    if (request.kind !== 'caption-style-my-style' || request.value.replace_all_motion !== true
+        || prepared.kind !== 'caption-style-my-style') return prepared;
+    const parts = Array.isArray(request.value.parts) ? request.value.parts : [];
+    const motion = parts.find(part => part && typeof part === 'object' && part.kind === 'motion');
+    if (!motion) return prepared;
+    const animation = motion && typeof motion === 'object' && motion.animation
+        && typeof motion.animation === 'object' ? motion.animation as Record<string, unknown> : {};
+    const delta = prepared.value.multi_motion_delta as { set: Record<string, unknown>; remove: string[] };
+    return { ...prepared, value: { ...prepared.value, multi_motion_delta: {
+        ...delta, remove: ['in', 'loop', 'out'].filter(slot => !animation[slot])
+    } } };
+}
 
 export function CAPTION_SECTIONS(
     snapshot: TimelineCaptionSelection,
@@ -505,6 +521,7 @@ export function MULTI_CAPTION_SECTIONS(
     zoneActions: {
         zoneHover: (zone: string | null) => void;
         zonePreset: (zone: string) => void;
+        motionServices?: CaptionMotionServices;
     }
 ): InspectorSection[] {
     const mixedFields = new Set<CaptionStyleFieldKey>();
@@ -563,16 +580,18 @@ export function MULTI_CAPTION_SECTIONS(
             effectiveStyle.glow = snapshots[0].effectiveTextStyle?.glow;
         }
     }
+    const commonAnimation = commonCaptionAnimation(snapshots);
     const aggregate: TimelineCaptionSelection = {
         ...snapshots[0],
-        textStyle: effectiveStyle,
-        effectiveTextStyle: { ...effectiveStyle, animation: commonCaptionAnimation(snapshots) }
+        textStyle: { ...effectiveStyle, animation: commonAnimation },
+        effectiveTextStyle: { ...effectiveStyle, animation: commonAnimation }
     };
     const targets = captionMultiTargets(snapshots);
     const styleCards = CAPTION_SECTIONS(aggregate, requestWrite, { mixedFields, targets, ...zoneActions })
         .filter(section => section.id === 'style' || section.id.startsWith('style:'));
     const motion = CAPTION_SECTIONS(aggregate,
-        request => requestWrite(withCaptionMultiTargets(request, targets, aggregate.effectiveTextStyle?.animation)))
+        request => requestWrite(captionMotionWriteForTargets(request, targets, commonAnimation)),
+        { motionServices: zoneActions.motionServices })
         .filter(section => section.id === 'motion:caption');
     const placedCount = snapshots.filter(snapshot =>
         (snapshot as TimelineCaptionSelection & { timeDomain?: string }).timeDomain === 'output').length;
@@ -593,4 +612,25 @@ export function MULTI_CAPTION_SECTIONS(
                 `字幕 ${snapshots.length - placedCount} 件 / 文字 ${placedCount} 件` }
         ] }
     ];
+}
+
+export function CAPTION_BAG_MOTION_SECTION(
+    load: () => Promise<{ ids: string[]; snapshot: TimelineCaptionSelection }>,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
+    services: (snapshot: TimelineCaptionSelection, ids: string[]) => CaptionMotionServices
+): InspectorSection {
+    return { id: 'motion:caption', label: '動き', fields: [], body: () => {
+        const host = document.createElement('div');
+        host.textContent = '字幕の動きを読み込み中…';
+        void load().then(({ ids, snapshot }) => {
+            if (!host.isConnected) return;
+            const targets = captionMultiTargets(ids.map(id => ({ id })));
+            host.replaceChildren(createCaptionMotionPanel(snapshot,
+                request => requestWrite(captionMotionWriteForTargets(request, targets,
+                    snapshot.effectiveTextStyle?.animation)), services(snapshot, ids)));
+        }).catch(error => {
+            if (host.isConnected) host.textContent = error instanceof Error ? error.message : String(error);
+        });
+        return host;
+    } };
 }

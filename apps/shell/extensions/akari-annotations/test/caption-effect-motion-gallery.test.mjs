@@ -130,7 +130,7 @@ test('動きの各段は字幕の animation の席へ書く', () => {
     assert.deepEqual(request.value.parts[0].animation, {
         in: { id: 'fade-up', duration_sec: .4 }, loop: { id: 'wobble' }
     });
-    const combo = captionMotionComboWrites('cue-1', undefined, 'smart', 30);
+    const combo = captionMotionComboWrites('cue-1', 'smart');
     assert.equal(combo.length, 1);
     assert.equal(combo[0].kind, 'caption-style-my-style');
     assert.deepEqual(Object.keys(combo[0].value.parts[0].animation), ['in', 'out', 'loop']);
