@@ -27,7 +27,9 @@ test('commands forward optional requests after activating their widgets', () => 
 
 test('cut range opening is guarded by a valid range and otherwise explains the prerequisite', () => {
   const branch = method.slice(method.indexOf("case 'cutRange':"), method.indexOf('if (target.speaker'));
-  assert.match(branch, /if \(validWordRange\) this.openCutRangeEditorForSelection\(\);\s*else \{\s*this.notify\(/u);
+  assert.match(branch, /if \(validWordRange && row\)/u);
+  assert.match(branch, /if \(reason\) \{ this.notify\(reason\); success = false; \}/u);
+  assert.match(branch, /else \{\s*this.notify\('カット範囲エディタは語の範囲を選ぶと開けます。'\)/u);
   assert.match(branch, /success = false/u);
   assert.equal([...branch.matchAll(/this\.openCutRangeEditor\w*\(/gu)].length, 1);
 });
@@ -57,6 +59,7 @@ function fixture() {
     applyQcFilter() { root.hidden = this.qcFilter || (this.speakerFilter !== null && this.speakerFilter !== 'A'); },
     setSelection(next) { this.selection = next; events.push('selection'); },
     renderWordSelection() { events.push('renderWordSelection'); },
+    audioOnlyCutReason() { return undefined; },
     async configure() { events.push('configure'); this.configured = true; }
   });
   for (const name of calls.filter(name => name.startsWith('open'))) widget[name] = () => events.push(name);

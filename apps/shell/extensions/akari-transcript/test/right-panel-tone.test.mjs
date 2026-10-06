@@ -78,7 +78,7 @@ const stateTextRules = [
     ['.akari-daihon-cutcell', '#a05f4f', 4.5],
     ['.akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled)', '#ffb39e', 4.5],
     ['.akari-daihon-cutrange button.primary', '#ffb39e', 4.5],
-    ['.akari-daihon-cut:hover', '#ff8f73', 4.5],
+    ['.akari-daihon-cut:hover:not(:disabled)', '#ff8f73', 4.5],
     ['.akari-daihon-pop button.danger', '#ff9d84', 4.5],
     ['.akari-daihon-word-unk', '#b08a5a', 4.5],
     ['.akari-daihon-tc:hover', '#53d1bc', 4.5],
