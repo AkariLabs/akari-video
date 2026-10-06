@@ -5,7 +5,7 @@ import { mixOrder, sha256 } from '../lib/common/asset-mix-order.js';
 import { labAssetUrl, mergeAssetCatalogViews } from '../lib/common/asset-catalog-view.js';
 import { rankLibraryShelfItems, rankRecentLibraryItems } from '../lib/common/library-source-view.js';
 
-// 取り決めの試験ベクタ 5 本。
+// 混ぜ順の試験ベクタ 5 本。
 const vectors = [
     { count: 20, free: [0,1,2,3,4,5,6,7,8,9], expected: [0,1,8,9,6,10,4,7,13,19,16,2,15,18,5,14,3,17,11,12] },
     { count: 20, free: [5,17], expected: [0,1,8,9,6,10,4,7,13,19,5,17,16,2,15,18,14,3,11,12] },
@@ -26,6 +26,15 @@ for (const [index, vector] of vectors.entries()) {
         assert.deepEqual(input.map(item => item.id), Array.from({ length: vector.count }, (_, n) => id(n)));
     });
 }
+
+test('mixOrder counts items without a tier as free', () => {
+    const vector = vectors[1];
+    const input = items(vector);
+    for (const item of input) {
+        if (item.tier === 'free') delete item.tier;
+    }
+    assert.deepEqual(mixOrder(input, { screen: 12, minFree: 3 }).map(item => item.id), vector.expected.map(id));
+});
 
 test('sha256 matches Node for UTF-8 and SHA block boundaries', () => {
     for (const value of ['', 'overlay/one', '日本語', 'a'.repeat(55), 'a'.repeat(56), 'a'.repeat(63), 'a'.repeat(64), 'a'.repeat(65), '長'.repeat(80)]) {
@@ -54,5 +63,5 @@ test('Lab URL uses a single asset page unless a legacy product ID exists', () =>
     assert.equal(labAssetUrl(undefined, { category: 'text style', id: 'a/b', product_id: '' }),
         'https://akari.video/lab/viewer#text%20style/a%2Fb');
     assert.equal(labAssetUrl(undefined, { category: 'overlay', id: 'card', product_id: 'old pack' }),
-        'https://akari.video/lab/asset.html?' + 'id=old%20pack');
+        'https://akari.video/lab/asset.html?id=old%20pack');
 });

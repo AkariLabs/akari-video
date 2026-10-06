@@ -60,13 +60,13 @@ export function mixOrder<T extends { category: string; id: string; tier?: string
     const ordered = [...items].sort(compare);
     const head = ordered.slice(0, screen);
     const tail = ordered.slice(screen);
-    const needed = minFree - head.filter(item => item.tier === 'free').length;
+    const needed = minFree - head.filter(item => item.tier !== 'pro').length;
     if (needed <= 0) return ordered;
-    const promoted = tail.filter(item => item.tier === 'free').slice(0, needed);
+    const promoted = tail.filter(item => item.tier !== 'pro').slice(0, needed);
     if (!promoted.length) return ordered;
     const demoted: T[] = [];
     for (let p = head.length - 1; p >= 0 && demoted.length < promoted.length; p--) {
-        if (head[p].tier !== 'free') demoted.unshift(head.splice(p, 1)[0]);
+        if (head[p].tier === 'pro') demoted.unshift(head.splice(p, 1)[0]);
     }
     const promotedSet = new Set(promoted);
     return [...head, ...promoted].sort(compare).concat(demoted, tail.filter(item => !promotedSet.has(item)));

@@ -20,7 +20,6 @@ import {
     toResolverAssetCatalogViewItem
 } from '../lib/common/asset-catalog-view.js';
 import { normalizeEntitledProducts } from '../lib/node/akari-project-service.js';
-import { mixOrder } from '../lib/common/asset-mix-order.js';
 
 // カタログ面「1 ビュー」の純関数群（マージ・resolver 生アイテムの正規化・状態バッジ文言）。
 // backend の getAssetCatalogView() / loadResolverCatalogItems() が使う本体をここで単体テストする。
@@ -134,11 +133,12 @@ test('mergeAssetCatalogViews: id 重複（同じ category/id）は resolver 側�
 
 test('mergeAssetCatalogViews: mixed catalogue order', () => {
     const resolver = [
-        { origin: 'resolver', key: 'still/b', id: 'b', category: 'still', title: 'わかめ', tags: [], price: 0, state: 'available' },
-        { origin: 'resolver', key: 'still/a', id: 'a', category: 'still', title: 'あさひ', tags: [], price: 0, state: 'available' }
+        { origin: 'resolver', key: 'still/b', id: 'b', category: 'still', title: 'あさひ', tags: [], price: 0, state: 'available' },
+        { origin: 'resolver', key: 'still/a', id: 'a', category: 'still', title: 'いるか', tags: [], price: 0, state: 'available' },
+        { origin: 'resolver', key: 'still/c', id: 'c', category: 'still', title: 'うみ', tags: [], price: 0, state: 'available' }
     ];
     const merged = mergeAssetCatalogViews([], resolver);
-    assert.deepEqual(merged.map(item => item.id), mixOrder(resolver).map(item => item.id));
+    assert.deepEqual(merged.map(item => item.id), ['c', 'a', 'b']);
 });
 
 test('mergeAssetCatalogViews: 両方空なら空配列（例外なし）', () => {
@@ -206,7 +206,7 @@ test('deriveStoreLabBaseUrl: store-credentials.json の url（.../api/store）�
 test('labAssetUrl: product and single asset pages', () => {
     assert.equal(
         labAssetUrl('http://localhost:8788/api/store', { category: 'overlay', id: 'card', product_id: 'phone-pro-titanium' }),
-        'http://localhost:8788/lab/asset.html?' + 'id=phone-pro-titanium'
+        'http://localhost:8788/lab/asset.html?id=phone-pro-titanium'
     );
     assert.equal(
         labAssetUrl(undefined, { category: 'overlay', id: 'telop-base-cue-card-hands' }),
@@ -219,7 +219,7 @@ test('labAssetUrl: product and single asset pages', () => {
 });
 
 test('catalogPurchaseActionText: Pro 案内に価格を表示しない', () => {
-    const url = 'https://akari.video/lab/asset.html?' + 'id=paid-asset';
+    const url = 'https://akari.video/lab/asset.html?id=paid-asset';
     assert.deepEqual(catalogPurchaseActionText('pro', 'grid', url), {
         label: 'Pro',
         title: `Pro の案内 — AKARI Video Lab を開く（${url}）`

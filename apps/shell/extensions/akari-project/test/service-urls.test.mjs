@@ -33,7 +33,7 @@ for (const [input, lab] of [
 ]) {
     test(`purchase and both Store buttons use the normalized URL: ${input}`, () => {
         assert.equal(catalog.deriveStoreLabBaseUrl(input), lab);
-        assert.equal(catalog.labAssetUrl(input, { category: 'overlay', id: 'a b', product_id: 'a b' }), `${lab}/asset.html?` + 'id=a%20b');
+        assert.equal(catalog.labAssetUrl(input, { category: 'overlay', id: 'a b', product_id: 'a b' }), `${lab}/asset.html?id=a%20b`);
         const opened = [];
         const windows = { openNewWindow: (url, options) => opened.push({ url, options }) };
         const state = { connection: { url: input, connected: true }, phase: 'idle' };
