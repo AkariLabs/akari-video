@@ -64,12 +64,14 @@ import { writeNestedPreviewLayer } from './inspector/nested-preview-layer';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
-import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget, OpenerService, StorageService, open } from '@theia/core/lib/browser';
 import { MAXIMIZED_CLASS } from '@theia/core/lib/browser/shell/application-shell';
 import { StatusBar } from '@theia/core/lib/browser/status-bar/status-bar';
 import { TimelineZoomBar, ZoomBarPart } from './timeline/timeline-zoom-bar';
 import { TimelineEdgeAutoScroll } from './timeline/timeline-edge-auto-scroll';
 import { TimelineStatusMessage, installTimelineFooterSink } from './timeline/timeline-status-message';
+import { TimelineIssueChip } from './timeline/timeline-issue-chip';
+import { installTimelineStatusSeat } from './timeline/timeline-status-seat';
 import { clampTrackScale, clampViewRange, dragViewRange, edgeAutoScrollDelta, fitDuration, maximumViewDuration,
     minimumViewDuration, snapFitDuration, trackScaleFromHandle, zoomBarExtent, zoomPercent as viewZoomPercent,
     TimelineViewRange } from '../common/timeline-view-range';
@@ -1060,6 +1062,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(FileService)
     protected readonly fileService!: FileService;
 
+    @inject(OpenerService)
+    protected readonly openerService!: OpenerService;
+
     @inject(WorkspaceService)
     protected readonly workspaceService!: WorkspaceService;
 
@@ -1208,6 +1213,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly warnedNewerVersionProjects = new Set<string>();
     protected readonly footer = document.createElement('div');
     protected timelineStatusMessage!: TimelineStatusMessage;
+    protected timelineIssueChip!: TimelineIssueChip;
     protected trackHeightScale = 1;
     protected hZoomDragOrigin: TimelineViewRange = { start: 0, duration: 0 };
     protected vZoomDragOrigin = { scale: 1, scrollTop: 0 };
@@ -2244,6 +2250,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.timelineStatusMessage = new TimelineStatusMessage(this.statusBar, {
             host: this.timelineBody, isMaximized: () => this.shell.bottomPanel.hasClass(MAXIMIZED_CLASS)
         });
+        this.timelineIssueChip = new TimelineIssueChip(this.statusBar, document, () => {
+            if (this.location) void open(this.openerService, this.location.root.resolve('.akari/reports/edit-lint-report.html'));
+        });
+        this.toDispose.push(Disposable.create(installTimelineStatusSeat(document)));
+        this.toDispose.push(Disposable.create(() => this.timelineIssueChip.dispose()));
         this.toDispose.push(this.shell.onDidToggleMaximized(() => this.timelineStatusMessage.refreshRoute()));
         const uninstallFooterSink = installTimelineFooterSink(this.footer, this.timelineStatusMessage);
         this.toDispose.push(Disposable.create(uninstallFooterSink));
@@ -8182,6 +8193,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configured = true;
         this.adoptTimelineIdentity(location.editUri?.toString());
         this.location = location;
+        this.timelineIssueChip.setFindings([]);
         this.autoRipple = await this.storage.getData<boolean>(`akari.timeline.autoRipple:${location.editUri?.toString() ?? ''}`, false) === true;
         this.autoRippleButton.setAttribute('aria-pressed', String(this.autoRipple));
         this.refreshLocationEditUri = refreshLocationEditUri;
@@ -8321,6 +8333,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const lintSavedVersion = !pass ? this.pendingLintNewerVersion : undefined;
         this.pendingLintNewerVersion = undefined;
         if (pass) {
+            this.timelineIssueChip.setFindings([]);
             if (this.deferredLintFooterMessage?.parentElement === this.footer) {
                 this.footer.replaceChildren();
             }
@@ -8333,9 +8346,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return;
         }
+        const scope = writtenFiles === undefined ? undefined : splitLintBlame(findings, writtenFiles);
+        const ownErrors = scope?.own.filter(finding => finding.severity === 'error') ?? [];
+        const foreignErrors = scope?.foreign.filter(finding => finding.severity === 'error') ?? [];
+        if (ownErrors.length === 0 && foreignErrors.length > 0) {
+            this.timelineIssueChip.setFindings(foreignErrors, lintSavedVersion);
+            if (this.deferredLintFooterMessage?.parentElement === this.footer) this.footer.replaceChildren();
+            this.deferredLintFooterMessage = undefined;
+            return;
+        }
         this.footer.replaceChildren();
         const message = document.createElement('span');
         if (writtenFiles === undefined) {
+            this.timelineIssueChip.setFindings([]);
             message.textContent = withNewerVersionLintPrefix(
                 formatLintFailureForUi('保存後の検証で問題が見つかりました', errors, findings), lintSavedVersion);
             const undo = document.createElement('button');
@@ -8348,9 +8371,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.messages.warn(message.textContent);
             return;
         }
-        const { own, foreign } = splitLintBlame(findings, writtenFiles);
-        const ownErrors = own.filter(finding => finding.severity === 'error');
-        const foreignErrors = foreign.filter(finding => finding.severity === 'error');
+        this.timelineIssueChip.setFindings(foreignErrors, lintSavedVersion);
         const formatFinding = (finding: UiLintFinding): string =>
             `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`;
         if (ownErrors.length > 0) {
@@ -8366,13 +8387,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             undo.addEventListener('click', () => void this.performUndo());
             this.footer.append(message, document.createTextNode(' '), undo);
             this.messages.warn(message.textContent);
-        } else if (foreignErrors.length > 0) {
-            const example = formatFinding(foreignErrors[0]);
-            const ellipsis = foreignErrors.length > 1 ? ' …' : '';
-            message.textContent = withNewerVersionLintPrefix(
-                `このプロジェクトには保存前からの課題が ${foreignErrors.length} 件あります（例: ${example}${ellipsis}）。Lint レポートで確認してください`,
-                lintSavedVersion);
-            this.footer.append(message);
         } else {
             this.deferredLintFooterMessage = undefined;
             return;

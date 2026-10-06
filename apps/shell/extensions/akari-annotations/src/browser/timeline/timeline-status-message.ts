@@ -45,6 +45,7 @@ export class TimelineStatusMessage {
         if (this.chip) {
             this.chip.hidden = !inPanel || !this.current;
             this.chip.textContent = this.chip.hidden ? '' : this.current!.text;
+            this.chip.title = this.chip.hidden ? '' : this.current!.text;
             this.chip.classList.toggle('akari-timeline-message-warning', !!this.current?.warning);
             this.chip.onclick = inPanel && this.current?.onclick ? this.current.onclick : null;
             this.chip.style.pointerEvents = this.chip.onclick ? 'auto' : 'none';
@@ -54,10 +55,11 @@ export class TimelineStatusMessage {
         } else {
             const { text, warning, onclick } = this.current;
             void this.bar.setElement(TIMELINE_MESSAGE_ID, {
-                text, alignment: 1 as StatusBarAlignment, priority: -1000,
+                text, alignment: 0 as StatusBarAlignment, priority: -1000,
                 name: 'タイムライン',
-                ...(warning ? { className: 'akari-timeline-message-warning',
-                    color: 'var(--theia-editorWarning-foreground)' } : {}),
+                className: warning ? 'akari-timeline-status-message akari-timeline-message-warning'
+                    : 'akari-timeline-status-message',
+                ...(warning ? { color: 'var(--theia-editorWarning-foreground)' } : {}),
                 ...(onclick ? { onclick } : {})
             });
         }

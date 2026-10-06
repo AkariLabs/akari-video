@@ -23,3 +23,16 @@ test('pass verdict でも対象 transition warning は、古い失敗表示を�
     assert.match(method, /this\.footer\.textContent = warningSummary/u);
     assert.match(method, /this\.messages\.warn\(warningSummary\)/u);
 });
+
+test('foreign-only lint leaves the current transient footer message in place', () => {
+    const start = source.indexOf('protected showDeferredLintResult');
+    const end = source.indexOf('protected async reloadAll', start);
+    const method = source.slice(start, end);
+    const branch = method.indexOf('if (ownErrors.length === 0 && foreignErrors.length > 0)');
+    const generalClear = method.indexOf('this.footer.replaceChildren();', branch + 1);
+    assert.ok(branch >= 0 && generalClear > branch, method);
+    const beforeGeneralClear = method.slice(branch, generalClear);
+    assert.match(beforeGeneralClear, /this\.timelineIssueChip\.setFindings\(foreignErrors, lintSavedVersion\)/);
+    assert.match(beforeGeneralClear, /this\.deferredLintFooterMessage\?\.parentElement === this\.footer/);
+    assert.match(method.slice(branch, method.indexOf('this.footer.replaceChildren();\n        const message', branch)), /return;/);
+});
