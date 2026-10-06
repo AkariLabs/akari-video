@@ -88,6 +88,19 @@ test('composeState: ローカルに実体があるものは cached になる', a
   assert.equal(free.state, 'cached');
 });
 
+test('composeState: cached preview uses local filename over catalog key', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[0].preview = 'still/mini-still/v1/preview.png';
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  const dir = path.join(home, 'assets', 'still', 'mini-still');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'preview.png'), 'local preview');
+  const item = (await composeState({ env })).items.find(entry => entry.id === 'mini-still');
+  assert.equal(item.state, 'cached');
+  assert.equal(item.preview, 'preview.png');
+  assert.equal(item.libraryDir, dir);
+});
+
 test('composeState: legacy local-only metadata without tier displays free while catalog stays fail-closed', async () => {
   const { env, home, catalog, catalogPath } = setupFixtureEnv();
   const dir = path.join(home, 'assets', 'audio', 'old-local');

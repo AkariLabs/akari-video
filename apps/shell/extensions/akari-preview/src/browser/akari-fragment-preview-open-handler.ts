@@ -7,6 +7,16 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariPreviewService, OverlayRuntimeAssetUrls } from '../common/akari-preview-protocol';
 
+interface FragmentPreviewKnob {
+    cssVar: string;
+    type: 'color' | 'slider' | 'text';
+    label: string;
+    default: string | number;
+    min?: number;
+    max?: number;
+    unit?: string;
+}
+
 @injectable()
 export class AkariFragmentPreviewOpenHandler implements OpenHandler {
     readonly id = 'akari-fragment-preview-open-handler';
@@ -77,6 +87,17 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
         widget.disposed.connect(() => { void release(); });
         try {
             const html = (await this.fileService.readFile(uri)).value.toString();
+            const meta = JSON.parse((await this.fileService.readFile(uri.parent.resolve('meta.json'))).value.toString());
+            const knobs: FragmentPreviewKnob[] = Array.isArray(meta.knobs) ? meta.knobs.filter((knob: unknown): knob is FragmentPreviewKnob => {
+                if (!knob || typeof knob !== 'object') return false;
+                const value = knob as Partial<FragmentPreviewKnob>;
+                return typeof value.cssVar === 'string' && /^--[a-zA-Z0-9_-]+$/.test(value.cssVar)
+                    && (value.type === 'color' || value.type === 'slider' || value.type === 'text')
+                    && typeof value.label === 'string'
+                    && (typeof value.default === 'string' || typeof value.default === 'number')
+                    && (value.type !== 'slider' || (typeof value.min === 'number' && Number.isFinite(value.min)
+                        && typeof value.max === 'number' && Number.isFinite(value.max) && value.max > value.min));
+            }) : [];
             const assets = await this.previewService.getOverlayRuntimeAssetUrls();
             const result = await this.previewService.rewriteFragmentAssets({
                 projectRootUri: uri.parent.toString(), html, htmlPath: 'fragment.html', overlayId: 'asset',
@@ -87,7 +108,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
                 await release();
                 return;
             }
-            widget.setHTML(this.previewHtml(result.html, assets, `${uri.parent.path.base}/fragment.html`));
+            widget.setHTML(this.previewHtml(result.html, assets, `${uri.parent.path.base}/fragment.html`, knobs));
         } catch (error) {
             await release();
             console.warn(`[akari-preview] failed to open ${uri.toString()}`, error);
@@ -129,7 +150,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    protected previewHtml(html: string, assets: OverlayRuntimeAssetUrls, filename = 'fragment.html'): string {
+    protected previewHtml(html: string, assets: OverlayRuntimeAssetUrls, filename = 'fragment.html', knobs: FragmentPreviewKnob[] = []): string {
         const output = { width: 1920, height: 1080, fps: 30 };
         const duration = 5;
         const json = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
@@ -151,6 +172,10 @@ background-image:conic-gradient(#ccc 25%,transparent 0 50%,#ccc 0 75%,transparen
 #overlay-stage{position:absolute;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;font-family:AkariCaption,sans-serif}
 #controls{display:flex;gap:12px;align-items:center;padding:12px;flex-wrap:wrap}
 #seek{flex:1;min-width:80px}button,select{font:inherit}#time{font-variant-numeric:tabular-nums}
+#knobs{padding:0 12px 12px;max-height:30vh;overflow:auto}
+#knob-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;padding-top:8px}
+#knob-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px}
+#knob-fields input{width:100%}
 #error{margin:auto;padding:32px;text-align:center;line-height:1.7}
 </style></head><body>
 <div id="viewport"><div class="akari-material-chip">${this.escapeHtml(filename)}</div><div id="canvas" data-background="checker"><div id="overlay-stage"></div></div></div>
@@ -158,13 +183,35 @@ background-image:conic-gradient(#ccc 25%,transparent 0 50%,#ccc 0 75%,transparen
 <input id="seek" aria-label="再生位置" type="range" min="0" max="${duration}" step="0.01" value="0" disabled>
 <output id="time">0.00 / 5.00 s</output><label>背景 <select id="background">
 <option value="checker">市松</option><option value="white">白</option><option value="black">黒</option>
-</select></label></div><p id="error" role="alert" hidden></p>
+</select></label></div><details id="knobs" hidden><summary>色・サイズを調整</summary><div id="knob-fields"></div></details><p id="error" role="alert" hidden></p>
 ${scripts.map(url => `<script src="${this.escapeHtml(url)}"></script>`).join('')}
 <script>
 (async()=>{
  const viewport=document.getElementById('viewport'),canvas=document.getElementById('canvas');
  const stage=document.getElementById('overlay-stage'),play=document.getElementById('play');
  const seek=document.getElementById('seek'),time=document.getElementById('time');
+ const knobs=${json(knobs)};
+ if(knobs.length){
+   const panel=document.getElementById('knobs'),fields=document.getElementById('knob-fields');
+   panel.hidden=false;
+   for(const knob of knobs){
+     const label=document.createElement('label'),input=document.createElement('input'),value=document.createElement('span');
+     label.textContent=knob.label;
+     input.type=knob.type==='slider'?'range':knob.type==='color'?'color':'text';
+     if(knob.type==='slider'){
+       input.min=String(knob.min);input.max=String(knob.max);
+       input.step=String((knob.max-knob.min)>10?1:0.01);
+     }
+     input.value=String(knob.default);
+     const update=()=>{
+       const suffix=knob.type==='slider'&&/^[a-z%]{0,6}$/i.test(knob.unit||'')?(knob.unit||''):'';
+       stage.style.setProperty(knob.cssVar,input.value+suffix);
+       value.textContent=input.value+suffix;
+     };
+     input.addEventListener('input',update);
+     label.append(input,value);fields.append(label);update();
+   }
+ }
  const fit=()=>{
    const scale=Math.min(viewport.clientWidth/${output.width},viewport.clientHeight/${output.height},1);
    const width=${output.width}*scale,height=${output.height}*scale;

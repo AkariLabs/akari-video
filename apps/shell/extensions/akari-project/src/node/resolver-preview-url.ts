@@ -1,6 +1,8 @@
 import { ResolverRawCatalogItem, selectResolverAudioFileRef } from '../common/asset-catalog-view';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
+import { existsSync, realpathSync, statSync } from 'fs';
+import { isAbsolute, relative } from 'path';
 
 /**
  * http(s) URL かどうか。packages/asset-resolver/src/env.mjs の isRemoteLocation と
@@ -37,7 +39,23 @@ export function resolveResolverPreviewUrl(preview: string | undefined, base: str
 
 /** 置き場の主メディアは file URI。Lab の相対サムネキー・複数テイク試聴も維持する。 */
 export function resolveResolverCatalogUrls(item: ResolverRawCatalogItem, base: string | null): { previewUrl?: string; mediaUrl?: string } {
-    const previewBase = item.libraryDir && item.preview === 'preview.png' ? item.libraryDir : base;
+    const localPreview = item.libraryDir && item.preview
+        && !isRemoteLocation(item.preview)
+        && !item.preview.startsWith('/')
+        && !item.preview.split(/[\\/]/).includes('..')
+        && (() => {
+            const candidate = resolve(item.libraryDir!, item.preview!);
+            if (!existsSync(candidate)) return false;
+            try {
+                const root = realpathSync(item.libraryDir!);
+                const actual = realpathSync(candidate);
+                const within = relative(root, actual);
+                return within !== '' && !within.startsWith('..') && !isAbsolute(within) && statSync(actual).isFile();
+            } catch {
+                return false;
+            }
+        })();
+    const previewBase = localPreview ? item.libraryDir : base;
     const audioRef = selectResolverAudioFileRef(item);
     return {
         previewUrl: previewBase || isRemoteLocation(item.preview ?? undefined)

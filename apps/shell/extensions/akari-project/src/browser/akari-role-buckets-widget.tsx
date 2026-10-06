@@ -3279,11 +3279,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     protected async previewCatalogItem(item: AssetCatalogViewItem): Promise<void> {
         const source = item.mediaUrl ?? item.previewUrl;
-        if (!source) {
-            this.messages.info(`「${item.title}」はまだ手元に無いので開けません。⋯ から取り寄せてください。`);
-            return;
-        }
         try {
+            if (item.category === 'overlay' && item.state === 'cached' && item.libraryDir) {
+                const fragment = URI.fromFilePath(item.libraryDir).resolve('fragment.html');
+                if (await this.files.exists(fragment)) {
+                    await this.openFile(fragment);
+                    return;
+                }
+            }
+            if (!source || (item.origin === 'resolver' && (item.state !== 'cached' || /^https?:\/\//i.test(source)))) {
+                this.messages.info(`「${item.title}」はまだ手元に無いので開けません。⋯ から取り寄せてください。`);
+                return;
+            }
             await this.openFile(new URI(source));
         } catch (error) {
             this.messages.warn(`プレビューを開けませんでした: ${error instanceof Error ? error.message : String(error)}`);

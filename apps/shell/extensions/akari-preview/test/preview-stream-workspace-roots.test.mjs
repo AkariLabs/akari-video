@@ -187,3 +187,46 @@ test('(g) 台帳から行が落ちても、一度確認できた開いている 
         workspaceRoots: [pathToFileURL(data.c).toString()]
     }), /The requested workspace root is not an open workspace/u);
 });
+
+test('library read root permits asset and fragment previews but rejects outside and escapes', async t => {
+    const data = await fixture(t);
+    const library = join(data.a, 'library');
+    await mkdir(library);
+    const image = join(library, 'preview.png');
+    const fragment = join(library, 'fragment.html');
+    const outsideImage = join(data.a, 'outside.png');
+    await Promise.all([
+        writeFile(image, 'image'),
+        writeFile(fragment, '<div>preview</div>'),
+        writeFile(outsideImage, 'outside')
+    ]);
+    const link = join(library, 'escape.png');
+    await symlink(outsideImage, link);
+    const previous = process.env.AKARI_LIBRARY_ROOT;
+    process.env.AKARI_LIBRARY_ROOT = library;
+    t.after(() => {
+        if (previous === undefined) delete process.env.AKARI_LIBRARY_ROOT;
+        else process.env.AKARI_LIBRARY_ROOT = previous;
+    });
+    const { service } = serviceFor(data);
+    const workspaceRoots = [pathToFileURL(data.b).href];
+    const target = await service.resolveAssetStreamTarget({
+        assetUri: pathToFileURL(image).href, workspaceRoots
+    });
+    assert.equal(target.path, await realpath(image));
+    assert.ok(target.workspaceRoots.includes(await realpath(image)));
+    const rewritten = await service.rewriteFragmentAssets({
+        projectRootUri: pathToFileURL(library).href,
+        html: '<div>preview</div>', htmlPath: 'fragment.html', overlayId: 'asset', workspaceRoots
+    });
+    assert.match(rewritten.html, /preview/u);
+    for (const candidate of [outsideImage, join(library, '..', 'outside.png'), link]) {
+        await assert.rejects(service.resolveAssetStreamTarget({
+            assetUri: pathToFileURL(candidate).href, workspaceRoots
+        }), /Asset files outside the workspace cannot be streamed/u);
+    }
+    await assert.rejects(service.rewriteFragmentAssets({
+        projectRootUri: pathToFileURL(data.c).href,
+        html: '', htmlPath: 'fragment.html', overlayId: 'asset', workspaceRoots
+    }), /Project is outside the workspace/u);
+});
