@@ -274,8 +274,13 @@ export function createScrubAudioController(deps) {
     tracks.set(src, entry);
     entry.openPromise = track.open().then(() => {
       entry.ready = true;
+      if (!track.info.supported) {
+        entry.supported = false;
+        lastError = `unsupported audio codec: ${track.info.codec}`;
+      }
     }, (error) => {
       entry.failed = true;
+      entry.supported = false;
       lastError = errorMessage(error);
     });
     return entry;
@@ -346,7 +351,7 @@ export function createScrubAudioController(deps) {
   }
 
   async function decodeWindow(track, window, { signal, lane, isCurrent }) {
-    const key = `${track.src}|${window.packets[0].index}-${window.packets.at(-1).index}`;
+    const key = `${track.src}|${window.packets[0]}-${window.packets.at(-1)}`;
     if (cache.has(key)) {
       const hit = cache.get(key);
       cache.delete(key);
@@ -367,17 +372,20 @@ export function createScrubAudioController(deps) {
     const holder = await decoderFor(track.src, lane, track.decoderConfig(), outputs);
     const decoderKey = `${lane}|${track.src}`;
     try {
-      for (const packet of window.packets) {
+      const samples = track.info.samples;
+      for (const sampleIndex of window.packets) {
+        const offset = samples.offsets[sampleIndex];
+        const size = samples.sizes[sampleIndex];
         const range = fetched.find(item => (
-          packet.offset >= item.start && packet.offset + packet.size - 1 <= item.end
+          offset >= item.start && offset + size - 1 <= item.end
         ));
         if (!range) throw new Error('audio packet bytes are missing');
-        const at = packet.offset - range.start;
+        const at = offset - range.start;
         holder.decoder.decode(new EncodedAudioChunkCtor({
           type: 'key',
-          timestamp: Math.round(packet.dts / track.info.timescale * 1e6),
-          duration: Math.round(packet.duration / track.info.timescale * 1e6),
-          data: range.bytes.slice(at, at + packet.size),
+          timestamp: Math.round(samples.dts[sampleIndex] / track.info.timescale * 1e6),
+          duration: Math.round(samples.durations[sampleIndex] / track.info.timescale * 1e6),
+          data: range.bytes.slice(at, at + size),
         }));
       }
       await holder.decoder.flush();
@@ -462,7 +470,7 @@ export function createScrubAudioController(deps) {
       && sourceTime + fragmentMs / 1000 <= prefetchState.windowEndSec + 1e-6) return;
     const window = windowFor(entry.track, sourceTime, speed);
     if (!window.packets.length) return;
-    const key = `${input.src}|${window.packets[0].index}-${window.packets.at(-1).index}`;
+    const key = `${input.src}|${window.packets[0]}-${window.packets.at(-1)}`;
     if (prefetchState?.key === key) return;
     cancelPrefetch();
     const token = prefetchGeneration;
@@ -667,6 +675,11 @@ export function createScrubAudioController(deps) {
     get fragmentMs() { return fragmentMs; },
     set fragmentMs(value) { fragmentMs = value; },
     get context() { return audioContext; },
+    get sources() {
+      return [...tracks].map(([src, entry]) => ({
+        src, ready: entry.ready, failed: entry.failed, supported: entry.supported,
+      }));
+    },
     onSeek,
     stop,
     onPlaybackPaused,

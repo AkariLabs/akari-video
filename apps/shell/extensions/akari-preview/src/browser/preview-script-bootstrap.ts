@@ -6551,6 +6551,8 @@ export function previewBootstrapScript(): string {
             let scrubAudioEnabled = initial.scrubAudioEnabled !== false;
             const scrubSrcForSegment = segment => {
                 if (!segment || segment.kind !== 'src' || isStillSegment(segment)) return null;
+                const cutsTrackMuted = allTracksMutedByScope.cuts || mutedTracksByScope.cuts.has(segment.track);
+                if (globalMuted || !isCutAudioAudibleFn(segment, { muted: cutsTrackMuted })) return null;
                 const srcId = segment.src;
                 return (srcId && ((initial.videoSourceOriginals || {})[srcId] || videoSources[srcId]))
                     || video.currentSrc || video.getAttribute('src') || null;
@@ -6600,7 +6602,8 @@ export function previewBootstrapScript(): string {
                 controllerEnabled: scrubAudio ? scrubAudio.enabled : null,
                 lastError: scrubAudio ? scrubAudio.lastError : null,
                 contextState: scrubAudio ? scrubAudio.context.state : null,
-                inFlightFetches: scrubAudio ? scrubAudio.inFlightFetches : null
+                inFlightFetches: scrubAudio ? scrubAudio.inFlightFetches : null,
+                sources: scrubAudio ? scrubAudio.sources : []
             });
             const hideStillImage = () => { stillImage.style.display = 'none'; };
             const syncStillImageVisual = () => {
