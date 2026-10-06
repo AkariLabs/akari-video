@@ -1,0 +1,1567 @@
+{
+  "chips": [
+    {
+      "id": "c-0001",
+      "text": "話した言葉",
+      "rect": {
+        "x": 553.890625,
+        "y": 722.890625,
+        "width": 85.234375,
+        "height": 22
+      }
+    },
+    {
+      "id": "c-0002",
+      "text": "置いた文字",
+      "rect": {
+        "x": 553.890625,
+        "y": 696.890625,
+        "width": 85.234375,
+        "height": 22
+      }
+    }
+  ],
+  "selection": {
+    "tabs": [
+      "テキスト",
+      "動き",
+      "情報"
+    ],
+    "fields": [
+      "caption-multi-count",
+      "caption-font-family",
+      "caption-color",
+      "caption-size",
+      "caption-wrap-width",
+      "caption-font-weight",
+      "caption-line-height",
+      "caption-letter-spacing",
+      "caption-stroke-color",
+      "caption-stroke-width",
+      "caption-style-bg-enabled",
+      "caption-background-mode",
+      "caption-background-color",
+      "caption-background-opacity",
+      "caption-background-padding",
+      "caption-background-radius",
+      "caption-style-effect",
+      "caption-zone"
+    ],
+    "selected": []
+  },
+  "font": {
+    "panel": false,
+    "notice": []
+  },
+  "plates": [
+    {
+      "id": "caption-plate-c-0001-output-1",
+      "text": "話した言葉",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    },
+    {
+      "id": "caption-plate-c-0002",
+      "text": "置いた文字",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    }
+  ],
+  "hover": [
+    {
+      "id": "caption-plate-c-0001-output-1",
+      "text": "話した言葉",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "12px rgb(0, 0, 0)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    },
+    {
+      "id": "caption-plate-c-0002",
+      "text": "置いた文字",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    }
+  ],
+  "applied": {
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "background": {
+              "opacity": 0
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "background": {
+              "opacity": 0
+            }
+          }
+        }
+      ]
+    },
+    "frames": [
+      {
+        "dt": 1.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.80000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.099999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.599999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.200000047683716,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.899999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.899999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.800000011920929,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.900000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.099999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.900000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.799999952316284,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.700000047683716,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.899999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.899999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.400000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.80000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.599999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.700000047683716,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.80000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.699999988079071,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 20.30000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 14,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      }
+    ],
+    "plates": [
+      {
+        "id": "caption-plate-c-0001-output-1",
+        "text": "話した言葉",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "12px rgb(0, 0, 0)",
+        "background": "none",
+        "fill": "rgb(255, 255, 255)"
+      },
+      {
+        "id": "caption-plate-c-0002",
+        "text": "置いた文字",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "12px rgb(0, 0, 0)",
+        "background": "none",
+        "fill": "rgb(255, 255, 255)"
+      }
+    ]
+  },
+  "gradient": {
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        }
+      ]
+    },
+    "frames": [
+      {
+        "dt": 930.8000000119209,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 4.599999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 18.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.30000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 28.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 18.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 5.199999988079071,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 23.30000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 7.899999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.30000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.100000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.599999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.900000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 15.099999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.100000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 27.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.900000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.599999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 4.100000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 19.100000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 14.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 17.200000047683716,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 27.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      {
+        "dt": 16.30000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ]
+      }
+    ],
+    "plates": [
+      {
+        "id": "caption-plate-c-0001-output-1",
+        "text": "話した言葉",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "0px rgba(0, 0, 0, 0)",
+        "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+        "fill": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "caption-plate-c-0002",
+        "text": "置いた文字",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "0px rgba(0, 0, 0, 0)",
+        "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+        "fill": "rgba(0, 0, 0, 0)"
+      }
+    ]
+  },
+  "errors": [],
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 3,
+        "end": 6,
+        "text": "話した言葉",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "time_domain": "source",
+        "text_style": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          },
+          "fill_gradient": {
+            "colors": [
+              "#fb923c",
+              "#f43f5e",
+              "#8b5cf6"
+            ],
+            "angle_deg": 90
+          }
+        }
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 6,
+        "text": "置いた文字",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true,
+        "time_domain": "output",
+        "text_style": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          },
+          "fill_gradient": {
+            "colors": [
+              "#fb923c",
+              "#f43f5e",
+              "#8b5cf6"
+            ],
+            "angle_deg": 90
+          }
+        }
+      }
+    ]
+  }
+}

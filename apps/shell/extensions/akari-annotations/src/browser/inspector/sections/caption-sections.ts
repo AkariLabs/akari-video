@@ -8,6 +8,7 @@ import { composeInspectorSections } from '../section-model';
 import { type InspectorFieldDef, type InspectorSection } from './types';
 import { formatTimestamp, formatDurationSeconds, orDash, CAPTION_STYLE_DEFAULTS, CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM, captionStyleDisplayValue, isCaptionHexColor, effectiveCaptionBackgroundOpacity, type CaptionStyleFieldKey } from './shared-helpers';
 import { ANIMATOR_SECTION } from './animator-section';
+import { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } from '../caption-multi-targets';
 
 export function CAPTION_SECTIONS(
     snapshot: TimelineCaptionSelection,
@@ -522,14 +523,16 @@ export function MULTI_CAPTION_SECTIONS(
     const aggregate: TimelineCaptionSelection = {
         ...snapshots[0],
         textStyle: effectiveStyle,
-        effectiveTextStyle: effectiveStyle
+        effectiveTextStyle: { ...effectiveStyle, animation: commonCaptionAnimation(snapshots) }
     };
-    const targets: TimelineSelectionTarget[] = snapshots.map(snapshot => ({
-        kind: 'caption',
-        id: snapshot.id
-    }));
+    const targets = captionMultiTargets(snapshots);
     const styleCards = CAPTION_SECTIONS(aggregate, requestWrite, { mixedFields, targets, ...zoneActions })
         .filter(section => section.id === 'style' || section.id.startsWith('style:'));
+    const motion = CAPTION_SECTIONS(aggregate,
+        request => requestWrite(withCaptionMultiTargets(request, targets, aggregate.effectiveTextStyle?.animation)))
+        .filter(section => section.id === 'motion:caption');
+    const placedCount = snapshots.filter(snapshot =>
+        (snapshot as TimelineCaptionSelection & { timeDomain?: string }).timeDomain === 'output').length;
     return [
         {
             id: 'content', label: '内容（複数）',
@@ -539,6 +542,12 @@ export function MULTI_CAPTION_SECTIONS(
                 }
             ]
         },
-        ...styleCards
+        ...styleCards,
+        ...motion,
+        { id: 'info', label: '情報', fields: [
+            { name: 'caption-multi-info-count', label: '選択', getValue: () => `${snapshots.length} 件` },
+            { name: 'caption-multi-info-kinds', label: '種類', getValue: () =>
+                `字幕 ${snapshots.length - placedCount} 件 / 文字 ${placedCount} 件` }
+        ] }
     ];
 }

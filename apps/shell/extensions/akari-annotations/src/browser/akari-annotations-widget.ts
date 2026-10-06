@@ -216,6 +216,9 @@ import {
     removeCaptionLine
 } from '../common/caption-store';
 import { captionCueOriginalStylePatch, captionCueStylePresetId, captionPresetAwareStylePatch } from './inspector/caption-style-effects';
+import { commitCaptionStyleBatch } from './inspector/caption-style-batch';
+import { withCaptionSelectionDomain, type CaptionMotionDelta } from './inspector/caption-multi-targets';
+import { withCaptionPreviewFailure } from './inspector/caption-preview-write';
 import { effectiveMyStyleMotion, myStyleSaveParts, myStyleApplyNotice, placedMyStyleTextStyle, placedMyStyleMotion,
     appliedMyStyleKinds,
     myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedStyleItem, supportedMyStyleAttachPart,
@@ -941,7 +944,7 @@ export function generationOverhangLabelLayout(
 export class AkariAnnotationsWidget extends BaseWidget {
     protected lastCaptionRunNotice: string | undefined;
     protected readonly inspectorRequestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
-        this.handleInspectorWrite(request);
+        withCaptionPreviewFailure(request, this.handleInspectorWrite(request));
     protected readonly inspectorRequestLivePreview = (request: LivePreviewRequest): void => {
         this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
             target: request.target,
@@ -3550,7 +3553,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const after = replaceMyStylePartsInSource(before, ids,
                         request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>,
                         { keepSize: request.value.keepSize === true,
-                            catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined });
+                            catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined,
+                            motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined });
                     const attachParts = (request.value.parts as Array<{ kind: string }>).filter(part =>
                         ['sfx', 'fx', 'decor'].includes(part.kind));
                     const editBefore = attachParts.length
@@ -3680,18 +3684,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         style: captionCueOriginalStylePatch(captionsSource, entry.id, entry.style)
                     }));
                     const applyStyles = async (
-                        styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>
+                        styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>,
+                        source?: string
                     ): Promise<void> => {
-                        for (const entry of styles) {
-                            await this.annotationsService.setCaptionTextStyle({
-                                captionsUri,
-                                projectRootUri,
-                                captionId: entry.id,
-                                textStyle: entry.style
-                            });
-                        }
+                        if (!location.editUri) throw new Error('edit.json がありません。');
+                        await commitCaptionStyleBatch(styles, source,
+                            async () => (await this.fileService.readFile(location.captionsUri)).value.toString(),
+                            captionsSource => this.annotationsService.writeEditSnapshot({
+                                editUri: location.editUri!.toString(), captionsUri, projectRootUri, captionsSource
+                            }));
                     };
-                    await applyStyles(nextStyles);
+                    await applyStyles(nextStyles, captionsSource);
                     const feedback = request.kind === 'caption-style-font-family'
                         ? captionLibraryApplyFeedback(request.libraryApplyKind) : undefined;
                     this.pushHistory({
@@ -5695,7 +5698,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const items: TimelineItemSelectionSnapshot[] = this.multiSelection.flatMap(selection => {
                 const snapshot = this.snapshotForSelection(selection);
-                return snapshot && snapshot.kind !== 'world' ? [snapshot] : [];
+                return snapshot && snapshot.kind !== 'world' ? [withCaptionSelectionDomain(snapshot,
+                    snapshot.kind === 'caption' ? this.captions.find(cue => cue.id === snapshot.id)?.timeDomain
+                        : undefined)] : [];
             });
             this.multiSelection = items.map(item => item.kind === 'cut'
                 ? { kind: 'cut', index: item.index }

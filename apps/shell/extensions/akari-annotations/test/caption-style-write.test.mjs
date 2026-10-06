@@ -4,6 +4,7 @@ import test from 'node:test';
 import * as captionStyleEffects from '../lib/browser/inspector/caption-style-effects.js';
 import * as myStyleLook from '../lib/browser/my-style-look.js';
 import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
+import { commitCaptionStyleBatch } from '../lib/browser/inspector/caption-style-batch.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
@@ -14,7 +15,7 @@ assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
 const storeAliases = [...new Set([...block.matchAll(/\b(edit_store(?:_\d+)?)\./g)].map(match => match[1]))];
 const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1',
-  'buffer_1', 'library_apply_plan_1', ...storeAliases, `return (async function () {
+  'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', ...storeAliases, `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
@@ -73,7 +74,12 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
   let result;
   try { result = await run.call(context, { kind, id: captions[0].id, value,
     ...(targets ? { targets } : {}), ...(libraryApplyKind ? { libraryApplyKind } : {}) },
-    location, captionStyleEffects, myStyleLook, {}, libraryApplyPlan, ...storeAliases.map(() => editStore)); }
+    location, captionStyleEffects, myStyleLook, {}, libraryApplyPlan, {
+      commitCaptionStyleBatch: (styles, input, read, write) => {
+        calls.push(...styles.map(entry => ({ captionId: entry.id, textStyle: entry.style })));
+        return commitCaptionStyleBatch(styles, input, read, write);
+      }
+    }, ...storeAliases.map(() => editStore)); }
   catch (error) { result = { ok: false, message: error.message }; }
   assert.equal(result.ok, expectOk, result.message);
   assert.equal(history.length, expectOk ? 1 : 0);
@@ -169,6 +175,27 @@ test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き�
   assert.equal(result.writes[1].captionsSource, source);
   await result.history[0].redo();
   assert.equal(result.writes[2].captionsSource, result.writes[0].captionsSource);
+});
+
+test('複数選択の登場だけを 1 履歴で書き、各自の退場を保って Undo する', async () => {
+  const captions = [caption('spoken'), caption('placed')];
+  const source = JSON.stringify({ captions: [
+    { id: 'spoken', start: 0, end: 1, text: '字幕', text_style: { animation: { out: { id: 'fade-in-out' } } } },
+    { id: 'placed', start: 0, end: 1, text: '文字', time_domain: 'output',
+      text_style: { animation: { out: { id: 'slide-left' } } } }
+  ] });
+  const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
+  const result = await invoke('caption-style-my-style', {
+    parts: [{ kind: 'motion', animation: { in: { id: 'fade-in-out' } } }],
+    multi_motion_delta: { set: { in: { id: 'fade-in-out' } }, remove: [] }
+  }, captions, targets, source);
+  assert.equal(result.writes.length, 1);
+  assert.deepEqual(JSON.parse(result.writes[0].captionsSource).captions.map(row => row.text_style.animation), [
+    { out: { id: 'fade-in-out' }, in: { id: 'fade-in-out' } },
+    { out: { id: 'slide-left' }, in: { id: 'fade-in-out' } }
+  ]);
+  await result.history[0].undo();
+  assert.equal(result.writes[1].captionsSource, source);
 });
 
 test('効果音部品は captions と edit を 1 書き込み・undo 1 回で復元する', async () => {
