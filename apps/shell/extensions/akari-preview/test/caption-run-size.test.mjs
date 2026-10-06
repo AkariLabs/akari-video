@@ -52,9 +52,9 @@ test('selection bounds include a shifted or rotated run outside the line', () =>
         selectedCaptionPlate: () => null,
     };
     vm.runInNewContext(`${sliceBetween('const captionVisualRect =', 'const captionLayoutRect =')} globalThis.measure = captionVisualRect;`, context);
-    const line = { getBoundingClientRect: () => ({ left: 10, right: 100, top: 20, bottom: 50 }) };
-    const run = { getBoundingClientRect: () => ({ left: 90, right: 125, top: 5, bottom: 45 }) };
-    const plate = { querySelector: () => null, querySelectorAll: selector =>
+    const line = { isConnected: true, getBoundingClientRect: () => ({ left: 10, right: 100, top: 20, bottom: 50, width: 90, height: 30 }) };
+    const run = { isConnected: true, getBoundingClientRect: () => ({ left: 90, right: 125, top: 5, bottom: 45, width: 35, height: 40 }) };
+    const plate = { isConnected: true, querySelector: () => null, querySelectorAll: selector =>
         selector === '.akari-caption__line' ? [line] : [run] };
     assert.deepEqual({ ...context.measure(plate) }, { left: 10, right: 125, top: 5, bottom: 50 });
 });
