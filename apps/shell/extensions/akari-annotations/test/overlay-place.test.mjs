@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { runInContext, createContext } from 'node:vm';
+import ts from 'typescript';
 import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars,
-    overlayBoxOrOutput, overlayTransformForBox, parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../lib/common/overlay-place.js';
-import { timelineMethod } from './helpers/perspective-transition-fixture.mjs';
+    overlayBoxOrOutput, overlayTransformForBox, overlayBoxWithinDelay,
+    parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../lib/common/overlay-place.js';
 
 test('置く要求のキーと位置を検証する', () => {
     assert.deepEqual(parseOverlayPlaceRequest({ key: 'overlay/lower-third-clean', t: 3,
@@ -103,45 +105,73 @@ test('取り込み失敗時は書かず、成功時は書き込みを 1 回だ�
 });
 
 test('実コマンドは取り込み失敗で書かず、成功を undo 1 回で戻す', async () => {
-    const method = timelineMethod('addOverlayAtOutputPoint', { parseOverlayPlaceRequest, resolveThenWriteOverlay,
-        nextOverlayItemId, buildOverlayItem, insertOverlayItem, overlayDefaultVars, isUsableOverlayBox });
+    const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+    const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
+    const owner = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
+    const member = owner.members.find(node => ts.isMethodDeclaration(node)
+        && node.name.getText(ast) === 'addOverlayAtOutputPoint');
+    const code = ts.transpileModule(`class Handler { ${member.getText(ast)} }`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2021 }
+    }).outputText;
+    const events = [];
+    const window = { setTimeout, clearTimeout, dispatchEvent: event => { events.push(event); return true; } };
+    const previousWindow = globalThis.window;
+    globalThis.window = window;
+    const context = createContext({ parseOverlayPlaceRequest, resolveThenWriteOverlay, nextOverlayItemId,
+        buildOverlayItem, insertOverlayItem, overlayDefaultVars, isUsableOverlayBox, overlayBoxWithinDelay,
+        updateV2Item: (value, { itemId, patch }) => {
+            const copy = structuredClone(value);
+            const item = copy.tracks.flatMap(track => track.items).find(item => item.id === itemId);
+            Object.assign(item, patch);
+            return copy;
+        },
+        stringifyEditV2: JSON.stringify, window, Date, console, Promise,
+        CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } } });
+    const method = runInContext(`${code}\nHandler.prototype.addOverlayAtOutputPoint`, context);
     const initial = { version: 2, output: { width: 1920, height: 1080, fps: 30 }, sources: [],
         tracks: [{ id: 'v0', lane: 'visual', items: [] }] };
     let doc = initial;
     let resolved;
-    let measured = { x: 0, y: 0, width: 1920, height: 1080 };
+    let measured = Promise.resolve({ x: 0, y: 0, width: 1920, height: 1080 });
     const history = [];
     const notices = [];
     const state = {
         location: { editUri: { toString: () => 'file:///edit.json' } }, playheadT: 3,
-        messages: { warn: text => notices.push(text) }, commands: { executeCommand: async id => id === 'akari.catalog.resolveOverlay'
+        messages: { warn: text => notices.push(text) }, commands: { executeCommand: id => id === 'akari.catalog.resolveOverlay'
             ? resolved : measured },
         frameAt: seconds => seconds * 30, errorMessage: error => error.message,
         async commitEditMutation(label, mutate) {
-            const before = doc;
+            const before = JSON.stringify(doc);
             doc = mutate(doc);
-            history.push({ label, undo: () => { doc = before; } });
+            return { before, after: JSON.stringify(doc) };
         },
-        async focusTimelineItem() {}, footer: {}, revealOutputPreview() { assert.fail('置く操作で再表示しない'); }
+        pushHistory: entry => history.push(entry),
+        historyService: { isTop: entry => history.at(-1) === entry },
+        async writeEditSnapshotGuarded(snapshot) { doc = JSON.parse(snapshot); },
+        async reloadEdit() {},
+        async focusTimelineItem() { return true; }, footer: {},
+        revealOutputPreview() { assert.fail('置く操作で再表示しない'); }
     };
-    assert.equal(await method.call(state, { key: 'overlay/lower-third-clean' }), undefined);
-    assert.equal(doc, initial);
-    assert.equal(history.length, 0);
-    resolved = { relativePath: 'assets/overlay/lower-third-clean/fragment.html',
-        meta: { knobs: [{ cssVar: '--accent-color', default: '#abcdef' }] }, fragment: '' };
-    assert.equal(await method.call(state, { key: 'overlay/lower-third-clean' }), 'overlay-1');
-    assert.equal(history.length, 1);
-    assert.equal(doc.tracks[0].items[0].source.vars['--accent-color'], '#abcdef');
-    history[0].undo();
-    assert.equal(doc, initial);
-    measured = undefined;
-    const warning = console.warn;
-    const warnings = [];
-    console.warn = value => warnings.push(value);
     try {
+        assert.equal(await method.call(state, { key: 'overlay/lower-third-clean' }), undefined);
+        assert.equal(doc, initial);
+        assert.equal(history.length, 0);
+        resolved = { relativePath: 'assets/overlay/lower-third-clean/fragment.html',
+            meta: { knobs: [{ cssVar: '--accent-color', default: '#abcdef' }] }, fragment: '' };
         assert.equal(await method.call(state, { key: 'overlay/lower-third-clean' }), 'overlay-1');
-    } finally { console.warn = warning; }
-    assert.equal(warnings.length, 1);
-    assert.match(warnings[0], /出力全体の枠/u);
-    assert.equal(doc.tracks[0].items[0].transform.scale, 0.4);
+        assert.equal(history.length, 1);
+        assert.equal(doc.tracks[0].items[0].source.vars['--accent-color'], '#abcdef');
+        await history[0].undo();
+        assert.deepEqual(doc, initial);
+        history.length = 0;
+        measured = new Promise(resolve => setTimeout(() => resolve({ x: 0, y: 0, width: 620, height: 112 }), 350));
+        assert.equal(await method.call(state, { key: 'overlay/lower-third-clean' }), 'overlay-1');
+        assert.equal(doc.tracks[0].items[0].transform.scale, 0.4);
+        await new Promise(resolve => setTimeout(resolve, 150));
+        assert.ok(doc.tracks[0].items[0].transform.scale > 0.4);
+        assert.equal(history.length, 1);
+        await history[0].undo();
+        assert.deepEqual(doc, initial);
+        assert.ok(events.some(event => event.type === 'akari-preview-placement' && event.detail.phase === 'end'));
+    } finally { globalThis.window = previousWindow; }
 });

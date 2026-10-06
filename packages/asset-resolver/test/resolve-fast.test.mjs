@@ -32,6 +32,18 @@ test('取得済み id はカタログもファイルも通信しない', async (
   assert.equal(calls, 0);
 });
 
+test('category/id の手元素材はカタログファイルが無くても配置できる', async () => {
+  const { env, item } = fixture();
+  env.AKARI_ASSETS_CATALOG = '/missing-catalog.json';
+  const dir = localAssetDir(env, item.category, item.id);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'part-0.bin'), 'ready');
+  const result = await resolve(`${item.category}/${item.id}`, { env,
+    fetchImpl: async () => { throw Error('catalog was fetched'); } });
+  assert.equal(result.cached, true);
+  assert.equal(result.dir, dir);
+});
+
 test('控えに id があれば未取得でもファイルだけ取得する', async () => {
   const { env, item, catalog } = fixture();
   await cacheCatalog(env, catalog);

@@ -25,6 +25,16 @@ export function overlayBoxOrOutput(output: { width: number; height: number }, me
         ? measured : { x: 0, y: 0, width: output.width, height: output.height };
 }
 
+/** Wait briefly for a precise box; the same promise may still supply a later correction. */
+export async function overlayBoxWithinDelay(measurement: Promise<unknown>, delayMs = 250): Promise<OverlayBox | undefined> {
+    let timer: number | undefined;
+    try {
+        const result = await Promise.race([measurement.catch(() => undefined),
+            new Promise<undefined>(resolve => { timer = window.setTimeout(resolve, delayMs); })]);
+        return isUsableOverlayBox(result) ? result : undefined;
+    } finally { if (timer) clearTimeout(timer); }
+}
+
 /** HTML の外側コンテナは出力全体・transform-origin はその中心。box は fragmentBounds の未変形値。 */
 export function overlayTransformForBox(output: { width: number; height: number },
     center: { x: number; y: number }, box: OverlayBox): { x: number; y: number; scale: number } | undefined {

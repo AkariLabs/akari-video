@@ -282,6 +282,24 @@ export async function resolve(
   { env = process.env, fetchImpl = fetch, project = null, force = false, reference = false, timeouts } = {},
 ) {
   const home = resolveAssetLibraryRoots(env).write;
+  // A qualified reference already names the local directory. Avoid parsing the
+  // large catalog on the common placement path; uncached and bare IDs still use it.
+  const localRef = typeof ref === 'string' ? ref.split('/') : [];
+  const qualified = localRef.length === 2 && localRef.every(part => part.length > 0
+    && part !== '.' && part !== '..' && !/[\\\0]/.test(part));
+  if (!force && qualified) {
+    const cachedDir = await cachedAssetDirAsync(env, localRef[0], localRef[1]);
+    if (cachedDir) {
+      const result = { id: localRef[1], category: localRef[0], dir: cachedDir, cached: true };
+      if (project && reference) {
+        await recordProjectReference(project, { id: localRef[1], category: localRef[0] });
+        result.referenced = true;
+      } else if (project) {
+        result.projectDir = await copyIntoProject(cachedDir, project, localRef[0], localRef[1]);
+      }
+      return result;
+    }
+  }
   const catalog = await loadCatalogForResolveAsync(ref, { env, fetchImpl, timeouts });
   const item = findCatalogItem(catalog, ref);
 

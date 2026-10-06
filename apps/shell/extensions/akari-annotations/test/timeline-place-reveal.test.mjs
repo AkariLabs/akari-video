@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { createContext, runInContext } from 'node:vm';
+import ts from 'typescript';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
 import { nearestTimelineViewStart } from '../lib/common/selection-reveal.js';
@@ -97,24 +99,41 @@ test('timeline material drop focuses video and audio and seeks only when outside
 });
 
 test('addOverlayAtOutputPoint focuses the created id and seeks only when outside its interval', async () => {
-  const method = timelineMethod('addOverlayAtOutputPoint', { parseOverlayPlaceRequest,
-    resolveThenWriteOverlay, nextOverlayItemId, buildOverlayItem, insertOverlayItem,
-    overlayDefaultVars, isUsableOverlayBox });
+  const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
+  const owner = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
+  const member = owner.members.find(node => ts.isMethodDeclaration(node)
+    && node.name.getText(ast) === 'addOverlayAtOutputPoint');
+  const code = ts.transpileModule(`class Handler { ${member.getText(ast)} }`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2021 }
+  }).outputText;
+  const method = runInContext(`${code}\nHandler.prototype.addOverlayAtOutputPoint`, createContext({
+    parseOverlayPlaceRequest, resolveThenWriteOverlay, nextOverlayItemId, buildOverlayItem,
+    insertOverlayItem, overlayDefaultVars, isUsableOverlayBox,
+    overlayBoxWithinDelay: async measurement => measurement,
+    stringifyEditV2: JSON.stringify, updateV2Item: mutations.updateItem,
+    Date, Promise, Number, console
+  }));
   let doc = { version: 2, output: { width: 1920, height: 1080, fps: 30 }, sources: [],
     tracks: [{ id: 'v1', lane: 'visual', items: [] }] };
   const calls = [];
   const state = { location: { root: { toString: () => 'file:///fixture' },
-    editUri: { toString: () => 'file:///edit.json' } }, playheadT: 0,
+    editUri: { toString: () => 'file:///edit.json' } }, playheadT: 0, fps: 30,
     commands: { executeCommand: async id => id === 'akari.catalog.resolveOverlay'
       ? { relativePath: 'assets/overlay/telop.html', meta: {}, fragment: '' }
       : { x: 0, y: 0, width: 1920, height: 1080 } },
-    frameAt: seconds => seconds * 30, async commitEditMutation(_label, mutate) { doc = mutate(doc); },
+    frameAt: seconds => seconds * 30, async commitEditMutation(_label, mutate) {
+      const before = JSON.stringify(doc);
+      doc = mutate(doc);
+      return { before, after: JSON.stringify(doc) };
+    },
+    pushHistory() {}, historyService: { isTop: () => true },
     focusTimelineItem: async (id, options) => { calls.push({ id, options }); },
     footer: {}, messages: { warn: assert.fail }, errorMessage: error => error.message };
   const id = await method.call(state, { key: 'overlay/lower-third-clean', t: 3 });
   assert.equal(doc.tracks.flatMap(track => track.items)[0].id, id);
   assert.equal(doc.tracks.flatMap(track => track.items)[0].at, 90);
-  assert.deepEqual(calls, [{ id, options: { seekIfOutside: true, reveal: true, pulse: true } }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)),
+    [{ id, options: { seekIfOutside: true, reveal: true, pulse: true } }]);
 });
 
 test('caption ids resolve for focus and the playhead hit element is only ruler high', () => {

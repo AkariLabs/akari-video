@@ -1827,28 +1827,52 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
     }
 
+    protected readonly overlayMeasureCache = new Map<string, { x: number; y: number; width: number; height: number }>();
+
     protected async measureOverlayBox(request: { editUri?: string; fragment?: string;
         relativePath?: string;
         vars?: Record<string, string | number | boolean> } | undefined): Promise<{
             x: number; y: number; width: number; height: number
         } | undefined> {
         if (!request?.editUri || !request.fragment) return undefined;
+        const started = Date.now();
+        const deadline = started + 1000;
+        const cacheKey = JSON.stringify([request.editUri, request.relativePath, request.fragment, request.vars ?? {}]);
+        const cached = this.overlayMeasureCache.get(cacheKey);
+        if (cached) return cached;
+        const withinDeadline = async <T>(work: Promise<T>): Promise<{ done: boolean; value?: T }> => {
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) return { done: false };
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            try {
+                return await Promise.race([
+                    work.then(value => ({ done: true, value })),
+                    new Promise<{ done: false }>(resolve => { timer = setTimeout(() => resolve({ done: false }), remaining); })
+                ]);
+            } finally { if (timer) clearTimeout(timer); }
+        };
         const editUri = new URI(request.editUri).normalizePath();
         let widget = this.openOutputPreviews.get(editUri.toString());
         if (!widget || widget.isDisposed || !widget.isAttached) {
             try {
-                widget = await this.getOrOpenPreview(editUri,
-                    { area: 'main' }, 'output') as PreviewWidgetMarker;
+                const opened = await withinDeadline(this.getOrOpenPreview(editUri,
+                    { area: 'main' }, 'output') as Promise<PreviewWidgetMarker>);
+                if (!opened.done || !opened.value) return undefined;
+                widget = opened.value;
                 if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
                 this.shell.revealWidget(widget.id);
-                await widget.akariPreviewRefresh;
+                if (widget.akariPreviewRefresh && !(await withinDeadline(widget.akariPreviewRefresh)).done) return undefined;
             } catch { return undefined; }
         }
-        const html = request.relativePath
-            ? (await this.previewService.rewriteFragmentAssets({ projectRootUri: editUri.parent.toString(),
+        const roots = request.relativePath ? await withinDeadline(this.currentWorkspaceRoots()) : undefined;
+        if (request.relativePath && !roots?.done) return undefined;
+        const rewritten = request.relativePath
+            ? await withinDeadline(this.previewService.rewriteFragmentAssets({ projectRootUri: editUri.parent.toString(),
                 html: request.fragment, htmlPath: request.relativePath, overlayId: 'measure-overlay',
-                workspaceRoots: await this.currentWorkspaceRoots() })).html
-            : request.fragment;
+                workspaceRoots: roots!.value! }))
+            : { done: true, value: { html: request.fragment } };
+        if (!rewritten.done || !rewritten.value) return undefined;
+        const html = rewritten.value.html;
         const requestId = `overlay-box-${Date.now()}-${Math.random()}`;
         return new Promise(resolve => {
             let finished = false;
@@ -1858,6 +1882,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 clearTimeout(timer);
                 clearInterval(retry);
                 listener.dispose();
+                if (box) {
+                    this.overlayMeasureCache.set(cacheKey, box);
+                    if (this.overlayMeasureCache.size > 128) this.overlayMeasureCache.delete(this.overlayMeasureCache.keys().next().value!);
+                }
+                this.previewDiagnostics?.note(`素材の枠測定 ${Date.now() - started}ms ${box ? '成功' : '打ち切り'} ${request.relativePath ?? ''}`);
                 resolve(box);
             };
             const listener = widget.onMessage(message => {
@@ -1870,8 +1899,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         fragment: html, vars: request.vars ?? {} })).catch(() => finish());
                 } catch { finish(); }
             };
-            const timer = setTimeout(() => finish(), 15000);
-            const retry = setInterval(send, 1000);
+            const timer = setTimeout(() => finish(), Math.max(0, deadline - Date.now()));
+            const retry = setInterval(send, 200);
             send();
         });
     }
@@ -3323,6 +3352,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari-preview-placement', onPlacement);
         disposables.push({ dispose: () => window.removeEventListener('akari-preview-placement', onPlacement) });
+        const onPlacementDiagnostic = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; key?: string; stage?: string; elapsedMs?: number }>).detail;
+            if (detail?.editUri !== widget.akariPreviewEditUri?.toString()) return;
+            this.previewDiagnostics?.note(`素材配置 ${detail.key ?? ''} ${detail.stage ?? ''} ${detail.elapsedMs ?? 0}ms`);
+        };
+        window.addEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic);
+        disposables.push({ dispose: () => window.removeEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic) });
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
             const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
@@ -3344,7 +3380,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (referencesUri && key === referencesUri.toString()) {
                     if (typeof placement === 'undefined' || !placement
                         || Date.now() > (placement.until ?? placement.at + 10_000)) {
-                        this.queueRefresh(widget, identityUri, kind, undefined, true);
+                        this.queueRefresh(widget, identityUri, kind, undefined, false);
                         continue;
                     }
                     // The resolver can write the ledger after edit.json. Reload the model
@@ -3360,9 +3396,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                 this.queueRefresh(widget, identityUri, kind, undefined, false);
                             }
                         } else {
-                            this.queueRefresh(widget, identityUri, kind, undefined, true);
+                            this.queueRefresh(widget, identityUri, kind, undefined, false);
                         }
-                    })().catch(() => this.queueRefresh(widget, identityUri, kind, undefined, true));
+                    })().catch(() => this.queueRefresh(widget, identityUri, kind, undefined, false));
                     continue;
                 }
                 if (kind === 'output' && change.resource.path.base.endsWith('.meta.json')) {

@@ -157,8 +157,13 @@ export async function readProjectReferences(projectDir) {
 
 export async function recordProjectReference(projectDir, reference) {
   assertReference(reference);
+  const alreadyRecorded = references => references.some(entry =>
+    entry.id === reference.id && entry.category === reference.category);
+  const current = await readProjectReferences(projectDir);
+  if (alreadyRecorded(current)) return current;
   return withReferencesLock(projectDir, async () => {
     const references = await readProjectReferences(projectDir);
+    if (alreadyRecorded(references)) return references;
     references.push({ id: reference.id, category: reference.category });
     const normalized = normalizeReferences(references);
     await writeProjectReferences(projectDir, normalized);

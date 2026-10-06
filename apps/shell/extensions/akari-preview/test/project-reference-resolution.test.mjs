@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createContext, runInContext } from 'node:vm';
 import { AkariPreviewServiceImpl } from '../lib/node/akari-preview-service.js';
 import { recordProjectReference } from '../../../../../packages/asset-resolver/src/project-references.mjs';
 import { readHandlerSource } from './helpers/handler-source.mjs';
@@ -77,7 +78,8 @@ test('まとめる・参照を外す際は edit.json 不変でもプレビュー
     const code = ts.transpileModule(`const handleFilesChanged = ${initializer};`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     const calls = [], editUri = new URI('file:///project/edit.json'), widget = { akariPreviewEditUri: editUri };
     const host = { resourceSuffix: uri => uri.path.base, queueRefresh: (...args) => calls.push(args) };
-    const handler = new Function('widget', 'kind', 'identityUri', `${code}; return handleFilesChanged;`).call(host, widget, 'output', editUri);
+    const handler = runInContext(`(function () { ${code}; return handleFilesChanged; }).call(host)`,
+        createContext({ host, widget, kind: 'output', identityUri: editUri, placement: undefined, Date, Set }));
     handler({ changes: [{ resource: new URI('file:///project/.akari/asset-references.json') }] });
-    assert.deepEqual(calls, [[widget, editUri, 'output', undefined, true]]);
+    assert.deepEqual(calls, [[widget, editUri, 'output', undefined, false]]);
 });
