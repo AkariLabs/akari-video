@@ -113,16 +113,16 @@ test('line angle uses the cursor direction for the four-degree snap window', () 
   near(Math.atan2(free.point.y - fixed.y, free.point.x - fixed.x) * 180 / Math.PI, 40.88);
 });
 
-test('magnet strength is strongest at the canvas center, then canvas edges, then other items', () => {
+test('canvas centre and other items snap at 6px; canvas edges snap at 4px', () => {
   const canvas = { width: 1000, height: 600 };
   // 画面中央は 6px、画面の端は 4px。
   assert.equal(g.snapBounds({ left: 444, right: 494, top: 200, bottom: 250 }, [], canvas).x.target, 500);
   assert.equal(g.snapBounds({ left: 5, right: 55, top: 200, bottom: 250 }, [], canvas).x, null);
   assert.equal(g.snapBounds({ left: 4, right: 54, top: 200, bottom: 250 }, [], canvas).x.target, 0);
-  // 他の素材は 3px まで。
+  // 他の素材は 6px まで。
   const other = { left: 700, right: 800, top: 300, bottom: 350 };
-  assert.equal(g.snapBounds({ left: 600, right: 696, top: 20, bottom: 70 }, [other], canvas).x, null);
-  assert.equal(g.snapBounds({ left: 600, right: 697, top: 20, bottom: 70 }, [other], canvas).x.kind, 'item');
+  assert.equal(g.snapBounds({ left: 600, right: 693, top: 20, bottom: 70 }, [other], canvas).x, null);
+  assert.equal(g.snapBounds({ left: 600, right: 694, top: 20, bottom: 70 }, [other], canvas).x.kind, 'item');
   // 自分の左端を相手の中央（750）へ寄せる交差の組み合わせは候補にしない。
   assert.equal(g.snapBounds({ left: 748, right: 778, top: 20, bottom: 70 }, [other], canvas).x, null);
   // 中央どうしは吸着する。
@@ -143,7 +143,7 @@ test('a held magnet is kept until it is released, but yields to a clearly closer
     [others[0], { left: 204, right: 280, top: 400, bottom: 450 }], canvas, 1, 6, { previous: { x: first } }).x;
   assert.equal(closer.target, 204);
   // 吸着距離を超えたら離す。
-  assert.equal(g.snapBounds({ left: 206, right: 256, top: 20, bottom: 70 }, [others[0]], canvas, 1, 6,
+  assert.equal(g.snapBounds({ left: 207, right: 257, top: 20, bottom: 70 }, [others[0]], canvas, 1, 6,
     { previous: { x: first } }).x, null);
   // 保持中の素材（3px）より近い画面中央（1px）へは、さらに近い別素材（0.5px）が居ても乗り換える。
   const itemHeld = { kind: 'item', target: 502, sourceIndex: 0, correction: 3 };
