@@ -289,7 +289,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * 開発配置へフォールバックしない — ユーザーが明示的に指定した場所を無言で
      * 差し替えると、設定ミスに気づけなくなるため）。未設定のときだけ、
      * findTemplate()/findBundledSkills() と同じ「開発時 cwd 相対 / パッケージ時
-     * __dirname 相対」の固定候補 → 見つからなければ __dirname/process.cwd() 起点の
+     * __dirname 相対 / resourcesPath 相対」の固定候補 → 見つからなければ __dirname/process.cwd() 起点の
      * 上方探索（最大 8 階層・catalog/INDEX.md の存在で判定）で catalog/ を探す。
      */
     async resolveCatalogRoot(preferenceRoot: string | undefined): Promise<string | undefined> {
@@ -303,11 +303,13 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     }
 
     protected async findBundledCatalog(): Promise<string | undefined> {
+        const resourcesPath = this.resourcesPath();
         const candidates = [
             resolve(__dirname, '../catalog'),
             resolve(process.cwd(), '../../catalog'),
             resolve(process.cwd(), 'catalog'),
-            resolve(__dirname, '../../../../../../../catalog')
+            resolve(__dirname, '../../../../../../../catalog'),
+            ...(resourcesPath ? [join(resourcesPath, 'catalog')] : [])
         ];
         for (const candidate of candidates) {
             if (await this.isDirectory(candidate)) {
