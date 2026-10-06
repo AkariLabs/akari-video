@@ -2,17 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const source = await readFile(new URL('../src/browser/daihon/akari-cuts-widget.ts', import.meta.url), 'utf8');
-const method = source.slice(source.indexOf('    async focusCandidate('), source.indexOf('    showError('));
 const pulse = await readFile(new URL('../src/common/daihon-focus-pulse-style.ts', import.meta.url), 'utf8');
-
-test('candidate focus waits for reloads and scrolls to an escaped candidate ID before pulsing', () => {
-  assert.match(method, /await this.tail.catch\(\(\) => undefined\)/u);
-  assert.match(method, /\[data-candidate-id="\$\{CSS.escape\(candidateId\)\}"\]/u);
-  assert.match(method, /scrollIntoView\(\{ block: 'center' \}\);\s*triggerFocusPulse\(row\);\s*return true/u);
-  assert.match(method, /if \(!row\) \{\s*this.notice.textContent =[\s\S]*?return false/u);
-  assert.match(source, /init\(\): void \{\s*installDaihonFocusPulseStyle\(\)/u);
-});
 
 test('shared pulse uses theme variables and an outline without changing layout', () => {
   assert.match(pulse, /getElementById\('akari-daihon-focus-pulse-style'\)\) return/u);

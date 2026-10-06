@@ -315,7 +315,6 @@ export interface TranscribeCuts {
     [key: string]: unknown;
 }
 export interface TranscribeArtifacts { transcripts: EngineTranscript[]; diff: TranscribeDiff | null; cuts: TranscribeCuts | null }
-export interface WriteCutsSelectionRequest extends TranscribeArtifactRequest { on: Record<string, boolean> }
 export interface TranscriptStatesRequest { projectRoot: string; relativePaths: string[] }
 export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean; dryRun?: boolean; retime?: boolean }
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
@@ -329,8 +328,6 @@ export interface AkariProjectService {
     removeProjectAssetReference(projectUri: string, reference: { category: string; id: string }): Promise<void>;
     bundleProjectAssets(projectUri: string, dryRun: boolean): Promise<AssetBundleOutcome>;
     readTranscribeArtifacts(request: TranscribeArtifactRequest): Promise<TranscribeArtifacts>;
-    writeCutsSelection(request: WriteCutsSelectionRequest): Promise<void>;
-    applyCutsToEdit(request: TranscribeArtifactRequest): Promise<{ changed: boolean }>;
     transcribeMaterial(request: TranscribeMaterialRequest): Promise<void>;
     cancelTranscribe(request: CancelTranscribeRequest): Promise<void>;
     transcriptStates(request: TranscriptStatesRequest): Promise<Record<string, TranscriptState>>;

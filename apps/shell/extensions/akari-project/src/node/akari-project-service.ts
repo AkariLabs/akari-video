@@ -4,7 +4,6 @@ import { brandKitPath, readBrandKit, updateBrandKit } from './brand-kit-store';
 import { AssetSite, AssetSiteListing, AssetSiteRecommendation, siteUrlAllowed } from '../common/asset-sites';
 import { libraryImportScript, libraryPacksScript, libraryImportWaveformScript } from './library-import-scripts';
 import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
-import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
 import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import type { LibraryTextstylePreset } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
@@ -20,7 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
     AkariProjectService,
-    TranscribeArtifactRequest, TranscribeArtifacts, WriteCutsSelectionRequest, MaterialTranscriptEvent,
+    TranscribeArtifactRequest, TranscribeArtifacts, MaterialTranscriptEvent,
     CancelTranscribeRequest,
     TranscribeMaterialRequest, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
     AssetCatalogView,
@@ -1487,98 +1486,6 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const next = previous.catch(() => undefined).then(action);
         this.transcribeWrites.set(key, next);
         try { return await next; } finally { if (this.transcribeWrites.get(key) === next) this.transcribeWrites.delete(key); }
-    }
-
-    async writeCutsSelection(request: WriteCutsSelectionRequest): Promise<void> {
-        const target = await this.materialTarget(request.projectRoot, request.relativePath);
-        await this.serializeTranscribeWrite(target.root, async () => {
-            if (!request.on || Object.values(request.on).some(value => typeof value !== 'boolean')) throw new Error('採否は真偽値で指定してください');
-            const file = await this.transcribeFile(target.root, `.akari/sidecars/${target.relativePath}.analysis/cuts.json`);
-            const original = await fs.readFile(file, 'utf8');
-            const cuts = JSON.parse(original);
-            for (const candidate of cuts.candidates) {
-                if (Object.prototype.hasOwnProperty.call(request.on, candidate.id)) candidate.on = request.on[candidate.id];
-            }
-            if (await fs.readFile(file, 'utf8') !== original) throw new Error('候補が更新されました。もう一度選択してください');
-            await this.writeJsonAtomic(file, cuts);
-        });
-    }
-
-    async applyCutsToEdit(request: TranscribeArtifactRequest & { editUri?: string }): Promise<{ changed: boolean }> {
-        const target = await this.materialTarget(request.projectRoot, request.relativePath);
-        return this.serializeTranscribeWrite(target.root, async () => {
-            const { cuts } = await this.readTranscribeArtifacts(request);
-            const candidates = cuts?.candidates.filter(candidate => candidate.on === true) ?? [];
-            if (!candidates.length) return { changed: false };
-            const file = await this.timelineEditFile(target.root, request.editUri);
-            const original = await fs.readFile(file, 'utf8');
-            const edit = JSON.parse(original);
-            const source = edit.version === 0 ? edit.source : edit.sources?.find((item: { path: string }) => item.path === target.relativePath);
-            if (!source || source.path !== target.relativePath) throw new Error('edit.json に対象素材がありません');
-            const ranges = candidates.map(candidate => ({ in: candidate.start, out: candidate.end, kind: 'row' as const, captionId: source.id }));
-            // cuts are retained ranges, not deletion records. Add boundaries by splitting the
-            // selected source only. Reapplying the same source ranges cannot cut them twice.
-            let next: string;
-            if (edit.version === 2) {
-                const matches = edit.tracks.some((track: any) => track.items?.some((item: any) => item.source?.src === source.id));
-                if (!matches) return { changed: false };
-                next = original;
-                for (const range of ranges) {
-                    const current = JSON.parse(next);
-                    // The shared kernel falls back to all sources when captionId is absent.
-                    // Once the last item for this source has gone, never take that fallback.
-                    if (!current.tracks.some((track: any) => track.items?.some((item: any) => item.source?.src === source.id))) break;
-                    next = applyCutRanges(next, [range]).source;
-                }
-                readEditV2(JSON.parse(next));
-            } else {
-                let existing = edit.cuts ?? [];
-                if (!existing.length && (edit.version === 0 || edit.sources.length === 1)) {
-                    const cli = await this.findMediaTool('media');
-                    const probe = await this.runNodeScript(cli, ['probe', target.relativePath, '--no-record'], target.root);
-                    if (probe.code !== 0) throw new Error(probe.stderr.trim() || '素材の尺を取得できません');
-                    const duration = JSON.parse(probe.stdout.trim()).duration_s;
-                    if (!Number.isFinite(duration) || duration <= 0) throw new Error('素材の尺が不正です');
-                    existing = [{ ...(edit.version === 1 ? { src: source.id } : {}), in: 0, out: duration }];
-                }
-                for (const range of ranges) {
-                    if (!Number.isFinite(range.in) || !Number.isFinite(range.out) || range.in < 0 || range.out <= range.in) throw new Error('カット範囲が不正です');
-                }
-                if (!existing.some((cut: any) => edit.version === 0 || cut.src === source.id)) throw new Error('対象素材のタイムライン区間がありません');
-                edit.cuts = existing.flatMap((cut: any) => {
-                    if (edit.version !== 0 && cut.src !== source.id) return [cut];
-                    let pieces = [{ ...cut }];
-                    for (const range of ranges) {
-                        pieces = pieces.flatMap(piece => {
-                            const start = Math.max(piece.in, range.in), end = Math.min(piece.out, range.out);
-                            if (end <= start) return [piece];
-                            return [
-                                ...(start > piece.in ? [{ ...piece, out: start }] : []),
-                                ...(end < piece.out ? [{ ...piece, in: end }] : [])
-                            ];
-                        });
-                    }
-                    if (typeof cut.at === 'number') {
-                        let cursor = cut.at;
-                        for (const piece of pieces) { piece.at = cursor; cursor += (piece.out - piece.in) / (cut.speed ?? 1); }
-                    }
-                    return pieces;
-                });
-                if (edit.version === 0 && !edit.cuts.length) throw new Error('素材全体を除くカットは追加できません');
-                next = JSON.stringify(edit, null, 2) + '\n';
-            }
-            if (JSON.stringify(JSON.parse(original)) === JSON.stringify(JSON.parse(next))) return { changed: false };
-            const temporary = `${file}.transcribe-${this.eventId('cuts')}.tmp`;
-            try {
-                await fs.writeFile(temporary, next, 'utf8');
-                const cli = await this.findMediaTool('media');
-                const validator = resolve(dirname(cli), '../../schemas/bin/validate-edit.mjs');
-                await execFileAsync(process.execPath, [validator, temporary], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
-                if (await fs.readFile(file, 'utf8') !== original) throw new Error('edit.json が変更されました。もう一度実行してください');
-                await fs.rename(temporary, file);
-            } finally { await fs.rm(temporary, { force: true }); }
-            return { changed: true };
-        });
     }
 
     async buildCaptions(request: BuildCaptionsRequest & { editUri?: string }): Promise<BuildCaptionsResult> {

@@ -8,11 +8,10 @@ const require = createRequire(import.meta.url);
 const { akariMenuRows } = require('../lib/common/menu-rows.js');
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('ひらく contains exactly the nine ordered rows', () => {
+test('ひらく contains exactly the eight ordered rows', () => {
     assert.deepEqual(akariMenuRows(), [
         { id: 'akari.partner.open', label: 'パートナー', icon: 'codicon codicon-add' },
         { id: 'akari.daihon.open', label: '台本', icon: 'akari-rail-icon akari-rail-icon-daihon' },
-        { id: 'akari.cuts.open', label: 'カット候補', icon: 'akari-rail-icon akari-rail-icon-cuts' },
         { id: 'akari.review.open', label: '注釈', icon: 'akari-rail-icon akari-rail-icon-review' },
         { id: 'akari.annotations.open', label: 'タイムライン（下パネル）', icon: 'codicon codicon-comment' },
         { id: 'akari.menu.openOverview', label: 'ホーム', icon: 'codicon codicon-home' },
@@ -23,10 +22,10 @@ test('ひらく contains exactly the nine ordered rows', () => {
 });
 
 test('world map row is additive and opt-in', () => {
-    assert.equal(akariMenuRows().length, 9);
+    assert.equal(akariMenuRows().length, 8);
     const rows = akariMenuRows({ worldMap: true });
-    assert.equal(rows.length, 10);
-    assert.deepEqual(rows[5], { id: 'akari.world.openMap', label: '地図', icon: 'codicon codicon-map' });
+    assert.equal(rows.length, 9);
+    assert.deepEqual(rows[4], { id: 'akari.world.openMap', label: '地図', icon: 'codicon codicon-map' });
 });
 
 const dockTabs = [
@@ -40,12 +39,6 @@ const dockTabs = [
         widget: '../../akari-transcript/src/browser/daihon/akari-daihon-widget.ts',
         commands: '../../akari-transcript/src/browser/akari-transcript-commands.ts',
         command: /OPEN_AKARI_DAIHON\s*:\s*Command\s*=\s*\{\s*id:\s*'([^']+)'/
-    },
-    {
-        widget: '../../akari-transcript/src/browser/daihon/akari-cuts-widget.ts',
-        commands: '../../akari-transcript/src/browser/daihon/akari-daihon-contribution.ts',
-        command: /OPEN_AKARI_CUTS\s*:\s*Command\s*=\s*\{\s*id:\s*'([^']+)'/,
-        prefix: true
     },
     {
         widget: '../../akari-annotations/src/browser/akari-review-panel-widget.ts',
@@ -65,8 +58,7 @@ for (const tab of dockTabs) {
         const icon = widget.match(/this\.title\.iconClass\s*=\s*'([^']+)'/);
         assert.ok(label, 'literal tab label');
         assert.ok(icon, 'literal tab icon');
-        // パートナーはタブ側に「を追加」、カットはメニュー側に「候補」が付くため、
-        // この 2 タブだけはどちらかが他方の接頭辞でもよい。台本・注釈は完全一致。
+        // パートナーはタブ側に「を追加」が付くため、接頭辞でもよい。台本・注釈は完全一致。
         if (tab.prefix) {
             assert.ok(row.label.startsWith(label[1]) || label[1].startsWith(row.label));
         } else {

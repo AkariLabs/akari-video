@@ -8,7 +8,6 @@ export function akariMenuRows(options?: { worldMap?: boolean }): AkariMenuRow[] 
     const rows: AkariMenuRow[] = [
         { id: 'akari.partner.open', label: 'パートナー', icon: 'codicon codicon-add' },
         { id: 'akari.daihon.open', label: '台本', icon: 'akari-rail-icon akari-rail-icon-daihon' },
-        { id: 'akari.cuts.open', label: 'カット候補', icon: 'akari-rail-icon akari-rail-icon-cuts' },
         { id: 'akari.review.open', label: '注釈', icon: 'akari-rail-icon akari-rail-icon-review' },
         { id: 'akari.annotations.open', label: 'タイムライン（下パネル）', icon: 'codicon codicon-comment' },
         { id: 'akari.menu.openOverview', label: 'ホーム', icon: 'codicon codicon-home' },
@@ -17,7 +16,7 @@ export function akariMenuRows(options?: { worldMap?: boolean }): AkariMenuRow[] 
         { id: 'akari.project.showChanges', label: '変更を見る', icon: 'codicon codicon-diff' }
     ];
     if (options?.worldMap) {
-        rows.splice(5, 0, { id: 'akari.world.openMap', label: '地図', icon: 'codicon codicon-map' });
+        rows.splice(4, 0, { id: 'akari.world.openMap', label: '地図', icon: 'codicon codicon-map' });
     }
     return rows;
 }

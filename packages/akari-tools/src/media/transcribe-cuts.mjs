@@ -105,9 +105,9 @@ export async function transcribeCutsMedia(argument, options = {}) {
   for (const [name, value] of Object.entries({ filler, redo })) {
     if (!["on", "off"].includes(value)) throw new Error(`--${name} は on / off で指定してください`);
   }
-  const silenceMin = numeric(options.silenceMin, 1.5, "--silence-min");
+  const silenceMin = numeric(options.silenceMin, 0.45, "--silence-min");
   const silenceBreak = numeric(options.silenceBreak, 3, "--silence-break");
-  const silenceKeep = numeric(options.silenceKeep, 0.5, "--silence-keep");
+  const silenceKeep = numeric(options.silenceKeep, 0.15, "--silence-keep");
   const target = comparisonTarget(argument, options);
   const transcripts = await readEngineTranscripts(target);
   const requested = options.basis?.replace(/:/g, "-");

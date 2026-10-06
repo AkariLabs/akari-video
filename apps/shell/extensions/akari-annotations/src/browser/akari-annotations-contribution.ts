@@ -112,9 +112,7 @@ const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
 const AUDIO_METER_WIDGET_ID = 'akari-audio-meter-widget';
 // Keep in sync with AkariDaihonWidget.FACTORY_ID without importing the transcript browser module.
 const DAIHON_WIDGET_ID = 'akari-daihon-widget';
-// Keep in sync with AkariCutsWidget.FACTORY_ID without importing the transcript browser module.
-const CUTS_WIDGET_ID = 'akari-cuts-widget';
-// 右ドック固定配置: 注釈をカットとインスペクターの間の rank に置く。
+// 右ドック固定配置: 注釈を台本とインスペクターの間の rank に置く。
 const REVIEW_PANEL_RANK = 195;
 const SESSION_VIEWER_PANEL_RANK = 197;
 const INSPECTOR_PANEL_RANK = 200;
@@ -125,7 +123,6 @@ const INSPECTOR_PANEL_RANK = 200;
 const RIGHT_PANEL_FIXED_ORDER: readonly string[] = [
     PARTNER_WIDGET_ID,
     DAIHON_WIDGET_ID,
-    CUTS_WIDGET_ID,
     AkariReviewPanelWidget.FACTORY_ID,
     AkariInspectorWidget.FACTORY_ID,
     AUDIO_METER_WIDGET_ID

@@ -60,7 +60,7 @@ test('engines は 2 つの status RPC を読み、openDialog は省略時と指�
     '@theia/core/lib/common/uri': { default: URI },
     '@theia/core/shared/inversify': { inject: () => () => {}, injectable: () => value => value },
     '../akari-transcript-commands': { OPEN_AKARI_DAIHON: { id: 'akari.daihon.open' } },
-    './akari-cuts-widget': {}, './akari-daihon-widget': {},
+    './akari-daihon-widget': {},
     './akari-transcribe-dialog': { AkariTranscribeDialog: Dialog, listenTranscribeRange() {},
       TRANSCRIBE_ENGINE_CARDS: dialogCards, transcribeEngineList },
     'akari-annotations/lib/browser/akari-edit-history-service': {},
