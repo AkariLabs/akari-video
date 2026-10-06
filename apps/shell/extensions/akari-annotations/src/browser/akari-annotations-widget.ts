@@ -218,6 +218,7 @@ import {
     removeCaptionLine
 } from '../common/caption-store';
 import { captionCueOriginalStylePatch, captionCueStylePresetId, captionPresetAwareStylePatch } from './inspector/caption-style-effects';
+import { captionMotionOriginalAnimation } from './inspector/caption-motion-cards';
 import { effectiveMyStyleMotion, myStyleSaveParts, myStyleApplyNotice, placedMyStyleTextStyle, placedMyStyleMotion,
     appliedMyStyleKinds,
     myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedStyleItem, supportedMyStyleAttachPart,
@@ -3688,7 +3689,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }));
                     const originalStyles = nextStyles.map(entry => ({
                         id: entry.id,
-                        style: captionCueOriginalStylePatch(captionsSource, entry.id, entry.style)
+                        style: { ...captionCueOriginalStylePatch(captionsSource, entry.id, entry.style),
+                            ...(entry.style.animation !== undefined
+                                ? { animation: captionMotionOriginalAnimation(captionsSource, entry.id) } : {}) }
                     }));
                     const applyStyles = async (
                         styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>

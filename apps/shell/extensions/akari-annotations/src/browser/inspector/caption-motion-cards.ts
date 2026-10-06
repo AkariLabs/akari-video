@@ -1,4 +1,4 @@
-import type { CaptionAnimation } from '../../common/caption-store';
+import type { CaptionAnimation, CaptionTextStylePatch } from '../../common/caption-store';
 import type { InspectorWriteRequest } from '../timeline-selection-model';
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
 import { MOTION_DURATION_DEFAULTS, MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS,
@@ -27,6 +27,36 @@ export function captionTextAnimationWrite(id: string, current: CaptionAnimation 
         ...(durationSec ? { duration_sec: durationSec } : {}) };
     return { kind: 'caption-style-my-style', id,
         value: { parts: [{ kind: 'motion', animation }] } };
+}
+
+export function captionTextAnimationClear(id: string, slot: InspectorMotionSlot | 'all'): InspectorWriteRequest {
+    return { kind: 'caption-style-effect', id,
+        value: { animation: slot === 'all' ? null : { [slot]: null } } };
+}
+
+export function captionMotionOriginalAnimation(source: string, id: string): CaptionTextStylePatch['animation'] {
+    const document = JSON.parse(source) as { captions?: Record<string, unknown>[] } | Record<string, unknown>[];
+    const rows = Array.isArray(document) ? document : document.captions ?? [];
+    const row = rows.find(item => item.id === id);
+    const raw = (row?.text_style as { animation?: Record<string, Record<string, unknown>> } | undefined)?.animation;
+    if (!raw) return null;
+    const animation: NonNullable<CaptionTextStylePatch['animation']> = {};
+    for (const slot of ['in', 'loop', 'out'] as const) {
+        const value = raw[slot];
+        if (value && typeof value.id === 'string') animation[slot] = {
+            id: value.id,
+            ...(value.duration_sec !== undefined ? { durationSec: Number(value.duration_sec) } : {}),
+            ...(typeof value.ease === 'string' || value.ease === null ? { ease: value.ease as string | null } : {}),
+            ...(typeof value.amp === 'number' || value.amp === null ? { amp: value.amp as number | null } : {})
+        };
+    }
+    return Object.keys(animation).length ? animation : null;
+}
+
+export function captionMotionComboClear(captionId: string, ownerId?: string): InspectorWriteRequest {
+    return ownerId
+        ? { kind: 'item-field', id: ownerId, path: 'motion', value: null }
+        : captionTextAnimationClear(captionId, 'all');
 }
 
 export function captionMotionComboWrites(captionId: string, owner: { id: string; motion?: Record<string, unknown> } | undefined,

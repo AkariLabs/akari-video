@@ -1,0 +1,300 @@
+{
+  "phase": "nobag",
+  "head": "6ea64b74a",
+  "checks": [
+    {
+      "name": "1. 登場「フェード」が captions.json に入る",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa",
+        "animation": {
+          "in": {
+            "id": "fade-in-out"
+          }
+        }
+      }
+    },
+    {
+      "name": "1. 「動き」のフェードとテキストアニメのフェードの両方が押された表示",
+      "ok": true,
+      "detail": {
+        "slot": "true",
+        "textanim": "true"
+      }
+    },
+    {
+      "name": "2. 押し直し: 押された表示が即座に外れる",
+      "ok": true,
+      "detail": {
+        "pressedRightAfterClick": "false"
+      }
+    },
+    {
+      "name": "2. 押し直し: text_style.animation が消える",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa"
+      }
+    },
+    {
+      "name": "2. 押し直し: 他の text_style は不変",
+      "ok": true,
+      "detail": {
+        "before": {
+          "color": "#ffeeaa"
+        },
+        "after": {
+          "color": "#ffeeaa"
+        }
+      }
+    },
+    {
+      "name": "2. 押し直し: 6 秒の実演イベントが出ない",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "2. 外した後の captions.json がスキーマ検証を通る",
+      "ok": true,
+      "detail": {
+        "status": 0,
+        "cli": 0,
+        "ajv": {
+          "ok": true,
+          "errors": []
+        }
+      }
+    },
+    {
+      "name": "3. Cmd+Z 1 手でフェードが戻る",
+      "ok": true,
+      "detail": {
+        "via": "Cmd+Z",
+        "text_style": {
+          "color": "#ffeeaa",
+          "animation": {
+            "in": {
+              "id": "fade-in-out"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "4. テキストアニメ「フェード」の押し直しでも外れる",
+      "ok": true,
+      "detail": {
+        "pressedRightAfterClick": "false",
+        "text_style": {
+          "color": "#ffeeaa"
+        }
+      }
+    },
+    {
+      "name": "5. 組「タイプライター」で in=typewriter / out=fade-in-out",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa",
+        "animation": {
+          "in": {
+            "id": "typewriter",
+            "duration_sec": 1.4
+          },
+          "out": {
+            "id": "fade-in-out",
+            "duration_sec": 0.27
+          }
+        }
+      }
+    },
+    {
+      "name": "5. 組の押し直しで in / out の両方が消える（他の text_style は不変）",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa"
+      }
+    },
+    {
+      "name": "5. 組の押し直し: 押された表示が即座に外れ、実演が走らない",
+      "ok": true,
+      "detail": {
+        "pressedRightAfterClick": "false",
+        "plays": []
+      }
+    },
+    {
+      "name": "5. Cmd+Z 1 手で組が戻る",
+      "ok": true,
+      "detail": {
+        "via": "Cmd+Z",
+        "text_style": {
+          "color": "#ffeeaa",
+          "animation": {
+            "in": {
+              "id": "typewriter",
+              "duration_sec": 1.4
+            },
+            "out": {
+              "id": "fade-in-out",
+              "duration_sec": 0.27
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "6. 「なし」（登場）で in だけ消え out は残る",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa",
+        "animation": {
+          "out": {
+            "id": "fade-in-out",
+            "duration_sec": 0.27
+          }
+        }
+      }
+    },
+    {
+      "name": "6. 「なし」の後の captions.json がスキーマ検証を通る",
+      "ok": true,
+      "detail": {
+        "status": 0,
+        "cli": 0,
+        "ajv": {
+          "ok": true,
+          "errors": []
+        }
+      }
+    },
+    {
+      "name": "6. Cmd+Z 1 手で in が戻る",
+      "ok": true,
+      "detail": {
+        "via": "Cmd+Z",
+        "text_style": {
+          "color": "#ffeeaa",
+          "animation": {
+            "out": {
+              "id": "fade-in-out",
+              "duration_sec": 0.27
+            },
+            "in": {
+              "id": "typewriter",
+              "duration_sec": 1.4
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "7. 強調「パルス」で loop=heartbeat",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa",
+        "animation": {
+          "loop": {
+            "id": "heartbeat"
+          }
+        }
+      }
+    },
+    {
+      "name": "7. 強調の押し直しで loop が消え、空の animation はキーごと消える",
+      "ok": true,
+      "detail": {
+        "pressedRightAfterClick": "false",
+        "text_style": {
+          "color": "#ffeeaa"
+        }
+      }
+    },
+    {
+      "name": "7. loop を外した後の captions.json がスキーマ検証を通る",
+      "ok": true,
+      "detail": {
+        "status": 0,
+        "cli": 0,
+        "ajv": {
+          "ok": true,
+          "errors": []
+        }
+      }
+    },
+    {
+      "name": "7. 対照: animation が {} の captions.json はスキーマ検証（Ajv）で落ちる",
+      "ok": true,
+      "detail": {
+        "status": 1,
+        "cli": 0,
+        "ajv": {
+          "ok": false,
+          "errors": [
+            " type must be array",
+            "/captions/1/text_style/animation minProperties must NOT have fewer than 1 properties",
+            " oneOf must match exactly one schema in oneOf"
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. in と loop があるとき強調の押し直しで loop だけ消える",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa",
+        "animation": {
+          "in": {
+            "id": "pop"
+          }
+        }
+      }
+    },
+    {
+      "name": "8. 退場「フェード」→「なし」（退場を選択中）で out が消える",
+      "ok": true,
+      "detail": {
+        "color": "#ffeeaa"
+      }
+    },
+    {
+      "name": "8. 最終の captions.json がスキーマ検証を通る",
+      "ok": true,
+      "detail": {
+        "status": 0,
+        "cli": 0,
+        "ajv": {
+          "ok": true,
+          "errors": []
+        }
+      }
+    }
+  ],
+  "shots": [
+    "nobag-01-fade-applied.png",
+    "nobag-02-fade-cleared.png",
+    "nobag-05-typewriter-applied.png",
+    "nobag-06-none-button.png"
+  ],
+  "steps": {
+    "undo3": "Cmd+Z",
+    "switchButtons": [
+      {
+        "text": "登場",
+        "pressed": "true"
+      },
+      {
+        "text": "強調",
+        "pressed": "false"
+      },
+      {
+        "text": "退場",
+        "pressed": "false"
+      },
+      {
+        "text": "なし",
+        "pressed": null
+      }
+    ]
+  },
+  "status": "recorded"
+}
