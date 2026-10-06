@@ -60,6 +60,18 @@ const spoken = () => ({ id: 'speech', start: 0, end: 4, text: 'one two', style: 
     { text: 'one', start: 0, end: 1.5 }, { text: 'two', start: 1.5, end: 4 }
 ] });
 
+test('direct editing a projected caption is blocked before it can overwrite cut words', () => {
+    const cue = { ...spoken(), text: 'one', originalSourceText: 'one two' };
+    const h = editingHarness(cue);
+    const errors = [];
+    h.context.window.akari.showWriteError = message => errors.push(message);
+    const original = h.plate.innerHTML;
+    h.run('beginCaptionEdit(captions[0])');
+    assert.deepEqual(errors, ['この字幕は一部がカットされています。台本で直してください']);
+    assert.equal(h.run('activeCaptionEdit'), null);
+    assert.equal(h.plate.innerHTML, original);
+});
+
 for (const kind of ['styled', 'block']) {
     for (const finish of ['cancel', 'unchanged', 'reject', 'save']) {
         test(`${kind}: ${finish} rebuilds real caption markup, including during a pending write`, async () => {

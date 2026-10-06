@@ -20,7 +20,37 @@ import { readRenderEdit } from "../src/internal-render.mjs";
 import { loadCaptions } from "../src/render-cut.mjs";
 
 const require = createRequire(import.meta.url);
-const { TEXTSTYLE_CATALOG, buildCaptionTimelineSegments, normalizeCaptionClock } = require('../../edit-store/lib/index.js');
+const { TEXTSTYLE_CATALOG, buildCaptionTimelineSegments, normalizeCaptionClock,
+  splitCutAudio, applyCutRanges } = require('../../edit-store/lib/index.js');
+const { buildDaihonRows } = require('../../../apps/shell/extensions/akari-transcript/lib/common/daihon-row-model.js');
+const { deriveDaihonCutSpans } = require('../../../apps/shell/extensions/akari-transcript/lib/common/daihon-cut-spans.js');
+
+test('split audio followed by a filler cut keeps the word struck and export overlays separate', () => {
+  const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4' }], tracks: [{ id: 'video', lane: 'visual', items: [
+      { id: 'clip', at: 0, duration: 300, source: { kind: 'media', src: 'main', in: 0, out: 10 } }
+    ] }] };
+  const split = splitCutAudio(doc, { cutId: 'clip', hasAudio: true }).document;
+  const source = applyCutRanges(JSON.stringify(split), [
+    { in: 3, out: 3.5, kind: 'filler', captionId: 'main', label: 'えー' }
+  ]).source;
+  const render = readRenderEdit(source, '/unused/render-tmp', { projectRoot: '/unused' });
+  const caption = { id: 'row', src: 'main', start: 2, end: 5, text: '今日はえー本題',
+    words: [{ text: '今日は', start: 2, end: 3 },
+      { text: 'えー', start: 3, end: 3.5 }, { text: '本題', start: 3.5, end: 5 }] };
+  const segments = buildCaptionTimelineSegments(render.edit.cuts, render.internal, { fps: 30 });
+  assert.equal(segments.filter(segment => segment.kind === 'src' && segment.cutIndex === null).length, 0);
+  const rows = buildDaihonRows([caption], segments, 30);
+  const spans = deriveDaihonCutSpans(rows, [], segments, 30);
+  assert.deepEqual(spans.filter(span => span.kind === 'word').map(span => span.index), [1]);
+  const clock = normalizeCaptionClock([{ ...caption, clockDomain: 'source', clockSourceId: 'main' }], segments);
+  assert.deepEqual(clock.map(cue => cue.text), ['今日は本題', '今日は本題']);
+  const overlays = generateCaptionOverlays([caption], render.edit.cuts,
+    { edit: render.edit, output: render.edit.output });
+  assert.equal(overlays.length, 2);
+  assert.ok(overlays.every(overlay => overlay.html.includes('今日は本題') && !overlay.html.includes('えー')));
+  assert.ok(overlays[0].start + overlays[0].duration <= overlays[1].start);
+});
 
 test('real v2 voice items give identical preview and export times with and without display policy', async () => {
   const tempRoot = fileURLToPath(new URL('../../../.tmp-lane/', import.meta.url));

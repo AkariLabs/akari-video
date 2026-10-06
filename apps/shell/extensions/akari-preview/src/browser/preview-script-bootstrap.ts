@@ -5435,6 +5435,11 @@ export function previewBootstrapScript(): string {
                 if (!captionPlate) return;
                 const captionId = caption && (caption.sourceCueId || caption.id);
                 if (!captionId) return;
+                if (typeof caption.originalSourceText === 'string'
+                    && caption.originalSourceText !== caption.text) {
+                    window.akari.showWriteError('この字幕は一部がカットされています。台本で直してください');
+                    return;
+                }
                 if (activeCaptionEdit) {
                     activeCaptionEdit.element.focus({ preventScroll: true });
                     return;

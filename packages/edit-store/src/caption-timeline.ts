@@ -5,14 +5,15 @@ import type { InternalEdit } from './internal-model';
 type RawCaptionEdit = {
     output?: { fps?: number };
     tracks: Array<{ lane?: string; muted?: boolean; items?: Array<{
-        at?: number; duration?: number; role?: string;
+        at?: number; duration?: number; role?: string; mute?: boolean; link?: string;
         source?: { kind?: string; src?: string; in?: number; out?: number };
     }> }>;
 };
 
 type CaptionAudioItem = {
     at?: number; duration?: number; atFrames?: number; durationFrames?: number;
-    role?: string; legacy?: { collection?: string }; declaration?: { role?: unknown };
+    role?: string; mute?: boolean; link?: string;
+    legacy?: { collection?: string }; declaration?: { role?: unknown; mute?: unknown; link?: unknown };
     source?: { kind?: string; src?: string; sourceId?: string; in?: number; out?: number };
 };
 
@@ -26,20 +27,31 @@ export function buildCaptionTimelineSegments(
     if (!edit) return visual;
     const audio: TimelineSegment[] = [];
     const fps = options.fps ?? edit.output?.fps ?? 30;
+    const visualSources = new Set<string>();
+    const visitVisual = (item: { source?: { kind?: string; src?: string; sourceId?: string };
+        items?: unknown[]; children?: unknown[] }): void => {
+        const src = item.source?.sourceId ?? item.source?.src;
+        if (item.source?.kind === 'media' && src) visualSources.add(src);
+        for (const child of item.items ?? item.children ?? []) visitVisual(child as typeof item);
+    };
+    for (const track of edit.tracks) {
+        if (track.lane === 'visual') for (const item of track.items ?? []) visitVisual(item);
+    }
     for (const track of edit.tracks) {
         if (track.lane !== 'audio' || track.muted) continue;
         for (const entry of track.items ?? []) {
             const item = entry as unknown as CaptionAudioItem;
             if (item.source?.kind !== 'media') continue;
+            if (item.link || item.declaration?.link || item.mute || item.declaration?.mute) continue;
             const role = item.legacy?.collection ?? item.role ?? item.declaration?.role;
             if (role !== 'speech' && role !== 'narration') continue;
             const src = item.source.sourceId ?? item.source.src;
-            if (!src) continue;
+            if (!src || visualSources.has(src)) continue;
             const at = typeof item.atFrames === 'number' ? item.at ?? 0 : (item.at ?? 0) / fps;
             const duration = typeof item.durationFrames === 'number'
                 ? item.duration ?? 0 : (item.duration ?? 0) / fps;
             const sourceIn = item.source.in ?? 0;
-            const sourceOut = item.source.out ?? sourceIn + duration;
+            const sourceOut = item.source.out ?? sourceIn;
             const speed = (sourceOut - sourceIn) / duration;
             if (!(duration > 0) || !(speed > 0)) continue;
             let uncovered = [{ in: sourceIn, out: sourceOut }];

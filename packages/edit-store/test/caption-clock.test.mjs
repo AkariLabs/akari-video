@@ -28,11 +28,63 @@ test('caption timeline maps visual, voice, both, and duplicate sources once', ()
     assert.deepEqual(normalizeCaptionClock([cue('take')], duplicate).map(row => row.start), [0]);
     const partial = buildCaptionTimelineSegments([{ src: 'take', in: 0, out: 1, at: 0 }], readInternalEdit(edit));
     assert.deepEqual(normalizeCaptionClock([{ ...cue('take'), start: 1, end: 2 }], partial)
-        .map(row => row.start), [3]);
+        .map(row => row.start), []);
     edit.tracks[1].items[0].source.src = 'mic';
     edit.tracks[1].items[0].role = 'sfx';
     const effects = buildCaptionTimelineSegments(cuts, readInternalEdit(edit));
     assert.deepEqual(normalizeCaptionClock([cue('mic')], effects), []);
+});
+
+test('linked, muted, and visually represented audio never creates caption source ranges', () => {
+    const item = { id: 'voice', role: 'speech', at: 0, duration: 30,
+        source: { kind: 'media', src: 'main', in: 0, out: 1 } };
+    const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'main', path: 'main.mp4' }], tracks: [
+            { id: 'video', lane: 'visual', items: [] },
+            { id: 'audio', lane: 'audio', items: [item] }
+        ] };
+    const ranges = value => buildCaptionTimelineSegments([], value, { fps: 30 });
+    assert.equal(ranges(doc).length, 1);
+    assert.deepEqual(ranges(doc), ranges(readInternalEdit(doc)));
+    doc.tracks[0].items = [{ id: 'visual', at: 0, duration: 30,
+        source: { kind: 'media', src: 'main', in: 0, out: 1 } }];
+    assert.deepEqual(ranges(doc), []);
+    assert.deepEqual(ranges(readInternalEdit(doc)), []);
+    doc.tracks[0].items = [];
+    for (const field of ['link', 'mute']) {
+        item[field] = field === 'link' ? 'visual' : true;
+        assert.deepEqual(ranges(doc), [], field);
+        assert.deepEqual(ranges(readInternalEdit(doc)), [], `${field} internal`);
+        delete item[field];
+    }
+    doc.tracks[1].muted = true;
+    assert.deepEqual(ranges(doc), []);
+    assert.deepEqual(ranges(readInternalEdit(doc)), []);
+    delete doc.tracks[1].muted;
+    delete item.source.out;
+    assert.deepEqual(ranges(doc), ranges(readInternalEdit(doc)));
+    assert.deepEqual(ranges(doc), []);
+});
+
+test('a middle word cut gives every occurrence the same full display text and rebased runs', () => {
+    const segments = [
+        { kind: 'src', src: 'main', in: 0, out: 1, outStart: 0, outEnd: 1 },
+        { kind: 'src', src: 'main', in: 2, out: 3, outStart: 1, outEnd: 2 }
+    ];
+    const cue = { id: 'middle', start: 0, end: 3, clockDomain: 'source', clockSourceId: 'main',
+        text: '今日は、えー、本題', words: [
+            { text: '今日は、', start: 0, end: 1 },
+            { text: 'えー、', start: 1, end: 2 },
+            { text: '本題', start: 2, end: 3 }
+        ] };
+    const result = normalizeCaptionClock([cue], segments);
+    assert.deepEqual(result.map(row => row.text), ['今日は、本題', '今日は、本題']);
+    assert.deepEqual(result.map(row => row.originalSourceText), [cue.text, cue.text]);
+    const withRuns = { ...cue, text: 'えー本題', words: [
+        { text: 'えー', start: 1, end: 2 }, { text: '本題', start: 2, end: 3 }
+    ], runs: [{ from: 2, to: 4, style: { color: '#ff0000' } }] };
+    assert.deepEqual(normalizeCaptionClock([withRuns], [segments[1]]).map(row => row.runs),
+        [[{ from: 0, to: 2, style: { color: '#ff0000' } }]]);
 });
 
 test('source cue omits removed words from the preview text and restores them with the segment', () => {

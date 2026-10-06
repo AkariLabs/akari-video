@@ -12,6 +12,8 @@ type RawCaptionEdit = {
             at?: number;
             duration?: number;
             role?: string;
+            mute?: boolean;
+            link?: string;
             source?: {
                 kind?: string;
                 src?: string;

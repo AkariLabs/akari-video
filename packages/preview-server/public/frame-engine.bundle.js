@@ -3220,6 +3220,19 @@ var require_caption_timeline = __commonJS({
         return visual;
       const audio = [];
       const fps = options.fps ?? edit.output?.fps ?? 30;
+      const visualSources = /* @__PURE__ */ new Set();
+      const visitVisual = (item) => {
+        const src = item.source?.sourceId ?? item.source?.src;
+        if (item.source?.kind === "media" && src)
+          visualSources.add(src);
+        for (const child of item.items ?? item.children ?? [])
+          visitVisual(child);
+      };
+      for (const track of edit.tracks) {
+        if (track.lane === "visual")
+          for (const item of track.items ?? [])
+            visitVisual(item);
+      }
       for (const track of edit.tracks) {
         if (track.lane !== "audio" || track.muted)
           continue;
@@ -3227,16 +3240,18 @@ var require_caption_timeline = __commonJS({
           const item = entry;
           if (item.source?.kind !== "media")
             continue;
+          if (item.link || item.declaration?.link || item.mute || item.declaration?.mute)
+            continue;
           const role = item.legacy?.collection ?? item.role ?? item.declaration?.role;
           if (role !== "speech" && role !== "narration")
             continue;
           const src = item.source.sourceId ?? item.source.src;
-          if (!src)
+          if (!src || visualSources.has(src))
             continue;
           const at2 = typeof item.atFrames === "number" ? item.at ?? 0 : (item.at ?? 0) / fps;
           const duration = typeof item.durationFrames === "number" ? item.duration ?? 0 : (item.duration ?? 0) / fps;
           const sourceIn = item.source.in ?? 0;
-          const sourceOut = item.source.out ?? sourceIn + duration;
+          const sourceOut = item.source.out ?? sourceIn;
           const speed = (sourceOut - sourceIn) / duration;
           if (!(duration > 0) || !(speed > 0))
             continue;
@@ -7667,6 +7682,34 @@ var require_caption_clock = __commonJS({
       return caption_timeline_1.buildCaptionTimelineSegments;
     } });
     var EPSILON = 1e-6;
+    function rebaseDisplayedRuns(oldText, newText, runs) {
+      const graphemes = (text) => {
+        const Segmenter = Reflect.get(Intl, "Segmenter");
+        return typeof Segmenter === "function" ? Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(text), (part) => part.segment) : Array.from(text);
+      };
+      const before = graphemes(oldText);
+      const after = graphemes(newText);
+      let prefix = 0;
+      while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix])
+        prefix++;
+      let suffix = 0;
+      while (suffix < before.length - prefix && suffix < after.length - prefix && before[before.length - suffix - 1] === after[after.length - suffix - 1])
+        suffix++;
+      const oldEnd = before.length - suffix;
+      const newEnd = after.length - suffix;
+      const delta = newEnd - oldEnd;
+      return runs.flatMap((run) => {
+        if (run.to <= prefix)
+          return [run];
+        if (run.from >= oldEnd)
+          return [{ ...run, from: run.from + delta, to: run.to + delta }];
+        if (run.from >= prefix && run.to <= oldEnd && newEnd === prefix)
+          return [];
+        const from = run.from < prefix ? run.from : prefix;
+        const to = run.to > oldEnd ? run.to + delta : newEnd;
+        return from < to ? [{ ...run, from, to }] : [];
+      });
+    }
     function normalizeCaptionClock(captions, segments) {
       const output = [];
       for (const caption of captions) {
@@ -7676,24 +7719,26 @@ var require_caption_clock = __commonJS({
           output.push({ ...caption, clockDomain: "output" });
           continue;
         }
+        const cue = caption;
+        const sourceSegments = segments.filter((segment) => segment.kind === "src" && segment.in !== void 0 && segment.out !== void 0 && (caption.clockSourceId === void 0 || segment.src === caption.clockSourceId));
+        const projected = typeof cue.text === "string" && cue.words?.length ? (0, caption_display_1.projectCaptionWords)({
+          text: cue.text,
+          display_text: cue.displayText ?? cue.text,
+          words: cue.words,
+          src: cue.clockSourceId
+        }, sourceSegments.map((segment) => ({
+          src: segment.src,
+          in: segment.in,
+          out: segment.out
+        }))) : null;
+        if (projected && !projected.renderable)
+          continue;
+        const projectedRuns = projected?.changed && cue.runs ? rebaseDisplayedRuns(cue.displayText ?? cue.text ?? "", projected.displayText, cue.runs) : cue.runs;
         let occurrence = 0;
-        for (const segment of segments) {
-          if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0)
-            continue;
-          if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId)
-            continue;
+        for (const segment of sourceSegments) {
           const sourceStart = Math.max(caption.start, segment.in);
           const sourceEnd = Math.min(caption.end, segment.out);
           if (!(sourceEnd - sourceStart > EPSILON))
-            continue;
-          const cue = caption;
-          const projected = typeof cue.text === "string" && cue.words?.length ? (0, caption_display_1.projectCaptionWords)({
-            text: cue.text,
-            display_text: cue.displayText ?? cue.text,
-            words: cue.words,
-            src: cue.clockSourceId
-          }, [{ src: segment.src, in: sourceStart, out: sourceEnd }]) : null;
-          if (projected && !projected.renderable)
             continue;
           const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
           const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
@@ -7708,7 +7753,9 @@ var require_caption_clock = __commonJS({
             ...caption,
             ...projected?.changed ? {
               text: projected.displayText,
-              ...cue.displayText !== void 0 ? { displayText: projected.displayText } : {}
+              originalSourceText: cue.text,
+              ...cue.displayText !== void 0 ? { displayText: projected.displayText } : {},
+              ...cue.runs ? { runs: projectedRuns } : {}
             } : {},
             ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
             ...sourceCueId ? { sourceCueId } : {},
@@ -13005,6 +13052,7 @@ var require_internal_model = __commonJS({
             duration,
             children: [],
             source,
+            ...item.link !== void 0 ? { link: item.link } : {},
             declaration: {
               id: item.id,
               t: at2,
@@ -13104,6 +13152,7 @@ var require_internal_model = __commonJS({
           duration,
           children: [],
           source,
+          ...item.link !== void 0 ? { link: item.link } : {},
           declaration: {
             id: item.id,
             t: at2,

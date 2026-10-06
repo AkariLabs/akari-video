@@ -75,6 +75,37 @@ test('preview, render, GPU, and OSR agree on removed and restored filler text in
   }
 });
 
+test('all four paths keep the full surviving sentence on both sides of a middle word cut', () => {
+  const cue = { id: 'middle', src: 'main', start: 0, end: 3, time_domain: 'source',
+    text: '今日は、えー、本題', words: [
+      { text: '今日は、', start: 0, end: 1 },
+      { text: 'えー、', start: 1, end: 2 },
+      { text: '本題', start: 2, end: 3 }
+    ] };
+  const cuts = [{ id: 'before', src: 'main', in: 0, out: 1, at: 0 },
+    { id: 'after', src: 'main', in: 2, out: 3, at: 1 }];
+  const visible = html => [...String(html).matchAll(/<p class="akari-caption__line"[^>]*>([\s\S]*?)<\/p>/gu)]
+    .map(([, body]) => body.replace(/<[^>]*>/gu, '')).join('');
+  for (const policy of [false, true]) {
+    const captions = policy ? { display_policy: { ...displayPolicy, max_line_units: 20 }, captions: [cue] }
+      : { captions: [cue] };
+    const candidateEdit = { ...edit, cuts };
+    const preview = normalizeCaptionClock([{ ...cue, clockDomain: 'source', clockSourceId: 'main' }],
+      buildCaptionTimelineSegments(cuts)).map(row => row.text);
+    const render = resolveCaptionPlan({ captionsRoot: captions, edit: candidateEdit });
+    const args = { ...buildArgs(captions), edit: candidateEdit };
+    const gpu = buildGpuPage({ ...args, slotParamsRuntime: '', itemKeyframesRuntime: '' });
+    const osr = buildOsrPage(args);
+    const texts = [preview,
+      render.overlays.map(overlay => visible(overlay.html)),
+      gpu.spriteManifest.captions.map(sprite => visible(sprite.html)),
+      [...osr.overlaySheetHtml.matchAll(/<p class="akari-caption__line"[^>]*>([\s\S]*?)<\/p>/gu)]
+        .map(([, body]) => body.replace(/<[^>]*>/gu, ''))];
+    for (const path of texts) assert.deepEqual(path, ['今日は、本題', '今日は、本題'],
+      `display_policy=${policy}`);
+  }
+});
+
 test('global karaoke allows a plain row in the preview plan and every export path', () => {
   const captions = { display_policy: { ...displayPolicy, max_line_units: 20, word_style: 'karaoke' },
     captions: [

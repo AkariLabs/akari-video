@@ -9,6 +9,19 @@ function buildCaptionTimelineSegments(cuts, edit, options = {}) {
         return visual;
     const audio = [];
     const fps = options.fps ?? edit.output?.fps ?? 30;
+    const visualSources = new Set();
+    const visitVisual = (item) => {
+        const src = item.source?.sourceId ?? item.source?.src;
+        if (item.source?.kind === 'media' && src)
+            visualSources.add(src);
+        for (const child of item.items ?? item.children ?? [])
+            visitVisual(child);
+    };
+    for (const track of edit.tracks) {
+        if (track.lane === 'visual')
+            for (const item of track.items ?? [])
+                visitVisual(item);
+    }
     for (const track of edit.tracks) {
         if (track.lane !== 'audio' || track.muted)
             continue;
@@ -16,17 +29,19 @@ function buildCaptionTimelineSegments(cuts, edit, options = {}) {
             const item = entry;
             if (item.source?.kind !== 'media')
                 continue;
+            if (item.link || item.declaration?.link || item.mute || item.declaration?.mute)
+                continue;
             const role = item.legacy?.collection ?? item.role ?? item.declaration?.role;
             if (role !== 'speech' && role !== 'narration')
                 continue;
             const src = item.source.sourceId ?? item.source.src;
-            if (!src)
+            if (!src || visualSources.has(src))
                 continue;
             const at = typeof item.atFrames === 'number' ? item.at ?? 0 : (item.at ?? 0) / fps;
             const duration = typeof item.durationFrames === 'number'
                 ? item.duration ?? 0 : (item.duration ?? 0) / fps;
             const sourceIn = item.source.in ?? 0;
-            const sourceOut = item.source.out ?? sourceIn + duration;
+            const sourceOut = item.source.out ?? sourceIn;
             const speed = (sourceOut - sourceIn) / duration;
             if (!(duration > 0) || !(speed > 0))
                 continue;

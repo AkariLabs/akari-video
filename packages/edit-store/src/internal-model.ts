@@ -99,6 +99,8 @@ export interface InternalItemLegacy {
 }
 
 export interface InternalItem {
+    /** Linked visual media item, retained for caption ownership without changing audio supply. */
+    link?: string;
     /** 宣言の id。焼く前後・版をまたいでも同じ 1 個のクリップは同じ id を保つ。 */
     id: string;
     /** 出力タイムライン上の絶対位置（整数フレーム、正本）。 */
@@ -1295,6 +1297,7 @@ function buildV2AudioItem(
         return {
             item: {
                 id: item.id, atFrames, durationFrames, at, duration, children: [], source,
+                ...(item.link !== undefined ? { link: item.link } : {}),
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
@@ -1382,6 +1385,7 @@ function buildV2AudioItem(
     return {
         item: {
             id: item.id, atFrames, durationFrames, at, duration, children: [], source,
+            ...(item.link !== undefined ? { link: item.link } : {}),
             declaration: {
                 id: item.id, t: at, duration, path: resolvedPath, track: ref,
                 in: inSeconds,

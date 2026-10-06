@@ -28,6 +28,8 @@ export interface CaptionClockInput {
     clockSourceId?: string;
     sourceCueId?: string;
     words?: readonly CaptionClockWord[];
+    /** Original captions.json body, retained when the displayed words were cut. */
+    originalSourceText?: string;
 }
 /** timeline-map の TimelineSegment の部分集合（字幕射影に要る欄だけ）。 */
 export interface CaptionClockSegment {
