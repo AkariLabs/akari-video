@@ -9,6 +9,7 @@ type RawCaptionEdit = {
         lane?: string;
         muted?: boolean;
         items?: Array<{
+            id?: string;
             at?: number;
             duration?: number;
             role?: string;

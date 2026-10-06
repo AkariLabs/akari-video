@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildCaptionTimelineSegments, captionClockDomainOf, normalizeCaptionClock } from '../lib/caption-clock.js';
 import { readInternalEdit } from '../lib/internal-model.js';
-import { projectLegacyEdit, removeCutAudioLinked, splitAtFrame, splitCutAudio } from '../lib/index.js';
+import { applyCutRanges, projectLegacyEdit, removeCutAudioLinked, splitAtFrame, splitCutAudio,
+    unlinkCutAudio } from '../lib/index.js';
 
 test('caption timeline maps visual, voice, both, and duplicate sources once', () => {
     const edit = {
@@ -85,6 +86,47 @@ test('同じ素材の声は映像未使用区間だけ字幕へ足し、link 付
     assert.deepEqual(buildCaptionTimelineSegments(cuts, doc).map(segment => [segment.in, segment.out]), [[0, 1]]);
     doc.tracks[0].items = [];
     assert.deepEqual(buildCaptionTimelineSegments([], doc), []);
+});
+
+test('link を外した同素材の声は映像が映る時刻には切った語を復活させない', () => {
+    const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'take', path: 'take.mp4' }], tracks: [{ id: 'v', lane: 'visual', items: [
+            { id: 'clip', at: 0, duration: 300, source: { kind: 'media', src: 'take', in: 0, out: 10 } }
+        ] }] };
+    const separated = splitCutAudio(doc, { cutId: 'clip', hasAudio: true }).document;
+    const unlinked = unlinkCutAudio(separated, { audioItemId: 'clip-audio' });
+    const edited = applyCutRanges(`${JSON.stringify(unlinked, null, 2)}\n`, [
+        { in: 3, out: 3.5, kind: 'filler', captionId: 'take', label: 'えー' }
+    ]).source;
+    const internal = readInternalEdit(edited);
+    const segments = buildCaptionTimelineSegments(projectLegacyEdit(internal).cuts, internal, { fps: 30 });
+    assert.deepEqual(segments.map(segment => [segment.src, segment.in, segment.out,
+        segment.outStart, segment.outEnd]), [
+        ['take', 0, 3, 0, 3], ['take', 3.5, 10, 3, 9.5]
+    ]);
+    const cues = ['あ', 'い', 'う', 'え'].map((value, index) => ({
+        id: value, text: value, start: 2 + index * 0.5, end: 2.5 + index * 0.5,
+        clockDomain: 'source', clockSourceId: 'take'
+    }));
+    const captions = normalizeCaptionClock(cues, segments);
+    assert.deepEqual(captions.map(row => [row.text, row.start, row.end]), [
+        ['あ', 2, 2.5], ['い', 2.5, 3], ['え', 3, 3.5]
+    ]);
+});
+
+test('末尾を切った映像の元 link 声は、link を外しても末尾の語を復活させない', () => {
+    const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'take', path: 'take.mp4' }], tracks: [
+            { id: 'v', lane: 'visual', items: [{ id: 'clip', at: 0, duration: 285,
+                source: { kind: 'media', src: 'take', in: 0, out: 9.5 } }] },
+            { id: 'a', lane: 'audio', items: [{ id: 'clip-audio', role: 'speech', at: 0, duration: 300,
+                source: { kind: 'media', src: 'take', in: 0, out: 10 } }] }
+        ] };
+    const internal = readInternalEdit(doc);
+    const segments = buildCaptionTimelineSegments(projectLegacyEdit(internal).cuts, internal, { fps: 30 });
+    const lastWord = [{ id: 'last', text: '末尾', start: 9.5, end: 10,
+        clockDomain: 'source', clockSourceId: 'take' }];
+    assert.deepEqual(normalizeCaptionClock(lastWord, segments), []);
 });
 
 test('分離音声の C / C\' と同素材の独立音声 D は字幕の重複と欠落を分ける', () => {
