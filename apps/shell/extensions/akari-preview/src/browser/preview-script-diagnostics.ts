@@ -2,6 +2,7 @@
 import {
     PREVIEW_INIT_STAGES,
     createPreviewInitTrace,
+    describePreviewRendererGoneReason,
     describeKeyEventConversionFailure,
     formatPreviewInitReport,
     guardedKeyHandler,
@@ -37,6 +38,7 @@ export function previewDiagnosticsGuardScript(): string {
             const markPreviewInitStage = (${markPreviewInitStage.toString().replaceAll(
                 `${recordPreviewDiagnosticEvent.name}(`, 'recordPreviewDiagnosticEvent(')});
             const summarizePreviewInit = (${summarizePreviewInit.toString()});
+            const describePreviewRendererGoneReason = (${describePreviewRendererGoneReason.toString()});
             const formatPreviewInitReport = (${formatPreviewInitReport.toString()});
             const describeKeyEventConversionFailure = (${describeKeyEventConversionFailure.toString()});
             const isSuspiciousKeyEventShape = (${isSuspiciousKeyEventShape.toString()});
@@ -200,6 +202,13 @@ export function previewDiagnosticsGuardScript(): string {
             };
             window.__akariPreviewDiag = api;
             api.note('compute-pressure ガード: ' + pressureObserver);
+            // 初回描画後もページの JS が動いているかをホストへ伝える。
+            // 通常の診断報告の件数上限には含めない。
+            window.setInterval(() => {
+                if (!post) return;
+                try { post({ type: 'akari-preview-diagnostics', phase: 'heartbeat' }); }
+                catch { /* 心拍の失敗でプレビューを止めない。 */ }
+            }, 5000);
 
             // 2. 例外の保持。原因の断定はせず、最初の数件を残す。
             const record = (kind, event) => {
