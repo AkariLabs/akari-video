@@ -120,7 +120,8 @@ function applyV2(
     source: string,
     ranges: readonly CutRange[],
     opts: ApplyCutRangesOptions,
-    preserveLeadingGapTrackIds: readonly string[] = []
+    preserveLeadingGapTrackIds: readonly string[] = [],
+    preserveGapBeforeItems?: ReadonlyMap<string, number>
 ): ApplyCutRangesResult {
     const raw = JSON.parse(source) as EditV2;
     const validated = readEditV2(raw);
@@ -151,8 +152,6 @@ function applyV2(
                 const overlapIn = Math.max(item.source.in, range.in);
                 const overlapOut = Math.min(item.source.out, range.out);
                 if (!(overlapOut > overlapIn)) continue;
-                const itemSourceIn = item.source.in;
-                const itemSourceOut = item.source.out;
                 matched = true;
                 affectedTrackIds.add(track.id);
                 const replacement = splitAndRemove(item, overlapIn, overlapOut, edit, preserveSourceEdges);
@@ -165,11 +164,18 @@ function applyV2(
                         if (audio.link !== item.id || audio.source.src !== item.source.src) continue;
                         const audioPieces = splitAndRemove(audio, overlapIn, overlapOut, edit, preserveSourceEdges).items;
                         for (const piece of audioPieces) {
-                            const visual = replacement.items.find(candidate => candidate.source.kind === 'media'
-                                && ((near(piece.source.out ?? NaN, candidate.source.out)
-                                    && candidate.source.out < itemSourceOut - SOURCE_TOLERANCE)
-                                    || (near(piece.source.in ?? NaN, candidate.source.in)
-                                    && candidate.source.in > itemSourceIn + SOURCE_TOLERANCE)));
+                            // A one-sided trim changes the source seconds per frame on only one lane.
+                            // Compare the surviving source edges instead of requiring exact seconds.
+                            const visual = replacement.items.filter(media).reduce<MediaItemV2 | undefined>((best, candidate) => {
+                                const score = candidate.source.in <= overlapIn
+                                    ? Math.abs((piece.source.out ?? NaN) - candidate.source.out)
+                                    : Math.abs((piece.source.in ?? NaN) - candidate.source.in);
+                                if (!best) return candidate;
+                                const bestScore = best.source.in <= overlapIn
+                                    ? Math.abs((piece.source.out ?? NaN) - best.source.out)
+                                    : Math.abs((piece.source.in ?? NaN) - best.source.in);
+                                return score < bestScore ? candidate : best;
+                            }, undefined);
                             if (visual) piece.link = visual.id;
                         }
                         audioTrack.items.splice(audioIndex, 1, ...audioPieces);
@@ -187,6 +193,18 @@ function applyV2(
     const compacted = compactTrackGaps(edit, { modeOverride, includeAnchored: true }).edit;
     for (const track of visualTracks(compacted)) {
         if (!affectedTrackIds.has(track.id)) continue;
+        const before = visualTracks(edit).find(candidate => candidate.id === track.id)!;
+        const beforeMedia = before.items.filter(media);
+        const compactedMedia = track.items.filter(media);
+        let retainedGap = 0;
+        for (let index = 0; index < beforeMedia.length; index++) {
+            const right = beforeMedia[index];
+            if (index > 0) {
+                const left = beforeMedia[index - 1];
+                retainedGap += preserveGapBeforeItems?.get(right.id) ?? linkedAudioGap(edit, left, right);
+            }
+            compactedMedia[index].at += retainedGap;
+        }
         const offset = leadingLinkedAudio.get(track.id);
         if (offset !== undefined) for (const item of track.items) if (media(item)) item.at += offset;
     }
@@ -211,18 +229,45 @@ function near(left: number, right: number): boolean {
     return Math.abs(left - right) <= SOURCE_TOLERANCE;
 }
 
+function audioFrameTolerance(...items: Array<MediaItemV2 | AudioMediaItemV2>): number {
+    return Math.max(SOURCE_TOLERANCE, ...items.map(item =>
+        item.duration > 0 ? ((item.source.out ?? 0) - (item.source.in ?? 0)) / item.duration + SOURCE_TOLERANCE : 0));
+}
+
+function nearRangeEdge(edge: number | undefined, boundary: number, item: MediaItemV2): boolean {
+    return edge !== undefined && Math.abs(edge - boundary) <=
+        (item.source.speed !== undefined && item.source.speed !== 1
+            ? SOURCE_TOLERANCE : audioFrameTolerance(item));
+}
+
 function splitRootId(id: string): string {
     return id.replace(/(?:-split(?:-\d+)*)+$/, '');
+}
+
+function linkedAudioGap(edit: EditV2, left: MediaItemV2, right: MediaItemV2): number {
+    const gap = right.at - left.at - left.duration;
+    if (gap <= 0 || splitRootId(left.id) === splitRootId(right.id)) return 0;
+    let overhang = 0;
+    for (const track of audioTracks(edit)) for (const audio of track.items) {
+        if (audio.link === left.id) {
+            overhang = Math.max(overhang, audio.at + audio.duration - left.at - left.duration);
+        } else if (audio.link === right.id) {
+            overhang = Math.max(overhang, right.at - audio.at);
+        }
+    }
+    return Math.min(gap, overhang);
 }
 
 function media(item: ItemV2): item is MediaItemV2 {
     return item.source.kind === 'media';
 }
 
-function sameSplitProperties(left: MediaItemV2 | AudioMediaItemV2, right: MediaItemV2 | AudioMediaItemV2): boolean {
+function sameSplitProperties(left: MediaItemV2 | AudioMediaItemV2, right: MediaItemV2 | AudioMediaItemV2,
+    ignoreFades = false): boolean {
     const comparable = (item: MediaItemV2 | AudioMediaItemV2): string => {
         const copy = structuredClone(item) as unknown as Record<string, unknown>;
         for (const key of ['id', 'at', 'duration', 'reason', 'label', 'anchor', 'link']) delete copy[key];
+        if (ignoreFades) for (const key of ['fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape']) delete copy[key];
         const source = copy.source as Record<string, unknown>;
         delete source.in;
         delete source.out;
@@ -248,23 +293,28 @@ function hasTimedAppearance(item: MediaItemV2): boolean {
         || item.items?.length);
 }
 
-function sameCutResult(left: ItemsTrackV2, right: ItemsTrackV2): boolean {
+function sameCutResult(left: ItemsTrackV2, right: ItemsTrackV2,
+    sourceTolerance = SOURCE_TOLERANCE, frameTolerance = 0): boolean {
     const comparable = (track: ItemsTrackV2): unknown[] => track.items.map(item => {
         const copy = structuredClone(item) as unknown as Record<string, unknown>;
         for (const key of ['id', 'reason', 'label', 'anchor', 'link']) delete copy[key];
         return copy;
     });
-    const sameValue = (a: unknown, b: unknown): boolean => {
-        if (typeof a === 'number' && typeof b === 'number') return near(a, b);
+    const sameValue = (a: unknown, b: unknown, sourceEdge = false, frameField = false): boolean => {
+        if (typeof a === 'number' && typeof b === 'number') {
+            return Math.abs(a - b) <= (sourceEdge ? sourceTolerance : frameField ? frameTolerance : SOURCE_TOLERANCE);
+        }
         if (a === b) return true;
         if (Array.isArray(a) && Array.isArray(b)) {
-            return a.length === b.length && a.every((value, index) => sameValue(value, b[index]));
+            return a.length === b.length && a.every((value, index) => sameValue(value, b[index], sourceEdge, frameField));
         }
         if (a && b && typeof a === 'object' && typeof b === 'object') {
             const keys = Object.keys(a);
             return keys.length === Object.keys(b).length
                 && keys.every(key => Object.prototype.hasOwnProperty.call(b, key)
-                    && sameValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+                    && sameValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key],
+                        key === 'source' || (sourceEdge && (key === 'in' || key === 'out')),
+                        key === 'at' || key === 'duration'));
         }
         return false;
     };
@@ -288,23 +338,66 @@ function restoreLinkedAudio(
         const leftIndex = originalTrack.items.findIndex(item => item.link === leftId);
         const rightIndex = originalTrack.items.findIndex(item => item.link === rightId);
         if (leftIndex < 0 && rightIndex < 0) continue;
-        if (leftIndex < 0 || rightIndex < 0 || rightIndex <= leftIndex) return RESTORE_UNAVAILABLE;
+        const candidateTrack = restored.tracks[trackIndex] as AudioItemsTrackV2;
+        if (leftIndex < 0 || rightIndex < 0) {
+            const solo = originalTrack.items[leftIndex < 0 ? rightIndex : leftIndex];
+            if (solo.keyframes?.length) return RESTORE_APPEARANCE;
+            if (solo.source.src !== originalLeft.source.src) return RESTORE_UNAVAILABLE;
+            const tolerance = audioFrameTolerance(solo, originalLeft, originalRight);
+            const outsideCut = leftIndex < 0
+                ? (solo.source.in ?? -Infinity) > range.out + tolerance
+                : (solo.source.out ?? Infinity) < range.in - tolerance;
+            if (!outsideCut) return RESTORE_PROVENANCE;
+            const candidate = candidateTrack.items.find(item => item.id === solo.id);
+            if (!candidate) return RESTORE_UNAVAILABLE;
+            candidate.link = leftId;
+            if (leftIndex < 0) candidate.at += restoredFrames;
+            foundPair = true;
+            continue;
+        }
+        if (rightIndex <= leftIndex) return RESTORE_UNAVAILABLE;
         foundPair = true;
         const left = originalTrack.items[leftIndex];
         const right = originalTrack.items[rightIndex];
         if (left.keyframes?.length || right.keyframes?.length) return RESTORE_APPEARANCE;
+        const tolerance = audioFrameTolerance(left, right, originalLeft, originalRight);
+        const audioAtGap = right.at - left.at - left.duration;
+        const audioSourceStep = ((right.source.out ?? 0) - (right.source.in ?? 0)) / right.duration;
+        const leftSourceStep = ((left.source.out ?? 0) - (left.source.in ?? 0)) / left.duration;
+        const leftOffset = leftSourceStep > 0 ? left.at - originalLeft.at
+            - Math.round(((left.source.in ?? 0) - originalLeft.source.in) / leftSourceStep) : NaN;
+        const rightOffset = audioSourceStep > 0 ? right.at - originalRight.at
+            - Math.round(((right.source.in ?? 0) - originalRight.source.in) / audioSourceStep) : NaN;
         if (left.source.src !== right.source.src || left.source.src !== originalLeft.source.src
-            || !near(left.source.out ?? NaN, range.in) || !near(right.source.in ?? NaN, range.out)
-            || right.at !== left.at + left.duration
-            || !sameSplitProperties(left, right)) return RESTORE_UNAVAILABLE;
-        const candidateTrack = restored.tracks[trackIndex] as AudioItemsTrackV2;
+            || Math.abs((left.source.out ?? NaN) - range.in) > tolerance
+            || Math.abs((right.source.in ?? NaN) - range.out) > tolerance
+            || Math.abs(audioAtGap) > 1
+            || leftOffset !== rightOffset
+            || !sameSplitProperties(left, right, true)
+            || left.fade_out !== undefined || left.fade_out_shape !== undefined
+            || right.fade_in !== undefined || right.fade_in_shape !== undefined) return RESTORE_UNAVAILABLE;
         const candidateLeftIndex = candidateTrack.items.findIndex(item => item.id === left.id);
         const candidateRightIndex = candidateTrack.items.findIndex(item => item.id === right.id);
         if (candidateLeftIndex < 0 || candidateRightIndex <= candidateLeftIndex) return RESTORE_UNAVAILABLE;
         const merged = structuredClone(left);
-        merged.duration = left.duration + restoredFrames + right.duration;
+        const audioSecondsPerFrame = ((left.source.out ?? 0) - (left.source.in ?? 0)) / left.duration;
+        const audioGapFrames = audioSecondsPerFrame > 0
+            ? Math.round(((right.source.in ?? 0) - (left.source.out ?? 0)) / audioSecondsPerFrame)
+            : restoredFrames;
+        merged.duration = left.duration + audioGapFrames + right.duration;
         merged.source.out = right.source.out;
-        candidateTrack.items.splice(candidateLeftIndex, 1, merged);
+        if (right.fade_out !== undefined) merged.fade_out = right.fade_out;
+        if (right.fade_out_shape !== undefined) merged.fade_out_shape = right.fade_out_shape;
+        const fadeKeys = ['fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape'] as const;
+        const mergedKeys = Object.keys(merged) as Array<keyof AudioMediaItemV2>;
+        const firstFadeIndex = mergedKeys.findIndex(key => fadeKeys.includes(key as typeof fadeKeys[number]));
+        const orderedKeys = firstFadeIndex < 0 ? mergedKeys : [
+            ...mergedKeys.slice(0, firstFadeIndex),
+            ...fadeKeys.filter(key => Object.prototype.hasOwnProperty.call(merged, key)),
+            ...mergedKeys.slice(firstFadeIndex).filter(key => !fadeKeys.includes(key as typeof fadeKeys[number])),
+        ];
+        const ordered = Object.fromEntries(orderedKeys.map(key => [key, merged[key]])) as unknown as AudioMediaItemV2;
+        candidateTrack.items.splice(candidateLeftIndex, 1, ordered);
         candidateTrack.items.splice(candidateRightIndex, 1);
     }
     return !foundPair && originalLeft.audio === false ? RESTORE_UNAVAILABLE : undefined;
@@ -317,8 +410,8 @@ function restoreOneTrack(
     const items = original.items;
     const sourceMatches = (item: ItemV2): item is MediaItemV2 => media(item)
         && (range.captionId === undefined || item.source.src === range.captionId);
-    const leftIndices = items.flatMap((item, index) => sourceMatches(item) && near(item.source.out, range.in) ? [index] : []);
-    const rightIndices = items.flatMap((item, index) => sourceMatches(item) && near(item.source.in, range.out) ? [index] : []);
+    const leftIndices = items.flatMap((item, index) => sourceMatches(item) && nearRangeEdge(item.source.out, range.in, item) ? [index] : []);
+    const rightIndices = items.flatMap((item, index) => sourceMatches(item) && nearRangeEdge(item.source.in, range.out, item) ? [index] : []);
     if (leftIndices.length > 1 || rightIndices.length > 1) return {};
     const leftIndex = leftIndices[0];
     const rightIndex = rightIndices[0];
@@ -328,8 +421,8 @@ function restoreOneTrack(
     if (!left || !right || leftIndex === undefined || rightIndex === undefined
         || left.id === right.id || splitRootId(left.id) !== splitRootId(right.id)
         || left.source.src !== right.source.src
-        || left.source.out > range.in + SOURCE_TOLERANCE
-        || right.source.in < range.out - SOURCE_TOLERANCE) return { reason: RESTORE_PROVENANCE };
+        || left.source.out > range.in + audioFrameTolerance(left)
+        || right.source.in < range.out - audioFrameTolerance(right)) return { reason: RESTORE_PROVENANCE };
     const leftMeta = left as MediaItemV2 & { reason?: string; label?: string };
     const rightMeta = right as MediaItemV2 & { reason?: string; label?: string };
     if (leftMeta.reason === undefined && leftMeta.label === undefined
@@ -382,8 +475,16 @@ function restoreOneTrack(
         }
         const visualOnly = { ...candidate, tracks: candidate.tracks.filter(track => track.lane !== 'audio') };
         const preserveLeadingGap = target.find(media)?.at ? [original.id] : [];
+        const preserveGaps = new Map<string, number>();
+        const originalMedia = original.items.filter(media);
+        for (let index = 1; index < originalMedia.length; index++) {
+            const previous = originalMedia[index - 1];
+            const current = originalMedia[index];
+            const gap = linkedAudioGap(edit, previous, current);
+            if (gap > 0) preserveGaps.set(current.id, gap);
+        }
         const trial = applyV2(`${JSON.stringify(visualOnly, null, 2)}\n`,
-            [{ ...range, kind: 'row' }], {}, preserveLeadingGap);
+            [{ ...range, kind: 'row' }], {}, preserveLeadingGap, preserveGaps);
         const replay = (JSON.parse(trial.source) as EditV2).tracks.find(track => track.id === original.id) as VisualItemsTrackV2;
         if (sameCutResult(replay, original)) return { track };
     }
@@ -418,12 +519,12 @@ function restoreCutRangeUnchecked(
         const track = edit.tracks[index];
         if (track.lane !== 'visual' || !('items' in track)) continue;
         const hasEdge = track.items.some(item => media(item) && (!range.captionId || item.source.src === range.captionId)
-            && (near(item.source.out, range.in) || near(item.source.in, range.out)));
+            && (nearRangeEdge(item.source.out, range.in, item) || nearRangeEdge(item.source.in, range.out, item)));
         if (!hasEdge) continue;
         const leftId = track.items.find(item => media(item) && (!range.captionId || item.source.src === range.captionId)
-            && near(item.source.out, range.in))?.id;
+            && nearRangeEdge(item.source.out, range.in, item))?.id;
         const rightId = track.items.find(item => media(item) && (!range.captionId || item.source.src === range.captionId)
-            && near(item.source.in, range.out))?.id;
+            && nearRangeEdge(item.source.in, range.out, item))?.id;
         const next = restoreOneTrack(edit, index, range);
         if (!next.track) return { source, restored: false, reason: next.reason ?? RESTORE_UNAVAILABLE };
         restored.tracks[index] = next.track;
@@ -450,7 +551,13 @@ function restoreCutRangeUnchecked(
         const replay = JSON.parse(trial.source) as EditV2;
         for (const original of audioTracks(edit)) {
             const next = replay.tracks.find(track => track.id === original.id);
-            if (!next || next.lane !== 'audio' || !('items' in next) || !sameCutResult(next, original)) {
+            const frameSkew = original.items.some((item, index) => index > 0 && item.link
+                && original.items[index - 1].link
+                && splitRootId(item.link) === splitRootId(original.items[index - 1].link!)
+                && Math.abs(item.at - original.items[index - 1].at - original.items[index - 1].duration) === 1);
+            if (!next || next.lane !== 'audio' || !('items' in next)
+                || !sameCutResult(next, original,
+                    audioFrameTolerance(...original.items, ...next.items), frameSkew ? 1 : 0)) {
                 return { source, restored: false, reason: RESTORE_UNAVAILABLE };
             }
         }
