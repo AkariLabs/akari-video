@@ -3,6 +3,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { runAutomaticNetworkCheck } from '../../lib/common/automatic-network-check.js';
+import { resolveUpdateFeedUrl } from '../../lib/common/update-feed.js';
+import { resolveUpdateChannel } from '../../lib/common/shell-update-applier.js';
 
 test('home latest.json request is skipped while autoCheck is off and runs while on', async () => {
     const calls = [];
@@ -21,13 +23,13 @@ test('home widget wires the persisted setting into its actual background fetch',
     const compiled = ts.transpileModule(`class Home { ${member.getText(source)} }`, {
         compilerOptions: { target: ts.ScriptTarget.ES2021 }
     }).outputText;
-    const trigger = new Function('runAutomaticNetworkCheck', 'DEFAULT_UPDATE_FEED_URL',
-        `${compiled}\nreturn Home.prototype.triggerUpdateBackgroundFetch;`)(runAutomaticNetworkCheck, 'https://example.test/latest.json');
+    const trigger = new Function('runAutomaticNetworkCheck', 'resolveUpdateChannel', 'resolveUpdateFeedUrl',
+        `${compiled}\nreturn Home.prototype.triggerUpdateBackgroundFetch;`)(runAutomaticNetworkCheck, resolveUpdateChannel, resolveUpdateFeedUrl);
     const calls = [];
     t.mock.method(globalThis, 'fetch', async url => { calls.push(url); return { ok: false }; });
     let autoCheck = false;
-    const home = { updateSettings: { getUpdateSettings: async () => ({ autoCheck }) },
-        envVariables: { getValue: async () => undefined } };
+    const home = { updateSettings: { getUpdateSettings: async () => ({ autoCheck, channel: 'stable' }) },
+        envVariables: { getValue: async () => ({ value: 'https://example.test/latest.json' }) } };
     await trigger.call(home);
     assert.equal(calls.length, 0);
     autoCheck = true;

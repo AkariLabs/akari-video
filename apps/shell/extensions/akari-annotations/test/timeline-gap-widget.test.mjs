@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readCompiledSource } from './helpers/widget-source.mjs';
+import { readCompiledSource, readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -14,6 +14,22 @@ import { timelineGapAt } from '../lib/common/timeline-gap.js';
 import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
 import { describeNextDraft } from '@akari-video/edit-store';
 const source = readCompiledSource('widget').text;
+const widgetSource = readSourceFile('widget').text;
+test('gap menu opens the selected-gap inspector without creating a frame', () => {
+  const menu = widgetSource.slice(widgetSource.indexOf("this.strip.addEventListener('contextmenu'"),
+    widgetSource.indexOf("this.rulerBar.addEventListener('click'"));
+  assert.match(menu, /if \(id === 'generate-gap'\) \{\s*this\.pushSelectionSnapshot\(\);\s*void this\.commands\.executeCommand\(OPEN_AKARI_INSPECTOR_ID\)/u);
+  assert.doesNotMatch(menu, /commitGapFrame\(/u);
+  const select = widgetSource.slice(widgetSource.indexOf('protected selectGapAt('),
+    widgetSource.indexOf('protected async commitGapFrame('));
+  assert.doesNotMatch(select, /pushSelectionSnapshot\(|OPEN_AKARI_INSPECTOR_ID/u);
+});
+test('ruler pointerdown clears a stale click suppression before handling a drag', () => {
+  const drag = widgetSource.slice(widgetSource.indexOf('protected beginRulerRangeDrag('),
+    widgetSource.indexOf('public setAutoRippleEnabled(', widgetSource.indexOf('protected beginRulerRangeDrag(')));
+  assert.match(drag, /beginRulerRangeDrag\(event: PointerEvent\): void \{\s*this\.suppressNextStripClick = false;/u);
+  assert.match(drag, /if \(dragged\) \{ pointer\.preventDefault\(\); this\.suppressNextStripClick = true; \}/u);
+});
 const from = source.indexOf('    gapSnapshot('), to = source.indexOf('    async commitEmptyFrame(', from);
 const Widget = new Function('timeline_gap_1', 'edit_v2_mutations_1', 'buffer_1', 'akari_annotations_commands_2', 'frame_geometry_1',
   `return class { ${source.slice(from, to)} }`)({ timelineGapAt }, { insertItem, indexEditV2Items },

@@ -195,6 +195,20 @@ export const ANNOTATIONS_WIDGET_CSS = `
         cursor: grab;
         user-select: none;
     }
+    .akari-annotations-widget .akari-track-header-row.akari-track-ripple-selected {
+        background: var(--theia-list-activeSelectionBackground);
+    }
+    .akari-annotations-widget .akari-track-header-row:has(.akari-track-ripple-control[data-akari-ripple-placement="inline"]),
+    .akari-annotations-widget .akari-track-header-trackline:has(.akari-track-ripple-control[data-akari-ripple-placement="inline"]) { gap: 0; }
+    .akari-annotations-widget .akari-track-header-row:has(.akari-track-ripple-control) .akari-track-header-name {
+        min-width: 24px;
+    }
+    .akari-annotations-widget .akari-track-header-row:has(.akari-track-ripple-control[data-akari-ripple-placement="inline"]) .akari-track-header-icon {
+        width: 12px; flex: 0 0 12px;
+    }
+    .akari-annotations-widget .akari-track-header-row:has(.akari-track-ripple-control[data-akari-ripple-placement="inline"]) .akari-track-header-icon svg {
+        width: 12px; height: 12px;
+    }
     .akari-annotations-widget .akari-track-header-trackline {
         position: absolute;
         left: 0;
@@ -206,6 +220,9 @@ export const ANNOTATIONS_WIDGET_CSS = `
         gap: 2px;
         min-width: 0;
         box-sizing: border-box;
+    }
+    .akari-annotations-widget .akari-track-header-row:not([data-akari-tree-track]):has(.akari-track-ripple-control[data-akari-ripple-placement="second"]) > .akari-track-header-trackline {
+        padding: 0 3px;
     }
     .akari-annotations-widget .akari-track-header-resize-handle {
         position: absolute;
@@ -271,6 +288,82 @@ export const ANNOTATIONS_WIDGET_CSS = `
     .akari-annotations-widget .akari-track-header-button[aria-pressed="false"] { opacity: .4; }
     .akari-annotations-widget .akari-track-header-button:hover { background: var(--theia-toolbar-hoverBackground); }
     .akari-annotations-widget .akari-track-header-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .akari-annotations-widget .akari-track-ripple-control {
+        display: inline-flex; align-items: center; gap: 1px; flex: none;
+        flex-shrink: 0; height: 18px; white-space: nowrap;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] {
+        width: 18px; min-width: 18px; max-width: 18px;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"][data-akari-ripple-display="switches"] {
+        width: 28px; min-width: 28px; max-width: 28px; gap: 0;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="second"] {
+        position: absolute; top: 21px; left: 20px; z-index: 3;
+        max-width: calc(100% - 24px); background: var(--theia-editorWidget-background);
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="second"][data-akari-ripple-display="switches"] {
+        left: 3px; max-width: calc(100% - 6px); gap: 1px;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="second"][data-akari-ripple-display="switches"] .akari-track-ripple-switch {
+        padding: 0; gap: 1px; font-size: 9px; white-space: nowrap;
+    }
+    .akari-annotations-widget .akari-track-ripple-icon.codicon {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 14px; width: 14px; min-width: 14px; height: 14px;
+        font-size: 14px; line-height: 14px;
+    }
+    .akari-annotations-widget .akari-track-ripple-icon.codicon::before {
+        display: block; width: 14px; height: 14px; line-height: 14px;
+    }
+    .akari-annotations-widget .akari-track-ripple-tag,
+    .akari-annotations-widget .akari-track-ripple-switch,
+    .akari-annotations-widget .akari-track-ripple-menu-button {
+        display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+        height: 18px; min-width: 18px; padding: 0 1px;
+        border: 1px solid var(--theia-widget-border); border-radius: 3px;
+        background: var(--theia-editorWidget-background); color: var(--theia-foreground);
+        font: inherit; font-size: 10px; line-height: 1; cursor: pointer; flex-shrink: 0;
+    }
+    .akari-annotations-widget .akari-track-ripple-tag {
+        white-space: nowrap;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] .akari-track-ripple-tag,
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] .akari-track-ripple-follow {
+        width: 18px; min-width: 18px; max-width: 18px;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] .akari-track-ripple-switch {
+        width: 14px; min-width: 14px; max-width: 14px; padding: 0;
+    }
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] .akari-track-ripple-switch .akari-track-ripple-icon.codicon,
+    .akari-annotations-widget .akari-track-ripple-control[data-akari-ripple-placement="inline"] .akari-track-ripple-switch .akari-track-ripple-icon.codicon::before {
+        flex-basis: 12px; width: 12px; min-width: 12px; height: 12px; line-height: 12px; font-size: 12px;
+    }
+    .akari-annotations-widget .akari-track-ripple-tag:disabled,
+    .akari-annotations-widget .akari-track-ripple-switch:disabled { opacity: .55; cursor: default; }
+    .akari-annotations-widget .akari-track-ripple-switch[aria-pressed="true"] {
+        border-color: var(--theia-focusBorder); font-weight: bold;
+    }
+    .akari-annotations-widget .akari-track-ripple-follow {
+        color: var(--theia-descriptionForeground); font-size: 9px;
+        display: inline-flex; align-items: center; flex-shrink: 0;
+    }
+    .akari-annotations-widget .akari-track-ripple-visually-hidden {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+    }
+    .akari-annotations-widget .akari-track-ripple-menu-button { margin: 2px; }
+    .akari-track-ripple-popup {
+        position: fixed; z-index: 10000; display: flex; flex-direction: column;
+        min-width: 190px; padding: 4px; border: 1px solid var(--theia-widget-border);
+        border-radius: 4px; background: var(--theia-menu-background);
+        box-shadow: 0 3px 12px var(--theia-widget-shadow);
+    }
+    .akari-track-ripple-popup button {
+        padding: 5px 8px; border: 0; background: transparent;
+        color: var(--theia-foreground); text-align: left; cursor: pointer;
+    }
+    .akari-track-ripple-popup button:hover { background: var(--theia-list-hoverBackground); }
     .akari-annotations-widget .akari-annotations-selected {
         border: 2px solid var(--theia-focusBorder);
         box-sizing: border-box;

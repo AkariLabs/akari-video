@@ -1,13 +1,31 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { audioFadeProgress } from '@akari-video/edit-store';
+import { hostAdapterScript } from '../lib/browser/preview-script-host-adapter.js';
 
 import {
     bgmLoopOffsetSeconds,
     resolveBgmSourceOffset,
     resolveSfxTrimWindow,
     resolveTimedScheduleWindow,
-    sfxFadeGainSchedule
+    sfxFadeGainSchedule,
+    shapedFadeGainSchedule
 } from '../lib/common/audio-schedule.js';
+
+test('shaped preview gain breakpoints sample the shared curve midpoint', () => {
+    assert.ok(hostAdapterScript().includes(audioFadeProgress.toString()));
+    for (const [shape, expected] of [['slow', 0.25], ['equal_power', Math.SQRT1_2]]) {
+        const events = shapedFadeGainSchedule(1, 0, 4, 0, 2, shape, undefined, audioFadeProgress);
+        assert.ok(events.length >= 17);
+        assert.ok(Math.abs(events.find(event => event.offsetSec === 0.5).gainMultiplier - expected) < 1e-12);
+    }
+});
+
+test('v2 fade shapes are overlaid before preview audio assets resolve', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    assert.match(source, /projectAudioFadeShapes\(projectLegacyAudioView\(internal\), JSON\.parse\(editText\)\?\.tracks\)/u);
+});
 
 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (R6b lane): unit-level coverage of the
 // same functions createPreviewAudio (akari-preview-open-handler.ts's injected preview webview

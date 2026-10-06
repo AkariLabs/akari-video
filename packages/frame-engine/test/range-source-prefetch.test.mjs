@@ -107,7 +107,7 @@ async function decodeTimestamps(source, timestamps) {
   return actual;
 }
 
-async function createFixture(t, { frames = 48, bf = 2 } = {}) {
+async function createFixture(t, { frames = 48, bf = 2, fps = 24, gop = 12 } = {}) {
   if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) {
     t.skip('ffmpeg is required');
     return null;
@@ -117,9 +117,9 @@ async function createFixture(t, { frames = 48, bf = 2 } = {}) {
   const fixture = path.join(directory, 'prefetch.mp4');
   execFileSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',
-    '-f', 'lavfi', '-i', 'testsrc2=size=96x64:rate=24', '-frames:v', String(frames),
-    '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '12',
-    '-keyint_min', '12', '-sc_threshold', '0', '-bf', String(bf),
+    '-f', 'lavfi', '-i', `testsrc2=size=96x64:rate=${fps}`, '-frames:v', String(frames),
+    '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', String(gop),
+    '-keyint_min', String(gop), '-sc_threshold', '0', '-bf', String(bf),
     '-movflags', '+faststart', fixture,
   ]);
   const file = readFileSync(fixture);
@@ -133,18 +133,20 @@ async function createFixture(t, { frames = 48, bf = 2 } = {}) {
   return { bytes, table, timestamps: allTimestamps.slice(0, 32), allTimestamps };
 }
 
-function installDecoder(t) {
+function installDecoder(t, { hardware = false, reorderDepth = 2 } = {}) {
   const original = {
     VideoDecoder: globalThis.VideoDecoder,
     VideoFrame: globalThis.VideoFrame,
     EncodedVideoChunk: globalThis.EncodedVideoChunk,
+    createImageBitmap: globalThis.createImageBitmap,
   };
   Decoder.instances.length = 0;
   Decoder.flushCalls = 0;
-  Decoder.reorderDepth = 2;
+  Decoder.reorderDepth = reorderDepth;
   globalThis.VideoDecoder = Decoder;
   globalThis.VideoFrame = Frame;
   globalThis.EncodedVideoChunk = Chunk;
+  if (hardware) globalThis.createImageBitmap = async () => ({ close() {} });
   t.after(() => {
     for (const [name, value] of Object.entries(original)) {
       if (value === undefined) delete globalThis[name];
@@ -199,6 +201,44 @@ test('prefetch crosses GOP boundaries without grace, flush, or decoder recreatio
   assert.ok(source.stats.prefetchSubmitted > 0);
   assert.ok(source.stats.prefetchHits > source.stats.prefetchMisses, JSON.stringify(source.stats));
   source.destroy();
+});
+
+test('hardware decode input lag crosses one-second GOPs without recovery', {
+  timeout: 20_000,
+}, async t => {
+  const fixture = await createFixture(t, { frames: 150, bf: 0, fps: 30, gop: 30 });
+  if (!fixture) return;
+  for (const reorderDepth of [3, 4]) {
+    await t.test(`reorder depth ${reorderDepth}`, async t => {
+      installDecoder(t, { hardware: true, reorderDepth });
+      const source = new RangeMp4Source(`hardware-lag-${reorderDepth}`, 'prefetch.mp4', {
+        fetchImpl: rangeFetch(fixture.bytes),
+        hardwareAcceleration: 'prefer-hardware',
+        codecSupport: { hw: true, sw: true, any: true, codec: fixture.table.codec },
+      });
+      const actual = [];
+      let graceBeforeLastGop = 0;
+      let flushBeforeLastGop = 0;
+      for (const [index, timestamp] of fixture.allTimestamps.entries()) {
+        if (index === 120) {
+          graceBeforeLastGop = source.stats.graceWaits;
+          flushBeforeLastGop = Decoder.flushCalls;
+        }
+        const frame = await source.decode(timestamp);
+        actual.push(frame.timestamp);
+        frame.close();
+        await settlePump();
+      }
+      assert.deepEqual(actual, fixture.allTimestamps, '全フレームを要求時刻どおり返す');
+      assert.equal(graceBeforeLastGop, 0, '最終 GOP より前に出力猶予へ入らない');
+      assert.equal(flushBeforeLastGop, 0, '最終 GOP より前に flush しない');
+      assert.ok(source.stats.graceWaits <= (reorderDepth === 4 ? 1 : 0), JSON.stringify(source.stats));
+      assert.equal(Decoder.instances.length, 1, '復旧のためにデコーダを作り直さない');
+      assert.ok(Decoder.flushCalls <= 1, `flush calls: ${Decoder.flushCalls}`);
+      assert.ok(source.stats.maxFutureFrames <= 3, JSON.stringify(source.stats));
+      source.destroy();
+    });
+  }
 });
 
 test('backwards seek outside future frames resets and does not restart prefetch', {

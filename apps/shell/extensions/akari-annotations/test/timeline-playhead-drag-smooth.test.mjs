@@ -49,6 +49,7 @@ function fixture() {
     timeAtClientX: x => x / 100, percent: t => t * 10,
     outputToSource: t => t, requestSeek: (time, options) => { seeks.push([time, options]); },
     canHandlePlaybackTick: () => true, visibleDuration: () => 10,
+    playheadFollow: { follow() {} },
     resolveCaptionAtPlayhead: () => undefined, applyCaptionStateClasses() {},
     beginPlayheadScrub: method('beginPlayheadScrub', { requestAnimationFrame, cancelAnimationFrame }),
     handlePlaybackTick: method('handlePlaybackTick', { PLAYHEAD_FOLLOW_THRESHOLD: .8 }),

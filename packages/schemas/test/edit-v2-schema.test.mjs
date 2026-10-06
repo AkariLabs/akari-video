@@ -63,6 +63,18 @@ test("track muted accepts booleans and rejects other types in both items and con
   }
 });
 
+test('track target and sync are optional booleans in both track branches', () => {
+  for (const trackIndex of [0, 3, 4]) {
+    for (const key of ['target', 'sync']) {
+      for (const value of [true, false, 1, 'yes', null]) {
+        const edit = fixture('edit-v2-valid');
+        edit.tracks[trackIndex][key] = value;
+        assert.equal(validate(edit), typeof value === 'boolean', JSON.stringify(validate.errors));
+      }
+    }
+  }
+});
+
 test("visual media source validates embedded speech gain and mute", () => {
   const value = fixture("edit-v2-valid");
   Object.assign(value.tracks[3].items[0].source, { gain_db: -12, mute: true });

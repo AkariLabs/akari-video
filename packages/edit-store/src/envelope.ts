@@ -15,6 +15,101 @@ export interface EnvelopeGainEvent {
     method: 'set' | 'linear' | 'exponential';
 }
 
+export type AudioFadeShape = 'linear' | 'equal_power' | 's_curve' | 'slow';
+
+/** The same progress curve is sampled by preview and named by the export filter. */
+export function audioFadeProgress(shape: AudioFadeShape | undefined, progress: number): number {
+    const p = Math.min(1, Math.max(0, progress));
+    switch (shape ?? 'linear') {
+        case 'equal_power': return Math.sin(p * Math.PI / 2);
+        case 's_curve': return (1 - Math.cos(p * Math.PI)) / 2;
+        case 'slow': return p * p;
+        default: return p;
+    }
+}
+
+export function audioFadeMultiplier(
+    localSeconds: number, durationSeconds: number, fadeInSeconds: number, fadeOutSeconds: number,
+    inShape?: AudioFadeShape, outShape?: AudioFadeShape
+): number {
+    const duration = Math.max(0, durationSeconds);
+    const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+    const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+    let value = 1;
+    if (fadeIn > 0 && localSeconds < fadeIn) value = Math.min(value, audioFadeProgress(inShape, localSeconds / fadeIn));
+    if (fadeOut > 0 && localSeconds > duration - fadeOut) {
+        value = Math.min(value, audioFadeProgress(outShape, (duration - localSeconds) / fadeOut));
+    }
+    return Math.min(1, Math.max(0, value));
+}
+
+/** Linear ramp events: 16 segments per active fade, including both endpoints. */
+export function audioFadeGainEvents(
+    durationSeconds: number, fadeInSeconds: number, fadeOutSeconds: number,
+    inShape?: AudioFadeShape, outShape?: AudioFadeShape
+): EnvelopeGainEvent[] {
+    const duration = Math.max(0, durationSeconds);
+    const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+    const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+    const times = new Set<number>([0, duration]);
+    for (let index = 0; index <= 16; index += 1) {
+        if (fadeIn > 0) times.add(fadeIn * index / 16);
+        if (fadeOut > 0) times.add(duration - fadeOut + fadeOut * index / 16);
+    }
+    return [...times].sort((a, b) => a - b).map((offsetSec, index) => ({
+        offsetSec,
+        value: audioFadeMultiplier(offsetSec, duration, fadeIn, fadeOut, inShape, outShape),
+        method: index === 0 ? 'set' : 'linear'
+    }));
+}
+
+/** afade's tri/qsin/hsin/qua correspond to p/sin(pπ/2)/(1−cos(pπ))/2/p². */
+export function audioFadeFfmpegCurve(shape: AudioFadeShape | undefined): 'tri' | 'qsin' | 'hsin' | 'qua' {
+    switch (shape ?? 'linear') {
+        case 'equal_power': return 'qsin';
+        case 's_curve': return 'hsin';
+        case 'slow': return 'qua';
+        default: return 'tri';
+    }
+}
+
+/** Carry v2-only shape declarations across the legacy audio projection without changing shape-less input. */
+export function projectAudioFadeShapes<T extends Record<string, any>>(audio: T, tracks: unknown): T {
+    if (!Array.isArray(tracks)) return audio;
+    const rawItems = tracks.flatMap(track => track?.lane === 'audio' && Array.isArray(track.items)
+        ? track.items : []).filter(item => item && typeof item === 'object');
+    const shapes = (item: any): Record<string, AudioFadeShape> => {
+        const result: Record<string, AudioFadeShape> = {};
+        for (const edge of ['in', 'out'] as const) {
+            const field = `fade_${edge}_shape`;
+            const value = item?.[field];
+            if (value === 'linear' || value === 'equal_power' || value === 's_curve' || value === 'slow') {
+                result[field] = value;
+            }
+        }
+        return result;
+    };
+    if (!rawItems.some(item => Object.keys(shapes(item)).length > 0)) return audio;
+    const byId = new Map(rawItems.filter(item => typeof item.id === 'string')
+        .map(item => [item.id, shapes(item)]));
+    const bgmItems = rawItems.filter(item => item.role === 'bgm');
+    const map = (items: unknown, role: string): unknown => Array.isArray(items)
+        ? items.map((item, index) => {
+            if (!item || typeof item !== 'object') return item;
+            const declared = role === 'bgm' ? shapes(bgmItems[index]) : byId.get(item.id);
+            return declared && Object.keys(declared).length > 0 ? { ...item, ...declared } : item;
+        }) : items;
+    const next: Record<string, any> = { ...audio };
+    if (audio['bgm'] && bgmItems.length > 0) {
+        const declared = shapes(bgmItems[0]);
+        if (Object.keys(declared).length > 0) next.bgm = { ...audio['bgm'], ...declared };
+    }
+    for (const role of ['bgms', 'sfx', 'narration', 'speech'] as const) {
+        if (audio[role] !== undefined) next[role] = map(audio[role], role === 'bgms' ? 'bgm' : role);
+    }
+    return next as T;
+}
+
 export const DEFAULT_DUCK_DB = -12;
 export const DEFAULT_DUCK_ATTACK_SEC = 0.3;
 export const DEFAULT_DUCK_RELEASE_SEC = 0.8;

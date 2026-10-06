@@ -5,6 +5,7 @@ import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-expor
 import { ExportThumbnailStrip } from './export-thumbnail-strip';
 import { ExportFrame, formatClock, VideoFacts } from './export-view-shared';
 import { ExportLiveFramePainter, useExportLiveFrame } from './export-live-frame';
+import { ExportEngineReasonView } from './export-engine-reason-view';
 
 const STAGES: readonly QuickExportStage[] = ['prepare', 'audio-cut', 'render', 'audio-mix', 'verify'];
 
@@ -14,7 +15,7 @@ function stepDetail(stage: QuickExportStage, snapshot: ExportSessionSnapshot): s
         const frames = status.progressFrame !== undefined && status.progressTotalFrames !== undefined
             ? `${status.progressFrame} / ${status.progressTotalFrames} コマ`
             : 'コマ数を計算中…';
-        return `${frames} · ${snapshot.video.fps ?? '—'} fps · ${(status.progressEngine ?? snapshot.settings.engine).toUpperCase()}`;
+        return `${frames} · ${snapshot.video.fps ?? '—'} fps`;
     }
     if (stage === 'audio-cut' && status.progressPercent !== undefined) {
         return `${status.progressPercent}%`;
@@ -53,7 +54,7 @@ export function ExportRunningView(props: {
                 <div className='rwrap'>
                     <div className='right'>
                         {status.phase === 'linting' && <p className='fine' style={{ margin: '0 0 8px' }}>lint 確認中…</p>}
-                        <div className='sec'><span>いま何をしているか</span><span className='r'>{status.progressEngine ? `${status.progressEngine.toUpperCase()} · ` : ''}{percent}%</span></div>
+                        <div className='sec'><span>いま何をしているか</span><span className='r'>{percent}%</span></div>
                         <div className='steps'>
                             {STAGES.map((stage, index) => {
                                 const state = index < activeIndex ? 'done' : index === activeIndex ? 'active' : 'pending';
@@ -74,6 +75,7 @@ export function ExportRunningView(props: {
                     </div>
                 </div>
             </div>
+            <ExportEngineReasonView status={status} onCopy={text => session.copyLicenseCredits(text)} />
             <div className='pf'>
                 <span className='fn'>閉じても書き出しは続きます。</span><span className='sp' />
                 <button type='button' className='btn' onClick={props.close}>閉じて作業を続ける</button>

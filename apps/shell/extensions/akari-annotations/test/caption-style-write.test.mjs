@@ -12,7 +12,9 @@ const start = source.indexOf("                case 'caption-style-my-style':");
 const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
-const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'edit_store_2', 'buffer_1', 'library_apply_plan_1', `return (async function () {
+const storeAliases = [...new Set([...block.matchAll(/\b(edit_store(?:_\d+)?)\./g)].map(match => match[1]))];
+const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1',
+  'buffer_1', 'library_apply_plan_1', ...storeAliases, `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
@@ -71,9 +73,9 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
   let result;
   try { result = await run.call(context, { kind, id: captions[0].id, value,
     ...(targets ? { targets } : {}), ...(libraryApplyKind ? { libraryApplyKind } : {}) },
-    location, captionStyleEffects, myStyleLook, editStore, {}, libraryApplyPlan); }
+    location, captionStyleEffects, myStyleLook, {}, libraryApplyPlan, ...storeAliases.map(() => editStore)); }
   catch (error) { result = { ok: false, message: error.message }; }
-  assert.equal(result.ok, expectOk);
+  assert.equal(result.ok, expectOk, result.message);
   assert.equal(history.length, expectOk ? 1 : 0);
   return { calls, history, reads, writes, result, footer: context.footer.textContent };
 }

@@ -968,12 +968,12 @@ export function frameEngineBootstrapScript(): string {
                 const renderPlayback = seconds => {
                     const frameNumber = Math.round(renderableSeconds(seconds) * fps);
                     if (frameNumber === lastPlaybackFrame) return lastPresentedSec;
-                    lastPlaybackFrame = frameNumber;
                     if (rendering) {
                         measurements.lateFrames += 1;
                         updateMetrics();
                         return lastPresentedSec;
                     }
+                    lastPlaybackFrame = frameNumber;
                     const operation = renderFrame(frameNumber / fps, 'playback')
                         .catch(reason => showError(reason, true));
                     rendering = operation;

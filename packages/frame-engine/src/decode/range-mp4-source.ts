@@ -33,6 +33,9 @@ const DECODER_FLUSH_TIMEOUT_MS = 1_000;
 // 「遅れて出す」正当なデコーダは dequeue はすぐ発火するので、この上限には掛からない。
 const DECODER_DEQUEUE_TIMEOUT_MS = 2_000;
 const PREFETCH_BATCH = 8;
+// VideoToolbox は target の入力後もしばらく出力を保留することがある。H.264 / HEVC の
+// 最大 DPB 相当までは入力だけを進め、通常の先読み出力保持数とは分けて扱う。
+const MAX_DECODER_INPUT_LAG_SAMPLES = 16;
 // hardware decoder は呼び手とデコーダが保持する VideoFrame で output surface が
 // 枯渇する。先読みの出力保持は並べ替え窓程度に抑える。
 const HARDWARE_AHEAD_FRAMES = 3;
@@ -1120,7 +1123,7 @@ export class RangeMp4Source {
     const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
     const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0
       && targetUs > this.lastTargetUs
-      && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);
+      && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex <= this.nextDecodeIndex);
     if (!forward) {
       if (this.currentSyncIndex >= 0) await this.resetDecoder();
       this.currentSyncIndex = syncIndex;
@@ -1151,11 +1154,19 @@ export class RangeMp4Source {
     this.activeCandidate?.close();
     this.activeCandidate = null;
     const waiter = this.beginOutputWait(targetUs, targetSample.timestampUs);
+    const lagCeiling = Math.min(
+      table.samples.length - 1,
+      Math.max(decodeCeiling, minimumDecodeEnd + MAX_DECODER_INPUT_LAG_SAMPLES),
+    );
+    // target より後の出力がまだ無い間だけ、デコーダ内部の入力遅延を埋める。target が出た後の
+    // future frame 保持数は従来の decodeCeiling / aheadLimit を越えない。
+    const effectiveCeiling = () => waiter.laterFrames === 0 ? lagCeiling : decodeCeiling;
     let queueLimit = Math.max(
       1,
       this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1,
     );
     let outputGraceExpired = false;
+    let outputGraceAtEndOfStream = false;
     try {
       const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
       // 素材末尾の並べ替え窓（最後の maxReorderFrames + 1 枚）だけは flush しないと出ない。
@@ -1169,7 +1180,7 @@ export class RangeMp4Source {
           let postTargetBudget = postTargetLimit;
           let initialRound = true;
           while (!waiter.isSettled()) {
-            const roundCeiling = initialRound ? table.samples.length - 1 : decodeCeiling;
+            const roundCeiling = initialRound ? table.samples.length - 1 : effectiveCeiling();
             let supplyEnd = this.nextDecodeIndex - 1;
             for (let index = this.nextDecodeIndex; index <= roundCeiling; index += 1) {
               const sample = table.samples[index]!;
@@ -1210,18 +1221,19 @@ export class RangeMp4Source {
               const waitResult = await this.waitForTargetOrProgress(
                 decoder,
                 waiter,
-                this.nextDecodeIndex <= decodeCeiling,
+                this.nextDecodeIndex <= effectiveCeiling(),
                 (inReorderTail && allSamplesSubmitted) || prefetchTailAtEos,
               );
               if (waitResult === 'needs-supply') break;
               if (waitResult === 'grace-expired') {
                 outputGraceExpired = true;
+                outputGraceAtEndOfStream = allSamplesSubmitted;
                 break;
               }
             }
             initialRound = false;
             if (waiter.isSettled() || outputGraceExpired
-              || this.nextDecodeIndex > decodeCeiling) break;
+              || this.nextDecodeIndex > effectiveCeiling()) break;
             postTargetBudget += postTargetLimit;
           }
         })(), this.options.decodeTimeoutMs ?? 10_000, `Range decode ${this.id} at ${targetUs}us`);
@@ -1238,6 +1250,15 @@ export class RangeMp4Source {
             `Range flush ${this.id} at ${targetUs}us`,
           );
           this.flushedSinceSeek = true;
+          if (!outputGraceAtEndOfStream) {
+            // 入力遅延を埋めるため通常上限を越えて渡した sample は、復旧 flush で一度に出ても
+            // 次の要求用には保持しない。従来どおり次の miss で decoder を作り直す。
+            for (const [timestamp, frame] of this.futureFrames) {
+              if (sampleAtPresentationTime(table, timestamp).decodeIndex <= decodeCeiling) continue;
+              frame.close();
+              this.futureFrames.delete(timestamp);
+            }
+          }
         }
       } catch (error) {
         throw error instanceof DecoderExecutionError

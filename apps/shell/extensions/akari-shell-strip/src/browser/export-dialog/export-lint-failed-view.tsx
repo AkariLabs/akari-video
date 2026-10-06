@@ -4,6 +4,7 @@ import { lintRecheckHint } from '../../common/export-lint-recheck';
 import { QuickExportLintFinding } from '../../common/quick-export-protocol';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
 import { ExportFrame, VideoFacts } from './export-view-shared';
+import { ExportEngineReasonView } from './export-engine-reason-view';
 
 function findingTitle(finding: QuickExportLintFinding): string {
     const detail = `${finding.check ? `[${finding.check}] ` : ''}${finding.message ?? ''}`;
@@ -58,13 +59,13 @@ export function ExportLintFailedView(props: {
                                 disabled={snapshot.lintRechecking}
                                 onClick={() => void session.recheckLint()}
                             >{snapshot.lintRechecking ? '検査中…' : 'もう一度検査する'}</button>
-                            <button type='button' className='btn' disabled={!status.reportPath} onClick={() => openAndClose(status.reportPath)}>lint レポートを開く</button>
                             {warningOnly && <button type='button' className='btn ghost' onClick={() => void session.start({ rerunLint: false })}>そのまま書き出す</button>}
                         </div>
                         <p className='fine'>パートナーに直してもらうと、この所見を AI チャットへ渡します。</p>
                     </div>
                 </div>
             </div>
+            <ExportEngineReasonView status={status} openLint={status.reportPath ? () => openAndClose(status.reportPath) : undefined} />
             <div className='pf'><span className='fn'>直したら設定に戻ってやり直せます。</span><span className='sp' /><button type='button' className='btn' onClick={() => session.resetToSetup()}>設定に戻る</button></div>
         </>
     );

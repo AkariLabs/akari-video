@@ -1404,6 +1404,89 @@ function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
 }
 
 // ../edit-store/src/envelope.ts
+function audioFadeProgress(shape, progress) {
+  const p = Math.min(1, Math.max(0, progress));
+  switch (shape ?? "linear") {
+    case "equal_power":
+      return Math.sin(p * Math.PI / 2);
+    case "s_curve":
+      return (1 - Math.cos(p * Math.PI)) / 2;
+    case "slow":
+      return p * p;
+    default:
+      return p;
+  }
+}
+function audioFadeMultiplier(localSeconds, durationSeconds, fadeInSeconds, fadeOutSeconds, inShape, outShape) {
+  const duration = Math.max(0, durationSeconds);
+  const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+  const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+  let value = 1;
+  if (fadeIn > 0 && localSeconds < fadeIn) value = Math.min(value, audioFadeProgress(inShape, localSeconds / fadeIn));
+  if (fadeOut > 0 && localSeconds > duration - fadeOut) {
+    value = Math.min(value, audioFadeProgress(outShape, (duration - localSeconds) / fadeOut));
+  }
+  return Math.min(1, Math.max(0, value));
+}
+function audioFadeGainEvents(durationSeconds, fadeInSeconds, fadeOutSeconds, inShape, outShape) {
+  const duration = Math.max(0, durationSeconds);
+  const fadeIn = Math.min(Math.max(0, fadeInSeconds), duration / 2);
+  const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration / 2);
+  const times = /* @__PURE__ */ new Set([0, duration]);
+  for (let index = 0; index <= 16; index += 1) {
+    if (fadeIn > 0) times.add(fadeIn * index / 16);
+    if (fadeOut > 0) times.add(duration - fadeOut + fadeOut * index / 16);
+  }
+  return [...times].sort((a, b) => a - b).map((offsetSec, index) => ({
+    offsetSec,
+    value: audioFadeMultiplier(offsetSec, duration, fadeIn, fadeOut, inShape, outShape),
+    method: index === 0 ? "set" : "linear"
+  }));
+}
+function audioFadeFfmpegCurve(shape) {
+  switch (shape ?? "linear") {
+    case "equal_power":
+      return "qsin";
+    case "s_curve":
+      return "hsin";
+    case "slow":
+      return "qua";
+    default:
+      return "tri";
+  }
+}
+function projectAudioFadeShapes(audio, tracks) {
+  if (!Array.isArray(tracks)) return audio;
+  const rawItems = tracks.flatMap((track) => track?.lane === "audio" && Array.isArray(track.items) ? track.items : []).filter((item) => item && typeof item === "object");
+  const shapes = (item) => {
+    const result = {};
+    for (const edge of ["in", "out"]) {
+      const field = `fade_${edge}_shape`;
+      const value = item?.[field];
+      if (value === "linear" || value === "equal_power" || value === "s_curve" || value === "slow") {
+        result[field] = value;
+      }
+    }
+    return result;
+  };
+  if (!rawItems.some((item) => Object.keys(shapes(item)).length > 0)) return audio;
+  const byId = new Map(rawItems.filter((item) => typeof item.id === "string").map((item) => [item.id, shapes(item)]));
+  const bgmItems = rawItems.filter((item) => item.role === "bgm");
+  const map = (items, role) => Array.isArray(items) ? items.map((item, index) => {
+    if (!item || typeof item !== "object") return item;
+    const declared = role === "bgm" ? shapes(bgmItems[index]) : byId.get(item.id);
+    return declared && Object.keys(declared).length > 0 ? { ...item, ...declared } : item;
+  }) : items;
+  const next = { ...audio };
+  if (audio["bgm"] && bgmItems.length > 0) {
+    const declared = shapes(bgmItems[0]);
+    if (Object.keys(declared).length > 0) next.bgm = { ...audio["bgm"], ...declared };
+  }
+  for (const role of ["bgms", "sfx", "narration", "speech"]) {
+    if (audio[role] !== void 0) next[role] = map(audio[role], role === "bgms" ? "bgm" : role);
+  }
+  return next;
+}
 var DEFAULT_DUCK_DB = -12;
 var DEFAULT_DUCK_ATTACK_SEC = 0.3;
 var DEFAULT_DUCK_RELEASE_SEC = 0.8;
@@ -2726,6 +2809,8 @@ var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
   "keyframes",
   "fade_in",
   "fade_out",
+  "fade_in_shape",
+  "fade_out_shape",
   "ducking",
   "duck_db",
   "duck_attack",
@@ -2832,7 +2917,7 @@ function validateEditSource(value, index, ids) {
 function validateTrack(value, index, trackIds, itemIds, sourceIds) {
   const path = `edit.json.tracks[${index}]`;
   requireRecord2(value, path);
-  requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "items", "content"]), path);
+  requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "target", "sync", "items", "content"]), path);
   requireText(value.id, `${path}.id`);
   if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
   trackIds.add(value.id);
@@ -2844,6 +2929,11 @@ function validateTrack(value, index, trackIds, itemIds, sourceIds) {
   }
   if (hasOwn(value, "muted") && typeof value.muted !== "boolean") {
     throw invalid(`${path}.muted`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  for (const key of ["target", "sync"]) {
+    if (hasOwn(value, key) && typeof value[key] !== "boolean") {
+      throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
   }
   const hasItems = hasOwn(value, "items");
   const hasContent = hasOwn(value, "content");
@@ -2888,6 +2978,11 @@ function validateAudioItem(value, path, ids, sourceIds) {
   if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`, true);
   if (hasOwn(value, "fade_in")) requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
   if (hasOwn(value, "fade_out")) requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+  for (const field of ["fade_in_shape", "fade_out_shape"]) {
+    if (hasOwn(value, field) && !["linear", "equal_power", "s_curve", "slow"].includes(value[field])) {
+      throw invalid(`${path}.${field}`, "linear/equal_power/s_curve/slow \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
   if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
     throw invalid(`${path}.ducking`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
@@ -6276,6 +6371,10 @@ export {
   TRANSITION_TYPE_IDS,
   TRANSITION_VOCABULARY,
   applyCaptionStylePresets,
+  audioFadeFfmpegCurve,
+  audioFadeGainEvents,
+  audioFadeMultiplier,
+  audioFadeProgress,
   buildTimelineMap,
   buildWebAudioSchedule,
   captionAnchorPositionVars,
@@ -6304,6 +6403,7 @@ export {
   mergePresetTextStyle,
   normalizeCaptionClock,
   outputToSource,
+  projectAudioFadeShapes,
   projectLayerSpeechDeclarations,
   projectSpeechDeclarations,
   projectSpeechKeyIntervals,

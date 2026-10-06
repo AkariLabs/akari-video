@@ -12,6 +12,7 @@ import {
     formatHomeBannerText,
     isValidFeedShape,
     parseUpdateCache,
+    resolveUpdateFeedUrl,
     resolveUpdateDownloadUrl,
     resolveUpdateSizeLabel,
     withDismissedVersion,
@@ -46,6 +47,30 @@ test('compareVersions: major.minor.patch を数値比較する', () => {
     assert.equal(compareVersions('0.1.0', '0.1.0'), 0);
     assert.equal(compareVersions('0.1.0', '0.2.0'), -1);
     assert.equal(compareVersions('0.10.0', '0.9.0'), 1, '桁数の異なる文字列比較にならないこと');
+});
+
+test('compareVersions: beta を含む semver 順', () => {
+    const versions = ['1.0.2', '1.1.0-beta.1', '1.1.0-beta.2', '1.1.0', '1.1.1', '1.2.0-beta.1'];
+    for (let i = 1; i < versions.length; i++) assert.equal(compareVersions(versions[i - 1], versions[i]), -1);
+});
+
+test('安定版とプレリリースの URL を分離し、明示上書きも尊重する', () => {
+    assert.match(resolveUpdateFeedUrl('stable'), /updates\/latest\.json$/);
+    assert.match(resolveUpdateFeedUrl('prerelease'), /updates\/prerelease\.json$/);
+    assert.equal(resolveUpdateFeedUrl('prerelease', 'https://example.invalid/feed'), 'https://example.invalid/feed');
+});
+
+test('設定切替直後の古いキャッシュとベータを安定版へ提示しない', () => {
+    const stableUrl = resolveUpdateFeedUrl('stable');
+    const betaUrl = resolveUpdateFeedUrl('prerelease');
+    const stable = { ...VALID_FEED, product: '1.1.0', channel: 'stable' };
+    const beta = { ...VALID_FEED, product: '1.2.0-beta.1', channel: 'prerelease' };
+    assert.equal(evaluateUpdateStatus('1.0.2', { feed: beta, feed_url: betaUrl }, undefined, 'stable', stableUrl).available, false);
+    assert.equal(resolveUpdateDownloadUrl(beta, 'mac'), undefined);
+    assert.equal(evaluateUpdateStatus('1.0.2', { feed: stable, feed_url: stableUrl }, undefined, 'stable', stableUrl).latestVersion, '1.1.0');
+    assert.equal(evaluateUpdateStatus('1.1.0-beta.3', { feed: stable, feed_url: betaUrl }, undefined, 'prerelease', betaUrl).latestVersion, '1.1.0');
+    assert.equal(evaluateUpdateStatus('1.0.2', { feed: beta, feed_url: betaUrl }, undefined, 'prerelease', betaUrl).latestVersion, '1.2.0-beta.1');
+    assert.equal(evaluateUpdateStatus('1.0.2', { feed: stable, feed_url: stableUrl }, undefined, 'prerelease', betaUrl).available, false);
 });
 
 test('isValidFeedShape: schema/product が揃っていれば true', () => {

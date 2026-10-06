@@ -42,7 +42,8 @@ Object.defineProperty(globalThis, 'readCaptionFragmentBreaksVisible', {
 Object.defineProperty(globalThis, 'writeCaptionFragmentBreaksVisible', {
   value: writeCaptionFragmentBreaksVisible, configurable: true, writable: true
 });
-const Handler = new Function('document', 'trackHeaderControls', `${code}\nreturn Handler;`)(document, trackHeaderControls);
+const Handler = new Function('document', 'trackHeaderControls', 'placeTrackRippleHeaderLines',
+  `${code}\nreturn Handler;`)(document, trackHeaderControls, () => {});
 
 for (const [kind, visibility, fragmentBreaks, mute] of [
   ['video', true, false, true], ['overlay', true, false, true], ['layer', true, false, true],

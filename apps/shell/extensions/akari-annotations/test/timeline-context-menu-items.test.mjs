@@ -11,8 +11,9 @@ function ids(kind, hasClipboard) {
 
 for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
     test(`${kind}: コピー・切り取り・貼り付け・複製を全種別に出す`, () => {
-        const suffix = kind === 'cut' ? ['split', 'annotate', 'delete']
-            : kind === 'caption' ? ['narrate', 'annotate', 'delete'] : ['annotate', 'delete'];
+        const ending = ['annotate', 'ripple-delete', 'lift-delete', 'delete'];
+        const suffix = kind === 'cut' ? ['split', 'split-at-playhead', ...ending]
+            : kind === 'caption' ? ['narrate', ...ending] : ending;
         for (const hasClipboard of [false, true]) {
             assert.deepEqual(ids(kind, hasClipboard), ['copy', 'cut', 'paste', 'duplicate', ...suffix]);
             assert.equal(!!buildTimelineClipMenuItems(kind, hasClipboard).find(item => item.id === 'paste').disabled, !hasClipboard);
@@ -21,7 +22,8 @@ for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
 }
 
 test('BGM とナレーションはコピー・切り取り・複製を出さない', () => {
-    assert.deepEqual(buildTimelineClipMenuItems('audio', true, {}, { copyable: false }).map(item => item.id), ['paste', 'annotate', 'delete']);
+    assert.deepEqual(buildTimelineClipMenuItems('audio', true, {}, { copyable: false }).map(item => item.id),
+        ['paste', 'annotate', 'ripple-delete', 'lift-delete', 'delete']);
 });
 
 test('字幕だけ「音声を作る…」を注釈の直前へ出す', () => {
@@ -46,7 +48,7 @@ test('木アイテムにはキャンバスの出し入れ・折りたたみ・�
         canToggleCollapse: true, collapsed: false, hasParent: true
     });
     assert.deepEqual(items.map(item => item.label), [
-        'コピー', '切り取り', '貼り付け', '複製', 'キャンバスから出す', 'キャンバスにする', 'キャンバスをほどく', '折りたたむ', '親を選択', '注釈…', '削除'
+        'コピー', '切り取り', '貼り付け', '複製', 'キャンバスから出す', 'キャンバスにする', 'キャンバスをほどく', '折りたたむ', '親を選択', '注釈…', '詰めて消す (⇧Delete)', '隙間を残して消す (Delete)', '削除'
     ]);
 });
 
@@ -58,13 +60,14 @@ test('字幕の木アイテムは未焼成テロップを作る操作を出さ�
         });
         assert.deepEqual(items.map(item => item.id), [
             'copy', 'cut', 'paste', 'duplicate', ...(hasParent ? ['detach'] : []),
-            'group', ...(hasParent ? ['select-parent'] : []), 'annotate', 'delete'
+            'group', ...(hasParent ? ['select-parent'] : []), 'annotate', 'ripple-delete', 'lift-delete', 'delete'
         ]);
     }
 });
 
 test('司令塔裁定3: 並びは常にコピー → ペースト → 分割 → 削除の順序を守る', () => {
-    const order = { copy: 0, cut: 1, paste: 2, duplicate: 3, split: 4, narrate: 5, annotate: 6, delete: 7 };
+    const order = { copy: 0, cut: 1, paste: 2, duplicate: 3, split: 4, 'split-at-playhead': 5,
+        narrate: 6, annotate: 7, 'ripple-delete': 8, 'lift-delete': 9, delete: 10 };
     for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
         for (const hasClipboard of [true, false]) {
             const indexes = buildTimelineClipMenuItems(kind, hasClipboard).map(item => order[item.id]);

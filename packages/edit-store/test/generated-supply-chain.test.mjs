@@ -46,6 +46,7 @@ const expectedSources = [
   'my-style-parts.ts',
   'project.ts',
   'retime.ts',
+  'ripple.ts',
   'shape-bubble.ts',
   'shape-geometry.ts',
   'shape-markup-v1.ts',

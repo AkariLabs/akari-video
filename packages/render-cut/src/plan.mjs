@@ -33,6 +33,8 @@ const {
   projectSpeechKeyIntervals,
   projectLayerSpeechDeclarations,
   sampleEnvelopeLinear,
+  audioFadeFfmpegCurve,
+  projectAudioFadeShapes,
 } = require("../../edit-store/lib/index.js");
 
 const GAIN_DB_MIN = -60;
@@ -130,6 +132,8 @@ export function buildPlan({
   const projectedAudio = projectLegacyAudioView(normalizedInternalEdit);
   const projectedBgms = Array.isArray(edit.audio?.bgms) ? edit.audio.bgms
     : projectedAudio.bgms ?? (projectedAudio.bgm ? [projectedAudio.bgm] : []);
+  const mixEdit = projectedBgms.length > 1 ? { ...edit, audio: { ...edit.audio, bgms: projectedBgms } } : edit;
+  const audioWithShapes = projectAudioFadeShapes(mixEdit.audio ?? {}, edit.tracks);
   const audioMix = noAudio ? {
     operation: "ffmpeg",
     command: capabilities.ffmpegCommand,
@@ -143,7 +147,7 @@ export function buildPlan({
     envelope: null,
     clip_fx: null,
   } : buildAudioMixCommand({
-    edit: projectedBgms.length > 1 ? { ...edit, audio: { ...edit.audio, bgms: projectedBgms } } : edit,
+    edit: audioWithShapes === mixEdit.audio ? mixEdit : { ...mixEdit, audio: audioWithShapes },
     projectRoot,
     inputPath: codec === "png" ? join(compositePath, "audio.wav") : compositePath,
     outputPath: codec === "png" ? join(temporaryDirectory, "final-audio.wav") : finalPath,
@@ -353,7 +357,7 @@ export function buildAudioMixCommand({
       const narrationDuration = Math.min(track.durationSec, Math.max(0, duration - track.t));
       const narrationFade = resolveSfxFadeSeconds(track.declaration, narrationDuration, `audio.${kind}[${index}]`);
       warnings.push(...narrationFade.warnings);
-      const narrationFadeFilters = audioFadeFilters(narrationFade, narrationDuration);
+      const narrationFadeFilters = audioFadeFilters(narrationFade, narrationDuration, track.declaration);
       const narrationClipFx = clipFxPrefix(track.declaration, track.id, { narration: true })
         + (narrationFadeFilters.length > 0 ? `${narrationFadeFilters.join(",")},` : "");
       const envelope = createClipEnvelope({
@@ -429,14 +433,14 @@ export function buildAudioMixCommand({
       if (bgmEnvelope.keyframed) keyframedItems.add(bgm.id ?? "bgm");
       if (bgmEnvelope.ducked) duckedItems.add(bgm.id ?? "bgm");
       filters.push(
-        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base${bgmSuffix}]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration, bgm)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base${bgmSuffix}]`,
       );
       filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_bgm${bgmSuffix}]`);
       filters.push(`[bgm_base${bgmSuffix}][env_bgm${bgmSuffix}]amultiply[bgm_env${bgmSuffix}]`);
       bgmLabel = `[bgm_env${bgmSuffix}]`;
     } else {
       filters.push(
-        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)}[bgm${bgmSuffix}]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration, bgm)}[bgm${bgmSuffix}]`,
       );
       bgmLabel = `[bgm${bgmSuffix}]`;
     }
@@ -475,7 +479,7 @@ export function buildAudioMixCommand({
     if (trim.effectiveDuration !== null) {
       const fade = resolveSfxFadeSeconds(sfx, trim.effectiveDuration, `audio.sfx[${index}]`);
       warnings.push(...fade.warnings);
-      fadeSuffix = buildSfxFadeSuffix(fade, trim.effectiveDuration);
+      fadeSuffix = buildSfxFadeSuffix(fade, trim.effectiveDuration, sfx);
     }
     // fade is chained directly onto volume -- i.e. before adelay -- for the same reason as
     // trim's atrim/asetpts: afade's st=0 must land on the clip's own content start, not on
@@ -967,12 +971,17 @@ function resolveBgmFadeSeconds(bgm, duration) {
   return { fadeIn: resolveField("fadeIn"), fadeOut: resolveField("fadeOut"), warnings };
 }
 
-function buildBgmFadeSuffix({ fadeIn, fadeOut }, duration) {
+function fadeCurveOption(shape) {
+  // Keep the historical filter string byte-identical when the shape is omitted or linear.
+  return shape && shape !== "linear" ? `:curve=${audioFadeFfmpegCurve(shape)}` : "";
+}
+
+function buildBgmFadeSuffix({ fadeIn, fadeOut }, duration, source) {
   const parts = [];
-  if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}`);
+  if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}${fadeCurveOption(source?.fade_in_shape)}`);
   if (fadeOut > 0) {
     const start = Math.max(0, duration - fadeOut);
-    parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}`);
+    parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}${fadeCurveOption(source?.fade_out_shape)}`);
   }
   return parts.length > 0 ? `,${parts.join(",")}` : "";
 }
@@ -1002,8 +1011,8 @@ function resolveSfxFadeSeconds(sfx, effectiveDuration, label) {
   return { fadeIn: resolveField("fade_in"), fadeOut: resolveField("fade_out"), warnings };
 }
 
-function buildSfxFadeSuffix(fade, effectiveDuration) {
-  const parts = audioFadeFilters(fade, effectiveDuration);
+function buildSfxFadeSuffix(fade, effectiveDuration, source) {
+  const parts = audioFadeFilters(fade, effectiveDuration, source);
   return parts.length > 0 ? `,${parts.join(",")}` : "";
 }
 
@@ -1011,12 +1020,12 @@ function buildSfxFadeSuffix(fade, effectiveDuration) {
 // effectiveDuration long. sfx chains it as a suffix after volume (buildSfxFadeSuffix above);
 // narration/speech chain the same pair as a prefix before adelay. One definition so the two
 // placements can never drift apart.
-function audioFadeFilters({ fadeIn, fadeOut }, effectiveDuration) {
+function audioFadeFilters({ fadeIn, fadeOut }, effectiveDuration, source) {
   const parts = [];
-  if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}`);
+  if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}${fadeCurveOption(source?.fade_in_shape)}`);
   if (fadeOut > 0) {
     const start = Math.max(0, effectiveDuration - fadeOut);
-    parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}`);
+    parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}${fadeCurveOption(source?.fade_out_shape)}`);
   }
   return parts;
 }

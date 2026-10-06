@@ -1,4 +1,5 @@
 import { validateShapeSource } from './shape-source-validation';
+import type { AudioFadeShape } from './envelope';
 
 export type LaneV2 = 'visual' | 'audio';
 
@@ -340,6 +341,8 @@ export interface AudioMediaItemV2 {
     keyframes?: KeyframeV2[];
     fade_in?: number;
     fade_out?: number;
+    fade_in_shape?: AudioFadeShape;
+    fade_out_shape?: AudioFadeShape;
     ducking?: boolean;
     duck_db?: number;
     duck_attack?: number;
@@ -369,6 +372,8 @@ export interface VisualItemsTrackV2 {
     name?: string;
     /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
     muted?: boolean;
+    target?: boolean;
+    sync?: boolean;
     items: ItemV2[];
 }
 
@@ -378,6 +383,8 @@ export interface AudioItemsTrackV2 {
     name?: string;
     /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
     muted?: boolean;
+    target?: boolean;
+    sync?: boolean;
     items: AudioMediaItemV2[];
 }
 
@@ -389,6 +396,8 @@ export interface ContentTrackV2 {
     name?: string;
     /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
     muted?: boolean;
+    target?: boolean;
+    sync?: boolean;
     content: CaptionTrackContentV2;
 }
 
@@ -437,7 +446,7 @@ const ITEM_KEYS = new Set([
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
-    'fade_in', 'fade_out', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
+    'fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
     'denoise', 'lowcut_hz', 'script', 'reading', 'caption_ref', 'provenance', 'anchor'
 ]);
 
@@ -554,7 +563,7 @@ function validateTrack(
 ): asserts value is TrackV2 {
     const path = `edit.json.tracks[${index}]`;
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['id', 'lane', 'name', 'muted', 'items', 'content']), path);
+    requireExactKeys(value, new Set(['id', 'lane', 'name', 'muted', 'target', 'sync', 'items', 'content']), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id が重複しています: ${value.id}`);
     trackIds.add(value.id);
@@ -566,6 +575,11 @@ function validateTrack(
     }
     if (hasOwn(value, 'muted') && typeof value.muted !== 'boolean') {
         throw invalid(`${path}.muted`, 'boolean である必要があります');
+    }
+    for (const key of ['target', 'sync']) {
+        if (hasOwn(value, key) && typeof value[key] !== 'boolean') {
+            throw invalid(`${path}.${key}`, 'boolean である必要があります');
+        }
     }
     const hasItems = hasOwn(value, 'items');
     const hasContent = hasOwn(value, 'content');
@@ -616,6 +630,11 @@ function validateAudioItem(
     if (hasOwn(value, 'keyframes')) validateKeyframes(value.keyframes, `${path}.keyframes`, true);
     if (hasOwn(value, 'fade_in')) requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
     if (hasOwn(value, 'fade_out')) requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+    for (const field of ['fade_in_shape', 'fade_out_shape'] as const) {
+        if (hasOwn(value, field) && !['linear', 'equal_power', 's_curve', 'slow'].includes(value[field] as string)) {
+            throw invalid(`${path}.${field}`, 'linear/equal_power/s_curve/slow のいずれかである必要があります');
+        }
+    }
     if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
         throw invalid(`${path}.ducking`, 'boolean である必要があります');
     }

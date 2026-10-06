@@ -132,6 +132,16 @@ test('animation の片スロット削除は loop と stroke を保全する', ()
   assert.deepEqual(record.text_style.animation, { loop: { id: 'pulse' }, out: { id: 'pop' } });
 });
 
+test('animation loop の削除は他の席を保ち、最後の席ではキーを消す', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', { text_style: {
+    color: '#fff', animation: { in: { id: 'pop' }, loop: { id: 'pulse' } }
+  } })]);
+  const first = updateCaptionTextStyleInSource(source, 'c-0001', { animation: { loop: null } });
+  assert.deepEqual(JSON.parse(first)[0].text_style, { color: '#fff', animation: { in: { id: 'pop' } } });
+  const second = updateCaptionTextStyleInSource(first, 'c-0001', { animation: { in: null } });
+  assert.deepEqual(JSON.parse(second)[0].text_style, { color: '#fff' });
+});
+
 test('text_style 不在でも animation を新規作成できる', () => {
   const source = JSON.stringify([caption('c-0001', 0, '本文')]);
   const record = JSON.parse(updateCaptionTextStyleInSource(source, 'c-0001', {

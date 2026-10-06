@@ -1,3 +1,4 @@
+import type { AudioFadeShape } from './envelope';
 export type LaneV2 = 'visual' | 'audio';
 export interface OutputV2 {
     width: number;
@@ -429,6 +430,8 @@ export interface AudioMediaItemV2 {
     keyframes?: KeyframeV2[];
     fade_in?: number;
     fade_out?: number;
+    fade_in_shape?: AudioFadeShape;
+    fade_out_shape?: AudioFadeShape;
     ducking?: boolean;
     duck_db?: number;
     duck_attack?: number;
@@ -461,6 +464,8 @@ export interface VisualItemsTrackV2 {
     name?: string;
     /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
     muted?: boolean;
+    target?: boolean;
+    sync?: boolean;
     items: ItemV2[];
 }
 export interface AudioItemsTrackV2 {
@@ -469,6 +474,8 @@ export interface AudioItemsTrackV2 {
     name?: string;
     /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
     muted?: boolean;
+    target?: boolean;
+    sync?: boolean;
     items: AudioMediaItemV2[];
 }
 export type ItemsTrackV2 = VisualItemsTrackV2 | AudioItemsTrackV2;
@@ -478,6 +485,8 @@ export interface ContentTrackV2 {
     name?: string;
     /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
     muted?: boolean;
+    target?: boolean;
+    sync?: boolean;
     content: CaptionTrackContentV2;
 }
 export type TrackV2 = ItemsTrackV2 | ContentTrackV2;

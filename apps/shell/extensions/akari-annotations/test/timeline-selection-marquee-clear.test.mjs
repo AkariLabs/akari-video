@@ -148,6 +148,8 @@ test('Escape clears a range even when no item is selected', () => {
   state.selection = undefined;
   state.isAttached = true;
   state.focusScope = { rootId: null };
+  state.timelineRange = {};
+  state.setTimelineRange = () => {};
   state.node = { contains: () => false };
   state.isEditableTarget = () => false;
   const create = new Function('document', 'HTMLElement', 'isImeCompositionKeydown',

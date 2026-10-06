@@ -48,9 +48,9 @@ const LAYER_KEYS = new Set([
 ]);
 const AUDIO_ENVELOPE_KEYS = ['keyframes', 'ducking', 'duck_db', 'duck_attack', 'duck_release'];
 const AUDIO_CLIP_FX_KEYS = ['speed', 'pitch_semitones', 'formant', 'denoise', 'lowcut_hz'];
-const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
+const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
 const NARRATION_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'script', 'reading', 'provenance', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
-const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
+const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'fade_in_shape', 'fade_out_shape', 'gain_db', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
 function detectEditVersion(raw) {
     return isRecord(raw) && typeof raw.version === 'number' && Number.isFinite(raw.version)
         ? raw.version : undefined;
@@ -332,9 +332,11 @@ function migrateEditToV2(raw, options = {}) {
             || (value.gain_db !== undefined && !gainDb(value.gain_db))
             || (value.fade_in !== undefined && !nonNegative(value.fade_in))
             || (value.fade_out !== undefined && !nonNegative(value.fade_out))
+            || (value.fade_in_shape !== undefined && !validAudioFadeShape(value.fade_in_shape))
+            || (value.fade_out_shape !== undefined && !validAudioFadeShape(value.fade_out_shape))
             || !validAudioClipFxDeclaration(value)
             || !validAudioEnvelopeDeclaration(value)) {
-            blockers.push(`${itemPath} の path / t / in / out / gain_db / fade_in / fade_out が不正です。`);
+            blockers.push(`${itemPath} の path / t / in / out / gain_db / fade_in / fade_out / fade_in_shape / fade_out_shape が不正です。`);
             return;
         }
         const source = {
@@ -353,6 +355,8 @@ function migrateEditToV2(raw, options = {}) {
             ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
             ...(value.fade_in !== undefined ? { fade_in: value.fade_in } : {}),
             ...(value.fade_out !== undefined ? { fade_out: value.fade_out } : {}),
+            ...(value.fade_in_shape !== undefined ? { fade_in_shape: value.fade_in_shape } : {}),
+            ...(value.fade_out_shape !== undefined ? { fade_out_shape: value.fade_out_shape } : {}),
             ...migrateAudioClipItem(value),
             ...migrateAudioEnvelopeDeclaration(value, frameRate)
         };
@@ -414,10 +418,12 @@ function migrateEditToV2(raw, options = {}) {
                 || (value.in !== undefined && !nonNegative(value.in))
                 || (value.fadeIn !== undefined && !nonNegative(value.fadeIn))
                 || (value.fadeOut !== undefined && !nonNegative(value.fadeOut))
+                || (value.fade_in_shape !== undefined && !validAudioFadeShape(value.fade_in_shape))
+                || (value.fade_out_shape !== undefined && !validAudioFadeShape(value.fade_out_shape))
                 || (value.gain_db !== undefined && !gainDb(value.gain_db))
                 || !validAudioClipFxDeclaration(value)
                 || !validAudioEnvelopeDeclaration(value)) {
-                blockers.push('edit.json.audio.bgm の path / in / fadeIn / fadeOut / gain_db / ducking が不正です。');
+                blockers.push('edit.json.audio.bgm の path / in / fadeIn / fadeOut / fade_in_shape / fade_out_shape / gain_db / ducking が不正です。');
             }
             else if (usedItemIds.has('bgm')) {
                 blockers.push('audio.bgm の固定 item id "bgm" が他の item id と重複します。');
@@ -431,6 +437,8 @@ function migrateEditToV2(raw, options = {}) {
                         source: { kind: 'media', src: audioSourceId(value.path), in: value.in ?? 0, ...migrateAudioClipSource(value) },
                         ...(value.fadeIn !== undefined ? { fade_in: value.fadeIn } : {}),
                         ...(value.fadeOut !== undefined ? { fade_out: value.fadeOut } : {}),
+                        ...(value.fade_in_shape !== undefined ? { fade_in_shape: value.fade_in_shape } : {}),
+                        ...(value.fade_out_shape !== undefined ? { fade_out_shape: value.fade_out_shape } : {}),
                         ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
                         ...migrateAudioClipItem(value),
                         ...migrateAudioEnvelopeDeclaration(value, frameRate)
@@ -996,6 +1004,9 @@ function positive(value) {
 }
 function nonNegative(value) {
     return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+function validAudioFadeShape(value) {
+    return value === 'linear' || value === 'equal_power' || value === 's_curve' || value === 'slow';
 }
 function gainDb(value) {
     return typeof value === 'number' && Number.isFinite(value) && value >= -60 && value <= 12;

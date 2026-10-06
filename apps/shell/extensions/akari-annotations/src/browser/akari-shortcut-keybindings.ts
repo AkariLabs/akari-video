@@ -107,7 +107,8 @@ export class AkariShortcutKeybindings {
         if (!this.deps.contextKeys.match(shortcut.when, focused)) return false;
         const id = shortcut.command.id;
         const widget = this.shortcutTimelineWidget();
-        if (id.endsWith('.delete') || id.endsWith('.deleteOneSide') || id.endsWith('.deleteKeyframe')) {
+        if (id.endsWith('.delete') || id.endsWith('.deleteOneSide') || id.endsWith('.deleteKeyframe')
+            || id.endsWith('.rippleDelete')) {
             return widget?.canRunRegisteredShortcut(id) === true;
         }
         if (id === 'akari.timeline.clearSelection') {
@@ -137,6 +138,10 @@ export class AkariShortcutKeybindings {
             if (widget) widget.setTimelineSnapEnabled(!widget.getTimelineSnapEnabled());
             return;
         }
+        if (id === 'akari.timeline.toggleAutoRipple') {
+            if (widget) widget.setAutoRippleEnabled(!widget.getAutoRippleEnabled());
+            return;
+        }
         if (id.startsWith('akari.daihon.')) {
             window.dispatchEvent(new CustomEvent('akari.daihon.rowShortcut', {
                 detail: id.endsWith('selectAllRows') ? 'selectAll' : 'clear'
@@ -153,6 +158,12 @@ export class AkariShortcutKeybindings {
             }));
             return;
         }
+        if (id === 'akari.timeline.shuttleReverse' || id === 'akari.timeline.shuttleStop'
+            || id === 'akari.timeline.shuttleForward' || id === 'akari.timeline.previousEditPoint'
+            || id === 'akari.timeline.nextEditPoint') {
+            widget?.runTimelineTransportShortcut(id);
+            return;
+        }
         const source = this.latestKeydown;
         const event = {
             key: shortcut.key, code: shortcut.key === ' ' ? 'Space' : source?.code,
@@ -160,7 +171,8 @@ export class AkariShortcutKeybindings {
             metaKey: shortcut.modifier === true, ctrlKey: false,
             isComposing: false, keyCode: 0,
             target: source?.target ?? document.activeElement,
-            preventDefault: () => undefined, stopPropagation: () => undefined
+            preventDefault: () => undefined, stopPropagation: () => undefined,
+            stopImmediatePropagation: () => undefined
         } as KeyboardEvent;
         widget?.runRegisteredShortcut(event);
     }

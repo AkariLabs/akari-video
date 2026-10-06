@@ -112,10 +112,12 @@ test('全体ゲイン変更はエンベロープ曲線と点位置にも即時�
   assert.match(dialog, /return point\.gainDb \+ this\.overallGainDb;/u);
 });
 
-test('ダイアログの適用値はkeyframesとgainDbを同時に返す', () => {
+test('ダイアログの適用値は keyframes・gainDb・フェード形を返す', () => {
   const value = section(dialog, 'get value()', '\n    }\n}');
   assert.match(value, /const keyframes = \[\.\.\.this\.points\]/u);
-  assert.match(value, /return \{ keyframes, gainDb: this\.overallGainDb \};/u);
+  assert.match(value, /keyframes, gainDb: this\.overallGainDb/u);
+  assert.match(value, /fadeInShape: this\.fadeInShapeInput\.value/u);
+  assert.match(value, /fadeOutShape: this\.fadeOutShapeInput\.value/u);
 });
 
 test('widgetはkeyframes成功後に変更された全体ゲインだけを書き込む', () => {

@@ -460,6 +460,16 @@ export function validateEditV2(edit, findings) {
             path: `${itemPath}.${field}`,
           });
         }
+        for (const field of ["fade_in_shape", "fade_out_shape"]) {
+          if (!Object.hasOwn(item, field)
+            || ["linear", "equal_power", "s_curve", "slow"].includes(item[field])) continue;
+          addFinding(findings, {
+            severity: "error",
+            check: "audio.fade-shape",
+            message: `${field} must be linear, equal_power, s_curve, or slow`,
+            path: `${itemPath}.${field}`,
+          });
+        }
         if (isRecord(item.source)) {
           if (role === "narration") {
             for (const field of ["in", "out"]) {

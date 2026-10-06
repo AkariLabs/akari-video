@@ -5,11 +5,12 @@
 import { realpathSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { parseTag } from './check-release-versions.mjs';
 
 const RELEASE_DOWNLOAD_BASE = 'https://github.com/AkariLabs/akari-video/releases/download/';
 
 export function rewriteAppUpdateFeed(source, tag) {
-  if (typeof source !== 'string' || !/^v\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(tag)) {
+  if (typeof source !== 'string' || !parseTag(tag)) {
     throw new Error('更新メタデータまたはタグが不正です');
   }
   const version = source.match(/^version:\s*['"]?([^'"\s]+)['"]?\s*$/m)?.[1];

@@ -45,6 +45,34 @@ function loadRenderableSeconds(totalDuration, fps) {
     return factory(totalDuration, fps);
 }
 
+function loadRenderPlayback({ renderFrame, updateMetrics = () => undefined }) {
+    const body = section(
+        source,
+        '                const renderPlayback = seconds =>',
+        '                let position = 0;'
+    );
+    const factory = new Function(
+        'renderFrame',
+        'updateMetrics',
+        `
+        const fps = 30;
+        const renderableSeconds = seconds => seconds;
+        const showError = () => undefined;
+        const measurements = { lateFrames: 0 };
+        let lastPlaybackFrame = -1;
+        let lastPresentedSec = -1;
+        let rendering = null;
+        ${body}
+        return {
+            renderPlayback,
+            measurements,
+            rendering: () => rendering,
+        };
+        `
+    );
+    return factory(renderFrame, updateMetrics);
+}
+
 // frame-engine の可視判定（packages/frame-engine/src/timeline/plan.ts isLayerActiveAt）と同型。
 // 半開区間であることが第16項の前提なので、ここも実装に合わせて書く。
 function isLayerActiveAt(frame, layer, fps) {
@@ -103,6 +131,30 @@ test('描画要求の経路すべてが renderableSeconds を通る', () => {
     // 旧実装の素の丸めが残っていないこと。
     assert.doesNotMatch(source, /Math\.round\(Math\.max\(0, Math\.min\(position, totalDuration\)\) \* fps\) \/ fps/u);
     assert.doesNotMatch(clockSection, /const clamped = Math\.max\(0, Math\.min\(seconds, totalDuration\)\);\s*const frameNumber/u);
+});
+
+test('描画中に落とした playback frame は処理済みにせず次の要求で再試行する', async () => {
+    const resolvers = [];
+    const rendered = [];
+    const playback = loadRenderPlayback({
+        renderFrame(seconds) {
+            rendered.push(Math.round(seconds * 30));
+            return new Promise(resolve => resolvers.push(resolve));
+        },
+    });
+
+    playback.renderPlayback(0);
+    playback.renderPlayback(1 / 30);
+    assert.deepEqual(rendered, [0], '描画中の次フレームは一度落とす');
+    assert.equal(playback.measurements.lateFrames, 1);
+
+    resolvers.shift()();
+    await playback.rendering();
+    await Promise.resolve();
+    playback.renderPlayback(1 / 30);
+    assert.deepEqual(rendered, [0, 1], '同じフレーム番号の次回要求で描画を開始する');
+    resolvers.shift()();
+    await playback.rendering();
 });
 
 test('尺そのもの（totalDuration・停止判定・時刻表示）は変えていない', () => {

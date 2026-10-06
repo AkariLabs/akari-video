@@ -1,0 +1,108 @@
+{
+  "phase": "bag",
+  "head": "6ea64b74a",
+  "checks": [
+    {
+      "name": "9. 袋: 登場「フェード」が edit.json の袋 item の motion.in に入る",
+      "ok": true,
+      "detail": {
+        "in": {
+          "preset": "fade",
+          "duration": 12
+        }
+      }
+    },
+    {
+      "name": "9. 袋: 押し直しで motion.in が消える",
+      "ok": true,
+      "detail": {
+        "motion": null
+      }
+    },
+    {
+      "name": "9. 袋: 押された表示が即座に外れ、実演が走らない",
+      "ok": true,
+      "detail": {
+        "pressedRightAfterClick": "false",
+        "plays": []
+      }
+    },
+    {
+      "name": "9. 袋: 袋 item の motion 以外は不変・captions.json は不変",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "9. 袋: Cmd+Z 1 手で motion.in が戻る",
+      "ok": true,
+      "detail": {
+        "via": "Cmd+Z",
+        "motion": {
+          "in": {
+            "preset": "fade",
+            "duration": 12
+          }
+        }
+      }
+    },
+    {
+      "name": "10. 袋: 「なし」（強調）で motion.loop だけ消え motion.in は残る",
+      "ok": true,
+      "detail": {
+        "motion": {
+          "in": {
+            "preset": "fade",
+            "duration": 12
+          }
+        }
+      }
+    },
+    {
+      "name": "11. 袋: 組「シンプル」で motion.in / out = fade",
+      "ok": true,
+      "detail": {
+        "in": {
+          "preset": "fade",
+          "duration": 12
+        },
+        "out": {
+          "preset": "fade",
+          "duration": 8
+        }
+      }
+    },
+    {
+      "name": "11. 袋: 組の押し直しで motion の in / loop / out がまとめて消える",
+      "ok": true,
+      "detail": {
+        "pressedRightAfterClick": "false",
+        "motion": null
+      }
+    },
+    {
+      "name": "11. 袋: Cmd+Z 1 手で組が戻る",
+      "ok": true,
+      "detail": {
+        "via": "Cmd+Z",
+        "motion": {
+          "in": {
+            "preset": "fade",
+            "duration": 12
+          },
+          "out": {
+            "preset": "fade",
+            "duration": 8
+          }
+        }
+      }
+    }
+  ],
+  "shots": [
+    "bag-09-bag-fade-applied.png",
+    "bag-09-bag-fade-cleared.png"
+  ],
+  "steps": {
+    "bagComboPressed": "true"
+  },
+  "status": "recorded"
+}

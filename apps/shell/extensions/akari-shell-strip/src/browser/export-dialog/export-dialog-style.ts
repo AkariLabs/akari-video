@@ -37,6 +37,12 @@ export const EXPORT_DIALOG_CSS = `
 .akari-export-dialog-host .pf { display:flex; align-items:center; gap:10px; padding:14px 20px 16px; border-top:1px solid var(--aed-border-subtle); flex:none; }
 .akari-export-dialog-host .pf .sp { flex:1; }
 .akari-export-dialog-host .pf .fn { color:var(--aed-faint); font-size:11px; }
+.akari-export-dialog-host .akari-export-engine-reason { flex:none; margin:4px 20px 0; padding:9px 12px; border:1px solid var(--theia-widget-border); border-radius:8px; color:var(--theia-foreground); font-size:11.5px; line-height:1.45; max-height:116px; overflow:auto; }
+.akari-export-dialog-host .akari-export-engine-reason summary { cursor:pointer; }
+.akari-export-dialog-host .akari-export-engine-reason-copy { margin-top:7px; padding:5px 9px; font-size:11px; }
+.akari-export-dialog-host .akari-export-engine-reason-list { margin:7px 0 0; padding-left:19px; user-select:text; }
+.akari-export-dialog-host .akari-export-refused { color:var(--theia-errorForeground); }
+.akari-export-dialog-host .akari-export-fix { display:flex; align-items:center; gap:8px; margin-top:5px; }
 .akari-export-dialog-host .btn { border-radius:8px; padding:9px 14px; font:600 12.5px/1.2 var(--aed-sans); border:1px solid var(--aed-border); background:var(--aed-elevated); color:var(--aed-ink); cursor:pointer; display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
 .akari-export-dialog-host .btn.primary { background:var(--aed-accent); border-color:var(--aed-accent); color:#0a0a0a; padding:10px 18px; font-size:13px; }
 .akari-export-dialog-host .btn.primary small { font-weight:500; opacity:.75; }

@@ -32,3 +32,17 @@ test('対象タグとの版ずれや相対ディレクトリを拒否する', ()
   assert.throws(() => rewriteAppUpdateFeed(source, 'v0.1.95'));
   assert.throws(() => rewriteAppUpdateFeed(source.replaceAll('shell-win-setup.exe', '../other.exe'), 'v0.1.94'));
 });
+
+test('安定版と beta.N のタグだけを受理する', () => {
+  const stable = source.replace('version: 0.1.94', 'version: 1.1.0');
+  const beta = source.replace('version: 0.1.94', 'version: 1.1.0-beta.1');
+  assert.match(rewriteAppUpdateFeed(stable, 'v1.1.0'), /\/v1\.1\.0\/shell-win-setup\.exe/);
+  assert.match(rewriteAppUpdateFeed(beta, 'v1.1.0-beta.1'), /\/v1\.1\.0-beta\.1\/shell-win-setup\.exe/);
+});
+
+test('rc・番号なし beta・beta.0・build 接尾辞を拒否する', () => {
+  for (const tag of ['v1.1.0-rc.1', 'v1.1.0-beta', 'v1.1.0-beta.0', 'v1.1.0+build']) {
+    const matchingSource = source.replace('version: 0.1.94', `version: ${tag.slice(1)}`);
+    assert.throws(() => rewriteAppUpdateFeed(matchingSource, tag), /タグが不正/);
+  }
+});
