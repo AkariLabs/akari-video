@@ -10,9 +10,9 @@ const { clampRowCutRange, normalizeCutRanges } = require('../lib/common/daihon-c
 const { normalizeFillerWord } = require('../lib/common/daihon-filler.js');
 const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
 const methods = ['cutUnrecognized', 'cutFiller', 'cutRows', 'applyCutEntries',
-  'restoreCutSpan', 'showCutToast', 'applyCutRangeEditor', 'withHistory'];
+  'restoreCutSpan', 'showCutToast', 'showToast', 'notify', 'applyCutRangeEditor', 'withHistory'];
 const methodSource = methods.map(name => {
-  const start = source.indexOf(`    protected ${name === 'showCutToast' ? '' : 'async '}${name}(`);
+  const start = source.indexOf(`    protected ${['showCutToast', 'showToast', 'notify'].includes(name) ? '' : 'async '}${name}(`);
   assert.ok(start >= 0, `${name} exists`);
   const end = source.indexOf('\n    protected ', start + 1);
   assert.ok(end > start, `${name} has a following method`);
@@ -133,6 +133,8 @@ test('トーストの取り消すは履歴に別の操作が積まれると消�
   const elements = [];
   const element = tag => ({ tag, className: '', children: [], removed: false,
     append(...children) { this.children.push(...children); },
+    querySelector(selector) { return selector === 'button' ? this.children.find(child => child.tag === 'button') : undefined; },
+    setAttribute() {},
     remove() { this.removed = true; },
     addEventListener(_event, listener) { this.click = listener; } });
   globalThis.document = { createElement: element, createTextNode: text => ({ text }) };
@@ -150,8 +152,63 @@ test('トーストの取り消すは履歴に別の操作が積まれると消�
     changed();
     assert.equal(button.removed, true);
   } finally {
-    if (run.widget.cutToastTimer) clearTimeout(run.widget.cutToastTimer);
+    if (run.widget.toastTimer) clearTimeout(run.widget.toastTimer);
     run.widget.cutToastCleanup?.();
     globalThis.document = previousDocument;
+  }
+});
+
+test('エラーのトーストは自動で消えず閉じる操作を持つ', () => {
+  const run = harness();
+  const previousDocument = globalThis.document;
+  const element = tag => ({ tag, children: [], removed: false,
+    append(...children) { this.children.push(...children); },
+    setAttribute() {}, remove() { this.removed = true; },
+    addEventListener(_event, listener) { this.click = listener; } });
+  globalThis.document = { createElement: element, createTextNode: text => ({ text }) };
+  run.widget.node = { append() {}, querySelector: () => undefined };
+  try {
+    const toast = run.widget.showToast('保存できません', true);
+    assert.equal(toast.className, 'akari-daihon-toast error');
+    assert.equal(toast.children.at(-1).textContent, '✕');
+    assert.equal(run.widget.toastTimer, undefined);
+    toast.children.at(-1).click();
+    assert.equal(toast.removed, true);
+  } finally { if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument; }
+});
+
+test('notify は成功を数秒後に消し、取り消せる変更と閉じるまで残るエラーを分ける', () => {
+  const run = harness();
+  const oldDocument = globalThis.document, oldSetTimeout = globalThis.setTimeout;
+  const scheduled = [], toasts = [];
+  const element = tag => ({ tag, children: [], removed: false,
+    append(...children) { this.children.push(...children); },
+    querySelector(selector) { return selector === 'button' ? this.children.find(child => child.tag === 'button') : undefined; },
+    setAttribute() {}, remove() { this.removed = true; },
+    addEventListener(_event, listener) { this.click = listener; } });
+  globalThis.document = { createElement: element, createTextNode: text => ({ text }) };
+  globalThis.setTimeout = (callback, delay) => { scheduled.push({ callback, delay }); return scheduled.length; };
+  run.widget.node = { append: toast => toasts.push(toast), querySelector: () => toasts.at(-1) };
+  run.widget.historyService = { undo() {}, onDidChange: () => ({ dispose() {} }) };
+  delete run.widget.notify;
+  delete run.widget.showCutToast;
+  try {
+    run.widget.notify('表示を変更しました');
+    assert.equal(toasts[0].className, 'akari-daihon-toast');
+    assert.equal(scheduled[0].delay, 4500);
+    scheduled[0].callback();
+    assert.equal(toasts[0].removed, true);
+    run.widget.pendingUndoAt = Date.now();
+    run.widget.notify('字幕を更新しました');
+    assert.equal(toasts[1].children[1].textContent, '取り消す');
+    run.widget.notify('保存できません');
+    assert.equal(toasts[2].className, 'akari-daihon-toast error');
+    assert.equal(toasts[2].children.at(-1).textContent, '✕');
+    assert.equal(scheduled.length, 2);
+    toasts[2].children.at(-1).click();
+    assert.equal(toasts[2].removed, true);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    globalThis.setTimeout = oldSetTimeout;
   }
 });

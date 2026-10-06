@@ -55,6 +55,8 @@ const captionsButton = require('../lib/common/captions-button.js');
 const captionShape = require('../lib/common/caption-shape.js');
 const displayKnobs = require('../lib/common/daihon-display-knobs.js');
 const daihonGear = require('../lib/common/daihon-gear.js');
+const realCutCandidates = require('../lib/common/daihon-cut-candidates.js');
+const realDaihonRows = require('../lib/common/daihon-row-model.js');
 const modules = {
     '@theia/core/lib/browser/dialogs': { AbstractDialog },
     '@theia/core/lib/common': {},
@@ -75,6 +77,9 @@ const modules = {
     '../../common/caption-shape': captionShape,
     '../../common/daihon-display-knobs': displayKnobs,
     '../../common/daihon-gear': daihonGear,
+    '../../common/daihon-cut-candidates': { collectDaihonCutCandidates: () => [] },
+    '../../common/daihon-row-model': { buildDaihonRows: rows => rows },
+    '../caption-store': { parseCaptions: source => ({ captions: JSON.parse(source).captions ?? [] }) },
     '../../common/transcribe-steps': common
 };
 const exported = {};
@@ -85,14 +90,14 @@ new Function('require', 'exports', 'document', readFileSync(new URL('../lib/brow
 async function harness({ initialPath, previous = false, pending = deferred(), editSources, transcriptState,
     artifact, tools = [{ id: 'speech-analyzer', available: true }], providers = [], addRegistersSource = false,
     analysisByPath = {}, policyError, policyPending, preferences = {}, editName = 'edit.json', transcribeError,
-    notificationAction, dryRunError } = {}) {
+    notificationAction, dryRunError, initialCaptions, dryRunResult } = {}) {
     const root = new URI('file:///fixture');
     root.editName = editName;
     const requests = [], builds = [], writes = [], notices = [], errors = [], cancels = [], commands = [], policies = [], fieldWrites = [];
     const edit = { sources: editSources ?? [{ id: 'camera', path: 'assets/camera.mp4' },
         { id: 'mic', path: 'assets/mic.wav' }, { id: 'image', path: 'assets/title.png' }] };
-    let captions = JSON.stringify({ captions: previous ? [{ id: 'old', src: 'mic', start: 0, end: 1,
-        words: [{ start: 0.1, end: 0.8, text: '声' }] }] : [],
+    let captions = JSON.stringify({ captions: initialCaptions ?? (previous ? [{ id: 'old', src: 'mic', start: 0, end: 1,
+        words: [{ start: 0.1, end: 0.8, text: '声' }] }] : []),
         display_policy: { max_line_units: 18, lines: 3, wrap: 'multi' } });
     const files = {
         async readFile(uri) {
@@ -113,7 +118,7 @@ async function harness({ initialPath, previous = false, pending = deferred(), ed
         async cancelTranscribe(request) { cancels.push(request); },
         async readTranscribeArtifacts() { return artifact ?? { transcripts: [], diff: null, cuts: null }; },
         async buildCaptions(request) { builds.push(request); if (request.dryRun && dryRunError) throw new Error(dryRunError); return request.dryRun
-            ? { added: 2, changed: 1, protected: 1, removed: 0, total: 3 } : { added: 2 }; }
+            ? dryRunResult?.(request) ?? { added: 2, changed: 1, protected: 1, removed: 0, total: 3 } : { added: 2 }; }
     };
     const messages = { async info(...args) { notices.push(args); return notificationAction; },
         async error(...args) { errors.push(args); } };
@@ -411,6 +416,16 @@ test('two selected sources transcribe and apply in source order with summed dry 
     assert.equal(policies.length, 1);
 });
 
+test('legacy rows without src are counted once across two source previews', async () => {
+    const { dialog } = await harness({ initialPath: 'assets/mic.wav',
+        initialCaptions: [{ id: 'legacy', start: 0, end: 1, text: '旧行' }],
+        dryRunResult: request => ({ added: 1, changed: 0, protected: 0, removed: request.source === 'mic' ? 2 : 1,
+            total: 2, ids: { removed: request.source === 'mic' ? ['legacy', 'mic-old'] : ['legacy'] } }) });
+    dialog.selected.add('camera');
+    await dialog.refreshPreview();
+    assert.equal(dialog.preview.removed, 2);
+});
+
 test('preferences initialize cloud, comparison and automatic cut candidates', async () => {
     const pending = deferred();
     const { dialog, requests } = await harness({ initialPath: 'assets/mic.wav', pending,
@@ -452,6 +467,41 @@ test('reusing the only transcript needs no engine and reaches finish without tra
     dialog.foot.querySelector('[data-primary]').click(); await tick(); await tick();
     assert.equal(requests.length, 0);
     assert.equal(dialog.node.dataset.step, '4');
+});
+
+test('仕上げ前後のカット候補は起こしの行と cuts を同じ収集器で数える', async () => {
+    const segments = [
+        { start: 0, end: 1, text: 'えー', words: [{ start: 0, end: .5, text: 'えー' }] },
+        { start: 3, end: 4, text: '続き' }
+    ];
+    const artifact = { transcripts: [], diff: null, cuts: { candidates: [
+        { id: 'in', kind: 'redo', start: .2, end: .4, text: 'えー' },
+        { id: 'out', kind: 'redo', start: 10, end: 11, text: '対象外' }
+    ] } };
+    const collector = modules['../../common/daihon-cut-candidates'];
+    const model = modules['../../common/daihon-row-model'];
+    const oldCollect = collector.collectDaihonCutCandidates, oldBuild = model.buildDaihonRows;
+    collector.collectDaihonCutCandidates = realCutCandidates.collectDaihonCutCandidates;
+    model.buildDaihonRows = realDaihonRows.buildDaihonRows;
+    try {
+        const { dialog } = await harness({ initialPath: 'assets/mic.wav', previous: true, artifact,
+            analysisByPath: { 'assets/mic.wav': { transcript: segments } },
+            initialCaptions: segments.map((segment, index) => ({ ...segment, id: `caption:${index}`, src: 'mic', style: null })) });
+        dialog.foot.querySelector('[data-primary]').click();
+        dialog.foot.querySelector('[data-primary]').click();
+        await tick(); await tick();
+        assert.equal(dialog.node.dataset.step, '4');
+        assert.match(dialog.body.textContent, /カット候補 3 件/);
+        const rows = await dialog.transcribedCutRows();
+        const before = dialog.countCutCandidates(rows);
+        assert.equal(before, 3);
+        assert.notEqual(before, artifact.cuts.candidates.length);
+        await dialog.apply();
+        assert.equal(dialog.cutCandidateCount, before);
+    } finally {
+        collector.collectDaihonCutCandidates = oldCollect;
+        model.buildDaihonRows = oldBuild;
+    }
 });
 
 test('rerunning requires a ready engine; a configured cloud engine works without a local engine', async () => {

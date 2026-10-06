@@ -1,7 +1,6 @@
-export type WordMenuAction = { kind: 'play' } | { kind: 'edit' } | { kind: 'dictionary' } | { kind: 'cut-video' }
-    | { kind: 'caption-only' } | { kind: 'freeze' }
-    | { kind: 'coming-soon'; what: string } | { kind: 'pause' } | { kind: 'break' } | { kind: 'split' }
-    | { kind: 'merge-prev' } | { kind: 'merge-next' } | { kind: 'insert-word' } | { kind: 'item-captions' } | { kind: 'mark'; color: string };
+export type WordMenuAction = { kind: 'play' } | { kind: 'edit' } | { kind: 'cut-video' }
+    | { kind: 'caption-only' } | { kind: 'pause' } | { kind: 'break' } | { kind: 'split' }
+    | { kind: 'merge-prev' } | { kind: 'merge-next' } | { kind: 'insert-word' } | { kind: 'mark'; color: string };
 export interface WordMenuItem { label: string; action?: WordMenuAction; accel?: string; disabled?: boolean; title?: string; danger?: boolean }
 export interface WordMenuGroup { title: string; note?: string; items: WordMenuItem[]; colors?: string[] }
 
@@ -13,35 +12,25 @@ export function wordContextMenuGroups(input: {
 }): WordMenuGroup[] {
     const subject = input.rangeCount > 1 ? `${input.rangeCount} 範囲を一括`
         : input.wordCount > 1 ? 'この範囲' : 'この語';
-    const coming = (label: string, what: string): WordMenuItem => ({ label, disabled: true, action: { kind: 'coming-soon', what } });
-    return [
+    const groups: WordMenuGroup[] = [
         { title: `${subject}「${input.text}」`, items: [
             { label: '▶ ここから再生', action: { kind: 'play' } }, { label: '✎ 直す', action: { kind: 'edit' } },
-            { label: '📖 辞書に覚える', action: { kind: 'dictionary' } },
             { label: '✂ 映像ごとカット', action: { kind: 'cut-video' }, danger: true },
             { label: '字幕からだけ消す', action: { kind: 'caption-only' } },
-            { label: '⏸ この語の間だけ止める（Freeze）', action: { kind: 'freeze' } }
+            { label: '⏸ 間を入れる', accel: '⌘;', action: { kind: 'pause' } }
         ] },
         { title: '挿入', note: `「${input.nextWordText}」の前に`, items: [
-            coming('🖼 画像 Coming soon', '画像'), coming('🎬 B-roll Coming soon', 'B-roll'),
-            coming('🅰 テロップ Coming soon', 'テロップ'), input.wordInsertAvailable
-                ? { label: '＋ 語', action: { kind: 'insert-word' } }
-                : coming('＋ 語 Coming soon', '語'),
-            { label: '⏸ 間 0.5 秒', accel: '⌘;', action: { kind: 'pause' } }
+            ...(input.wordInsertAvailable ? [{ label: '＋ 語', action: { kind: 'insert-word' } as WordMenuAction }] : [])
         ] },
         { title: '行', items: [
             { label: '／ ここで改行（表示だけ・行は 1 つのまま）', accel: '⇧⏎', action: { kind: 'break' } },
-            input.splitAvailable ? { label: '⏎ ここで分割（行が 2 つになる）', accel: '⏎', action: { kind: 'split' } }
-                : coming('⏎ ここで分割（行が 2 つになる） — Coming soon', 'ここで分割'),
-            input.mergeAvailable ? { label: '前の行と結合', accel: '⌫', action: { kind: 'merge-prev' } }
-                : coming('前の行と結合 — Coming soon', '前の行と結合'),
-            input.mergeNextAvailable ? { label: '次の行と結合', action: { kind: 'merge-next' } }
-                : coming('次の行と結合 — Coming soon', '次の行と結合'),
-            { label: 'この行だけの字幕にする（同じ素材の他クリップでは出さない）', action: { kind: 'item-captions' },
-                disabled: !input.itemCaptionsAvailable, title: input.itemCaptionsAvailable ? undefined : '票 1（item の captions スイッチ）待ち' }
+            ...(input.splitAvailable ? [{ label: '⏎ ここで分割（行が 2 つになる）', accel: '⏎', action: { kind: 'split' } as WordMenuAction }] : []),
+            ...(input.mergeAvailable ? [{ label: '前の行と結合', accel: '⌫', action: { kind: 'merge-prev' } as WordMenuAction }] : []),
+            ...(input.mergeNextAvailable ? [{ label: '次の行と結合', action: { kind: 'merge-next' } as WordMenuAction }] : [])
         ] },
         { title: 'マーク', colors: COLORS, items: COLORS.map(color => ({ label: color, action: { kind: 'mark' as const, color } })) }
     ];
+    return groups.filter(group => group.items.length > 0);
 }
 
 export function openWordContextMenu(options: {
