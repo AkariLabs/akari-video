@@ -1,20 +1,21 @@
-import type { EngineTranscript, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
+import type { TranscribeArtifacts } from 'akari-project/lib/common/akari-project-protocol';
+import { normalizedCaptionPath } from './caption-source-eligibility';
 
-export interface TranscribeDialogResult extends TranscribeOptions { transcribeFirst: boolean }
-export type TranscribeExit = 'reuse' | 'redo' | 'compare';
-export type TranscribeMode = 'simple' | 'advanced';
+export function popupInitialSourceIds(sources: readonly { id: string; path: string; status: string }[],
+    initialPath: string | undefined, captionSourceIds: readonly string[]): string[] {
+    if (initialPath) {
+        const selected = sources.find(source => normalizedCaptionPath(source.path) === normalizedCaptionPath(initialPath)
+            && source.status !== 'excluded');
+        return selected ? [selected.id] : [];
+    }
+    const existing = sources.filter(source => source.status === 'voice' && captionSourceIds.includes(source.id));
+    if (existing.length) return existing.map(source => source.id);
+    const first = sources.find(source => source.status === 'voice');
+    return first ? [first.id] : [];
+}
 
-/** Selection affects actions, but never exposes comparison controls in simple mode. */
-export function transcribeModeView(mode: unknown, alreadyTranscribed: boolean, _selection: TranscribeOptions): {
-    steps: boolean; compareToggle: boolean; radar: boolean; buttons: string[]; switchLink: string;
-} {
-    const advanced = mode === 'advanced';
-    return {
-        steps: advanced, compareToggle: advanced, radar: advanced,
-        buttons: advanced ? (alreadyTranscribed ? ['このまま字幕へ', '起こし直す', '比べる'] : ['起こす ▸'])
-            : (alreadyTranscribed ? ['台本へ', '起こし直す'] : ['起こす']),
-        switchLink: advanced ? '簡単モードに戻す' : 'アドバンス（比較・差分）に切り替える'
-    };
+export function popupCanNavigate(target: number, reached: number, running: boolean): boolean {
+    return target >= 0 && target <= reached && (!running || target >= 2);
 }
 
 export function analysisTranscriptSummary(analysis: unknown): string | undefined {
@@ -32,61 +33,19 @@ export function analysisTranscriptSummary(analysis: unknown): string | undefined
     const transcript = Array.isArray(value.transcript) ? value.transcript : undefined;
     const hasTranscript = !!transcript;
     if (!timestamp && !backend && !hasTranscript) return undefined;
-    return `${timestamp ?? '日時不明'} · ${backend ?? 'エンジン不明'} · ${transcript?.length ?? 0} 行`;
+    return [timestamp, backend, ...(transcript ? [`${transcript.length} 行`] : [])].filter(Boolean).join(' · ');
 }
 
 /** Keep artifact timestamps verbatim so the summary is independent of locale/timezone. */
 export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>,
     alreadyTranscribed = false, fallback?: string): string[] {
     const lines = artifacts.transcripts.map(transcript =>
-        `${transcript.generated_at || '日時不明'} · ${transcript.backend || 'エンジン不明'} · ${transcript.segments.length} 行`);
+        [transcript.generated_at, transcript.backend, `${transcript.segments.length} 行`].filter(Boolean).join(' · '));
     if (!lines.length && alreadyTranscribed) lines.push(fallback ?? '文字起こし済み · 日時・エンジン・行数の記録なし');
     if (lines.length || artifacts.diff) lines.push(`比べる組: ${artifacts.diff?.engines.length ? artifacts.diff.engines.join(' / ') : 'なし'}`);
     return lines;
 }
 
-/** A completed in-dialog run uses reuse; redo/compare delegate execution to buildCaptions. */
-export function transcribeExitOptions(exit: TranscribeExit, selection: TranscribeOptions): TranscribeDialogResult | undefined {
-    if (exit === 'reuse') return { transcribeFirst: false };
-    const { compareSet: selected, ...options } = selection;
-    if (exit === 'redo') return { ...options, backend: selection.backend || 'auto', compareSet: [], transcribeFirst: true };
-    const compareSet = [...new Set(selected ?? [])];
-    return compareSet.length >= 2 ? { ...options, compareSet, transcribeFirst: true } : undefined;
-}
-
-export const backendKey = (backend: string): string => backend.replace(/:/g, '-');
-export interface TranscribeStepState {
-    step: 1 | 2 | 3;
-    engines: Record<string, 'waiting' | 'transcribing' | 'completed' | 'failed'>;
-    completedOrder: string[];
-    finished: boolean;
-}
-export function startTranscribeSteps(backends: readonly string[]): TranscribeStepState {
-    return { step: 2, engines: Object.fromEntries(backends.map(backend => [backendKey(backend), 'waiting'])), completedOrder: [], finished: false };
-}
-export function advanceTranscribeSteps(state: TranscribeStepState, event: MaterialTranscriptEvent): TranscribeStepState {
-    const next = { ...state, engines: { ...state.engines }, completedOrder: [...state.completedOrder] };
-    const key = event.backend && backendKey(event.backend);
-    if (key && key in next.engines) {
-        if (event.status === 'cancelled') next.engines[key] = 'waiting';
-        else if (event.status === 'completed') {
-            next.engines[key] = 'completed';
-            if (!next.completedOrder.includes(key)) next.completedOrder.push(key);
-        } else if (event.status === 'failed') next.engines[key] = 'failed';
-        else if (next.engines[key] === 'waiting') next.engines[key] = 'transcribing';
-    }
-    if (!key && event.status === 'cancelled') {
-        for (const backend of Object.keys(next.engines)) {
-            if (next.engines[backend] === 'transcribing') next.engines[backend] = 'waiting';
-        }
-    }
-    if (event.stage === 'diffing' && event.status === 'completed') next.step = 3;
-    if (!event.backend && event.stage === 'completed') next.finished = true;
-    return next;
-}
-export function completedColumns(state: TranscribeStepState, transcripts: readonly EngineTranscript[]): EngineTranscript[] {
-    return state.completedOrder.flatMap(key => transcripts.filter(transcript => backendKey(transcript.backend) === key));
-}
 export function initialEngineSelection(backend: string, compareSet: readonly string[]): { backend: string; compareSet: string[] } {
     return { backend: backend || 'auto', compareSet: [...new Set(compareSet)] };
 }

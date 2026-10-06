@@ -10,6 +10,7 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { editCorrectionVisible } from '../lib/browser/inspector/edit-correction-visibility.js';
 import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
+import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
 
 class FakeNode {
   constructor(tag = 'div') {
@@ -35,7 +36,7 @@ const dependencies = {
   layerAudioControls: new WeakMap(), tabsForKind, initialTabFor, assignSectionToTab,
   aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, cutoutAvailabilityFor, photoToolAvailabilityFor,
   appendAiBack, appendAiTiles, appendAiStillNotice, stillMismatchNotice,
-  isInspectorStillImage, editCorrectionVisible,
+  isInspectorStillImage, CAPTION_IMAGE_EXTENSIONS, editCorrectionVisible,
   ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }]
 };
 const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\n${factory('photoMaskSectionsForAvailability')}\nclass Harness {

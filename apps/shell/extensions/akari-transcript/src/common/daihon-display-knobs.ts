@@ -5,10 +5,8 @@ import {
     type CaptionDisplayPolicy
 } from '@akari-video/edit-store';
 
-export const DAIHON_MAX_LINE_UNITS_MIN = 10;
+export const DAIHON_MAX_LINE_UNITS_MIN = 5;
 export const DAIHON_MAX_LINE_UNITS_MAX = 28;
-export const DAIHON_CUSTOM_LINES_MIN = 4;
-export const DAIHON_CUSTOM_LINES_MAX = 6;
 
 export interface DaihonDisplayKnobs {
     maxLineUnits: number;
@@ -47,17 +45,10 @@ export function clampDaihonMaxLineUnits(value: number): number {
     return Math.min(DAIHON_MAX_LINE_UNITS_MAX, Math.max(DAIHON_MAX_LINE_UNITS_MIN, Math.round(finite)));
 }
 
-export function validateDaihonCustomLines(value: unknown): number | null {
-    const parsed = typeof value === 'number' ? value
-        : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
-    return Number.isInteger(parsed) && parsed >= DAIHON_CUSTOM_LINES_MIN && parsed <= DAIHON_CUSTOM_LINES_MAX
-        ? parsed : null;
-}
-
 export function readDaihonDisplayKnobs(captionsRoot: unknown): DaihonDisplayKnobs {
     const policy = record(record(captionsRoot)?.display_policy);
     const lines = typeof policy?.lines === 'number' && Number.isInteger(policy.lines)
-        && policy.lines >= 1 && policy.lines <= DAIHON_CUSTOM_LINES_MAX ? policy.lines : DEFAULT_KNOBS.lines;
+        ? Math.min(2, Math.max(1, policy.lines)) : DEFAULT_KNOBS.lines;
     return {
         maxLineUnits: clampDaihonMaxLineUnits(typeof policy?.max_line_units === 'number'
             ? policy.max_line_units : DEFAULT_KNOBS.maxLineUnits),
@@ -83,8 +74,7 @@ export function daihonDisplayPolicyForWrite(
         max_line_units: clampDaihonMaxLineUnits(values.maxLineUnits),
         minimum_fragment_duration_seconds: minimumDuration,
         locale,
-        lines: Number.isInteger(values.lines) && values.lines >= 1 && values.lines <= DAIHON_CUSTOM_LINES_MAX
-            ? values.lines : DEFAULT_KNOBS.lines,
+        lines: Number.isInteger(values.lines) ? Math.min(2, Math.max(1, values.lines)) : DEFAULT_KNOBS.lines,
         wrap: values.wrap === 'fold' ? 'fold' : 'multi',
         ...(breakHints ? { break_hints: breakHints } : {})
     };

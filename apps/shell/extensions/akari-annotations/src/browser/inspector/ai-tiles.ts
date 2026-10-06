@@ -90,7 +90,8 @@ export const images: Record<AiImage | 'position' | 'color' | 'volume' | 'motion'
 };
 
 export function appendAiTiles(parent: HTMLElement, groups: readonly AiTileGroup[], open: (id: string) => void,
-    transcriptDone = false, emptyMessage = 'この要素で使える別案はまだありません'): HTMLElement {
+    transcriptDone = false, emptyMessage = 'この要素で使える別案はまだありません',
+    allowExcludedTranscribe = false): HTMLElement {
     const list = document.createElement('div');
     list.className = 'akari-inspector-ai-list';
     let tileGrid: HTMLElement | undefined;
@@ -113,11 +114,12 @@ export function appendAiTiles(parent: HTMLElement, groups: readonly AiTileGroup[
             grid.appendChild(empty);
         }
         for (const tile of group.tiles) {
+            const enabled = tile.enabled || tile.id === 'transcribe' && allowExcludedTranscribe;
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = `akari-inspector-ai-tile${tile.enabled ? '' : ' akari-inspector-ai-disabled'}`;
+            button.className = `akari-inspector-ai-tile${enabled ? '' : ' akari-inspector-ai-disabled'}`;
             button.setAttribute('data-akari-inspector-ai-tile', tile.id);
-            button.setAttribute('aria-disabled', String(!tile.enabled));
+            button.setAttribute('aria-disabled', String(!enabled));
             const image = document.createElement('img');
             image.className = 'akari-inspector-ai-image';
             image.src = images[tile.image];
@@ -135,19 +137,19 @@ export function appendAiTiles(parent: HTMLElement, groups: readonly AiTileGroup[
             titleRow.appendChild(title);
             if (tile.id !== 'cutout' && tile.id !== 'eraser') titleRow.appendChild(cloud);
             button.append(image, titleRow);
-            if (tile.id === 'transcribe' && transcriptDone && tile.enabled) {
+            if (tile.id === 'transcribe' && transcriptDone && enabled) {
                 const badge = document.createElement('span');
                 badge.className = 'akari-inspector-ai-done-badge';
                 badge.textContent = '済み';
                 button.appendChild(badge);
             }
-            if (!tile.enabled && tile.reason) {
+            if (!enabled && tile.reason) {
                 const reason = document.createElement('span');
                 reason.className = 'akari-inspector-ai-reason';
                 reason.textContent = tile.reason;
                 button.appendChild(reason);
             }
-            button.addEventListener('click', () => { if (tile.enabled) open(tile.id); });
+            button.addEventListener('click', () => { if (enabled) open(tile.id); });
             grid.appendChild(button);
         }
         section.appendChild(grid);

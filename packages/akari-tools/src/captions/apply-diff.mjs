@@ -17,11 +17,14 @@ function differs(existing, next) {
   return existing?.text !== next?.text || existing?.start !== next?.start || existing?.end !== next?.end;
 }
 
-export function mergeCaptionsForApply(existing, next, { force = false } = {}) {
+export function mergeCaptionsForApply(existing, next, { force = false, src } = {}) {
   const existingRows = keyedRows(Array.isArray(existing) ? existing : []);
   const nextRows = keyedRows(Array.isArray(next) ? next : []);
+  const targetSrc = src ?? nextRows.find(entry => typeof entry.row?.src === "string")?.row.src;
+  const targets = existingRows.filter(entry => !targetSrc || entry.row?.src === targetSrc || entry.row?.src == null);
+  const untouched = existingRows.filter(entry => targetSrc && entry.row?.src != null && entry.row.src !== targetSrc);
   const existingByKey = new Map();
-  for (const entry of existingRows) if (!existingByKey.has(entry.key)) existingByKey.set(entry.key, entry);
+  for (const entry of targets) if (!existingByKey.has(entry.key)) existingByKey.set(entry.key, entry);
 
   const matched = new Set();
   const output = [];
@@ -38,7 +41,7 @@ export function mergeCaptionsForApply(existing, next, { force = false } = {}) {
       output.push({ row: entry.row, kind, order: output.length });
     }
   }
-  for (const entry of existingRows) {
+  for (const entry of targets) {
     if (matched.has(entry.index)) continue;
     if (entry.row?.edited === true && !force) {
       output.push({ row: entry.row, kind: "protected", order: output.length });
@@ -47,6 +50,7 @@ export function mergeCaptionsForApply(existing, next, { force = false } = {}) {
       counts.removed += 1;
     }
   }
+  for (const entry of untouched) output.push({ row: entry.row, kind: "untouched", order: entry.index });
 
   output.sort((a, b) => {
     const startA = Number.isFinite(a.row?.start) ? a.row.start : 0;
@@ -54,7 +58,8 @@ export function mergeCaptionsForApply(existing, next, { force = false } = {}) {
     return startA - startB || a.order - b.order;
   });
 
-  const protectedIds = new Set(output.filter(item => item.kind === "protected" && typeof item.row?.id === "string").map(item => item.row.id));
+  const protectedIds = new Set(output.filter(item => (item.kind === "protected" || item.kind === "untouched")
+    && typeof item.row?.id === "string").map(item => item.row.id));
   const used = new Set();
   let candidate = 1;
   const nextId = () => {
@@ -64,7 +69,7 @@ export function mergeCaptionsForApply(existing, next, { force = false } = {}) {
     return id;
   };
   for (const item of output) {
-    if (item.kind === "protected") {
+    if (item.kind === "protected" || item.kind === "untouched") {
       if (typeof item.row?.id === "string") used.add(item.row.id);
       continue;
     }
@@ -76,9 +81,9 @@ export function mergeCaptionsForApply(existing, next, { force = false } = {}) {
 
   const ids = { added: [], changed: [], protected: [], removed: [] };
   for (const item of output) {
-    if (item.kind && typeof item.row?.id === "string") ids[item.kind].push(item.row.id);
+    if (item.kind && item.kind !== "untouched" && typeof item.row?.id === "string") ids[item.kind].push(item.row.id);
   }
-  for (const entry of existingRows) {
+  for (const entry of targets) {
     if (!matched.has(entry.index) && !(entry.row?.edited === true && !force) && typeof entry.row?.id === "string") {
       ids.removed.push(entry.row.id);
     }
