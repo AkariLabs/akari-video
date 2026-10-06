@@ -1,5 +1,5 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
-import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
+import { CommandContribution, CommandService, MenuContribution, MessageService } from '@theia/core/lib/common';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import {
     FrontendApplicationContribution,
@@ -21,6 +21,7 @@ import { AkariCatalogCommandContribution } from './akari-catalog-command-contrib
 import { AssetSiteWidget } from './asset-site-widget';
 import { AssetSiteCommands } from './asset-site-commands';
 import { ShapeShelfService } from './shape-shelf-service';
+import { LintResultsDialog } from './lint-results-dialog';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectService).toDynamicValue(ctx =>
@@ -29,6 +30,10 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
 
     bind(AkariProjectModeService).toSelf().inSingletonScope();
     bind(AkariWorkflowService).toSelf().inSingletonScope();
+    bind(LintResultsDialog).toDynamicValue(ctx =>
+        new LintResultsDialog(ctx.container.get(CommandService), ctx.container.get(MessageService))
+    ).inSingletonScope();
+    bind(FrontendApplicationContribution).toService(LintResultsDialog);
 
     rebind(FileNavigatorFilter).to(AkariFileNavigatorFilter).inSingletonScope();
     bind(AkariRoleLabelProvider).toSelf().inSingletonScope();

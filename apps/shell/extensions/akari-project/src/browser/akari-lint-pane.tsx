@@ -1,8 +1,10 @@
 import * as React from '@theia/core/shared/react';
 import { MessageService } from '@theia/core/lib/common';
-import { AkariProjectService } from '../common/akari-project-protocol';
+import { AkariProjectService, EditLintFinding } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
-import { AKARI_BORDER } from '../common/akari-surface-tokens';
+import { AKARI_BORDER, AKARI_FAINT } from '../common/akari-surface-tokens';
+import { lintStatusLabel } from '../common/lint-results';
+import { LintResultsDialog } from './lint-results-dialog';
 
 export interface LintPaneHost {
     readonly workflow: Pick<AkariWorkflowService, 'workspaceRoot'>;
@@ -15,58 +17,94 @@ export class AkariLintPane {
     protected lintAvailable = false;
     protected lintCount?: number;
     protected lintRunning = false;
+    protected lintChecked = false;
+    protected lintFindings: EditLintFinding[] = [];
+    protected lintCheckedAt?: number;
+    protected lintInFlight?: Promise<void>;
 
     constructor(protected readonly host: LintPaneHost) {}
 
-    public async refreshLint(notify = false): Promise<void> {
+    public refreshLint(notify = false): Promise<void> {
         const root = this.host.workflow.workspaceRoot;
         if (!root) {
             this.lintAvailable = false;
             this.lintCount = undefined;
             this.lintRunning = false;
+            this.lintChecked = false;
+            this.lintFindings = [];
+            this.lintCheckedAt = undefined;
             this.host.update();
-            return;
+            return Promise.resolve();
         }
-        if (this.lintRunning) return;
-        // 押しても画面が何も変わらない（件数が前回と同じなら尚更）状態を潰す
-        // （2026-09-26 オーナー指示「リントを押しても反応がない」）: 実行中は
-        // ボタン自身が「確認中…」になり、終わったら結果をトーストで必ず返す。
-        this.lintRunning = notify;
-        if (notify) this.host.update();
+        if (this.lintInFlight) return this.lintInFlight;
+        this.lintInFlight = this.runLint(root.toString(), notify).finally(() => {
+            this.lintInFlight = undefined;
+        });
+        return this.lintInFlight;
+    }
+
+    protected async runLint(root: string, notify: boolean): Promise<void> {
+        this.lintRunning = true;
+        this.publish();
         try {
-            const outcome = await this.host.projectService.runEditLint(root.toString());
+            const outcome = await this.host.projectService.runEditLint(root);
+            this.lintChecked = true;
             this.lintAvailable = outcome.available;
             this.lintCount = outcome.available ? outcome.issueCount : undefined;
+            this.lintFindings = outcome.available ? outcome.findings ?? [] : [];
+            this.lintCheckedAt = outcome.available ? Date.now() : undefined;
             if (notify) {
                 if (!outcome.available) this.host.messages.warn('編集内容のチェックはこのプロジェクトでは実行できません。');
                 else if (outcome.issueCount) this.host.messages.warn(`編集内容のチェック: ${outcome.issueCount} 件の指摘があります。`);
-                else this.host.messages.info('編集内容のチェック: 指摘はありません。');
             }
         } catch (error) {
             if (notify) this.host.messages.error(`編集内容をチェックできませんでした: ${this.errorMessage(error)}`);
         } finally {
             this.lintRunning = false;
-            this.host.update();
+            this.publish();
         }
     }
 
+    protected publish(): void {
+        this.host.update();
+        LintResultsDialog.instance?.setState({
+            findings: this.lintFindings,
+            running: this.lintRunning,
+            checkedAt: this.lintCheckedAt,
+            rerun: () => this.refreshLint(true)
+        });
+    }
+
+    protected async openResults(): Promise<void> {
+        if (!this.lintCheckedAt) await this.refreshLint(true);
+        if (!this.lintAvailable) return;
+        LintResultsDialog.instance?.showResults({
+            findings: this.lintFindings,
+            running: this.lintRunning,
+            checkedAt: this.lintCheckedAt,
+            rerun: () => this.refreshLint(true)
+        });
+    }
+
     public renderLintBadge(): React.ReactNode {
-        if (!this.lintAvailable) {
+        if (!this.host.workflow.workspaceRoot || (this.lintChecked && !this.lintAvailable)) {
             return undefined;
         }
-        const label = this.lintRunning ? '確認中…' : this.lintCount === undefined ? '未実行' : `${this.lintCount} 件`;
+        const label = lintStatusLabel(this.lintRunning, this.lintCount);
+        const hasErrors = this.lintFindings.some(finding => finding.severity === 'error');
         return (
-            <div style={{ flex: '0 0 auto', borderTop: AKARI_BORDER.hairline, padding: '6px' }}>
+            <div style={{ flex: '0 0 auto', minHeight: '28px', borderTop: AKARI_BORDER.hairline }}>
                 <button
-                    className='theia-button secondary'
+                    className='theia-button quiet'
                     data-akari-lint-running={this.lintRunning ? 'true' : undefined}
-                    disabled={this.lintRunning}
-                    title='クリックして再実行'
-                    onClick={() => void this.refreshLint(true)}
-                    style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    title='編集内容のチェック結果を開く'
+                    onClick={() => void this.openResults()}
+                    style={{ width: '100%', height: '28px', minHeight: '28px', display: 'flex',
+                        justifyContent: 'space-between', alignItems: 'center', padding: '0 10px',
+                        color: hasErrors ? 'var(--theia-errorForeground)' : 'inherit' }}
                 >
-                    <span>Lint</span>
                     <span>{label}</span>
+                    <span aria-hidden='true' style={{ color: AKARI_FAINT }}>›</span>
                 </button>
             </div>
         );

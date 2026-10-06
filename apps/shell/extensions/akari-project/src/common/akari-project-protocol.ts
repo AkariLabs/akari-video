@@ -58,10 +58,19 @@ export type DroppedAssetImportResult =
     | { name: string; success: true; kind: DroppedAssetKind; assetPath: string; eventUri: string }
     | { name: string; success: false; reason: DroppedAssetFailureReason };
 
+/** edit-lint の指摘 1 件。 */
+export interface EditLintFinding {
+    severity: 'error' | 'warning' | 'info';
+    check: string;
+    message: string;
+    path?: string;
+}
+
 /** edit-lint CLI 単体実行の結果を要約したもの。available=false は edit.json 不在（バッジ非表示）。 */
 export interface EditLintOutcome {
     available: boolean;
     issueCount?: number;
+    findings?: EditLintFinding[];
 }
 
 /**

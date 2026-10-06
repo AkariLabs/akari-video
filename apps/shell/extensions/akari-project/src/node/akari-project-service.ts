@@ -1611,8 +1611,21 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             if (code === 2) {
                 return { available: false };
             }
-            const parsed = JSON.parse(stdout) as { findings?: unknown[] };
-            return { available: true, issueCount: Array.isArray(parsed.findings) ? parsed.findings.length : 0 };
+            const parsed = JSON.parse(stdout) as { findings?: unknown };
+            const findings = (Array.isArray(parsed.findings) ? parsed.findings : []).flatMap((item: unknown) => {
+                if (!item || typeof item !== 'object') return [];
+                const source = item as Record<string, unknown>;
+                if (typeof source.message !== 'string' || !source.message.trim()) return [];
+                const severity: 'error' | 'warning' | 'info' =
+                    source.severity === 'error' || source.severity === 'warning' ? source.severity : 'info';
+                return [{
+                    severity,
+                    check: typeof source.check === 'string' ? source.check : '',
+                    message: source.message,
+                    ...(typeof source.path === 'string' ? { path: source.path } : {})
+                }];
+            });
+            return { available: true, issueCount: findings.length, findings };
         } catch {
             return { available: false };
         }
