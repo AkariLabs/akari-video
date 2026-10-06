@@ -447,6 +447,38 @@ test('未対応 sample entry は decoder と packet fetch へ進まない', asyn
   assert.equal(bundle.calls.length, moovCalls);
 });
 
+test('open 失敗と非対応 src を記録しても別の AAC src は鳴る', async () => {
+  const aac = mp4Fixture();
+  const unsupported = mp4Fixture({ codec: 'twos' });
+  const aacFetch = rangeFetch(aac.file);
+  const unsupportedFetch = rangeFetch(unsupported.file);
+  const bundle = controllerFixture({ fetchFn: (src, options) => {
+    if (src === '/broken.mp4') throw new Error('audio sample table is too large: 20000001');
+    return src === '/pcm.mp4' ? unsupportedFetch(src, options) : aacFetch(src, options);
+  } });
+  await assert.doesNotReject(bundle.controller.prepare(['/broken.mp4', '/pcm.mp4', '/source.mp4']));
+  assert.deepEqual(bundle.controller.sources.map(({ src, supported }) => [src, supported]), [
+    ['/broken.mp4', false], ['/pcm.mp4', false], ['/source.mp4', null],
+  ]);
+  bundle.controller.onSeek({ outputTime: 0.04, sourceTime: 0.04, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 1);
+  assert.equal(bundle.controller.sources.find(entry => entry.src === '/source.mp4').supported, true);
+});
+
+test('ミュート解除後の初回 seek は未準備 src を遅延 prepare する', async () => {
+  const video = { volume: 0.75, muted: true };
+  const bundle = controllerFixture({ video });
+  const input = { outputTime: 0.04, sourceTime: 0.04, src: '/source.mp4', isPlaying: false };
+  bundle.controller.onSeek(input);
+  assert.deepEqual(bundle.controller.sources, []);
+  video.muted = false;
+  bundle.controller.onSeek(input);
+  await until(() => bundle.controller.sources[0]?.ready);
+  assert.equal(bundle.controller.sources[0].src, '/source.mp4');
+  bundle.controller.onSeek(input);
+  await until(() => bundle.audio.sources.length === 1);
+});
+
 test('prepare 中の seek は鳴らず、同じ src の moov は一度だけ開く', async () => {
   const fixture = mp4Fixture();
   let release;

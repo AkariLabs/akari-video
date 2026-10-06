@@ -120,25 +120,69 @@ var AkariScrubAudio = (() => {
       supported: true
     };
   }
-  function parseTable(bytes, box, width, read) {
+  var MAX_AUDIO_SAMPLES = 2e7;
+  function tableCount(bytes, box, width, headerBytes = 8) {
+    if (box.end - box.body < headerBytes) throw new Error(`truncated ${box.type} table`);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const count = view.getUint32(box.body + 4);
-    return Array.from({ length: count }, (_, index) => read(view, box.body + 8 + index * width));
+    if (count > Math.floor((box.end - box.body - headerBytes) / width)) {
+      throw new Error(`${box.type} sample table exceeds box size`);
+    }
+    return count;
   }
   function parseStsz(bytes, box) {
+    if (box.end - box.body < 12) throw new Error("truncated stsz table");
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const commonSize = view.getUint32(box.body + 4);
-    const count = view.getUint32(box.body + 8);
-    if (commonSize) return Array(count).fill(commonSize);
-    return Array.from({ length: count }, (_, index) => view.getUint32(box.body + 12 + index * 4));
-  }
-  function expandDurations(entries, sampleCount) {
-    const result = [];
-    for (const entry of entries) {
-      for (let i = 0; i < entry.count && result.length < sampleCount; i++) result.push(entry.delta);
+    const sampleCount = view.getUint32(box.body + 8);
+    if (sampleCount > MAX_AUDIO_SAMPLES) throw new Error(`audio sample table is too large: ${sampleCount}`);
+    if (!commonSize && sampleCount > Math.floor((box.end - box.body - 12) / 4)) {
+      throw new Error("stsz sample table exceeds box size");
     }
-    if (result.length !== sampleCount) throw new Error("stts/stsz sample count mismatch");
-    return result;
+    const sizes = new Uint32Array(sampleCount);
+    if (commonSize) sizes.fill(commonSize);
+    else for (let index = 0; index < sampleCount; index++) sizes[index] = view.getUint32(box.body + 12 + index * 4);
+    return sizes;
+  }
+  function parseDurations(bytes, box, sampleCount) {
+    const count = tableCount(bytes, box, 8);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const durations = new Uint32Array(sampleCount);
+    let index = 0;
+    for (let row = 0; row < count; row++) {
+      const at = box.body + 8 + row * 8;
+      const run = view.getUint32(at);
+      if (run > sampleCount - index) throw new Error("stts/stsz sample count mismatch");
+      durations.fill(view.getUint32(at + 4), index, index + run);
+      index += run;
+    }
+    if (index !== sampleCount) throw new Error("stts/stsz sample count mismatch");
+    return durations;
+  }
+  function parseMappings(bytes, box) {
+    const entryCount = tableCount(bytes, box, 12);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const firstChunks = new Uint32Array(entryCount);
+    const samplesPerChunk = new Uint32Array(entryCount);
+    for (let index = 0; index < entryCount; index++) {
+      const at = box.body + 8 + index * 12;
+      firstChunks[index] = view.getUint32(at);
+      samplesPerChunk[index] = view.getUint32(at + 4);
+    }
+    return { firstChunks, samplesPerChunk };
+  }
+  function parseChunks(bytes, box) {
+    const wide = box.type === "co64";
+    const chunkCount = tableCount(bytes, box, wide ? 8 : 4);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const chunks = new Float64Array(chunkCount);
+    for (let index = 0; index < chunkCount; index++) {
+      const at = box.body + 8 + index * (wide ? 8 : 4);
+      const offset = wide ? Number(view.getBigUint64(at)) : view.getUint32(at);
+      if (!Number.isSafeInteger(offset)) throw new Error("audio chunk offset is outside the safe integer range");
+      chunks[index] = offset;
+    }
+    return chunks;
   }
   function readSigned64(view, offset) {
     const value = view.getBigInt64(offset);
@@ -201,45 +245,49 @@ var AkariScrubAudio = (() => {
     if (!stsd || !stts || !stsc || !stsz || !stco) throw new Error("incomplete audio sample table");
     const timescale = parseTimescale(bytes, mdhd, 20, 12);
     const config = parseStsd(bytes, stsd);
+    const mdhdDuration = view.getUint8(mdhd.body) === 1 ? Number(view.getBigUint64(mdhd.body + 24)) : view.getUint32(mdhd.body + 16);
+    if (!Number.isSafeInteger(mdhdDuration) || !timescale) throw new Error("invalid audio track duration");
+    const edits = editOffset(bytes, selected.trak, movieTimescale, timescale);
+    if (!config.supported) return {
+      ...config,
+      timescale,
+      ...edits,
+      editOffsetSec: edits.editOffsetTicks / timescale,
+      samples: [],
+      durationSec: mdhdDuration / timescale
+    };
     const sizes = parseStsz(bytes, stsz);
-    const durations = expandDurations(parseTable(bytes, stts, 8, (data, at) => ({
-      count: data.getUint32(at),
-      delta: data.getUint32(at + 4)
-    })), sizes.length);
-    const mappings = parseTable(bytes, stsc, 12, (data, at) => ({
-      firstChunk: data.getUint32(at),
-      samplesPerChunk: data.getUint32(at + 4)
-    }));
-    const wide = stco.type === "co64";
-    const chunks = parseTable(bytes, stco, wide ? 8 : 4, (data, at) => wide ? Number(data.getBigUint64(at)) : data.getUint32(at));
-    const samples = [];
+    const durations = parseDurations(bytes, stts, sizes.length);
+    const mappings = parseMappings(bytes, stsc);
+    const chunks = parseChunks(bytes, stco);
+    const offsets = new Float64Array(sizes.length);
+    const dtsValues = new Float64Array(sizes.length);
     let sampleIndex = 0;
     let dts = 0;
+    let mappingIndex = 0;
     for (let chunkIndex = 0; chunkIndex < chunks.length && sampleIndex < sizes.length; chunkIndex++) {
-      let mapping = mappings[0];
-      for (const candidate of mappings) {
-        if (candidate.firstChunk <= chunkIndex + 1) mapping = candidate;
-        else break;
+      while (mappingIndex + 1 < mappings.firstChunks.length && mappings.firstChunks[mappingIndex + 1] <= chunkIndex + 1) mappingIndex++;
+      if (!mappings.firstChunks.length || mappings.firstChunks[mappingIndex] > chunkIndex + 1) {
+        throw new Error("stsc has no chunk mapping");
       }
-      if (!mapping) throw new Error("stsc has no chunk mapping");
       let offset = chunks[chunkIndex];
-      for (let index = 0; index < mapping.samplesPerChunk && sampleIndex < sizes.length; index++) {
+      for (let index = 0; index < mappings.samplesPerChunk[mappingIndex] && sampleIndex < sizes.length; index++) {
         const size = sizes[sampleIndex];
         const duration = durations[sampleIndex];
-        samples.push({ index: sampleIndex, offset, size, dts, duration });
+        offsets[sampleIndex] = offset;
+        dtsValues[sampleIndex] = dts;
         offset += size;
         dts += duration;
         sampleIndex++;
       }
     }
     if (sampleIndex !== sizes.length) throw new Error("stsc did not map every audio sample");
-    const edits = editOffset(bytes, selected.trak, movieTimescale, timescale);
     return {
       ...config,
       timescale,
       ...edits,
       editOffsetSec: edits.editOffsetTicks / timescale,
-      samples,
+      samples: { length: sizes.length, sizes, durations, offsets, dts: dtsValues },
       durationSec: (dts - edits.editOffsetTicks) / timescale
     };
   }
@@ -316,32 +364,34 @@ var AkariScrubAudio = (() => {
       if (!this.info) throw new Error("track is not open");
       const samples = this.info.samples;
       if (!samples.length) {
-        return { packets: [], ranges: [], rawStartTick: 0, rawEndTick: 0, windowStartSec: 0, windowEndSec: 0 };
+        return { packets: new Uint32Array(0), ranges: [], rawStartTick: 0, rawEndTick: 0, windowStartSec: 0, windowEndSec: 0 };
       }
       const tick = Math.max(0, tSec) * this.info.timescale + this.info.editOffsetTicks;
       let low = 0;
       let high = samples.length;
       while (low < high) {
         const middle = low + Math.floor((high - low) / 2);
-        const sample = samples[middle];
-        if (tick < sample.dts + sample.duration) high = middle;
+        if (tick < samples.dts[middle] + samples.durations[middle]) high = middle;
         else low = middle + 1;
       }
       const index = Math.min(low, samples.length - 1);
       const start = Math.max(0, index - Math.max(0, before));
       const end = Math.min(samples.length, index + Math.max(0, after) + 1);
-      const packets = samples.slice(start, end);
+      const packets = new Uint32Array(end - start);
+      for (let index2 = 0; index2 < packets.length; index2++) packets[index2] = start + index2;
       const ranges = [];
-      for (const packet of packets) {
+      for (const sampleIndex of packets) {
+        const offset = samples.offsets[sampleIndex];
+        const size = samples.sizes[sampleIndex];
         const previous = ranges.at(-1);
-        const gapBytes = previous ? packet.offset - previous.end - 1 : Infinity;
+        const gapBytes = previous ? offset - previous.end - 1 : Infinity;
         if (previous && gapBytes >= 0 && gapBytes <= Math.max(0, maxGapBytes)) {
-          previous.end = packet.offset + packet.size - 1;
-        } else ranges.push({ start: packet.offset, end: packet.offset + packet.size - 1 });
+          previous.end = offset + size - 1;
+        } else ranges.push({ start: offset, end: offset + size - 1 });
       }
-      const rawStartTick = packets[0].dts;
-      const last = packets.at(-1);
-      const rawEndTick = last.dts + last.duration;
+      const rawStartTick = samples.dts[packets[0]];
+      const lastIndex = packets.at(-1);
+      const rawEndTick = samples.dts[lastIndex] + samples.durations[lastIndex];
       return {
         packets,
         ranges,
@@ -360,11 +410,10 @@ var AkariScrubAudio = (() => {
       let high = samples.length;
       while (low < high) {
         const middle = low + Math.floor((high - low) / 2);
-        const sample = samples[middle];
-        if (tick < sample.dts + sample.duration) high = middle;
+        if (tick < samples.dts[middle] + samples.durations[middle]) high = middle;
         else low = middle + 1;
       }
-      return samples[Math.min(low, samples.length - 1)].duration / this.info.timescale;
+      return samples.durations[Math.min(low, samples.length - 1)] / this.info.timescale;
     }
     packetsForSeconds(tSec, seconds) {
       const packetSec = this.packetDurationAt(tSec);
@@ -629,8 +678,13 @@ var AkariScrubAudio = (() => {
       tracks.set(src, entry);
       entry.openPromise = track.open().then(() => {
         entry.ready = true;
+        if (!track.info.supported) {
+          entry.supported = false;
+          lastError = `unsupported audio codec: ${track.info.codec}`;
+        }
       }, (error) => {
         entry.failed = true;
+        entry.supported = false;
         lastError = errorMessage(error);
       });
       return entry;
@@ -704,7 +758,7 @@ var AkariScrubAudio = (() => {
       return holder;
     }
     async function decodeWindow(track, window, { signal, lane, isCurrent }) {
-      const key = `${track.src}|${window.packets[0].index}-${window.packets.at(-1).index}`;
+      const key = `${track.src}|${window.packets[0]}-${window.packets.at(-1)}`;
       if (cache.has(key)) {
         const hit = cache.get(key);
         cache.delete(key);
@@ -725,15 +779,18 @@ var AkariScrubAudio = (() => {
       const holder = await decoderFor(track.src, lane, track.decoderConfig(), outputs);
       const decoderKey = `${lane}|${track.src}`;
       try {
-        for (const packet of window.packets) {
-          const range = fetched.find((item2) => packet.offset >= item2.start && packet.offset + packet.size - 1 <= item2.end);
+        const samples = track.info.samples;
+        for (const sampleIndex of window.packets) {
+          const offset = samples.offsets[sampleIndex];
+          const size = samples.sizes[sampleIndex];
+          const range = fetched.find((item2) => offset >= item2.start && offset + size - 1 <= item2.end);
           if (!range) throw new Error("audio packet bytes are missing");
-          const at = packet.offset - range.start;
+          const at = offset - range.start;
           holder.decoder.decode(new EncodedAudioChunkCtor({
             type: "key",
-            timestamp: Math.round(packet.dts / track.info.timescale * 1e6),
-            duration: Math.round(packet.duration / track.info.timescale * 1e6),
-            data: range.bytes.slice(at, at + packet.size)
+            timestamp: Math.round(samples.dts[sampleIndex] / track.info.timescale * 1e6),
+            duration: Math.round(samples.durations[sampleIndex] / track.info.timescale * 1e6),
+            data: range.bytes.slice(at, at + size)
           }));
         }
         await holder.decoder.flush();
@@ -813,7 +870,7 @@ var AkariScrubAudio = (() => {
       if (prefetchState?.src === input.src && prefetchState.direction === Math.sign(speed) && prefetchState.windowStartSec <= sourceTime && sourceTime + fragmentMs / 1e3 <= prefetchState.windowEndSec + 1e-6) return;
       const window = windowFor(entry.track, sourceTime, speed);
       if (!window.packets.length) return;
-      const key = `${input.src}|${window.packets[0].index}-${window.packets.at(-1).index}`;
+      const key = `${input.src}|${window.packets[0]}-${window.packets.at(-1)}`;
       if (prefetchState?.key === key) return;
       cancelPrefetch();
       const token = prefetchGeneration;
@@ -1041,6 +1098,14 @@ var AkariScrubAudio = (() => {
       },
       get context() {
         return audioContext;
+      },
+      get sources() {
+        return [...tracks].map(([src, entry]) => ({
+          src,
+          ready: entry.ready,
+          failed: entry.failed,
+          supported: entry.supported
+        }));
       },
       onSeek,
       stop,

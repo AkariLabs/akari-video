@@ -23,9 +23,11 @@ import {
     PreviewInitStageStatus,
     PreviewInitSummary,
     PreviewInitTrace,
+    PreviewRendererGone,
     createPreviewInitTrace,
     describeKeyEventConversionFailure,
     describePreviewWebviewRole,
+    describePreviewRendererGoneReason,
     formatPreviewInitReport,
     isSuspiciousKeyEventShape,
     markPreviewInitStage,
@@ -40,6 +42,7 @@ export const PREVIEW_DIAGNOSTICS_LOG_RELATIVE_PATH = '.akari/logs/akari-preview-
 
 /** 初回描画を待つ時間。frame-engine 側の watchdog（既定 15s）より後に鳴らす。 */
 export const PREVIEW_DIAGNOSTICS_WATCHDOG_MS = 20000;
+export const PREVIEW_DIAGNOSTICS_HEARTBEAT_CHECK_MS = 5000;
 
 /** 1 ファイルに貯める上限。超えたら古い行を落とす（診断ログでディスクを埋めない）。 */
 export const PREVIEW_DIAGNOSTICS_LOG_MAX_BYTES = 512 * 1024;
@@ -129,6 +132,7 @@ export interface PreviewDiagnosticsOverlayModel {
     /** 利用者が「診断をコピー」で持ち出す本文（ログの 1 行と同じ内容の人間向け整形）。 */
     reportText: string;
     footerLines: string[];
+    canReopen?: boolean;
 }
 
 export interface PreviewDiagnosticsOverlay {
@@ -140,10 +144,18 @@ export interface PreviewDiagnosticsOverlay {
 export function buildPreviewDiagnosticsOverlayModel(
     summary: PreviewInitSummary,
     context: PreviewDiagnosticsContext,
-    logPath?: string
+    logPath?: string,
+    unresponsive = false
 ): PreviewDiagnosticsOverlayModel {
     const blocked = summary.failedStage ?? summary.stalledStage;
-    const title = summary.complete
+    const title = summary.rendererGone
+        ? 'プレビューの表示処理が停止しました'
+            + (summary.rendererGone.reason === 'unknown' ? ''
+                : '（理由: ' + describePreviewRendererGoneReason(summary.rendererGone.reason) + '）')
+        : unresponsive
+            ? 'プレビューが応答していません'
+                + (summary.complete ? '' : ' — 止まった段: ' + (blocked ? blocked.label : '不明'))
+        : summary.complete
         ? 'プレビュー初期化は完了しています'
         : 'プレビューの初期化が完了しません — 止まった段: '
             + (blocked ? blocked.label : '不明');
@@ -152,20 +164,37 @@ export function buildPreviewDiagnosticsOverlayModel(
         + stage.label
         + (stage.detail ? ' — ' + stage.detail : '')
     );
-    const firstErrorLine = summary.firstError
+    const firstErrorLine = summary.rendererGone
+        ? '最初の例外: 例外ではなくプロセスの停止を検知しました'
+        : summary.firstError
         ? '最初の例外: [' + summary.firstError.kind + '] ' + summary.firstError.message
         : '最初の例外: 記録なし（例外なしで止まっています）';
     const footerLines: string[] = [];
     footerLines.push('入口: ' + context.entry + (context.webviewRole ? ' / ' + context.webviewRole : ''));
     if (context.webviewId) footerLines.push('Webview ID: ' + context.webviewId);
     if (logPath) footerLines.push('診断ログ: ' + logPath);
-    footerLines.push('これは失敗段の記録です（原因の断定ではありません）。');
+    if (summary.rendererGone) {
+        if (summary.rendererGone.reason === 'unknown') {
+            footerLines.push('停止の理由は取得できませんでした');
+        }
+        footerLines.push('停止: reason=' + summary.rendererGone.reason
+            + ' exitCode=' + (summary.rendererGone.exitCode ?? '不明')
+            + ' 時刻=' + summary.rendererGone.at);
+        footerLines.push('停止の時点で ok だった段: '
+            + summary.stages.filter(stage => stage.status === 'ok').map(stage => stage.label).join('、'));
+        if (!summary.complete && blocked) {
+            footerLines.push('停止の時点で未完了だった段: ' + blocked.label);
+        }
+    } else {
+        footerLines.push('これは失敗段の記録です（原因の断定ではありません）。');
+    }
     return {
         title,
         stageLines,
         firstErrorLine,
-        reportText: formatPreviewInitReport(summary, context),
-        footerLines
+        reportText: formatPreviewInitReport(summary, { ...context, unresponsive }),
+        footerLines,
+        canReopen: !!summary.rendererGone
     };
 }
 
@@ -187,12 +216,26 @@ export interface PreviewDiagnosticsSubject {
     overlay?: PreviewDiagnosticsOverlay;
     /** 監視までの猶予（ms）。省略時は PREVIEW_DIAGNOSTICS_WATCHDOG_MS。 */
     watchdogMs?: number;
+    /** タブ非表示やウィンドウ最小化中は心拍の欠落を数えない。 */
+    isActive?: () => boolean;
+}
+
+export function shouldDeliverPreviewRendererGone(
+    widget: {
+        isDisposed: boolean;
+        isAttached: boolean;
+        akariPreviewDiagnostics?: PreviewDiagnosticsSession;
+    } | undefined,
+    notice: { at: string; observedAt: number }
+): boolean {
+    return !!widget && !widget.isDisposed && widget.isAttached
+        && !!widget.akariPreviewDiagnostics?.acceptsRendererGoneNotice(notice.at, notice.observedAt);
 }
 
 /** webview から届く報告の形（`akari-preview-diagnostics` メッセージ）。 */
 export interface PreviewDiagnosticsReport {
     type: 'akari-preview-diagnostics';
-    phase: 'ready' | 'stuck' | 'stage' | 'event';
+    phase: 'ready' | 'stuck' | 'stage' | 'event' | 'heartbeat';
     trace?: PreviewInitTrace;
     stage?: PreviewInitStageId;
     status?: PreviewInitStageStatus;
@@ -208,13 +251,15 @@ export function isPreviewDiagnosticsReport(message: unknown): message is Preview
     const candidate = message as PreviewDiagnosticsReport | null | undefined;
     return !!candidate && candidate.type === 'akari-preview-diagnostics'
         && (candidate.phase === 'ready' || candidate.phase === 'stuck'
-            || candidate.phase === 'stage' || candidate.phase === 'event');
+            || candidate.phase === 'stage' || candidate.phase === 'event' || candidate.phase === 'heartbeat');
 }
 
 export class PreviewDiagnosticsSession {
     readonly trace: PreviewInitTrace = createPreviewInitTrace(PREVIEW_INIT_STAGES);
     readonly role: string;
+    readonly createdAt: number;
     protected watchdog: unknown;
+    protected heartbeatWatchdog: unknown;
     protected watchdogFired = false;
     protected reported = false;
     protected overlayVisible = false;
@@ -222,12 +267,16 @@ export class PreviewDiagnosticsSession {
     protected assetOrigin: string | undefined;
     protected userAgent: string | undefined;
     protected disposed = false;
+    protected unresponsive = false;
+    protected ready = false;
+    protected missingHeartbeatMs = 0;
 
     constructor(
         protected readonly io: PreviewDiagnosticsIo,
         protected readonly log: PreviewDiagnosticsLog,
         readonly subject: PreviewDiagnosticsSubject
     ) {
+        this.createdAt = this.io.now();
         this.role = describePreviewWebviewRole(subject.id).label;
         this.log.append({
             at: this.io.nowIso(),
@@ -258,7 +307,7 @@ export class PreviewDiagnosticsSession {
     }
 
     markStage(stage: PreviewInitStageId, status: PreviewInitStageStatus, detail?: string): void {
-        if (this.disposed) return;
+        if (this.disposed || this.trace.rendererGone) return;
         markPreviewInitStage(this.trace, stage, status, { at: this.io.now(), ...(detail === undefined ? {} : { detail }) });
         if (status !== 'pending') {
             this.log.append({
@@ -280,7 +329,19 @@ export class PreviewDiagnosticsSession {
 
     /** ページ側から届いた報告を取り込む。信用せず形だけ検査する（webview は別プロセス）。 */
     ingest(report: PreviewDiagnosticsReport): void {
-        if (this.disposed) return;
+        if (this.disposed || this.trace.rendererGone) return;
+        if (report.phase === 'heartbeat') {
+            if (this.ready) {
+                this.missingHeartbeatMs = 0;
+                if (this.unresponsive && this.overlayVisible) {
+                    this.subject.overlay?.hide();
+                    this.overlayVisible = false;
+                    this.unresponsive = false;
+                }
+                this.armHeartbeat();
+            }
+            return;
+        }
         if (report.frameEngine !== undefined) this.frameEngine = report.frameEngine === true;
         if (typeof report.assetOrigin === 'string') this.assetOrigin = report.assetOrigin;
         if (typeof report.userAgent === 'string') this.userAgent = report.userAgent.slice(0, 300);
@@ -329,7 +390,7 @@ export class PreviewDiagnosticsSession {
     }
 
     protected arm(): void {
-        if (this.watchdog !== undefined || this.watchdogFired) return;
+        if (this.watchdog !== undefined || this.watchdogFired || this.trace.rendererGone) return;
         const delay = typeof this.subject.watchdogMs === 'number' && this.subject.watchdogMs > 0
             ? this.subject.watchdogMs
             : PREVIEW_DIAGNOSTICS_WATCHDOG_MS;
@@ -351,11 +412,17 @@ export class PreviewDiagnosticsSession {
     }
 
     protected settle(): void {
+        if (this.trace.rendererGone) return;
         if (this.watchdog !== undefined) {
             this.io.clearTimeout(this.watchdog);
             this.watchdog = undefined;
         }
         const summary = summarizePreviewInit(this.trace);
+        if (summary.complete) {
+            this.ready = true;
+            this.missingHeartbeatMs = 0;
+            this.armHeartbeat();
+        }
         if (summary.complete && this.overlayVisible) {
             this.subject.overlay?.hide();
             this.overlayVisible = false;
@@ -363,8 +430,24 @@ export class PreviewDiagnosticsSession {
         this.log.append(this.entryFor('report', summary));
     }
 
+    protected armHeartbeat(): void {
+        if (this.heartbeatWatchdog !== undefined) this.io.clearTimeout(this.heartbeatWatchdog);
+        this.heartbeatWatchdog = this.io.setTimeout(() => {
+            this.heartbeatWatchdog = undefined;
+            if (this.disposed || this.trace.rendererGone || !this.ready) return;
+            this.missingHeartbeatMs = (this.subject.isActive?.() ?? true)
+                ? this.missingHeartbeatMs + PREVIEW_DIAGNOSTICS_HEARTBEAT_CHECK_MS : 0;
+            if (!this.unresponsive && this.missingHeartbeatMs >= PREVIEW_DIAGNOSTICS_WATCHDOG_MS) {
+                this.surface('watchdog');
+            }
+            this.armHeartbeat();
+        }, PREVIEW_DIAGNOSTICS_HEARTBEAT_CHECK_MS);
+    }
+
     /** 画面へ出す（既に出ていれば最新内容で描き替える）。 */
     protected surface(cause: 'watchdog' | 'stage-failed' | 'webview-stuck'): void {
+        if (this.trace.rendererGone) return;
+        this.unresponsive = cause === 'watchdog';
         const summary = summarizePreviewInit(this.trace);
         this.log.append({
             ...this.entryFor(cause === 'watchdog' ? 'watchdog' : 'report', summary),
@@ -372,8 +455,37 @@ export class PreviewDiagnosticsSession {
         });
         const overlay = this.subject.overlay;
         if (!overlay) return;
-        overlay.show(buildPreviewDiagnosticsOverlayModel(summary, this.context(), this.log.location()));
+        overlay.show(buildPreviewDiagnosticsOverlayModel(summary, this.context(), this.log.location(), this.unresponsive));
         this.overlayVisible = true;
+    }
+
+    rendererGone(gone: PreviewRendererGone): void {
+        if (this.disposed || this.trace.rendererGone) return;
+        this.trace.rendererGone = gone;
+        this.unresponsive = false;
+        if (this.watchdog !== undefined) {
+            this.io.clearTimeout(this.watchdog);
+            this.watchdog = undefined;
+        }
+        if (this.heartbeatWatchdog !== undefined) {
+            this.io.clearTimeout(this.heartbeatWatchdog);
+            this.heartbeatWatchdog = undefined;
+        }
+        const summary = summarizePreviewInit(this.trace);
+        this.log.append({
+            ...this.entryFor('renderer-gone', summary),
+            at: gone.at,
+            rendererGone: gone
+        });
+        this.subject.overlay?.show(buildPreviewDiagnosticsOverlayModel(summary, this.context(), this.log.location()));
+        this.overlayVisible = !!this.subject.overlay;
+    }
+
+    acceptsRendererGoneNotice(at: string, observedAt: number): boolean {
+        const noticeAt = Date.parse(at);
+        return !this.disposed && !this.trace.rendererGone
+            && Number.isFinite(noticeAt) && noticeAt >= this.createdAt
+            && Number.isFinite(observedAt) && observedAt >= this.createdAt;
     }
 
     protected entryFor(
@@ -411,6 +523,18 @@ export class PreviewDiagnosticsSession {
 
     /** 再読込（setHTML のやり直し）で段をやり直す。ホスト側で到達済みの段は保持する。 */
     restartPageStages(): void {
+        this.trace.rendererGone = undefined;
+        this.unresponsive = false;
+        this.ready = false;
+        this.missingHeartbeatMs = 0;
+        if (this.heartbeatWatchdog !== undefined) {
+            this.io.clearTimeout(this.heartbeatWatchdog);
+            this.heartbeatWatchdog = undefined;
+        }
+        if (this.overlayVisible) {
+            this.subject.overlay?.hide();
+            this.overlayVisible = false;
+        }
         for (const stage of this.trace.stages) {
             if (stage.side !== 'webview') continue;
             stage.status = 'pending';
@@ -430,6 +554,10 @@ export class PreviewDiagnosticsSession {
             this.io.clearTimeout(this.watchdog);
             this.watchdog = undefined;
         }
+        if (this.heartbeatWatchdog !== undefined) {
+            this.io.clearTimeout(this.heartbeatWatchdog);
+            this.heartbeatWatchdog = undefined;
+        }
         if (this.overlayVisible) {
             this.subject.overlay?.hide();
             this.overlayVisible = false;
@@ -438,7 +566,9 @@ export class PreviewDiagnosticsSession {
 
     /** 「診断をコピー」。クリップボードが使えない環境でも表示は保つ。 */
     copyReport(): string {
-        const text = formatPreviewInitReport(summarizePreviewInit(this.trace), this.context());
+        const text = formatPreviewInitReport(summarizePreviewInit(this.trace), {
+            ...this.context(), unresponsive: this.unresponsive
+        });
         try {
             this.io.copyText?.(text);
         } catch (error) {
@@ -502,7 +632,7 @@ export class PreviewDiagnosticsCenter {
  */
 export function createDomPreviewDiagnosticsOverlay(
     node: HTMLElement,
-    handlers: { onCopy: () => void }
+    handlers: { onCopy: () => void; onReopen?: () => void }
 ): PreviewDiagnosticsOverlay {
     const document = node.ownerDocument;
     let root: HTMLElement | undefined;
@@ -538,7 +668,11 @@ export function createDomPreviewDiagnosticsOverlay(
         copyButton.type = 'button';
         copyButton.textContent = '診断をコピー';
         copyButton.dataset.akariPreviewDiagnostics = 'copy';
-        for (const button of [detailsButton, copyButton]) {
+        const reopenButton = document.createElement('button');
+        reopenButton.type = 'button';
+        reopenButton.textContent = '開き直す';
+        reopenButton.dataset.akariPreviewDiagnostics = 'reopen';
+        for (const button of [detailsButton, copyButton, reopenButton]) {
             button.style.border = '1px solid rgba(255,255,255,0.45)';
             button.style.borderRadius = '4px';
             button.style.padding = '2px 8px';
@@ -552,7 +686,9 @@ export function createDomPreviewDiagnosticsOverlay(
             render();
         });
         copyButton.addEventListener('click', () => handlers.onCopy());
+        reopenButton.addEventListener('click', () => handlers.onReopen?.());
         band.append(title, detailsButton, copyButton);
+        if (current.canReopen && handlers.onReopen) band.append(reopenButton);
         root.append(band);
         if (!expanded) return;
         const body = document.createElement('pre');

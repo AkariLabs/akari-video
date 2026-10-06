@@ -15,7 +15,6 @@ import { AkariProjectService } from 'akari-project/lib/common/akari-project-prot
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { OPEN_AKARI_DAIHON } from '../akari-transcript-commands';
-import { AkariCutsWidget } from './akari-cuts-widget';
 import { AkariDaihonWidget } from './akari-daihon-widget';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
@@ -23,7 +22,7 @@ import { DaihonOpenTarget } from '../../common/daihon-focus-target';
 import { setDaihonHistoryService } from '../../common/captions-button';
 
 const DAIHON_PANEL_RANK = 190;
-export const OPEN_AKARI_CUTS: Command = { id: 'akari.cuts.open', label: 'カット候補を開く' };
+export const OPEN_AKARI_CUTS: Command = { id: 'akari.cuts.open', label: 'カットを整える' };
 export const AKARI_TRANSCRIBE_OPEN_DIALOG: Command = { id: 'akari.transcribe.openDialog', label: '文字起こしのポップアップを開く' };
 
 @injectable()
@@ -55,6 +54,15 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
                     type: 'boolean',
                     default: true,
                     description: '台本の本文に自動・手置きの表示区切りを表示する'
+                },
+                'akari.daihon.showCutMarks': {
+                    type: 'boolean', default: true, description: '台本の本文にカット候補の印を表示する'
+                },
+                'akari.daihon.silenceMin': {
+                    type: 'number', default: 0.45, minimum: 0, description: 'カット候補にする無音の長さ（秒）'
+                },
+                'akari.daihon.silenceKeep': {
+                    type: 'number', default: 0.15, minimum: 0, description: '無音カットで残す長さ（秒）'
                 },
                 'akari.daihon.attachmentMode': {
                     type: 'string',
@@ -100,19 +108,12 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
         return guardInitLayout('akari-transcript', async () => {
             // Layout must finish even when project files or a widget factory are unavailable.
             let daihon: AkariDaihonWidget | undefined;
-            let cuts: AkariCutsWidget | undefined;
             try {
                 daihon = await this.ensureWidget();
             } catch (error) {
                 console.warn('[akari-daihon] layout initialization failed', error);
             }
-            try {
-                cuts = await this.ensureCutsWidget();
-            } catch (error) {
-                console.warn('[akari-cuts] layout initialization failed', error);
-            }
-            // Attach both tabs before starting independent reads; never await configuration here.
-            for (const widget of [daihon, cuts]) {
+            for (const widget of [daihon]) {
                 if (!widget) continue;
                 try {
                     void widget.configure().catch(error => widget.showError(error));
@@ -124,15 +125,9 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
     }
 
     async openCuts(request?: { candidateId?: string }): Promise<boolean> {
-        const widget = await this.ensureCutsWidget();
+        const widget = await this.ensureWidget();
         await this.shell.activateWidget(widget.id);
-        return request?.candidateId ? widget.focusCandidate(request.candidateId) : true;
-    }
-
-    protected async ensureCutsWidget(): Promise<AkariCutsWidget> {
-        const cuts = await this.widgetManager.getOrCreateWidget<AkariCutsWidget>(AkariCutsWidget.FACTORY_ID);
-        if (!cuts.isAttached) this.shell.addWidget(cuts, { area: 'right', rank: DAIHON_PANEL_RANK + 1 });
-        return cuts;
+        return widget.openCutDialog(request);
     }
 
     async open(target?: DaihonOpenTarget): Promise<boolean> {

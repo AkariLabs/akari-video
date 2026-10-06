@@ -14,9 +14,9 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 const { computeRightPanelOrder } = require('../lib/browser/right-panel-order.js');
 
-const FIXED_ORDER = ['partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector', 'akari-audio-meter-widget'];
+const FIXED_ORDER = ['partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector', 'akari-audio-meter-widget'];
 
-test('actual fixed order pins partner / daihon / cuts / review / inspector / meter and mirrors factory IDs', () => {
+test('actual fixed order pins partner / daihon / review / inspector / meter and mirrors factory IDs', () => {
     const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
     const source = ts.createSourceFile('contribution.ts', read('../src/browser/akari-annotations-contribution.ts'), ts.ScriptTarget.Latest, true);
     const declarations = source.statements.filter(ts.isVariableStatement)
@@ -35,7 +35,6 @@ test('actual fixed order pins partner / daihon / cuts / review / inspector / met
     const reviewId = factoryId('../src/browser/akari-review-panel-widget.ts');
     const inspectorId = factoryId('../src/browser/akari-inspector-widget.ts');
     const daihonId = factoryId('../../akari-transcript/src/browser/daihon/akari-daihon-widget.ts');
-    const cutsId = factoryId('../../akari-transcript/src/browser/daihon/akari-cuts-widget.ts');
     assert.equal(Number(initializer('REVIEW_PANEL_RANK')), 195);
     const audioId = new Function(`return ${initializer('AUDIO_METER_WIDGET_ID')};`)();
     assert.equal(audioId, meterId);
@@ -43,29 +42,28 @@ test('actual fixed order pins partner / daihon / cuts / review / inspector / met
         const PARTNER_WIDGET_ID = ${initializer('PARTNER_WIDGET_ID')};
         const AUDIO_METER_WIDGET_ID = ${initializer('AUDIO_METER_WIDGET_ID')};
         const DAIHON_WIDGET_ID = ${initializer('DAIHON_WIDGET_ID')};
-        const CUTS_WIDGET_ID = ${initializer('CUTS_WIDGET_ID')};
         return ${initializer('RIGHT_PANEL_FIXED_ORDER')};
     `)({ FACTORY_ID: reviewId }, { FACTORY_ID: inspectorId });
-    const expected = ['akari-partner-onboarding', daihonId, cutsId, reviewId, inspectorId, meterId];
+    const expected = ['akari-partner-onboarding', daihonId, reviewId, inspectorId, meterId];
     assert.deepEqual(fixed, expected);
-    const current = [cutsId, meterId, 'agent-2', inspectorId, reviewId, 'agent-1', 'akari-daihon-widget', expected[0]];
+    const current = [meterId, 'agent-2', inspectorId, reviewId, 'agent-1', 'akari-daihon-widget', expected[0]];
     const ordered = computeRightPanelOrder(current, fixed);
     assert.deepEqual(ordered, ['agent-2', 'agent-1', ...expected]);
     assert.deepEqual(computeRightPanelOrder(ordered, fixed), ordered);
 });
 
 test('computeRightPanelOrder: already-correct order is a no-op', () => {
-    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector'];
+    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector'];
     assert.deepEqual(computeRightPanelOrder(current, FIXED_ORDER), current);
 });
 
 test('computeRightPanelOrder: repro of the reported bug — fixed 3 pinned ahead of an existing agent tab', () => {
     // reconcileRightPanelOrder() 旧実装（tabBar.insertTab(0..2, …) で固定 3 枚を絶対位置へ強奪）
     // が発生させていた壊れた並び。エージェント端末タブが固定 3 枚の下へ押し出されている。
-    const broken = ['partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector', 'agent-1'];
+    const broken = ['partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector', 'agent-1'];
     assert.deepEqual(
         computeRightPanelOrder(broken, FIXED_ORDER),
-        ['agent-1', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector']
+        ['agent-1', 'partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector']
     );
 });
 
@@ -79,10 +77,10 @@ test('computeRightPanelOrder: multiple agent tabs keep their existing relative o
 
 test('computeRightPanelOrder: newly-added agent tab lands ahead of the fixed 3 (acceptance (b))', () => {
     // rank 挿入で既に先頭寄りに入った状態からの再調整（reconcile は冪等であるべき）。
-    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector'];
+    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector'];
     assert.deepEqual(
         computeRightPanelOrder(current, FIXED_ORDER),
-        ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector']
+        ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector']
     );
 });
 
@@ -116,8 +114,8 @@ test('review right-dock tab is unclosable while the temporary timeline remains c
 const rail = require('../lib/browser/right-panel-order.js');
 const RAIL_FIXED = rail.RIGHT_RAIL_FIXED_ORDER;
 
-test('RIGHT_RAIL_FIXED_ORDER mirrors the contribution fixed order (partner → daihon → cuts → review → inspector → meter)', () => {
-    assert.deepEqual([...RAIL_FIXED], ['akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget',
+test('RIGHT_RAIL_FIXED_ORDER mirrors the contribution fixed order (partner → daihon → review → inspector → meter)', () => {
+    assert.deepEqual([...RAIL_FIXED], ['akari-partner-onboarding', 'akari-daihon-widget',
         'akari-review-panel-widget', 'akari-inspector-widget', 'akari-audio-meter-widget']);
     const source = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
     // 並び直しは右パネルハンドラーの所属（railGroupOf）に従う。
@@ -129,7 +127,7 @@ test('RIGHT_RAIL_FIXED_ORDER mirrors the contribution fixed order (partner → d
 test('defaultRightRailGroup: partner onboarding and terminal-<n> are above the line, everything else (incl. unknown) below', () => {
     const table = [
         ['akari-partner-onboarding', 'agent'], ['terminal-0', 'agent'], ['terminal-12', 'agent'],
-        ['akari-daihon-widget', 'lower'], ['akari-cuts-widget', 'lower'], ['akari-review-panel-widget', 'lower'],
+        ['akari-daihon-widget', 'lower'], ['akari-review-panel-widget', 'lower'],
         ['akari-inspector-widget', 'lower'], ['akari-audio-meter-widget', 'lower'], ['outline-view', 'lower'],
         ['terminal-x', 'lower'], ['my-terminal-1', 'lower']
     ];
@@ -149,20 +147,20 @@ test('partner extension view ids come from partner-catalog.json and are above th
 });
 
 test('saved order can reorder both groups while keeping partner onboarding at the top group tail', () => {
-    const ids = ['terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'akari-review-panel-widget'];
-    const saved = ['terminal-1', 'akari-partner-onboarding', 'akari-review-panel-widget', 'akari-cuts-widget', 'akari-daihon-widget'];
+    const ids = ['terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget', 'akari-review-panel-widget'];
+    const saved = ['terminal-1', 'akari-partner-onboarding', 'akari-review-panel-widget', 'akari-daihon-widget'];
     assert.deepEqual(rail.computeRightPanelOrder(ids, RAIL_FIXED, rail.defaultRightRailGroup, saved), saved);
     const crossed = { 'akari-review-panel-widget': 'agent' };
     assert.deepEqual(rail.computeRightPanelOrder(ids, RAIL_FIXED, id => crossed[id] ?? rail.defaultRightRailGroup(id),
-        ['akari-review-panel-widget', 'terminal-1', 'akari-partner-onboarding', 'akari-cuts-widget', 'akari-daihon-widget']),
-    ['akari-review-panel-widget', 'terminal-1', 'akari-partner-onboarding', 'akari-cuts-widget', 'akari-daihon-widget']);
+        ['akari-review-panel-widget', 'terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget']),
+    ['akari-review-panel-widget', 'terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget']);
 });
 
 test('computeRightPanelOrder with groupOf: agents (terminals → partner last) above, fixed lower then loose lower below', () => {
-    const current = ['akari-cuts-widget', 'outline-view', 'terminal-3', 'akari-audio-meter-widget', 'akari-partner-onboarding',
+    const current = ['outline-view', 'terminal-3', 'akari-audio-meter-widget', 'akari-partner-onboarding',
         'akari-inspector-widget', 'terminal-1', 'akari-review-panel-widget', 'akari-daihon-widget'];
     const ordered = rail.computeRightPanelOrder(current, RAIL_FIXED, rail.defaultRightRailGroup);
-    assert.deepEqual(ordered, ['terminal-3', 'terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget',
+    assert.deepEqual(ordered, ['terminal-3', 'terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget',
         'akari-review-panel-widget', 'akari-inspector-widget', 'akari-audio-meter-widget', 'outline-view']);
     assert.deepEqual(rail.computeRightPanelOrder(ordered, RAIL_FIXED, rail.defaultRightRailGroup), ordered, 'idempotent');
 });
@@ -170,13 +168,13 @@ test('computeRightPanelOrder with groupOf: agents (terminals → partner last) a
 test('computeRightPanelOrder with groupOf: a panel moved above the line sits before "パートナーを追加", a terminal moved below goes last', () => {
     const overrides = { 'akari-review-panel-widget': 'agent', 'terminal-1': 'lower' };
     const groupOf = id => overrides[id] ?? rail.defaultRightRailGroup(id);
-    const current = ['terminal-1', 'terminal-2', 'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget',
+    const current = ['terminal-1', 'terminal-2', 'akari-partner-onboarding', 'akari-daihon-widget',
         'akari-review-panel-widget', 'akari-inspector-widget'];
     assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED, groupOf), ['terminal-2', 'akari-review-panel-widget',
-        'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'akari-inspector-widget', 'terminal-1']);
+        'akari-partner-onboarding', 'akari-daihon-widget', 'akari-inspector-widget', 'terminal-1']);
 });
 
 test('computeRightPanelOrder without groupOf keeps the legacy behaviour (loose first, fixed last)', () => {
-    const current = ['akari-cuts-widget', 'terminal-1', 'akari-partner-onboarding'];
-    assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED), ['terminal-1', 'akari-partner-onboarding', 'akari-cuts-widget']);
+    const current = ['akari-review-panel-widget', 'terminal-1', 'akari-partner-onboarding'];
+    assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED), ['terminal-1', 'akari-partner-onboarding', 'akari-review-panel-widget']);
 });

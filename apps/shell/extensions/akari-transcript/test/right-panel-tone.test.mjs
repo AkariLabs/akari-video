@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { readAllSourceText } from './helpers/daihon-source.mjs';
 
-const cuts = readFileSync(new URL('../src/browser/daihon/akari-cuts-widget.ts', import.meta.url), 'utf8');
 const daihon = readAllSourceText();
 const style = daihon.match(/const STYLE = `([\s\S]*?)`;/)[1];
 const rule = selector => {
@@ -29,42 +28,19 @@ const contrast = (foreground, background) => {
 };
 const declaration = (css, property) => css.match(new RegExp(`(?:^|[;{])\\s*${property}:([^;]+);`))?.[1].trim();
 
-test('カットと台本の面・文字・枠は共通テーマの色を使う', () => {
-    for (const source of [cuts, daihon]) assert.doesNotMatch(source, /#20242b|#1b1f26/i);
-    assert.match(cuts, /background: 'var\(--theia-editor-background\)'/);
-    assert.match(cuts, /color: 'var\(--akari-ink, var\(--theia-foreground\)\)'/);
-    assert.match(cuts, /background: 'var\(--akari-card\)'/);
-    assert.match(cuts, /'var\(--akari-accent\)' : 'var\(--akari-line\)'/);
+test('台本の面・文字・枠は共通テーマの色を使う', () => {
+    assert.doesNotMatch(daihon, /#20242b|#1b1f26/i);
     assert.match(rule('.akari-daihon-widget'), /background:var\(--theia-editor-background\); color:var\(--akari-ink, var\(--theia-foreground\)\)/);
     assert.doesNotMatch(style, /#2a303a|#262c37|#e9ecf2|#171b21|#12151a|#333b48/i);
     assert.match(rule('.akari-daihon-word'), /color:var\(--akari-muted\)/);
     assert.match(rule('.akari-daihon-word.past'), /color:var\(--akari-ink, var\(--theia-foreground\)\)/);
 });
 
-test('カットのフッターボタンは生成後にテーマ色で上書きし、順序と disabled を維持する', () => {
-    const footer = cuts.slice(cuts.indexOf("this.foot.replaceChildren(transcribeElement('p'"));
-    const buttons = [...footer.matchAll(/const (\w+) = transcribeButton\('([^']+)'/g)].map(match => match.slice(1));
-    assert.deepEqual(buttons, [['previewButton', 'プレビューで見る'], ['timelineButton', 'タイムラインへ']]);
-    assert.equal([...footer.matchAll(/\}, !first\);/g)].length, 2);
-    const overrideStart = footer.indexOf('for (const button of [previewButton, timelineButton]) {');
-    const append = footer.indexOf('this.foot.append(previewButton, timelineButton);');
-    assert.ok(overrideStart > footer.lastIndexOf('}, !first);'), '両ボタンの生成後に上書きする');
-    assert.ok(append > overrideStart, '上書きした同じ2ボタンを元の順序で append する');
-    const override = footer.slice(overrideStart, append);
-    assert.match(override, /Object\.assign\(button\.style, \{/);
-    assert.match(override, /background: 'var\(--akari-elevated\)'/);
-    assert.match(override, /border: '1px solid var\(--akari-line\)'/);
-    assert.match(override, /color: 'var\(--akari-ink, var\(--theia-foreground\)\)'/);
-    assert.doesNotMatch(override, /disabled|opacity|cursor|addEventListener|onclick/);
-    assert.match(footer, /listenTranscribeRange\(this\.commands, this\.shell, this\.opener/);
-    assert.match(footer, /this\.service\.applyCutsToEdit\(request\)/);
-});
-
 test('台本の内側見出しだけを隠し、ヘッダーの寸法と他の操作・タブ名を維持する', () => {
     assert.match(rule('.akari-daihon-title'), /visibility:hidden/);
     assert.doesNotMatch(rule('.akari-daihon-head'), /display:none|height:0/);
     assert.match(rule('.akari-daihon-head'), /gap:7px; padding:8px 11px/);
-    assert.match(daihon, /header\.append\(title, this\.count, spacer, this\.captionsButton, this\.placeTextButton, this\.retimeButton, this\.historyButton, this\.displayButton, this\.tplButton, this\.qcButton, this\.silenceButton, this\.cutsButton\)/);
+    assert.match(daihon, /header\.append\(title, this\.count, spacer, this\.captionsButton, this\.placeTextButton, this\.retimeButton, this\.historyButton, this\.displayButton, this\.tplButton, this\.qcButton, this\.cutsButton\)/);
     assert.match(daihon, /this\.title\.label = '台本'/);
 });
 
@@ -143,7 +119,6 @@ for (const [selector, original, threshold] of stateTextRules) {
     });
 }
 
-test('台本 STYLE とカットに生の hex 文字色を残さない', () => {
+test('台本 STYLE に生の hex 文字色を残さない', () => {
     assert.doesNotMatch(style, /[;{]\s*color:\s*#[\da-f]+\s*;/i);
-    assert.doesNotMatch(cuts, /(?:\bcolor:\s*|\.style\.color\s*=\s*)['"]#[\da-f]+['"]/i);
 });

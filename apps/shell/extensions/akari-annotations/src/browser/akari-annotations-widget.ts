@@ -18305,9 +18305,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.hideNotice();
         this.revealOutputPreview();
+        const label = execution.entry.label.startsWith('「') ? execution.entry.label : `「${execution.entry.label}」`;
         this.footer.textContent = execution.kind === 'undo'
-            ? `${execution.entry.label}を元に戻しました。`
-            : `${execution.entry.label}をやり直しました。`;
+            ? `${label}を元に戻しました。`
+            : `${label}をやり直しました。`;
     }
 
     protected clipboardSelections(): TimelineSelectionItem[] {

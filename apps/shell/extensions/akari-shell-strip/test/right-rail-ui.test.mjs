@@ -1,5 +1,5 @@
-// 右レールの見た目と配線（task 2026-09-22-right-rail-regroup）: 5 パネルのアイコンが試作の線画
-// （ハサミ / 紙 / 吹き出し / つまみ / レベルのバー）になっていること、レールのホバーは Theia の遅延
+// 右レールの見た目と配線（task 2026-09-22-right-rail-regroup）: 4 パネルのアイコンが試作の線画
+// （紙 / 吹き出し / つまみ / レベルのバー）になっていること、レールのホバーは Theia の遅延
 // ツールチップを止めて名前（label）だけを出すこと、ハンドラーとドラッグの配線、押す / ドラッグの判別。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,14 +13,13 @@ const gesture = require('../lib/browser/right-rail-drag-gesture.js');
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 const WIDGETS = {
-    cuts: '../../akari-transcript/src/browser/daihon/akari-cuts-widget.ts',
     daihon: '../../akari-transcript/src/browser/daihon/akari-daihon-widget.ts',
     review: '../../akari-annotations/src/browser/akari-review-panel-widget.ts',
     inspector: '../../akari-annotations/src/browser/akari-inspector-widget.ts',
     audioMeter: '../../akari-preview/src/browser/akari-audio-meter-widget.ts'
 };
 
-test('the five right-rail widgets use the line-art icon classes (no codicon)', () => {
+test('the four right-rail widgets use the line-art icon classes (no codicon)', () => {
     for (const [key, path] of Object.entries(WIDGETS)) {
         const lines = read(path).split('\n').filter(line => line.includes('this.title.iconClass'));
         assert.equal(lines.length, 1, path);
@@ -28,11 +27,8 @@ test('the five right-rail widgets use the line-art icon classes (no codicon)', (
     }
 });
 
-test('icon shapes are the prototype strokes: scissors / paper / speech bubble / sliders / level bars', () => {
+test('icon shapes are the prototype strokes: paper / speech bubble / sliders / level bars', () => {
     const P = icons.RIGHT_RAIL_ICON_PATHS;
-    // ハサミ = 2 つの輪 + 交差する 2 本の刃。
-    assert.equal((P.cuts.match(/<circle/g) ?? []).length, 2);
-    assert.match(P.cuts, /M8 8\.5L19 18M8 15\.5L19 6/);
     // 紙 = 角を折った紙 + 行。
     assert.match(P.daihon, /M7 3h7l4 4v14H7z/);
     // 吹き出し = 尾のついた枠。

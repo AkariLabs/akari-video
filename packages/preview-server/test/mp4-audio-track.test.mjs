@@ -43,6 +43,8 @@ function fixture({
   elstV1 = false,
   sampleVersion = 0,
   waveEsds = false,
+  stszCount = 8,
+  commonSize = 0,
 } = {}) {
   const ftyp = box('ftyp', ascii('isom'), u32(0));
   const media = bytes(...Array.from({ length: 32 }, (_, index) => index + 1));
@@ -72,7 +74,8 @@ function fixture({
     const stsd = fullBox('stsd', u32(1), entry);
     const stts = fullBox('stts', u32(1), u32(8), u32(1024));
     const stsc = fullBox('stsc', u32(1), u32(1), u32(8), u32(1));
-    const stsz = fullBox('stsz', u32(0), u32(8), ...Array(8).fill(u32(4)));
+    const stsz = fullBox('stsz', u32(commonSize), u32(stszCount),
+      ...(commonSize ? [] : Array(8).fill(u32(4))));
     const offsets = co64 ? fullBox('co64', u32(1), u64(mediaOffset)) : fullBox('stco', u32(1), u32(mediaOffset));
     const stbl = box('stbl', stsd, stts, stsc, stsz, offsets);
     const minf = box('minf', stbl);
@@ -135,7 +138,7 @@ test('faststart と co64 でも同じ packet 表になる', async () => {
   const data = fixture({ faststart: true, co64: true });
   const track = new Mp4AudioTrack({ src: '/fast.mp4', fetchFn: rangeFetch(data.file) });
   await track.open();
-  assert.deepEqual(track.info.samples.map(item => item.offset), [0, 4, 8, 12, 16, 20, 24, 28].map(n => data.mediaOffset + n));
+  assert.deepEqual([...track.info.samples.offsets], [0, 4, 8, 12, 16, 20, 24, 28].map(n => data.mediaOffset + n));
 });
 
 test('elst media_time を提示時刻と packet 探索へ適用する', () => {
@@ -147,7 +150,7 @@ test('elst media_time を提示時刻と packet 探索へ適用する', () => {
   const track = new Mp4AudioTrack({ src: '/edit.mp4' });
   track.info = info;
   const window = track.packetsAround(0);
-  assert.deepEqual(window.packets.map(item => item.index), [0, 1, 2, 3, 4, 5, 6]);
+  assert.deepEqual([...window.packets], [0, 1, 2, 3, 4, 5, 6]);
   assert.equal(window.windowStartSec, -1024 / 48000);
   assert.equal(window.rawStartTick, 0);
 });
@@ -172,6 +175,7 @@ test('Opus sample entry は解析に成功し未対応として返る', async ()
   await track.open();
   assert.equal(track.info.codec, 'Opus');
   assert.equal(track.info.supported, false);
+  assert.deepEqual(track.info.samples, []);
   assert.deepEqual(track.decoderConfig(), {
     codec: 'Opus', sampleRate: 48000, numberOfChannels: 2, description: null,
   });
@@ -198,9 +202,9 @@ test('QuickTime sound sample description v2 の実数 sample rate と channel �
 test('packetsAround は既定7 packet（before 1 / after 5）を端でクランプする', () => {
   const track = new Mp4AudioTrack({ src: '/source.mp4' });
   track.info = parseMp4AudioTrack(fixture().moov);
-  assert.deepEqual(track.packetsAround(0).packets.map(item => item.index), [0, 1, 2, 3, 4, 5]);
-  assert.deepEqual(track.packetsAround(2 * 1024 / 48000).packets.map(item => item.index), [1, 2, 3, 4, 5, 6, 7]);
-  assert.deepEqual(track.packetsAround(7 * 1024 / 48000).packets.map(item => item.index), [6, 7]);
+  assert.deepEqual([...track.packetsAround(0).packets], [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual([...track.packetsAround(2 * 1024 / 48000).packets], [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual([...track.packetsAround(7 * 1024 / 48000).packets], [6, 7]);
 });
 
 test('maxGapBytes 以下の packet 間隙を同じ Range にまとめる', () => {
@@ -208,11 +212,13 @@ test('maxGapBytes 以下の packet 間隙を同じ Range にまとめる', () =>
   track.info = {
     timescale: 1000,
     editOffsetTicks: 0,
-    samples: [
-      { index: 0, offset: 100, size: 4, dts: 0, duration: 100 },
-      { index: 1, offset: 110, size: 4, dts: 100, duration: 100 },
-      { index: 2, offset: 120, size: 4, dts: 200, duration: 100 },
-    ],
+    samples: {
+      length: 3,
+      offsets: Float64Array.from([100, 110, 120]),
+      sizes: Uint32Array.from([4, 4, 4]),
+      dts: Float64Array.from([0, 100, 200]),
+      durations: Uint32Array.from([100, 100, 100]),
+    },
   };
   assert.deepEqual(track.packetsAround(0.1, { before: 1, after: 1 }).ranges, [
     { start: 100, end: 103 }, { start: 110, end: 113 }, { start: 120, end: 123 },
@@ -220,6 +226,56 @@ test('maxGapBytes 以下の packet 間隙を同じ Range にまとめる', () =>
   assert.deepEqual(track.packetsAround(0.1, { before: 1, after: 1, maxGapBytes: 6 }).ranges, [
     { start: 100, end: 123 },
   ]);
+});
+
+test('非 mp4a の巨大な固定サイズ stsz は展開せずに返す', () => {
+  for (const codec of ['twos', 'lpcm', 'ipcm']) {
+    const moov = fixture({ codec, stszCount: 377_825_520, commonSize: 4 }).moov;
+    const started = performance.now();
+    const info = parseMp4AudioTrack(moov);
+    assert.equal(info.supported, false);
+    assert.deepEqual(info.samples, []);
+    assert.equal(info.durationSec, 8192 / 48000);
+    assert.ok(performance.now() - started < 100, `${codec} should return promptly`);
+  }
+});
+
+test('AAC の上限超過と偽の stsz 件数を拒否する', () => {
+  assert.throws(() => parseMp4AudioTrack(fixture({ stszCount: 20_000_001, commonSize: 4 }).moov),
+    /audio sample table is too large: 20000001/);
+  assert.throws(() => parseMp4AudioTrack(fixture({ stszCount: 9 }).moov),
+    /stsz sample table exceeds box size/);
+});
+
+test('stts・stsc・stco の件数が box 実寸を超えたら拒否する', () => {
+  for (const type of ['stts', 'stsc', 'stco']) {
+    const moov = fixture().moov.slice();
+    const signature = ascii(type);
+    let body = -1;
+    for (let index = 0; index < moov.length - 4; index++) {
+      if (signature.every((byte, part) => moov[index + part] === byte)) {
+        body = index + 4;
+        break;
+      }
+    }
+    assert.ok(body > 0);
+    new DataView(moov.buffer).setUint32(body + 4, 100);
+    assert.throws(() => parseMp4AudioTrack(moov), new RegExp(`${type} sample table exceeds box size`));
+  }
+});
+
+test('AAC フィクスチャの列配列は従来と同じ時刻と位置を返す', () => {
+  const { moov, mediaOffset } = fixture();
+  const info = parseMp4AudioTrack(moov);
+  assert.equal(info.samples.length, 8);
+  assert.ok(info.samples.sizes instanceof Uint32Array);
+  assert.ok(info.samples.durations instanceof Uint32Array);
+  assert.ok(info.samples.offsets instanceof Float64Array);
+  assert.ok(info.samples.dts instanceof Float64Array);
+  assert.deepEqual([...info.samples.offsets], Array.from({ length: 8 }, (_, i) => mediaOffset + i * 4));
+  assert.deepEqual([...info.samples.dts], Array.from({ length: 8 }, (_, i) => i * 1024));
+  assert.deepEqual([...info.samples.durations], Array(8).fill(1024));
+  assert.equal(info.durationSec, 8192 / 48000);
 });
 
 test('source 秒数を現在位置の packet 数へ切り上げる', () => {

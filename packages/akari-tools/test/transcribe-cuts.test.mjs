@@ -161,7 +161,7 @@ test("basis は全エンジン 0 件でも優先順、未知の backend 同士�
   assert.equal(pickBasisByFillerHits(unknown).basis, unknown[0]);
 });
 
-test("fixture: filler 3 / redo 1 / silence 2 / unrecognized 1 はすべて既定 OFF", async (t) => {
+test("fixture: filler 3 / redo 1 / silence 3 / unrecognized 1 はすべて既定 OFF", async (t) => {
   const f = await fixture(t);
   let calls = 0;
   const lines = [], errors = [];
@@ -179,17 +179,18 @@ test("fixture: filler 3 / redo 1 / silence 2 / unrecognized 1 はすべて既定
   assert.equal(calls, 1);
   assert.equal(lines.length, 1);
   const summary = JSON.parse(lines[0]);
-  assert.deepEqual(summary.by_kind, { filler: 3, redo: 1, silence: 2, unrecognized: 1 });
+  assert.deepEqual(summary.by_kind, { filler: 3, redo: 1, silence: 3, unrecognized: 1 });
   assert.equal(summary.on, 0);
   const cuts = await readCuts(f);
   assert.equal(cuts.version, 1);
   assert.equal(cuts.basis, "cloud-scribe");
   assert.equal(cuts.basis_reason, "filler_hits=3 (cloud-scribe) > 3 (whisper-cpp) > 0 (speech-analyzer)");
   assert.equal(summary.basis_reason, cuts.basis_reason);
-  assert.deepEqual(cuts.rules, { filler: "off", redo: "off", silence_min_sec: 1.5, silence_keep_sec: 0.5, silence_break_sec: 3, unrecognized: "off" });
+  assert.deepEqual(cuts.rules, { filler: "off", redo: "off", silence_min_sec: 0.45, silence_keep_sec: 0.15, silence_break_sec: 3, unrecognized: "off" });
   assert.deepEqual(cuts.hand_edited, []);
   assert.ok(cuts.candidates.every((c) => c.default_on === false && c.on === false));
-  assert.deepEqual(cuts.candidates.filter((c) => c.kind === "silence").map((c) => [c.start, c.end, c.on]), [[23, 24.9, false], [26, 29.2, false]]);
+  assert.deepEqual(cuts.candidates.filter((c) => c.kind === "silence").map((c) => [c.start, c.end, c.on]),
+    [[21, 22.25, false], [23, 25.25, false], [26, 29.55, false]]);
   assert.ok(cuts.candidates.find((c) => c.kind === "unrecognized").on === false);
   const fillers = cuts.candidates.filter((c) => c.kind === "filler");
   assert.equal(fillers[0].timing, undefined);
