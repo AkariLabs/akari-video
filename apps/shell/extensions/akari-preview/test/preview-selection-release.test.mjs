@@ -269,7 +269,7 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
             document: { getElementById: () => ({ getBoundingClientRect: () => ({ width: 800 * zoom, height: 450 * zoom }) }) },
             window: { akari: { stageScale: () => scale } },
             summary: { output: { width: 1280, height: 720 } }, selectedCaptionId: 'c1',
-            captionSelectBox: { style: { setProperty() {} }, classList: { add() {} },
+            captionSelectBox: { style: { setProperty() {} }, classList: { add() {}, remove() {} },
                 querySelector: () => null, querySelectorAll: () => [],
                 getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 40 }),
                 offsetWidth: 100, offsetHeight: 40 },
@@ -280,7 +280,17 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
             captionLayoutRect: () => plate, captionTransformValues: () => ({ scale: 1, rotate: 0 }),
             captionOrientedFrameFn: captionOrientedFrame,
             captionPlate: {
-                querySelector: () => null, querySelectorAll: () => [],
+                isConnected: true,
+                querySelector: () => null,
+                querySelectorAll: selector => selector === '.akari-caption__line' ? [{
+                    isConnected: true,
+                    getBoundingClientRect: () => ({
+                        left: left + plate.left * scale * zoom, right: left + plate.right * scale * zoom,
+                        top: top + plate.top * scale * zoom, bottom: top + plate.bottom * scale * zoom,
+                        width: (plate.right - plate.left) * scale * zoom,
+                        height: (plate.bottom - plate.top) * scale * zoom
+                    })
+                }] : [],
                 getBoundingClientRect: () => ({
                     left: left + plate.left * scale * zoom, right: left + plate.right * scale * zoom,
                     top: top + plate.top * scale * zoom, bottom: top + plate.bottom * scale * zoom

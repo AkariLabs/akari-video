@@ -187,6 +187,7 @@ test('mixed finish saves caption and edit positions, then restores live translat
         captions: [{ id: 'c1', textStyle: { text_anchor: 'mc' }, timeDomain: 'output' }],
         frameCaptionPosition: (_caption, position) => position,
         captionPositionFromVisualRect: movedRect => ({ anchor: 'mc', position: { y: movedRect.top / 100 } }),
+        captionVisualRect: () => ({}), captionLayoutRect: () => ({}),
         captionOutputFrame: () => ({}), captionClampEnabled: () => true,
         findLayerEntry: () => ({ spec: { transform: { x: 1, y: 2 } } }),
         summary: { overlays: [{ id: 'overlay-1', transform: { x: 3, y: 4 } }] },
