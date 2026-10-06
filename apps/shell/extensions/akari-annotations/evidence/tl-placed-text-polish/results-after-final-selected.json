@@ -1,0 +1,295 @@
+{
+  "metrics": {
+    "plate": {
+      "x": 364.3359375,
+      "y": 40.00390625,
+      "width": 277.328125,
+      "height": 155.9970703125
+    },
+    "line": {
+      "x": 405.9351501464844,
+      "y": 163.17489624023438,
+      "width": 194.12966918945312,
+      "height": 21.906631469726562
+    },
+    "ink": {
+      "x": 468.333984375,
+      "y": 164.0669403076172,
+      "width": 69.33203125,
+      "height": 20.041290283203125
+    },
+    "box": {
+      "x": 405.97894287109375,
+      "y": 163.15789794921875,
+      "width": 194.35498046875,
+      "height": 21.9051513671875
+    },
+    "plateStyle": "--caption-font-size: 64px; --caption-stroke: 16px #000000; --caption-font-family: \"Noto Sans JP\"; --caption-font-weight: 700; --caption-wrap-width: 70%; --caption-rounded-stroke: 8px 0px 0 #000000,7.846px 1.561px 0 #000000,7.391px 3.061px 0 #000000,6.652px 4.445px 0 #000000,5.657px 5.657px 0 #000000,4.445px 6.652px 0 #000000,3.061px 7.391px 0 #000000,1.561px 7.846px 0 #000000,0px 8px 0 #000000,-1.561px 7.846px 0 #000000,-3.061px 7.391px 0 #000000,-4.445px 6.652px 0 #000000,-5.657px 5.657px 0 #000000,-6.652px 4.445px 0 #000000,-7.391px 3.061px 0 #000000,-7.846px 1.561px 0 #000000,-8px 0px 0 #000000,-7.846px -1.561px 0 #000000,-7.391px -3.061px 0 #000000,-6.652px -4.445px 0 #000000,-5.657px -5.657px 0 #000000,-4.445px -6.652px 0 #000000,-3.061px -7.391px 0 #000000,-1.561px -7.846px 0 #000000,0px -8px 0 #000000,1.561px -7.846px 0 #000000,3.061px -7.391px 0 #000000,4.445px -6.652px 0 #000000,5.657px -5.657px 0 #000000,6.652px -4.445px 0 #000000,7.391px -3.061px 0 #000000,7.846px -1.561px 0 #000000; --caption-plate-margin: auto;",
+    "stroke": {
+      "width": "0px",
+      "color": "rgba(0, 0, 0, 0)",
+      "shadow": "rgb(0, 0, 0) 8px 0px 0px, rgb(0, 0, 0) 7.846px 1.561px 0px, rgb(0, 0, 0) 7.391px 3.061px 0px, rgb(0, 0, 0) 6.652px 4.445px 0px, rgb(0, 0, 0) 5.657px 5.657px 0px, rgb(0, 0, 0) 4.445px 6.652px 0px, rgb(0, 0, 0) 3.061px 7.391px 0px, rgb(0, 0, 0) 1.561px 7.846px 0px, rgb(0, 0, 0) 0px 8px 0px, rgb(0, 0, 0) -1.561px 7.846px 0px, rgb(0, 0, 0) -3.061px 7.391px 0px, rgb(0, 0, 0) -4.445px 6.652px 0px, rgb(0, 0, 0) -5.657px 5.657px 0px, rgb(0, 0, 0) -6.652px 4.445px 0px, rgb(0, 0, 0) -7.391px 3.061px 0px, rgb(0, 0, 0) -7.846px 1.561px 0px, rgb(0, 0, 0) -8px 0px 0px, rgb(0, 0, 0) -7.846px -1.561px 0px, rgb(0, 0, 0) -7.391px -3.061px 0px, rgb(0, 0, 0) -6.652px -4.445px 0px, rgb(0, 0, 0) -5.657px -5.657px 0px, rgb(0, 0, 0) -4.445px -6.652px 0px, rgb(0, 0, 0) -3.061px -7.391px 0px, rgb(0, 0, 0) -1.561px -7.846px 0px, rgb(0, 0, 0) 0px -8px 0px, rgb(0, 0, 0) 1.561px -7.846px 0px, rgb(0, 0, 0) 3.061px -7.391px 0px, rgb(0, 0, 0) 4.445px -6.652px 0px, rgb(0, 0, 0) 5.657px -5.657px 0px, rgb(0, 0, 0) 6.652px -4.445px 0px, rgb(0, 0, 0) 7.391px -3.061px 0px, rgb(0, 0, 0) 7.846px -1.561px 0px"
+    },
+    "handles": [
+      {
+        "kind": "nw",
+        "rect": {
+          "x": 401.9807434082031,
+          "y": 159.15782165527344,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "ne",
+        "rect": {
+          "x": 593.3321533203125,
+          "y": 159.15782165527344,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "sw",
+        "rect": {
+          "x": 401.9807434082031,
+          "y": 178.06312561035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "se",
+        "rect": {
+          "x": 593.3321533203125,
+          "y": 178.06312561035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "e",
+        "rect": {
+          "x": 611.3299560546875,
+          "y": 164.1104736328125,
+          "width": 11,
+          "height": 20
+        }
+      },
+      {
+        "kind": "w",
+        "rect": {
+          "x": 383.9828796386719,
+          "y": 164.1104736328125,
+          "width": 11,
+          "height": 20
+        }
+      },
+      {
+        "kind": "rot",
+        "rect": {
+          "x": 605.7848510742188,
+          "y": 163.1572723388672,
+          "width": 24.99993896484375,
+          "height": 25
+        }
+      },
+      {
+        "kind": "move",
+        "rect": {
+          "x": 633.8179931640625,
+          "y": 163.1572723388672,
+          "width": 25,
+          "height": 25
+        }
+      }
+    ]
+  },
+  "inspector": [
+    {
+      "text": "位置",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "html": "<button type=\"button\" class=\"akari-inspector-section-toggle\" aria-expanded=\"true\">位置<span class=\"akari-inspector-icon\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" focusable=\"fa"
+    }
+  ],
+  "controls": {
+    "zones": [
+      {
+        "zone": "top-left",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "top",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "top-right",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "left",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "center",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "right",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom-left",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "true"
+      },
+      {
+        "zone": "bottom-right",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      }
+    ],
+    "position": [
+      {
+        "field": "caption-position-x",
+        "range": "15",
+        "number": "15"
+      },
+      {
+        "field": "caption-position-y",
+        "range": "93",
+        "number": "93"
+      }
+    ],
+    "size": "64"
+  },
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0005",
+        "start": 3,
+        "end": 6,
+        "text": "こんにちは",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "time_domain": "output",
+        "text_style": {
+          "font_family": "Noto Sans JP",
+          "weight": 700,
+          "size_px": 64,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 8
+          },
+          "wrap_width_pct": 70,
+          "zone": "bottom"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "condition": {
+    "route": "detached caption item",
+    "time_domain": "output",
+    "text": "こんにちは",
+    "fontSizePx": 160,
+    "strokeWidthPx": 12,
+    "roundedShadowRadiusPx": 12,
+    "frame": { "width": 1280, "height": 720 },
+    "second": 4
+  },
+  "export": {
+    "engine": "osr",
+    "exitCode": 0,
+    "frameCount": 360,
+    "frameImage": "r4-detached-osr-frame.png",
+    "cropImage": "r4-detached-osr-crop.png"
+  },
+  "comparison": {
+    "referenceImage": "after-outline-osr.png",
+    "referenceRoute": "captions bag",
+    "crop": { "width": 900, "height": 330, "x": 199, "y": 204 },
+    "differentPixels": 0
+  }
+}

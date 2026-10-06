@@ -1,0 +1,289 @@
+{
+  "metrics": {
+    "plate": null,
+    "line": null,
+    "ink": null,
+    "box": {
+      "x": 486.1676025390625,
+      "y": 167.95452880859375,
+      "width": 150.1072998046875,
+      "height": 17.1085205078125
+    },
+    "stroke": null,
+    "handles": [
+      {
+        "kind": "nw",
+        "rect": {
+          "x": 482.16937255859375,
+          "y": 163.9544677734375,
+          "width": 11,
+          "height": 10.999984741210938
+        }
+      },
+      {
+        "kind": "ne",
+        "rect": {
+          "x": 629.2730712890625,
+          "y": 163.9544677734375,
+          "width": 11,
+          "height": 10.999984741210938
+        }
+      },
+      {
+        "kind": "sw",
+        "rect": {
+          "x": 482.16937255859375,
+          "y": 178.06312561035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "se",
+        "rect": {
+          "x": 629.2730712890625,
+          "y": 178.06312561035156,
+          "width": 11,
+          "height": 11
+        }
+      },
+      {
+        "kind": "e",
+        "rect": {
+          "x": 647.27099609375,
+          "y": 166.5087890625,
+          "width": 10.99993896484375,
+          "height": 20
+        }
+      },
+      {
+        "kind": "w",
+        "rect": {
+          "x": 464.1715087890625,
+          "y": 166.5087890625,
+          "width": 11,
+          "height": 20
+        }
+      },
+      {
+        "kind": "rot",
+        "rect": {
+          "x": 641.8196411132812,
+          "y": 165.45404052734375,
+          "width": 25,
+          "height": 24.999984741210938
+        }
+      },
+      {
+        "kind": "move",
+        "rect": {
+          "x": 669.852783203125,
+          "y": 165.45404052734375,
+          "width": 25,
+          "height": 24.999984741210938
+        }
+      }
+    ]
+  },
+  "inspector": [
+    {
+      "text": "位置",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "html": "<button type=\"button\" class=\"akari-inspector-section-toggle\" aria-expanded=\"true\">位置<span class=\"akari-inspector-icon\" aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" focusable=\"fa"
+    }
+  ],
+  "controls": {
+    "zones": [
+      {
+        "zone": "top-left",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "top",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "top-right",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "left",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "center",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "right",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom-left",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      },
+      {
+        "zone": "bottom-right",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pressed": "false"
+      }
+    ],
+    "position": [
+      {
+        "field": "caption-position-x",
+        "range": "43.9",
+        "number": "43.88"
+      },
+      {
+        "field": "caption-position-y",
+        "range": "93",
+        "number": "93"
+      }
+    ],
+    "size": "50"
+  },
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.4388,
+            "y": 0.93
+          },
+          "size_px": 50
+        }
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a"
+      },
+      {
+        "id": "c-0005",
+        "start": 3,
+        "end": 6,
+        "text": "こんにちは",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "time_domain": "output",
+        "text_style": {
+          "font_family": "Noto Sans JP",
+          "weight": 700,
+          "size_px": 64,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 8
+          },
+          "wrap_width_pct": 29.22,
+          "text_anchor": "tl",
+          "position": {
+            "x": 0.549,
+            "y": 0.4242
+          },
+          "scale": 0.921,
+          "align": "left"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "off": {
+    "inspectorChecked": false,
+    "computed": {
+      "color": "rgba(0, 0, 0, 0)",
+      "padX": "0px",
+      "padY": "0px",
+      "plateBg": "",
+      "blockBg": "",
+      "lineCount": 1
+    },
+    "ink": {
+      "x": 179.333984375,
+      "y": 164.06863403320312,
+      "width": 69.33203125,
+      "height": 20.041290283203125
+    },
+    "line": {
+      "x": 179.333984375,
+      "y": 164.28530883789062,
+      "width": 69.33203125,
+      "height": 19.689208984375
+    },
+    "captionStyle": {
+      "padding_px": 0
+    }
+  },
+  "osrOff": {
+    "plateBg": null,
+    "cssFallback": "transparent",
+    "pixelRgb": {
+      "background": [
+        39,
+        48,
+        64
+      ],
+      "insideFormerPlate": [
+        39,
+        48,
+        64
+      ],
+      "nearFormerPlate": [
+        40,
+        48,
+        64
+      ]
+    },
+    "renderExit": 0
+  },
+  "secondDoubleClick": {
+    "inspectorChecked": false,
+    "computed": {
+      "color": "rgba(0, 0, 0, 0)",
+      "padX": "0px",
+      "padY": "0px",
+      "plateBg": "",
+      "blockBg": "",
+      "lineCount": 1
+    },
+    "ink": {
+      "x": 179.333984375,
+      "y": 164.06863403320312,
+      "width": 69.33203125,
+      "height": 20.041290283203125
+    },
+    "line": {
+      "x": 179.333984375,
+      "y": 164.28530883789062,
+      "width": 69.33203125,
+      "height": 19.689208984375
+    },
+    "wrapWidthPct": 25
+  },
+  "on": {
+    "inspectorChecked": true,
+    "computed": {
+      "color": "rgba(0, 0, 0, 0.6)",
+      "padX": "0px",
+      "padY": "0px",
+      "plateBg": "rgba(0,0,0,0.6)",
+      "blockBg": "",
+      "lineCount": 1
+    },
+    "ink": {
+      "x": 179.333984375,
+      "y": 164.06863403320312,
+      "width": 69.33203125,
+      "height": 20.041290283203125
+    },
+    "line": {
+      "x": 179.333984375,
+      "y": 164.28530883789062,
+      "width": 69.33203125,
+      "height": 19.689208984375
+    },
+    "captionStyle": {
+      "padding_px": 0,
+      "opacity": 0.6
+    }
+  },
+  "exploratoryPadding8": {
+    "directFixtureOnly": true,
+    "inkHeight": 39.730499267578125,
+    "lineHeight": 39.37843322753906,
+    "baselineInkHeight": 20.041290283203125,
+    "note": "Nonzero padding with the fitted width caused a second visual line; this style was not adopted."
+  }
+}

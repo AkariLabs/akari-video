@@ -599,6 +599,7 @@ export interface CaptionWriteRequest {
                 scale?: number;
                 rotate?: number;
                 wrapWidthPct?: number;
+                backgroundPaddingPx?: 0;
                 cuePosition?: {
                     captionId: string;
                     value: CaptionCuePosition;

@@ -194,12 +194,13 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
         assert.deepEqual(cards(sections).map(card => card.fields.map(entry => entry.label)), [
             ['色', '大きさ', '折り返し幅', '太さ', '行間', '字間'], ['色', '太さ'],
             ['表示', '形', '色', '不透明度', '余白', '角丸'],
-            ['種類', '縁の色', '縁の太さ'], ['位置']
+            ['種類', '縁の色', '縁の太さ'], ['位置', 'X（左端）', 'Y']
         ]);
         for (const [name, unit] of [
             ['caption-size', 'px'], ['caption-stroke-width', 'px'],
             ['caption-background-opacity', '%'], ['caption-background-radius', 'px'],
-            ['caption-effect-adjust-stroke-widthPx', 'px']
+            ['caption-effect-adjust-stroke-widthPx', 'px'],
+            ['caption-position-x', '%'], ['caption-position-y', '%']
         ]) assert.equal(field(sections, name)?.unit, unit);
     }
     assert.match(source, /角丸を最大にすると文字に沿った丸い座布団（カプセル）になる/u);

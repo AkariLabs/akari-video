@@ -1,0 +1,1047 @@
+{
+  "pointerStepPx": 8,
+  "cases": [
+    {
+      "name": "a: first grab, zone only",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom"
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 503,
+        "y": 174.088
+      },
+      "before": {
+        "line": {
+          "x": 405.9351501464844,
+          "y": 163.17489624023438,
+          "width": 194.12966918945312,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 468.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 405.9351501464844,
+          "y": 163.17489624023438,
+          "width": 194.12966918945312,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 468.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 413.9351501464844,
+          "y": 163.17489624023438,
+          "width": 194.12973022460938,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 476.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "36.9238px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "b: after size plus",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 158,
+        "wrap_width_pct": 70,
+        "zone": "bottom"
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 503,
+        "y": 133.695
+      },
+      "before": {
+        "line": {
+          "x": 405.9351501464844,
+          "y": 82.38683319091797,
+          "width": 194.12966918945312,
+          "height": 102.69469451904297
+        },
+        "ink": {
+          "x": 434.53460693359375,
+          "y": 84.58223724365234,
+          "width": 136.9307861328125,
+          "height": 98.22602081298828
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 405.9351501464844,
+          "y": 82.38683319091797,
+          "width": 194.12966918945312,
+          "height": 102.69469451904297
+        },
+        "ink": {
+          "x": 434.53460693359375,
+          "y": 84.58223724365234,
+          "width": 136.9307861328125,
+          "height": 98.22602081298828
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 413.9351501464844,
+          "y": 82.38683319091797,
+          "width": 194.12973022460938,
+          "height": 102.69469451904297
+        },
+        "ink": {
+          "x": 442.53460693359375,
+          "y": 84.58223724365234,
+          "width": 136.9307861328125,
+          "height": 98.22602081298828
+        },
+        "translate": "36.9238px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "c: after corner scale",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom",
+        "scale": 1.129
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 503,
+        "y": 174.082
+      },
+      "before": {
+        "line": {
+          "x": 393.4137878417969,
+          "y": 161.76193237304688,
+          "width": 219.17239379882812,
+          "height": 24.732559204101562
+        },
+        "ink": {
+          "x": 463.862060546875,
+          "y": 162.76904296875,
+          "width": 78.27587890625,
+          "height": 22.626617431640625
+        },
+        "translate": "",
+        "scale": "1.129",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 393.4137878417969,
+          "y": 161.76193237304688,
+          "width": 219.17239379882812,
+          "height": 24.732559204101562
+        },
+        "ink": {
+          "x": 463.862060546875,
+          "y": 162.76904296875,
+          "width": 78.27587890625,
+          "height": 22.626617431640625
+        },
+        "translate": "",
+        "scale": "1.129",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 401.4137878417969,
+          "y": 160.34896850585938,
+          "width": 219.17239379882812,
+          "height": 24.732574462890625
+        },
+        "ink": {
+          "x": 471.862060546875,
+          "y": 161.3560791015625,
+          "width": 78.27587890625,
+          "height": 22.626617431640625
+        },
+        "translate": "36.9238px -6.52149px",
+        "scale": "1.129",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "d: rotated 25 degrees",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom",
+        "rotate": 25
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 503.017,
+        "y": 174.091
+      },
+      "before": {
+        "line": {
+          "x": 410.4002990722656,
+          "y": 123.17976379394531,
+          "width": 185.19943237304688,
+          "height": 101.89689636230469
+        },
+        "ink": {
+          "x": 467.36419677734375,
+          "y": 150.35911560058594,
+          "width": 71.30596923828125,
+          "height": 47.46455383300781
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "25deg",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 410.4002990722656,
+          "y": 123.17976379394531,
+          "width": 185.19943237304688,
+          "height": 101.89689636230469
+        },
+        "ink": {
+          "x": 467.36419677734375,
+          "y": 150.35911560058594,
+          "width": 71.30596923828125,
+          "height": 47.46455383300781
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "25deg",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 418.4002990722656,
+          "y": 121.12654876708984,
+          "width": 185.19943237304688,
+          "height": 101.89688873291016
+        },
+        "ink": {
+          "x": 475.36419677734375,
+          "y": 148.30589294433594,
+          "width": 71.30596923828125,
+          "height": 47.464569091796875
+        },
+        "translate": "36.9238px -9.47656px",
+        "scale": "",
+        "rotate": "25deg",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "e: wide wrap, left glyph",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 90,
+        "zone": "bottom",
+        "align": "center"
+      },
+      "fraction": 0.1,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 475.267,
+        "y": 174.088
+      },
+      "before": {
+        "line": {
+          "x": 462.51116943359375,
+          "y": 163.17489624023438,
+          "width": 80.9776611328125,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 468.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 462.51116943359375,
+          "y": 163.17489624023438,
+          "width": 80.9776611328125,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 468.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 470.51116943359375,
+          "y": 163.17489624023438,
+          "width": 80.9776611328125,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 476.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "36.9238px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "e: wide wrap, right glyph",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 90,
+        "zone": "bottom",
+        "align": "center"
+      },
+      "fraction": 0.9,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 530.733,
+        "y": 174.088
+      },
+      "before": {
+        "line": {
+          "x": 462.51116943359375,
+          "y": 163.17489624023438,
+          "width": 80.9776611328125,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 468.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 462.51116943359375,
+          "y": 163.17489624023438,
+          "width": 80.9776611328125,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 468.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 470.51116943359375,
+          "y": 163.17489624023438,
+          "width": 80.9776611328125,
+          "height": 21.906631469726562
+        },
+        "ink": {
+          "x": 476.333984375,
+          "y": 164.0669403076172,
+          "width": 69.33203125,
+          "height": 20.041290283203125
+        },
+        "translate": "36.9238px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "f: thick outline",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 160,
+        "wrap_width_pct": 90,
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 12
+        }
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 503,
+        "y": 157.621
+      },
+      "before": {
+        "line": {
+          "x": 378.20233154296875,
+          "y": 130.31158447265625,
+          "width": 249.5953369140625,
+          "height": 54.76994323730469
+        },
+        "ink": {
+          "x": 416.3349609375,
+          "y": 132.54254150390625,
+          "width": 173.330078125,
+          "height": 50.157379150390625
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 378.20233154296875,
+          "y": 130.31158447265625,
+          "width": 249.5953369140625,
+          "height": 54.76994323730469
+        },
+        "ink": {
+          "x": 416.3349609375,
+          "y": 132.54254150390625,
+          "width": 173.330078125,
+          "height": 50.157379150390625
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 386.20233154296875,
+          "y": 130.31158447265625,
+          "width": 249.5953369140625,
+          "height": 54.76994323730469
+        },
+        "ink": {
+          "x": 424.3349609375,
+          "y": 132.54254150390625,
+          "width": 173.330078125,
+          "height": 50.157379150390625
+        },
+        "translate": "36.9238px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "g: zoom 150 percent",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom"
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 503,
+        "y": 208.131
+      },
+      "before": {
+        "line": {
+          "x": 357.4027099609375,
+          "y": 191.76234436035156,
+          "width": 291.19451904296875,
+          "height": 32.85993957519531
+        },
+        "ink": {
+          "x": 451.0009765625,
+          "y": 193.10040283203125,
+          "width": 103.998046875,
+          "height": 30.06195068359375
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 357.4027099609375,
+          "y": 191.76234436035156,
+          "width": 291.19451904296875,
+          "height": 32.85993957519531
+        },
+        "ink": {
+          "x": 451.0009765625,
+          "y": 193.10040283203125,
+          "width": 103.998046875,
+          "height": 30.06195068359375
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 365.4027099609375,
+          "y": 191.76234436035156,
+          "width": 291.194580078125,
+          "height": 32.85993957519531
+        },
+        "ink": {
+          "x": 459.0009765625,
+          "y": 193.10040283203125,
+          "width": 103.998046875,
+          "height": 30.06195068359375
+        },
+        "translate": "24.6158px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "g: narrow window",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom"
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 443,
+        "y": 218.783
+      },
+      "before": {
+        "line": {
+          "x": 313.57928466796875,
+          "y": 204.23306274414062,
+          "width": 258.8414306640625,
+          "height": 29.209030151367188
+        },
+        "ink": {
+          "x": 396.7783203125,
+          "y": 205.42245483398438,
+          "width": 92.443359375,
+          "height": 26.721908569335938
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 313.57928466796875,
+          "y": 204.23306274414062,
+          "width": 258.8414306640625,
+          "height": 29.209030151367188
+        },
+        "ink": {
+          "x": 396.7783203125,
+          "y": 205.42245483398438,
+          "width": 92.443359375,
+          "height": 26.721908569335938
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 321.57928466796875,
+          "y": 204.23306274414062,
+          "width": 258.8414306640625,
+          "height": 29.209030151367188
+        },
+        "ink": {
+          "x": 404.7783203125,
+          "y": 205.42245483398438,
+          "width": 92.443359375,
+          "height": 26.721908569335938
+        },
+        "translate": "27.6926px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    },
+    {
+      "name": "h: overlaps spoken caption",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 12
+        }
+      },
+      "fraction": 0.5,
+      "hit": {
+        "className": "akari-caption__line",
+        "plate": "caption-plate-c-0005"
+      },
+      "point": {
+        "x": 663,
+        "y": 373.498
+      },
+      "before": {
+        "line": {
+          "x": 421.57928466796875,
+          "y": 346.3560791015625,
+          "width": 482.84136962890625,
+          "height": 54.48638916015625
+        },
+        "ink": {
+          "x": 576.7783203125,
+          "y": 348.57476806640625,
+          "width": 172.443359375,
+          "height": 49.846923828125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "down": {
+        "line": {
+          "x": 421.57928466796875,
+          "y": 346.3560791015625,
+          "width": 482.84136962890625,
+          "height": 54.48638916015625
+        },
+        "ink": {
+          "x": 576.7783203125,
+          "y": 348.57476806640625,
+          "width": 172.443359375,
+          "height": 49.846923828125
+        },
+        "translate": "",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "firstMove": {
+        "line": {
+          "x": 429.57928466796875,
+          "y": 346.3560791015625,
+          "width": 482.84136962890625,
+          "height": 54.48638916015625
+        },
+        "ink": {
+          "x": 584.7783203125,
+          "y": 348.57476806640625,
+          "width": 172.443359375,
+          "height": 49.846923828125
+        },
+        "translate": "14.8455px",
+        "scale": "",
+        "rotate": "",
+        "selected": true
+      },
+      "initialJumpPx": 0,
+      "firstMovePx": 8,
+      "flyPx": 0
+    }
+  ],
+  "handles": [
+    {
+      "name": "c: corner from scale 1",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom"
+      },
+      "hits": [
+        {
+          "corner": "nw",
+          "x": 407.481,
+          "y": 164.658,
+          "hit": "nw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "ne",
+          "x": 598.832,
+          "y": 164.658,
+          "hit": "ne",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "sw",
+          "x": 407.481,
+          "y": 183.563,
+          "hit": "sw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "se",
+          "x": 598.832,
+          "y": 183.563,
+          "hit": "se",
+          "targetClass": "akari-caption-handle"
+        }
+      ],
+      "beforeScale": 1,
+      "afterScale": 1.129,
+      "enlarged": true
+    },
+    {
+      "name": "b: size 160 after plus",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 160,
+        "wrap_width_pct": 70,
+        "zone": "bottom"
+      },
+      "hits": [
+        {
+          "corner": "nw",
+          "x": 423.036,
+          "y": 143.678,
+          "hit": "nw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "ne",
+          "x": 902.714,
+          "y": 143.678,
+          "hit": "ne",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "sw",
+          "x": 423.036,
+          "y": 399.329,
+          "hit": "sw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "se",
+          "x": 902.714,
+          "y": 399.329,
+          "hit": "se",
+          "targetClass": "akari-caption-handle"
+        }
+      ],
+      "beforeScale": 1,
+      "afterScale": 1.049,
+      "enlarged": true
+    },
+    {
+      "name": "c: existing 1.4 scale",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom",
+        "scale": 1.4
+      },
+      "hits": [
+        {
+          "corner": "nw",
+          "x": 326.497,
+          "y": 336.947,
+          "hit": "nw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "ne",
+          "x": 999.253,
+          "y": 336.947,
+          "hit": "ne",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "sw",
+          "x": 326.497,
+          "y": 410.219,
+          "hit": "sw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "se",
+          "x": 999.253,
+          "y": 410.219,
+          "hit": "se",
+          "targetClass": "akari-caption-handle"
+        }
+      ],
+      "beforeScale": 1.4,
+      "afterScale": 1.452,
+      "enlarged": true
+    },
+    {
+      "name": "d: rotated 25 degrees",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 64,
+        "wrap_width_pct": 70,
+        "zone": "bottom",
+        "rotate": 25
+      },
+      "hits": [
+        {
+          "corner": "nw",
+          "x": 456.382,
+          "y": 248.865,
+          "hit": "nw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "ne",
+          "x": 891.119,
+          "y": 451.649,
+          "hit": "ne",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "sw",
+          "x": 434.631,
+          "y": 295.525,
+          "hit": "sw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "se",
+          "x": 869.368,
+          "y": 498.309,
+          "hit": "se",
+          "targetClass": "akari-caption-handle"
+        }
+      ],
+      "beforeScale": 1,
+      "afterScale": 1.055,
+      "enlarged": true
+    },
+    {
+      "name": "f: size 160 and outline",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 160,
+        "wrap_width_pct": 70,
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 12
+        }
+      },
+      "hits": [
+        {
+          "corner": "nw",
+          "x": 423.036,
+          "y": 143.678,
+          "hit": "nw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "ne",
+          "x": 902.714,
+          "y": 143.678,
+          "hit": "ne",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "sw",
+          "x": 423.036,
+          "y": 399.329,
+          "hit": "sw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "se",
+          "x": 902.714,
+          "y": 399.329,
+          "hit": "se",
+          "targetClass": "akari-caption-handle"
+        }
+      ],
+      "beforeScale": 1,
+      "afterScale": 1.049,
+      "enlarged": true
+    },
+    {
+      "name": "upper size 320 and outline",
+      "style": {
+        "font_family": "Noto Sans JP",
+        "weight": 700,
+        "size_px": 320,
+        "wrap_width_pct": 70,
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 12
+        }
+      },
+      "hits": [
+        {
+          "corner": "nw",
+          "x": 423.036,
+          "y": -849.568,
+          "hit": null,
+          "targetClass": ""
+        },
+        {
+          "corner": "ne",
+          "x": 902.714,
+          "y": -849.568,
+          "hit": null,
+          "targetClass": ""
+        },
+        {
+          "corner": "sw",
+          "x": 423.036,
+          "y": 399.329,
+          "hit": "sw",
+          "targetClass": "akari-caption-handle"
+        },
+        {
+          "corner": "se",
+          "x": 902.714,
+          "y": 399.329,
+          "hit": "se",
+          "targetClass": "akari-caption-handle"
+        }
+      ],
+      "beforeScale": 1,
+      "afterScale": 1.015,
+      "enlarged": true
+    }
+  ]
+}

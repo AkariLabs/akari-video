@@ -116,6 +116,7 @@ import {
     resetCaptionCueGeometrySource
 } from '../common/caption-zone-write';
 import { persistCaptionPlateTransform } from '../common/caption-plate-handles';
+import { parseCaptionInspectorPositionAction } from '../common/caption-position-preset';
 import { duplicatePreviewCaptionSource, duplicatePreviewItemSource } from '../common/preview-duplicate-fallback';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
 import { collectItems, hasInlineCaptions, projectPreviewCaptionRows, readPreviewInternalEdit } from '../common/preview-items';
@@ -807,9 +808,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         const onCaptionZonePreset = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; zone?: string }>).detail;
-            if (!detail?.editUri || !(CAPTION_ZONES as readonly string[]).includes(detail.zone ?? '')) return;
+            if (!detail?.editUri || typeof detail.zone !== 'string') return;
             const widget = outputPreviewForEdit(detail.editUri);
             if (!widget?.isAttached) return;
+            const action = parseCaptionInspectorPositionAction(detail.zone);
+            if (action) {
+                this.captionWriteTail = this.captionWriteTail.then(async () => {
+                    const captionsUri = widget.akariPreviewCaptionsUri;
+                    if (!captionsUri) return;
+                    const parsed = JSON.parse(await this.readText(captionsUri)) as {
+                        captions?: Array<{ id: string; time_domain?: string }>;
+                    } | Array<{ id: string; time_domain?: string }>;
+                    const entries = Array.isArray(parsed) ? parsed : parsed.captions;
+                    const caption = entries?.find(candidate => candidate.id === action.captionId);
+                    if (!caption) return;
+                    if (action.kind === 'zone' && caption.time_domain !== 'output') {
+                        await this.persistCaptionGroupZoneForWidget(widget, action.zone);
+                    } else {
+                        widget.sendMessage({ type: 'akari-preview-caption-position-preset', action });
+                    }
+                }).catch(error => { this.messages.error(error instanceof Error ? error.message : String(error)); });
+                return;
+            }
+            if (!(CAPTION_ZONES as readonly string[]).includes(detail.zone)) return;
             this.captionWriteTail = this.captionWriteTail.then(() =>
                 this.persistCaptionGroupZoneForWidget(widget, detail.zone as CaptionZoneValue)
             );
@@ -6563,7 +6584,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             try {
-                const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                const committed = patch.backgroundPaddingPx === 0 ? false
+                    : this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
                     ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
                         editUri.toString(), { kind: 'caption-wrap', captionId: request.captionId,
                             wrapWidthPct: patch.wrapWidthPct, anchor: position.anchor,
@@ -6573,7 +6595,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     let writtenText: string | undefined;
                     const lintResult = await persistCaptionPlateTransform({
                         source: originalText, captionIds: [request.captionId],
-                        patch: { wrapWidthPct: patch.wrapWidthPct },
+                        patch: { wrapWidthPct: patch.wrapWidthPct,
+                            ...(patch.backgroundPaddingPx === 0 ? { backgroundPaddingPx: 0 as const } : {}) },
                         cuePosition: { captionId: request.captionId, value: position },
                         lint: candidateText => this.previewService.lintEditCandidate({
                             editUri: captionsUri.toString(), candidateText
