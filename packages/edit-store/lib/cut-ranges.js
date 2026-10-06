@@ -121,6 +121,9 @@ function applyV2(source, ranges, opts) {
     return { source: `${JSON.stringify(compacted, null, 2)}\n`, removedFrames, warnings };
 }
 const RESTORE_UNAVAILABLE = 'この箇所のあとに編集があるため戻せません。⌘Z の履歴から戻せます。';
+const RESTORE_LEGACY = '古い形式の編集データのため戻せません。⌘Z の履歴から戻せます。';
+const RESTORE_APPEARANCE = '動きや見た目の設定があるため 1 か所だけは戻せません。⌘Z の履歴から戻せます。';
+const RESTORE_PROVENANCE = '切った部分の元の設定が編集データに残っていないため 1 か所だけは戻せません。⌘Z の履歴から戻せます。';
 const SOURCE_TOLERANCE = 1e-5;
 function near(left, right) {
     return Math.abs(left - right) <= SOURCE_TOLERANCE;
@@ -139,6 +142,22 @@ function sameSplitProperties(left, right) {
         return JSON.stringify(copy);
     };
     return comparable(left) === comparable(right);
+}
+function sameAppearance(left, right) {
+    const appearance = (item) => {
+        const copy = structuredClone(item);
+        for (const key of ['id', 'name', 'locked', 'at', 'duration', 'reason', 'label', 'anchor'])
+            delete copy[key];
+        const source = copy.source;
+        delete source.in;
+        delete source.out;
+        return JSON.stringify(copy);
+    };
+    return appearance(left) === appearance(right);
+}
+function hasTimedAppearance(item) {
+    return !!(item.keyframes?.length || item.animator?.length || item.motion
+        || item.items?.length);
 }
 function sameCutResult(left, right) {
     const comparable = (track) => track.items.map(item => {
@@ -165,13 +184,6 @@ function sameCutResult(left, right) {
     };
     return sameValue(comparable(left), comparable(right));
 }
-function uniqueRestoreId(edit, src) {
-    const ids = new Set(edit.tracks.flatMap(track => 'items' in track ? track.items.map(item => item.id) : []));
-    let id = `${src}-restored`;
-    for (let index = 2; ids.has(id); index++)
-        id = `${src}-restored-${index}`;
-    return id;
-}
 function restoreOneTrack(edit, trackIndex, range) {
     const original = edit.tracks[trackIndex];
     const items = original.items;
@@ -180,28 +192,28 @@ function restoreOneTrack(edit, trackIndex, range) {
     const leftIndices = items.flatMap((item, index) => sourceMatches(item) && near(item.source.out, range.in) ? [index] : []);
     const rightIndices = items.flatMap((item, index) => sourceMatches(item) && near(item.source.in, range.out) ? [index] : []);
     if (leftIndices.length > 1 || rightIndices.length > 1)
-        return undefined;
+        return {};
     const leftIndex = leftIndices[0];
     const rightIndex = rightIndices[0];
     if (leftIndex === undefined && rightIndex === undefined)
-        return undefined;
+        return {};
     const left = leftIndex === undefined ? undefined : items[leftIndex];
     const right = rightIndex === undefined ? undefined : items[rightIndex];
-    if (left && right && (rightIndex <= leftIndex || right.at !== left.at + left.duration))
-        return undefined;
-    if (left && !right && items.slice(leftIndex + 1).some(item => sourceMatches(item)
-        && item.at === left.at + left.duration))
-        return undefined;
-    if (right && !left && items.slice(0, rightIndex).some(item => sourceMatches(item)
-        && item.at + item.duration === right.at))
-        return undefined;
-    const lineage = !!left && !!right && right.id.startsWith(`${left.id}-split`);
-    if (lineage && !sameSplitProperties(left, right))
-        return undefined;
-    const template = left ?? right;
+    if (!left || !right || leftIndex === undefined || rightIndex === undefined
+        || !right.id.startsWith(`${left.id}-split`))
+        return { reason: RESTORE_PROVENANCE };
+    if (rightIndex <= leftIndex || right.at !== left.at + left.duration)
+        return {};
+    if (hasTimedAppearance(left) || hasTimedAppearance(right)) {
+        return { reason: RESTORE_APPEARANCE };
+    }
+    if (!sameSplitProperties(left, right)) {
+        return { reason: sameAppearance(left, right) ? RESTORE_UNAVAILABLE : RESTORE_APPEARANCE };
+    }
+    const template = left;
     const sourceSpan = template.source.out - template.source.in;
     if (!(sourceSpan > 0))
-        return undefined;
+        return {};
     const estimated = Math.round((range.out - range.in) * template.duration / sourceSpan);
     const candidates = [estimated, estimated - 1, estimated + 1, estimated - 2, estimated + 2]
         .filter((frames, index, all) => frames > 0 && all.indexOf(frames) === index);
@@ -209,49 +221,23 @@ function restoreOneTrack(edit, trackIndex, range) {
         const candidate = structuredClone(edit);
         const track = candidate.tracks[trackIndex];
         const target = track.items;
-        const boundary = left ? left.at + left.duration : right.at;
-        if (lineage) {
-            const merged = structuredClone(left);
-            merged.duration = left.duration + frames + right.duration;
-            merged.source.out = right.source.out;
-            const leftMeta = left;
-            const rightMeta = right;
-            const mergedMeta = merged;
-            if (leftMeta.reason === rightMeta.reason
-                || range.reason !== undefined && leftMeta.reason === range.reason)
-                delete mergedMeta.reason;
-            if (leftMeta.label === rightMeta.label
-                || range.label !== undefined && leftMeta.label === range.label)
-                delete mergedMeta.label;
-            target.splice(leftIndex, 1, merged);
-            target.splice(rightIndex, 1);
-        }
-        else if (left && right) {
-            const restored = structuredClone(left);
-            restored.id = uniqueRestoreId(edit, left.source.src);
-            restored.at = boundary;
-            restored.duration = frames;
-            restored.source.in = range.in;
-            restored.source.out = range.out;
-            delete restored.anchor;
-            target.splice(rightIndex, 0, restored);
-        }
-        else if (left) {
-            const grown = target[leftIndex];
-            grown.duration += frames;
-            grown.source.out = range.out;
-        }
-        else {
-            const grown = target[rightIndex];
-            grown.duration += frames;
-            grown.source.in = range.in;
-            const parentId = grown.id.replace(/-split(?:-\d+)?$/, '');
-            if (parentId !== grown.id && !target.some(item => item.id === parentId))
-                grown.id = parentId;
-        }
-        const restoredIndex = lineage || left && !right ? leftIndex : rightIndex;
+        const boundary = left.at + left.duration;
+        const merged = structuredClone(left);
+        merged.duration = left.duration + frames + right.duration;
+        merged.source.out = right.source.out;
+        const leftMeta = left;
+        const rightMeta = right;
+        const mergedMeta = merged;
+        if (leftMeta.reason === rightMeta.reason
+            || range.reason !== undefined && leftMeta.reason === range.reason)
+            delete mergedMeta.reason;
+        if (leftMeta.label === rightMeta.label
+            || range.label !== undefined && leftMeta.label === range.label)
+            delete mergedMeta.label;
+        target.splice(leftIndex, 1, merged);
+        target.splice(rightIndex, 1);
         for (let index = 0; index < target.length; index++) {
-            if (index === restoredIndex)
+            if (index === leftIndex)
                 continue;
             const item = target[index];
             if (media(item) && item.at >= boundary)
@@ -260,13 +246,16 @@ function restoreOneTrack(edit, trackIndex, range) {
         const trial = applyV2(`${JSON.stringify(candidate, null, 2)}\n`, [{ ...range, kind: 'row' }], {});
         const replay = JSON.parse(trial.source).tracks[trackIndex];
         if (sameCutResult(replay, original))
-            return track;
+            return { track };
     }
-    return undefined;
+    return {};
 }
 /** Inverts one source-time cut from the surviving media items, without a stored snapshot. */
 function restoreCutRange(source, range) {
-    if (detectEditVersion(source) !== 2 || !(range.out > range.in)) {
+    if (detectEditVersion(source) !== 2) {
+        return { source, restored: false, reason: RESTORE_LEGACY };
+    }
+    if (!(range.out > range.in)) {
         return { source, restored: false, reason: RESTORE_UNAVAILABLE };
     }
     const edit = JSON.parse(source);
@@ -282,9 +271,9 @@ function restoreCutRange(source, range) {
         if (!hasEdge)
             continue;
         const next = restoreOneTrack(edit, index, range);
-        if (!next)
-            return { source, restored: false, reason: RESTORE_UNAVAILABLE };
-        restored.tracks[index] = next;
+        if (!next.track)
+            return { source, restored: false, reason: next.reason ?? RESTORE_UNAVAILABLE };
+        restored.tracks[index] = next.track;
         changed = true;
     }
     if (!changed)

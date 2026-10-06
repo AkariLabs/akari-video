@@ -325,12 +325,14 @@ test('無関係な別トラックへの item 追加後も切れ目だけを戻�
   assert.equal(JSON.parse(restored.source).tracks[1].items[0].at, 77);
 });
 
+const missingSettingsReason = '切った部分の元の設定が編集データに残っていないため 1 か所だけは戻せません。⌘Z の履歴から戻せます。';
+
 test('隣の item の trim・位置・effect が変わったときは何も戻さない', () => {
   const cut = range([2, 4], 'row', { captionId: 'main' });
-  for (const change of [
-    edit => { edit.tracks[0].items[0].source.out = 1.8; },
-    edit => { edit.tracks[0].items[1].at = 80; },
-    edit => { edit.tracks[0].items[0].adjust = { basic: { exposure: 0.2 } }; },
+  for (const [change, reason] of [
+    [edit => { edit.tracks[0].items[0].source.out = 1.8; }, missingSettingsReason],
+    [edit => { edit.tracks[0].items[1].at = 80; }, /編集がある/],
+    [edit => { edit.tracks[0].items[0].adjust = { basic: { exposure: 0.2 } }; }, /動きや見た目/],
   ]) {
     const edited = JSON.parse(applyCutRanges(v2(), [cut]).source);
     change(edited);
@@ -338,22 +340,91 @@ test('隣の item の trim・位置・effect が変わったときは何も戻�
     const restored = restoreCutRange(source, cut);
     assert.equal(restored.restored, false);
     assert.equal(restored.source, source);
-    assert.match(restored.reason, /編集がある/);
-    assert.ok(canRestoreCutRange(source, cut));
+    if (typeof reason === 'string') assert.equal(restored.reason, reason);
+    else assert.match(restored.reason, reason);
+    assert.equal(canRestoreCutRange(source, cut), restored.reason);
   }
 });
 
-test('item が丸ごと消えた行カットは隣の item から新しい item を作って戻る', () => {
+test('item が丸ごと消えた行カットは見た目を推測せず理由を返す', () => {
   const source = v2([media('before', 0, 30, 0, 1), media('row', 30, 30, 1, 2),
     media('after', 60, 30, 2, 3)]);
   const cut = range([1, 2], 'row', { captionId: 'main' });
   const edited = applyCutRanges(source, [cut]).source;
   assert.deepEqual(JSON.parse(edited).tracks[0].items.map(item => item.id), ['before', 'after']);
   const restored = restoreCutRange(edited, cut);
-  assert.equal(restored.restored, true, restored.reason);
-  assert.deepEqual(JSON.parse(restored.source).tracks[0].items.map(item =>
-    [item.source.in, item.source.out, item.at, item.duration]),
-  [[0, 1, 0, 30], [1, 2, 30, 30], [2, 3, 60, 30]]);
+  assert.equal(restored.restored, false);
+  assert.equal(restored.source, edited);
+  assert.equal(restored.reason, missingSettingsReason);
+});
+
+test('消えた item だけ scale 1.5・末尾 item・先頭 item の復元はすべて元の設定が不明と返す', () => {
+  const cases = [
+    { items: [media('a', 0, 30, 0, 1), { ...media('b', 30, 30, 1, 2), transform: { scale: 1.5 } },
+      media('c', 60, 30, 2, 3)], inside: [1, 2] },
+    { items: [media('a', 0, 30, 0, 1), { ...media('b', 30, 30, 1, 2), transform: { scale: 1.5 } }],
+      inside: [1, 2] },
+    { items: [{ ...media('a', 0, 30, 0, 1), transform: { scale: 1.5 } }, media('b', 30, 30, 1, 2)],
+      inside: [0, 1] },
+  ];
+  for (const { items, inside } of cases) {
+    const cut = range(inside, 'row', { captionId: 'main' });
+    const edited = applyCutRanges(v2(items), [cut]).source;
+    const restored = restoreCutRange(edited, cut);
+    assert.equal(restored.restored, false);
+    assert.equal(restored.source, edited);
+    assert.equal(restored.reason, missingSettingsReason);
+    assert.equal(canRestoreCutRange(edited, cut), missingSettingsReason);
+  }
+});
+
+test('動くキーフレーム付き clip の複数カットで家系が失われたら元設定不明と返す', () => {
+  const animated = { ...media('moving', 0, 300, 0, 10), keyframes: [
+    { t: 0, transform: { scale: 1 } }, { t: 300, transform: { scale: 2 } },
+  ] };
+  const first = range([2, 3], 'row', { captionId: 'main' });
+  const second = range([6, 7], 'row', { captionId: 'main' });
+  const cut = applyCutRanges(v2([animated]), [first, second]).source;
+  const restored = restoreCutRange(cut, second);
+  assert.equal(restored.restored, false);
+  assert.equal(restored.source, cut);
+  assert.equal(restored.reason, missingSettingsReason);
+  assert.equal(canRestoreCutRange(cut, second), restored.reason);
+});
+
+test('分割の家系が残るキーフレーム付き clip も見た目を推測して戻さない', () => {
+  const animated = { ...media('moving', 0, 300, 0, 10), keyframes: [
+    { t: 0, transform: { scale: 1 } }, { t: 300, transform: { scale: 2 } },
+  ] };
+  const cut = range([2, 3], 'row', { captionId: 'main' });
+  const edited = applyCutRanges(v2([animated]), [cut]).source;
+  const restored = restoreCutRange(edited, cut);
+  assert.equal(restored.restored, false);
+  assert.equal(restored.source, edited);
+  assert.match(restored.reason, /動きや見た目/);
+  assert.equal(canRestoreCutRange(edited, cut), restored.reason);
+});
+
+test('家系の無い隣接 item の間で消えた行は推測して作らない', () => {
+  const source = v2([
+    { ...media('before', 0, 30, 0, 1), transform: { scale: 1 } },
+    { ...media('row', 30, 30, 1, 2), transform: { scale: 1.5 } },
+    { ...media('after', 60, 30, 2, 3), transform: { scale: 1.5 } },
+  ]);
+  const cut = range([1, 2], 'row', { captionId: 'main' });
+  const edited = applyCutRanges(source, [cut]).source;
+  const restored = restoreCutRange(edited, cut);
+  assert.equal(restored.restored, false);
+  assert.equal(restored.source, edited);
+  assert.equal(restored.reason, missingSettingsReason);
+});
+
+test('戻せない理由は古い形式・見た目・後続編集を区別する', () => {
+  assert.match(canRestoreCutRange(legacy(), range([2, 3])), /古い形式/);
+  const cut = range([2, 4], 'row', { captionId: 'main' });
+  const edited = JSON.parse(applyCutRanges(v2(), [cut]).source);
+  edited.tracks[0].items[1].at += 1;
+  assert.match(canRestoreCutRange(text(edited), cut), /あとに編集/);
 });
 
 test('同じ範囲を再度切っても既存 edit.json は変わらない', () => {
