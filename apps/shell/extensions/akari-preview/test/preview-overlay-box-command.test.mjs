@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
+import { createContext, runInContext } from 'node:vm';
 import ts from 'typescript';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
@@ -14,8 +15,9 @@ const method = owner.members.find(member => member.name?.getText(source) === 'me
 const code = ts.transpileModule(`class Handler { ${method.getText(source)} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-const Handler = new Function('URI', 'requestReadyPreviewSeek', `${code}\nreturn Handler;`)(URI,
-    () => assert.fail('測定では再生位置を動かさない'));
+const Handler = runInContext(`${code}\nHandler`, createContext({ URI, Promise, Date, Math, JSON, Map,
+    setTimeout, clearTimeout, setInterval, clearInterval,
+    requestReadyPreviewSeek: () => assert.fail('測定では再生位置を動かさない') }));
 
 test('計測コマンドは開いている画面を読み直さず、素材書き換え後の box を待つ', async () => {
     const listeners = new Set();
@@ -33,6 +35,7 @@ test('計測コマンドは開いている画面を読み直さず、素材書�
         }
     };
     const handler = new Handler();
+    handler.overlayMeasureCache = new Map();
     handler.openOutputPreviews = new Map([['file:///project/edit.json', widget]]);
     handler.shell = { revealWidget: () => assert.fail('開いているプレビューを再表示しない') };
     handler.currentWorkspaceRoots = async () => [];
@@ -40,9 +43,15 @@ test('計測コマンドは開いている画面を読み直さず、素材書�
         assert.equal(request.htmlPath, 'assets/overlay/chalkboard-jp/fragment.html');
         return { html: '<div>書き換え済み</div>', streams: [], warnings: [] };
     } };
-    assert.deepEqual(await handler.measureOverlayBox({ editUri: 'file:///project/edit.json',
-        fragment: '<div>元</div>', relativePath: 'assets/overlay/chalkboard-jp/fragment.html', vars: {} }),
+    const request = { editUri: 'file:///project/edit.json', fragment: '<div>元</div>',
+        relativePath: 'assets/overlay/chalkboard-jp/fragment.html', vars: {} };
+    assert.deepEqual({ ...await handler.measureOverlayBox(request) },
     { x: 10, y: 20, width: 300, height: 90 });
     assert.equal(sent[0].fragment, '<div>書き換え済み</div>');
     assert.equal(listeners.size, 0);
+    assert.deepEqual({ ...await handler.measureOverlayBox(request) },
+        { x: 10, y: 20, width: 300, height: 90 });
+    assert.equal(sent.length, 1, '同じ素材と vars は測定結果を再利用する');
+    await handler.measureOverlayBox({ ...request, vars: { '--tone': 'blue' } });
+    assert.equal(sent.length, 2, 'vars が変われば測り直す');
 });

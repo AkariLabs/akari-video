@@ -2,7 +2,7 @@
 // ~/.akari/catalog-cache.json へ自動キャッシュ（オフライン時のフォールバック）。
 // ローカルパス指定（開発・テスト）はファイルをそのまま読む。
 
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, stat } from 'node:fs/promises';
 import { catalogCachePath, resolveAkariHome, resolveCatalogSource } from './env.mjs';
 import { join } from 'node:path';
 import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
@@ -16,9 +16,26 @@ function normalizeCatalog(catalog) {
   return catalog;
 }
 
+// The local catalog is large; keep the parsed value until the file changes.
+const parsedCatalogs = new Map();
+async function readLocalCatalog(file, visible = false) {
+  const info = await stat(file);
+  const cached = parsedCatalogs.get(file);
+  if (cached && cached.mtimeMs === info.mtimeMs && cached.ctimeMs === info.ctimeMs
+      && cached.size === info.size) {
+    if (visible && !cached.public) cached.public = publicCatalog(cached.catalog);
+    return visible ? cached.public : cached.catalog;
+  }
+  const catalog = normalizeCatalog(JSON.parse(await readFile(file, 'utf8')));
+  const entry = { mtimeMs: info.mtimeMs, ctimeMs: info.ctimeMs, size: info.size, catalog,
+    ...(visible ? { public: publicCatalog(catalog) } : {}) };
+  parsedCatalogs.set(file, entry);
+  return visible ? entry.public : catalog;
+}
+
 export async function readCatalogCache(env = process.env) {
   try {
-    return publicCatalog(normalizeCatalog(JSON.parse(await readFile(catalogCachePath(env), 'utf8'))));
+    return await readLocalCatalog(catalogCachePath(env), true);
   } catch {
     return null;
   }
@@ -53,6 +70,7 @@ export async function cacheCatalog(env = process.env, catalog) {
   const home = resolveAkariHome(env);
   await mkdir(home, { recursive: true });
   await writeFile(catalogCachePath(env), `${JSON.stringify(publicCatalog(normalizeCatalog(catalog)), null, 2)}\n`);
+  parsedCatalogs.delete(catalogCachePath(env));
 }
 
 /**
@@ -70,8 +88,7 @@ export async function loadCatalog({ env = process.env, fetchImpl = fetch, includ
   }
 
   if (source.kind === 'file') {
-    const raw = await readFile(source.value, 'utf8');
-    catalog = normalizeCatalog(JSON.parse(raw));
+    catalog = await readLocalCatalog(source.value);
   } else {
     try {
       const { response: res, controller } = await fetchTimed(source.value, { fetchImpl, timeouts, label: 'カタログ' });

@@ -1532,13 +1532,33 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.resolvingAssetKeys.add(key);
         this.update();
         try {
-            const localSource = localLibraryAssetPlacementSource(item);
-            const outcome = localSource
-                ? await this.projectService.placeLibraryAsset(localSource, root.toString())
-                : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
-            if (outcome.success === false) throw new Error(outcome.error);
-            const directory = URI.fromFilePath(outcome.reference && outcome.libraryDir
-                ? outcome.libraryDir : outcome.projectAssetPath);
+            let directory: URI | undefined;
+            let reusedProjectAsset = false;
+            if (key === `${item.category}/${item.id}` && item.id !== '.' && item.id !== '..'
+                && !/[\\/]/.test(item.id)) {
+                try {
+                    const existing = root.resolve(`assets/overlay/${item.id}`);
+                    const listing = await this.files.resolve(existing);
+                    if (listing.isDirectory && (listing.children ?? []).some(child => child.resource.path.base === 'meta.json')
+                        && (listing.children ?? []).some(child => /\.html?$/i.test(child.resource.path.base))) {
+                        directory = existing;
+                        reusedProjectAsset = true;
+                    }
+                } catch { /* 未取得なら resolver に委譲する。 */ }
+            }
+            if (!directory) {
+                const localSource = localLibraryAssetPlacementSource(item);
+                const outcome = localSource
+                    ? await this.projectService.placeLibraryAsset(localSource, root.toString())
+                    : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
+                if (outcome.success === false) throw new Error(outcome.error);
+                directory = URI.fromFilePath(outcome.reference && outcome.libraryDir
+                    ? outcome.libraryDir : outcome.projectAssetPath);
+                if (outcome.reference && outcome.libraryDir) {
+                    this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
+                        ? { ...entry, libraryDir: outcome.libraryDir } : entry);
+                }
+            }
             const listing = await this.files.resolve(directory);
             const names = (listing.children ?? []).filter(child => !child.isDirectory)
                 .map(child => child.resource.path.base);
@@ -1551,11 +1571,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.files.readFile(directory.resolve(file))
             ]);
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) return undefined;
-            if (outcome.reference && outcome.libraryDir) {
-                this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
-                    ? { ...entry, libraryDir: outcome.libraryDir } : entry);
-            }
-            this.refreshAfterAssetCatalogImport(key);
+            this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
+                ? { ...entry, state: 'cached' } : entry);
+            if (reusedProjectAsset) void this.projectService.recordLibraryUsage(item.category, item.id, root.toString())
+                .catch(error => console.warn('ライブラリの使用記録を書けませんでした', error));
             return { relativePath: `assets/overlay/${item.id}/${file}`,
                 meta: JSON.parse(metaSource.value.toString()), fragment: fragment.value.toString() };
         } catch (error) {
@@ -1730,18 +1749,37 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected async addCatalogAssetAtPlayhead(item: AssetCatalogViewItem): Promise<void> {
+        const editUri = this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString();
+        const placement = (phase: 'begin' | 'end'): void => {
+            if (editUri) window.dispatchEvent(new CustomEvent('akari-preview-placement', {
+                detail: { phase, editUri, key: item.key }
+            }));
+        };
+        const started = Date.now();
+        const diagnostic = (stage: string): void => {
+            if (editUri) window.dispatchEvent(new CustomEvent('akari-library-placement-diagnostic', {
+                detail: { editUri, key: item.key, stage, elapsedMs: Date.now() - started }
+            }));
+        };
+        let marked = false;
         try {
             if (item.category === 'scene3d') { this.messages.info('3D は近日対応します。'); return; }
             if (item.category === 'overlay') {
                 await this.commandService.executeCommand('akari.timeline.addOverlayAtOutputPoint', { key: item.key });
                 return;
             }
+            placement('begin');
+            marked = true;
             const material = await this.commandService.executeCommand<{ relativePath: string; kind: MaterialKind } | undefined>(
                 RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, item.key
             );
+            diagnostic('resolve');
             if (material) await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, material);
+            if (material) diagnostic('write');
         } catch (error) {
             this.messages.error(`素材を追加できません: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+            if (marked) placement('end');
         }
     }
 

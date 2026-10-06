@@ -71,7 +71,7 @@ export async function measureOverlayBoxInStage(stage: HTMLElement, html: string,
         const images = Array.from(probe.querySelectorAll('img'));
         await Promise.race([Promise.all([document.fonts.ready,
             ...images.map(image => image.decode().catch(() => undefined))]), new Promise(resolve => {
-            timeout = window.setTimeout(resolve, 2000);
+            timeout = window.setTimeout(resolve, 700);
         })]);
         if (timeout !== undefined) window.clearTimeout(timeout);
         probe.getBoundingClientRect?.();

@@ -84,7 +84,7 @@ test('削除と既存 source の変更は再構築する', () => {
     assert.equal(classifyPreviewModelUpdate(before, changed), 'rebuild');
 });
 
-test('配置中の台帳追加だけを除外し、削除・差し替え・期限切れは強制更新する', () => {
+test('配置中の台帳追加だけを自分の変更と認め、削除・差し替え・期限切れは除外する', () => {
     const content = references => JSON.stringify({ version: 0, references });
     const first = { category: 'still', id: 'one' };
     const second = { category: 'still', id: 'two' };
@@ -99,7 +99,7 @@ test('配置中の台帳追加だけを除外し、削除・差し替え・期�
     assert.equal(isOwnAssetReferenceChange(own, content([first, second]), 1700, 500), false);
 });
 
-test('台帳の変更通知は配置した参照の追加だけを差分更新する', async () => {
+test('台帳の変更通知は全体再構築せずモデル差分へ渡し、配置分の重複通知を省く', async () => {
     const sourceFile = ts.createSourceFile('handler.ts', readHandlerSource(), ts.ScriptTarget.Latest, true);
     let initializer;
     const visit = node => {
@@ -124,7 +124,7 @@ test('台帳の変更通知は配置した参照の追加だけを差分更新�
         placement: { content: before, baseline: Promise.resolve(before), key: 'still/a',
             at: Date.now(), until: Date.now() + 1000 },
         RECENT_WRITE_WINDOW_MS: 1000, isOwnAssetReferenceChange, Date, Set, console };
-    vm.runInNewContext(body, context);
+    vm.runInContext(body, vm.createContext(context));
     const handler = context.exports.handler;
     handler({ changes: [{ resource: referencesUri }] });
     await new Promise(resolve => setImmediate(resolve));
@@ -137,13 +137,13 @@ test('台帳の変更通知は配置した参照の追加だけを差分更新�
     handler({ changes: [{ resource: referencesUri }] });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls.length, 2);
-    assert.equal(calls[1][4], true);
+    assert.equal(calls[1][4], false, '参照の削除もモデル差分で再評価する');
     content = JSON.stringify({ version: 0, references: [
         { category: 'still', id: 'other' }, { category: 'still', id: 'z' }] });
     handler({ changes: [{ resource: referencesUri }] });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls.length, 3);
-    assert.equal(calls[2][4], true);
+    assert.equal(calls[2][4], false, '別素材への入れ替えでも台帳だけでは全体再構築しない');
     const generatedKey = 'file:///project/assets/generated/frame-1.png';
     widget.akariPreviewTrackedResources = new Set([generatedKey]);
     widget.akariPreviewJustAddedUris = new Map([[generatedKey, Date.now()]]);

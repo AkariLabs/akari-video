@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { cacheCatalog, loadCatalog, readCatalogCache } from '../src/catalog.mjs';
@@ -11,6 +11,18 @@ test('loadCatalog はローカルパス指定のカタログを読める', async
   const loaded = await loadCatalog({ env });
   assert.equal(loaded.schema, 'akari-assets-catalog/v0');
   assert.equal(loaded.items.length, catalog.items.length);
+});
+
+test('ローカルカタログは mtime が同じ間は解析結果を再利用し、更新後に読み直す', async () => {
+  const { env, catalog, catalogPath } = setupFixtureEnv();
+  const first = await loadCatalog({ env, includeInstalled: false });
+  assert.equal(await loadCatalog({ env, includeInstalled: false }), first);
+  writeFileSync(catalogPath, JSON.stringify({ ...catalog, items: [...catalog.items, { id: 'new', category: 'still' }] }));
+  const updated = new Date(Date.now() + 5000);
+  utimesSync(catalogPath, updated, updated);
+  const next = await loadCatalog({ env, includeInstalled: false });
+  assert.notEqual(next, first);
+  assert.equal(next.items.at(-1).id, 'new');
 });
 
 test('catalog cache drops files for locked and Pro items before writing and on old-cache reads', async () => {

@@ -19,7 +19,7 @@ import { isAudioFadeShapeWriteRequest } from './inspector/audio-fade-shape-write
 import { EDGE_ZONE_PX, SNAP_GUIDE_COLOR_DEFAULT, RULER_BAND_HEIGHT_PX, REVIEW_SESSION_LANE_HEIGHT_PX,
     STRIP_BACKGROUND, CLIP_HEADER_HEIGHT, SUBROW_HEIGHT, TRANSITION_BADGE_WARNING_COLOR } from './timeline/timeline-metrics';
 import { ANNOTATIONS_WIDGET_CSS } from './style/annotations-widget-style';
-import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars,
+import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars, overlayBoxWithinDelay,
     parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../common/overlay-place';
 import { probePreviewMediaDimensions } from './preview-media-dimensions';
 import { duplicatePreviewItem, type PreviewDuplicateRequest } from '../common/preview-duplicate';
@@ -6713,6 +6713,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const editUri = this.location.editUri.toString();
         if (options.editUri && options.editUri !== editUri) return undefined;
+        const started = Date.now();
+        const emitPlacement = (type: string, detail: Record<string, unknown>): void => {
+            if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined')
+                window.dispatchEvent(new CustomEvent(type, { detail }));
+        };
+        const diagnostic = (stage: string): void => {
+            emitPlacement('akari-library-placement-diagnostic',
+                { editUri, key: options.key, stage, elapsedMs: Date.now() - started });
+        };
+        emitPlacement('akari-preview-placement', { phase: 'begin', editUri, key: options.key });
         try {
             const t = options.t ?? (Number.isFinite(this.playheadT) ? this.playheadT : 0);
             let placedId: string | undefined;
@@ -6720,16 +6730,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 () => this.commands.executeCommand<{ relativePath: string; meta: unknown; fragment: string } | undefined>(
                     'akari.catalog.resolveOverlay', options.key),
                 async resolved => {
+                    diagnostic('resolve');
                     if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
                     const vars = overlayDefaultVars(resolved.meta, resolved.fragment);
-                    let box: { x: number; y: number; width: number; height: number } | undefined;
-                    try {
-                        box = await this.commands.executeCommand('akari.preview.measureOverlayBox', {
-                            editUri, fragment: resolved.fragment, relativePath: resolved.relativePath, vars });
-                    } catch { /* 測れないときは出力全体を配置の枠とする。 */ }
+                    const measurement = Promise.resolve(this.commands.executeCommand('akari.preview.measureOverlayBox', {
+                        editUri, fragment: resolved.fragment, relativePath: resolved.relativePath, vars }));
+                    const box = await overlayBoxWithinDelay(measurement);
+                    diagnostic(box ? 'measure' : 'measure-fallback');
                     if (!isUsableOverlayBox(box)) console.warn('[akari-annotations] オーバーレイの枠を測れず、出力全体の枠で置きます。');
                     if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
-                    await this.commitEditMutation('オーバーレイを置く', doc => {
+                    const write = await this.commitEditMutation('オーバーレイを置く', doc => {
                         const output = doc.output as { width?: number; height?: number } | undefined;
                         const width = Number(output?.width) || 1920;
                         const height = Number(output?.height) || 1080;
@@ -6739,7 +6749,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             output: { width, height }, center: options.center,
                             vars, box });
                         return insertOverlayItem(doc, item, options.outsideCanvas === true);
-                    });
+                    }, { history: false });
+                    diagnostic('write');
+                    let historyAfter = write.after;
+                    const history: HistoryEntry = { label: 'オーバーレイを置く', before: write.before, after: historyAfter,
+                        undo: async () => { await this.writeEditSnapshotGuarded(write.before); await this.reloadEdit(); },
+                        redo: async () => { await this.writeEditSnapshotGuarded(historyAfter); await this.reloadEdit(); } };
+                    this.pushHistory(history);
+                    if (!box && placedId) void measurement.then(async lateBox => {
+                        if (!isUsableOverlayBox(lateBox) || !this.historyService.isTop(history)
+                            || this.location?.editUri?.toString() !== editUri) return;
+                        const corrected = await this.commitEditMutation('オーバーレイの枠を合わせる', doc => {
+                            if (stringifyEditV2(doc) !== historyAfter) return doc;
+                            const output = doc.output as { width?: number; height?: number } | undefined;
+                            const item = buildOverlayItem({ id: placedId!, at: this.frameAt(t),
+                                duration: this.frameAt(5), path: resolved.relativePath,
+                                output: { width: Number(output?.width) || 1920, height: Number(output?.height) || 1080 },
+                                center: options.center, vars, box: lateBox });
+                            return updateV2Item(doc, { itemId: placedId!, patch: { transform: item.transform } });
+                        }, { history: false });
+                        if (corrected.after !== corrected.before) {
+                            historyAfter = corrected.after;
+                            history.after = historyAfter;
+                            diagnostic('measure-corrected');
+                        }
+                    }).catch(error => console.warn('[akari-annotations] オーバーレイの枠を補正できませんでした', error));
                 });
             if (!placed || !placedId) return undefined;
             const focused = await this.focusTimelineItem(placedId, {
@@ -6753,10 +6787,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             this.footer.textContent = 'オーバーレイを置きました。';
+            diagnostic('focus');
             return placedId;
         } catch (error) {
             this.messages.warn(`オーバーレイを置けませんでした: ${this.errorMessage(error)}`);
             return undefined;
+        } finally {
+            emitPlacement('akari-preview-placement', { phase: 'end', editUri, key: options.key });
         }
     }
 
@@ -7699,6 +7736,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         canvasId?: string
     ): Promise<void> {
         const editUri = this.location?.editUri?.toString();
+        const notifyPlacement = (phase: 'begin' | 'end'): void => {
+            if (editUri && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined')
+                window.dispatchEvent(new CustomEvent('akari-preview-placement', {
+                    detail: { phase, editUri, key: asset.key }
+                }));
+        };
+        notifyPlacement('begin');
         try {
             const resolved = await this.commands.executeCommand<unknown>('akari.catalog.resolveMaterial', asset.key);
             // 解決側は取得失敗・配置不可の理由をトーストに出す。
@@ -7720,6 +7764,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             else await this.placeMaterialAtTarget(payload, target, clientX, panelZone);
         } catch (error) {
             this.messages.error(`素材を追加できません: ${this.errorMessage(error)}`);
+        } finally {
+            notifyPlacement('end');
         }
     }
 

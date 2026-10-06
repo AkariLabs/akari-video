@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, realpathSync } from 'node:fs';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -26,6 +26,11 @@ test('project references: tolerant read, idempotent upsert, stable sort, and rem
 
   await recordProjectReference(project, { id: 'zeta', category: 'still' });
   await recordProjectReference(project, { id: 'alpha', category: 'still' });
+  const unchanged = await stat(ledger);
+  await recordProjectReference(project, { id: 'alpha', category: 'still' });
+  const repeated = await stat(ledger);
+  assert.equal(repeated.mtimeMs, unchanged.mtimeMs);
+  assert.equal(repeated.ino, unchanged.ino);
   await recordProjectReference(project, { id: 'theme', category: 'audio' });
   await recordProjectReference(project, { id: 'alpha', category: 'still' });
   assert.deepEqual(await readProjectReferences(project), [
