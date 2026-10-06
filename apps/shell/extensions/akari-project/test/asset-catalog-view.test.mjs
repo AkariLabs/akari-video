@@ -15,7 +15,7 @@ import {
     groupCatalogItemsByPack,
     mergeAssetCatalogViews,
     selectResolverAudioFileRef,
-    storeProductUrl,
+    labAssetUrl,
     summarizeCatalogPackDistribution,
     toResolverAssetCatalogViewItem
 } from '../lib/common/asset-catalog-view.js';
@@ -50,6 +50,12 @@ test('toResolverAssetCatalogViewItem: 必須フィールドの正規化（tags �
         mediaUrl: undefined,
         prompt: undefined
     });
+});
+
+test('toResolverAssetCatalogViewItem: product_id がある場合だけ引き継ぐ', () => {
+    const base = { id: 'card', category: 'overlay', title: 'Card' };
+    assert.equal(toResolverAssetCatalogViewItem({ ...base, product_id: 'legacy-pack' }, undefined).product_id, 'legacy-pack');
+    assert.equal(Object.hasOwn(toResolverAssetCatalogViewItem({ ...base, product_id: '' }, undefined), 'product_id'), false);
 });
 
 test('catalogCardUiEventTarget: still カタログカードの target と label を返す', () => {
@@ -125,13 +131,14 @@ test('mergeAssetCatalogViews: id 重複（同じ category/id）は resolver 側�
     assert.equal(merged[0].title, 'resolver 版タイトル');
 });
 
-test('mergeAssetCatalogViews: タイトルの五十音順にソートされる', () => {
+test('mergeAssetCatalogViews: mixed catalogue order', () => {
     const resolver = [
-        { origin: 'resolver', key: 'still/b', id: 'b', category: 'still', title: 'わかめ', tags: [], price: 0, state: 'available' },
-        { origin: 'resolver', key: 'still/a', id: 'a', category: 'still', title: 'あさひ', tags: [], price: 0, state: 'available' }
+        { origin: 'resolver', key: 'still/b', id: 'b', category: 'still', title: 'あさひ', tags: [], price: 0, state: 'available' },
+        { origin: 'resolver', key: 'still/a', id: 'a', category: 'still', title: 'いるか', tags: [], price: 0, state: 'available' },
+        { origin: 'resolver', key: 'still/c', id: 'c', category: 'still', title: 'うみ', tags: [], price: 0, state: 'available' }
     ];
     const merged = mergeAssetCatalogViews([], resolver);
-    assert.deepEqual(merged.map(item => item.id), ['a', 'b']);
+    assert.deepEqual(merged.map(item => item.id), ['c', 'a', 'b']);
 });
 
 test('mergeAssetCatalogViews: 両方空なら空配列（例外なし）', () => {
@@ -196,14 +203,18 @@ test('deriveStoreLabBaseUrl: store-credentials.json の url（.../api/store）�
     assert.equal(deriveStoreLabBaseUrl('http://localhost:8788/api/store'), 'http://localhost:8788/lab');
 });
 
-test('storeProductUrl: 商品ページ URL（asset.html?id=<id>）を組み立てる', () => {
+test('labAssetUrl: product and single asset pages', () => {
     assert.equal(
-        storeProductUrl('http://localhost:8788/api/store', 'phone-pro-titanium'),
+        labAssetUrl('http://localhost:8788/api/store', { category: 'overlay', id: 'card', product_id: 'phone-pro-titanium' }),
         'http://localhost:8788/lab/asset.html?id=phone-pro-titanium'
     );
     assert.equal(
-        storeProductUrl(undefined, 'app-icon-squircle'),
-        'https://akari.video/lab/asset.html?id=app-icon-squircle'
+        labAssetUrl(undefined, { category: 'overlay', id: 'telop-base-cue-card-hands' }),
+        'https://akari.video/lab/viewer#overlay/telop-base-cue-card-hands'
+    );
+    assert.equal(
+        labAssetUrl(undefined, { category: 'text style', id: 'a/b', product_id: '' }),
+        'https://akari.video/lab/viewer#text%20style/a%2Fb'
     );
 });
 

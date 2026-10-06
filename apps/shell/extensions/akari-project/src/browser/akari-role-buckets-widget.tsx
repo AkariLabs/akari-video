@@ -59,11 +59,11 @@ import {
 import {
     catalogCardUiEventTarget,
     groupCatalogItemsByPack,
-    storeProductUrl
+    labAssetUrl
 } from '../common/asset-catalog-view';
 import {
     countLibraryCategory, filterLibraryCatalogItems,
-    LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankRecentLibraryItems
+    LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankLibraryShelfItems
 } from '../common/library-source-view';
 import {
     EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
@@ -1220,7 +1220,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected filteredCatalogItems(): AssetCatalogViewItem[] {
-        return rankRecentLibraryItems(this.applyLibraryFilter(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter)),
+        return rankLibraryShelfItems(this.applyLibraryFilter(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter)),
             item => this.catalogQuery && item.title.toLocaleLowerCase().includes(this.catalogQuery.toLocaleLowerCase()) ? 1 : 0);
     }
 
@@ -2636,7 +2636,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderLibraryPackBody(): React.ReactNode {
-        const filtered = rankRecentLibraryItems(this.applyLibraryFilter(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, 'all')));
+        const filtered = rankLibraryShelfItems(this.applyLibraryFilter(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, 'all')));
         const { groups } = groupCatalogItemsByPack(filtered, this.catalogPacks);
         const totalGroups = groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
         return (
@@ -2895,8 +2895,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected openLibraryLab(item: AssetCatalogViewItem): void {
-        const productId = (item as AssetCatalogViewItem & { product_id?: string }).product_id;
-        this.windowService.openNewWindow(storeProductUrl(this.storeConnection.url, productId ?? item.id), { external: true });
+        this.windowService.openNewWindow(labAssetUrl(this.storeConnection.url, item), { external: true });
     }
 
     /**

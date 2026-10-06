@@ -125,6 +125,9 @@ function fetchImplFor(id, { entitled, zipPath }) {
       assert.equal(options.headers?.authorization, 'Bearer akst_test');
       return { ok: true, json: async () => ({ entitlements: entitled ? [{ product_id: 'all-access-pass' }] : [] }) };
     }
+    if (/\/v1\/assets\/[^/]+\/[^/]+$/.test(s)) {
+      return { ok: false, status: 404, json: async () => ({ error: 'asset_not_found', message: '記述子はありません' }) };
+    }
     if (s.endsWith(`/v1/download/${id}`)) {
       assert.equal(options.headers?.authorization, 'Bearer akst_test');
       if (!zipPath) {
@@ -327,6 +330,9 @@ test('textstyle Pro 2 件: 未契約は locked、パスで available、束 zip �
     if (String(url).endsWith('/v1/entitlements')) {
       return { ok: true, status: 200, json: async () => ({ pass: pass ? { tier: 1, seat_no: 1 } : null, entitlements: [] }) };
     }
+    if (/\/v1\/assets\/[^/]+\/[^/]+$/.test(String(url))) {
+      return { ok: false, status: 404, json: async () => ({ error: 'asset_not_found', message: '記述子はありません' }) };
+    }
     assert.ok(pass, '未契約では zip を取得しない');
     assert.ok(String(url).endsWith(`/v1/download/${productId}`));
     return { ok: true, status: 200, body: Readable.toWeb(createReadStream(zipPath)) };
@@ -378,6 +384,9 @@ test('Lifetime パスの展開済み entitlements でパック全件が availabl
     assert.equal(options.headers?.authorization, 'Bearer akst_test');
     if (String(url).endsWith('/v1/entitlements')) {
       return { ok: true, status: 200, json: async () => ({ entitlements }) };
+    }
+    if (/\/v1\/assets\/[^/]+\/[^/]+$/.test(String(url))) {
+      return { ok: false, status: 404, json: async () => ({ error: 'asset_not_found', message: '記述子はありません' }) };
     }
     downloads.push(String(url));
     assert.ok(String(url).endsWith(`/v1/download/${productId}`));

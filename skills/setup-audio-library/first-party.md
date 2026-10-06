@@ -22,7 +22,7 @@ SKILL.md の「エージェントによる取得はユーザーの指示で行�
   AKARI Sounds。効果音もまず AKARI Sounds を見て、無い系統（拍手・歓声 / 失敗音 /
   和風・バトル打撃）だけ候補リスト（第三者）で補完する
 - **初回起動では聞かない**（2026-08-04 変更。旧: [Y/n] 1 問・既定 Yes → 廃止）。
-  既定は asset-resolver（`akari-assets fetch <id>`）による**必要な曲だけのオンデマンド取得**で、
+  既定は asset-resolver（`akari-assets fetch <category/id>`）による**必要な曲だけのオンデマンド取得**で、
   初回起動は案内 1 行だけ出す。一括の入口は `akari sounds`
 - AKARI Sounds の新しい Release タグが出たとき（`--tag` を差し替えて再実行）
 

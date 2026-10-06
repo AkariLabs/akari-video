@@ -14,7 +14,7 @@ export async function bundleProjectReferences({
   for (const reference of planned) {
     try {
       if (!isAssetCached(env, reference.category, reference.id)) {
-        const resolved = await resolveAsset(reference.id, { env });
+        const resolved = await resolveAsset(`${reference.category}/${reference.id}`, { env });
         if (resolved.category !== reference.category) {
           throw new Error(
             `カタログのカテゴリが台帳と一致しません: ${reference.category}/${reference.id}（実際: ${resolved.category}）`,
