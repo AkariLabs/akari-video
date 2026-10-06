@@ -5899,7 +5899,7 @@ ${indent}`);
         if (updates.speaker !== void 0 && updates.speaker !== null && typeof updates.speaker !== "string") {
           throw new Error("\u5B57\u5E55\u306E\u8A71\u8005\u306F\u6587\u5B57\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
-        if (updates.style !== void 0 && updates.style !== null && !["karaoke", "pop", "reveal", "reveal-word"].includes(updates.style)) {
+        if (updates.style !== void 0 && updates.style !== null && !["plain", "karaoke", "pop", "reveal", "reveal-word"].includes(updates.style)) {
           throw new Error("\u5B57\u5E55\u306E\u30B9\u30BF\u30A4\u30EB\uFF08\u6F14\u51FA\uFF09\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
         if (updates.displayTiming !== void 0 && updates.displayTiming !== null && updates.displayTiming !== "full" && updates.displayTiming !== "speech-tight") {

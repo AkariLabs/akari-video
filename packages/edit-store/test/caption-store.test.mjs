@@ -12,8 +12,10 @@ import {
   splitCaptionLine,
   setCaptionTimingLine,
   updateCaptionFieldsInSource,
+  updateCaptionFieldsInSourceWithReport,
   updateCaptionTextStyleInSource,
 } from '../lib/caption-store.js';
+import { resolveCaptionDisplay } from '../lib/caption-display.js';
 // 行の分割・追加の時刻割り付け（task 2026-09-08-caption-line-ops 指示 B）。書き戻し側の
 // insertCaptionLine / removeCaptionLine と同じ契約を守る純関数なのでここで一緒に検証する。
 import { planInsertSpans, planSplitSpans } from '../lib/caption-line-diff.js';
@@ -35,6 +37,22 @@ const caption = (id, start, text, extra = {}) => ({
   sourceRef: { segment: 0 },
   edited: false,
   ...extra
+});
+
+test('plain style is saved without display_policy and keeps the legacy display path', () => {
+  const source = JSON.stringify({ captions: [caption('c-0001', 0, '声')] });
+  const result = updateCaptionFieldsInSourceWithReport(source, 'c-0001', { style: 'plain' });
+  const root = JSON.parse(result.source);
+  assert.equal(root.captions[0].style, 'plain');
+  assert.equal(root.captions[0].edited, false);
+  assert.equal(Object.hasOwn(root, 'display_policy'), false);
+  assert.equal(resolveCaptionDisplay(root, { cuts: [] }), null);
+});
+
+test('unknown caption style is still rejected', () => {
+  const source = JSON.stringify({ captions: [caption('c-0001', 0, '声')] });
+  assert.throws(() => updateCaptionFieldsInSourceWithReport(source, 'c-0001', { style: 'unknown' }),
+    /字幕のスタイル（演出）が不正です/u);
 });
 
 test('background.fit は captions.json の読み書きで保持する', () => {

@@ -9,13 +9,15 @@ export function wordContextMenuGroups(input: {
     rangeCount: number; wordCount: number; text: string; nextWordText: string;
     splitAvailable: boolean; mergeAvailable: boolean; mergeNextAvailable: boolean;
     wordInsertAvailable: boolean; itemCaptionsAvailable: boolean;
+    cutDisabledReason?: string;
 }): WordMenuGroup[] {
     const subject = input.rangeCount > 1 ? `${input.rangeCount} 範囲を一括`
         : input.wordCount > 1 ? 'この範囲' : 'この語';
     const groups: WordMenuGroup[] = [
         { title: `${subject}「${input.text}」`, items: [
             { label: '▶ ここから再生', action: { kind: 'play' } }, { label: '✎ 直す', action: { kind: 'edit' } },
-            { label: '✂ 映像ごとカット', action: { kind: 'cut-video' }, danger: true },
+            { label: '✂ 映像ごとカット', action: { kind: 'cut-video' }, danger: true,
+                disabled: !!input.cutDisabledReason, title: input.cutDisabledReason },
             { label: '字幕からだけ消す（音声はそのまま）', action: { kind: 'caption-only' } },
             { label: '⏸ 間を入れる', accel: '⌘;', action: { kind: 'pause' } }
         ] },
@@ -46,11 +48,11 @@ export function openWordContextMenu(options: {
         for (const item of group.items) {
             const button = document.createElement('button'); button.type = 'button'; button.textContent = item.label;
             if (item.danger) button.classList.add('danger');
-            if (item.disabled) button.classList.add('disabled');
+            if (item.disabled) { button.disabled = true; button.classList.add('disabled'); }
             if (item.title) button.title = item.title;
             if (group.colors) button.style.background = item.label;
             if (item.accel) { const accel = document.createElement('span'); accel.className = 'akari-daihon-cmaccel'; accel.textContent = item.accel; button.appendChild(accel); }
-            button.addEventListener('click', event => { event.stopPropagation(); if (item.action) options.onAction(item.action); });
+            button.addEventListener('click', event => { event.stopPropagation(); if (!item.disabled && item.action) options.onAction(item.action); });
             items.appendChild(button);
         }
         pop.appendChild(items);

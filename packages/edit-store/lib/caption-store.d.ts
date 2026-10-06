@@ -222,7 +222,7 @@ export interface CaptionRecord {
         start: number;
         end: number;
     }[];
-    style?: 'karaoke' | 'pop' | 'reveal' | 'reveal-word';
+    style?: 'plain' | 'karaoke' | 'pop' | 'reveal' | 'reveal-word';
     displayText?: string;
     displayFragments?: string[];
     stylePreset?: string;

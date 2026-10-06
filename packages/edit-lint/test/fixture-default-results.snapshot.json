@@ -468,7 +468,7 @@
         {
           "severity": "error",
           "check": "captions.schema",
-          "message": "style must be \"karaoke\", \"pop\", \"reveal\", or \"reveal-word\"",
+          "message": "style must be \"plain\", \"karaoke\", \"pop\", \"reveal\", or \"reveal-word\"",
           "path": "captions.json#[0]"
         },
         {
