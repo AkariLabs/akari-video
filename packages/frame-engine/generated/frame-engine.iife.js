@@ -16303,6 +16303,15 @@ ${indent}`);
         const warnings2 = [];
         const affectedTrackIds = /* @__PURE__ */ new Set();
         const preserveSourceEdges = audioTracks(edit).some((track) => track.items.some((item) => item.link));
+        const originalLinkedGaps = /* @__PURE__ */ new Map();
+        for (const track of visualTracks(edit)) {
+          const items = track.items.filter(media);
+          for (let index = 1; index < items.length; index++) {
+            const gap = linkedAudioGap(edit, items[index - 1], items[index]);
+            if (gap > 0)
+              originalLinkedGaps.set(gapKey(track.id, items[index - 1], items[index]), gap);
+          }
+        }
         const leadingLinkedAudio = /* @__PURE__ */ new Map();
         for (const track of visualTracks(edit)) {
           const first = track.items.find(media);
@@ -16311,6 +16320,7 @@ ${indent}`);
           if (preserveLeadingGapTrackIds.includes(track.id) || audioTracks(edit).some((audioTrack) => audioTrack.items.some((audio) => audio.link === first.id && audio.at < first.at)))
             leadingLinkedAudio.set(track.id, first.at);
         }
+        const audioBeforeCutWithNoVisual = /* @__PURE__ */ new Set();
         let removedFrames = 0;
         for (const range of ranges) {
           const matchingSourceExists = edit.sources.some((candidate) => candidate.id === range.captionId) || visualTracks(edit).some((track) => track.items.some((item) => item.source.kind === "media" && item.source.src === range.captionId));
@@ -16348,6 +16358,9 @@ ${indent}`);
                     }, void 0);
                     if (visual)
                       piece.link = visual.id;
+                    if ((piece.source.out ?? Infinity) <= overlapIn + audioFrameTolerance(piece) && !replacement.items.some((candidate) => media(candidate) && candidate.source.out <= overlapIn + audioFrameTolerance(candidate))) {
+                      audioBeforeCutWithNoVisual.add(piece.id);
+                    }
                   }
                   audioTrack.items.splice(audioIndex, 1, ...audioPieces);
                 }
@@ -16372,7 +16385,7 @@ ${indent}`);
             const right = beforeMedia[index];
             if (index > 0) {
               const left = beforeMedia[index - 1];
-              retainedGap += preserveGapBeforeItems?.get(right.id) ?? linkedAudioGap(edit, left, right);
+              retainedGap += preserveGapBeforeItems?.get(right.id) ?? originalLinkedGaps.get(gapKey(track.id, left, right)) ?? 0;
             }
             compactedMedia[index].at += retainedGap;
           }
@@ -16388,6 +16401,8 @@ ${indent}`);
         for (const track of audioTracks(compacted))
           for (const item of track.items) {
             if (!item.link || !previousVisual.has(item.link))
+              continue;
+            if (audioBeforeCutWithNoVisual.has(item.id))
               continue;
             const visual = compactedVisual.get(item.link);
             if (visual)
@@ -16410,6 +16425,9 @@ ${indent}`);
       }
       function splitRootId(id) {
         return id.replace(/(?:-split(?:-\d+)*)+$/, "");
+      }
+      function gapKey(trackId, left, right) {
+        return `${trackId}\0${splitRootId(left.id)}\0${splitRootId(right.id)}`;
       }
       function linkedAudioGap(edit, left, right) {
         const gap = right.at - left.at - left.duration;
@@ -16559,7 +16577,7 @@ ${indent}`);
           candidateTrack.items.splice(candidateLeftIndex, 1, ordered);
           candidateTrack.items.splice(candidateRightIndex, 1);
         }
-        return !foundPair && originalLeft.audio === false ? RESTORE_UNAVAILABLE : void 0;
+        return !foundPair && originalLeft.audio === false ? RESTORE_PROVENANCE : void 0;
       }
       function restoreOneTrack(edit, trackIndex, range) {
         const original = edit.tracks[trackIndex];
@@ -16703,10 +16721,23 @@ ${indent}`);
           const trial = applyV2(`${JSON.stringify(restored, null, 2)}
 `, [{ ...range, kind: "row" }], {});
           const replay = JSON.parse(trial.source);
+          const visualById = new Map(visualTracks(edit).flatMap((track) => track.items.filter(media).map((item) => [item.id, item])));
           for (const original of audioTracks(edit)) {
             const next = replay.tracks.find((track) => track.id === original.id);
-            const frameSkew = original.items.some((item, index) => index > 0 && item.link && original.items[index - 1].link && splitRootId(item.link) === splitRootId(original.items[index - 1].link) && Math.abs(item.at - original.items[index - 1].at - original.items[index - 1].duration) === 1);
-            if (!next || next.lane !== "audio" || !("items" in next) || !sameCutResult(next, original, audioFrameTolerance(...original.items, ...next.items), frameSkew ? 1 : 0)) {
+            const splitSkew = original.items.some((right, index) => {
+              if (index === 0 || !right.link)
+                return false;
+              const left = original.items[index - 1];
+              if (!left.link || splitRootId(left.link) !== splitRootId(right.link))
+                return false;
+              const skew = right.at - left.at - left.duration;
+              if (Math.abs(skew) !== 1)
+                return false;
+              const leftVisual = visualById.get(left.link);
+              const rightVisual = visualById.get(right.link);
+              return !!leftVisual && !!rightVisual && (Math.abs((left.source.in ?? 0) - leftVisual.source.in) > audioFrameTolerance(left, leftVisual) || Math.abs((right.source.out ?? 0) - rightVisual.source.out) > audioFrameTolerance(right, rightVisual));
+            });
+            if (!next || next.lane !== "audio" || !("items" in next) || !sameCutResult(next, original, audioFrameTolerance(...original.items, ...next.items), splitSkew ? 1 : 0)) {
               return { source, restored: false, reason: RESTORE_UNAVAILABLE };
             }
           }

@@ -87,6 +87,15 @@ function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserve
     const warnings = [];
     const affectedTrackIds = new Set();
     const preserveSourceEdges = audioTracks(edit).some(track => track.items.some(item => item.link));
+    const originalLinkedGaps = new Map();
+    for (const track of visualTracks(edit)) {
+        const items = track.items.filter(media);
+        for (let index = 1; index < items.length; index++) {
+            const gap = linkedAudioGap(edit, items[index - 1], items[index]);
+            if (gap > 0)
+                originalLinkedGaps.set(gapKey(track.id, items[index - 1], items[index]), gap);
+        }
+    }
     const leadingLinkedAudio = new Map();
     for (const track of visualTracks(edit)) {
         const first = track.items.find(media);
@@ -95,6 +104,7 @@ function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserve
         if (preserveLeadingGapTrackIds.includes(track.id) || audioTracks(edit).some(audioTrack => audioTrack.items.some(audio => audio.link === first.id && audio.at < first.at)))
             leadingLinkedAudio.set(track.id, first.at);
     }
+    const audioBeforeCutWithNoVisual = new Set();
     let removedFrames = 0;
     for (const range of ranges) {
         const matchingSourceExists = edit.sources.some(candidate => candidate.id === range.captionId)
@@ -139,6 +149,11 @@ function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserve
                             }, undefined);
                             if (visual)
                                 piece.link = visual.id;
+                            if ((piece.source.out ?? Infinity) <= overlapIn + audioFrameTolerance(piece)
+                                && !replacement.items.some(candidate => media(candidate)
+                                    && candidate.source.out <= overlapIn + audioFrameTolerance(candidate))) {
+                                audioBeforeCutWithNoVisual.add(piece.id);
+                            }
                         }
                         audioTrack.items.splice(audioIndex, 1, ...audioPieces);
                     }
@@ -163,7 +178,8 @@ function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserve
             const right = beforeMedia[index];
             if (index > 0) {
                 const left = beforeMedia[index - 1];
-                retainedGap += preserveGapBeforeItems?.get(right.id) ?? linkedAudioGap(edit, left, right);
+                retainedGap += preserveGapBeforeItems?.get(right.id)
+                    ?? originalLinkedGaps.get(gapKey(track.id, left, right)) ?? 0;
             }
             compactedMedia[index].at += retainedGap;
         }
@@ -178,6 +194,8 @@ function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserve
     for (const track of audioTracks(compacted))
         for (const item of track.items) {
             if (!item.link || !previousVisual.has(item.link))
+                continue;
+            if (audioBeforeCutWithNoVisual.has(item.id))
                 continue;
             const visual = compactedVisual.get(item.link);
             if (visual)
@@ -204,6 +222,9 @@ function nearRangeEdge(edge, boundary, item) {
 }
 function splitRootId(id) {
     return id.replace(/(?:-split(?:-\d+)*)+$/, '');
+}
+function gapKey(trackId, left, right) {
+    return `${trackId}\0${splitRootId(left.id)}\0${splitRootId(right.id)}`;
 }
 function linkedAudioGap(edit, left, right) {
     const gap = right.at - left.at - left.duration;
@@ -370,7 +391,7 @@ function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightI
         candidateTrack.items.splice(candidateLeftIndex, 1, ordered);
         candidateTrack.items.splice(candidateRightIndex, 1);
     }
-    return !foundPair && originalLeft.audio === false ? RESTORE_UNAVAILABLE : undefined;
+    return !foundPair && originalLeft.audio === false ? RESTORE_PROVENANCE : undefined;
 }
 function restoreOneTrack(edit, trackIndex, range) {
     const original = edit.tracks[trackIndex];
@@ -527,14 +548,26 @@ function restoreCutRangeUnchecked(source, range) {
     if (hasLinkedAudio) {
         const trial = applyV2(`${JSON.stringify(restored, null, 2)}\n`, [{ ...range, kind: 'row' }], {});
         const replay = JSON.parse(trial.source);
+        const visualById = new Map(visualTracks(edit).flatMap(track => track.items
+            .filter(media).map(item => [item.id, item])));
         for (const original of audioTracks(edit)) {
             const next = replay.tracks.find(track => track.id === original.id);
-            const frameSkew = original.items.some((item, index) => index > 0 && item.link
-                && original.items[index - 1].link
-                && splitRootId(item.link) === splitRootId(original.items[index - 1].link)
-                && Math.abs(item.at - original.items[index - 1].at - original.items[index - 1].duration) === 1);
+            const splitSkew = original.items.some((right, index) => {
+                if (index === 0 || !right.link)
+                    return false;
+                const left = original.items[index - 1];
+                if (!left.link || splitRootId(left.link) !== splitRootId(right.link))
+                    return false;
+                const skew = right.at - left.at - left.duration;
+                if (Math.abs(skew) !== 1)
+                    return false;
+                const leftVisual = visualById.get(left.link);
+                const rightVisual = visualById.get(right.link);
+                return !!leftVisual && !!rightVisual && (Math.abs((left.source.in ?? 0) - leftVisual.source.in) > audioFrameTolerance(left, leftVisual)
+                    || Math.abs((right.source.out ?? 0) - rightVisual.source.out) > audioFrameTolerance(right, rightVisual));
+            });
             if (!next || next.lane !== 'audio' || !('items' in next)
-                || !sameCutResult(next, original, audioFrameTolerance(...original.items, ...next.items), frameSkew ? 1 : 0)) {
+                || !sameCutResult(next, original, audioFrameTolerance(...original.items, ...next.items), splitSkew ? 1 : 0)) {
                 return { source, restored: false, reason: RESTORE_UNAVAILABLE };
             }
         }
