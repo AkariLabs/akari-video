@@ -1930,6 +1930,10 @@ export function previewBootstrapScript(): string {
             // 中間フレームで一瞬だけ錨補正前の crop が画面に出てしまう（updateLayerLayout が
             // 前者の呼び出し時点でまだ古い transform を使って描く）ため、必ずこちらを使う。
             const applyLayerCropAndTransformNow = (entry, crop, transform) => {
+                // 移動ドラッグの可視位置と engine 用 patch は crop の錨補正前の値。
+                // 以後は同時に書く dataset の transform を唯一のライブ位置にする。
+                entry.previewVisiblePosition = null;
+                entry.previewPositionPatch = null;
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
                 entry.video.dataset.akariCropX = String(c.x);
                 entry.video.dataset.akariCropY = String(c.y);
@@ -1939,6 +1943,8 @@ export function previewBootstrapScript(): string {
                 entry.video.dataset.akariTransformX = String(transform.x);
                 entry.video.dataset.akariTransformY = String(transform.y);
                 entry.video.dataset.akariTransformScale = String(transform.scale);
+                entry.video.dataset.akariTransformScaleX = String(transform.scaleX ?? transform.scale);
+                entry.video.dataset.akariTransformScaleY = String(transform.scaleY ?? transform.scale);
                 entry.video.dataset.akariTransformRotate = String(transform.rotate);
                 layerCropVisualThrottle.call();
             };
@@ -4126,7 +4132,8 @@ export function previewBootstrapScript(): string {
                 return editable;
             };
             const applyCutCropAndTransformNow = (crop, transform) => {
-                cutPreviewPositionPatch = transform;
+                cutPreviewPositionPatch = null;
+                cutPreviewVisiblePosition = null;
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
                 // cutHasLayerStyleVisual は segment を見るので、ドラッグ中のモデルにも同じ crop を
                 // 置いて描画レール（applyCutFramingVisual / applyCutLayerStyleLayout）を揃える。
@@ -4161,6 +4168,8 @@ export function previewBootstrapScript(): string {
             };
             const restoreCutVisual = snapshot => {
                 if (!snapshot) return;
+                cutPreviewPositionPatch = null;
+                cutPreviewVisiblePosition = null;
                 const segment = snapshot.segment;
                 if (segment && segment.kind === 'src') {
                     if (snapshot.crop) segment.crop = { ...snapshot.crop };
