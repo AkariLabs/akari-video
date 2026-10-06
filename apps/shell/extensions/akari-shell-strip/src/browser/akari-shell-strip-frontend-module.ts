@@ -29,9 +29,14 @@ import { SidePanelHandler } from '@theia/core/lib/browser/shell/side-panel-handl
 import { AkariRightPanelHandler } from './akari-right-panel-handler';
 import { AkariRightRailDnd } from './akari-right-rail-dnd';
 import { AkariStatusbarResources } from './statusbar/akari-statusbar-resources';
+import { AkariStatusBar } from './statusbar/akari-statusbar';
+import { StatusBar, StatusBarImpl } from '@theia/core/lib/browser/status-bar/status-bar';
 import { AkariStatusbarResourcesService, AKARI_STATUSBAR_RESOURCES_PATH } from '../common/statusbar-resources-protocol';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
+    // ApplicationShell と各 contribution が同じ StatusBar 実体を使う。
+    rebind(StatusBarImpl).to(AkariStatusBar).inSingletonScope();
+    rebind(StatusBar).toService(StatusBarImpl);
     bind(AkariStatusbarResourcesService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_STATUSBAR_RESOURCES_PATH)
     ).inSingletonScope();
