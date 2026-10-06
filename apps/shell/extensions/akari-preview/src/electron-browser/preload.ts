@@ -4,6 +4,7 @@ import {
     CHANNEL_CAPTURE_VISUAL_THUMBNAIL,
     CHANNEL_CAPTURE_PREVIEW_FRAME,
     CHANNEL_FINISH_PREVIEW_FRAME,
+    CHANNEL_PREVIEW_RENDERER_GONE,
     ElectronAkariPreviewApi
 } from '../electron-common/electron-api';
 
@@ -11,7 +12,12 @@ const api: ElectronAkariPreviewApi = {
     capturePreviewFrame: request => ipcRenderer.invoke(CHANNEL_CAPTURE_PREVIEW_FRAME, request),
     finishPreviewFrame: (captureId, discard) => ipcRenderer.invoke(CHANNEL_FINISH_PREVIEW_FRAME, captureId, discard),
     captureVisualThumbnail: page => ipcRenderer.invoke(CHANNEL_CAPTURE_VISUAL_THUMBNAIL, page),
-    askForMicrophoneAccess: () => ipcRenderer.invoke(CHANNEL_ASK_MICROPHONE_ACCESS)
+    askForMicrophoneAccess: () => ipcRenderer.invoke(CHANNEL_ASK_MICROPHONE_ACCESS),
+    onPreviewRendererGone: listener => {
+        const handler = (_event: unknown, notice: Parameters<typeof listener>[0]): void => listener(notice);
+        ipcRenderer.on(CHANNEL_PREVIEW_RENDERER_GONE, handler);
+        return () => ipcRenderer.removeListener(CHANNEL_PREVIEW_RENDERER_GONE, handler);
+    }
 };
 
 export function preload(): void {

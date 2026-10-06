@@ -81,6 +81,31 @@ export interface PreviewInitTrace {
     events: PreviewDiagnosticEvent[];
     /** 最初に観測した例外（error / rejection / stage-failure のうち最初のもの）。 */
     firstError?: PreviewDiagnosticEvent;
+    rendererGone?: PreviewRendererGone;
+}
+
+export interface PreviewRendererGone {
+    reason: string;
+    exitCode: number | null;
+    at: string;
+}
+
+/** 初期化段を報告するプレビューだけを診断対象にする。 */
+export function previewDiagnosticsKindFromWidgetId(id: string): 'output' | 'raw' | undefined {
+    return id.startsWith('akari-output-preview-') ? 'output'
+        : id.startsWith('akari-preview-') ? 'raw' : undefined;
+}
+
+export function describePreviewRendererGoneReason(reason: string): string {
+    switch (reason) {
+        case 'oom': return 'メモリ不足';
+        case 'crashed':
+        case 'abnormal-exit': return '異常終了';
+        case 'killed': return '強制終了';
+        case 'launch-failed': return '起動失敗';
+        case 'unknown': return '不明';
+        default: return reason;
+    }
 }
 
 /** trace が保持する診断イベントの上限。超えた分は捨てて `truncated` を立てる。 */
@@ -98,6 +123,7 @@ export interface PreviewInitSummary {
     firstError?: PreviewDiagnosticEvent;
     stages: PreviewInitStageState[];
     events: PreviewDiagnosticEvent[];
+    rendererGone?: PreviewRendererGone;
 }
 
 export interface PreviewDiagnosticsContext {
@@ -119,6 +145,7 @@ export interface PreviewDiagnosticsContext {
     appVersion?: string;
     /** ISO 8601 の記録時刻。 */
     at?: string;
+    unresponsive?: boolean;
 }
 
 export function createPreviewInitTrace(
@@ -233,6 +260,7 @@ export function summarizePreviewInit(trace: PreviewInitTrace): PreviewInitSummar
     if (stalledStage !== undefined) summary.stalledStage = stalledStage;
     if (reachedStage !== undefined) summary.reachedStage = reachedStage;
     if (trace.firstError !== undefined) summary.firstError = trace.firstError;
+    if (trace.rendererGone !== undefined) summary.rendererGone = trace.rendererGone;
     return summary;
 }
 
@@ -263,11 +291,26 @@ export function formatPreviewInitReport(
     if (context.assetOrigin) lines.push('配信オリジン: ' + String(context.assetOrigin));
     if (context.userAgent) lines.push('UA: ' + String(context.userAgent));
     const blocked = summary.failedStage || summary.stalledStage;
-    lines.push(
-        summary.complete
+    if (summary.rendererGone) {
+        const gone = summary.rendererGone;
+        lines.push('結果: プレビューの表示処理が停止しました（理由: '
+            + describePreviewRendererGoneReason(gone.reason) + '）');
+        lines.push('停止: reason=' + gone.reason
+            + ' exitCode=' + (gone.exitCode === null ? '不明' : String(gone.exitCode))
+            + ' 時刻=' + gone.at);
+        lines.push('停止の時点で ok だった段: '
+            + summary.stages.filter(stage => stage.status === 'ok').map(stage => stage.label).join('、'));
+        if (!summary.complete && blocked) {
+            lines.push('停止の時点で未完了だった段: ' + blocked.label);
+        }
+    } else if (context.unresponsive) {
+        lines.push('結果: プレビューが応答していません（プロセスの停止は未確認）');
+    }
+    if (!summary.rendererGone) {
+        lines.push(summary.complete
             ? '結果: 初期化は全段 ok'
-            : '止まった段: ' + (blocked ? blocked.label + '（' + blocked.id + '）' : '不明')
-    );
+            : '止まった段: ' + (blocked ? blocked.label + '（' + blocked.id + '）' : '不明'));
+    }
     lines.push('段の状態:');
     for (const stage of summary.stages) {
         lines.push(
@@ -275,7 +318,9 @@ export function formatPreviewInitReport(
             + (stage.detail ? ' — ' + String(stage.detail) : '')
         );
     }
-    if (summary.firstError) {
+    if (summary.rendererGone) {
+        lines.push('最初の例外: 例外ではなくプロセスの停止を検知しました');
+    } else if (summary.firstError) {
         const error = summary.firstError;
         lines.push(
             '最初の例外: [' + error.kind + '] ' + error.message
@@ -295,7 +340,7 @@ export function formatPreviewInitReport(
             );
         }
     }
-    lines.push('※ これは失敗段の記録であり、原因の断定ではない。');
+    if (!summary.rendererGone) lines.push('※ これは失敗段の記録であり、原因の断定ではない。');
     return lines.join('\n');
 }
 
@@ -452,7 +497,7 @@ export function neutralizePressureObserver(
 export interface PreviewDiagnosticsLogEntry {
     at: string;
     entry: PreviewDiagnosticsContext['entry'];
-    event: 'webview-registered' | 'stage' | 'report' | 'watchdog' | 'key-conversion' | 'note';
+    event: 'webview-registered' | 'stage' | 'report' | 'watchdog' | 'renderer-gone' | 'key-conversion' | 'note';
     webviewId?: string;
     webviewRole?: string;
     editUri?: string;
@@ -462,6 +507,7 @@ export interface PreviewDiagnosticsLogEntry {
     frameEngine?: boolean;
     assetOrigin?: string;
     userAgent?: string;
+    rendererGone?: PreviewRendererGone;
     summary?: {
         complete: boolean;
         failedStage?: PreviewInitStageId;
