@@ -932,6 +932,23 @@ test("shared opt-in text-style parity matrix matches edit-lint and the kernel ga
   });
 });
 
+test('display policy karaoke default and row style pass edit-lint while pop remains a conflict', async () => {
+  await withFixtures(async fixtures => {
+    const project = join(fixtures, 'valid');
+    const captionsPath = join(project, 'captions.json');
+    const base = { ...styleParity.caption, start: 5, end: 7, style: 'karaoke',
+      words: [{ start: 5, end: 7, text: styleParity.caption.text }] };
+    const root = { display_policy: { ...styleParity.display_policy, word_style: 'karaoke' }, captions: [base] };
+    await writeFile(captionsPath, `${JSON.stringify(root)}\n`, 'utf8');
+    const accepted = run(project);
+    assert.equal(accepted.status, 0, accepted.stderr || accepted.stdout);
+    await writeFile(captionsPath, `${JSON.stringify({ ...root, captions: [{ ...base, style: 'pop' }] })}\n`, 'utf8');
+    const rejected = run(project);
+    assert.equal(rejected.status, 1);
+    assert.ok(parseResult(rejected).findings.some(finding => finding.check === 'captions.display-policy'));
+  });
+});
+
 test("shared caption-style contract accepts reveal-word and rejects an unknown value", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "valid");

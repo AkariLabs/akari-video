@@ -6,6 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { buildOsrPage } from "../../osr-export/src/page-builder.mjs";
+import { resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
 import { buildGpuPage, loadAndBuildGpuPage } from "../src/page-builder.mjs";
 
 // captions.json の display_policy（1 行ずつ順送り）は edit-store の resolveCaptionDisplay が唯一の解決器。
@@ -78,6 +79,45 @@ test("display_policy の読点字幕は書き出しでも 1 行で焼く", () =>
   assert.equal(captionLines(legacy.spriteManifest.captions[0].html), 2);
 });
 
+test('karaoke token timings are identical in GPU, OSR, and the shared preview/render plan', () => {
+  const words = ['あいう', 'えおか', 'きくけ', 'こさし'].map((text, index) => ({
+    text, start: index * 0.5, end: (index + 1) * 0.5,
+  }));
+  const captions = { display_policy: { ...displayPolicy, max_line_units: 12, lines: 2, word_style: 'karaoke' },
+    captions: [{ id: 'c-karaoke', src: 'main', start: 0, end: 2,
+      text: words.map(word => word.text).join(''), display_fragments: ['あいうえおか', 'きくけこさし'], words }] };
+  const gpu = gpuPage(captions);
+  const osr = buildOsrPage(buildArgs(captions));
+  const shared = resolveCaptionPlan({ captionsRoot: captions, edit });
+  const tokens = html => [...String(html).matchAll(/<span class="akari-caption__tok akari-caption__tok--karaoke" style="([^"]+)">([^<]+)<\/span>/gu)]
+    .map(([, timing, text]) => [timing.replace(/\s+/gu, ''), text]);
+  const expected = tokens(shared.overlays[0].html);
+  assert.equal(expected.length, 4);
+  assert.deepEqual(tokens(gpu.spriteManifest.captions[0].html), expected);
+  assert.deepEqual(tokens(osr.overlaySheetHtml), expected);
+  assert.deepEqual(shared.layout.display_cues[0].display_lines, captions.captions[0].display_fragments);
+});
+
+test('GPU and OSR keep unmeasured punctuation unlit beside measured karaoke words', () => {
+  const captions = { display_policy: { ...displayPolicy, max_line_units: 20, word_style: 'karaoke' },
+    captions: [{ id: 'c-punctuation', src: 'main', start: 0, end: 3,
+      text: '今日は、大事な話。', words: [
+        { text: '今日は', start: 0, end: 1 },
+        { text: '大事な', start: 1, end: 2 },
+        { text: '話', start: 2, end: 3 },
+      ] }] };
+  const gpu = gpuPage(captions);
+  const osr = buildOsrPage(buildArgs(captions));
+  const render = resolveCaptionPlan({ captionsRoot: captions, edit });
+  const tokens = html => [...String(html).matchAll(/<span class="akari-caption__tok akari-caption__tok--(karaoke|unlit)"[^>]*>([^<]+)<\/span>/gu)]
+    .map(([, kind, text]) => [kind, text]);
+  const expected = [['karaoke', '今日は'], ['unlit', '、'], ['karaoke', '大事な'],
+    ['karaoke', '話'], ['unlit', '。']];
+  assert.deepEqual(tokens(render.overlays[0].html), expected);
+  assert.deepEqual(tokens(gpu.spriteManifest.captions[0].html), expected);
+  assert.deepEqual(tokens(osr.overlaySheetHtml), expected);
+});
+
 test("display_policy 下の字幕スプライトは静的に焼き切る（語タイルを名乗らない）", () => {
   const sprite = gpuPage(policyRoot([punctuated])).spriteManifest.captions[0];
   // 解決済みの断片は HTML に強調・語スタイルまで畳み込まれている。元 cue で判定すると
@@ -113,7 +153,7 @@ test("GPU と OSR は display_policy 下でも同じ字幕 HTML と同じ本数�
 });
 
 test("display_policy 未宣言の字幕スプライトは既存バイト列を保ち、ページは R·S 順を使う", () => {
-  // 字幕スプライトは HEAD（4fa9143e）の値を維持。ページ HTML は R·S 順へ変えた値を固定する。
+  // 字幕スプライトは既存値を維持。ページ HTML は文字送りの共通遅延関数を含む値を固定する。
   // 埋め込みフォントの絶対 file URL は機械依存なので落としてから固定する。
   const digest = value => createHash("sha256")
     .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")).digest("hex");
@@ -128,11 +168,11 @@ test("display_policy 未宣言の字幕スプライトは既存バイト列を�
   };
   const expected = {
     legacyArray: {
-      html: "47d84b98c12ea182b85f92baeb2557a8f9e87b5c78b74640ebdbf2bf98c3098a",
+      html: "fb2376246a499dea945fe96ef324a61832c01c6e3e87495edb64c6acf56e0480",
       sprites: "aca1fac99554eda262bd16e2e27e812c5b69bed2b599eaaebda8f4bee0f2d109",
     },
     legacyObject: {
-      html: "1cb9577b1b7a597c925f35f2b5efa88c6b063aa7cdffd88d98c312dd252c1535",
+      html: "88c2b0c9cc8dbffe58537c89213d6a9812aafb40db20e0a0a6d3c01a911d2b85",
       sprites: "7661a2b3df123c611aef2cd8187cf9934642c898aa683ce0549731dd3a83ce63",
     },
   };

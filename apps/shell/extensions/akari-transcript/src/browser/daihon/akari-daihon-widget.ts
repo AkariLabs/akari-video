@@ -5,14 +5,15 @@ import { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTimi
 import { attachmentRanges, visibleAttachmentRanges, visibleLaneCount, isAttachmentItem, type AttachmentMode, type AttachmentRange } from '../../common/daihon-attachments';
 import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
 import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
-import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
+import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
+import { AkariDaihonCutDialog } from './akari-daihon-cut-dialog';
+import { collectDaihonCutCandidates, handEditedLines, type DaihonCutCandidate, type DaihonCutSource } from '../../common/daihon-cut-candidates';
+import { cutCandidateContext } from '../../common/daihon-cut-context';
 import { isCaptionVideo, selectCaptionSources } from '../../common/caption-source-eligibility';
-import { cutsJumpButtonLabel, handEditedLines } from '../../common/cuts-view';
 import { nextCaptionNotices } from '../../common/caption-notice-state';
-import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import {
     captionsButtonLabel,
     captionsRetimeHistoryLabel,
@@ -39,6 +40,8 @@ import {
     type CaptionDisplayPolicy,
     type TimelineSegment
 } from '@akari-video/edit-store';
+import { canRestoreCutRange } from '@akari-video/edit-store';
+import { deriveDaihonCutSpans, restoreImpact, sameCutSpanIdentity, type DaihonCutSpan } from '../../common/daihon-cut-spans';
 import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { parseCaptions, type Caption } from '../caption-store';
@@ -52,7 +55,7 @@ import {
     type DaihonCaptionLike,
     type DaihonRow
 } from '../../common/daihon-row-model';
-import { outputToSource, resolveCurrent, sourceToOutput, type DaihonHighlight } from '../../common/daihon-time-map';
+import { outputToSource, resolveCurrent, sourceToOutput, sourceToOutputForSource, type DaihonHighlight } from '../../common/daihon-time-map';
 import {
     applyDragRange,
     applySelectionClick,
@@ -66,7 +69,7 @@ import {
     selectAll,
     type DaihonSelection
 } from '../../common/daihon-selection';
-import { isFillerWord, normalizeFillerWord } from '../../common/daihon-filler';
+import { normalizeFillerWord } from '../../common/daihon-filler';
 import { clampRowCutRange, normalizeCutRanges, type DaihonCutRange } from '../../common/daihon-cut-plan';
 import {
     CUT_RANGE_PAD_SEC,
@@ -129,13 +132,12 @@ import {
     type PlacedUnrecognized
 } from '../../common/daihon-unrecognized';
 import {
-    daihonDisplayLabel,
     daihonDisplayPolicyForWrite,
     readDaihonDisplayKnobs,
     readDaihonShowBreaks,
-    validateDaihonCustomLines,
     type DaihonDisplayKnobs
 } from '../../common/daihon-display-knobs';
+import { readCaptionShape } from '../../common/caption-shape';
 import { activeDaihonFragment } from '../../common/daihon-fragment-highlight';
 import {
     parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
@@ -164,6 +166,9 @@ const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
 const MIN_WORD_INSERT_GAP_SEC = 0.1;
 const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
 const DAIHON_SHOW_BREAKS_PREFERENCE = 'akari.daihon.showBreaks';
+const DAIHON_SHOW_CUT_MARKS_PREFERENCE = 'akari.daihon.showCutMarks';
+const DAIHON_SILENCE_MIN_PREFERENCE = 'akari.daihon.silenceMin';
+const DAIHON_SILENCE_KEEP_PREFERENCE = 'akari.daihon.silenceKeep';
 const DAIHON_ATTACHMENT_MODE_PREFERENCE = 'akari.daihon.attachmentMode';
 const FOCUS_TIMELINE_ITEM_COMMAND_ID = 'akari.timeline.focusItem';
 const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-tpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
@@ -210,7 +215,6 @@ type CutRangeEditorTarget =
 type CutRangeWithReason = DaihonCutRange & { reason?: 'silence' | 'word' };
 
 interface CutRangeEdit {
-    operationId: number;
     range: CutRangeWithReason;
 }
 
@@ -218,12 +222,6 @@ interface CutEntry {
     rowId: string;
     range: CutRangeWithReason;
     target?: CutRangeEditorTarget;
-}
-
-interface CutOperation {
-    id: number;
-    entries: CutEntry[];
-    beforeSource: string;
 }
 
 const PLACED_TEXT_COLORS = [
@@ -260,8 +258,12 @@ const STYLE = `
 .akari-daihon-row.placed-drop-target { outline:1px solid var(--akari-accent); background:var(--theia-akariTheme-accentTint); }
 .akari-daihon-row.qc-hidden { display:none; }
 .akari-daihon-row.speaker-hidden { display:none; }
-.akari-daihon-row.iscut { opacity:.5; }
+.akari-daihon-row.iscut { opacity:.5; cursor:pointer; }
 .akari-daihon-row.iscut .akari-daihon-row-text { text-decoration:line-through; text-decoration-color:rgba(255,143,115,.7); text-decoration-thickness:2px; }
+.akari-daihon-word.iscut, .akari-daihon-gapchip.iscut { color:var(--akari-bad, var(--theia-errorForeground)) !important; text-decoration:line-through !important; text-decoration-color:var(--akari-bad, var(--theia-errorForeground)); text-decoration-thickness:2px; cursor:pointer; }
+.akari-daihon-word-unk.iscut { opacity:.45; text-decoration:line-through; cursor:pointer; }
+.akari-daihon-toast { position:absolute; bottom:12px; left:12px; z-index:40; padding:8px 10px; background:var(--akari-card); border:1px solid var(--akari-line-inner); border-radius:6px; box-shadow:0 6px 20px #0008; font-size:12px; }
+.akari-daihon-toast button { margin-left:8px; border:0; background:none; color:var(--theia-akariTheme-accentLight); cursor:pointer; }
 .akari-daihon-row.saving { opacity:.65; pointer-events:none; }
 .akari-daihon-row-head { display:flex; align-items:center; gap:6px; margin:0; min-height:15px; }
 .akari-daihon-speaker { font-size:9px; font-weight:700; line-height:1.35; border:1px solid; border-radius:999px; padding:0 6px; cursor:pointer; white-space:nowrap; }
@@ -316,6 +318,7 @@ const STYLE = `
 .akari-daihon-row-edit input { flex:1; font:inherit; font-size:15px; background:var(--theia-editor-background); color:var(--akari-ink, var(--theia-foreground)); border:1px solid #53d1bc; border-radius:6px; padding:5px 9px; }
 .akari-daihon-row-edit input:focus { outline:none; box-shadow:0 0 0 2px rgba(83,209,188,.25); }
 .akari-daihon-word-filler { text-decoration:underline dashed rgba(255,143,115,.85) 1.5px; text-underline-offset:3px; color:color-mix(in srgb, #d9927f 40%, var(--akari-ink, var(--theia-foreground))); }
+.akari-daihon-word-redo { text-decoration:underline wavy #b89af5 1.5px; text-underline-offset:3px; cursor:pointer; }
 .akari-daihon-word-unk { color:color-mix(in srgb, #b08a5a 40%, var(--akari-ink, var(--theia-foreground))); font-weight:700; letter-spacing:.08em; text-decoration:underline dotted rgba(240,180,90,.8) 1.5px; text-underline-offset:3px; cursor:pointer; }
 .akari-daihon-gapchip { display:inline-block; margin-left:6px; padding:0 6px; font-family:"JetBrains Mono",monospace; font-size:9px; color:var(--akari-muted); border:1px dashed var(--akari-line); border-radius:999px; cursor:pointer; vertical-align:1px; }
 .akari-daihon-gapchip:hover { color:var(--akari-muted); border-color:var(--akari-line); }
@@ -523,7 +526,6 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly count = document.createElement('span');
     protected readonly tplButton = document.createElement('button');
     protected readonly qcButton = document.createElement('button');
-    protected readonly silenceButton = document.createElement('button');
     protected readonly cutsButton = document.createElement('button');
     protected readonly attachmentModeNode = document.createElement('div');
     protected attachmentMode: AttachmentMode = 'all';
@@ -562,6 +564,11 @@ export class AkariDaihonWidget extends BaseWidget {
     protected wordUnitsByRowId = new Map<string, DaihonWordUnit[]>();
     protected wordUnit: 'word' | 'token' = 'word';
     protected showBreaks = true;
+    protected showCutMarks = true;
+    protected silenceMin: number = DAIHON_SILENCE_DEFAULTS.minGapSec;
+    protected silenceKeep: number = DAIHON_SILENCE_DEFAULTS.keepSec;
+    protected cutSources: DaihonCutSource[] = [];
+    protected cutCandidates: DaihonCutCandidate[] = [];
     protected captionsRoot: unknown = [];
     protected sourceCaptions: Caption[] = [];
     protected defaultCaptionTextStyle: unknown;
@@ -596,8 +603,10 @@ export class AkariDaihonWidget extends BaseWidget {
     protected configured = false;
     protected reloadTail = Promise.resolve();
     protected rowGaps: DaihonRowGap[] = [];
-    protected cutOperations: CutOperation[] = [];
-    protected nextCutOperationId = 1;
+    protected cutSpans: DaihonCutSpan[] = [];
+    protected cutEditSource = '';
+    protected cutToastTimer: ReturnType<typeof setTimeout> | undefined;
+    protected cutToastCleanup: (() => void) | undefined;
     protected cutRangeEditor: { root: HTMLDivElement; window: DaihonCutRangeWindow; playhead: HTMLSpanElement } | undefined;
     protected cutRangePlayback: { spans: Array<{ from: number; to: number }>; index: number; stopAt: number } | undefined;
     protected previewPlaying = false;
@@ -643,13 +652,6 @@ export class AkariDaihonWidget extends BaseWidget {
             event.stopPropagation();
             this.openRowDock('template');
         });
-        this.silenceButton.type = 'button';
-        this.silenceButton.className = 'akari-daihon-silence';
-        this.silenceButton.textContent = '無音短縮…';
-        this.silenceButton.addEventListener('click', event => {
-            event.stopPropagation();
-            this.openSilenceBatch(event.currentTarget as HTMLElement);
-        });
         this.captionsButton.type = 'button';
         this.captionsButton.className = 'theia-button primary akari-daihon-captions';
         this.captionsButton.textContent = captionsButtonLabel([]);
@@ -691,13 +693,13 @@ export class AkariDaihonWidget extends BaseWidget {
         });
         this.cutsButton.type = 'button';
         this.cutsButton.className = 'akari-daihon-cuts';
-        this.cutsButton.textContent = cutsJumpButtonLabel(null);
-        this.cutsButton.title = 'カット候補パネルを開いて候補の採否を選ぶ（ON 件数 / 全件）';
+        this.cutsButton.textContent = '✂ カットを整える';
+        this.cutsButton.title = 'カット候補を探して見直す';
         this.cutsButton.addEventListener('click', async () => {
             try {
-                await this.commands.executeCommand('akari.cuts.open');
+                await this.openCutDialog();
             } catch (error) {
-                this.notify(`カット候補を開けません: ${this.errorMessage(error)}`);
+                this.notify(`カットを整える画面を開けません: ${this.errorMessage(error)}`);
             }
         });
         this.attachmentModeNode.className = 'akari-daihon-attachment-mode';
@@ -710,7 +712,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         this.updateAttachmentModeButtons();
         header.style.flexWrap = 'wrap';
-        header.append(title, this.count, spacer, this.captionsButton, this.placeTextButton, this.retimeButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
+        header.append(title, this.count, spacer, this.captionsButton, this.placeTextButton, this.retimeButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.cutsButton);
         header.insertBefore(this.attachmentModeNode, this.captionsButton);
         if (typeof this.placeTextButton.after === 'function') this.placeTextButton.after(this.readAloudButton);
         else header.append(this.readAloudButton);
@@ -1012,7 +1014,7 @@ export class AkariDaihonWidget extends BaseWidget {
         switch (target.open) {
             case 'display': this.openDisplayPop(this.displayButton); break;
             case 'history': void this.openHistoryPop(this.historyButton); break;
-            case 'silenceBatch': this.openSilenceBatch(this.silenceButton); break;
+            case 'silenceBatch': void this.openCutDialog(); break;
             case 'qc': this.qcFilter = true; this.applyQcFilter(); break;
             case 'template': {
                 if (validWordRange && target.wordRange && row) {
@@ -1058,6 +1060,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.configured = true;
         this.wordUnit = this.preferences.get(DAIHON_WORD_UNIT_PREFERENCE) === 'token' ? 'token' : 'word';
         this.showBreaks = readDaihonShowBreaks(this.preferences.get(DAIHON_SHOW_BREAKS_PREFERENCE));
+        this.showCutMarks = this.preferences.get(DAIHON_SHOW_CUT_MARKS_PREFERENCE, true);
+        this.silenceMin = this.preferences.get(DAIHON_SILENCE_MIN_PREFERENCE, DAIHON_SILENCE_DEFAULTS.minGapSec);
+        this.silenceKeep = this.preferences.get(DAIHON_SILENCE_KEEP_PREFERENCE, DAIHON_SILENCE_DEFAULTS.keepSec);
         const attachmentMode = this.preferences.get(DAIHON_ATTACHMENT_MODE_PREFERENCE);
         this.attachmentMode = attachmentMode === 'text' || attachmentMode === 'none' ? attachmentMode : 'all';
         this.updateAttachmentModeButtons();
@@ -1158,8 +1163,8 @@ export class AkariDaihonWidget extends BaseWidget {
         const states = this.editUri ? await this.projectService.transcriptStates({
             projectRoot: this.editUri.parent.toString(), relativePaths: sources.map(source => source.path)
         }) : {};
-        this.captionsButton.textContent = this.buildingCaptions ? '字幕を作成中…' : captionsButtonLabel(Object.values(states));
-        this.captionsButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
+        this.captionsButton.textContent = '字幕を作る…';
+        this.captionsButton.disabled = this.buildingCaptions || !this.editUri || Object.values(states).includes('running');
         this.retimeButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
         this.captionsButton.title = sources.length ? '' : '声の入った素材がタイムラインにありません';
         this.retimeButton.title = sources.length ? '無音に重なった語の時刻を実際の発話へ合わせ直す'
@@ -1170,33 +1175,17 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.buildingCaptions || !this.editUri) return;
         this.buildingCaptions = true;
         this.captionsButton.disabled = true;
-        const projectRoot = this.editUri.parent.toString();
         try {
-            const sources = await this.captionSources();
-            const source = sources.length === 1 ? sources[0] : sources.length > 1 ? await this.quickPick.show(
-                this.captionSourceChoices(sources), { placeholder: '字幕を作る素材を選ぶ' }
-            ) : undefined;
-            if (!source) return;
-            const states = await this.projectService.transcriptStates({ projectRoot, relativePaths: [source.path] });
-            if (states[source.path] === 'running') { this.notify('素材の処理が終わってから実行してください'); return; }
-            this.captionsButton.textContent = '字幕を作成中…';
             let stopListening: (() => void) | undefined;
-            const dialog = new AkariTranscribeDialog(this.editUri.parent, source.path, this.preferences,
-                this.projectService, this.fileService, this.commands, async (start, end) => {
+            const dialog = new AkariTranscribeDialog(this.editUri.parent, undefined, this.preferences,
+                this.projectService, this.annotationsService, this.fileService, this.commands, async (start, end, sourcePath) => {
                     stopListening?.();
                     stopListening = await listenTranscribeRange(this.commands, this.applicationShell, this.opener,
-                        this.editUri!.parent.resolve(source.path).normalizePath().toString(), start, end);
+                        this.editUri!.parent.resolve(sourcePath).normalizePath().toString(), start, end);
                     if (dialog.isDisposed) stopListening();
-                }, states[source.path] === 'done');
-            const options = await dialog.open().finally(() => stopListening?.());
-            if (!options) return;
-            const request = { projectRoot, editUri: this.editUri.toString(), source: source.id, ...options };
-            const result = await this.projectService.buildCaptions(request);
-            if (result.needsForce) {
-                const confirmed = await new ConfirmDialog({ title: '字幕を作る', msg: '手直し済みの字幕があります。上書きしますか', ok: '上書きする', cancel: 'キャンセル' }).open();
-                if (!confirmed) return;
-                await this.projectService.buildCaptions({ ...request, force: true });
-            }
+                }, this.messages, uri => this.annotationsService.probeSourceHasAudio({ path: uri })
+                    .then(result => result.hasAudio, () => undefined));
+            await dialog.open().finally(() => stopListening?.());
             await this.reload();
         } catch (error) {
             this.notify(`字幕を作れません: ${this.errorMessage(error)}`);
@@ -1240,8 +1229,10 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.wordDrag) { this.reloadPendingAfterDrag = true; return; }
         if (this.rootUri) await this.locateProject(this.rootUri);
         this.closeCutRangeEditor();
-        this.cutsButton.textContent = cutsJumpButtonLabel(null);
-        this.editSources = await this.captionSources().catch(() => []);
+        this.cutCandidates = [];
+        this.updateCutsButton();
+        const editForSources = this.editUri ? JSON.parse(await this.readText(this.editUri).catch(() => '{}')) : {};
+        this.editSources = selectCaptionSources(editForSources, {}, this.editUri?.parent.toString());
         this.silencesBySourceId = new Map();
         void this.loadSilences();
         await this.refreshCaptionsButton(this.editSources).catch(error => {
@@ -1263,6 +1254,8 @@ export class AkariDaihonWidget extends BaseWidget {
             const parsed = parseCaptions(captionsSource);
             this.captionsRoot = JSON.parse(captionsSource) as unknown;
             this.displayKnobs = readDaihonDisplayKnobs(this.captionsRoot);
+            const shape = readCaptionShape(this.captionsRoot);
+            this.displayKnobs = { ...this.displayKnobs, maxLineUnits: shape.chars, lines: shape.lines };
             this.updateDisplayButton();
             const extras = this.captionExtras(captionsSource);
             this.captionExtraById = extras;
@@ -1273,23 +1266,26 @@ export class AkariDaihonWidget extends BaseWidget {
             const captions = this.daihonCaptionsForDisplay();
             this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
             this.segments = this.timelineSegments(editSource, captions.length > 0);
-            const next = buildDaihonRows(captions, this.segments);
+            const next = buildDaihonRows(captions, this.segments, this.editFps);
             this.attachments = attachmentRanges(edit as Parameters<typeof attachmentRanges>[0], next,
                 this.sourceCaptions.filter(caption => caption.timeDomain === 'output').length);
             this.handEditedCaptionIds.clear();
-            let combinedCuts: TranscribeCuts | null = null;
+            this.cutSources = [];
             for (const source of this.editSources) {
                 const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
                     .catch(error => { this.notify(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
-                if (artifacts?.cuts) {
-                    combinedCuts = { ...artifacts.cuts, candidates: [...(combinedCuts?.candidates ?? []), ...artifacts.cuts.candidates] };
-                }
+                this.cutSources.push({ sourceId: source.id, cuts: artifacts?.cuts ?? null });
                 for (const line of handEditedLines(artifacts?.cuts ?? null)) {
                     const caption = captions[line - 1]; if (caption) this.handEditedCaptionIds.add(caption.id);
                 }
             }
-            this.cutsButton.textContent = cutsJumpButtonLabel(combinedCuts);
-            this.renderRows(next);
+            this.cutCandidates = this.collectCutCandidates(next);
+            this.updateCutsButton();
+            const cutSourceChanged = this.cutEditSource !== editSource;
+            this.cutEditSource = editSource;
+            this.cutSpans = deriveDaihonCutSpans(next, this.rowGapsForRows(next), this.segments,
+                this.editFps, row => this.sourceIdForRow(row));
+            this.renderRows(next, cutSourceChanged);
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             this.refreshDockLook();
             if (this.footer.textContent?.startsWith('台本を読み取れません:')) this.notify('');
@@ -1506,7 +1502,11 @@ export class AkariDaihonWidget extends BaseWidget {
         if (sources.length !== this.editSources.length
             || sources.some((source, index) => source.id !== this.editSources[index]?.id)) return;
         this.silencesBySourceId = next;
-        if (this.rows.length) this.refreshRowGapChips();
+        if (this.rows.length) {
+            this.cutCandidates = this.collectCutCandidates(this.rows);
+            this.updateCutsButton();
+            this.refreshRowGapChips();
+        }
     }
 
     protected silencesForSeconds(seconds: number): DaihonSilenceSpan[] {
@@ -1536,20 +1536,38 @@ export class AkariDaihonWidget extends BaseWidget {
         return rowGapsWithSilences(withSource, row => this.silencesForRow(row));
     }
 
+    protected collectCutCandidates(rows: readonly DaihonRow[]): DaihonCutCandidate[] {
+        return collectDaihonCutCandidates(rows.map(row => ({ ...row, src: this.sourceIdForRow(row) ?? null })), {
+            minGapSec: this.silenceMin, keepSec: this.silenceKeep,
+            silences: row => this.silencesForRow(row), sources: this.cutSources, segments: this.segments
+        });
+    }
+
+    protected updateCutsButton(): void {
+        const count = this.cutCandidates.length;
+        this.cutsButton.textContent = `✂ カットを整える${count ? ` · ${count}` : ''}`;
+    }
+
     protected gapChipFor(row: DaihonRow): HTMLSpanElement | undefined {
+        if (!this.showCutMarks && !this.cutSpanFor(row.id, 'silence')) return undefined;
         const gap = this.rowGaps.find(candidate => candidate.prevId === row.id
-            && candidate.span >= DAIHON_SILENCE_DEFAULTS.minGapSec);
+            && (this.cutCandidates.some(cut => cut.id === `silence:${candidate.prevId}:${candidate.nextId}`)
+                || this.cutSpans.some(span => span.rowId === row.id && span.kind === 'silence')));
         if (!gap) return undefined;
         const chip = document.createElement('span');
         chip.className = 'akari-daihon-gapchip';
         chip.dataset.source = gap.source ?? 'gap';
-        chip.textContent = `··· ${gap.span.toFixed(2)}`;
+        const cutSpan = this.cutSpans.find(span => span.rowId === row.id && span.kind === 'silence'
+            && span.in === gap.start && span.out === gap.end);
+        chip.textContent = `··· ${gap.span.toFixed(2)} 秒${cutSpan ? ` → ${(gap.span - cutSpan.removedSeconds).toFixed(2)}` : ''}`;
+        if (cutSpan) chip.classList.add('iscut');
         chip.title = gap.source === 'silence'
             ? `次の行まで無音 ${gap.span.toFixed(2)} 秒（実際の音声から検出 ${gap.start.toFixed(2)}–${gap.end.toFixed(2)}）— クリックで波形を見て範囲を決めて詰める`
             : `次の行まで無音 ${gap.span.toFixed(2)} 秒 — クリックで波形を見て範囲を決めて詰める`;
         chip.addEventListener('click', event => {
             event.stopPropagation();
-            this.openCutRangeEditor(row, { kind: 'silence', gap });
+            if (cutSpan) this.openCutSpanPop(chip, row, cutSpan);
+            else this.openCutRangeEditor(row, { kind: 'silence', gap });
         });
         return chip;
     }
@@ -1566,15 +1584,18 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
-    protected renderRows(next: DaihonRow[]): void {
+    protected renderRows(next: DaihonRow[], refreshCutMarks = false): void {
         this.closeCutRangeEditor();
-        this.rowsNode.querySelectorAll('.akari-daihon-cutcell').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
         this.rowGaps = this.rowGapsForRows(next);
         this.speakerColors = speakerColorMap(next);
         if (this.speakerFilter !== null && !this.speakerColors.has(this.speakerFilter)) this.speakerFilter = null;
         const plan = planDaihonUpdate(this.rows, next);
+        if (refreshCutMarks) for (const row of next) {
+            if (!plan.create.some(candidate => candidate.id === row.id) && !plan.update.some(candidate => candidate.id === row.id))
+                plan.update.push(row);
+        }
         const previousById = new Map(this.rows.map(row => [row.id, row]));
         for (const row of next) {
             const previous = previousById.get(row.id);
@@ -1634,7 +1655,6 @@ export class AkariDaihonWidget extends BaseWidget {
         this.setSelection(pruneSelection(this.selection, plan.order));
         this.updateQcSummary();
         this.applyQcFilter();
-        this.renderCutCells();
         this.renderPlacedText();
     }
 
@@ -2672,7 +2692,15 @@ export class AkariDaihonWidget extends BaseWidget {
         root.classList.toggle('selected', this.altAll || this.selection.selected.includes(row.id));
         root.classList.toggle('qc-hidden', this.qcFilter
             && rowIssues(row, this.captionOverflowUnitsById.get(row.id)).length === 0);
-        root.addEventListener('click', event => this.handleRowClick(event, row.id));
+        root.addEventListener('click', event => {
+            const cutSpan = this.cutSpanFor(row.id, 'row');
+            if (cutSpan && (event.target as Element).closest('.akari-daihon-row-text')) {
+                event.stopPropagation();
+                this.openCutSpanPop(event.target as HTMLElement, row, cutSpan);
+                return;
+            }
+            this.handleRowClick(event, row.id);
+        });
         root.addEventListener('pointerdown', event => this.handleRowPointerDown(event, row.id));
         root.addEventListener('contextmenu', event => {
             if ((event.target as Element).closest('.akari-daihon-placed-tag, .akari-daihon-placed-bar')) return;
@@ -2712,6 +2740,7 @@ export class AkariDaihonWidget extends BaseWidget {
         cut.className = 'akari-daihon-cut';
         cut.textContent = '✂';
         cut.title = 'この行を映像ごとカット';
+        cut.disabled = row.outStart === null;
         cut.addEventListener('click', event => {
             event.stopPropagation();
             void this.cutRows([row]);
@@ -2810,17 +2839,29 @@ export class AkariDaihonWidget extends BaseWidget {
                     text.appendChild(gap);
                 }
                 for (const placement of unknowns.filter(item => item.beforeWordIndex === index)) {
-                    text.appendChild(this.unkChip(placement.span, row));
+                    if (this.cutSpans.some(span => span.rowId === row.id && span.kind === 'unrecognized'
+                        && span.in === placement.span.start && span.out === placement.span.end)
+                        || (this.showCutMarks && this.cutCandidates.some(candidate => candidate.kind === 'unrecognized'
+                            && candidate.rowId === row.id && candidate.start === placement.span.start && candidate.end === placement.span.end)))
+                        text.appendChild(this.unkChip(placement.span, row));
                 }
                 const span = this.word(word.text, index, row.id, this.wordPresetByRowId.get(row.id)?.[index]);
-                if (isFillerWord(word.text)) {
+                const cutSpan = this.cutSpanFor(row.id, 'word', index) ?? this.cutSpanFor(row.id, 'row');
+                if (cutSpan) { span.classList.add('iscut'); span.title = 'カット済み — クリックで戻す'; }
+                const redo = this.showCutMarks && this.cutCandidates.find(candidate => candidate.kind === 'redo'
+                    && candidate.rowId === row.id && candidate.start < word.end && word.start < candidate.end);
+                const filler = this.showCutMarks && this.cutCandidates.some(candidate => candidate.id === `filler:${row.id}:${index}`);
+                if (filler) {
                     span.classList.add('akari-daihon-word-filler');
                     span.title = 'フィラー語 — クリックで削除メニュー';
                 }
+                if (redo) { span.classList.add('akari-daihon-word-redo'); span.title = '言い直し — クリックで対応メニュー'; }
                 span.addEventListener('click', event => {
                     event.stopPropagation();
                     if (this.suppressWordClick) { this.suppressWordClick = false; return; }
-                    if (isFillerWord(word.text)) {
+                    if (cutSpan) { this.openCutSpanPop(span, row, cutSpan); return; }
+                    if (redo) { this.openRedoPop(span, row, redo); return; }
+                    if (filler) {
                         this.openFillerPop(span, row, index);
                         return;
                     }
@@ -2838,7 +2879,11 @@ export class AkariDaihonWidget extends BaseWidget {
                 text.appendChild(span);
             });
             for (const placement of unknowns.filter(item => item.beforeWordIndex === null)) {
-                text.appendChild(this.unkChip(placement.span, row));
+                if (this.cutSpans.some(span => span.rowId === row.id && span.kind === 'unrecognized'
+                    && span.in === placement.span.start && span.out === placement.span.end)
+                    || (this.showCutMarks && this.cutCandidates.some(candidate => candidate.kind === 'unrecognized'
+                        && candidate.rowId === row.id && candidate.start === placement.span.start && candidate.end === placement.span.end)))
+                    text.appendChild(this.unkChip(placement.span, row));
             }
         } else {
             const span = this.word('', 0, row.id);
@@ -2857,6 +2902,8 @@ export class AkariDaihonWidget extends BaseWidget {
             }
             span.addEventListener('click', event => {
                 event.stopPropagation();
+                const cutSpan = this.cutSpanFor(row.id, 'row');
+                if (cutSpan) { this.openCutSpanPop(span, row, cutSpan); return; }
                 void this.seek(row.outStart);
                 this.setSelection({ selected: [row.id], anchorId: row.id });
                 this.openRowDock('template');
@@ -2864,7 +2911,22 @@ export class AkariDaihonWidget extends BaseWidget {
             // 不一致の words の時刻で本文にカラオケ強調を付けない。
             if (!row.words?.length) words.push(span);
             text.appendChild(span);
-            for (const placement of unknowns) text.appendChild(this.unkChip(placement.span, row));
+            for (const placement of unknowns) {
+                if (this.cutSpans.some(span => span.rowId === row.id && span.kind === 'unrecognized'
+                    && span.in === placement.span.start && span.out === placement.span.end)
+                    || (this.showCutMarks && this.cutCandidates.some(candidate => candidate.kind === 'unrecognized'
+                        && candidate.rowId === row.id && candidate.start === placement.span.start && candidate.end === placement.span.end)))
+                    text.appendChild(this.unkChip(placement.span, row));
+            }
+        }
+        if (this.showCutMarks) for (const candidate of this.cutCandidates.filter(item => item.kind === 'redo' && item.rowId === row.id)) {
+            if (useKaraokeWords && row.words?.some(word => word.start < candidate.end && candidate.start < word.end)) continue;
+            const redo = document.createElement('span');
+            redo.className = 'akari-daihon-word-redo';
+            redo.textContent = ' 言い直し';
+            redo.title = '言い直し — クリックで対応メニュー';
+            redo.addEventListener('click', event => { event.stopPropagation(); this.openRedoPop(redo, row, candidate); });
+            text.append(redo);
         }
         const chip = this.gapChipFor(row);
         if (chip) text.appendChild(chip);
@@ -3033,6 +3095,24 @@ export class AkariDaihonWidget extends BaseWidget {
         pop.append(title, seek, captionOnly, cut);
     }
 
+    protected openRedoPop(anchor: HTMLElement, row: DaihonRow, candidate: DaihonCutCandidate): void {
+        const pop = this.openPop(anchor);
+        const title = document.createElement('div');
+        title.className = 'akari-daihon-pttl';
+        title.textContent = `言い直し ${this.formatTime(candidate.start)}–${this.formatTime(candidate.end)}`;
+        pop.append(title,
+            this.popButton('▶ ここへシーク', () => {
+                void this.seek(sourceToOutputForSource(this.segments, candidate.sourceId, candidate.start)); this.closePop();
+            }),
+            this.popButton('✂ 映像ごとカット', () => {
+                this.closePop();
+                void this.applyCutEntries([{
+                    rowId: row.id, range: { in: candidate.start, out: candidate.end, kind: 'row',
+                        captionId: candidate.sourceId ?? row.id, label: candidate.text }
+                }], '言い直しを映像ごとカット');
+            }, 'danger'));
+    }
+
     protected gearField(label: string, control: HTMLElement): HTMLDivElement {
         const field = document.createElement('div');
         field.className = 'akari-daihon-gearfield';
@@ -3192,9 +3272,13 @@ export class AkariDaihonWidget extends BaseWidget {
         chip.title = '?? 音声を文字にできなかった箇所（息継ぎ・「あー」など）— クリックで対応メニュー';
         chip.dataset.unkStart = String(span.start);
         chip.dataset.unkEnd = String(span.end);
+        const cutSpan = this.cutSpans.find(candidate => candidate.rowId === row.id
+            && candidate.kind === 'unrecognized' && candidate.in === span.start && candidate.out === span.end);
+        if (cutSpan) chip.classList.add('iscut');
         chip.addEventListener('click', event => {
             event.stopPropagation();
-            this.openUnkPop(chip, row, span);
+            if (cutSpan) this.openCutSpanPop(chip, row, cutSpan);
+            else this.openUnkPop(chip, row, span);
         });
         return chip;
     }
@@ -3252,32 +3336,11 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async cutUnrecognized(row: DaihonRow, span: DaihonUnrecognizedSpan): Promise<void> {
         this.closePop();
-        if (!this.editUri || !this.captionsUri || !this.rootUri) return;
+        if (!this.editUri || !this.rootUri) return;
         const range: DaihonCutRange = {
-            in: span.start, out: span.end, kind: 'unrecognized', captionId: row.id, label: '??'
+            in: span.start, out: span.end, kind: 'unrecognized', captionId: this.sourceIdForRow(row) ?? undefined, label: '??'
         };
-        try {
-            const result = await this.annotationsService.applyCutRanges({
-                editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(),
-                ranges: [range], label: '?? を映像ごとカット'
-            });
-            try {
-                await this.setCaptionFieldsWithNotice({
-                    captionsUri: this.captionsUri.toString(), projectRootUri: this.rootUri.toString(),
-                    captionId: row.id, unrecognized: this.withoutUnrecognized(row, span)
-                });
-            } catch {
-                await this.annotationsService.writeEditSnapshot({
-                    editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(), editSource: result.beforeSource
-                });
-                this.notify('映像のカットを取り消しました（字幕の更新に失敗）');
-                return;
-            }
-            this.rememberCut(result.beforeSource, [{ rowId: row.id, range }]);
-            this.notify('未認識区間を映像ごとカット');
-        } catch (error) {
-            this.notify(this.errorMessage(error));
-        }
+        await this.applyCutEntries([{ rowId: row.id, range }], '?? を映像ごとカット');
     }
 
     protected findUnrecognizedPlacement(row: DaihonRow, span: DaihonUnrecognizedSpan): PlacedUnrecognized {
@@ -3328,32 +3391,12 @@ export class AkariDaihonWidget extends BaseWidget {
     protected async cutFiller(row: DaihonRow, wordIndex: number): Promise<void> {
         this.closePop();
         const word = row.words?.[wordIndex];
-        if (!word || !this.editUri || !this.captionsUri || !this.rootUri) return;
+        if (!word || !this.editUri || !this.rootUri) return;
         const range: DaihonCutRange = {
-            in: word.start, out: word.end, kind: 'filler', captionId: row.id, label: normalizeFillerWord(word.text)
+            in: word.start, out: word.end, kind: 'filler', captionId: this.sourceIdForRow(row) ?? undefined,
+            label: normalizeFillerWord(word.text)
         };
-        try {
-            const result = await this.annotationsService.applyCutRanges({
-                editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(),
-                ranges: [range], label: 'フィラーを映像ごとカット'
-            });
-            try {
-                await this.setCaptionFieldsWithNotice({
-                    captionsUri: this.captionsUri.toString(), projectRootUri: this.rootUri.toString(),
-                    captionId: row.id, text: this.textWithoutWord(row, wordIndex)
-                });
-            } catch {
-                await this.annotationsService.writeEditSnapshot({
-                    editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(), editSource: result.beforeSource
-                });
-                this.notify('映像のカットを取り消しました（字幕の更新に失敗）');
-                return;
-            }
-            this.rememberCut(result.beforeSource, [{ rowId: row.id, range }]);
-            this.notify(`「${normalizeFillerWord(word.text)}」を映像ごとカットしました。`);
-        } catch (error) {
-            this.notify(this.errorMessage(error));
-        }
+        await this.applyCutEntries([{ rowId: row.id, range }], 'フィラーを映像ごとカット');
     }
 
     protected textWithoutWord(row: DaihonRow, wordIndex: number): string {
@@ -3369,9 +3412,14 @@ export class AkariDaihonWidget extends BaseWidget {
         const entries = rows.flatMap(row => {
             const index = this.rows.findIndex(candidate => candidate.id === row.id);
             if (index < 0) return [];
-            return [{ rowId: row.id, range: clampRowCutRange(row, this.rows[index - 1], this.rows[index + 1]) }];
+            const sourceId = this.sourceIdForRow(row);
+            const sameSource = (candidate: DaihonRow): boolean => this.sourceIdForRow(candidate) === sourceId;
+            const previous = this.rows.slice(0, index).reverse().find(sameSource);
+            const next = this.rows.slice(index + 1).find(sameSource);
+            return [{ rowId: row.id, range: { ...clampRowCutRange(row, previous, next),
+                captionId: sourceId } }];
         });
-        await this.applyAndRemember(entries, rows.length === 1 ? '行を映像ごとカット' : '選択行を映像ごとカット');
+        await this.applyCutEntries(entries, rows.length === 1 ? '行を映像ごとカット' : '選択行を映像ごとカット');
     }
 
     protected async cutSelectedRows(): Promise<void> {
@@ -3379,82 +3427,116 @@ export class AkariDaihonWidget extends BaseWidget {
         await this.cutRows(this.rows.filter(row => selected.has(row.id)));
     }
 
-    protected async applyAndRemember(entries: CutEntry[], label: string): Promise<void> {
+    protected async applyCutEntries(entries: CutEntry[], label: string): Promise<void> {
         if (!this.editUri || !this.rootUri || entries.length === 0) return;
         try {
             const ranges = normalizeCutRanges(entries.map(entry => entry.range));
-            const result = await this.annotationsService.applyCutRanges({
-                editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(), ranges, label
-            });
-            this.rememberCut(result.beforeSource, entries);
-            this.notify(`${entries.length} 件をカットしました（${result.removedFrames} フレーム短縮）。`);
-        } catch (error) {
-            this.notify(this.errorMessage(error));
-        }
-    }
-
-    protected rememberCut(beforeSource: string, entries: CutEntry[]): void {
-        this.cutOperations.push({ id: this.nextCutOperationId++, beforeSource, entries });
-        this.renderCutCells();
-    }
-
-    protected renderCutCells(): void {
-        this.rowsNode.querySelectorAll('.akari-daihon-cutcell').forEach(node => node.remove());
-        const latest = this.cutOperations[this.cutOperations.length - 1]?.id;
-        const cells = new Map<string, HTMLDivElement[]>();
-        for (const operation of this.cutOperations) {
-            for (const entry of operation.entries) {
-                const cell = document.createElement('div');
-                cell.className = 'akari-daihon-cutcell';
-                cell.dataset.cutOperation = String(operation.id);
-                const copy = document.createElement('span');
-                copy.textContent = entry.range.kind === 'silence'
-                    ? `✂ 無音を詰めた ${this.formatTime(entry.range.in)}–${this.formatTime(entry.range.out)}`
-                    : entry.range.kind === 'unrecognized'
-                        ? '✂ ?? を映像ごとカット'
-                        : `✂ 「${entry.range.label ?? '行'}」を映像ごとカット`;
-                const restore = document.createElement('button');
-                restore.type = 'button';
-                restore.className = 'akari-daihon-rbtn';
-                restore.textContent = '↩ 戻す';
-                restore.disabled = operation.id !== latest;
-                if (restore.disabled) restore.title = '先に新しいカットを戻してください';
-                restore.addEventListener('click', () => void this.restoreCut(operation.id));
-                const edit = document.createElement('button');
-                edit.type = 'button';
-                edit.className = 'akari-daihon-rbtn akari-daihon-ebtn';
-                edit.textContent = '✎ 直す';
-                edit.disabled = operation.id !== latest || !entry.target;
-                if (operation.id !== latest) edit.title = '先に新しいカットを戻してください';
-                else if (!entry.target) edit.title = 'このカットには元の範囲情報がありません';
-                edit.addEventListener('click', () => {
-                    const row = this.rows.find(candidate => candidate.id === entry.rowId);
-                    if (row && entry.target) this.openCutRangeEditor(row, entry.target, {
-                        operationId: operation.id, range: entry.range
-                    });
+            let removedFrames = 0;
+            await this.withHistory(label, async () => {
+                const result = await this.annotationsService.applyCutRanges({
+                    editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges, label
                 });
-                cell.append(copy, edit, restore);
-                const rowCells = cells.get(entry.rowId) ?? [];
-                rowCells.push(cell);
-                cells.set(entry.rowId, rowCells);
-            }
-        }
-        for (const [rowId, rowCells] of cells) this.elements.get(rowId)?.root.after(...rowCells);
-    }
-
-    protected async restoreCut(operationId: number): Promise<void> {
-        const operation = this.cutOperations[this.cutOperations.length - 1];
-        if (!operation || operation.id !== operationId || !this.editUri || !this.rootUri) return;
-        try {
-            await this.annotationsService.writeEditSnapshot({
-                editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(), editSource: operation.beforeSource
-            });
-            this.cutOperations.pop();
-            this.renderCutCells();
-            this.notify('直前のカットを戻しました。');
+                removedFrames = result.removedFrames;
+            }, true);
+            if (removedFrames === 0) { this.notify('カットできる区間が見つかりませんでした。'); return; }
+            await this.reload();
+            this.refreshCutTimeline();
+            const only = entries[0];
+            const rowText = this.rows.find(row => row.id === only?.rowId)?.text.trim();
+            const rowCharacters = Array.from(rowText ?? '');
+            const rowLabel = rowCharacters.length > 12 ? `${rowCharacters.slice(0, 12).join('')}…` : rowText;
+            const cutLabel = only?.range.kind === 'row' && only.range.label === '行'
+                ? rowLabel || 'この行' : only?.range.label ?? 'この箇所';
+            this.showCutToast(entries.length === 1 ? `「${cutLabel}」をカットしました` : `${entries.length} 件をカットしました`,
+                () => void this.historyService.undo());
         } catch (error) {
             this.notify(this.errorMessage(error));
         }
+    }
+
+    protected cutSpanFor(rowId: string, kind: DaihonCutSpan['kind'], index?: number): DaihonCutSpan | undefined {
+        return this.cutSpans.find(span => span.rowId === rowId && span.kind === kind
+            && (index === undefined || span.index === index));
+    }
+
+    protected openCutSpanPop(anchor: HTMLElement, row: DaihonRow, selected: DaihonCutSpan): void {
+        const span = this.cutSpans.find(candidate => sameCutSpanIdentity(candidate, selected));
+        if (!span) return;
+        const pop = this.openPop(anchor);
+        const title = document.createElement('div');
+        title.className = 'akari-daihon-pttl';
+        title.textContent = `カット済み ${this.formatTime(span.in)}–${this.formatTime(span.out)}`;
+        const hear = this.popButton('▶ 前後を聞く', () => {
+            void this.playCutRange({ from: span.in, to: span.out },
+                { start: Math.max(0, span.in - 1), end: span.out + 1 }, 'intact', span.sourceId ?? undefined);
+        });
+        const reason = span.restoreRange
+            ? canRestoreCutRange(this.cutEditSource, span.restoreRange)
+            : 'このカットには復元情報がありません。⌘Z の履歴から戻せます。';
+        const restore = this.popButton('↩ 戻す', () => void this.restoreCutSpan(span), 'primary');
+        restore.disabled = !!reason;
+        if (reason) restore.title = reason;
+        pop.append(title, hear, restore);
+        const impact = restoreImpact(this.cutSpans, span, this.editFps);
+        if (!reason && impact.wider && span.restoreRange) {
+            const notice = document.createElement('div');
+            notice.textContent = `${impact.otherCount > 0 ? `前後の ${impact.otherCount} か所も` : '周囲の区間も'}一緒に戻ります`
+                + `（${this.formatTime(span.restoreRange.in)}〜${this.formatTime(span.restoreRange.out)}）`;
+            pop.append(notice);
+        }
+        if (span.restoreRange && !reason) {
+            const gap = span.kind === 'silence' ? this.rowGaps.find(candidate => candidate.prevId === row.id) : undefined;
+            const target: CutRangeEditorTarget = gap ? { kind: 'silence', gap }
+                : { kind: 'word', from: span.in, to: span.out, label: span.restoreRange.label ?? 'この箇所' };
+            pop.append(this.popButton('✎ 範囲を直す', () => this.openCutRangeEditor(row, target,
+                { range: span.restoreRange as CutRangeWithReason })));
+        }
+        if (reason) {
+            const note = document.createElement('div');
+            note.textContent = reason;
+            pop.append(note);
+        }
+    }
+
+    protected async restoreCutSpan(span: DaihonCutSpan): Promise<void> {
+        if (!span.restoreRange || !this.editUri || !this.rootUri) return;
+        try {
+            await this.withHistory('カットを戻す', async () => {
+                const result = await this.annotationsService.restoreCutRange({
+                    editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    range: span.restoreRange!, label: 'カットを戻す'
+                });
+                if (!result.restored) throw new Error(result.reason);
+            }, true);
+            this.closePop();
+            await this.reload();
+            this.refreshCutTimeline();
+            this.showCutToast('カットを戻しました', () => void this.historyService.undo());
+        } catch (error) {
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected refreshCutTimeline(): void {
+        window.dispatchEvent(new Event('akari.daihon.refreshTimeline'));
+    }
+
+    protected showCutToast(message: string, undo: () => void): void {
+        this.node.querySelector('.akari-daihon-toast')?.remove();
+        if (this.cutToastTimer) clearTimeout(this.cutToastTimer);
+        this.cutToastCleanup?.();
+        const toast = document.createElement('div');
+        toast.className = 'akari-daihon-toast';
+        toast.append(document.createTextNode(message));
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = '取り消す';
+        button.addEventListener('click', () => { toast.remove(); this.cutToastCleanup?.(); undo(); });
+        toast.append(button);
+        this.node.append(toast);
+        const changed = this.historyService?.onDidChange(() => button.remove());
+        this.cutToastCleanup = () => { changed?.dispose(); this.cutToastCleanup = undefined; };
+        this.cutToastTimer = setTimeout(() => { toast.remove(); this.cutToastCleanup?.(); }, 4000);
     }
 
     protected openCutRangeEditor(row: DaihonRow, target: CutRangeEditorTarget, existing?: CutRangeEdit): void {
@@ -3749,12 +3831,12 @@ export class AkariDaihonWidget extends BaseWidget {
     protected async playCutRange(
         selection: DaihonCutRangeSelection,
         viewWindow: DaihonCutRangeWindow,
-        mode: 'intact' | 'tightened'
+        mode: 'intact' | 'tightened', sourceId?: string | null
     ): Promise<void> {
         if (!this.editUri) return;
         const spans = cutRangePreviewSpans(selection, viewWindow, mode).flatMap(span => {
-            const from = sourceToOutput(this.segments, span.from);
-            const to = sourceToOutput(this.segments, span.to);
+            const from = sourceToOutputForSource(this.segments, sourceId, span.from);
+            const to = sourceToOutputForSource(this.segments, sourceId, span.to);
             return from !== null && to !== null && to > from ? [{ from, to }] : [];
         });
         if (!spans.length) return;
@@ -3780,32 +3862,39 @@ export class AkariDaihonWidget extends BaseWidget {
     ): Promise<void> {
         if (!this.editUri || !this.rootUri) return;
         const range: CutRangeWithReason = target.kind === 'silence'
-            ? { in: selection.from, out: selection.to, kind: 'silence', captionId: target.gap.prevId,
+            ? { in: selection.from, out: selection.to, kind: 'silence', captionId: this.sourceIdForRow(row) ?? undefined,
                 reason: 'silence', label: '無音' }
-            : { in: selection.from, out: selection.to, kind: 'row', captionId: row.id,
+            : { in: selection.from, out: selection.to, kind: 'row', captionId: this.sourceIdForRow(row) ?? undefined,
                 reason: 'word', label: target.label };
         const entry: CutEntry = { rowId: row.id, range, target };
         if (!existing) {
-            await this.withHistory(target.kind === 'silence' ? '無音を詰める' : '選択語を映像ごとカット', () =>
-                this.applyAndRemember([entry], target.kind === 'silence' ? '無音を詰める' : '選択語を映像ごとカット'));
+            await this.applyCutEntries([entry], target.kind === 'silence' ? '無音を詰める' : '選択語を映像ごとカット');
             this.closeCutRangeEditor();
             return;
         }
-        const operation = this.cutOperations[this.cutOperations.length - 1];
-        if (!operation || operation.id !== existing.operationId) return;
-        await this.withHistory('カットの範囲を直す', async () => {
-            await this.annotationsService.writeEditSnapshot({
-                editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), editSource: operation.beforeSource
-            });
-            const result = await this.annotationsService.applyCutRanges({
-                editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges: [range],
-                label: 'カットの範囲を直す'
-            });
-            operation.entries = [entry];
-            this.renderCutCells();
-            this.notify(`カットの範囲を直しました（${result.removedFrames} フレーム短縮）。`);
-        });
-        this.closeCutRangeEditor();
+        try {
+            await this.withHistory('カットの範囲を直す', async () => {
+                const restored = await this.annotationsService.restoreCutRange({
+                    editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    range: existing.range, label: 'カットの範囲を直す'
+                });
+                if (!restored.restored) throw new Error(restored.reason);
+                const applied = await this.annotationsService.applyCutRanges({
+                    editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges: [range],
+                    label: 'カットの範囲を直す'
+                });
+                if (applied.removedFrames === 0) throw new Error('新しい範囲をカットできませんでした。');
+            }, true, true);
+            await this.reload();
+            this.refreshCutTimeline();
+            this.showCutToast('カットの範囲を直しました', () => void this.historyService.undo());
+            this.closeCutRangeEditor();
+        } catch (error) {
+            await this.reload();
+            this.refreshCutTimeline();
+            this.closeCutRangeEditor();
+            this.notify(this.errorMessage(error));
+        }
     }
 
     protected closeCutRangeEditor(): void {
@@ -3814,35 +3903,44 @@ export class AkariDaihonWidget extends BaseWidget {
         this.cutRangePlayback = undefined;
     }
 
-    protected openSilenceBatch(anchor: HTMLElement): void {
-        const pop = this.openPop(anchor, 250);
-        const title = document.createElement('div');
-        title.className = 'akari-daihon-pttl';
-        title.textContent = '無音短縮（一括）';
-        const min = document.createElement('input');
-        min.type = 'number'; min.step = '0.05'; min.value = String(DAIHON_SILENCE_DEFAULTS.minGapSec);
-        const keep = document.createElement('input');
-        keep.type = 'number'; keep.step = '0.05'; keep.value = String(DAIHON_SILENCE_DEFAULTS.keepSec);
-        const row1 = this.fieldRow('対象:', min, '秒以上の無音を');
-        const row2 = this.fieldRow('短縮:', keep, '秒だけ残す');
-        const apply = this.popButton('一括で詰める', () => {
-            const threshold = Number(min.value);
-            const keepSeconds = Number(keep.value);
-            const entries = this.rowGaps.filter(gap => gap.span >= threshold && gap.span > keepSeconds)
-                .map(gap => ({ rowId: gap.prevId, range: {
-                    in: gap.start + keepSeconds / 2,
-                    out: gap.end - keepSeconds / 2,
-                    kind: 'silence' as const,
-                    captionId: gap.prevId
-                } }));
-            this.closePop();
-            if (entries.length === 0) {
-                this.notify('対象になる無音はありません。');
-                return;
-            }
-            void this.applyAndRemember(entries, '無音を一括短縮');
-        }, 'primary');
-        pop.append(title, row1, row2, apply);
+    async openCutDialog(request?: { candidateId?: string }): Promise<boolean> {
+        if (!this.configured) await this.configure();
+        await this.reloadTail;
+        const candidates = this.collectCutCandidates(this.rows);
+        const dialog = new AkariDaihonCutDialog(candidates, candidate => cutCandidateContext(this.rows, candidate), (candidate, cut) => {
+            const selection = { from: candidate.start, to: candidate.end };
+            const window = { start: Math.max(0, candidate.start - 1), end: candidate.end + 1 };
+            void this.playCutRange(selection, window, cut ? 'tightened' : 'intact', candidate.sourceId);
+        }, async selected => {
+            if (!this.editUri || !this.rootUri || !this.captionsUri) return false;
+            const entries: CutEntry[] = selected.map(candidate => ({ rowId: candidate.rowId, range: {
+                in: candidate.start, out: candidate.end, kind: candidate.kind === 'redo' ? 'row' : candidate.kind,
+                captionId: candidate.sourceId ?? candidate.rowId, label: candidate.text
+            } }));
+            const before = await this.readText(this.editUri);
+            await this.withHistory('カットを整える', async () => {
+                await this.annotationsService.applyCutRanges({
+                    editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    ranges: normalizeCutRanges(entries.map(entry => entry.range)), label: 'カットを整える'
+                });
+            }, true);
+            const changed = before !== await this.readText(this.editUri);
+            if (changed) { await this.reload(); this.refreshCutTimeline?.(); }
+            return changed;
+        }, () => this.historyService.undo(), async (min, keep) => {
+            this.silenceMin = min; this.silenceKeep = keep;
+            await Promise.all([
+                this.preferences.set(DAIHON_SILENCE_MIN_PREFERENCE, min, PreferenceScope.Workspace),
+                this.preferences.set(DAIHON_SILENCE_KEEP_PREFERENCE, keep, PreferenceScope.Workspace)
+            ]);
+            this.cutCandidates = this.collectCutCandidates(this.rows);
+            this.updateCutsButton();
+            this.refreshRowGapChips();
+            return this.cutCandidates;
+        }, this.silenceMin, this.silenceKeep, request?.candidateId);
+        void dialog.open().catch(error => this.showError(error));
+        return request?.candidateId ? candidates.some(candidate => candidate.id === request.candidateId
+            || candidate.id.endsWith(`:${request.candidateId}`)) : true;
     }
 
     protected openTplPicker(anchor: HTMLElement): void {
@@ -3937,7 +4035,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected updateDisplayButton(): void {
-        this.displayButton.textContent = `⚙ 表示 ${daihonDisplayLabel(this.displayKnobs)}`;
+        this.displayButton.textContent = `⚙ 表示 ${this.displayKnobs.maxLineUnits}字 · ${this.displayKnobs.lines}行`;
         this.displayButton.title = '字幕本文の区切り・行数・折り方を変更';
     }
 
@@ -3958,7 +4056,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     displayPolicy: daihonDisplayPolicyForWrite(this.captionsRoot, next)
                 });
             });
-            this.notify(`表示を ${daihonDisplayLabel(next)}・${next.wrap === 'multi' ? '断片を同時' : '断片を折る'} に変更しました`);
+            this.notify(`表示を ${next.maxLineUnits}字 · ${next.lines}行・${next.wrap === 'multi' ? '断片を同時' : '断片を折る'} に変更しました`);
         } catch (error) {
             await this.reload();
             this.notify(this.errorMessage(error));
@@ -4007,6 +4105,14 @@ export class AkariDaihonWidget extends BaseWidget {
         });
         breaksToggle.classList.toggle('selected', this.showBreaks);
         breaksGroup.append(breaksLabel, breaksToggle);
+        const cutMarks = this.popButton(this.showCutMarks ? 'カット候補の印を表示 ✓' : 'カット候補の印を表示', () => {
+            this.showCutMarks = !this.showCutMarks;
+            this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments), true);
+            void this.preferences.set(DAIHON_SHOW_CUT_MARKS_PREFERENCE, this.showCutMarks, PreferenceScope.User)
+                .then(() => this.openDisplayPop(anchor))
+                .catch(error => this.notify(this.errorMessage(error)));
+        });
+        breaksGroup.append(cutMarks);
 
         const timingGroup = document.createElement('div');
         timingGroup.className = 'akari-daihon-displaygroup';
@@ -4015,9 +4121,7 @@ export class AkariDaihonWidget extends BaseWidget {
         timingLabel.textContent = '表示タイミング';
         const timingSegments = document.createElement('div');
         timingSegments.className = 'akari-daihon-segments';
-        const rowsWithWords = this.rows.filter(row => Array.isArray(row.words) && row.words.length > 0);
-        const allSpeechTight = rowsWithWords.length > 0 && rowsWithWords.every(row =>
-            this.captionExtraById.get(row.id)?.displayTiming === 'speech-tight');
+        const allSpeechTight = readCaptionShape(this.captionsRoot).timing === 'speech-tight';
         const full = this.popButton('余韻あり', () => {
             void this.applyDisplayTiming(this.rows, 'full', true).then(() => this.openDisplayPop(anchor));
         });
@@ -4040,7 +4144,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const rangeRow = document.createElement('div');
         rangeRow.className = 'akari-daihon-displayrange';
         const range = document.createElement('input');
-        range.type = 'range'; range.min = '10'; range.max = '28'; range.step = '1';
+        range.type = 'range'; range.min = '5'; range.max = '28'; range.step = '1';
         range.value = String(this.displayKnobs.maxLineUnits);
         const rangeValue = document.createElement('span');
         rangeValue.className = 'akari-daihon-displayvalue';
@@ -4077,34 +4181,11 @@ export class AkariDaihonWidget extends BaseWidget {
             void this.saveDisplayKnobs(next);
             this.openDisplayPop(anchor);
         };
-        for (const lines of [1, 2, 3]) {
+        for (const lines of [1, 2]) {
             const button = this.popButton(String(lines), () => selectLines(lines));
             button.classList.toggle('selected', this.displayKnobs.lines === lines);
             lineSegments.appendChild(button);
         }
-        const more = this.popButton('…', () => {
-            custom.hidden = false;
-            custom.focus();
-            custom.select();
-        });
-        more.classList.toggle('selected', this.displayKnobs.lines >= 4);
-        const custom = document.createElement('input');
-        custom.className = 'akari-daihon-customlines';
-        custom.type = 'number'; custom.min = '4'; custom.max = '6'; custom.step = '1';
-        custom.value = String(this.displayKnobs.lines >= 4 ? this.displayKnobs.lines : 4);
-        custom.hidden = this.displayKnobs.lines < 4;
-        custom.addEventListener('click', event => event.stopPropagation());
-        custom.addEventListener('change', event => {
-            event.stopPropagation();
-            const lines = validateDaihonCustomLines(custom.value);
-            if (lines === null) {
-                this.notify('カスタム行数は 4〜6 で指定してください');
-                custom.value = String(this.displayKnobs.lines >= 4 ? this.displayKnobs.lines : 4);
-                return;
-            }
-            selectLines(lines);
-        });
-        lineSegments.append(more, custom);
         linesGroup.append(linesLabel, lineSegments);
 
         const wrapGroup = document.createElement('div');
@@ -4370,18 +4451,28 @@ export class AkariDaihonWidget extends BaseWidget {
         if (first && row) await this.seek(row.timeDomain === 'output' ? first.start : sourceToOutput(this.segments, first.start));
     }
 
-    protected async withHistory(label: string, operation: () => Promise<void>): Promise<void> {
+    protected async withHistory(label: string, operation: () => Promise<void>, refreshTimeline = false,
+        recordOnFailure = false): Promise<void> {
         if (!this.editUri || !this.captionsUri || !this.rootUri) return;
         const [editBefore, captionsBefore] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
-        await operation();
+        let failed = false;
+        let failure: unknown;
+        try { await operation(); } catch (error) {
+            if (!recordOnFailure) throw error;
+            failed = true;
+            failure = error;
+        }
         const [editAfter, captionsAfter] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
-        if (editBefore === editAfter && captionsBefore === captionsAfter) return;
-        const write = async (editSource: string, captionsSource: string): Promise<void> => {
-            await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
-                captionsUri: this.captionsUri!.toString(), editSource, captionsSource });
-            await this.reload();
-        };
-        daihonHistoryService()?.push({ label, undo: () => write(editBefore, captionsBefore), redo: () => write(editAfter, captionsAfter) });
+        if (editBefore !== editAfter || captionsBefore !== captionsAfter) {
+            const write = async (editSource: string, captionsSource: string): Promise<void> => {
+                await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    captionsUri: this.captionsUri!.toString(), editSource, captionsSource });
+                await this.reload();
+                if (refreshTimeline) this.refreshCutTimeline();
+            };
+            daihonHistoryService()?.push({ label, undo: () => write(editBefore, captionsBefore), redo: () => write(editAfter, captionsAfter) });
+        }
+        if (failed) throw failure;
     }
 
     protected async applyWordPreset(presetId: string): Promise<void> {
@@ -5069,7 +5160,6 @@ export class AkariDaihonWidget extends BaseWidget {
         const next = this.createRow(row);
         previous?.root.replaceWith(next.root);
         this.elements.set(row.id, next);
-        this.renderCutCells();
         this.renderPlacedText();
     }
 

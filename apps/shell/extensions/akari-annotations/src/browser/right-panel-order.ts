@@ -21,14 +21,13 @@ export type RightRailGroup = 'agent' | 'lower';
 export const RIGHT_RAIL_PARTNER_ID = 'akari-partner-onboarding';
 
 /**
- * 右レールの固定の住人（上から: パートナーを追加 → 台本 → カット → 注釈 → インスペクター → 音声メーター）。
+ * 右レールの固定の住人（上から: パートナーを追加 → 台本 → 注釈 → インスペクター → 音声メーター）。
  * akari-annotations-contribution.ts の RIGHT_PANEL_FIXED_ORDER と akari-shell-strip の右パネルハンドラーが
  * 同じ並びを使う（ハンドラーは各 widget のモジュールを import できないので id の文字列で持つ）。
  */
 export const RIGHT_RAIL_FIXED_ORDER: readonly string[] = [
     RIGHT_RAIL_PARTNER_ID,
     'akari-daihon-widget',
-    'akari-cuts-widget',
     'akari-review-panel-widget',
     'akari-inspector-widget',
     'akari-audio-meter-widget'

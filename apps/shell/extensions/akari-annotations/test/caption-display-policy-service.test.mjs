@@ -45,3 +45,20 @@ test('配列ルートを包み、同じ policy の再適用は no-op', async () 
     assert.deepEqual(result, { committed: false, changed: 0, beforeSource: written });
   } finally { await rm(data.root, { recursive: true, force: true }); }
 });
+
+test('display policy update preserves omitted word_style and accepts explicit none', async () => {
+  const source = JSON.stringify({ display_policy: { ...policy, word_style: 'karaoke' },
+    captions: [{ id: 'c-1', text: 'KEEP' }] }, null, 2) + '\n';
+  const data = await fixture(source);
+  try {
+    const service = new AkariAnnotationsServiceImpl();
+    await service.setCaptionDisplayPolicy(data.request);
+    assert.equal(JSON.parse(await readFile(data.captionsPath, 'utf8')).display_policy.word_style, 'karaoke');
+    await service.setCaptionDisplayPolicy({ ...data.request,
+      displayPolicy: { ...policy, word_style: 'none' } });
+    assert.equal(JSON.parse(await readFile(data.captionsPath, 'utf8')).display_policy.word_style, 'none');
+    await service.setCaptionDisplayPolicy({ ...data.request,
+      displayPolicy: { ...policy, word_style: 'karaoke' } });
+    assert.equal(JSON.parse(await readFile(data.captionsPath, 'utf8')).display_policy.word_style, 'karaoke');
+  } finally { await rm(data.root, { recursive: true, force: true }); }
+});

@@ -7,7 +7,6 @@ import {
   daihonDisplayLabel,
   readDaihonShowBreaks,
   readDaihonDisplayKnobs,
-  validateDaihonCustomLines,
   writeDaihonDisplayKnobs
 } from '../lib/common/daihon-display-knobs.js';
 
@@ -15,7 +14,7 @@ test('object と配列のルートを既定値つきで読む', () => {
   assert.deepEqual(readDaihonDisplayKnobs([]), { maxLineUnits: 18, lines: 1, wrap: 'multi' });
   assert.deepEqual(readDaihonDisplayKnobs({ display_policy: {
     max_line_units: 22, lines: 3, wrap: 'fold'
-  } }), { maxLineUnits: 22, lines: 3, wrap: 'fold' });
+  } }), { maxLineUnits: 22, lines: 2, wrap: 'fold' });
 });
 
 test('UI 値を書き、配列ルートは captions を保った object 形式へ包む', () => {
@@ -39,15 +38,8 @@ test('既存 policy の非 UI 値と object ルートの兄弟キーを保つ', 
   assert.deepEqual(written.display_policy.break_hints, { protected_terms: ['AKARI'] });
 });
 
-test('カスタム行数は 4〜6 だけを受理する', () => {
-  assert.equal(validateDaihonCustomLines('4'), 4);
-  assert.equal(validateDaihonCustomLines(6), 6);
-  assert.equal(validateDaihonCustomLines(3), null);
-  assert.equal(validateDaihonCustomLines(7), null);
-});
-
-test('スライダー値を 10〜28 にクランプしラベルを作る', () => {
-  assert.equal(clampDaihonMaxLineUnits(4), 10);
+test('スライダー値を 5〜28 にクランプしラベルを作る', () => {
+  assert.equal(clampDaihonMaxLineUnits(4), 5);
   assert.equal(clampDaihonMaxLineUnits(40), 28);
   assert.equal(daihonDisplayLabel({ maxLineUnits: 18, lines: 1 }), '18字 · 1行');
 });

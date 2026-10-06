@@ -7,6 +7,7 @@ import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } fr
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import {
     applyCutRanges as applyCutRangesToSource,
+    restoreCutRange as restoreCutRangeInSource,
     detectEditVersion,
     type CutRange
 } from '@akari-video/edit-store/lib/cut-ranges';
@@ -42,6 +43,8 @@ import {
     AkariAnnotationsService,
     ApplyCutRangesRequest,
     ApplyCutRangesResult,
+    RestoreCutRangeRequest,
+    RestoreCutRangeResponse,
     Annotation,
     CreateAnnotationRequest,
     CreateAnnotationResult,
@@ -2272,7 +2275,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
         const beforeSource = await fs.readFile(captionsPath, 'utf8');
-        const policy = validateCaptionDisplayPolicy(request.displayPolicy);
+        const existingRoot = JSON.parse(beforeSource) as unknown;
+        const existingPolicy = existingRoot && !Array.isArray(existingRoot) && typeof existingRoot === 'object'
+            ? (existingRoot as { display_policy?: { word_style?: unknown } }).display_policy : undefined;
+        const inheritedWordStyle = existingPolicy?.word_style;
+        const policy = validateCaptionDisplayPolicy(request.displayPolicy?.word_style === undefined
+            && (inheritedWordStyle === 'none' || inheritedWordStyle === 'karaoke')
+            ? { ...request.displayPolicy, word_style: inheritedWordStyle }
+            : request.displayPolicy);
         const updated = this.replaceCaptionDisplayPolicy(beforeSource, policy);
         if (updated === beforeSource) return { committed: false, changed: 0, beforeSource };
         await this.writeProjectFileGuarded(captionsPath, updated);
@@ -2678,6 +2688,29 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const committed = committedByStandardPath
             || await this.commitIfOwnRoot(projectRoot, request.label, [editPath]);
         return { committed, removedFrames: applied.removedFrames, beforeSource };
+    }
+
+    async restoreCutRange(request: RestoreCutRangeRequest): Promise<RestoreCutRangeResponse> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const result = restoreCutRangeInSource(source, request.range);
+        if (!result.restored) return { restored: false, reason: result.reason };
+        let updated = result.source;
+        if (detectEditVersion(updated) === 2) {
+            try {
+                const captionsRaw = JSON.parse(await fs.readFile(timelineCaptionsPath(editPath), 'utf8')) as unknown;
+                const refreshed = refreshItemAnchors(JSON.parse(updated) as EditableEditV2, toAnchorCaptions(captionsRaw));
+                updated = `${JSON.stringify(refreshed.edit, null, 2)}\n`;
+            } catch (error) {
+                const code = error && typeof error === 'object' ? (error as NodeJS.ErrnoException).code : undefined;
+                if (code !== 'ENOENT') throw error;
+            }
+        }
+        await this.writeProjectFileGuarded(editPath, updated);
+        const root = this.fsPath(request.projectRootUri);
+        await this.commitWrite(root, request.label) || await this.commitIfOwnRoot(root, request.label, [editPath]);
+        return { restored: true };
     }
 
     async insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult> {

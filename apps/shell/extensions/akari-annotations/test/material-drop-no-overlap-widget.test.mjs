@@ -49,6 +49,11 @@ const bindings = {
     SUBROW_STRIDE: 32, LANE_GAP: 4, LIBRARY_DRAG_MIME: 'application/x-akari-library-item'
 };
 const Handler = new Function(...Object.keys(bindings), `${code}\nreturn Handler;`)(...Object.values(bindings));
+const contributionMethod = memberText('addMaterialAtPlayhead', { in: 'contribution', files: [
+    { key: 'contribution', path: 'akari-annotations-contribution.ts', className: 'AkariAnnotationsContribution' }
+] });
+const Contribution = new Function(`${ts.transpileModule(`class Contribution { ${contributionMethod} }`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText}\nreturn Contribution;`)();
 
 const item = (id, at = 0, duration = 180) => ({ id, at, duration, source: { kind: 'media', src: 'base', in: 0, out: duration / 30 } });
 const track = (id, lane, items = []) => ({ id, lane, items });
@@ -213,6 +218,32 @@ test('プレイヘッド音声追加は audio.sfx[] のままで音トラック�
     assert.deepEqual(f.doc().tracks, JSON.parse(f.before).tracks);
     assert.equal(f.doc().audio.sfx[0].t, 3);
     await assertOneUndo(f);
+});
+
+test('プレイヘッドコマンドは voiceTrack の音声だけを新しい音トラックへ登録する', async () => {
+    for (const voiceTrack of [true, false]) {
+        const f = fixture([track('v1', 'visual')]);
+        f.handler.annotationsService.measureAudioForLevel = async () => ({ ok: false, reason: 'test' });
+        const contribution = Object.assign(new Contribution(), {
+            openCurrentTimeline: async () => f.handler,
+            messages: { warn: message => f.errors.push(message) }
+        });
+        await contribution.addMaterialAtPlayhead({ relativePath: 'assets/new.mp3', kind: 'audio', voiceTrack });
+        const doc = f.doc();
+        if (voiceTrack) {
+            const source = doc.sources.find(row => row.path === 'assets/new.mp3');
+            const audio = doc.tracks.find(row => row.lane === 'audio');
+            assert.ok(source);
+            assert.ok(audio);
+            assert.equal(audio.items[0].source.src, source.id);
+            assert.equal(doc.audio?.sfx?.length ?? 0, 0);
+        } else {
+            assert.equal(doc.tracks.length, 1);
+            assert.equal(doc.sources.length, 1);
+            assert.equal(doc.audio.sfx[0].path, 'assets/new.mp3');
+        }
+        await assertOneUndo(f);
+    }
 });
 
 test('プレビュー着地は 1/4 幅・出力中心からの位置・最上段・履歴1手', async () => {

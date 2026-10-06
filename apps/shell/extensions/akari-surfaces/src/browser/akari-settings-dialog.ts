@@ -44,14 +44,14 @@ import { geminiConsentCanNext, geminiConsentStatus,
 import { AkariAnnotationsService,
     type ImageRouteState } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import {
-    AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
+    AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
     AKARI_EXPORT_GPU_PREFERENCE_CONSENT, showTemporaryGpuPreferenceSetting,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
-    SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, TRANSCRIBE_MODE_CHOICES,
+    SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
     sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, isSettingsSectionVisible,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
@@ -1061,13 +1061,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderTranscribe(): void {
-        const mode = this.preferences.get(AKARI_TRANSCRIBE_MODE) === 'advanced' ? 'advanced' : 'simple';
         const backend = this.preferences.get<TranscribeBackend>(AKARI_TRANSCRIBE_BACKEND, 'auto');
         const compareSet = this.preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
         if (compareSet.length > 0) { this.compareDraft = compareSet; this.compareEnabled = true; }
         this.transcribe.replaceChildren(...this.sectionHeading('transcribe'));
-        this.transcribe.append(groupCard('モード', choiceCards({ label: '文字起こしのモード', options: TRANSCRIBE_MODE_CHOICES, value: mode, columns: 2,
-            onChange: value => this.savePreference(AKARI_TRANSCRIBE_MODE, value) })));
         const engines = TRANSCRIBE_BACKENDS.map(id => ({ value: id, label: ENGINE_LABELS[id], description: ENGINE_DESCRIPTIONS[id] }));
         let fixedEngine: typeof TRANSCRIBE_BACKENDS[number] = backend === 'auto' ? 'speech-analyzer' : backend;
         const engine: DropdownHandle = dropdown({ label: '文字起こしのエンジン', options: engines, value: fixedEngine, disabled: backend === 'auto',
@@ -1081,10 +1078,6 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.transcribe.append(groupCard('エンジン',
             settingRow('使うエンジン', 'おまかせは SpeechAnalyzer、次に Whisper の順。クラウドは自分で選んだときだけ使います', policy),
             settingRow('決めたエンジン', '「決めたエンジン」のときだけ使います', engine)));
-        if (mode === 'simple') {
-            this.transcribe.append(settingsNote('比較・カット候補の自動作成: アドバンスで使います'));
-            return;
-        }
         const chips = checkChips({ label: '比べるエンジン', checked: this.compareDraft,
             options: TRANSCRIBE_BACKENDS.map(id => ({ value: id, label: ENGINE_SHORT_LABELS[id] })),
             onToggle: (id, checked) => {
@@ -1099,7 +1092,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         } });
         const cuts = switchControl({ label: 'カット候補を自動で作る', checked: this.preferences.get<boolean>(AKARI_TRANSCRIBE_AUTO_CUTS, true),
             onChange: checked => this.savePreference(AKARI_TRANSCRIBE_AUTO_CUTS, checked) });
-        this.transcribe.append(groupCard('アドバンス',
+        this.transcribe.append(groupCard('比較とカット候補',
             settingRow('比べるときは、いつもこの組', '比較は選択式（毎回ではない）。比べるエンジンに印を付けます', compare), chips,
             settingRow('カット候補を自動で作る', 'フィラー・言い直し・無音。作るだけでタイムラインには入れません', cuts)));
     }

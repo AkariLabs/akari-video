@@ -350,13 +350,24 @@ test("display_policy lines/wrap and text_style scale/rotate reject out-of-range 
 test("display fragments fail closed on text loss, style conflict, and non-NFC text", () => {
   for (const [override, message] of [
     [{ display_fragments: ["今回", "設定"] }, /表示文字列を厳密に保存/u],
-    [{ display_fragments: ["今回", "設定します"], style: "karaoke" }, /display_policy と併用できません/u],
+    [{ display_fragments: ["今回", "設定します"], style: "pop" }, /display_policy と併用できません/u],
     [{ text: "e\u0301", display_fragments: ["e\u0301"] }, /NFC/u],
   ]) {
     const executed = runValue({ display_policy: displayPolicy, captions: [{ ...caption, ...override }] });
     assert.equal(executed.status, 1, executed.stdout);
     assert.match(executed.stderr, message);
   }
+});
+
+test('display policy accepts karaoke default and explicit row style', () => {
+  const accepted = runValue({ display_policy: { ...displayPolicy, word_style: 'karaoke' },
+    captions: [{ ...caption, style: 'karaoke', words: [
+      { start: caption.start, end: caption.end, text: caption.text },
+    ] }] });
+  assert.equal(accepted.status, 0, accepted.stderr);
+  const rejected = runValue({ display_policy: { ...displayPolicy, word_style: 'pop' }, captions: [caption] });
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /word_style/u);
 });
 
 test("reference-pixel geometry rejects an overflowing box and unsupported max_lines", () => {

@@ -11,7 +11,7 @@ const contribution = await readFile(new URL('../src/browser/daihon/akari-daihon-
 const method = sliceBetween('    async focusTarget(', '    showError(');
 const calls = ['scrollIntoView', 'setSelection', 'openWordBar', 'openGearPop',
   'openCutRangeEditorForSelection', 'openRowDock', 'openDisplayPop',
-  'openHistoryPop', 'openSilenceBatch', 'applyQcFilter', 'triggerFocusPulse'];
+  'openHistoryPop', 'openCutDialog', 'applyQcFilter', 'triggerFocusPulse'];
 
 test('external focus uses existing selection and panel actions', () => {
   for (const name of calls) assert.match(method, new RegExp(`\\b${name}\\(`));
@@ -22,7 +22,7 @@ test('commands forward optional requests after activating their widgets', () => 
   assert.match(contribution, /execute: \(target\?: DaihonOpenTarget\) => this\.open\(target\)/u);
   assert.match(contribution, /execute: \(request\?: \{ candidateId\?: string \}\) => this\.openCuts\(request\)/u);
   assert.match(contribution, /async open\(target\?: DaihonOpenTarget\): Promise<boolean>[\s\S]*?activateWidget\(widget.id\);\s*return target \? widget.focusTarget\(target\) : true/u);
-  assert.match(contribution, /async openCuts\(request\?: \{ candidateId\?: string \}\): Promise<boolean>[\s\S]*?activateWidget\(widget.id\);\s*return request\?\.candidateId \? widget.focusCandidate\(request.candidateId\) : true/u);
+  assert.match(contribution, /async openCuts\(request\?: \{ candidateId\?: string \}\): Promise<boolean>[\s\S]*?activateWidget\(widget.id\);\s*return widget.openCutDialog\(request\)/u);
 });
 
 test('cut range opening is guarded by a valid range and otherwise explains the prerequisite', () => {
@@ -110,7 +110,7 @@ test('cut range requires the current request to supply valid words, ignoring sta
 });
 
 test('missing rows return false but independent panels still open', async () => {
-  for (const [open, action] of [['display', 'openDisplayPop'], ['history', 'openHistoryPop'], ['silenceBatch', 'openSilenceBatch']]) {
+  for (const [open, action] of [['display', 'openDisplayPop'], ['history', 'openHistoryPop'], ['silenceBatch', 'openCutDialog']]) {
     const { widget, events } = fixture();
     assert.equal(await widget.focusTarget({ captionId: 'missing', open }), false);
     assert.ok(events.includes(action));

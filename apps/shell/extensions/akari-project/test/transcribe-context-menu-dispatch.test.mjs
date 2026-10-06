@@ -73,13 +73,13 @@ test('openDialog が cancelled を返すと中止トーストを出し RPC へ�
     assert.equal(calls.loads, 1);
 });
 
-test('NO_ACTIVE_HANDLER のときだけ従来のトースト + transcribe RPC へフォールバックする', async () => {
+test('ポップアップが使えないときは処理を始めずエラーを知らせる', async () => {
     const missing = Object.assign(new Error('missing'), { code: 'NO_ACTIVE_HANDLER' });
     const { calls, context, entry } = harness(async () => { throw missing; });
     await AkariMaterialsPane.prototype.transcribeMaterial.call(context, entry);
-    assert.deepEqual(plain(calls.rpc), [{ projectRoot: 'file:///project', relativePath: 'assets/voice.wav' }]);
-    assert.deepEqual(calls.info, ['voice.wav: 文字起こしを実行中です', 'voice.wav: 文字起こしが完了しました']);
-    assert.equal(calls.loads, 1);
+    assert.deepEqual(calls.rpc, []);
+    assert.deepEqual(calls.error, ['missing']);
+    assert.equal(calls.loads, 0);
 
     const failure = harness(async () => { throw Object.assign(new Error('boom'), { code: 'OTHER' }); });
     await AkariMaterialsPane.prototype.transcribeMaterial.call(failure.context, failure.entry);
@@ -87,12 +87,14 @@ test('NO_ACTIVE_HANDLER のときだけ従来のトースト + transcribe RPC �
     assert.deepEqual(failure.calls.error, ['boom']);
 });
 
-test('書き出し素材は右クリックから文字起こしを開始しない', async () => {
+test('書き出し素材は右クリックからポップアップを開き段 1 で対象外を示す', async () => {
     const { calls, context, entry } = harness(async () => 'opened');
     entry.relativePath = 'exports/master.mp4';
     entry.kind = 'video';
     await AkariMaterialsPane.prototype.transcribeMaterial.call(context, entry);
-    assert.deepEqual(calls.commands, []);
+    assert.deepEqual(plain(calls.commands), [['akari.transcribe.openDialog', {
+        projectRoot: 'file:///project', relativePath: 'exports/master.mp4'
+    }]]);
     assert.deepEqual(calls.rpc, []);
-    assert.deepEqual(calls.info, ['書き出した完成品です（元の素材から起こします）']);
+    assert.deepEqual(calls.info, []);
 });

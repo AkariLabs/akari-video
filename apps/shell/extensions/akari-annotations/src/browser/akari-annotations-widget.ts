@@ -6523,9 +6523,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 2026-08-10-timeline-clip-menu 指示4）。再生ヘッド位置・トラック 0 固定で addMaterialAt
      * へ委譲する（task 2026-08-10-material-dnd-timeline 指示6）。
      */
-    async addMaterialAtPlayhead(relativePath: string, kind: string): Promise<void> {
+    async addMaterialAtPlayhead(relativePath: string, kind: string, options?: { createAudioTrack?: boolean }): Promise<void> {
         const t = Number.isFinite(this.playheadT) ? this.playheadT : 0;
-        await this.addMaterialAt(relativePath, kind, t, 0);
+        if (kind === 'audio' && options?.createAudioTrack === true) {
+            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true });
+        } else {
+            await this.addMaterialAt(relativePath, kind, t, 0);
+        }
     }
 
     /**
@@ -8215,6 +8219,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const refreshOnboardingTimeline = (): void => { void this.reloadEdit().then(() => this.reloadCaptions()); };
         window.addEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline) });
+        const refreshDaihonCut = (): void => { void this.reloadEdit(); };
+        window.addEventListener('akari.daihon.refreshTimeline', refreshDaihonCut);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.refreshTimeline', refreshDaihonCut) });
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
             this.recentWrites.set(uri, Date.now());
             if (uri === this.location?.editUri?.toString() && this.newerVersionAtLoad) {
@@ -18301,9 +18308,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.hideNotice();
         this.revealOutputPreview();
+        const label = execution.entry.label.startsWith('「') ? execution.entry.label : `「${execution.entry.label}」`;
         this.footer.textContent = execution.kind === 'undo'
-            ? `${execution.entry.label}を元に戻しました。`
-            : `${execution.entry.label}をやり直しました。`;
+            ? `${label}を元に戻しました。`
+            : `${label}をやり直しました。`;
     }
 
     protected clipboardSelections(): TimelineSelectionItem[] {

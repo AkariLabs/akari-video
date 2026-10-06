@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from 'node:module';
 
 import {
   buildCaptionWordTiles,
@@ -10,6 +11,44 @@ import {
   captionWordStateAt,
   cubicBezierAt,
 } from "../dist/index.js";
+
+const require = createRequire(import.meta.url);
+const { resolveCaptionDisplay } = require('../../edit-store/lib/index.js');
+const { generateResolvedCaptionOverlays } = await import('../../render-cut/src/captions.mjs');
+
+test('two-line karaoke advances the measured word across a 30 fps boundary', () => {
+  const words = ['あいう', 'えおか', 'きくけ', 'こさし',
+    'すせそ', 'たちつ', 'てとな', 'にぬね'].map((text, index) => ({
+    text, start: index * 0.5, end: (index + 1) * 0.5,
+  }));
+  const policy = { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+    unit_metric: 'ascii-half-other-one-v1', max_line_units: 12,
+    minimum_fragment_duration_seconds: 0.1, locale: 'ja', lines: 2, word_style: 'karaoke' };
+  const layout = resolveCaptionDisplay({ display_policy: policy, captions: [{ id: 'c-1', start: 0, end: 4,
+    text: words.map(word => word.text).join(''),
+    display_fragments: ['あいうえおかきくけこさし', 'すせそたちつてとなにぬね'],
+    text_style: { karaoke: { fill: 'word' } }, words }] }, { cuts: [] });
+  const [cue] = layout.display_cues;
+  assert.equal(cue.style, 'karaoke');
+  assert.deepEqual(cue.display_lines.map(line => [...line].length), [12, 12]);
+  assert.deepEqual(cue.words.map(word => word.line), [0, 0, 0, 0, 1, 1, 1, 1]);
+  const [overlay] = generateResolvedCaptionOverlays(layout);
+  const timings = [...overlay.html.matchAll(/class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:([\d.]+)s;--akari-tok-dur:([\d.]+)s"/gu)]
+    .map(match => ({ role: 'karaoke', delaySec: Number(match[1]), durationSec: Number(match[2]) }));
+  assert.equal(timings.length, words.length);
+  assert.deepEqual(timings.map(timing => timing.delaySec), cue.words.map(word => word.start - cue.start));
+  const lit = second => timings.map(timing => captionWordStateAt(timing, second - cue.start).mix > 0.5);
+  for (let index = 1; index < timings.length; index++) {
+    const boundary = cue.start + timings[index].delaySec;
+    const before = lit(boundary - 1 / 30);
+    const after = lit(boundary + 1 / 30);
+    assert.equal(before.filter(Boolean).length, index, `before word ${index}`);
+    assert.equal(after.filter(Boolean).length, index + 1, `after word ${index}`);
+    for (let word = 0; word < timings.length; word++) {
+      assert.equal(after[word] === before[word], word !== index, `word ${word} at boundary ${index}`);
+    }
+  }
+});
 
 test("karaoke mixes the two raster states linearly with CSS both fill", () => {
   const timing = { role: "karaoke", delaySec: 1, durationSec: 2 };
