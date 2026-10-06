@@ -10,7 +10,7 @@ const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const CAPTION_ID = /^c-\d{4}$/;
 const LEGACY_CAPTION_ID = /^caption-[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const TEXTSTYLE_PRESET_ID = /^[a-z0-9][a-z0-9-]*$/;
-const CAPTION_STYLES = new Set(["karaoke", "pop", "reveal", "reveal-word"]);
+const CAPTION_STYLES = new Set(["plain", "karaoke", "pop", "reveal", "reveal-word"]);
 const TEXT_ALIGN_VALUES = new Set(["left", "center", "right"]);
 const VERTICAL_ALIGN_VALUES = new Set(["top", "middle", "bottom"]);
 const TEXT_TRANSFORM_VALUES = new Set([
@@ -236,7 +236,7 @@ function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
       validateCaptionUnrecognized(caption.unrecognized, caption, label);
     }
     if (hasOwn(caption, "style") && !CAPTION_STYLES.has(caption.style)) {
-      fail(`${label}.style は karaoke/pop/reveal/reveal-word のいずれかである必要があります`);
+      fail(`${label}.style は plain/karaoke/pop/reveal/reveal-word のいずれかである必要があります`);
     }
     if (hasOwn(caption, "display_text") && typeof caption.display_text !== "string") {
       fail(`${label}.display_text は文字列である必要があります`);

@@ -6523,10 +6523,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 2026-08-10-timeline-clip-menu 指示4）。再生ヘッド位置・トラック 0 固定で addMaterialAt
      * へ委譲する（task 2026-08-10-material-dnd-timeline 指示6）。
      */
-    async addMaterialAtPlayhead(relativePath: string, kind: string, options?: { createAudioTrack?: boolean }): Promise<void> {
+    async addMaterialAtPlayhead(relativePath: string, kind: string, options?: { createAudioTrack?: boolean; voiceTrack?: boolean }): Promise<void> {
         const t = Number.isFinite(this.playheadT) ? this.playheadT : 0;
         if (kind === 'audio' && options?.createAudioTrack === true) {
-            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true });
+            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack: options.voiceTrack });
         } else {
             await this.addMaterialAt(relativePath, kind, t, 0);
         }
@@ -6783,7 +6783,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         track: number,
         options?: {
             durationSeconds?: number; insertTrack?: number; insertIndex?: number;
-            zone?: MaterialDropZone; createAudioTrack?: boolean; targetTrackId?: string;
+            zone?: MaterialDropZone; createAudioTrack?: boolean; voiceTrack?: boolean; targetTrackId?: string;
             transform?: { x: number; y: number; scale: number }; placeOnTop?: boolean;
             outsideCanvas?: boolean; canvasAware?: boolean; canvasId?: string;
         }
@@ -6907,6 +6907,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ...(targetTrack ? { trackId: targetTrackId } : {}),
                     item: {
                         id: itemId,
+                        ...(options?.voiceTrack ? { role: 'speech' } : {}),
                         at: this.frameAt(Math.max(0, t)),
                         duration: Math.max(1, this.frameAt(durationSeconds)),
                         source: { kind: 'media', src: sourceId, in: 0, out: durationSeconds }
@@ -6929,8 +6930,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const measured = await this.annotationsService.measureAudioForLevel({
                         projectRoot: location.root.path.fsPath(),
                         audioPath: this.resolveEditMediaUri(relativePath, location.editUri).path.fsPath(),
-                        role: 'sfx',
-                        collection: 'sfx',
+                        role: options?.voiceTrack ? 'narration' : 'sfx',
+                        collection: options?.voiceTrack ? 'narration' : 'sfx',
                         durationSec: durationSeconds
                     });
                     if (measured.ok) {

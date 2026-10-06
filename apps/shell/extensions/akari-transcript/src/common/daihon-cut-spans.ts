@@ -73,9 +73,6 @@ export function deriveDaihonCutSpans(
     sourceIdForRow: (row: DaihonRow) => string | null | undefined = row => row.src
 ): DaihonCutSpan[] {
     const spans: DaihonCutSpan[] = [];
-    const frame = 1 / fps;
-    const tolerance = frame + CUT_EPSILON;
-    const halfFrame = frame / 2 + CUT_EPSILON;
     const rowById = new Map(rows.map(row => [row.id, row]));
     for (const row of rows) {
         const sourceId = sourceIdForRow(row) ?? null;
@@ -83,6 +80,16 @@ export function deriveDaihonCutSpans(
         const kept = keptIntervals(sourceSegments);
         const push = (kind: DaihonCutSpan['kind'], start: number, end: number, index?: number): void => {
             if (!(end > start)) return;
+            const center = (start + end) / 2;
+            const adjacent = sourceSegments.flatMap(segment => segment.kind === 'src'
+                && typeof segment.in === 'number' && typeof segment.out === 'number'
+                && typeof segment.speed === 'number' && segment.speed > 0
+                ? [{ speed: segment.speed,
+                    distance: Math.max(segment.in - center, center - segment.out, 0) }] : [])
+                .sort((left, right) => left.distance - right.distance || left.speed - right.speed)[0];
+            const frame = (adjacent?.speed ?? 1) / fps;
+            const tolerance = frame + CUT_EPSILON;
+            const halfFrame = frame / 2 + CUT_EPSILON;
             const keptSeconds = kept.reduce((sum, interval) => sum
                 + Math.max(0, Math.min(end, interval.out) - Math.max(start, interval.in)), 0);
             const removedSeconds = Math.max(0, end - start - keptSeconds);
@@ -93,7 +100,6 @@ export function deriveDaihonCutSpans(
                 if (!missing) return;
                 const length = end - start;
                 if (length <= frame + CUT_EPSILON) {
-                    const center = (start + end) / 2;
                     if (missing.in > center + CUT_EPSILON || missing.out < center - CUT_EPSILON) return;
                 } else if (missing.in > start + halfFrame || missing.out < end - halfFrame) return;
             }

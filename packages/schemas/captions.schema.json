@@ -461,7 +461,7 @@
           },
           "$comment": "音はあるが文字にできなかった区間。既定は source 秒で、caption の time_domain 宣言がある場合は同じ時刻ドメインに従う。"
         },
-        "style": { "enum": ["karaoke", "pop", "reveal", "reveal-word"] },
+        "style": { "enum": ["plain", "karaoke", "pop", "reveal", "reveal-word"] },
         "display_text": { "type": "string" },
         "display_fragments": {
           "type": "array",

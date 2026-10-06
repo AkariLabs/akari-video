@@ -365,6 +365,9 @@ test('display policy accepts karaoke default and explicit row style', () => {
       { start: caption.start, end: caption.end, text: caption.text },
     ] }] });
   assert.equal(accepted.status, 0, accepted.stderr);
+  const plain = runValue({ display_policy: { ...displayPolicy, word_style: 'karaoke' },
+    captions: [{ ...caption, style: 'plain' }] });
+  assert.equal(plain.status, 0, plain.stderr);
   const rejected = runValue({ display_policy: { ...displayPolicy, word_style: 'pop' }, captions: [caption] });
   assert.equal(rejected.status, 1);
   assert.match(rejected.stderr, /word_style/u);

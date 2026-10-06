@@ -134,6 +134,21 @@ function caption(id, start, end, text, extra = {}) {
   return { id, start, end, text, speaker: null, sourceRef: null, edited: true, ...extra };
 }
 
+test('display policy projects voice source on its audio item beside a video cut', () => {
+  const root = { display_policy: { ...policy, max_line_units: 20 }, captions: [
+    caption('mic-row', 0, 3, '声', { src: 'mic', time_domain: 'source', words: [
+      { text: '声', start: 0, end: 3 },
+    ] }),
+  ] };
+  const edit = { output: { fps: 30 }, cuts: [{ src: 'take', in: 0, out: 5, at: 0 }],
+    tracks: [{ lane: 'audio', items: [{ role: 'speech', at: 60, duration: 90,
+      source: { kind: 'media', src: 'mic', in: 0, out: 3 } }] }] };
+  const cues = resolveCaptionDisplay(root, edit).display_cues;
+  assert.deepEqual(cues.map(cue => [cue.start, cue.end, cue.text]), [[2, 5, '声']]);
+  assert.deepEqual(resolveCaptionDisplay(root, { ...edit, cuts: [] }).display_cues
+    .map(cue => [cue.start, cue.end, cue.text]), [[2, 5, '声']]);
+});
+
 function englishPolicy(maxLineUnits, protectedTerms = []) {
   return {
     mode: 'single_line_sequential',
@@ -896,6 +911,8 @@ test('karaoke default and row override preserve measured words inside two displa
   assert.equal(root.display_policy.word_style, undefined);
   const row = setCaptionDisplayRowStyle(root, 'c-1', 'karaoke');
   assert.equal(resolveCaptionDisplay(row, { cuts: [] }).display_cues[0].style, 'karaoke');
+  const plain = setCaptionDisplayRowStyle(global, 'c-1', 'plain');
+  assert.equal(resolveCaptionDisplay(plain, { cuts: [] }).display_cues[0].style, undefined);
   assert.equal(setCaptionDisplayRowStyle(row, 'c-1', null).captions[0].style, undefined);
   const synthetic = { ...global, captions: [{ ...global.captions[0], words: words.map(word => ({ ...word, timingKind: 'synthetic' })) }] };
   assert.equal(resolveCaptionDisplay(synthetic, { cuts: [] }).display_cues[0].style, undefined);
@@ -989,6 +1006,26 @@ test('karaoke keeps measured words when only punctuation is missing from words',
   assert.equal(fallback.words, undefined);
 });
 
+test('karaoke keeps zero-duration punctuation and joined symbols unlit', () => {
+  const root = { display_policy: { ...policy, max_line_units: 20, word_style: 'karaoke' },
+    captions: [caption('c-zero', 0, 1, '種。', { words: [
+      { text: '種', start: 0, end: 1 }, { text: '。', start: 1, end: 1 },
+    ] })] };
+  const zero = resolveCaptionDisplay(root, { cuts: [] }).display_cues[0];
+  assert.equal(zero.style, 'karaoke');
+  assert.deepEqual(zero.words.map(word => [word.text, Boolean(word.untimed)]),
+    [['種', false], ['。', true]]);
+  for (const symbol of ['👩‍💻', '❤️']) {
+    const item = { ...root, captions: [caption('c-symbol', 0, 1, `${symbol}種`, { words: [
+      { text: '種', start: 0, end: 1 },
+    ] })] };
+    const cue = resolveCaptionDisplay(item, { cuts: [] }).display_cues[0];
+    assert.equal(cue.style, 'karaoke');
+    assert.equal(cue.words[0].text, symbol);
+    assert.equal(cue.words[0].untimed, true);
+  }
+});
+
 test('karaoke fallback preserves legacy rescued-word emphasis and synthetic-word emphasis', () => {
   const emphasis_words = [{ id: 'e-1', t_start: 1, t_end: 1.5,
     word: '大事', emotion: 'neutral', style_preset: 'emphasis-red' }];
@@ -1005,9 +1042,12 @@ test('karaoke fallback preserves legacy rescued-word emphasis and synthetic-word
     const on = resolveCaptionDisplay({ ...root,
       display_policy: { ...root.display_policy, word_style: 'karaoke' } },
     { cuts: [{ in: 0, out: 3 }] }).display_cues[0];
-    assert.equal(on.style, undefined);
-    assert.deepEqual(on.words, off.words);
-    assert.deepEqual(on.word_styles, off.word_styles);
+    assert.equal(on.style, root === legacy ? 'karaoke' : undefined);
+    if (root === legacy) assert.equal(on.words[0].untimed, true);
+    else {
+      assert.deepEqual(on.words, off.words);
+      assert.deepEqual(on.word_styles, off.word_styles);
+    }
     assert.ok(on.word_styles.some(style => style.preset_id === 'emphasis-red'));
   }
 });

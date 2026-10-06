@@ -1,6 +1,52 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { captionClockDomainOf, normalizeCaptionClock } from '../lib/caption-clock.js';
+import { buildCaptionTimelineSegments, captionClockDomainOf, normalizeCaptionClock } from '../lib/caption-clock.js';
+import { readInternalEdit } from '../lib/internal-model.js';
+
+test('caption timeline maps visual, voice, both, and duplicate sources once', () => {
+    const edit = {
+        version: 2, output: { width: 1920, height: 1080, fps: 30 },
+        sources: [{ id: 'take', path: 'take.mp4' }, { id: 'mic', path: 'mic.wav' }],
+        tracks: [
+            { id: 'video', lane: 'visual', items: [{ id: 'take-1', at: 0, duration: 150,
+                source: { kind: 'media', src: 'take', in: 0, out: 5 } }] },
+            { id: 'voice', lane: 'audio', items: [{ id: 'mic-1', role: 'speech', at: 60, duration: 90,
+                source: { kind: 'media', src: 'mic', in: 0, out: 3 } }] }
+        ]
+    };
+    const internal = readInternalEdit(edit);
+    const cuts = [{ src: 'take', in: 0, out: 5, at: 0 }];
+    const cue = src => ({ id: src, start: 0, end: 1, clockDomain: 'source', clockSourceId: src });
+    const visual = buildCaptionTimelineSegments(cuts);
+    const voice = buildCaptionTimelineSegments([], internal);
+    const both = buildCaptionTimelineSegments(cuts, internal);
+    assert.deepEqual(normalizeCaptionClock([cue('take')], visual).map(row => row.start), [0]);
+    assert.deepEqual(normalizeCaptionClock([cue('mic')], voice).map(row => row.start), [2]);
+    assert.deepEqual(normalizeCaptionClock([cue('take'), cue('mic')], both).map(row => row.start), [0, 2]);
+    edit.tracks[1].items[0].source.src = 'take';
+    const duplicate = buildCaptionTimelineSegments(cuts, readInternalEdit(edit));
+    assert.deepEqual(normalizeCaptionClock([cue('take')], duplicate).map(row => row.start), [0]);
+    const partial = buildCaptionTimelineSegments([{ src: 'take', in: 0, out: 1, at: 0 }], readInternalEdit(edit));
+    assert.deepEqual(normalizeCaptionClock([{ ...cue('take'), start: 1, end: 2 }], partial)
+        .map(row => row.start), [3]);
+    edit.tracks[1].items[0].source.src = 'mic';
+    edit.tracks[1].items[0].role = 'sfx';
+    const effects = buildCaptionTimelineSegments(cuts, readInternalEdit(edit));
+    assert.deepEqual(normalizeCaptionClock([cue('mic')], effects), []);
+});
+
+test('source cue omits removed words from the preview text and restores them with the segment', () => {
+    const caption = { id: 'filler', text: 'えー、本題', start: 0, end: 2,
+        clockDomain: 'source', clockSourceId: 'mic', words: [
+            { text: 'えー、', start: 0, end: 0.5 },
+            { text: '本題', start: 0.5, end: 2 },
+        ] };
+    const kept = [{ kind: 'src', src: 'mic', in: 0.5, out: 2,
+        outStart: 0, outEnd: 1.5, speed: 1, cutIndex: null }];
+    assert.deepEqual(normalizeCaptionClock([caption], kept).map(row => row.text), ['本題']);
+    assert.deepEqual(normalizeCaptionClock([caption], [{ ...kept[0], in: 0, outStart: 0, outEnd: 2 }])
+        .map(row => row.text), ['えー、本題']);
+});
 
 // shell の test/preview-caption-clock-unification.test.mjs と同じ fixture（Electron 実機で観測した 7 時刻）。
 const segments = [

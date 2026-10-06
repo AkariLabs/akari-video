@@ -73,10 +73,15 @@ test('resolved two-line karaoke changes one measured word across a frame boundar
       });
       await page.waitForFunction(() => document.querySelectorAll('.akari-caption__resolved-line').length === 2,
         undefined, { timeout: 15_000 });
-      const sample = async time => page.evaluate(time => {
+      const sample = async time => page.evaluate(async time => {
+        const video = document.getElementById('preview-video');
+        video.pause();
         const seek = document.getElementById('seek');
+        const moved = Math.abs(video.currentTime - time) > 0.005;
+        const seeked = moved ? new Promise(resolve => video.addEventListener('seeked', resolve, { once: true })) : null;
         seek.value = String(time);
         seek.dispatchEvent(new Event('input', { bubbles: true }));
+        if (seeked) await seeked;
         return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
           const lines = [...document.querySelectorAll('.akari-caption__resolved-line')];
           const tokens = [...document.querySelectorAll('.akari-caption__tok--karaoke')];
@@ -121,10 +126,15 @@ test('resolved two-line karaoke changes one measured word across a frame boundar
         seek.dispatchEvent(new Event('input', { bubbles: true }));
       });
       await page.waitForFunction(() => document.querySelector('.akari-caption__tok--karaoke-done'));
-      const tokenMarkupAt = async time => page.evaluate(time => {
+      const tokenMarkupAt = async time => page.evaluate(async time => {
+        const video = document.getElementById('preview-video');
+        video.pause();
         const seek = document.getElementById('seek');
+        const moved = Math.abs(video.currentTime - time) > 0.005;
+        const seeked = moved ? new Promise(resolve => video.addEventListener('seeked', resolve, { once: true })) : null;
         seek.value = String(time);
         seek.dispatchEvent(new Event('input', { bubbles: true }));
+        if (seeked) await seeked;
         return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() =>
           resolve([...document.querySelectorAll('.akari-caption__tok--karaoke-done,.akari-caption__tok--unlit')]
             .map(token => [token.className, token.textContent])))));

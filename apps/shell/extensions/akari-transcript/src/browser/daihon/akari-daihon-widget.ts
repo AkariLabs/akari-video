@@ -30,7 +30,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import {
-    buildTimelineMap,
+    buildCaptionTimelineSegments,
     CAPTION_SAMPLE_TEXT,
     measureCaptionUnits,
     projectLegacyEdit,
@@ -1300,11 +1300,11 @@ export class AkariDaihonWidget extends BaseWidget {
         if (raw.version === 2) {
             const internal = readInternalEdit(source, { hasCaptions });
             const legacy = projectLegacyEdit(internal);
-            return buildTimelineMap(legacy.cuts, { fps: legacy.fps }).segments;
+            return buildCaptionTimelineSegments(legacy.cuts, internal, { fps: legacy.fps });
         }
-        return buildTimelineMap(Array.isArray(raw.cuts) ? raw.cuts as any[] : [], {
+        return buildCaptionTimelineSegments(Array.isArray(raw.cuts) ? raw.cuts as any[] : [], undefined, {
             fps: raw.output?.fps
-        }).segments;
+        });
     }
 
     protected daihonCaptionsForDisplay(knobs = this.displayKnobs): DaihonCaptionLike[] {

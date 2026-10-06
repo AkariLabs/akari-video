@@ -236,6 +236,14 @@ test('v2 の reason / label 付き無音カットを戻すと元の文字列と�
   assert.equal(restored.source, source);
 });
 
+test('タイムライン分割済み clip のカットを戻しても label が残らない', () => {
+  const source = v2([media('clip', 0, 150, 0, 5), media('clip-split', 150, 150, 5, 10)]);
+  const cut = range([6, 7], 'filler', { captionId: 'main', reason: 'word', label: 'えー' });
+  const result = restoreCutRange(applyCutRanges(source, [cut]).source, cut);
+  assert.equal(result.restored, true, result.reason);
+  assert.equal(result.source, source);
+});
+
 test('実時刻の 3 か所を切り最初だけ戻しても、残り 2 か所と後続位置を保つ', () => {
   const source = v2([media('cut-a', 0, 480, 0, 16)]);
   const cuts = [range([0.5, 0.9], 'filler', { captionId: 'main', label: 'えー' }),

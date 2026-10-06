@@ -20,6 +20,7 @@ const {
   dedupeCaptionOccurrences,
   expandCaptionDisplayFragments,
   mergeCaptionLineTextStyles,
+  buildCaptionTimelineSegments,
   normalizeCaptionClock,
   projectCaptionWords,
   resolveCaptionLineStyleVars,
@@ -253,12 +254,18 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const emphasisWords = normalizeEmphasisWords(options.emphasisWords, output);
   const sourceCount = options.sourceCount ?? 1;
   const overlays = [];
+  const captionSegments = Array.isArray(options.edit?.tracks)
+    ? buildCaptionTimelineSegments(cuts, options.edit, { fps: output?.fps }) : [];
 
   for (const caption of expandCaptionDisplayFragments(captions)) {
-    const projectedCaption = projectCaptionWords(caption, cuts);
+    const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
+    const audioSegments = captionSegments.filter(segment => segment.kind === 'src'
+      && segment.cutIndex === null && segment.src === captionSource);
+    const audioCuts = audioSegments.map(segment => ({ src: segment.src,
+      in: segment.in, out: segment.out, at: segment.outStart, speed: segment.speed }));
+    const projectedCaption = projectCaptionWords(caption, [...cuts, ...audioCuts]);
     if (!projectedCaption.renderable) continue;
     const displayText = projectedCaption.displayText;
-    const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
     if (captionSource === null && sourceCount > 1 && caption.time_domain !== "output") {
       options.onWarning?.(
         `captions.json item ${caption.id ?? "(unknown)"} omits src in a multi-source edit; skipped`,
@@ -266,7 +273,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       continue;
     }
     const window = captionWindowSeconds(caption);
-    const ranges = computeCaptionRanges(
+    const ranges = audioSegments.length > 0 && cuts.length === 0 && caption.time_domain !== 'output'
+      ? [] : computeCaptionRanges(
       window.start,
       window.end,
       cuts,
@@ -274,6 +282,21 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       caption.time_domain,
       caption.id,
     );
+    if (caption.time_domain !== 'output' && audioSegments.length > 0) {
+      const occurrences = normalizeCaptionClock([{ start: window.start, end: window.end,
+        clockDomain: 'source', clockSourceId: captionSource }], audioSegments);
+      for (const occurrence of occurrences) {
+        const midpoint = (occurrence.start + occurrence.end) / 2;
+        const segment = audioSegments.find(item => item.outStart <= midpoint && midpoint < item.outEnd);
+        if (!segment) continue;
+        const speed = segment.speed ?? 1;
+        ranges.push({ start: occurrence.start, duration: occurrence.end - occurrence.start,
+          sourceStart: Math.max(window.start, segment.in),
+          sourceEnd: Math.min(window.end, segment.out),
+          emphasisTimeScale: 1 / speed, track: 0 });
+      }
+      ranges.sort((left, right) => left.start - right.start);
+    }
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
     const maximum = textStyle?.vertical && !textStyle?.max_characters ? Number.MAX_SAFE_INTEGER : textStyle?.max_characters

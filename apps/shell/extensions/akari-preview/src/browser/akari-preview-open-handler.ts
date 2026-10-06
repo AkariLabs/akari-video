@@ -50,7 +50,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { WEBVIEW_CONTEXT_MENU, WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
-    buildTimelineMap,
+    buildCaptionTimelineSegments,
     captionEditNotices,
     updateCaptionFieldsInSourceWithReport,
     updateCaptionRunsInSource,
@@ -71,7 +71,7 @@ import {
     toAnchorCaptions,
     TimelineSegment
 } from '@akari-video/edit-store';
-import type { EditV2, GenerationMetaV1 } from '@akari-video/edit-store';
+import type { EditV2, GenerationMetaV1, InternalEdit } from '@akari-video/edit-store';
 import type { PreviewItemWriteCommand } from '@akari-video/edit-store';
 import {
     describePreviewWebviewRole,
@@ -3842,7 +3842,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 captionRows,
                 this.previewCaptionTimelineSegments(
                     widget.akariPreviewSummary?.cuts ?? [],
-                    widget.akariPreviewSummary?.output?.fps
+                    widget.akariPreviewSummary?.output?.fps,
+                    widget.akariPreviewCaptionAnimatorInternal
                 )
             );
             const nextCaptions = buildCaptionAnimatorSummaryFields(captions, widget.akariPreviewCaptionAnimatorInternal);
@@ -5658,7 +5659,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             indicators.push(...unsupportedGltfWarnings);
             const outputCaptions = buildCaptionAnimatorSummaryFields(normalizePreviewCaptionClock(
                 captions,
-                this.previewCaptionTimelineSegments(cuts, internal.output.fps)
+                this.previewCaptionTimelineSegments(cuts, internal.output.fps, internal)
             ), internal);
             return {
                 editUri,
@@ -6226,12 +6227,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected previewCaptionTimelineSegments(
         cuts: readonly EditSummaryCut[],
-        fps = 30
+        fps = 30,
+        internal?: InternalEdit
     ): TimelineSegment[] {
-        return buildTimelineMap(
+        return buildCaptionTimelineSegments(
             cuts.map(cut => ({ ...cut, track: cut.renderTrack })),
+            internal,
             { trackZ: track => track, fps }
-        ).segments;
+        );
     }
 
     protected async loadPreviewCaptions(

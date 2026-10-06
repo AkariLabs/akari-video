@@ -175,14 +175,15 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       captionFinding(findings, "captions.edited", "edited must be a boolean", itemPath);
     }
     if (Object.hasOwn(caption, "style")) {
-      if (caption.style !== "karaoke"
+      if (caption.style !== "plain"
+        && caption.style !== "karaoke"
         && caption.style !== "pop"
         && caption.style !== "reveal"
         && caption.style !== "reveal-word") {
         captionFinding(
           findings,
           "captions.schema",
-          'style must be "karaoke", "pop", "reveal", or "reveal-word"',
+          'style must be "plain", "karaoke", "pop", "reveal", or "reveal-word"',
           itemPath,
         );
       }

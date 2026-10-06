@@ -151,8 +151,8 @@ export function buildGpuPage({
       const displayCue = overlay.displayCue ?? null;
       // 解決経路では text_style / style_vars はカーネルが畳んだ display cue が正本。
       const textStyle = displayCue?.text_style ?? mergeTextStyle(defaultTextStyle, cue.text_style);
-      // 語モードの判定も解決経路では display cue を見る。display_policy 下では cue.style（karaoke 等）も
-      // edit.emphasis_words もカーネルが拒否し、captions.json 側の強調は display cue の
+      // 語モードの判定も解決経路では display cue を見る。display_policy 下では行の
+      // karaoke/plain をカーネルが解決し、captions.json 側の強調は display cue の
       // words / word_styles として HTML に畳み込まれているので、語タイルの仕事は残らない。
       // ここで元 cue を見ると、断片ではなく cue 全体の words / テキストで判定してしまい、
       // 焼いた HTML に無い語モードを manifest が名乗る（縦長の reveal 自動判定が特に当たる）。

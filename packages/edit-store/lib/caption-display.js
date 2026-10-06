@@ -38,6 +38,7 @@ exports.formatCssNumber = formatCssNumber;
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_1 = require("./generated/textstyle-catalog");
 const caption_runs_1 = require("./caption-runs");
+const caption_timeline_1 = require("./caption-timeline");
 /**
  * Caption display policy v1.  This is the single pure implementation used by
  * render-cut, preview-server, and the shell backend.  It deliberately performs
@@ -213,13 +214,13 @@ function setCaptionDisplayWordStyle(root, style) {
     const policy = validateCaptionDisplayPolicy(root.display_policy);
     return { ...root, display_policy: { ...policy, word_style: style } };
 }
-/** An explicit row karaoke style wins over the global default; null restores inheritance. */
+/** An explicit row style overrides the global default; null restores inheritance. */
 function setCaptionDisplayRowStyle(root, id, style) {
     if (!isRecord(root) || root.display_policy === undefined || !Array.isArray(root.captions)) {
         fail('INVALID_CAPTIONS', 'captions with display_policy are required');
     }
     validateCaptionDisplayPolicy(root.display_policy);
-    if (!strictText(id) || (style !== null && style !== 'karaoke'))
+    if (!strictText(id) || (style !== null && style !== 'karaoke' && style !== 'plain'))
         fail('INVALID_CAPTION', 'invalid caption style request');
     if (!root.captions.some((caption) => isRecord(caption) && caption.id === id)) {
         fail('INVALID_CAPTION', `caption ${id} was not found`);
@@ -276,7 +277,16 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
     const defaultStyle = Object.prototype.hasOwnProperty.call(captionsRoot, 'default_text_style')
         ? validateCaptionTextStyle(captionsRoot.default_text_style, 'default_text_style')
         : undefined;
-    const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+    const visualCuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+    const captionSegments = Array.isArray(edit?.tracks)
+        ? (0, caption_timeline_1.buildCaptionTimelineSegments)(visualCuts, {
+            tracks: edit.tracks, output: edit.output
+        }, { fps: edit.output?.fps }) : [];
+    const audioCuts = captionSegments.flatMap(segment => segment.kind === 'src'
+        && segment.cutIndex === null && segment.src && segment.in !== undefined && segment.out !== undefined
+        ? [{ src: segment.src, in: segment.in, out: segment.out,
+                at: segment.outStart, speed: segment.speed }] : []);
+    const cuts = [...visualCuts, ...audioCuts];
     const styleOutput = options.output ?? edit?.output;
     validateProjectionCuts(cuts, edit);
     const projectedCaptions = captions.map(caption => projectCaptionWords(caption, cuts));
@@ -454,13 +464,15 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
 }
 function captionDisplayGraphemes(text) {
     const Segmenter = Intl.Segmenter;
+    if (typeof Segmenter !== 'function')
+        return Array.from(text);
     return [...new Segmenter(undefined, { granularity: 'grapheme' }).segment(text)]
         .map(part => part.segment);
 }
 function alignKaraokeUntimed(entries, displayText) {
     const graphemes = captionDisplayGraphemes(displayText);
     const normalized = (text) => text.normalize('NFKC').replace(/\s/gu, '');
-    const allowedGap = /^[\p{P}\p{S}\s]+$/u;
+    const allowedGap = /^(?:[\p{P}\p{S}\p{Cf}\p{Mn}]|\s)+$/u;
     const aligned = [];
     let cursor = 0;
     const addUntimed = (text) => {
@@ -561,7 +573,9 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
                 const earlier = caption.words.slice(0, wordIndex).reverse()
                     .find((candidate) => projected.words.includes(candidate));
                 const anchor = later ?? earlier ?? projected.words[0];
-                return [{ word: { text: value.text, start: anchor.start, end: anchor.end }, synthetic: true }];
+                return [{ word: { text: value.text, start: anchor.start, end: anchor.end },
+                        synthetic: !karaoke || hasSyntheticTiming,
+                        ...(karaoke && !hasSyntheticTiming ? { untimed: true } : {}) }];
             });
             if (visible(rescued).join('') === normalized(projected.displayText))
                 entries = rescued;
@@ -592,6 +606,8 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
             }
             return projected.displayText.slice(start, displayCursor);
         });
+        if (needsUntimed)
+            displayCursor = projected.displayText.length;
         alignedTexts[alignedTexts.length - 1] += projected.displayText.slice(displayCursor);
         let offset = 0;
         const words = entries.map(({ word, synthetic, untimed }, wordIndex) => {
@@ -702,9 +718,14 @@ function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines,
                 continue;
             const timeScale = occurrence.time_scale ?? 1;
             const timeOffset = occurrence.time_offset ?? 0;
+            const graphemeCount = captionDisplayGraphemes(word.text).length;
+            const fractionStart = captionDisplayGraphemes(word.text.slice(0, start - word.offset)).length / graphemeCount;
+            const fractionEnd = captionDisplayGraphemes(word.text.slice(0, end - word.offset)).length / graphemeCount;
+            const wordStart = word.start + (word.end - word.start) * fractionStart;
+            const wordEndTime = word.start + (word.end - word.start) * fractionEnd;
             styledWords.push({
-                start: roundOutputSecond(timeOffset + word.start * timeScale),
-                end: roundOutputSecond(timeOffset + word.end * timeScale),
+                start: roundOutputSecond(timeOffset + wordStart * timeScale),
+                end: roundOutputSecond(timeOffset + wordEndTime * timeScale),
                 text: word.text.slice(start - word.offset, end - word.offset),
                 line: line.line,
                 ...(word.untimed ? { untimed: true } : {}),
@@ -1443,7 +1464,7 @@ function validateSourceCaption(caption, index) {
     if (!strictText(sourceText))
         fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
     if (caption.style !== undefined) {
-        if (caption.style === 'karaoke')
+        if (caption.style === 'karaoke' || caption.style === 'plain')
             return;
         if (CAPTION_WORD_STYLES.has(caption.style)) {
             fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);

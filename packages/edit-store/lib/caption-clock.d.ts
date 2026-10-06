@@ -13,6 +13,7 @@
  * - segments が空なら全件 output 扱いで素通し。
  * - 戻り値は全件 clockDomain='output'。描画層は domain 判定を一切行わない。
  */
+export { buildCaptionTimelineSegments } from './caption-timeline';
 export type CaptionClockDomain = 'source' | 'output' | 'legacy';
 export interface CaptionClockWord {
     start: number;

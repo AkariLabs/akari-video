@@ -14,6 +14,9 @@
  * - 戻り値は全件 clockDomain='output'。描画層は domain 判定を一切行わない。
  */
 
+import { projectCaptionWords } from './caption-display';
+export { buildCaptionTimelineSegments } from './caption-timeline';
+
 export type CaptionClockDomain = 'source' | 'output' | 'legacy';
 
 export interface CaptionClockWord {
@@ -75,12 +78,18 @@ export function normalizeCaptionClock<T extends CaptionClockInput>(
             const sourceStart = Math.max(caption.start, segment.in);
             const sourceEnd = Math.min(caption.end, segment.out);
             if (!(sourceEnd - sourceStart > EPSILON)) continue;
+            const cue = caption as CaptionClockInput & { text?: string; displayText?: string };
+            const projected = typeof cue.text === 'string' && cue.words?.length
+                ? projectCaptionWords({ text: cue.text, display_text: cue.displayText ?? cue.text,
+                    words: cue.words, src: cue.clockSourceId },
+                [{ src: segment.src, in: sourceStart, out: sourceEnd }]) : null;
+            if (projected && !projected.renderable) continue;
             const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
             const projectTime = (sourceTime: number): number =>
                 segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
             occurrence += 1;
             const sourceCueId = caption.sourceCueId ?? caption.id;
-            const words = caption.words?.flatMap(word => {
+            const words = (projected?.words ?? caption.words)?.flatMap(word => {
                 const wordStart = Math.max(word.start, sourceStart);
                 const wordEnd = Math.min(word.end, sourceEnd);
                 return wordEnd - wordStart > EPSILON
@@ -89,6 +98,10 @@ export function normalizeCaptionClock<T extends CaptionClockInput>(
             });
             output.push({
                 ...caption,
+                ...(projected?.changed ? {
+                    text: projected.displayText,
+                    ...(cue.displayText !== undefined ? { displayText: projected.displayText } : {})
+                } : {}),
                 ...(caption.id ? { id: `${caption.id}-output-${occurrence}` } : {}),
                 ...(sourceCueId ? { sourceCueId } : {}),
                 start: projectTime(sourceStart),
