@@ -10,6 +10,7 @@ import {
 } from '@akari-video/edit-store';
 import type { CaptionRun } from '@akari-video/edit-store';
 import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
+import { stripAnimationOnlyLookVars } from '../../../../../../packages/render-cut/src/caption-typewriter.mjs';
 
 export const PREVIEW_CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -207,6 +208,7 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
     }
     return payload.captions.map(cue => {
         const textStyle = isRecord(cue.text_style) ? cue.text_style : undefined;
+        const styleVars = stripAnimationOnlyLookVars(textStyle, cue.style_vars);
         const displayLines = (cue as unknown as { display_lines?: string[] }).display_lines;
         const wordDisplay = cue as unknown as {
             words?: { start: number; end: number; text: string; line: number }[];
@@ -228,9 +230,9 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
                 wordStyles: wordDisplay.word_styles!.map(style => ({ ...style, style_vars: { ...style.style_vars } }))
             } : {}),
             ...(textStyle ? { textStyle } : {}),
-            ...(cue.style_vars || textStyle ? {
+            ...(styleVars || textStyle ? {
                 textStyleVars: {
-                    ...(cue.style_vars ?? {}),
+                    ...(styleVars ?? {}),
                     ...captionTransformStyleVars(textStyle)
                 }
             } : {})

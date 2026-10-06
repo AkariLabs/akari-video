@@ -268,6 +268,12 @@ test("per-cue animation merges slots over the default style", () => {
   assert.equal(result.entries[0].reason, "caption-motion-wipe-right-unsupported");
 });
 
+test('文字送りの auto 降格理由は日本語で示す', () => {
+  const result = evaluate([], [{ id: 'caption', text_style: { animation: { in: { id: 'typewriter' } } } }]);
+  assert.equal(result.eligible, false);
+  assert.equal(result.entries[0].reason, '文字送りは OSR で書き出します');
+});
+
 test("flat translate3d/translateZ and same-document url(#) references stay eligible (#33, #34)", () => {
   const same = [
     ["translate3d-zero", "<style>.x{transform:translate3d(1px,2px,0)}</style>"],

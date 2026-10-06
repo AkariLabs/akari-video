@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { createRequire } from 'node:module';
-import { CAPTION_ANIMATION_RECIPES, buildCaptionAnimation } from '../../../../../packages/render-cut/src/captions.mjs';
+import { CAPTION_ANIMATION_RECIPES, applyCaptionRichLayers, buildCaptionAnimation } from '../../../../../packages/render-cut/src/captions.mjs';
+import { decorateTypewriterHtml } from '../../../../../packages/render-cut/src/caption-typewriter.mjs';
 import { harness, source } from './caption-animator-webview-harness.mjs';
 
 const require = createRequire(import.meta.url);
@@ -105,11 +106,11 @@ test('同時表示の 2 行で textanim 宣言は各板のインライン属性�
     assert.doesNotMatch(plateRule(popPlate), /animation:|--akari-anim-amp/u);
 });
 
-test('resolved 経路と無宣言字幕に textanim を足さず、runs は板内に保つ', () => {
+test('resolved 経路にも textanim を付け、無宣言字幕は不変で runs は板内に保つ', () => {
     const animation = { in: { id: 'fade-up' } };
     const resolved = harness({ cues: [cue({ resolvedTimeline: true, textStyle: { animation } })] });
     resolved.tick(10.5);
-    assert.doesNotMatch(resolved.plate.innerHTML, /akari-anim-/u);
+    assert.match(resolved.plate.innerHTML, /akari-anim-fade-up/u);
 
     const still = harness({ cues: [cue()] });
     still.tick(10.5);
@@ -135,6 +136,73 @@ test('resolved 経路と無宣言字幕に textanim を足さず、runs は板�
     assert.match(styled.plate.innerHTML, /akari-caption__tok--karaoke/u);
     assert.match(styled.plate.innerHTML, /akari-anim-fade-up 0\.6s ease-out 0s 1 normal both paused/u);
     assert.ok(Math.abs(styled.animations[0].currentTime - 500) < 1e-6);
+});
+
+test('typewriter は書記素単位の span に等間隔の遅延を付ける', () => {
+    const html = '<div><style></style><p class="akari-caption__line">あ👩‍👩‍👧‍👦い&amp;う</p></div>';
+    const output = decorateTypewriterHtml(html, { in: { id: 'typewriter', duration_sec: 1.4 } }, 3);
+    assert.equal((output.match(/class="akari-caption__type-char"/gu) || []).length, 5);
+    assert.match(output, /0\.280000s[^>]*>あ<\/span>/u);
+    assert.match(output, /0\.560000s[^>]*>👩‍👩‍👧‍👦<\/span>/u);
+    assert.match(output, /1\.400000s[^>]*>う<\/span>/u);
+    assert.doesNotMatch(CAPTION_ANIMATION_RECIPES.typewriter, /clip-path/u);
+    const preview = harness({ cues: [cue({ start: 0, end: 3, text: 'あ👩‍👩‍👧‍👦いう',
+        textStyle: { animation: { in: { id: 'typewriter', duration_sec: 1.4 } } } })] });
+    preview.tick(.7);
+    assert.equal((preview.plate.innerHTML.match(/class="akari-caption__type-char"/gu) || []).length, 4);
+    assert.match(preview.plate.innerHTML, /data-akari-textanim style="animation:none;"/u);
+    assert.match(preview.plate.innerHTML, /0\.700000s[^>]*>👩‍👩‍👧‍👦<\/span>/u);
+    assert.match(output, /\.akari-caption__type-char\{display:inline\}/u);
+    assert.doesNotMatch(output, /white-space:pre/u);
+});
+
+test('typewriter は runs と複数行の構造を保ち、runs 適用後に span を付ける', () => {
+    const animation = { in: { id: 'typewriter', duration_sec: 1.4 } };
+    const withRuns = harness({ cues: [cue({ start: 0, end: 3, text: 'あいう', textStyle: { animation },
+        runs: [{ from: 1, to: 2, role: 'emphasis', style: { color: '#ff0000' } }] })] });
+    withRuns.tick(.7);
+    assert.match(withRuns.plate.innerHTML, /akari-caption__run/u);
+    assert.equal((withRuns.plate.innerHTML.match(/class="akari-caption__type-char"/gu) || []).length, 3);
+    assert.match(withRuns.plate.innerHTML, /akari-caption__run[^>]*>[\s\S]*?akari-caption__type-char/u);
+    const multiline = decorateTypewriterHtml('<div><style></style><p class="akari-caption__line"><span class="akari-caption__tok">あい</span></p><p class="akari-caption__line">うえ</p></div>', animation, 3);
+    assert.equal((multiline.match(/class="akari-caption__type-char"/gu) || []).length, 4);
+    assert.match(multiline, /<\/p><p class="akari-caption__line">/u);
+    assert.match(multiline, /akari-caption__tok/u);
+});
+
+test('typewriter と退場フェードの組は板に文字送り用の opacity animation を重ねない', () => {
+    const animation = { in: { id: 'typewriter', duration_sec: 1.4 },
+        out: { id: 'fade-in-out', duration_sec: .6 } };
+    const declaration = buildCaptionAnimation(animation, 3);
+    assert.doesNotMatch(declaration.animationCss, /akari-anim-typewriter/u);
+    assert.match(declaration.animationCss, /akari-anim-fade-in-out/u);
+    const preview = harness({ cues: [cue({ start: 0, end: 3, text: '字幕を一文字ずつ表示します',
+        textStyle: { animation } })] });
+    preview.tick(1.5);
+    assert.equal((preview.plate.innerHTML.match(/class="akari-caption__type-char"/gu) || []).length, 13);
+    assert.doesNotMatch(preview.plate.innerHTML, /akari-anim-typewriter/u);
+});
+
+test('preview のリッチ字幕は runs → 文字 span → リッチ層の順で作る', () => {
+    const text = '字幕を一文字ずつ表示します';
+    const style = { fill: { type: 'gradient', angle_deg: 180, stops: [
+        { at: 0, color: '#ffed8a' }, { at: 100, color: '#75d6ff' }
+    ] }, strokes: [{ color: '#101827', width_px: 3 }, { color: '#ffffff', width_px: 1.5 }],
+    animation: { in: { id: 'typewriter', duration_sec: 1.4 } } };
+    const preview = harness({ cues: [cue({ start: 0, end: 3, text, textStyle: style })] });
+    preview.tick(.7);
+    assert.equal((preview.plate.innerHTML.match(/class="akari-caption__type-char"/gu) || []).length, 13);
+    const layered = applyCaptionRichLayers(preview.plate.innerHTML, style, { width: 1920, height: 1080 });
+    for (const part of layered.split(/<span class="akari-caption__type-char"[^>]*>/u).slice(1)) {
+        assert.equal((part.match(/class="akari-caption__rich-shadow"/gu) || []).length, 1);
+        assert.equal((part.match(/class="akari-caption__rich-stroke"/gu) || []).length, 2);
+        assert.equal((part.match(/class="akari-caption__rich-fill"/gu) || []).length, 1);
+    }
+    const order = ['captionHtml = caption.runs?.length', 'captionHtml = decorateCaptionTypewriterHtml',
+        'captionPlate.innerHTML = captionHtml;', 'applyRichCaptionLayers(captionPlate, caption);']
+        .map(fragment => source.indexOf(fragment));
+    assert.ok(order.every(index => index >= 0));
+    assert.deepEqual([...order].sort((a, b) => a - b), order);
 });
 
 test('動きの無い字幕の HTML/CSS は変更前の 4 経路とバイト一致する', () => {

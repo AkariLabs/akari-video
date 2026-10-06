@@ -6,6 +6,7 @@ import { computeCutTimelineOffsets, computeVideoRuns, cutSpeed, needsGapAwareCut
 import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
 import { BUNDLED_CAPTION_FONT_FACES, captionFontFaceCss, captionFontFaces, captionFontFamilies } from "./caption-font-faces.mjs";
 import { predictedDuration } from "./plan.mjs";
+import { decorateTypewriterHtml, isTypewriterOnlyAnimation, stripAnimationOnlyLookVars } from "./caption-typewriter.mjs";
 
 // text_anchor / position → CSS 変数は共有カーネル単一定義（プレビューと同じ式で描く —
 // packages/edit-store/src/caption-display.ts captionAnchorPositionVars 参照）。
@@ -394,6 +395,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       if (runs?.length) {
         html = applyCaptionRunsToHtml(html, displayText, runs);
       }
+      html = decorateTypewriterHtml(html, textStyle?.animation, range.duration);
       html = applyCaptionRichLayers(html, textStyle, output);
       overlays.push({
         id: `${caption.id}${caption.fragmentIndex ? `-f${caption.fragmentIndex}` : ""}-${String(index + 1).padStart(2, "0")}`,
@@ -424,20 +426,28 @@ function resolvedCaptionRoundedStrokeVars(cue) {
 export function generateResolvedCaptionOverlays(displayResult, fontFaces = captionFontFaces(), output) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
-    html: applyCaptionRichLayers(
+    html: applyCaptionRichLayers(decorateTypewriterHtml(applyResolvedCaptionAnimation(
       applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
-      cue.text_style, output
-    ),
+      cue.text_style?.animation, cue.end - cue.start
+    ), cue.text_style?.animation, cue.end - cue.start), cue.text_style, output),
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
-    vars: { ...(cue.style_vars ?? {}), ...resolvedCaptionRoundedStrokeVars(cue), ...(cue.style_vars?.['--caption-wrap-width']
+    vars: { ...(stripAnimationOnlyLookVars(cue.text_style, cue.style_vars) ?? {}), ...resolvedCaptionRoundedStrokeVars(cue), ...(cue.style_vars?.['--caption-wrap-width']
       || cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
       ? captionPlateMarginVars(cue.text_style, Boolean(cue.style_vars?.['--caption-wrap-width'])) : {}), ...captionTransformVars(cue.text_style) },
     generatedFrom: cue.source_cue_id,
     sourceCueId: cue.source_cue_id,
     displayCue: cue,
   }));
+}
+
+function applyResolvedCaptionAnimation(html, animation, duration) {
+  const declaration = buildCaptionAnimation(animation, duration);
+  if (!declaration) return html;
+  const attrs = ` data-akari-textanim style="${declaration.ampCss}animation:${declaration.animationCss};"`;
+  return html.replace('</style>', `${declaration.keyframesCss}</style>`)
+    .replace('<div class="akari-caption__plate">', `<div class="akari-caption__plate"${attrs}>`);
 }
 
 export function captionTransform(style) {
@@ -606,65 +616,8 @@ export const captionTextStyleVars = resolveCaptionLineStyleVars;
 // 振幅ツマミ amp は距離・スケール系レシピ内の calc(var(--akari-anim-amp, 1) * …) に効く。
 const DEFAULT_ANIMATION_DURATION_SEC = 0.6;
 const DEFAULT_LOOP_PERIOD_SEC = 1.6;
-const A = "var(--akari-anim-amp, 1)";
-export const CAPTION_ANIMATION_RECIPES = {
-  // フェード
-  "fade-in-out": `from { opacity: 0; } to { opacity: 1; }`,
-  "soft-fade": `from { opacity: 0; transform: scale(calc(1 + 0.04 * ${A})); } to { opacity: 1; transform: scale(1); }`,
-  "fade-up": `from { opacity: 0; transform: translateY(calc(0.6em * ${A})); } to { opacity: 1; transform: translateY(0); }`,
-  "fade-down": `from { opacity: 0; transform: translateY(calc(-0.6em * ${A})); } to { opacity: 1; transform: translateY(0); }`,
-  "cinematic-fade": `from { opacity: 0; transform: scale(calc(1 - 0.06 * ${A})); } to { opacity: 1; transform: scale(1); }`,
-  // スライド
-  "slide-left": `from { opacity: 0; transform: translateX(calc(1.2em * ${A})); } to { opacity: 1; transform: translateX(0); }`,
-  "slide-right": `from { opacity: 0; transform: translateX(calc(-1.2em * ${A})); } to { opacity: 1; transform: translateX(0); }`,
-  "slide-up": `from { opacity: 0; transform: translateY(calc(1.2em * ${A})); } to { opacity: 1; transform: translateY(0); }`,
-  "slide-down": `from { opacity: 0; transform: translateY(calc(-1.2em * ${A})); } to { opacity: 1; transform: translateY(0); }`,
-  "push-left": `from { transform: translateX(calc(2em * ${A})); clip-path: inset(0 0 0 100%); } to { transform: translateX(0); clip-path: inset(0); }`,
-  "push-right": `from { transform: translateX(calc(-2em * ${A})); clip-path: inset(0 100% 0 0); } to { transform: translateX(0); clip-path: inset(0); }`,
-  "push-up": `from { transform: translateY(calc(1.4em * ${A})); clip-path: inset(100% 0 0 0); } to { transform: translateY(0); clip-path: inset(0); }`,
-  "push-down": `from { transform: translateY(calc(-1.4em * ${A})); clip-path: inset(0 0 100% 0); } to { transform: translateY(0); clip-path: inset(0); }`,
-  "rise-soft": `from { opacity: 0; transform: translateY(calc(0.35em * ${A})) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); }`,
-  "drop-in": `0% { opacity: 0; transform: translateY(calc(-1.6em * ${A})); } 70% { opacity: 1; transform: translateY(calc(0.12em * ${A})); } 100% { opacity: 1; transform: translateY(0); }`,
-  // ズーム
-  "zoom-in-out": `from { opacity: 0; transform: scale(calc(1 - 0.4 * ${A})); } to { opacity: 1; transform: scale(1); }`,
-  "zoom-pop": `0% { opacity: 0; transform: scale(0.4); } 70% { opacity: 1; transform: scale(calc(1 + 0.12 * ${A})); } 100% { opacity: 1; transform: scale(1); }`,
-  "zoom-pulse": `0% { opacity: 0; transform: scale(0.7); } 55% { opacity: 1; transform: scale(calc(1 + 0.06 * ${A})); } 100% { opacity: 1; transform: scale(1); }`,
-  // 弾性
-  "pop": `0% { opacity: 0; transform: scale(0.5); } 65% { opacity: 1; transform: scale(calc(1 + 0.18 * ${A})); } 100% { opacity: 1; transform: scale(1); }`,
-  "bounce": `0% { opacity: 0; transform: translateY(calc(-1.2em * ${A})); } 55% { opacity: 1; transform: translateY(calc(0.22em * ${A})); } 75% { transform: translateY(calc(-0.1em * ${A})); } 100% { opacity: 1; transform: translateY(0); }`,
-  "squash-pop": `0% { opacity: 0; transform: scale(1.4, 0.4); } 60% { opacity: 1; transform: scale(0.92, 1.1); } 100% { opacity: 1; transform: scale(1); }`,
-  "stretch-in": `0% { opacity: 0; transform: scaleX(0.2); } 70% { opacity: 1; transform: scaleX(calc(1 + 0.08 * ${A})); } 100% { opacity: 1; transform: scaleX(1); }`,
-  "stomp": `0% { opacity: 0; transform: scale(calc(1 + 0.9 * ${A})); } 60% { opacity: 1; transform: scale(0.96); } 100% { opacity: 1; transform: scale(1); }`,
-  "snap": `0% { opacity: 0; transform: rotate(calc(-6deg * ${A})) scale(0.8); } 70% { opacity: 1; transform: rotate(calc(2deg * ${A})) scale(1.04); } 100% { opacity: 1; transform: rotate(0) scale(1); }`,
-  // 回転
-  "rotate-in": `from { opacity: 0; transform: rotate(calc(-12deg * ${A})) scale(0.9); } to { opacity: 1; transform: rotate(0) scale(1); }`,
-  "spin-in": `from { opacity: 0; transform: rotate(calc(-180deg * ${A})) scale(0.5); } to { opacity: 1; transform: rotate(0) scale(1); }`,
-  "roll-in": `from { opacity: 0; transform: translateX(calc(-2em * ${A})) rotate(calc(-120deg * ${A})); } to { opacity: 1; transform: translateX(0) rotate(0); }`,
-  "spiral-in": `from { opacity: 0; transform: rotate(calc(240deg * ${A})) scale(0.2); } to { opacity: 1; transform: rotate(0) scale(1); }`,
-  "swing": `0% { opacity: 0; transform: rotate(calc(14deg * ${A})); transform-origin: top center; } 60% { opacity: 1; transform: rotate(calc(-6deg * ${A})); transform-origin: top center; } 100% { opacity: 1; transform: rotate(0); transform-origin: top center; }`,
-  // 強調
-  "shake": `0%, 100% { transform: translateX(0); } 20% { transform: translateX(calc(-0.16em * ${A})); } 40% { transform: translateX(calc(0.14em * ${A})); } 60% { transform: translateX(calc(-0.1em * ${A})); } 80% { transform: translateX(calc(0.06em * ${A})); }`,
-  "jitter": `0%, 100% { transform: translate(0, 0); } 25% { transform: translate(calc(0.05em * ${A}), calc(-0.04em * ${A})); } 50% { transform: translate(calc(-0.05em * ${A}), calc(0.04em * ${A})); } 75% { transform: translate(calc(0.03em * ${A}), calc(0.05em * ${A})); }`,
-  "glitch": `0% { opacity: 0; transform: translate(calc(-0.2em * ${A}), 0); clip-path: inset(0 0 60% 0); } 30% { opacity: 1; transform: translate(calc(0.12em * ${A}), 0); clip-path: inset(30% 0 20% 0); } 60% { transform: translate(calc(-0.06em * ${A}), 0); clip-path: inset(10% 0 45% 0); } 100% { opacity: 1; transform: translate(0, 0); clip-path: inset(0); }`,
-  "flash": `0% { opacity: 0; } 30% { opacity: 1; } 45% { opacity: 0.2; } 60% { opacity: 1; } 75% { opacity: 0.5; } 100% { opacity: 1; }`,
-  "heartbeat": `0% { transform: scale(1); } 25% { transform: scale(calc(1 + 0.12 * ${A})); } 45% { transform: scale(1); } 65% { transform: scale(calc(1 + 0.08 * ${A})); } 100% { transform: scale(1); }`,
-  // 文字表示（ブロック近似 — 文字単位ではなく塗り出し）
-  "typewriter": `from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); }`,
-  "wipe-left": `from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0); }`,
-  "wipe-right": `from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); }`,
-  // ループ
-  "wobble": `0%, 100% { transform: rotate(calc(-1.6deg * ${A})); } 50% { transform: rotate(calc(1.6deg * ${A})); }`,
-  "float": `0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(-0.22em * ${A})); }`,
-  "breath": `0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(calc(1 + 0.03 * ${A})); opacity: 0.92; }`,
-  "neon-flicker": `0%, 100% { opacity: 1; } 8% { opacity: 0.6; } 12% { opacity: 1; } 40% { opacity: 0.85; } 44% { opacity: 1; } 70% { opacity: 0.4; } 74% { opacity: 1; }`,
-  "hologram": `0%, 100% { opacity: 1; transform: translateX(0); } 30% { opacity: 0.75; transform: translateX(calc(0.03em * ${A})); } 60% { opacity: 0.9; transform: translateX(calc(-0.03em * ${A})); }`,
-  "retro-flicker": `0%, 100% { opacity: 1; } 25% { opacity: 0.7; } 50% { opacity: 1; } 75% { opacity: 0.8; }`,
-  // テロップ
-  "caption-rise": `from { opacity: 0; transform: translateY(calc(0.5em * ${A})); } to { opacity: 1; transform: translateY(0); }`,
-  "news-ticker": `from { transform: translateX(100%); } to { transform: translateX(-100%); }`,
-  "marquee-left": `from { transform: translateX(100%); } to { transform: translateX(-100%); }`,
-  "crawl-up": `from { transform: translateY(100%); } to { transform: translateY(-100%); }`,
-};
+// Both the preview webview and OSR consume the same frozen recipe table.
+export const CAPTION_ANIMATION_RECIPES = require('./caption-animation-recipes.json');
 const LOOP_ANIMATION_IDS = new Set([
   "wobble", "float", "breath", "neon-flicker", "hologram", "retro-flicker",
   "news-ticker", "marquee-left", "crawl-up",
@@ -678,12 +631,14 @@ const ONE_SHOT_LOOP_IDS = new Set(CAPTION_ONE_SHOT_LOOP_IDS);
 // overlayDuration はこのオーバーレイ自身の表示秒（out の開始遅延に使う）。
 export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
   if (!animation || typeof animation !== "object") return null;
+  if (isTypewriterOnlyAnimation(animation)) return { animationCss: 'none', keyframesCss: '', ampCss: '' };
   const parts = [];
   const keyframes = new Map();
   const ampValues = [];
 
   const resolveSlot = (slot, kind) => {
     if (!slot) return;
+    if (slot.id === 'typewriter') return; // grapheme spans carry this motion
     const recipe = CAPTION_ANIMATION_RECIPES[slot.id];
     if (!recipe) {
       onWarning?.(`unknown textanim id "${slot.id}" (${kind} slot); slot ignored`);
@@ -714,7 +669,8 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
   resolveSlot(animation.in, "in");
   resolveSlot(animation.loop, "loop");
   resolveSlot(animation.out, "out");
-  if (parts.length === 0) return null;
+  if (parts.length === 0) return [animation.in, animation.loop, animation.out].some(slot => slot?.id === 'typewriter')
+    ? { animationCss: 'none', keyframesCss: '', ampCss: '' } : null;
 
   const keyframesCss = [...keyframes.entries()]
     .map(([id, recipe]) => `    @keyframes akari-anim-${id} { ${recipe} }`)
