@@ -1607,7 +1607,7 @@ function validateTextStylePatch(updates) {
         throw new Error('字幕アニメの設定が不正です。');
     }
     if (updates.animation && typeof updates.animation === 'object') {
-        for (const slot of [updates.animation.in, updates.animation.out]) {
+        for (const slot of [updates.animation.in, updates.animation.loop, updates.animation.out]) {
             if (slot === undefined || slot === null)
                 continue;
             if (!slot || typeof slot !== 'object' || typeof slot.id !== 'string'
@@ -1786,13 +1786,14 @@ function updateAnimationStyleObject(source, updates, label) {
     if (!located) {
         const created = {
             ...(updates.in ? { in: animationSlotToJson(updates.in) } : {}),
+            ...(updates.loop ? { loop: animationSlotToJson(updates.loop) } : {}),
             ...(updates.out ? { out: animationSlotToJson(updates.out) } : {})
         };
         return Object.keys(created).length > 0 ? appendJsonProperty(source, 'animation', created) : source;
     }
     const object = locateTopLevelObjectProperty(source, 'animation', label);
     let next = object.text;
-    for (const [slotName, slot] of [['in', updates.in], ['out', updates.out]]) {
+    for (const [slotName, slot] of [['in', updates.in], ['loop', updates.loop], ['out', updates.out]]) {
         if (slot === undefined)
             continue;
         if (slot === null) {

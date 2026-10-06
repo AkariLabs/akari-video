@@ -1,0 +1,138 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { captionMotionComboClear, captionMotionOriginalAnimation,
+    captionTextAnimationClear } from '../lib/browser/inspector/caption-motion-cards.js';
+import { createCaptionMotionPanel } from '../lib/browser/inspector/caption-motion-panel.js';
+
+class Element {
+    constructor(tag) {
+        this.tag = tag;
+        this.children = [];
+        this.dataset = {};
+        this.attributes = {};
+        this.events = {};
+        this.style = { setProperty() {} };
+    }
+    appendChild(child) { this.children.push(child); return child; }
+    append(...children) { children.forEach(child => this.appendChild(child)); }
+    get lastElementChild() { return this.children.at(-1); }
+    setAttribute(key, value) { this.attributes[key] = value; }
+    getAttribute(key) { return this.attributes[key]; }
+    addEventListener(key, callback) { this.events[key] = callback; }
+    click() { this.events.click?.(); }
+    replaceWith(next) { this.replacement = next; }
+    querySelectorAll(selector) {
+        const descendants = this.children.flatMap(child => [child, ...child.querySelectorAll('*')]);
+        if (selector === '*') return descendants;
+        if (selector === '.akari-caption-motion-card[aria-pressed="true"]') {
+            return descendants.filter(child => child.className === 'akari-caption-motion-card'
+                && child.getAttribute('aria-pressed') === 'true');
+        }
+        return descendants.filter(child => child.tag === 'button' && child.dataset.motionId);
+    }
+}
+
+const selected = (root, kind, id) => root.querySelectorAll('*').find(node =>
+    node.dataset.motionKind === kind && node.dataset.motionId === id);
+const panel = (animation, write) => createCaptionMotionPanel({
+    kind: 'caption', id: 'cue-1', text: '本文', sourceStart: 0, sourceEnd: 2,
+    textStyle: { animation }, effectiveTextStyle: { animation }
+}, write);
+
+test('解除要求は全体と各席を null で書き、袋は motion を一回で消す', () => {
+    for (const slot of ['all', 'in', 'loop', 'out']) {
+        assert.deepEqual(captionTextAnimationClear('cue-1', slot), {
+            kind: 'caption-style-effect', id: 'cue-1',
+            value: { animation: slot === 'all' ? null : { [slot]: null } }
+        });
+    }
+    assert.deepEqual(captionMotionComboClear('cue-1', 'bag-1'), {
+        kind: 'item-field', id: 'bag-1', path: 'motion', value: null
+    });
+    assert.deepEqual(captionMotionComboClear('cue-1'), captionTextAnimationClear('cue-1', 'all'));
+});
+
+test('Undo 用に字幕の元の動きを全席復元できる', () => {
+    const source = JSON.stringify({ captions: [{ id: 'cue-1', text_style: {
+        animation: { in: { id: 'fade-in-out', duration_sec: .4, ease: null }, loop: { id: 'heartbeat' },
+            out: { id: 'pop', amp: 1.2 } }
+    } }] });
+    assert.deepEqual(captionMotionOriginalAnimation(source, 'cue-1'), {
+        in: { id: 'fade-in-out', durationSec: .4, ease: null }, loop: { id: 'heartbeat' },
+        out: { id: 'pop', amp: 1.2 }
+    });
+});
+
+test('押し直しと「なし」は解除し、二つのフェード表示が直ちに外れる', async () => {
+    const previousDocument = globalThis.document;
+    const previousWindow = globalThis.window;
+    globalThis.document = { createElement: tag => new Element(tag) };
+    let replays = 0;
+    globalThis.window = { dispatchEvent: () => { replays++; } };
+    try {
+        const writes = [];
+        const write = async request => { writes.push(request); return { ok: true }; };
+        const animation = { in: { id: 'fade-in-out' }, out: { id: 'fade-in-out' } };
+        const root = panel(animation, write);
+        assert.equal(selected(root, 'slot', 'fade').getAttribute('aria-pressed'), 'true');
+        assert.equal(selected(root, 'textanim', 'fade-in-out').getAttribute('aria-pressed'), 'true');
+        selected(root, 'textanim', 'fade-in-out').click();
+        assert.deepEqual(writes[0], captionTextAnimationClear('cue-1', 'in'));
+        assert.equal(selected(root, 'slot', 'fade').getAttribute('aria-pressed'), 'false');
+        assert.equal(selected(root, 'textanim', 'fade-in-out').getAttribute('aria-pressed'), 'false');
+        await Promise.resolve();
+        assert.equal(replays, 0);
+
+        const comboRoot = panel({ in: { id: 'typewriter' }, out: { id: 'fade-in-out' } }, write);
+        selected(comboRoot, 'combo', 'typewriter').click();
+        assert.deepEqual(writes[1], captionTextAnimationClear('cue-1', 'all'));
+        const clearRoot = panel(animation, write);
+        const none = clearRoot.querySelectorAll('*').find(node => node.tag === 'button' && node.textContent === 'なし');
+        none.click();
+        assert.deepEqual(writes[2], captionTextAnimationClear('cue-1', 'in'));
+
+        const loopRoot = panel({ loop: { id: 'heartbeat' } }, write);
+        const loopTab = loopRoot.querySelectorAll('*').find(node => node.tag === 'button' && node.textContent === '強調');
+        loopTab.click();
+        const loopPanel = loopRoot.replacement;
+        selected(loopPanel, 'slot', 'pulse').click();
+        assert.deepEqual(writes[3], captionTextAnimationClear('cue-1', 'loop'));
+
+        const inherited = createCaptionMotionPanel({ kind: 'caption', id: 'cue-2', text: '本文',
+            sourceStart: 0, sourceEnd: 2, effectiveTextStyle: { animation: { in: { id: 'pop' } } }
+        }, write);
+        assert.ok(inherited.querySelectorAll('*').some(node => node.textContent === '全体の動きが当たっています'));
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+        if (previousWindow === undefined) delete globalThis.window;
+        else globalThis.window = previousWindow;
+    }
+});
+
+test('袋の選択済みカードを押し直すと motion の席を外す', async () => {
+    const previousDocument = globalThis.document;
+    globalThis.document = { createElement: tag => new Element(tag) };
+    try {
+        const writes = [];
+        const owner = { id: 'bag-1', durationFrames: 60,
+            motion: { in: { preset: 'fade', duration: 12 } } };
+        const root = createCaptionMotionPanel({ kind: 'caption', id: 'cue-3', text: '本文',
+            sourceStart: 0, sourceEnd: 2, animatorOwner: { id: 'bag-1' }
+        }, async request => { writes.push(request); return { ok: true }; }, {
+            readOwner: async () => owner,
+            loadCue: async () => ({ words: [] })
+        });
+        await Promise.resolve();
+        const fade = selected(root, 'slot', 'fade');
+        assert.equal(fade.getAttribute('aria-pressed'), 'true');
+        fade.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        assert.deepEqual(writes[0], { kind: 'item-field', id: 'bag-1', path: 'motion', value: null });
+        assert.equal(fade.getAttribute('aria-pressed'), 'false');
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});

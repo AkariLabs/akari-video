@@ -1,7 +1,7 @@
 import type { InspectorWriteRequest, InspectorWriteResult, TimelineCaptionSelection } from '../timeline-selection-model';
 import { PREVIEW_CAPTION_ANIMATION_RECIPES, PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS } from 'akari-preview/lib/common/caption-text-animation-recipes';
-import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionCards,
-    captionTextAnimationCards, captionTextAnimationWrite } from './caption-motion-cards';
+import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionComboClear, captionMotionCards,
+    captionTextAnimationCards, captionTextAnimationWrite, captionTextAnimationClear } from './caption-motion-cards';
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
 import { createMotionWriteRequest, type InspectorMotionSlot } from './motion-fields';
 import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES,
@@ -37,7 +37,7 @@ export const CAPTION_MOTION_PANEL_CSS = `
 .akari-inspector-widget .akari-caption-motion-sample-frame{display:flex;align-items:center;justify-content:center;height:34px;overflow:hidden;background:repeating-conic-gradient(#b8b8b8 0% 25%,#d5d5d5 0% 50%) 50% / 16px 16px}
 .akari-inspector-widget .akari-caption-motion-sample{display:flex;align-items:center;justify-content:center;min-height:34px;color:#1f2937;font-size:16px;font-weight:700}
 .akari-inspector-widget .akari-caption-motion-card>span:last-child{display:block;padding:3px 0;font-size:10px;line-height:1.25}
-.akari-caption-motion-switch{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.akari-caption-motion-switch{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .akari-inspector-widget .akari-caption-motion-switch button,.akari-inspector-widget button.akari-caption-motion-more{border:1px solid var(--akari-line);border-radius:5px;background:var(--akari-elevated);color:var(--akari-ink);padding:5px;cursor:pointer}
 .akari-inspector-widget .akari-caption-motion-switch button[aria-pressed="true"]{border-color:var(--akari-accent)}
 .akari-caption-motion-words{display:flex;flex-wrap:wrap;gap:4px}
@@ -81,7 +81,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     root.appendChild(css);
     const state = views.get(snapshot.id) ?? { slot: 'in' as InspectorMotionSlot, all: false };
     views.set(snapshot.id, state);
-    const animation = snapshot.effectiveTextStyle?.animation;
+    const animation = snapshot.textStyle?.animation;
     let karaokeColor = '#ffd94a';
     const active = animation?.[state.slot]?.id;
     let ownerMotion: Awaited<ReturnType<NonNullable<CaptionMotionServices['readOwner']>>> | undefined;
@@ -103,16 +103,17 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         window.dispatchEvent(new CustomEvent('akari-caption-motion-play',
             { detail: { captionId: snapshot.id, id, kind, wordIndex, slot } }));
     };
-    const commit = (request: InspectorWriteRequest, id: string, slot?: InspectorMotionSlot): void => {
+    const commit = (request: InspectorWriteRequest, id?: string, slot?: InspectorMotionSlot): void => {
         void write(request).then(result => {
-            if (result.ok) play(id, undefined, undefined, slot);
-            else {
+            if (result.ok) {
+                if (id) play(id, undefined, undefined, slot);
+            } else {
                 notice.textContent = result.message ?? '動きを書き込めませんでした。';
             }
         });
     };
     const commitOwner = (make: (owner: NonNullable<typeof ownerMotion>) => InspectorWriteRequest,
-        id: string | ((owner: NonNullable<typeof ownerMotion>) => string), slot?: InspectorMotionSlot): void => {
+        id?: string | ((owner: NonNullable<typeof ownerMotion>) => string), slot?: InspectorMotionSlot): void => {
         if (!services?.readOwner) return;
         void services.readOwner().then(owner => {
             ownerMotion = owner;
@@ -123,7 +124,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                         && request.value && typeof request.value === 'object' && !Array.isArray(request.value)) {
                         ownerMotion = { ...owner, motion: request.value as Record<string, unknown> };
                     }
-                    play(typeof id === 'string' ? id : id(owner), undefined, undefined, slot);
+                    if (id) play(typeof id === 'string' ? id : id(owner), undefined, undefined, slot);
                 } else notice.textContent = result.message ?? '動きを書き込めませんでした。';
             });
         }).catch(error => { notice.textContent = error instanceof Error ? error.message : String(error); });
@@ -132,7 +133,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     const grid = (items: readonly { id: string; label: string; animation: string;
         kind: 'combo' | 'slot' | 'textanim' | 'word-style' | 'emphasis'; slot?: InspectorMotionSlot;
         selected?: boolean;
-        disabled?: boolean; onClick: () => void }[], parent: HTMLElement = root): void => {
+        disabled?: boolean; onClick: (selected: boolean) => void }[], parent: HTMLElement = root): void => {
         const container = document.createElement('div');
         container.className = 'akari-caption-motion-grid';
         for (const item of items) {
@@ -141,6 +142,8 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
             card.className = 'akari-caption-motion-card';
             card.dataset.motionId = item.id;
             card.dataset.motionKind = item.kind;
+            card.dataset.motionAnimation = item.animation;
+            if (item.slot) card.dataset.motionSlot = item.slot;
             card.setAttribute('aria-pressed', String(!!item.selected));
             card.disabled = item.disabled === true;
             const sample = document.createElement('span');
@@ -179,19 +182,45 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
             const caption = document.createElement('span');
             caption.textContent = item.label;
             card.append(sampleFrame, caption);
-            card.addEventListener('click', item.onClick);
+            card.addEventListener('click', () => item.onClick(card.getAttribute('aria-pressed') === 'true'));
             container.appendChild(card);
             observer?.observe(card);
         }
         parent.appendChild(container);
     };
+    const clearPressed = (slot?: InspectorMotionSlot, id?: string): void => {
+        root.querySelectorAll<HTMLButtonElement>('.akari-caption-motion-card[aria-pressed="true"]')
+            .forEach(card => {
+                if ((card.dataset.motionKind === 'combo' || card.dataset.motionKind === 'slot'
+                    || card.dataset.motionKind === 'textanim')
+                    && (!slot || card.dataset.motionKind === 'combo'
+                        || (card.dataset.motionSlot === slot
+                            && (!id || card.dataset.motionAnimation === id)))) {
+                    card.setAttribute('aria-pressed', 'false');
+                }
+            });
+    };
+    if (snapshot.effectiveTextStyle?.animation && !snapshot.textStyle?.animation) {
+        const note = document.createElement('div');
+        note.className = 'akari-caption-motion-note';
+        note.textContent = '全体の動きが当たっています';
+        root.appendChild(note);
+    }
     heading('まとめて当てる組');
     grid(CAPTION_MOTION_COMBOS.map(combo => ({
         id: combo.id, kind: 'combo' as const, label: combo.label, animation: combo.id === 'typewriter' ? 'typewriter'
             : presetToAnimation[combo.in],
         selected: animation?.in?.id === (combo.id === 'typewriter' ? 'typewriter' : presetToAnimation[combo.in])
-            && animation?.out?.id === presetToAnimation[combo.out],
-        onClick: () => {
+            && animation?.out?.id === presetToAnimation[combo.out]
+            && animation?.loop?.id === ('loop' in combo && combo.loop ? presetToAnimation[combo.loop] : undefined),
+        onClick: selected => {
+            if (selected) {
+                clearPressed();
+                if (snapshot.animatorOwner && services?.readOwner && combo.id !== 'typewriter') {
+                    commitOwner(owner => captionMotionComboClear(snapshot.id, owner.id));
+                } else commit(captionMotionComboClear(snapshot.id));
+                return;
+            }
             const id = combo.id === 'typewriter' ? 'typewriter' : presetToAnimation[combo.in];
             if (snapshot.animatorOwner && services?.readOwner && combo.id !== 'typewriter') {
                 commitOwner(owner => captionMotionComboWrites(snapshot.id, owner, combo.id, owner.durationFrames)[0], id);
@@ -213,11 +242,29 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         button.addEventListener('click', () => { state.slot = slot; root.replaceWith(createCaptionMotionPanel(snapshot, write, services)); });
         switcher.appendChild(button);
     }
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.textContent = 'なし';
+    clear.addEventListener('click', () => {
+        const slot = state.slot;
+        clearPressed(slot, animation?.[slot]?.id);
+        if (snapshot.animatorOwner && services?.readOwner) {
+            commitOwner(owner => createMotionWriteRequest(owner, slot, 'preset', null));
+        } else commit(captionTextAnimationClear(snapshot.id, slot));
+    });
+    switcher.appendChild(clear);
     root.appendChild(switcher);
     grid(captionMotionCards(state.slot).map(card => ({
         ...card, kind: 'slot' as const, slot: state.slot, animation: presetToAnimation[card.id],
         selected: active === presetToAnimation[card.id],
-        onClick: () => {
+        onClick: selected => {
+            if (selected) {
+                clearPressed(state.slot, presetToAnimation[card.id]);
+                if (snapshot.animatorOwner && services?.readOwner) {
+                    commitOwner(owner => createMotionWriteRequest(owner, state.slot, 'preset', null));
+                } else commit(captionTextAnimationClear(snapshot.id, state.slot));
+                return;
+            }
             if (snapshot.animatorOwner && services?.readOwner) {
                 commitOwner(owner => createMotionWriteRequest(owner, state.slot, 'preset', card.id),
                     presetToAnimation[card.id], state.slot);
@@ -247,7 +294,12 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     grid(captionTextAnimationCards(state.all).map(card => ({
         id: card.id, kind: 'textanim' as const, label: card.label, animation: card.id, slot: card.slot,
         selected: animation?.[card.slot]?.id === card.id,
-        onClick: () => commit(captionTextAnimationWrite(snapshot.id, animation, card.slot, card.id), card.id, card.slot)
+        onClick: selected => {
+            if (selected) {
+                clearPressed(card.slot, card.id);
+                commit(captionTextAnimationClear(snapshot.id, card.slot));
+            } else commit(captionTextAnimationWrite(snapshot.id, animation, card.slot, card.id), card.id, card.slot);
+        }
     })));
     const more = document.createElement('button');
     more.type = 'button';

@@ -191,6 +191,12 @@ export interface CaptionTextStylePatch {
             ease?: string | null;
             amp?: number | null;
         } | null;
+        loop?: {
+            id: string;
+            durationSec?: number;
+            ease?: string | null;
+            amp?: number | null;
+        } | null;
         out?: {
             id: string;
             durationSec?: number;

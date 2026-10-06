@@ -153,6 +153,7 @@ export interface CaptionTextStylePatch {
     };
     animation?: {
         in?: { id: string; durationSec?: number; ease?: string | null; amp?: number | null } | null;
+        loop?: { id: string; durationSec?: number; ease?: string | null; amp?: number | null } | null;
         out?: { id: string; durationSec?: number; ease?: string | null; amp?: number | null } | null;
     } | null;
     zone?: CaptionZone | null;
@@ -1907,7 +1908,7 @@ function validateTextStylePatch(updates: CaptionTextStylePatch): void {
         throw new Error('字幕アニメの設定が不正です。');
     }
     if (updates.animation && typeof updates.animation === 'object') {
-        for (const slot of [updates.animation.in, updates.animation.out]) {
+        for (const slot of [updates.animation.in, updates.animation.loop, updates.animation.out]) {
             if (slot === undefined || slot === null) continue;
             if (!slot || typeof slot !== 'object' || typeof slot.id !== 'string'
                 || !/^[a-z0-9][a-z0-9-]*$/.test(slot.id)) {
@@ -2111,13 +2112,14 @@ function updateAnimationStyleObject(
     if (!located) {
         const created = {
             ...(updates.in ? { in: animationSlotToJson(updates.in) } : {}),
+            ...(updates.loop ? { loop: animationSlotToJson(updates.loop) } : {}),
             ...(updates.out ? { out: animationSlotToJson(updates.out) } : {})
         };
         return Object.keys(created).length > 0 ? appendJsonProperty(source, 'animation', created) : source;
     }
     const object = locateTopLevelObjectProperty(source, 'animation', label);
     let next = object.text;
-    for (const [slotName, slot] of [['in', updates.in], ['out', updates.out]] as const) {
+    for (const [slotName, slot] of [['in', updates.in], ['loop', updates.loop], ['out', updates.out]] as const) {
         if (slot === undefined) continue;
         if (slot === null) {
             next = removeObjectProperty(next, slotName);
