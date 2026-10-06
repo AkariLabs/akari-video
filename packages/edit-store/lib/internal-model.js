@@ -134,54 +134,8 @@ function toRecord(source) {
 // ---------------------------------------------------------------------------
 // v2
 // ---------------------------------------------------------------------------
-/**
- * itemV2Media の新しい captions キーだけを strict v2 reader の手前で退避する。
- * edit-v2.ts の一般 reader を広げず、この票が所有する字幕射影の橋だけで受理する。
- * 不正値と media 以外の captions は退避しないため、既存の未知キー拒否にそのまま委ねる。
- */
-function extractV2MediaCaptionSwitches(raw) {
-    const captionsByItemId = new Map();
-    const visit = (value) => {
-        if (!isRecord(value))
-            return value;
-        const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
-        const isMedia = isRecord(value.source) && value.source.kind === 'media';
-        const validSwitch = value.captions === 'on' || value.captions === 'off';
-        if (isMedia && validSwitch && typeof value.id === 'string') {
-            captionsByItemId.set(value.id, value.captions);
-            const { captions: _captions, ...withoutCaptions } = value;
-            return {
-                ...withoutCaptions,
-                ...(Array.isArray(value.items) ? { items: children } : {})
-            };
-        }
-        return Array.isArray(value.items) ? { ...value, items: children } : value;
-    };
-    const tracks = Array.isArray(raw.tracks)
-        ? raw.tracks.map(track => isRecord(track) && Array.isArray(track.items)
-            ? { ...track, items: track.items.map(visit) } : track)
-        : raw.tracks;
-    return {
-        input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
-        captionsByItemId
-    };
-}
 function readV2Internal(raw) {
-    const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
-    const edit = (0, edit_v2_1.readEditV2)(input);
-    const restoreCaptionSwitches = (items) => {
-        for (const item of items) {
-            const captions = captionsByItemId.get(item.id);
-            if (captions !== undefined)
-                item.captions = captions;
-            if ('items' in item && Array.isArray(item.items))
-                restoreCaptionSwitches(item.items);
-        }
-    };
-    for (const track of edit.tracks) {
-        if ('items' in track && track.lane === 'visual')
-            restoreCaptionSwitches(track.items);
-    }
+    const edit = (0, edit_v2_1.readEditV2)(raw);
     const fps = edit.output.fps;
     const sources = edit.sources.map(entry => ({
         id: entry.id,
@@ -544,8 +498,7 @@ function computeOverlappingItemIds(itemGroups, pathOf, chromaKeyOf) {
  * edit-lint と UI は理由文言に必要な相手 id を、この単一定義から得る。
  */
 function findCrossTrackLayerEvacuations(edit) {
-    const raw = toRecord(edit);
-    const parsed = (0, edit_v2_1.readEditV2)(raw === undefined ? edit : extractV2MediaCaptionSwitches(raw).input);
+    const parsed = (0, edit_v2_1.readEditV2)(edit);
     const pathOf = (id) => parsed.sources.find(entry => entry.id === id)?.path;
     const chromaKeyOf = (id) => parsed.sources.find(entry => entry.id === id)?.chroma_key ?? undefined;
     return analyzeOverlappingItems(parsed.tracks.flatMap(track => track.lane === 'visual' && 'items' in track

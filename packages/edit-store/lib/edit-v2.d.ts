@@ -343,6 +343,8 @@ export interface ItemV2Base {
 }
 export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
+    /** この映像の間の字幕表示。省略時は通常の字幕表示に従う。 */
+    captions?: 'on' | 'off';
     /** 省略時は埋め込み音声を供給。false は明示分離後の停止。 */
     audio?: false;
     /** sources[].id of a gray mask video or a still-image PNG mask. */

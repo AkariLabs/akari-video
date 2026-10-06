@@ -12,6 +12,14 @@ function baseEdit(items) {
     };
 }
 
+test('retime preserves captions-off media on another track', () => {
+    const edit = baseEdit([{ id: 'a', at: 0, duration: 90,
+        source: { kind: 'media', src: 'a', in: 0, out: 3 } }]);
+    edit.tracks.push({ id: 'other', lane: 'visual', items: [{ id: 'b', at: 0, duration: 90,
+        source: { kind: 'media', src: 'a', in: 0, out: 3 }, captions: 'off' }] });
+    assert.equal(retime(edit, 24).tracks[1].items[0].captions, 'off');
+});
+
 test('retime は開始と終了の境界を個別に round し、素材秒を変更しない', () => {
     const edit = baseEdit([{
         id: 'a', at: 11, duration: 10,

@@ -10,6 +10,7 @@ const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
     'motion', 'animator', 'keyframes', 'items', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'source', 'audio', 'anchor'
 ]);
+const MEDIA_ITEM_KEYS = new Set([...ITEM_KEYS, 'captions']);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
     'fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
@@ -272,7 +273,9 @@ function validateAudioClipDenoise(value, path) {
 }
 function validateItem(value, path, ids, sourceIds) {
     requireRecord(value, path);
-    requireExactKeys(value, ITEM_KEYS, path);
+    const isMedia = value.source !== null && typeof value.source === 'object'
+        && !Array.isArray(value.source) && value.source.kind === 'media';
+    requireExactKeys(value, isMedia ? MEDIA_ITEM_KEYS : ITEM_KEYS, path);
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id))
         throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
@@ -304,6 +307,9 @@ function validateItem(value, path, ids, sourceIds) {
     if (hasOwn(value, 'keyframes'))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, 'captions') && value.captions !== 'on' && value.captions !== 'off') {
+        throw invalid(`${path}.captions`, 'on または off である必要があります');
+    }
     if (value.source.kind === 'group') {
         const transforms = [value.transform, ...(Array.isArray(value.keyframes) ? value.keyframes.map(point => point.transform) : [])];
         for (const transform of transforms) {
