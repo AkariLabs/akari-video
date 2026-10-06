@@ -188,7 +188,7 @@ function updateCaptionFieldsInSourceWithReport(source, captionId, updates) {
         throw new Error('字幕の話者は文字列または null で指定してください。');
     }
     if (updates.style !== undefined && updates.style !== null
-        && !['karaoke', 'pop', 'reveal', 'reveal-word'].includes(updates.style)) {
+        && !['plain', 'karaoke', 'pop', 'reveal', 'reveal-word'].includes(updates.style)) {
         throw new Error('字幕のスタイル（演出）が不正です。');
     }
     if (updates.displayTiming !== undefined && updates.displayTiming !== null

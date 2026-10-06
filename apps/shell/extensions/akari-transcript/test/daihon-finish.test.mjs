@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { getCaptionDisplayWordStyle, setCaptionDisplayRowStyle } from '@akari-video/edit-store';
+import { getCaptionDisplayWordStyle, setCaptionDisplayRowStyle,
+  updateCaptionFieldsInSourceWithReport } from '@akari-video/edit-store';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -145,15 +146,21 @@ test('行の表示は既定との差だけ保存し、同じ値に戻すと継�
       const root = { display_policy: { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
         unit_metric: 'ascii-half-other-one-v1', max_line_units: 18,
         minimum_fragment_duration_seconds: 0.72, locale: 'ja', word_style: globalStyle },
-      captions: [{ id: 'row', text: '声', ...(rowStyle ? { style: rowStyle } : {}) }] };
+      captions: [{ id: 'row', start: 0, end: 1, text: '声', speaker: null,
+        sourceRef: null, edited: false, ...(rowStyle ? { style: rowStyle } : {}) }] };
       let saved;
+      let persisted;
       const style = change.call({ displayRootForWrite: () => root,
-        saveCaptionFields: (_id, fields) => { saved = fields; } }, { id: 'row', style: rowStyle });
+        saveCaptionFields: (id, fields) => {
+          saved = fields;
+          persisted = JSON.parse(updateCaptionFieldsInSourceWithReport(JSON.stringify(root), id, fields).source);
+        } }, { id: 'row', style: rowStyle });
       assert.equal(style.value, initial);
       assert.equal(style.options.find(option => option.value === 'plain').disabled, undefined);
       style.value = chosen;
       style.change();
       assert.deepEqual(saved, { style: expected }, `${globalStyle}/${rowStyle} → ${chosen}`);
+      assert.equal(persisted.captions[0].style, expected ?? undefined);
     }
   } finally { globalThis.document = previousDocument; globalThis.Option = previousOption; }
 });
