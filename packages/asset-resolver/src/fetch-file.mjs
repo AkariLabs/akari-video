@@ -98,12 +98,27 @@ export function resolvePreviewLocation(base, preview) {
 }
 
 /** 解決済みロケーションを destPath へ実体化する（リモートは fetch、ローカルはファイルコピー） */
-export async function materialize({ location, remote }, destPath, { fetchImpl = fetch, timeouts } = {}) {
+export async function materialize({ location, remote }, destPath, { fetchImpl = fetch, timeouts, request } = {}) {
   await mkdir(path.dirname(destPath), { recursive: true });
   if (remote) {
-    const { response: res, controller } = await fetchTimed(location, { fetchImpl, timeouts, label: '素材ファイル' });
+    const { response: res, controller } = await fetchTimed(location, { fetchImpl, request, timeouts, label: '素材ファイル' });
     if (!res.ok || !res.body) {
-      throw new Error(`ダウンロード失敗: ${location} → HTTP ${res.status}`);
+      if (!request) throw new Error(`ダウンロード失敗: ${location} → HTTP ${res.status}`);
+      let detail = '';
+      let storeCode;
+      try {
+        const data = await readTimedJson(res, controller, { timeouts, label: '素材ファイル' });
+        storeCode = typeof data?.error === 'string' ? data.error : undefined;
+        detail = [storeCode, typeof data?.message === 'string' ? data.message : ''].filter(Boolean).join(': ');
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('時間切れ')) throw error;
+        // エラー本文が JSON でない場合も HTTP status を残す。
+      }
+      controller.abort();
+      const error = new Error(`ダウンロード失敗: ${location} → HTTP ${res.status}${detail ? ` (${detail})` : ''}`);
+      error.status = res.status;
+      error.storeCode = storeCode;
+      throw error;
     }
     await pipeline(Readable.from(timedBody(res.body, controller, { timeouts, label: '素材ファイル' })), createWriteStream(destPath));
     return;

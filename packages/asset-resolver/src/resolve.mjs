@@ -7,9 +7,8 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 // 失敗は fail-closed（一時ディレクトリを破棄し、登録先には部分状態を残さない）。
 // 有料未購入（locked）は resolve を拒否する。
 //
-// Pro item は公開 catalog に files[] を持たない（実体は非公開 R2 のまま）。entitled
-// なら resolvePaidZip() が `/api/store/v1/download/<id>` から zip を取得し、展開 →
-// checksums.txt 検証（paid-zip.mjs）→ 同じ validate-asset / 原子的 move の経路に合流する。
+// Pro item は公開 catalog に files[] を持たない。記述子 API から 1 件ずつ取得する。
+// 記述子が asset_not_found のときだけ、従来の束 zip を予備経路として使う。
 
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
@@ -25,6 +24,7 @@ import { materialize, resolveFileLocation } from './fetch-file.mjs';
 import { sha256File } from './hash.mjs';
 import { downloadPaidZip, extractZip, verifyPaidZipContents } from './paid-zip.mjs';
 import { recordProjectReference } from './project-references.mjs';
+import { fetchProAssetDescriptor, storeFailure } from './pro-asset.mjs';
 import { assetTier, isAssetEntitled } from './tier.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -155,7 +155,12 @@ async function moveIntoLibrary(tempDir, destDir) {
   } catch (error) {
     // 一時ディレクトリと登録先が別ファイルシステムの場合（EXDEV）は copy + rm でフォールバック
     if (error && error.code === 'EXDEV') {
-      await cp(tempDir, destDir, { recursive: true, mode: constants.COPYFILE_FICLONE });
+      try {
+        await cp(tempDir, destDir, { recursive: true, mode: constants.COPYFILE_FICLONE });
+      } catch (copyError) {
+        await rm(destDir, { recursive: true, force: true });
+        throw copyError;
+      }
       await rm(tempDir, { recursive: true, force: true });
       return;
     }
@@ -174,6 +179,98 @@ async function backfillLegacyMetaTier(metaPath, item) {
   // R2 に公開済みの旧 meta.json（tier 導入前・price のみ）を、sha256 検証済みのうえでカタログの tier で補う互換経路。R2 の meta.json を tier 付きで上げ直したら外せる。
   meta.tier = assetTier(item);
   await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+}
+
+async function fetchFilesInto(files, tempAssetDir, item, { base, fetchImpl, timeouts, request, checkBytes = false }) {
+  for (const file of files) {
+    if (typeof file.name !== 'string' || !file.name) {
+      throw new AssetResolverError(`files[] エントリに name がありません: ${item.id}`, 'invalid_catalog_item');
+    }
+  }
+  for (let start = 0; start < files.length; start += 4) {
+    const batch = files.slice(start, start + 4);
+    const results = await Promise.allSettled(batch.map(async file => {
+      const destPath = path.join(tempAssetDir, file.name);
+      const resolved = resolveFileLocation(base, file);
+      await materialize(resolved, destPath, { fetchImpl, timeouts, request });
+      if (file.sha256) {
+        const actual = await sha256File(destPath);
+        if (actual !== file.sha256) {
+          throw new AssetResolverError(
+            `sha256 が一致しません（改竄または破損の可能性）: ${item.id}/${file.name}（期待 ${file.sha256} / 実際 ${actual}）`,
+            'integrity',
+          );
+        }
+      }
+      if (checkBytes) {
+        const actual = (await stat(destPath)).size;
+        if (actual !== file.bytes) {
+          throw new AssetResolverError(`bytes が一致しません: ${item.id}/${file.name}（期待 ${file.bytes} / 実際 ${actual}）`, 'integrity');
+        }
+      }
+    }));
+    const stale = checkBytes && results.find(result => result.status === 'rejected'
+      && result.reason?.status === 409 && result.reason?.storeCode === 'stale_version');
+    if (stale) throw stale.reason;
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed) throw failed.reason;
+  }
+}
+
+async function resolveProAsset(item, credentials, options) {
+  const { env, fetchImpl, project, reference, home, destDir, timeouts } = options;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let tempRoot;
+    try {
+      const descriptor = await fetchProAssetDescriptor(item, credentials, { env, fetchImpl, timeouts });
+      if (descriptor === null) return resolvePaidZip(item, options);
+      await mkdir(home, { recursive: true });
+      tempRoot = await mkdtemp(path.join(home, '.tmp-resolve-'));
+      const tempAssetDir = path.join(tempRoot, item.category, item.id);
+      await mkdir(tempAssetDir, { recursive: true });
+      try {
+        await fetchFilesInto(descriptor.files, tempAssetDir, item, {
+          base: null, fetchImpl, timeouts, checkBytes: true,
+          request: { headers: { authorization: `Bearer ${credentials.token}` }, redirect: 'error' },
+        });
+      } catch (error) {
+        if (error.status === 401) {
+          const failure = storeFailure(error.status, { error: error.storeCode }, 'Pro 素材のファイル取得');
+          failure.message += `。${error.message}。トークン失効の可能性があります。akari store connect をやり直してください`;
+          throw failure;
+        }
+        if (error.status === 403 && error.storeCode === 'pro_required') {
+          throw new AssetResolverError(
+            `Pro 素材は all-access-pass（Lifetime パス）または購入済み product_id が必要です: ${item.id}（${error.message}）`,
+            'locked',
+          );
+        }
+        if (error.status) throw storeFailure(error.status, { error: error.storeCode, message: error.message }, 'Pro 素材のファイル取得');
+        if (error instanceof AssetResolverError) throw error;
+        throw new AssetResolverError(`Pro 素材のファイル取得に失敗しました: ${error.message}`, error.message?.includes('時間切れ') ? 'timeout' : 'download_failed');
+      }
+      await backfillLegacyMetaTier(path.join(tempAssetDir, 'meta.json'), item);
+      const validation = await validateAsset(tempAssetDir);
+      if (validation.status !== 0) {
+        const output = `${validation.stdout ?? ''}${validation.stderr ?? ''}`.trim();
+        throw new AssetResolverError(`validate-asset 検証に失敗しました: ${item.id}\n${output}`, 'validation');
+      }
+      await moveIntoLibrary(tempAssetDir, destDir);
+      const result = { id: item.id, category: item.category, dir: destDir, cached: false };
+      if (project && reference) {
+        await recordProjectReference(project, item);
+        result.referenced = true;
+      } else if (project) {
+        result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+      }
+      return result;
+    } catch (error) {
+      if (error.status === 409 && error.storeCode === 'stale_version' && attempt === 0) continue;
+      throw error;
+    } finally {
+      if (tempRoot) await rm(tempRoot, { recursive: true, force: true }).catch(() => {});
+    }
+  }
 }
 
 /**
@@ -219,10 +316,12 @@ export async function resolve(
         'locked',
       );
     }
-    // 有料カタログ item は files[] を持たない設計（実体は非公開 R2 のまま。tools/publish-free.mjs
-    // 側の掲載規律の裏返し）。entitled 済みなら zip ダウンロード経路（契約 §6/§8）で取得する。
     if (!hasFiles) {
-      return resolvePaidZip(item, { env, fetchImpl, project, reference, home, destDir, timeouts });
+      const credentials = await readStoreCredentials(env);
+      if (!credentials) {
+        throw new AssetResolverError(`AKARI アカウントの接続情報がありません（トークン失効の可能性）: ${item.id}`, 'locked');
+      }
+      return resolveProAsset(item, credentials, { env, fetchImpl, project, reference, home, destDir, timeouts });
     }
   }
 
@@ -241,30 +340,7 @@ export async function resolve(
   try {
     await mkdir(tempAssetDir, { recursive: true });
     const hasMeta = item.files.some(file => file.name === 'meta.json');
-    for (const file of item.files) {
-      if (typeof file.name !== 'string' || !file.name) {
-        throw new AssetResolverError(`files[] エントリに name がありません: ${item.id}`, 'invalid_catalog_item');
-      }
-    }
-    for (let start = 0; start < item.files.length; start += 4) {
-      const batch = item.files.slice(start, start + 4);
-      const results = await Promise.allSettled(batch.map(async file => {
-        const destPath = path.join(tempAssetDir, file.name);
-        const resolved = resolveFileLocation(base, file);
-        await materialize(resolved, destPath, { fetchImpl, timeouts });
-        if (file.sha256) {
-          const actual = await sha256File(destPath);
-          if (actual !== file.sha256) {
-            throw new AssetResolverError(
-              `sha256 が一致しません（改竄または破損の可能性）: ${item.id}/${file.name}（期待 ${file.sha256} / 実際 ${actual}）`,
-              'integrity',
-            );
-          }
-        }
-      }));
-      const failed = results.find(result => result.status === 'rejected');
-      if (failed) throw failed.reason;
-    }
+    await fetchFilesInto(item.files, tempAssetDir, item, { base, fetchImpl, timeouts });
 
     // still / scene3d 等、meta.json を実体に持つ素材は validate-asset で契約検証してから登録する
     if (hasMeta) {

@@ -90,3 +90,18 @@ export function resolveDownloadUrl(env = process.env, credentials, productId) {
   }
   return `${DEFAULT_STORE_API}/api/store/v1/download/${encodeURIComponent(productId)}`;
 }
+
+/** Pro item の記述子 API。専用上書き → 店 API → 接続情報 → 既定ホスト。 */
+export function resolveProAssetUrl(env = process.env, credentials, category, id) {
+  const suffix = `${encodeURIComponent(category)}/${encodeURIComponent(id)}`;
+  if (env.AKARI_PRO_ASSET_API) {
+    return `${trimTrailingSlash(env.AKARI_PRO_ASSET_API)}/api/store/v1/assets/${suffix}`;
+  }
+  if (env.AKARI_STORE_API) {
+    return `${trimTrailingSlash(env.AKARI_STORE_API)}/api/store/v1/assets/${suffix}`;
+  }
+  if (credentials?.url) {
+    return `${trimTrailingSlash(credentials.url)}/v1/assets/${suffix}`;
+  }
+  return `${DEFAULT_STORE_API}/api/store/v1/assets/${suffix}`;
+}
