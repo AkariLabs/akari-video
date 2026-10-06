@@ -7221,15 +7221,17 @@ export function previewBootstrapScript(): string {
                     + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ')">'
                     + renderText(word.text) + '</span>';
             };
-            const renderCaptionToken = (word, rangeStart, style, renderChars = null, karaoke = null, karaokeIndex = 0) => {
+            const renderCaptionToken = (word, rangeStart, style, renderChars = null, karaoke = null, karaokeIndex = 0, ignoreEmphasis = false, measuredTimeline = false) => {
                 const renderText = renderChars || escapeCaptionHtml;
+                if (word.untimed) return '<span class="akari-caption__tok akari-caption__tok--unlit">'
+                    + renderText(word.text) + '</span>';
                 if (style === 'reveal-word') {
                     const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
                     return '<span class="akari-caption__tok akari-caption__tok--reveal-word"'
                         + ' style="--akari-tok-delay: ' + delay + 's">'
                         + renderText(word.text) + '</span>';
                 }
-                const emphasis = findMatchingEmphasis(word);
+                const emphasis = ignoreEmphasis ? null : findMatchingEmphasis(word);
                 // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
                 if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, renderChars);
                 if (style === 'karaoke' && karaoke && typeof karaoke === 'object') {
@@ -7239,7 +7241,7 @@ export function previewBootstrapScript(): string {
                         + renderText(chars.slice(0, before).join('')) + '</span>' : '';
                     const rest = chars.slice(before);
                     if (!rest.length) return done;
-                    const delay = Math.max(0, word.start - rangeStart);
+                    const delay = measuredTimeline ? word.start - rangeStart : Math.max(0, word.start - rangeStart);
                     const duration = Math.max(0.01, word.end - word.start);
                     if (karaoke.fill === 'char') return done + rest.map((char, index) =>
                         '<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:'
@@ -7259,7 +7261,8 @@ export function previewBootstrapScript(): string {
                         + formatCaptionSeconds(delay) + 's;--akari-tok-dur:' + formatCaptionSeconds(duration)
                         + 's">' + renderText(rest.join('')) + '</span>';
                 }
-                const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
+                const delay = formatCaptionSeconds(measuredTimeline && style === 'karaoke'
+                    ? word.start - rangeStart : Math.max(0, word.start - rangeStart));
                 const className = style === 'karaoke'
                     ? 'akari-caption__tok akari-caption__tok--karaoke'
                     : style === 'pop'
@@ -7578,14 +7581,22 @@ export function previewBootstrapScript(): string {
                         ? '.akari-caption--single-line .akari-caption__plate{left:4%;right:4%;width:auto;box-sizing:border-box;}'
                             + '.akari-caption--single-line .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;background:var(--plate-bg,var(--plate-ext-bg,transparent));border-radius:var(--plate-radius,var(--plate-ext-radius,0));}'
                         : '';
-                    if ((caption.wordStyles || caption.textStyle?.fill !== undefined
+                    if ((caption.wordStyles || caption.style === 'karaoke' || caption.textStyle?.fill !== undefined
                         || caption.textStyle?.strokes !== undefined) && caption.resolvedWords) {
                         let currentLine = caption.resolvedWords.length ? caption.resolvedWords[0].line : 0;
                         const markup = caption.resolvedWords.map((word, index) => {
                             const lineBreak = !caption.textStyle?.vertical && word.line !== currentLine
                                 ? '</p><p class="akari-caption__line">' : '';
                             currentLine = word.line;
+                            if (word.untimed) return lineBreak + renderCaptionToken(word, caption.start, 'karaoke', renderChars);
                             const style = caption.wordStyles?.find(entry => entry.from <= index && index < entry.to);
+                            if (!style && caption.style === 'karaoke') {
+                                const before = caption.resolvedWords.slice(0, index).map(item => item.text).join('');
+                                const karaokeIndex = (caption.karaokeOffset || 0)
+                                    + [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(before)].length;
+                                return lineBreak + renderCaptionToken(word, caption.start, 'karaoke', renderChars,
+                                    caption.textStyle?.karaoke, karaokeIndex, true, true);
+                            }
                             if (!style) return lineBreak + '<span class="akari-caption__tok">'
                                 + renderText(word.text) + '</span>';
                             const vars = Object.entries(style.style_vars || {})
@@ -7602,6 +7613,7 @@ export function previewBootstrapScript(): string {
                             + resolvedFrameCss
                             + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption--single-line .akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                             + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
+                            + (caption.style === 'karaoke' ? '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}@keyframes akari-caption-karaoke-wipe{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0 0 0 0);}}.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}.akari-caption__tok--karaoke-done{color:var(--caption-highlight-color,#ffd94a);}.akari-caption__tok--karaoke-smooth{position:relative;animation:none;}.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}' : '')
                             + captionContextCss(caption, false, true)
                             + (captionAligned(caption) ? '</style><div class="akari-caption__plate"><div class="akari-caption__alignbox"><p class="akari-caption__line">' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)})
                             + markup

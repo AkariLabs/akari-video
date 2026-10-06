@@ -522,6 +522,7 @@
         "locale": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "lines": { "type": "integer", "minimum": 1, "maximum": 6, "default": 1 },
         "wrap": { "type": "string", "enum": ["multi", "fold"], "default": "multi" },
+        "word_style": { "type": "string", "enum": ["none", "karaoke"], "default": "none" },
         "break_hints": { "$ref": "#/$defs/captionBreakHints" }
       },
       "$comment": "lines は同時に出す行数。wrap の multi は N 断片を同時に表示し、fold は 1 断片を N 行に折る。"

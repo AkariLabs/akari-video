@@ -137,6 +137,32 @@ test('scale/rotate become caption transform variables and resolved display lines
     assert.equal(resolved.textStyleVars['--caption-rotate'], '-8deg');
 });
 
+test('resolved karaoke keeps its fragment words and style for the webview renderer', () => {
+    const [resolved] = parseResolvedPreviewCaptions({ schema: 'caption-layout/v1', captions: [{
+        id: 'c-1-occ-0001-part-1', source_cue_id: 'c-1', start: 0, end: 2,
+        text: 'あい、うえ', display_lines: ['あい、', 'うえ'], style: 'karaoke', karaoke_offset: 3,
+        words: [{ text: 'あい', start: 0, end: 1, line: 0 },
+            { text: '、', start: 0, end: 0, line: 0, untimed: true },
+            { text: 'うえ', start: 1, end: 2, line: 1 }]
+    }] });
+    assert.equal(resolved.style, 'karaoke');
+    assert.deepEqual(resolved.displayLines, ['あい、', 'うえ']);
+    assert.deepEqual(resolved.resolvedWords.map(word => word.start), [0, 0, 1]);
+    assert.equal(resolved.resolvedWords[1].untimed, true);
+    assert.equal(resolved.karaokeOffset, 3);
+    assert.deepEqual(resolved.wordStyles, []);
+});
+
+test('resolved plain cue without word_styles does not enter the measured-word renderer', () => {
+    const [resolved] = parseResolvedPreviewCaptions({ schema: 'caption-layout/v1', captions: [{
+        id: 'plain', source_cue_id: 'plain', start: 0, end: 1, text: '言うと',
+        words: [{ text: '言う', start: 0, end: 0.5, line: 0 },
+            { text: 'と', start: 0.5, end: 1, line: 0 }]
+    }] });
+    assert.equal(resolved.resolvedWords, undefined);
+    assert.equal(resolved.wordStyles, undefined);
+});
+
 test('animation-only resolved captions retain the unstylized look at the end of typewriter', () => {
     const [animated] = parseResolvedPreviewCaptions({ schema: 'caption-layout/v1', captions: [{
         id: 'c-1-occ-0001-part-1', source_cue_id: 'c-1', start: 0, end: 3, text: '文字送り',

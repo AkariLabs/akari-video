@@ -42,10 +42,14 @@ overlap; and reference/output aspect mismatch. A resolved production render stor
 projection digest, and its immutable render receipt references the file and summary.
 Captions with `time_domain: "output"` (placed text) are exempt from overlap and order checks; any number may share the same time (2026-09-22 decision). Source-domain captions retain their per-source checks.
 
-Under `display_policy`, an omitted `captions[].style` remains valid. The known word-display styles
-`karaoke`, `pop`, `reveal`, and `reveal-word` remain `STYLE_CONFLICT` errors, while any other value is
-an `INVALID_CAPTION` error that names the unknown value and the accepted vocabulary. Without
-`display_policy`, caption style handling remains on the unchanged legacy path.
+2026-10-06 amendment: `display_policy.word_style` is the global word display default (`none` when
+omitted, or `karaoke`). An explicit `captions[].style: "karaoke"` takes priority over that default.
+Under `display_policy`, `pop`, `reveal`, and `reveal-word` remain `STYLE_CONFLICT` errors, while any
+unknown style is `INVALID_CAPTION`. Karaoke uses measured `words[]` projected into each resolved
+fragment. Missing words or synthetic timing fall back to ordinary text. Without `display_policy`,
+caption style handling remains on the unchanged legacy path.
+If measured words omit only punctuation, symbols, or whitespace, those characters remain visible as
+untimed unlit tokens while the measured words keep karaoke timing; other text mismatches fall back to ordinary text.
 
 `reference-pixel` geometry is scaled only after exact aspect agreement. `webkit-outline` produces
 real `-webkit-text-stroke` plus `paint-order:stroke fill` and disables shadow. Single-line consumers

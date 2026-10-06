@@ -53,7 +53,8 @@ export interface PreviewCaption {
     textStyle?: PreviewCaptionTextStyle;
     textStyleVars?: Record<string, string>;
     displayLines?: string[];
-    resolvedWords?: { start: number; end: number; text: string; line: number }[];
+    karaokeOffset?: number;
+    resolvedWords?: { start: number; end: number; text: string; line: number; untimed?: true }[];
     wordStyles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
     runs?: CaptionRun[];
     sourceCueId?: string;
@@ -211,14 +212,18 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
         const styleVars = stripAnimationOnlyLookVars(textStyle, cue.style_vars);
         const displayLines = (cue as unknown as { display_lines?: string[] }).display_lines;
         const wordDisplay = cue as unknown as {
-            words?: { start: number; end: number; text: string; line: number }[];
+            words?: { start: number; end: number; text: string; line: number; untimed?: true }[];
             word_styles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
         };
-        const hasWordDisplay = Array.isArray(wordDisplay.words) && Array.isArray(wordDisplay.word_styles);
+        const karaoke = (cue as { style?: string }).style === 'karaoke';
+        const hasWordDisplay = Array.isArray(wordDisplay.words)
+            && (Array.isArray(wordDisplay.word_styles) || karaoke);
         return {
             id: cue.id,
             sourceCueId: cue.source_cue_id,
             resolvedTimeline: true,
+            ...(karaoke ? { style: 'karaoke' as const,
+                karaokeOffset: (cue as { karaoke_offset?: number }).karaoke_offset ?? 0 } : {}),
             start: cue.start,
             end: cue.end,
             text: cue.text,
@@ -227,7 +232,7 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
             ...(Array.isArray(displayLines) ? { displayLines: [...displayLines] } : {}),
             ...(hasWordDisplay ? {
                 resolvedWords: wordDisplay.words!.map(word => ({ ...word })),
-                wordStyles: wordDisplay.word_styles!.map(style => ({ ...style, style_vars: { ...style.style_vars } }))
+                wordStyles: (wordDisplay.word_styles ?? []).map(style => ({ ...style, style_vars: { ...style.style_vars } }))
             } : {}),
             ...(textStyle ? { textStyle } : {}),
             ...(styleVars || textStyle ? {

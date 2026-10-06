@@ -478,11 +478,12 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
     ? '      background-image:var(--caption-fill-gradient,none);\n      -webkit-background-clip:var(--caption-fill-clip,border-box);\n      -webkit-text-fill-color:var(--caption-fill-color,currentColor);\n      -webkit-text-stroke:0 transparent;\n      text-shadow:none;\n      filter:var(--caption-fill-filter,none);\n'
     : '';
   const sizeToInk = cue?.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
+  const karaoke = cue?.style === 'karaoke' && Array.isArray(cue?.words) && cue.words.length > 0;
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
   const richTokens = cue?.text_style?.fill !== undefined || cue?.text_style?.strokes !== undefined;
-  const renderedText = hasWordStyles
-    ? renderResolvedCaptionWords(cue.words, cue.word_styles, cue?.text_style?.vertical === true)
+  const renderedText = hasWordStyles || karaoke
+    ? renderResolvedCaptionWords(cue.words, cue.word_styles ?? [], cue?.text_style?.vertical === true, cue)
     : richTokens && Array.isArray(cue?.words) && cue.words.length > 0
       ? renderResolvedCaptionWords(cue.words, [], cue?.text_style?.vertical === true)
     : richTokens
@@ -492,7 +493,15 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
     : Array.isArray(lines) && lines.length >= 2 && cue?.text_style?.vertical !== true
       ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
       : escapeHtml(text);
-  const wordPresetCss = hasWordStyles ? `    ${RESOLVED_CAPTION_WORD_PRESET_CSS}\n` : '';
+  const wordPresetCss = hasWordStyles || karaoke ? `    ${RESOLVED_CAPTION_WORD_PRESET_CSS}\n` : '';
+  const karaokeCss = karaoke ? `
+    @keyframes akari-caption-karaoke-lit { from { color:var(--caption-color,#fff); } to { color:var(--caption-highlight-color,#ffd94a); } }
+    @keyframes akari-caption-karaoke-wipe { from { clip-path:inset(0 100% 0 0); } to { clip-path:inset(0 0 0 0); } }
+    .akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
+    .akari-caption__tok--karaoke-done { color:var(--caption-highlight-color,#ffd94a); }
+    .akari-caption__tok--karaoke-smooth { position:relative;animation:none; }
+    .akari-caption__tok--karaoke-smooth::after { content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
+` : '';
   const framePlateCss = cue?.style_vars?.['--caption-plate-fit'] === 'frame'
     ? `    .akari-caption--single-line .akari-caption__plate { left: 4%; right: 4%; width: auto; box-sizing: border-box; }
     .akari-caption--single-line .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; margin: 0; background: var(--plate-bg, var(--plate-ext-bg, transparent)); border-radius: var(--plate-radius, var(--plate-ext-radius, 0)); }
@@ -562,19 +571,23 @@ ${richGradientCss}      text-align:var(--caption-text-align,center);
       animation:none;
       transform:none;
     }
-${wordPresetCss}${wrapCss}${framePlateCss}${contextCss}  </style>
+${wordPresetCss}${karaokeCss}${wrapCss}${framePlateCss}${contextCss}  </style>
   <div class="akari-caption__plate">${aligned ? '<div class="akari-caption__alignbox">' : ''}${lineMarkup}${aligned ? '</div>' : ''}</div>
 </div>`;
 }
 
-function renderResolvedCaptionWords(words, wordStyles, vertical = false) {
+function renderResolvedCaptionWords(words, wordStyles, vertical = false, cue = null) {
   let currentLine = words[0]?.line ?? 0;
   return words.map((word, index) => {
     const lineBreak = !vertical && word.line !== currentLine
       ? '</p><p class="akari-caption__line">'
       : '';
     currentLine = word.line;
+    if (word.untimed) return lineBreak + renderCaptionToken(word, cue?.start ?? 0, KARAOKE_STYLE);
     const style = wordStyles.find(entry => entry.from <= index && index < entry.to);
+    if (!style && cue?.style === 'karaoke') return lineBreak + renderCaptionToken(word, cue.start, KARAOKE_STYLE,
+      [], 1, null, cue.text_style?.karaoke,
+      (cue.karaoke_offset ?? 0) + captionGraphemes(words.slice(0, index).map(item => item.text).join('')).length, true);
     if (!style) return `${lineBreak}<span class="akari-caption__tok">${escapeHtml(word.text)}</span>`;
     return `${lineBreak}<span class="akari-caption__tok akari-caption__tok--preset" data-emphasis-preset="${escapeHtml(style.preset_id)}" style="${captionStyleVarsAttribute(style.style_vars)}">${escapeHtml(word.text)}</span>`;
   }).join('');
@@ -1569,7 +1582,7 @@ function renderRevealWordCss() {
     }`;
 }
 
-function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1, charText = null, karaoke = null, karaokeIndex = 0) {
+function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1, charText = null, karaoke = null, karaokeIndex = 0, measuredTimeline = false) {
   const text = charText ?? escapeHtml;
   if (word.untimed) {
     return `<span class="akari-caption__tok akari-caption__tok--unlit">${text(word.text)}</span>`;
@@ -1589,7 +1602,7 @@ function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasi
     const remaining = chars.slice(before);
     if (!remaining.length) return done;
     const duration = Math.max(0.01, word.end - word.start);
-    const delay = Math.max(0, word.start - rangeStart);
+    const delay = measuredTimeline ? word.start - rangeStart : Math.max(0, word.start - rangeStart);
     if (karaoke.fill === 'char') return done + remaining.map((char, i) =>
       `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${formatSeconds(delay + duration * (before + i) / chars.length)}s;--akari-tok-dur:0s">${text(char)}</span>`).join('');
     if (karaoke.fill === 'word') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${formatSeconds(delay)}s;--akari-tok-dur:0s">${text(remaining.join(''))}</span>`;
@@ -1600,7 +1613,8 @@ function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasi
     if (before) return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${formatSeconds(delay)}s;--akari-tok-dur:${formatSeconds(duration)}s">${text(remaining.join(''))}</span>`;
   }
 
-  const delay = formatSeconds(Math.max(0, word.start - rangeStart));
+  const delay = formatSeconds(measuredTimeline && style === KARAOKE_STYLE
+    ? word.start - rangeStart : Math.max(0, word.start - rangeStart));
   const className = style === KARAOKE_STYLE
     ? "akari-caption__tok akari-caption__tok--karaoke"
     : style === POP_STYLE
