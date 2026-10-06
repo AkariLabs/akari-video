@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import ts from 'typescript';
 
 const browser = readFileSync(new URL('../src/browser/preview-script-bootstrap.ts', import.meta.url), 'utf8');
 const interaction = readFileSync(new URL('../../../../../packages/overlay-runtime/src/interaction.js', import.meta.url), 'utf8');
@@ -111,6 +112,61 @@ test('(a) through (d): delayed captions-update retains the last caption position
     }
 });
 
+test('caption position guard accepts another row text and forgets a removed cue', () => {
+    const flags = section(browser, '            let selectionDragActive =', '            let suppressClick =');
+    const context = vm.createContext({ window: { akari: { reportGesture() {} } } });
+    vm.runInContext(`${flags}\nglobalThis.remember = rememberCaptionPosition;
+        globalThis.protect = protectCaptionUpdate;
+        globalThis.overrides = captionPositionOverrides;`, context);
+    context.remember('A', { anchor: 'bc', position: { x: 0.4, y: 0.5 } });
+    const updated = context.protect([
+        { id: 'A', text: 'A', textStyle: { position: { x: 0, y: 0.5 } } },
+        { id: 'B', text: 'new text', textStyle: { position: { x: 0, y: 0.5 } } }
+    ]);
+    assert.equal(updated[0].textStyle.position.x, 0.4);
+    assert.equal(updated[1].text, 'new text');
+    context.protect([{ id: 'B', text: 'after removal' }]);
+    assert.equal(context.overrides.has('A'), false);
+    const later = context.protect([{ id: 'A', textStyle: { position: { x: 0.2, y: 0.5 } } }]);
+    assert.equal(later[0].textStyle.position.x, 0.2);
+});
+
+test('saved position guard expires when no matching update arrives', () => {
+    const flags = section(browser, '            let selectionDragActive =', '            let suppressClick =');
+    const context = vm.createContext({ window: { akari: { reportGesture() {} } } });
+    vm.runInContext(`${flags}\nglobalThis.remember = rememberCaptionPosition;
+        globalThis.protect = protectCaptionUpdate;
+        globalThis.overrides = captionPositionOverrides;`, context);
+    const pending = context.remember('A', { anchor: 'bc', position: { x: 0.4, y: 0.5 } });
+    pending.saved = true;
+    pending.savedAt = Date.now() - 3100;
+    const result = context.protect([{ id: 'A', textStyle: { position: { x: 0.2, y: 0.5 } } }]);
+    assert.equal(result[0].textStyle.position.x, 0.2);
+    assert.equal(context.overrides.has('A'), false);
+});
+
+test('inline text save keeps the host rederived word timings', async () => {
+    const commit = section(browser, '            const commitCaptionEdit = async () => {',
+        '            const placeCaptionCaretAtEnd =');
+    const words = [{ text: 'new', start: 0, end: 0.4 }];
+    const context = vm.createContext({
+        window: { akari: { reportCaptionEditFocus() {}, syncRunSelection() {},
+            engine: { captionWrite: async () => { context.setPersisted(); } } } },
+        console,
+        restoreCaptionEditElement() {}, rerenderCaptionAfterEdit() {},
+        captionRows: new Map(), renderCaption() {},
+        captionEditorValueFn: value => value,
+        activeCaptionEdit: { element: { innerText: 'new', lastChild: null },
+            originalText: 'old', captionId: 'A' },
+        captions: [{ id: 'A', text: 'old', words: [{ text: 'old', start: 0, end: 0.4 }] }]
+    });
+    vm.runInContext(`${commit}\nglobalThis.commit = commitCaptionEdit;
+        globalThis.current = () => captions;
+        globalThis.setPersisted = () => { captions = [{ id: 'A', text: 'new', words: ${JSON.stringify(words)} }]; };`, context);
+    await context.commit();
+    assert.equal(context.current()[0].words[0].text, 'new');
+});
+
 test('overlapping saves keep the host gesture guard raised through the final response', () => {
     const report = section(adapter, '            let pendingGestureWrites = 0;', '            let pendingLiveValues =');
     const messages = [];
@@ -159,4 +215,35 @@ test('caption-only refresh uses incremental messages and preserves the iframe', 
     assert.match(handler, /widget\.sendMessage\(\{ type: 'akari-preview-captions-update'/u);
     assert.match(handler, /widget\.sendMessage\(\{ type: 'akari-preview-model-update'/u);
     assert.match(browser, /if \(overlaysAppended\) \{\s*window\.akari\.interaction\?\.clearSelection\?\.\(\);\s*void window\.akari\.runtime\.mount\(summary\)/u);
+});
+
+test('script caption write inside the preview write window queues a direct update', () => {
+    const listener = section(handler, '        const onEditStoreDidWrite =',
+        '        const onOptimisticItemUpdate =');
+    const callbacks = new Map();
+    const updates = [];
+    class URI {
+        constructor(value) { this.value = value; }
+        toString() { return this.value; }
+    }
+    const widget = { akariPreviewEditUri: new URI('file:///project/edit.json'),
+        akariPreviewCaptionsUri: new URI('file:///project/captions.json'), isDisposed: false,
+        sendMessage() {} };
+    const recentWrites = new Map([['project/captions.json', Date.now()]]);
+    const host = { resourceSuffix: uri => uri.toString().split('/').slice(-2).join('/'),
+        markRecentWrite(uri) { recentWrites.set(this.resourceSuffix(uri), Date.now()); },
+        queueCaptionsUpdate: target => updates.push(target),
+        queueRefresh() {} };
+    const context = vm.createContext({ widget, URI, callbacks, host,
+        listen: (_window, name, callback) => { callbacks.set(name, callback); return {}; },
+        window: {}, disposables: [], EDIT_STORE_DID_WRITE_EVENT: 'akari.editStore.didWrite',
+        kind: 'output', identityUri: widget.akariPreviewEditUri });
+    const compiled = ts.transpileModule(`(function () { ${listener} }).call(host);`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2021 }
+    }).outputText;
+    vm.runInContext(compiled, context);
+    callbacks.get('akari.editStore.didWrite')({ detail: {
+        uri: 'file:///project/captions.json', content: '{"captions":[]}' } });
+    assert.equal(updates.length, 1);
+    assert.ok(Date.now() - recentWrites.get('project/captions.json') < 1000);
 });

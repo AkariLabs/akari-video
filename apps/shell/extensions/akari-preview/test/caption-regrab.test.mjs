@@ -39,6 +39,10 @@ function captionHarness() {
     let selected = 'A';
     const context = vm.createContext({
         window: {
+            AkariEditKernel: { resolveCaptionLineStyleVars: style => ({
+                '--caption-left': `${style.position.x * 100}%`,
+                '--caption-top': `${style.position.y * 100}%`
+            }) },
             akari: {
                 reportGesture: phase => events.push(phase),
                 interaction: { hideSnapGuides() {} },
@@ -80,7 +84,8 @@ function captionHarness() {
         resumeCaptionMotionAfterRender() {},
         selectedCaptionIds: new Set(),
         captionGroupToolEnabled: false, captionSnapEnabled: false,
-        activeCaptionEdit: null, CLICK_THRESHOLD_PX: 3
+        activeCaptionEdit: null, CLICK_THRESHOLD_PX: 3,
+        summary: { output: { width: 1280, height: 720 } }
     });
     const flags = section('            let selectionDragActive =', '            let suppressClick =');
     const drag = section('            const onCaptionPointerDown =',
@@ -93,8 +98,7 @@ function captionHarness() {
         globalThis.overrides = captionPositionOverrides;
         globalThis.receive = message => { ${receive} };
         globalThis.currentCaptions = () => captions;
-        globalThis.stale = typeof captionUpdateIsStale === 'function'
-            ? captionUpdateIsStale : () => false;`, context);
+        globalThis.protect = protectCaptionUpdate;`, context);
     const event = (id, x, y) => ({ button: 0, pointerId: 1, clientX: x, clientY: y,
         target: { id, closest: selector => selector === '.caption-row-plate' ? plates.get(id) : null },
         preventDefault() {}, stopPropagation() {} });
@@ -130,7 +134,6 @@ test('(a) A を 3 連続で掴み直し、保存前の画面位置を出発点�
     assert.equal(h.writes[2].patch.cuePosition.position.x, 0);
     assert.equal(h.writes[2].patch.cuePosition.position.y, 120);
     const stale = [{ id: 'A', textStyle: { position: { x: 160, y: 0 } } }];
-    assert.equal(h.context.stale(stale), true, '1 回目の captions-update は最後の移動を戻す');
     h.receive(stale);
     assert.equal(h.renders(), 0, '保存待ち中の字幕通知は保留する');
     await h.settle(0);
@@ -141,10 +144,12 @@ test('(a) A を 3 連続で掴み直し、保存前の画面位置を出発点�
     assert.equal(h.posted.length, 1, '最後の保存完了後に保留通知を再配送する');
     h.deliverPosted();
     h.receive(stale);
-    assert.equal(h.renders(), 0, '古い textStyleVars を描画へ渡さない');
+    assert.equal(h.renders(), 2);
+    assert.equal(h.context.currentCaptions()[0].textStyle.position.y, 120);
+    assert.equal(h.context.currentCaptions()[0].textStyleVars['--caption-top'], '12000%');
     h.receive([{ id: 'A', textStyle: { position: { x: 0, y: 120 } },
         textStyleVars: { '--caption-left': '0px', '--caption-top': '120px' } }]);
-    assert.equal(h.renders(), 1);
+    assert.equal(h.renders(), 3);
     assert.equal(h.plates.get('A').style.translate, '');
     assert.deepEqual(h.events, ['begin', 'begin', 'begin', 'saved', 'end', 'saved', 'end', 'saved', 'end']);
 });
@@ -156,7 +161,6 @@ test('(b) A → B → A でも A の保存前位置を保持する', async () =>
     h.grab('A', 0, 120);
     assert.equal(h.writes[2].patch.cuePosition.position.x, 160);
     assert.equal(h.writes[2].patch.cuePosition.position.y, 120);
-    assert.equal(h.context.stale([{ id: 'A', textStyle: { position: { x: 0, y: 0 } } }]), true);
     h.receive([{ id: 'A', textStyle: { position: { x: 160, y: 0 } } },
         { id: 'B', textStyle: { position: { x: 400, y: 80 } } }]);
     await h.settle(0);
@@ -167,10 +171,11 @@ test('(b) A → B → A でも A の保存前位置を保持する', async () =>
     h.deliverPosted();
     h.receive([{ id: 'A', textStyle: { position: { x: 160, y: 0 } } },
         { id: 'B', textStyle: { position: { x: 400, y: 80 } } }]);
-    assert.equal(h.renders(), 0);
+    assert.equal(h.renders(), 2);
+    assert.equal(h.context.currentCaptions()[0].textStyle.position.y, 120);
     h.receive([{ id: 'A', textStyle: { position: { x: 160, y: 120 } } },
         { id: 'B', textStyle: { position: { x: 400, y: 80 } } }]);
-    assert.equal(h.renders(), 1);
+    assert.equal(h.renders(), 3);
 });
 
 test('(b) A の保存待ち中に動かさず掴み直しても画面位置を保つ', async () => {
@@ -180,4 +185,21 @@ test('(b) A の保存待ち中に動かさず掴み直しても画面位置を�
     assert.equal(h.plates.get('A').style.translate, '160px 0px');
     assert.equal(h.writes.length, 1);
     await h.settle(0);
+});
+
+test('保存待ち位置を保ちながら別の行の文字を受け取り、削除後は保護を解除する', async () => {
+    const h = captionHarness();
+    h.grab('A', 160, 0);
+    await h.settle(0);
+    h.deliverPosted();
+    h.receive([
+        { id: 'A', text: 'A', textStyle: { position: { x: 0, y: 0 } } },
+        { id: 'B', text: 'updated', textStyle: { position: { x: 0, y: 0 } } }
+    ]);
+    assert.equal(h.context.currentCaptions()[1].text, 'updated');
+    assert.equal(h.context.currentCaptions()[0].textStyle.position.x, 160);
+    h.receive([{ id: 'B', text: 'still updated' }]);
+    assert.equal(h.context.overrides.has('A'), false);
+    h.receive([{ id: 'A', textStyle: { position: { x: 25, y: 0 } } }]);
+    assert.equal(h.context.currentCaptions()[0].textStyle.position.x, 25);
 });
