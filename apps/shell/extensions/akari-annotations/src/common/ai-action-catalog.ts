@@ -8,7 +8,7 @@ export interface AiCatalogModel {
     price?: object | null;
 }
 
-export type AiTargetKind = 'still' | 'empty-frame' | 'video' | 'generated-video' | 'audio' | 'gap'
+export type AiTargetKind = 'still' | 'empty-frame' | 'video' | 'image' | 'generated-video' | 'audio' | 'gap'
     | 'empty-audio-frame'
     | 'material-image' | 'material-video' | 'material-audio';
 export type AiActionGroup = 'make' | 'refine';
@@ -46,7 +46,7 @@ export function aiActionPlacement(action: AiAction, target: AiTargetKind): AiAct
 export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngines?: readonly NarrationEngine[]): AiAction[] {
     return [{
         id: 'still', group: 'make', label: '静止画', image: 'still',
-        visibleFor: ['empty-frame', 'still', 'video', 'generated-video', 'gap'],
+        visibleFor: ['empty-frame', 'still', 'video', 'image', 'generated-video', 'gap'],
         accepts: ['empty-frame', 'still', 'gap'],
         reasonWhenDisabled: '空の枠か静止画で使えます', output: 'image', placement: 'replace',
         routes: [{ id: 'codex', modelId: 'codex:image', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
@@ -55,7 +55,7 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
             { id: 'fal', modelId: 'fal:gpt-image-2.5-flare', label: 'fal · GPT Image 2.5 Flare', maker: 'openai', kind: 'api', cost: 'paid', inputs: { reference_images: { max: 16 } } }]
     }, {
         id: 'video', group: 'make', label: '動画にする', image: 'video',
-        visibleFor: ['still', 'empty-frame', 'video', 'generated-video', 'gap', 'material-image'],
+        visibleFor: ['still', 'empty-frame', 'video', 'image', 'generated-video', 'gap', 'material-image'],
         accepts: ['still', 'empty-frame', 'generated-video', 'gap', 'material-image'],
         reasonWhenDisabled: '静止画か空の枠で使えます', output: 'video', placement: 'replace',
         placementFor: { 'material-image': 'new-material' },
@@ -78,19 +78,19 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
                     ? 'paid' as const : 'free' as const }))
     } as AiAction] : []), {
         id: 'cutout', group: 'refine', label: '背景を消す', image: 'cutout',
-        visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
-        accepts: ['still', 'video', 'generated-video'],
+        visibleFor: ['still', 'empty-frame', 'video', 'image', 'generated-video'],
+        accepts: ['still', 'video', 'image', 'generated-video'],
         reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
         routes: [{ id: 'on-device', label: 'このパソコン', kind: 'local', cost: 'free' }]
     }, {
         id: 'eraser', group: 'refine', label: '消しゴム', image: 'eraser',
-        visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
-        accepts: ['still', 'video', 'generated-video'],
+        visibleFor: ['still', 'empty-frame', 'video', 'image', 'generated-video'],
+        accepts: ['still', 'video', 'image', 'generated-video'],
         reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
         routes: [{ id: 'on-device', label: 'このパソコン', kind: 'local', cost: 'free' }]
     }, {
         id: 'transcribe', group: 'refine', label: '文字起こし', image: 'transcribe',
-        visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame',
+        visibleFor: ['audio', 'video', 'image', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame',
             'material-audio', 'material-video'],
         accepts: ['audio', 'video', 'material-audio', 'material-video'],
         reasonWhenDisabled: '声の入った音声か動画で使えます',

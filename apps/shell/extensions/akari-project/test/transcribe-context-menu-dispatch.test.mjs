@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readCompiledSource } from './helpers/role-buckets-source.mjs';
 import vm from 'node:vm';
+import { captionSourcePathRule } from '../lib/common/caption-source-path-rule.js';
 
 const noopDecorator = () => () => undefined;
 const emptyModule = new Proxy({}, { get: () => undefined });
@@ -10,7 +11,8 @@ const modules = {
     '@theia/core/lib/browser/widgets/react-widget': { ReactWidget: class {} },
     '@theia/core/lib/common': { DisposableCollection: class {} },
     '@theia/core/shared/react': {},
-    '../common/material-card-layout': { materialCardLayout: () => ({ gridGap: '8px', cardMinWidth: '100px' }) }
+    '../common/material-card-layout': { materialCardLayout: () => ({ gridGap: '8px', cardMinWidth: '100px' }) },
+    '../common/caption-source-path-rule': { captionSourcePathRule }
 };
 const exports = {};
 vm.runInNewContext(readCompiledSource('materials').text, {
@@ -83,4 +85,14 @@ test('NO_ACTIVE_HANDLER のときだけ従来のトースト + transcribe RPC �
     await AkariMaterialsPane.prototype.transcribeMaterial.call(failure.context, failure.entry);
     assert.deepEqual(failure.calls.rpc, []);
     assert.deepEqual(failure.calls.error, ['boom']);
+});
+
+test('書き出し素材は右クリックから文字起こしを開始しない', async () => {
+    const { calls, context, entry } = harness(async () => 'opened');
+    entry.relativePath = 'exports/master.mp4';
+    entry.kind = 'video';
+    await AkariMaterialsPane.prototype.transcribeMaterial.call(context, entry);
+    assert.deepEqual(calls.commands, []);
+    assert.deepEqual(calls.rpc, []);
+    assert.deepEqual(calls.info, ['書き出した完成品です（元の素材から起こします）']);
 });

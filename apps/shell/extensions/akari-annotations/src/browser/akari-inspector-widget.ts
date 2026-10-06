@@ -1515,7 +1515,7 @@ export class AkariInspectorWidget extends BaseWidget {
             || rowSnapshot.kind === 'layer' && rowSnapshot.sourceKind === 'html' ? [] : describeAiTiles(
             aiActionCatalog(this.generationCatalog, this.narrationEngines),
             aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
-                audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
+                audio: sectionKind === 'audio', audioPlanned: this.audioPlanned, image: photoSelection })
         ).map(group => ({ ...group, tiles: group.tiles.map(tile =>
             tile.id === 'cutout'
                 ? { ...tile, ...cutoutAvailabilityFor(photoTools, this.photoMaskAvailable) }
@@ -1622,7 +1622,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const showEditCorrection = typeof editCorrectionVisible !== 'function' || editCorrectionVisible({
                 aiView: this.aiCatalogLoaded ? this.aiView! : 'tiles',
                 targetKind: aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
-                    audio: sectionKind === 'audio', audioPlanned: this.audioPlanned }),
+                    audio: sectionKind === 'audio', audioPlanned: this.audioPlanned, image: photoSelection }),
                 generationState
             });
             const imageSource = rowSnapshot.kind === 'cut' ? rowSnapshot.sourcePath

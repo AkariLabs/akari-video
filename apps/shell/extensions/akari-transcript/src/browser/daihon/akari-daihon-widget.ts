@@ -9,6 +9,7 @@ import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/comm
 import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
+import { isCaptionVideo, selectCaptionSources } from '../../common/caption-source-eligibility';
 import { cutsJumpButtonLabel, handEditedLines } from '../../common/cuts-view';
 import { nextCaptionNotices } from '../../common/caption-notice-state';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
@@ -567,6 +568,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
     protected segments: TimelineSegment[] = [];
     protected editSources: { id: string; path: string }[] = [];
+    protected readonly captionAudioCache = new Map<string, boolean | undefined>();
     protected silencesBySourceId = new Map<string, DaihonSilenceSpan[]>();
     protected rootUri: URI | undefined;
     protected editUri: URI | undefined;
@@ -1130,8 +1132,26 @@ export class AkariDaihonWidget extends BaseWidget {
     protected async captionSources(): Promise<{ id: string; path: string }[]> {
         if (!this.editUri) return [];
         const edit = JSON.parse(await this.readText(this.editUri));
-        return Array.isArray(edit.sources) ? edit.sources.filter((source: { id?: unknown; path?: unknown }) =>
-            typeof source.id === 'string' && typeof source.path === 'string') : [];
+        const projectRoot = this.editUri.parent.toString();
+        const candidates = selectCaptionSources(edit, {}, projectRoot);
+        const hasAudioByPath: Record<string, boolean | undefined> = {};
+        await Promise.all(candidates.map(async source => {
+            if (!isCaptionVideo(source)) return;
+            const uri = this.editUri!.parent.resolve(source.path).normalizePath().toString();
+            if (!this.captionAudioCache.has(uri)) {
+                const hasAudio = await this.annotationsService.probeSourceHasAudio({ path: uri })
+                    .then(result => result.hasAudio, () => undefined);
+                this.captionAudioCache.set(uri, hasAudio);
+            }
+            hasAudioByPath[source.path] = this.captionAudioCache.get(uri);
+        }));
+        return selectCaptionSources(edit, hasAudioByPath, projectRoot);
+    }
+
+    protected captionSourceChoices(sources: readonly { id: string; path: string }[]): Array<{ label: string; description: string; id: string; path: string }> {
+        return sources.map(source => ({ ...source,
+            label: source.path.replace(/\\/gu, '/').split('/').pop() || source.path,
+            description: source.path }));
     }
 
     protected async refreshCaptionsButton(sources = this.editSources): Promise<void> {
@@ -1141,6 +1161,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.captionsButton.textContent = this.buildingCaptions ? '字幕を作成中…' : captionsButtonLabel(Object.values(states));
         this.captionsButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
         this.retimeButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
+        this.captionsButton.title = sources.length ? '' : '声の入った素材がタイムラインにありません';
+        this.retimeButton.title = sources.length ? '無音に重なった語の時刻を実際の発話へ合わせ直す'
+            : '声の入った素材がタイムラインにありません';
     }
 
     protected async buildCaptions(): Promise<void> {
@@ -1150,9 +1173,9 @@ export class AkariDaihonWidget extends BaseWidget {
         const projectRoot = this.editUri.parent.toString();
         try {
             const sources = await this.captionSources();
-            const source = sources.length === 1 ? sources[0] : await this.quickPick.show(
-                sources.map(item => ({ label: item.id, description: item.path, ...item })), { placeholder: '字幕を作る素材を選ぶ' }
-            );
+            const source = sources.length === 1 ? sources[0] : sources.length > 1 ? await this.quickPick.show(
+                this.captionSourceChoices(sources), { placeholder: '字幕を作る素材を選ぶ' }
+            ) : undefined;
             if (!source) return;
             const states = await this.projectService.transcriptStates({ projectRoot, relativePaths: [source.path] });
             if (states[source.path] === 'running') { this.notify('素材の処理が終わってから実行してください'); return; }
@@ -1188,10 +1211,10 @@ export class AkariDaihonWidget extends BaseWidget {
         const projectRoot = this.editUri.parent.toString();
         try {
             const sources = await this.captionSources();
-            const source = sources.length === 1 ? sources[0] : await this.quickPick.show(
-                sources.map(item => ({ label: item.id, description: item.path, ...item })),
+            const source = sources.length === 1 ? sources[0] : sources.length > 1 ? await this.quickPick.show(
+                this.captionSourceChoices(sources),
                 { placeholder: '発話に合わせ直す素材を選ぶ' }
-            );
+            ) : undefined;
             if (!source) return;
             let moved = 0;
             let retimeSummary: unknown;

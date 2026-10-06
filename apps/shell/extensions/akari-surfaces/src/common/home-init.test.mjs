@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import ts from 'typescript';
+import { captionSourcePathRule } from 'akari-project/lib/common/caption-source-path-rule.js';
 
 const sourceUrl = new URL('../browser/akari-home-widget.tsx', import.meta.url);
 const source = ts.createSourceFile(sourceUrl.pathname, readFileSync(sourceUrl, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -206,11 +207,12 @@ test('start-kind resumes import, transcription, partner and generation after wor
 });
 
 test('transcription imports through the home path and opens the dialog with its copied relative path', async () => {
-    const selected = { path: { base: 'camera.mp4' } };
-    const copied = { path: { base: 'camera.mp4' } };
+    const selected = { path: { base: 'camera.mp4', toString: () => 'D:/撮影/exports/camera.mp4' } };
+    const copied = { path: { base: 'camera.mp4', toString: () => '/project/assets/camera.mp4' } };
     const calls = [];
     const instance = {
-        currentProjectUri: { toString: () => 'file:///project', relative: () => ({ toString: () => 'assets/camera.mp4' }) },
+        currentProjectUri: { toString: () => 'file:///project', path: { toString: () => '/project' },
+            relative: () => ({ toString: () => 'assets/camera.mp4' }) },
         fileDialogs: { showOpenDialog: async options => { calls.push(['pick', options.canSelectMany]); return [selected]; } },
         extensionOf: name => name.slice(name.lastIndexOf('.')),
         importDroppedSources: async (sources, includeAudio) => { calls.push(['import', sources, includeAudio]); return [copied]; },
@@ -218,7 +220,8 @@ test('transcription imports through the home path and opens the dialog with its 
         messages: { info() {}, warn() {}, error() {} }
     };
     await loadMethod('importForStartKind', {
-        IMPORTABLE_EXTENSIONS: ['.mp4', '.jpg'], AUDIO_EXTENSIONS: ['.wav'], VIDEO_EXTENSIONS: ['.mp4']
+        IMPORTABLE_EXTENSIONS: ['.mp4', '.jpg'], AUDIO_EXTENSIONS: ['.wav'], VIDEO_EXTENSIONS: ['.mp4'],
+        captionSourcePathRule
     }).call(instance, 'transcribe');
     assert.deepEqual(calls, [
         ['pick', true], ['import', [selected], true],
