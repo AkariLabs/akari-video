@@ -1010,7 +1010,7 @@ test('表示 ▾ は保存済みのカラオケ値を ON/OFF の選択印に反�
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });
 
-test('全体カラオケ中の行 ⚙ は通常表示を無効にし、全体 OFF 後に行を切り替える', () => {
+test('全体カラオケ中も行 ⚙ で通常表示に切り替えられる', () => {
   const oldDocument = globalThis.document, oldOption = globalThis.Option;
   globalThis.document = { createElement: tag => {
     const node = fakeNode(tag);
@@ -1032,17 +1032,17 @@ test('全体カラオケ中の行 ⚙ は通常表示を無効にし、全体 OF
     instance.openGearPop(fakeNode(), instance.rows.find(row => row.id === 'r1'));
     const style = pop.children.find(child => child.tag === 'select');
     const plain = style.children.find(option => option.value === 'plain');
-    assert.equal(plain.disabled, true);
-    assert.equal(plain.title, '全体のカラオケ表示を切ると選べます');
+    assert.equal(style.value, 'karaoke');
+    assert.equal(plain.disabled, undefined);
     style.value = 'plain'; style.listeners.change();
-    assert.deepEqual(fields, []);
+    assert.deepEqual(fields, [{ style: 'plain' }]);
     instance.captionsRoot = setCaptionDisplayWordStyle(base, 'none');
     pop.replaceChildren();
     instance.openGearPop(fakeNode(), instance.rows.find(row => row.id === 'r1'));
     const offStyle = pop.children.find(child => child.tag === 'select');
     assert.equal(offStyle.children.find(option => option.value === 'plain').disabled, undefined);
     offStyle.value = 'karaoke'; offStyle.listeners.change();
-    assert.deepEqual(fields, [{ style: 'karaoke' }]);
+    assert.deepEqual(fields, [{ style: 'plain' }, { style: 'karaoke' }]);
   } finally {
     if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
     if (oldOption === undefined) delete globalThis.Option; else globalThis.Option = oldOption;

@@ -57,7 +57,8 @@ function harness(neverClose = false) {
   const widget = new CutHarness();
   Object.assign(widget, {
     configured: true, reloadTail: Promise.resolve(), rows: [{ id: 'a', text: 'あの話' }, { id: 'b', text: '次の話' }],
-    collectCutCandidates: () => candidates, rootUri: { toString: () => 'root' },
+    collectCutCandidates: () => candidates, cuttableCandidates: items => items,
+    rootUri: { toString: () => 'root' },
     editUri: { toString: () => 'edit' }, captionsUri: { toString: () => 'captions' },
     editSources: [], segments: [],
     silenceMin: .45, silenceKeep: .15,

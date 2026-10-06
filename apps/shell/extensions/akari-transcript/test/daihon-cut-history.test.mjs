@@ -46,7 +46,8 @@ function harness(initial = before) {
   const uri = name => ({ toString: () => name });
   Object.assign(widget, {
     editUri: uri('edit'), captionsUri: uri('captions'), rootUri: uri('root'), rows: [row],
-    sourceIdForRow: () => 'main', closePop() {}, closeCutRangeEditor() {},
+    sourceIdForRow: () => 'main', audioOnlyCutReason: () => undefined,
+    closePop() {}, closeCutRangeEditor() {},
     readText: async target => target.toString() === 'edit' ? edit : 'captions-before',
     async reload() {}, refreshCutTimeline() {}, showCutToast: message => toasts.push(message),
     notify: message => notifications.push(message), notifyError: message => notifications.push(message),
@@ -132,7 +133,7 @@ test('トーストの取り消すは履歴に別の操作が積まれると消�
   const run = harness();
   const previousDocument = globalThis.document;
   const elements = [];
-  const element = tag => ({ tag, className: '', children: [], removed: false,
+  const element = tag => ({ tag, className: '', dataset: {}, children: [], removed: false,
     append(...children) { this.children.push(...children); },
     querySelector(selector) { return selector === 'button' ? this.children.find(child => child.tag === 'button') : undefined; },
     setAttribute() {},
@@ -162,7 +163,7 @@ test('トーストの取り消すは履歴に別の操作が積まれると消�
 test('エラーのトーストは自動で消えず閉じる操作を持つ', () => {
   const run = harness();
   const previousDocument = globalThis.document;
-  const element = tag => ({ tag, children: [], removed: false,
+  const element = tag => ({ tag, dataset: {}, children: [], removed: false,
     append(...children) { this.children.push(...children); },
     get childElementCount() { return this.children.filter(child => child.tag && !child.removed).length; },
     setAttribute() {}, remove() { this.removed = true; },
@@ -184,13 +185,17 @@ test('エラーと成功は同じ積み重ねに並び、成功の取り消す�
   const oldDocument = globalThis.document, oldSetTimeout = globalThis.setTimeout;
   const oldClearTimeout = globalThis.clearTimeout;
   const scheduled = [], cleared = [], undoCalls = [];
-  const element = tag => ({ tag, className: '', children: [], removed: false, parent: null,
+  const element = tag => ({ tag, className: '', dataset: {}, children: [], removed: false, parent: null,
     append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } },
     querySelector(selector) {
       const descendants = node => (node.children ?? []).flatMap(child => [child, ...descendants(child)]);
       return descendants(this).find(child => selector === 'button' ? child.tag === 'button'
         : selector === '.akari-daihon-toast-stack' ? child.className === 'akari-daihon-toast-stack'
           : selector === '.akari-daihon-toast:not(.error)' && child.className === 'akari-daihon-toast');
+    },
+    querySelectorAll(selector) {
+      return this.children.filter(child => selector === '.akari-daihon-toast.error'
+        && child.className === 'akari-daihon-toast error');
     },
     get childElementCount() { return this.children.filter(child => child.tag).length; },
     setAttribute() {},

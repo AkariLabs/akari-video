@@ -27,7 +27,7 @@ test('commands forward optional requests after activating their widgets', () => 
 
 test('cut range opening is guarded by a valid range and otherwise explains the prerequisite', () => {
   const branch = method.slice(method.indexOf("case 'cutRange':"), method.indexOf('if (target.speaker'));
-  assert.match(branch, /if \(validWordRange\) this.openCutRangeEditorForSelection\(\);\s*else \{\s*this.notifyError\(/u);
+  assert.match(branch, /if \(validWordRange\) this.openCutRangeEditorForSelection\(\);\s*else \{\s*this.notify\(/u);
   assert.match(branch, /success = false/u);
   assert.equal([...branch.matchAll(/this\.openCutRangeEditor\w*\(/gu)].length, 1);
 });
