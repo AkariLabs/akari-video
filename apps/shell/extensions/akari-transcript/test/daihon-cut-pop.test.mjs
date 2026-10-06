@@ -38,8 +38,8 @@ const span = (kind, inside, range) => ({ rowId: 'row', kind, in: inside[0], out:
   sourceId: 'main', restoreRange: { in: range[0], out: range[1], captionId: 'main', kind: 'row' } });
 const edit = JSON.stringify({ version: 2, output: { width: 320, height: 180, fps: 30 },
   sources: [{ id: 'main', path: 'main.mp4' }], tracks: [{ id: 'visual', lane: 'visual', items: [
-    { id: 'clip', at: 0, duration: 30, source: { kind: 'media', src: 'main', in: 0, out: 1 } },
-    { id: 'clip-split', at: 30, duration: 30, source: { kind: 'media', src: 'main', in: 3, out: 4 } },
+    { id: 'clip', at: 0, duration: 30, label: '語', source: { kind: 'media', src: 'main', in: 0, out: 1 } },
+    { id: 'clip-split', at: 30, duration: 30, label: '語', source: { kind: 'media', src: 'main', in: 3, out: 4 } },
   ] }] });
 
 test('隣接する語をまとめて戻すポップは件数と実際の復元範囲を示す', () => {
@@ -76,7 +76,7 @@ test('動く見た目と後続編集も、それぞれの理由をポップに�
   source.tracks[0].items = [{ id: 'moving', at: 0, duration: 120,
     source: { kind: 'media', src: 'main', in: 0, out: 4 },
     keyframes: [{ t: 0, transform: { scale: 1 } }, { t: 120, transform: { scale: 2 } }] }];
-  const cut = { in: 1, out: 2, kind: 'row', captionId: 'main' };
+  const cut = { in: 1, out: 2, kind: 'row', captionId: 'main', label: '行' };
   const moving = applyCutRanges(JSON.stringify(source), [cut]).source;
   const selected = span('row', [1, 2], [1, 2]);
   const appearance = popup(moving, [selected], selected).children.find(child => child.label === '↩ 戻す');

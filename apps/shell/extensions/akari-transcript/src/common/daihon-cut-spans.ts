@@ -73,7 +73,9 @@ export function deriveDaihonCutSpans(
     sourceIdForRow: (row: DaihonRow) => string | null | undefined = row => row.src
 ): DaihonCutSpan[] {
     const spans: DaihonCutSpan[] = [];
-    const tolerance = 1 / fps + CUT_EPSILON;
+    const frame = 1 / fps;
+    const tolerance = frame + CUT_EPSILON;
+    const halfFrame = frame / 2 + CUT_EPSILON;
     const rowById = new Map(rows.map(row => [row.id, row]));
     for (const row of rows) {
         const sourceId = sourceIdForRow(row) ?? null;
@@ -87,6 +89,14 @@ export function deriveDaihonCutSpans(
             if (kind === 'silence' ? removedSeconds < 0.02
                 : removedSeconds <= CUT_EPSILON || keptSeconds > tolerance) return;
             const missing = missingRange(kept, start, end);
+            if (kind !== 'silence') {
+                if (!missing) return;
+                const length = end - start;
+                if (length <= frame + CUT_EPSILON) {
+                    const center = (start + end) / 2;
+                    if (missing.in > center + CUT_EPSILON || missing.out < center - CUT_EPSILON) return;
+                } else if (missing.in > start + halfFrame || missing.out < end - halfFrame) return;
+            }
             const restoreKind: CutRange['kind'] = kind === 'word' ? 'filler' : kind;
             const label = kind === 'row' ? '行' : kind === 'silence' ? '無音'
                 : kind === 'unrecognized' ? '??' : normalizeFillerWord(row.words?.[index ?? -1]?.text ?? '');

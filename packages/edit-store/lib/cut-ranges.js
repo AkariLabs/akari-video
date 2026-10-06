@@ -128,6 +128,9 @@ const SOURCE_TOLERANCE = 1e-5;
 function near(left, right) {
     return Math.abs(left - right) <= SOURCE_TOLERANCE;
 }
+function splitRootId(id) {
+    return id.replace(/(?:-split(?:-\d+)*)+$/, '');
+}
 function media(item) {
     return item.source.kind === 'media';
 }
@@ -200,8 +203,17 @@ function restoreOneTrack(edit, trackIndex, range) {
     const left = leftIndex === undefined ? undefined : items[leftIndex];
     const right = rightIndex === undefined ? undefined : items[rightIndex];
     if (!left || !right || leftIndex === undefined || rightIndex === undefined
-        || !right.id.startsWith(`${left.id}-split`))
+        || left.id === right.id || splitRootId(left.id) !== splitRootId(right.id)
+        || left.source.src !== right.source.src
+        || left.source.out > range.in + SOURCE_TOLERANCE
+        || right.source.in < range.out - SOURCE_TOLERANCE)
         return { reason: RESTORE_PROVENANCE };
+    const leftMeta = left;
+    const rightMeta = right;
+    if (leftMeta.reason === undefined && leftMeta.label === undefined
+        && rightMeta.reason === undefined && rightMeta.label === undefined) {
+        return { reason: RESTORE_PROVENANCE };
+    }
     if (rightIndex <= leftIndex || right.at !== left.at + left.duration)
         return {};
     if (hasTimedAppearance(left) || hasTimedAppearance(right)) {
@@ -225,17 +237,20 @@ function restoreOneTrack(edit, trackIndex, range) {
         const merged = structuredClone(left);
         merged.duration = left.duration + frames + right.duration;
         merged.source.out = right.source.out;
-        const leftMeta = left;
-        const rightMeta = right;
         const mergedMeta = merged;
-        if (leftMeta.reason === rightMeta.reason
-            || range.reason !== undefined && leftMeta.reason === range.reason)
-            delete mergedMeta.reason;
-        if (leftMeta.label === rightMeta.label
-            || range.label !== undefined && leftMeta.label === range.label)
-            delete mergedMeta.label;
+        if (leftMeta.reason !== undefined || rightMeta.reason !== undefined) {
+            mergedMeta.reason = leftMeta.reason ?? rightMeta.reason;
+        }
+        if (leftMeta.label !== undefined || rightMeta.label !== undefined) {
+            mergedMeta.label = leftMeta.label ?? rightMeta.label;
+        }
         target.splice(leftIndex, 1, merged);
         target.splice(rightIndex, 1);
+        if (!target.some((item, index) => index !== leftIndex && media(item)
+            && splitRootId(item.id) === splitRootId(merged.id))) {
+            delete mergedMeta.reason;
+            delete mergedMeta.label;
+        }
         for (let index = 0; index < target.length; index++) {
             if (index === leftIndex)
                 continue;
@@ -277,7 +292,7 @@ function restoreCutRange(source, range) {
         changed = true;
     }
     if (!changed)
-        return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+        return { source, restored: false, reason: RESTORE_PROVENANCE };
     (0, edit_v2_1.readEditV2)(restored);
     return { source: `${JSON.stringify(restored, null, 2)}\n`, restored: true };
 }

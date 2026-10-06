@@ -1,0 +1,2457 @@
+{
+  "summary": {
+    "total": 64,
+    "within": 60,
+    "supported": 60,
+    "supportedWithin": 60,
+    "outside": [
+      "typewriter-gradient-10",
+      "typewriter-gradient-25",
+      "typewriter-gradient-50",
+      "typewriter-gradient-90"
+    ],
+    "maxAbs": {
+      "dcx": 0.001834,
+      "dcy": 0.001339,
+      "dw": 0.001563,
+      "dh": 0.005556
+    },
+    "maxDifferencePixels": 0.023247,
+    "glitchMaxClipEdgeDifferencePx": 1
+  },
+  "tolerance": {
+    "centroid": 0.002,
+    "rectangle": 0.007
+  },
+  "captures": [
+    {
+      "name": "push-left",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "push-left",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.003165,
+        "cx": 0.702578,
+        "cy": 0.854554,
+        "w": 0.089063,
+        "h": 0.088889,
+        "top": 291,
+        "bottom": 322
+      },
+      "osr": {
+        "ink": 0.003253,
+        "cx": 0.703405,
+        "cy": 0.854861,
+        "w": 0.0875,
+        "h": 0.088889,
+        "top": 291,
+        "bottom": 322
+      },
+      "delta": {
+        "dcx": -0.000827,
+        "dcy": -0.000307,
+        "dw": 0.001563,
+        "dh": 0,
+        "inkRatio": 0.9729,
+        "differencePixels": 0.001549
+      },
+      "within": true
+    },
+    {
+      "name": "push-left",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.01454,
+        "cx": 0.535162,
+        "cy": 0.85322,
+        "w": 0.342187,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.014911,
+        "cx": 0.535399,
+        "cy": 0.853291,
+        "w": 0.342187,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": -0.000237,
+        "dcy": -0.000071,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9751,
+        "differencePixels": 0.001697
+      },
+      "within": true
+    },
+    {
+      "name": "push-left",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.014233,
+        "cx": 0.500261,
+        "cy": 0.853134,
+        "w": 0.34375,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.014884,
+        "cx": 0.500183,
+        "cy": 0.853317,
+        "w": 0.34375,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000078,
+        "dcy": -0.000183,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9563,
+        "differencePixels": 0.005069
+      },
+      "within": true
+    },
+    {
+      "name": "push-right",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "push-right",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.004188,
+        "cx": 0.300453,
+        "cy": 0.85503,
+        "w": 0.09375,
+        "h": 0.1,
+        "top": 289,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.004276,
+        "cx": 0.299257,
+        "cy": 0.854781,
+        "w": 0.092188,
+        "h": 0.1,
+        "top": 289,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": 0.001196,
+        "dcy": 0.000249,
+        "dw": 0.001562,
+        "dh": 0,
+        "inkRatio": 0.9794,
+        "differencePixels": 0.001541
+      },
+      "within": true
+    },
+    {
+      "name": "push-right",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.014585,
+        "cx": 0.459952,
+        "cy": 0.853329,
+        "w": 0.342187,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.014883,
+        "cx": 0.45975,
+        "cy": 0.853141,
+        "w": 0.342187,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000202,
+        "dcy": 0.000188,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.98,
+        "differencePixels": 0.001528
+      },
+      "within": true
+    },
+    {
+      "name": "push-right",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.014266,
+        "cx": 0.494621,
+        "cy": 0.853194,
+        "w": 0.34375,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.014848,
+        "cx": 0.494962,
+        "cy": 0.853161,
+        "w": 0.34375,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": -0.000341,
+        "dcy": 0.000033,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9608,
+        "differencePixels": 0.005217
+      },
+      "within": true
+    },
+    {
+      "name": "push-up",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "push-up",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.005521,
+        "cx": 0.521153,
+        "cy": 0.964573,
+        "w": 0.325,
+        "h": 0.044444,
+        "top": 340,
+        "bottom": 355
+      },
+      "osr": {
+        "ink": 0.005663,
+        "cx": 0.521153,
+        "cy": 0.9649,
+        "w": 0.325,
+        "h": 0.044444,
+        "top": 340,
+        "bottom": 355
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": -0.000327,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9749,
+        "differencePixels": 0.001445
+      },
+      "within": true
+    },
+    {
+      "name": "push-up",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.01211,
+        "cx": 0.510379,
+        "cy": 0.902419,
+        "w": 0.335938,
+        "h": 0.086111,
+        "top": 310,
+        "bottom": 340
+      },
+      "osr": {
+        "ink": 0.012694,
+        "cx": 0.510032,
+        "cy": 0.902678,
+        "w": 0.3375,
+        "h": 0.086111,
+        "top": 310,
+        "bottom": 340
+      },
+      "delta": {
+        "dcx": 0.000347,
+        "dcy": -0.000259,
+        "dw": -0.001562,
+        "dh": 0,
+        "inkRatio": 0.954,
+        "differencePixels": 0.004384
+      },
+      "within": true
+    },
+    {
+      "name": "push-up",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.013484,
+        "cx": 0.507696,
+        "cy": 0.854202,
+        "w": 0.339062,
+        "h": 0.094444,
+        "top": 291,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.013934,
+        "cx": 0.50795,
+        "cy": 0.854004,
+        "w": 0.339062,
+        "h": 0.097222,
+        "top": 290,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": -0.000254,
+        "dcy": 0.000198,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.9677,
+        "differencePixels": 0.003602
+      },
+      "within": true
+    },
+    {
+      "name": "push-down",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "push-down",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.003522,
+        "cx": 0.516545,
+        "cy": 0.733716,
+        "w": 0.31875,
+        "h": 0.033333,
+        "top": 257,
+        "bottom": 268
+      },
+      "osr": {
+        "ink": 0.003598,
+        "cx": 0.516251,
+        "cy": 0.73345,
+        "w": 0.31875,
+        "h": 0.030556,
+        "top": 258,
+        "bottom": 268
+      },
+      "delta": {
+        "dcx": 0.000294,
+        "dcy": 0.000266,
+        "dw": 0,
+        "dh": 0.002777,
+        "inkRatio": 0.9789,
+        "differencePixels": 0.001311
+      },
+      "within": true
+    },
+    {
+      "name": "push-down",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.009847,
+        "cx": 0.513607,
+        "cy": 0.795531,
+        "w": 0.323437,
+        "h": 0.072222,
+        "top": 273,
+        "bottom": 298
+      },
+      "osr": {
+        "ink": 0.010479,
+        "cx": 0.513626,
+        "cy": 0.79534,
+        "w": 0.325,
+        "h": 0.075,
+        "top": 272,
+        "bottom": 298
+      },
+      "delta": {
+        "dcx": -0.000019,
+        "dcy": 0.000191,
+        "dw": -0.001563,
+        "dh": -0.002778,
+        "inkRatio": 0.9397,
+        "differencePixels": 0.004379
+      },
+      "within": true
+    },
+    {
+      "name": "push-down",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.013542,
+        "cx": 0.507545,
+        "cy": 0.851239,
+        "w": 0.340625,
+        "h": 0.094444,
+        "top": 288,
+        "bottom": 321
+      },
+      "osr": {
+        "ink": 0.013951,
+        "cx": 0.507338,
+        "cy": 0.851153,
+        "w": 0.340625,
+        "h": 0.094444,
+        "top": 288,
+        "bottom": 321
+      },
+      "delta": {
+        "dcx": 0.000207,
+        "dcy": 0.000086,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9707,
+        "differencePixels": 0.003325
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-left",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-left",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.005249,
+        "cx": 0.631568,
+        "cy": 0.848249,
+        "w": 0.092188,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.005264,
+        "cx": 0.632357,
+        "cy": 0.848282,
+        "w": 0.092188,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": -0.000789,
+        "dcy": -0.000033,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9972,
+        "differencePixels": 0.000508
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-left",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.014921,
+        "cx": 0.512014,
+        "cy": 0.851156,
+        "w": 0.348438,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.015205,
+        "cx": 0.511891,
+        "cy": 0.851183,
+        "w": 0.346875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000123,
+        "dcy": -0.000027,
+        "dw": 0.001563,
+        "dh": 0.002778,
+        "inkRatio": 0.9813,
+        "differencePixels": 0.000577
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-left",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.014925,
+        "cx": 0.511985,
+        "cy": 0.851163,
+        "w": 0.348438,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.015205,
+        "cx": 0.511891,
+        "cy": 0.851184,
+        "w": 0.346875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000094,
+        "dcy": -0.000021,
+        "dw": 0.001563,
+        "dh": 0.002778,
+        "inkRatio": 0.9816,
+        "differencePixels": 0.000556
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-right",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-right",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.003465,
+        "cx": 0.361817,
+        "cy": 0.852907,
+        "w": 0.092188,
+        "h": 0.1,
+        "top": 289,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.003502,
+        "cx": 0.361405,
+        "cy": 0.852978,
+        "w": 0.090625,
+        "h": 0.102778,
+        "top": 289,
+        "bottom": 325
+      },
+      "delta": {
+        "dcx": 0.000412,
+        "dcy": -0.000071,
+        "dw": 0.001563,
+        "dh": -0.002778,
+        "inkRatio": 0.9894,
+        "differencePixels": 0.000356
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-right",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.014926,
+        "cx": 0.511625,
+        "cy": 0.851039,
+        "w": 0.346875,
+        "h": 0.1,
+        "top": 289,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.015216,
+        "cx": 0.511486,
+        "cy": 0.851067,
+        "w": 0.348438,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": 0.000139,
+        "dcy": -0.000028,
+        "dw": -0.001563,
+        "dh": -0.002778,
+        "inkRatio": 0.9809,
+        "differencePixels": 0.000681
+      },
+      "within": true
+    },
+    {
+      "name": "wipe-right",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.014934,
+        "cx": 0.511693,
+        "cy": 0.851049,
+        "w": 0.346875,
+        "h": 0.1,
+        "top": 289,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.01522,
+        "cx": 0.511518,
+        "cy": 0.85107,
+        "w": 0.348438,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": 0.000175,
+        "dcy": -0.000021,
+        "dw": -0.001563,
+        "dh": -0.002778,
+        "inkRatio": 0.9812,
+        "differencePixels": 0.000634
+      },
+      "within": true
+    },
+    {
+      "name": "swing",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0.003518,
+        "cx": 0.49397,
+        "cy": 0.850204,
+        "w": 0.285938,
+        "h": 0.147222,
+        "top": 280,
+        "bottom": 332
+      },
+      "osr": {
+        "ink": 0.00374,
+        "cx": 0.495625,
+        "cy": 0.850579,
+        "w": 0.284375,
+        "h": 0.147222,
+        "top": 280,
+        "bottom": 332
+      },
+      "delta": {
+        "dcx": -0.001655,
+        "dcy": -0.000375,
+        "dw": 0.001563,
+        "dh": 0,
+        "inkRatio": 0.9406,
+        "differencePixels": 0.000864
+      },
+      "within": true
+    },
+    {
+      "name": "swing",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.008435,
+        "cx": 0.501532,
+        "cy": 0.851026,
+        "w": 0.290625,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.008751,
+        "cx": 0.500763,
+        "cy": 0.851049,
+        "w": 0.290625,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": 0.000769,
+        "dcy": -0.000023,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9639,
+        "differencePixels": 0.000924
+      },
+      "within": true
+    },
+    {
+      "name": "swing",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.012843,
+        "cx": 0.5063,
+        "cy": 0.850423,
+        "w": 0.289063,
+        "h": 0.136111,
+        "top": 282,
+        "bottom": 330
+      },
+      "osr": {
+        "ink": 0.01303,
+        "cx": 0.506079,
+        "cy": 0.850349,
+        "w": 0.289063,
+        "h": 0.136111,
+        "top": 282,
+        "bottom": 330
+      },
+      "delta": {
+        "dcx": 0.000221,
+        "dcy": 0.000074,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9856,
+        "differencePixels": 0.00372
+      },
+      "within": true
+    },
+    {
+      "name": "swing",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.013532,
+        "cx": 0.502591,
+        "cy": 0.850981,
+        "w": 0.290625,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "osr": {
+        "ink": 0.013756,
+        "cx": 0.502407,
+        "cy": 0.850859,
+        "w": 0.290625,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": 0.000184,
+        "dcy": 0.000122,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9837,
+        "differencePixels": 0.002409
+      },
+      "within": true
+    },
+    {
+      "name": "glitch",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0.004274,
+        "cx": 0.515459,
+        "cy": 0.836722,
+        "w": 0.285938,
+        "h": 0.066667,
+        "top": 288,
+        "bottom": 311
+      },
+      "osr": {
+        "ink": 0.004482,
+        "cx": 0.513792,
+        "cy": 0.836439,
+        "w": 0.285938,
+        "h": 0.066667,
+        "top": 288,
+        "bottom": 311
+      },
+      "delta": {
+        "dcx": 0.001667,
+        "dcy": 0.000283,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9536,
+        "differencePixels": 0.001224
+      },
+      "within": true
+    },
+    {
+      "name": "glitch",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.010418,
+        "cx": 0.519853,
+        "cy": 0.851906,
+        "w": 0.2875,
+        "h": 0.086111,
+        "top": 292,
+        "bottom": 322
+      },
+      "osr": {
+        "ink": 0.010844,
+        "cx": 0.518808,
+        "cy": 0.851615,
+        "w": 0.2875,
+        "h": 0.086111,
+        "top": 292,
+        "bottom": 322
+      },
+      "delta": {
+        "dcx": 0.001045,
+        "dcy": 0.000291,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9607,
+        "differencePixels": 0.004405
+      },
+      "within": true
+    },
+    {
+      "name": "glitch",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.007762,
+        "cx": 0.513929,
+        "cy": 0.83497,
+        "w": 0.285938,
+        "h": 0.063889,
+        "top": 288,
+        "bottom": 310
+      },
+      "osr": {
+        "ink": 0.007868,
+        "cx": 0.513259,
+        "cy": 0.83483,
+        "w": 0.2875,
+        "h": 0.063889,
+        "top": 288,
+        "bottom": 310
+      },
+      "delta": {
+        "dcx": 0.00067,
+        "dcy": 0.00014,
+        "dw": -0.001562,
+        "dh": 0,
+        "inkRatio": 0.9865,
+        "differencePixels": 0.001602
+      },
+      "within": true
+    },
+    {
+      "name": "glitch",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.011606,
+        "cx": 0.515713,
+        "cy": 0.849893,
+        "w": 0.2875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.012058,
+        "cx": 0.514791,
+        "cy": 0.849949,
+        "w": 0.2875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000922,
+        "dcy": -0.000056,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9625,
+        "differencePixels": 0.003689
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.002458,
+        "cx": 0.32212,
+        "cy": 0.852254,
+        "w": 0.05625,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.002535,
+        "cx": 0.322019,
+        "cy": 0.852571,
+        "w": 0.05625,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000101,
+        "dcy": -0.000317,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9696,
+        "differencePixels": 0.000286
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.008344,
+        "cx": 0.386633,
+        "cy": 0.850922,
+        "w": 0.171875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.00852,
+        "cx": 0.386426,
+        "cy": 0.851065,
+        "w": 0.173437,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000207,
+        "dcy": -0.000143,
+        "dw": -0.001562,
+        "dh": 0,
+        "inkRatio": 0.9793,
+        "differencePixels": 0.000634
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.015075,
+        "cx": 0.467325,
+        "cy": 0.850103,
+        "w": 0.346875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.015355,
+        "cx": 0.467075,
+        "cy": 0.8502,
+        "w": 0.348438,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.00025,
+        "dcy": -0.000097,
+        "dw": -0.001563,
+        "dh": 0,
+        "inkRatio": 0.9818,
+        "differencePixels": 0.000964
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-out",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0.021131,
+        "cx": 0.507873,
+        "cy": 0.850487,
+        "w": 0.4625,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.021346,
+        "cx": 0.507981,
+        "cy": 0.850469,
+        "w": 0.4625,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": -0.000108,
+        "dcy": 0.000018,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.9899,
+        "differencePixels": 0.000734
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-out",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.021131,
+        "cx": 0.507873,
+        "cy": 0.850487,
+        "w": 0.4625,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.021351,
+        "cx": 0.507997,
+        "cy": 0.850463,
+        "w": 0.4625,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": -0.000124,
+        "dcy": 0.000024,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.9897,
+        "differencePixels": 0.000738
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-out",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.021131,
+        "cx": 0.507873,
+        "cy": 0.850487,
+        "w": 0.4625,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.021351,
+        "cx": 0.507997,
+        "cy": 0.850463,
+        "w": 0.4625,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": -0.000124,
+        "dcy": 0.000024,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.9897,
+        "differencePixels": 0.000738
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-out",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.015981,
+        "cx": 0.56733,
+        "cy": 0.850826,
+        "w": 0.345313,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.016153,
+        "cx": 0.567495,
+        "cy": 0.850783,
+        "w": 0.345313,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": -0.000165,
+        "dcy": 0.000043,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9894,
+        "differencePixels": 0.000694
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-both",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": {
+        "dcx": 0,
+        "dcy": 0,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 1,
+        "differencePixels": 0
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-both",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.00518,
+        "cx": 0.323121,
+        "cy": 0.849129,
+        "w": 0.114062,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.005255,
+        "cx": 0.322764,
+        "cy": 0.849356,
+        "w": 0.114062,
+        "h": 0.102778,
+        "top": 288,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": 0.000357,
+        "dcy": -0.000227,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.9857,
+        "differencePixels": 0.000464
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-both",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.007565,
+        "cx": 0.350716,
+        "cy": 0.849227,
+        "w": 0.171875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.007656,
+        "cx": 0.35043,
+        "cy": 0.849316,
+        "w": 0.171875,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000286,
+        "dcy": -0.000089,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9881,
+        "differencePixels": 0.00072
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-both",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.010184,
+        "cx": 0.513996,
+        "cy": 0.851967,
+        "w": 0.285938,
+        "h": 0.097222,
+        "top": 289,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.010351,
+        "cx": 0.513917,
+        "cy": 0.852033,
+        "w": 0.285938,
+        "h": 0.1,
+        "top": 289,
+        "bottom": 324
+      },
+      "delta": {
+        "dcx": 0.000079,
+        "dcy": -0.000066,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.9839,
+        "differencePixels": 0.001389
+      },
+      "within": true
+    },
+    {
+      "name": "stroke-inner",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0.01498,
+        "cx": 0.493025,
+        "cy": 0.861365,
+        "w": 0.345313,
+        "h": 0.111111,
+        "top": 290,
+        "bottom": 329
+      },
+      "osr": {
+        "ink": 0.014781,
+        "cx": 0.492975,
+        "cy": 0.860295,
+        "w": 0.345313,
+        "h": 0.113889,
+        "top": 289,
+        "bottom": 329
+      },
+      "delta": {
+        "dcx": 0.00005,
+        "dcy": 0.00107,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 1.0135,
+        "differencePixels": 0.016272
+      },
+      "within": true
+    },
+    {
+      "name": "stroke-inner",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.026419,
+        "cx": 0.493287,
+        "cy": 0.852825,
+        "w": 0.345313,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.027178,
+        "cx": 0.492788,
+        "cy": 0.852027,
+        "w": 0.345313,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "delta": {
+        "dcx": 0.000499,
+        "dcy": 0.000798,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9721,
+        "differencePixels": 0.023242
+      },
+      "within": true
+    },
+    {
+      "name": "stroke-inner",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.026637,
+        "cx": 0.493201,
+        "cy": 0.852673,
+        "w": 0.345313,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.027178,
+        "cx": 0.492789,
+        "cy": 0.852028,
+        "w": 0.345313,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "delta": {
+        "dcx": 0.000412,
+        "dcy": 0.000645,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9801,
+        "differencePixels": 0.020938
+      },
+      "within": true
+    },
+    {
+      "name": "stroke-inner",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.026637,
+        "cx": 0.493201,
+        "cy": 0.852674,
+        "w": 0.345313,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.027179,
+        "cx": 0.492789,
+        "cy": 0.852028,
+        "w": 0.345313,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "delta": {
+        "dcx": 0.000412,
+        "dcy": 0.000646,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9801,
+        "differencePixels": 0.020924
+      },
+      "within": true
+    },
+    {
+      "name": "fill-gradient",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0.005576,
+        "cx": 0.496407,
+        "cy": 0.859789,
+        "w": 0.34375,
+        "h": 0.094444,
+        "top": 293,
+        "bottom": 326
+      },
+      "osr": {
+        "ink": 0.00585,
+        "cx": 0.494573,
+        "cy": 0.85845,
+        "w": 0.342187,
+        "h": 0.097222,
+        "top": 292,
+        "bottom": 326
+      },
+      "delta": {
+        "dcx": 0.001834,
+        "dcy": 0.001339,
+        "dw": 0.001563,
+        "dh": -0.002778,
+        "inkRatio": 0.9532,
+        "differencePixels": 0.006849
+      },
+      "within": true
+    },
+    {
+      "name": "fill-gradient",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.010509,
+        "cx": 0.495417,
+        "cy": 0.850835,
+        "w": 0.345313,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.010904,
+        "cx": 0.494646,
+        "cy": 0.850133,
+        "w": 0.34375,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000771,
+        "dcy": 0.000702,
+        "dw": 0.001563,
+        "dh": 0,
+        "inkRatio": 0.9638,
+        "differencePixels": 0.010625
+      },
+      "within": true
+    },
+    {
+      "name": "fill-gradient",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.010764,
+        "cx": 0.495705,
+        "cy": 0.850746,
+        "w": 0.345313,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.010964,
+        "cx": 0.49474,
+        "cy": 0.850146,
+        "w": 0.34375,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000965,
+        "dcy": 0.0006,
+        "dw": 0.001563,
+        "dh": 0,
+        "inkRatio": 0.9818,
+        "differencePixels": 0.008976
+      },
+      "within": true
+    },
+    {
+      "name": "fill-gradient",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.010764,
+        "cx": 0.495705,
+        "cy": 0.850746,
+        "w": 0.345313,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.010961,
+        "cx": 0.49473,
+        "cy": 0.850153,
+        "w": 0.34375,
+        "h": 0.1,
+        "top": 288,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": 0.000975,
+        "dcy": 0.000593,
+        "dw": 0.001563,
+        "dh": 0,
+        "inkRatio": 0.982,
+        "differencePixels": 0.008945
+      },
+      "within": true
+    },
+    {
+      "name": "extrude",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0.009692,
+        "cx": 0.510785,
+        "cy": 0.862193,
+        "w": 0.35,
+        "h": 0.1,
+        "top": 292,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.009999,
+        "cx": 0.509975,
+        "cy": 0.861665,
+        "w": 0.35,
+        "h": 0.105556,
+        "top": 292,
+        "bottom": 329
+      },
+      "delta": {
+        "dcx": 0.00081,
+        "dcy": 0.000528,
+        "dw": 0,
+        "dh": -0.005556,
+        "inkRatio": 0.9693,
+        "differencePixels": 0.009588
+      },
+      "within": true
+    },
+    {
+      "name": "extrude",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.01808,
+        "cx": 0.510151,
+        "cy": 0.853546,
+        "w": 0.351563,
+        "h": 0.108333,
+        "top": 289,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.018436,
+        "cx": 0.509637,
+        "cy": 0.853157,
+        "w": 0.353125,
+        "h": 0.111111,
+        "top": 288,
+        "bottom": 327
+      },
+      "delta": {
+        "dcx": 0.000514,
+        "dcy": 0.000389,
+        "dw": -0.001562,
+        "dh": -0.002778,
+        "inkRatio": 0.9807,
+        "differencePixels": 0.012604
+      },
+      "within": true
+    },
+    {
+      "name": "extrude",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.018312,
+        "cx": 0.509971,
+        "cy": 0.853379,
+        "w": 0.353125,
+        "h": 0.108333,
+        "top": 289,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.018557,
+        "cx": 0.509675,
+        "cy": 0.853133,
+        "w": 0.353125,
+        "h": 0.111111,
+        "top": 288,
+        "bottom": 327
+      },
+      "delta": {
+        "dcx": 0.000296,
+        "dcy": 0.000246,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.9868,
+        "differencePixels": 0.010577
+      },
+      "within": true
+    },
+    {
+      "name": "extrude",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.018313,
+        "cx": 0.50997,
+        "cy": 0.853378,
+        "w": 0.353125,
+        "h": 0.108333,
+        "top": 289,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.018554,
+        "cx": 0.509681,
+        "cy": 0.853131,
+        "w": 0.353125,
+        "h": 0.111111,
+        "top": 288,
+        "bottom": 327
+      },
+      "delta": {
+        "dcx": 0.000289,
+        "dcy": 0.000247,
+        "dw": 0,
+        "dh": -0.002778,
+        "inkRatio": 0.987,
+        "differencePixels": 0.010582
+      },
+      "within": true
+    },
+    {
+      "name": "glitch-stroke",
+      "phase": "10",
+      "frame": 2,
+      "gpu": {
+        "ink": 0.009447,
+        "cx": 0.490716,
+        "cy": 0.834206,
+        "w": 0.351563,
+        "h": 0.072222,
+        "top": 286,
+        "bottom": 311
+      },
+      "osr": {
+        "ink": 0.009663,
+        "cx": 0.490784,
+        "cy": 0.833597,
+        "w": 0.351563,
+        "h": 0.072222,
+        "top": 286,
+        "bottom": 311
+      },
+      "delta": {
+        "dcx": -0.000068,
+        "dcy": 0.000609,
+        "dw": 0,
+        "dh": 0,
+        "inkRatio": 0.9776,
+        "differencePixels": 0.01115
+      },
+      "within": true
+    },
+    {
+      "name": "glitch-stroke",
+      "phase": "25",
+      "frame": 5,
+      "gpu": {
+        "ink": 0.021982,
+        "cx": 0.502496,
+        "cy": 0.854347,
+        "w": 0.357812,
+        "h": 0.088889,
+        "top": 292,
+        "bottom": 323
+      },
+      "osr": {
+        "ink": 0.022602,
+        "cx": 0.502861,
+        "cy": 0.854013,
+        "w": 0.359375,
+        "h": 0.088889,
+        "top": 292,
+        "bottom": 323
+      },
+      "delta": {
+        "dcx": -0.000365,
+        "dcy": 0.000334,
+        "dw": -0.001563,
+        "dh": 0,
+        "inkRatio": 0.9726,
+        "differencePixels": 0.019201
+      },
+      "within": true
+    },
+    {
+      "name": "glitch-stroke",
+      "phase": "50",
+      "frame": 9,
+      "gpu": {
+        "ink": 0.016076,
+        "cx": 0.490155,
+        "cy": 0.832862,
+        "w": 0.351563,
+        "h": 0.072222,
+        "top": 286,
+        "bottom": 311
+      },
+      "osr": {
+        "ink": 0.016481,
+        "cx": 0.490046,
+        "cy": 0.832466,
+        "w": 0.353125,
+        "h": 0.072222,
+        "top": 286,
+        "bottom": 311
+      },
+      "delta": {
+        "dcx": 0.000109,
+        "dcy": 0.000396,
+        "dw": -0.001562,
+        "dh": 0,
+        "inkRatio": 0.9754,
+        "differencePixels": 0.011523
+      },
+      "within": true
+    },
+    {
+      "name": "glitch-stroke",
+      "phase": "90",
+      "frame": 16,
+      "gpu": {
+        "ink": 0.026293,
+        "cx": 0.493216,
+        "cy": 0.852771,
+        "w": 0.35625,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "osr": {
+        "ink": 0.026902,
+        "cx": 0.493102,
+        "cy": 0.852312,
+        "w": 0.357812,
+        "h": 0.116667,
+        "top": 286,
+        "bottom": 327
+      },
+      "delta": {
+        "dcx": 0.000114,
+        "dcy": 0.000459,
+        "dw": -0.001562,
+        "dh": 0,
+        "inkRatio": 0.9774,
+        "differencePixels": 0.023247
+      },
+      "within": true
+    },
+    {
+      "name": "typewriter-gradient",
+      "phase": "10",
+      "frame": 2,
+      "gpu": null,
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": null,
+      "within": false,
+      "unsupportedReason": "caption-typewriter-gradient-osr-empty"
+    },
+    {
+      "name": "typewriter-gradient",
+      "phase": "25",
+      "frame": 5,
+      "gpu": null,
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": null,
+      "within": false,
+      "unsupportedReason": "caption-typewriter-gradient-osr-empty"
+    },
+    {
+      "name": "typewriter-gradient",
+      "phase": "50",
+      "frame": 9,
+      "gpu": null,
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": null,
+      "within": false,
+      "unsupportedReason": "caption-typewriter-gradient-osr-empty"
+    },
+    {
+      "name": "typewriter-gradient",
+      "phase": "90",
+      "frame": 16,
+      "gpu": null,
+      "osr": {
+        "ink": 0,
+        "cx": 0,
+        "cy": 0,
+        "w": 0,
+        "h": 0,
+        "top": null,
+        "bottom": null
+      },
+      "delta": null,
+      "within": false,
+      "unsupportedReason": "caption-typewriter-gradient-osr-empty"
+    }
+  ],
+  "glitches": [
+    {
+      "name": "glitch",
+      "frame": 0,
+      "gpuTop": null,
+      "osrTop": null,
+      "gpuBottom": null,
+      "osrBottom": null,
+      "topDifferencePx": null,
+      "bottomDifferencePx": null
+    },
+    {
+      "name": "glitch",
+      "frame": 1,
+      "gpuTop": 290,
+      "osrTop": 289,
+      "gpuBottom": 305,
+      "osrBottom": 305,
+      "topDifferencePx": 1,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 2,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 311,
+      "osrBottom": 311,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 3,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 316,
+      "osrBottom": 316,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 4,
+      "gpuTop": 291,
+      "osrTop": 291,
+      "gpuBottom": 320,
+      "osrBottom": 320,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 5,
+      "gpuTop": 292,
+      "osrTop": 292,
+      "gpuBottom": 322,
+      "osrBottom": 322,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 6,
+      "gpuTop": 290,
+      "osrTop": 290,
+      "gpuBottom": 320,
+      "osrBottom": 320,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 7,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 316,
+      "osrBottom": 316,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 8,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 312,
+      "osrBottom": 312,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 9,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 310,
+      "osrBottom": 310,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 10,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 308,
+      "osrBottom": 308,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 11,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 309,
+      "osrBottom": 309,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 12,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 314,
+      "osrBottom": 314,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 13,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 320,
+      "osrBottom": 320,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 14,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 323,
+      "osrBottom": 323,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 15,
+      "gpuTop": 288,
+      "osrTop": 289,
+      "gpuBottom": 323,
+      "osrBottom": 323,
+      "topDifferencePx": -1,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 16,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 323,
+      "osrBottom": 323,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 17,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 323,
+      "osrBottom": 323,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch",
+      "frame": 18,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 323,
+      "osrBottom": 323,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 0,
+      "gpuTop": null,
+      "osrTop": null,
+      "gpuBottom": null,
+      "osrBottom": null,
+      "topDifferencePx": null,
+      "bottomDifferencePx": null
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 1,
+      "gpuTop": 288,
+      "osrTop": 287,
+      "gpuBottom": 305,
+      "osrBottom": 305,
+      "topDifferencePx": 1,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 2,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 311,
+      "osrBottom": 311,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 3,
+      "gpuTop": 288,
+      "osrTop": 288,
+      "gpuBottom": 317,
+      "osrBottom": 316,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 1
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 4,
+      "gpuTop": 291,
+      "osrTop": 290,
+      "gpuBottom": 320,
+      "osrBottom": 320,
+      "topDifferencePx": 1,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 5,
+      "gpuTop": 292,
+      "osrTop": 292,
+      "gpuBottom": 323,
+      "osrBottom": 323,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 6,
+      "gpuTop": 290,
+      "osrTop": 290,
+      "gpuBottom": 321,
+      "osrBottom": 321,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 7,
+      "gpuTop": 287,
+      "osrTop": 286,
+      "gpuBottom": 317,
+      "osrBottom": 317,
+      "topDifferencePx": 1,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 8,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 313,
+      "osrBottom": 313,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 9,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 311,
+      "osrBottom": 311,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 10,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 309,
+      "osrBottom": 309,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 11,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 309,
+      "osrBottom": 309,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 12,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 315,
+      "osrBottom": 315,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 13,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 321,
+      "osrBottom": 321,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 14,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 325,
+      "osrBottom": 325,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 15,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 327,
+      "osrBottom": 327,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 16,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 327,
+      "osrBottom": 327,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 17,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 327,
+      "osrBottom": 327,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    },
+    {
+      "name": "glitch-stroke",
+      "frame": 18,
+      "gpuTop": 286,
+      "osrTop": 286,
+      "gpuBottom": 327,
+      "osrBottom": 327,
+      "topDifferencePx": 0,
+      "bottomDifferencePx": 0
+    }
+  ],
+  "typewriter": {
+    "gpu": {
+      "graphemes": 7,
+      "estimatedVisibleAt50": 3,
+      "inkFractionAt50": 0.4487
+    },
+    "osr": {
+      "graphemes": 7,
+      "estimatedVisibleAt50": 3,
+      "inkFractionAt50": 0.4502
+    }
+  },
+  "owner": {
+    "name": "owner",
+    "requestedEngine": "auto",
+    "lintExit": 0,
+    "planExit": 0,
+    "planSelectedEngine": "gpu",
+    "planGpu": true,
+    "planIneligibleWarning": false,
+    "planTail": [
+      "PLAN: exports/owner.mp4 (11s)"
+    ],
+    "exit": 0,
+    "seconds": 4,
+    "selectedEngine": "gpu",
+    "ineligibleWarning": false
+  },
+  "unsupportedExport": [
+    {
+      "name": "typewriter-gradient",
+      "requestedEngine": "gpu",
+      "exit": 1,
+      "seconds": 0,
+      "error": "render-cut refused: GPU export is ineligible: caption:typewriter-gradient:caption-typewriter-gradient-osr-empty\n\n"
+    }
+  ],
+  "sheets": [
+    {
+      "file": "sheet-10.png",
+      "bytes": 87212
+    },
+    {
+      "file": "sheet-25.png",
+      "bytes": 134823
+    },
+    {
+      "file": "sheet-50.png",
+      "bytes": 182002
+    },
+    {
+      "file": "sheet-90.png",
+      "bytes": 197211
+    }
+  ]
+}

@@ -109,6 +109,19 @@ test('フレーム外の ?? と接した行全体もカット済みとして残�
   assert.notEqual(shortIntact[0].outStart, null);
 });
 
+test('カットの前後にある 20〜60 ms の語は中心が残っていれば取り消し線を付けない', () => {
+  const cut = applyCutRanges(sourceEdit(), [{ in: 1.005, out: 1.995, kind: 'filler', captionId: 'a' }]);
+  const segments = timelineOf(cut.source);
+  for (const length of [0.02, 0.03, 0.04, 0.06]) {
+    const words = [{ text: '前', start: 1.005 - length, end: 1.005 },
+      { text: '切る', start: 1.005, end: 1.995 },
+      { text: '後', start: 1.995, end: 1.995 + length }];
+    const rows = buildDaihonRows([caption('short-neighbor', 'a', 0, 3, words)], segments, 30);
+    const spans = deriveDaihonCutSpans(rows, [], segments, 30);
+    assert.deepEqual(spans.filter(span => span.kind === 'word').map(span => span.index), [1], `${length} 秒`);
+  }
+});
+
 test('素材解決の callback と、隣接カットをまとめて戻す影響範囲を使う', () => {
   const rows = buildDaihonRows([caption('one', null, 0, 4, [
     { text: '甲', start: 1, end: 2 }, { text: '乙', start: 2, end: 3 },

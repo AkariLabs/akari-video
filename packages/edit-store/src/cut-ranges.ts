@@ -172,6 +172,10 @@ function near(left: number, right: number): boolean {
     return Math.abs(left - right) <= SOURCE_TOLERANCE;
 }
 
+function splitRootId(id: string): string {
+    return id.replace(/(?:-split(?:-\d+)*)+$/, '');
+}
+
 function media(item: ItemV2): item is MediaItemV2 {
     return item.source.kind === 'media';
 }
@@ -244,7 +248,16 @@ function restoreOneTrack(
     const left = leftIndex === undefined ? undefined : items[leftIndex] as MediaItemV2;
     const right = rightIndex === undefined ? undefined : items[rightIndex] as MediaItemV2;
     if (!left || !right || leftIndex === undefined || rightIndex === undefined
-        || !right.id.startsWith(`${left.id}-split`)) return { reason: RESTORE_PROVENANCE };
+        || left.id === right.id || splitRootId(left.id) !== splitRootId(right.id)
+        || left.source.src !== right.source.src
+        || left.source.out > range.in + SOURCE_TOLERANCE
+        || right.source.in < range.out - SOURCE_TOLERANCE) return { reason: RESTORE_PROVENANCE };
+    const leftMeta = left as MediaItemV2 & { reason?: string; label?: string };
+    const rightMeta = right as MediaItemV2 & { reason?: string; label?: string };
+    if (leftMeta.reason === undefined && leftMeta.label === undefined
+        && rightMeta.reason === undefined && rightMeta.label === undefined) {
+        return { reason: RESTORE_PROVENANCE };
+    }
     if (rightIndex <= leftIndex || right.at !== left.at + left.duration) return {};
     if (hasTimedAppearance(left) || hasTimedAppearance(right)) {
         return { reason: RESTORE_APPEARANCE };
@@ -266,15 +279,20 @@ function restoreOneTrack(
         const merged = structuredClone(left);
         merged.duration = left.duration + frames + right.duration;
         merged.source.out = right.source.out;
-        const leftMeta = left as MediaItemV2 & { reason?: string; label?: string };
-        const rightMeta = right as MediaItemV2 & { reason?: string; label?: string };
         const mergedMeta = merged as MediaItemV2 & { reason?: string; label?: string };
-        if (leftMeta.reason === rightMeta.reason
-            || range.reason !== undefined && leftMeta.reason === range.reason) delete mergedMeta.reason;
-        if (leftMeta.label === rightMeta.label
-            || range.label !== undefined && leftMeta.label === range.label) delete mergedMeta.label;
+        if (leftMeta.reason !== undefined || rightMeta.reason !== undefined) {
+            mergedMeta.reason = leftMeta.reason ?? rightMeta.reason;
+        }
+        if (leftMeta.label !== undefined || rightMeta.label !== undefined) {
+            mergedMeta.label = leftMeta.label ?? rightMeta.label;
+        }
         target.splice(leftIndex, 1, merged);
         target.splice(rightIndex, 1);
+        if (!target.some((item, index) => index !== leftIndex && media(item)
+            && splitRootId(item.id) === splitRootId(merged.id))) {
+            delete mergedMeta.reason;
+            delete mergedMeta.label;
+        }
         for (let index = 0; index < target.length; index++) {
             if (index === leftIndex) continue;
             const item = target[index];
@@ -313,7 +331,7 @@ export function restoreCutRange(
         restored.tracks[index] = next.track;
         changed = true;
     }
-    if (!changed) return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+    if (!changed) return { source, restored: false, reason: RESTORE_PROVENANCE };
     readEditV2(restored);
     return { source: `${JSON.stringify(restored, null, 2)}\n`, restored: true };
 }

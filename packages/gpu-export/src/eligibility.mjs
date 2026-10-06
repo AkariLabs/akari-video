@@ -290,10 +290,7 @@ const DOM_LAYER_CONDITIONS = new Set(["css-3d-transform", "animation-timing", "a
 const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
 const COMPOSITE_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing", "css-3d-transform", "advanced-css"]);
 
-const UNSUPPORTED_MOTIONS = new Set([
-  "push-left", "push-right", "push-up", "push-down", "typewriter", "wipe-left", "wipe-right",
-  "glitch", "swing",
-]);
+const UNSUPPORTED_MOTIONS = new Set();
 
 const SUPPORTED_WORD_STYLES = new Set(["karaoke", "pop", "reveal", "reveal-word"]);
 const GEOMETRY_EMPHASIS_STYLES = new Set(["one-char-bang", "one-char-jumble", "size-pulse"]);
@@ -404,12 +401,6 @@ export function evaluateGpuEligibility({
       entries.push(entry('caption', id, 'unsupported', `caption-font-unavailable:${unavailableFont}`, ['text_style.font_family']));
       continue;
     }
-    const richLooks = ["stroke_inner", "fill_gradient", "extrude"]
-      .filter((name) => textStyle?.[name] != null);
-    if (richLooks.length > 0) {
-      entries.push(entry("caption", id, "unsupported", `caption-rich-look-${richLooks[0]}-unsupported`, richLooks));
-      continue;
-    }
     const karaoke = inheritedTextStyle?.karaoke || cue?.text_style?.karaoke
       ? { ...(inheritedTextStyle?.karaoke ?? {}), ...(cue?.text_style?.karaoke ?? {}) } : null;
     if (style === 'karaoke' && karaoke?.fill !== undefined
@@ -418,6 +409,12 @@ export function evaluateGpuEligibility({
       continue;
     }
     const animation = textStyle?.animation ?? null;
+    if (textStyle?.fill_gradient && !textStyle?.fill
+        && [animation?.in?.id, animation?.out?.id].includes('typewriter')) {
+      entries.push(entry('caption', id, 'unsupported', 'caption-typewriter-gradient-osr-empty',
+        ['text_style.animation', 'text_style.fill_gradient']));
+      continue;
+    }
     const motionSupport = isCaptionMotionSupported(animation);
     if (!motionSupport.supported) {
       const reason = motionSupport.unsupported[0] === 'typewriter'
