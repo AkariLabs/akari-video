@@ -8,12 +8,18 @@ const ts = require('typescript');
 const { initialDaihonCutReview, reviewCandidates, setCutDecision, setKindDecision, willCut,
   confirmDaihonCutReview } = require('../lib/common/daihon-cut-review.js');
 const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+const contributionSource = readFileSync(new URL('../src/browser/daihon/akari-daihon-contribution.ts', import.meta.url), 'utf8');
 const openStart = source.indexOf('    async openCutDialog(');
 const historyStart = source.indexOf('    protected async withHistory(');
 assert.ok(openStart >= 0 && historyStart >= 0);
 const openMethod = source.slice(openStart, source.indexOf('    protected openTplPicker(', openStart));
 const historyMethod = source.slice(historyStart, source.indexOf('    protected async applyWordPreset(', historyStart));
 const compiled = ts.transpileModule(`class CutHarness { ${openMethod} ${historyMethod} }`, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 }
+}).outputText;
+const contributionMethod = contributionSource.slice(contributionSource.indexOf('    async openCuts('),
+  contributionSource.indexOf('    async open(target?', contributionSource.indexOf('    async openCuts(')));
+const compiledContribution = ts.transpileModule(`class ContributionHarness { ${contributionMethod} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText;
 
@@ -25,7 +31,7 @@ const candidates = [
   { id: 'unrecognized:b:0', kind: 'unrecognized', start: 2.3, end: 2.5, text: '??', rowId: 'b', sourceId: 'source-1' }
 ];
 
-function harness() {
+function harness(neverClose = false) {
   let dialog, writes = 0, reloads = 0, edit = 'before';
   const history = [];
   class Dialog {
@@ -36,7 +42,7 @@ function harness() {
       this.updateSilence = updateSilence;
       this.state = initialDaihonCutReview();
     }
-    async open() {}
+    async open() { if (neverClose) return new Promise(() => {}); }
     close() { this.closed = true; }
     setKind(kind, enabled) { this.state.kinds[kind] = enabled; }
     toggle(candidate, cut) { this.state = setCutDecision(this.state, candidate.id, cut); }
@@ -67,6 +73,21 @@ function harness() {
   });
   return { widget, get dialog() { return dialog; }, history, get writes() { return writes; }, get reloads() { return reloads; } };
 }
+
+test('openCutDialog and openCuts resolve while dialog.open remains unresolved', async () => {
+  const run = harness(true);
+  const contribution = new Function(`${compiledContribution}; return ContributionHarness;`)();
+  const command = new contribution();
+  command.ensureWidget = async () => ({ id: 'daihon', openCutDialog: request => run.widget.openCutDialog(request) });
+  command.shell = { async activateWidget() {} };
+  let timer;
+  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(Error('dialog close was awaited')), 1000); });
+  try {
+    assert.equal(await Promise.race([run.widget.openCutDialog({ candidateId: 'filler:a:0' }), deadline]), true);
+    assert.equal(await Promise.race([command.openCuts({ candidateId: 'filler:a:0' }), deadline]), true);
+    assert.equal(await Promise.race([command.openCuts({ candidateId: 'missing' }), deadline]), false);
+  } finally { clearTimeout(timer); }
+});
 
 test('opening, reviewing, changing silence threshold, and closing without confirmation writes nothing', async () => {
   const run = harness();

@@ -3894,7 +3894,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.refreshRowGapChips();
             return this.cutCandidates;
         }, this.silenceMin, this.silenceKeep, request?.candidateId);
-        await dialog.open();
+        void dialog.open().catch(error => this.showError(error));
         return request?.candidateId ? candidates.some(candidate => candidate.id === request.candidateId
             || candidate.id.endsWith(`:${request.candidateId}`)) : true;
     }

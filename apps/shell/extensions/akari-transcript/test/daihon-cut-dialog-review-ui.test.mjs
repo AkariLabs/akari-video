@@ -6,11 +6,12 @@ import test from 'node:test';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 const { initialDaihonCutReview, reviewCandidates, chosenCandidates, setCutDecision,
-  setKindDecision, willCut } = require('../lib/common/daihon-cut-review.js');
+  setKindDecision, willCut, confirmDaihonCutReview } = require('../lib/common/daihon-cut-review.js');
 const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-cut-dialog.ts', import.meta.url), 'utf8');
 const method = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 const methods = method('    protected render(): void', '    protected renderSearch(): void')
   + method('    protected renderReview(): void', '    protected async confirm(): Promise<void>')
+  + method('    protected async confirm(): Promise<void>', '    protected renderDone(): void')
   + source.slice(source.indexOf('    protected onReviewKey('), source.lastIndexOf('\n}'));
 const compiled = ts.transpileModule(`class ReviewHarness { ${methods} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
@@ -37,9 +38,9 @@ const element = (tag, text) => new FakeNode(tag, text);
 const button = (label, action) => { const node = element('button', label); node.onclick = action; return node; };
 const ReviewHarness = new Function('element', 'button', 'document', 'HTMLInputElement',
   'reviewCandidates', 'chosenCandidates', 'setCutDecision', 'setKindDecision', 'willCut',
-  'DAIHON_CUT_KINDS', 'COLORS', 'LABELS', 'formatTime', `${compiled}; return ReviewHarness;`)(
+  'confirmDaihonCutReview', 'DAIHON_CUT_KINDS', 'COLORS', 'LABELS', 'formatTime', `${compiled}; return ReviewHarness;`)(
     element, button, document, FakeInput, reviewCandidates, chosenCandidates, setCutDecision,
-    setKindDecision, willCut, ['silence', 'filler', 'redo', 'unrecognized'],
+    setKindDecision, willCut, confirmDaihonCutReview, ['silence', 'filler', 'redo', 'unrecognized'],
     { filler: 'orange', redo: 'purple' }, { filler: 'フィラー', redo: '言い直し' }, value => String(value));
 
 const candidates = [
@@ -51,12 +52,13 @@ function setup() {
   const dialog = new ReviewHarness();
   dialog.node = new FakeNode('div'); dialog.node.isConnected = true;
   dialog.steps = new FakeNode('nav'); dialog.body = new FakeNode('div'); dialog.foot = new FakeNode('div');
+  dialog.notice = new FakeNode('p');
   dialog.node.append(dialog.steps, dialog.body, dialog.foot);
   dialog.state = initialDaihonCutReview(); dialog.state.step = 1; dialog.state.kinds.redo = true;
   dialog.state.currentId = 'f'; dialog.candidates = candidates;
   dialog.context = candidate => ['', candidate.text, 'の続き'];
   dialog.preview = (...args) => dialog.previewCalls.push(args);
-  dialog.previewCalls = []; dialog.busy = false;
+  dialog.previewCalls = []; dialog.busy = false; dialog.renderDone = () => {};
   return dialog;
 }
 
@@ -89,4 +91,25 @@ test('kept candidate text has no strike and is dim; cutting restores its strike'
   dialog.state = setCutDecision(dialog.state, 'r', true); dialog.render();
   assert.equal(marked('まず音を').tagName, 'S');
   assert.equal(marked('まず音を').parent.parent.style.opacity, '1');
+});
+
+test('confirmed step disables every step heading and cannot go back through its callback', () => {
+  const dialog = setup(); dialog.state.step = 2; dialog.render();
+  assert.deepEqual(dialog.steps.children.map(step => step.disabled), [true, true, true]);
+  dialog.steps.children[0].onclick();
+  assert.equal(dialog.state.step, 2);
+});
+
+test('apply=false explains that nothing changed; errors show only their message', async () => {
+  const dialog = setup();
+  dialog.apply = async () => false;
+  await dialog.confirm();
+  assert.equal(dialog.state.step, 1);
+  assert.equal(dialog.notice.textContent, '変更はありませんでした。');
+  dialog.apply = async () => { throw Error('範囲が見つかりません'); };
+  await dialog.confirm();
+  assert.equal(dialog.notice.textContent, '範囲が見つかりません');
+  dialog.apply = async () => { throw '文字列の失敗'; };
+  await dialog.confirm();
+  assert.equal(dialog.notice.textContent, '文字列の失敗');
 });

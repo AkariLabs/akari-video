@@ -79,9 +79,9 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         this.steps.replaceChildren();
         ['探すもの', '見直す', '確定'].forEach((label, index) => {
             const step = button(`${index + 1} ${label}`, () => {
-                if (index < this.state.step) { this.state.step = index as 0 | 1; this.render(); }
+                if (this.state.step !== 2 && index < this.state.step) { this.state.step = index as 0 | 1; this.render(); }
             });
-            step.disabled = index >= this.state.step;
+            step.disabled = this.state.step === 2 || index >= this.state.step;
             step.style.opacity = index === this.state.step ? '1' : '.6';
             this.steps.append(step);
         });
@@ -198,8 +198,8 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         this.busy = true; this.render();
         try {
             this.state = await confirmDaihonCutReview(this.state, this.candidates, this.apply);
-            if (this.state.step === 2) this.notice.textContent = '';
-        } catch (error) { this.notice.textContent = String(error); }
+            this.notice.textContent = this.state.step === 2 ? '' : '変更はありませんでした。';
+        } catch (error) { this.notice.textContent = error instanceof Error ? error.message : String(error); }
         finally { this.busy = false; this.render(); }
     }
 
