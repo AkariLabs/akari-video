@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
 import { LEGACY_AKARI_HOST } from '../../../../../packages/akari-launcher/src/service-urls.cjs';
+import { mixOrder } from '../lib/common/asset-mix-order.js';
 
 const require = createRequire(import.meta.url);
 function compile(source, fileName, imports = {}) {
@@ -15,7 +16,9 @@ function compile(source, fileName, imports = {}) {
     new Function('require', 'exports', outputText)(name => imports[name] ?? require(name), exports);
     return exports;
 }
-const catalog = compile(readFileSync(new URL('../src/common/asset-catalog-view.ts', import.meta.url), 'utf8'), 'view.ts');
+const catalog = compile(readFileSync(new URL('../src/common/asset-catalog-view.ts', import.meta.url), 'utf8'), 'view.ts', {
+    './asset-mix-order': { mixOrder }
+});
 const dialogSource = ts.createSourceFile('dialog.ts', readFileSync(new URL('../../akari-surfaces/src/browser/akari-settings-dialog.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const dialog = dialogSource.statements.find(node => ts.isClassDeclaration(node) && node.name.text === 'AkariSettingsDialog');
 const renderStore = dialog.members.find(node => node.name?.getText(dialogSource) === 'renderStore').getText(dialogSource);
@@ -30,7 +33,7 @@ for (const [input, lab] of [
 ]) {
     test(`purchase and both Store buttons use the normalized URL: ${input}`, () => {
         assert.equal(catalog.deriveStoreLabBaseUrl(input), lab);
-        assert.equal(catalog.storeProductUrl(input, 'a b'), `${lab}/asset.html?id=a%20b`);
+        assert.equal(catalog.labAssetUrl(input, { category: 'overlay', id: 'a b', product_id: 'a b' }), `${lab}/asset.html?` + 'id=a%20b');
         const opened = [];
         const windows = { openNewWindow: (url, options) => opened.push({ url, options }) };
         const state = { connection: { url: input, connected: true }, phase: 'idle' };

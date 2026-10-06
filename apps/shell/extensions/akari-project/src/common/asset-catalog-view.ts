@@ -8,6 +8,7 @@
 import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus } from './akari-project-protocol';
 import { CatalogPack } from './catalog-packs';
 import { deriveStoreLabBaseUrl } from 'akari-video/src/service-urls.cjs';
+import { mixOrder } from './asset-mix-order';
 export { deriveStoreLabBaseUrl } from 'akari-video/src/service-urls.cjs';
 
 /** resolver カタログの files[] 1 件（akari-assets-catalog/v0 契約: url か key のどちらかを持つ）。 */
@@ -38,6 +39,7 @@ export interface ResolverRawCatalogItem {
     price?: number | null;
     tier?: 'free' | 'pro';
     state?: 'cached' | 'available' | 'locked';
+    product_id?: string;
     provenance?: { prompt?: string };
     /** 実体ファイル一覧。mediaUrl（試聴用）の選定元 — selectResolverAudioFileRef を参照。 */
     files?: ResolverRawCatalogFile[];
@@ -124,6 +126,7 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
         ...(typeof item.creditText === 'string' && item.creditText ? { creditText: item.creditText } : {}),
         price: typeof item.price === 'number' ? item.price : undefined,
         tier: item.tier,
+        ...(typeof item.product_id === 'string' && item.product_id ? { product_id: item.product_id } : {}),
         state: item.state,
         previewUrl,
         mediaUrl,
@@ -134,7 +137,7 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
 /**
  * 1 ビューのマージ。`${category}/${id}`（= AssetCatalogViewItem.key）で重複排除し、
  * resolver 側を優先する（同じ id がローカル catalog/ と resolver 側の両方に存在する
- * 移行期でも壊れないように）。表示直前のタイトル五十音順ソートまで含む。
+ * 移行期でも壊れないように）。混ぜ順を表示の基準とする。
  */
 export function mergeAssetCatalogViews(
     localItems: readonly AssetCatalogViewItem[],
@@ -147,7 +150,7 @@ export function mergeAssetCatalogViews(
     for (const item of resolverItems) {
         merged.set(item.key, item);
     }
-    return Array.from(merged.values()).sort((left, right) => left.title.localeCompare(right.title, 'ja'));
+    return mixOrder(Array.from(merged.values()));
 }
 
 /** カタログ面の空状態の原因分岐（catalog-account-first-ux task.md §2）。 */
@@ -233,9 +236,12 @@ export function assetStateBadgeTitle(item: Pick<AssetCatalogViewItem, 'state' | 
 
 // --- locked カードの購入案内（価格 + ストア URL） --------------------------------------------
 
-/** 商品詳細ページの URL（`asset.html?id=<id>`。ストア静的プロトタイプの既存規約）。 */
-export function storeProductUrl(storeApiUrl: string | undefined, id: string): string {
-    return `${deriveStoreLabBaseUrl(storeApiUrl)}/asset.html?id=${encodeURIComponent(id)}`;
+/** Lab の素材ページ。従来の商品 ID がある素材は商品詳細へ送る。 */
+export function labAssetUrl(storeApiUrl: string | undefined, item: Pick<AssetCatalogViewItem, 'category' | 'id' | 'product_id'>): string {
+    if (typeof item.product_id === 'string' && item.product_id.length > 0) {
+        return `${deriveStoreLabBaseUrl(storeApiUrl)}/asset.html?id=${encodeURIComponent(item.product_id)}`;
+    }
+    return `${deriveStoreLabBaseUrl(storeApiUrl)}/viewer#${encodeURIComponent(item.category)}/${encodeURIComponent(item.id)}`;
 }
 
 /**

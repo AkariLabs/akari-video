@@ -107,8 +107,10 @@
   - `catalog/` は `remote: true` の**取得先索引であり実体を持たない**（[catalog/INDEX.md](../../catalog/INDEX.md)）。
     未取得なら「取得が要る」ことを素材計画に明記する。
   - ローカル層に無ければ**アカウントの素材ライブラリ**（無料全部 + `akari store connect` 済みなら
-    購入済みも含む）も検索できる。`akari assets list [--category <c>]` で候補を確認し、使う素材が
-    決まったら `akari assets fetch <id> --project .` でこのプロジェクトへ取り込む（sha256 検証込み）。
+    購入済みも含む）も検索できる。`akari assets list --tag <t> --query <s>` で候補を絞り、使う素材が
+    決まったら `akari assets fetch <category/id> --project .` でこのプロジェクトへ取り込む（sha256 検証込み）。
+    Pro（Lifetime パス）も 1 件ずつ取れる。Lab の 1 件ページのコピー（`category/id`）を貼れば
+    `akari assets fetch <category/id>` で 1 件取れる。
     取得後のライセンス確認は上記と同じく `meta.json` で行う。
   - ATF テロップの描画・プリセット参照表は退役。HTML 素材版は Lab で取得し、
     取得した素材のライセンスと書体のライセンスを確認する。既存の baked は再生可能。

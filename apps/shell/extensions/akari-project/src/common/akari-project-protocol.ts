@@ -137,6 +137,7 @@ export interface AssetCatalogViewItem {
     /** `${category}/${id}`。一覧の React key・カード DOM の data 属性に使う。 */
     key: string;
     id: string;
+    product_id?: string;
     category: string;
     title: string;
     tags: string[];
