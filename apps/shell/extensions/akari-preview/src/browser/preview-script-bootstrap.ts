@@ -3547,6 +3547,7 @@ export function previewBootstrapScript(): string {
                         const dragged = window.akari.interaction?.stageLocalPoint?.(draggedClient.x, draggedClient.y);
                         if (!anchor || !dragged || !window.akari.interaction?.anchorPreservingTranslate) return;
                         const startDistance = Math.max(1, Math.hypot(dragged.x - anchor.x, dragged.y - anchor.y));
+                        const startBounds = layerOutputBoundsForTransform(entry, layerVisualTransformNow(entry));
                         let dragSnap = { x: null, y: null };
                         beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {
                             const point = window.akari.interaction.stageLocalPoint(moveEvent.clientX, moveEvent.clientY);
@@ -3566,7 +3567,9 @@ export function previewBootstrapScript(): string {
                                     startScale: original.scale,
                                     scale: nextScale,
                                     snapX: dragSnap.x,
-                                    snapY: dragSnap.y
+                                    snapY: dragSnap.y,
+                                    startBounds,
+                                    movingItem: { kind: 'layer', id: entry.spec.id }
                                 });
                                 if (!solved) return original;
                                 nextScale = solved.scale;
@@ -4367,6 +4370,7 @@ export function previewBootstrapScript(): string {
                     const { anchor, dragged } = cutResizeCornersFn(startBox, corner);
                     const pointerStart = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
                     if (!pointerStart) return;
+                    const startBounds = cutOutputBoundsForTransform(cutVisualTransformNow());
                     let dragSnap = { x: null, y: null };
                     beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
                         const pointer = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
@@ -4384,7 +4388,9 @@ export function previewBootstrapScript(): string {
                                 startScale: original.scale,
                                 scale: nextScale,
                                 snapX: dragSnap.x,
-                                snapY: dragSnap.y
+                                snapY: dragSnap.y,
+                                startBounds,
+                                movingItem: { kind: 'cut' }
                             });
                             if (solved) {
                                 nextScale = solved.scale;
@@ -4833,7 +4839,8 @@ export function previewBootstrapScript(): string {
             window.akari.interaction?.setExtraSnapTargets?.(moving => {
                 const targets = [];
                 for (const entry of layerEntries) {
-                    if (moving?.kind === 'layer' && moving.id === entry.spec.id) continue;
+                    if ((moving?.kind === 'layer' && moving.id === entry.spec.id)
+                        || moving?.ids?.includes(entry.spec.id)) continue;
                     if (!entry.video.isConnected || entry.video.style.display === 'none'
                         || entry.video.hidden || entry.spec?.proxyMissing || entry.spec?.retiredTelop) continue;
                     const bounds = layerOutputBoundsForTransform(entry, layerVisualTransformNow(entry));
@@ -4845,7 +4852,7 @@ export function previewBootstrapScript(): string {
                 }
                 for (const row of captionRows.values()) {
                     const id = row.caption.sourceCueId || row.caption.id;
-                    if (moving?.kind === 'caption' && (moving.id === id || moving.ids?.includes(id))) continue;
+                    if ((moving?.kind === 'caption' && moving.id === id) || moving?.ids?.includes(id)) continue;
                     if (!row.plate.isConnected || row.plate.hidden || row.plate.style.display === 'none') continue;
                     const rect = captionVisualRect(row.plate);
                     if (rect && [rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite)
@@ -5669,6 +5676,7 @@ export function previewBootstrapScript(): string {
                     window.removeEventListener('pointercancel', onCancel);
                     window.removeEventListener('keydown', onKeyDown, true);
                     setCaptionGroupMode(false);
+                    window.akari.interaction?.hideSnapGuides?.();
                     if (handle.hasPointerCapture && handle.hasPointerCapture(pointerId)) {
                         handle.releasePointerCapture(pointerId);
                     }
@@ -5676,6 +5684,7 @@ export function previewBootstrapScript(): string {
                 // Persist the same patch displayed by the latest pointermove,
                 // including Shift pressed/released after the drag began.
                 let lastPatch;
+                let handleSnap = { x: null, y: null };
                 const onMove = moveEvent => {
                     if (moveEvent.pointerId !== pointerId) return;
                     if (!captionVisualRect() || !captionLayoutRect(captionPlate)) {
@@ -5752,6 +5761,28 @@ export function previewBootstrapScript(): string {
                         captionPlate.style.setProperty('--caption-top', placement.position.y * 100 + '%');
                     } else {
                         const next = captionCornerTransformFn(kind, layoutRect, baseScale, baseRotate, now, start);
+                        const anchor = { x: kind.includes('w') ? rect.right : rect.left,
+                            y: kind.includes('n') ? rect.bottom : rect.top };
+                        const dragged = { x: kind.includes('w') ? rect.left : rect.right,
+                            y: kind.includes('n') ? rect.top : rect.bottom };
+                        if (!moveEvent.metaKey && !moveEvent.ctrlKey
+                            && window.akari.interaction?.computeAnchorResizeSnap) {
+                            const solved = window.akari.interaction.computeAnchorResizeSnap({
+                                anchorStageX: anchor.x, anchorStageY: anchor.y,
+                                draggedStageX: dragged.x, draggedStageY: dragged.y,
+                                startScale: baseScale, scale: next.scale, startBounds: rect,
+                                snapX: handleSnap.x, snapY: handleSnap.y,
+                                movingItem: { kind: 'caption', id: cueId }
+                            });
+                            if (solved) {
+                                const ratio = solved.scale / next.scale;
+                                next.left = anchor.x + (next.left - anchor.x) * ratio;
+                                next.top = anchor.y + (next.top - anchor.y) * ratio;
+                                next.width *= ratio; next.height *= ratio;
+                                next.scale = solved.scale;
+                                handleSnap = { x: solved.snapX, y: solved.snapY };
+                            }
+                        } else { handleSnap = { x: null, y: null }; window.akari.interaction?.hideSnapGuides?.(); }
                         const outputWidth = Number(summary.output?.width) || 1280;
                         const outputHeight = Number(summary.output?.height) || 720;
                         patch = { scale: next.scale, cuePosition: { captionId: cueId,
@@ -5777,6 +5808,38 @@ export function previewBootstrapScript(): string {
                         restoreLocalTransform();
                         lastPatch = undefined;
                         return;
+                    }
+                    if (kind === 'e' || kind === 'w') {
+                        const bounds = captionVisualRect(captionPlate);
+                        const size = bounds?.right - bounds?.left;
+                        if (bounds && size > 0 && !moveEvent.metaKey && !moveEvent.ctrlKey
+                            && window.akari.interaction?.computeScaleSnap) {
+                            const at = value => ({ ...bounds,
+                                left: kind === 'w' ? bounds.right - value : bounds.left,
+                                right: kind === 'e' ? bounds.left + value : bounds.right });
+                            const solved = window.akari.interaction.computeScaleSnap({ scale: size, at,
+                                previous: handleSnap, movingItem: { kind: 'caption', id: cueId },
+                                clamp: value => Math.max(1, value) });
+                            if (solved) {
+                                handleSnap = { x: solved.snapX, y: solved.snapY };
+                                const ratio = solved.scale / size;
+                                if (patch.wrapWidthPct !== undefined) {
+                                    patch.wrapWidthPct *= ratio;
+                                    captionPlate.style.setProperty('--caption-wrap-width', patch.wrapWidthPct + '%');
+                                    if (kind === 'w') {
+                                        const outputWidth = Number(summary.output?.width) || 1280;
+                                        const shift = (solved.scale - size) / outputWidth;
+                                        const leftPct = parseFloat(captionPlate.style.getPropertyValue('--caption-left'));
+                                        if (Number.isFinite(leftPct)) {
+                                            captionPlate.style.setProperty('--caption-left', leftPct - shift * 100 + '%');
+                                            if (Number.isFinite(patch.cuePosition?.value?.position?.x)) {
+                                                patch.cuePosition.value.position.x -= shift;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else { handleSnap = { x: null, y: null }; window.akari.interaction?.hideSnapGuides?.(); }
                     }
                     lastPatch = patch;
                     if (patch.scale !== undefined) {
@@ -10667,13 +10730,27 @@ export function previewBootstrapScript(): string {
                         translate: { x: parseFloat(css[0]) || 0, y: parseFloat(css[1]) || 0 } };
                 });
                 if (rows.some(row => row.item.kind === 'caption' && (!row.rect || !row.layoutRect))) return;
+                const outputRects = rows.map(row => {
+                    if (row.item.kind === 'caption') return row.rect;
+                    const a = window.akari.interaction?.stageLocalPoint?.(row.rect.left, row.rect.top);
+                    const b = window.akari.interaction?.stageLocalPoint?.(row.rect.right, row.rect.bottom);
+                    return a && b ? { left: a.x, right: b.x, top: a.y, bottom: b.y } : null;
+                });
+                const groupBounds = outputRects.every(Boolean) ? {
+                    left: Math.min(...outputRects.map(rect => rect.left)),
+                    right: Math.max(...outputRects.map(rect => rect.right)),
+                    top: Math.min(...outputRects.map(rect => rect.top)),
+                    bottom: Math.max(...outputRects.map(rect => rect.bottom))
+                } : null;
                 let delta = { x: 0, y: 0 };
                 let moved = false;
+                let dragSnap = { x: null, y: null };
                 window.akari.reportGesture?.('begin');
                 const stop = () => {
                     window.removeEventListener('pointermove', move, true);
                     window.removeEventListener('pointerup', up, true);
                     window.removeEventListener('pointercancel', cancel, true);
+                    window.akari.interaction?.hideSnapGuides?.();
                 };
                 const restore = () => {
                     for (const row of rows) row.element.style.translate = row.translate.x || row.translate.y
@@ -10688,6 +10765,19 @@ export function previewBootstrapScript(): string {
                     if (!moved && Math.hypot(delta.x, delta.y) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
                     next.preventDefault();
+                    if (groupBounds && !next.metaKey && !next.ctrlKey
+                        && window.akari.interaction?.computeSnapCorrection) {
+                        const bounds = { left: groupBounds.left + delta.x, right: groupBounds.right + delta.x,
+                            top: groupBounds.top + delta.y, bottom: groupBounds.bottom + delta.y };
+                        bounds.centerX = (bounds.left + bounds.right) / 2;
+                        bounds.centerY = (bounds.top + bounds.bottom) / 2;
+                        const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap,
+                            { kind: 'mixed', ids: rows.map(row => row.item.id) });
+                        dragSnap = snap;
+                        delta.x += snap.x?.correction ?? 0;
+                        delta.y += snap.y?.correction ?? 0;
+                        window.akari.interaction.showSnapGuides(snap.x, snap.y);
+                    } else { dragSnap = { x: null, y: null }; window.akari.interaction?.hideSnapGuides?.(); }
                     for (const row of rows) row.element.style.translate = (row.translate.x + delta.x) + 'px '
                         + (row.translate.y + delta.y) + 'px';
                 };

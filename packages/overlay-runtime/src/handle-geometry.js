@@ -44,10 +44,10 @@ globalThis.akariHandleGeometry = (() => {
   // 添字は coordinates() の並び（0: 左/上, 1: 中央, 2: 右/下）。
   const ITEM_PAIRS = new Set(['0:0', '1:1', '2:2', '0:2', '2:0']);
   const CENTER_EDGE_PAIRS = new Set(['1:0', '1:2', '0:1', '2:1']);
-  // 吸着距離（表示px）。合わせたい画面中央を一番強く、画面の端、他の素材の順に弱くする。
-  // tolerance は画面中央の距離（従来の 6px）。端と素材は options で上書きできる。
+  // 吸着距離（表示px）。画面中央と他の素材は 6px、画面の端は 4px。
+  // 端と素材の距離は options で上書きできる。
   const CANVAS_EDGE_TOLERANCE = 4;
-  const ITEM_TOLERANCE = 3;
+  const ITEM_TOLERANCE = 6;
   // 保持中の吸着先から乗り換えるのは、この差以上に近い候補が現れたとき（または、より近い画面の端・中央）。
   const SWITCH_MARGIN = 2;
   // options.previous: 直前に吸着していた先（{x, y}）。
@@ -62,6 +62,7 @@ globalThis.akariHandleGeometry = (() => {
       : [b.top, (b.top + b.bottom) / 2, b.bottom];
     const pick = axis => {
       const own = coordinates(moving, axis);
+      const coefficients = options.sourceCoefficients?.[axis];
       const size = axis === 'x' ? canvas.width : canvas.height;
       const previous = options.previous?.[axis] ?? null;
       const fast = typeof options.fast === 'object' && options.fast !== null
@@ -77,6 +78,7 @@ globalThis.akariHandleGeometry = (() => {
       // 選び直すと、素早いドラッグで候補から候補へ飛び移って見える。
       let held = null;
       if (previous && Number.isInteger(previous.sourceIndex) && Number.isFinite(previous.target)
+        && (!coefficients || Math.abs(coefficients[previous.sourceIndex]) > 1e-9)
         && (!options.centerPriority?.[axis] || previous.sourceIndex === 1)) {
         const kept = targets.find(target => target.kind === previous.kind
           && Math.abs(target.value - previous.target) <= 1e-6);
@@ -89,6 +91,7 @@ globalThis.akariHandleGeometry = (() => {
       if (fast) return finish(held);
       const candidates = [];
       own.forEach((source, sourceIndex) => targets.forEach(target => {
+        if (coefficients && !(Math.abs(coefficients[sourceIndex]) > 1e-9)) return;
         if (target.kind === 'item' && !ITEM_PAIRS.has(sourceIndex + ':' + target.targetIndex)
           && !(options.centerToItemEdges && CENTER_EDGE_PAIRS.has(sourceIndex + ':' + target.targetIndex))) return;
         const correction = target.value - source;
@@ -132,6 +135,35 @@ globalThis.akariHandleGeometry = (() => {
       return finish(best);
     };
     return { x: pick('x'), y: pick('y') };
+  }
+  // at(s) supplies the visible bounds at scale s. Each edge and centre must be affine
+  // in s; this also covers a rotated rectangle while its rotation stays fixed.
+  function snapScale({ scale, at, others = [], canvas, displayScale = 1, tolerance = 6,
+    previous = null, options = {}, clamp = value => value }) {
+    if (!Number.isFinite(scale) || typeof at !== 'function') return null;
+    const bounds = at(scale);
+    const next = at(scale + 1);
+    if (!bounds || !next) return null;
+    const coefficients = {};
+    for (const [axis, first, last] of [['x', 'left', 'right'], ['y', 'top', 'bottom']]) {
+      const a = next[first] - bounds[first], b = next[last] - bounds[last];
+      coefficients[axis] = [a, (a + b) / 2, b];
+    }
+    const snaps = snapBounds(bounds, others, canvas, displayScale, tolerance,
+      { ...options, previous, sourceCoefficients: coefficients });
+    const choices = ['x', 'y'].flatMap(axis => {
+      const snap = snaps[axis];
+      if (!snap) return [];
+      const coefficient = coefficients[axis][snap.sourceIndex];
+      const solved = clamp(scale + snap.correction / coefficient);
+      return Number.isFinite(solved) && Math.abs(solved - (scale + snap.correction / coefficient)) < 1e-6
+        ? [{ axis, snap, solved, distance: Math.abs(snap.correction) * displayScale }] : [];
+    });
+    choices.sort((a, b) => a.distance - b.distance);
+    const chosen = choices[0];
+    return { scale: chosen?.solved ?? scale,
+      snapX: chosen?.axis === 'x' ? chosen.snap : null,
+      snapY: chosen?.axis === 'y' ? chosen.snap : null };
   }
   function guideFor(axis, moving, other, canvas) {
     return axis === 'x'
@@ -187,5 +219,5 @@ globalThis.akariHandleGeometry = (() => {
   }
   return { normalizeAngle, snapAngle, axisLock, rotationAroundPoint,
     anchoredScales, anchorPreservingPosition,
-    snapBounds, snapEndpoint, solveLineEndpoint, lineTransform };
+    snapBounds, snapScale, snapEndpoint, solveLineEndpoint, lineTransform };
 })();

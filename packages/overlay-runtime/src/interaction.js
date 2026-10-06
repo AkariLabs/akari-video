@@ -1767,7 +1767,8 @@ function marqueeHits(candidates, rect) {
     if (disabled || !tl || !br) { drag.snapX = null; drag.snapY = null; hideSnapGuides(); return; }
     const bounds = { left: tl.x, top: tl.y, right: br.x, bottom: br.y,
       centerX: (tl.x + br.x) / 2, centerY: (tl.y + br.y) / 2 };
-    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY, motion: drag.snapMotion });
+    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY, motion: drag.snapMotion },
+      { kind: 'group', ids: drag.members.map(member => member.element.dataset.overlayId) });
     drag.snapMotion = snap.motion;
     if (lockedAxis === 'x') snap.y = null;
     if (lockedAxis === 'y') snap.x = null;
@@ -2236,6 +2237,28 @@ function marqueeHits(candidates, rect) {
     extraSnapTargets = typeof provider === 'function' ? provider : null;
   }
 
+  function snapTargetsFor(moving = null) {
+    const selected = new Set((!moving || ['shape', 'html', 'line', 'group'].includes(moving.kind)
+      ? [selectedOverlay, ...selectionMembers()] : []).filter(Boolean));
+    const ids = new Set([moving?.id, ...(moving?.ids ?? [])].filter(Boolean));
+    const others = stage ? Array.from(stage.children)
+      .filter(element => isSelectable(element) && !selected.has(element)
+        && !ids.has(element.dataset?.overlayId))
+      .map(fragmentVideoBounds).filter(Boolean) : [];
+    const extra = extraSnapTargets?.(moving);
+    if (Array.isArray(extra)) others.push(...extra.filter(item => item
+      && [item.left, item.right, item.top, item.bottom].every(Number.isFinite)));
+    return others;
+  }
+
+  function computeScaleSnap({ scale, at, previous = null, movingItem = null, clamp = value => value }) {
+    const solved = globalThis.akariHandleGeometry?.snapScale({ scale, at,
+      others: snapTargetsFor(movingItem), canvas: outputSize(), displayScale: currentDisplayScale(),
+      previous, clamp });
+    showSnapGuides(solved?.snapX, solved?.snapY);
+    return solved;
+  }
+
   function computeSnapCorrection(bounds, previousSnap, movingItem = null) {
     if (!bounds) return { x: null, y: null };
     if (!globalThis.akariHandleGeometry) {
@@ -2246,15 +2269,7 @@ function marqueeHits(candidates, rect) {
         previousSnap?.y ?? null, currentDisplayScale()) };
     }
     // 動かしている素材自身（単体選択・グループ/複数選択のメンバー）は吸着先にしない。
-    const moving = new Set([selectedOverlay, ...selectionMembers()].filter(Boolean));
-    const others = stage ? Array.from(stage.children)
-      .filter(element => isSelectable(element) && !moving.has(element))
-      .map(fragmentVideoBounds).filter(Boolean) : [];
-    if (extraSnapTargets) {
-      const extra = extraSnapTargets(movingItem);
-      if (Array.isArray(extra)) others.push(...extra.filter(item => item
-        && [item.left, item.right, item.top, item.bottom].every(Number.isFinite)));
-    }
+    const others = snapTargetsFor(movingItem);
     const motion = nextSnapMotion(bounds, previousSnap?.motion);
     const line = movingItem?.kind === 'line';
     const centerPriority = line ? { x: true, y: true } : null;
@@ -2557,9 +2572,7 @@ function marqueeHits(candidates, rect) {
     if (!line || event.pointerId !== line.pointerId) return;
     const point = stageLocalPoint(event.clientX, event.clientY);
     if (!point) return;
-    const others = stage ? Array.from(stage.children)
-      .filter(element => isSelectable(element) && element !== line.container)
-      .map(fragmentVideoBounds).filter(Boolean) : [];
+    const others = snapTargetsFor({ kind: 'line', id: line.overlayId });
     const solved = globalThis.akariHandleGeometry.solveLineEndpoint(line.fixed,
       { x: point.x + line.pointerOffset.x, y: point.y + line.pointerOffset.y },
       others, outputSize(), currentDisplayScale(), event.metaKey || event.ctrlKey, point);
@@ -2647,6 +2660,7 @@ function marqueeHits(candidates, rect) {
       startScale: transform.scale,
       startScaleX: transform.scaleX ?? transform.scale,
       startScaleY: transform.scaleY ?? transform.scale,
+      startBounds: fragmentVideoBounds(container),
       axisCss: [container.style.getPropertyValue("--scale-x"), container.style.getPropertyValue("--scale-y")],
       startX: transform.x,
       startY: transform.y,
@@ -2695,6 +2709,9 @@ function marqueeHits(candidates, rect) {
       draggedStageX: dragged.x, draggedStageY: dragged.y,
       startDistance: Math.hypot(pointer.x - anchor.x, pointer.y - anchor.y) || 1,
       startScale: oldPose.scale, snapX: null, snapY: null, moved: false,
+      startBounds: (() => { const tl = stageLocalPoint(rect.left, rect.top);
+        const br = stageLocalPoint(rect.right, rect.bottom);
+        return tl && br ? { left: tl.x, top: tl.y, right: br.x, bottom: br.y } : null; })(),
       writeContext: captureWriteContext() };
     handleHint?.remove();
     handleHint = document.createElement('div');
@@ -2829,18 +2846,6 @@ function marqueeHits(candidates, rect) {
     return record;
   }
 
-  // resize 中に、ドラッグしているハンドル自身のコーナーをキャンバス端/センターへ吸着
-  // させる（㉒: これまで resize には位置スナップが皆無だった）。
-  //
-  // 幾何: transform-origin はコンテナ中心 C（stage-local）固定・アンカー（対角コーナー）
-  // は anchorPreservingTranslate() により scale が変わっても世界座標で不動に保たれる。
-  // このときアンカー A・ドラッグ中コーナー D は同一 scale S の下で
-  //   D(S) = A + S * (Dlocal - Alocal)
-  // という S の一次式になる（A・(Dlocal-Alocal) は S に依存しない定数）。よって、
-  // 現在の scale での実測 D(scale) と A から (Dlocal-Alocal) を逆算でき、
-  // 目標位置 target に一致させる scale は
-  //   S_snap = (target - A) * scale / (D(scale) - A)
-  // で閉じた形に解ける（軸ごとに独立、uniform scale なので一度に1軸のみ採用）。
   function computeAnchorResizeSnap({
     anchorStageX,
     anchorStageY,
@@ -2850,81 +2855,43 @@ function marqueeHits(candidates, rect) {
     scale,
     snapX,
     snapY,
+    startBounds,
+    movingItem,
   }) {
-    if (!(Math.abs(scale) > 1e-6) || !(Math.abs(startScale) > 1e-6)) {
-      return null;
+    if (!(Math.abs(startScale) > 1e-6)) return null;
+    if (!globalThis.akariHandleGeometry?.snapScale) {
+      // Older hosts load interaction.js alone. Keep their canvas-only path through
+      // the same movement correction entry point until handle geometry is loaded.
+      const point = { x: anchorStageX + (draggedStageX - anchorStageX) * scale / startScale,
+        y: anchorStageY + (draggedStageY - anchorStageY) * scale / startScale };
+      const snap = computeSnapCorrection({ left: point.x, right: point.x,
+        centerX: point.x, top: point.y, bottom: point.y, centerY: point.y },
+      { x: snapX, y: snapY }, movingItem);
+      const choices = [['x', draggedStageX - anchorStageX], ['y', draggedStageY - anchorStageY]]
+        .flatMap(([axis, distance]) => snap[axis] && Math.abs(distance) > 1e-9
+          ? [{ axis, distance: Math.abs(snap[axis].correction),
+            scale: clampScale(scale + snap[axis].correction * startScale / distance) }] : []);
+      choices.sort((a, b) => a.distance - b.distance);
+      const chosen = choices[0];
+      const result = { scale: chosen?.scale ?? scale,
+        snapX: chosen?.axis === 'x' ? snap.x : null,
+        snapY: chosen?.axis === 'y' ? snap.y : null };
+      showSnapGuides(result.snapX, result.snapY);
+      return result;
     }
-
-    // pointerdown 時の stage-local 幾何だけからドラッグ中コーナーを求める。
-    // fragmentBounds() を測り直すと、前フレームの transform や断片内レイアウトの
-    // 変化が次フレームの基準へ混ざるため、resize の固定アンカーとは分離する。
-    const anchor = { x: anchorStageX, y: anchorStageY };
-    const scaleRatio = scale / startScale;
-    const dragged = {
-      x: anchor.x + (draggedStageX - anchor.x) * scaleRatio,
-      y: anchor.y + (draggedStageY - anchor.y) * scaleRatio,
+    const base = startBounds ?? { left: Math.min(anchorStageX, draggedStageX),
+      right: Math.max(anchorStageX, draggedStageX),
+      top: Math.min(anchorStageY, draggedStageY),
+      bottom: Math.max(anchorStageY, draggedStageY) };
+    const at = value => {
+      const ratio = value / startScale;
+      return { left: anchorStageX + (base.left - anchorStageX) * ratio,
+        right: anchorStageX + (base.right - anchorStageX) * ratio,
+        top: anchorStageY + (base.top - anchorStageY) * ratio,
+        bottom: anchorStageY + (base.bottom - anchorStageY) * ratio };
     };
-
-    const targets = canvasSnapTargets();
-    const displayScale = currentDisplayScale();
-
-    const findCandidate = (draggedValue, anchorValue, targets, previous) => {
-      const denom = draggedValue - anchorValue;
-      if (Math.abs(denom) < 1e-6) return null;
-
-      let best = null;
-      if (previous) {
-        const target = targets[previous.targetIndex];
-        const distanceOutput = Math.abs(target - draggedValue);
-        if (distanceOutput * displayScale <= SNAP_RELEASE_DISTANCE) {
-          best = { targetIndex: previous.targetIndex, target, distanceOutput };
-        }
-      }
-      if (!best) {
-        for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
-          const target = targets[targetIndex];
-          const distanceOutput = Math.abs(target - draggedValue);
-          if (
-            distanceOutput * displayScale <= SNAP_DISTANCE &&
-            (!best || distanceOutput < best.distanceOutput)
-          ) {
-            best = { targetIndex, target, distanceOutput };
-          }
-        }
-      }
-      if (!best) return null;
-
-      const solvedScale = clampScale(((best.target - anchorValue) * scale) / denom);
-      if (!Number.isFinite(solvedScale)) return null;
-      return { ...best, scale: solvedScale };
-    };
-
-    const candidateX = findCandidate(dragged.x, anchor.x, targets.x, snapX);
-    const candidateY = findCandidate(dragged.y, anchor.y, targets.y, snapY);
-
-    let axis = null;
-    if (candidateX && candidateY) {
-      axis = candidateX.distanceOutput <= candidateY.distanceOutput ? "x" : "y";
-    } else if (candidateX) {
-      axis = "x";
-    } else if (candidateY) {
-      axis = "y";
-    }
-
-    if (!axis) {
-      hideSnapGuides();
-      return { scale, snapX: null, snapY: null };
-    }
-
-    if (axis === "x") {
-      const nextSnapX = { targetIndex: candidateX.targetIndex, target: candidateX.target };
-      showSnapGuides(nextSnapX, null);
-      return { scale: candidateX.scale, snapX: nextSnapX, snapY: null };
-    }
-
-    const nextSnapY = { targetIndex: candidateY.targetIndex, target: candidateY.target };
-    showSnapGuides(null, nextSnapY);
-    return { scale: candidateY.scale, snapX: null, snapY: nextSnapY };
+    return computeScaleSnap({ scale, at, previous: { x: snapX, y: snapY }, movingItem,
+      clamp: clampScale });
   }
 
   function applyResizeSnap(resize, scale) {
@@ -2937,6 +2904,9 @@ function marqueeHits(candidates, rect) {
       scale,
       snapX: resize.snapX,
       snapY: resize.snapY,
+      startBounds: resize.startBounds,
+      movingItem: { kind: resize.group ? 'group' : resize.container.dataset.role === 'shape' ? 'shape' : 'html',
+        id: resize.overlayId, ids: resize.group ? resize.members.map(member => member.element.dataset.overlayId) : [] },
     });
     if (!solved) return null;
     resize.snapX = solved.snapX;
@@ -3002,40 +2972,17 @@ function marqueeHits(candidates, rect) {
   }
 
   function axisResizeSnap(resize, axis, scaleX, scaleY) {
-    const ratio = axis === 'x' ? scaleX / resize.startScaleX : scaleY / resize.startScaleY;
-    const radians = resize.rotation;
-    const cosine = Math.cos(radians), sine = Math.sin(radians);
-    const startDx = resize.draggedStageX - resize.anchorStageX;
-    const startDy = resize.draggedStageY - resize.anchorStageY;
-    const localDistance = axis === 'x' ? cosine * startDx + sine * startDy
-      : -sine * startDx + cosine * startDy;
-    const vector = axis === 'x'
-      ? { x: cosine * localDistance, y: sine * localDistance }
-      : { x: -sine * localDistance, y: cosine * localDistance };
-    const targets = canvasSnapTargets();
-    const displayScale = currentDisplayScale();
-    let best = null;
-    for (const coordinate of ['x', 'y']) {
-      const coefficient = vector[coordinate];
-      if (Math.abs(coefficient) < 1e-6) continue;
-      const anchor = coordinate === 'x' ? resize.anchorStageX : resize.anchorStageY;
-      const dragged = anchor + coefficient * ratio;
-      for (let index = 0; index < targets[coordinate].length; index += 1) {
-        const target = targets[coordinate][index];
-        const distance = Math.abs(target - dragged) * displayScale;
-        const previous = coordinate === 'x' ? resize.snapX : resize.snapY;
-        const limit = previous?.targetIndex === index ? SNAP_RELEASE_DISTANCE : SNAP_DISTANCE;
-        if (distance <= limit && (!best || distance < best.distance)) {
-          best = { coordinate, targetIndex: index, target, distance,
-            scale: clampScale((target - anchor) / coefficient
-              * (axis === 'x' ? resize.startScaleX : resize.startScaleY)) };
-        }
-      }
-    }
-    resize.snapX = best?.coordinate === 'x' ? best : null;
-    resize.snapY = best?.coordinate === 'y' ? best : null;
-    showSnapGuides(resize.snapX, resize.snapY);
-    return best?.scale ?? (axis === 'x' ? scaleX : scaleY);
+    const scale = axis === 'x' ? scaleX : scaleY;
+    const at = value => {
+      applyAxisResize(resize, axis === 'x' ? value : scaleX, axis === 'y' ? value : scaleY);
+      return fragmentVideoBounds(resize.container);
+    };
+    const solved = computeScaleSnap({ scale, at,
+      movingItem: { kind: 'shape', id: resize.overlayId },
+      previous: { x: resize.snapX, y: resize.snapY }, clamp: clampScale });
+    resize.snapX = solved?.snapX ?? null;
+    resize.snapY = solved?.snapY ?? null;
+    return solved?.scale ?? scale;
   }
 
   function updateAxisResize(resize, event, pointer) {
@@ -3059,7 +3006,18 @@ function marqueeHits(candidates, rect) {
       if (useX) scaleX = axisResizeSnap(resize, 'x', scaleX, scaleY);
       else scaleY = axisResizeSnap(resize, 'y', scaleX, scaleY);
     } else {
-      hideSnapGuides();
+      // A corner changes both axes; solve one uniform multiplier for its visible box.
+      const factor = scaleX / resize.startScaleX;
+      const solved = computeAnchorResizeSnap({ anchorStageX: resize.anchorStageX,
+        anchorStageY: resize.anchorStageY, draggedStageX: resize.draggedStageX,
+        draggedStageY: resize.draggedStageY, startScale: 1, scale: factor,
+        startBounds: resize.startBounds, snapX: resize.snapX, snapY: resize.snapY,
+        movingItem: { kind: 'shape', id: resize.overlayId } });
+      if (solved && !event.metaKey && !event.ctrlKey) {
+        scaleX = resize.startScaleX * solved.scale;
+        scaleY = resize.startScaleY * solved.scale;
+        resize.snapX = solved.snapX; resize.snapY = solved.snapY;
+      }
     }
     applyAxisResize(resize, scaleX, scaleY);
     resize.moved = Math.abs(scaleX - resize.startScaleX) > 1e-6
@@ -3085,10 +3043,31 @@ function marqueeHits(candidates, rect) {
         ? Math.sqrt(scales.scaleX * scales.scaleY) : null;
       const nextX = uniform ?? scales.scaleX;
       const nextY = uniform ?? scales.scaleY;
-      applyAxisResize(resize, nextX, nextY);
-      resize.moved = Math.abs(nextX - resize.startScaleX) > 1e-6
-        || Math.abs(nextY - resize.startScaleY) > 1e-6;
-      hideSnapGuides();
+      let snappedX = nextX, snappedY = nextY;
+      if (event.metaKey || event.ctrlKey) {
+        resize.snapX = null; resize.snapY = null; hideSnapGuides();
+      } else {
+        const movingItem = { kind: resize.container.dataset.role === 'shape' ? 'shape' : 'html',
+          id: resize.overlayId };
+        const telop = isTelopOverlay(resize.container);
+        const solved = telop ? computeScaleSnap({ scale: nextX,
+          at: value => { applyAxisResize(resize, value, value);
+            return fragmentVideoBounds(resize.container); },
+          previous: { x: resize.snapX, y: resize.snapY }, movingItem, clamp: clampScale })
+          : computeAnchorResizeSnap({ anchorStageX: resize.anchorStageX,
+            anchorStageY: resize.anchorStageY, draggedStageX: resize.draggedStageX,
+            draggedStageY: resize.draggedStageY, startScale: 1,
+            scale: nextX / resize.startScaleX, startBounds: resize.startBounds,
+            snapX: resize.snapX, snapY: resize.snapY, movingItem });
+        if (solved) {
+          snappedX = telop ? solved.scale : resize.startScaleX * solved.scale;
+          snappedY = telop ? solved.scale : resize.startScaleY * solved.scale;
+          resize.snapX = solved.snapX; resize.snapY = solved.snapY;
+        }
+      }
+      applyAxisResize(resize, snappedX, snappedY);
+      resize.moved = Math.abs(snappedX - resize.startScaleX) > 1e-6
+        || Math.abs(snappedY - resize.startScaleY) > 1e-6;
       if (event.cancelable) event.preventDefault();
       return;
     }
@@ -4583,6 +4562,8 @@ function marqueeHits(candidates, rect) {
     // overlays[] 自身のドラッグ/拡縮（上の内部関数群）も同じ実装を通る（単一正本）。
     stageLocalPoint,
     computeSnapCorrection,
+    computeScaleSnap,
+    snapTargetsFor,
     setExtraSnapTargets,
     showSnapGuides,
     hideSnapGuides,
