@@ -270,6 +270,15 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     if (Object.hasOwn(caption, "words")) {
       validateCaptionWords(caption.words, caption, findings, itemPath);
     }
+    if ((caption.style === "karaoke" || caption.style === "pop")
+      && (!Array.isArray(caption.words) || caption.words.length === 0)) {
+      addFinding(findings, {
+        severity: "warning",
+        check: `captions.${caption.style}-without-words`,
+        message: `字幕 ${caption.id ?? "(unknown)"}: 語の時刻がない字幕は${caption.style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`,
+        path: itemPath,
+      });
+    }
     if (Object.hasOwn(caption, "unrecognized")) {
       validateCaptionUnrecognized(caption.unrecognized, caption, findings, itemPath);
     }

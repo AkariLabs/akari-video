@@ -33,8 +33,10 @@ description: AKARI Video を初めてセットアップするとき、または�
 「購入した素材をセットアップして」「この素材を使って」と頼まれたら、まずこちらを試す。
 
 - `akari assets list [--category <c>] [--json]` — 取得状態バッジ（☁ 未取得 / ✓ 取得済み /
-  ¥ 未購入）付きの一覧を表示する
-- `akari assets fetch <id> --project .` — sha256 検証込みで、このプロジェクトへ直接取り込む
+  🔒 Pro）付きの一覧を表示する。`akari assets list --tag <t> --query <s>` で絞り込める
+- `akari assets fetch <category/id> --project .` — sha256 検証込みで、このプロジェクトへ直接取り込む
+- Pro（Lifetime パス）も 1 件ずつ取れる。Lab の 1 件ページのコピー（`category/id`）を貼れば
+  `akari assets fetch <category/id>` で 1 件取れる
 - 未購入の有料素材は `fetch` が価格入りの `locked` を返す。**購入は代理で行わない**（ハードルール 4
   と同じ規律）。ストア側（`akari store connect` 済みのアカウント）でユーザー自身に購入してもらう
 

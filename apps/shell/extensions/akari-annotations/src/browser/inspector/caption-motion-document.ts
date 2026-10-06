@@ -1,3 +1,7 @@
+import type { TimelineCaptionSelection } from '../timeline-selection-model';
+import { captionMotionOriginalAnimation } from './caption-motion-cards';
+import { commonCaptionAnimation } from './caption-multi-targets';
+
 export const CAPTION_WORD_STYLES = [
     { id: 'karaoke', label: 'カラオケ' }, { id: 'pop', label: 'ポップ' },
     { id: 'reveal', label: '1 行ずつ' }, { id: 'reveal-word', label: '1 語ずつ' }
@@ -32,20 +36,41 @@ export interface CaptionKaraokeSettings {
     start_index?: number;
 }
 
-/** One captions.json write keeps the word mode and its defaults in one undo step. */
-export function upsertCaptionKaraoke(source: string, captionId: string,
-    settings: CaptionKaraokeSettings, selectStyle = false): string {
+export interface CaptionWordWriteResult { source: string; applied: number; skipped: number }
+
+/** Validate words at write time, including every row of a multi or bag selection. */
+export function captionWordStyleWrite(source: string, captionIds: readonly string[],
+    style: string | null | undefined, settings?: CaptionKaraokeSettings): CaptionWordWriteResult {
     const raw = JSON.parse(source) as unknown;
     const rows = Array.isArray(raw) ? raw : object(raw) ? raw.captions : undefined;
     if (!Array.isArray(rows)) throw new Error('字幕データを読み取れません。');
-    const row = rows.find(item => object(item) && item.id === captionId);
-    if (!object(row)) throw new Error('字幕が見つかりません。');
-    if (selectStyle) row.style = 'karaoke';
-    const style = object(row.text_style) ? row.text_style : {};
-    const current = object(style.karaoke) ? style.karaoke : {};
-    style.karaoke = { ...current, ...settings };
-    row.text_style = style;
-    return `${JSON.stringify(raw, null, 2)}\n`;
+    const needsWords = style === 'karaoke' || style === 'pop' || style === 'reveal-word' || settings !== undefined;
+    let applied = 0;
+    let skipped = 0;
+    for (const id of new Set(captionIds)) {
+        const matches = rows.filter(row => object(row) && row.id === id);
+        if (matches.length !== 1 || !object(matches[0])) throw new Error(`字幕 ${id} が一意に見つかりません。`);
+        if (needsWords && readCaptionMotionCue(source, id).words.length === 0) { skipped++; continue; }
+        const row = matches[0];
+        if (style === null) delete row.style;
+        else if (style !== undefined) row.style = style;
+        if (settings !== undefined) {
+            const textStyle = object(row.text_style) ? row.text_style : {};
+            textStyle.karaoke = { ...(object(textStyle.karaoke) ? textStyle.karaoke : {}), ...settings };
+            row.text_style = textStyle;
+        }
+        applied++;
+    }
+    if (applied === 0 && needsWords) {
+        throw new Error('語の時刻がない字幕では、カラオケ・ポップ・1 語ずつは動きません');
+    }
+    return { source: `${JSON.stringify(raw, null, 2)}\n`, applied, skipped };
+}
+
+/** One captions.json write keeps the word mode and its defaults in one undo step. */
+export function upsertCaptionKaraoke(source: string, captionId: string,
+    settings: CaptionKaraokeSettings, selectStyle = false): string {
+    return captionWordStyleWrite(source, [captionId], selectStyle ? 'karaoke' : undefined, settings).source;
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -128,10 +153,57 @@ export function readOwnerMotion(editSource: string, ownerId: string, fallbackSec
     const tracks = Array.isArray(document.tracks) ? document.tracks : [];
     const item = tracks.map(track => object(track) ? find(track.items) : undefined).find(Boolean);
     if (!item) throw new Error('字幕の袋が見つかりません。');
+    const duration = Number(item.duration);
     const output = object(document.output) ? document.output : {};
     const fps = Number(output.fps ?? 30);
-    const duration = Number(item.duration ?? fallbackSeconds);
     return { id: ownerId,
         ...(object(item.motion) ? { motion: item.motion } : {}),
-        durationFrames: Math.max(1, Math.round(duration * (Number.isFinite(fps) && fps > 0 ? fps : 30))) };
+        durationFrames: Math.max(1, Math.round(Number.isFinite(duration) ? duration
+            : fallbackSeconds * (Number.isFinite(fps) && fps > 0 ? fps : 30))) };
+}
+
+export function readCaptionBagMotionContext(editSource: string, captionsSource: string, bagId: string): {
+    ids: string[]; snapshot: TimelineCaptionSelection
+} {
+    const edit = JSON.parse(editSource) as Record<string, unknown>;
+    const find = (items: unknown): Record<string, unknown> | undefined => {
+        if (!Array.isArray(items)) return undefined;
+        for (const value of items) {
+            if (!object(value)) continue;
+            if (value.id === bagId) return value;
+            const nested = find(value.items);
+            if (nested) return nested;
+        }
+        return undefined;
+    };
+    const bag = (Array.isArray(edit.tracks) ? edit.tracks : [])
+        .map(track => object(track) ? find(track.items) : undefined).find(Boolean);
+    if (!bag || !object(bag.source) || bag.source.kind !== 'captions') {
+        throw new Error('字幕の袋が見つかりません。');
+    }
+    const root = JSON.parse(captionsSource) as unknown;
+    const rows = Array.isArray(root) ? root : object(root) ? root.captions : undefined;
+    if (!Array.isArray(rows)) throw new Error('字幕データを読み取れません。');
+    const excluded = new Set(Array.isArray(bag.source.exclude) ? bag.source.exclude : []);
+    const selected = rows.filter(row => object(row) && typeof row.id === 'string' && !excluded.has(row.id));
+    if (!selected.length) throw new Error('袋に表示できる字幕がありません。');
+    const ids = selected.map(row => row.id as string);
+    const animations = ids.map(id => captionMotionOriginalAnimation(captionsSource, id) ?? undefined);
+    const common = commonCaptionAnimation(ids.map((id, index): TimelineCaptionSelection => ({
+        kind: 'caption', id, text: '', sourceStart: 0, sourceEnd: 0,
+        outputStart: undefined, outputEnd: undefined, speaker: null, sourceRef: null, edited: false,
+        effectiveTextStyle: { animation: animations[index] }
+    })));
+    const first = selected[0];
+    const start = Number(first.start);
+    const end = Number(first.end);
+    const snapshot: TimelineCaptionSelection = {
+        kind: 'caption', id: ids[0], text: typeof first.text === 'string' ? first.text : '',
+        sourceStart: Number.isFinite(start) ? start : 0,
+        sourceEnd: Number.isFinite(end) ? end : 0,
+        outputStart: undefined, outputEnd: undefined, speaker: null, sourceRef: null, edited: false,
+        ...(common ? { textStyle: { animation: common }, effectiveTextStyle: { animation: common } } : {}),
+        animatorOwner: { id: bagId }
+    };
+    return { ids, snapshot };
 }

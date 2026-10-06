@@ -283,6 +283,42 @@ test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {
     }
 });
 
+test('お手本の整列できた行には表示文と一致する語時刻がある', async t => {
+    const { root, uri, service, segments } = await fixture(t);
+    await service.writeExample(uri, join(sample, 'clip.mp4'), segments, segments.length, true, { stage: 8 });
+    const captions = (await json(join(root, 'captions.json'))).captions;
+    const speakerCaptions = captions.filter(item => item.sourceRef?.segment !== undefined);
+    const timedCaptions = speakerCaptions.filter(item => Array.isArray(item.words) && item.words.length > 0);
+    const withoutSpaces = text => text.replace(/\s/gu, '');
+    assert.ok(timedCaptions.length >= 18, `整列できた行: ${timedCaptions.length}`);
+    assert.ok(timedCaptions.some(item => item.id === 'c-0020'));
+    for (const caption of timedCaptions) {
+        assert.equal(withoutSpaces(caption.words.map(word => word.text).join('')),
+            withoutSpaces(caption.text), caption.id);
+        for (const word of caption.words) {
+            assert.ok(word.start >= caption.start && word.end <= caption.end && word.end >= word.start,
+                `${caption.id}: ${JSON.stringify(word)}`);
+        }
+    }
+    const third = speakerCaptions.find(item => item.id === 'c-0003');
+    assert.ok(!third.words?.length || withoutSpaces(third.words.map(word => word.text).join('')) ===
+        withoutSpaces(third.text));
+});
+
+test('transcript と表示文が異なる行は整列するか語時刻を付けない', async t => {
+    const { root, uri, service, segments } = await fixture(t);
+    const changed = segments.map((segment, index) => index === 2 ? { ...segment, text: 'Akari Videoっていう' }
+        : index === 4 ? { ...segment, text: '試してみてます' } : segment);
+    await service.writeExample(uri, join(sample, 'clip.mp4'), changed, changed.length, true, { stage: 8 });
+    const captions = (await json(join(root, 'captions.json'))).captions;
+    const withoutSpaces = text => text.replace(/\s/gu, '');
+    for (const id of ['c-0003', 'c-0005']) {
+        const caption = captions.find(item => item.id === id);
+        assert.ok(!caption.words?.length || withoutSpaces(caption.words.map(word => word.text).join('')) ===
+            withoutSpaces(caption.text), id);
+    }
+});
+
 test('お手本のカラオケ段階と完成形は render-cut 経路で GPU 書き出し可能', async t => {
     const { root, uri, service, segments } = await fixture(t);
     for (const stage of [7, 8]) {

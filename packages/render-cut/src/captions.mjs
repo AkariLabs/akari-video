@@ -355,6 +355,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         `captions.json item ${caption.id ?? "(unknown)"} requests reveal-word without words[]; rendered as plain text`,
       );
     }
+    if ((style === "karaoke" || style === "pop") && allWords.length === 0) {
+      warn(
+        `${style}-without-words`,
+        `[${style}-without-words] 字幕 ${caption.id ?? "(unknown)"}: 語の時刻がない字幕は${style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`,
+      );
+    }
     for (const [index, range] of ranges.entries()) {
       const runs = Array.isArray(caption.runs)
         ? typeof caption.runSourceText === "string"

@@ -75,7 +75,8 @@ import { isInspectorStillImage } from './inspector/edit-target';
 import { captionEffectPatch, captionEffectTransitionPatch, captionEffectPreviewStyle, CAPTION_EFFECT_GROUPS } from './inspector/caption-style-effects';
 import { captionEffectImage, scheduleCaptionEffectImages } from './inspector/caption-effect-images';
 import { type CaptionMotionServices } from './inspector/caption-motion-panel';
-import { readCaptionMotionCue, readOwnerMotion, upsertCaptionEmphasis, upsertCaptionKaraoke } from './inspector/caption-motion-document';
+import { captionWordStyleWrite, readCaptionBagMotionContext, readCaptionMotionCue,
+    readOwnerMotion, upsertCaptionEmphasis } from './inspector/caption-motion-document';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 import {
@@ -99,7 +100,7 @@ import {
     type AudioPreviewSection
 } from './inspector/audio-preview';
 import { createInspectorAdjustWriteRequest } from './inspector/adjust-fields';
-import { InspectorSectionState } from './inspector/section-model';
+import { composeInspectorSections, InspectorSectionState } from './inspector/section-model';
 import {
     assignSectionToTab,
     type InspectorTabDef,
@@ -120,7 +121,7 @@ import { captionFontFamilyField, captionRowFontFace } from './inspector/sections
 import { CUT_SECTIONS } from './inspector/sections/cut-sections';
 import { PHOTO_PANEL_FIELDS, MASK_FIELDS, clearActivePhotoBrushItem, photoMaskSectionsForAvailability } from './inspector/sections/photo-fields';
 import { layerAudioControls, LAYER_SECTIONS, type LayerAudioControls } from './inspector/sections/layer-sections';
-import { CAPTION_SECTIONS, MULTI_CAPTION_SECTIONS } from './inspector/sections/caption-sections';
+import { CAPTION_BAG_MOTION_SECTION, CAPTION_SECTIONS, MULTI_CAPTION_SECTIONS } from './inspector/sections/caption-sections';
 import { AUDIO_SECTIONS, AUDIO_MASTER_SECTION } from './inspector/sections/audio-sections';
 import { OVERLAY_SECTIONS } from './inspector/sections/overlay-sections';
 import { TREE_ITEM_SECTIONS } from './inspector/sections/tree-item-sections';
@@ -1347,7 +1348,8 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             sections = MULTI_CAPTION_SECTIONS(captions, requestWrite, {
                 zoneHover: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, zone),
-                zonePreset: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_PRESET_EVENT, zone)
+                zonePreset: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_PRESET_EVENT, zone),
+                motionServices: this.captionMotionServices(captions[0], captions.map(caption => caption.id))
             });
             rowSnapshot = captions[0];
             sectionKind = 'caption';
@@ -1428,6 +1430,16 @@ export class AkariInspectorWidget extends BaseWidget {
                 case 'item':
                     sections = TREE_ITEM_SECTIONS(snapshot, requestWrite, openMotion,
                         request => this.model.requestLivePreview?.(request));
+                    if (snapshot.itemKind === 'captions') sections = composeInspectorSections([...sections, CAPTION_BAG_MOTION_SECTION(
+                        async () => {
+                            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                            if (!root) throw new Error('プロジェクトを開いてください。');
+                            const [edit, captions] = await Promise.all([
+                                this.fileService.readFile(currentTimelineEditUri(root)),
+                                this.fileService.readFile(currentTimelineCaptionsUri(root))
+                            ]);
+                            return readCaptionBagMotionContext(edit.value.toString(), captions.value.toString(), snapshot.id);
+                        }, requestWrite, (caption, ids) => this.captionMotionServices(caption, ids))]);
                     break;
             }
             if (snapshot.kind === 'item' && snapshot.sourceKind === 'media'
@@ -4448,7 +4460,8 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     /** Caption-only motion fields that are not yet represented by InspectorWriteRequest. */
-    protected captionMotionServices(snapshot: TimelineCaptionSelection): CaptionMotionServices {
+    protected captionMotionServices(snapshot: TimelineCaptionSelection, targetIds?: readonly string[]): CaptionMotionServices {
+        const ids = [...new Set(targetIds ?? [snapshot.id])];
         const paths = (): { root: URI; captions: URI; edit: URI } => {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (!root) throw new Error('プロジェクトを開いてください。');
@@ -4456,40 +4469,56 @@ export class AkariInspectorWidget extends BaseWidget {
         };
         const readCaptions = async (): Promise<string> =>
             (await this.fileService.readFile(paths().captions)).value.toString();
+        const loadCues = async () => {
+            const source = await readCaptions();
+            return ids.map(id => readCaptionMotionCue(source, id));
+        };
+        const writeWords = async (style: string | null | undefined,
+            settings: import('./inspector/caption-motion-document').CaptionKaraokeSettings | undefined,
+            label: string): Promise<InspectorWriteResult> => {
+            try {
+                const { root, captions, edit } = paths();
+                const before = await readCaptions();
+                const result = captionWordStyleWrite(before, ids, style, settings);
+                const after = result.source;
+                await this.layerAudioService.writeEditSnapshot({
+                    editUri: edit.toString(), projectRootUri: root.toString(),
+                    captionsUri: captions.toString(), captionsSource: after
+                });
+                this.history.pushPreviewCaptionWrite({
+                    editUri: edit.toString(), captionsUri: captions.toString(), before, after, label
+                }, {
+                    read: async () => (await this.fileService.readFile(captions)).value.toString(),
+                    write: async (change, content) => {
+                        await this.layerAudioService.writeEditSnapshot({
+                            editUri: change.editUri, projectRootUri: root.toString(),
+                            captionsUri: change.captionsUri, captionsSource: content
+                        });
+                        if (!this.isDisposed && this.model.snapshot?.kind === 'caption'
+                            && this.model.snapshot.id === snapshot.id) this.render();
+                    }
+                });
+                return { ok: true, ...(result.skipped ? {
+                    message: `語の時刻がない ${result.skipped} 行には当てていません`
+                } : {}) };
+            } catch (error) {
+                return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+        };
         return {
-            loadCue: async () => readCaptionMotionCue(await readCaptions(), snapshot.id),
-            setKaraoke: async (settings, selectStyle = false) => {
-                try {
-                    const { root, captions, edit } = paths();
-                    const before = await readCaptions();
-                    const after = upsertCaptionKaraoke(before, snapshot.id, settings, selectStyle);
-                    if (after === before) return { ok: true };
-                    await this.layerAudioService.writeEditSnapshot({
-                        editUri: edit.toString(), projectRootUri: root.toString(),
-                        captionsUri: captions.toString(), captionsSource: after
-                    });
-                    this.history.pushPreviewCaptionWrite({
-                        editUri: edit.toString(), captionsUri: captions.toString(), before, after,
-                        label: selectStyle ? 'カラオケの選択' : 'カラオケの設定の変更'
-                    }, {
-                        read: async () => (await this.fileService.readFile(captions)).value.toString(),
-                        write: async (change, content) => {
-                            await this.layerAudioService.writeEditSnapshot({
-                                editUri: change.editUri, projectRootUri: root.toString(),
-                                captionsUri: change.captionsUri, captionsSource: content
-                            });
-                            if (!this.isDisposed && this.model.snapshot?.kind === 'caption'
-                                && this.model.snapshot.id === snapshot.id) this.render();
-                        }
-                    });
-                    return { ok: true };
-                } catch (error) {
-                    return { ok: false, message: error instanceof Error ? error.message : String(error) };
-                }
+            loadCue: async () => {
+                const cues = await loadCues();
+                return cues.find(cue => cue.words.length > 0) ?? cues[0];
             },
+            ...(ids.length > 1 ? { loadCues } : {}),
+            setKaraoke: (settings, selectStyle = false) => writeWords(
+                selectStyle ? 'karaoke' : undefined, settings,
+                selectStyle ? 'カラオケの選択' : 'カラオケの設定の変更'),
             setWordStyle: async style => {
                 try {
+                    if (ids.length > 1) return writeWords(style, undefined, '語の表示を変更');
                     const { root, captions } = paths();
+                    captionWordStyleWrite(await readCaptions(), ids, style);
                     await this.layerAudioService.setCaptionFields({
                         captionsUri: captions.toString(), projectRootUri: root.toString(),
                         captionId: snapshot.id, style
@@ -4501,6 +4530,7 @@ export class AkariInspectorWidget extends BaseWidget {
             },
             setEmphasis: async (wordIndex, style) => {
                 try {
+                    if (ids.length > 1) throw new Error('強調する語は字幕を 1 行選んで設定してください。');
                     const { root, captions, edit } = paths();
                     const source = await readCaptions();
                     const captionsSource = upsertCaptionEmphasis(source, snapshot.id, wordIndex, style);

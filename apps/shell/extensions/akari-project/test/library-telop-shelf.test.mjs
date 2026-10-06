@@ -4,7 +4,7 @@ import test from 'node:test';
 import ts from 'typescript';
 import { catalogItemsWithoutShelvedTelops, isTelopAsset, textTelopItems } from '../lib/common/library-telop-shelf.js';
 import { isPremiumLocked } from '../lib/common/library-filter.js';
-import { storeProductUrl } from '../lib/common/asset-catalog-view.js';
+import { labAssetUrl } from '../lib/common/asset-catalog-view.js';
 
 test('テロップ棚は overlay のタグまたは telop- ID だけを選ぶ', () => {
     const items = [
@@ -29,12 +29,12 @@ test('overlay category excludes telops but search can find them', () => {
 test('パックの Lab 導線は素材 id でなく product_id を開く', () => {
     const method = memberText('openLibraryLab', { in: 'widget' });
     const code = ts.transpileModule(`class Link { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-    const Link = new Function('storeProductUrl', `${code}\nreturn Link;`)(storeProductUrl);
+    const Link = new Function('labAssetUrl', `${code}\nreturn Link;`)(labAssetUrl);
     const link = new Link();
     const urls = [];
     link.storeConnection = { url: 'https://akari.video/api/store' };
     link.windowService = { openNewWindow: url => urls.push(url) };
-    link.openLibraryLab({ id: 'telop-fixture', product_id: 'telop-rich-pack-01' });
+    link.openLibraryLab({ category: 'overlay', id: 'telop-fixture', product_id: 'telop-rich-pack-01' });
     assert.match(urls[0], /telop-rich-pack-01/);
     assert.doesNotMatch(urls[0], /telop-fixture/);
 });

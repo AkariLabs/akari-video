@@ -15,11 +15,12 @@ class Element {
     }
     appendChild(child) { this.children.push(child); return child; }
     append(...children) { children.forEach(child => this.appendChild(child)); }
+    replaceChildren(...children) { this.children = children; }
     get lastElementChild() { return this.children.at(-1); }
     setAttribute(key, value) { this.attributes[key] = value; }
     getAttribute(key) { return this.attributes[key]; }
     addEventListener(key, callback) { this.events[key] = callback; }
-    click() { this.events.click?.(); }
+    click() { if (!this.disabled) this.events.click?.(); }
     replaceWith(next) { this.replacement = next; }
     querySelectorAll(selector) {
         const descendants = this.children.flatMap(child => [child, ...child.querySelectorAll('*')]);
@@ -39,17 +40,111 @@ const panel = (animation, write) => createCaptionMotionPanel({
     textStyle: { animation }, effectiveTextStyle: { animation }
 }, write);
 
-test('解除要求は全体と各席を null で書き、袋は motion を一回で消す', () => {
+test('解除要求は袋があっても字幕の全体と各席を null で書く', () => {
     for (const slot of ['all', 'in', 'loop', 'out']) {
         assert.deepEqual(captionTextAnimationClear('cue-1', slot), {
             kind: 'caption-style-effect', id: 'cue-1',
             value: { animation: slot === 'all' ? null : { [slot]: null } }
         });
     }
-    assert.deepEqual(captionMotionComboClear('cue-1', 'bag-1'), {
-        kind: 'item-field', id: 'bag-1', path: 'motion', value: null
-    });
     assert.deepEqual(captionMotionComboClear('cue-1'), captionTextAnimationClear('cue-1', 'all'));
+});
+
+test('語の時刻がない行では三つの語表示を無効にして理由を示す', async () => {
+    const previousDocument = globalThis.document;
+    globalThis.document = { createElement: tag => new Element(tag) };
+    try {
+        let writes = 0;
+        const root = createCaptionMotionPanel({ kind: 'caption', id: 'cue-4', text: '本文',
+            sourceStart: 0, sourceEnd: 2
+        }, async () => ({ ok: true }), {
+            loadCue: async () => ({ id: 'cue-4', style: 'karaoke', words: [] }),
+            setWordStyle: async () => { writes++; return { ok: true }; },
+            setKaraoke: async () => { writes++; return { ok: true }; },
+            setEmphasis: async () => ({ ok: true })
+        });
+        root.isConnected = true;
+        await new Promise(resolve => setImmediate(resolve));
+        for (const id of ['karaoke', 'pop', 'reveal-word']) {
+            const card = selected(root, 'word-style', id);
+            assert.equal(card.disabled, true, id);
+            assert.equal(card.children[0].children[0].style.animation, 'none');
+            card.click();
+        }
+        assert.equal(selected(root, 'word-style', 'reveal').disabled, false);
+        assert.equal(writes, 0);
+        assert.ok(root.querySelectorAll('*').some(node => node.textContent ===
+            '語の時刻がない字幕では、カラオケ・ポップ・1 語ずつは動きません'));
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('複数行の語表示は時刻のある行に当て、除外件数を通知欄へ出す', async () => {
+    const previousDocument = globalThis.document;
+    const previousWindow = globalThis.window;
+    globalThis.document = { createElement: tag => new Element(tag) };
+    globalThis.window = { dispatchEvent: () => {} };
+    try {
+        let applied = 0;
+        const root = createCaptionMotionPanel({ kind: 'caption', id: 'cue-timed', text: '本文',
+            sourceStart: 0, sourceEnd: 2
+        }, async () => ({ ok: true }), {
+            loadCue: async () => ({ id: 'cue-timed', words: [{ text: '本文', start: 0, end: 2 }] }),
+            loadCues: async () => [
+                { id: 'cue-timed', words: [{ text: '本文', start: 0, end: 2 }] },
+                { id: 'cue-untimed', words: [] }
+            ],
+            setWordStyle: async () => { applied++; return {
+                ok: true, message: '語の時刻がない 1 行には当てていません'
+            }; },
+            setKaraoke: async () => ({ ok: true }),
+            setEmphasis: async () => ({ ok: true })
+        });
+        root.isConnected = true;
+        await Promise.resolve();
+        const pop = selected(root, 'word-style', 'pop');
+        assert.equal(pop.disabled, false);
+        pop.click();
+        await Promise.resolve();
+        assert.equal(applied, 1);
+        assert.equal(root.querySelectorAll('*').find(node => node.attributes.role === 'alert').textContent,
+            '語の時刻がない 1 行には当てていません');
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+        if (previousWindow === undefined) delete globalThis.window;
+        else globalThis.window = previousWindow;
+    }
+});
+
+test('30fps 以外でも行の尺は指定した秒数のまま書く', async () => {
+    const previousDocument = globalThis.document;
+    const previousWindow = globalThis.window;
+    globalThis.document = { createElement: tag => new Element(tag) };
+    globalThis.window = { dispatchEvent: () => {} };
+    try {
+        const writes = [];
+        const root = createCaptionMotionPanel({ kind: 'caption', id: 'cue-5', text: '本文',
+            sourceStart: 0, sourceEnd: 2, animatorOwner: { id: 'bag-24fps' },
+            textStyle: { animation: { in: { id: 'wipe-right' } } }
+        }, async request => { writes.push(request); return { ok: true }; }, {
+            readOwner: async () => ({ id: 'bag-24fps', durationFrames: 48 }),
+            loadCue: async () => ({ id: 'cue-5', words: [] })
+        });
+        const duration = root.querySelectorAll('*').find(node => node.tag === 'input' && node.type === 'number');
+        duration.value = '0.5';
+        duration.events.change();
+        assert.equal(writes[0].kind, 'caption-style-my-style');
+        assert.equal(writes[0].value.parts[0].animation.in.duration_sec, 0.5);
+        await Promise.resolve();
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+        if (previousWindow === undefined) delete globalThis.window;
+        else globalThis.window = previousWindow;
+    }
 });
 
 test('Undo 用に字幕の元の動きを全席復元できる', () => {
@@ -110,7 +205,7 @@ test('押し直しと「なし」は解除し、二つのフェード表示が�
     }
 });
 
-test('袋の選択済みカードを押し直すと motion の席を外す', async () => {
+test('袋に古い motion があっても、選択済みカードは行の animation を読み席を外す', async () => {
     const previousDocument = globalThis.document;
     globalThis.document = { createElement: tag => new Element(tag) };
     try {
@@ -118,7 +213,8 @@ test('袋の選択済みカードを押し直すと motion の席を外す', asy
         const owner = { id: 'bag-1', durationFrames: 60,
             motion: { in: { preset: 'fade', duration: 12 } } };
         const root = createCaptionMotionPanel({ kind: 'caption', id: 'cue-3', text: '本文',
-            sourceStart: 0, sourceEnd: 2, animatorOwner: { id: 'bag-1' }
+            sourceStart: 0, sourceEnd: 2, animatorOwner: { id: 'bag-1' },
+            textStyle: { animation: { in: { id: 'fade-in-out' } } }
         }, async request => { writes.push(request); return { ok: true }; }, {
             readOwner: async () => owner,
             loadCue: async () => ({ words: [] })
@@ -129,7 +225,8 @@ test('袋の選択済みカードを押し直すと motion の席を外す', asy
         fade.click();
         await Promise.resolve();
         await Promise.resolve();
-        assert.deepEqual(writes[0], { kind: 'item-field', id: 'bag-1', path: 'motion', value: null });
+        assert.deepEqual(writes[0], captionTextAnimationClear('cue-3', 'in'));
+        assert.deepEqual(owner.motion, { in: { preset: 'fade', duration: 12 } });
         assert.equal(fade.getAttribute('aria-pressed'), 'false');
     } finally {
         if (previousDocument === undefined) delete globalThis.document;

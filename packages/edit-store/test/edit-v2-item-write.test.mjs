@@ -35,6 +35,21 @@ const v2 = () => ({
   ],
 });
 
+test('overlay text and transform writes preserve captions switch on another media item', () => {
+  const value = v2();
+  value.tracks[0].items[0].captions = 'off';
+  const textWrite = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay', itemId: 'title-1#title', patch: { text: '更新したタイトル' },
+  });
+  const moved = resolvePreviewItemWrite(textWrite.candidateText, {
+    kind: 'overlay', itemId: 'title-1#title', patch: { transform: { x: 42, y: 12 } },
+  });
+  const written = JSON.parse(moved.candidateText);
+  assert.equal(written.tracks[0].items[0].captions, 'off');
+  assert.equal(written.tracks[1].items[0].items[0].source.text, '更新したタイトル');
+  assert.deepEqual(written.tracks[1].items[0].items[0].transform, { x: 42, y: 12 });
+});
+
 test('photo crop rotation writes as one crop and transform change', () => {
   const value = v2();
   value.sources[0].path = 'assets/photo.png';

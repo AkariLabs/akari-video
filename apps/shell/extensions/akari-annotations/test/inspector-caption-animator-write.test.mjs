@@ -181,13 +181,14 @@ function fixture(initial, itemKind = 'captions') {
         row: name => section().fields.find(field => field.name === `animator-${name}`) };
 }
 
-test('字幕袋 captions と caption item の動きタブに畳んだアニメーター節を出す', () => {
+test('字幕袋 captions と caption item は動き節を出さず、畳んだアニメーター節を出す', () => {
     for (const kind of ['captions', 'caption']) {
         const f = fixture(undefined, kind);
         assert.equal(f.section().label, '詳細設定（上級）: アニメーター');
         assert.equal(f.section().collapsedByDefault, true);
         const ids = f.all().map(section => section.id);
-        assert.equal(ids[ids.indexOf('motion') + 1], 'animator');
+        assert.equal(ids.includes('motion'), false);
+        assert.equal(ids.includes('animator'), true);
     }
 });
 

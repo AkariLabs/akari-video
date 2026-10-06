@@ -79,6 +79,7 @@ import { shouldShowTimelineGhost } from '../common/timeline-visibility';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { AKARI_SHORTCUTS } from './akari-shortcuts';
+import { isFocusOnControl } from './akari-shortcut-keybindings';
 import { type RippleResult } from '@akari-video/edit-store';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -2311,8 +2312,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const timelineOwnsFocus = isWebviewKeydown || !!focusedElement && this.node.contains(focusedElement);
             const focusOutsideTimeline = !!focusedElement && focusedElement !== document.body
                 && !timelineOwnsFocus;
-            const focusedControl = focusedElement?.closest('button, [role="button"], [tabindex]');
-            const focusOnControl = !isWebviewKeydown && !!focusedControl && focusedControl !== this.node;
             if (event.key === 'Escape' && focusOutsideTimeline) return;
             const hadMarqueeRange = event.key === 'Escape'
                 && (this.canvasRange !== undefined || this.selectionMarquee?.style.display === 'block');
@@ -2521,7 +2520,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!event.metaKey && !event.ctrlKey && !event.altKey) {
                 const key = event.key.toLowerCase();
                 if (key === ' ' || event.code === 'Space') {
-                    if (focusOnControl) return;
+                    if (isFocusOnControl(focusedElement, this.node, isWebviewKeydown)) return;
                     event.preventDefault();
                     if (this.shuttle?.rate) this.shuttle.stop('space');
                     else this.togglePreviewPlayback();
@@ -4416,6 +4415,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     } }));
                     return { ok: true };
                 } else if (request.path === 'motion') {
+                    if (raw.source?.kind === 'caption' || raw.source?.kind === 'captions') {
+                        throw new Error('字幕の動きは各行の設定から変更してください。');
+                    }
                     const value = request.value;
                     validateInspectorMotion(value, raw.duration);
                     patch = { motion: value };

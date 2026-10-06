@@ -42,3 +42,11 @@ JSON Schema は `remote: true` なら `source` 必須までを表し、akari-r2 
 `preview` URL は `https://akari.video/lab/media/telop-rich-pack/textstyle/<id>.png` の形とする。
 配置後は既存の textstyle ライブラリ読み込みが `preset.json` を読み、
 「テキスト > スタイル」へ並べる。未取得 textstyle の棚カード表示は別票で扱う。
+
+## § Pro item の 1 件ずつの取得（2026-10-06）
+
+resolver は取得済みの素材をキャッシュから先に返す。新規取得の Pro item は店の entitlements と catalog 行で資格を事前判定し、資格があれば `GET /api/store/v1/assets/<category>/<id>` で記述子を取得する。記述子が示す各ファイルを Bearer 認証で取得し、`sha256` と `bytes` を照合する。`meta.json` を必須として `validate-asset` に通し、全件成功後に `<ライブラリ>/<category>/<id>/` へ原子的に配置する。失敗時は一時ディレクトリを破棄する。
+
+記述子の `schema` は `akari-pro-asset/v1`。`category`、`id`、正の整数 `version` と、空でない `files` 配列を持つ。各 `files[]` は相対パス `name`、小文字 64 桁の `sha256`、0 以上の整数 `bytes`、記述子 API と同じオリジンの絶対 HTTP(S) `url` を持つ。`name` は `/` 区切りで、空の区間、`.`、`..`、先頭の `/`、バックスラッシュ、NUL を含めない。`name` は一意で `meta.json` を必ず含む。
+
+記述子またはファイル取得で 409 `stale_version` が返ったら、一時取得物を捨てて記述子を 1 回だけ取り直す。記述子 API が 404 `asset_not_found` を返した場合だけ、`product_id ?? id` の束 zip 取得へ進む。束 zip は予備経路として段階的に退役する。記述子 API の上書きは `AKARI_PRO_ASSET_API` を使い、`AKARI_STORE_API`、接続情報の URL、既定ホストより優先する。

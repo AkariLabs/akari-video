@@ -8340,6 +8340,7 @@ ${indent}`);
         "audio",
         "anchor"
       ]);
+      var MEDIA_ITEM_KEYS = /* @__PURE__ */ new Set([...ITEM_KEYS, "captions"]);
       var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
         "id",
         "name",
@@ -8619,7 +8620,8 @@ ${indent}`);
       }
       function validateItem(value, path, ids, sourceIds) {
         requireRecord(value, path);
-        requireExactKeys(value, ITEM_KEYS, path);
+        const isMedia = value.source !== null && typeof value.source === "object" && !Array.isArray(value.source) && value.source.kind === "media";
+        requireExactKeys(value, isMedia ? MEDIA_ITEM_KEYS : ITEM_KEYS, path);
         requireText(value.id, `${path}.id`);
         if (ids.has(value.id))
           throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
@@ -8651,6 +8653,9 @@ ${indent}`);
         if (hasOwn(value, "keyframes"))
           validateKeyframes(value.keyframes, `${path}.keyframes`);
         validateItemSource(value.source, `${path}.source`, sourceIds);
+        if (hasOwn(value, "captions") && value.captions !== "on" && value.captions !== "off") {
+          throw invalid(`${path}.captions`, "on \u307E\u305F\u306F off \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
         if (value.source.kind === "group") {
           const transforms = [value.transform, ...Array.isArray(value.keyframes) ? value.keyframes.map((point) => point.transform) : []];
           for (const transform of transforms) {
@@ -12329,46 +12334,8 @@ ${indent}`);
           return void 0;
         }
       }
-      function extractV2MediaCaptionSwitches(raw) {
-        const captionsByItemId = /* @__PURE__ */ new Map();
-        const visit = (value) => {
-          if (!isRecord2(value))
-            return value;
-          const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
-          const isMedia = isRecord2(value.source) && value.source.kind === "media";
-          const validSwitch = value.captions === "on" || value.captions === "off";
-          if (isMedia && validSwitch && typeof value.id === "string") {
-            captionsByItemId.set(value.id, value.captions);
-            const { captions: _captions, ...withoutCaptions } = value;
-            return {
-              ...withoutCaptions,
-              ...Array.isArray(value.items) ? { items: children } : {}
-            };
-          }
-          return Array.isArray(value.items) ? { ...value, items: children } : value;
-        };
-        const tracks = Array.isArray(raw.tracks) ? raw.tracks.map((track) => isRecord2(track) && Array.isArray(track.items) ? { ...track, items: track.items.map(visit) } : track) : raw.tracks;
-        return {
-          input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
-          captionsByItemId
-        };
-      }
       function readV2Internal(raw) {
-        const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
-        const edit = (0, edit_v2_1.readEditV2)(input);
-        const restoreCaptionSwitches = (items) => {
-          for (const item of items) {
-            const captions = captionsByItemId.get(item.id);
-            if (captions !== void 0)
-              item.captions = captions;
-            if ("items" in item && Array.isArray(item.items))
-              restoreCaptionSwitches(item.items);
-          }
-        };
-        for (const track of edit.tracks) {
-          if ("items" in track && track.lane === "visual")
-            restoreCaptionSwitches(track.items);
-        }
+        const edit = (0, edit_v2_1.readEditV2)(raw);
         const fps = edit.output.fps;
         const sources = edit.sources.map((entry) => ({
           id: entry.id,
@@ -12631,8 +12598,7 @@ ${indent}`);
         })), pathOf, chromaKeyOf).itemIds;
       }
       function findCrossTrackLayerEvacuations(edit) {
-        const raw = toRecord(edit);
-        const parsed = (0, edit_v2_1.readEditV2)(raw === void 0 ? edit : extractV2MediaCaptionSwitches(raw).input);
+        const parsed = (0, edit_v2_1.readEditV2)(edit);
         const pathOf = (id) => parsed.sources.find((entry) => entry.id === id)?.path;
         const chromaKeyOf = (id) => parsed.sources.find((entry) => entry.id === id)?.chroma_key ?? void 0;
         return analyzeOverlappingItems(parsed.tracks.flatMap((track) => track.lane === "visual" && "items" in track ? [{ items: track.items, trackId: track.id }] : []), pathOf, chromaKeyOf).crossTrackEvacuations;

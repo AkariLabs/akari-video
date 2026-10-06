@@ -84,6 +84,14 @@ function separatedAdjacentPair({ tailAudio = false, otherSource = false } = {}) 
   return text(split);
 }
 
+test('v2 cut range works with a captions-off media item on another track', () => {
+  const source = v2([media('main-1', 0, 300, 0, 10)], [
+    { id: 'other-track', lane: 'visual', items: [{ ...media('other-1', 0, 300, 0, 10, 'other'), captions: 'off' }] },
+  ]);
+  const result = applyCutRanges(source, [range([2, 3])], { fps: 30 });
+  assert.equal(JSON.parse(result.source).tracks[1].items[0].captions, 'off');
+});
+
 test('detectEditVersion は v0 を返す', () => assert.equal(detectEditVersion(legacy(0)), 0));
 test('detectEditVersion は v1 を返す', () => assert.equal(detectEditVersion(legacy(1)), 1));
 test('detectEditVersion は v2 を返す', () => assert.equal(detectEditVersion(v2()), 2));

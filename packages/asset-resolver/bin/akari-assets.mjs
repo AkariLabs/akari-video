@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // akari-assets — 素材 resolver v0 の CLI（list / add / fetch / bundle / migrate / sync / browse）。
 //
-//   akari-assets list [--category <c>] [--source <lab|site|own>] [--json]
+//   akari-assets list [--category <c>] [--source <lab|site|own>] [--tag <t> ...] [--query <s>] [--json]
 //   akari-assets add <path...> --plan [--json]
 //   akari-assets add --apply <plan.json> [--json]
 //   akari-assets fetch <ref> [--project <dir>] [--reference] [--force]  （ref は category/id）
@@ -19,6 +19,7 @@ import { resolve as resolveAsset } from '../src/resolve.mjs';
 import { DEFAULT_CATALOG_URL, DEFAULT_STORE_API } from '../src/service-urls.mjs';
 import { composeState } from '../src/state.mjs';
 import { checkLibrary, projectCredits } from '../src/library-check.mjs';
+import { filterListItems } from '../src/list-filter.mjs';
 
 function flagValue(args, name) {
   const i = args.indexOf(name);
@@ -28,7 +29,7 @@ function flagValue(args, name) {
 // Validate the entire command before any handler can read or mutate user data.
 function validateArgs(sub, args) {
   const specs = {
-    list: { values: ['--category', '--source'], flags: ['--json'], max: 0 },
+    list: { values: ['--category', '--source', '--tag', '--query'], flags: ['--json'], max: 0 },
     add: { values: ['--apply'], flags: ['--plan', '--json'], max: Infinity },
     fetch: { values: ['--project'], flags: ['--reference', '--force'], min: 1, max: 1 },
     bundle: { values: ['--project'], flags: ['--dry-run'], max: 0 },
@@ -46,7 +47,7 @@ function validateArgs(sub, args) {
     const arg = args[i];
     if (!arg.startsWith('-')) { positional.push(arg); continue; }
     if (!spec.values.includes(arg) && !spec.flags.includes(arg)) throw new Error(`不明なオプション: ${arg}`);
-    if (seen.has(arg)) throw new Error(`重複したオプション: ${arg}`);
+    if (seen.has(arg) && !(sub === 'list' && arg === '--tag')) throw new Error(`重複したオプション: ${arg}`);
     seen.add(arg);
     if (spec.values.includes(arg) && (!args[++i] || args[i].startsWith('-'))) throw new Error(`${arg} には値が必要です`);
   }
@@ -76,10 +77,12 @@ async function cmdList(args, env) {
   const category = flagValue(args, '--category');
   const asJson = args.includes('--json');
   const source = flagValue(args, '--source');
+  const tags = args.flatMap((arg, index) => arg === '--tag' ? [args[index + 1]] : []);
+  const query = flagValue(args, '--query');
   if (args.includes('--source') && !['lab', 'site', 'own'].includes(source)) throw new Error('--source は lab / site / own で指定してください');
   const { libraryRoots, items, warnings } = await composeState({ env });
   for (const warning of warnings) console.error(`警告: ${warning}`);
-  const filtered = items.filter(item => (!category || item.category === category) && (!source || item.sourceKind === source));
+  const filtered = filterListItems(items, { category, source, tags, query });
 
   if (asJson) {
     console.log(JSON.stringify(filtered, null, 2));
@@ -88,7 +91,7 @@ async function cmdList(args, env) {
 
   console.log(`使える素材 ${filtered.length} 件（ライブラリ: ${libraryRoots.write}）`);
   for (const item of filtered) {
-    console.log(`  ${badgeOf(item)}  ${item.category}/${item.id}\t${item.sourceKind}\t[${item.category}]\t${item.title}`);
+    console.log(`  ${badgeOf(item)}  ${item.category}/${item.id}\t${item.sourceKind}\t[${item.category}]\t${item.tier === 'pro' ? 'pro' : 'free'}\t${item.title}`);
   }
 }
 
@@ -199,8 +202,8 @@ async function cmdCredits(args, env) {
 function printUsage() {
   console.log(`使い方: akari-assets <list|add|fetch|bundle|migrate|sync|browse|check|credits> [options]
 
-  list [--category <c>] [--source <lab|site|own>] [--json]
-                                          出どころ・取得状態つき素材一覧
+  list [--category <c>] [--source <lab|site|own>] [--tag <t> ...] [--query <s>] [--json]
+                                          タグ完全一致（複数は AND）・題名/id/タグ部分一致で絞る素材一覧
   add <path...> --plan [--json]           ローカル素材の取り込み計画（書き込みなし）
   add --apply <plan.json> [--json]        計画で選択した素材を複製して登録
   fetch <ref> [--project <dir>] [--reference] [--force]

@@ -5,8 +5,27 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { readEditV2 } from "../lib/edit-v2.js";
+import { serializeEdit } from "../lib/canonical.js";
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "edit-v2.json");
+
+test('media captions on/off survive strict reading and serialization, while other uses fail', async () => {
+  const fixture = JSON.parse(await readFile(fixturePath, 'utf8'));
+  for (const captions of ['on', 'off']) {
+    const value = structuredClone(fixture);
+    value.tracks[3].items[0].captions = captions;
+    const read = readEditV2(value);
+    assert.equal(read.tracks[3].items[0].captions, captions);
+    const serializable = { ...read, tracks: read.tracks.map(({ z: _z, ...track }) => track) };
+    assert.equal(readEditV2(serializeEdit(serializable)).tracks[3].items[0].captions, captions);
+  }
+  const invalid = structuredClone(fixture);
+  invalid.tracks[3].items[0].captions = 'maybe';
+  assert.throws(() => readEditV2(invalid), /captions/);
+  const html = structuredClone(fixture);
+  html.tracks[6].items[0].captions = 'off';
+  assert.throws(() => readEditV2(html), /captions/);
+});
 
 test('photo crop rotation and frame survive reading with closed bounds', async () => {
   const value = JSON.parse(await readFile(fixturePath, 'utf8'));

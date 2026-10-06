@@ -43,7 +43,7 @@ test('caption move snaps after the pointer stops for 96 ms', () => {
     startPlateRect: { left: 20, right: 120, top: 30, bottom: 70 },
     dragSnap: { x: null, y: null }, multiMove: false,
     startPlateTranslate: { x: 0, y: 0 }, captionPlate: plate,
-    captionVisualRect: () => ({}), updateCaptionSelectBoxForRect() {},
+    captionVisualRect: () => ({}), captionLayoutRect: () => ({}), updateCaptionSelectBoxForRect() {},
     setTimeout(fn, ms) { assert.equal(ms, 96); timer = fn; return 1; },
     clearTimeout() { timer = null; },
     window: { akari: { interaction: {

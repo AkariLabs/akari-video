@@ -6,6 +6,19 @@ const fixture = () => JSON.stringify({ version: 2, output: { width: 640, height:
   tracks: [{ id: 'v', lane: 'visual', items: [leaf('flat'), { id: 'g', at: 0, duration: 90,
     source: { kind: 'group' }, transform: { x: 20, y: 30, scale: 2, rotate: 90 }, items: [leaf('nested')] }, leaf('bag')] }] });
 const command = (itemId, transform) => ({ kind: 'overlay', itemId, patch: { transform } });
+test('batch text and transform writes preserve captions switch on another media item', () => {
+  const value = JSON.parse(fixture());
+  value.sources.push({ id: 'clip', path: 'assets/clip.mp4' });
+  value.tracks.push({ id: 'media', lane: 'visual', items: [{ id: 'clip', at: 0, duration: 90,
+    source: { kind: 'media', src: 'clip', in: 0, out: 3 }, captions: 'off' }] });
+  const result = JSON.parse(resolvePreviewItemWriteBatch(JSON.stringify(value), [
+    { kind: 'overlay', itemId: 'bag#title', patch: { text: '変更後' } },
+    command('bag#title', { x: 25, y: 10 }),
+  ]).candidateText);
+  assert.equal(result.tracks[1].items[0].captions, 'off');
+  assert.equal(result.tracks[0].items[2].items[0].source.text, '変更後');
+  assert.deepEqual(result.tracks[0].items[2].items[0].transform, { x: 25, y: 10 });
+});
 test('batch matches ordered single resolutions, including repeated target patches', () => {
   const text = fixture(), commands = [command('flat', { x: 12 }), command('flat', { y: 15 }), command('flat', { x: 40 })];
   const expected = commands.reduce((text, command) => resolvePreviewItemWrite(text, command).candidateText, text);

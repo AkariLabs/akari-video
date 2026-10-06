@@ -3434,9 +3434,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } catch {
                 return;
             }
-            // captions.json など edit.json 以外の直接通知は握らない（watcher 経路のまま）。
-            // ここで recentWrites に印を付けてしまうと watcher 側まで落ちて更新が消えるため、
-            // **一致した URI にだけ印を付ける**のが二重発火抑止と非回帰の両立点。
+            const captionsUri = widget.akariPreviewCaptionsUri;
+            if (captionsUri && (written.toString() === captionsUri.toString()
+                || this.resourceSuffix(written) === this.resourceSuffix(captionsUri))) {
+                this.markRecentWrite(written);
+                this.markRecentWrite(captionsUri);
+                this.queueCaptionsUpdate(widget);
+                return;
+            }
+            // 一致した URI にだけ印を付け、後続 watcher の重複通知を抑える。
             if (written.toString() !== editUri.toString()
                 && this.resourceSuffix(written) !== this.resourceSuffix(editUri)) {
                 return;
@@ -6697,12 +6703,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     /** History writes can land inside the recent-write watcher suppression window. */
-    refreshCaptionsAfterHistoryWrite(captionsUri: string): void {
+    refreshCaptionsAfterHistoryWrite(captionsUri: string, clearPositions = true): void {
         const written = new URI(captionsUri);
         this.markRecentWrite(written);
         for (const widget of this.openOutputPreviews.values()) {
             const current = widget.akariPreviewCaptionsUri;
             if (!widget.isDisposed && current?.toString() === captionsUri) {
+                if (clearPositions) widget.sendMessage({ type: 'akari-preview-clear-caption-positions' });
                 this.queueCaptionsUpdate(widget);
             }
         }
@@ -6741,7 +6748,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
                     this.notifyCaptionWrite(widget, captionsUri, source, candidateText, '文字を複製');
                 }
-                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
+                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
                 respond(true);
             } catch (error) {
                 respond(false, error instanceof Error ? error.message : String(error));
@@ -6787,7 +6794,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, '文字の折り返し幅を変更');
                     }
                 }
-                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
+                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
                 respond(true);
             } catch (error) {
                 respond(false, error instanceof Error ? error.message : String(error));

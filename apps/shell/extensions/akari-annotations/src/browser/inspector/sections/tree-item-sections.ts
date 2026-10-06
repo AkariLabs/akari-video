@@ -8,7 +8,7 @@ import { type InspectorFieldDef, type InspectorSection } from './types';
 import { formatTimestamp, formatDurationSeconds } from './shared-helpers';
 import { CROP_FIELDS, PERSPECTIVE_FIELDS } from './transform-fields';
 import { MASK_FIELDS, PHOTO_FLIP_FIELDS, PHOTO_FRAME_FIELDS, PHOTO_CROP_OPEN_FIELD } from './photo-fields';
-import { MOTION_FIELDS, MOTION_SECTIONS, MOTION_SUMMARY_SECTION } from './motion-sections';
+import { MOTION_SECTIONS, MOTION_SUMMARY_SECTION } from './motion-sections';
 import { ANIMATOR_SECTION } from './animator-section';
 
 export function TREE_ITEM_SECTIONS(
@@ -169,10 +169,10 @@ export function TREE_ITEM_SECTIONS(
         { id: 'crop', label: 'クロップ', fields: cropFields.map(field => ({ ...field,
             markers: itemMotionMarks(snapshot, 'crop') })) },
         perspectiveSection,
-        MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
-        ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption'
-            ? [{ id: 'motion', label: '動き', fields: MOTION_FIELDS({ ...snapshot,
-                sourceKind: 'caption' }, requestWrite) }] : MOTION_SECTIONS(snapshot, requestWrite)),
+        ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [] : [
+            MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
+            ...MOTION_SECTIONS(snapshot, requestWrite)
+        ]),
         ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [
             ANIMATOR_SECTION(snapshot.id, 'アニメーター', snapshot.animator, requestWrite)
         ] : []),

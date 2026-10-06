@@ -580,35 +580,47 @@ export function previewBootstrapScript(): string {
             const captionPositionOverrides = new Map();
             const latestCaptionMove = new Map();
             const rememberCaptionPosition = (id, value) => {
-                const pending = { value, saved: false };
+                const pending = { value, saved: false, savedAt: 0 };
                 captionPositionOverrides.set(id, pending);
                 return pending;
             };
             const captionPositionMatches = (actual, expected) => !!actual
                 && Math.abs(Number(actual.x ?? 0) - Number(expected.x ?? 0)) < 0.000001
                 && Math.abs(Number(actual.y ?? 0) - Number(expected.y ?? 0)) < 0.000001;
-            const captionUpdateIsStale = incoming => {
-                for (const [id, pending] of captionPositionOverrides) {
-                    const cue = incoming.find(item => (item.sourceCueId || item.id) === id);
-                    if (!cue || !captionPositionMatches(cue.textStyle?.position, pending.value.position)) {
-                        return true;
+            const protectCaptionUpdate = incoming => {
+                const present = new Set(incoming.map(cue => cue.sourceCueId || cue.id));
+                for (const id of captionPositionOverrides.keys()) {
+                    if (!present.has(id)) captionPositionOverrides.delete(id);
+                }
+                return incoming.map(cue => {
+                    const id = cue.sourceCueId || cue.id;
+                    const pending = captionPositionOverrides.get(id);
+                    if (!pending) return cue;
+                    const position = cue.textStyle?.position;
+                    const expected = pending.value.position;
+                    if (pending.saved && captionPositionMatches(position, expected)) {
+                        captionPositionOverrides.delete(id);
+                        return cue;
                     }
-                }
-                return false;
+                    if (pending.saved && Date.now() - pending.savedAt > 3000) {
+                        captionPositionOverrides.delete(id);
+                        return cue;
+                    }
+                    const textStyle = { ...cue.textStyle, text_anchor: pending.value.anchor,
+                        position: expected };
+                    // The plate reads CSS variables, so protect those as well as the model position.
+                    const resolved = window.AkariEditKernel?.resolveCaptionLineStyleVars?.(textStyle, summary.output) ?? {};
+                    const textStyleVars = { ...cue.textStyleVars };
+                    for (const key of ['--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
+                        '--caption-width', '--caption-translate', '--caption-justify-content',
+                        '--caption-align-items', '--caption-line-margin', '--caption-line-max-width',
+                        '--caption-text-align']) {
+                        if (key in resolved) textStyleVars[key] = resolved[key];
+                        else delete textStyleVars[key];
+                    }
+                    return { ...cue, textStyle, textStyleVars };
+                });
             };
-            const protectCaptionUpdate = incoming => incoming.map(cue => {
-                const id = cue.sourceCueId || cue.id;
-                const pending = captionPositionOverrides.get(id);
-                if (!pending) return cue;
-                const position = cue.textStyle?.position;
-                const expected = pending.value.position;
-                if (pending.saved && captionPositionMatches(position, expected)) {
-                    captionPositionOverrides.delete(id);
-                    return cue;
-                }
-                return { ...cue, textStyle: { ...cue.textStyle, text_anchor: pending.value.anchor,
-                    position: expected } };
-            });
             const latestSelectionGesture = new WeakMap();
             const beginSelectionGesture = target => {
                 const gesture = { target, key: target.entry || target.media || target };
@@ -4768,11 +4780,15 @@ export function previewBootstrapScript(): string {
                 };
             };
             const captionVisualRect = (captionPlate = selectedCaptionPlate()) => {
+                if (!captionPlate?.isConnected || captionPlate.querySelector('[data-akari-motion-replay]')) return null;
                 const block = captionPlate.querySelector('.akari-caption__block');
                 const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
-                const rects = (elements.length > 0 ? elements : [captionPlate])
+                const rects = elements
                     .concat([...captionPlate.querySelectorAll('.akari-caption__run')])
-                    .map(element => element.getBoundingClientRect());
+                    .filter(element => element.isConnected)
+                    .map(element => element.getBoundingClientRect())
+                    .filter(rect => rect.width !== 0 || rect.height !== 0);
+                if (!rects.length) return null;
                 const clientRect = {
                     left: Math.min(...rects.map(rect => rect.left)),
                     right: Math.max(...rects.map(rect => rect.right)),
@@ -4801,6 +4817,7 @@ export function previewBootstrapScript(): string {
                 plate.style.scale = 'none';
                 try {
                     const ink = captionVisualRect(captionPlate);
+                    if (!ink) return null;
                     const bounds = plate.getBoundingClientRect();
                     const a = captionOutputPoint(bounds.left, bounds.top);
                     const b = captionOutputPoint(bounds.right, bounds.bottom);
@@ -4831,7 +4848,7 @@ export function previewBootstrapScript(): string {
                     if (moving?.kind === 'caption' && (moving.id === id || moving.ids?.includes(id))) continue;
                     if (!row.plate.isConnected || row.plate.hidden || row.plate.style.display === 'none') continue;
                     const rect = captionVisualRect(row.plate);
-                    if ([rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite)
+                    if (rect && [rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite)
                         && rect.right > rect.left && rect.bottom > rect.top) {
                         targets.push({ ...rect, centerX: (rect.left + rect.right) / 2,
                             centerY: (rect.top + rect.bottom) / 2 });
@@ -4927,11 +4944,18 @@ export function previewBootstrapScript(): string {
                     updateCaptionSelectTools();
                     return;
                 }
+                if (!rect) {
+                    captionSelectBox.classList.remove('is-active');
+                    captionRowBox.classList.remove('is-active');
+                    return;
+                }
                 const frameRect = window.akari.computeOutputFrameRect();
                 const frameScale = window.akari.stageScale() || 1;
                 const selectedPlate = selectedCaptionPlate();
                 const captionTransform = captionTransformValues(selectedPlate);
-                const oriented = captionOrientedFrameFn(captionLayoutRect(selectedPlate),
+                const layout = captionLayoutRect(selectedPlate);
+                if (!layout) return;
+                const oriented = captionOrientedFrameFn(layout,
                     captionTransform.scale, captionTransform.rotate);
                 setRectStyle(captionSelectBox, {
                     left: frameRect.x + (oriented.center.x - oriented.width / 2) * frameScale,
@@ -4985,6 +5009,7 @@ export function previewBootstrapScript(): string {
                     const id = row.caption.sourceCueId || row.caption.id;
                     if (!selectedCaptionIds.has(id) || id === selectedCaptionId) continue;
                     const rect = captionVisualRect(row.plate);
+                    if (!rect) continue;
                     const box = document.createElement('div');
                     box.className = 'caption-multi-select-box';
                     box.dataset.captionId = id;
@@ -5411,7 +5436,8 @@ export function previewBootstrapScript(): string {
                         for (const caption of captions) {
                             if ((caption.sourceCueId || caption.id) === edit.captionId) {
                                 caption.text = nextText;
-                                delete caption.words;
+                                // captions-update supplies the persisted words. Keep them if it
+                                // already arrived while the write response was pending.
                             }
                         }
                     }
@@ -5574,6 +5600,7 @@ export function previewBootstrapScript(): string {
                 );
                 const rect = captionVisualRect();
                 const layoutRect = captionLayoutRect(captionPlate);
+                if (!rect || !layoutRect) return true;
                 const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
                 const start = captionOutputPoint(event.clientX, event.clientY);
                 const currentStyle = getComputedStyle(captionPlate);
@@ -5651,10 +5678,16 @@ export function previewBootstrapScript(): string {
                 let lastPatch;
                 const onMove = moveEvent => {
                     if (moveEvent.pointerId !== pointerId) return;
+                    if (!captionVisualRect() || !captionLayoutRect(captionPlate)) {
+                        restoreLocalTransform();
+                        lastPatch = undefined;
+                        return;
+                    }
                     const now = captionOutputPoint(moveEvent.clientX, moveEvent.clientY);
                     if (!moved && Math.hypot(now.x - start.x, now.y - start.y) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
                     let patch;
+                    try {
                     if (kind === 'rot') {
                         let angle = captionHandleRotateValue(baseRotate, center, start, now);
                         if (!moveEvent.metaKey && !moveEvent.ctrlKey) {
@@ -5675,10 +5708,13 @@ export function previewBootstrapScript(): string {
                         captionPlate.style.setProperty('--caption-bottom', 'auto');
                         captionPlate.style.setProperty('--caption-translate', 'none');
                         const nextLayout = captionLayoutRect(captionPlate);
+                        if (!nextLayout) { restoreLocalTransform(); lastPatch = undefined; return; }
                         const candidateLeft = layoutRect.right - (nextLayout.right - nextLayout.left);
                         captionPlate.style.setProperty('--caption-left', candidateLeft / outputWidth * 100 + '%');
+                        const movedLayout = captionLayoutRect(captionPlate);
+                        if (!movedLayout) { restoreLocalTransform(); lastPatch = undefined; return; }
                         const movedCorners = captionOrientedFrameFn(
-                            captionLayoutRect(captionPlate), baseScale, baseRotate).corners;
+                            movedLayout, baseScale, baseRotate).corners;
                         const fixedCorner = kind === 's' ? 1 : 2;
                         const anchorDelta = {
                             x: startCorners[fixedCorner].x - movedCorners[fixedCorner].x,
@@ -5702,8 +5738,10 @@ export function previewBootstrapScript(): string {
                         captionPlate.style.setProperty('--caption-top', layoutRect.top / outputHeight * 100 + '%');
                         captionPlate.style.setProperty('--caption-bottom', 'auto');
                         captionPlate.style.setProperty('--caption-translate', 'none');
+                        const movedLayout = captionLayoutRect(captionPlate);
+                        if (!movedLayout) { restoreLocalTransform(); lastPatch = undefined; return; }
                         const movedCorners = captionOrientedFrameFn(
-                            captionLayoutRect(captionPlate), baseScale, baseRotate).corners;
+                            movedLayout, baseScale, baseRotate).corners;
                         const anchorDelta = captionWrapAnchorDeltaFn(startCorners, movedCorners, fixedSide);
                         const placement = captionWrapPositionFn(wrap.left + anchorDelta.x,
                             layoutRect.top + anchorDelta.y,
@@ -5734,6 +5772,12 @@ export function previewBootstrapScript(): string {
                         captionPlate.style.setProperty('--caption-bottom', 'auto');
                         captionPlate.style.setProperty('--caption-translate', 'none');
                     }
+                    } catch (error) {
+                        if (!(error instanceof RangeError)) throw error;
+                        restoreLocalTransform();
+                        lastPatch = undefined;
+                        return;
+                    }
                     lastPatch = patch;
                     if (patch.scale !== undefined) {
                         captionPlate.style.setProperty('--caption-scale', String(patch.scale));
@@ -5757,7 +5801,8 @@ export function previewBootstrapScript(): string {
                 };
                 const finish = async cancelled => {
                     cleanup();
-                    if (cancelled || !moved) {
+                    if (cancelled || !moved || !lastPatch || !captionVisualRect()
+                        || !captionLayoutRect(captionPlate)) {
                         restoreLocalTransform();
                         updateCaptionSelectBox();
                         return;
@@ -5816,6 +5861,9 @@ export function previewBootstrapScript(): string {
                 const captionPlate = handle && captionSelectBox.contains(handle)
                     ? selectedCaptionPlate() : event.target.closest('.caption-row-plate');
                 if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
+                const startPlateRect = captionVisualRect(captionPlate);
+                const startLayoutRect = captionLayoutRect(captionPlate);
+                if (!startPlateRect || !startLayoutRect) return;
                 const captionMoveToken = {};
                 if (typeof latestCaptionMove !== 'undefined') latestCaptionMove.set(cueId, captionMoveToken);
                 if (typeof captionGestureCount !== 'undefined') captionGestureCount += 1;
@@ -5832,8 +5880,6 @@ export function previewBootstrapScript(): string {
                 const pointerId = event.pointerId;
                 const startClientX = event.clientX;
                 const startClientY = event.clientY;
-                const startPlateRect = captionVisualRect();
-                const startLayoutRect = captionLayoutRect();
                 const startTransform = captionTransformValues(captionPlate);
                 // The previous drag can still be waiting for captions.json. Its live
                 // displacement is on the plate, while captions still has the old base.
@@ -5896,6 +5942,12 @@ export function previewBootstrapScript(): string {
                         measuringPlate.remove();
                     }
                 }
+                if ([...startRects.values()].some(rect => !rect)
+                    || [...startLayoutRects.values()].some(rect => !rect)) {
+                    if (typeof captionGestureCount !== 'undefined') captionGestureCount -= 1;
+                    window.akari.reportGesture?.('end');
+                    return;
+                }
                 let moved = false;
                 let lastOutputDelta = { x: 0, y: 0 };
                 selectionDragActive = true;
@@ -5925,6 +5977,7 @@ export function previewBootstrapScript(): string {
                 const onMove = (moveEvent, settled = false) => {
                     if (moveEvent.pointerId !== pointerId) return;
                     clearSettleTimer();
+                    if (!captionVisualRect(captionPlate) || !captionLayoutRect(captionPlate)) return;
                     const dx = moveEvent.clientX - startClientX;
                     const dy = moveEvent.clientY - startClientY;
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
@@ -6003,7 +6056,8 @@ export function previewBootstrapScript(): string {
                     if (captionFinished) return;
                     captionFinished = true;
                     cleanup();
-                    if (cancelled || !moved) {
+                    if (cancelled || !moved || !captionVisualRect(captionPlate)
+                        || !captionLayoutRect(captionPlate)) {
                         for (const row of captionRows.values()) {
                             if (multiMove && selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id)) {
                                 const id = row.caption.sourceCueId || row.caption.id;
@@ -6091,7 +6145,13 @@ export function previewBootstrapScript(): string {
                         window.akari.showWriteError(error);
                     }
                     for (const [id, pending] of writtenPositions) {
-                        if (captionPositionOverrides.get(id) === pending) pending.saved = true;
+                        if (captionPositionOverrides.get(id) === pending) {
+                            pending.saved = true;
+                            pending.savedAt = Date.now();
+                            window.setTimeout?.(() => {
+                                if (captionPositionOverrides.get(id) === pending) captionPositionOverrides.delete(id);
+                            }, 3000);
+                        }
                     }
                     if (typeof captionGestureCount !== 'undefined') captionGestureCount -= 1;
                     window.akari.reportGesture?.('end');
@@ -6161,6 +6221,8 @@ export function previewBootstrapScript(): string {
                 const fit = captionWrapFitWidthFn(longest, padding, outputWidth);
                 const originalStyle = plate.getAttribute('style');
                 const layout = captionLayoutRect(plate);
+                if (!layout || !captionVisualRect(plate)) return;
+                try {
                 if (noBackground) {
                     plate.style.setProperty('--plate-pad-x', '0px');
                     plate.style.setProperty('--plate-pad-y', '0px');
@@ -6173,7 +6235,13 @@ export function previewBootstrapScript(): string {
                 plate.style.setProperty('--caption-translate', 'none');
                 const afterRect = inkRect(lines[0]);
                 const afterInk = captionOutputPoint(afterRect.left, afterRect.top);
-                const fitted = captionWrapFitPositionFn(captionLayoutRect(plate), beforeInk, afterInk);
+                const nextLayout = captionLayoutRect(plate);
+                if (!nextLayout) {
+                    if (originalStyle === null) plate.removeAttribute('style');
+                    else plate.setAttribute('style', originalStyle);
+                    return;
+                }
+                const fitted = captionWrapFitPositionFn(nextLayout, beforeInk, afterInk);
                 const position = captionWrapPositionFn(fitted.left, fitted.top, outputWidth, outputHeight);
                 plate.style.setProperty('--caption-left', position.position.x * 100 + '%');
                 plate.style.setProperty('--caption-top', position.position.y * 100 + '%');
@@ -6189,6 +6257,11 @@ export function previewBootstrapScript(): string {
                     updateCaptionSelectBox();
                     window.akari.showWriteError(error);
                 });
+                } catch (error) {
+                    if (originalStyle === null) plate.removeAttribute('style');
+                    else plate.setAttribute('style', originalStyle);
+                    if (!(error instanceof RangeError)) throw error;
+                }
             });
             new ResizeObserver(() => updateCaptionSelectBox()).observe(wrapper);
 
@@ -10593,6 +10666,7 @@ export function previewBootstrapScript(): string {
                         captionTransform: row.item.kind === 'caption' ? captionTransformValues(row.element) : null,
                         translate: { x: parseFloat(css[0]) || 0, y: parseFloat(css[1]) || 0 } };
                 });
+                if (rows.some(row => row.item.kind === 'caption' && (!row.rect || !row.layoutRect))) return;
                 let delta = { x: 0, y: 0 };
                 let moved = false;
                 window.akari.reportGesture?.('begin');
@@ -10607,6 +10681,8 @@ export function previewBootstrapScript(): string {
                 };
                 const move = next => {
                     if (next.pointerId !== pointerId) return;
+                    if (rows.some(row => row.item.kind === 'caption'
+                        && (!captionVisualRect(row.element) || !captionLayoutRect(row.element)))) return;
                     const point = captionOutputPoint(next.clientX, next.clientY);
                     delta = { x: point.x - origin.x, y: point.y - origin.y };
                     if (!moved && Math.hypot(delta.x, delta.y) > CLICK_THRESHOLD_PX) moved = true;
@@ -10621,7 +10697,8 @@ export function previewBootstrapScript(): string {
                     finished = true;
                     try {
                         stop();
-                        if (cancelled || !moved) return;
+                        if (cancelled || !moved || rows.some(row => row.item.kind === 'caption'
+                            && (!captionVisualRect(row.element) || !captionLayoutRect(row.element)))) return;
                         suppressMixedClick = true;
                         const writes = [];
                         const cuePositions = [];
@@ -10904,6 +10981,7 @@ export function previewBootstrapScript(): string {
                     if (!caption || !row || !row.plate?.isConnected) return;
                     const frame = captionOutputFrame();
                     const rect = captionVisualRect(row.plate);
+                    if (!rect) return;
                     const zone = caption.textStyle?.zone || 'bottom';
                     const anchor = caption.textStyle?.text_anchor
                         || (String(zone).startsWith('top') ? 'tc'
@@ -10994,15 +11072,16 @@ export function previewBootstrapScript(): string {
                     queueCaptionMotionReplay(message);
                     return;
                 }
+                if (message && message.type === 'akari-preview-clear-caption-positions') {
+                    captionPositionOverrides.clear();
+                    return;
+                }
                 if (message && message.type === 'akari-preview-captions-update') {
                     if (captionGestureCount) {
                         pendingCaptionUpdate = Array.isArray(message.captions) ? message.captions : [];
                         return;
                     }
                     const nextCaptions = Array.isArray(message.captions) ? message.captions : [];
-                    // textStyleVars, not textStyle, drives the plate's actual CSS. A stale
-                    // message cannot be repaired by changing textStyle alone.
-                    if (captionUpdateIsStale(nextCaptions)) return;
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated(nextCaptions);
                     captions = protectCaptionUpdate(nextCaptions);

@@ -1,5 +1,6 @@
 import { AssetCatalogViewItem } from './akari-project-protocol';
 import { groupCatalogItemsByPack } from './asset-catalog-view';
+import { mixOrder } from './asset-mix-order';
 import { CatalogPack } from './catalog-packs';
 import { catalogItemCategoryChipKey, filterCatalogItems } from './catalog-reader';
 import { LIBRARY_GROUPS, LibraryCategoryDefinition, LibraryCategoryKey, LibraryGroupDefinition } from './library-home-view';
@@ -75,7 +76,8 @@ export const LIBRARY_RANK_WEIGHTS = { favorite: 4, used: 3, own: 2, cached: 1 } 
 
 /** 意味の近さを最優先にし、同程度の候補だけ利用実績と出どころで並べる。 */
 export function compareLibraryItems(a: AssetCatalogViewItem, b: AssetCatalogViewItem,
-    relevance: (item: AssetCatalogViewItem) => number = () => 0): number {
+    relevance: (item: AssetCatalogViewItem) => number = () => 0,
+    tieBreak: (a: AssetCatalogViewItem, b: AssetCatalogViewItem) => number = (left, right) => left.key.localeCompare(right.key)): number {
     const time = (value?: string): number => Date.parse(value ?? '') || 0;
     const own = (item: AssetCatalogViewItem): number => item.sourceKind === 'own' || item.sourceKind === 'site' ? LIBRARY_RANK_WEIGHTS.own : 0;
     return relevance(b) - relevance(a)
@@ -86,12 +88,22 @@ export function compareLibraryItems(a: AssetCatalogViewItem, b: AssetCatalogView
         || own(b) - own(a)
         || Number(b.state === 'cached') * LIBRARY_RANK_WEIGHTS.cached - Number(a.state === 'cached') * LIBRARY_RANK_WEIGHTS.cached
         || time(b.addedAt) - time(a.addedAt)
-        || a.key.localeCompare(b.key);
+        || tieBreak(a, b);
 }
 
 export function rankRecentLibraryItems(items: readonly AssetCatalogViewItem[],
+    relevance?: (item: AssetCatalogViewItem) => number,
+    tieBreak?: (a: AssetCatalogViewItem, b: AssetCatalogViewItem) => number): AssetCatalogViewItem[] {
+    return [...items].sort((a, b) => compareLibraryItems(a, b, relevance, tieBreak));
+}
+
+/** 絞り込んだ棚の混ぜ順を、既存の利用実績などが同点のときに使う。 */
+export function rankLibraryShelfItems(items: readonly AssetCatalogViewItem[],
     relevance?: (item: AssetCatalogViewItem) => number): AssetCatalogViewItem[] {
-    return [...items].sort((a, b) => compareLibraryItems(a, b, relevance));
+    const ordered = mixOrder(items);
+    const positions = new Map(ordered.map((item, index) => [item.key, index]));
+    return rankRecentLibraryItems(ordered, relevance,
+        (a, b) => positions.get(a.key)! - positions.get(b.key)!);
 }
 
 /** 同じフォルダは最新の素材のカテゴリへ導く。0 件なら帯は描画しない。 */
