@@ -1,0 +1,3860 @@
+{
+  "chips": [
+    {
+      "id": "c-0001",
+      "text": "話した言葉",
+      "rect": {
+        "x": 553.890625,
+        "y": 722.890625,
+        "width": 85.234375,
+        "height": 22
+      }
+    },
+    {
+      "id": "c-0002",
+      "text": "置いた文字",
+      "rect": {
+        "x": 553.890625,
+        "y": 696.890625,
+        "width": 85.234375,
+        "height": 22
+      }
+    }
+  ],
+  "selection": {
+    "tabs": [
+      "テキスト",
+      "動き",
+      "情報"
+    ],
+    "fields": [
+      "caption-multi-count",
+      "caption-font-family",
+      "caption-color",
+      "caption-size",
+      "caption-wrap-width",
+      "caption-font-weight",
+      "caption-line-height",
+      "caption-letter-spacing",
+      "caption-stroke-color",
+      "caption-stroke-width",
+      "caption-style-bg-enabled",
+      "caption-background-mode",
+      "caption-background-color",
+      "caption-background-opacity",
+      "caption-background-padding",
+      "caption-background-radius",
+      "caption-style-effect",
+      "caption-zone"
+    ],
+    "selected": []
+  },
+  "font": {
+    "panel": false,
+    "notice": []
+  },
+  "plates": [
+    {
+      "id": "caption-plate-c-0001-output-1",
+      "text": "話した言葉",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    },
+    {
+      "id": "caption-plate-c-0002",
+      "text": "置いた文字",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    }
+  ],
+  "hover": [
+    {
+      "id": "caption-plate-c-0001-output-1",
+      "text": "話した言葉",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "12px rgb(0, 0, 0)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    },
+    {
+      "id": "caption-plate-c-0002",
+      "text": "置いた文字",
+      "color": "rgb(255, 255, 255)",
+      "stroke": "12px rgb(0, 0, 0)",
+      "background": "none",
+      "fill": "rgb(255, 255, 255)"
+    }
+  ],
+  "applied": {
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "background": {
+              "opacity": 0
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "background": {
+              "opacity": 0
+            }
+          }
+        }
+      ]
+    },
+    "frames": [
+      {
+        "dt": 12.199999988079071,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 19,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 14.099999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.599999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.400000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.099999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.700000047683716,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17.099999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 15.300000011920929,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17.80000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.30000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 15.800000011920929,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17.100000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 15.699999988079071,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "12px rgb(0, 0, 0)",
+            "background": "none",
+            "fill": "rgb(255, 255, 255)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      }
+    ],
+    "plates": [
+      {
+        "id": "caption-plate-c-0001-output-1",
+        "text": "話した言葉",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "12px rgb(0, 0, 0)",
+        "background": "none",
+        "fill": "rgb(255, 255, 255)"
+      },
+      {
+        "id": "caption-plate-c-0002",
+        "text": "置いた文字",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "12px rgb(0, 0, 0)",
+        "background": "none",
+        "fill": "rgb(255, 255, 255)"
+      }
+    ]
+  },
+  "gradient": {
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        }
+      ]
+    },
+    "frames": [
+      {
+        "dt": 11.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 20,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 12.300000011920929,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 20.30000001192093,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 25.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 14.900000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 17.799999952316284,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 8,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 13.699999988079071,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.900000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "vars": {}
+          }
+        ]
+      },
+      {
+        "dt": 16.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 17.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 15.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 17.5,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 20.400000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 13.399999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 16.100000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 16.69999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 15.899999976158142,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 16.900000035762787,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 17.19999998807907,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 17.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 15.799999952316284,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 18.700000047683716,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 14.699999988079071,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 17.599999964237213,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      },
+      {
+        "dt": 15.600000023841858,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-output-1",
+            "text": "話した言葉",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "caption-plate-c-0002",
+            "text": "置いた文字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "0px rgba(0, 0, 0, 0)",
+            "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+            "fill": "rgba(0, 0, 0, 0)"
+          }
+        ],
+        "model": [
+          {
+            "id": "c-0001",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          },
+          {
+            "id": "c-0002",
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "fill": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "vars": {
+              "--caption-fill-gradient": "linear-gradient(90deg, #fb923c, #f43f5e, #8b5cf6)"
+            }
+          }
+        ]
+      }
+    ],
+    "plates": [
+      {
+        "id": "caption-plate-c-0001-output-1",
+        "text": "話した言葉",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "0px rgba(0, 0, 0, 0)",
+        "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+        "fill": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "caption-plate-c-0002",
+        "text": "置いた文字",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "0px rgba(0, 0, 0, 0)",
+        "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+        "fill": "rgba(0, 0, 0, 0)"
+      }
+    ]
+  },
+  "styleEvents": [
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "shadow": null,
+        "glow": null,
+        "background": {
+          "opacity": 0
+        },
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "shadow": null,
+        "glow": null,
+        "background": {
+          "opacity": 0
+        },
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "shadow": null,
+        "glow": null,
+        "background": {
+          "opacity": 0
+        },
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null,
+      "committed": true
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "shadow": null,
+        "glow": null,
+        "background": {
+          "opacity": 0
+        },
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 6
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null,
+      "committed": true
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": {
+        "zone": "bottom",
+        "stroke": {
+          "color": "#000000",
+          "widthPx": 1.5
+        },
+        "fillGradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angleDeg": 90
+        },
+        "background": {
+          "opacity": 0
+        },
+        "shadow": null,
+        "glow": null,
+        "strokeInner": null,
+        "extrude": null,
+        "stroke_inner": null,
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        }
+      }
+    },
+    {
+      "captionId": "c-0001",
+      "textStyle": null
+    }
+  ],
+  "playbackBefore": {
+    "available": true,
+    "intervals": [
+      18.69999998807907,
+      10,
+      16.700000047683716,
+      15.799999952316284,
+      16.700000047683716,
+      17.899999976158142,
+      15.699999988079071,
+      17.19999998807907,
+      16.600000023841858,
+      16.30000001192093,
+      17.099999964237213,
+      15.900000035762787,
+      17.399999976158142,
+      16.5,
+      16.69999998807907,
+      52.80000001192093,
+      3.699999988079071,
+      10.200000047683716,
+      17,
+      16.69999998807907,
+      15.399999976158142,
+      17.5,
+      16.5,
+      27.5,
+      6,
+      16.69999998807907,
+      15.800000011920929,
+      16.600000023841858,
+      17.099999964237213,
+      17.400000035762787,
+      16.5,
+      16.30000001192093,
+      16.19999998807907,
+      16.899999976158142,
+      16.400000035762787,
+      16.899999976158142,
+      17.30000001192093,
+      15.699999988079071,
+      17.80000001192093,
+      15.899999976158142,
+      17.30000001192093,
+      16.69999998807907,
+      16.600000023841858,
+      16,
+      17.099999964237213
+    ]
+  },
+  "playbackAfter": {
+    "available": true,
+    "intervals": [
+      12.099999964237213,
+      16.30000001192093,
+      16.400000035762787,
+      15.899999976158142,
+      16.899999976158142,
+      17.30000001192093,
+      16.600000023841858,
+      15.800000011920929,
+      16.799999952316284,
+      17.80000001192093,
+      15.900000035762787,
+      17.399999976158142,
+      16.600000023841858,
+      16.599999964237213,
+      17.100000023841858,
+      15.899999976158142,
+      16.69999998807907,
+      16.400000035762787,
+      17.099999964237213,
+      15.900000035762787,
+      17.30000001192093,
+      17.099999964237213,
+      16.30000001192093,
+      15.800000011920929,
+      17.5,
+      17,
+      15.5,
+      17.69999998807907,
+      16.80000001192093,
+      16.69999998807907,
+      15.399999976158142,
+      17.600000023841858,
+      17,
+      16.600000023841858,
+      16.399999976158142,
+      16.899999976158142,
+      16.5,
+      15.700000047683716,
+      17.599999964237213,
+      16.69999998807907,
+      16.600000023841858,
+      16.69999998807907,
+      16.19999998807907,
+      17.100000023841858,
+      15.699999988079071
+    ]
+  },
+  "undoEffect": {
+    "clicked": true,
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "background": {
+              "opacity": 0
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 6
+            },
+            "background": {
+              "opacity": 0
+            }
+          }
+        }
+      ]
+    },
+    "plates": [
+      {
+        "id": "caption-plate-c-0001-output-1",
+        "text": "話した言葉",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "12px rgb(0, 0, 0)",
+        "background": "none",
+        "fill": "rgb(255, 255, 255)"
+      },
+      {
+        "id": "caption-plate-c-0002",
+        "text": "置いた文字",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "12px rgb(0, 0, 0)",
+        "background": "none",
+        "fill": "rgb(255, 255, 255)"
+      }
+    ],
+    "model": [
+      {
+        "id": "c-0001",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 6
+        },
+        "vars": {}
+      },
+      {
+        "id": "c-0002",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 6
+        },
+        "vars": {}
+      }
+    ]
+  },
+  "redoEffect": {
+    "clicked": true,
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        }
+      ]
+    }
+  },
+  "motion": {
+    "cards": [
+      {
+        "id": "simple",
+        "kind": "combo"
+      },
+      {
+        "id": "smart",
+        "kind": "combo"
+      },
+      {
+        "id": "fun",
+        "kind": "combo"
+      },
+      {
+        "id": "corp",
+        "kind": "combo"
+      },
+      {
+        "id": "relax",
+        "kind": "combo"
+      },
+      {
+        "id": "typewriter",
+        "kind": "combo"
+      },
+      {
+        "id": "fade",
+        "kind": "slot"
+      },
+      {
+        "id": "slide-up",
+        "kind": "slot"
+      },
+      {
+        "id": "slide-down",
+        "kind": "slot"
+      },
+      {
+        "id": "slide-left",
+        "kind": "slot"
+      },
+      {
+        "id": "slide-right",
+        "kind": "slot"
+      },
+      {
+        "id": "scale",
+        "kind": "slot"
+      },
+      {
+        "id": "wipe",
+        "kind": "slot"
+      },
+      {
+        "id": "pop",
+        "kind": "slot"
+      },
+      {
+        "id": "zoom",
+        "kind": "slot"
+      },
+      {
+        "id": "twirl",
+        "kind": "slot"
+      },
+      {
+        "id": "fade-in-out",
+        "kind": "textanim"
+      },
+      {
+        "id": "soft-fade",
+        "kind": "textanim"
+      },
+      {
+        "id": "fade-up",
+        "kind": "textanim"
+      },
+      {
+        "id": "slide-left",
+        "kind": "textanim"
+      },
+      {
+        "id": "zoom-in-out",
+        "kind": "textanim"
+      },
+      {
+        "id": "pop",
+        "kind": "textanim"
+      },
+      {
+        "id": "bounce",
+        "kind": "textanim"
+      },
+      {
+        "id": "rotate-in",
+        "kind": "textanim"
+      },
+      {
+        "id": "shake",
+        "kind": "textanim"
+      },
+      {
+        "id": "typewriter",
+        "kind": "textanim"
+      },
+      {
+        "id": "wobble",
+        "kind": "textanim"
+      },
+      {
+        "id": "glitch",
+        "kind": "textanim"
+      }
+    ],
+    "fade": "fade",
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "animation": {
+              "in": {
+                "id": "fade-in-out"
+              }
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            },
+            "animation": {
+              "in": {
+                "id": "fade-in-out"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "undoMotion": {
+    "clicked": true,
+    "captions": {
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "captions": [
+        {
+          "id": "c-0001",
+          "start": 3,
+          "end": 6,
+          "text": "話した言葉",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "time_domain": "source",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        },
+        {
+          "id": "c-0002",
+          "start": 3,
+          "end": 6,
+          "text": "置いた文字",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            },
+            "background": {
+              "opacity": 0
+            },
+            "fill_gradient": {
+              "colors": [
+                "#fb923c",
+                "#f43f5e",
+                "#8b5cf6"
+              ],
+              "angle_deg": 90
+            }
+          }
+        }
+      ]
+    },
+    "plates": [
+      {
+        "id": "caption-plate-c-0001-output-1",
+        "text": "話した言葉",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "0px rgba(0, 0, 0, 0)",
+        "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+        "fill": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "caption-plate-c-0002",
+        "text": "置いた文字",
+        "color": "rgb(255, 255, 255)",
+        "stroke": "0px rgba(0, 0, 0, 0)",
+        "background": "linear-gradient(90deg, rgb(251, 146, 60), rgb(244, 63, 94), rgb(139, 92, 246))",
+        "fill": "rgba(0, 0, 0, 0)"
+      }
+    ]
+  },
+  "info": [
+    "選択2 件",
+    "種類字幕 1 件 / 文字 1 件"
+  ],
+  "errors": [],
+  "captions": {
+    "default_text_style": {
+      "zone": "bottom"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 3,
+        "end": 6,
+        "text": "話した言葉",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "time_domain": "source",
+        "text_style": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          },
+          "fill_gradient": {
+            "colors": [
+              "#fb923c",
+              "#f43f5e",
+              "#8b5cf6"
+            ],
+            "angle_deg": 90
+          }
+        }
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 6,
+        "text": "置いた文字",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true,
+        "time_domain": "output",
+        "text_style": {
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0
+          },
+          "fill_gradient": {
+            "colors": [
+              "#fb923c",
+              "#f43f5e",
+              "#8b5cf6"
+            ],
+            "angle_deg": 90
+          }
+        }
+      }
+    ]
+  }
+}

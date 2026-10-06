@@ -117,6 +117,7 @@ test('caption items use the export full-frame plate while ordinary output cues k
     const context = {
         activeCaptionEdit: null,
         selectedCaptionId: null,
+        selectedCaptionIds: new Set(),
         captionStylePreview: { resolve: caption => caption },
         applyCaptionStyleVars() {},
         applyCaptionRowSelectionAttrs() {},
@@ -145,6 +146,7 @@ test('renderCaptionRow clears output-only styling when the caption is absent', (
     const context = {
         activeCaptionEdit: null,
         selectedCaptionId: null,
+        selectedCaptionIds: new Set(),
         captionStylePreview: { resolve: caption => caption },
         applyCaptionStyleVars() {},
         applyCaptionRowSelectionAttrs() {},

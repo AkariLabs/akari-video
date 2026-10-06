@@ -19,7 +19,7 @@ test('making a member of a host multi-selection primary retains the entire set',
   assert.match(host, /selectedCaptionIds = new Set\(Array\.isArray\(message\.captionIds\) \? message\.captionIds : \[\]\);/u);
   assert.match(host, /selectCaption\(selectedCaptionIds\.has\(message\.primaryCaptionId\)/u);
   assert.match(host, /preserveGroup: true/u);
-  assert.match(host, /applyCaptionSelectionAttrs\(\);\s*captionStylePreview\.selectionChanged\(selectedCaptionId\);\s*updateCaptionSelectBox\(\);/u);
+  assert.match(host, /applyCaptionSelectionAttrs\(\);\s*captionStylePreview\.selectionChanged\(selectedCaptionIds\);\s*updateCaptionSelectBox\(\);/u);
 });
 
 test('recreated rows restore selection after replacing caption contents', () => {

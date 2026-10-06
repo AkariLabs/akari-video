@@ -897,10 +897,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         this.lifecycleDisposables.push(listen(window, 'akari.timeline.groupSelectionChanged', onTimelineGroupSelectionChanged));
         const onCaptionPanelPreview = (event: Event): void => {
-            const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown; committed?: boolean }>).detail;
+            const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown;
+                committed?: boolean; failed?: boolean }>).detail;
             if (typeof detail?.captionId !== 'string') return;
-            for (const preview of this.openOutputPreviews.values()) {
-                preview.sendMessage({ type: 'akari-preview-caption-style-preview', ...detail });
+            for (const [key, preview] of this.openOutputPreviews) {
+                const selection = this.timelineCaptionSelections.get(key)?.captionIds ?? [];
+                const captionIds = selection.includes(detail.captionId) ? selection : [detail.captionId];
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', ...detail, captionIds });
             }
         };
         this.lifecycleDisposables.push(listen(window, 'akari-caption-panel-preview', onCaptionPanelPreview));
@@ -916,7 +919,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const onCaptionPanelChanged = (event: Event): void => {
             if ((event as CustomEvent<{ panel?: string | null }>).detail?.panel !== null) return;
             for (const preview of this.openOutputPreviews.values()) {
-                preview.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: '', textStyle: null });
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: '', textStyle: null,
+                    force: true });
             }
         };
         this.lifecycleDisposables.push(listen(window, 'akari-caption-panel-changed', onCaptionPanelChanged));

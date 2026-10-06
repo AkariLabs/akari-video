@@ -5143,7 +5143,7 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 selectedCaptionId = captionId;
-                captionStylePreview.selectionChanged(captionId);
+                captionStylePreview.selectionChanged(selectedCaptionIds);
                 window.akari.syncRunSelection?.();
                 if (captionId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) {
                     selectLayer(null, { report: false });
@@ -7738,7 +7738,7 @@ export function previewBootstrapScript(): string {
                 && now < request.expiresAt && ids.includes(request.captionId);
             let captionMotionReplay = null;
             const renderCaptionRow = (caption, row) => {
-                caption = captionStylePreview.resolve(caption, selectedCaptionId);
+                caption = captionStylePreview.resolve(caption, selectedCaptionIds);
                 const captionPlate = row.plate;
                 if (activeCaptionEdit?.element.closest('.caption-row-plate') === captionPlate) return;
                 if (caption !== row.renderedCaption) {
@@ -10906,7 +10906,7 @@ export function previewBootstrapScript(): string {
                             { report: false, preserveGroup: true });
                     }
                     applyCaptionSelectionAttrs();
-                    captionStylePreview.selectionChanged(selectedCaptionId);
+                    captionStylePreview.selectionChanged(selectedCaptionIds);
                     updateCaptionSelectBox();
                     return;
                 }
@@ -10933,7 +10933,7 @@ export function previewBootstrapScript(): string {
                     // message cannot be repaired by changing textStyle alone.
                     if (captionUpdateIsStale(nextCaptions)) return;
                     clearLiveOverride();
-                    captionStylePreview.captionsUpdated();
+                    captionStylePreview.captionsUpdated(nextCaptions);
                     captions = protectCaptionUpdate(nextCaptions);
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();
