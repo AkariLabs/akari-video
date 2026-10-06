@@ -4,14 +4,10 @@ import { captionsAppliedLine, captionsApplyHistoryLabel, captionsApplyPreviewLin
     captionsRetimeHistoryLabel, captionsRetimeLine, captionsRetimeMovedWords,
     daihonHistoryService, parseCaptionsApplyPreview, setDaihonHistoryService } from '../lib/common/captions-button.js';
 
-test('処理済みの素材がなければ連続実行の文言を表示する', () => {
-    for (const states of [[], ['none'], ['running'], ['none', 'running']]) {
-        assert.equal(captionsButtonLabel(states), '文字起こしして字幕を作る');
+test('字幕の入口は起こし済みかどうかにかかわらず同じポップアップを示す', () => {
+    for (const states of [[], ['none'], ['running'], ['done'], ['none', 'done']]) {
+        assert.equal(captionsButtonLabel(states), '字幕を作る…');
     }
-});
-test('処理済みの素材があれば字幕生成の文言を表示する', () => {
-    assert.equal(captionsButtonLabel(['done']), '字幕を作る');
-    assert.equal(captionsButtonLabel(['none', 'done']), '字幕を作る');
 });
 
 test('差分要約は5つの有限数が揃ったときだけ受理する', () => {

@@ -124,7 +124,7 @@ export async function runCaptionsCli(argv, options = {}) {
     for (const field of ["default_text_style", "display_policy", "emphasis_words"]) {
       if (existing && !Array.isArray(existing) && Object.hasOwn(existing, field)) root[field] = existing[field];
     }
-    const merged = mergeCaptionsForApply(records, result.captions, { force: parsed.force });
+    const merged = mergeCaptionsForApply(records, result.captions, { force: parsed.force, src: source.id });
     root.captions = merged.captions;
     const content = `${JSON.stringify(root, null, 2)}\n`;
     const summary = { ...merged.summary, captions: merged.summary.total, warnings: result.warnings, path: captionsPath, word_book: wordBook };

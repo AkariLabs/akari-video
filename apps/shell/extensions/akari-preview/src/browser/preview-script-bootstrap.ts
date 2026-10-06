@@ -64,7 +64,7 @@ import {
     RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
 } from '../common/caption-visual-contract';
 import { PREVIEW_CAPTION_ANIMATION_RECIPES, PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS } from '../common/caption-text-animation-recipes';
-import { decorateTypewriterHtml, isTypewriterOnlyAnimation } from '../../../../../../packages/render-cut/src/caption-typewriter.mjs';
+import { decorateTypewriterHtml, isTypewriterOnlyAnimation, typewriterDurations, typewriterStepTiming } from '../../../../../../packages/render-cut/src/caption-typewriter.mjs';
 import { captionPlaybackStallMs } from '../common/caption-playback-watchdog';
 import { computeCutFramingVisual } from '../common/cut-framing-visual';
 import { computeAdjustCssVisual } from '../common/adjust-css-visual';
@@ -7276,6 +7276,8 @@ export function previewBootstrapScript(): string {
             // Mirrors render-cut/src/captions.mjs buildCaptionAnimation. The recipe table is
             // injected by the host because the sandboxed webview cannot import render-cut.
             const captionAnimationRecipes = ${JSON.stringify(PREVIEW_CAPTION_ANIMATION_RECIPES)};
+            const typewriterDurations = ${typewriterDurations.toString()};
+            const typewriterStepTiming = ${typewriterStepTiming.toString()};
             const decorateCaptionTypewriterHtml = ${decorateTypewriterHtml.toString()};
             const isTypewriterOnlyAnimationFn = ${isTypewriterOnlyAnimation.toString()};
             const captionPlaybackStallMsFn = ${captionPlaybackStallMs.toString()};

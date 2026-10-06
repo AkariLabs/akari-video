@@ -16,9 +16,9 @@ export interface CaptionSourceEligibility {
     reason?: string;
 }
 
-const images = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'svg', 'avif']);
-const videos = new Set(['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'ts', 'mts']);
-const audio = new Set(['wav', 'mp3', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'aif', 'aiff', 'wma']);
+export const CAPTION_IMAGE_EXTENSIONS: ReadonlySet<string> = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'svg', 'avif']);
+export const CAPTION_VIDEO_EXTENSIONS: ReadonlySet<string> = new Set(['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'ts', 'mts']);
+export const CAPTION_AUDIO_EXTENSIONS: ReadonlySet<string> = new Set(['wav', 'mp3', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'aif', 'aiff', 'wma']);
 
 export function normalizedCaptionPath(path: string): string {
     let normalized = path.replace(/\\/gu, '/');
@@ -41,7 +41,7 @@ function projectRelativePath(path: string, projectRoot?: string): string | undef
 
 export function isCaptionVideo(source: CaptionSource, evidence: CaptionSourceEvidence = {}): boolean {
     const extension = normalizedCaptionPath(source.path).match(/\.([a-z0-9]+)$/u)?.[1] ?? '';
-    return videos.has(extension) || evidence.kind === 'video' || source.kind === 'video';
+    return CAPTION_VIDEO_EXTENSIONS.has(extension) || evidence.kind === 'video' || source.kind === 'video';
 }
 
 export function captionSourceEligibility(source: CaptionSource, evidence: CaptionSourceEvidence = {}): CaptionSourceEligibility {
@@ -50,11 +50,11 @@ export function captionSourceEligibility(source: CaptionSource, evidence: Captio
     if (projectRelativePath(source.path, evidence.projectRoot)?.startsWith('exports/')) {
         return { status: 'excluded', reason: '書き出した完成品です（元の素材から起こします）' };
     }
-    if (images.has(extension) || evidence.kind === 'image' || evidence.kind === 'still') {
+    if (CAPTION_IMAGE_EXTENSIONS.has(extension) || evidence.kind === 'image' || evidence.kind === 'still') {
         return { status: 'excluded', reason: '画像には音声がありません' };
     }
     const isVideo = isCaptionVideo(source, evidence);
-    const isAudio = audio.has(extension) || evidence.kind === 'audio' || source.kind === 'audio';
+    const isAudio = CAPTION_AUDIO_EXTENSIONS.has(extension) || evidence.kind === 'audio' || source.kind === 'audio';
     if (!isVideo && !isAudio) {
         return { status: 'excluded', reason: '音声・動画のファイルではありません' };
     }

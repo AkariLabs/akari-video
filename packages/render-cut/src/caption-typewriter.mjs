@@ -1,5 +1,20 @@
 // Pure HTML transformation shared by the output preview and the OSR caption sheet.
 // Each grapheme has its own paused step animation; seeking the caption clock reveals whole graphemes.
+export function typewriterStepTiming(count, index, enterDuration, exitDuration, overlayDuration) {
+  return {
+    inDelay: enterDuration * (index + 1) / count,
+    outDelay: Math.max(0, overlayDuration - exitDuration) + exitDuration * index / count,
+  };
+}
+
+export function typewriterDurations(animation, overlayDuration) {
+  const maximum = Math.max(.05, overlayDuration);
+  return {
+    enterDuration: Math.min(animation?.in?.duration_sec ?? .6, maximum),
+    exitDuration: Math.min(animation?.out?.duration_sec ?? .6, maximum),
+  };
+}
+
 export function decorateTypewriterHtml(html, animation, overlayDuration) {
   const entrance = animation?.in?.id === 'typewriter';
   const exit = animation?.out?.id === 'typewriter';
@@ -22,15 +37,13 @@ export function decorateTypewriterHtml(html, animation, overlayDuration) {
   });
   const count = chunks.reduce((total, chunk) => total + chunk.parts.reduce((n, part) => n + (Array.isArray(part) ? part.length : 0), 0), 0);
   if (!count) return html;
-  const enterDuration = Math.min(animation.in?.duration_sec ?? .6, Math.max(.05, overlayDuration));
-  const exitDuration = Math.min(animation.out?.duration_sec ?? .6, Math.max(.05, overlayDuration));
+  const { enterDuration, exitDuration } = typewriterDurations(animation, overlayDuration);
   let index = 0;
   const rendered = chunks.map(chunk => chunk.open + chunk.parts.map(part => {
     if (!Array.isArray(part)) return part;
     return part.map(char => {
       const i = index++;
-      const inDelay = enterDuration * (i + 1) / count;
-      const outDelay = Math.max(0, overlayDuration - exitDuration) + exitDuration * i / count;
+      const { inDelay, outDelay } = typewriterStepTiming(count, i, enterDuration, exitDuration, overlayDuration);
       let value = char;
       if (exit) value = `<span class="akari-caption__type-char" style="animation:akari-typewriter-char-out .01s ${outDelay.toFixed(6)}s linear both paused">${value}</span>`;
       if (entrance) value = `<span class="akari-caption__type-char" style="animation:akari-typewriter-char-in .01s ${inDelay.toFixed(6)}s linear both paused">${value}</span>`;

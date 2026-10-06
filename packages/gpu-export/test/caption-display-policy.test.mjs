@@ -133,7 +133,7 @@ test("GPU と OSR は display_policy 下でも同じ字幕 HTML と同じ本数�
 });
 
 test("display_policy 未宣言の字幕スプライトは既存バイト列を保ち、ページは R·S 順を使う", () => {
-  // 字幕スプライトは HEAD（4fa9143e）の値を維持。ページ HTML は R·S 順へ変えた値を固定する。
+  // 字幕スプライトは既存値を維持。ページ HTML は文字送りの共通遅延関数を含む値を固定する。
   // 埋め込みフォントの絶対 file URL は機械依存なので落としてから固定する。
   const digest = value => createHash("sha256")
     .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")).digest("hex");
@@ -148,11 +148,11 @@ test("display_policy 未宣言の字幕スプライトは既存バイト列を�
   };
   const expected = {
     legacyArray: {
-      html: "47d84b98c12ea182b85f92baeb2557a8f9e87b5c78b74640ebdbf2bf98c3098a",
+      html: "fb2376246a499dea945fe96ef324a61832c01c6e3e87495edb64c6acf56e0480",
       sprites: "aca1fac99554eda262bd16e2e27e812c5b69bed2b599eaaebda8f4bee0f2d109",
     },
     legacyObject: {
-      html: "1cb9577b1b7a597c925f35f2b5efa88c6b063aa7cdffd88d98c312dd252c1535",
+      html: "88c2b0c9cc8dbffe58537c89213d6a9812aafb40db20e0a0a6d3c01a911d2b85",
       sprites: "7661a2b3df123c611aef2cd8187cf9934642c898aa683ce0549731dd3a83ce63",
     },
   };

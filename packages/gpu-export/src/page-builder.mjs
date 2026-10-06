@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
+import { typewriterDurations, typewriterStepTiming } from "../../render-cut/src/caption-typewriter.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
 import { resolveDeclaredProjectInput, resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
@@ -289,6 +290,7 @@ export function buildGpuPage({
     ${iframe}
   </div>
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};${interleaved ? `window.__akariPartitionMediaPlanes=(${partitionPreviewMediaPlanes.toString()});` : ""}</script>
+  <script>window.__akariTypewriterDurations=(${typewriterDurations.toString()});window.__akariTypewriterStepTiming=(${typewriterStepTiming.toString()});</script>
   <script>${inlineScript(frameEngineBundle)}</script>${textSlotOverlayCount > 0 ? `
   <script>${inlineScript(slotParamsRuntime)}</script>` : ""}
   ${hasItemKeyframes ? `<script>${inlineScript(itemKeyframesRuntime.replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>\n  ` : ""}${hasItemMotion ? `<script>${inlineScript(itemMotionRuntime)}</script>\n  ` : ""}<script>${inlineScript(pageRuntime)}</script>

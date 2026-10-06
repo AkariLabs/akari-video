@@ -16,7 +16,6 @@ import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { isEditDataFileName } from '../common/edit-data-file';
 import { nextCandidateAssetName } from '../common/asset-naming';
 import { isTimelineEditFileName } from '../common/timeline-edit-file-name';
-import { captionSourcePathRule } from '../common/caption-source-path-rule';
 import { countReferences } from '../common/project-reference-check';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
@@ -1149,12 +1148,7 @@ export class AkariMaterialsPane {
 
     public async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
         const root = this.host.workflow.workspaceRoot;
-        if (!root || entry.assetGroup || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
-        const eligibility = captionSourcePathRule(entry.relativePath, root.toString());
-        if (eligibility.status !== 'voice') {
-            void this.host.messages.info(eligibility.reason ?? '文字起こしできる素材ではありません');
-            return;
-        }
+        if (!root || entry.assetGroup) return;
         if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
         try {
             const result = await this.host.commandService.executeCommand<string>('akari.transcribe.openDialog', {
@@ -1165,21 +1159,8 @@ export class AkariMaterialsPane {
             await this.loadMaterials();
             return;
         } catch (error) {
-            if (!(error instanceof Error && (error as Error & { code?: string }).code === 'NO_ACTIVE_HANDLER')) {
-                void this.host.messages.error(error instanceof Error ? error.message : String(error));
-                return;
-            }
-        }
-        this.transcriptStateByPath[entry.relativePath] = 'running';
-        this.host.update();
-        void this.host.messages.info(`${entry.name}: 文字起こしを実行中です`);
-        try {
-            await this.host.projectService.transcribeMaterial({ projectRoot: root.toString(), relativePath: entry.relativePath });
-            void this.host.messages.info(`${entry.name}: 文字起こしが完了しました`);
-        } catch (error) {
             void this.host.messages.error(error instanceof Error ? error.message : String(error));
-        } finally {
-            await this.loadMaterials();
+            return;
         }
     }
 }
