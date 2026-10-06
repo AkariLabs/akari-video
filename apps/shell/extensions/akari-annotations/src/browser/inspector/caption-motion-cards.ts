@@ -20,9 +20,9 @@ export const presetToAnimation: Record<string, string> = {
     pulse: 'heartbeat', float: 'float', spin: 'spin-in', blink: 'flash', jiggle: 'jitter'
 };
 
-function captionAnimationRequest(id: string, animation: Record<string, unknown>): InspectorWriteRequest {
+function captionAnimationRequest(id: string, animation: Record<string, unknown>, replaceAll = false): InspectorWriteRequest {
     return { kind: 'caption-style-my-style', id,
-        value: { parts: [{ kind: 'motion', animation }] } };
+        value: { parts: [{ kind: 'motion', animation }], ...(replaceAll ? { replace_all_motion: true } : {}) } };
 }
 
 export function captionTextAnimationWrite(id: string, current: CaptionAnimation | undefined,
@@ -68,13 +68,13 @@ export function captionMotionComboWrites(captionId: string,
     const combo = CAPTION_MOTION_COMBOS.find(item => item.id === comboId)!;
     if (combo.id === 'typewriter') return [captionAnimationRequest(captionId, {
             in: { id: 'typewriter', duration_sec: 1.4 }, out: { id: 'fade-in-out', duration_sec: .27 }
-        })];
+        }, true)];
     const animation: Record<string, { id: string; duration_sec: number }> = {
         in: { id: presetToAnimation[combo.in], duration_sec: .4 },
         out: { id: presetToAnimation[combo.out], duration_sec: .27 }
     };
     if ('loop' in combo && combo.loop) animation.loop = { id: presetToAnimation[combo.loop], duration_sec: 3 };
-    return [captionAnimationRequest(captionId, animation)];
+    return [captionAnimationRequest(captionId, animation, true)];
 }
 
 export function captionMotionCards(slot: InspectorMotionSlot): readonly { id: string; label: string }[] {

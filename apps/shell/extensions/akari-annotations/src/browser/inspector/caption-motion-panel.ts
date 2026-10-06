@@ -9,6 +9,7 @@ import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES,
 
 export interface CaptionMotionServices {
     loadCue(): Promise<CaptionMotionCue>;
+    loadCues?(): Promise<CaptionMotionCue[]>;
     setWordStyle(style: string | null): Promise<InspectorWriteResult>;
     setKaraoke(settings: CaptionKaraokeSettings, selectStyle?: boolean): Promise<InspectorWriteResult>;
     setEmphasis(wordIndex: number, style: typeof CAPTION_EMPHASIS_STYLES[number]['id']): Promise<InspectorWriteResult>;
@@ -255,17 +256,22 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     const wordSection = document.createElement('div');
     const emphasisSection = document.createElement('div');
     root.append(wordSection, emphasisSection);
-    if (services) void services.loadCue().then(cue => {
+    if (services) void (services.loadCues ? services.loadCues() : services.loadCue().then(cue => [cue])).then(cues => {
         if (!root.isConnected) return;
+        const cue = cues.find(item => item.words.length) ?? cues[0];
+        if (!cue) return;
+        const hasTimedWords = cues.some(item => item.words.length > 0);
+        const multipleCues = cues.length > 1;
         let selected = 0;
-        let wordStyle = cue.style;
+        let wordStyle = cues.filter(item => item.words.length).every(item => item.style === cue.style)
+            ? cue.style : undefined;
         let karaoke = cue.text_style?.karaoke;
         karaokeColor = karaoke?.done_color ?? '#ffd94a';
         const repaintWords = (): void => {
             wordSection.querySelectorAll<HTMLElement>('[data-motion-id]').forEach(card => observer?.unobserve(card));
             wordSection.replaceChildren();
             heading('語ごとの表示', wordSection);
-            if (!cue.words.length) {
+            if (!hasTimedWords) {
                 const reason = document.createElement('div');
                 reason.className = 'akari-caption-motion-note';
                 reason.textContent = '語の時刻がない字幕では、カラオケ・ポップ・1 語ずつは動きません';
@@ -275,12 +281,13 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 kind: 'word-style' as const,
                 animation: item.id === 'karaoke' ? 'karaoke' : item.id === 'pop' ? 'pop' : 'fade-up',
                 selected: wordStyle === item.id,
-                disabled: !cue.words.length && (item.id === 'karaoke' || item.id === 'pop' || item.id === 'reveal-word'),
+                disabled: !hasTimedWords && (item.id === 'karaoke' || item.id === 'pop' || item.id === 'reveal-word'),
                 onClick: () => { const newlySelected = item.id === 'karaoke' && wordStyle !== 'karaoke';
                     void (newlySelected
                     ? services.setKaraoke({ done_color: '#fb923c', fill: 'char' }, true)
                     : services.setWordStyle(item.id)).then(result => {
                     if (!result.ok) { notice.textContent = result.message ?? '語の表示を書き込めませんでした。'; return; }
+                    notice.textContent = result.message ?? '';
                     wordStyle = item.id;
                     if (newlySelected) karaoke = { ...karaoke, done_color: '#fb923c', fill: 'char' };
                     karaokeColor = karaoke?.done_color ?? '#ffd94a';
@@ -298,11 +305,12 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 repaintWords();
             }); });
             wordSection.appendChild(clear);
-            if (wordStyle === 'karaoke' && cue.words.length) {
+            if (wordStyle === 'karaoke' && hasTimedWords) {
                 heading('カラオケの設定', wordSection);
                 const save = (patch: CaptionKaraokeSettings): void => {
                     void services.setKaraoke(patch).then(result => {
                         if (!result.ok) { notice.textContent = result.message ?? 'カラオケの設定を書き込めませんでした。'; return; }
+                        notice.textContent = result.message ?? '';
                         karaoke = { ...karaoke, ...patch };
                         karaokeColor = karaoke.done_color ?? '#ffd94a';
                         repaintWords();
@@ -386,11 +394,12 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         };
         repaintWords();
         heading('強調（対象語）', emphasisSection);
-        if (!cue.words.length || cue.time_domain === 'output') {
+        if (!cue.words.length || cue.time_domain === 'output' || multipleCues) {
             const reason = document.createElement('div');
             reason.className = 'akari-caption-motion-note';
-            reason.textContent = !cue.words.length ? '語の時刻（words[]）がない字幕では強調を設定できません。'
-                : '出力時間軸の字幕では source 時刻の語を選べません。';
+            reason.textContent = multipleCues ? '強調する語は字幕を 1 行選んで設定してください。'
+                : !cue.words.length ? '語の時刻（words[]）がない字幕では強調を設定できません。'
+                    : '出力時間軸の字幕では source 時刻の語を選べません。';
             emphasisSection.appendChild(reason);
         } else {
             const chips = document.createElement('div');
@@ -412,7 +421,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 'size-pulse': 'heartbeat', 'color-accent': 'neon-flicker',
                 'color-only': 'soft-fade', 'outline-bold': 'zoom-pop',
                 danger: 'shake', positive: 'heartbeat', highlight: 'wipe-right' } as Record<string, string>)[item.id],
-            disabled: !cue.words.length || cue.time_domain === 'output',
+            disabled: !cue.words.length || cue.time_domain === 'output' || multipleCues,
             onClick: () => { void services.setEmphasis(selected, item.id).then(result => {
                 if (result.ok) play(item.id, 'emphasis', selected);
                 else notice.textContent = result.message ?? '強調を書き込めませんでした。';

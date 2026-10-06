@@ -64,7 +64,7 @@ test('語の時刻がない行では三つの語表示を無効にして理由�
             setEmphasis: async () => ({ ok: true })
         });
         root.isConnected = true;
-        await Promise.resolve();
+        await new Promise(resolve => setImmediate(resolve));
         for (const id of ['karaoke', 'pop', 'reveal-word']) {
             const card = selected(root, 'word-style', id);
             assert.equal(card.disabled, true, id);
@@ -78,6 +78,44 @@ test('語の時刻がない行では三つの語表示を無効にして理由�
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;
+    }
+});
+
+test('複数行の語表示は時刻のある行に当て、除外件数を通知欄へ出す', async () => {
+    const previousDocument = globalThis.document;
+    const previousWindow = globalThis.window;
+    globalThis.document = { createElement: tag => new Element(tag) };
+    globalThis.window = { dispatchEvent: () => {} };
+    try {
+        let applied = 0;
+        const root = createCaptionMotionPanel({ kind: 'caption', id: 'cue-timed', text: '本文',
+            sourceStart: 0, sourceEnd: 2
+        }, async () => ({ ok: true }), {
+            loadCue: async () => ({ id: 'cue-timed', words: [{ text: '本文', start: 0, end: 2 }] }),
+            loadCues: async () => [
+                { id: 'cue-timed', words: [{ text: '本文', start: 0, end: 2 }] },
+                { id: 'cue-untimed', words: [] }
+            ],
+            setWordStyle: async () => { applied++; return {
+                ok: true, message: '語の時刻がない 1 行には当てていません'
+            }; },
+            setKaraoke: async () => ({ ok: true }),
+            setEmphasis: async () => ({ ok: true })
+        });
+        root.isConnected = true;
+        await Promise.resolve();
+        const pop = selected(root, 'word-style', 'pop');
+        assert.equal(pop.disabled, false);
+        pop.click();
+        await Promise.resolve();
+        assert.equal(applied, 1);
+        assert.equal(root.querySelectorAll('*').find(node => node.attributes.role === 'alert').textContent,
+            '語の時刻がない 1 行には当てていません');
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+        if (previousWindow === undefined) delete globalThis.window;
+        else globalThis.window = previousWindow;
     }
 });
 
