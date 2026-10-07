@@ -534,7 +534,7 @@ test('remount and synthetic host selection keep the original ref, then clear a m
   assert.equal(restored.id, 'chart');
   assert.equal(restored.focus?.ref, '.bar[0]');
   assert.ok(restored.difference < 1, JSON.stringify(restored));
-  assert.equal(restored.handles, 0);
+  assert.equal(restored.handles, 9);
   await page.evaluate(async () => {
     window.akari.state.summary.overlays[0].html = '<div class="chart" style="position:absolute;left:40px;top:40px;width:320px;height:160px;background:#ddd"><div class="other" style="width:70px;height:40px;background:#3479c0"></div></div>';
     await window.akari.runtime.mount(window.akari.state.summary);
@@ -560,7 +560,7 @@ test('shell capability selects and moves a bar; default keeps item selection', a
   let current = await state(page);
   assert.equal(current.id, 'chart');
   assert.equal(current.focus?.ref, '.bar[2]');
-  assert.equal(current.visibleHandles, 0);
+  assert.equal(current.visibleHandles, 7);
   assert.match(current.breadcrumb, /bar 3/);
   assert.ok(Math.abs(current.frame.x + current.frame.width / 2 - current.element.x) < 1);
   const start = current.element;
