@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolveResolverPreviewUrl, resolveResolverCatalogUrls } from '../lib/node/resolver-preview-url.js';
 
@@ -46,4 +46,60 @@ test('resolveResolverCatalogUrls: local preview inside library wins over remote 
     assert.equal(resolveResolverCatalogUrls({
         category: 'overlay', id: 'frame', title: 'Frame', libraryDir, preview: 'missing.png'
     }, 'https://akari.video/assets/').previewUrl, 'https://akari.video/assets/missing.png');
+});
+
+test('resolveResolverCatalogUrls: thumb と preview_strip はあるときだけ URL になる', () => {
+    const base = 'https://akari.video/assets/';
+    const item = { category: 'overlay', id: 'telop', title: 'Telop', preview: 'overlay/telop/v1/preview.png' };
+    const absent = resolveResolverCatalogUrls(item, base);
+    assert.equal(absent.thumbUrl, undefined);
+    assert.equal(absent.previewStripUrl, undefined);
+    const urls = resolveResolverCatalogUrls({ ...item, thumb: 'overlay/telop/v1/thumb.webp',
+        preview_strip: 'overlay/telop/v1/preview-strip.webp' }, base);
+    assert.equal(urls.thumbUrl, `${base}overlay/telop/v1/thumb.webp`);
+    assert.equal(urls.previewStripUrl, `${base}overlay/telop/v1/preview-strip.webp`);
+});
+
+test('resolveResolverCatalogUrls: 手元の thumb と strip がリモートより優先される', t => {
+    const libraryDir = mkdtempSync(resolve(tmpdir(), 'akari-catalog-images-'));
+    t.after(() => rmSync(libraryDir, { recursive: true, force: true }));
+    mkdirSync(resolve(libraryDir, 'overlay/telop/v1'), { recursive: true });
+    writeFileSync(resolve(libraryDir, 'overlay/telop/v1/thumb.webp'), 'image');
+    writeFileSync(resolve(libraryDir, 'overlay/telop/v1/preview-strip.webp'), 'strip');
+    const urls = resolveResolverCatalogUrls({ category: 'overlay', id: 'telop', title: 'Telop', libraryDir,
+        thumb: 'overlay/telop/v1/thumb.webp', preview_strip: 'overlay/telop/v1/preview-strip.webp' },
+    'https://akari.video/assets/');
+    assert.equal(urls.thumbUrl, pathToFileURL(resolve(libraryDir, 'overlay/telop/v1/thumb.webp')).href);
+    assert.equal(urls.previewStripUrl, pathToFileURL(resolve(libraryDir, 'overlay/telop/v1/preview-strip.webp')).href);
+});
+
+test('resolveResolverCatalogUrls: カタログのフルキーから取得済み素材内のファイル名を探す', t => {
+    const libraryDir = mkdtempSync(resolve(tmpdir(), 'akari-catalog-cached-'));
+    t.after(() => rmSync(libraryDir, { recursive: true, force: true }));
+    writeFileSync(resolve(libraryDir, 'thumb.webp'), 'image');
+    writeFileSync(resolve(libraryDir, 'preview-strip.webp'), 'strip');
+    const urls = resolveResolverCatalogUrls({ category: 'overlay', id: 'telop', title: 'Telop', libraryDir,
+        thumb: 'overlay/telop/v1/thumb.webp', preview_strip: 'overlay/telop/v1/preview-strip.webp' },
+    'https://akari.video/assets/');
+    assert.equal(urls.thumbUrl, pathToFileURL(resolve(libraryDir, 'thumb.webp')).href);
+    assert.equal(urls.previewStripUrl, pathToFileURL(resolve(libraryDir, 'preview-strip.webp')).href);
+});
+
+test('resolveResolverCatalogUrls: 脱出キー・絶対パス・外への symlink を拒否する', t => {
+    const root = mkdtempSync(resolve(tmpdir(), 'akari-catalog-safe-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const libraryDir = resolve(root, 'library');
+    mkdirSync(libraryDir);
+    writeFileSync(resolve(root, 'outside.webp'), 'image');
+    symlinkSync(resolve(root, 'outside.webp'), resolve(libraryDir, 'escape.webp'));
+    const base = 'https://akari.video/assets/';
+    const item = { category: 'overlay', id: 'telop', title: 'Telop', libraryDir };
+    assert.equal(resolveResolverCatalogUrls({ ...item, thumb: '../outside.webp' }, base).thumbUrl, undefined);
+    assert.equal(resolveResolverCatalogUrls({ ...item, preview_strip: '/outside.webp' }, base).previewStripUrl, undefined);
+    assert.equal(resolveResolverCatalogUrls({ ...item, thumb: 'file:///outside.webp' }, base).thumbUrl, undefined);
+    assert.equal(resolveResolverCatalogUrls({ ...item, thumb: 'C:\\outside.webp' }, base).thumbUrl, undefined);
+    assert.equal(resolveResolverCatalogUrls({ ...item, thumb: 'escape.webp' }, base).thumbUrl, undefined);
+    assert.equal(resolveResolverCatalogUrls({ ...item, thumb: 'overlay/telop/v1/escape.webp' }, base).thumbUrl, undefined);
+    assert.equal(resolveResolverCatalogUrls({ ...item, preview_strip: 'escape.webp' }, base).previewStripUrl, undefined);
+    assert.equal(resolveResolverCatalogUrls({ ...item, thumb: '%2e%2e/outside.webp' }, base).thumbUrl, undefined);
 });

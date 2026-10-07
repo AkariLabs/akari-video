@@ -33,6 +33,8 @@ export interface ResolverRawCatalogItem {
     height?: number;
     machineTags?: string[];
     preview?: string | null;
+    thumb?: string | null;
+    preview_strip?: string | null;
     license?: { spdx?: string; scope?: string; attribution_required?: boolean };
     author?: string;
     creditText?: string | null;
@@ -100,7 +102,10 @@ export function selectResolverAudioFileRef(item: Pick<ResolverRawCatalogItem, 'c
  * 同じ解決規則で組み立てるため同じ関数を再利用してよい — selectResolverAudioFileRef が
  * 返す url/key 文字列は previewUrl の入力と同じ形をしている）。
  */
-export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, previewUrl: string | undefined, mediaUrl?: string): AssetCatalogViewItem {
+export function toResolverAssetCatalogViewItem(
+    item: ResolverRawCatalogItem, previewUrl: string | undefined, mediaUrl?: string,
+    thumbUrl?: string, previewStripUrl?: string
+): AssetCatalogViewItem {
     const plannedMediaName = selectResolverPlannedMediaName(item);
     return {
         origin: 'resolver',
@@ -129,6 +134,8 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
         ...(typeof item.product_id === 'string' && item.product_id ? { product_id: item.product_id } : {}),
         state: item.state,
         previewUrl,
+        ...(thumbUrl ? { thumbUrl } : {}),
+        ...(previewStripUrl ? { previewStripUrl } : {}),
         mediaUrl,
         prompt: item.provenance?.prompt
     };

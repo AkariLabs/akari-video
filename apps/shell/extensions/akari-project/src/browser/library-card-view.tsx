@@ -182,7 +182,7 @@ export interface LibraryAssetCardProps {
 
 function Thumbnail(props: LibraryAssetCardProps & { compact?: boolean }): React.ReactElement {
     const { item } = props;
-    const src = (item as AssetCatalogViewItem & { thumbUrl?: string }).thumbUrl ?? item.previewUrl;
+    const src = item.thumbUrl ?? item.previewUrl;
     return src && !props.thumbnailBroken
         ? <img src={src} alt='' draggable={false} loading='lazy' decoding='async'
             width={props.compact ? 52 : 480} height={props.compact ? 30 : 270}
@@ -199,7 +199,7 @@ function FavoriteStar(): React.ReactElement {
 
 export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactElement {
     const { item } = props;
-    const hover = props.interactive ? libraryHoverPreview(item.category, item.previewUrl) : undefined;
+    const hover = props.interactive ? libraryHoverPreview(item.category, item.previewUrl, item.previewStripUrl) : undefined;
     const common = {
         title: item.title,
         ...props.pickProps,
@@ -227,6 +227,7 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
         'data-akari-catalog-item': item.key,
         'data-akari-hover-preview-src': hover?.src,
         'data-akari-hover-preview-kind': hover?.kind,
+        'data-akari-hover-preview-strip': item.previewStripUrl,
         'data-akari-hover-preview-label': hover ? item.title : undefined,
         'data-akari-catalog-item-state': item.state ?? 'local',
         'data-akari-premium': props.premium ? 'true' : undefined,

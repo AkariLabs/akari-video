@@ -58,6 +58,16 @@ test('toResolverAssetCatalogViewItem: product_id がある場合だけ引き継�
     assert.equal(Object.hasOwn(toResolverAssetCatalogViewItem({ ...base, product_id: '' }, undefined), 'product_id'), false);
 });
 
+test('toResolverAssetCatalogViewItem: カタログの thumb と preview_strip URL をビューへ渡す', () => {
+    const item = { id: 'telop', category: 'overlay', title: 'Telop' };
+    const view = toResolverAssetCatalogViewItem(item, 'https://example.test/preview.png', undefined,
+        'https://example.test/thumb.webp', 'https://example.test/preview-strip.webp');
+    assert.equal(view.thumbUrl, 'https://example.test/thumb.webp');
+    assert.equal(view.previewStripUrl, 'https://example.test/preview-strip.webp');
+    assert.equal(Object.hasOwn(toResolverAssetCatalogViewItem(item, undefined), 'thumbUrl'), false);
+    assert.equal(Object.hasOwn(toResolverAssetCatalogViewItem(item, undefined), 'previewStripUrl'), false);
+});
+
 test('catalogCardUiEventTarget: still カタログカードの target と label を返す', () => {
     assert.deepEqual(
         catalogCardUiEventTarget({ key: 'still/br-typing-laptop', title: 'ノートPCをタイピングする手元' }),
