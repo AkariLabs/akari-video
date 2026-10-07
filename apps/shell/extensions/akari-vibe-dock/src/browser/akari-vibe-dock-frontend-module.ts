@@ -18,6 +18,8 @@ export default new ContainerModule(bind => {
     const { ListeningPreferenceContribution, VibeModeMigration } = require('./listening-preferences');
     const { ListeningSettingsSection } = require('./listening-settings-section');
     const { NowVibeDockTab, SettingsVibeDockTab, VibeDockTabContributionSymbol, VibeDockTabs } = require('./vibe-dock-tabs');
+    const { RoughCanvasDockTab } = require('./rough-canvas-dock-tab');
+    const { RoughCanvasEarBridge } = require('./rough-canvas-ear-bridge');
 
     @injectable()
     class VibeDockStartup implements FrontendApplicationContribution {
@@ -40,9 +42,13 @@ export default new ContainerModule(bind => {
     bindRootContributionProvider(bind, VibeDockTabContributionSymbol);
     bind(NowVibeDockTab).toSelf().inSingletonScope();
     bind(SettingsVibeDockTab).toSelf().inSingletonScope();
+    bind(RoughCanvasDockTab).toSelf().inSingletonScope();
     bind(VibeDockTabContributionSymbol).toService(NowVibeDockTab);
     bind(VibeDockTabContributionSymbol).toService(SettingsVibeDockTab);
+    bind(VibeDockTabContributionSymbol).toService(RoughCanvasDockTab);
     bind(VibeDockWidget).toSelf().inSingletonScope();
     bind(VibeDockStartup).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(VibeDockStartup);
+    bind(RoughCanvasEarBridge).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(RoughCanvasEarBridge);
 });

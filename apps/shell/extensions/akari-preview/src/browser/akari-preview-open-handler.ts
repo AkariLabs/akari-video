@@ -8,7 +8,8 @@ import { composePreviewTransforms, previewTransformAxes } from '../common/previe
 import { canvasDropTargets } from '../common/canvas-drop-target';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
 import { PreviewFrameCapturePending } from '../common/preview-frame-controller';
-import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
+import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand, PreviewFrameCapturePurpose,
+    PreviewFrameCommandRequest, PreviewFrameCommandResult, completePreviewFrameCapture } from '../common/preview-frame-capture';
 import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
 import { requestReadyPreviewSeek } from '../common/preview-ready-seek';
 import { PreviewPlaceholderInput, previewPlaceholderHtml } from '../common/preview-placeholder';
@@ -445,6 +446,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         audioTimer?: ReturnType<typeof setTimeout>;
     }>();
     protected readonly pendingFrameCaptures = new PreviewFrameCapturePending<PreviewWidgetMarker>();
+    protected readonly pendingFrameCapturePurposes = new Map<string, PreviewFrameCapturePurpose>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly placeholderPreviewStates = new WeakMap<WebviewWidget, {
@@ -761,12 +763,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
         this.lifecycleDisposables.push(this.commandRegistry.registerCommand(CAPTURE_OUTPUT_PREVIEW_FRAME_COMMAND, {
-            execute: async (request?: { editUri: string }): Promise<{ path: string }> => {
+            execute: async (request?: PreviewFrameCommandRequest): Promise<PreviewFrameCommandResult> => {
                 if (!request?.editUri) throw new Error('出力プレビューを開いてください');
                 const widget = this.openOutputPreviews.get(new URI(request.editUri).normalizePath().toString());
                 const pageId = widget?.akariPreviewPlaybackPageId;
                 if (!widget || widget.isDisposed || !pageId) throw new Error('出力プレビューを開いてください');
                 const token = globalThis.crypto.randomUUID();
+                if (request.purpose === 'memo') this.pendingFrameCapturePurposes.set(token, 'memo');
                 const pending = this.pendingFrameCaptures.begin(token, widget, pageId);
                 try {
                     widget.sendMessage({ type: 'akari-preview-capture-start', pageId, token });
@@ -774,7 +777,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     this.pendingFrameCaptures.reject(token, widget, pageId,
                         error instanceof Error ? error : new Error(String(error)));
                 }
-                return { path: await pending };
+                try {
+                    const result = await pending;
+                    return request.purpose === 'memo' ? JSON.parse(result) as PreviewFrameCommandResult : { path: result };
+                } finally {
+                    this.pendingFrameCapturePurposes.delete(token);
+                }
             }
         }));
         this.registerTogglePlaybackCommand();
@@ -2990,7 +2998,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     if (token === undefined) void this.capturePreviewFrame(widget, message);
                     else if (typeof token === 'string' && typeof message.pageId === 'string'
                         && this.pendingFrameCaptures.take(token, widget, message.pageId)) {
-                        void this.capturePreviewFrame(widget, message).then(path =>
+                        void this.capturePreviewFrame(widget, message, this.pendingFrameCapturePurposes.get(token)).then(path =>
                             this.pendingFrameCaptures.resolve(token, widget, message.pageId, path), error =>
                             this.pendingFrameCaptures.reject(token, widget, message.pageId,
                                 error instanceof Error ? error : new Error(String(error))));
@@ -8128,7 +8136,8 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     /** Pair messages by page and request, including restoration before the slower node write. */
-    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<string | undefined> {
+    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage,
+        purpose?: PreviewFrameCapturePurpose): Promise<string | undefined> {
         const pageId = widget.akariPreviewPlaybackPageId;
         if (request.pageId !== pageId || typeof request.requestId !== 'string') return;
         const send = (type: PreviewFrameCommand['type'], options: { keepFrozen?: boolean; success?: boolean } = {}): void => {
@@ -8224,12 +8233,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     return inspection;
                 },
                 save: async ({ captured, time }) => {
-                    const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image,
-                        workspaceRoots: await this.currentWorkspaceRoots() });
-                    savedPath = saved.path;
-                    void this.messages.info('コマを保存しました: ' + saved.path, { timeout: 3000 });
-                    if (captured.reduced) void this.messages.info(
-                        '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
+                    const result = await completePreviewFrameCapture(purpose, captured, time, async () =>
+                        this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image,
+                            workspaceRoots: await this.currentWorkspaceRoots() }));
+                    if ('image' in result) {
+                        savedPath = JSON.stringify(result);
+                    } else {
+                        savedPath = result.path;
+                        void this.messages.info('コマを保存しました: ' + result.path, { timeout: 3000 });
+                        if (captured.reduced) void this.messages.info(
+                            '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
+                    }
                 },
                 notify: message => { void this.messages.error(message); }
             });

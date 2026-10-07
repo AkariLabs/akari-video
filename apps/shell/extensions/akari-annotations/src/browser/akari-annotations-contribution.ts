@@ -523,7 +523,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 this.openSessionViewer(options)
         });
         commands.registerCommand(OPEN_AKARI_CANVAS, {
-            execute: () => this.openCanvas()
+            execute: () => this.commands.executeCommand('akari.sketch.open')
         });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()

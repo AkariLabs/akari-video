@@ -17,6 +17,29 @@ export interface PreviewFrameCaptureResult {
     capturedHeight: number;
     reduced: boolean;
 }
+export type PreviewFrameCapturePurpose = 'memo';
+export type PreviewFrameCommandRequest = { editUri: string; purpose?: undefined } | { editUri: string; purpose: 'memo' };
+export type PreviewFrameCommandResult = { path: string; image?: never } | {
+    image: string; time: number; width: number; height: number; reduced: boolean; path?: never;
+};
+export type PreviewFrameCaptureDisposition = { kind: 'save' } | {
+    kind: 'memo'; result: Extract<PreviewFrameCommandResult, { image: string }>;
+};
+
+/** The validated frame takes the same capture path; only its destination changes. */
+export function previewFrameCaptureDisposition(purpose: PreviewFrameCapturePurpose | undefined,
+    captured: PreviewFrameCaptureResult, time: number): PreviewFrameCaptureDisposition {
+    return purpose === 'memo'
+        ? { kind: 'memo', result: { image: captured.image, time, width: captured.width,
+            height: captured.height, reduced: captured.reduced } }
+        : { kind: 'save' };
+}
+
+export async function completePreviewFrameCapture(purpose: PreviewFrameCapturePurpose | undefined,
+    captured: PreviewFrameCaptureResult, time: number, save: () => Promise<{ path: string }>): Promise<PreviewFrameCommandResult> {
+    const disposition = previewFrameCaptureDisposition(purpose, captured, time);
+    return disposition.kind === 'memo' ? disposition.result : save();
+}
 export interface SavePreviewFrameRequest { editUri: string; time: number; image: string; workspaceRoots?: string[] }
 export interface PreviewFrameRequestMessage { type: 'akari-preview-capture-frame'; requestId: string; pageId: string }
 export interface PreviewFrameCommand {
