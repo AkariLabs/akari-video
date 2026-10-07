@@ -13,6 +13,7 @@ const events = [];
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }) };
 const dependencies = {
   React, materialCardLayout, AKARI_MATERIAL_SELECTED_EVENT,
+  isMaterialsList: mode => mode === 'list',
   AKARI_RADIUS: { panel: 8, chip: 4 },
   AKARI_SURFACE: { raised: 'raised', card: 'card' },
   AKARI_PROJECT_SURFACE: { item: 'project-item', elevated: 'project-elevated' },
@@ -60,30 +61,32 @@ test('カードクリックは detail を通知し、中央で開き、選択枠
   const { instance, opened } = fixture();
   const row = entry();
   const card = instance.renderMaterialCard(row);
-  assert.equal(card.props.style.border, 'ghost-border');
-  assert.equal(card.props.style.background, 'project-item');
+  const thumb = card.children[0];
+  assert.equal(card.props.draggable, undefined);
+  assert.equal(card.props['data-akari-ui'], undefined);
+  assert.equal(thumb.props.draggable, true);
+  assert.equal(thumb.props['data-akari-ui'], 'asset:assets/interview.wav');
+  assert.equal(card.children[1].props.draggable, undefined);
+  assert.equal(card.children[1].props['data-akari-ui'], undefined);
   const hovered = { currentTarget: { style: {} } };
-  card.props.onMouseEnter(hovered);
-  assert.equal(hovered.currentTarget.style.background, 'project-elevated');
-  card.props.onMouseLeave(hovered);
-  assert.equal(hovered.currentTarget.style.background, 'project-item');
-  card.props.onClickCapture({ target: {} });
-  card.props.onClick();
+  thumb.props.onMouseEnter(hovered);
+  assert.equal(hovered.currentTarget.style.borderColor, '#a3a3a3');
+  thumb.props.onClickCapture({ target: {} });
+  thumb.props.onClick();
   assert.equal(events.length, 1);
   assert.equal(events[0].type, 'akari.material.selected');
   assert.deepEqual(events[0].detail, { projectRoot: 'file:///project', relativePath: row.relativePath,
     kind: 'audio', name: row.name });
   assert.deepEqual(opened, ['file:///project/assets/interview.wav']);
-  assert.equal(instance.renderMaterialCard(row).props.style.border, 'accent-border');
-  assert.equal(instance.renderMaterialCard(row).props.style.background, 'project-elevated');
-  card.props.onMouseLeave(hovered);
-  assert.equal(hovered.currentTarget.style.background, 'project-elevated');
-  assert.equal(instance.renderMaterialCard(entry({ relativePath: 'assets/other.mp4' })).props.style.border, 'ghost-border');
+  assert.match(instance.renderMaterialCard(row).children[0].props.style.border, /#f97316/);
+  thumb.props.onMouseLeave(hovered);
+  assert.equal(hovered.currentTarget.style.borderColor, '#f97316');
+  assert.doesNotMatch(instance.renderMaterialCard(entry({ relativePath: 'assets/other.mp4' })).children[0].props.style.border, /#f97316/);
 });
 
 test('missing カードは通知も中央で開く動作もない', () => {
   const { instance, opened } = fixture();
-  const card = instance.renderMaterialCard(entry({ missing: true }));
+  const card = instance.renderMaterialCard(entry({ missing: true })).children[0];
   card.props.onClickCapture({ target: {} });
   card.props.onClick();
   assert.equal(events.length, 0);
@@ -98,13 +101,13 @@ test('素材グループに主メディアがあれば、そのファイルの�
     relativePath: 'assets/interview', mediaRelativePath: 'assets/interview/main.wav',
     assetGroup: { category: 'audio' }, name: '取材音声'
   });
-  const card = instance.renderMaterialCard(row);
+  const card = instance.renderMaterialCard(row).children[0];
   card.props.onClickCapture({ target: {} });
   card.props.onClick();
   assert.deepEqual(events[0].detail, { projectRoot: 'file:///project',
     relativePath: 'assets/interview/main.wav', kind: 'audio', name: '取材音声' });
   assert.deepEqual(opened, ['file:///project/assets/interview']);
-  assert.equal(instance.renderMaterialCard(row).props.style.border, 'accent-border');
+  assert.match(instance.renderMaterialCard(row).children[0].props.style.border, /#f97316/);
 });
 
 test('素材グループに主メディアがなければディレクトリを other として通知する', () => {
@@ -113,11 +116,11 @@ test('素材グループに主メディアがなければディレクトリを o
     uri: { toString: () => 'file:///project/assets/interview', path: { base: 'interview' } },
     relativePath: 'assets/interview', assetGroup: { category: 'audio' }, name: '取材音声'
   });
-  const card = instance.renderMaterialCard(row);
+  const card = instance.renderMaterialCard(row).children[0];
   card.props.onClickCapture({ target: {} });
   card.props.onClick();
   assert.deepEqual(events[0].detail, { projectRoot: 'file:///project',
     relativePath: 'assets/interview', kind: 'other', name: '取材音声' });
   assert.deepEqual(opened, ['file:///project/assets/interview']);
-  assert.equal(instance.renderMaterialCard(row).props.style.border, 'accent-border');
+  assert.match(instance.renderMaterialCard(row).children[0].props.style.border, /#f97316/);
 });

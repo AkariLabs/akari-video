@@ -13,6 +13,7 @@ import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-prot
 import { pendingAssetFetches, summarizeFetchFailure } from 'akari-preview/lib/common/pending-asset-fetch';
 import { CAPTION_FONT_FAMILY, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
 import * as React from '@theia/core/shared/react';
+import { createPortal } from '@theia/core/shared/react-dom';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
@@ -83,6 +84,7 @@ import {
 import { AssetBinChildNode } from '../common/asset-bin-grouping';
 import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind } from '../common/asset-group-media';
+import { MaterialsSort } from '../common/materials-view';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
@@ -592,6 +594,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected libraryFolderFilter: string | undefined;
     /** プロジェクト面の素材名フィルタ。catalogQuery とは面ごとに独立して保持する。 */
     protected materialQuery = '';
+    protected materialsPopover?: 'filter' | 'sort';
+    protected materialsPopoverAnchor?: DOMRect;
+    protected materialsFilterButton?: HTMLButtonElement;
+    protected materialsSortButton?: HTMLButtonElement;
+    protected materialsUiSave: Promise<void> = Promise.resolve();
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
     protected libraryCategory?: LibraryCategoryKey;
     protected libraryTextLookOpen = false;
@@ -673,6 +680,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get assetCatalogItems() { return widget().assetCatalogItems; },
         };
         this.materialsPane = new AkariMaterialsPane(materialsHost);
+        try {
+            if (window.localStorage.getItem('akari.materials.viewMode') === 'list') {
+                this.materialsPane.setMaterialView({ mode: 'list' });
+            }
+        } catch { /* The view remains usable without localStorage. */ }
         const libraryHost: LibraryPaneHost = {
             get dialogs() { return widget().dialogs; },
             get preferences() { return widget().preferences; },
@@ -877,10 +889,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     protected override onAfterHide(msg: Message): void {
         this.generationPick.cancel();
+        this.materialsPopover = undefined;
+        this.materialsPopoverAnchor = undefined;
         super.onAfterHide(msg);
         this.node?.dispatchEvent?.(new Event('akari-library-hide'));
         this.stopCatalogAudio();
         this.stopCatalogThumbnailPolling();
+        this.update();
     }
 
     protected refresh(): void {
@@ -890,6 +905,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected selectTopView(view: TopView, refreshCatalog = true): void {
+        if (view !== 'materials') {
+            this.materialsPopover = undefined;
+            this.materialsPopoverAnchor = undefined;
+        }
         if (view !== 'catalog' && this.materialSwap) this.closeMaterialSwap();
         if (this.topView === 'catalog' && view !== 'catalog') {
             // 「← 素材にもどる」でカタログ面を離れるとき（task.md 指示3「離脱で停止」）。
@@ -2078,7 +2097,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     // （2026-09-26 オーナー指示「パネルの右側が見切れる」）。桁を常に確保しておけば、
                     // 素材が増えて溢れた前後でグリッドの列幅が動かない。
                     scrollbarGutter: 'stable',
-                    paddingBottom: this.topView === 'catalog' && !this.materialSwap && this.playingCatalogAudioKey ? '56px' : undefined,
+                    paddingBottom: this.topView === 'materials' || (this.topView === 'catalog' && !this.materialSwap && this.playingCatalogAudioKey) ? '56px' : undefined,
                     boxSizing: 'border-box' }}>
                     {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
                 </div>
@@ -2128,6 +2147,134 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             media.removeEventListener('change', syncMotion);
         };
     };
+
+    protected saveMaterialsUiState(): void {
+        const root = this.workflow.workspaceRoot;
+        if (!root) return;
+        const { filter, sort } = this.materialsPane.getMaterialView();
+        this.materialsUiSave = this.materialsUiSave.then(() =>
+            this.projectService.writeUiState(root.toString(), { materialsPane: { filter, sort } })).catch(() => undefined);
+    }
+
+    protected toggleMaterialsPopover(kind: 'filter' | 'sort', button?: HTMLButtonElement): void {
+        if (this.materialsPopover === kind || !button) {
+            this.materialsPopover = undefined;
+            this.materialsPopoverAnchor = undefined;
+        } else {
+            this.materialsPopover = kind;
+            this.materialsPopoverAnchor = button.getBoundingClientRect();
+        }
+        this.update();
+    }
+
+    protected renderMaterialsViewButtons(): React.ReactNode {
+        const { filter, sort, mode } = this.materialsPane.getMaterialView();
+        const buttonStyle: React.CSSProperties = { position: 'relative', display: 'inline-flex', alignItems: 'center',
+            justifyContent: 'center', height: '28px', minWidth: '28px', padding: '3px 5px',
+            border: '1px solid transparent', borderRadius: '6px', background: 'transparent',
+            color: AKARI_INK, cursor: 'pointer' };
+        const activeButtonStyle: React.CSSProperties = {
+            background: AKARI_PROJECT_SURFACE.elevated, borderColor: AKARI_LINE.edge
+        };
+        const buttonEnter = (event: React.MouseEvent<HTMLButtonElement>): void => {
+            event.currentTarget.style.background = AKARI_PROJECT_SURFACE.elevated;
+            event.currentTarget.style.borderColor = AKARI_LINE.edge;
+        };
+        const buttonLeave = (event: React.MouseEvent<HTMLButtonElement>, active: boolean): void => {
+            if (!active) {
+                event.currentTarget.style.background = 'transparent';
+                event.currentTarget.style.borderColor = 'transparent';
+            }
+        };
+        const popoverWidth = 220;
+        const anchor = this.materialsPopoverAnchor;
+        const popStyle: React.CSSProperties = { position: 'fixed',
+            left: anchor ? Math.max(8, Math.min(window.innerWidth - popoverWidth - 8, anchor.right - popoverWidth)) : 8,
+            top: anchor ? anchor.bottom + 4 : 8,
+            width: `${popoverWidth}px`, boxSizing: 'border-box', padding: '6px',
+            borderRadius: '8px', border: AKARI_BORDER.hairline,
+            background: AKARI_PROJECT_SURFACE.elevated, boxShadow: '0 8px 24px rgba(0,0,0,.5)' };
+        const rowStyle: React.CSSProperties = { display: 'flex', width: '100%', alignItems: 'center', gap: '8px',
+            padding: '6px 8px', border: 0, borderRadius: '5px', background: 'transparent', color: AKARI_INK,
+            textAlign: 'left', whiteSpace: 'nowrap', cursor: 'pointer' };
+        const kindOptions: readonly [MaterialKind | 'all', string][] =
+            [['all', 'すべて'], ['video', '動画'], ['audio', '音声'], ['image', '画像'], ['other', 'ほか（HTML・3D・フォント…）']];
+        const sortOptions: readonly [MaterialsSort, string][] = [
+            ['imported-desc', '取り込んだ順（新しい順）'], ['imported-asc', '取り込んだ順（古い順）'],
+            ['name', '名前'], ['dur', '長さ'], ['kind', '種類'], ['created', '作成日時']
+        ];
+        const svg = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+            strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+        return <div style={{ display: 'flex', gap: '2px', position: 'relative' }}
+            onKeyDownCapture={event => {
+                if (event.key === 'Escape' && this.materialsPopover) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.materialsPopover = undefined;
+                    this.materialsPopoverAnchor = undefined;
+                    this.update();
+                }
+            }}>
+            <button type='button' className='akari-materials-toolbar-button'
+                ref={element => { this.materialsFilterButton = element ?? undefined; }}
+                style={{ ...buttonStyle, ...(this.materialsPopover === 'filter' ? activeButtonStyle : {}) }}
+                onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, this.materialsPopover === 'filter')}
+                aria-label='絞り込み' title='絞り込み'
+                aria-haspopup='true' aria-expanded={this.materialsPopover === 'filter'}
+                onClick={() => this.toggleMaterialsPopover('filter', this.materialsFilterButton)}>
+                <svg {...svg}><path d='M3 5h18l-7 8v6l-4 2v-8z' /></svg><span style={{ fontSize: '8px' }}>▾</span>
+                {filter.length > 0 && <span aria-hidden='true' style={{ position: 'absolute', width: '6px', height: '6px',
+                    right: '3px', top: '2px', borderRadius: '50%', background: '#f97316' }} />}
+            </button>
+            <button type='button' className='akari-materials-toolbar-button'
+                ref={element => { this.materialsSortButton = element ?? undefined; }}
+                style={{ ...buttonStyle, ...(this.materialsPopover === 'sort' ? activeButtonStyle : {}) }}
+                onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, this.materialsPopover === 'sort')}
+                aria-label='並び替え' title='並び替え'
+                aria-haspopup='true' aria-expanded={this.materialsPopover === 'sort'}
+                onClick={() => this.toggleMaterialsPopover('sort', this.materialsSortButton)}>
+                <svg {...svg}><path d='M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3' /></svg>
+                <span style={{ fontSize: '8px' }}>▾</span>
+            </button>
+            <button type='button' className='akari-materials-toolbar-button' style={buttonStyle}
+                onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, false)}
+                aria-label='表示を切り替え' title='表示を切り替え'
+                onClick={() => { const next = mode === 'grid' ? 'list' : 'grid'; this.materialsPane.setMaterialView({ mode: next });
+                    try { window.localStorage.setItem('akari.materials.viewMode', next); } catch { /* Session state still works. */ }
+                    this.materialsPopover = undefined; this.materialsPopoverAnchor = undefined; }}>
+                <svg {...svg}>{mode === 'grid'
+                    ? <><rect x='3' y='3' width='7' height='7' rx='1' /><rect x='14' y='3' width='7' height='7' rx='1' />
+                        <rect x='3' y='14' width='7' height='7' rx='1' /><rect x='14' y='14' width='7' height='7' rx='1' /></>
+                    : <path d='M4 6h16M4 12h16M4 18h16' />}</svg>
+            </button>
+            {this.materialsPopover && anchor && createPortal(<div
+                style={{ position: 'fixed', inset: 0, zIndex: 9000 }}
+                onMouseDown={event => { if (event.target === event.currentTarget) {
+                    this.materialsPopover = undefined; this.materialsPopoverAnchor = undefined; this.update();
+                } }}>
+                <div style={popStyle} role='menu'>
+                <div style={{ fontSize: '11px', color: '#737373', padding: '4px 8px 2px' }}>
+                    {this.materialsPopover === 'filter' ? '種類（複数可）' : '並び替え'}
+                </div>
+                {this.materialsPopover === 'filter' ? kindOptions.map(([kind, label]) =>
+                    <button key={kind} type='button' className='akari-materials-popover-option'
+                        role='menuitemcheckbox' aria-checked={kind === 'all' ? filter.length === 0 : filter.includes(kind)}
+                        style={rowStyle} onClick={() => {
+                            const next = kind === 'all' ? [] : filter.includes(kind) ? filter.filter(value => value !== kind) : [...filter, kind];
+                            this.materialsPane.setMaterialView({ filter: next }); this.saveMaterialsUiState();
+                        }}><span style={{ width: '14px', color: '#f97316' }}>
+                            {(kind === 'all' ? filter.length === 0 : filter.includes(kind)) ? '✓' : ''}</span>{label}</button>)
+                    : sortOptions.map(([value, label]) =>
+                        <button key={value} type='button' className='akari-materials-popover-option'
+                            role='menuitemradio' aria-checked={sort === value} style={rowStyle}
+                            onClick={() => { this.materialsPane.setMaterialView({ sort: value });
+                                this.materialsPopover = undefined; this.materialsPopoverAnchor = undefined;
+                                this.saveMaterialsUiState(); }}>
+                            <span style={{ width: '14px', color: '#f97316' }}>{sort === value ? '✓' : ''}</span>{label}</button>)}
+                </div>
+            </div>, document.body)}
+        </div>;
+    }
 
     protected renderTopControls(): React.ReactNode {
         const query = this.topView === 'materials' ? this.materialQuery : this.catalogQuery;
@@ -2272,6 +2419,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {this.topView === 'catalog' && !this.materialSwap && <LibraryFilterButton filter={this.libraryFilter()}
                         open={!!this.libraryFilterAnchor}
                         onToggle={() => this.toggleLibraryFilterPopover()} />}
+                    {this.topView === 'materials' && this.renderMaterialsViewButtons()}
                     {this.topView === 'materials' && this.workflow.workspaceRoot && this.materialsPane.renderMaterialsMenuButton()}
                 </div>
             </div>

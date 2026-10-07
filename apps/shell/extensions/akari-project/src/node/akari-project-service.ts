@@ -1809,6 +1809,24 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         return this.materialMetaReader.read(this.fsPath(projectUri), relativePaths);
     }
 
+    async readUiState(projectUri: string): Promise<Record<string, unknown>> {
+        const value = await this.readJsonFile(join(this.fsPath(projectUri), '.akari', 'ui-state.json'));
+        return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    }
+
+    async writeUiState(projectUri: string, patch: Record<string, unknown>): Promise<void> {
+        const current = await this.readUiState(projectUri);
+        const merged = { ...current, ...patch };
+        if (patch.materialsPane && typeof patch.materialsPane === 'object' && !Array.isArray(patch.materialsPane)) {
+            const previous = current.materialsPane;
+            merged.materialsPane = {
+                ...(previous && typeof previous === 'object' && !Array.isArray(previous) ? previous as Record<string, unknown> : {}),
+                ...patch.materialsPane as Record<string, unknown>
+            };
+        }
+        await this.writeJsonAtomic(join(this.fsPath(projectUri), '.akari', 'ui-state.json'), merged);
+    }
+
     protected async generateThumbnail(
         kind: 'video' | 'image' | 'audio',
         sourcePath: string,

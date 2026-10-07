@@ -21,7 +21,7 @@ import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
-import { applyMaterialViewPatch, DEFAULT_MATERIAL_VIEW, filterMaterials, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
+import { DEFAULT_MATERIALS_SORT, isMaterialsList, MATERIALS_KINDS, MATERIALS_SORT_OPTIONS, MaterialsMode, MaterialsSort, visibleMaterials } from '../common/materials-view';
 import { referencePresentation } from '../common/project-asset-reference';
 import { materialCardLayout, mergeMaterialCardMeta } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
@@ -112,7 +112,7 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'materialMeta' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'materialMeta' | 'readUiState' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -152,24 +152,22 @@ export class AkariMaterialsPane {
     public referenceWatches = new DisposableCollection();
     protected referenceWatchRoot = '';
     protected referenceWatchParents = new Set<string>();
-    protected view: MaterialViewState = DEFAULT_MATERIAL_VIEW;
+    protected filter: string[] = [];
+    protected sort: MaterialsSort = DEFAULT_MATERIALS_SORT;
+    protected mode: MaterialsMode = 'grid';
     protected viewRootKey?: string;
 
     constructor(protected readonly host: MaterialsPaneHost) {}
 
-    public setMaterialView(patch: MaterialViewPatch): { applied: MaterialViewState; previous: MaterialViewState } {
-        const result = applyMaterialViewPatch(this.view, patch);
-        if (result.applied.kinds.join('|') !== result.previous.kinds.join('|')
-            || result.applied.sort.by !== result.previous.sort.by
-            || result.applied.sort.order !== result.previous.sort.order) {
-            this.view = result.applied;
-            this.host.update();
-        }
-        return result;
+    public setMaterialView(patch: { filter?: string[]; sort?: MaterialsSort; mode?: MaterialsMode }): void {
+        if (patch.filter) this.filter = MATERIALS_KINDS.filter(kind => patch.filter!.includes(kind));
+        if (patch.sort && MATERIALS_SORT_OPTIONS.includes(patch.sort)) this.sort = patch.sort;
+        if (patch.mode) this.mode = patch.mode;
+        this.host.update();
     }
 
-    public getMaterialView(): MaterialViewState {
-        return { kinds: [...this.view.kinds], sort: { ...this.view.sort } };
+    public getMaterialView(): { filter: string[]; sort: MaterialsSort; mode: MaterialsMode } {
+        return { filter: [...this.filter], sort: this.sort, mode: this.mode };
     }
 
     public async loadMaterials(): Promise<void> {
@@ -177,7 +175,19 @@ export class AkariMaterialsPane {
         const rootKey = root?.toString();
         if (rootKey !== this.viewRootKey) {
             this.viewRootKey = rootKey;
-            this.view = DEFAULT_MATERIAL_VIEW;
+            this.filter = [];
+            this.sort = DEFAULT_MATERIALS_SORT;
+            if (root) void this.host.projectService.readUiState(root.toString()).then(state => {
+                if (this.viewRootKey !== rootKey) return;
+                const pane = state.materialsPane;
+                if (!pane || typeof pane !== 'object' || Array.isArray(pane)) return;
+                const saved = pane as { filter?: unknown; sort?: unknown };
+                this.setMaterialView({
+                    filter: Array.isArray(saved.filter) ? saved.filter.filter((kind): kind is string => typeof kind === 'string') : [],
+                    sort: typeof saved.sort === 'string' && MATERIALS_SORT_OPTIONS.includes(saved.sort as MaterialsSort)
+                        ? saved.sort as MaterialsSort : DEFAULT_MATERIALS_SORT
+                });
+            }).catch(() => undefined);
         }
         const generation = ++this.materialsGeneration;
         if (!root) {
@@ -444,16 +454,20 @@ export class AkariMaterialsPane {
     protected async hydrateMaterialMeta(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
         const candidates = entries.filter(entry => !entry.assetGroup && !entry.reference);
         if (candidates.length === 0) return;
-        try {
-            const metadata = await this.host.projectService.materialMeta(root.toString(), candidates.map(entry => entry.relativePath));
+        for (let start = 0; start < candidates.length; start += 20) {
             if (generation !== this.materialsGeneration) return;
-            for (const entry of candidates) {
-                const meta = metadata[entry.relativePath];
-                if (meta) Object.assign(entry, mergeMaterialCardMeta(entry, meta));
+            const batch = candidates.slice(start, start + 20);
+            try {
+                const metadata = await this.host.projectService.materialMeta(root.toString(), batch.map(entry => entry.relativePath));
+                if (generation !== this.materialsGeneration) return;
+                for (const entry of batch) {
+                    const meta = metadata[entry.relativePath];
+                    if (meta) Object.assign(entry, mergeMaterialCardMeta(entry, meta));
+                }
+                this.host.update();
+            } catch {
+                // Metadata is supplemental; continue with later batches.
             }
-            this.host.update();
-        } catch {
-            // Metadata is supplemental; keep the visible material list on failure.
         }
     }
 
@@ -840,39 +854,23 @@ export class AkariMaterialsPane {
                 </p>
             );
         }
-        const materials = sortMaterials(filterMaterials(this.materials, this.view, this.host.materialQuery), this.view.sort);
-        const unorganizedMaterials = sortMaterials(filterMaterials(this.unorganizedMaterials, this.view, this.host.materialQuery), this.view.sort);
+        const materials = visibleMaterials(this.materials, this.filter, this.host.materialQuery, this.sort);
+        const unorganizedMaterials = visibleMaterials(this.unorganizedMaterials, this.filter, this.host.materialQuery, this.sort);
         const total = this.materials.length + this.unorganizedMaterials.length;
         const visible = materials.length + unorganizedMaterials.length;
-        const isFiltered = this.view.kinds.length > 0 || this.host.materialQuery.trim().length > 0;
-        const selectedKind = this.view.kinds.length === 0 ? 'all'
-            : this.view.kinds.length === 1 && this.view.kinds[0] !== 'other' ? this.view.kinds[0] : undefined;
+        const isFiltered = this.filter.length > 0 || this.host.materialQuery.trim().length > 0;
         return (
             <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', padding: '8px 10px 0', overflowX: 'auto' }}>
-                    <div role='group' aria-label='素材の種類' className='akari-seg'>
-                        {([['all', 'すべて'], ['video', '動画'], ['audio', '音'], ['image', '画像']] as const).map(([kind, label]) =>
-                            <button key={kind} type='button' className='theia-button quiet small' aria-pressed={selectedKind === kind}
-                                onClick={() => this.setMaterialView({ kinds: kind === 'all' ? [] : [kind] })}>{label}</button>)}
-                    </div>
-                    <div role='group' aria-label='素材の並べ替え' className='akari-seg'>
-                        {([['name', '名前'], ['duration', '長さ']] as const).map(([by, label]) =>
-                            <button key={by} type='button' className='theia-button quiet small' aria-pressed={this.view.sort.by === by}
-                                onClick={() => this.setMaterialView({ sort: { by, order: this.view.sort.by === by && this.view.sort.order === 'asc' ? 'desc' : 'asc' } })}>
-                                {label}{this.view.sort.by === by ? this.view.sort.order === 'asc' ? ' ↑' : ' ↓' : ''}
-                            </button>)}
-                    </div>
-                </div>
                 {isFiltered && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 10px 0', fontSize: '0.78em', color: 'var(--akari-muted)' }}>
                     <span>{visible} / {total} 件</span>
-                    {selectedKind === undefined && <span>絞り込み中</span>}
-                    {this.view.kinds.length > 0 && <button type='button' className='theia-button quiet small'
-                        onClick={() => this.setMaterialView({ kinds: [] })}>絞り込みをやめる</button>}
                 </div>}
                 {!visible
                     ? <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>
                     : materials.length
-                    ? <div style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: MATERIAL_GRID_LAYOUT.gridPadding }}>
+                    ? <div style={isMaterialsList(this.mode)
+                        ? { display: 'flex', flexDirection: 'column', gap: '4px', padding: MATERIAL_GRID_LAYOUT.gridPadding }
+                        : { display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP,
+                            rowGap: '10px', padding: MATERIAL_GRID_LAYOUT.gridPadding }}>
                         {materials.map(entry => this.renderMaterialCard(entry))}
                     </div>
                     : <p style={{ opacity: 0.7, padding: '10px 16px 0' }}>assets/ にはまだ素材がありません。</p>}
@@ -892,7 +890,10 @@ export class AkariMaterialsPane {
                 </div>
                 <div
                     data-akari-unorganized-count={entries.length}
-                    style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: MATERIAL_GRID_LAYOUT.gridPadding }}
+                    style={isMaterialsList(this.mode)
+                        ? { display: 'flex', flexDirection: 'column', gap: '4px', padding: MATERIAL_GRID_LAYOUT.gridPadding }
+                        : { display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP,
+                            rowGap: '10px', padding: MATERIAL_GRID_LAYOUT.gridPadding }}
                 >
                     {entries.map(entry => this.renderMaterialCard(entry))}
                 </div>
@@ -973,58 +974,55 @@ export class AkariMaterialsPane {
                 data-akari-material-reference={entry.reference ? 'true' : undefined}
                 data-akari-material-missing={entry.missing ? 'true' : undefined}
                 data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
-                // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<path> opt-in target.
-                data-akari-ui={`asset:${entry.relativePath}`}
-                data-akari-ui-label={entry.name}
-                draggable={draggable}
-                onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
-                onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}
-                onMouseDown={!this.host.generationPick.request && entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
-                onClickCapture={event => {
-                    if (entry.missing || this.host.generationPick.request
-                        || (typeof Element !== 'undefined' && event.target instanceof Element && event.target.closest('button'))) return;
-                    this.selectedMaterialPath = entry.relativePath;
-                    this.host.update();
-                    const root = this.host.workflow.workspaceRoot;
-                    if (root) window.dispatchEvent(new CustomEvent(AKARI_MATERIAL_SELECTED_EVENT, {
-                        detail: { projectRoot: root.toString(), relativePath: entry.mediaRelativePath ?? entry.relativePath,
-                            kind: entry.assetGroup && !entry.mediaRelativePath ? 'other' : entry.kind, name: entry.name }
-                    }));
-                }}
-                onClick={() => { if (!entry.missing) void this.host.openFile(entry.uri); }}
-                onMouseEnter={event => { event.currentTarget.style.background = AKARI_PROJECT_SURFACE.elevated; }}
-                onMouseLeave={event => {
-                    event.currentTarget.style.background = this.selectedMaterialPath === entry.relativePath
-                        ? AKARI_PROJECT_SURFACE.elevated : AKARI_PROJECT_SURFACE.item;
-                }}
-                onContextMenu={event => this.host.openMaterialContextMenu(event, entry)}
-                title={entry.name}
-                {...this.host.generationPickCardProps(pickCandidate)}
                 style={{
                     display: 'flex',
-                    flexDirection: 'column',
+                    flexDirection: isMaterialsList(this.mode) ? 'row' : 'column',
+                    alignItems: isMaterialsList(this.mode) ? 'center' : undefined,
+                    gap: isMaterialsList(this.mode) ? '8px' : undefined,
                     minWidth: 0,
                     gridColumn: layout.gridColumn,
-                    cursor: 'pointer',
-                    borderRadius: `${AKARI_RADIUS.panel}px`,
-                    overflow: 'hidden',
-                    background: this.selectedMaterialPath === entry.relativePath
-                        ? AKARI_PROJECT_SURFACE.elevated : AKARI_PROJECT_SURFACE.item,
-                    border: this.selectedMaterialPath === entry.relativePath ? AKARI_BORDER.accent : AKARI_BORDER.ghost
+                    position: 'relative'
                 }}
             >
-                {entry.missing && entry.reference && (() => {
-                    const known = this.host.assetCatalogItems.find(item => item.key === `${entry.reference.category}/${entry.reference.id}`);
-                    const state = referencePresentation(entry.reference, known?.sourceKind === 'lab');
-                    return state.lab
-                        ? <button className='theia-button secondary small' onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>もう一度取得</button>
-                        : <span>入れ直してください</span>;
-                })()}
                 <div
+                    // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<path> opt-in target.
+                    data-akari-ui={`asset:${entry.relativePath}`}
+                    data-akari-ui-label={entry.name}
+                    draggable={draggable}
+                    onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
+                    onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}
+                    onMouseDown={!this.host.generationPick.request && entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
+                    onClickCapture={event => {
+                        if (entry.missing || this.host.generationPick.request
+                            || (typeof Element !== 'undefined' && event.target instanceof Element && event.target.closest('button'))) return;
+                        this.selectedMaterialPath = entry.relativePath;
+                        this.host.update();
+                        const root = this.host.workflow.workspaceRoot;
+                        if (root) window.dispatchEvent(new CustomEvent(AKARI_MATERIAL_SELECTED_EVENT, {
+                            detail: { projectRoot: root.toString(), relativePath: entry.mediaRelativePath ?? entry.relativePath,
+                                kind: entry.assetGroup && !entry.mediaRelativePath ? 'other' : entry.kind, name: entry.name }
+                        }));
+                    }}
+                    onClick={() => { if (!entry.missing) void this.host.openFile(entry.uri); }}
+                    onMouseEnter={event => { event.currentTarget.style.borderColor =
+                        this.selectedMaterialPath === entry.relativePath ? '#f97316' : '#a3a3a3'; }}
+                    onMouseLeave={event => { event.currentTarget.style.borderColor = this.selectedMaterialPath === entry.relativePath ? '#f97316' : AKARI_FAINT; }}
+                    onContextMenu={event => this.host.openMaterialContextMenu(event, entry)}
+                    title={entry.name}
+                    {...this.host.generationPickCardProps(pickCandidate)}
                     style={{
                         position: 'relative',
                         aspectRatio: layout.aspectRatio,
-                        background: 'inherit',
+                        width: isMaterialsList(this.mode) ? '64px' : '100%',
+                        height: isMaterialsList(this.mode) ? '36px' : undefined,
+                        flex: isMaterialsList(this.mode) ? '0 0 64px' : undefined,
+                        background: '#000',
+                        border: `1px solid ${this.selectedMaterialPath === entry.relativePath ? '#f97316' : AKARI_FAINT}`,
+                        boxShadow: this.selectedMaterialPath === entry.relativePath ? '0 0 0 1.5px #f97316' : undefined,
+                        borderRadius: '4px',
+                        boxSizing: 'border-box',
+                        overflow: 'hidden',
+                        cursor: draggable ? 'grab' : 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -1032,8 +1030,8 @@ export class AkariMaterialsPane {
                 >
                     {entry.thumbnailUri
                         // position: absolute で img をフレックスの外に出す。flex 子のまま
-                        // height:'100%' にすると、親の aspectRatio:1/1 を無視して img 自身の
-                        // 縦長比率で高さが決まってしまう（実機 CDP 計測で確認済みの挙動）。
+                        // height:'100%' にすると、親の aspectRatio を無視して img 自身の
+                        // 縦長比率で高さが決まってしまう。
                         ? <img
                             src={entry.thumbnailUri.toString()}
                             alt=''
@@ -1046,29 +1044,15 @@ export class AkariMaterialsPane {
                                 files={this.host.files} icon={this.host.placeholderIcon(displayKind)} />
                             : <span className={this.host.placeholderIcon(displayKind)} aria-hidden='true' draggable={false}
                                 style={{ fontSize: '1.8em', opacity: 0.5 }} />}
-                    {!entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio') && (
-                        <span data-akari-transcript-state={transcriptState}
-                            title={transcriptLabel} aria-label={transcriptLabel}
-                            style={{ ...MATERIAL_CARD_SUBFLAG_STYLE,
-                                position: 'absolute', bottom: '24px', right: 0,
-                                display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                maxWidth: 'calc(100% - 24px)' }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>文字起こし</span>{' '}
-                            <span style={{ flexShrink: 0 }}>{transcriptStatus}</span>
-                        </span>
-                    )}
-                    <div style={{
-                        position: 'absolute', top: 0, left: 0, maxWidth: 'calc(100% - 18px)',
+                    {!isMaterialsList(this.mode) && <div style={{
+                        position: 'absolute', top: '3px', left: '3px', maxWidth: 'calc(100% - 42px)',
                         display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '1px'
                     }}>
-                        <span
-                            title={`種別: ${entry.assetGroup ? entry.assetGroup.category || '不明' : layout.kindLabel}`}
-                            aria-label={`種別: ${entry.assetGroup ? entry.assetGroup.category || '不明' : layout.kindLabel}`}
-                            data-akari-asset-group-category={entry.assetGroup?.category}
-                            style={MATERIAL_CARD_FLAG_STYLE}
-                        >
-                            {layout.kindLabel}
-                        </span>
+                        {entry.analyzed && <span title='分析済み' aria-label='分析済み'
+                            style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f97316' }} />}
+                        {!entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio') &&
+                            <span data-akari-transcript-state={transcriptState} title={transcriptLabel}
+                                aria-label={transcriptLabel} style={MATERIAL_CARD_SUBFLAG_STYLE}>文字起こし {transcriptStatus}</span>}
                         {entry.reference && <span data-akari-reference-badge title='ライブラリを参照しています'
                             style={MATERIAL_CARD_SUBFLAG_STYLE}>参照</span>}
                         {entry.missing && <span data-akari-reference-missing
@@ -1082,46 +1066,36 @@ export class AkariMaterialsPane {
                                 未整理
                             </span>
                         )}
-                    </div>
-                    <span
-                        title={entry.analyzed ? '分析済み' : '未分析'}
-                        aria-label={entry.analyzed ? '分析済み' : '未分析'}
-                        style={{
-                            position: 'absolute',
-                            top: '4px',
-                            right: '4px',
-                            width: '9px',
-                            height: '9px',
-                            borderRadius: '50%',
-                            // 未分析の灰点は「まだ何もしていない」印。カードより目立つと
-                            // 面の階層が壊れるので、分析済み（アクセント）だけを前に出す。
-                            opacity: entry.analyzed ? 1 : 0.45,
-                            background: entry.analyzed ? 'var(--theia-badge-background)' : AKARI_FAINT
-                        }}
-                    />
-                    {/*
-                      * 「エージェントに頼む」の常設ボタンはカード上から外した（2026-09-26 オーナー指示）。
-                      * 導線は右クリックメニューの `ask-agent` に一本化する — カードの面はサムネのための
-                      * 場所で、めったに押さない操作を常設する場所ではない。
-                      */}
-                    <div style={{
-                        position: 'absolute', left: 0, right: 0, bottom: 0,
-                        display: 'flex', alignItems: 'baseline', gap: '4px', padding: '7px 4px 2px',
-                        background: 'linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))',
-                        color: '#fff', lineHeight: '14px', pointerEvents: 'none'
-                    }}>
-                        <span style={{
-                            flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap', fontSize: '0.62em'
-                        }}>
-                            {entry.name}
-                        </span>
-                        <span style={{ flex: '0 0 auto', fontSize: '0.55em', whiteSpace: 'nowrap' }}>
-                            {entry.durationSeconds !== undefined ? formatDurationBadge(entry.durationSeconds) : '--:--'}
-                        </span>
-                    </div>
+                    </div>}
+                    {!isMaterialsList(this.mode) && entry.durationSeconds !== undefined &&
+                        <span style={{ position: 'absolute', top: '3px', right: '4px', color: '#fff',
+                            font: '600 10px/1 monospace', textShadow: '0 0 3px #000, 0 0 2px #000' }}>
+                            {formatDurationBadge(entry.durationSeconds)}
+                        </span>}
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0,
+                    padding: isMaterialsList(this.mode) ? 0 : '3px 1px 0', fontSize: '10px',
+                    lineHeight: 1.3, color: '#737373', flex: isMaterialsList(this.mode) ? '1 1 auto' : undefined }}>
+                    <span aria-hidden='true' style={{ width: '6px', height: '6px', flex: '0 0 6px', borderRadius: '2px',
+                        background: { video: '#58a6ff', audio: '#3fb950', image: '#d2a8ff', other: '#e3b341' }[displayKind] }} />
+                    <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {entry.name}
+                    </span>
+                    {isMaterialsList(this.mode) && entry.missing && <span data-akari-reference-missing
+                        style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>見つかりません</span>}
+                    {isMaterialsList(this.mode) && entry.unorganized && <span
+                        style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>未整理</span>}
+                </div>
+                {isMaterialsList(this.mode) && <span style={{ flex: '0 0 auto', font: '600 10px monospace', color: '#737373' }}>
+                    {entry.durationSeconds !== undefined ? formatDurationBadge(entry.durationSeconds) : ''}</span>}
                 {this.host.renderGenerationPickBadge(pickCandidate)}
+                {entry.missing && entry.reference && (() => {
+                    const known = this.host.assetCatalogItems.find(item => item.key === `${entry.reference.category}/${entry.reference.id}`);
+                    const state = referencePresentation(entry.reference, known?.sourceKind === 'lab');
+                    return state.lab
+                        ? <button className='theia-button secondary small' onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>もう一度取得</button>
+                        : <span>入れ直してください</span>;
+                })()}
                 {entry.unorganized && (
                     <div style={{ padding: '0 6px 6px' }}>
                         <button

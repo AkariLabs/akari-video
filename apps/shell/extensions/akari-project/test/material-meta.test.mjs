@@ -57,7 +57,8 @@ test('corrupt cache and missing ffprobe leave the material list usable', async (
         await fs.writeFile(join(root, '.akari', 'cache', 'material-meta.json'), '{broken');
         await fs.writeFile(join(root, 'clip.mp4'), 'media');
         const result = await new MaterialMetaReader({ ffprobePath: async () => undefined }).read(root, ['clip.mp4']);
-        assert.deepEqual(Object.keys(result['clip.mp4']), ['importedAt']);
+        assert.ok(result['clip.mp4'].importedAt);
+        assert.ok(result['clip.mp4'].createdAt);
     } finally {
         await fs.rm(root, { recursive: true, force: true });
     }
@@ -83,6 +84,25 @@ test('limits simultaneous ffprobe calls to two', async () => {
         const result = await reader.read(root, paths);
         assert.equal(Object.keys(result).length, paths.length);
         assert.equal(peak, 2);
+    } finally {
+        await fs.rm(root, { recursive: true, force: true });
+    }
+});
+
+test('video stream is selected for dimensions while format duration remains available', async () => {
+    const root = await fs.mkdtemp(join(tmpdir(), 'akari-material-meta-'));
+    try {
+        await fs.writeFile(join(root, 'clip.mp4'), 'media');
+        let args;
+        const result = await new MaterialMetaReader({ ffprobePath: async () => 'ffprobe',
+            runFfprobe: async (_binary, given) => {
+                args = given;
+                return JSON.stringify({ format: { duration: '2' }, streams: [{ width: 1920, height: 1080 }] });
+            } }).read(root, ['clip.mp4']);
+        assert.deepEqual(args.slice(args.indexOf('-select_streams'), args.indexOf('-select_streams') + 2), ['-select_streams', 'v:0']);
+        assert.equal(result['clip.mp4'].durationSeconds, 2);
+        assert.equal(result['clip.mp4'].width, 1920);
+        assert.equal(result['clip.mp4'].height, 1080);
     } finally {
         await fs.rm(root, { recursive: true, force: true });
     }

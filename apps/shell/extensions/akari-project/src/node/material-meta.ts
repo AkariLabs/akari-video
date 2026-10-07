@@ -113,19 +113,20 @@ export class MaterialMetaReader {
                     if (PROBE_EXTENSIONS.has(extname(source).toLowerCase())) {
                         try {
                             fields = probeFields(await this.runFfprobe(binary, [
-                                '-v', 'error', '-show_entries', 'format=duration:format_tags=creation_time:stream=width,height',
+                                '-v', 'error', '-select_streams', 'v:0',
+                                '-show_entries', 'format=duration:format_tags=creation_time:stream=width,height',
                                 '-of', 'json', source
                             ]));
                         } catch { /* File metadata still remains useful. */ }
                     }
                     if (fields.durationSeconds !== undefined) entry.durationSeconds = fields.durationSeconds;
-                    const creation = fields.createdAt ?? createdAt(stat);
-                    if (creation !== undefined) entry.createdAt = creation;
+                    if (fields.createdAt !== undefined) entry.createdAt = fields.createdAt;
                     if (fields.width !== undefined) entry.width = fields.width;
                     if (fields.height !== undefined) entry.height = fields.height;
                     cache[key] = entry;
                     changed = true;
                 }
+                if (entry.createdAt === undefined) entry.createdAt = createdAt(stat);
                 result[relativePath] = entry;
             }
         };

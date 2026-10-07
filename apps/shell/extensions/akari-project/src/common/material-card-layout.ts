@@ -1,5 +1,4 @@
-// タスク契約 §指示の確定値・オーナー裁定（2026-09-08）:
-// 全種を 1:1・contain・同じ列幅に統一し、名前は重ね、格子の余白と間隔は 4px にする。
+// サムネイルは 16:9。名前は枠の外に置く。
 
 import type { MaterialMetaEntry } from './akari-project-protocol';
 
@@ -33,16 +32,13 @@ export function materialCardLayout(entry: MaterialCardLayoutEntry, options: Mate
         || (/\.html?$/i.test(entry.name ?? '') ? 'HTML'
             : { video: '動画', audio: '音声', image: '画像', other: '素材' }[entry.kind]);
     return {
-        aspectRatio: '1 / 1' as const,
+        aspectRatio: '16 / 9' as const,
         objectFit: 'contain' as const,
         gridColumn: undefined,
-        namePlacement: 'overlay' as const,
+        namePlacement: 'below' as const,
         kindLabel,
-        gridGap: `${options.gridGapPx ?? 4}px`,
-        gridPadding: `${options.gridPaddingPx ?? 4}px`,
-        // 95px は維持する。ラッパーの実機計測（Electron + CDP）では左パネル 320px
-        // = 格子枠 255.92px で 2 列（カード 121.96px）、400px で 3 列（111.83px）、
-        // 500px で 4 列。既定幅を動かすと、この較正済みの列数の階段がずれるため。
-        cardMinWidth: `${options.cardMinWidthPx ?? 95}px`
+        gridGap: `${options.gridGapPx ?? 6}px`,
+        gridPadding: `${options.gridPaddingPx ?? 8}px`,
+        cardMinWidth: `${options.cardMinWidthPx ?? 104}px`
     };
 }
