@@ -16,10 +16,14 @@ export interface ListTasksResponse { tasks: Task[]; warnings: string[]; file: 'o
 export interface CreateTaskRequest { projectRootUri: string; task: Partial<Task> & { body: string } }
 export interface UpdateTaskRequest { projectRootUri: string; id: string; patch: Partial<Task>; actor: 'human' | 'app' | 'agent' }
 export interface ImportSentRequest { projectRootUri: string; ids: string[] }
+export interface WriteOutboxRequest { projectRootUri: string; batchId: string; markdown: string }
+export interface NextBatchIdRequest { projectRootUri: string }
 
 export interface AkariTasksService {
     list(request: ListTasksRequest): Promise<ListTasksResponse>;
     create(request: CreateTaskRequest): Promise<Task>;
     update(request: UpdateTaskRequest): Promise<Task>;
     importSent(request: ImportSentRequest): Promise<ListTasksResponse>;
+    writeOutbox(request: WriteOutboxRequest): Promise<void>;
+    nextBatchId(request: NextBatchIdRequest): Promise<string>;
 }

@@ -33,6 +33,8 @@ export class VibeDockState {
     readonly onDidPressMark: Event<void> = this.onDidPressMarkEmitter.event;
     readonly onDidSubmitNoteEmitter = new Emitter<string>();
     readonly onDidSubmitNote: Event<string> = this.onDidSubmitNoteEmitter.event;
+    readonly onDidSubmitInstructionEmitter = new Emitter<{ text: string; mode: 'task' | 'send' }>();
+    readonly onDidSubmitInstruction: Event<{ text: string; mode: 'task' | 'send' }> = this.onDidSubmitInstructionEmitter.event;
     readonly onDidChangePointedEmitter = new Emitter<PointedTarget | undefined>();
     readonly pointed: Event<PointedTarget | undefined> = this.onDidChangePointedEmitter.event;
 
@@ -83,6 +85,9 @@ export class VibeDockState {
         this.onDidChangeEmitter.fire();
     }
     submitNote(note: string): void { this.onDidSubmitNoteEmitter.fire(note); }
+    submitInstruction(text: string, mode: 'task' | 'send'): void {
+        if (text.trim()) this.onDidSubmitInstructionEmitter.fire({ text, mode });
+    }
     setPointed(target: PointedTarget | undefined): void {
         this.pointedTarget = target;
         this.onDidChangePointedEmitter.fire(target);

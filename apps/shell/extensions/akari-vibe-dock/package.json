@@ -7,6 +7,7 @@
     { "frontend": "lib/browser/akari-vibe-dock-frontend-module" },
     { "backend": "lib/node/akari-vibe-dock-backend-module" },
     { "frontend": "lib/browser/voice-dictionary-frontend-module" },
+    { "frontend": "lib/browser/tasks-bridge-frontend-module" },
     { "frontend": "lib/browser/ear-frontend-module" }
   ],
   "scripts": {

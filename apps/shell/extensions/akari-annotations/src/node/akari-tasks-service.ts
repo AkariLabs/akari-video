@@ -9,7 +9,7 @@ import {
 } from '@akari-video/edit-store/lib/tasks-store';
 import type {
     AkariTasksService, CreateTaskRequest, ImportSentRequest,
-    ListTasksRequest, ListTasksResponse, Task, UpdateTaskRequest
+    ListTasksRequest, ListTasksResponse, NextBatchIdRequest, Task, UpdateTaskRequest, WriteOutboxRequest
 } from '../common/akari-tasks-protocol';
 
 @injectable()
@@ -86,6 +86,65 @@ export class AkariTasksServiceImpl implements AkariTasksService {
             await writeTasksFile(tasksPath, importSentAnnotationIds(doc, request.ids));
         });
         return this.list(request);
+    }
+
+    async writeOutbox(request: WriteOutboxRequest): Promise<void> {
+        if (!/^b-\d{4,}$/.test(request.batchId) || typeof request.markdown !== 'string') {
+            throw new Error('依頼文の番号または内容が不正です。');
+        }
+        const { tasksPath } = await this.paths(request.projectRootUri);
+        const sidecar = resolve(tasksPath, '..');
+        const root = resolve(sidecar, '..');
+        const cache = join(sidecar, 'cache');
+        const outbox = join(cache, 'outbox');
+        for (const directory of [sidecar, cache, outbox]) {
+            await fs.mkdir(directory).catch(error => {
+                if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+            });
+            const actual = await fs.realpath(directory);
+            const rel = relative(root, actual);
+            if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+                throw new Error('プロジェクト外の場所は使えません。');
+            }
+        }
+        const destination = join(outbox, `${request.batchId}.md`);
+        const temporary = join(outbox, `.${request.batchId}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+        try {
+            await fs.writeFile(temporary, request.markdown, { flag: 'wx' });
+            await fs.link(temporary, destination);
+        } finally {
+            await fs.rm(temporary, { force: true });
+        }
+    }
+
+    async nextBatchId(request: NextBatchIdRequest): Promise<string> {
+        const { tasksPath } = await this.paths(request.projectRootUri);
+        const read = await readTasksFile(tasksPath);
+        if (read.ok === false) throw new Error('tasks.json を読めません。');
+        const outbox = join(resolve(tasksPath, '..'), 'cache', 'outbox');
+        const root = resolve(tasksPath, '..', '..');
+        let names: string[] = [];
+        for (const directory of [resolve(tasksPath, '..'), join(resolve(tasksPath, '..'), 'cache'), outbox]) {
+            try {
+                const actual = await fs.realpath(directory);
+                const rel = relative(root, actual);
+                if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('プロジェクト外の場所は使えません。');
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            }
+        }
+        try {
+            names = await fs.readdir(outbox);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
+        const ids = [...read.doc.tasks.map(task => task.batchId), ...names.map(name => name.replace(/\.md$/, ''))];
+        const maximum = ids.reduce<bigint>((max, value) => {
+            const match = typeof value === 'string' ? /^b-(\d{4,})$/.exec(value) : null;
+            const number = match ? BigInt(match[1]) : 0n;
+            return number > max ? number : max;
+        }, 0n);
+        return `b-${String(maximum + 1n).padStart(4, '0')}`;
     }
 
     private async readForWrite(tasksPath: string): Promise<TasksDocument> {
