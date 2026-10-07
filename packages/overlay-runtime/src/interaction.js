@@ -2251,10 +2251,11 @@ function marqueeHits(candidates, rect) {
     return others;
   }
 
-  function computeScaleSnap({ scale, at, previous = null, movingItem = null, clamp = value => value }) {
+  function computeScaleSnap({ scale, at, previous = null, movingItem = null,
+    initialBounds = null, movingEdges = null, clamp = value => value }) {
     const solved = globalThis.akariHandleGeometry?.snapScale({ scale, at,
       others: snapTargetsFor(movingItem), canvas: outputSize(), displayScale: currentDisplayScale(),
-      previous, clamp });
+      previous, initialBounds, movingEdges, clamp });
     showSnapGuides(solved?.snapX, solved?.snapY);
     return solved;
   }
@@ -2891,6 +2892,9 @@ function marqueeHits(candidates, rect) {
         bottom: anchorStageY + (base.bottom - anchorStageY) * ratio };
     };
     return computeScaleSnap({ scale, at, previous: { x: snapX, y: snapY }, movingItem,
+      initialBounds: base,
+      movingEdges: { x: draggedStageX < anchorStageX ? 0 : 2,
+        y: draggedStageY < anchorStageY ? 0 : 2 },
       clamp: clampScale });
   }
 
@@ -2979,7 +2983,10 @@ function marqueeHits(candidates, rect) {
     };
     const solved = computeScaleSnap({ scale, at,
       movingItem: { kind: 'shape', id: resize.overlayId },
-      previous: { x: resize.snapX, y: resize.snapY }, clamp: clampScale });
+      previous: { x: resize.snapX, y: resize.snapY }, initialBounds: resize.startBounds,
+      movingEdges: axis === 'x' ? { x: resize.edge === 'w' ? 0 : 2 }
+        : { y: resize.edge === 'n' ? 0 : 2 },
+      clamp: clampScale });
     resize.snapX = solved?.snapX ?? null;
     resize.snapY = solved?.snapY ?? null;
     return solved?.scale ?? scale;
@@ -3053,7 +3060,10 @@ function marqueeHits(candidates, rect) {
         const solved = telop ? computeScaleSnap({ scale: nextX,
           at: value => { applyAxisResize(resize, value, value);
             return fragmentVideoBounds(resize.container); },
-          previous: { x: resize.snapX, y: resize.snapY }, movingItem, clamp: clampScale })
+          previous: { x: resize.snapX, y: resize.snapY }, movingItem,
+          initialBounds: resize.startBounds,
+          movingEdges: { x: resize.corner?.includes('w') ? 0 : 2,
+            y: resize.corner?.includes('n') ? 0 : 2 }, clamp: clampScale })
           : computeAnchorResizeSnap({ anchorStageX: resize.anchorStageX,
             anchorStageY: resize.anchorStageY, draggedStageX: resize.draggedStageX,
             draggedStageY: resize.draggedStageY, startScale: 1,
