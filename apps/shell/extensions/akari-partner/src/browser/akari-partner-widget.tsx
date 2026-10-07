@@ -150,8 +150,9 @@ export class AkariPartnerWidget extends ReactWidget {
     protected readonly liveTerminals = new Map<string, TerminalWidget>();
     protected readonly observedTerminals = new WeakSet<TerminalWidget>();
     protected readonly observedWebWidgets = new WeakSet<PartnerWebWidget>();
-    protected autoStarting = false;
     protected autoStartAttempted = false;
+    protected autoStartPromise?: Promise<void>;
+    protected webEntryId?: string;
 
     // チャットガワ v0（task.md 2026-07-21-partner-pane 指示2/5）状態。
     // task/2026-07-25-partner-raw-terminal-default: 既定経路からは外れたが
@@ -423,6 +424,10 @@ export class AkariPartnerWidget extends ReactWidget {
         if (this.entryFlow(entry).state === 'working') {
             return;
         }
+        if (this.autoStartPromise) await this.autoStartPromise;
+        if (this.entryFlow(entry).state === 'working') {
+            return;
+        }
         this.entryFlows.delete(entry.id);
 
         if (entry.form === 'cli') {
@@ -459,31 +464,32 @@ export class AkariPartnerWidget extends ReactWidget {
         await this.beginExtension(entry);
     }
 
-    protected async beginWeb(entry: PartnerWebCatalogEntry, prepared?: BootstrapResult): Promise<void> {
+    protected async beginWeb(entry: PartnerWebCatalogEntry, prepared?: BootstrapResult, automatic = false): Promise<void> {
         if (this.webStarting) { await this.webStarting; return; }
         let finish!: () => void;
         const starting = new Promise<void>(resolve => { finish = resolve; });
         this.webStarting = starting;
-        try { await this.beginWebOnce(entry, prepared); }
+        try { await this.beginWebOnce(entry, prepared, automatic); }
         finally {
             this.webStarting = undefined;
             finish();
         }
     }
 
-    protected async beginWebOnce(entry: PartnerWebCatalogEntry, prepared?: BootstrapResult): Promise<void> {
+    protected async beginWebOnce(entry: PartnerWebCatalogEntry, prepared?: BootstrapResult, automatic = false): Promise<void> {
         const existing = this.webWidget;
         try {
             if (existing?.isRunning() && existing.pid && await this.partnerServer.isWebPartnerRunning(existing.pid)) {
                 this.selected = entry;
-                await this.showPartnerWidget(existing.id);
+                this.webEntryId = entry.id;
+                await this.showPartnerWidget(existing.id, automatic);
                 return;
             }
         } catch (error) {
             this.setFailure(entry, entry.name + ' を開けませんでした', this.errorMessage(error));
             return;
         }
-        if (!this.autoStarting) this.shell.activateWidget(this.id);
+        if (!automatic) this.shell.activateWidget(this.id);
         this.selected = entry;
         this.installCancelledNotice = '';
         this.setProgress(entry, 'CLI を確認しています…', entry.id);
@@ -512,11 +518,11 @@ export class AkariPartnerWidget extends ReactWidget {
             try {
                 widget = await this.widgetManager.getOrCreateWidget<PartnerWebWidget>(PartnerWebWidget.ID);
                 this.webWidget = widget;
+                this.webEntryId = entry.id;
                 this.observeWebClose(widget);
                 if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 50 });
-                await this.showPartnerWidget(widget.id);
+                await this.showPartnerWidget(widget.id, automatic);
                 const opening = widget.open(entry.agent, launch, ownerId);
-                const automatic = this.autoStarting;
                 this.setComplete(entry, 'DeepSeek Harness を開始しました', launch.providerNote);
                 await this.rememberPartnerStart(entry);
                 void opening.catch(error => {
@@ -543,8 +549,8 @@ export class AkariPartnerWidget extends ReactWidget {
         }
     }
 
-    protected async beginCli(entry: PartnerCliCatalogEntry, prepared?: BootstrapResult): Promise<void> {
-        if (!this.autoStarting) this.shell.activateWidget(this.id);
+    protected async beginCli(entry: PartnerCliCatalogEntry, prepared?: BootstrapResult, automatic = false): Promise<void> {
+        if (!automatic) this.shell.activateWidget(this.id);
         this.selected = entry;
         this.installCancelledNotice = '';
         this.setProgress(entry, 'CLI を確認しています…', entry.id);
@@ -605,7 +611,7 @@ export class AkariPartnerWidget extends ReactWidget {
             });
             await terminal.start();
             await this.shell.addWidget(terminal, { area: 'right', rank: 50 });
-            await this.attachTerminal(terminal, entry);
+            await this.attachTerminal(terminal, entry, automatic);
             await this.rememberPartnerStart(entry);
         } catch (error) {
             this.setFailure(entry, `${entry.name} のセットアップに失敗しました`, this.errorMessage(error));
@@ -831,12 +837,17 @@ export class AkariPartnerWidget extends ReactWidget {
             this.syncTerminalState(active.terminal, active.entry, true);
         }
         this.update();
-        void this.autoStartLastPartner().catch(error => console.warn('[akari-partner] auto-start failed:', error));
+        const pending = this.autoStartLastPartner().catch(error => console.warn('[akari-partner] auto-start failed:', error));
+        this.autoStartPromise = pending;
+        void pending.finally(() => {
+            if (this.autoStartPromise === pending) this.autoStartPromise = undefined;
+        });
     }
 
     protected async autoStartLastPartner(): Promise<void> {
         if (this.autoStartAttempted) return;
         this.autoStartAttempted = true;
+        await this.preferences.ready;
         const roots = await this.workspaceService.roots;
         const projectLast = await this.storageService.getData<{ entryId: string | null }>(PARTNER_LAST_KEY);
         let markerAgent: PartnerAgentId | undefined;
@@ -848,7 +859,11 @@ export class AkariPartnerWidget extends ReactWidget {
             } catch { /* unreadable marker has no history */ }
         }
         const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
-        if (web?.isRunning()) this.observeWebClose(web);
+        if (web?.isRunning()) {
+            this.webWidget = web;
+            this.webEntryId = PARTNER_CATALOG.find(candidate => candidate.form === 'web' && candidate.name === web.title.label)?.id;
+            this.observeWebClose(web);
+        }
         const decision = decideAutoStart({
             enabled: this.preferences.get<boolean>(PARTNER_REOPEN_PREFERENCE, true),
             hasWorkspace: roots.length > 0,
@@ -858,17 +873,21 @@ export class AkariPartnerWidget extends ReactWidget {
         if (decision.action === 'skip') return;
         const entry = decision.entry;
         const cwd = roots[0].resource.toString();
+        this.setProgress(entry, `前回のパートナー（${entry.name}）を開いています…`, '');
         try {
             const bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd, false);
+            const runningWeb = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
+            if (this.liveTerminals.size > 0 || this.webStarting || this.webWidget?.isRunning() ||
+                runningWeb?.isRunning() || [...this.entryFlows].some(([id, flow]) => id !== entry.id && flow.state === 'working')) {
+                this.clearAutoStartProgress(entry);
+                return;
+            }
             if ('consentRequired' in bootstrap) {
                 this.setAutoStartNotice(entry, `前回のパートナー（${entry.name}）は未導入です`);
                 return;
             }
-            this.autoStarting = true;
-            try {
-                if (entry.form === 'web') await this.beginWeb(entry, bootstrap);
-                else if (entry.form === 'cli') await this.beginCli(entry, bootstrap);
-            } finally { this.autoStarting = false; }
+            if (entry.form === 'web') await this.beginWeb(entry, bootstrap, true);
+            else if (entry.form === 'cli') await this.beginCli(entry, bootstrap, true);
             if (this.entryFlow(entry).state === 'failed') {
                 this.setAutoStartNotice(entry, '前回のパートナーを開けませんでした — 始めるで再試行');
                 console.warn('[akari-partner] auto-start failed:', entry.id);
@@ -883,13 +902,25 @@ export class AkariPartnerWidget extends ReactWidget {
         this.setEntryFlow(entry, { state: 'idle', status, detail: '', warning: '' });
     }
 
+    protected clearAutoStartProgress(entry: PartnerCatalogEntry): void {
+        this.entryFlows.delete(entry.id);
+        if (this.selected?.id === entry.id) {
+            this.selected = undefined;
+            this.flowState = 'idle';
+            this.status = '';
+            this.detail = '';
+            this.warning = '';
+        }
+        this.update();
+    }
+
     protected async rememberPartnerStart(entry: PartnerCliCatalogEntry | PartnerWebCatalogEntry): Promise<void> {
         try { await this.storageService.setData(PARTNER_LAST_KEY, { entryId: entry.id, at: new Date().toISOString() }); }
         catch (error) { console.warn('[akari-partner] last partner could not be saved:', error); }
     }
 
-    protected async showPartnerWidget(id: string): Promise<void> {
-        if (this.autoStarting) await this.shell.revealWidget(id);
+    protected async showPartnerWidget(id: string, automatic = false): Promise<void> {
+        if (automatic) await this.shell.revealWidget(id);
         else await this.shell.activateWidget(id);
     }
 
@@ -902,9 +933,17 @@ export class AkariPartnerWidget extends ReactWidget {
             original.call(widget, msg);
         };
         widget.disposed.connect(() => {
-            void rememberPartnerClose(this.storageService, requested)
+            void rememberPartnerClose(this.storageService, requested, undefined, this.remainingPartnerEntryId(widget))
                 .catch(error => console.warn('[akari-partner] close state could not be saved:', error));
         });
+    }
+
+    protected remainingPartnerEntryId(closed: TerminalWidget | PartnerWebWidget): string | undefined {
+        for (const [id, terminal] of this.liveTerminals) {
+            if (terminal !== closed && !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0) return id;
+        }
+        const web = this.webWidget;
+        return web && web !== closed && web.isRunning() ? this.webEntryId : undefined;
     }
 
     protected observeWebClose(widget: PartnerWebWidget): void {
@@ -1055,7 +1094,7 @@ export class AkariPartnerWidget extends ReactWidget {
      * 検証できる（このメソッド自体はテスト専用コードではなく、begin() が
      * 使う実装をそのまま指している）。
      */
-    protected async attachTerminal(terminal: TerminalWidget, entry: PartnerCliCatalogEntry): Promise<void> {
+    protected async attachTerminal(terminal: TerminalWidget, entry: PartnerCliCatalogEntry, automatic = false): Promise<void> {
         this.syncTerminalState(terminal, entry, false);
         // task/2026-07-25-partner-raw-terminal-default: チャットガワ封印に伴い
         // onReply→吹き出し表示への配線はしない（channel.send は維持）。
@@ -1065,12 +1104,12 @@ export class AkariPartnerWidget extends ReactWidget {
         // （Theia 1.73.1 terminal-widget-impl.js を実測: onOutput の配信元である
         // term.onWriteParsed の購読は open() の中で一度だけ登録される）。
         // 単一ドキュメントモードの dock パネルでは「追加されただけ」ではまだ
-        // 可視ではない（別タブがアクティブなため）。そのため必ず一度アクティブ
-        // 化して xterm を開かせる。
-        await this.ensureTerminalOpened(terminal);
+        // 可視ではない（別タブがアクティブなため）。手動では activate、自動起動
+        // では focus を奪わない reveal で可視にして xterm を開かせる。
+        await this.ensureTerminalOpened(terminal, automatic);
         // task/2026-07-25-partner-raw-terminal-default: 生ターミナルを既定表示
-        // にするため、接続後は常時表示・アクティブ化する。
-        this.applyDeveloperModeVisibility();
+        // にするため、接続後は常時表示する。自動起動時は reveal に留める。
+        this.applyDeveloperModeVisibility(automatic);
 
         // ホーム v2（task.md 2026-07-21-home-flow）の接続ゲートは
         // connections.json の akari-cloud provider の doctor.status を唯一の
@@ -1151,8 +1190,8 @@ export class AkariPartnerWidget extends ReactWidget {
         }
     }
 
-    protected async ensureTerminalOpened(terminal: TerminalWidget): Promise<void> {
-        await this.showPartnerWidget(terminal.id);
+    protected async ensureTerminalOpened(terminal: TerminalWidget, automatic = false): Promise<void> {
+        await this.showPartnerWidget(terminal.id, automatic);
         for (let attempt = 0; attempt < 40 && !terminal.isDisposed; attempt++) {
             if (terminal.node.querySelector('.xterm')) {
                 return;
@@ -1181,19 +1220,19 @@ export class AkariPartnerWidget extends ReactWidget {
 
     /**
      * task/2026-07-25-partner-raw-terminal-default: 接続後のターミナルは
-     * devMode に関わらず right パネルへ常時表示・アクティブ化する
+     * devMode に関わらず right パネルへ常時表示する（自動起動時は reveal）
      * （旧実装の devMode off → parent=null 退避分岐は廃止）。
      */
-    protected applyDeveloperModeVisibility(): void {
+    protected applyDeveloperModeVisibility(automatic = false): void {
         const terminal = this.terminal;
         if (!terminal || terminal.isDisposed) {
             return;
         }
         const rightWidgets = Array.from(this.shell.rightPanelHandler.dockPanel.widgets());
         if (!rightWidgets.includes(terminal)) {
-            void this.shell.addWidget(terminal, { area: 'right', rank: 50 }).then(() => this.showPartnerWidget(terminal.id));
+            void this.shell.addWidget(terminal, { area: 'right', rank: 50 }).then(() => this.showPartnerWidget(terminal.id, automatic));
         } else {
-            void this.showPartnerWidget(terminal.id);
+            void this.showPartnerWidget(terminal.id, automatic);
         }
         this.update();
     }

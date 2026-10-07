@@ -50,6 +50,7 @@ When you open a project, the last successfully used CLI or web partner for that
 project opens automatically. If there is no project history, the last app-wide
 partner is used. Turn off Settings → Partner → “起動したら前回のパートナーを開く,” or close its tab to stop
 automatic opening in that project. An uninstalled partner is never installed automatically.
+Exiting inside a CLI (for example, `/exit`) does not count as closing its tab; it opens again next time. Close the tab or turn off the setting to stop it.
 
 The desktop shell's connect button opens a partner catalog. It offers
 **10 CLIs** in PTY tabs — Claude Code, Codex, opencode, Command Code, Pi,

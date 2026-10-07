@@ -8,9 +8,12 @@ export function isPartnerShuttingDown(): boolean { return shuttingDown; }
 
 export function rememberPartnerClose(
     storage: { setData(key: string, value: unknown): Promise<void> }, userRequested: boolean,
-    stopping = isPartnerShuttingDown()
+    stopping = isPartnerShuttingDown(), remainingEntryId?: string
 ): Promise<void> {
+    const now = new Date().toISOString();
     return userRequested && !stopping
-        ? storage.setData(PARTNER_LAST_KEY, { entryId: null, closedAt: new Date().toISOString() })
+        ? storage.setData(PARTNER_LAST_KEY, remainingEntryId
+            ? { entryId: remainingEntryId, at: now }
+            : { entryId: null, closedAt: now })
         : Promise.resolve();
 }
