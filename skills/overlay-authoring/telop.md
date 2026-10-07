@@ -12,6 +12,8 @@
 - `--font-size`、`--line-height`、`--color`、`--background`、`--max-width`、`--safe-*` を調整点として公開する。既定値は `var(--name, fallback)` に置き、外側の `vars` を遮らない。
 - 素材の `meta.json` で宣言する `knobs[].default` は必須。インスペクタは `vars` 未設定時にこの `default` を初期値に使い、断片の実効値は読めない。断片内の CSS フォールバックと `default` は同じ値にする。
 - セレクタと `@keyframes` 名を素材固有の接頭辞で閉じる。
+- 座布団 + 文字のテロップは、文字要素に class があると文字だけが先に選ばれる対象になる。
+  丸ごと動かす想定なら文字側に class を付けず、ルート（座布団）に付ける。
 
 ## 可読サイズと文字量の目安
 
