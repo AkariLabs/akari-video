@@ -124,6 +124,9 @@
 .akari-interaction-selection-frame.is-telop .is-edge {
   display: none;
 }
+.akari-interaction-selection-frame.is-element-focus.is-telop .is-edge {
+  display: block;
+}
 .akari-interaction-selection-frame.is-line .akari-interaction-handle:not(.is-line-start):not(.is-line-end):not(.akari-interaction-action) {
   display: none;
 }

@@ -128,6 +128,98 @@
       const siblings = [...element.parentElement.children].filter((sibling) => sibling.getAttribute("class")?.split(/\s+/u).includes(name));
       return siblings.length > 1 ? `${name} ${siblings.indexOf(element) + 1}` : name;
     }
+    function elementAxes(center, xProbe, yProbe) {
+      return {
+        x: { x: xProbe.x - center.x, y: xProbe.y - center.y },
+        y: { x: yProbe.x - center.x, y: yProbe.y - center.y }
+      };
+    }
+    function elementPoint(geometry, horizontal, vertical) {
+      return {
+        x: geometry.center.x + horizontal * geometry.width * geometry.axes.x.x / 2 + vertical * geometry.height * geometry.axes.y.x / 2,
+        y: geometry.center.y + horizontal * geometry.width * geometry.axes.x.y / 2 + vertical * geometry.height * geometry.axes.y.y / 2
+      };
+    }
+    function elementHandlePoints(geometry, name) {
+      const signs = {
+        n: [0, -1],
+        e: [1, 0],
+        s: [0, 1],
+        w: [-1, 0],
+        nw: [-1, -1],
+        ne: [1, -1],
+        se: [1, 1],
+        sw: [-1, 1]
+      }[name];
+      if (!signs) return null;
+      return {
+        dragged: elementPoint(geometry, ...signs),
+        anchor: elementPoint(geometry, -signs[0], -signs[1]),
+        signs
+      };
+    }
+    function elementBoxSize(width, height, name, delta, shift) {
+      const signs = elementHandlePoints({
+        center: { x: 0, y: 0 },
+        width,
+        height,
+        axes: { x: { x: 1, y: 0 }, y: { x: 0, y: 1 } }
+      }, name)?.signs;
+      if (!signs) return { width, height };
+      let nextWidth = signs[0] ? Math.max(4, width + signs[0] * delta.x) : width;
+      let nextHeight = signs[1] ? Math.max(4, height + signs[1] * delta.y) : height;
+      if (signs[0] && signs[1] && !shift) {
+        const ratio = Math.max(
+          4 / width,
+          4 / height,
+          (width * nextWidth + height * nextHeight) / (width * width + height * height)
+        );
+        nextWidth = width * ratio;
+        nextHeight = height * ratio;
+      }
+      return {
+        width: Math.round(nextWidth * 100) / 100,
+        height: Math.round(nextHeight * 100) / 100
+      };
+    }
+    function elementLocalDelta(screen, axes) {
+      const determinant = axes.x.x * axes.y.y - axes.y.x * axes.x.y;
+      if (Math.abs(determinant) < 1e-6) return { x: 0, y: 0 };
+      return {
+        x: (screen.x * axes.y.y - screen.y * axes.y.x) / determinant,
+        y: (screen.y * axes.x.x - screen.x * axes.x.y) / determinant
+      };
+    }
+    function elementAngle(value, shift) {
+      const angle = ((value + 180) % 360 + 360) % 360 - 180;
+      return Math.round((shift ? Math.round(angle / 15) * 15 : angle) * 100) / 100;
+    }
+    function elementHandleLayout(width, height) {
+      return {
+        hideHorizontalEdges: width < 30,
+        hideVerticalEdges: height < 30,
+        outsideX: width < 36,
+        outsideY: height < 36,
+        cornerOffsetX: width < 36 ? 14 : 0,
+        cornerOffsetY: height < 36 ? 14 : 0,
+        rotateTop: -32
+      };
+    }
+    function elementBoxCompanions(style, parentStyle, width, height) {
+      const result = {};
+      if (style.boxSizing !== "border-box") result["box-sizing"] = "border-box";
+      if (style.display === "inline") result.display = "inline-block";
+      if (["flex", "inline-flex"].includes(parentStyle?.display) && style.flex !== "0 0 auto") result.flex = "0 0 auto";
+      if (width !== null) {
+        if (Number.parseFloat(style.minWidth) > width) result["min-width"] = "0px";
+        if (Number.parseFloat(style.maxWidth) < width) result["max-width"] = "none";
+      }
+      if (height !== null) {
+        if (Number.parseFloat(style.minHeight) > height) result["min-height"] = "0px";
+        if (Number.parseFloat(style.maxHeight) < height) result["max-height"] = "none";
+      }
+      return result;
+    }
     const stage = document.getElementById("overlay-stage");
     const dragStartDistance = 4;
     const SNAP_DISTANCE = 6;
@@ -186,6 +278,7 @@
     let selectedId = null;
     let selectedIds = [];
     let elementFocus = null;
+    let elementGeometryCache = null;
     let elementNudge = null;
     let elementNudgeTimer = null;
     let scopeId = null;
@@ -193,6 +286,7 @@
     scopeId = floorScopeId;
     let groupSelection = false;
     let selectionFrame = null;
+    let elementHandlePlacementFrame = null;
     let selectionTrackingFrame = null;
     let activeDrag = null;
     let activeResize = null;
@@ -1114,7 +1208,16 @@
       const transform = readTransform(selectedOverlay);
       const lineRect = lineFrameGeometry(selectedOverlay);
       const focused = focusedElement();
-      const rect = focused ? focused.getBoundingClientRect() : selectedOverlay.dataset.role === "shape-line" ? lineRect : transform.rotate ? unrotatedLeafBounds(selectedOverlay) : fragmentBounds(selectedOverlay);
+      const focusedGeometry = focused ? elementScreenGeometry(focused) : null;
+      const focusedWidth = focusedGeometry && focusedGeometry.width * Math.hypot(focusedGeometry.axes.x.x, focusedGeometry.axes.x.y);
+      const focusedHeight = focusedGeometry && focusedGeometry.height * Math.hypot(focusedGeometry.axes.y.x, focusedGeometry.axes.y.y);
+      const focusedAngle = focusedGeometry && Math.atan2(focusedGeometry.axes.x.y, focusedGeometry.axes.x.x) * 180 / Math.PI;
+      const rect = focusedGeometry ? {
+        left: focusedGeometry.center.x - focusedWidth / 2,
+        top: focusedGeometry.center.y - focusedHeight / 2,
+        width: focusedWidth,
+        height: focusedHeight
+      } : selectedOverlay.dataset.role === "shape-line" ? lineRect : transform.rotate ? unrotatedLeafBounds(selectedOverlay) : fragmentBounds(selectedOverlay);
       if (!rect) {
         if (selectionFrame) selectionFrame.hidden = true;
         return;
@@ -1123,15 +1226,46 @@
         selectionFrame = createSelectionFrame();
         document.body.appendChild(selectionFrame);
       }
+      if (!focused && elementHandlePlacementFrame === selectionFrame) {
+        const replacement = createSelectionFrame();
+        selectionFrame.replaceWith(replacement);
+        selectionFrame = replacement;
+        elementHandlePlacementFrame = null;
+      }
       selectionFrame.classList.toggle("is-locked", isLockedItem(selectedOverlay));
       selectionFrame.classList.toggle("is-busy", Boolean(activeDrag || activeResize || activeRotate || activeLine));
       selectionFrame.classList.toggle("is-moving", Boolean(activeDrag || activeRotate));
       selectionFrame.classList.toggle("is-text", selectedOverlay.dataset.role === "text");
       selectionFrame.classList.toggle("is-telop", isTelopOverlay(selectedOverlay));
       selectionFrame.classList.toggle("is-line", selectedOverlay.dataset.role === "shape-line");
+      if (focused) elementHandlePlacementFrame = selectionFrame;
+      selectionFrame.classList.toggle("is-element-focus", Boolean(focused));
       if (window.akari.capabilities?.elementSelection === true) {
         for (const handle of selectionFrame.querySelectorAll(".akari-interaction-handle")) {
-          handle.style.display = focused ? "none" : "";
+          if (!focused) {
+            continue;
+          }
+          const layout = elementHandleLayout(focusedWidth, focusedHeight);
+          const name = [...handle.classList].find((token) => /^is-(?:n|e|s|w|nw|ne|se|sw|rotate|move)$/.test(token))?.slice(3);
+          handle.style.display = name === "move" || ["n", "s"].includes(name) && layout.hideHorizontalEdges || ["e", "w"].includes(name) && layout.hideVerticalEdges ? "none" : "";
+          if (name === "rotate") {
+            Object.assign(handle.style, {
+              top: `${layout.rotateTop}px`,
+              bottom: "auto",
+              left: "50%",
+              transform: "translate(-50%, -50%)"
+            });
+          } else if (name && name.length === 2) {
+            const x = name.includes("w") ? -layout.cornerOffsetX : layout.cornerOffsetX;
+            const y = name.includes("n") ? -layout.cornerOffsetY : layout.cornerOffsetY;
+            if (x || y) handle.style.translate = `${x}px ${y}px`;
+            else handle.style.removeProperty("translate");
+          }
+          if (name && name !== "move" && name !== "rotate") {
+            const directions = ["ew-resize", "nwse-resize", "ns-resize", "nesw-resize"];
+            const base = name.length === 2 ? name === "ne" || name === "sw" ? 3 : 1 : name === "n" || name === "s" ? 2 : 0;
+            handle.style.cursor = directions[((base + Math.round(focusedAngle / 45)) % 4 + 4) % 4];
+          }
         }
       }
       for (const endpoint of selectionFrame.querySelectorAll(".is-line-start, .is-line-end")) {
@@ -1153,8 +1287,8 @@
         return;
       }
       const pivot = leafPivotClient(transform);
-      selectionFrame.style.transformOrigin = pivot ? `${pivot.x - rect.left}px ${pivot.y - rect.top}px` : "center";
-      selectionFrame.style.transform = focused ? "" : transform.rotate ? `rotate(${transform.rotate}deg)` : "";
+      selectionFrame.style.transformOrigin = focused ? "center" : pivot ? `${pivot.x - rect.left}px ${pivot.y - rect.top}px` : "center";
+      selectionFrame.style.transform = focused ? `rotate(${focusedAngle}deg)` : transform.rotate ? `rotate(${transform.rotate}deg)` : "";
     }
     function trackSelectionFrame() {
       selectionTrackingFrame = null;
@@ -1838,6 +1972,300 @@
       const parts = String(value ?? "").match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?px/giu) ?? [];
       return { x: Number.parseFloat(parts[0]) || 0, y: Number.parseFloat(parts[1]) || 0 };
     }
+    function elementScreenGeometry(element) {
+      const rect = element.getBoundingClientRect();
+      const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      const style = getComputedStyle(element);
+      const size = {
+        width: element.offsetWidth || Number.parseFloat(style.width) || rect.width,
+        height: element.offsetHeight || Number.parseFloat(style.height) || rect.height
+      };
+      const stageRect = stage?.getBoundingClientRect();
+      const ancestors = [];
+      for (let node = element.parentElement; node; node = node.parentElement) {
+        const computed = getComputedStyle(node);
+        ancestors.push([
+          computed.translate,
+          computed.rotate,
+          computed.scale,
+          computed.transform,
+          computed.transformOrigin,
+          node.getAttribute("style")
+        ]);
+      }
+      const signature = JSON.stringify([
+        rect.left,
+        rect.top,
+        rect.width,
+        rect.height,
+        size.width,
+        size.height,
+        style.translate,
+        style.rotate,
+        style.scale,
+        style.transform,
+        style.transformOrigin,
+        element.getAttribute("style"),
+        selectedOverlay?.getAttribute("style"),
+        stageRect && [stageRect.left, stageRect.top, stageRect.width, stageRect.height],
+        ancestors
+      ]);
+      if (elementGeometryCache?.element === element && elementGeometryCache.signature === signature) {
+        return elementGeometryCache.geometry;
+      }
+      const original = element.style.translate;
+      const base = parseElementTranslate(style.translate);
+      element.style.translate = `${base.x + 1}px ${base.y}px`;
+      const xRect = element.getBoundingClientRect();
+      element.style.translate = `${base.x}px ${base.y + 1}px`;
+      const yRect = element.getBoundingClientRect();
+      element.style.translate = original;
+      const axes = elementAxes(
+        center,
+        { x: xRect.left + xRect.width / 2, y: xRect.top + xRect.height / 2 },
+        { x: yRect.left + yRect.width / 2, y: yRect.top + yRect.height / 2 }
+      );
+      if (Math.hypot(axes.x.x, axes.x.y) < 0.01 || Math.hypot(axes.y.x, axes.y.y) < 0.01) {
+        axes.x = { x: rect.width / size.width, y: 0 };
+        axes.y = { x: 0, y: rect.height / size.height };
+      }
+      const scale = style.scale === "none" ? [1, 1] : style.scale.split(/\s+/u).map(Number);
+      const own = new DOMMatrix().rotate(Number.parseFloat(style.rotate) || 0).scale(scale[0] || 1, scale[1] || scale[0] || 1).multiply(new DOMMatrix(style.transform === "none" ? void 0 : style.transform));
+      const baseX = axes.x, baseY = axes.y;
+      axes.x = {
+        x: baseX.x * own.a + baseY.x * own.b,
+        y: baseX.y * own.a + baseY.y * own.b
+      };
+      axes.y = {
+        x: baseX.x * own.c + baseY.x * own.d,
+        y: baseX.y * own.c + baseY.y * own.d
+      };
+      const geometry = { center, axes, width: size.width, height: size.height };
+      elementGeometryCache = { element, signature, geometry };
+      return geometry;
+    }
+    function moveElementPointTo(gesture, horizontal, vertical, target) {
+      const geometry = elementScreenGeometry(gesture.element);
+      const point = elementPoint(geometry, horizontal, vertical);
+      if (Math.hypot(target.x - point.x, target.y - point.y) <= 0.2) return;
+      moveElementToCenter(
+        gesture,
+        geometry.center.x + target.x - point.x,
+        geometry.center.y + target.y - point.y
+      );
+    }
+    const elementInlineProperties = [
+      "width",
+      "height",
+      "rotate",
+      "translate",
+      "display",
+      "box-sizing",
+      "min-width",
+      "min-height",
+      "max-width",
+      "max-height",
+      "flex"
+    ];
+    function snapshotElementInline(element) {
+      return Object.fromEntries(elementInlineProperties.map((name) => [
+        name,
+        [element.style.getPropertyValue(name), element.style.getPropertyPriority(name)]
+      ]));
+    }
+    function restoreElementInline(element, snapshot) {
+      for (const [name, [value, priority]] of Object.entries(snapshot)) {
+        if (value) element.style.setProperty(name, value, priority);
+        else element.style.removeProperty(name);
+      }
+    }
+    function elementWriteStyle(gesture, dimensionNames = []) {
+      const style = {};
+      for (const name of dimensionNames) style[name] = gesture.element.style.getPropertyValue(name);
+      for (const name of elementInlineProperties) {
+        if (name === "translate" || dimensionNames.includes(name)) continue;
+        const now = gesture.element.style.getPropertyValue(name);
+        if (now && now !== gesture.originalInline[name][0]) style[name] = now;
+      }
+      const translate = gesture.element.style.translate;
+      if (translate && translate !== gesture.originalInline.translate[0]) style.translate = translate;
+      return style;
+    }
+    function beginElementGesture(event, handleEl) {
+      const element = focusedElement();
+      if (!element || !elementFocus) return null;
+      hideSnapGuides();
+      const before = elementScreenGeometry(element);
+      const originalInline = snapshotElementInline(element);
+      const computed = getComputedStyle(element);
+      const startStyle = Object.fromEntries([
+        "boxSizing",
+        "display",
+        "flex",
+        "minWidth",
+        "minHeight",
+        "maxWidth",
+        "maxHeight"
+      ].map((name) => [name, computed[name]]));
+      const source = window.akari.state?.summary?.overlays?.find((overlay) => overlay.id === selectedId);
+      const declared = source?.elements?.[elementFocus.ref]?.style ?? {};
+      const translate = parseElementTranslate(declared.translate ?? computed.translate);
+      const gesture = {
+        element,
+        elementRef: elementFocus.ref,
+        elementTag: elementFocus.tag,
+        container: selectedOverlay,
+        overlayId: selectedId,
+        handleEl,
+        pointerId: event.pointerId,
+        originalInline,
+        startStyle,
+        parentStyle: element.parentElement ? { display: getComputedStyle(element.parentElement).display } : null,
+        startGeometry: before,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startWidth: Number.parseFloat(declared.width) || before.width,
+        startHeight: Number.parseFloat(declared.height) || before.height,
+        x: translate.x,
+        y: translate.y,
+        moved: false,
+        writeContext: captureWriteContext()
+      };
+      if (startStyle.display === "inline") {
+        element.style.display = "inline-block";
+        const next = element.getBoundingClientRect();
+        if (Math.hypot(
+          next.left + next.width / 2 - before.center.x,
+          next.top + next.height / 2 - before.center.y
+        ) > 0.2) {
+          moveElementToCenter(gesture, before.center.x, before.center.y);
+        }
+      }
+      try {
+        handleEl.setPointerCapture?.(event.pointerId);
+      } catch {
+      }
+      if (event.cancelable) event.preventDefault();
+      return gesture;
+    }
+    function showElementHandleHint(event, label) {
+      handleHint?.remove();
+      handleHint = document.createElement("div");
+      handleHint.className = "akari-interaction-hint";
+      handleHint.setAttribute("data-akari-interaction", "handle-hint");
+      handleHint.textContent = label;
+      handleHint.style.left = `${event.clientX + 12}px`;
+      handleHint.style.top = `${event.clientY + 12}px`;
+      document.body.appendChild(handleHint);
+    }
+    function beginElementResize(event, handleEl) {
+      if (activeEdit) void commitEdit();
+      const gesture = beginElementGesture(event, handleEl);
+      if (!gesture) return;
+      const name = [...handleEl.classList].find((token) => /^is-(?:n|e|s|w|nw|ne|se|sw)$/.test(token))?.slice(3);
+      if (!name) {
+        restoreElementInline(gesture.element, gesture.originalInline);
+        return;
+      }
+      gesture.name = name;
+      gesture.anchor = elementHandlePoints(gesture.startGeometry, name).anchor;
+      activeResize = gesture;
+      showElementHandleHint(event, name.length === 2 ? "\u5927\u304D\u3055" : ["n", "s"].includes(name) ? "\u9AD8\u3055" : "\u5E45");
+      refreshSelectionFrame();
+    }
+    function updateElementResize(event) {
+      const resize = activeResize;
+      const delta = elementLocalDelta({
+        x: event.clientX - resize.startClientX,
+        y: event.clientY - resize.startClientY
+      }, resize.startGeometry.axes);
+      const size = elementBoxSize(resize.startWidth, resize.startHeight, resize.name, delta, event.shiftKey);
+      const dimensionNames = resize.name.length === 2 ? ["width", "height"] : ["n", "s"].includes(resize.name) ? ["height"] : ["width"];
+      const companions = elementBoxCompanions(
+        resize.startStyle,
+        resize.parentStyle,
+        dimensionNames.includes("width") ? size.width : null,
+        dimensionNames.includes("height") ? size.height : null
+      );
+      for (const name of elementInlineProperties) {
+        if (["translate", "rotate", "width", "height"].includes(name)) continue;
+        const [original, priority] = resize.originalInline[name];
+        if (companions[name]) resize.element.style.setProperty(name, companions[name]);
+        else if (original) resize.element.style.setProperty(name, original, priority);
+        else resize.element.style.removeProperty(name);
+      }
+      if (dimensionNames.includes("width")) resize.element.style.width = `${size.width}px`;
+      if (dimensionNames.includes("height")) resize.element.style.height = `${size.height}px`;
+      const signs = elementHandlePoints(resize.startGeometry, resize.name).signs;
+      moveElementPointTo(resize, -signs[0], -signs[1], resize.anchor);
+      resize.moved = Math.abs(size.width - resize.startWidth) > 0.01 || Math.abs(size.height - resize.startHeight) > 0.01;
+      handleHint.style.left = `${event.clientX + 12}px`;
+      handleHint.style.top = `${event.clientY + 12}px`;
+      refreshSelectionFrame();
+      if (event.cancelable) event.preventDefault();
+    }
+    function finishElementGesture(gesture, dimensions = []) {
+      handleHint?.remove();
+      handleHint = null;
+      releaseResizePointer(gesture);
+      if (!gesture.moved) {
+        restoreElementInline(gesture.element, gesture.originalInline);
+        refreshSelectionFrame();
+        return null;
+      }
+      const style = elementWriteStyle(gesture, dimensions);
+      const record = enqueueWrite(
+        gesture.writeContext,
+        gesture.overlayId,
+        { element: { ref: gesture.elementRef, tag: gesture.elementTag, style } },
+        "element"
+      );
+      record.promise.catch(() => {
+        restoreElementInline(gesture.element, gesture.originalInline);
+        refreshSelectionFrame();
+      });
+      refreshSelectionFrame();
+      return record;
+    }
+    function cancelElementGesture(gesture) {
+      handleHint?.remove();
+      handleHint = null;
+      releaseResizePointer(gesture);
+      restoreElementInline(gesture.element, gesture.originalInline);
+      refreshSelectionFrame();
+    }
+    function beginElementRotate(event, handleEl) {
+      if (activeEdit) void commitEdit();
+      const gesture = beginElementGesture(event, handleEl);
+      if (!gesture) return;
+      const geometry = elementScreenGeometry(gesture.element);
+      const source = window.akari.state?.summary?.overlays?.find((overlay) => overlay.id === selectedId);
+      const declared = source?.elements?.[elementFocus.ref]?.style?.rotate;
+      gesture.startRotate = Number.parseFloat(declared ?? getComputedStyle(gesture.element).rotate) || 0;
+      gesture.center = geometry.center;
+      gesture.startAngle = Math.atan2(event.clientY - geometry.center.y, event.clientX - geometry.center.x);
+      activeRotate = gesture;
+      showElementHandleHint(event, "\u56DE\u8EE2");
+    }
+    function updateElementRotate(event) {
+      const rotation = activeRotate;
+      const currentAngle = Math.atan2(event.clientY - rotation.center.y, event.clientX - rotation.center.x);
+      const degrees = rotation.startRotate + (currentAngle - rotation.startAngle) * 180 / Math.PI;
+      const angle = elementAngle(degrees, event.shiftKey);
+      rotation.element.style.rotate = `${angle}deg`;
+      const rect = rotation.element.getBoundingClientRect();
+      if (Math.hypot(
+        rect.left + rect.width / 2 - rotation.center.x,
+        rect.top + rect.height / 2 - rotation.center.y
+      ) > 0.2) {
+        moveElementToCenter(rotation, rotation.center.x, rotation.center.y);
+      }
+      rotation.moved = Math.abs(angle - rotation.startRotate) > 0.01;
+      handleHint.style.left = `${event.clientX + 12}px`;
+      handleHint.style.top = `${event.clientY + 12}px`;
+      refreshSelectionFrame();
+      if (event.cancelable) event.preventDefault();
+    }
     function moveElementToCenter(gesture, targetX, targetY) {
       const element = gesture.element;
       const center = () => {
@@ -1873,19 +2301,23 @@
       if (!gesture) return;
       if (Math.abs(gesture.x - gesture.startX) < 0.5 && Math.abs(gesture.y - gesture.startY) < 0.5) {
         gesture.element.style.translate = gesture.originalInline;
+        if (gesture.originalDisplay !== void 0) gesture.element.style.display = gesture.originalDisplay;
         return;
       }
+      const style = { translate: `${gesture.x}px ${gesture.y}px` };
+      if (gesture.originalDisplay !== void 0) style.display = "inline-block";
       enqueueWrite(
         gesture.writeContext,
         gesture.overlayId,
         { element: {
           ref: gesture.ref,
           tag: gesture.tag,
-          style: { translate: `${gesture.x}px ${gesture.y}px` }
+          style
         } },
         "element"
       ).promise.catch(() => {
         gesture.element.style.translate = gesture.originalInline;
+        if (gesture.originalDisplay !== void 0) gesture.element.style.display = gesture.originalDisplay;
         refreshSelectionFrame();
       });
     }
@@ -1940,6 +2372,16 @@
             overlayId: selectedId,
             writeContext: captureWriteContext()
           };
+          if (getComputedStyle(element).display === "inline") {
+            elementNudge.originalDisplay = element.style.display;
+            const before = element.getBoundingClientRect();
+            element.style.display = "inline-block";
+            moveElementToCenter(
+              elementNudge,
+              before.left + before.width / 2,
+              before.top + before.height / 2
+            );
+          }
         }
         const step2 = event.shiftKey ? 10 : 1;
         const rect = elementNudge.element.getBoundingClientRect();
@@ -2125,6 +2567,7 @@
       activeDrag = null;
       if (drag.element) {
         drag.element.style.translate = drag.originalInline;
+        if (drag.originalDisplay !== void 0) drag.element.style.display = drag.originalDisplay;
         releasePointer(drag);
         refreshSelectionFrame();
         return;
@@ -2157,21 +2600,25 @@
         const outputDy = (rect.top + rect.height / 2 - drag.startCenterY) / displayScale;
         if (!drag.moved || Math.abs(outputDx) < 0.5 && Math.abs(outputDy) < 0.5) {
           drag.element.style.translate = drag.originalInline;
+          if (drag.originalDisplay !== void 0) drag.element.style.display = drag.originalDisplay;
           refreshSelectionFrame();
           return null;
         }
+        const style = { translate: `${drag.x}px ${drag.y}px` };
+        if (drag.originalDisplay !== void 0) style.display = "inline-block";
         const record2 = enqueueWrite(
           drag.writeContext,
           drag.overlayId,
           { element: {
             ref: drag.elementRef,
             tag: drag.elementTag,
-            style: { translate: `${drag.x}px ${drag.y}px` }
+            style
           } },
           "element"
         );
         record2.promise.catch(() => {
           drag.element.style.translate = drag.originalInline;
+          if (drag.originalDisplay !== void 0) drag.element.style.display = drag.originalDisplay;
           refreshSelectionFrame();
         });
         return record2;
@@ -2798,6 +3245,10 @@
       return record;
     }
     function beginResize(event, container, handleEl) {
+      if (selectedElementFocus() && focusedElement()) {
+        beginElementResize(event, handleEl);
+        return;
+      }
       if (isTelopOverlay(container) && handleEdge(handleEl)) return;
       if (activeEdit) void commitEdit();
       const visualRect = fragmentBounds(container) ?? container.getBoundingClientRect();
@@ -2918,6 +3369,10 @@
       if (event.cancelable) event.preventDefault();
     }
     function beginRotate(event, handleEl) {
+      if (selectedElementFocus() && focusedElement()) {
+        beginElementRotate(event, handleEl);
+        return;
+      }
       if (activeEdit) void commitEdit();
       const group = groupSelection;
       const members = group ? selectionMembers().map((element) => ({ element, transform: readTransform(element) })) : [];
@@ -2964,6 +3419,10 @@
     function updateRotate(event) {
       const rotation = activeRotate;
       if (!rotation || event.pointerId !== rotation.pointerId) return;
+      if (rotation.element) {
+        updateElementRotate(event);
+        return;
+      }
       const pointer = stageLocalPoint(event.clientX, event.clientY);
       if (!pointer) return;
       let angle = (Math.atan2(pointer.y - rotation.center.y, pointer.x - rotation.center.x) - rotation.startAngle) * 180 / Math.PI;
@@ -3019,6 +3478,11 @@
     function cancelRotate() {
       if (!activeRotate) return;
       const rotation = activeRotate;
+      if (rotation.element) {
+        activeRotate = null;
+        cancelElementGesture(rotation);
+        return;
+      }
       reportLiveValues(rotation.overlayId, void 0, true);
       activeRotate = null;
       rotationBadge?.remove();
@@ -3037,6 +3501,7 @@
       if (!activeRotate) return null;
       const rotation = activeRotate;
       activeRotate = null;
+      if (rotation.element) return finishElementGesture(rotation);
       rotationBadge?.remove();
       rotationBadge = null;
       document.body.style.cursor = "";
@@ -3278,6 +3743,10 @@
     function updateResize(event) {
       const resize = activeResize;
       if (!resize || event.pointerId !== resize.pointerId) return;
+      if (resize.element) {
+        updateElementResize(event);
+        return;
+      }
       const pointer = stageLocalPoint(event.clientX, event.clientY);
       if (!pointer) return;
       if (!resize.group && !resize.edge && globalThis.akariHandleGeometry) {
@@ -3393,6 +3862,11 @@
     function cancelResize() {
       if (!activeResize) return;
       const resize = activeResize;
+      if (resize.element) {
+        activeResize = null;
+        cancelElementGesture(resize);
+        return;
+      }
       reportLiveValues(resize.overlayId, void 0, true);
       activeResize = null;
       handleHint?.remove();
@@ -3418,6 +3892,10 @@
       if (!activeResize) return null;
       const resize = activeResize;
       activeResize = null;
+      if (resize.element) return finishElementGesture(
+        resize,
+        resize.name.length === 2 ? ["width", "height"] : ["n", "s"].includes(resize.name) ? ["height"] : ["width"]
+      );
       handleHint?.remove();
       handleHint = null;
       releaseResizePointer(resize);
@@ -3616,6 +4094,11 @@
           moved: false,
           writeContext: captureWriteContext()
         };
+        if (getComputedStyle(element).display === "inline") {
+          activeDrag.originalDisplay = element.style.display;
+          element.style.display = "inline-block";
+          moveElementToCenter(activeDrag, activeDrag.startCenterX, activeDrag.startCenterY);
+        }
         try {
           container.setPointerCapture?.(event.pointerId);
         } catch {
@@ -4314,6 +4797,16 @@
         };
         if (event.key === "Escape" && activeDrag) {
           cancelDrag();
+          stop();
+          return;
+        }
+        if (event.key === "Escape" && activeResize) {
+          cancelResize();
+          stop();
+          return;
+        }
+        if (event.key === "Escape" && activeRotate) {
+          cancelRotate();
           stop();
           return;
         }
