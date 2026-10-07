@@ -14,7 +14,9 @@
     "test": "tsc -b && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@theia/core": "1.73.1"
+    "@theia/core": "1.73.1",
+    "akari-shell-strip": "file:../akari-shell-strip",
+    "akari-theme": "file:../akari-theme"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
