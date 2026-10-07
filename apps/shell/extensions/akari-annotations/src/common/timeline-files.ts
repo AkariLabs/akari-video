@@ -1,3 +1,5 @@
+import { createEmptyEditV2 } from '@akari-video/edit-store';
+
 /** File naming and creation rules shared by timeline discovery and dialogs. */
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -63,9 +65,5 @@ export function sortTimelineEditFileNames(names: readonly string[]): string[] {
 // v2 の語彙に meta はなく、packages/schemas/** は本タスクでは編集禁止のため出力しない。
 // 表示名は slug へフォールバックする。スキーマ拡張は別票で扱う。
 export function createTimelineEditContent(options: { width: number; height: number; fps?: number }): object {
-    return {
-        version: 2,
-        output: { width: options.width, height: options.height, fps: options.fps ?? 30 },
-        sources: [], tracks: []
-    };
+    return createEmptyEditV2({ ...options, geometry: 'omit' });
 }

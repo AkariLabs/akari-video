@@ -16,6 +16,7 @@ import { AkariImageOpenHandler } from './akari-image-open-handler';
 import { AkariGpuPreferenceContribution } from './akari-gpu-preference-contribution';
 import { AkariPreviewOpenHandler } from './akari-preview-open-handler';
 import { AkariOutputPreviewOpenHandler } from './akari-output-preview-open-handler';
+import { ConnectionDiagnosticsContribution } from './connection-diagnostics-contribution';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariAudioMeterWidget).toSelf();
@@ -49,6 +50,8 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(FrontendApplicationContribution).toService(AkariAudioOpenHandler);
     bind(AkariGpuPreferenceContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariGpuPreferenceContribution);
+    bind(ConnectionDiagnosticsContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(ConnectionDiagnosticsContribution);
     bind(PreferenceContribution).toConstantValue({
         schema: {
             type: 'object',

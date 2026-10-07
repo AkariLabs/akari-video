@@ -388,6 +388,8 @@ export interface AkariProjectService {
      * intent 省略時は automatic。利用者が開く・再読み込みする経路だけ user を明示する。
      */
     getAssetCatalogView(preferenceRoot: string | undefined, intent?: 'automatic' | 'user'): Promise<AssetCatalogView>;
+    /** Already generated local thumbnails for catalog item keys; pending means another poll may find more. */
+    getLibraryThumbnails(keys: string[]): Promise<{ urls: Record<string, string>; pending: boolean }>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
     getPresetShowcase(): Promise<PresetShowcase>;
     getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]>;

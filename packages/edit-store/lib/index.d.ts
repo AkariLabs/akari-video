@@ -17,6 +17,7 @@ export * from './caption-display';
 export * from './caption-runs';
 export * from './generation-meta';
 export * from './edit-v2';
+export * from './empty-edit-v2';
 export * from './edit-v2-item-write';
 export * from './internal-model';
 export * from './legacy-audio-view';

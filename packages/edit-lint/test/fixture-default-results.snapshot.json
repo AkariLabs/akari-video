@@ -1417,8 +1417,8 @@
       "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
     },
     "data-mismatch": {
-      "exit_code": 1,
-      "verdict": "fail",
+      "exit_code": 0,
+      "verdict": "pass",
       "findings": [
         {
           "severity": "warning",
@@ -1427,21 +1427,9 @@
           "path": "edit.json#output.geometry"
         },
         {
-          "severity": "error",
-          "check": "overlays.data-attributes",
-          "message": "data-duration must match edit.json value 4",
-          "path": "overlays/cap-a.html"
-        },
-        {
-          "severity": "error",
-          "check": "overlays.data-attributes",
-          "message": "data-start must match edit.json value 1",
-          "path": "overlays/cap-a.html"
-        },
-        {
           "severity": "warning",
           "check": "overlays.root-data-attributes",
-          "message": "overlay fragment root must not declare data-start or data-duration; edit.json is the source of truth, and animation-delay inside the fragment uses local seconds from clip start 0, not absolute timeline seconds",
+          "message": "断片ルートの data-start / data-duration は使われません。edit.json の時刻が正です。素材の長さは data-akari-natural-duration に記録してください",
           "path": "overlays/cap-a.html"
         }
       ],
@@ -1858,7 +1846,7 @@
         {
           "severity": "warning",
           "check": "overlays.root-data-attributes",
-          "message": "overlay fragment root must not declare data-start or data-duration; edit.json is the source of truth, and animation-delay inside the fragment uses local seconds from clip start 0, not absolute timeline seconds",
+          "message": "断片ルートの data-start / data-duration は使われません。edit.json の時刻が正です。素材の長さは data-akari-natural-duration に記録してください",
           "path": "overlays/cap-a.html"
         }
       ],

@@ -30,6 +30,7 @@ function fixture() {
     handler.node = { focus() {} };
     handler.workflow = { workspaceRoot: { toString: () => 'file:///project' } };
     handler.stopCatalogAudio = () => {};
+    handler.stopCatalogThumbnailPolling = () => {};
     handler.update = () => {};
     handler.loadAssetCatalogView = async () => {};
     handler.assetCatalogItems = [];

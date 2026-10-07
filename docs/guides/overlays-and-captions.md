@@ -39,8 +39,10 @@ Caption `style` accepts four values:
 What gets generated is an HTML fragment, referenced by an HTML clip in `tracks[].items[]`. There
 are two conventions:
 
-1. **Timing lives in data attributes** — declared via `data-start` / `data-duration`.
-   Dragging on the timeline lands as a rewrite of these values
+1. **Timing lives in `edit.json`** — a clip's start and duration come from its timeline item.
+   Do not put `data-start` or `data-duration` on the fragment root. If the asset has a natural
+   length, record it in seconds as `data-akari-natural-duration`; dragging on the timeline updates
+   `edit.json`. Animation inside the fragment uses local seconds from the clip's start.
 2. **Adjustable values are CSS variables** — colors, sizes, positions, and anything else you
    want as a knob are declared as CSS variables. The viewer discovers these variables and
    auto-generates sliders / color pickers. `--x` / `--y` / `--scale` / `--rotate` are

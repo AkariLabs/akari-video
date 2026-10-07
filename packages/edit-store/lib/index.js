@@ -41,6 +41,7 @@ __exportStar(require("./caption-runs"), exports);
 __exportStar(require("./generation-meta"), exports);
 // Includes AdjustV1 and its curve/wheel/hue types; AdjustV0 remains an alias.
 __exportStar(require("./edit-v2"), exports);
+__exportStar(require("./empty-edit-v2"), exports);
 __exportStar(require("./edit-v2-item-write"), exports);
 __exportStar(require("./internal-model"), exports);
 __exportStar(require("./legacy-audio-view"), exports);

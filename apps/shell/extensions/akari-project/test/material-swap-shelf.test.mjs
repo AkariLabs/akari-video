@@ -48,7 +48,7 @@ test('AKARI Sounds without meta uses catalog title/tags and excludes the install
 test('project segment closes the shelf and calls the shared rollback command', async () => {
  const { w, calls } = fixture(); await w.openMaterialSwap(request);
  delete w.selectTopView;
- w.topView = 'catalog'; w.stopCatalogAudio = () => {};
+ w.topView = 'catalog'; w.stopCatalogAudio = () => {}; w.stopCatalogThumbnailPolling = () => {};
  w.selectTopView('materials');
  assert.equal(w.materialSwap, undefined); assert.equal(w.topView, 'materials');
  assert.deepEqual(calls.at(-1), ['akari.timeline.finishMaterialSwap', false]);

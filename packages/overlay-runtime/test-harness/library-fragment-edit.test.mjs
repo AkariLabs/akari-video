@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import { materializedFragmentPlan, replaceFragmentReference, withoutFragmentRootTiming } from '../src/fragment-source-write.mjs';
 
 const require = createRequire(import.meta.url);
 const { serializeEdit } = require('../../edit-store/lib/canonical.js');
+const { version, cases } = JSON.parse(readFileSync(new URL('./fixtures/fragment-root-timing.json', import.meta.url), 'utf8'));
+
+test('overlay-runtime は通常・素材コピーの両モードで共通の入出力表に従う', () => {
+  assert.equal(version, 1);
+  for (const { name, source, plain, preserved } of cases) {
+    assert.equal(withoutFragmentRootTiming(source), plain, name);
+    assert.equal(withoutFragmentRootTiming(source, { preserveNaturalDuration: true }), preserved, name);
+  }
+});
 
 test('library fragment gets an item-specific project path and only that v2 item changes', () => {
   const plan = materializedFragmentPlan('assets/overlay/title/fragment.html', 'first', 'a1');

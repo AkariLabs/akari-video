@@ -692,7 +692,6 @@ test("v2-item-duration-zero-invalid reports a clear, purpose-built message namin
 
 for (const [fixture, expectedCheck] of [
   ["missing-reference", "references.files"],
-  ["data-mismatch", "overlays.data-attributes"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -707,6 +706,18 @@ for (const [fixture, expectedCheck] of [
     });
   });
 }
+
+test("data-mismatch fixture warns about unused root timing without a timing error", async () => {
+  await withFixtures(async (fixtures) => {
+    await mkdir(join(fixtures, "data-mismatch", ".akari"), { recursive: true });
+    const executed = run(join(fixtures, "data-mismatch"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.deepEqual(result.findings.filter(finding => finding.check.startsWith("overlays.")).map(finding => finding.check),
+      ["overlays.root-data-attributes"]);
+  });
+});
 
 test("fragment referencing var(--x, ...) / var(--y, ...) inline on the root style attribute warns overlays.reserved-css-var-reference but stays pass", async () => {
   await withFixtures(async (fixtures) => {
