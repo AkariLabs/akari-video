@@ -21,6 +21,7 @@ import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
+import { applyMaterialViewPatch, DEFAULT_MATERIAL_VIEW, filterMaterials, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
 import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
@@ -149,11 +150,33 @@ export class AkariMaterialsPane {
     public referenceWatches = new DisposableCollection();
     protected referenceWatchRoot = '';
     protected referenceWatchParents = new Set<string>();
+    protected view: MaterialViewState = DEFAULT_MATERIAL_VIEW;
+    protected viewRootKey?: string;
 
     constructor(protected readonly host: MaterialsPaneHost) {}
 
+    public setMaterialView(patch: MaterialViewPatch): { applied: MaterialViewState; previous: MaterialViewState } {
+        const result = applyMaterialViewPatch(this.view, patch);
+        if (result.applied.kinds.join('|') !== result.previous.kinds.join('|')
+            || result.applied.sort.by !== result.previous.sort.by
+            || result.applied.sort.order !== result.previous.sort.order) {
+            this.view = result.applied;
+            this.host.update();
+        }
+        return result;
+    }
+
+    public getMaterialView(): MaterialViewState {
+        return { kinds: [...this.view.kinds], sort: { ...this.view.sort } };
+    }
+
     public async loadMaterials(): Promise<void> {
         const root = this.host.workflow.workspaceRoot;
+        const rootKey = root?.toString();
+        if (rootKey !== this.viewRootKey) {
+            this.viewRootKey = rootKey;
+            this.view = DEFAULT_MATERIAL_VIEW;
+        }
         const generation = ++this.materialsGeneration;
         if (!root) {
             this.referenceWatches.dispose();
@@ -798,19 +821,38 @@ export class AkariMaterialsPane {
                 </p>
             );
         }
-        const normalizedQuery = this.host.materialQuery.trim().toLowerCase();
-        const materials = normalizedQuery
-            ? this.materials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
-            : this.materials;
-        const unorganizedMaterials = normalizedQuery
-            ? this.unorganizedMaterials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
-            : this.unorganizedMaterials;
-        if (!materials.length && !unorganizedMaterials.length) {
-            return <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>;
-        }
+        const materials = sortMaterials(filterMaterials(this.materials, this.view, this.host.materialQuery), this.view.sort);
+        const unorganizedMaterials = sortMaterials(filterMaterials(this.unorganizedMaterials, this.view, this.host.materialQuery), this.view.sort);
+        const total = this.materials.length + this.unorganizedMaterials.length;
+        const visible = materials.length + unorganizedMaterials.length;
+        const isFiltered = this.view.kinds.length > 0 || this.host.materialQuery.trim().length > 0;
+        const selectedKind = this.view.kinds.length === 0 ? 'all'
+            : this.view.kinds.length === 1 && this.view.kinds[0] !== 'other' ? this.view.kinds[0] : undefined;
         return (
             <div>
-                {materials.length
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', padding: '8px 10px 0', overflowX: 'auto' }}>
+                    <div role='group' aria-label='素材の種類' className='akari-seg'>
+                        {([['all', 'すべて'], ['video', '動画'], ['audio', '音'], ['image', '画像']] as const).map(([kind, label]) =>
+                            <button key={kind} type='button' className='theia-button quiet small' aria-pressed={selectedKind === kind}
+                                onClick={() => this.setMaterialView({ kinds: kind === 'all' ? [] : [kind] })}>{label}</button>)}
+                    </div>
+                    <div role='group' aria-label='素材の並べ替え' className='akari-seg'>
+                        {([['name', '名前'], ['duration', '長さ']] as const).map(([by, label]) =>
+                            <button key={by} type='button' className='theia-button quiet small' aria-pressed={this.view.sort.by === by}
+                                onClick={() => this.setMaterialView({ sort: { by, order: this.view.sort.by === by && this.view.sort.order === 'asc' ? 'desc' : 'asc' } })}>
+                                {label}{this.view.sort.by === by ? this.view.sort.order === 'asc' ? ' ↑' : ' ↓' : ''}
+                            </button>)}
+                    </div>
+                </div>
+                {isFiltered && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 10px 0', fontSize: '0.78em', color: 'var(--akari-muted)' }}>
+                    <span>{visible} / {total} 件</span>
+                    {selectedKind === undefined && <span>絞り込み中</span>}
+                    {this.view.kinds.length > 0 && <button type='button' className='theia-button quiet small'
+                        onClick={() => this.setMaterialView({ kinds: [] })}>絞り込みをやめる</button>}
+                </div>}
+                {!visible
+                    ? <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>
+                    : materials.length
                     ? <div style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: MATERIAL_GRID_LAYOUT.gridPadding }}>
                         {materials.map(entry => this.renderMaterialCard(entry))}
                     </div>
