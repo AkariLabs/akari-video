@@ -27,7 +27,9 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
         {card.favorite && <span className='codicon codicon-star-full' aria-label='お気に入り' />}
         <small data-akari-font-status style={{ whiteSpace: 'nowrap', fontSize: '10px', opacity: 0.8 }}>
             {card.availability?.status === 'available' ? '使える'
-                : card.availability?.status === 'download' ? '↓ ダウンロード' : '入手が必要'}
+                : card.availability?.status === 'download' ? '↓ ダウンロード'
+                    : card.availability?.status === 'source' ? '入手が必要'
+                        : card.availability?.status === 'failed' ? '確認できません' : '確認中'}
         </small>
         <LibraryDotsButton variant='inline' label={item.title} onOpen={card.onInfo} />
     </span>;

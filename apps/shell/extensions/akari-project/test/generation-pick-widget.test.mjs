@@ -31,6 +31,7 @@ function fixture() {
     handler.workflow = { workspaceRoot: { toString: () => 'file:///project' } };
     handler.stopCatalogAudio = () => {};
     handler.stopCatalogThumbnailPolling = () => {};
+    handler.stopFontAvailabilityPolling = () => {};
     handler.update = () => {};
     handler.loadAssetCatalogView = async () => {};
     handler.assetCatalogItems = [];

@@ -71,7 +71,8 @@ import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-read
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
-import { clearSystemFontCache, downloadFont, readFontManifest, resolveFontAvailability } from './font-availability';
+import { clearSystemFontCache, downloadFont, readFontManifest, resolveFontAvailability,
+    systemFontSnapshot, waitForSystemFontNames } from './font-availability';
 import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import { shelfPreviewPath } from '../common/library-shelf-visuals';
 import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
@@ -184,6 +185,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
     protected readonly thumbnailGenerationInFlight = new Map<string, Promise<MaterialThumbnailOutcome>>();
     protected readonly libraryThumbnailInFlight = new Map<string, Promise<string | undefined>>();
+    protected readonly catalogFontDownloads = new Map<string, Promise<void>>();
     protected readonly libraryThumbnailQueue: Array<() => Promise<void>> = [];
     protected readonly libraryThumbnailCandidates = new Map<string, string>();
     protected readonly libraryThumbnailSkipped = new Set<string>();
@@ -377,13 +379,11 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         if (fontItems.length) {
             try {
                 if (intent === 'user') clearSystemFontCache();
-                const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
-                if (!catalogUrl) throw new Error('font catalog unavailable');
-                const manifest = await readFontManifest(fileURLToPath(catalogUrl));
-                const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
-                const statuses = await resolveFontAvailability(fontItems, manifest, bundled);
-                for (const item of fontItems) item.fontAvailability = statuses.get(item.id);
-            } catch { /* Keep the catalog usable if font discovery fails. */ }
+                const result = await this.getCatalogFontAvailability(preferenceRoot, fontItems);
+                for (const item of fontItems) item.fontAvailability = result.statuses[item.id];
+            } catch {
+                for (const item of fontItems) item.fontAvailability = { status: 'failed', family: item.title };
+            }
         }
         const items = await Promise.all(merged.map(async item => {
             if (item.thumbUrl) return item;
@@ -403,7 +403,47 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         };
     }
 
-    async downloadCatalogFont(id: string, preferenceRoot: string | undefined): Promise<void> {
+    async getCatalogFontAvailability(preferenceRoot: string | undefined,
+        items: Array<{ id: string; title: string; aliases?: string[] }>): Promise<{
+            phase: 'ready' | 'pending' | 'failed'; statuses: Record<string, AssetCatalogViewItem['fontAvailability']>
+        }> {
+        const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
+        if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
+        const manifest = await readFontManifest(fileURLToPath(catalogUrl));
+        const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
+        const snapshot = systemFontSnapshot();
+        const statuses = await resolveFontAvailability(items, manifest, bundled,
+            { system: snapshot.names ?? new Map(), systemPhase: snapshot.phase });
+        return { phase: snapshot.phase, statuses: Object.fromEntries(statuses) };
+    }
+
+    async checkCatalogFontAvailability(id: string, preferenceRoot: string | undefined): Promise<AssetCatalogViewItem['fontAvailability']> {
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('フォント ID が不正です。');
+        const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
+        if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
+        const root = fileURLToPath(catalogUrl);
+        const meta = parseCatalogItemMeta(await fs.readFile(join(root, 'font', id, 'meta.json'), 'utf8'));
+        if (!meta || meta.id !== id || meta.category !== 'font') throw new Error('フォントを確認できません。');
+        let snapshot = systemFontSnapshot();
+        if (snapshot.phase !== 'ready') snapshot = await waitForSystemFontNames(2500);
+        const manifest = await readFontManifest(root);
+        const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
+        const statuses = await resolveFontAvailability([meta], manifest, bundled,
+            { system: snapshot.names ?? new Map(), systemPhase: 'ready' });
+        return statuses.get(id);
+    }
+
+    downloadCatalogFont(id: string, preferenceRoot: string | undefined): Promise<void> {
+        const existing = this.catalogFontDownloads.get(id);
+        if (existing) return existing;
+        const work = this.downloadCatalogFontOnce(id, preferenceRoot).finally(() => {
+            if (this.catalogFontDownloads.get(id) === work) this.catalogFontDownloads.delete(id);
+        });
+        this.catalogFontDownloads.set(id, work);
+        return work;
+    }
+
+    protected async downloadCatalogFontOnce(id: string, preferenceRoot: string | undefined): Promise<void> {
         const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
         if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
         const root = fileURLToPath(catalogUrl);

@@ -69,7 +69,9 @@ export function FontShelfCard(props: { item: AssetCatalogViewItem; layout: 'grid
             <small data-akari-font-status style={{ position: 'absolute', bottom: 2, right: 3,
                 background: 'var(--theia-editor-background)', padding: '1px 3px', fontSize: '10px' }}>
                 {props.availability?.status === 'available' ? '使える'
-                    : props.availability?.status === 'download' ? '↓ ダウンロード' : '入手が必要'}
+                    : props.availability?.status === 'download' ? '↓ ダウンロード'
+                        : props.availability?.status === 'source' ? '入手が必要'
+                            : props.availability?.status === 'failed' ? '確認できません' : '確認中'}
             </small>
         </span>} />;
 }

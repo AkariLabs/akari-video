@@ -10,7 +10,7 @@ const EXTENSION = /\.(?:ttf|otf|woff2?)$/i;
 type FontEntry = { family: string; file: string; bytes: number; sha256: string; url: string;
     ofl: { file: string; bytes: number; sha256: string; url?: string; text?: string } };
 export type FontManifest = { commit: string; fonts: Record<string, FontEntry> };
-export type FontAvailability = { status: 'available' | 'download' | 'source'; family: string;
+export type FontAvailability = { status: 'available' | 'download' | 'source' | 'pending' | 'failed'; family: string;
     source?: 'bundled' | 'library' | 'system'; bytes?: number };
 export type FontCandidate = { id: string; title: string; aliases?: string[] };
 
@@ -103,7 +103,7 @@ export function sfntFontNames(buffer: Buffer): Map<string, string> {
 export async function macSystemFontNames(fonts: unknown,
     readFontFile: (path: string) => Promise<Buffer> = path => fs.readFile(path)): Promise<Map<string, string>> {
     const names = new Map<string, string>();
-    const files = new Map<string, Map<string, string>>();
+    const paths = new Set<string>();
     for (const font of Array.isArray(fonts) ? fonts : []) {
         if (font.enabled === 'no') continue;
         for (const face of Array.isArray(font.typefaces) ? font.typefaces : []) {
@@ -113,23 +113,65 @@ export async function macSystemFontNames(fonts: unknown,
             addName(names, face.fullname, family);
             addName(names, face._name, family);
             const path = typeof face.path === 'string' ? face.path : font.path;
-            if (typeof path !== 'string' || !/\.(?:ttf|otf|ttc)$/i.test(path)) continue;
-            if (!files.has(path)) {
-                try { files.set(path, sfntFontNames(await readFontFile(path))); }
-                catch { files.set(path, new Map()); }
-            }
-            for (const [key, value] of files.get(path)!) names.set(key, value);
+            if (typeof path === 'string' && /\.(?:ttf|otf|ttc)$/i.test(path)) paths.add(path);
         }
     }
+    const pending = [...paths];
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(8, pending.length) }, async () => {
+        while (next < pending.length) {
+            const path = pending[next++];
+            try {
+                for (const [key, value] of sfntFontNames(await readFontFile(path))) names.set(key, value);
+            } catch { /* 読めないファイルだけ飛ばす。 */ }
+        }
+    }));
     return names;
 }
 
-/** One process cache. A user initiated catalog reopen invalidates it. */
-let systemCache: Promise<Map<string, string>> | undefined;
-export function clearSystemFontCache(): void { systemCache = undefined; }
-export function systemFontNames(): Promise<Map<string, string>> {
-    if (!systemCache) systemCache = collectSystemFontNames().catch(() => new Map());
-    return systemCache;
+export type SystemFontSnapshot = { phase: 'ready' | 'pending' | 'failed'; names?: ReadonlyMap<string, string> };
+
+/** 同時要求は走査を共有する。失敗を成功扱いでキャッシュせず、再試行だけ間隔を空ける。 */
+export function createSystemFontScanner(scan: () => Promise<Map<string, string>>,
+    now: () => number = Date.now, retryMs = 30000): {
+        snapshot(refresh?: boolean): SystemFontSnapshot;
+        wait(timeoutMs: number): Promise<SystemFontSnapshot>;
+    } {
+    let names: Map<string, string> | undefined;
+    let running: Promise<void> | undefined;
+    let failedAt: number | undefined;
+    const start = (refresh = false): void => {
+        if (running || !refresh && names && failedAt === undefined
+            || failedAt !== undefined && now() - failedAt < retryMs) return;
+        running = Promise.resolve().then(scan).then(result => {
+            names = result;
+            failedAt = undefined;
+        }).catch(() => { failedAt = now(); }).finally(() => { running = undefined; });
+    };
+    const snapshot = (refresh = false): SystemFontSnapshot => {
+        start(refresh);
+        return { phase: running ? 'pending' : failedAt !== undefined ? 'failed' : 'ready', names };
+    };
+    return {
+        snapshot,
+        async wait(timeoutMs): Promise<SystemFontSnapshot> {
+            start();
+            if (running) {
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                try { await Promise.race([running, new Promise<void>(resolve => {
+                    timer = setTimeout(resolve, timeoutMs);
+                })]); } finally { if (timer) clearTimeout(timer); }
+            }
+            return snapshot();
+        }
+    };
+}
+
+const systemScanner = createSystemFontScanner(collectSystemFontNames);
+export function clearSystemFontCache(): void { systemScanner.snapshot(true); }
+export function systemFontSnapshot(): SystemFontSnapshot { return systemScanner.snapshot(); }
+export async function waitForSystemFontNames(timeoutMs = 2500): Promise<SystemFontSnapshot> {
+    return systemScanner.wait(timeoutMs);
 }
 
 async function collectSystemFontNames(): Promise<Map<string, string>> {
@@ -180,9 +222,11 @@ async function libraryFonts(root: string): Promise<Map<string, string>> {
 
 export async function resolveFontAvailability(items: readonly FontCandidate[], manifest: FontManifest,
     bundled: readonly { id: string; family: string }[], options: {
-        libraryRoot?: string; system?: ReadonlyMap<string, string> } = {}): Promise<Map<string, FontAvailability>> {
+        libraryRoot?: string; system?: ReadonlyMap<string, string>; systemPhase?: SystemFontSnapshot['phase'] } = {}): Promise<Map<string, FontAvailability>> {
     const library = await libraryFonts(options.libraryRoot ?? await fontLibraryRoot());
-    const system = options.system ?? await systemFontNames();
+    const snapshot = options.system ? undefined : systemFontSnapshot();
+    const system = options.system ?? snapshot?.names ?? new Map<string, string>();
+    const phase = options.systemPhase ?? (options.system ? 'ready' : snapshot?.phase ?? 'pending');
     const result = new Map<string, FontAvailability>();
     for (const item of items) {
         const display = item.title.replace(/（.*$/u, '').trim();
@@ -193,6 +237,8 @@ export async function resolveFontAvailability(items: readonly FontCandidate[], m
         result.set(item.id, bundledFace ? { status: 'available', family: bundledFace.family, source: 'bundled' }
             : inLibrary ? { status: 'available', family: inLibrary, source: 'library' }
             : onSystem ? { status: 'available', family: onSystem, source: 'system' }
+            : phase === 'pending' || phase === 'failed' ? { status: phase, family: display,
+                bytes: manifest.fonts[item.id]?.bytes }
             : manifest.fonts[item.id] ? { status: 'download', family: manifest.fonts[item.id].family,
                 bytes: manifest.fonts[item.id].bytes }
             : { status: 'source', family: display });
@@ -204,11 +250,11 @@ export async function readFontManifest(catalogRoot: string): Promise<FontManifes
     return JSON.parse(await fs.readFile(join(catalogRoot, 'font', 'download-manifest.json'), 'utf8'));
 }
 
-async function verifiedBytes(url: string, bytes: number, sha256: string): Promise<Buffer> {
+async function verifiedBytes(url: string, bytes: number, sha256: string, timeoutMs = 60000): Promise<Buffer> {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' || parsed.hostname !== 'raw.githubusercontent.com'
         || !/^\/google\/fonts\/[a-f0-9]{40}\/ofl\//.test(parsed.pathname)) throw new Error('取得先を確認できません。');
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (!response.ok) throw new Error(`フォントを取得できませんでした (${response.status})。`);
     const data = Buffer.from(await response.arrayBuffer());
     if (data.length !== bytes || createHash('sha256').update(data).digest('hex') !== sha256)
@@ -216,14 +262,25 @@ async function verifiedBytes(url: string, bytes: number, sha256: string): Promis
     return data;
 }
 
-export async function downloadFont(id: string, title: string, aliases: string[], manifest: FontManifest,
-    root?: string): Promise<void> {
+const fontDownloads = new Map<string, Promise<void>>();
+export function downloadFont(id: string, title: string, aliases: string[], manifest: FontManifest,
+    root?: string, timeoutMs = 60000): Promise<void> {
+    const existing = fontDownloads.get(id);
+    if (existing) return existing;
+    const work = downloadFontOnce(id, title, aliases, manifest, root, timeoutMs)
+        .finally(() => { if (fontDownloads.get(id) === work) fontDownloads.delete(id); });
+    fontDownloads.set(id, work);
+    return work;
+}
+
+async function downloadFontOnce(id: string, title: string, aliases: string[], manifest: FontManifest,
+    root: string | undefined, timeoutMs: number): Promise<void> {
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('フォント ID が不正です。');
     const entry = manifest.fonts[id];
     if (!entry) throw new Error('この書体は配布元から入手してください。');
     const [font, license] = await Promise.all([
-        verifiedBytes(entry.url, entry.bytes, entry.sha256),
-        entry.ofl.url ? verifiedBytes(entry.ofl.url, entry.ofl.bytes, entry.ofl.sha256)
+        verifiedBytes(entry.url, entry.bytes, entry.sha256, timeoutMs),
+        entry.ofl.url ? verifiedBytes(entry.ofl.url, entry.ofl.bytes, entry.ofl.sha256, timeoutMs)
             : Promise.resolve(Buffer.from(entry.ofl.text ?? '', 'utf8'))
     ]);
     if (license.length !== entry.ofl.bytes || createHash('sha256').update(license).digest('hex') !== entry.ofl.sha256)

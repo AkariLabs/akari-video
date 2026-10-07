@@ -150,7 +150,7 @@ export interface AssetCatalogViewItem {
     category: string;
     title: string;
     aliases?: string[];
-    fontAvailability?: { status: 'available' | 'download' | 'source'; family: string; source?: 'bundled' | 'library' | 'system'; bytes?: number };
+    fontAvailability?: { status: 'available' | 'download' | 'source' | 'pending' | 'failed'; family: string; source?: 'bundled' | 'library' | 'system'; bytes?: number };
     tags: string[];
     licenseSpdx?: string;
     /** meta.json license.scope（自由文字列。ライセンスの 2 軸は library-license.ts が導出する）。 */
@@ -336,6 +336,9 @@ export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: s
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
+    getCatalogFontAvailability(preferenceRoot: string | undefined, items: Array<{ id: string; title: string; aliases?: string[] }>):
+        Promise<{ phase: 'ready' | 'pending' | 'failed'; statuses: Record<string, AssetCatalogViewItem['fontAvailability']> }>;
+    checkCatalogFontAvailability(id: string, preferenceRoot: string | undefined): Promise<AssetCatalogViewItem['fontAvailability']>;
     downloadCatalogFont(id: string, preferenceRoot: string | undefined): Promise<void>;
     getAssetSiteListings(): Promise<import('./asset-sites').AssetSiteListing[]>;
     planLibraryImport(paths: string[]): Promise<LibraryImportPlan>;

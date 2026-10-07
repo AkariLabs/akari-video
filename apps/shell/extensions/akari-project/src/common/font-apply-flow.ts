@@ -1,6 +1,7 @@
 import type { AssetCatalogViewItem } from './akari-project-protocol';
 
 export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
+    resolveBeforeApply(item: AssetCatalogViewItem): Promise<AssetCatalogViewItem['fontAvailability']>;
     confirmDownload(title: string, bytes: number): Promise<boolean>;
     download(id: string): Promise<void>;
     offerSource(title: string, url?: string): Promise<'open' | 'apply' | undefined>;
@@ -8,7 +9,14 @@ export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
     apply(family: string): Promise<void>;
     refresh(): Promise<void>;
 }): Promise<void> {
-    const availability = item.fontAvailability;
+    let availability = item.fontAvailability;
+    if (!availability || availability.status === 'pending' || availability.status === 'failed') {
+        availability = await actions.resolveBeforeApply(item) ?? {
+            status: item.licenseSpdx === 'OFL-1.1' && item.sourceUrl?.startsWith('https://fonts.google.com/')
+                ? 'download' : 'source',
+            family: item.title.replace(/（.*$/u, '').trim(), bytes: availability?.bytes
+        };
+    }
     const family = availability?.family || item.title.replace(/（.*$/u, '').trim();
     if (availability?.status === 'download') {
         if (!await actions.confirmDownload(item.title, availability.bytes ?? 0)) return;

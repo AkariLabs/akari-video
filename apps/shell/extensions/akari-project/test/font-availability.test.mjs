@@ -7,7 +7,8 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
-const { normalizeFontName, resolveFontAvailability, downloadFont, sfntFontNames, macSystemFontNames } = require('../lib/node/font-availability.js');
+const { normalizeFontName, resolveFontAvailability, downloadFont, sfntFontNames, macSystemFontNames,
+    createSystemFontScanner } = require('../lib/node/font-availability.js');
 const { applyCatalogFont } = require('../lib/common/font-apply-flow.js');
 const manifest = JSON.parse(await readFile(new URL('../../../../../catalog/font/download-manifest.json', import.meta.url)));
 const catalogRoot = new URL('../../../../../catalog/font/', import.meta.url);
@@ -116,6 +117,40 @@ test('日本語名だけの profiler 出力を英語名で照合し、同じフ�
     assert.equal(unreadable.get(normalizeFontName('日本語名')), '日本語名');
 });
 
+test('遅い走査は pending を即返し、完了した結果をキャッシュする', async () => {
+    let release;
+    let calls = 0;
+    const scanner = createSystemFontScanner(() => { calls++; return new Promise(resolve => { release = resolve; }); });
+    assert.equal(scanner.snapshot().phase, 'pending');
+    assert.equal(scanner.snapshot().phase, 'pending');
+    await Promise.resolve();
+    assert.equal(calls, 1);
+    release(new Map([[normalizeFontName('Hiragino Sans'), 'Hiragino Sans']]));
+    const result = await scanner.wait(100);
+    assert.equal(result.phase, 'ready');
+    assert.equal(result.names.get(normalizeFontName('Hiragino Sans')), 'Hiragino Sans');
+    assert.equal(scanner.snapshot().phase, 'ready');
+    assert.equal(calls, 1);
+});
+
+test('走査失敗は空の成功結果にせず、30 秒の間隔後だけ再試行する', async () => {
+    let time = 100;
+    let calls = 0;
+    const scanner = createSystemFontScanner(async () => {
+        calls++;
+        if (calls === 1) throw new Error('profiler timeout');
+        return new Map([[normalizeFontName('Yu Mincho'), 'Yu Mincho']]);
+    }, () => time, 30000);
+    assert.equal((await scanner.wait(100)).phase, 'failed');
+    assert.equal(scanner.snapshot().names, undefined);
+    time += 29999;
+    assert.equal(scanner.snapshot().phase, 'failed');
+    assert.equal(calls, 1);
+    time++;
+    assert.equal((await scanner.wait(100)).phase, 'ready');
+    assert.equal(calls, 2);
+});
+
 test('固定 manifest は google/fonts 由来の OFL 13 件だけを収録する', async () => {
     const entries = (await readdir(catalogRoot, { withFileTypes: true })).filter(entry => entry.isDirectory());
     const google = [];
@@ -191,10 +226,56 @@ test('SHA-256 が違うファイルは保存しない', async () => {
     } finally { globalThis.fetch = original; await rm(root, { recursive: true, force: true }); }
 });
 
+test('同じ id の二重押しは一つの取得 Promise を共有する', async () => {
+    const root = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'font-single-flight-'));
+    const original = globalThis.fetch;
+    const font = Buffer.from('one font');
+    const license = 'SIL OPEN FONT LICENSE';
+    const sample = { fonts: { 'single-flight': { family: 'Single Flight', file: 'font.ttf',
+        url: `https://raw.githubusercontent.com/google/fonts/${manifest.commit}/ofl/probe/font.ttf`,
+        bytes: font.length, sha256: sha(font), ofl: { file: 'OFL.txt', text: license,
+            bytes: Buffer.byteLength(license), sha256: sha(Buffer.from(license)) } } } };
+    let release;
+    let requests = 0;
+    globalThis.fetch = async () => { requests++; return new Promise(resolve => { release = () => resolve(new Response(font)); }); };
+    try {
+        const first = downloadFont('single-flight', 'Single Flight', [], sample, root);
+        const second = downloadFont('single-flight', 'Single Flight', [], sample, root);
+        assert.equal(first, second);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(requests, 1);
+        release();
+        await first;
+        assert.equal((await readFile(join(root, 'font', 'single-flight', 'font.ttf'))).toString(), 'one font');
+    } finally { globalThis.fetch = original; await rm(root, { recursive: true, force: true }); }
+});
+
+test('取得が時間切れになったら保存せず in-flight を解放する', async () => {
+    const root = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'font-timeout-'));
+    const original = globalThis.fetch;
+    const sample = { fonts: { timeout: { family: 'Timeout', file: 'font.ttf',
+        url: `https://raw.githubusercontent.com/google/fonts/${manifest.commit}/ofl/probe/font.ttf`,
+        bytes: 1, sha256: '0'.repeat(64), ofl: { file: 'OFL.txt', text: 'license',
+            bytes: 7, sha256: sha(Buffer.from('license')) } } } };
+    let requests = 0;
+    globalThis.fetch = (_url, options) => {
+        requests++;
+        return new Promise((_resolve, reject) => options.signal.addEventListener('abort',
+            () => reject(options.signal.reason), { once: true }));
+    };
+    try {
+        await assert.rejects(downloadFont('timeout', 'Timeout', [], sample, root, 15), /timeout/i);
+        await assert.rejects(downloadFont('timeout', 'Timeout', [], sample, root, 15), /timeout/i);
+        assert.equal(requests, 2);
+        assert.deepEqual(await readdir(root), []);
+    } finally { globalThis.fetch = original; await rm(root, { recursive: true, force: true }); }
+});
+
 test('適用は所持状態ごとに確認・取得・案内を分岐する', async () => {
     const calls = [];
     let choice = 'apply';
     const actions = {
+        resolveBeforeApply: async () => { calls.push('recheck'); return { status: 'available', family: 'Mac Family' }; },
         confirmDownload: async () => { calls.push('confirm'); return true; },
         download: async () => { calls.push('download'); },
         offerSource: async () => { calls.push('offer'); return choice; },
@@ -206,6 +287,8 @@ test('適用は所持状態ごとに確認・取得・案内を分岐する', as
         fontAvailability: { status, family: 'Test Family', bytes: 1 } });
     await applyCatalogFont(item('available'), actions);
     assert.deepEqual(calls.splice(0), ['apply:Test Family']);
+    await applyCatalogFont(item('pending'), actions);
+    assert.deepEqual(calls.splice(0), ['recheck', 'apply:Mac Family']);
     await applyCatalogFont(item('download'), actions);
     assert.deepEqual(calls.splice(0), ['confirm', 'download', 'apply:Test Family', 'refresh']);
     actions.confirmDownload = async () => { calls.push('confirm'); return false; };
