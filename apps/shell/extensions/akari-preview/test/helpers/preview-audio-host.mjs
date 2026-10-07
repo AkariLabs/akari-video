@@ -48,6 +48,8 @@ export function createPreviewAudioHost(resultFor = () => ({ state: 'queued' }), 
     const host = new Host();
     host.layerDimensionCache = new Map();
     host.layerDimensionProbes = new Map();
+    host.layerDimensionNotedUris = new Set();
+    host.layerDimensionFailureReasons = new Map();
     const calls = [];
     const requests = [];
     host.workspaceService = { roots: Promise.resolve([]) };
@@ -76,8 +78,8 @@ export function createPreviewAudioHost(resultFor = () => ({ state: 'queued' }), 
         probeVideoDimensions: async () => undefined
     };
     const URI = require('@theia/core/lib/common/uri').default;
-    const load = async (edit = defaultEdit) => {
-        const model = await host.loadPreviewModel(new URI('file:///project/edit.json'), JSON.stringify(edit), { frameEngineEnabled: true });
+    const load = async (edit = defaultEdit, options = { frameEngineEnabled: true }) => {
+        const model = await host.loadPreviewModel(new URI('file:///project/edit.json'), JSON.stringify(edit), options);
         assert.equal(model.compositeError, undefined, JSON.stringify(warnings));
         return model;
     };

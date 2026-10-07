@@ -155,9 +155,10 @@ export class AkariMaterialsPane {
     protected materialRangeRevision = 0;
     protected materialRangeRevisions = new Map<string, number>();
     protected readonly materialRangeSource = 'materials-pane';
+    protected rangeChangedListener?: (event: Event) => void;
 
     constructor(protected readonly host: MaterialsPaneHost) {
-        window.addEventListener('akari.materials.range.changed', event => {
+        const onRangeChanged = (event: Event): void => {
             const detail = (event as CustomEvent<{ relativePath: string; range: MaterialRange | null; source?: string }>).detail;
             if (!detail || typeof detail.relativePath !== 'string') return;
             if (detail.source === this.materialRangeSource) return;
@@ -175,7 +176,10 @@ export class AkariMaterialsPane {
             if (detail.range) this.materialRanges[detail.relativePath] = detail.range;
             else delete this.materialRanges[detail.relativePath];
             this.host.update();
-        });
+        };
+        this.rangeChangedListener = onRangeChanged;
+        window.addEventListener('akari.materials.range.changed', onRangeChanged);
+        this.referenceWatches.push({ dispose: () => window.removeEventListener('akari.materials.range.changed', onRangeChanged) });
     }
 
     protected rangePath(entry: MaterialCardEntry): string {
@@ -186,10 +190,12 @@ export class AkariMaterialsPane {
         const root = this.host.workflow.workspaceRoot;
         if (!root) return;
         const relativePath = this.rangePath(entry);
+        if (!range && !this.materialRanges[relativePath]) return;
         const timerKey = `${root.toString()}\n${relativePath}`;
         this.materialRangeRevisions.set(timerKey, ++this.materialRangeRevision);
         if (range) this.materialRanges[relativePath] = range;
         else delete this.materialRanges[relativePath];
+        if (!range) void this.host.messages.info('範囲をなしに戻しました');
         this.host.update();
         window.dispatchEvent(new CustomEvent('akari.materials.range.changed', {
             detail: { relativePath, range, source: this.materialRangeSource }
@@ -330,6 +336,10 @@ export class AkariMaterialsPane {
         }
         this.referenceWatches.dispose();
         this.referenceWatches = new DisposableCollection();
+        if (this.rangeChangedListener) {
+            window.addEventListener('akari.materials.range.changed', this.rangeChangedListener);
+            this.referenceWatches.push({ dispose: () => window.removeEventListener('akari.materials.range.changed', this.rangeChangedListener!) });
+        }
         if (this.referenceWatchRoot !== root.toString()) this.referenceWatchParents.clear();
         this.referenceWatchRoot = root.toString();
         for (const ref of references) if (ref.libraryDir) this.referenceWatchParents.add(URI.fromFilePath(ref.libraryDir).parent.toString());
@@ -1170,11 +1180,6 @@ export class AkariMaterialsPane {
                         }));
                     }}
                     onClick={() => { if (!entry.missing) void this.host.openFile(entry.uri); }}
-                    onDoubleClick={event => {
-                        if (isMaterialsList(this.mode) && entry.durationSeconds && this.selectedMaterialPath === entry.relativePath) {
-                            event.preventDefault(); event.stopPropagation(); this.changeMaterialRange(entry, null);
-                        }
-                    }}
                     onMouseEnter={event => { event.currentTarget.style.borderColor =
                         this.selectedMaterialPath === entry.relativePath ? '#f97316' : '#a3a3a3'; }}
                     onMouseLeave={event => { event.currentTarget.style.borderColor = this.selectedMaterialPath === entry.relativePath ? '#f97316' : AKARI_FAINT; }}
@@ -1199,7 +1204,8 @@ export class AkariMaterialsPane {
                     }}
                 >
                     {isMaterialsList(this.mode) && (entry.kind === 'video' || entry.kind === 'audio' || entry.kind === 'image')
-                        ? <MaterialStrip entry={entry} width='100%' />
+                        ? <MaterialStrip entry={entry} width='100%'
+                            range={this.selectedMaterialPath === entry.relativePath ? undefined : range} />
                         : entry.thumbnailUri
                         // position: absolute で img をフレックスの外に出す。flex 子のまま
                         // height:'100%' にすると、親の aspectRatio を無視して img 自身の
@@ -1226,7 +1232,7 @@ export class AkariMaterialsPane {
                     }}>
                         {flags.slice(0, 3)}
                     </div>}
-                    {entry.durationSeconds !== undefined &&
+                    {entry.durationSeconds !== undefined && !(isMaterialsList(this.mode) && this.selectedMaterialPath === entry.relativePath) &&
                         <span style={{ position: 'absolute', top: '3px', right: '4px', color: '#fff',
                             font: '600 10px/1 monospace', textShadow: '0 0 3px #000, 0 0 2px #000' }}>
                             {!isMaterialsList(this.mode) && range && <span style={{ marginRight: '3px' }}>✂</span>}

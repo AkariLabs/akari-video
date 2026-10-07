@@ -1,5 +1,8 @@
 import ts from 'typescript';
-import { createAudioClipFxWriteRequest, updateAudioClipFxDocument } from '../../lib/browser/inspector/audio-clip-fx.js';
+import {
+    AUDIO_CLIP_FX_RANGES, AUDIO_DENOISE_METHOD_OPTIONS,
+    createAudioClipFxWriteRequest, updateAudioClipFxDocument
+} from '../../lib/browser/inspector/audio-clip-fx.js';
 import { composeInspectorSections } from '../../lib/browser/inspector/section-model.js';
 import { readInspectorSource } from './inspector-source.mjs';
 import { findMember } from './widget-source.mjs';
@@ -18,13 +21,15 @@ const factoryCode = ts.transpileModule(names.map(name => functions.get(name)).jo
 }).outputText;
 export const { fxSections, audioSections } = new Function(
     'createAudioClipFxWriteRequest', 'composeInspectorSections', 'AUDIO_DUCK_DEFAULTS',
-    'AUDIO_KEYFRAME_EASING_OPTIONS', 'INLINE_AUDIO_SHAPES', `${factoryCode}\nreturn {
+    'AUDIO_KEYFRAME_EASING_OPTIONS', 'INLINE_AUDIO_SHAPES',
+    'AUDIO_CLIP_FX_RANGES', 'AUDIO_DENOISE_METHOD_OPTIONS', `${factoryCode}\nreturn {
         fxSections: AUDIO_CLIP_FX_SECTIONS, audioSections: AUDIO_SECTIONS
     };`
 )(createAudioClipFxWriteRequest, composeInspectorSections,
     { duckDb: -12, duckAttack: 0.3, duckRelease: 0.8 }, ['linear', 'hold', 'ease-in-out'],
     [['linear', '直線'], ['equal_power', '等パワー'], ['s_curve', 'S 字'], ['slow', 'ゆっくり']]
-        .map(([value, label]) => ({ value, label })));
+        .map(([value, label]) => ({ value, label })),
+    AUDIO_CLIP_FX_RANGES, AUDIO_DENOISE_METHOD_OPTIONS);
 
 const { ast: timeline, node: handler } = findMember('handleAudioClipFxWrite', { in: 'widget' });
 const handlerCode = ts.transpileModule(`class Handler { ${handler.getText(timeline)} }`, {

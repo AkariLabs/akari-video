@@ -1,5 +1,6 @@
 // F-50: akari-preview-open-handler.ts から機械移設した interface / type（実行時には残らない。宣言は無改変で `export` を足しただけ）。
 import { PreviewLibraryDrop } from './preview-library-drop';
+import type { MaterialPreviewRangeHost } from './preview-script-host-adapter';
 import URI from '@theia/core/lib/common/uri';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, InternalEdit } from '@akari-video/edit-store';
@@ -37,6 +38,8 @@ export interface OverlayTransform {
 
 export interface EditSummaryOverlay {
     id: string;
+    elementSelection?: boolean;
+    elements?: Record<string, { style: Record<string, string> }>;
     sourcePath?: string;
     html: string;
     start: number;
@@ -69,6 +72,7 @@ export interface EditSummaryLayer {
     src?: string;
     sourceWidth?: number;
     sourceHeight?: number;
+    sourceSizeFallback?: boolean;
     /** Original file URI used only to target a decode-failure fallback request. */
     sourceUri?: string;
     /** v2 item.mask の動画ソース、または alpha intake が生成するマスクの asset stream URL。
@@ -186,6 +190,10 @@ export interface EditSummaryCut {
     track: number;
     trackId: string;
     renderTrack: number;
+    /** 原本（表示回転後）の画素数。幾何の基準。 */
+    sourceWidth?: number;
+    sourceHeight?: number;
+    sourceSizeFallback?: boolean;
     /** contract-2026-07-22-render-basics.md #6 (静的クロップ / ズームキーフレーム）。
      * 深いバリデーションは common/cut-framing-visual.ts の computeCutFramingVisual が担う
      * ため、ここでは「非配列オブジェクト」であることだけ確認して素通しする。 */
@@ -426,7 +434,7 @@ export interface EditSummary {
 }
 
 export interface PreviewModel {
-    pendingLayerDimensions?: Promise<Map<string, { width: number; height: number }>>;
+    pendingLayerDimensions?: Promise<Map<string, { width: number; height: number; sourceSizeFallback?: boolean }>>;
     previewAudioKeepKeys?: Set<string>;
     previewAudioKeepProbes?: Set<string>;
     previewAudioPendingRequests?: PreviewAudioPendingRequest[];
@@ -436,7 +444,7 @@ export interface PreviewModel {
     relatedEditUri?: URI;
     sourceUri?: URI;
     /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1/v2 は sources[] 全件） */
-    sourcesById?: Map<string, { uri: URI; proxyUri?: URI }>;
+    sourcesById?: Map<string, { uri: URI; proxyUri?: URI; sourceWidth?: number; sourceHeight?: number }>;
     overlayUris: URI[];
     motionBagUris?: URI[];
     assetUris: URI[];
@@ -519,6 +527,7 @@ export interface OverlayWriteRequest {
         // data-akari-slot の編集は共有テンプレを変更せず、v2 source.params へ書き戻す。
         params?: Record<string, string>;
         xyKeyframes?: Array<{ t: number; transform: { x: number; y: number } }>;
+        element?: { ref: string; tag: string; style: Record<string, string | null> };
     };
 }
 
@@ -676,6 +685,7 @@ export interface RawPreviewAudioState {
 }
 
 export interface PreviewWidgetMarker extends WebviewWidget {
+    akariMaterialRangeHost?: MaterialPreviewRangeHost;
     akariLibraryDrop?: PreviewLibraryDrop;
     akariPreviewFrameCaptureRequest?: string;
     akariPreviewAudioKeepKeys?: Set<string>;

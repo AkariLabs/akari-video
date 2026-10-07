@@ -1,5 +1,7 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { createCaptionStylePreviewController } from '../common/caption-style-preview';
+import { clampPreviewMaterialRange, materialDragPayload, normalizeMaterialRange, positionMaterialPlace,
+    type MaterialDragIdentity } from '../common/material-range-messages';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
 import { createPreviewLiveDomController } from '../common/preview-live-dom';
 import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
@@ -1239,6 +1241,9 @@ export function previewBootstrapScript(): string {
                 && (segment.crop || segment.frame || segment.perspective
                     || (Array.isArray(segment.keyframes) && segment.keyframes.length >= 2)));
             const writeCutLayerStyleBase = (media, segment) => {
+                const declaredCut = segment && (summary.cuts || []).find(cut => cut.id === segment.id);
+                media.dataset.akariSourceWidth = String(declaredCut?.sourceWidth || '');
+                media.dataset.akariSourceHeight = String(declaredCut?.sourceHeight || '');
                 const active = cutHasLayerStyleVisual(segment);
                 media.dataset.akariCutLayerStyleActive = String(active);
                 if (!active) {
@@ -2512,6 +2517,10 @@ export function previewBootstrapScript(): string {
                 }
                 cropModeActive = !!(active && (selectedLayerId || cutSelected));
                 if (cropModeActive && !selectedLayerId && !cutCropEditable()) cropModeActive = false;
+                if (cropModeActive && !selectedLayerId && !cutCropEntrySizeReady()) {
+                    cropModeActive = false;
+                    reportUnknownCutCropSize();
+                }
                 if (cropModeActive && !photoCropTarget) {
                     const entry = findLayerEntry(selectedLayerId);
                     const src = String(entry?.spec.src || '');
@@ -3289,10 +3298,10 @@ export function previewBootstrapScript(): string {
                         const specSize = entry.spec && Number(entry.spec.sourceWidth) > 0
                             && Number(entry.spec.sourceHeight) > 0
                             ? { width: Number(entry.spec.sourceWidth), height: Number(entry.spec.sourceHeight) } : null;
-                        const size = hasSourceSize
+                        const mediaSize = hasSourceSize
                             ? { width: entry.video.videoWidth || entry.video.naturalWidth,
-                                height: entry.video.videoHeight || entry.video.naturalHeight }
-                            : (specSize || declaredSize);
+                                height: entry.video.videoHeight || entry.video.naturalHeight } : null;
+                        const size = specSize || mediaSize || declaredSize;
                         if (!size) continue;
                         if (sourcePoint) {
                             const pixel = sourcePoint(size, summary.output, layerVisualTransformNow(entry), layerCropNow(entry), stagePoint,
@@ -3300,8 +3309,12 @@ export function previewBootstrapScript(): string {
                                 entry.spec?.isImage ? entry.spec.frame?.cornerRadius : 0);
                             if (!pixel) continue;
                             const alpha = entry.video.akariPhotoHitAlpha;
-                            if (alpha && hasSourceSize && alpha[pixel.y * size.width + pixel.x] <= 16) continue;
-                            if (!alpha && hasSourceSize && layerAlphaAtSourcePoint(entry, pixel) <= 16) continue;
+                            const sample = mediaSize && size
+                                ? { x: Math.min(mediaSize.width - 1, Math.floor(pixel.x * mediaSize.width / size.width)),
+                                    y: Math.min(mediaSize.height - 1, Math.floor(pixel.y * mediaSize.height / size.height)) }
+                                : pixel;
+                            if (alpha && mediaSize && alpha[sample.y * mediaSize.width + sample.x] <= 16) continue;
+                            if (!alpha && mediaSize && layerAlphaAtSourcePoint(entry, sample) <= 16) continue;
                         } else if (!layerGeometryHitAt(entry, event.clientX, event.clientY, hasSourceSize ? undefined : size)) continue;
                         hits.push({ element: entry.video, z: Number(entry.video.style.zIndex) || 0, order: order++ });
                     }
@@ -3675,6 +3688,10 @@ export function previewBootstrapScript(): string {
             // 変わる transform.x/y を混ぜない）ため、この錨補正はハンドル自体の追従性に影響しない。
             const beginMediaCropDrag = (target, dir, event) => {
                 if (selectionDragActive) return;
+                if (target.kind === 'cut' && !cutCropEntrySizeReady()) {
+                    reportUnknownCutCropSize();
+                    return;
+                }
                 const natural = target.naturalSize();
                 if (!(natural.width > 0) || !(natural.height > 0)) return;
                 const restorePoint = target.cropRestorePoint();
@@ -4114,9 +4131,14 @@ export function previewBootstrapScript(): string {
                 const sourceId = segment && segment.kind === 'src' && typeof segment.src === 'string'
                     ? segment.src : null;
                 if (!sourceId) return null;
+                const declared = frameEngineMediaIdle && (summary.cuts || []).find(cut => cut.id === segment.id);
+                if (Number(declared?.sourceWidth) > 0 && Number(declared?.sourceHeight) > 0
+                    && !declared.sourceSizeFallback) return null;
                 if (cutSourceNaturalSizes.has(sourceId)) return cutSourceNaturalSizes.get(sourceId);
                 const imageUrl = (initial.imageSources || {})[sourceId];
-                const videoUrl = (initial.videoSources || {})[sourceId];
+                const videoUrl = frameEngineMediaIdle
+                    ? (initial.videoSourceOriginals || {})[sourceId] || (initial.videoSources || {})[sourceId]
+                    : (initial.videoSources || {})[sourceId];
                 const url = typeof imageUrl === 'string' && imageUrl ? imageUrl : videoUrl;
                 if (typeof url !== 'string' || !url) return null;
                 cutSourceNaturalSizes.set(sourceId, null);
@@ -4134,7 +4156,8 @@ export function previewBootstrapScript(): string {
                         cutSourceNaturalSizes.set(sourceId, { width, height });
                         updateCutSelectBox();
                         if (cropModeActive && photoCropTarget?.kind === 'cut'
-                            && cutSelectionVideo().dataset.akariCutCropDeclared !== 'true') {
+                            && cutSelectionVideo().dataset.akariCutCropDeclared !== 'true'
+                            && !(summary.cuts || []).find(cut => cut.id === cutInteractionSegment()?.id)?.sourceSizeFallback) {
                             photoCropTarget.applyCropAndTransform(photoCropTarget.cropNow(),
                                 photoCropTarget.cropEntryTransform(photoCropTarget.transformNow(), { width, height }));
                             photoCropTarget.flushCrop();
@@ -4152,10 +4175,29 @@ export function previewBootstrapScript(): string {
                 return null;
             };
             const cutNaturalSizeNow = () => {
+                const segment = cutInteractionSegment();
+                const declared = segment && (summary.cuts || []).find(cut => cut.id === segment.id);
+                if (Number(declared?.sourceWidth) > 0 && Number(declared?.sourceHeight) > 0) {
+                    return { width: Number(declared.sourceWidth), height: Number(declared.sourceHeight) };
+                }
                 const measured = mediaNaturalSizeOf(cutMediaNow());
                 if (measured.width > 0 && measured.height > 0) return measured;
-                return ensureCutSourceNaturalSize() || { width: 0, height: 0 };
+                const original = ensureCutSourceNaturalSize();
+                if (original?.width > 0 && original?.height > 0) return original;
+                return { width: 0, height: 0 };
             };
+            const cutCropEntrySizeReady = () => {
+                if (!frameEngineMediaIdle || outputGeometryIsSource) return true;
+                if (cutSelectionVideo().dataset.akariCutCropDeclared === 'true') return true;
+                const segment = cutInteractionSegment();
+                const declared = segment && (summary.cuts || []).find(cut => cut.id === segment.id);
+                if (declared?.sourceSizeFallback) return false;
+                if (Number(declared?.sourceWidth) > 0 && Number(declared?.sourceHeight) > 0) return true;
+                const original = ensureCutSourceNaturalSize();
+                return !!original && original.width > 0 && original.height > 0;
+            };
+            const reportUnknownCutCropSize = () => window.akari.showWriteError(
+                '素材の寸法を確認できないため切り抜きを開始できません');
             const cutCropNow = () => ({ ...clampCrop(
                 Number(cutSelectionVideo().dataset.akariCropX),
                 Number(cutSelectionVideo().dataset.akariCropY),
@@ -9254,6 +9296,10 @@ export function previewBootstrapScript(): string {
             const tick = (immediatePlaybackTick = false) => {
                 if (typeof applyInitialPosition === 'function' && !initialPositionApplied) applyInitialPosition();
                 const frameEngineClock = window.akari && window.akari.frameEngineClock;
+                if (window.akari?.materialRange && isPlaying && !frameEngineClock
+                    && video.currentTime >= window.akari.materialRange.out - 0.025) {
+                    seekTimelineTime(window.akari.materialRange.in);
+                }
                 if (frameEngineClock) {
                     if (window.akari.previewPositionReady === true
                         && window.akari.previewSyncedFrameEngineClock !== frameEngineClock
@@ -9262,6 +9308,10 @@ export function previewBootstrapScript(): string {
                         window.akari.previewSyncedFrameEngineClock = frameEngineClock;
                     }
                     outputTime = frameEngineClock.tick(outputTime, isPlaying);
+                    if (window.akari?.materialRange && isPlaying
+                        && outputTime >= window.akari.materialRange.out - 0.025) {
+                        seekTimelineTime(window.akari.materialRange.in);
+                    }
                     if (isPlaying && loopRange && outputTime >= loopRange.end) {
                         seekTimelineTime(loopRange.start);
                     }
@@ -9532,6 +9582,10 @@ export function previewBootstrapScript(): string {
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
+                    if (window.akari?.materialRange
+                        && (outputTime < window.akari.materialRange.in || outputTime >= window.akari.materialRange.out)) {
+                        seekTimelineTime(window.akari.materialRange.in);
+                    }
                     abortCurrentStroke();
                     abortCurrentRect();
                     isPlaying = true;
@@ -9588,6 +9642,11 @@ export function previewBootstrapScript(): string {
                     video.pause();
                     stopAnimation();
                 }
+            };
+            if (initial.kind === 'raw') window.akari.materialPreviewSeek = time => {
+                if (isPlaying) togglePlayback();
+                seekTimelineTime(time);
+                tick(true);
             };
             restoreInitialPlayback = () => {
                 if (!initialPlaybackRestorePending || !initialPositionApplied) return;
@@ -10057,6 +10116,9 @@ export function previewBootstrapScript(): string {
             let applyingOverlaySelection;
             const applyRequestedOverlaySelection = () => {
                 if (requestedOverlayId === undefined) return;
+                const interaction = window.akari.interaction;
+                if (interaction?.elementFocus?.overlayId === requestedOverlayId
+                    && interaction.selectedId === requestedOverlayId) return;
                 if (window.akari.interaction?.hasSelectionTree) {
                     window.akari.interaction.selectFromTimeline(requestedOverlayId);
                     return;
@@ -10203,8 +10265,10 @@ export function previewBootstrapScript(): string {
                 const layerMedia = clip.kind === 'layer'
                     ? Array.from(layersStage.querySelectorAll('[data-akari-layer-id]'))
                         .find(media => media.dataset.akariLayerId === String(clip.id)) : null;
-                const naturalWidth = Number(layerMedia?.videoWidth || layerMedia?.naturalWidth);
-                const naturalHeight = Number(layerMedia?.videoHeight || layerMedia?.naturalHeight);
+                const naturalWidth = Number(layerMedia?.dataset.akariSourceWidth)
+                    || Number(layerMedia?.videoWidth || layerMedia?.naturalWidth);
+                const naturalHeight = Number(layerMedia?.dataset.akariSourceHeight)
+                    || Number(layerMedia?.videoHeight || layerMedia?.naturalHeight);
                 const sourceWidth = Number.isFinite(naturalWidth) && naturalWidth > 0 ? naturalWidth : stageWidth;
                 const sourceHeight = Number.isFinite(naturalHeight) && naturalHeight > 0 ? naturalHeight : stageHeight;
                 const boxWidth = clip.kind === 'audio' ? stageWidth * .7
@@ -10242,8 +10306,10 @@ export function previewBootstrapScript(): string {
                     const otherMedia = other.kind === 'layer'
                         ? Array.from(layersStage.querySelectorAll('[data-akari-layer-id]'))
                             .find(media => media.dataset.akariLayerId === key) : null;
-                    const otherWidth = Number(otherMedia?.videoWidth || otherMedia?.naturalWidth);
-                    const otherHeight = Number(otherMedia?.videoHeight || otherMedia?.naturalHeight);
+                    const otherWidth = Number(otherMedia?.dataset.akariSourceWidth)
+                        || Number(otherMedia?.videoWidth || otherMedia?.naturalWidth);
+                    const otherHeight = Number(otherMedia?.dataset.akariSourceHeight)
+                        || Number(otherMedia?.videoHeight || otherMedia?.naturalHeight);
                     const otherBoxWidth = other.kind === 'audio' ? stageWidth * .7
                         : (Number.isFinite(otherWidth) && otherWidth > 0 ? otherWidth : stageWidth)
                             * Math.max(.01, finite(otherCrop.w, 1)) * Math.max(.01, finite(otherTransform.scaleX, otherScale));
@@ -10767,6 +10833,10 @@ export function previewBootstrapScript(): string {
                 if (index >= 0) current.splice(index, 1);
                 else current.push(hit);
                 applyMixedSelection(current);
+                if (!event.shiftKey && (event.metaKey || event.ctrlKey)
+                    && current.length === 1 && current[0].kind === 'overlay') {
+                    window.akari.interaction?.focusElementAtPoint?.(current[0].id, event.clientX, event.clientY);
+                } else window.akari.interaction?.clearElementFocus?.();
                 window.akari.reportMixedSelection?.(current);
             }, true);
             let suppressMixedClick = false;
@@ -11433,6 +11503,7 @@ export function previewBootstrapScript(): string {
                 }
                 if (message && message.type === 'akari-preview-select-overlay'
                     && (typeof message.overlayId === 'string' || message.overlayId === null)) {
+                    if (message.fromTimeline === true) window.akari.interaction?.clearElementFocus?.();
                     requestedOverlayId = message.overlayId;
                     const visible = overlaySelectionInRange(requestedOverlayId, outputTime);
                     if (requestedOverlayId && !visible) window.akari.interaction?.clearSelection?.();
@@ -11698,7 +11769,10 @@ export function previewBootstrapScript(): string {
                     requestedOverlayId = selectedOverlayId || undefined;
                     if (notify && selectedOverlayId !== applyingOverlaySelection) {
                         if (typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
-                        if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId, interaction.scopeId, selectedOverlayIds);
+                        if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId,
+                            interaction.scopeId, selectedOverlayIds, interaction.elementFocus ?? null);
+                        else if (interaction?.elementFocus) window.akari.reportOverlaySelection(selectedOverlayId,
+                            undefined, undefined, interaction.elementFocus);
                         else window.akari.reportOverlaySelection(selectedOverlayId);
                     }
                 }
@@ -11948,4 +12022,215 @@ export function previewBootstrapScript(): string {
                 }
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
+}
+/** Embed self-contained range and placement functions in both material webviews. */
+export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: MaterialDragIdentity): string {
+    const safeIdentity = JSON.stringify(identity).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
+        .replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+    return `(() => {
+        const mode = ${JSON.stringify(mode)};
+        const normalizeMaterialRange = (${normalizeMaterialRange.toString()});
+        const clampPreviewMaterialRange = (${clampPreviewMaterialRange.toString()});
+        const positionMaterialPlace = (${positionMaterialPlace.toString()});
+        const materialDragPayload = (${materialDragPayload.toString()});
+        const dragIdentity = ${safeIdentity};
+        const post = mode === 'video' ? window.akari?.materialPostMessage : window.akariAudioPostMessage;
+        const media = document.getElementById(mode === 'video' ? 'preview-video' : 'audio');
+        const seek = document.getElementById(mode === 'video' ? 'seek' : 'material-audio-seek');
+        const strip = document.getElementById('material-range-strip');
+        const rangeFill = document.getElementById('material-range-fill');
+        const shadeIn = document.getElementById('material-range-shade-in');
+        const shadeOut = document.getElementById('material-range-shade-out');
+        const markIn = document.getElementById('material-range-in');
+        const markOut = document.getElementById('material-range-out');
+        const cursor = document.getElementById('material-range-cursor');
+        const surface = document.getElementById(mode === 'video' ? 'preview-stage' : 'material-drag-surface');
+        if (!post || !media || !seek || !strip || !surface) return;
+        let range = null;
+        let duration = 0;
+        let dragging = null;
+        const currentTime = () => mode === 'video' ? Number(seek.value) || 0 : media.currentTime || 0;
+        const getDuration = () => mode === 'video'
+            ? (Number(seek.max) || Number(media.duration) || 0) : (Number(media.duration) || 0);
+        const bounds = () => range || { in: 0, out: duration };
+        const draw = () => {
+            if (!(duration > 0)) return;
+            const points = bounds();
+            const left = points.in / duration * 100;
+            const right = points.out / duration * 100;
+            shadeIn.style.width = left + '%';
+            shadeOut.style.left = right + '%';
+            shadeOut.style.width = (100 - right) + '%';
+            rangeFill.style.left = left + '%';
+            rangeFill.style.width = (right - left) + '%';
+            markIn.style.left = left + '%';
+            markOut.style.left = right + '%';
+            cursor.style.left = Math.max(0, Math.min(100, currentTime() / duration * 100)) + '%';
+        };
+        const announce = (moving, final) => {
+            post({ type: 'akari-material-range-change', range,
+                durationSeconds: duration, stripWidthPx: strip.clientWidth, moving, final });
+        };
+        const setRange = (next, moving, final = true, preview = false) => {
+            if (!(duration > 0) || !(strip.clientWidth > 0)) return;
+            range = next === null ? null : clampPreviewMaterialRange(next, duration, strip.clientWidth, moving);
+            if (mode === 'video') window.akari.materialRange = range;
+            if (preview) {
+                const time = bounds()[moving];
+                if (mode === 'video') window.akari.materialPreviewSeek?.(time);
+                else { media.pause(); media.currentTime = time; }
+            }
+            draw();
+            announce(moving, final);
+        };
+        const place = document.getElementById('material-range-place');
+        place?.addEventListener('click', event => { event.stopPropagation(); post({ type: 'akari-material-place' }); });
+        document.getElementById('material-range-button-in')?.addEventListener('click', () =>
+            setRange({ ...bounds(), in: currentTime() }, 'in'));
+        document.getElementById('material-range-button-out')?.addEventListener('click', () =>
+            setRange({ ...bounds(), out: currentTime() }, 'out'));
+        document.getElementById('material-range-button-clear')?.addEventListener('click', () => setRange(null, 'out'));
+        window.addEventListener('keydown', event => {
+            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+                || event.isComposing || event.keyCode === 229) return;
+            const target = event.target;
+            if (target?.closest?.('textarea, select, [contenteditable="true"]')) return;
+            const input = target?.closest?.('input');
+            if (input && !['range', 'checkbox', 'radio', 'button'].includes(input.type)) return;
+            const key = event.key?.toLowerCase();
+            if (key !== 'i' && key !== 'o') return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            if (event.repeat) return;
+            if (key === 'i') setRange({ ...bounds(), in: currentTime() }, 'in');
+            else setRange({ ...bounds(), out: currentTime() }, 'out');
+        }, true);
+        for (const [mark, moving] of [[markIn, 'in'], [markOut, 'out']]) {
+            mark.addEventListener('pointerdown', event => {
+                if (!(duration > 0)) return;
+                event.preventDefault(); event.stopPropagation();
+                dragging = moving;
+                mark.setPointerCapture(event.pointerId);
+            });
+            mark.addEventListener('pointermove', event => {
+                if (dragging !== moving) return;
+                const rect = strip.getBoundingClientRect();
+                const time = Math.max(0, Math.min(duration, (event.clientX - rect.left) / rect.width * duration));
+                setRange({ ...bounds(), [moving]: time }, moving, false, true);
+            });
+            const finish = event => {
+                if (dragging !== moving) return;
+                dragging = null;
+                if (mark.hasPointerCapture(event.pointerId)) mark.releasePointerCapture(event.pointerId);
+                announce(moving, true);
+            };
+            mark.addEventListener('pointerup', finish);
+            mark.addEventListener('pointercancel', finish);
+        }
+        const refreshDuration = () => {
+            const next = getDuration();
+            if (!(Number.isFinite(next) && next > 0) || !(strip.clientWidth > 0)) return;
+            if (next !== duration) {
+                duration = next;
+                if (mode === 'audio') seek.max = String(duration);
+                range = normalizeMaterialRange(range, duration);
+                post({ type: 'akari-material-range-ready', durationSeconds: duration, stripWidthPx: strip.clientWidth });
+            }
+            draw();
+        };
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message?.type === 'akari-material-range-update'
+                && (message.range === null || (Number.isFinite(message.range?.in)
+                    && Number.isFinite(message.range?.out) && message.range.in >= 0
+                    && message.range.out > message.range.in))) {
+                range = normalizeMaterialRange(message.range, duration);
+                if (mode === 'video') window.akari.materialRange = range;
+                draw();
+            }
+        });
+        const positionPlace = () => {
+            if (mode !== 'video' || !place) return;
+            const rect = surface.getBoundingClientRect();
+            const wrapper = document.getElementById('preview-wrapper').getBoundingClientRect();
+            const position = positionMaterialPlace(rect, wrapper, place.offsetWidth, place.offsetHeight);
+            place.style.left = position.left + 'px';
+            place.style.top = position.top + 'px';
+            place.style.bottom = 'auto';
+        };
+        const previewPane = mode === 'video' ? document.querySelector('.preview-pane') : null;
+        const syncDraggable = () => {
+            surface.draggable = !previewPane?.classList.contains('is-draggable');
+        };
+        if (previewPane) new MutationObserver(syncDraggable).observe(previewPane, { attributes: true, attributeFilter: ['class'] });
+        syncDraggable();
+        let dragBlocked = false;
+        const interactive = 'button, [role="button"], input, textarea, select, a[href], [contenteditable="true"], '
+            + '[data-akari-interaction], [data-overlay-id], #layer-select-box, #layer-crop-box, #cut-select-box, #caption-select-box';
+        surface.addEventListener('pointerdown', event => {
+            dragBlocked = !!event.target?.closest?.(interactive);
+        }, true);
+        surface.addEventListener('dragstart', event => {
+            if (dragBlocked || !surface.draggable || event.target?.closest?.(interactive) || !event.dataTransfer) {
+                event.preventDefault();
+                return;
+            }
+            const payload = materialDragPayload(dragIdentity, duration || undefined, range);
+            event.dataTransfer.setData('application/x-akari-material', JSON.stringify(payload));
+            event.dataTransfer.effectAllowed = 'copy';
+            post({ type: 'akari-material-drag-start' });
+        });
+        surface.addEventListener('dragend', () => post({ type: 'akari-material-drag-end' }));
+        place?.addEventListener('dragstart', event => { event.preventDefault(); event.stopPropagation(); });
+        new ResizeObserver(refreshDuration).observe(strip);
+        media.addEventListener('loadedmetadata', refreshDuration);
+        if (mode === 'audio') {
+            media.addEventListener('play', () => {
+                if (range && (media.currentTime < range.in || media.currentTime >= range.out)) {
+                    media.currentTime = range.in;
+                    seek.value = String(range.in);
+                    draw();
+                }
+            });
+            media.addEventListener('ended', () => {
+                if (range) { media.currentTime = range.in; void media.play(); }
+            });
+            media.addEventListener('timeupdate', () => {
+                seek.max = String(media.duration || 0);
+                seek.value = String(media.currentTime || 0);
+                draw();
+            });
+            seek.addEventListener('input', () => { media.currentTime = Number(seek.value); draw(); });
+        }
+        const frame = () => {
+            refreshDuration();
+            if (mode === 'audio' && range && !media.paused && media.currentTime >= range.out - 0.02) {
+                media.currentTime = range.in;
+                seek.value = String(range.in);
+            }
+            positionPlace();
+            draw();
+            requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+    })();`;
+}
+export function materialRangeWebviewStyle(): string {
+    return `
+.material-seek-wrap { position: relative; flex: 1; min-width: 0; height: 22px; }
+#material-range-strip { position: absolute; inset: 0; height: 22px; pointer-events: none; touch-action: none; }
+#material-range-strip .bar { position: absolute; left: 0; right: 0; top: 9px; height: 4px; background: #535353; border-radius: 2px; }
+#material-range-strip .shade { position: absolute; top: 9px; height: 4px; background: rgba(0,0,0,.65); }
+#material-range-fill { position: absolute; top: 9px; height: 4px; background: #f97316; border-radius: 2px; }
+#material-range-strip .mk { position: absolute; top: 2px; width: 8px; height: 18px; margin-left: -4px; border-radius: 2px; background: #fdba74; cursor: ew-resize; pointer-events: auto; z-index: 3; }
+#material-range-strip .mk::after { content: ''; position: absolute; left: 3px; top: 4px; width: 2px; height: 10px; background: #000; opacity: .5; }
+#material-range-cursor { position: absolute; top: 4px; width: 2px; height: 14px; margin-left: -1px; background: #fff; pointer-events: none; z-index: 2; }
+.material-io { display: flex; gap: 4px; margin-left: 8px; align-items: center; }
+.material-io button { background: #242424; border: 1px solid #434343; border-radius: 5px; color: #a5a5a5; font: 600 11px/1 monospace; padding: 5px 8px; cursor: pointer; }
+.material-io button:hover { color: #eee; border-color: #777; }
+#material-range-place { position: absolute; z-index: 80; left: 50%; bottom: 10px; transform: translateX(-50%); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; padding: 5px 12px 5px 10px; border: 1px solid #666; border-radius: 999px; background: rgba(10,10,10,.78); color: #eee; font: 600 12px/1.4 system-ui,sans-serif; backdrop-filter: blur(4px); cursor: pointer; }
+#material-range-place:hover { border-color: #f97316; color: #fdba74; }
+#material-range-place svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+`;
 }

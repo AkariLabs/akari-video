@@ -10213,7 +10213,7 @@ ${indent}`);
         }
         let candidateText = editText;
         for (const command of commands) {
-          if (command.kind === "overlay" && "html" in command.patch) {
+          if (command.kind === "overlay" && ("html" in command.patch || "element" in command.patch)) {
             throw new Error("\u30D0\u30C3\u30C1\u3067\u306F\u5916\u90E8 HTML \u672C\u6587\u3092\u66F8\u304D\u8FBC\u3081\u307E\u305B\u3093");
           }
           const resolved = resolvePreviewItemWrite(candidateText, command);
@@ -10294,6 +10294,36 @@ ${indent}`);
           }
         };
         if (command.kind === "overlay") {
+          if (command.patch.element) {
+            const { ref, tag, style } = command.patch.element;
+            if (item.source.kind !== "html" || item.source.part) {
+              throw new Error(`\u8981\u7D20\u306E\u66F8\u304D\u623B\u3057\u5BFE\u8C61\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
+            }
+            if (["transform", "html", "text", "duplicate", "params", "vars", "xyKeyframes"].some((key) => key in command.patch) || !/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u.test(ref) || !/^[a-z][a-z0-9-]*$/u.test(tag) || !isRecord2(style) || Object.keys(style).length === 0) {
+              throw new Error("\u8981\u7D20\u306E\u66F8\u304D\u623B\u3057\u6307\u5B9A\u304C\u4E0D\u6B63\u3067\u3059");
+            }
+            const source = item.source;
+            const elements = { ...source.elements };
+            const current = { ...elements[ref]?.style };
+            for (const [key, value] of Object.entries(style)) {
+              if (!/^[a-z][a-z0-9-]*$/u.test(key) || value !== null && typeof value !== "string") {
+                throw new Error("\u8981\u7D20\u306E style \u304C\u4E0D\u6B63\u3067\u3059");
+              }
+              if (value === null || value === "")
+                delete current[key];
+              else
+                current[key] = value;
+            }
+            if (Object.keys(current).length)
+              elements[ref] = { style: current };
+            else
+              delete elements[ref];
+            if (Object.keys(elements).length)
+              source.elements = elements;
+            else
+              delete source.elements;
+            return { candidateText: stringifyEdit(edit) };
+          }
           if ("text" in command.patch) {
             if (typeof command.patch.text !== "string") {
               throw new Error("\u90E8\u54C1\u306E text \u306F\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");

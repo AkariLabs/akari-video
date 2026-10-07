@@ -15,6 +15,11 @@ assert.ok(start >= 0 && end > start);
 export const normalizeClock = vm.runInNewContext(compiled.slice(start, end) + '\nnormalizePreviewCaptionClock;', {
     edit_store_1: require('@akari-video/edit-store')
 });
+const isImageLayerSrc = vm.runInNewContext([
+    compiled.match(/^const IMAGE_LAYER_SRC_PATTERN = .*$/mu)[0],
+    compiled.match(/^const isImageLayerSrc = .*$/mu)[0],
+    'isImageLayerSrc;'
+].join('\n'));
 
 export function cutFixture({ fps = 30, at = 0, sourceDomain = false } = {}) {
     const edit = JSON.parse(readFileSync(new URL('edit.json', examples), 'utf8'));
@@ -57,12 +62,14 @@ export function captionHost(fixture) {
     const warnings = [];
     const Host = vm.runInNewContext(`(class { ${body} })`, {
         ...bindings, console: { warn: (...args) => warnings.push(args), error: (...args) => warnings.push(args) },
-        exports: { normalizePreviewCaptionClock: normalizeClock },
+        exports: { normalizePreviewCaptionClock: normalizeClock, isImageLayerSrc },
         EMPTY_SUMMARY: { output: fixture.edit.output }, LAYER_BLEND_TO_CSS: new Map([['normal', 'normal']])
     });
     const host = new Host();
     Object.assign(host, {
         workspaceService: { roots: Promise.resolve([]) }, lastRawEditVersionByUri: new Map(),
+        layerDimensionCache: new Map(), layerDimensionProbes: new Map(),
+        layerDimensionNotedUris: new Set(), layerDimensionFailureReasons: new Map(),
         currentWorkspaceRoots: async () => ['file:///project'],
         migrationCompactionPrompted: new Set(),
         loadPreviewCaptions: async () => ({ captions: fixture.captions }),
@@ -72,6 +79,7 @@ export function captionHost(fixture) {
         createAssetStream: async ({ assetUri }) => ({ id: assetUri, url: assetUri }),
         disposeAssetStreams: async () => {}, resolveAudioAssets: async () => ({}),
         previewService: { sweepPreviewAudioSidecars: async () => {},
+            probeVideoDimensions: async () => undefined,
             requestPreviewAudioSidecar: async () => ({ state: 'not-needed' }) }
     });
     const URI = require('@theia/core/lib/common/uri').default;

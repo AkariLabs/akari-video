@@ -167,8 +167,9 @@ export function deriveTasks(reviewJsonText: string | null | undefined, overlayDo
         const virtualId = found?.id ?? nextTaskId(used);
         if (!found) used.push({ id: virtualId, source: 'annotation', state: 'unsent', createdAt: String(annotation.createdAt ?? '') });
         const status = annotation.status;
-        const state = status === 'addressed' ? 'review' : status === 'resolved' ? 'done'
-            : found?.state === 'sent' ? 'sent' : found?.state === 'done' && found.outcome === 'dismissed' ? 'done' : 'unsent';
+        const dismissed = found?.state === 'done' && found.outcome === 'dismissed';
+        const state = dismissed ? 'done' : status === 'addressed' ? 'review' : status === 'resolved' ? 'done'
+            : found?.state === 'sent' ? 'sent' : 'unsent';
         const text = typeof annotation.text === 'string' ? annotation.text : '';
         const derived: TaskRecord = {
             ...found, id: virtualId, source: 'annotation', state,
@@ -181,8 +182,9 @@ export function deriveTasks(reviewJsonText: string | null | undefined, overlayDo
             ref: { kind: 'annotation', id: annotation.id }
         };
         if (text.startsWith('[要確認]')) derived.gate = 'ask';
-        if (status === 'addressed') derived.outcome = isObject(annotation.response) ? annotation.response.action ?? null : null;
-        if (status !== 'addressed' && found?.outcome !== 'dismissed') delete derived.outcome;
+        if (dismissed) derived.outcome = 'dismissed';
+        else if (status === 'addressed') derived.outcome = isObject(annotation.response) ? annotation.response.action ?? null : null;
+        else delete derived.outcome;
         if (isObject(annotation.response)) derived.response = annotation.response;
         else delete derived.response;
         delete derived.orphaned;

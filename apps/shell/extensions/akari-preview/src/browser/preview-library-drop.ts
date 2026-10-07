@@ -13,7 +13,7 @@ const END = 'akari.library.dragEnd';
 const MATERIAL_START = 'akari.material.dragStart';
 const MATERIAL_END = 'akari.material.dragEnd';
 type Payload = { kind: string; key?: string; id?: string; category?: string; title?: string;
-    width?: number; height?: number; thumb?: string; durationSeconds?: number; locked?: boolean;
+    width?: number; height?: number; thumb?: string; durationSeconds?: number; in?: number; out?: number; locked?: boolean;
     style?: unknown; slot?: string; fontFamily?: string; preset?: string; name?: string; vb?: [number, number];
     source?: 'material' | 'explorer'; relativePath?: string; outsideProject?: boolean };
 type Geometry = { rect: DropRect; time: number; fps: number; canvases: CanvasDropTarget[];
@@ -37,7 +37,12 @@ function readMaterialPayload(value: unknown): Payload | undefined {
     if (!data || !['video', 'image', 'audio'].includes(data.kind)
         || typeof data.relativePath !== 'string' || !data.relativePath
         || data.relativePath.startsWith('/') || data.relativePath.split('/').includes('..')) return undefined;
-    return { ...data, source: 'material', category: data.kind };
+    const inPoint = typeof data.in === 'number' && Number.isFinite(data.in) && data.in >= 0 ? data.in : undefined;
+    const outPoint = typeof data.out === 'number' && Number.isFinite(data.out) && data.out > (inPoint ?? 0)
+        ? data.out : undefined;
+    return { ...data, in: inPoint !== undefined && outPoint !== undefined ? inPoint : undefined,
+        out: inPoint !== undefined && outPoint !== undefined ? outPoint : undefined,
+        source: 'material', category: data.kind };
 }
 
 function readExplorerPayload(transfer: DataTransfer | null | undefined, editUri?: string): Payload | undefined {
@@ -638,6 +643,8 @@ export class PreviewLibraryDrop {
             placementStarted = true;
             const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addMaterialAtOutputPoint', {
                 relativePath: payload.relativePath, kind: payload.kind, t: geometry.time,
+                ...(payload.source === 'material' && payload.in !== undefined && payload.out !== undefined
+                    ? { in: payload.in, out: payload.out } : {}),
                 ...(payload.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
                 ...(payload.kind === 'image' && Number.isFinite(payload.width) && (payload.width ?? 0) > 0
                     && Number.isFinite(payload.height) && (payload.height ?? 0) > 0

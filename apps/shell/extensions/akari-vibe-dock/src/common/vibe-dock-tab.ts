@@ -2,6 +2,7 @@ import { Disposable, Event } from '@theia/core/lib/common';
 import { AkariEarClient } from './ear-protocol';
 
 export type EarClient = AkariEarClient;
+export type VibeDockIconName = 'now' | 'next' | 'canvas' | 'settings';
 
 export interface PointedTarget {
     target: string;
@@ -21,7 +22,7 @@ export interface VibeDockJob {
 export interface VibeDockTabContribution {
     readonly id: 'now' | 'next' | 'handoff' | 'canvas' | 'settings' | string;
     readonly label: string;
-    readonly icon: string;
+    readonly icon: VibeDockIconName;
     readonly order: number;
     badge?(): { count: number; tone?: 'info' | 'warn' } | undefined;
     isAvailable?(): boolean;

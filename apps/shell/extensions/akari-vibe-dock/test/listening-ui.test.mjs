@@ -18,7 +18,13 @@ require.cache[dialogPath] = { id: dialogPath, filename: dialogPath, loaded: true
 class Node {
     constructor(tag = 'div') {
         this.tag = tag; this.children = []; this.attributes = {}; this.listeners = {}; this.style = {};
-        this.classList = { toggle() {} }; this._hidden = false; this.observers = []; this.disabled = false; this.textContent = '';
+        this.className = ''; this.dataset = {};
+        this.classList = {
+            add: (...classes) => { this.className = [...new Set([...this.className.split(' ').filter(Boolean), ...classes])].join(' '); },
+            remove: (...classes) => { this.className = this.className.split(' ').filter(value => !classes.includes(value)).join(' '); },
+            toggle: (name, force) => { if (force === false) this.classList.remove(name); else this.classList.add(name); }
+        };
+        this._hidden = false; this.observers = []; this.disabled = false; this.textContent = '';
     }
     get hidden() { return this._hidden; }
     set hidden(value) { this._hidden = value; this.observers.forEach(observer => observer.callback()); }
@@ -38,7 +44,13 @@ class Node {
 const nodes = root => [root, ...root.children.flatMap(nodes)];
 const text = root => [root.textContent, ...root.children.map(text)].join(' ');
 const byText = (root, label) => nodes(root).find(node => node.tag === 'button' && node.textContent === label);
-globalThis.document = { createElement: tag => new Node(tag), createElementNS: (_ns, tag) => new Node(tag) };
+const head = new Node('head');
+globalThis.document = {
+    head,
+    createElement: tag => new Node(tag), createElementNS: (_ns, tag) => new Node(tag),
+    createTextNode: value => { const result = new Node('#text'); result.textContent = value; return result; },
+    getElementById: id => nodes(head).find(node => node.id === id) ?? null
+};
 globalThis.requestAnimationFrame = fn => { fn(); return 1; };
 globalThis.MutationObserver = class {
     constructor(callback) { this.callback = callback; }
@@ -56,6 +68,7 @@ function fixture(values = {}) {
     const writes = [];
     const preferences = {
         inspect: key => ({ globalValue: store[key] }),
+        get: (key, fallback) => store[key] ?? fallback,
         onPreferenceChanged: fn => { changes.push(fn); return { dispose() { changes.splice(changes.indexOf(fn), 1); } }; },
         set: async (key, value, scope) => { writes.push([key, value, scope]); store[key] = value; changes.slice().forEach(fn => fn({ preferenceName: key })); }
     };
@@ -72,11 +85,16 @@ function fixture(values = {}) {
         onLevel: fn => subscribe('level', fn),
         onUtterance: fn => subscribe('utterance', fn)
     };
+    const dictionary = { list: async () => ({ builtin: [{ id: 'builtin-one' }, { id: 'builtin-two' }], user: [{ id: 'user-one' }] }) };
     const subscribe = (kind, fn) => { events[kind].push(fn); return { dispose() { events[kind].splice(events[kind].indexOf(fn), 1); } }; };
-    return { preferences, ear, writes, store, events };
+    return { preferences, ear, dictionary, writes, store, events };
 }
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
+const modeRadios = root => nodes(root).find(node => node.attributes['data-akari-segmented'] === '声でできること')
+    .children.filter(node => node.attributes.role === 'radio');
+const engineRadios = root => nodes(root).find(node => node.attributes['aria-label'] === '聞き取りのやり方')
+    .children.filter(node => node.attributes.role === 'radio');
 
 test('聞き取り節は 3 択を描き、ロック時に理由を示し、辞書未登録を無効にする', async () => {
     const data = fixture();
@@ -85,9 +103,13 @@ test('聞き取り節は 3 択を描き、ロック時に理由を示し、辞�
     const host = new Node();
     const view = section.render(host);
     await tick();
-    assert.deepEqual(nodes(host).filter(node => node.attributes['role'] === 'radio').map(node => node.textContent),
+    assert.deepEqual(modeRadios(host).map(node => node.textContent),
         ['メモのみ', '画面を動かす', '画面も編集も']);
-    assert.equal(byText(host, '開く').disabled, true);
+    assert.deepEqual(engineRadios(host).map(card => nodes(card).find(node => node.className === 'akari-listening-engine-name').textContent),
+        ['この Mac で聞き取る（Speech Analyzer）', '録音して後で起こす（whisper）', 'クラウド（要 API キー）']);
+    assert.equal(engineRadios(host)[2].disabled, true);
+    assert.match(text(engineRadios(host)[2]), /まだ設定できません/);
+    assert.equal(byText(host, '辞書を開く').disabled, true);
     view.dispose();
 
     const locked = fixture({ 'akari.companion.enabled': false, 'akari.vibe.mode': 'full' });
@@ -96,7 +118,8 @@ test('聞き取り節は 3 択を描き、ロック時に理由を示し、辞�
     const lockedHost = new Node();
     const lockedView = lockedSection.render(lockedHost);
     await tick();
-    assert.equal(nodes(lockedHost).filter(node => node.attributes['role'] === 'radio').every(node => node.disabled), true);
+    assert.equal(modeRadios(lockedHost).length, 3);
+    assert.equal(modeRadios(lockedHost).every(node => node.disabled), true);
     assert.match(text(lockedHost), /つながりがオフ/);
     assert.equal(locked.store['akari.vibe.mode'], 'full');
     lockedView.dispose();
@@ -108,7 +131,8 @@ test('聞き取り節は 3 択を描き、ロック時に理由を示し、辞�
     const noLiveHost = new Node();
     const noLiveView = noLiveSection.render(noLiveHost);
     await tick();
-    assert.equal(nodes(noLiveHost).filter(node => node.attributes['role'] === 'radio').every(node => node.disabled), true);
+    assert.equal(modeRadios(noLiveHost).length, 3);
+    assert.equal(modeRadios(noLiveHost).every(node => node.disabled), true);
     assert.match(text(noLiveHost), /ライブの文字起こしに未対応/);
     assert.equal(noLive.store['akari.vibe.mode'], 'screen');
     noLiveView.dispose();
@@ -142,7 +166,7 @@ test('メモから画面への切替だけ確認し、試し聞きは節を離�
     globalThis.localStorage = { setItem: () => { storageWrites++; } };
     try {
         const before = readdirSync(sandbox);
-        byText(host, '話してみる').click();
+        byText(host, '試し聞き').click();
         await tick();
         assert.deepEqual(data.ear.startCalls, [{ purpose: 'trial', engine: 'speechanalyzer-live' }]);
         view.dispose();
@@ -158,18 +182,24 @@ test('メモから画面への切替だけ確認し、試し聞きは節を離�
     }
 });
 
-test('区画の設定タブには聞き取り・Jev・マイクの 3 行が出る', async () => {
+test('区画の設定タブには聞き取り・Jev・辞書の実件数が出る', async () => {
     const data = fixture();
     const tab = new SettingsVibeDockTab();
-    Object.assign(tab, data, { commands: { executeCommand() {} } });
+    Object.assign(tab, data, { commands: { executeCommand() {} }, dictionary: { list: async () => ({ user: [{ id: 'one' }], builtin: [] }) } });
     const host = new Node();
     const view = tab.render(host, {});
     await tick();
     const summary = nodes(host).find(node => node.attributes['aria-label'] === '設定の要約');
     assert.equal(summary.children.length, 3);
     assert.match(text(summary), /聞き取り: ライブ文字起こし/);
-    assert.match(text(summary), /Jev: メモのみ/);
-    assert.match(text(summary), /マイク: 許可あり/);
+    assert.match(text(summary), /Jev で画面を動かす/);
+    assert.equal(summary.children[1].children[1].textContent, 'メモのみ');
+    assert.match(text(summary), /辞書/);
+    assert.equal(summary.children[2].children[1].textContent, '1');
+    await data.preferences.set('akari.vibe.mode', 'screen');
+    assert.equal(summary.children[1].children[1].textContent, '画面を動かす');
+    data.events.status[0]({ state: 'idle', mic: 'ok' });
+    assert.match(summary.title, /マイク: 許可あり/);
     view.dispose();
 });
 
@@ -180,7 +210,7 @@ test('節から離れると試し聞きを停止する', async () => {
     const host = new Node();
     const slot = mountSettingsSectionBody(host, section);
     await tick();
-    byText(host, '話してみる').click();
+    byText(host, '試し聞き').click();
     await tick();
     host.hidden = true;
     await tick();

@@ -6,7 +6,7 @@ import { AkariRoughCanvasService, RoughCanvasBackdrop, RoughCanvasSubject } from
 import { InkLayer, InkTool } from '../ink-layer';
 import { createInkToolbar } from '../ink-toolbar';
 import { inkToPngDataUrl } from '../ink-render';
-import { formatRoughCanvasPacket, popupBounds } from './rough-canvas-model';
+import { formatRoughCanvasPacket } from './rough-canvas-model';
 import { confirmRoughCanvasSend } from './rough-canvas-command-model';
 import { ensureRoughCanvasStyle } from './rough-canvas-style';
 
@@ -20,9 +20,10 @@ export interface RoughCanvasPopupOptions {
     send: (packet: string) => Promise<boolean>;
     notify: (message: string) => void;
     previewWidth?: number;
+    previewRect?: { left: number; top: number; width: number; height: number };
     backdrop?: RoughCanvasBackdrop;
 }
-const STORAGE = 'akari.rough-canvas.bounds';
+const STORAGE = 'akari.rough-canvas.bounds.v2';
 let draftNumber = 0;
 const emptyInk = (aspect: InkAspect): InkDocument => ({ schema: 'akari.ink.v0', space: 'canvas-rect', aspect, objects: [] });
 function savedBounds(): { left: number; top: number; width: number } | undefined {
@@ -38,7 +39,10 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     private layer?: InkLayer;
     private readonly body = document.createElement('div');
     private readonly header = document.createElement('div');
+    private readonly mark = document.createElement('span');
     private readonly tools = document.createElement('div');
+    private readonly backdropToggle = document.createElement('input');
+    private readonly deleteButton = document.createElement('button');
     private readonly paper = document.createElement('div');
     private readonly inkHost = document.createElement('div');
     private readonly backdropImage = document.createElement('img');
@@ -48,9 +52,11 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     private readonly confirm = document.createElement('div');
     private readonly number = document.createElement('span');
     private readonly footer = document.createElement('div');
+    private backdropFailed = false;
     private closing = false;
     private sendingArmed = false;
     private dragCleanup?: () => void;
+    private markObserver?: MutationObserver;
     private bounds = { left: 0, top: 0, width: 400, height: 340 };
     private readonly onWindowResize = (): void => this.place();
     private readonly onEscapeCapture = (event: KeyboardEvent): void => {
@@ -75,49 +81,67 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     protected override handleEnter(): boolean { return false; }
     protected override handleEscape(event: KeyboardEvent): boolean {
         if (event.isComposing) return false;
-        if (this.layer?.getSelectedId()) { this.layer.setDocument(this.layer.getDocument()); return true; }
-        if (this.layer?.getTool() !== 'select') { this.layer.setTool('select'); return true; }
+        if (this.layer?.clearSelection()) return true;
         void this.closeSafely();
         return true;
     }
     private button(label: string, className: string, action: () => void): HTMLButtonElement {
         const button = document.createElement('button');
         button.type = 'button'; button.className = `theia-button ${className}`; button.textContent = label;
+        button.setAttribute('aria-label', label);
         button.addEventListener('click', action);
         return button;
     }
     private build(): void {
         this.body.className = 'akari-rough-canvas';
         this.header.className = 'akari-rough-canvas-header';
+        this.mark.className = 'akari-rough-canvas-mark';
+        this.mark.setAttribute('aria-hidden', 'true');
         const title = document.createElement('strong'); title.textContent = 'ざっくりキャンバス';
-        this.header.append(title, this.button('‹', 'quiet icon', () => void this.move(-1)), this.number,
-            this.button('›', 'quiet icon', () => void this.move(1)),
-            this.button('×', 'quiet icon', () => void this.closeSafely()));
-        this.header.addEventListener('pointerdown', event => this.beginPointer(event, false));
         this.tools.className = 'akari-rough-canvas-tools';
-        this.tools.append(this.button('今の画面を敷く', 'secondary', () => void this.setBackdrop()),
-            this.button('外す', 'quiet', () => this.removeBackdrop()));
+        const spacer = document.createElement('span'); spacer.className = 'grow';
+        const backdropLabel = document.createElement('label'); backdropLabel.className = 'akari-rough-canvas-underlay-label';
+        this.backdropToggle.type = 'checkbox'; this.backdropToggle.setAttribute('aria-label', '今の画面を敷く');
+        this.backdropToggle.addEventListener('change', () => {
+            if (this.backdropToggle.checked) void this.setBackdrop(); else this.removeBackdrop();
+        });
+        backdropLabel.append(this.backdropToggle, document.createTextNode('今の画面を敷く'));
+        this.deleteButton.type = 'button'; this.deleteButton.className = 'theia-button quiet small';
+        this.deleteButton.textContent = '消す'; this.deleteButton.title = '選んだものを消す（Delete）';
+        this.deleteButton.setAttribute('aria-label', '選んだものを消す');
+        this.deleteButton.disabled = true;
+        this.deleteButton.addEventListener('click', () => this.deleteSelected());
+        this.header.append(this.mark, title, this.tools, spacer, backdropLabel, this.deleteButton,
+            this.button('白紙に', 'quiet small', () => this.clearPaper()),
+            this.button('×', 'quiet small icon', () => void this.closeSafely()));
+        this.header.addEventListener('pointerdown', event => this.beginPointer(event, false));
         this.paper.className = 'akari-rough-canvas-paper';
+        this.paper.style.aspectRatio = `${this.options.aspect.w} / ${this.options.aspect.h}`;
         this.backdropImage.className = 'akari-rough-canvas-backdrop';
         this.backdropImage.alt = '';
         this.inkHost.className = 'akari-rough-canvas-ink';
         this.hint.className = 'akari-rough-canvas-hint';
         this.paper.append(this.backdropImage, this.inkHost, this.hint);
         this.memo.className = 'akari-rough-canvas-memo'; this.memo.type = 'text';
-        this.memo.placeholder = 'メモを入力'; this.memo.setAttribute('aria-label', 'メモ');
+        this.memo.placeholder = '紙に添える一言（任意）'; this.memo.setAttribute('aria-label', '紙に添える一言（任意）');
         this.memo.addEventListener('input', () => { this.page.memo = this.memo.value; this.sendingArmed = false; this.confirm.hidden = true; });
         this.error.className = 'akari-rough-canvas-error'; this.error.hidden = true;
         this.confirm.className = 'akari-rough-canvas-confirm'; this.confirm.textContent = 'AI に送りますか？ もう一度押してください。'; this.confirm.hidden = true;
         this.footer.className = 'akari-rough-canvas-footer';
-        const task = this.button('タスクにする', 'secondary', () => this.options.notify('まだ使えません。'));
-        task.disabled = true; task.title = 'もうすぐ使えます';
-        const spacer = document.createElement('span'); spacer.className = 'grow';
-        this.footer.append(task, this.button('AI に送る', 'secondary', () => void this.submit('send')), spacer,
-            this.button('もう 1 枚', 'secondary', () => void this.next()));
+        const task = this.button('タスクにする', 'secondary small', () => undefined);
+        task.disabled = true; task.title = 'まだ使えません';
+        const taskHint = document.createElement('span'); taskHint.title = 'まだ使えません'; taskHint.appendChild(task);
+        const pageControls = document.createElement('span'); pageControls.className = 'akari-rough-canvas-page-controls';
+        const previous = this.button('‹', 'quiet small icon', () => void this.move(-1));
+        previous.setAttribute('aria-label', '前の紙');
+        const next = this.button('›', 'quiet small icon', () => void this.move(1));
+        next.setAttribute('aria-label', '次の紙');
+        pageControls.append(this.button('もう 1 枚', 'quiet small', () => void this.next()), previous, this.number, next);
+        this.footer.append(this.memo, pageControls, taskHint, this.button('AI に送る', 'small', () => void this.submit('send')));
         const resize = document.createElement('div'); resize.className = 'akari-rough-canvas-resize';
         resize.setAttribute('aria-label', '大きさを変える');
         resize.addEventListener('pointerdown', event => this.beginPointer(event, true));
-        this.body.append(this.header, this.tools, this.paper, this.memo, this.error, this.confirm, this.footer, resize);
+        this.body.append(this.header, this.paper, this.error, this.confirm, this.footer, resize);
         this.contentNode.appendChild(this.body);
     }
     private get page(): Page { return this.pages[this.index]; }
@@ -129,12 +153,20 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     }
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
-        this.bounds = popupBounds(window.innerWidth, window.innerHeight, this.options.previewWidth, this.options.aspect, savedBounds());
+        this.bounds = this.constrainBounds(savedBounds());
         this.place(); window.addEventListener('resize', this.onWindowResize);
+        const markHost = document.querySelector('.akari-vibe-mark')?.parentElement;
+        if (markHost) {
+            const syncMark = (): void => { this.mark.classList.toggle('listening', !!markHost.querySelector('.akari-vibe-mark-listening')); };
+            this.markObserver = new MutationObserver(syncMark);
+            this.markObserver.observe(markHost, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+            syncMark();
+        }
         this.page.openedAt = performance.now(); this.showPage(); this.emit('opened', this.page.key); this.emitState();
     }
     protected override onAfterDetach(msg: Message): void {
         this.dragCleanup?.(); window.removeEventListener('resize', this.onWindowResize);
+        this.markObserver?.disconnect(); this.markObserver = undefined;
         this.layer?.dispose(); this.layer = undefined;
         super.onAfterDetach(msg);
     }
@@ -142,14 +174,38 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         try { window.localStorage.setItem(STORAGE, JSON.stringify({ left: this.bounds.left, top: this.bounds.top, width: this.bounds.width })); }
         catch { /* The window can have disabled storage. */ }
     }
+    private constrainBounds(stored?: { left: number; top: number; width: number }): typeof this.bounds {
+        const main = document.querySelector<HTMLElement>('#theia-main-content-panel')?.getBoundingClientRect();
+        const leftPanel = document.querySelector<HTMLElement>('#theia-left-content-panel')?.getBoundingClientRect();
+        const rightPanel = document.querySelector<HTMLElement>('#theia-right-content-panel')?.getBoundingClientRect();
+        const left = Math.max(8, (main?.left ?? 0) + 8, leftPanel?.right ?? 0);
+        const right = Math.max(left, Math.min(window.innerWidth - 8, (main?.right ?? window.innerWidth) - 8,
+            rightPanel && rightPanel.width > 0 && rightPanel.left > left ? rightPanel.left : window.innerWidth));
+        const top = Math.max(8, (main?.top ?? 0) + 8);
+        const bottom = Math.max(top, Math.min(window.innerHeight - 8, (main?.bottom ?? window.innerHeight) - 8));
+        const areaWidth = right - left;
+        const areaHeight = bottom - top;
+        const preferred = (main?.width ?? window.innerWidth) * 0.45;
+        const width = Math.min(areaWidth, Math.max(480, stored?.width ?? preferred));
+        const height = Math.min(areaHeight, Math.max(0,
+            (width - 32) * this.options.aspect.h / this.options.aspect.w + 120));
+        const previewNode = document.querySelector<HTMLElement>('[data-akari-onboarding-target="output"]');
+        const preview = previewNode?.getClientRects().length ? previewNode.getBoundingClientRect() : undefined;
+        const centerX = preview && preview.right > left && preview.left < right
+            ? preview.left + preview.width / 2 : left + areaWidth / 2;
+        const centerY = preview && preview.bottom > top && preview.top < bottom
+            ? preview.top + preview.height / 2 : top + areaHeight / 2;
+        return { left: Math.max(left, Math.min(right - width, stored?.left ?? centerX - width / 2)),
+            top: Math.max(top, Math.min(bottom - height, stored?.top ?? centerY - height / 2)), width, height };
+    }
     private place(): void {
-        this.bounds = popupBounds(window.innerWidth, window.innerHeight, this.options.previewWidth, this.options.aspect, this.bounds);
+        this.bounds = this.constrainBounds(this.bounds);
         const block = this.node.querySelector<HTMLElement>('.dialogBlock'); if (!block) return;
         Object.assign(block.style, { left: `${this.bounds.left}px`, top: `${this.bounds.top}px`,
             width: `${this.bounds.width}px`, height: `${this.bounds.height}px` });
     }
     private beginPointer(event: PointerEvent, resize: boolean): void {
-        if (event.button !== 0 || (!resize && (event.target as HTMLElement).closest('button'))) return;
+        if (event.button !== 0 || (!resize && (event.target as HTMLElement).closest('button, input, label, [role="toolbar"]'))) return;
         event.preventDefault(); this.dragCleanup?.();
         const origin = { ...this.bounds }; const x = event.clientX; const y = event.clientY;
         const move = (next: PointerEvent): void => {
@@ -168,14 +224,19 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.layer = new InkLayer({ host: this.inkHost, aspect: this.options.aspect,
             now: () => (performance.now() - this.page.openedAt) / 1000, readOnly: !!this.page.sealed });
         this.layer.setDocument(this.page.ink);
+        this.layer.setTool('pen');
         this.layer.onChange(doc => { this.page.ink = doc; this.sendingArmed = false; this.confirm.hidden = true; });
+        this.layer.onSelectionChange(id => { this.deleteButton.disabled = !id || !!this.page.sealed; });
+        this.deleteButton.disabled = true;
         this.tools.querySelector('[role="toolbar"]')?.remove();
         this.tools.prepend(createInkToolbar(this.layer));
+        this.tools.querySelectorAll('button').forEach(button => { button.disabled = !!this.page.sealed; });
+        const clearButton = this.header.querySelector<HTMLButtonElement>('[aria-label="白紙に"]');
+        if (clearButton) clearButton.disabled = !!this.page.sealed;
+        const sendButton = this.footer.querySelector<HTMLButtonElement>('[aria-label="AI に送る"]');
+        if (sendButton) sendButton.disabled = !!this.page.sealed;
         this.memo.value = this.page.memo; this.memo.disabled = !!this.page.sealed;
-        this.backdropImage.hidden = !this.page.backdrop;
-        if (this.page.backdrop) this.backdropImage.src = this.page.backdrop.image;
-        this.hint.hidden = !!this.page.backdrop;
-        this.hint.textContent = '今の画面は敷かれていません';
+        this.refreshBackdrop();
         this.number.textContent = `${this.index + 1} / ${this.pages.length}`;
         this.error.hidden = true; this.confirm.hidden = true; this.sendingArmed = false;
     }
@@ -219,6 +280,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
                 if (read.warnings?.length) this.options.notify(read.warnings.join(' '));
             } catch (error) { this.options.notify(`メモを読み込めませんでした: ${String(error)}`); }
         }
+        this.backdropFailed = false;
         page.openedAt = performance.now(); this.showPage(); this.emit('opened', page.key); this.emitState();
     }
     async next(): Promise<void> {
@@ -227,7 +289,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.emit('closed', this.page.key);
         this.pages.splice(this.index + 1, 0, { key: `draft-${++draftNumber}`, ink: emptyInk(this.options.aspect),
             memo: '', subject, openedAt: performance.now() });
-        this.index++; this.showPage(); this.emit('opened', this.page.key); this.emitState();
+        this.index++; this.backdropFailed = false; this.showPage(); this.emit('opened', this.page.key); this.emitState();
     }
     async setBackdrop(): Promise<void> {
         if (this.page.sealed) return;
@@ -235,11 +297,31 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         try {
             await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
             const backdrop = await this.options.capture();
-            if (backdrop) { this.page.backdrop = backdrop; this.showPage(); }
-            else this.options.notify('今の画面を敷けませんでした。');
+            this.backdropFailed = !backdrop;
+            this.page.backdrop = backdrop;
+            this.refreshBackdrop();
+        } catch {
+            this.backdropFailed = true;
+            this.refreshBackdrop();
         } finally { this.node.style.visibility = ''; }
     }
-    removeBackdrop(): void { if (!this.page.sealed) { this.page.backdrop = undefined; this.showPage(); } }
+    private refreshBackdrop(): void {
+        this.backdropImage.hidden = !this.page.backdrop;
+        if (this.page.backdrop) this.backdropImage.src = this.page.backdrop.image;
+        this.backdropToggle.checked = !!this.page.backdrop;
+        this.backdropToggle.disabled = !!this.page.sealed;
+        this.hint.hidden = !this.backdropFailed || !!this.page.backdrop;
+        this.hint.textContent = '画面を敷けませんでした';
+    }
+    removeBackdrop(): void {
+        if (this.page.sealed) return;
+        this.page.backdrop = undefined; this.backdropFailed = false; this.refreshBackdrop();
+    }
+    private clearPaper(): void {
+        if (this.page.sealed) return;
+        this.layer?.setDocument(emptyInk(this.options.aspect));
+        this.removeBackdrop();
+    }
     setTool(tool: InkTool): void { this.layer?.setTool(tool); }
     deleteSelected(): void { this.layer?.deleteSelected(); }
     async submit(mode: 'task' | 'send'): Promise<void> {

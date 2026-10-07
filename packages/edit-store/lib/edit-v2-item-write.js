@@ -51,7 +51,7 @@ function resolvePreviewItemWriteBatch(editText, commands) {
     }
     let candidateText = editText;
     for (const command of commands) {
-        if (command.kind === 'overlay' && 'html' in command.patch) {
+        if (command.kind === 'overlay' && ('html' in command.patch || 'element' in command.patch)) {
             throw new Error('バッチでは外部 HTML 本文を書き込めません');
         }
         const resolved = resolvePreviewItemWrite(candidateText, command);
@@ -142,6 +142,40 @@ function resolveV2Write(parsed, command) {
         }
     };
     if (command.kind === 'overlay') {
+        if (command.patch.element) {
+            const { ref, tag, style } = command.patch.element;
+            if (item.source.kind !== 'html' || item.source.part) {
+                throw new Error(`要素の書き戻し対象ではありません: ${itemId}`);
+            }
+            if (['transform', 'html', 'text', 'duplicate', 'params', 'vars', 'xyKeyframes']
+                .some(key => key in command.patch)
+                || !/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u.test(ref)
+                || !/^[a-z][a-z0-9-]*$/u.test(tag)
+                || !isRecord(style) || Object.keys(style).length === 0) {
+                throw new Error('要素の書き戻し指定が不正です');
+            }
+            const source = item.source;
+            const elements = { ...source.elements };
+            const current = { ...elements[ref]?.style };
+            for (const [key, value] of Object.entries(style)) {
+                if (!/^[a-z][a-z0-9-]*$/u.test(key) || (value !== null && typeof value !== 'string')) {
+                    throw new Error('要素の style が不正です');
+                }
+                if (value === null || value === '')
+                    delete current[key];
+                else
+                    current[key] = value;
+            }
+            if (Object.keys(current).length)
+                elements[ref] = { style: current };
+            else
+                delete elements[ref];
+            if (Object.keys(elements).length)
+                source.elements = elements;
+            else
+                delete source.elements;
+            return { candidateText: stringifyEdit(edit) };
+        }
         if ('text' in command.patch) {
             if (typeof command.patch.text !== 'string') {
                 throw new Error('部品の text は文字列である必要があります');

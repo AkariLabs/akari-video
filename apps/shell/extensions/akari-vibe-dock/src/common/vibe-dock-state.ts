@@ -76,7 +76,7 @@ export class VibeDockState {
         this.onDidChangeEmitter.fire();
     }
     pressMark(): void {
-        this.setLayout(this.layout === 'closed' ? 'open' : 'closed');
+        if (this.layout === 'closed') this.setLayout('open');
         this.onDidPressMarkEmitter.fire();
     }
     setMark(mark: MarkState, unavailable?: string): void {

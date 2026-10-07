@@ -104,9 +104,10 @@ export class AkariRoughCanvasServiceImpl implements AkariRoughCanvasService {
             if (previous.sealed) throw new Error('このメモは送信済みのため変更できません。');
         }
         const size: [number, number] = [paper.readUInt32BE(16), paper.readUInt32BE(20)];
-        const manifest: RoughCanvasManifest = {
+        const manifest: Omit<RoughCanvasManifest, 'background'> & { background: { ref: string; hash: string } | null } = {
             version: 0, id: location.id, createdAt: previous?.createdAt ?? new Date().toISOString(),
-            aspect: request.aspect, aspectSource: request.aspectSource, background: null,
+            aspect: request.aspect, aspectSource: request.aspectSource,
+            background: backdrop ? { ref: 'backdrop.png', hash: `sha256:${createHash('sha256').update(backdrop).digest('hex')}` } : null,
             audio: null, memo: memo || null, status: previous?.status ?? 'recorded', compiledAnnotations: null,
             paper: { file: 'paper.png', size, inkSha256: createHash('sha256').update(json(request.ink)).digest('hex') },
             ink: 'ink.json',

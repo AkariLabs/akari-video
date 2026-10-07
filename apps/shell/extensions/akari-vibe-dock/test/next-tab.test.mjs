@@ -26,7 +26,8 @@ test('次タブは order 20・警告バッジ・上位 7 行を表示する', as
     const calls = [];
     Object.assign(tab, { commands: { executeCommand: async (id, arg) => {
         calls.push([id, arg]);
-        return { rows: Array.from({ length: 8 }, (_, i) => row(i + 1)),
+        return { rows: Array.from({ length: 8 }, (_, i) => i === 0
+            ? { ...row(1), title: '🙂'.repeat(21) } : row(i + 1)),
             summary: { unsent: 8, sent: 1, review: 1, done: 0 }, clipboardPending: 1 };
     } }, tabs: { refreshBadges() {} } });
     assert.equal(tab.order, 20);
@@ -37,6 +38,7 @@ test('次タブは order 20・警告バッジ・上位 7 行を表示する', as
     const view = tab.render(host, {});
     await tick();
     assert.equal(walk(host).filter(node => node.attributes['data-task-id']).length, 7);
+    assert.ok(walk(host).some(node => node.attributes['aria-label'] === `${'🙂'.repeat(20)} を選ぶ`));
     assert.ok(walk(host).some(node => node.textContent === '貼り付け待ち 1 件'));
     view.dispose();
 });
@@ -52,13 +54,22 @@ test('選択したタスクだけをまとめて頼む', async () => {
     } }, tabs: { refreshBadges() {} } });
     await tab.load();
     const host = new Node();
-    const view = tab.render(host, {});
+    const notices = [];
+    const view = tab.render(host, { status: { set: line => { notices.push(line); return { dispose() {} }; } } });
     await tick();
-    const checkbox = walk(host).find(node => node.tag === 'input' && node.attributes['aria-label'] === 't-0001 を選ぶ');
-    checkbox.checked = true;
-    checkbox.fire('change');
+    const selector = walk(host).find(node => node.tag === 'button' && node.attributes['aria-label'] === '本文 1 を選ぶ');
+    selector.click();
+    walk(host).find(node => node.tag === 'button' && node.attributes['aria-label'] === '本文 2 を選ぶ').click();
+    assert.equal(walk(host).find(node => node.attributes['data-task-id'] === 't-0001').attributes['data-selected'], 'true');
+    assert.equal(walk(host).find(node => node.attributes['data-task-id'] === 't-0002').attributes['data-selected'], 'true');
+    assert.ok(walk(host).some(node => node.tag === 'small' && node.textContent === '2 件を選択'));
     walk(host).find(node => node.tag === 'button' && node.textContent === 'まとめて頼む').click();
     await tick();
-    assert.deepEqual(calls.find(call => call[0] === 'akari.tasks.send'), ['akari.tasks.send', { ids: ['t-0001'] }]);
+    assert.deepEqual(calls.find(call => call[0] === 'akari.tasks.send'), ['akari.tasks.send', { ids: ['t-0001', 't-0002'] }]);
+    assert.deepEqual(notices, ['選んだタスクを頼みました。']);
+    const second = walk(host).find(node => node.attributes['data-task-id'] === 't-0002');
+    walk(second).find(node => node.tag === 'button' && node.textContent === '頼む').click();
+    await tick();
+    assert.deepEqual(notices, ['選んだタスクを頼みました。', 'タスクを頼みました。']);
     view.dispose();
 });

@@ -66,7 +66,8 @@ test('engine 面の当たり判定は実寸とクロップ窓を使う トラッ
     const findHit = section('const findVisualMediaHitAt =', '// cuts / layers / overlays / captions');
     const engineBranch = findHit.slice(0, findHit.indexOf('return document.elementsFromPoint'));
     assert.match(engineBranch, /for \(const entry of layerEntries\)/u);
-    assert.match(engineBranch, /const size = hasSourceSize\s*\?[\s\S]*?\(specSize \|\| declaredSize\)/u);
+    assert.match(engineBranch, /const size = specSize \|\| mediaSize \|\| declaredSize/u);
+    assert.match(engineBranch, /const sample = mediaSize && size[\s\S]*?pixel\.x \* mediaSize\.width \/ size\.width[\s\S]*?pixel\.y \* mediaSize\.height \/ size\.height/u);
     assert.match(engineBranch, /sourcePoint\(size, summary\.output, layerVisualTransformNow\(entry\), layerCropNow\(entry\), stagePoint/u);
     assert.match(engineBranch, /if \(!pixel\) continue;/u);
     assert.match(engineBranch, /layerGeometryHitAt\(entry, event\.clientX, event\.clientY, hasSourceSize \? undefined : size\)/u);

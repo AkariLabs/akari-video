@@ -1,6 +1,10 @@
 export const VOICE_RECORDING_SAMPLE_RATE = 48_000;
 export const VOICE_RECORDING_MIN_SEC = 0.5;
 export const VOICE_RECORDING_DIRECTORY = 'assets/afreco';
+// fft（旧式の afftdn・ノイズ床 -30 dB 固定）は声の高域まで削ってこもる。
+// nlm は声をほぼ変えず無音部のノイズだけ下げる（実測）。
+// 強さは対数式になったので、既定は 0.75 とする。
+export const VOICE_RECORDING_DENOISE = { method: 'nlm', strength: 0.75 } as const;
 
 /** Preview と同じ macOS の固定ルート別名・パス表記へ揃える。 */
 export function canonicalEditUri(value: string): string {

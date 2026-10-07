@@ -29,8 +29,8 @@ lint warning として無視する。legacy と v2 の投影は上表の値を�
 lowcut は同一の 2 次 highpass を 2 段カスケードし、24 dB/oct の減衰特性で L1 ゲート
 （1 oct 下で 15 dB 以上の減衰）を満たすための裁定逸脱とする。
 
-denoise は `fft` なら `afftdn=nr=<12+strength*76>:nf=-30`、`nlm` なら
-`anlmdn=s=<0.00001+strength*0.0002>` とする。rubberband は `speed != 1` または
+denoise は `fft` なら `afftdn=nr=<6+strength*18>:nf=-50:tn=1`、`nlm` なら
+`anlmdn=s=<10^(-5+4*strength)>` とする。rubberband は `speed != 1` または
 `pitch_semitones != 0` のときだけ作る。全キーが既定なら入力もフィルタも追加せず、従来の
 filtergraph をバイト単位で維持する。
 
@@ -54,3 +54,21 @@ mtime・in/out・pad・recipe に加え、`atrim` を含む完全なフィルタ
 receipt の `provenance.audio.clip_fx` は `processed_items` と `filters` の件数を持つ。
 プレビューと書き出しで意図的に残す近似は、サイドカー FLAC の再圧縮とデコーダ／サンプル境界の
 差だけとする。
+
+## 2026-10-08 改訂 — ノイズ除去の対応式
+
+- `fft`: 旧 `afftdn=nr=<12+strength*76>:nf=-30` から、ノイズ床を追従する
+  `afftdn=nr=<6+strength*18>:nf=-50:tn=1` へ変更した。旧式の固定ノイズ床は声の
+  4〜8 kHz を 14〜18 dB、8〜16 kHz を 37〜50 dB 削ってこもらせていた。新式の声の
+  4〜8 kHz の減少は実測 0.7〜1.7 dB。騒がしい録音の 8〜16 kHz は `nr=12` で最大
+  5.9 dB、`nr=24` で最大 15.9 dB 減るため、`nr` の上限を 24 に抑える。
+- `nlm`: 旧 `anlmdn=s=<0.00001+strength*0.0002>` から、強さを広く使える対数式
+  `anlmdn=s=<10^(-5+4*strength)>`（`s` は 0.00001〜0.1）へ変更した。実測では声の
+  各帯域の変化は 0.4 dB 以内、弱い声の 8〜16 kHz の減少も 2.1 dB 以内。無音部の
+  ノイズは strength 0.5・SNR 38 dB で 21〜54 dB、strength 0.75・SNR 26 dB で
+  10〜36 dB、strength 1・SNR 19 dB で 5〜20 dB 減少した。処理時間は `fft` の約
+  10 倍だが、実時間の約 12 倍速で処理できた。
+- 宣言済みの denoise を持つプロジェクトは、プレビューと書き出しの音が変わる。`fft` は
+  こもりが消え、効きは控えめになる。`nlm` は同じ strength で効きが強くなる。
+  サイドカーの cache key にはフィルタ文字列が入るため、自動で作り直される。
+  おすすめは `nlm`・`0.75`。

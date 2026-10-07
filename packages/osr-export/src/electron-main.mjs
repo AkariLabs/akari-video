@@ -28,6 +28,7 @@ import {
 import { loadAndBuildOsrPage } from "./page-builder.mjs";
 import { encodeBgraPng } from "./png.mjs";
 import { installParentPipeGuard } from "./parent-pipe-guard.mjs";
+import { appendExportDisabledFeatures } from "./runner.mjs";
 import { startStaticServer } from "./static-server.mjs";
 import { stripStampRow, verifyStamp } from "./stamp.mjs";
 import { deviceEmulationParameters, measurePageViewport, VIEWPORT_SETTLE_TIMEOUT_MS, viewportMatches } from "./viewport.mjs";
@@ -87,6 +88,7 @@ export async function runOsrExport(options) {
   app.commandLine.appendSwitch("disable-background-timer-throttling");
   app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
+  appendExportDisabledFeatures(app.commandLine);
   app.on("window-all-closed", () => {});
   const readyStarted = performance.now();
   const readyPromise = app.isReady() ? Promise.resolve() : app.whenReady();
@@ -399,6 +401,7 @@ export async function runOsrCapture(options) {
   app.commandLine.appendSwitch("disable-background-timer-throttling");
   app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
+  appendExportDisabledFeatures(app.commandLine);
   app.on("window-all-closed", () => {});
   if (!app.isReady()) await app.whenReady();
   const gpu = { platform: process.platform, chromium: process.versions.chrome, devices: await collectGpuDevices(app) };
@@ -900,7 +903,13 @@ async function runCli() {
     }
   }
   catch (error) { code = 1; process.stderr.write(`${String(error?.stack ?? error)}\n`); }
-  finally { app.exit(code); }
+  finally {
+    // app.exit() に入ったあと Chromium の終了処理が待ち続けることがある。
+    // 親が書き出し結果を確定できるよう、その前に code を報告する。
+    // 親はこの行を受け取ってから終了の猶予を数える。
+    process.stdout.write(`PROGRESS exit code=${code}\n`);
+    app.exit(code);
+  }
 }
 
 const modulePath = realpathSync(fileURLToPath(import.meta.url));

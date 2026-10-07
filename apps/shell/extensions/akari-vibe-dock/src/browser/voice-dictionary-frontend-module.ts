@@ -8,7 +8,8 @@ import { isVibePreviewEnabled } from '../common/vibe-preview';
 
 const HISTORY_KEY = 'akari.listening.history';
 const schema: PreferenceSchema = { properties: {
-    [HISTORY_KEY]: { type: 'boolean', default: false, scope: PreferenceScope.User, description: '聞き取り履歴を残す' }
+    [HISTORY_KEY]: { type: 'boolean', default: false, scope: PreferenceScope.User, description: '聞き取り履歴を残す' },
+    'akari.listening.showCorrections': { type: 'boolean', default: true, scope: PreferenceScope.User, description: '直した語を帯に薄く示す' }
 } };
 
 @injectable()
@@ -29,8 +30,17 @@ export class VoiceDictionaryFrontendContribution implements CommandContribution,
 
     onStart(): void {
         const synchronize = () => { void this.service.setHistoryEnabled(this.preferences.get<boolean>(HISTORY_KEY, false)).catch(() => {}); };
+        const syncCorrections = () => {
+            if (isVibePreviewEnabled(window.localStorage)) {
+                document.documentElement.dataset.akariCorrections = String(this.preferences.get<boolean>('akari.listening.showCorrections', true));
+            }
+        };
         synchronize();
-        this.preferences.onPreferenceChanged(change => { if (change.preferenceName === HISTORY_KEY) synchronize(); });
+        syncCorrections();
+        this.preferences.onPreferenceChanged(change => {
+            if (change.preferenceName === HISTORY_KEY) synchronize();
+            if (change.preferenceName === 'akari.listening.showCorrections') syncCorrections();
+        });
     }
 }
 

@@ -56,6 +56,18 @@ const normalize = vm.runInNewContext(`(() => {
     ${section('            const normalizeSummaryCuts =', '            let normalizedCuts =')}
     return normalizeSummaryCuts;
 })()`, { resolveSummaryItemAdjust: item => item });
+const audioComparableCuts = vm.runInNewContext(`(() => {
+    ${section('            const audioComparableCuts =', '            let normalizedCuts =')}
+    return audioComparableCuts;
+})()`);
+
+test('dimension-only cut updates retain the existing audio supply', () => {
+    const before = normalize({ cuts: [{ id: 'cut', src: 'main', in: 0, out: 2 }] });
+    const after = normalize({ cuts: [{ id: 'cut', src: 'main', in: 0, out: 2,
+        sourceWidth: 1920, sourceHeight: 1080, sourceSizeFallback: true }] });
+    assert.deepEqual(plain(audioComparableCuts(after)), plain(audioComparableCuts(before)));
+    assert.equal(after[0].sourceWidth, 1920);
+});
 const declarationsFor = vm.runInNewContext(`(() => {
     ${section('                const audioDeclarationsForSummary =', '                const normalizedMutedTracks =')}
     return audioDeclarationsForSummary;

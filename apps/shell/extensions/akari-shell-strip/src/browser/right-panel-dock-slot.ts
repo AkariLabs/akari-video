@@ -1,14 +1,17 @@
 import { injectable } from '@theia/core/shared/inversify';
 import { Widget, Panel, SplitPanel } from '@theia/core/shared/@lumino/widgets';
+import { MessageLoop } from '@theia/core/shared/@lumino/messaging';
 import { Disposable, Emitter, Event } from '@theia/core/lib/common';
-import { computeDockHeight, DockState } from '../common/right-dock-layout';
+import { computeDockHeight, DockState, nextDockStateOnDoubleClick } from '../common/right-dock-layout';
 
 @injectable()
-export class RightPanelDockSlot {
+export class RightPanelDockSlot implements Disposable {
     protected readonly layoutEmitter = new Emitter<{ height: number; state: DockState; panelHeight: number; panelWidth: number }>();
     readonly onDidChangeLayout: Event<{ height: number; state: DockState; panelHeight: number; panelWidth: number }> = this.layoutEmitter.event;
     protected readonly railEmitter = new Emitter<void>();
     readonly onDidPressRailMark: Event<void> = this.railEmitter.event;
+    protected readonly handleDoubleClickEmitter = new Emitter<DockState>();
+    readonly onDidDoubleClickHandle: Event<DockState> = this.handleDoubleClickEmitter.event;
     protected readonly host = new Panel();
     protected readonly markHost = document.createElement('div');
     protected split: SplitPanel | undefined;
@@ -20,6 +23,12 @@ export class RightPanelDockSlot {
     protected observer: ResizeObserver | undefined;
     protected classObserver: MutationObserver | undefined;
     protected expandPanel: (() => void) | undefined;
+    protected handle: HTMLDivElement | undefined;
+    protected readonly onHandleDoubleClick = (event: MouseEvent): void => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.handleDoubleClickEmitter.fire(nextDockStateOnDoubleClick(this.state));
+    };
 
     constructor() {
         this.host.addClass('akari-vibe-dock-slot');
@@ -53,6 +62,12 @@ export class RightPanelDockSlot {
         }
         this.attached = widget;
         this.host.addWidget(widget);
+        // PanelLayout only attaches children; it does not size them when the split slot
+        // grows. The dock's root has height: 100%, so its widget must fill this slot.
+        widget.node.style.width = '100%';
+        widget.node.style.height = '100%';
+        widget.node.style.minHeight = '0';
+        widget.node.style.boxSizing = 'border-box';
         this.host.setHidden(false);
         this.scheduleMeasure();
         return Disposable.create(() => {
@@ -66,6 +81,9 @@ export class RightPanelDockSlot {
     }
 
     connect(split: SplitPanel, container: Panel, rail: HTMLElement, expandPanel: () => void): void {
+        this.handle?.removeEventListener('dblclick', this.onHandleDoubleClick);
+        this.handle = split.handles[0];
+        this.handle?.addEventListener('dblclick', this.onHandleDoubleClick);
         this.split = split;
         this.container = container;
         this.expandPanel = expandPanel;
@@ -84,6 +102,17 @@ export class RightPanelDockSlot {
         this.scheduleMeasure();
     }
 
+    dispose(): void {
+        this.handle?.removeEventListener('dblclick', this.onHandleDoubleClick);
+        this.handle = undefined;
+        this.observer?.disconnect();
+        this.classObserver?.disconnect();
+        if (this.frame) cancelAnimationFrame(this.frame);
+        this.layoutEmitter.dispose();
+        this.railEmitter.dispose();
+        this.handleDoubleClickEmitter.dispose();
+    }
+
     protected updateRailMark(): void {
         this.markHost.style.display = this.attached && this.container?.hasClass('theia-mod-collapsed') ? 'flex' : 'none';
     }
@@ -100,6 +129,9 @@ export class RightPanelDockSlot {
             const result = computeDockHeight({ panelHeight, state: this.state, userHeight: this.userHeight });
             split.widgets[0].node.style.minHeight = panelHeight >= 216 ? '160px' : '0px';
             if (this.attached && panelHeight > 0) {
+                // The content panel's old min size is cached by SplitLayout. Fit after changing
+                // its constraint, then apply the requested ratio to the refreshed sizers.
+                MessageLoop.sendMessage(split, Widget.Msg.FitRequest);
                 split.setRelativeSizes([Math.max(0, panelHeight - result.height), result.height]);
             }
             this.layoutEmitter.fire({ height: result.height, state: result.state, panelHeight, panelWidth });

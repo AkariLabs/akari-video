@@ -123,7 +123,7 @@ function scaleHarness(mode = 'auto') {
   const api = vm.runInContext([
     section('const renderScaleMode =', '// 可視 canvas'),
     section('const waitForRender =', 'scrub = new engine.ScrubController'),
-    section('const scheduleRenderScaleResize =', '// 非同期 mount'),
+    section('const scheduleRenderScaleResize =', 'const pendingSummary = window.akari && window.akari.frameEnginePendingSummary'),
     '({ renderFrame, noteRenderScaleActivity, renderOutput })',
   ].join('\n'), context);
   return {

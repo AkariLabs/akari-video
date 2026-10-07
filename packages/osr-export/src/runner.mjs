@@ -8,13 +8,27 @@ import { fileURLToPath } from "node:url";
 
 import { withGpuPreference } from "./gpu-preference.mjs";
 
+// BTM は Chromium のバウンス追跡対策（機能名 DIPS）で、user-data-dir に DIPS という SQLite データベース（DB）を作る。
+// DB を開く・閉じる処理は優先度の低い裏のスレッドで走り、始まると Chromium の終了処理は完了まで待つ。
+// 機械が混むと処理が進まず、書き出しと mp4 の作成が終わっても Electron が数秒から 10 分以上残ることがある。
+// 書き出しにはこの機能が要らないため、親が渡す起動引数とランタイム内の両方で無効にする。
+// アプリを --render で直接起動すると親を通らないので、ランタイム内の指定も必要になる。
+export const EXPORT_DISABLED_FEATURES = Object.freeze(["DIPS"]);
 export const CHROMIUM_SWITCHES = Object.freeze([
   "--force-device-scale-factor=1",
   "--force-color-profile=srgb",
   "--disable-background-timer-throttling",
   "--disable-backgrounding-occluded-windows",
   "--disable-renderer-backgrounding",
+  `--disable-features=${EXPORT_DISABLED_FEATURES.join(",")}`,
 ]);
+// app.commandLine.appendSwitch は同名スイッチを上書きする。既に無効化した機能を消さないよう、
+// 現在の disable-features につなぎ、重複を除いてから ready 前に指定する。
+export function appendExportDisabledFeatures(commandLine) {
+  const current = commandLine.getSwitchValue("disable-features");
+  const features = [...new Set([...current.split(",").map((feature) => feature.trim()).filter(Boolean), ...EXPORT_DISABLED_FEATURES])];
+  commandLine.appendSwitch("disable-features", features.join(","));
+}
 export const SOFT_CHROMIUM_SWITCHES = Object.freeze([
   "--disable-gpu",
   "--enable-unsafe-swiftshader",
@@ -143,6 +157,7 @@ export async function launchElectronExport(launcher, options, {
   executableExists = undefined,
   stderr = undefined,
   temporaryDirectory = tmpdir,
+  exitGraceMs = undefined,
 } = {}) {
   if (launcher.tier === 3) {
     throw new Error(`osr-export error: Electron launcher unavailable: ${launcher.reason ?? "Electron unavailable"}`);
@@ -161,20 +176,41 @@ export async function launchElectronExport(launcher, options, {
   const launchOptions = { ...options, userDataDir: temporaryUserData ?? options.userDataDir };
   try {
     const args = argumentBuilder(launcher, launchOptions);
+    const effectiveExitGraceMs = resolveExitGraceMs(exitGraceMs === undefined ? env.AKARI_EXPORT_EXIT_GRACE_MS : exitGraceMs);
     let progressLines = 0;
     let pendingStdout = "";
-    const onStdout = (text) => {
+    const onStdout = (text, reportExit) => {
       pendingStdout += text;
       const lines = pendingStdout.split(/\r?\n/);
       pendingStdout = lines.pop() ?? "";
       progressLines += lines.filter((line) => line.startsWith("PROGRESS frame=")).length;
+      for (const line of lines) {
+        const match = /^PROGRESS exit code=(\d+)$/.exec(line);
+        if (match) reportExit(Number(match[1]));
+      }
       options.onStdout?.(text);
+    };
+    const warnOnExitTimeout = (reportedCode) => {
+      const seconds = effectiveExitGraceMs / 1_000;
+      const result = reportedCode === 0
+        ? "書き出しは完了しましたが"
+        : `書き出しは失敗を報告しましたが（終了コード ${reportedCode}）`;
+      const line = `osr-export warning: ${result}、Electron が ${seconds} 秒たっても終了しないため停止しました\n`;
+      try {
+        if (stderr?.write) stderr.write(line);
+        else if (options.onStderr) options.onStderr(line);
+        else process.stderr.write(line);
+      } catch { /* 警告の出力失敗で書き出し結果を変えない。 */ }
     };
     // write（HKCU）→ spawn → 子の close → finally で restore。他 OS / soft / off は記録に理由だけ残して spawn する。
     const { gpuPreference } = await withGpuPreference(
       launcher,
       options,
-      () => spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr, exit: options.exit, platform }),
+      () => spawnAndWait(launcher.executable, args, {
+        spawnImpl, env, onStdout, onStderr: options.onStderr, exit: options.exit, platform,
+        exitGraceMs: effectiveExitGraceMs,
+        warnOnExitTimeout,
+      }),
       { env, platform, registry, sidecar, executableExists, stderr },
     );
     if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
@@ -300,9 +336,28 @@ async function defaultProbe(path) {
   return existsSync(path);
 }
 
-function spawnAndWait(command, args, { spawnImpl, env, onStdout, onStderr, exit, platform }) {
+// 完了報告を受けてからの猶予は既定で 10 秒。AKARI_EXPORT_EXIT_GRACE_MS で上書きできるが、
+// 長い書き出しを誤って止めないよう、正の整数のミリ秒以外は既定値に戻す。
+export function resolveExitGraceMs(value) {
+  if (!/^[1-9]\d*$/.test(String(value))) return 10_000;
+  const milliseconds = Number(value);
+  return Number.isSafeInteger(milliseconds) ? milliseconds : 10_000;
+}
+
+function spawnAndWait(command, args, { spawnImpl, env, onStdout, onStderr, exit, platform, exitGraceMs, warnOnExitTimeout }) {
   return new Promise((resolvePromise, rejectPromise) => {
     let stderrTail = Buffer.alloc(0);
+    let exitTimer = null;
+    let reportedCode = null;
+    let settled = false;
+    let timedOut = false;
+    const finish = (code, signal, cause) => {
+      if (settled) return;
+      settled = true;
+      if (exitTimer !== null) clearTimeout(exitTimer);
+      if (code === 0 && !cause) resolvePromise();
+      else rejectPromise(failure(code, signal, cause));
+    };
     const failure = (code, signal, cause) => {
       const tail = stderrTail.toString("utf8");
       const message = describeElectronExit({ exit, code, signal, stderrTail: tail, platform });
@@ -313,17 +368,35 @@ function spawnAndWait(command, args, { spawnImpl, env, onStdout, onStderr, exit,
     };
     let child;
     try { child = spawnImpl(command, args, { env: electronChildEnvironment(env), stdio: ["ignore", "pipe", "pipe"] }); }
-    catch (error) { rejectPromise(failure(null, null, error)); return; }
-    child.stdout?.on("data", (chunk) => { onStdout?.(chunk.toString()); });
+    catch (error) { finish(null, null, error); return; }
+    // 子は結果を報告したあとも Chromium の終了処理で待つことがあり、親も close を待つので、
+    // ユーザーには「mp4 はできているのに書き出しが終わらない」状態に見える。
+    // PROGRESS exit code=<n> の行が来てからだけ猶予を始める。報告がなければ上限を設けず、
+    // 長い書き出しを途中で止めない。猶予切れでは子を止め、止めた子の close は待たず、
+    // 報告された code で確定する。0 は成功、0 以外は従来と同じ終了エラーを返す。
+    const reportExit = (code) => {
+      if (settled || reportedCode !== null) return;
+      reportedCode = code;
+      exitTimer = setTimeout(() => {
+        if (settled) return;
+        timedOut = true;
+        // Windows の child.kill() はプロセスを直接停止する。ほかの OS は SIGKILL を使う。
+        try {
+          if (platform === "win32") child.kill();
+          else child.kill("SIGKILL");
+        }
+        catch { /* 停止要求の例外で、子が報告した書き出し結果を変えない。 */ }
+        warnOnExitTimeout(reportedCode);
+        finish(reportedCode, null);
+      }, exitGraceMs);
+    };
+    child.stdout?.on("data", (chunk) => { onStdout?.(chunk.toString(), reportExit); });
     child.stderr?.on("data", (chunk) => {
       const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       stderrTail = Buffer.concat([stderrTail, bytes]).subarray(-4096);
       onStderr?.(chunk.toString());
     });
-    child.once("error", (error) => rejectPromise(failure(null, null, error)));
-    child.once("close", (code, signal) => {
-      if (code === 0) resolvePromise();
-      else rejectPromise(failure(code, signal));
-    });
+    child.once("error", (error) => { if (!timedOut) finish(null, null, error); });
+    child.once("close", (code, signal) => { if (!timedOut) finish(code, signal); });
   });
 }

@@ -1,6 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { materialImageRepeatCount, materialStripCells } from '../common/materials-view';
+import { materialRangeLinePosition, type MaterialRange } from '../common/material-range';
 
 export interface MaterialStripEntry {
     kind: string;
@@ -9,10 +10,11 @@ export interface MaterialStripEntry {
     stripUri?: URI;
 }
 
-export function MaterialStrip({ entry, width }: { entry: MaterialStripEntry; width: number | string }): React.ReactNode {
+export function MaterialStrip({ entry, width, range }: { entry: MaterialStripEntry; width: number | string; range?: MaterialRange }): React.ReactNode {
     const cells = entry.kind === 'image' ? materialImageRepeatCount() : materialStripCells(entry.durationSeconds);
     const image = entry.stripUri ?? entry.thumbnailUri;
     const repeated = entry.kind === 'image' && entry.thumbnailUri;
+    const rangeLine = range && entry.durationSeconds ? materialRangeLinePosition(range, entry.durationSeconds) : undefined;
     return <div aria-hidden='true' style={{ position: 'absolute', inset: 0, width, overflow: 'hidden', background: entry.kind === 'audio' ? '#0b1a10' : '#000' }}>
         {repeated ? Array.from({ length: cells }, (_, index) =>
             <img key={index} src={entry.thumbnailUri!.toString()} alt='' draggable={false}
@@ -26,5 +28,9 @@ export function MaterialStrip({ entry, width }: { entry: MaterialStripEntry; wid
         {entry.kind === 'video' && entry.stripUri && Array.from({ length: cells - 1 }, (_, index) =>
             <span key={index} style={{ position: 'absolute', left: `${(index + 1) * 100 / cells}%`, top: 0,
                 width: '1px', height: '100%', background: 'rgba(0,0,0,.5)' }} />)}
+        {rangeLine && <span data-akari-material-range-line style={{
+            position: 'absolute', bottom: 0, height: '3px', background: '#f97316',
+            left: `${rangeLine.left}%`, width: `${rangeLine.width}%`
+        }} />}
     </div>;
 }

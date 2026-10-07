@@ -161,7 +161,7 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
             <div className='voice-header' onPointerDown={event => this.startDrag(event)}><span id='akari-voice-title'>アフレコ</span>
                 <button type='button' className='voice-close-x' aria-label='閉じる'
                     data-akari-ui='voice-record:close' data-akari-ui-label='閉じる' onClick={() => this.close()}>×</button></div>
-            <div className='voice-body'>
+            <div className='voice-scroll'><div className='voice-body'>
                 {state.script && <div className='voice-script'><strong>読む文</strong>
                     <div className='voice-script-text'>{state.script.text}</div>
                     <small>{formatTimelineTime(state.script.start)}{state.script.end === undefined ? '' : ` 〜 ${formatTimelineTime(state.script.end)}`} の行</small>
@@ -180,24 +180,24 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
                 <div className='voice-meter' aria-label='入力レベル'>
                     {Array.from({ length: 40 }, (_, index) => <span key={index} className={index < lit ? 'active' : ''} />)}
                 </div>
-                <div className='voice-field'><label htmlFor='akari-voice-device'>入力デバイス</label>
+                <div className='voice-field voice-device'><div className='voice-device-heading'>
+                    <label htmlFor='akari-voice-device'>入力デバイス</label>
+                    <div className='voice-hint'>{state.phase === 'error' ? 'マイクを使えません' : 'マイクが接続されました'}</div>
+                </div>
                     <select id='akari-voice-device' value={state.deviceId || ''} disabled={recording || state.phase === 'saving'}
                         data-akari-ui='voice-record:device' data-akari-ui-label='入力デバイス'
                         onChange={event => void this.recorder.setDevice(event.currentTarget.value)}>
                         {!state.deviceId && <option value=''>既定のマイク</option>}
                         {state.devices.map(device => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
                     </select>
-                    <div className='voice-hint'>{state.phase === 'error' ? 'マイクを使えません' : 'マイクが接続されました'}</div>
                 </div>
-                <div className='voice-field'><label htmlFor='akari-voice-gain'>音量</label>
-                    <div className='voice-gain'>
+                <div className='voice-field voice-gain'><label htmlFor='akari-voice-gain'>音量</label>
                         <input id='akari-voice-gain' type='range' min='0' max='200' value={state.gainPercent}
                             data-akari-ui='voice-record:gain' data-akari-ui-label='音量'
                             onChange={event => this.recorder.setGain(Number(event.currentTarget.value))} />
                         <input className='voice-gain-number' type='number' min='0' max='200' value={state.gainPercent}
                             data-akari-ui='voice-record:gain-number' data-akari-ui-label='音量'
                             onChange={event => this.recorder.setGain(Number(event.currentTarget.value))} />
-                    </div>
                 </div>
             </div>
             <div className='voice-options'>
@@ -206,13 +206,12 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
                     <span>再生しながら録る{!this.editUri && <small>edit.json が見つからないので素材に入れるだけになります</small>}</span></label>
                 <label className='voice-option'><input type='checkbox' checked={state.muteProject} disabled={!this.editUri || !state.sync || recording || state.phase === 'saving'}
                     data-akari-ui='voice-record:mute-project' onChange={event => this.recorder.setOption('muteProject', event.currentTarget.checked)} />
-                    <span>録音中はプロジェクトの音を消す<small>録音の間だけプレビューの音を止めます。イヤホンなら OFF にして音を聞きながら録れます</small></span></label>
+                    <span>録音中はプロジェクトの音を消す<small>イヤホンなら OFF にして音を聞きながら録れます</small></span></label>
                 <label className='voice-option'><input type='checkbox' checked={state.denoise} disabled={!this.editUri || !state.sync || recording || state.phase === 'saving'}
                     data-akari-ui='voice-record:denoise' onChange={event => this.recorder.setOption('denoise', event.currentTarget.checked)} />
-                    <span>ノイズを取り除く<small>タイムラインに置くときに denoise（fft・0.5）を付けます。あとでインスペクタで変えられます</small></span></label>
+                    <span>ノイズを取り除く<small>声はそのまま、無音部分のサーッという音を小さくします</small></span></label>
             </div>
-            <div className='voice-footer'><button type='button' data-akari-ui='voice-record:close'
-                data-akari-ui-label='閉じる' onClick={() => this.close()}>閉じる</button></div>
+            </div>
         </div>;
     }
 }

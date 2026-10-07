@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -33,21 +34,56 @@ test('clip FX chain orders trim, two-stage lowcut, denoise, then rubberband', ()
     'asetpts=PTS-STARTPTS',
     'highpass=f=120:p=2',
     'highpass=f=120:p=2',
-    'afftdn=nr=57.6:nf=-30',
+    'afftdn=nr=16.8:nf=-50:tn=1',
     'rubberband=tempo=2:pitch=2:formant=preserved:pitchq=quality',
   ]);
 });
 
-test('fft denoise coefficient follows 12 + strength * 76', () => {
-  assert.deepEqual(buildAudioClipFxFilters({ denoise: { method: 'fft', strength: 0.25 } }), [
-    'afftdn=nr=31:nf=-30',
-  ]);
+test('fft denoise coefficient follows 6 + strength * 18 with a tracked noise floor', () => {
+  for (const [strength, nr] of [[0, '6'], [0.25, '10.5'], [0.6, '16.8'], [1, '24']]) {
+    assert.deepEqual(buildAudioClipFxFilters({ denoise: { method: 'fft', strength } }), [
+      `afftdn=nr=${nr}:nf=-50:tn=1`,
+    ]);
+  }
 });
 
-test('nlm denoise coefficient follows 0.00001 + strength * 0.0002', () => {
-  assert.deepEqual(buildAudioClipFxFilters({ denoise: { method: 'nlm', strength: 1 } }), [
-    'anlmdn=s=0.00021',
-  ]);
+test('nlm denoise coefficient follows 10^(-5 + 4 * strength) in decimal notation', () => {
+  for (const [strength, s] of [[0, '0.00001'], [0.5, '0.001'], [0.75, '0.01'], [1, '0.1']]) {
+    assert.deepEqual(buildAudioClipFxFilters({ denoise: { method: 'nlm', strength } }), [
+      `anlmdn=s=${s}`,
+    ]);
+  }
+});
+
+test('fft nr and nlm s increase monotonically with strength', () => {
+  for (const method of ['fft', 'nlm']) {
+    const coefficients = [0, 0.25, 0.5, 0.75, 1].map(strength => {
+      const filter = buildAudioClipFxFilters({ denoise: { method, strength } })[0];
+      return Number(filter.match(/(?:nr|s)=([\d.]+)/u)[1]);
+    });
+    for (let index = 1; index < coefficients.length; index += 1) {
+      assert.ok(coefficients[index] > coefficients[index - 1], `${method} at index ${index}`);
+    }
+  }
+});
+
+test('each new denoise filter differs from the old filter and produces a fresh sidecar key', () => {
+  const sourcePath = resolve(baseKeyInput.sourcePath);
+  const oldKey = oldFilter => createHash('sha1').update([
+    sourcePath, baseKeyInput.size, baseKeyInput.mtimeMs,
+    baseKeyInput.inSec, baseKeyInput.outSec, baseKeyInput.speed,
+    baseKeyInput.padBeforeSec, baseKeyInput.padAfterSec,
+    'atrim=start=1:end=5', 'asetpts=PTS-STARTPTS', oldFilter, PREVIEW_AUDIO_RECIPE,
+  ].join('|')).digest('hex');
+  for (const [method, strength, oldFilter] of [
+    ['fft', 0.6, 'afftdn=nr=57.6:nf=-30'],
+    ['nlm', 0.5, 'anlmdn=s=0.00011'],
+  ]) {
+    const clipFx = { denoise: { method, strength } };
+    const newFilter = buildAudioClipFxFilters(clipFx)[0];
+    assert.notEqual(newFilter, oldFilter);
+    assert.notEqual(previewAudioSidecarKey({ ...baseKeyInput, clipFx }), oldKey(oldFilter));
+  }
 });
 
 test('rubberband pitch uses 2^(semitones/12)', () => {
