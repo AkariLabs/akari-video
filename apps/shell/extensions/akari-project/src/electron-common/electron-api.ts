@@ -4,15 +4,24 @@ export const CHANNEL_ASSET_SITE = 'AkariProjectAssetSite';
 export const CHANNEL_ASSET_SITE_EVENT = 'AkariProjectAssetSiteEvent';
 
 export interface AssetSiteEvent {
-    type: 'navigated' | 'received' | 'error'; url?: string; name?: string; paths?: string[]; message?: string;
+    type: 'navigated' | 'received' | 'error' | 'pickMode'; url?: string; name?: string; paths?: string[]; message?: string; on?: boolean;
 }
 export interface AssetSiteElectronApi {
-    open(site: import('../common/asset-sites').AssetSite, url: string, agent?: boolean): Promise<void>;
+    open(site: import('../common/asset-sites').AssetSite | import('../common/browser-engines').BrowserDefinition,
+        url: string, agent?: boolean): Promise<void>;
     bounds(rect: { x: number; y: number; width: number; height: number; visible: boolean }): Promise<void>;
     navigate(url: string): Promise<void>;
     highlight(expectedFilenames: string[], filenamePatterns: string[]): Promise<boolean>;
     discard(paths: string[]): Promise<void>;
     close(): Promise<void>;
+    browserConfig(): Promise<import('../common/browser-engines').BrowserConfig | undefined>;
+    clearBrowserHistory(): Promise<void>;
+    guard(on: boolean): Promise<string | undefined>;
+    guardHide(): Promise<void>;
+    back(): Promise<void>;
+    forward(): Promise<void>;
+    reload(): Promise<void>;
+    pickMode(on: boolean): Promise<void>;
     /** Available only with the unpackaged local-site test flag. */
     inspect(): Promise<{ viewBounds: { x: number; y: number; width: number; height: number };
         windowBounds: { x: number; y: number; width: number; height: number };

@@ -20,6 +20,10 @@ import { AkariGenerationPickCommandContribution } from './akari-generation-pick-
 import { AkariCatalogCommandContribution } from './akari-catalog-command-contribution';
 import { AssetSiteWidget } from './asset-site-widget';
 import { AssetSiteCommands } from './asset-site-commands';
+import { BrowserCommands } from './browser-commands';
+import { BrowserPreferences } from './browser-preferences';
+import { BrowserHostGuardContribution } from './browser-host-guard-contribution';
+import { BrowserOpenListener } from './browser-open-listener';
 import { ShapeShelfService } from './shape-shelf-service';
 import { LintResultsDialog } from './lint-results-dialog';
 
@@ -71,6 +75,13 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
         createWidget: () => ctx.container.get(AssetSiteWidget) })).inSingletonScope();
     bind(AssetSiteCommands).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AssetSiteCommands);
+    bind(BrowserCommands).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(BrowserCommands);
+    bind(PreferenceContribution).toConstantValue(BrowserPreferences);
+    bind(BrowserHostGuardContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(BrowserHostGuardContribution);
+    bind(BrowserOpenListener).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(BrowserOpenListener);
     bind(ShapeShelfService).toSelf().inSingletonScope();
     bind(CommandContribution).toService(ShapeShelfService);
     bind(FrontendApplicationContribution).toService(ShapeShelfService);

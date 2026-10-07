@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "open_web": { "id": "open-web", "name": "ブラウザ", "navigation": "open", "downloads": "deny", "partition": "persist:akari-browser" },
+  "engines": [
+    { "id": "google-images", "label": "Google 画像", "template": "https://www.google.com/search?tbm=isch&q={q}" },
+    { "id": "pinterest", "label": "Pinterest", "template": "https://www.pinterest.com/search/pins/?q={q}" },
+    { "id": "yahoo-jp-images", "label": "Yahoo!画像", "template": "https://search.yahoo.co.jp/image/search?p={q}" },
+    { "id": "bing-images", "label": "Bing 画像", "template": "https://www.bing.com/images/search?q={q}" }
+  ]
+}

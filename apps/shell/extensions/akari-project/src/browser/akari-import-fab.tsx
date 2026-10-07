@@ -75,6 +75,10 @@ export function AkariImportFab(props: Props): React.ReactElement {
             props.messages.info(item.info);
             return;
         }
+        if (item.id === 'internet') {
+            window.dispatchEvent(new CustomEvent('akari.browser.requestOpen'));
+            return;
+        }
         if (!props.projectOpen) {
             props.messages.warn('先にプロジェクトを開いてください。');
             return;
