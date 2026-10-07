@@ -1,0 +1,21 @@
+{
+  "name": "akari-vibe-dock",
+  "version": "0.0.1",
+  "private": true,
+  "main": "lib/browser/akari-vibe-dock-frontend-module.js",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/akari-vibe-dock-frontend-module" }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "test": "tsc -b && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}
