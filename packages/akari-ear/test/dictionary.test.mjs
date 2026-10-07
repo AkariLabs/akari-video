@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
-import os from 'node:os';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { addUserEntry, applyVoiceDictionary, expandSnippet, loadVoiceDictionary, removeUserEntry,
@@ -8,7 +8,7 @@ import { addUserEntry, applyVoiceDictionary, expandSnippet, loadVoiceDictionary,
 import { validateVoiceDictionary } from '../../schemas/bin/validate-voice-dictionary.mjs';
 
 const withHome = async run => {
-  const home = await mkdtemp(path.join(process.env.TMPDIR || os.tmpdir(), 'voice-dictionary-'));
+  const home = await mkdtemp(path.join(tmpdir(), 'voice-dictionary-'));
   try { await run({ AKARI_HOME: home }); } finally { await rm(home, { recursive: true, force: true }); }
 };
 test('同梱の全語が検証に通り、正規化キーが衝突しない', async () => withHome(async env => {
