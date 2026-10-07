@@ -33,3 +33,16 @@ test('element write rejects part, non-HTML, conflicting patch and batch', () => 
   assert.throws(() => resolvePreviewItemWriteBatch(JSON.stringify(edit),
     [{ kind: 'overlay', itemId: 'chart', patch: element({ translate: '1px 2px' }) }]), /バッチ/);
 });
+
+test('element write rejects every conflicting overlay field', () => {
+  const edit = base();
+  const conflicting = {
+    transform: { x: 1 }, html: '<div></div>', text: 'x', duplicate: false,
+    params: { label: 'x' }, vars: { label: 'x' },
+    xyKeyframes: [{ t: 0, transform: { x: 1, y: 2 } }]
+  };
+  for (const [key, value] of Object.entries(conflicting)) {
+    assert.throws(() => write(edit, { ...element({ translate: '1px 2px' }), [key]: value }),
+      /要素の書き戻し指定が不正/, key);
+  }
+});

@@ -4,6 +4,7 @@ import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { assertPreviewElementAddress } from '../common/preview-element-address';
+import { assertNoElementWriteConflict, isElementSelectionFileReference } from '../common/preview-element-write';
 import { previewLiveValues } from '../common/preview-live-values';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
 import { canvasDropTargets } from '../common/canvas-drop-target';
@@ -5317,7 +5318,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (item.source.kind === 'html') {
                     const html = overlayHtml.get(item.source.html) ?? item.source.html;
                     overlayElementSources.set(item.id, { elements: item.source.elements,
-                        plain: !item.source.part && scanHtmlParts(html).length === 0 });
+                        plain: isElementSelectionFileReference(item.source.html)
+                            && !item.source.part && scanHtmlParts(html).length === 0 });
                 }
             };
             await Promise.all(internal.tracks.flatMap(track => track.items.map(item => loadOverlayTree(item, track.id))));
@@ -6599,10 +6601,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if ('text' in request.patch && typeof request.patch.text !== 'string') {
                 throw new Error('部品の text は文字列である必要があります');
             }
-            if (request.patch.element && (request.patch.duplicate || request.patch.transform
-                || request.patch.html !== undefined || request.patch.text !== undefined)) {
-                throw new Error('要素の移動と別の書き戻しを同時に指定できません');
-            }
+            if (request.patch.element) assertNoElementWriteConflict(request.patch);
             if (request.patch.duplicate) {
                 if (!request.patch.transform) throw new Error('複製を書き込めません');
                 const handled = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')

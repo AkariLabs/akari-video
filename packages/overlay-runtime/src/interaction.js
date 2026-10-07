@@ -2069,12 +2069,15 @@ function elementLabel(root, element) {
     });
   }
 
+  function isControl(target) {
+    return target instanceof Element
+      && (target.isContentEditable || target.closest('input, textarea, select, button, [role="textbox"]'));
+  }
+
   function handleNudge(event) {
     const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
     if (!delta || !interactionEnabled || !selectedId || activeEdit || activeDrag || activeResize
       || event.metaKey || event.ctrlKey || event.altKey || !document.hasFocus()) return false;
-    const isControl = target => target instanceof Element
-      && (target.isContentEditable || target.closest('input, textarea, select, button, [role="textbox"]'));
     if (isControl(event.target) || isControl(document.activeElement)) return false;
     if (elementFocus && focusedElement()) {
       if (!elementNudge) {
@@ -4440,8 +4443,9 @@ function elementLabel(root, element) {
           stage?.getBoundingClientRect());
         focusElement(parent); stop(); return;
       }
-      if (event.key === 'Delete' || event.key === 'Backspace'
-        || (event.key.toLowerCase() === 'x' && (event.metaKey || event.ctrlKey))) {
+      if ((event.key === 'Delete' || event.key === 'Backspace'
+        || (event.key.toLowerCase() === 'x' && (event.metaKey || event.ctrlKey)))
+        && !isControl(event.target) && !isControl(document.activeElement)) {
         window.akari.showWriteError?.('要素は削除できません（Esc でアイテムを選ぶと削除できます）');
         stop(); return;
       }

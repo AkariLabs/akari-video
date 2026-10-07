@@ -11708,8 +11708,9 @@ export function previewBootstrapScript(): string {
                         if (typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
                         if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId,
                             interaction.scopeId, selectedOverlayIds, interaction.elementFocus ?? null);
-                        else window.akari.reportOverlaySelection(selectedOverlayId, undefined, undefined,
-                            interaction?.elementFocus ?? null);
+                        else if (interaction?.elementFocus) window.akari.reportOverlaySelection(selectedOverlayId,
+                            undefined, undefined, interaction.elementFocus);
+                        else window.akari.reportOverlaySelection(selectedOverlayId);
                     }
                 }
             };

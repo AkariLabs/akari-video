@@ -216,7 +216,8 @@ function resolveV2Write(
             if (item.source.kind !== 'html' || item.source.part) {
                 throw new Error(`要素の書き戻し対象ではありません: ${itemId}`);
             }
-            if (['transform', 'html', 'text', 'duplicate'].some(key => key in command.patch)
+            if (['transform', 'html', 'text', 'duplicate', 'params', 'vars', 'xyKeyframes']
+                .some(key => key in command.patch)
                 || !/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u.test(ref)
                 || !/^[a-z][a-z0-9-]*$/u.test(tag)
                 || !isRecord(style) || Object.keys(style).length === 0) {

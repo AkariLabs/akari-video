@@ -225,6 +225,53 @@ test('delete shortcuts are blocked while another owner command still reaches the
   assert.ok(observed.errors.every(error => error.includes('要素は削除できません（Esc でアイテムを選ぶと削除できます）')));
   assert.equal(observed.commandOwner, 'chart');
 });
+test('focused controls keep native deletion and cut keys while an element is selected', async t => {
+  const browser = await launchBrowser(); t.after(() => browser.close());
+  const page = await fixture(browser, true);
+  const p = await point(page);
+  await page.mouse.click(p.x, p.y);
+  await page.evaluate(() => {
+    const input = document.createElement('input');
+    input.value = 'abc';
+    document.body.appendChild(input);
+    window.passedKeys = [];
+    window.addEventListener('keydown', event => {
+      if (['Delete', 'Backspace', 'x'].includes(event.key)) {
+        window.passedKeys.push({ key: event.key, prevented: event.defaultPrevented });
+      }
+    });
+    input.focus(); input.setSelectionRange(3, 3);
+  });
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Delete');
+  await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+  await page.keyboard.press('x');
+  await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+  const observed = await page.evaluate(() => {
+    const input = document.querySelector('input');
+    const activeOnly = new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true });
+    window.dispatchEvent(activeOnly);
+    input.blur();
+    const targetOnly = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true });
+    input.dispatchEvent(targetOnly);
+    const editor = document.createElement('div');
+    editor.contentEditable = 'true'; editor.textContent = 'text';
+    document.body.appendChild(editor); editor.focus();
+    const editable = new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true });
+    editor.dispatchEvent(editable);
+    return { value: input.value, keys: window.passedKeys, errors: window.errors ?? [],
+      activeOnlyPrevented: activeOnly.defaultPrevented, targetOnlyPrevented: targetOnly.defaultPrevented,
+      editablePrevented: editable.defaultPrevented, focus: window.akari.interaction.elementFocus };
+  });
+  assert.equal(observed.value, 'ab');
+  assert.equal(observed.errors.length, 0);
+  assert.ok(observed.keys.length >= 3 && observed.keys.every(entry => entry.prevented === false),
+    JSON.stringify(observed.keys));
+  assert.equal(observed.activeOnlyPrevented, false);
+  assert.equal(observed.targetOnlyPrevented, false);
+  assert.equal(observed.editablePrevented, false);
+  assert.equal(observed.focus?.ref, '.bar[2]');
+});
 test('Shift click and blank marquee clear focus; double click still edits text', async t => {
   const browser = await launchBrowser(); t.after(() => browser.close());
   const page = await fixture(browser, true);
