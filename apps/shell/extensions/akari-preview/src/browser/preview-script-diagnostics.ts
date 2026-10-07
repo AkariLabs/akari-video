@@ -301,6 +301,12 @@ export function previewDiagnosticsGuardScript(): string {
                     try { reached = probes[id]() === true; } catch { reached = false; }
                     if (!reached) break;
                     markPreviewInitStage(trace, id, 'ok', { at: now() });
+                    if (id === 'first-frame') {
+                        const layerVideos = document.getElementById('preview-layers')
+                            ?.querySelectorAll('video[data-akari-layer-id]') || [];
+                        const sourced = Array.from(layerVideos).filter(media => media.hasAttribute('src')).length;
+                        api.note('レイヤー video 総数 / src 付き数: ' + layerVideos.length + ' / ' + sourced);
+                    }
                 }
                 const summary = summarizePreviewInit(trace);
                 if (summary.complete && !settled) {

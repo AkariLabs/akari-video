@@ -46,6 +46,8 @@ export function createPreviewAudioHost(resultFor = () => ({ state: 'queued' }), 
         clearTimeout: id => timers.delete(id)
     });
     const host = new Host();
+    host.layerDimensionCache = new Map();
+    host.layerDimensionProbes = new Map();
     const calls = [];
     const requests = [];
     host.workspaceService = { roots: Promise.resolve([]) };
@@ -70,7 +72,8 @@ export function createPreviewAudioHost(resultFor = () => ({ state: 'queued' }), 
             requests.push(request);
             return resultFor(name, request);
         },
-        sweepPreviewAudioSidecars: async () => {}
+        sweepPreviewAudioSidecars: async () => {},
+        probeVideoDimensions: async () => undefined
     };
     const URI = require('@theia/core/lib/common/uri').default;
     const load = async (edit = defaultEdit) => {

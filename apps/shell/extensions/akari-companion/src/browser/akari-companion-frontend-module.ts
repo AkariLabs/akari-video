@@ -10,6 +10,8 @@ import { AkariCompanionClientImpl } from './akari-companion-client';
 import { AkariCompanionContribution } from './akari-companion-contribution';
 import { AkariCompanionPreferenceContribution } from './akari-companion-preferences';
 import { CompanionToolbarContribution } from './companion-toolbar-contribution';
+import { CommandContribution } from '@theia/core/lib/common';
+import { JevSettingsCommand } from './jev-settings-command';
 
 export default new ContainerModule(bind => {
     bind(AkariCompanionClientImpl).toSelf().inSingletonScope();
@@ -29,4 +31,6 @@ export default new ContainerModule(bind => {
 
     bind(AkariCompanionContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariCompanionContribution);
+    bind(JevSettingsCommand).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(JevSettingsCommand);
 });

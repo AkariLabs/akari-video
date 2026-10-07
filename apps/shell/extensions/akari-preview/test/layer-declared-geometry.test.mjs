@@ -54,6 +54,21 @@ test('zero metadata uses declared output; real dimensions supersede the coherent
     assert.deepEqual(resolveLayerDeclaredSize(0, 0, output), output);
     assert.deepEqual(resolveLayerDeclaredSize(1920, 0, output), output);
     assert.deepEqual(resolveLayerDeclaredSize(1920, 1080, output), { width: 1920, height: 1080 });
+    assert.deepEqual(resolveLayerDeclaredSize(0, 0, output, { width: 2000, height: 1000 }),
+        { width: 2000, height: 1000 });
+    assert.deepEqual(resolveLayerDeclaredSize(0, 0, output, { width: 2000 }), output);
+    assert.deepEqual(resolveLayerDeclaredSize(800, 400, output, { width: 2000, height: 1000 }),
+        { width: 800, height: 400 });
+});
+
+test('declared source size drives engine hit geometry before video metadata arrives', () => {
+    const context = hitContext();
+    for (const entry of context.layerEntries) {
+        entry.spec.sourceWidth = 2000;
+        entry.spec.sourceHeight = 1000;
+    }
+    assert.equal(extract('findVisualMediaHitAt', context)({ clientX: 750, clientY: 225 }),
+        context.layerEntries[1].video);
 });
 
 test('declared crop hit uses translation, scale, crop-centre pivot and half-open bounds', () => {
@@ -209,6 +224,15 @@ test('engine selection renders crop before decoding and recomputes on metadata w
     }
 });
 
+test('engine selection uses the declared source size with zero videoWidth', () => {
+    const state = selectionContext(true, undefined);
+    state.entry.spec.sourceWidth = 2000;
+    state.entry.spec.sourceHeight = 1000;
+    state.update();
+    assert.equal(state.box.style.width, '400px');
+    assert.equal(state.box.style.height, '300px');
+});
+
 test('legacy selection still waits for dimensions and decoded alpha data', () => {
     const state = selectionContext(false, undefined);
     state.update();
@@ -237,7 +261,7 @@ test('pointer hit selects and drags the evacuated item; layer target writes its 
     assert.deepEqual(calls, [['select', 'upper-v2-id'], ['drag', 'upper-v2-id']]);
     const targetSource = source.match(/const layerDragTarget = entry => \(\{([\s\S]*?)\n            \}\);/)[0];
     const writes = [];
-    const target = new Function('entry', 'window', `${targetSource}\nreturn layerDragTarget(entry);`)(entry,
+    const target = new Function('entry', 'window', `${expandInjectedFunctions(targetSource)}\nreturn layerDragTarget(entry);`)(entry,
         { akari: { engine: { layerWrite: (...args) => writes.push(args) } } });
     const patch = { transform: { ...transform, x: transform.x + 100 } };
     await target.write(patch);

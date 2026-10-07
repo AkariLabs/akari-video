@@ -31,6 +31,7 @@ export function derivedAllowedCommandIds(catalog) {
 export function validateValue(schema, value) {
     if (!schema || typeof schema !== 'object') return false;
     if (schema.enum && !schema.enum.includes(value)) return false;
+    if (Array.isArray(schema.type)) return schema.type.some(type => validateValue({...schema, type}, value));
     switch (schema.type) {
         case 'string': return typeof value === 'string' && (schema.maxLength === undefined || value.length <= schema.maxLength);
         case 'number':

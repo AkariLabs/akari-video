@@ -47,7 +47,13 @@ const valid = {
   'akari.review.open': {},
   'akari.review.board.open': undefined,
   'akari.partner.open': {},
-  'akari.settings.open': { section: 'connections' }
+  'akari.settings.open': { section: 'connections' },
+  'akari.catalog.setMaterialFilter': { kind: ['video', '3d'] },
+  'akari.catalog.setMaterialSort': { by: 'created', order: 'desc' },
+  'akari.catalog.setMaterialQuery': { query: '素材' },
+  'akari.library.setFilter': { source: 'lab', price: ['free'] },
+  'akari.catalog.clearFilters': {},
+  'akari.settings.setByVoice': { key: 'appearance.zoom', value: 90 }
 };
 
 test('許可された全コマンドの正常な引数を受ける', () => {

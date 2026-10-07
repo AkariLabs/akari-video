@@ -200,6 +200,7 @@ async function classifyAkari(akari, context) {
       for (const candidate of child.children) addDisposable(candidate, rule('.akari/render-tmp/*'), context);
     } else if (child.name === 'cache' && child.kind === 'directory') {
       for (const candidate of child.children) addDisposable(candidate, rule('.akari/cache/**'), context);
+    } else if (child.name === 'tasks.json.lock' && child.kind === 'directory') { addDisposable(child, manifest('.akari/tasks.json.lock', 'disposable', '書き込み中の一時ロック', 'AKARI Video'), context);
     } else if (child.name === 'diffs' && child.kind === 'directory') {
       for (const candidate of child.children) addDisposable(candidate, rule('.akari/diffs/*'), context);
     } else if (child.name === 'work' && child.kind === 'directory') {

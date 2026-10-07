@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { injectable } from '@theia/core/shared/inversify';
 import {
-    AkariEarClient, AkariEarService, EarEngineId, EarPurpose, EarStatus,
+    AkariEarClient, AkariEarService, EarEngineId, EarPurpose, EarStatus, EarUtterance,
     EarTranscript, RoughCanvasEarEvent
 } from '../common/ear-protocol';
 
@@ -22,7 +22,11 @@ interface EarModule {
     pickEngine(requested: EarEngineId | undefined, caps: ReturnType<EarModule['getCapabilities']>): EarEngineId | null;
     createLiveEngine(options: object): Engine;
     createRecordEngine(options: object): Engine;
-    createPipeline(options: object): { push(value: RawEvent): { id: string; raw: string; text: string; final: boolean; applied: []; t: number; kind: 'speech' | 'command'; confidence?: number } };
+    createPipeline(options: object): { push(value: RawEvent): EarUtterance };
+    loadVoiceDictionary(options: object): object;
+    applyVoiceDictionary(text: string, resolved: object, options: { final: boolean }): { text: string; applied: EarUtterance['applied'] };
+    recordApplied(applied: EarUtterance['applied'], options: object): void;
+    sharedHistory(options: object): { record(value: EarUtterance & { purpose: EarPurpose }): void };
     createSegmenter(): { push(value: RawEvent): { t0: number; t1: number; text: string; confidence?: number } | undefined };
     createPaperSessions(options: object): {
         open(id: string, at: number): string;
@@ -181,7 +185,13 @@ export class AkariEarServiceImpl implements AkariEarService {
         const sessions = module.createPaperSessions({ nowEpochMs: this.nowEpochMs,
             engineStartedAtEpochMs: startedAt, engine: module.engineLabel(id) });
         engine.on('backend', (backend: string) => sessions.setEngine(module.engineLabel(id, backend)));
-        const pipeline = module.createPipeline({ classify: (text: string) => module.classifyUtterance(text, { paperOpen: sessions.isOpen() }) });
+        const pipeline = module.createPipeline({
+            classify: (text: string) => module.classifyUtterance(text, { paperOpen: sessions.isOpen() }),
+            dictionary: (text: string, options: { final: boolean }) => {
+                try { return module.applyVoiceDictionary(text, module.loadVoiceDictionary({ env: this.env }), options); }
+                catch { return { text, applied: [] }; }
+            }
+        });
         const segmenter = module.createSegmenter();
         const active = { purpose: options.purpose, id, engine, sessions };
         this.active = active;
@@ -196,6 +206,10 @@ export class AkariEarServiceImpl implements AkariEarService {
             const result = pipeline.push(value);
             this.client?.onUtterance(result);
             if (result.final) {
+                try {
+                    module.recordApplied(result.applied, { env: this.env });
+                    module.sharedHistory({ env: this.env }).record({ ...result, purpose: options.purpose });
+                } catch { /* 聞き取りは続ける */ }
                 const segment = segmenter.push({ ...value, text: result.text });
                 if (segment) sessions.onSegment({ ...segment, kind: result.kind });
             } else segmenter.push({ ...value, text: result.text });

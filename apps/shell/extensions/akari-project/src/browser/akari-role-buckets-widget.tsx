@@ -69,7 +69,7 @@ import {
     LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankLibraryShelfItems
 } from '../common/library-source-view';
 import {
-    EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
+    applyLibraryFilterPatch, EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
     presetMatchesLibraryFilter, toggleLibraryFilterOption
 } from '../common/library-filter';
 import {
@@ -86,6 +86,7 @@ import { AssetBinChildNode } from '../common/asset-bin-grouping';
 import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind } from '../common/asset-group-media';
 import { MaterialsSort } from '../common/materials-view';
+import { DEFAULT_MATERIAL_VIEW, MaterialViewPatch } from '../common/material-view';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
@@ -996,6 +997,41 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             matched = matched && focused;
         }
         return matched;
+    }
+
+    /** 外部コマンドからの状態変更はここで既存の更新経路へ委譲する。 */
+    public setMaterialViewFromCommand(patch: MaterialViewPatch) {
+        if (!this.workflow.workspaceRoot) return { applied: null, previous: null, matched: false };
+        const tab = this.topView;
+        if (tab !== 'materials') this.selectTopView('materials');
+        const result = this.materialsPane.setVoiceMaterialView(patch);
+        return { applied: result.applied, previous: { ...result.previous, tab }, matched: true };
+    }
+
+    public setMaterialQueryFromCommand(query: string) {
+        if (!this.workflow.workspaceRoot) return { applied: null, previous: null, matched: false };
+        const previous = this.materialQuery;
+        if (this.topView !== 'materials') this.selectTopView('materials');
+        this.setMaterialQuery(query);
+        return { applied: this.materialQuery, previous, matched: true };
+    }
+
+    public setLibraryFilterFromCommand(patch: Partial<LibraryFilterState>) {
+        const tab = this.topView;
+        const previous = { ...this.libraryFilter(), tab };
+        if (tab !== 'catalog') this.selectTopView('catalog');
+        const applied = applyLibraryFilterPatch(this.libraryFilter(), patch);
+        this.librarySourceFilter = applied.source;
+        this.libraryFilterRest = { price: applied.price, license: applied.license, status: applied.status };
+        this.update();
+        return { applied, previous, matched: true };
+    }
+
+    public clearFiltersFromCommand() {
+        const previous = { materials: this.materialsPane.getVoiceMaterialView(), library: this.libraryFilter() };
+        const materials = this.materialsPane.setVoiceMaterialView(DEFAULT_MATERIAL_VIEW).applied;
+        this.clearLibraryFilter();
+        return { applied: { materials, library: this.libraryFilter() }, previous, matched: true };
     }
 
     // --- 素材カード ---------------------------------------------------------

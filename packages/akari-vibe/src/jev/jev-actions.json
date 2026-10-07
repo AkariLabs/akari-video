@@ -51,12 +51,12 @@
     "export.destination"
   ],
   "uiReceptors": {
-    "materials.filter": "pending",
-    "materials.sort": "pending",
-    "materials.search": "pending",
-    "library.filter": "pending",
+    "materials.filter": "shipped",
+    "materials.sort": "shipped",
+    "materials.search": "shipped",
+    "library.filter": "shipped",
     "dock.tabs": "pending",
-    "settings.voiceWrite": "pending",
+    "settings.voiceWrite": "shipped",
     "sketch.popup": "pending",
     "browser.tab": "pending",
     "scratch.store": "pending"
@@ -84,10 +84,11 @@
                 "video",
                 "audio",
                 "image",
+                "other",
                 "3d"
               ]
             },
-            "maxItems": 4
+            "maxItems": 5
           }
         },
         "required": [
@@ -101,7 +102,7 @@
       "needsUi": [
         "materials.filter"
       ],
-      "available": false,
+      "available": true,
       "owner": "J2",
       "contract": "A1",
       "notes": "受け口の仮名。実装待ち。検索語を保つ。"
@@ -123,6 +124,7 @@
           "by": {
             "type": "string",
             "enum": [
+              "name",
               "duration",
               "created"
             ]
@@ -147,7 +149,7 @@
       "needsUi": [
         "materials.sort"
       ],
-      "available": false,
+      "available": true,
       "owner": "J2",
       "contract": "A2",
       "notes": "受け口の仮名。実装待ち。"
@@ -182,7 +184,7 @@
       "needsUi": [
         "materials.search"
       ],
-      "available": false,
+      "available": true,
       "owner": "J2",
       "contract": "A3",
       "notes": "受け口の仮名。実装待ち。既存 akari.catalog.open は呼ぶたびに検索語をリセットするため、新コマンドが必要。"
@@ -245,25 +247,50 @@
       "valueSchema": {
         "type": "object",
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "all",
+              "own",
+              "site",
+              "lab"
+            ]
+          },
           "price": {
             "type": "array",
             "items": {
               "type": "string",
-              "maxLength": 64
+              "enum": [
+                "free",
+                "premium",
+                "purchased"
+              ]
             },
-            "maxItems": 8
-          },
-          "source": {
-            "type": "string",
-            "maxLength": 128
+            "maxItems": 3
           },
           "license": {
-            "type": "string",
-            "maxLength": 128
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "commercial",
+                "attribution",
+                "noncommercial"
+              ]
+            },
+            "maxItems": 3
           },
           "status": {
-            "type": "string",
-            "maxLength": 64
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cached",
+                "remote",
+                "favorite"
+              ]
+            },
+            "maxItems": 3
           }
         },
         "required": [],
@@ -275,7 +302,7 @@
       "needsUi": [
         "library.filter"
       ],
-      "available": false,
+      "available": true,
       "owner": "J2",
       "contract": "A5",
       "notes": "受け口の仮名。実装待ち。"
@@ -344,7 +371,7 @@
         "materials.filter",
         "library.filter"
       ],
-      "available": false,
+      "available": true,
       "owner": "J2",
       "contract": "A7",
       "notes": "受け口の仮名。実装待ち。"
@@ -960,11 +987,18 @@
           "key": {
             "type": "string",
             "enum": [
-              "appearance.zoom"
+              "appearance.zoom",
+              "appearance.themeMode",
+              "timeline.visualThumbnails",
+              "timeline.trackRippleDisplay"
             ]
           },
           "value": {
-            "type": "number"
+            "type": [
+              "number",
+              "string",
+              "boolean"
+            ]
           }
         },
         "required": [
@@ -979,7 +1013,7 @@
       "needsUi": [
         "settings.voiceWrite"
       ],
-      "available": false,
+      "available": true,
       "owner": "J2",
       "contract": "D1",
       "notes": "受け口の仮名。実装待ち。"
@@ -1681,5 +1715,27 @@
       "contract": "scratch.promote",
       "notes": "取り消せないため種で止める。受け口は未提供。"
     }
+  ],
+  "settingsOpenSections": [
+    "account",
+    "start",
+    "export",
+    "appearance",
+    "connections",
+    "ai-models",
+    "partner",
+    "transcribe",
+    "narration",
+    "quality",
+    "notifications",
+    "tools",
+    "shortcuts",
+    "storage",
+    "privacy",
+    "statistics",
+    "help",
+    "about",
+    "developer",
+    "listening"
   ]
 }

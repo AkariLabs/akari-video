@@ -6,6 +6,8 @@ import {
     AKARI_ANNOTATIONS_SERVICE_PATH
 } from '../common/akari-annotations-protocol';
 import { AkariAnnotationsServiceImpl } from './akari-annotations-service';
+import { AkariTasksService, AKARI_TASKS_SERVICE_PATH } from '../common/akari-tasks-protocol';
+import { AkariTasksServiceImpl } from './akari-tasks-service';
 
 export default new ContainerModule(bind => {
     bind(AkariAnnotationsServiceImpl).toSelf().inSingletonScope();
@@ -16,5 +18,11 @@ export default new ContainerModule(bind => {
             service.setClient(client);
             return service;
         })
+    ).inSingletonScope();
+    bind(AkariTasksServiceImpl).toSelf().inSingletonScope();
+    bind(AkariTasksService).toService(AkariTasksServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_TASKS_SERVICE_PATH, () =>
+            context.container.get<AkariTasksService>(AkariTasksService))
     ).inSingletonScope();
 });

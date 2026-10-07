@@ -23,6 +23,7 @@ import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { DEFAULT_MATERIALS_SORT, isMaterialsList, MATERIALS_KINDS, MATERIALS_SORT_OPTIONS, MaterialsMode, MaterialsSort, materialStripCells, visibleMaterials } from '../common/materials-view';
 import { MaterialStrip } from './material-strip';
+import { applyMaterialViewPatch, filterMaterials, MaterialViewKind, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
 import { materialCardLayout, mergeMaterialCardMeta } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
@@ -143,11 +144,15 @@ export class AkariMaterialsPane {
     protected filter: string[] = [];
     protected sort: MaterialsSort = DEFAULT_MATERIALS_SORT;
     protected mode: MaterialsMode = 'grid';
+    protected commandKinds?: readonly MaterialViewKind[];
+    protected commandSort?: MaterialViewState['sort'];
     protected viewRootKey?: string;
 
     constructor(protected readonly host: MaterialsPaneHost) {}
 
     public setMaterialView(patch: { filter?: string[]; sort?: MaterialsSort; mode?: MaterialsMode }): void {
+        if (patch.filter) this.commandKinds = undefined;
+        if (patch.sort) this.commandSort = undefined;
         if (patch.filter) this.filter = MATERIALS_KINDS.filter(kind => patch.filter!.includes(kind));
         if (patch.sort && MATERIALS_SORT_OPTIONS.includes(patch.sort)) this.sort = patch.sort;
         if (patch.mode) this.mode = patch.mode;
@@ -159,7 +164,34 @@ export class AkariMaterialsPane {
     }
 
     public getMaterialView(): { filter: string[]; sort: MaterialsSort; mode: MaterialsMode } {
-        return { filter: [...this.filter], sort: this.sort, mode: this.mode };
+        const sort = this.commandSort?.by === 'name' ? 'name'
+            : this.commandSort?.by === 'duration' ? 'dur'
+                : this.commandSort?.by === 'created' ? 'created' : this.sort;
+        return { filter: [...this.filter], sort, mode: this.mode };
+    }
+
+    public getVoiceMaterialView(): MaterialViewState & { legacySort?: MaterialsSort; mode: MaterialsMode } {
+        const sort = this.commandSort ?? (this.sort === 'name' ? { by: 'name', order: 'asc' } as const
+            : this.sort === 'dur' ? { by: 'duration', order: 'desc' } as const
+                : { by: 'created', order: this.sort === 'imported-asc' ? 'asc' : 'desc' } as const);
+        return { kinds: [...(this.commandKinds ?? this.filter)] as MaterialViewKind[], sort: { ...sort },
+            legacySort: this.commandSort ? undefined : this.sort, mode: this.mode };
+    }
+
+    public setVoiceMaterialView(patch: MaterialViewPatch) {
+        const previous = this.getVoiceMaterialView();
+        const result = applyMaterialViewPatch(previous, patch);
+        if (patch.kinds) {
+            this.commandKinds = result.applied.kinds;
+            this.filter = [...result.applied.kinds];
+        }
+        if (patch.legacySort && MATERIALS_SORT_OPTIONS.includes(patch.legacySort as MaterialsSort)) {
+            this.sort = patch.legacySort as MaterialsSort;
+            this.commandSort = undefined;
+        } else if (patch.sort) this.commandSort = result.applied.sort;
+        if (patch.mode) this.mode = patch.mode;
+        this.host.update();
+        return { applied: this.getVoiceMaterialView(), previous };
     }
 
     public async loadMaterials(): Promise<void> {
@@ -169,6 +201,8 @@ export class AkariMaterialsPane {
             this.viewRootKey = rootKey;
             this.filter = [];
             this.sort = DEFAULT_MATERIALS_SORT;
+            this.commandKinds = undefined;
+            this.commandSort = undefined;
             if (root) void this.host.projectService.readUiState(root.toString()).then(state => {
                 if (this.viewRootKey !== rootKey) return;
                 const pane = state.materialsPane;
@@ -873,17 +907,26 @@ export class AkariMaterialsPane {
                 </p>
             );
         }
-        const materials = visibleMaterials(this.materials, this.filter, this.host.materialQuery, this.sort);
-        const unorganizedMaterials = visibleMaterials(this.unorganizedMaterials, this.filter, this.host.materialQuery, this.sort);
+        let materials = visibleMaterials(this.materials, this.filter, this.host.materialQuery, this.sort);
+        let unorganizedMaterials = visibleMaterials(this.unorganizedMaterials, this.filter, this.host.materialQuery, this.sort);
+        if (this.commandKinds !== undefined || this.commandSort) {
+            const visibleFromCommand = (entries: readonly MaterialCardEntry[]): MaterialCardEntry[] => {
+                const filtered = filterMaterials(entries, this.getVoiceMaterialView(), this.host.materialQuery);
+                return this.commandSort ? sortMaterials(filtered, this.commandSort)
+                    : visibleMaterials(filtered, [], '', this.sort);
+            };
+            materials = visibleFromCommand(this.materials);
+            unorganizedMaterials = visibleFromCommand(this.unorganizedMaterials);
+        }
         const total = this.materials.length + this.unorganizedMaterials.length;
-        const visible = materials.length + unorganizedMaterials.length;
+        const visibleCount = materials.length + unorganizedMaterials.length;
         const isFiltered = this.filter.length > 0 || this.host.materialQuery.trim().length > 0;
         return (
             <div>
                 {isFiltered && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 10px 0', fontSize: '0.78em', color: 'var(--akari-muted)' }}>
-                    <span>{visible} / {total} 件</span>
+                    <span>{visibleCount} / {total} 件</span>
                 </div>}
-                {!visible
+                {!visibleCount
                     ? <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>
                     : materials.length
                     ? <div style={isMaterialsList(this.mode)

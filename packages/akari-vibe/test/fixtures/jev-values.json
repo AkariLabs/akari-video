@@ -6,5 +6,10 @@
   {"schema":{"type":"array","items":{"type":"number","exclusiveMinimum":0},"maxItems":2},"value":[1,0],"ok":false},
   {"schema":{"type":"number"},"value":null,"ok":false},
   {"schema":{"type":"string","enum":["a","b"]},"value":"b","ok":true},
-  {"schema":{"type":"string","enum":["a","b"]},"value":"c","ok":false}
+  {"schema":{"type":"string","enum":["a","b"]},"value":"c","ok":false},
+  {"schema":{"type":["number","string","boolean"]},"value":87,"ok":true},
+  {"schema":{"type":["number","string","boolean"]},"value":"light","ok":true},
+  {"schema":{"type":["number","string","boolean"]},"value":true,"ok":true},
+  {"schema":{"type":["number","string","boolean"]},"value":null,"ok":false},
+  {"schema":{"type":["number","string","boolean"]},"value":{},"ok":false}
 ]

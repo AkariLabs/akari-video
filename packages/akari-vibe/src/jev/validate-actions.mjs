@@ -6,7 +6,10 @@ export function validateSchema(schema, path = 'valueSchema') {
     const errors = [];
     if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return [`${path}: object required`];
     for (const key of Object.keys(schema)) if (!schemaKeys.has(key)) errors.push(`${path}: unknown ${key}`);
-    if (!types.has(schema.type)) errors.push(`${path}: invalid type`);
+    if (Array.isArray(schema.type)) {
+        if (schema.type.length < 2 || new Set(schema.type).size !== schema.type.length ||
+            schema.type.some(type => !['number', 'string', 'boolean'].includes(type))) errors.push(`${path}: invalid type`);
+    } else if (!types.has(schema.type)) errors.push(`${path}: invalid type`);
     if (schema.enum !== undefined && (!Array.isArray(schema.enum) || !schema.enum.length ||
         schema.enum.some(value => !['string', 'number', 'boolean'].includes(typeof value)))) errors.push(`${path}: invalid enum`);
     for (const key of ['maxItems', 'maxLength']) {
@@ -36,6 +39,8 @@ export function validateCatalog(catalog) {
     const base = catalog.baseAllowedCommandIds;
     if (!Array.isArray(base) || base.length !== 33 || new Set(base).size !== 33 || base.some(id => typeof id !== 'string')) errors.push('baseAllowedCommandIds must contain 33 unique ids');
     if (!Array.isArray(catalog.neverByVoice) || !catalog.neverByVoice.length || catalog.neverByVoice.some(value => typeof value !== 'string' || !value)) errors.push('invalid neverByVoice');
+    if (!Array.isArray(catalog.settingsOpenSections) || new Set(catalog.settingsOpenSections).size !== catalog.settingsOpenSections.length ||
+        catalog.settingsOpenSections.some(value => typeof value !== 'string' || !value)) errors.push('invalid settingsOpenSections');
     if (!catalog.uiReceptors || typeof catalog.uiReceptors !== 'object') errors.push('invalid uiReceptors');
     else for (const [name, state] of Object.entries(catalog.uiReceptors)) {
         if (!name || !['shipped', 'pending'].includes(state)) errors.push(`invalid receptor ${name}`);

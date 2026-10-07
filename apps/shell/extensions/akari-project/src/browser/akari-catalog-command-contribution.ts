@@ -10,6 +10,8 @@ import { AkariCatalogCategorySummary, AkariCatalogFocusOptions, AkariRoleBuckets
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { AkariProjectService } from '../common/akari-project-protocol';
+import { MaterialViewKind, MaterialViewState } from '../common/material-view';
+import { LibraryFilterState } from '../common/library-filter';
 import {
     AssetCatalogImportRequest,
     AssetCatalogImportResult,
@@ -96,6 +98,36 @@ export class AkariCatalogCommandContribution implements CommandContribution {
     });
 
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand({ id: 'akari.catalog.setMaterialFilter' }, {
+            execute: async (args: { kind: MaterialViewKind[] }) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.setMaterialViewFromCommand({ kinds: args.kind });
+            }
+        });
+        registry.registerCommand({ id: 'akari.catalog.setMaterialSort' }, {
+            execute: async (args: MaterialViewState['sort']) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.setMaterialViewFromCommand({ sort: args });
+            }
+        });
+        registry.registerCommand({ id: 'akari.catalog.setMaterialQuery' }, {
+            execute: async (args: { query: string }) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.setMaterialQueryFromCommand(args.query);
+            }
+        });
+        registry.registerCommand({ id: 'akari.library.setFilter' }, {
+            execute: async (args: Partial<LibraryFilterState>) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.setLibraryFilterFromCommand(args);
+            }
+        });
+        registry.registerCommand({ id: 'akari.catalog.clearFilters' }, {
+            execute: async () => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.clearFiltersFromCommand();
+            }
+        });
         registry.registerCommand({ id: 'akari.library.import.pickFolder' }, {
             execute: async () => {
                 await registry.executeCommand(AkariCatalogCommands.OPEN_CATALOG.id);

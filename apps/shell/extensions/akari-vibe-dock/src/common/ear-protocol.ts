@@ -17,7 +17,7 @@ export interface EarUtterance { // 1 発話
     raw: string; // エンジンの生出力
     text: string; // 辞書を当てたあと
     final: boolean;
-    applied: Array<{ from: string; to: string; layer: 'builtin' | 'user'; id: string }>;
+    applied: Array<{ from: string; to: string; layer: 'builtin' | 'user'; id: string; range?: [number, number] }>;
     t: number; // 開始からの経過秒
     kind?: 'speech' | 'command';
     confidence?: number;

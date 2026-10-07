@@ -458,6 +458,7 @@ export interface AkariPreviewService {
     resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult>;
     prepareAlphaIntake(request: PrepareAlphaIntakeRequest): Promise<PrepareAlphaIntakeResult>;
     probeAudioPresence(request: ProbeAudioPresenceRequest): Promise<ProbeAudioPresenceResult>;
+    probeVideoDimensions(request: { videoUri: string }): Promise<{ width: number; height: number } | undefined>;
     startReviewSession(request: StartReviewSessionRequest): Promise<StartReviewSessionResult>;
     appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void>;
     appendReviewSessionAudio(request: AppendReviewSessionAudioRequest): Promise<void>;
