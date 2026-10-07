@@ -1,3 +1,5 @@
+import { createEmptyEditV2 } from '@akari-video/edit-store';
+
 /** edit.json がまだ無いときだけ表示する、タイムラインの開始案内。 */
 export function timelineEmptyStateMessage(hasEdit: boolean): string | undefined {
     return hasEdit ? undefined : '素材をここへドラッグ＆ドロップするか、パートナーに話しかけて始めてください';
@@ -12,17 +14,7 @@ export function relativeTimelineMaterialPath(editDirectory: string, materialPath
     return [...Array(directory.length - common).fill('..'), ...material.slice(common)].join('/');
 }
 
-/** Node 専用の project-scaffold は browser から呼べないため、最小の雛形だけを作る。 */
-export function createTimelineEdit(): {
-    version: 2;
-    output: { width: number; height: number; fps: number; geometry: 'source' };
-    sources: unknown[];
-    tracks: unknown[];
-} {
-    return {
-        version: 2,
-        output: { width: 1920, height: 1080, fps: 30, geometry: 'source' },
-        sources: [],
-        tracks: []
-    };
+/** Node 専用の project-scaffold を browser から呼ばず、共有雛形を使う。 */
+export function createTimelineEdit() {
+    return createEmptyEditV2();
 }

@@ -1,3 +1,5 @@
+import { createEmptyEditV2 } from '@akari-video/edit-store';
+
 export const ONBOARDING_STEPS = [
     'welcome', 'first', 'invite', 'tour0', 'tour1', 'tour2', 'tour3', 'drag', 'matpreview', 'ask',
     'prompt', 'work', 'play', 'caption', 'daihon', 'export', 'done'
@@ -162,7 +164,7 @@ export function splitOnboardingTokens(tokens: readonly TranscriptToken[]): Trans
 }
 
 export function createEmptyOnboardingEdit(): object {
-    return { version: 2, output: { width: 1280, height: 720, fps: 30 }, sources: [], tracks: [] };
+    return createEmptyEditV2({ width: 1280, height: 720, geometry: 'omit' });
 }
 
 export function createOnboardingEdit(samplePath: string, withTitle = false): object {

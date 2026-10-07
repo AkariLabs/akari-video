@@ -50,6 +50,37 @@ test('--yes は .akari/backup へ退避して v2 を書く', async () => {
   } finally { await rm(item.root, { recursive: true, force: true }); }
 });
 
+test('空の edit.json は CLI でも初期化し、退避する', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-launcher-empty-'));
+  const editPath = join(root, 'edit.json');
+  try {
+    await writeFile(editPath, '{}\n');
+    const lines = [];
+    const result = await runMigrateCommand([root, '--yes'], {
+      migrate, log: line => lines.push(line), error: () => {},
+    });
+    assert.equal(result.exitCode, 0);
+    assert.match(lines.join('\n'), /空の edit\.json/u);
+    assert.equal(await readFile(result.proposal.backupPath, 'utf8'), '{}\n');
+    assert.equal(JSON.parse(await readFile(editPath, 'utf8')).version, 2);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('空の edit.json の JSON 提案は既存版を名乗らない', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-launcher-empty-json-'));
+  try {
+    await writeFile(join(root, 'edit.json'), '{}');
+    const lines = [];
+    const result = await runMigrateCommand([root, '--dry-run', '--json'], {
+      migrate, log: line => lines.push(line), error: () => {},
+    });
+    assert.equal(result.exitCode, 0);
+    const payload = JSON.parse(lines.at(-1));
+    assert.equal(payload.version, null);
+    assert.equal(payload.emptyProject, true);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('CLI は captions.json の描画対象 cue を判定して planMigration へ渡す', async () => {
   const item = await fixture();
   try {
