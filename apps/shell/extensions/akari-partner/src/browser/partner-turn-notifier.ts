@@ -31,6 +31,7 @@ const AGENT_LABELS: Record<string, string> = {
     codex: 'Codex',
     opencode: 'opencode',
     pi: 'Pi',
+    deepseek: 'DeepSeek',
     devin: 'Devin',
     copilot: 'Copilot',
     cursor: 'Cursor',

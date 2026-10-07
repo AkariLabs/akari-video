@@ -50,7 +50,7 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {groups.map(group => {
-                        const cliEntry = group.entries.find(entry => entry.form === 'cli');
+                        const cliEntry = group.entries.find(entry => entry.form === 'cli' || entry.form === 'web');
                         const extensionEntry = group.entries.find(entry => entry.form === 'extension');
                         return <section key={group.agent} style={cardStyle} data-partner-agent={group.agent}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -61,7 +61,7 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
                                 {group.entries.some(entry => entry.recommended) && <span style={badgeStyle}>推奨</span>}
                             </div>
                             <div style={slotsStyle}>
-                                {cliEntry && this.renderSlot('CLI', cliEntry)}
+                                {cliEntry && this.renderSlot(cliEntry.form === 'web' ? '作業画面' : 'CLI', cliEntry)}
                                 {extensionEntry && this.renderSlot('拡張機能', extensionEntry)}
                             </div>
                         </section>;
