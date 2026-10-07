@@ -179,6 +179,7 @@ const DAIHON_ATTACHMENT_MODE_PREFERENCE = 'akari.daihon.attachmentMode';
 const DAIHON_HIDDEN_SOURCES_PREFERENCE = 'akari.daihon.hiddenSources';
 const FOCUS_TIMELINE_ITEM_COMMAND_ID = 'akari.timeline.focusItem';
 const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, button.akari-daihon-duplicate, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-tpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
+const ROW_BUTTON_FOCUS_SELECTOR = '.akari-daihon-row-head > button.akari-daihon-speaker, .akari-daihon-row-head > button.akari-daihon-tc, .akari-daihon-row-head > button.akari-daihon-cut, .akari-daihon-row-head > button.akari-daihon-split, .akari-daihon-row-head > button.akari-daihon-gear';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -751,6 +752,7 @@ export class AkariDaihonWidget extends BaseWidget {
             event.stopPropagation();
         }, { capture: true });
         this.rowsNode.addEventListener('pointerover', event => this.handleRowPointerOver(event));
+        this.rowsNode.addEventListener('mousedown', event => this.handleRowButtonMouseDown(event), { capture: true });
         this.rowsNode.addEventListener('pointerdown', event => this.handleWordPointerDown(event), { capture: true });
         this.rowsNode.addEventListener('pointermove', event => this.handleWordPointerMove(event));
         // The annotations keybinding contribution mirrors this event name without a package dependency.
@@ -5242,6 +5244,13 @@ export class AkariDaihonWidget extends BaseWidget {
     protected handleRowPointerDown(event: PointerEvent, id: string): void {
         if (event.button !== 0 || (event.target as Element | null)?.closest(INTERACTIVE_SELECTOR)) return;
         this.rowDrag = { anchorId: id, targetId: id, moved: false };
+        this.rowsNode.focus({ preventScroll: true });
+    }
+
+    protected handleRowButtonMouseDown(event: MouseEvent): void {
+        if (event.button !== 0 || !(event.target instanceof Element)
+            || !event.target.closest(ROW_BUTTON_FOCUS_SELECTOR)) return;
+        event.preventDefault();
         this.rowsNode.focus({ preventScroll: true });
     }
 
