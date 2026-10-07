@@ -158,18 +158,20 @@ test('メモから画面への切替だけ確認し、試し聞きは節を離�
     }
 });
 
-test('区画の設定タブには聞き取り・Jev・マイクの 3 行が出る', async () => {
+test('区画の設定タブには聞き取り・Jev・辞書の実件数が出る', async () => {
     const data = fixture();
     const tab = new SettingsVibeDockTab();
-    Object.assign(tab, data, { commands: { executeCommand() {} } });
+    Object.assign(tab, data, { commands: { executeCommand() {} }, dictionary: { list: async () => ({ user: [{ id: 'one' }], builtin: [] }) } });
     const host = new Node();
     const view = tab.render(host, {});
     await tick();
     const summary = nodes(host).find(node => node.attributes['aria-label'] === '設定の要約');
     assert.equal(summary.children.length, 3);
     assert.match(text(summary), /聞き取り: ライブ文字起こし/);
-    assert.match(text(summary), /Jev: メモのみ/);
-    assert.match(text(summary), /マイク: 許可あり/);
+    assert.match(text(summary), /Jev で画面を動かす/);
+    assert.match(text(summary), /辞書/);
+    assert.match(text(summary), /1/);
+    assert.match(summary.title, /マイク: 許可あり/);
     view.dispose();
 });
 

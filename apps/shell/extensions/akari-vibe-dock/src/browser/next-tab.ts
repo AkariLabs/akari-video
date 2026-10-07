@@ -32,7 +32,7 @@ export function nextTargetLabel(target: unknown): string {
 export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplicationContribution {
     readonly id = 'next';
     readonly label = '次';
-    readonly icon = '次';
+    readonly icon = 'next';
     readonly order = 20;
     @inject(CommandService) protected readonly commands!: CommandService;
     @inject(VibeDockTabs) protected readonly tabs!: VibeDockTabs;
@@ -73,41 +73,43 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
         const paint = (): void => {
             if (disposed) return;
             host.replaceChildren();
-            const heading = document.createElement('div');
-            Object.assign(heading.style, { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' });
-            const title = document.createElement('strong');
-            title.textContent = '次にやること';
             const batch = document.createElement('button');
-            batch.className = 'theia-button secondary';
+            batch.className = 'theia-button secondary small';
             batch.textContent = 'まとめて頼む';
+            batch.title = '選んだタスクをまとめて頼む';
+            batch.setAttribute('aria-label', '選んだタスクをまとめて頼む');
             const eligible = this.data.rows.filter(row => selected.has(row.id) && row.actions.some(action => action.id === 'send'));
-            batch.disabled = eligible.length === 0;
+            batch.hidden = eligible.length === 0;
             batch.addEventListener('click', () => {
                 const ids = eligible.map(row => row.id);
                 if (eligible.some(row => row.actions.find(action => action.id === 'send')?.confirm)
                     && !window.confirm('選んだタスクをパートナーに頼みますか？')) return;
                 void this.commands.executeCommand('akari.tasks.send', { ids }).then(() => this.load());
             });
-            heading.append(title, batch);
-            host.append(heading);
+            host.append(batch);
 
             if (this.data.clipboardPending) {
                 const pending = document.createElement('button');
                 pending.className = 'theia-button quiet';
                 pending.textContent = `貼り付け待ち ${this.data.clipboardPending} 件`;
+                pending.title = pending.textContent;
+                pending.setAttribute('aria-label', pending.textContent);
                 pending.addEventListener('click', () => { void this.commands.executeCommand('akari.tasks.openBoard'); });
                 host.append(pending);
             }
             if (!this.data.rows.length) {
                 const empty = document.createElement('div');
+                empty.className = 'akari-vibe-empty';
                 empty.textContent = '次にやることはありません';
                 host.append(empty);
             }
             for (const row of this.data.rows.slice(0, 7)) {
                 const line = document.createElement('div');
+                line.className = 'akari-vibe-next-row';
                 line.setAttribute('data-task-id', row.id);
-                Object.assign(line.style, { display: 'flex', alignItems: 'center', gap: '6px',
-                    borderBottom: '1px solid var(--akari-line-inner)', padding: '5px 0' });
+                line.setAttribute('data-source', row.source);
+                const bar = document.createElement('span');
+                bar.className = 'akari-vibe-next-bar';
                 const check = document.createElement('input');
                 check.type = 'checkbox';
                 check.setAttribute('aria-label', `${row.id} を選ぶ`);
@@ -115,25 +117,35 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 check.disabled = !row.actions.some(action => action.id === 'send');
                 check.addEventListener('change', () => { check.checked ? selected.add(row.id) : selected.delete(row.id); paint(); });
                 const label = document.createElement('span');
-                label.textContent = `${sourceLabels[row.source] ?? row.source}　${String(row.body ?? '').replace(/\s+/gu, ' ').trim()}`;
+                label.className = 'akari-vibe-next-text';
+                label.textContent = String(row.body ?? '').replace(/\s+/gu, ' ').trim() || row.id;
                 label.title = label.textContent;
-                Object.assign(label.style, { flex: '1', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' });
                 const target = document.createElement('small');
-                target.textContent = nextTargetLabel(row.target) || row.id;
-                target.style.color = 'var(--akari-muted)';
-                line.append(check, label, target);
+                target.textContent = [sourceLabels[row.source] ?? row.source, nextTargetLabel(row.target)].filter(Boolean).join(' · ');
+                label.append(target);
+                const content = document.createElement('span');
+                content.className = 'akari-vibe-next-content';
+                content.append(check, label);
+                line.append(bar, content);
+                const actions = document.createElement('span');
+                actions.className = 'akari-vibe-next-actions';
                 for (const action of row.actions.filter(item => ['send', 'dismiss', 'confirm'].includes(item.id))) {
                     const button = document.createElement('button');
-                    button.className = action.id === 'dismiss' ? 'theia-button quiet danger' : 'theia-button quiet';
+                    button.className = action.id === 'dismiss' ? 'theia-button quiet danger small' : 'theia-button secondary small';
                     button.textContent = action.label;
+                    button.title = action.label;
+                    button.setAttribute('aria-label', action.label);
                     button.addEventListener('click', () => { void this.perform(action, row.id); });
-                    line.append(button);
+                    actions.append(button);
                 }
+                line.append(actions);
                 host.append(line);
             }
             const open = document.createElement('button');
-            open.className = 'theia-button quiet';
+            open.className = 'akari-vibe-nav';
             open.textContent = '専用のタスクボードを開く ›';
+            open.title = '専用のタスクボードを開く';
+            open.setAttribute('aria-label', '専用のタスクボードを開く');
             open.addEventListener('click', () => { void this.commands.executeCommand('akari.tasks.openBoard'); });
             host.append(open);
         };

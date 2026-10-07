@@ -13,6 +13,7 @@ class Node {
     click() { this.fire('click'); }
 }
 globalThis.document = { createElement: tag => new Node(tag) };
+const walk = node => [node, ...node.children.flatMap(walk)];
 const { NowVibeDockTab } = require('../lib/browser/vibe-dock-tabs.js');
 const { VibeDockState } = require('../lib/common/vibe-dock-state.js');
 
@@ -24,8 +25,8 @@ test('Enter はタスク、隣のボタンはすぐ頼む。空と IME 中は無
     Object.assign(tab, { state });
     const host = new Node();
     const view = tab.render(host, {});
-    const input = host.children.find(child => child.tag === 'input');
-    const button = host.children.find(child => child.tag === 'button');
+    const input = walk(host).find(child => child.tag === 'input');
+    const button = walk(host).find(child => child.tag === 'button' && child.textContent === 'すぐ');
     input.fire('keydown', { key: 'Enter', isComposing: false });
     button.click();
     input.value = '最初のタスク';
@@ -34,6 +35,7 @@ test('Enter はタスク、隣のボタンはすぐ頼む。空と IME 中は無
     input.fire('keydown', { key: 'Enter', isComposing: false });
     assert.deepEqual(events, [{ text: '最初のタスク', mode: 'task' }]);
     assert.equal(input.value, '');
+    assert.ok(walk(host).some(node => node.className === 'akari-vibe-utt' && node.children.some(child => child.textContent === '最初のタスク')));
     input.value = 'すぐ頼むタスク';
     button.click();
     assert.deepEqual(events[1], { text: 'すぐ頼むタスク', mode: 'send' });
