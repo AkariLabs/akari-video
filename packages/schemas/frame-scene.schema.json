@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:frame-scene:v0",
+  "title": "AKARI frame scene v0",
+  "type": "object",
+  "required": ["schema", "version", "objects", "scenes"],
+  "properties": {
+    "schema": { "const": "akari.frame-scene" },
+    "version": { "type": "integer", "minimum": 0 },
+    "aspect": { "type": "string", "pattern": "^[1-9][0-9]*:[1-9][0-9]*$" },
+    "world": { "$ref": "#/$defs/world" },
+    "objects": { "type": "array", "items": { "$ref": "#/$defs/object" } },
+    "scenes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/scene" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "at": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 3 },
+    "point": { "oneOf": [{ "$ref": "#/$defs/vec3" }, { "type": "string" }] },
+    "scale": { "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/vec3" }] },
+    "pose": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object", "properties": {
+          "base": { "type": "string" }, "look": { "$ref": "#/$defs/point" },
+          "point_at": { "$ref": "#/$defs/point" },
+          "joints": { "type": "object", "additionalProperties": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } } } }
+        } }
+      ]
+    },
+    "object": {
+      "type": "object", "required": ["id", "kind"],
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "shape" } }, "required": ["kind"] }, "then": { "required": ["shape", "size"] } },
+        { "if": { "properties": { "kind": { "const": "text" } }, "required": ["kind"] }, "then": { "required": ["text", "h"] } },
+        { "if": { "properties": { "kind": { "const": "model" } }, "required": ["kind"] }, "then": { "anyOf": [{ "required": ["asset"] }, { "required": ["src"] }] } },
+        { "if": { "properties": { "kind": { "enum": ["image", "video"] } }, "required": ["kind"] }, "then": { "allOf": [{ "anyOf": [{ "required": ["asset"] }, { "required": ["src"] }] }, { "anyOf": [{ "required": ["w"] }, { "required": ["h"] }] }] } }
+      ],
+      "properties": {
+        "id": { "type": "string" }, "kind": { "enum": ["human", "model", "shape", "text", "image", "video"] },
+        "name": { "type": "string" }, "at": { "$ref": "#/$defs/at" }, "on": { "type": "string" },
+        "ry": { "type": "number" }, "rot": { "$ref": "#/$defs/vec3" },
+        "facing": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+        "h": { "type": "number", "exclusiveMinimum": 0 }, "scale": { "$ref": "#/$defs/scale" },
+        "hidden": { "type": "boolean" }, "asset": { "type": "string" }, "src": { "type": "string" },
+        "pose": { "$ref": "#/$defs/pose" }, "screen": { "type": "object", "properties": { "src": { "type": "string" } } },
+        "shape": { "enum": ["box", "sphere", "cylinder", "plane"] },
+        "size": { "$ref": "#/$defs/vec3" }, "color": { "type": "string" }, "label": { "type": "string" },
+        "text": { "type": "string" }, "bg": { "type": "string" }, "transparent": { "type": "boolean" },
+        "w": { "type": "number", "exclusiveMinimum": 0 }, "screen_of": { "type": "string" },
+        "time": { "type": "number", "minimum": 0 }
+      }
+    },
+    "world": {
+      "type": "object", "properties": {
+        "preset": { "enum": ["white", "gray", "black"] }, "hdri": { "type": "string" },
+        "show": { "type": "boolean" }, "bg": { "type": "string" }, "rot": { "type": "number" },
+        "exposure": { "type": "number", "minimum": 0.2, "maximum": 3 },
+        "floor": { "enum": ["world", "plain"] },
+        "light": { "enum": ["soft", "front", "side", "back", "night"] },
+        "shadows": { "type": "boolean" }
+      }
+    },
+    "camera": {
+      "type": "object", "properties": {
+        "pos": { "$ref": "#/$defs/vec3" }, "look": { "$ref": "#/$defs/point" },
+        "offset": { "$ref": "#/$defs/vec3" },
+        "focal_mm": { "type": "number", "minimum": 12, "maximum": 200 }, "roll": { "type": "number" }
+      }
+    },
+    "setObject": {
+      "type": "object", "properties": {
+        "at": { "$ref": "#/$defs/at" }, "ry": { "type": "number" }, "rot": { "$ref": "#/$defs/vec3" },
+        "facing": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+        "h": { "type": "number", "exclusiveMinimum": 0 }, "scale": { "$ref": "#/$defs/scale" },
+        "hidden": { "type": "boolean" }, "pose": { "$ref": "#/$defs/pose" },
+        "text": { "type": "string" }, "screen": { "type": "object", "properties": { "src": { "type": "string" } } }
+      }, "additionalProperties": false
+    },
+    "annotation": {
+      "type": "object", "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string" }, "type": { "type": "string" },
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "anchor": { "type": "object", "required": ["object"], "properties": { "object": { "type": "string" } } }
+      }
+    },
+    "scene": {
+      "type": "object", "required": ["id"], "properties": {
+        "id": { "type": "string" }, "note": { "type": "string" },
+        "camera": { "$ref": "#/$defs/camera" }, "camera_to": { "$ref": "#/$defs/camera" },
+        "ease": { "enum": ["linear", "in", "out", "inOut"] },
+        "set": { "type": "object", "additionalProperties": { "$ref": "#/$defs/setObject" } },
+        "world": { "$ref": "#/$defs/world" },
+        "annotations": { "type": "array", "items": { "$ref": "#/$defs/annotation" } }
+      }
+    }
+  }
+}

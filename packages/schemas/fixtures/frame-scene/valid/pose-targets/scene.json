@@ -1,0 +1,40 @@
+{
+  "schema": "akari.frame-scene",
+  "version": 0,
+  "objects": [
+    {
+      "id": "p1",
+      "kind": "human",
+      "at": [
+        0,
+        0
+      ],
+      "pose": {
+        "base": "stand",
+        "look": [
+          0,
+          100,
+          0
+        ],
+        "point_at": [
+          20,
+          40,
+          30
+        ]
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s1",
+      "camera": {
+        "pos": [
+          150,
+          140,
+          300
+        ],
+        "look": "p1"
+      }
+    }
+  ]
+}

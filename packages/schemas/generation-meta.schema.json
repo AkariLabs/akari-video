@@ -7,6 +7,45 @@
   "additionalProperties": false,
   "required": ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "history"],
   "properties": {
+    "frame": {
+      "type": "object", "additionalProperties": false, "required": ["version", "content"],
+      "properties": {
+        "version": { "const": 0 },
+        "content": {
+          "type": "object", "additionalProperties": false, "required": ["kind"],
+          "allOf": [{ "if": { "properties": { "kind": { "enum": ["scribble", "scene3d"] } }, "required": ["kind"] }, "then": { "required": ["scene"] } }],
+          "properties": {
+            "kind": { "enum": ["text", "scribble", "scene3d"] },
+            "scene": {
+              "type": "object", "additionalProperties": false, "required": ["path", "id"],
+              "properties": { "path": { "type": "string", "minLength": 1 }, "id": { "type": "string", "minLength": 1 } }
+            },
+            "excerpt": { "type": ["string", "null"] },
+            "keep": { "type": "boolean" }
+          }
+        },
+        "rendered": {
+          "type": "object", "additionalProperties": false, "required": ["scene_sha256", "at", "renderer", "outputs"],
+          "properties": {
+            "scene_sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+            "at": { "type": "string", "format": "date-time" },
+            "renderer": { "type": "string", "minLength": 1 },
+            "outputs": {
+              "type": "array", "items": {
+                "type": "object", "additionalProperties": false, "required": ["role", "path", "sha256"],
+                "properties": {
+                  "role": { "enum": ["still", "still_annotated", "first", "last", "reference_video"] },
+                  "path": { "type": "string", "minLength": 1 },
+                  "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+                  "duration_s": { "type": "number", "exclusiveMinimum": 0 },
+                  "fps": { "type": "number", "exclusiveMinimum": 0 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "next": { "$ref": "#/$defs/next" },
     "placeholder": { "$ref": "#/$defs/placeholder" },
     "version": { "const": 1 },
