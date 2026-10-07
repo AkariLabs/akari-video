@@ -114,5 +114,13 @@
     "name": "Grok Build CLI",
     "description": "xAI の Grok Build（grok）を PTY タブで直接使います",
     "recommended": false
+  },
+  {
+    "id": "deepseek/dsh-cli",
+    "agent": "deepseek",
+    "form": "cli",
+    "name": "DeepSeek Harness CLI",
+    "description": "DeepSeek Harness（dsh）を PTY タブから起動し、ブラウザの作業画面で使います",
+    "recommended": false
   }
 ]

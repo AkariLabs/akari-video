@@ -31,16 +31,18 @@ export function resolvePartnerProcessLaunch(
     platform: NodeJS.Platform = process.platform,
     env: NodeJS.ProcessEnv = process.env
 ): Pick<PartnerLaunchPlan, 'executablePath' | 'args'> {
+    // tui プロファイルが将来同梱されたら、DeepSeek の起動引数を ['tui'] に差し替える。
+    const args = agent === 'deepseek' ? ['web'] : [];
     // node-pty は Windows の .cmd/.bat を CreateProcess で直接起動できない。
     // エージェントを問わず .cmd/.bat shim は cmd.exe を器にして実行する。
     if (platform === 'win32' && resolvedExecutablePath
         && /\.(?:cmd|bat)$/i.test(resolvedExecutablePath)) {
         return {
             executablePath: env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'),
-            args: ['/d', '/s', '/c', resolvedExecutablePath]
+            args: ['/d', '/s', '/c', resolvedExecutablePath, ...args]
         };
     }
-    return { args: [] };
+    return { args };
 }
 
 @injectable()
@@ -122,7 +124,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
     async prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan> {
         const processLaunch = resolvePartnerProcessLaunch(agent, resolvedExecutablePath);
         const cliPathEnv = this.resolveCliPathEnv();
-        const privateNodePathEnv = agent === 'commandcode' || agent === 'pi' ? buildPrivateNodePathEnv({
+        const privateNodePathEnv = agent === 'commandcode' || agent === 'pi' || agent === 'deepseek' ? buildPrivateNodePathEnv({
             agent,
             akariHome: resolveAkariHomeDir(),
             platform: process.platform,

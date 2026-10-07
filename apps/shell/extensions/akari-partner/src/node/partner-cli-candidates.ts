@@ -13,7 +13,7 @@ export function partnerCliCandidates(agent: PartnerAgentId, options: {
     const { homeDir, platform, env } = options;
     const names: Record<PartnerAgentId, string> = {
         claude: 'claude', codex: 'codex', opencode: 'opencode', commandcode: 'command-code',
-        pi: 'pi', devin: 'devin', copilot: 'copilot', cursor: 'cursor-agent', antigravity: 'agy', grok: 'grok'
+        pi: 'pi', deepseek: 'dsh', devin: 'devin', copilot: 'copilot', cursor: 'cursor-agent', antigravity: 'agy', grok: 'grok'
     };
     const name = names[agent];
     const win = platform === 'win32';
@@ -38,7 +38,7 @@ export function partnerCliCandidates(agent: PartnerAgentId, options: {
         extra.push(path.join(homeDir, '.opencode', 'bin'));
     } else if (agent === 'grok') {
         extra.push(path.join(homeDir, '.grok', 'bin'));
-    } else if (agent === 'commandcode' || agent === 'pi') {
+    } else if (agent === 'commandcode' || agent === 'pi' || agent === 'deepseek') {
         if (win) {
             extra.push(path.join(homeDir, '.local'), path.join(env.APPDATA || path.join(homeDir, 'AppData', 'Roaming'), 'npm'));
         } else {
