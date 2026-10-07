@@ -27,6 +27,14 @@ export interface BootstrapConsentRequiredResult {
 
 export type PartnerBootstrapOutcome = BootstrapResult | BootstrapConsentRequiredResult;
 
+export interface PartnerWebLaunch {
+    url: string;
+    pid: number;
+    provider: 'deepseek-official' | 'opencode-go';
+    providerNote: string;
+    guidance?: string;
+}
+
 export interface BinaryVerificationRequest {
     packagePath: string;
     executableNames: string[];
@@ -128,6 +136,9 @@ export interface AkariPartnerServer {
      */
     ensureCli(): Promise<EnsureCliResult>;
     prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan>;
+    startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string): Promise<PartnerWebLaunch>;
+    stopWebPartner(pid: number): Promise<void>;
+    isWebPartnerRunning(pid: number): Promise<boolean>;
     getRenderPins(): Promise<RenderPins>;
     /**
      * 接続成立時にアプリ単位マーカーを書き、書いた内容を返す。フロントエンドが

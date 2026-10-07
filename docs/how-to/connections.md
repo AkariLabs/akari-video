@@ -46,13 +46,16 @@ too, e.g. "make local whisper the default for transcription."
 
 ## Partner agents (the app's connect button)
 
-The desktop shell's connect button opens a partner catalog: each card connects one
-agent CLI (in a PTY tab) or one editor extension. The current catalog ships
-**11 CLIs** — Claude Code, Codex, opencode, Command Code, Pi, Devin, Copilot, Cursor,
-Antigravity, Grok Build, and DeepSeek Harness — plus the Claude Code and Codex extensions. Command
-Code requires Node.js 22 or newer; when it is not installed, the shell uses the
-official `npm install -g command-code` package flow. DeepSeek Harness uses the npm
-installation path (`npm install -g @deepseek-ai/dsh`) and launches `dsh web` for a browser workspace.
+The desktop shell's connect button opens a partner catalog. It offers
+**10 CLIs** in PTY tabs — Claude Code, Codex, opencode, Command Code, Pi,
+Devin, Copilot, Cursor, Antigravity, and Grok Build — plus the Claude Code
+and Codex editor extensions. Command Code requires Node.js 22 or newer;
+when it is not installed, the shell uses the official
+`npm install -g command-code` package flow. DeepSeek Harness is installed
+through npm (`npm install -g @deepseek-ai/dsh`) and opens its work screen
+in the right panel without opening a browser. Its workspace is the
+currently open project folder. The shell automatically detects an
+OpenCode Go login or a DeepSeek API key and chooses the connection.
 The catalog is data-driven
 (`partner-catalog.json`) and grows over releases, so treat this list as a snapshot,
 not a promise. Whichever partner you connect, everything converges on the same file

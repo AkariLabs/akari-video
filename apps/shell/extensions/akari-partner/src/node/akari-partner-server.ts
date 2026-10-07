@@ -1,5 +1,8 @@
 import { injectable } from '@theia/core/shared/inversify';
 import { spawnSync } from 'child_process';
+import { readFileSync, appendFileSync } from 'fs';
+import { homedir } from 'os';
+import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import { existsSync, promises as fs } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,14 +16,18 @@ import {
     PartnerBootstrapOutcome,
     PartnerConnectionMarker,
     PartnerLaunchPlan,
+    PartnerWebLaunch,
     RenderPins
 } from '../common/akari-partner-protocol';
 import { buildPartnerConnectionMarker } from '../common/partner-connection-marker';
 import { bootstrapRunner, partnerInstallDisclosure } from './bootstrap-runner';
 import { spawnBootstrapProcess } from './bootstrap-process';
 import { partnerCliCandidates } from './partner-cli-candidates';
-import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli } from './cli-provisioner';
+import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli, readInstalledAppVersion } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
+import { buildDshPatchYaml, buildDshSessionId, detectDeepSeekConnection } from './dsh-patch';
+import { launchDshWeb } from './dsh-web-launcher';
+import { DSH_CWD_WORKSPACE_PLUGIN_SOURCE } from './dsh-cwd-workspace-plugin';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
@@ -32,7 +39,7 @@ export function resolvePartnerProcessLaunch(
     env: NodeJS.ProcessEnv = process.env
 ): Pick<PartnerLaunchPlan, 'executablePath' | 'args'> {
     // tui プロファイルが将来同梱されたら、DeepSeek の起動引数を ['tui'] に差し替える。
-    const args = agent === 'deepseek' ? ['web'] : [];
+    const args: string[] = [];
     // node-pty は Windows の .cmd/.bat を CreateProcess で直接起動できない。
     // エージェントを問わず .cmd/.bat shim は cmd.exe を器にして実行する。
     if (platform === 'win32' && resolvedExecutablePath
@@ -46,10 +53,93 @@ export function resolvePartnerProcessLaunch(
 }
 
 @injectable()
-export class AkariPartnerServerImpl implements AkariPartnerServer {
+export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplicationContribution {
+    private readonly webPids = new Set<number>();
+
+    constructor() {
+        process.once('exit', () => this.stopAllWebPartners());
+    }
+
+    onStop(): void { this.stopAllWebPartners(); }
+
+    private stopAllWebPartners(): void {
+        for (const pid of this.webPids) this.killWebProcess(pid);
+        this.webPids.clear();
+    }
+
+    private killWebProcess(pid: number): void {
+        if (process.platform === 'win32') {
+            try { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }); } catch { /* Already stopped. */ }
+            return;
+        }
+        try { process.kill(-pid, 'SIGTERM'); }
+        catch { try { process.kill(pid, 'SIGTERM'); } catch { /* Already stopped. */ } }
+    }
+
+    async stopWebPartner(pid: number): Promise<void> {
+        if (!this.webPids.delete(pid)) return;
+        this.killWebProcess(pid);
+    }
+
+    async isWebPartnerRunning(pid: number): Promise<boolean> {
+        if (!this.webPids.has(pid)) return false;
+        try { process.kill(pid, 0); return true; }
+        catch { this.webPids.delete(pid); return false; }
+    }
+
+    async startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string): Promise<PartnerWebLaunch> {
+        if (agent !== 'deepseek') throw new Error('Web partner is available only for DeepSeek');
+        const cwd = workspaceRootUri ? this.toFsPath(workspaceRootUri) : homedir();
+        const partnersDir = path.join(resolveAkariHomeDir(), 'partners', 'deepseek');
+        await fs.mkdir(partnersDir, { recursive: true });
+        const pluginPath = path.join(partnersDir, 'akari-cwd-workspace.mjs');
+        await fs.writeFile(pluginPath, DSH_CWD_WORKSPACE_PLUGIN_SOURCE);
+        const connection = detectDeepSeekConnection({
+            env: process.env, homeDir: homedir(), readFile: file => readFileSync(file, 'utf8')
+        });
+        const appVersion = await readInstalledAppVersion(resolveAkariHomeDir()) ?? 'dev';
+        const patchPath = path.join(partnersDir, 'akari.patch.yml');
+        await fs.writeFile(patchPath, buildDshPatchYaml({
+            pluginPath, provider: connection.provider, appVersion, sessionId: buildDshSessionId(cwd)
+        }), { mode: 0o600 });
+        await fs.chmod(patchPath, 0o600).catch(() => undefined);
+        const launch = await this.prepareLaunch(agent, executablePath);
+        const env = { ...process.env, ...launch.env, ...connection.secret, AKARI_PARTNER_PARENT_PID: String(process.pid) };
+        if (connection.provider !== 'opencode-go') delete env.OPENCODE_GO_API_KEY;
+        const logPath = path.join(partnersDir, 'web.log');
+        const log = (line: string): void => {
+            let safe = line;
+            for (const key of [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]) {
+                if (key) safe = safe.replaceAll(key, '***');
+            }
+            appendFileSync(logPath, safe + '\n');
+        };
+        let result: { url: string; pid: number };
+        try {
+            result = await launchDshWeb({
+                executablePath, cwd, env, patchPath, platform: process.platform, timeoutMs: 60_000,
+                log, stop: pid => this.killWebProcess(pid), onExit: pid => this.webPids.delete(pid)
+            });
+        } catch (error) {
+            let message = this.errorMessage(error);
+            for (const key of [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]) {
+                if (key) message = message.replaceAll(key, '***');
+            }
+            throw new Error(message);
+        }
+        try { process.kill(result.pid, 0); }
+        catch { throw new Error('dsh web exited after startup'); }
+        this.webPids.add(result.pid);
+        return { ...result, provider: connection.provider, providerNote: connection.note, guidance: connection.guidance };
+    }
 
     async getInstallDisclosure(agent: PartnerAgentId): Promise<PartnerInstallDisclosure> {
-        return partnerInstallDisclosure(agent);
+        const disclosure = partnerInstallDisclosure(agent);
+        if (agent !== 'deepseek') return disclosure;
+        const connection = detectDeepSeekConnection({
+            env: process.env, homeDir: homedir(), readFile: file => readFileSync(file, 'utf8')
+        });
+        return { ...disclosure, environment: disclosure.environment + '\n' + connection.note };
     }
 
     async getPlatformKey(): Promise<string> {

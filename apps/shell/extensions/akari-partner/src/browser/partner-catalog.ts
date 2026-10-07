@@ -21,6 +21,10 @@ export interface PartnerCliCatalogEntry extends PartnerCatalogEntryBase {
     form: 'cli';
 }
 
+export interface PartnerWebCatalogEntry extends PartnerCatalogEntryBase {
+    form: 'web';
+}
+
 export interface PartnerExtensionCatalogEntry extends PartnerCatalogEntryBase {
     form: 'extension';
     extensionId: string;
@@ -28,7 +32,7 @@ export interface PartnerExtensionCatalogEntry extends PartnerCatalogEntryBase {
     binaryVerification: Record<string, PlatformBinaryVerification>;
 }
 
-export type PartnerCatalogEntry = PartnerCliCatalogEntry | PartnerExtensionCatalogEntry;
+export type PartnerCatalogEntry = PartnerCliCatalogEntry | PartnerWebCatalogEntry | PartnerExtensionCatalogEntry;
 
 export const PARTNER_CATALOG = rawCatalog as PartnerCatalogEntry[];
 

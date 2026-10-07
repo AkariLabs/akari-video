@@ -1,7 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
-import { ApplicationShell } from '@theia/core/lib/browser';
+import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { formatExtensionUpdateNotice } from '../common/extension-freshness';
@@ -26,12 +26,14 @@ import {
     PartnerCatalogEntry,
     PartnerCliCatalogEntry,
     PartnerExtensionCatalogEntry,
+    PartnerWebCatalogEntry,
     PlatformBinaryVerification
 } from './partner-catalog';
 import { PartnerSessionService, PartnerTerminal } from './partner-session-service';
 import { PartnerChannel, TerminalPartnerChannel } from './partner-channel';
 import { AkariPartnerConnectDialog } from './akari-partner-connect-dialog';
 import { AkariPartnerInstallDialog } from './akari-partner-install-dialog';
+import { PartnerWebWidget } from './akari-partner-web-widget';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -113,6 +115,9 @@ export class AkariPartnerWidget extends ReactWidget {
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
 
+    @inject(WidgetManager)
+    protected readonly widgetManager!: WidgetManager;
+
     @inject(PartnerSessionService)
     protected readonly sessionService!: PartnerSessionService;
 
@@ -139,6 +144,7 @@ export class AkariPartnerWidget extends ReactWidget {
     // チャットガワ v0（task.md 2026-07-21-partner-pane 指示2/5）状態。
     // task/2026-07-25-partner-raw-terminal-default: 既定経路からは外れたが
     // renderChat() 自体は温存するため状態は残す（削除禁止）。
+    protected webWidget?: PartnerWebWidget;
     protected terminal?: TerminalWidget;
     protected channel?: PartnerChannel;
     protected messages: ChatMessage[] = [];
@@ -411,6 +417,10 @@ export class AkariPartnerWidget extends ReactWidget {
             await this.beginCli(entry);
             return;
         }
+        if (entry.form === 'web') {
+            await this.beginWeb(entry);
+            return;
+        }
         if (this.extensionsModel.isInstalled(entry.extensionId)) {
             const outcome = await this.extensionUpdater.checkAndUpdate(entry, (status, detail) => this.setProgress(entry, status, detail));
             if (outcome.kind === 'updated') {
@@ -429,6 +439,62 @@ export class AkariPartnerWidget extends ReactWidget {
             return;
         }
         await this.beginExtension(entry);
+    }
+
+    protected async beginWeb(entry: PartnerWebCatalogEntry): Promise<void> {
+        const existing = this.webWidget;
+        try {
+            if (existing?.isRunning() && existing.pid && await this.partnerServer.isWebPartnerRunning(existing.pid)) {
+                this.selected = entry;
+                await this.shell.activateWidget(existing.id);
+                return;
+            }
+        } catch (error) {
+            this.setFailure(entry, entry.name + ' を開けませんでした', this.errorMessage(error));
+            return;
+        }
+        this.shell.activateWidget(this.id);
+        this.selected = entry;
+        this.installCancelledNotice = '';
+        this.setProgress(entry, 'CLI を確認しています…', entry.id);
+        try {
+            const roots = await this.workspaceService.roots;
+            const cwd = roots[0]?.resource.toString();
+            let bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd);
+            if ('consentRequired' in bootstrap) {
+                const accepted = await new AkariPartnerInstallDialog(bootstrap.disclosure, this.windowService).open();
+                if (accepted !== true) {
+                    this.installCancelledNotice = '導入を中止しました。';
+                    this.setEntryFlow(entry, { state: 'idle', status: '', detail: '', warning: '' });
+                    return;
+                }
+                bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd, true);
+                if ('consentRequired' in bootstrap) throw new Error('導入には同意が必要です');
+            }
+            this.executablePath = bootstrap.executablePath;
+            this.setProgress(entry, 'CLI を準備しています…', bootstrap.executablePath);
+            await this.ensureCliProvisioned(entry);
+            this.setProgress(entry, '作業画面を起動しています…', entry.name);
+            const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath);
+            try {
+                const widget = await this.widgetManager.getOrCreateWidget<PartnerWebWidget>(PartnerWebWidget.ID);
+                await widget.open(entry.agent, launch);
+                this.webWidget = widget;
+                if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 50 });
+                await this.shell.activateWidget(widget.id);
+            } catch (error) {
+                await window.electronAkariPartner.web.close().catch(() => undefined);
+                await this.partnerServer.stopWebPartner(launch.pid);
+                throw error;
+            }
+            await this.markCloudConnectionOk();
+            try { await this.partnerServer.recordConnection(entry.agent, bootstrap.executablePath); }
+            catch (error) { console.warn('[akari-partner] partner connection marker skipped:', error); }
+            this.setComplete(entry, 'DeepSeek Harness を開始しました', launch.providerNote);
+        } catch (error) {
+            this.setFailure(entry, entry.name + ' のセットアップに失敗しました', this.errorMessage(error));
+            console.error('[akari-partner] web onboarding failed:', error);
+        }
     }
 
     protected async beginCli(entry: PartnerCliCatalogEntry): Promise<void> {
@@ -506,7 +572,7 @@ export class AkariPartnerWidget extends ReactWidget {
      * 前置されるようにする。fail-soft — 失敗/未配備でも例外を投げず、ステータスカードに
      * 「未配備（接続は続行）」を出すだけで PTY 起動フロー自体は必ず続行する。
      */
-    protected async ensureCliProvisioned(entry: PartnerCliCatalogEntry): Promise<void> {
+    protected async ensureCliProvisioned(entry: PartnerCliCatalogEntry | PartnerWebCatalogEntry): Promise<void> {
         this.setProgress(entry, 'AKARI CLI を準備しています…（約 46MB・初回のみ）', '同梱ランタイムで確認中');
         try {
             const cli = await this.partnerServer.ensureCli();
@@ -1011,6 +1077,7 @@ export class AkariPartnerWidget extends ReactWidget {
         if (entry.form === 'extension') {
             return this.extensionsModel.isInstalled(entry.extensionId);
         }
+        if (entry.form === 'web') return !!this.webWidget?.isRunning();
         const terminal = this.liveTerminals.get(entry.id);
         return !!terminal && !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0;
     }
@@ -1119,7 +1186,7 @@ export class AkariPartnerWidget extends ReactWidget {
             <div style={styles.container}>
                 <div style={styles.heroIcon}><span className='codicon codicon-add' /></div>
                 <h2 style={styles.heading}>パートナーを追加</h2>
-                <p style={styles.lead}>CLI または公式拡張を選んで、右パネルに追加します。</p>
+                <p style={styles.lead}>CLI・作業画面・公式拡張を選んで、右パネルに追加します。</p>
 
                 <div style={styles.buttonStack}>
                     {PARTNER_CATALOG.reduce<Array<{
@@ -1137,7 +1204,7 @@ export class AkariPartnerWidget extends ReactWidget {
                         const lastAnswer = typeof window === 'undefined' ? undefined
                             : (window as Window & { akariOnboardingAnswer?: string }).akariOnboardingAnswer;
                         const chosenAgent = lastAnswer === 'claude' ? 'claude' : lastAnswer === 'chatgpt' ? 'codex' : lastAnswer === 'google' ? 'antigravity' : undefined;
-                        const cliEntry = group.entries.find(entry => entry.form === 'cli');
+                        const cliEntry = group.entries.find(entry => entry.form === 'cli' || entry.form === 'web');
                         const extensionEntry = group.entries.find(entry => entry.form === 'extension');
                         const rowEntries = [cliEntry, extensionEntry].filter(
                             (entry): entry is PartnerCatalogEntry => entry !== undefined
@@ -1155,7 +1222,7 @@ export class AkariPartnerWidget extends ReactWidget {
                                             minWidth: 0
                                         }}
                                         data-partner-entry={entry.id}
-                                        data-akari-onboarding-target={entry.form === 'cli' ? `partner-${entry.agent}` : undefined}
+                                        data-akari-onboarding-target={entry.form === 'cli' || entry.form === 'web' ? `partner-${entry.agent}` : undefined}
                                         data-partner-form={entry.form}
                                         data-partner-action={this.entryActionLabel(entry)}
                                         disabled={flow.state === 'working'}

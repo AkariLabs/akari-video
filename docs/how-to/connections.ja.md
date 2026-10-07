@@ -44,12 +44,16 @@ doctor は各 provider の結果を由来レイヤー（project / workspace / �
 
 ## パートナーエージェント（アプリの接続ボタン）
 
-デスクトップシェルの接続ボタンはパートナーカタログを開きます。カードは
-エージェント CLI（PTY タブで動く）またはエディタ拡張 1 つに対応します。現在のカタログは
-**CLI 11 種** — Claude Code・Codex・opencode・Command Code・Pi・Devin・Copilot・Cursor・Antigravity・
-Grok Build・DeepSeek Harness — と Claude Code / Codex の拡張 2 種を同梱しています。Command Code は Node.js 22
-以上が必要で、未導入時は公式の `npm install -g command-code` パッケージ経路をシェルが使います。
-DeepSeek Harness は npm 経路（`npm install -g @deepseek-ai/dsh`）で導入し、`dsh web` でブラウザの作業画面を起動します。
+デスクトップシェルの接続ボタンはパートナーカタログを開きます。
+現在のカタログには、PTY タブで動く **CLI 10 種** — Claude Code・Codex・
+opencode・Command Code・Pi・Devin・Copilot・Cursor・Antigravity・Grok Build —
+と Claude Code / Codex のエディタ拡張 2 種があります。
+Command Code は Node.js 22 以上が必要で、未導入時は公式の
+`npm install -g command-code` パッケージ経路をシェルが使います。
+DeepSeek Harness は npm 経路（`npm install -g @deepseek-ai/dsh`）で導入し、
+ブラウザを開かず右パネルの作業画面に表示します。作業対象は開いている
+プロジェクトのフォルダです。OpenCode Go のログインまたは DeepSeek の
+API キーを自動検出して接続先を選びます。
 カタログはデータ駆動
 （`partner-catalog.json`）でリリースごとに増えるため、この一覧はスナップショットです。
 どのパートナーから接続しても、最終的に同じ `.akari/` 配下のファイル契約に収束します。

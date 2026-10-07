@@ -116,11 +116,11 @@
     "recommended": false
   },
   {
-    "id": "deepseek/dsh-cli",
+    "id": "deepseek/dsh-web",
     "agent": "deepseek",
-    "form": "cli",
-    "name": "DeepSeek Harness CLI",
-    "description": "DeepSeek Harness（dsh）を PTY タブから起動し、ブラウザの作業画面で使います",
+    "form": "web",
+    "name": "DeepSeek Harness",
+    "description": "DeepSeek Harness の作業画面を右パネルに開きます。作業対象は開いているプロジェクトです",
     "recommended": false
   }
 ]
