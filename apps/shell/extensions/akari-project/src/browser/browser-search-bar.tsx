@@ -5,6 +5,7 @@ import { AKARI_BORDER, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/
 
 interface Props {
     engines: readonly BrowserEngine[]; selected: string; query: string; address: string; loading: boolean;
+    hasView: boolean; pickMode: boolean; onPickMode(on: boolean): void;
     onSelect(id: string): void; onQuery(value: string): void; onSearch(): void;
     onBack(): void; onForward(): void; onReload(): void; onClearHistory(): void;
 }
@@ -97,9 +98,14 @@ export function BrowserSearchBar(props: Props): React.ReactElement {
                 onChange={event => props.onQuery(event.currentTarget.value)}
                 onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) props.onSearch(); }} />
             <button type='button' className='theia-button' aria-label='検索' onClick={props.onSearch}>検索</button>
-            <button type='button' className='theia-button secondary' aria-label='選ぶ' disabled
-                data-akari-browser-pick-mode='off' title='画像の取り込みはまだ使えません'>選ぶ</button>
+            <button type='button' className={`theia-button ${props.pickMode ? '' : 'secondary'}`} aria-label='選ぶ'
+                aria-pressed={props.pickMode} disabled={!props.hasView} title={!props.hasView ? '検索してから使えます' : undefined}
+                data-akari-browser-pick-mode={props.pickMode ? 'on' : 'off'}
+                onClick={() => props.onPickMode(!props.pickMode)}>選ぶ</button>
         </div>
+        {props.pickMode && <div style={{ padding: '3px 8px', color: 'var(--akari-muted)', fontSize: 11 }}>
+            画像をクリックすると取り込みます（大きく開いてから選ぶと原寸に近づきます）
+        </div>}
         {engineMenu && hidden.length > 0 && createPortal(<div data-akari-browser-menu className='akari-browser-popup'
             role='menu' aria-label='検索サイト' style={{ left: menuBox.left, top: menuBox.top }}>
             {(collapsed ? props.engines : hidden).map(engine => <button key={engine.id} type='button'

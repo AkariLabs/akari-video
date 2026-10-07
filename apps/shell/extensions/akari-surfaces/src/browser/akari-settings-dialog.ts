@@ -646,7 +646,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 if (!widget.isAttached) { await this.shell.addWidget(widget, { area: 'main' }); }
                 await this.shell.activateWidget(widget.id);
             }, { small: true }))),
-        groupCard('ふるまい', this.preferenceSwitch(AKARI_PARTNER_REOPEN, '起動したら前回のパートナーを開く', true, '右のレールの線の上に並べる')));
+        groupCard('ふるまい', this.preferenceSwitch(AKARI_PARTNER_REOPEN, '起動したら前回のパートナーを開く', true,
+            'プロジェクトを開くと前回のパートナーを開きます。タブを閉じたプロジェクトでは次回は開きません')));
     }
 
     protected partnerRow(id: keyof typeof PARTNER_CLI_ICON_CLASSES, name: string, state: string, sub: string,

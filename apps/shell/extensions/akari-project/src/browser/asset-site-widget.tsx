@@ -13,7 +13,7 @@ import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 import { BrowserConfig, BrowserEngine, buildSearchUrl, validUserEngines } from '../common/browser-engines';
 import { BrowserSearchBar } from './browser-search-bar';
 import { BROWSER_HOST_GUARD_EVENT, BROWSER_HOST_GUARD_QUERY_EVENT } from './browser-host-guard-contribution';
-import { AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
+import { AKARI_BORDER, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 const layoutCss = `
 .akari-asset-site-browser .akari-site-body { display:flex; flex:1 1 auto; min-height:0; min-width:0; overflow:hidden; }
@@ -45,6 +45,10 @@ export class AssetSiteWidget extends ReactWidget {
     private browserError = '';
     private browserLoading = false;
     private pickMode = false;
+    private scratchNotice = '';
+    private scratchNoticeThumb?: string;
+    private scratchNoticeVersion = 0;
+    private scratchNoticeTimer?: ReturnType<typeof setTimeout>;
     private warnedSettings = new Set<string>();
     private snapshot?: string;
     private guardQueued = Promise.resolve();
@@ -68,6 +72,8 @@ export class AssetSiteWidget extends ReactWidget {
         window.addEventListener('resize', this.onWindowResize);
         window.addEventListener(BROWSER_HOST_GUARD_EVENT, this.onHostGuard);
         this.disposed.connect(() => { if (this.ticker) clearInterval(this.ticker); this.unsubscribe?.();
+            this.scratchNoticeVersion++;
+            if (this.scratchNoticeTimer) clearTimeout(this.scratchNoticeTimer);
             window.removeEventListener('resize', this.onWindowResize);
             window.removeEventListener(BROWSER_HOST_GUARD_EVENT, this.onHostGuard);
             this.resizeObserver?.disconnect();
@@ -80,8 +86,16 @@ export class AssetSiteWidget extends ReactWidget {
         this.listing = listing; this.address = url ?? listing.site.entry_url; this.agentOpened = agent;
         this.browserView = false; this.snapshot = undefined; this.lastBounds = undefined;
         this.pending = undefined; this.title.label = listing.site.name;
-        await window.electronAkariProject.assetSite.open(listing.site, this.address, agent);
+        this.update();
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const rect = this.host?.getBoundingClientRect();
+        const bounds = rect ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height,
+            visible: this.isVisible && rect.width > 0 && rect.height > 0 } : undefined;
+        const openWithBounds = window.electronAkariProject.assetSite.open as (site: typeof listing.site, url: string,
+            agent?: boolean, rect?: typeof bounds) => Promise<void>;
+        await openWithBounds(listing.site, this.address, agent, this.mode === 'open' ? bounds : undefined);
         this.browserView = this.mode === 'open';
+        this.lastBounds = undefined;
         this.update();
         await this.updateBounds();
         window.dispatchEvent(new CustomEvent(BROWSER_HOST_GUARD_QUERY_EVENT));
@@ -152,7 +166,12 @@ export class AssetSiteWidget extends ReactWidget {
         if (!this.browserConfig) throw new Error('ブラウザの設定ファイルが見つかりません');
         this.browserError = ''; this.browserLoading = true; this.update();
         if (this.browserView) await window.electronAkariProject.assetSite.navigate(url);
-        else { await window.electronAkariProject.assetSite.open(this.browserConfig.open_web, url);
+        else { const rect = this.host?.getBoundingClientRect();
+            const bounds = rect ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height,
+                visible: this.isVisible && rect.width > 0 && rect.height > 0 } : undefined;
+            const openWithBounds = window.electronAkariProject.assetSite.open as (
+                site: typeof this.browserConfig.open_web, url: string, agent?: boolean, rect?: typeof bounds) => Promise<void>;
+            await openWithBounds(this.browserConfig.open_web, url, false, bounds);
             this.browserView = true; }
         this.address = url; this.update(); await this.updateBounds();
         window.dispatchEvent(new CustomEvent(BROWSER_HOST_GUARD_QUERY_EVENT));
@@ -167,6 +186,7 @@ export class AssetSiteWidget extends ReactWidget {
         this.selectedEngine = engine.id; this.query = query;
         try { localStorage.setItem('akari.browser.recentEngine', engine.id); } catch { /* Storage can be unavailable. */ }
         await this.openBrowserUrl(built.url);
+        await window.electronAkariProject.assetSite.searchContext({ engine: engine.id, query });
         return 'ok';
     }
 
@@ -200,6 +220,33 @@ export class AssetSiteWidget extends ReactWidget {
             void this.updateBounds();
         }
         if (event.type === 'pickMode') this.pickMode = Boolean(event.on);
+        if (event.type === 'scratch') {
+            const noticeVersion = ++this.scratchNoticeVersion;
+            this.scratchNoticeThumb = undefined;
+            const reasons: Record<string, string> = { 'blocked-host': '安全でない接続先です', 'bad-scheme': '対応していないアドレスです',
+                'too-many-redirects': '転送が多すぎます', 'too-large': '画像が大きすぎます', timeout: '時間がかかりすぎました',
+                'http-error': '画像を取得できませんでした', 'not-an-image': '画像ではありません', network: '通信できませんでした' };
+            this.scratchNotice = event.result === 'duplicate' ? 'すでに取り込み済みです'
+                : event.result === 'added' ? event.flags?.includes('injection-suspect')
+                    ? 'このページに指示のような文が含まれています（取り込みは済んでいます）'
+                    : event.quality === 'thumbnail'
+                        ? '小さい画像を取り込みました。ページで大きく開いてから、もう一度選ぶと原寸に近づきます'
+                        : '画像を取り込みました — 渡すに入れました（一時取り込み）'
+                    : event.unresolved === 'not-loaded' ? 'この画像は取り込めません（まだ読み込まれていません。少し待ってからもう一度）'
+                        : event.unresolved === 'unsupported' ? 'この画像は取り込めません（対応していない形式です）'
+                            : `取り込めませんでした: ${reasons[event.reason ?? ''] ?? '画像を取得できませんでした'}`;
+            if (this.scratchNoticeTimer) clearTimeout(this.scratchNoticeTimer);
+            this.scratchNoticeTimer = setTimeout(() => { if (noticeVersion !== this.scratchNoticeVersion) return;
+                this.scratchNoticeVersion++; this.scratchNotice = ''; this.scratchNoticeThumb = undefined; this.update(); }, 6000);
+            if (event.result === 'added' && event.id) {
+                const list = window.electronAkariProject?.scratch?.list();
+                if (list) void list.then(items => {
+                    if (noticeVersion !== this.scratchNoticeVersion) return;
+                    this.scratchNoticeThumb = items.find(item => item.id === event.id)?.thumb;
+                    this.update();
+                }).catch(() => undefined);
+            }
+        }
         if (event.type === 'received' && event.paths?.length) this.pending = {
             paths: event.paths, name: event.name ?? '素材', sourceUrl: event.url ?? this.address
         };
@@ -248,6 +295,7 @@ export class AssetSiteWidget extends ReactWidget {
             `}</style>
             {this.browserConfig ? <BrowserSearchBar engines={this.browserEngines} selected={this.selectedEngine}
                 query={this.query} address={this.address} loading={this.browserLoading}
+                hasView={this.browserView} pickMode={this.pickMode} onPickMode={on => { void this.setPickMode(on); }}
                 onSelect={id => { this.selectedEngine = id; this.update(); }}
                 onQuery={value => { this.query = value; this.update(); }}
                 onSearch={() => { void this.search(this.selectedEngine, this.query).then(code => {
@@ -295,6 +343,16 @@ export class AssetSiteWidget extends ReactWidget {
                 {this.snapshot && <img src={this.snapshot} alt='' aria-hidden='true'
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill' }} />}
             </div></div>
+            <output data-akari-scratch-notice role='status' aria-live='polite' style={{ display: 'flex', alignItems: 'center',
+                alignSelf: 'center', boxSizing: 'border-box', maxWidth: 'calc(100% - 24px)', gap: 8,
+                margin: this.scratchNotice ? '8px 12px' : 0, padding: this.scratchNotice ? '8px 12px' : 0,
+                border: this.scratchNotice ? AKARI_BORDER.edge : undefined,
+                borderRadius: AKARI_RADIUS.panel, background: this.scratchNotice ? AKARI_SURFACE.raised : undefined,
+                color: AKARI_INK, fontSize: 12 }}>
+                {this.scratchNoticeThumb && <img src={this.scratchNoticeThumb} alt='' style={{ width: 28, height: 28,
+                    flex: 'none', borderRadius: AKARI_RADIUS.chip, objectFit: 'cover' }} />}
+                <span>{this.scratchNotice}</span>
+            </output>
         </div>;
         const listing = this.listing;
         if (!listing) return <div>素材サイトを開いています…</div>;

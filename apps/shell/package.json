@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "1.2.0-beta.3",
+  "version": "1.2.0-beta.4",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -63,6 +63,19 @@
         "preferences": {
           "security.workspace.trust.enabled": false,
           "editor.unusualLineTerminators": "off"
+        },
+        "electron": {
+          "windowOptions": {
+            "webPreferences": {
+              "contextIsolation": true,
+              "sandbox": false,
+              "nodeIntegration": false,
+              "nodeIntegrationInWorker": false,
+              "backgroundThrottling": false,
+              "enableDeprecatedPaste": true,
+              "webviewTag": true
+            }
+          }
         }
       }
     },

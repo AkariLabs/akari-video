@@ -188,6 +188,7 @@ export const LANES = {
   pure: {
     title: '外部ツール不要・決定論（CI required）',
     entries: [
+      pkg('akari-ear'),
       pkg('analysis-report'),
       pkg('asset-resolver'),
       pkg('audio-library-setup'),   // ffprobe が無い環境では 2 件 skip（設計どおり）
@@ -196,6 +197,7 @@ export const LANES = {
       pkg('decision-log-report'),
       pkg('edit-lint'),             // ffprobe が無い環境では 6 件 skip（設計どおり）
       pkg('edit-store'),            // test script が build（gen:textstyle-catalog + tsc -b + esbuild）を含む（lib/ は追跡対象・drift させない）
+      pkg('frame-scene'),
       pkg('intake-form'),
       pkg('matte-rvm'),             // onnxruntime-node の実体が無い環境では 3 件 skip
       pkg('pen-visuals'),           // test script が tsc -b を含む（lib/ は追跡対象・drift させない）
@@ -216,7 +218,7 @@ export const LANES = {
       },
       { id: 'scripts/test', cwd: '.', files: ['scripts/test/*.test.mjs'] },
       { id: 'scripts/release/test', cwd: '.', files: ['scripts/release/test/*.test.mjs'] },
-      { id: 'presets/*', cwd: '.', files: ['presets/luts/previews.test.mjs', 'presets/shapes/generate.test.mjs'] },
+      { id: 'presets/*', cwd: '.', files: ['presets/luts/previews.test.mjs', 'presets/shapes/generate.test.mjs', 'presets/shapes/line-default.test.mjs'] },
       {
         id: 'packages/export-nle',
         cwd: 'packages/export-nle',
@@ -253,6 +255,7 @@ export const LANES = {
       ext('akari-theme'),          // webview の styles 再送スケジューラ（2026-09-06 webview-theme-vars で追加）
       ext('akari-world-view'),
       ext('akari-transcript'),
+      ext('akari-vibe-dock'),
       {
         // akari-preview の test script は `tsc -b && node --test test/*.test.mjs`。
         // caption-entry-animation-hit-region.test.mjs だけ実 Chrome（puppeteer-core）を起動するので除外

@@ -30,11 +30,11 @@ export class NowVibeDockTab implements VibeDockTabContribution {
     protected taskNotice?: Disposable;
     protected readonly entries: Array<{ text: string; at: string; kind: string; target?: string;
         utterance?: Pick<EarUtterance, 'raw' | 'text' | 'applied'>; taskState?: 'pending' | 'saving' | 'done';
-        saveState?: 'no-project' | 'failed' }> = [];
+        saveState?: 'no-project' | 'failed'; entryId?: string; undone?: boolean; undo?: () => void; subdued?: boolean }> = [];
     protected partial = '';
     protected paintView: (() => void) | undefined;
 
-    acceptUtterance(utterance: EarUtterance, sourceT: number): void {
+    acceptUtterance(utterance: EarUtterance, sourceT: number, subdued = false): void {
         if (!utterance.final) {
             this.partial = utterance.text;
             this.paintView?.();
@@ -46,7 +46,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
         const entry = { text: utterance.text, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
             kind: 'メモ', target: pointed?.target, utterance: {
                 raw: utterance.raw, text: utterance.text, applied: [...utterance.applied]
-            }, taskState: 'pending' as const, saveState: undefined as 'no-project' | 'failed' | undefined };
+            }, taskState: 'pending' as const, saveState: undefined as 'no-project' | 'failed' | undefined, subdued };
         this.entries.push(entry);
         if (this.entries.length > 200) this.entries.splice(0, this.entries.length - 200);
         this.paintView?.();
@@ -63,6 +63,21 @@ export class NowVibeDockTab implements VibeDockTabContribution {
     }
 
     clearPartial(): void { this.partial = ''; this.paintView?.(); }
+    acceptAction(label: string, kind: '操作' | 'タスク', entryId: string, undo?: () => void): void {
+        this.partial = '';
+        this.entries.push({ text: label, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+            kind, entryId, undo });
+        if (this.entries.length > 200) this.entries.splice(0, this.entries.length - 200);
+        this.paintView?.();
+    }
+    markActionUndone(entryId: string): void {
+        const entry = this.entries.find(item => item.entryId === entryId);
+        if (entry) { entry.undone = true; this.paintView?.(); }
+    }
+    markActionRedone(entryId: string): void {
+        const entry = this.entries.find(item => item.entryId === entryId);
+        if (entry) { entry.undone = false; this.paintView?.(); }
+    }
     /** 作成が実際に成功した後だけ、全タブ共通の状況行へ知らせる。 */
     showTaskCreated(): void {
         this.taskNotice?.dispose();
@@ -87,7 +102,10 @@ export class NowVibeDockTab implements VibeDockTabContribution {
             for (const entry of this.entries) {
                 const card = document.createElement('div');
                 card.className = 'akari-vibe-utt';
+                if (entry.subdued) card.style.opacity = '0.65';
+                if (entry.undone) card.className += ' akari-vibe-utt-undone';
                 const text = document.createElement('span');
+                if (entry.undone) text.style.textDecoration = 'line-through';
                 if (entry.utterance) renderCorrectedText(text, entry.utterance, {
                     onRevert: id => { void this.dictionary.revert(id); },
                     onOpen: id => { void this.commands.executeCommand('akari.voiceDictionary.open', { entryId: id }); }
@@ -139,7 +157,17 @@ export class NowVibeDockTab implements VibeDockTabContribution {
                         note.textContent = entry.saveState === 'no-project' ? 'プロジェクトを開くと残せます' : '保存できませんでした';
                         card.append(note);
                     }
-                } else card.append(text, meta);
+                } else {
+                    card.append(text, meta);
+                    if (entry.undo && !entry.undone) {
+                        const undo = document.createElement('button');
+                        undo.className = 'theia-button quiet small';
+                        undo.type = 'button';
+                        undo.textContent = '戻す';
+                        undo.addEventListener('click', () => entry.undo?.());
+                        card.append(undo);
+                    }
+                }
                 stream.append(card);
             }
             if (this.partial) {

@@ -21,6 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPackage, extractFile, listPackage } from '@electron/asar';
+import { traceAsarPackageClosure } from '../resources/scripts/cross-package-closure.mjs';
 
 const scriptsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../resources/scripts');
 const verifyScriptPath = path.join(scriptsDir, 'verify-asar-contents.mjs');
@@ -119,6 +120,50 @@ test('検収スクリプトは専用 entry の存在と package.json main を as
     const bundledPackageJson = JSON.parse(extractFile(archive, 'package.json').toString('utf8'));
     assert.ok(entries.includes('/electron-entry.js'));
     assert.equal(bundledPackageJson.main, 'electron-entry.js');
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
+  }
+});
+
+test('検収スクリプトはビュー preload を asar 内の必須ファイルとして検査する', async () => {
+  const source = await readFile(verifyScriptPath, 'utf8');
+  const requiredFiles = source.match(/const requiredFiles = \[([\s\S]*?)\n  \];/)?.[1];
+  assert.ok(requiredFiles);
+  assert.match(requiredFiles, /['"]\/node_modules\/akari-project\/lib\/electron-main\/browser-view-preload\.js['"]/);
+});
+
+test('asar の CJS 閉包は揃えば通り、欠けた参照を報告する', async () => {
+  const workDir = await mkdtemp(path.join(os.tmpdir(), 'akari-asar-closure-test-'));
+  try {
+    const source = path.join(workDir, 'source');
+    const root = path.join(source, 'lib', 'packages');
+    await mkdir(path.join(root, 'project-scaffold', 'src'), { recursive: true });
+    await mkdir(path.join(root, 'edit-store', 'lib'), { recursive: true });
+    await writeFile(path.join(root, 'project-scaffold', 'src', 'index.mjs'),
+      "import '../../edit-store/lib/index.js';");
+    await writeFile(path.join(root, 'edit-store', 'lib', 'index.js'),
+      "require('./edit-store'); require('./dir');");
+    await mkdir(path.join(root, 'edit-store', 'lib', 'dir'), { recursive: true });
+    await writeFile(path.join(root, 'edit-store', 'lib', 'dir', 'index.js'), 'module.exports = 2;');
+    const leaf = path.join(root, 'edit-store', 'lib', 'edit-store.js');
+    await writeFile(leaf, 'module.exports = 1;');
+
+    async function check(name) {
+      const archive = path.join(workDir, name);
+      await createPackage(source, archive);
+      const entries = listPackage(archive, { isPack: false }).map(entry => entry.replace(/\\/g, '/'));
+      return traceAsarPackageClosure({
+        entries,
+        readFile: entry => extractFile(archive, entry.slice(1).split('/').join(path.sep)).toString('utf8')
+      });
+    }
+
+    assert.deepEqual((await check('complete.asar')).unresolved, []);
+    await rm(leaf);
+    const { unresolved } = await check('missing.asar');
+    assert.deepEqual(unresolved.map(item => [item.path, item.specifier]), [
+      ['/lib/packages/edit-store/lib/edit-store.js', './edit-store']
+    ]);
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }

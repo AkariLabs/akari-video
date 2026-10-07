@@ -49,12 +49,20 @@ const keep = args.includes('--keep');
 export const KNOWN_UNPACKAGED = new Set([]);
 
 export const REQUIRED_BROWSER_RESOURCE_PATHS = ['catalog/browser/browser-engines.json'];
-// The browser view has no preload yet. A future preload must be listed here for packaging checks.
-export const BROWSER_VIEW_PRELOAD_PATHS = [];
+export const BROWSER_VIEW_PRELOAD_PATHS = ['app.asar/node_modules/akari-project/lib/electron-main/browser-view-preload.js'];
+const SOURCE_BROWSER_VIEW_PRELOAD = join(SHELL_DIR, 'extensions', 'akari-project', 'src', 'electron-main', 'browser-view-preload.ts');
 
-export function scanRequiredBrowserResources({ resourcesRoot, viewPreloads = BROWSER_VIEW_PRELOAD_PATHS }) {
-  return [...REQUIRED_BROWSER_RESOURCE_PATHS, ...viewPreloads]
+export function scanRequiredBrowserResources({ resourcesRoot, viewPreloads = BROWSER_VIEW_PRELOAD_PATHS,
+  sourceViewPreload = SOURCE_BROWSER_VIEW_PRELOAD }) {
+  const missing = REQUIRED_BROWSER_RESOURCE_PATHS
     .filter(relativePath => !existsSync(join(resourcesRoot, ...relativePath.split('/'))));
+  // このジョブは拡張をビルドしないのでソースを確認する。実際の asar 内は verify-asar-contents が検査する。
+  for (const relativePath of viewPreloads) {
+    const source = relativePath === BROWSER_VIEW_PRELOAD_PATHS[0]
+      ? sourceViewPreload : join(resourcesRoot, ...relativePath.split('/'));
+    if (!existsSync(source)) missing.push(relativePath);
+  }
+  return missing;
 }
 
 // resolvePackageDir はまだ export されていないが、追加時に走査漏れを作らないため同じ正本へ置く。

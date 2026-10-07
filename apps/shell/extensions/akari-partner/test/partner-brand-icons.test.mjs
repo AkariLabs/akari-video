@@ -13,8 +13,8 @@ test('Claude は選択・ホバー時のタブ色に依存しないブランド�
     assert.match(iconRules('claude'), /background-color: #D97757 !important;/);
 });
 
-test('Codex / Copilot はボタン・タブの選択色ではなくテーマの文字色を共有する', () => {
-    for (const agent of ['codex', 'copilot']) {
+test('Codex / Copilot / DeepSeek はボタン・タブの選択色ではなくテーマの文字色を共有する', () => {
+    for (const agent of ['codex', 'copilot', 'deepseek']) {
         assert.match(iconRules(agent), /background-color: var\(--theia-editor-foreground, currentColor\) !important;/);
     }
 });
@@ -63,6 +63,7 @@ test('Grok / Cursor / OpenCode / Command Code の出力 CSS は BEFORE と同一
     for (const [agent, expected] of Object.entries(before)) {
         assert.equal(iconRules(agent)
             .replace('.akari-partner-pi-cli-icon,\n', '')
+            .replace('.akari-partner-deepseek-cli-icon,\n', '')
             .replace('.akari-partner-devin-cli-icon,\n', ''), expected, agent);
     }
 });

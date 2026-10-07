@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {ALLOWED_COMMAND_IDS as judgementIds} from '../../../../../packages/akari-vibe/src/exec-support/companion-commands.mjs';
 import {loadCatalog, derivedAllowedCommandIds} from '../../../../../packages/akari-vibe/src/jev/jev-actions.mjs';
 import {validateCatalog} from '../../../../../packages/akari-vibe/src/jev/validate-actions.mjs';
-import {generateJevActions, generatedData} from '../scripts/gen-jev-actions.mjs';
+import {generateJevActions, generateDockCatalog, generatedData} from '../scripts/gen-jev-actions.mjs';
 import {ALLOWED_COMMAND_IDS as shellIds} from '../lib/common/companion-allowlist.js';
 import {validateValue} from '../lib/common/jev-catalog-validate.js';
 
@@ -58,18 +58,18 @@ test('changing one generated character fails the regeneration byte comparison', 
     assert.ok(original.equals(committed));
     assert.equal(mutated.length, original.length);
     assert.equal(mutated.equals(committed), false);
+    const dockCommitted = fs.readFileSync(new URL('../../akari-vibe-dock/src/common/jev-catalog.generated.ts', import.meta.url));
+    assert.ok(Buffer.from(generateDockCatalog(loadCatalog())).equals(dockCommitted));
 });
 
 test('unavailable action command IDs are absent from both allowlists', () => {
     const selected = new Set(['C2', 'D2', 'D3']);
     const actions = loadCatalog().actions.filter(action => selected.has(action.id) ||
-        ['roughCanvas.', 'browser.', 'scratch.'].some(prefix => action.id.startsWith(prefix)));
-    assert.equal(actions.length, 17);
+        ['browser.open', 'scratch.'].some(prefix => action.id.startsWith(prefix)));
     const commandIds = actions.flatMap(action => {
         assert.equal(action.available, false, action.id);
         return action.commands.map(command => command.commandId);
     });
-    assert.equal(commandIds.length, 14);
     assert.ok(commandIds.includes('akari.settings.setTimelineDefault'));
     for (const id of commandIds) {
         assert.equal(judgementIds.includes(id), false, `judgement: ${id}`);
@@ -88,7 +88,7 @@ test('a new shipped action is derived, validated, while an unavailable action st
     assert.equal(validateCatalog(catalog).ok, true);
     assert.deepEqual(derivedAllowedCommandIds(catalog).slice(0, 33), catalog.baseAllowedCommandIds);
     assert.ok(derivedAllowedCommandIds(catalog).includes('akari.example.setThing'));
-    assert.ok(!derivedAllowedCommandIds(catalog).includes('akari.sketch.open'));
+    assert.ok(!derivedAllowedCommandIds(catalog).includes('akari.browser.open'));
     const source = generateJevActions(catalog);
     assert.match(source, /akari\.example\.setThing/);
     const generated = generatedData(catalog);

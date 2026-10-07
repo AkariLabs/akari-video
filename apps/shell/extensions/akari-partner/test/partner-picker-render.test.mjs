@@ -49,7 +49,7 @@ test('両状態の重複見出しは隠し、見出しの寸法・タブ名・�
         assert.deepEqual(headings[0].props.style, { margin: '0 0 10px', fontSize: 21, visibility: 'hidden' });
     }
     const onboarding = JSON.stringify(picker.renderOnboarding());
-    assert.ok(onboarding.includes('CLI または公式拡張を選んで、右パネルに追加します。'));
+    assert.ok(onboarding.includes('CLI・作業画面・公式拡張を選んで、右パネルに追加します。'));
     assert.match(read('../src/browser/akari-partner-widget.tsx'), /this.title.label = 'パートナーを追加';/);
 });
 

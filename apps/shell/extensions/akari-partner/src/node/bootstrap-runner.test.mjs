@@ -183,7 +183,7 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
 const NODE_VERSION = '24.21.0';
 
 test('全パートナーの導入情報には提供元とプラットフォーム別の取得元などがある', () => {
-    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
     const runnerSource = bootstrapRunner.toString();
     for (const platform of ['win32', 'darwin']) {
         for (const agent of agents) {
@@ -194,8 +194,10 @@ test('全パートナーの導入情報には提供元とプラットフォー�
             assert.match(entry.sourceUrl, /^https:\/\//u);
             assert.match(entry.termsUrl, /^https:\/\//u);
             assert.match(entry.environment, /PATH/u);
-            if (agent === 'commandcode' || agent === 'pi') {
-                assert.ok(runnerSource.includes(agent === 'pi' ? '@earendil-works/pi-coding-agent' : 'command-code'));
+            if (agent === 'commandcode' || agent === 'pi' || agent === 'deepseek') {
+                const packageName = agent === 'pi' ? '@earendil-works/pi-coding-agent'
+                    : agent === 'deepseek' ? '@deepseek-ai/dsh' : 'command-code';
+                assert.ok(runnerSource.includes(packageName));
             } else {
                 assert.ok(runnerSource.includes(entry.sourceUrl), `${platform}/${agent}/sourceUrl`);
             }
@@ -204,7 +206,7 @@ test('全パートナーの導入情報には提供元とプラットフォー�
 });
 
 test('未導入で同意がなければ全エージェントで子プロセスも取得も始めない', async () => {
-    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
     for (const platform of ['win32', 'darwin']) {
         for (const agent of agents) {
             for (const consent of ['unset', '0']) {
@@ -279,8 +281,9 @@ printf '%s\\n' '#!/bin/sh' 'echo 1.45.0' > "$HOME/.local/command-code.cmd"
 `;
 
 function privateNodeArchive(agent = 'commandcode') {
-    const npmScript = agent === 'pi'
-        ? fakeNpmScript.replaceAll('command-code', 'pi')
+    const executable = agent === 'pi' ? 'pi' : agent === 'deepseek' ? 'dsh' : 'command-code';
+    const npmScript = agent !== 'commandcode'
+        ? fakeNpmScript.replaceAll('command-code', executable)
             .replace('#!/bin/sh\n', '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$HOME/npm-args.txt"\n')
         : fakeNpmScript;
     return gzipSync(makeTar([
@@ -435,15 +438,36 @@ test('PATH 上の既存 Command Code を再利用する', async () => {
     }
 });
 
-test('Pi は Node 22.18 では専用 Node を使い npm の現行パッケージを導入する', async () => {
-    const home = await makeHome('akari-pi-private-home-');
-    const toolsDir = await makeHome('akari-pi-node2218-tools-');
-    const archive = privateNodeArchive('pi');
+test('PATH 上の既存 DeepSeek Harness を再利用する', async () => {
+    const home = await makeHome('akari-deepseek-existing-home-');
+    const binDir = await makeHome('akari-deepseek-existing-bin-');
+    const executable = path.join(binDir, 'dsh');
+    await writeFile(executable, '#!/bin/sh\necho 0.2.0-rc.2\n', { mode: 0o755 });
+    try {
+        const result = await runBootstrap({ home, mock: { origin: 'http://example.test' },
+            agent: 'deepseek', pathEnv: binDir });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /既存の deepseek 0\.2\.0-rc\.2 を検出/);
+        assert.ok(result.stdout.includes(`"executablePath":"${executable}"`));
+        assert.match(result.stdout, /"reused":true/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+        await rm(binDir, { recursive: true, force: true });
+    }
+});
+
+for (const [agent, label, executable, marker, packageName] of [
+    ['pi', 'Pi', 'pi', 'pi-installed', '@earendil-works/pi-coding-agent'],
+    ['deepseek', 'DeepSeek Harness', 'dsh', 'dsh-installed', '@deepseek-ai/dsh']
+]) test(`${label} は Node 22.18 では専用 Node を使い npm の現行パッケージを導入する`, async () => {
+    const home = await makeHome(`akari-${agent}-private-home-`);
+    const toolsDir = await makeHome(`akari-${agent}-node2218-tools-`);
+    const archive = privateNodeArchive(agent);
     await writeFile(path.join(toolsDir, 'node'), '#!/bin/sh\necho 22.18.0\n', { mode: 0o755 });
     await writeFile(path.join(toolsDir, 'npm'), '#!/bin/sh\nexit 99\n', { mode: 0o755 });
     try {
         const result = await runBootstrap({
-            home, agent: 'pi', pathEnv: toolsDir,
+            home, agent, pathEnv: toolsDir,
             mock: { ...nodeMock(archive), hideWellKnownNode: true },
             extraEnv: {
                 AKARI_PARTNER_NODE_DIST_BASE_URL: 'http://example.test',
@@ -452,9 +476,11 @@ test('Pi は Node 22.18 では専用 Node を使い npm の現行パッケージ
         });
         assert.equal(result.code, 0, result.stderr || result.stdout);
         assert.match(result.stdout, /"nodeSource":"private"/);
-        assert.equal(await readFile(path.join(home, 'runtime/node', `v${NODE_VERSION}`, 'pi-installed'), 'utf8'), 'private\n');
-        assert.match(result.stdout, /Pi 1\.45\.0 を検出/);
-        assert.match(await readFile(path.join(home, 'npm-args.txt'), 'utf8'), /@earendil-works\/pi-coding-agent\n$/);
+        assert.equal(await readFile(path.join(home, 'runtime/node', `v${NODE_VERSION}`, marker), 'utf8'), 'private\n');
+        assert.match(result.stdout, new RegExp(`${label} 1\\.45\\.0 を検出`));
+        assert.ok(result.stdout.includes(`/${executable}`));
+        assert.equal(await readFile(path.join(home, 'npm-args.txt'), 'utf8'),
+            `install\n--global\n--prefix\n${path.join(home, '.local')}\n--no-audit\n--no-fund\n${packageName}\n`);
     } finally {
         await rm(home, { recursive: true, force: true });
         await rm(toolsDir, { recursive: true, force: true });
@@ -464,7 +490,8 @@ test('Pi は Node 22.18 では専用 Node を使い npm の現行パッケージ
 test('npm 製エージェントの起動確認エラーは必要な Node.js 版を示す', async () => {
     for (const [agent, executableName, expectedVersion] of [
         ['commandcode', 'command-code', '22'],
-        ['pi', 'pi', '22.19']
+        ['pi', 'pi', '22.19'],
+        ['deepseek', 'dsh', '22.19']
     ]) {
         const home = await makeHome(`akari-${agent}-version-error-home-`);
         const toolsDir = await makeHome(`akari-${agent}-version-error-tools-`);

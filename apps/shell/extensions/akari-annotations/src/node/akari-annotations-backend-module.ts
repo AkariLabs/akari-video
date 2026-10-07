@@ -10,8 +10,18 @@ import { AkariTasksService, AKARI_TASKS_SERVICE_PATH } from '../common/akari-tas
 import { AkariTasksServiceImpl } from './akari-tasks-service';
 import { AkariRoughCanvasService, AKARI_ROUGH_CANVAS_SERVICE_PATH } from '../common/rough-canvas-protocol';
 import { AkariRoughCanvasServiceImpl } from './rough-canvas-service';
+import { AkariTaskifyService, AKARI_TASKIFY_SERVICE_PATH, type AkariTaskifyClient } from '../common/taskify-protocol';
+import { AkariTaskifyServiceImpl } from './taskify-service';
 
 export default new ContainerModule(bind => {
+    bind(AkariTaskifyServiceImpl).toSelf().inSingletonScope();
+    bind(AkariTaskifyService).toService(AkariTaskifyServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler<AkariTaskifyClient>(AKARI_TASKIFY_SERVICE_PATH, client => {
+            const service = context.container.get<AkariTaskifyServiceImpl>(AkariTaskifyServiceImpl);
+            service.setClient(client); return service;
+        })
+    ).inSingletonScope();
     bind(AkariRoughCanvasServiceImpl).toSelf().inSingletonScope();
     bind(AkariRoughCanvasService).toService(AkariRoughCanvasServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>

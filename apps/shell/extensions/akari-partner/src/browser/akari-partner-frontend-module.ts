@@ -9,6 +9,7 @@ import { AKARI_PARTNER_SERVICE_PATH, AkariPartnerServer } from '../common/akari-
 import { AkariPartnerContribution } from './akari-partner-contribution';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
+import { PartnerWebWidget } from './akari-partner-web-widget';
 import { AkariPartnerCommandContribution } from './akari-partner-command-contribution';
 import { PartnerSessionService } from './partner-session-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
@@ -30,6 +31,11 @@ export default new ContainerModule(bind => {
     bind(WidgetFactory).toDynamicValue(ctx => ({
         id: AkariPartnerWidget.ID,
         createWidget: () => ctx.container.get(AkariPartnerWidget)
+    })).inSingletonScope();
+
+    bind(PartnerWebWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(ctx => ({
+        id: PartnerWebWidget.ID, createWidget: () => ctx.container.get(PartnerWebWidget)
     })).inSingletonScope();
 
     bind(AkariPartnerCatalogWidget).toSelf().inSingletonScope();

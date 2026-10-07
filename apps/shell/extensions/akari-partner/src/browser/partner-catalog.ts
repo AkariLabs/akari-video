@@ -21,6 +21,10 @@ export interface PartnerCliCatalogEntry extends PartnerCatalogEntryBase {
     form: 'cli';
 }
 
+export interface PartnerWebCatalogEntry extends PartnerCatalogEntryBase {
+    form: 'web';
+}
+
 export interface PartnerExtensionCatalogEntry extends PartnerCatalogEntryBase {
     form: 'extension';
     extensionId: string;
@@ -28,7 +32,7 @@ export interface PartnerExtensionCatalogEntry extends PartnerCatalogEntryBase {
     binaryVerification: Record<string, PlatformBinaryVerification>;
 }
 
-export type PartnerCatalogEntry = PartnerCliCatalogEntry | PartnerExtensionCatalogEntry;
+export type PartnerCatalogEntry = PartnerCliCatalogEntry | PartnerWebCatalogEntry | PartnerExtensionCatalogEntry;
 
 export const PARTNER_CATALOG = rawCatalog as PartnerCatalogEntry[];
 
@@ -38,6 +42,7 @@ export const PARTNER_AGENT_LABELS: Record<PartnerAgentId, string> = {
     opencode: 'opencode',
     commandcode: 'Command Code',
     pi: 'Pi',
+    deepseek: 'DeepSeek Harness',
     devin: 'Devin (Cognition)',
     copilot: 'GitHub Copilot',
     cursor: 'Cursor',
@@ -51,6 +56,7 @@ export const PARTNER_CLI_ICON_CLASSES: Record<PartnerAgentId, string> = {
     opencode: 'akari-partner-opencode-cli-icon',
     commandcode: 'akari-partner-commandcode-cli-icon',
     pi: 'akari-partner-pi-cli-icon',
+    deepseek: 'akari-partner-deepseek-cli-icon',
     devin: 'akari-partner-devin-cli-icon',
     copilot: 'akari-partner-copilot-cli-icon',
     cursor: 'akari-partner-cursor-cli-icon',

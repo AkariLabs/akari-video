@@ -1,0 +1,60 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { AkariTaskifyServiceImpl } from '../lib/node/taskify-service.js';
+import { AkariTasksServiceImpl } from '../lib/node/akari-tasks-service.js';
+const fake = fileURLToPath(new URL('./fixtures/taskify/fake-cli.mjs', import.meta.url));
+const waitFor = async fn => { for (let i = 0; i < 200; i++) {
+  if (await fn()) return; await new Promise(resolve => setTimeout(resolve, 10)); }
+  throw new Error('job did not finish'); };
+test('preview does not launch CLI; enqueue creates a proposal without carrying audio', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'taskify-service-'));
+  const memo = join(root, 'review', 'canvas', 'c-0001'); await mkdir(memo, { recursive: true });
+  const uri = pathToFileURL(root).toString();
+  await writeFile(join(root, 'edit.json'), JSON.stringify({ cuts: [{ in: 0, out: 10 }], overlays: [] }));
+  await writeFile(join(root, 'review.json'), '{"annotations":[]}\n');
+  await writeFile(join(memo, 'canvas.json'), JSON.stringify({ id: 'c-0001', memo: '字幕を動かす', backdrop: null,
+    subject: { playhead: { outputT: 1, src: 'clip.mp4', sourceT: 1, cutIndex: 0 }, selection: [] } }));
+  await writeFile(join(memo, 'ink.json'), JSON.stringify({ schema: 'akari.ink.v0', space: 'canvas-rect',
+    aspect: { w: 16, h: 9 }, objects: [] }));
+  await writeFile(join(memo, 'paper.png'), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  await writeFile(join(memo, 'audio.wav'), Buffer.from('private audio'));
+  const call = join(root, 'last-call.json');
+  await chmod(fake, 0o755);
+  process.env.AKARI_TASKIFY_CLAUDE_BIN = fake; process.env.FAKE_TASKIFY_CALL = call;
+  process.env.FAKE_TASKIFY_STATE = join(root, 'fake-state'); process.env.FAKE_TASKIFY_MODE = 'success';
+  const service = new AkariTaskifyServiceImpl(); service.tasks = new AkariTasksServiceImpl();
+  service.queue.ports.online = async () => true;
+  const before = await stat(join(root, 'review.json'));
+  assert.equal((await service.preview(uri, 'c-0001')).available, true);
+  assert.equal(existsSync(call), false);
+  const { jobId } = await service.enqueue({ projectRootUri: uri, memoId: 'c-0001', includeBackdrop: true });
+  await waitFor(async () => (await service.list(uri)).some(job => job.jobId === jobId && job.state === 'done'));
+  const jobDir = join(memo, 'taskify', 'r1');
+  assert.equal((await readdir(join(jobDir, 'input'))).includes('audio.wav'), false);
+  const called = JSON.parse(await readFile(call, 'utf8'));
+  assert.ok(called.cwd.startsWith(await realpath(tmpdir())));
+  assert.equal(called.cwd.startsWith(await realpath(root)), false);
+  assert.ok(called.files.includes('context.md'));
+  assert.ok(called.files.includes('paper.png'));
+  assert.equal(called.files.includes('audio.wav'), false);
+  assert.equal((await stat(join(root, 'review.json'))).mtimeMs, before.mtimeMs);
+  assert.equal((await service.tasks.list({ projectRootUri: uri })).tasks.filter(task => task.source === 'proposal').length, 1);
+  const stored = JSON.parse(await readFile(join(root, '.akari', 'tasks.json'), 'utf8'));
+  assert.equal(stored.tasks[0].attachments[0].path, 'review/canvas/c-0001/taskify/r1/input/paper.png');
+  const rerun = await service.rerun(uri, 'c-0001', { careful: true });
+  await waitFor(async () => (await service.list(uri)).some(job => job.jobId === rerun.jobId && job.state === 'done'));
+  assert.equal((await readdir(join(memo, 'taskify', 'r2', 'input'))).includes('backdrop.png'), false);
+  assert.equal((await service.tasks.list({ projectRootUri: uri })).tasks.filter(task => task.source === 'proposal').length, 2);
+  process.env.AKARI_TASKIFY_CLAUDE_BIN = join(root, 'missing-cli');
+  const missing = await service.preview(uri, 'c-0001');
+  assert.equal(missing.agent, 'claude'); assert.equal(missing.available, false);
+  assert.equal(missing.reason, 'cli-missing');
+  await mkdir(join(root, '.akari'), { recursive: true });
+  await writeFile(join(root, '.akari', 'taskify.json'), '{"enabled":false}');
+  assert.equal((await service.preview(uri, 'c-0001')).reason, 'disabled');
+});

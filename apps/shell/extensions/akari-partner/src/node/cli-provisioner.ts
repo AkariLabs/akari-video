@@ -222,7 +222,7 @@ export function buildCliPathEnv(options: BuildCliPathEnvOptions): Record<string,
 }
 
 export interface BuildPrivateNodePathEnvOptions extends BuildCliPathEnvOptions {
-    agent?: 'commandcode' | 'pi';
+    agent?: 'commandcode' | 'pi' | 'deepseek';
     /** テストではファイル状態を注入する。 */
     exists?: (filePath: string) => boolean;
 }
@@ -232,7 +232,8 @@ export function buildPrivateNodePathEnv(options: BuildPrivateNodePathEnvOptions)
     const root = join(options.akariHome, 'runtime', 'node', 'v24.21.0');
     const binDir = options.platform === 'win32' ? root : join(root, 'bin');
     const exists = options.exists ?? existsSync;
-    const marker = options.agent === 'pi' ? 'pi-installed' : 'command-code-installed';
+    const marker = options.agent === 'pi' ? 'pi-installed'
+        : options.agent === 'deepseek' ? 'dsh-installed' : 'command-code-installed';
     if (!exists(join(root, marker))
         || !exists(join(binDir, options.platform === 'win32' ? 'node.exe' : 'node'))
         || !exists(join(binDir, options.platform === 'win32' ? 'npm.cmd' : 'npm'))) {

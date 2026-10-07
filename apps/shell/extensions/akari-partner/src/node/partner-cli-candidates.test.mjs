@@ -14,6 +14,8 @@ test('設定と bootstrap に渡す候補関数は Command Code の正式名と�
     assert.ok(partnerCliCandidates('devin', { homeDir, platform: 'win32', env: { PATH: '', LOCALAPPDATA: 'C:\\Local' } })
         .some(candidate => /devin[\\/]cli[\\/]bin[\\/]devin\.exe$/.test(candidate)));
     assert.ok(partnerCliCandidates('pi', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE;.CMD' } })[0].endsWith('pi.com'));
+    assert.ok(partnerCliCandidates('deepseek', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE;.CMD' } })
+        .some(candidate => candidate.endsWith('dsh.cmd')));
     assert.ok(partnerCliCandidates('codex', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE' }, nativeOnly: true })[0].endsWith('codex.exe'));
     assert.match(bootstrapRunner.toString(), /candidatePaths\(config\.agent/);
 });
@@ -31,6 +33,14 @@ test('Windows の Claude 候補はネイティブ、APPDATA npm、PATH の順で
     assert.ok(candidates.every(candidate => /\.(?:exe|cmd|bat)$/.test(candidate)));
     assert.deepEqual(partnerCliCandidates('claude', { homeDir, platform: 'win32', env: { PATH: '' } }).slice(9, 12),
         ['.exe', '.cmd', '.bat'].map(ext => `${homeDir}/AppData/Roaming/npm/claude${ext}`));
+});
+
+test('DeepSeek の Windows 候補に npm の dsh.cmd が含まれる', () => {
+    const candidates = partnerCliCandidates('deepseek', {
+        homeDir: 'C:\\Users\\creator', platform: 'win32',
+        env: { PATH: '', PATHEXT: '.EXE;.CMD' }
+    });
+    assert.ok(candidates.some(candidate => candidate.endsWith('dsh.cmd') && candidate.includes('.local')));
 });
 
 test('Claude の拡張子制限は他エージェントの PATHEXT と候補順を変えない', () => {

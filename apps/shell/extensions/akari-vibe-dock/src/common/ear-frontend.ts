@@ -4,7 +4,7 @@ import type { EarEngineId, EarPurpose, EarStatus, EarUtterance, EarTranscript, R
 export const AkariEarFrontend = Symbol('AkariEarFrontend');
 
 export interface AkariEarFrontend {
-    capabilities(): Promise<{ engines: Array<{ id: EarEngineId; available: boolean; reason?: string }>; testInput?: boolean }>;
+    capabilities(): Promise<{ engines: Array<{ id: EarEngineId; available: boolean; reason?: string }>; testInput?: boolean; testText?: boolean }>;
     start(options: { purpose: EarPurpose; engine?: EarEngineId }): Promise<EarStatus>;
     stop(): Promise<EarStatus>;
     notifyRoughCanvas(event: RoughCanvasEarEvent): Promise<void>;

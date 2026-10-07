@@ -8,6 +8,10 @@
     {
       "frontend": "lib/browser/akari-partner-frontend-module",
       "backend": "lib/node/akari-partner-backend-module"
+    },
+    {
+      "electronMain": "lib/electron-main/electron-main-module",
+      "preload": "lib/electron-browser/preload"
     }
   ],
   "scripts": {
